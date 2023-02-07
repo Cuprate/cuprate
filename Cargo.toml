@@ -1,0 +1,11 @@
+[package]
+name = "cuprate"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+monero = {version = "*", features = ['serde']}
+serde = "*"
+heed = "0.20.0-alpha.0"
