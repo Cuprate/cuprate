@@ -42,13 +42,13 @@ For the moment i try to organize the repo like the official one.
 
 <details> <summary>Asynchronous Design</summary> </br> Networking will be more performant and versatile by using Tokio. It will permit the simultaneous connections of a hundred peers. Handling different protocols by peers will be possible in a modular manner.</details>
   
-  <details> <summary>Traffic Obfuscation</summary> </br> Different protocol to bypass DPI will be available, such as [Levin protocol](https://github.com/vtnerd/monero/blob/docs_p2p_e2e/docs/LEVIN_PROTOCOL.md#encryption) (TLS based, see https://github.com/monero-project/monero/issues/7078) and QUIC [like Syncthing have done](https://github.com/syncthing/syncthing/pull/5737), but with offset and timing mitigations. Unless the monero-core team decide to implement these protocols, they'll only by available between cuprate peers.</details>
+  <details> <summary>Traffic Obfuscation</summary> </br> Different protocol to bypass DPI will be available, such as with <a href="https://github.com/vtnerd/monero/blob/docs_p2p_e2e/docs/LEVIN_PROTOCOL.md#encryption">Levin protocol</a> (TLS based, see https://github.com/monero-project/monero/issues/7078) and QUIC <a href="https://github.com/syncthing/syncthing/pull/5737">like Syncthing have done</a>, but with offset and timing mitigations. Unless the monero-core team decide to implement these protocols, they'll only by available between cuprate peers.</details>
   
   <details> <summary>Blockchain Storage</summary> </br>LMDB is replaced by RocksDB, a high-performance database designed for SSD, already used by the Parity ethereum's rust client. HSE is also going to be implemented, as a more dsitributed and scalable alternative. </details>
   
 <details> <summary>Sandboxing & System</summary> </br> There will be maintained SELinux/Apparmor policy for this node. It will internally use seccomp/Landlock to limit syscalls being used in order to improve isolation of the node with rest of the OS & Wallet Software.</details>
   
-<details> <summary>RPC</summary> </br> gRPC will be available to communicate with the node.</details>
+<details> <summary>RPC</summary> </br> ZeroMQ as well as gRPC will be available to communicate with the node.</details>
   
 <details> <summary>Terminal Interface</summary> </br> More accessible interface based on the excellent [tui](https://lib.rs/crates/tui) library. There will be Geolocation of peers on map, VPN Detection, Ressource usages, statistics etc... </details>
   
