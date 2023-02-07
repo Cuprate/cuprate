@@ -1,0 +1,1 @@
+pub type difficulty_type = u128;
