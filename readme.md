@@ -1,7 +1,7 @@
 <h1 align=center> Cuprate </h1>
 <h4 align=center> an upcoming experimental, modern & secure monero node. Written in Rust </h4>
 
-<p align=center>(there is nothing working at the moment, but stay tuned)</p>
+<p align=center>(there is nothing working at the moment, stay tuned if you want to see some adventures)</p>
 
 &nbsp;
 
