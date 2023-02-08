@@ -1,3 +1,4 @@
+use thiserror::Error;
 use monero::{Hash, Transaction, Block, BlockHeader};
 
 use crate::{cryptonote_protocol::enums::{RelayMethod}, cryptonote_basic::difficulty::difficulty_type, blockchain_db::{}};
@@ -6,8 +7,9 @@ use std::{error::Error, ops::Range};
 const MONERO_DEFAULT_LOG_CATEGORY: &str = "blockchain.db";
 
 type Blobdata = Vec<u8>;
-type TxOutIndex = (monero::cryptonote::hash::Hash, u64);
+type TxOutIndex = (Hash, u64);
 
+// the database types are going to be defined in the monero rust library.
 pub(in super) enum RelayCategory {
         broadcasted,                                                                        //< Public txes received via block/fluff
         relayable,                                                                               //< Every tx not marked `relay_method::none`
@@ -86,14 +88,47 @@ impl txpool_tx_meta_t {
 
 /// TODO : String -> Vec<u8> they are cryptonote::blobdata
 
-#[derive(Debug)]
-pub enum DB_FAILURES {
-        DB_ERROR,
-        DB_EXCEPTION,
-        BLOCK_DNE,
-        OUTPUT_DNE,
-        TX_DNE,
-        ARITHEMTIC_COUNT,
+#[derive(Error, Debug)]
+pub enum TESTTT {
+        #[error("AAAAAA")]
+        A,
+}
+
+#[allow(dead_code)]
+#[derive(Error, Debug)]
+pub(in super) enum DB_FAILURES {
+        #[error("DB_ERROR: `{0}`. The database is likely corrupted.")]
+        DB_ERROR(String),
+        #[error("DB_ERROR_TXN_START: `{0}`. The database failed starting a txn.")]
+        DB_ERROR_TXN_START(String),
+        #[error("DB_OPEN_FAILURE: Failed to open the database.")]
+        DB_OPEN_FAILURE,
+        #[error("DB_CREATE_FAILURE: Failed to create the database.")]
+        DB_CREATE_FAILURE,
+        #[error("DB_SYNC_FAILURE: Failed to sync the database.")]
+        DB_SYNC_FAILURE,
+        #[error("BLOCK_DNE: `{0}`. The block requested does not exist")]
+        BLOCK_DNE(String),
+        #[error("BLOCK_PARENT_DNE: `{0}` The parent of the block does not exist")]
+        BLOCK_PARENT_DNE(String),
+        #[error("BLOCK_EXISTS. The block to be added already exists!")]
+        BLOCK_EXISTS,
+        #[error("BLOCK_INVALID: `{0}`. The block to be added did not pass validation!")]
+        BLOCK_INVALID(String),
+        #[error("TX_EXISTS. The transaction to be added already exists!")]
+        TX_EXISTS,
+        #[error("TX_DNE: `{0}`. The transaction requested does not exist!")]
+        TX_DNE(String),
+        #[error("OUTPUTS_EXISTS. The output to be added already exists!")]
+        OUTPUT_EXISTS,
+        #[error("OUTPUT_DNE: `{0}`. The output requested does not exist")]
+        OUTPUT_DNE(String),
+        #[error("KEY_IMAGE_EXISTS. The spent key imge to be added already exists!")]
+        KEY_IMAGE_EXISTS,
+
+        #[error("ARITHMETIC_COUNT: `{0}`. An error occured due to a bad arithmetic/count logic")]
+        ARITHEMTIC_COUNT(String),
+        #[error("HASH_DNE. ")]
         HASH_DNE(Option<Hash>),
 }
 
@@ -121,6 +156,7 @@ pub(in super) trait BlockchainDB {
 
         fn remove_transaction();
 
+        // variables part.
         //      uint64_t num_calls = 0;  //!< a performance metric
         //      uint64_t time_blk_hash = 0;  //!< a performance metric
         //      uint64_t time_add_block1 = 0;  //!< a performance metric
@@ -136,46 +172,12 @@ pub(in super) trait BlockchainDB {
 
         //      HardFork* m_hardfork;       |     protected: int *m_hardfork
 
+        // bool m_open;
+        // mutable epee::critical_section m_synchronization_lock;  //!< A lock, currently for when BlockchainLMDB needs to resize the backing db file
+
         // supposed to be public
 
-        // a constructor maybe
-        fn a_constructor_maybe() -> Self where Self: Sized;
-
-        // a destructor maybe
-        fn well_i_really_dont_know_here();
-
-        fn init_options();
-
-        fn reset_stats();
-
-        fn show_stats();
-
-        fn open() -> Result<(),DB_FAILURES>;
-
-        fn is_open() -> bool;
-
-        fn close() -> Result<(),DB_FAILURES>;
-
-        fn sync() -> Result<(),DB_FAILURES>;
-
-        fn safesyncmode(onoff: &'static bool) -> Result<(),DB_FAILURES>;
-
-        fn reset() -> Result<(),DB_FAILURES>;
-
-
-
-
-        // Primarly used by unit tests
-        fn get_filenames() -> Vec<String>;
-
-        fn get_db_name() -> String;
-
-        // Reset the database (used only fore core tests, functional tests, etc)
-        fn remove_data_file(folder: &'static String) -> bool; // may not be static
-
-        fn lock() -> Result<bool,DB_FAILURES>;
-
-        fn unlock() -> Result<bool,DB_FAILURES>;
+        
 
 
 
@@ -246,15 +248,6 @@ pub(in super) trait BlockchainDB {
 
         // FINNALY SOME BLOCKCHAIN_DB.H STUFF OUT THERE!!!
 
-        fn get_output_key(amount: &u64, index: &u64, include_commitmemt: bool) -> Result<output_data_t, DB_FAILURES>;
-
-        fn get_output_tx_and_index_from_global(index: &u64) -> TxOutIndex;
-
-        fn get_output_tx_and_index(amount: &u64, index: &u64,) -> TxOutIndex;
-
-        fn get_output_tx_and_index_void(amount: &u64, offsets: &Vec<u64>, indices: &Vec<TxOutIndex>);
-
-        fn get_output_key_void(amounts: &Vec<u64>, offsets: &Vec<u64>, outputs: &Vec<output_data_t>, allow_partial: bool); // wtf is std::span|epee::span. I see no difference with a Rust vector, also allow_partial is be default false
 
         // LMAO WTF IS CAN_THREAD_BULK_INDICES
 
@@ -318,6 +311,59 @@ pub(in super) trait BlockchainDB {
 
         fn for_all_alt_blocks();
 
+        
+
+        // some note to help me
+
+        // get_*_tx group : get_tx, get_pruned_tx. they are duplicate
+
+        // Confirmed part that don't need to be redfined or smthg
+
+
+
+        // ------------------------------------------|  Database  |------------------------------------------------------------
+
+
+
+        // a constructor maybe
+        fn a_constructor_maybe() -> Self where Self: Sized;
+
+        // a destructor maybe
+        fn well_i_really_dont_know_here();
+
+        fn init_options();
+
+        fn reset_stats();
+
+        fn show_stats();
+
+        fn open() -> Result<(),DB_FAILURES>;
+
+        fn is_open() -> bool;
+
+        fn close() -> Result<(),DB_FAILURES>;
+
+        fn sync() -> Result<(),DB_FAILURES>;
+
+        fn safesyncmode(onoff: &'static bool) -> Result<(),DB_FAILURES>;
+
+        fn reset() -> Result<(),DB_FAILURES>;
+
+
+
+
+        // Primarly used by unit tests
+        fn get_filenames() -> Vec<String>;
+
+        fn get_db_name() -> String;
+
+        // Reset the database (used only fore core tests, functional tests, etc)
+        fn remove_data_file(folder: &'static String) -> bool; // may not be static
+
+        fn lock() -> Result<bool,DB_FAILURES>;
+
+        fn unlock() -> Result<bool,DB_FAILURES>;
+
         fn set_hard_fork_version();
 
         fn get_hard_fork_version();
@@ -338,11 +384,52 @@ pub(in super) trait BlockchainDB {
 
         fn set_auto_remove_logs();
 
-        // some note to help me
 
-        // get_*_tx group : get_tx, get_pruned_tx. they are duplicate
 
-        // Confirmed part that don't need to be redfined or smthg
+        // -------------------------------------------|  Outputs  |------------------------------------------------------------
+
+
+
+        /// `get_output_key` get some of an output's data
+        /// 
+        /// Return the public key, unlock time, and block height for the output with the given amount and index, collected in a struct
+        /// In case of failures, a `DB_FAILURES` will be return. Precisely, if the output cannot be found, an `OUTPUT_DNE` error will be return.
+        /// If any of the required part for the final struct isn't found, a `DB_ERROR` will be return
+        /// 
+        /// Parameters:
+        /// `amount`: is the corresponding amount of the output 
+        /// `index`: is the output's index (indexed by amount)
+        /// `include_commitment` : `true` by default. 
+        fn get_output_key(self: &mut Self, amount: u64, index: u64, include_commitmemt: bool) -> Result<output_data_t, DB_FAILURES>;
+
+        /// `get_output_tx_and_index_from_global`gets an output's transaction hash and index from output's global index.
+        /// 
+        /// Return a tuple containing the transaction hash and the output index. In case of failures, a `DB_FAILURES` will be return.
+        /// 
+        /// Parameters:
+        /// `index`: is the output's global index.
+        fn get_output_tx_and_index_from_global(self: &mut Self, index: u64) -> Result<TxOutIndex,DB_FAILURES>;
+
+        /// `get_output_key_list` gets outputs' metadata from a corresponding collection.
+        /// 
+        /// Return a collection of output's metadata. In case of failurse, a `DB_FAILURES` will be return.
+        /// 
+        /// Parameters:
+        /// `amounts`: is the collection of amounts corresponding to the requested outputs.
+        /// `offsets`: is a collection of outputs' index (indexed by amount).
+        /// `allow partial`: `false` by default.
+        fn get_output_key_list(self: &mut Self, amounts: &Vec<u64>, offsets: &Vec<u64>, allow_partial: bool) -> Result<Vec<output_data_t>,DB_FAILURES>;
+
+        /// `get_output_tx_and_index` gets an output's transaction hash and index
+        /// 
+        /// Return a tuple containing the transaction hash and the output index. In case of failures, a `DB_FAILURES` will be return.
+        /// 
+        /// Parameters:
+        /// `amount`: is the corresponding amount of the output 
+        /// `index`: is the output's index (indexed by amount)
+        fn get_output_tx_and_index(self: &mut Self, amount: u64, index: u64,) -> Result<TxOutIndex,DB_FAILURES>;
+
+
 
         // -----------------------------------------| Transactions |----------------------------------------------------------
 
@@ -353,7 +440,7 @@ pub(in super) trait BlockchainDB {
         /// Should return the count. In case of failure, a DB_FAILURES will be return.
         /// 
         /// No parameters is required.
-        fn get_tx_count() -> Result<u64,DB_FAILURES>;
+        fn get_tx_count(self: &mut Self, ) -> Result<u64,DB_FAILURES>;
 
         /// `tx_exists` check if a transaction exist with the given hash.
         /// 
@@ -362,7 +449,7 @@ pub(in super) trait BlockchainDB {
         /// Parameters : 
         /// `h` is the given hash of transaction to check.
         ///  `tx_id` is an optional mutable reference to get the transaction id out of the found transaction.
-        fn tx_exists(h: &Hash, tx_id: &mut Option<u64>) -> Result<bool, DB_FAILURES>;
+        fn tx_exists(self: &mut Self, h: &Hash, tx_id: &mut Option<u64>) -> Result<bool, DB_FAILURES>;
 
         /// `get_tx_unlock_time` fetch a transaction's unlock time/height
         /// 
@@ -370,7 +457,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the transaction to check.
-        fn get_tx_unlock_time(h: &Hash) -> Result<u64, DB_FAILURES>;
+        fn get_tx_unlock_time(self: &mut Self, h: &Hash) -> Result<u64, DB_FAILURES>;
 
         /// `get_tx` fetches the transaction with the given hash.
         /// 
@@ -378,7 +465,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of transaction to fetch.
-        fn get_tx(h: &Hash) -> Result<Transaction,DB_FAILURES>;
+        fn get_tx(self: &mut Self, h: &Hash) -> Result<Transaction,DB_FAILURES>;
 
         /// `get_pruned_tx` fetches the transaction base with the given hash.
         /// 
@@ -386,7 +473,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of transaction to fetch.
-        fn get_pruned_tx(h: &Hash) -> Result<Transaction,DB_FAILURES>;
+        fn get_pruned_tx(self: &mut Self, h: &Hash) -> Result<Transaction,DB_FAILURES>;
 
         /// `get_tx_list` fetches the transactions with given hashes.
         /// 
@@ -394,7 +481,7 @@ pub(in super) trait BlockchainDB {
         /// Precisly, a HASH_DNE error will be returned with the correspondig hash of transaction that is not found in the DB.
         /// 
         /// `hlist`: is the given collection of hashes correspondig to the transactions to fetch.
-        fn get_tx_list(hlist: &Vec<Hash>) -> Result<Vec<monero::Transaction>,DB_FAILURES>;
+        fn get_tx_list(self: &mut Self, hlist: &Vec<Hash>) -> Result<Vec<monero::Transaction>,DB_FAILURES>;
 
         /// `get_tx_blob` fetches the transaction blob with the given hash.
         /// 
@@ -402,7 +489,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the transaction to fetch.
-        fn get_tx_blob(h: &Hash) -> Result<Blobdata,DB_FAILURES>;
+        fn get_tx_blob(self: &mut Self, h: &Hash) -> Result<Blobdata,DB_FAILURES>;
 
         /// `get_pruned_tx_blob` fetches the pruned transaction blob with the given hash.
         ///
@@ -410,7 +497,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the transaction to fetch.
-        fn get_pruned_tx_blob(h: &Hash) -> Result<Blobdata,DB_FAILURES>;
+        fn get_pruned_tx_blob(self: &mut Self, h: &Hash) -> Result<Blobdata,DB_FAILURES>;
 
         /// `get_prunable_tx_blob` fetches the prunable transaction blob with the given hash.
         /// 
@@ -418,7 +505,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the transaction to fetch.
-        fn get_prunable_tx_blob(h: &Hash) -> Result<Blobdata,DB_FAILURES>;
+        fn get_prunable_tx_blob(self: &mut Self, h: &Hash) -> Result<Blobdata,DB_FAILURES>;
 
         /// `get_prunable_tx_hash` fetches the prunable transaction hash
         /// 
@@ -426,7 +513,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `tx_hash`: is the given hash of the transaction  to fetch.
-        fn get_prunable_tx_hash(tx_hash: &Hash)  -> Result<Hash,DB_FAILURES>;
+        fn get_prunable_tx_hash(self: &mut Self, tx_hash: &Hash)  -> Result<Hash,DB_FAILURES>;
 
         /// `get_pruned_tx_blobs_from` fetches a number of pruned transaction blob from the given hash, in canonical blockchain order.
         /// 
@@ -436,7 +523,7 @@ pub(in super) trait BlockchainDB {
         /// Parameters:
         /// `h`: is the given hash of the first transaction/
         /// `count`: is the number of transaction to fetch in canoncial blockchain order.
-        fn get_pruned_tx_blobs_from(h: &Hash, count: usize) -> Result<Vec<Blobdata>,DB_FAILURES>;
+        fn get_pruned_tx_blobs_from(self: &mut Self, h: &Hash, count: usize) -> Result<Vec<Blobdata>,DB_FAILURES>;
 
         /// `get_tx_block_height` fetches the height of a transaction's block
         /// 
@@ -445,7 +532,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the fiven hash of the first transaction
-        fn get_tx_block_height(h: &Hash) -> Result<u64,DB_FAILURES>;
+        fn get_tx_block_height(self: &mut Self, h: &Hash) -> Result<u64,DB_FAILURES>;
 
 
 
@@ -454,7 +541,7 @@ pub(in super) trait BlockchainDB {
 
 
         ///
-        fn pop_block_public(blk: &mut Block, txs: Vec<monero::Transaction>);
+        fn pop_block_public(self: &mut Self,blk: &mut Block, txs: &Vec<Transaction>);
 
         /// `blocks_exists` check if the given block exists
         /// 
@@ -462,7 +549,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the requested block.
-        fn block_exists(h: &Hash) -> Result<bool,DB_FAILURES>;
+        fn block_exists(self: &mut Self,h: &Hash) -> Result<bool,DB_FAILURES>;
 
         /// `get_block` fetches the block with the given hash.
         /// 
@@ -471,7 +558,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the requested block.
-        fn get_block(h: &Hash) -> Result<Block,DB_FAILURES>;
+        fn get_block(self: &mut Self,h: &Hash) -> Result<Block,DB_FAILURES>;
 
         /// `get_block_from_height` fetches the block located at the given height.
         /// 
@@ -480,7 +567,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height`: is the height where the requested block is located.
-        fn get_block_from_height(height: u64) -> Result<Block,DB_FAILURES>;
+        fn get_block_from_height(self: &mut Self,height: u64) -> Result<Block,DB_FAILURES>;
 
         /// `get_block_from_range` fetches the blocks located from and to the specified heights.
         /// 
@@ -490,7 +577,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height_range`: is the range of height where the requested blocks are located.
-        fn get_blocks_from_range(height_range: Range<u64>) -> Result<Vec<Block>,DB_FAILURES>;
+        fn get_blocks_from_range(self: &mut Self,height_range: Range<u64>) -> Result<Vec<Block>,DB_FAILURES>;
 
         /// `get_block_blob` fetches the block blob with the given hash.
         /// 
@@ -499,7 +586,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the requested block.
-        fn get_block_blob(h: &Hash) -> Result<Blobdata,DB_FAILURES>;
+        fn get_block_blob(self: &mut Self,h: &Hash) -> Result<Blobdata,DB_FAILURES>;
 
         /// `get_block_blob_from_height` fetches the block blob located at the given height in the blockchain.
         /// 
@@ -508,7 +595,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height`: is the given height of the corresponding block blob to fetch.
-        fn get_block_blob_from_height(height: u64) -> Result<Blobdata,DB_FAILURES>;
+        fn get_block_blob_from_height(self: &mut Self,height: u64) -> Result<Blobdata,DB_FAILURES>;
 
         /// `get_block_header` fetches the block's header with the given hash.
         /// 
@@ -517,7 +604,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the requested block.
-        fn get_block_header(h: &Hash) -> Result<BlockHeader,DB_FAILURES>;
+        fn get_block_header(self: &mut Self,h: &Hash) -> Result<BlockHeader,DB_FAILURES>;
 
         /// `get_block_hash_from_height` fetch block's hash located at the given height.
         /// 
@@ -526,7 +613,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters: 
         /// `height`: is the given height where the requested block is located.
-        fn get_block_hash_from_height(height: u64) -> Result<Hash,DB_FAILURES>;
+        fn get_block_hash_from_height(self: &mut Self,height: u64) -> Result<Hash,DB_FAILURES>;
 
         /// `get_blocks_hashes_from_range` fetch blocks' hashes located from, between and to the given heights.
         /// 
@@ -535,21 +622,21 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters: 
         /// `height`: is the given height where the requested block is located.
-        fn get_blocks_hashes_from_range(range: Range<u64>) -> Result<Vec<Hash>,DB_FAILURES>;
+        fn get_blocks_hashes_from_range(self: &mut Self,range: Range<u64>) -> Result<Vec<Hash>,DB_FAILURES>;
 
         /// `get_top_block` fetch the last/top block of the blockchain
         /// 
         /// Return the last/top block of the blockchain. In case of failures, a DB_FAILURES, will be return.
         /// 
         /// No parameters is required.
-        fn get_top_block() -> Block;
+        fn get_top_block(self: &mut Self,) -> Block;
 
         /// `get_top_block_hash` fetch the block's hash located at the top of the blockchain (the last one).
         /// 
         /// Return the hash of the last block. In case of failures, a DB_FAILURES will be return.
         /// 
         /// No parameters is required
-        fn get_top_block_hash() -> Result<Hash,DB_FAILURES>;
+        fn get_top_block_hash(self: &mut Self,) -> Result<Hash,DB_FAILURES>;
 
         // ! TODO: redefine the  result & docs. see what could be improved. Do we really need this function
         /// `get_blocks_from` fetches a variable number of blocks and transactions from the given height, in canonical blockchain order as long as it meets the parameters.
@@ -566,7 +653,7 @@ pub(in super) trait BlockchainDB {
         /// `pruned`: is whether to return full or pruned tx data
         /// `skip_coinbase`: is whether to return or skip coinbase transactions (they're in blocks regardless)
         /// `get_miner_tx_hash`: is whether to calculate and return the miner (coinbase) tx hash.
-        fn get_blocks_from(
+        fn get_blocks_from(self: &mut Self,
                 start_height: u64,  
                 min_block_count: u64, 
                 max_block_count: u64, 
@@ -579,7 +666,7 @@ pub(in super) trait BlockchainDB {
         /// `get_block_height` gets the height of the block with a given hash
         /// 
         /// Return the requested height.
-        fn get_block_height(h: &Hash) -> Result<u64,DB_FAILURES>;
+        fn get_block_height(self: &mut Self,h: &Hash) -> Result<u64,DB_FAILURES>;
 
         /// `get_block_weights` fetch the block's weight located at the given height.
         /// 
@@ -588,7 +675,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height`: is the given height where the requested block is located.
-        fn get_block_weight(height: u64) -> Result<u64, DB_FAILURES>;
+        fn get_block_weight(self: &mut Self,height: u64) -> Result<u64, DB_FAILURES>;
         
         /// `get_block_weights` fetch the last `count` blocks' weights.
         /// 
@@ -598,7 +685,7 @@ pub(in super) trait BlockchainDB {
         /// Parameters:
         /// `start_height`: is the height to seek before collecting block weights.
         /// `count`: is the number of last blocks' weight to fetch.
-        fn get_block_weights(start_height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>;
+        fn get_block_weights(self: &mut Self,start_height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>;
         
         /// `get_block_already_generated_coins` fetch a block's already generated coins
         /// 
@@ -607,7 +694,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height`: is the given height of the block to seek.
-        fn get_block_already_generated_coins(height: u64) -> Result<u64,DB_FAILURES>;
+        fn get_block_already_generated_coins(self: &mut Self,height: u64) -> Result<u64,DB_FAILURES>;
 
         /// `get_block_long_term_weight` fetch a block's long term weight.
         /// 
@@ -616,7 +703,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height`: is the given height where the requested block is located.
-        fn get_block_long_term_weight(height: u64) -> Result<u64,DB_FAILURES>;
+        fn get_block_long_term_weight(self: &mut Self,height: u64) -> Result<u64,DB_FAILURES>;
 
         /// `get_long_term_block_weights` fetch the last `count` blocks' long term weights
         /// 
@@ -627,7 +714,7 @@ pub(in super) trait BlockchainDB {
         /// Parameters:
         /// `start_height`: is the height to seek before collecting block weights.
         /// `count`: is the number of last blocks' long term weight to fetch.
-        fn get_long_term_block_weights(height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>;
+        fn get_long_term_block_weights(self: &mut Self,height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>;
 
         /// `get_block_timestamp` fetch a block's timestamp.
         /// 
@@ -636,7 +723,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height`: is the given height where the requested block to fetch timestamp is located.
-        fn get_block_timestamp(height: u64) -> Result<u64,DB_FAILURES>;
+        fn get_block_timestamp(self: &mut Self,height: u64) -> Result<u64,DB_FAILURES>;
 
         /// `get_block_cumulative_rct_outputs` fetch a blocks' cumulative number of RingCT outputs
         /// 
@@ -645,14 +732,14 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `heights`: is the collection of height to check for RingCT distribution.
-        fn get_block_cumulative_rct_outputs(heights: Vec<u64>) -> Result<Vec<u64>,DB_FAILURES>;
+        fn get_block_cumulative_rct_outputs(self: &mut Self, heights: Vec<u64>) -> Result<Vec<u64>,DB_FAILURES>;
 
         /// `get_top_block_timestamp` fetch the top block's timestamp
         /// 
         /// Should reutnr the timestamp of the most recent block. In case of failures, a DB_FAILURES will be return.
         /// 
         /// No parameters is required.
-        fn get_top_block_timestamp() -> Result<u64,DB_FAILURES>;
+        fn get_top_block_timestamp(self: &mut Self,) -> Result<u64,DB_FAILURES>;
 
         /// `correct_block_cumulative_difficulties` correct blocks cumulative difficulties that were incorrectly calculated due to the 'difficulty drift' bug
         /// 
@@ -662,10 +749,14 @@ pub(in super) trait BlockchainDB {
         /// Parameters:
         /// `start_height`: is the height of the block where the drifts start.
         /// `new_cumulative_difficulties`: is the collection of new cumulative difficulties to be stored
-        fn correct_block_cumulative_difficulties(start_height: u64, new_cumulative_difficulties: Vec<difficulty_type>) -> Result<(),DB_FAILURES>;
+        fn correct_block_cumulative_difficulties(self: &mut Self,start_height: u64, new_cumulative_difficulties: Vec<difficulty_type>) -> Result<(),DB_FAILURES>;
 
 
-        // bool m_open;
-        // mutable epee::critical_section m_synchronization_lock;  //!< A lock, currently for when BlockchainLMDB needs to resize the backing db file
+
+        // --------------------------------------------|  TxPool  |------------------------------------------------------------
+
+
+
+        //a
 }
 
