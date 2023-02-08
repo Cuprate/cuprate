@@ -1,4 +1,4 @@
-use monero::{Hash, Transaction};
+use monero::{Hash, Transaction, Block, BlockHeader};
 
 use crate::{cryptonote_protocol::enums::{RelayMethod}, cryptonote_basic::difficulty::difficulty_type, blockchain_db::{}};
 use std::{error::Error, ops::Range};
@@ -201,25 +201,7 @@ pub(in super) trait BlockchainDB {
 
         
 
-        fn get_block_cumulative_rct_outputs(heights: Vec<u64>) -> Result<Vec<u64>,DB_FAILURES>;
-
-        fn get_top_block_timestamp() -> Result<u64,DB_FAILURES>;
-
         
-
-        
-
-        fn correct_block_cumulative_difficulties(start_height: u64, new_cumulative_difficulties: Vec<difficulty_type>) -> Result<(),DB_FAILURES>;
-
-        
-
-        fn get_blocks_range(h1: u64, h2: u64) -> Result<Vec<monero::Block>, DB_FAILURES>;
-
-        fn get_hashes_range(h1: u64, h2: u64) -> Result<Vec<monero::cryptonote::hash::Hash>,DB_FAILURES>;
-
-        fn top_block_hash(block_height: u64) -> monero::cryptonote::hash::Hash;
-
-        fn get_top_block() -> monero::Block;
 
         fn height() -> u64;
 
@@ -227,7 +209,7 @@ pub(in super) trait BlockchainDB {
         // Gonna use this as an excuse to split this hell one more time
         //. a dot. because dot. is cool.
 
-        fn pop_block_public(blk: &mut monero::Block, txs: Vec<monero::Transaction>);
+        
 
         // fn tx_exists(h: monero::cryptonote::hash::Hash, tx_id: Option<u64>) -> Result<(),()>; // Maybe error should be DB_FAILURES, not specified in docs
 
@@ -328,7 +310,7 @@ pub(in super) trait BlockchainDB {
 
         fn for_all_keys_images(wat: fn(ki: &monero::blockdata::transaction::KeyImage) -> bool) -> Result<bool,DB_FAILURES>;
 
-        fn for_blocks_range(h1: &u64, h2: &u64, wat: fn(u: u64, h: &monero::Hash, blk: &monero::Block) -> bool) -> Result<bool,DB_FAILURES>; // u: u64 should be mut u: u64
+        fn for_blocks_range(h1: &u64, h2: &u64, wat: fn(u: u64, h: &monero::Hash, blk: &Block) -> bool) -> Result<bool,DB_FAILURES>; // u: u64 should be mut u: u64
 
         fn for_all_transactions(wat: fn(h: &monero::Hash, tx: &monero::Transaction) -> bool, pruned: bool) -> Result<bool,DB_FAILURES>;
 
@@ -471,6 +453,9 @@ pub(in super) trait BlockchainDB {
 
 
 
+        ///
+        fn pop_block_public(blk: &mut Block, txs: Vec<monero::Transaction>);
+
         /// `blocks_exists` check if the given block exists
         /// 
         /// Return `true` if the block exist, `false` otherwise. In case of failures, a `DB_FAILURES` will be return.
@@ -486,7 +471,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the requested block.
-        fn get_block(h: &Hash) -> Result<monero::Block,DB_FAILURES>;
+        fn get_block(h: &Hash) -> Result<Block,DB_FAILURES>;
 
         /// `get_block_from_height` fetches the block located at the given height.
         /// 
@@ -495,7 +480,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height`: is the height where the requested block is located.
-        fn get_block_from_height(height: u64) -> Result<monero::Block,DB_FAILURES>;
+        fn get_block_from_height(height: u64) -> Result<Block,DB_FAILURES>;
 
         /// `get_block_from_range` fetches the blocks located from and to the specified heights.
         /// 
@@ -505,7 +490,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height_range`: is the range of height where the requested blocks are located.
-        fn get_blocks_from_range(height_range: Range<u64>) -> Result<Vec<monero::Block>,DB_FAILURES>;
+        fn get_blocks_from_range(height_range: Range<u64>) -> Result<Vec<Block>,DB_FAILURES>;
 
         /// `get_block_blob` fetches the block blob with the given hash.
         /// 
@@ -514,50 +499,173 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the requested block.
-        fn get_block_blob(h: monero::cryptonote::hash::Hash) -> Result<Blobdata,DB_FAILURES>;
+        fn get_block_blob(h: &Hash) -> Result<Blobdata,DB_FAILURES>;
 
+        /// `get_block_blob_from_height` fetches the block blob located at the given height in the blockchain.
+        /// 
+        /// Return the requested block blob. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `height`: is the given height of the corresponding block blob to fetch.
+        fn get_block_blob_from_height(height: u64) -> Result<Blobdata,DB_FAILURES>;
 
-        //a wat?
+        /// `get_block_header` fetches the block's header with the given hash.
+        /// 
+        /// Return the requested block header. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `h`: is the given hash of the requested block.
+        fn get_block_header(h: &Hash) -> Result<BlockHeader,DB_FAILURES>;
+
+        /// `get_block_hash_from_height` fetch block's hash located at the given height.
+        /// 
+        /// Return the hash of the block with the given height. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters: 
+        /// `height`: is the given height where the requested block is located.
+        fn get_block_hash_from_height(height: u64) -> Result<Hash,DB_FAILURES>;
+
+        /// `get_blocks_hashes_from_range` fetch blocks' hashes located from, between and to the given heights.
+        /// 
+        /// Return a collection of hases corresponding to the scoped blocks. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if at least one of the requested blocks can't be found.
+        /// 
+        /// Parameters: 
+        /// `height`: is the given height where the requested block is located.
+        fn get_blocks_hashes_from_range(range: Range<u64>) -> Result<Vec<Hash>,DB_FAILURES>;
+
+        /// `get_top_block` fetch the last/top block of the blockchain
+        /// 
+        /// Return the last/top block of the blockchain. In case of failures, a DB_FAILURES, will be return.
+        /// 
+        /// No parameters is required.
+        fn get_top_block() -> Block;
+
+        /// `get_top_block_hash` fetch the block's hash located at the top of the blockchain (the last one).
+        /// 
+        /// Return the hash of the last block. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// No parameters is required
+        fn get_top_block_hash() -> Result<Hash,DB_FAILURES>;
+
+        // ! TODO: redefine the  result & docs. see what could be improved. Do we really need this function
+        /// `get_blocks_from` fetches a variable number of blocks and transactions from the given height, in canonical blockchain order as long as it meets the parameters.
+        /// 
+        /// Should return the blocks stored starting from the given height. The number of blocks returned is variable, based on the max_size defined. There will be at least `min_block_count`
+        /// if possible, even if this contravenes max_tx_count. In case of failures, a `DB_FAILURES` error will be return.
+        /// 
+        /// Parameters:
+        /// `start_height`: is the given height to start from.
+        /// `min_block_count`: is the minimum number of blocks to return. If there are fewer blocks, it'll return fewer blocks than the minimum.
+        /// `max_block_count`: is the maximum number of blocks to return.
+        /// `max_size`: is the maximum size of block/transaction data to return (can be exceeded on time if min_count is met).
+        /// `max_tx_count`: is the maximum number of txes to return.
+        /// `pruned`: is whether to return full or pruned tx data
+        /// `skip_coinbase`: is whether to return or skip coinbase transactions (they're in blocks regardless)
+        /// `get_miner_tx_hash`: is whether to calculate and return the miner (coinbase) tx hash.
         fn get_blocks_from(
-                start_height: u64, 
-                min_block_count: usize, 
-                max_block_count: usize, 
-                max_tx_count: usize, 
+                start_height: u64,  
+                min_block_count: u64, 
+                max_block_count: u64, 
                 max_size: usize, 
+                max_tx_count: u64,
                 pruned: bool, 
                 skip_coinbase: bool, 
-                get_miner_tx_hash: bool) -> Result<Vec<((String, monero::cryptonote::hash::Hash), Vec<(monero::cryptonote::hash::Hash, String)>)>,DB_FAILURES>;
+                get_miner_tx_hash: bool) -> Result<Vec<((String, Hash), Vec<(Hash, String)>)>,DB_FAILURES>;
+
+        /// `get_block_height` gets the height of the block with a given hash
+        /// 
+        /// Return the requested height.
+        fn get_block_height(h: &Hash) -> Result<u64,DB_FAILURES>;
+
+        /// `get_block_weights` fetch the block's weight located at the given height.
+        /// 
+        /// Return the requested block weight. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `height`: is the given height where the requested block is located.
+        fn get_block_weight(height: u64) -> Result<u64, DB_FAILURES>;
         
-
-        
-
-        // specific stats
-       
-        fn get_block_header(h: monero::cryptonote::hash::Hash) -> Result<monero::BlockHeader,DB_FAILURES>;
-
-        fn get_block_blob_from_height(height: u64) -> Result<String,DB_FAILURES>;
-
-        fn get_block_weight(weight: u64) -> Result<usize, DB_FAILURES>;
-
+        /// `get_block_weights` fetch the last `count` blocks' weights.
+        /// 
+        /// Return a collection of weights. In case of failures, a `DB_FAILURES` will be return. Precisely, an 'ARITHMETIC_COUNT'
+        /// error will be returned if there are fewer than `count` blocks.
+        /// 
+        /// Parameters:
+        /// `start_height`: is the height to seek before collecting block weights.
+        /// `count`: is the number of last blocks' weight to fetch.
         fn get_block_weights(start_height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>;
-
+        
+        /// `get_block_already_generated_coins` fetch a block's already generated coins
+        /// 
+        /// Return the total coins generated as of the block with the given height. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `height`: is the given height of the block to seek.
         fn get_block_already_generated_coins(height: u64) -> Result<u64,DB_FAILURES>;
 
+        /// `get_block_long_term_weight` fetch a block's long term weight.
+        /// 
+        /// Should return block's long term weight. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `height`: is the given height where the requested block is located.
         fn get_block_long_term_weight(height: u64) -> Result<u64,DB_FAILURES>;
 
-        fn get_long_term_block_weights(height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>; // Shouldn't have DB_FAILURES
+        /// `get_long_term_block_weights` fetch the last `count` blocks' long term weights
+        /// 
+        /// Should return a collection of blocks' long term weights. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found. If there are fewer than `count` blocks, the returned collection will be
+        /// smaller than `count`.
+        /// 
+        /// Parameters:
+        /// `start_height`: is the height to seek before collecting block weights.
+        /// `count`: is the number of last blocks' long term weight to fetch.
+        fn get_long_term_block_weights(height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>;
 
-        fn get_block_hash_from_height(height: u64) -> Result<monero::cryptonote::hash::Hash,DB_FAILURES>;
-
-        // global stats
-
+        /// `get_block_timestamp` fetch a block's timestamp.
+        /// 
+        /// Should return the timestamp of the block with given height. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `height`: is the given height where the requested block to fetch timestamp is located.
         fn get_block_timestamp(height: u64) -> Result<u64,DB_FAILURES>;
-        fn get_block_height(h: monero::cryptonote::hash::Hash) -> Result<u64,DB_FAILURES>;
+
+        /// `get_block_cumulative_rct_outputs` fetch a blocks' cumulative number of RingCT outputs
+        /// 
+        /// Should return the number of RingCT outputs in the blockchain up to the blocks located at the given heights. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `heights`: is the collection of height to check for RingCT distribution.
+        fn get_block_cumulative_rct_outputs(heights: Vec<u64>) -> Result<Vec<u64>,DB_FAILURES>;
+
+        /// `get_top_block_timestamp` fetch the top block's timestamp
+        /// 
+        /// Should reutnr the timestamp of the most recent block. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// No parameters is required.
+        fn get_top_block_timestamp() -> Result<u64,DB_FAILURES>;
+
+        /// `correct_block_cumulative_difficulties` correct blocks cumulative difficulties that were incorrectly calculated due to the 'difficulty drift' bug
+        /// 
+        /// Should return nothing. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `start_height`: is the height of the block where the drifts start.
+        /// `new_cumulative_difficulties`: is the collection of new cumulative difficulties to be stored
+        fn correct_block_cumulative_difficulties(start_height: u64, new_cumulative_difficulties: Vec<difficulty_type>) -> Result<(),DB_FAILURES>;
+
 
         // bool m_open;
         // mutable epee::critical_section m_synchronization_lock;  //!< A lock, currently for when BlockchainLMDB needs to resize the backing db file
 }
-
-
-
 
