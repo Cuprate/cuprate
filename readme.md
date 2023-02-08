@@ -38,7 +38,10 @@ For non-developers people, it is time for you to unleash your ideas.
 
 ### Code & Repo
 
+No unsafe code is permitted, and the codebase will never contain `.unwrap()`, `.except()` or `panic!()`.
+
 For the moment I try to organize the repository like the official one. But it won't last for long.
+
 
 ### Improvements & Features
   
