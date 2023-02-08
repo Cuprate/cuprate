@@ -1,11 +1,11 @@
 use monero::{Hash, Transaction};
 
 use crate::{cryptonote_protocol::enums::{RelayMethod}, cryptonote_basic::difficulty::difficulty_type, blockchain_db::{}};
-use std::error::Error;
+use std::{error::Error, ops::Range};
 
 const MONERO_DEFAULT_LOG_CATEGORY: &str = "blockchain.db";
 
-type Blobldata = Vec<u8>;
+type Blobdata = Vec<u8>;
 type TxOutIndex = (monero::cryptonote::hash::Hash, u64);
 
 pub(in super) enum RelayCategory {
@@ -94,6 +94,7 @@ pub enum DB_FAILURES {
         OUTPUT_DNE,
         TX_DNE,
         ARITHEMTIC_COUNT,
+        HASH_DNE(Option<Hash>),
 }
 
 pub(in super) trait BlockchainDB {
@@ -196,43 +197,21 @@ pub(in super) trait BlockchainDB {
 
         fn add_block_public() -> Result<u64, DB_FAILURES>;
 
-        fn block_exists(h: monero::cryptonote::hash::Hash,  height: u64) -> bool;
+        //fn block_exists(h: monero::cryptonote::hash::Hash,  height: u64) -> bool;
 
-        fn get_block_blob(h: monero::cryptonote::hash::Hash) -> Result<String,DB_FAILURES>; // cryptonote::blobdata which is String underhood
-
-        fn get_block(h: monero::cryptonote::hash::Hash) -> Result<monero::Block,DB_FAILURES>; // Result<block,DB_FAILURES> and block is int
-
-        fn get_block_height(h: monero::cryptonote::hash::Hash) -> Result<u64,DB_FAILURES>;
-
-        fn get_block_header(h: monero::cryptonote::hash::Hash) -> Result<monero::BlockHeader,DB_FAILURES>;
-
-        fn get_block_blob_from_height(height: u64) -> Result<String,DB_FAILURES>;
-
-        fn get_block_from_height(height: u64) -> Result<monero::Block,DB_FAILURES>;
-
-        fn get_block_timestamp(height: u64) -> Result<u64,DB_FAILURES>;
+        
 
         fn get_block_cumulative_rct_outputs(heights: Vec<u64>) -> Result<Vec<u64>,DB_FAILURES>;
 
         fn get_top_block_timestamp() -> Result<u64,DB_FAILURES>;
 
-        fn get_block_weight(weight: u64) -> Result<usize, DB_FAILURES>;
+        
 
-        fn get_block_weights(start_height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>;
-
-        fn get_block_cumulative_difficulty(height: u64) -> Result<difficulty_type,DB_FAILURES>;
-
-        fn get_block_difficulty(height: u64) -> Result<difficulty_type,DB_FAILURES>;
+        
 
         fn correct_block_cumulative_difficulties(start_height: u64, new_cumulative_difficulties: Vec<difficulty_type>) -> Result<(),DB_FAILURES>;
 
-        fn get_block_already_generated_coins(height: u64) -> Result<u64,DB_FAILURES>;
-
-        fn get_block_long_term_weight(height: u64) -> Result<u64,DB_FAILURES>;
-
-        fn get_long_term_block_weights(height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>; // Shouldn't have DB_FAILURES
-
-        fn get_block_hash_from_height(height: u64) -> Result<monero::cryptonote::hash::Hash,DB_FAILURES>;
+        
 
         fn get_blocks_range(h1: u64, h2: u64) -> Result<Vec<monero::Block>, DB_FAILURES>;
 
@@ -260,21 +239,21 @@ pub(in super) trait BlockchainDB {
 
         //fn tx_exist(h: monero::cryptonote::hash::Hash, tx: monero::Transaction) -> bool;
         
-        fn tx_pruned_exist(h: monero::cryptonote::hash::Hash, tx: monero::Transaction) -> bool;
+        
 
         //fn get_tx_blob(h: monero::cryptonote::hash::Hash, tx: String) -> bool;
 
         //fn get_pruned_tx_blob(h: monero::cryptonote::hash::Hash, tx: &mut String) -> bool;
 
-        fn get_blocks_from(start_height: u64, min_block_count: usize, max_block_count: usize, max_tx_count: usize, max_size: usize, blocks: &mut Vec<((String, monero::cryptonote::hash::Hash), Vec<(monero::cryptonote::hash::Hash, String)>)>, pruned: bool, skip_coinbase: bool, get_miner_tx_hash: bool) -> bool;
+        
 
-        fn get_prunable_tx_hash(tx_hash: &monero::cryptonote::hash::Hash, prunable_hash: &mut monero::cryptonote::hash::Hash) -> bool;
+        
 
-        fn get_tx_count() -> u64;
+        
 
-        fn get_tx_list(hlist: &Vec<monero::cryptonote::hash::Hash>) -> Vec<monero::Transaction>;
+        
 
-        fn get_tx_block_height(h: monero::cryptonote::hash::Hash) -> Result<u64,DB_FAILURES>;
+        
 
         fn get_num_outputs(amount: &u64) -> u64;
 
@@ -383,7 +362,16 @@ pub(in super) trait BlockchainDB {
 
         // Confirmed part that don't need to be redfined or smthg
 
-        // -----------------------------| Transactions |-----------------------------------------
+        // -----------------------------------------| Transactions |----------------------------------------------------------
+
+
+
+        /// `get_tx_count` fetches the total number of transactions stored in the database
+        /// 
+        /// Should return the count. In case of failure, a DB_FAILURES will be return.
+        /// 
+        /// No parameters is required.
+        fn get_tx_count() -> Result<u64,DB_FAILURES>;
 
         /// `tx_exists` check if a transaction exist with the given hash.
         /// 
@@ -392,7 +380,7 @@ pub(in super) trait BlockchainDB {
         /// Parameters : 
         /// `h` is the given hash of transaction to check.
         ///  `tx_id` is an optional mutable reference to get the transaction id out of the found transaction.
-        fn tx_exists(h: &monero::Hash, tx_id: &mut Option<u64>) -> Result<bool, DB_FAILURES>;
+        fn tx_exists(h: &Hash, tx_id: &mut Option<u64>) -> Result<bool, DB_FAILURES>;
 
         /// `get_tx_unlock_time` fetch a transaction's unlock time/height
         /// 
@@ -415,8 +403,16 @@ pub(in super) trait BlockchainDB {
         /// Should return the transaction. In case of failure, a DB_FAILURES will be return.
         /// 
         /// Parameters:
-        /// `h`: is the given hash of transaction to fetch
+        /// `h`: is the given hash of transaction to fetch.
         fn get_pruned_tx(h: &Hash) -> Result<Transaction,DB_FAILURES>;
+
+        /// `get_tx_list` fetches the transactions with given hashes.
+        /// 
+        /// Should return a vector with the requested transactions. In case of failures, a DB_FAILURES will be return.
+        /// Precisly, a HASH_DNE error will be returned with the correspondig hash of transaction that is not found in the DB.
+        /// 
+        /// `hlist`: is the given collection of hashes correspondig to the transactions to fetch.
+        fn get_tx_list(hlist: &Vec<Hash>) -> Result<Vec<monero::Transaction>,DB_FAILURES>;
 
         /// `get_tx_blob` fetches the transaction blob with the given hash.
         /// 
@@ -424,7 +420,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the transaction to fetch.
-        fn get_tx_blob(h: &Hash) -> Result<Blobldata,DB_FAILURES>;
+        fn get_tx_blob(h: &Hash) -> Result<Blobdata,DB_FAILURES>;
 
         /// `get_pruned_tx_blob` fetches the pruned transaction blob with the given hash.
         ///
@@ -432,7 +428,7 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the transaction to fetch.
-        fn get_pruned_tx_blob(h: &Hash) -> Result<Blobldata,DB_FAILURES>;
+        fn get_pruned_tx_blob(h: &Hash) -> Result<Blobdata,DB_FAILURES>;
 
         /// `get_prunable_tx_blob` fetches the prunable transaction blob with the given hash.
         /// 
@@ -440,7 +436,15 @@ pub(in super) trait BlockchainDB {
         /// 
         /// Parameters:
         /// `h`: is the given hash of the transaction to fetch.
-        fn get_prunable_tx_blob(h: &Hash) -> Result<Blobldata,DB_FAILURES>;
+        fn get_prunable_tx_blob(h: &Hash) -> Result<Blobdata,DB_FAILURES>;
+
+        /// `get_prunable_tx_hash` fetches the prunable transaction hash
+        /// 
+        /// Should return the hash of the prunable transaction data. In case of failures, a DB_FAILURES, will be return.
+        /// 
+        /// Parameters:
+        /// `tx_hash`: is the given hash of the transaction  to fetch.
+        fn get_prunable_tx_hash(tx_hash: &Hash)  -> Result<Hash,DB_FAILURES>;
 
         /// `get_pruned_tx_blobs_from` fetches a number of pruned transaction blob from the given hash, in canonical blockchain order.
         /// 
@@ -450,10 +454,105 @@ pub(in super) trait BlockchainDB {
         /// Parameters:
         /// `h`: is the given hash of the first transaction/
         /// `count`: is the number of transaction to fetch in canoncial blockchain order.
-        fn get_pruned_tx_blobs_from(h: &Hash, count: usize) -> Result<Vec<Blobldata>,DB_FAILURES>;
+        fn get_pruned_tx_blobs_from(h: &Hash, count: usize) -> Result<Vec<Blobdata>,DB_FAILURES>;
+
+        /// `get_tx_block_height` fetches the height of a transaction's block
+        /// 
+        /// Should return the height of the block containing the transaction with the given hash. In case
+        /// of failures, a DB FAILURES will be return. Precisely, a TX_DNE error will be return if the transaction cannot be found.
+        /// 
+        /// Parameters:
+        /// `h`: is the fiven hash of the first transaction
+        fn get_tx_block_height(h: &Hash) -> Result<u64,DB_FAILURES>;
 
 
 
+        // -----------------------------------------|  Blocks  |----------------------------------------------------------
+
+
+
+        /// `blocks_exists` check if the given block exists
+        /// 
+        /// Return `true` if the block exist, `false` otherwise. In case of failures, a `DB_FAILURES` will be return.
+        /// 
+        /// Parameters:
+        /// `h`: is the given hash of the requested block.
+        fn block_exists(h: &Hash) -> Result<bool,DB_FAILURES>;
+
+        /// `get_block` fetches the block with the given hash.
+        /// 
+        /// Return the requested block. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `h`: is the given hash of the requested block.
+        fn get_block(h: &Hash) -> Result<monero::Block,DB_FAILURES>;
+
+        /// `get_block_from_height` fetches the block located at the given height.
+        /// 
+        /// Return the requested block. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `height`: is the height where the requested block is located.
+        fn get_block_from_height(height: u64) -> Result<monero::Block,DB_FAILURES>;
+
+        /// `get_block_from_range` fetches the blocks located from and to the specified heights.
+        /// 
+        /// Return the requested blocks. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if at least requested block can't be found. If the range requested past the end of the blockchain,
+        /// an `ARITHMETIC_COUNT` error will be return.
+        /// 
+        /// Parameters:
+        /// `height_range`: is the range of height where the requested blocks are located.
+        fn get_blocks_from_range(height_range: Range<u64>) -> Result<Vec<monero::Block>,DB_FAILURES>;
+
+        /// `get_block_blob` fetches the block blob with the given hash.
+        /// 
+        /// Return the requested block blob. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+        /// error will be returned if the requested block can't be found.
+        /// 
+        /// Parameters:
+        /// `h`: is the given hash of the requested block.
+        fn get_block_blob(h: monero::cryptonote::hash::Hash) -> Result<Blobdata,DB_FAILURES>;
+
+
+        //a wat?
+        fn get_blocks_from(
+                start_height: u64, 
+                min_block_count: usize, 
+                max_block_count: usize, 
+                max_tx_count: usize, 
+                max_size: usize, 
+                pruned: bool, 
+                skip_coinbase: bool, 
+                get_miner_tx_hash: bool) -> Result<Vec<((String, monero::cryptonote::hash::Hash), Vec<(monero::cryptonote::hash::Hash, String)>)>,DB_FAILURES>;
+        
+
+        
+
+        // specific stats
+       
+        fn get_block_header(h: monero::cryptonote::hash::Hash) -> Result<monero::BlockHeader,DB_FAILURES>;
+
+        fn get_block_blob_from_height(height: u64) -> Result<String,DB_FAILURES>;
+
+        fn get_block_weight(weight: u64) -> Result<usize, DB_FAILURES>;
+
+        fn get_block_weights(start_height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>;
+
+        fn get_block_already_generated_coins(height: u64) -> Result<u64,DB_FAILURES>;
+
+        fn get_block_long_term_weight(height: u64) -> Result<u64,DB_FAILURES>;
+
+        fn get_long_term_block_weights(height: u64, count: usize) -> Result<Vec<u64>,DB_FAILURES>; // Shouldn't have DB_FAILURES
+
+        fn get_block_hash_from_height(height: u64) -> Result<monero::cryptonote::hash::Hash,DB_FAILURES>;
+
+        // global stats
+
+        fn get_block_timestamp(height: u64) -> Result<u64,DB_FAILURES>;
+        fn get_block_height(h: monero::cryptonote::hash::Hash) -> Result<u64,DB_FAILURES>;
 
         // bool m_open;
         // mutable epee::critical_section m_synchronization_lock;  //!< A lock, currently for when BlockchainLMDB needs to resize the backing db file
