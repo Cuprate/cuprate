@@ -30,17 +30,17 @@ I'm working on rewriting the blockchain_db part atm.
 
 ### Contributions
 
-Any help on rewriting other parts of the node while also proposing improvements and respecting the goal of the project (which means try to be async and no weird api, or at least talk about it) is appreciated. 
+Any help on rewriting other parts of the node while also aligning with the targeted improvements is appreciated. 
 
 I encourage anyone to review the work being done, discuss about it or propose agressive optimizations (at architectural level if needed, or even micro-optimizations in 'monolithic components').
 
+For non-developers people, it is time for you to unleash your ideas.
+
 ### Code & Repo
 
-For the moment i try to organize the repo like the official one.
+For the moment I try to organize the repository like the official one. But it won't last for long.
 
 ### Improvements & Features
-
-<details> <summary>Asynchronous Design</summary> </br> Networking will be more performant and versatile by using Tokio. It will permit the simultaneous connections of a hundred peers. Handling different protocols by peers will be possible in a modular manner.</details>
   
   <details> <summary>Traffic Obfuscation</summary> </br> Different protocol to bypass DPI will be available, such as with <a href="https://github.com/vtnerd/monero/blob/docs_p2p_e2e/docs/LEVIN_PROTOCOL.md#encryption">Levin protocol</a> (TLS based, see https://github.com/monero-project/monero/issues/7078) and QUIC <a href="https://github.com/syncthing/syncthing/pull/5737">like Syncthing have done</a>, but with offset and timing mitigations. Unless the monero-core team decide to implement these protocols, they'll only by available between cuprate peers.</details>
   

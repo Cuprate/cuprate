@@ -1,11 +1,31 @@
 [package]
 name = "cuprate"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
+rust-version = "1.67.0"
+description = "An upcoming experimental, modern & secure monero node"
+readme = "readme.md"
+repository = "https://github.com/SyntheticBird45/cuprate"
+license = "BSD-3-Clause"
+license-file = "LICENSE"
+
+# All Contributors on github
+authors=["SyntheticBird45"]
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 monero = {version = "*", features = ['serde']}
 serde = "*"
-heed = "0.20.0-alpha.0"
+
+# As suggested by /u/danda :
+thiserror = "*"
+
+[profile.release]
+opt-level = 3
+debug = 0
+strip = "symbols"
+lto = "thin"
+panic = "abort"
+build.rustflags=["-Zcf-protection=full", "-Zsanitizer=cfi", "-Crelocation-model=pie", "-Cstack-protector=all"]
