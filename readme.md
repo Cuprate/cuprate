@@ -36,13 +36,23 @@ I encourage anyone to review the work being done, discuss about it or propose ag
 
 For non-developers people, it is time for you to unleash your ideas.
 
-### Code & Repo
+### Code, Repository & Dependencies
 
-No unsafe code is permitted, and the codebase will never contain `.except()` or `panic!()`. We discourage the use
+No unsafe code is permitted in the project, and the codebase will never contain `.except()` or `panic!()`. We discourage the use
 of `.unwrap()`, as it implied that all errors are correctly handled.
 
-For the moment I try to organize the repository like the official one. But it won't last for long.
+The organization of the repository is at the moment arbritrary. The blockchain database components can be found under the blockchain_db member.
 
+<details>
+<summary>Dependencies</summary>
+
+| Dependencies |   Reason    |
+|----------------|-----------|
+| monero-rs        | Used to define monero's type and serialize/deserialize data. 
+| serde                  | serialize/deserialize support. 
+| thiserror            | used to Derive(Error) in the codebase.
+
+</details>
 
 ### Improvements & Features
   
