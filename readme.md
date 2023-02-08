@@ -24,7 +24,7 @@ Releasing an alternative node will reinforce the Monero Network if a security vu
   
 ### Status
 
-The project is actualy handle by single guy that never really started a big project of this scale nor understand completely the monero codebase. That you like it or not, He have a lot of time ahead of him now and will continue to work on this.
+The project is actually handle by single guy that never really started a big project of this scale nor understand completely the monero codebase. But he really wants to learn and code it.
 
 I'm working on rewriting the blockchain_db part atm.
 
