@@ -1,0 +1,18 @@
+[package]
+name = "blockchain_db"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.67.0"
+
+# All Contributors on github
+authors=[
+        "SyntheticBird45 <@someoneelse495495:matrix.org>"
+        ]
+        
+
+[dependencies]
+monero = {version = "*", features = ['serde']}
+serde = "*"
+
+# As suggested by /u/danda :
+thiserror = "*"

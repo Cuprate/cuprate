@@ -1,16 +1,26 @@
 use thiserror::Error;
 use monero::{Hash, Transaction, Block, BlockHeader};
 
-use crate::{cryptonote_protocol::enums::{RelayMethod}, cryptonote_basic::difficulty::difficulty_type, blockchain_db::{}};
 use std::{error::Error, ops::Range};
 
 const MONERO_DEFAULT_LOG_CATEGORY: &str = "blockchain.db";
 
+pub type difficulty_type = u128;
 type Blobdata = Vec<u8>;
 type TxOutIndex = (Hash, u64);
 
+/// Methods tracking how a tx was received and relayed
+pub enum RelayMethod {
+        none,                           //< Received via RPC with `do_not_relay` set
+        local,                            //< Received via RPC; trying to send over i2p/tor, etc.
+        forward,                     //< Received over i2p/tor; timer delayed before ipv4/6 public broadcast
+        stem,                           //< Received/send over network using Dandelion++ stem
+        fluff,                             //< Received/sent over network using Dandelion++ fluff
+        block,                           //< Received in block, takes precedence over others
+}
+
 // the database types are going to be defined in the monero rust library.
-pub(in super) enum RelayCategory {
+pub enum RelayCategory {
         broadcasted,                                                                        //< Public txes received via block/fluff
         relayable,                                                                               //< Every tx not marked `relay_method::none`
         legacy,                                                                                     //< `relay_category::broadcasted` + `relay_method::none` for rpc relay requests or historical reasons
@@ -96,7 +106,7 @@ pub enum TESTTT {
 
 #[allow(dead_code)]
 #[derive(Error, Debug)]
-pub(in super) enum DB_FAILURES {
+pub enum DB_FAILURES {
         #[error("DB_ERROR: `{0}`. The database is likely corrupted.")]
         DB_ERROR(String),
         #[error("DB_ERROR_TXN_START: `{0}`. The database failed starting a txn.")]
@@ -132,7 +142,7 @@ pub(in super) enum DB_FAILURES {
         HASH_DNE(Option<Hash>),
 }
 
-pub(in super) trait BlockchainDB {
+pub trait BlockchainDB {
 
         // supposed to be private
 
