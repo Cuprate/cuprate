@@ -5,9 +5,9 @@ edition = "2021"
 rust-version = "1.67.0"
 description = "An upcoming experimental, modern & secure monero node"
 readme = "readme.md"
-repository = "https://github.com/SyntheticBird45/cuprate"
 license = "GPL-3"
-license-file = "LICENSE"
+repository = "https://github.com/SyntheticBird45/cuprate"
+
 
 # All Contributors on github
 authors=[
@@ -20,7 +20,7 @@ members = [
         "blockchain_db"
 ]
 
-[dependencies]
+[workspace.dependencies]
 monero = {version = "*", features = ['serde']}
 serde = "*"
 
@@ -33,4 +33,6 @@ debug = 0
 strip = "symbols"
 lto = "thin"
 panic = "abort"
-build.rustflags=["-Zcf-protection=full", "-Zsanitizer=cfi", "-Crelocation-model=pie", "-Cstack-protector=all"]
+
+[build]
+rustflags=["-Zcf-protection=full", "-Zsanitizer=cfi", "-Crelocation-model=pie", "-Cstack-protector=all"]
