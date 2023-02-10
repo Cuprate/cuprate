@@ -195,7 +195,7 @@ pub trait BlockchainDB {
 
         
 
-        fn add_transaction();
+        
 
         //      mutable uint64_t time_tx_exists = 0;  //!< a performance metric
         //      uint64_t time_commit1 = 0;  //!< a performance metric
@@ -274,7 +274,7 @@ pub trait BlockchainDB {
         fn get_num_outputs(amount: &u64) -> u64;
 
         // Should be hidden but it isn't????
-        fn get_indexing_base() -> u64 { return 0;}
+
 
 
 
@@ -345,7 +345,7 @@ pub trait BlockchainDB {
 
         
 
-        // some note to help me
+        // some notes to help me
 
         // get_*_tx group : get_tx, get_pruned_tx. they are duplicate
 
@@ -427,6 +427,9 @@ pub trait BlockchainDB {
         // -----------------------------------------| Transactions |----------------------------------------------------------
 
 
+
+        ///
+        fn add_transaction();
 
         /// `get_tx_count` fetches the total number of transactions stored in the database
         /// 
@@ -545,7 +548,7 @@ pub trait BlockchainDB {
         /// `cumulative_difficulty`: is the accumulated difficulty at this block.
         /// `coins_generated` is the number of coins generated after this block.
         /// `blk_hash`: is the hash of the block.
-        fn add_block() -> Result<(), DB_FAILURES>;
+        fn add_block(blk: Block, blk_hash: Hash, block_weight: u64, long_term_block_weight: u64, cumulative_difficulty: u128, coins_generated: u64) -> Result<(), DB_FAILURES>;
 
         /// `pop_block` pops the top block off the blockchain.
         /// 
@@ -771,4 +774,4 @@ pub trait BlockchainDB {
         //a
 }
 
-// functions defined as useless : init_options(), is_open(), reset_stats(), show_stats(), open(), close(), get_output_histogram(), safesyncmode, get_filenames(), get_db_name(), remove_data_file(), lock(), unlock(), is_read_only(), get_database_size(), get_output_distribution(), set_auto_remove_logs(), check_hard_fork_info(), drop_hard_fork_info();
+// functions defined as useless : init_options(), is_open(), reset_stats(), show_stats(), open(), close(), get_output_histogram(), safesyncmode, get_filenames(), get_db_name(), remove_data_file(), lock(), unlock(), is_read_only(), get_database_size(), get_output_distribution(), set_auto_remove_logs(), check_hard_fork_info(), drop_hard_fork_info(), get_indexing_base();
