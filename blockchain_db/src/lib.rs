@@ -287,23 +287,7 @@ pub trait BlockchainDB {
 
         fn has_key_image(img: &monero::blockdata::transaction::KeyImage) -> bool;
 
-        fn add_txpool_tx(txid: &monero::cryptonote::hash::Hash, blob: &Vec<u8>, details: &txpool_tx_meta_t);
-
-        fn update_txpool_tx(txid: &monero::Hash, details: &txpool_tx_meta_t);
-
-        fn get_txpool_tx_count(tx_category: RelayCategory) -> u64;
-
-        fn txpool_has_tx(txid: &monero::Hash, tx_category: &RelayCategory) -> bool;
-
-        fn remove_txpool_tx(txid: &monero::Hash);
-
-        fn get_txpool_tx_meta(txid: &monero::Hash, meta: &txpool_tx_meta_t) -> bool;
-
-        fn get_txpool_tx_blob(txid: &monero::Hash, bd: &mut Vec<u8>, tx_category: RelayCategory) -> bool;
-
-        fn get_txpool_tx_blob_but_blob(txid: &monero::Hash, tx_category: RelayCategory) -> Vec<u8>;
-
-        fn txpool_tx_matches_category(tx_hash: &monero::Hash, category: RelayCategory) -> bool;
+        
 
         fn prune_outputs(amount: u64);
 
@@ -428,8 +412,17 @@ pub trait BlockchainDB {
 
 
 
-        ///
-        fn add_transaction();
+        /// `add_transaction` add the corresponding transaction and his hash to the specified block.
+        /// 
+        /// In case of failures, a DB_FAILURES will be return. Precisely, a TX_EXISTS will be returned if the 
+        /// transaction to be added already exists in the database.
+        /// 
+        /// Parameters:
+        /// `blk_hash`: is the hash of the block which inherit the transaction
+        /// `tx`: is obviously the transaction to add
+        /// `tx_hash`: is the hash of the transaction.
+        /// `tx_prunable_hash_ptr`: is the hash of the prunable part of the transaction.
+        fn add_transaction() -> Result<(),DB_FAILURES>;
 
         /// `get_tx_count` fetches the total number of transactions stored in the database
         /// 
@@ -771,7 +764,23 @@ pub trait BlockchainDB {
 
 
 
-        //a
+        fn add_txpool_tx(txid: &monero::cryptonote::hash::Hash, blob: &Vec<u8>, details: &txpool_tx_meta_t);
+
+        fn update_txpool_tx(txid: &monero::Hash, details: &txpool_tx_meta_t);
+
+        fn get_txpool_tx_count(tx_category: RelayCategory) -> u64;
+
+        fn txpool_has_tx(txid: &monero::Hash, tx_category: &RelayCategory) -> bool;
+
+        fn remove_txpool_tx(txid: &monero::Hash);
+
+        fn get_txpool_tx_meta(txid: &monero::Hash, meta: &txpool_tx_meta_t) -> bool;
+
+        fn get_txpool_tx_blob(txid: &monero::Hash, bd: &mut Vec<u8>, tx_category: RelayCategory) -> bool;
+
+        fn get_txpool_tx_blob_but_blob(txid: &monero::Hash, tx_category: RelayCategory) -> Vec<u8>;
+
+        fn txpool_tx_matches_category(tx_hash: &monero::Hash, category: RelayCategory) -> bool;
 }
 
 // functions defined as useless : init_options(), is_open(), reset_stats(), show_stats(), open(), close(), get_output_histogram(), safesyncmode, get_filenames(), get_db_name(), remove_data_file(), lock(), unlock(), is_read_only(), get_database_size(), get_output_distribution(), set_auto_remove_logs(), check_hard_fork_info(), drop_hard_fork_info(), get_indexing_base();
