@@ -22,7 +22,7 @@ members = [
 
 [workspace.dependencies]
 monero = {version = "*", features = ['serde']}
-serde = "*"
+serde = { version = "*", features =["derive"]}
 
 # As suggested by /u/danda :
 thiserror = "*"

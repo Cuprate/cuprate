@@ -20,14 +20,20 @@
 
 use thiserror::Error;
 use monero::{Hash, Transaction, Block, BlockHeader};
-
 use std::{error::Error, ops::Range};
+
 
 const MONERO_DEFAULT_LOG_CATEGORY: &str = "blockchain.db";
 
+
+
 pub type difficulty_type = u128;
 type Blobdata = Vec<u8>;
+type BlobdataRef = [u8];
 type TxOutIndex = (Hash, u64);
+
+
+
 
 /// Methods tracking how a tx was received and relayed
 pub enum RelayMethod {
@@ -163,15 +169,28 @@ pub enum DB_FAILURES {
         HASH_DNE(Option<Hash>),
 }
 
-pub trait BlockchainDB {
+pub trait KeyValueDatabase {
 
+}
+
+pub trait BlockchainDB where Self: Sized + KeyValueDatabase {
         // supposed to be private
 
         
 
-        fn remove_block() -> Result<(), DB_FAILURES>;
+        // TODO: understand
+        /// `add_transaction_data` add the specified transaction data to its storage.
+        /// 
+        /// It only add the transaction blob and tx's metadata, not the collection of outputs. 
+        /// 
+        /// Return the hash of the transaction added. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `blk_hash`: is the hash of the block containing the transaction
+        /// `tx_and_data`: is a tuple containing the transaction and it's blobdata
+        fn add_transaction_data() -> Result<Hash, DB_FAILURES>;
 
-        fn add_transaction_data() -> Result<u64, DB_FAILURES>;
+        //fn remove_block() -> Result<(), DB_FAILURES>; useless as it just delete data from the table. pop_block that use it internally also use remove_transaction to literally delete the block. Can be implemented without
 
         fn remove_transaction_data() -> Result<(),DB_FAILURES>;
 
@@ -184,6 +203,16 @@ pub trait BlockchainDB {
         fn remove_spent_key() -> Result<(),DB_FAILURES>;
 
         fn remove_transaction();
+
+        fn get_tx_amount_output_indices(tx_id: u64, n_txes: usize) -> Vec<Vec<u64>>;
+
+        fn has_key_image(img: &monero::blockdata::transaction::KeyImage) -> bool;
+
+        
+
+        fn prune_outputs(amount: u64);
+
+        fn get_blockchain_pruning_seed() -> u32;
 
         // variables part.
         //      uint64_t num_calls = 0;  //!< a performance metric
@@ -233,87 +262,21 @@ pub trait BlockchainDB {
 
         //fn block_exists(h: monero::cryptonote::hash::Hash,  height: u64) -> bool;
 
-        
-
-        
-
-        //fn height() -> u64;
-
-        // TODO idk never done a todo in my life
-        // Gonna use this as an excuse to split this hell one more time
-        //. a dot. because dot. is cool.
-
-        
-
         // fn tx_exists(h: monero::cryptonote::hash::Hash, tx_id: Option<u64>) -> Result<(),()>; // Maybe error should be DB_FAILURES, not specified in docs
 
-        // started renaming
-
-        // issues. They want to use mut reference to edit the hash if it exist or not. | arg is return and return in Result
-        // Confirmed. These are indirect functions that take return their results through mutable references and report success with a boolean.
-        // Seems important to refactor this
-
         //fn tx_exist(h: monero::cryptonote::hash::Hash, tx: monero::Transaction) -> bool;
-        
-        
 
         //fn get_tx_blob(h: monero::cryptonote::hash::Hash, tx: String) -> bool;
 
         //fn get_pruned_tx_blob(h: monero::cryptonote::hash::Hash, tx: &mut String) -> bool;
 
-        
-
-        
-
-        
-
-        
-
-        
-
-        fn get_num_outputs(amount: &u64) -> u64;
-
-        // Should be hidden but it isn't????
-
-
-
-
-        // FINNALY SOME BLOCKCHAIN_DB.H STUFF OUT THERE!!!
-
-
-        // LMAO WTF IS CAN_THREAD_BULK_INDICES
-
-        fn get_tx_amount_output_indices(tx_id: u64, n_txes: usize) -> Vec<Vec<u64>>;
-
-        fn has_key_image(img: &monero::blockdata::transaction::KeyImage) -> bool;
-
-        
-
-        fn prune_outputs(amount: u64);
-
-        // Wtf no more arguments
-
-        fn get_blockchain_pruning_seed() -> u32;
-
         //fn update_pruning() -> bool;
 
         //fn check_pruning() -> bool;
 
-        fn get_max_block_size() -> u64;
+        //fn get_max_block_size() -> u64; It is never used
 
-        fn add_max_block_size() -> u64;
-
-
-
-        fn add_alt_block(blkid: &monero::Hash, data: &alt_block_data_t, blob: &Vec<u8>);
-
-        fn get_alt_block(blkid: &monero::Hash, data: *mut alt_block_data_t, blob: *mut Vec<u8>) -> bool;
-
-        fn remove_alt_block(blkid: &monero::Hash);
-
-        fn get_alt_block_count() -> u64;
-
-        fn drop_alt_blocks();
+        //fn add_max_block_size() -> u64; For reason above        
 
         //fn for_all_txpool_txes(wat: fn(wat1: &monero::Hash, wat2: &txpool_tx_meta_t, wat3: &String) -> bool, include_blob: bool, category: RelayCategory) -> Result<bool,DB_FAILURES>;
 
@@ -327,19 +290,17 @@ pub trait BlockchainDB {
 
         //fn for_all_alt_blocks();
 
-        
-
-        // some notes to help me
-
-        // get_*_tx group : get_tx, get_pruned_tx. they are duplicate
-
-        // Confirmed part that don't need to be redfined or smthg
-
-
 
         // ------------------------------------------|  Blockchain  |------------------------------------------------------------
 
 
+
+        /// `height` fetch the current blockchain height.
+        /// 
+        /// Return the current blockchain height. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// No parameters is required.
+        fn height() -> Result<u64,DB_FAILURES>;
 
         /// `set_hard_fork_version` sets which hardfork version a height is on.
         /// 
@@ -348,7 +309,7 @@ pub trait BlockchainDB {
         /// Parameters:
         /// `height`: is the height where the hard fork happen.
         /// `version`: is the version of the hard fork.
-        fn set_hard_fork_version();
+        fn set_hard_fork_version(&mut self);
 
         /// `get_hard_fork_version` checks which hardfork version a height is on.
         /// 
@@ -356,7 +317,7 @@ pub trait BlockchainDB {
         /// 
         /// Parameters:
         /// `height:` is the height to check.
-        fn get_hard_fork_version();
+        fn get_hard_fork_version(&mut self);
 
         /// May not need to be used
         fn fixup();
@@ -406,13 +367,21 @@ pub trait BlockchainDB {
         /// `index`: is the output's index (indexed by amount)
         fn get_output_tx_and_index(&mut self, amount: u64, index: u64,) -> Result<TxOutIndex,DB_FAILURES>;
 
+        /// `get_num_outputs` fetches the number of outputs of a given amount.
+        /// 
+        /// Return a count of outputs of the given amount. in case of failures a `DB_FAILURES` will be return.
+        /// 
+        /// Parameters:
+        /// `amount`: is the output amount being looked up.
+        fn get_num_outputs(amount: &u64) -> Result<u64,DB_FAILURES>;
+
 
 
         // -----------------------------------------| Transactions |----------------------------------------------------------
 
 
 
-        /// `add_transaction` add the corresponding transaction and his hash to the specified block.
+        /// `add_transaction` add the corresponding transaction and its hash to the specified block.
         /// 
         /// In case of failures, a DB_FAILURES will be return. Precisely, a TX_EXISTS will be returned if the 
         /// transaction to be added already exists in the database.
@@ -645,21 +614,21 @@ pub trait BlockchainDB {
         /// No parameters is required
         fn get_top_block_hash(&mut self,) -> Result<Hash,DB_FAILURES>;
 
-        // ! TODO: redefine the  result & docs. see what could be improved. Do we really need this function
+        // ! TODO: redefine the  result & docs. see what could be improved. Do we really need this function?
         /// `get_blocks_from` fetches a variable number of blocks and transactions from the given height, in canonical blockchain order as long as it meets the parameters.
         /// 
         /// Should return the blocks stored starting from the given height. The number of blocks returned is variable, based on the max_size defined. There will be at least `min_block_count`
         /// if possible, even if this contravenes max_tx_count. In case of failures, a `DB_FAILURES` error will be return.
         /// 
         /// Parameters:
-        /// `start_height`: is the given height to start from.
-        /// `min_block_count`: is the minimum number of blocks to return. If there are fewer blocks, it'll return fewer blocks than the minimum.
-        /// `max_block_count`: is the maximum number of blocks to return.
-        /// `max_size`: is the maximum size of block/transaction data to return (can be exceeded on time if min_count is met).
-        /// `max_tx_count`: is the maximum number of txes to return.
-        /// `pruned`: is whether to return full or pruned tx data
-        /// `skip_coinbase`: is whether to return or skip coinbase transactions (they're in blocks regardless)
-        /// `get_miner_tx_hash`: is whether to calculate and return the miner (coinbase) tx hash.
+        /// `start_height`: is the given height to start from.    
+        /// `min_block_count`: is the minimum number of blocks to return. If there are fewer blocks, it'll return fewer blocks than the minimum.    
+        /// `max_block_count`: is the maximum number of blocks to return.    
+        /// `max_size`: is the maximum size of block/transaction data to return (can be exceeded on time if min_count is met).    
+        /// `max_tx_count`: is the maximum number of txes to return.    
+        /// `pruned`: is whether to return full or pruned tx data.    
+        /// `skip_coinbase`: is whether to return or skip coinbase transactions (they're in blocks regardless).    
+        /// `get_miner_tx_hash`: is whether to calculate and return the miner (coinbase) tx hash.    
         fn get_blocks_from(&mut self,
                 start_height: u64,  
                 min_block_count: u64, 
@@ -760,27 +729,126 @@ pub trait BlockchainDB {
 
 
 
+        // --------------------------------------------|  Alt-Block  |------------------------------------------------------------
+
+
+
+        /// `add_alt_block` add a new alternative block.
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// blkid: is the hash of the original block
+        /// data: is the metadata for the block
+        /// blob: is the blobdata of this alternative block.
+        fn add_alt_block(blkid: &Hash, data: &alt_block_data_t, blob: &Blobdata) -> Result<(),DB_FAILURES>;
+
+        /// `get_alt_block` gets the specified alternative block.
+        /// 
+        /// Return a tuple containing the blobdata of the alternative block and its metadata. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `blkid`: is the hash of the requested alternative block.
+        fn get_alt_block(blkid: &Hash) -> Result<(alt_block_data_t,Blobdata),DB_FAILURES>;
+
+        /// `remove_alt_block` remove the specified alternative block
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `blkid`: is the hash of the alternative block to remove.
+        fn remove_alt_block(blkid: &Hash) -> Result<(),DB_FAILURES>;
+
+        /// `get_alt_block` gets the total number of alternative blocks stored
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// No parameters is required.
+        fn get_alt_block_count() -> Result<u64,DB_FAILURES>;
+
+        /// `drop_alt_block` drop all alternative blocks.
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// No parameters is required.
+        fn drop_alt_blocks() -> Result<(),DB_FAILURES>;
+
+
+
         // --------------------------------------------|  TxPool  |------------------------------------------------------------
 
 
 
-        fn add_txpool_tx(txid: &monero::cryptonote::hash::Hash, blob: &Vec<u8>, details: &txpool_tx_meta_t);
+        /// `add_txpool_tx` add a Pool's transaction to the database.
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `txid`: is the hash of the transaction to add.
+        /// `blob`: is the blobdata of the transaction to add.
+        /// `details`: is the metadata of the transaction pool at this specific transaction.
+        fn add_txpool_tx(&mut self, txid: &Hash, blob: &BlobdataRef, details: &txpool_tx_meta_t) -> Result<(),DB_FAILURES>;
 
-        fn update_txpool_tx(txid: &monero::Hash, details: &txpool_tx_meta_t);
+        /// `update_txpool_tx` replace pool's transaction metadata.
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `txid`: is the hash of the transaction to edit
+        /// `details`: is the new metadata to insert.
+        fn update_txpool_tx(&mut self, txid: &monero::Hash, details: &txpool_tx_meta_t) -> Result<(),DB_FAILURES>;
 
-        fn get_txpool_tx_count(tx_category: RelayCategory) -> u64;
+        /// `get_txpool_tx_count` gets the number of transactions in the txpool.
+        /// 
+        /// Return the number of transaction in the txpool. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `tx_category`: is the relay's category where the tx are coming from. (RelayCategory::broadcasted by default)
+        fn get_txpool_tx_count(&mut self, tx_category: RelayCategory) -> Result<u64,DB_FAILURES>;
 
-        fn txpool_has_tx(txid: &monero::Hash, tx_category: &RelayCategory) -> bool;
+        /// `txpool_has_tx`checks if the specified transaction exist in the transaction's pool and if it belongs
+        /// to the specified category.
+        /// 
+        /// Return `true` if the condition above are met, `false otherwise`. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `txid`: is the hash of the transaction to check for
+        /// `tx_category`: is the relay's category where the tx is supposed to come from.
+        fn txpool_has_tx(&mut self, txid: &Hash, tx_category: &RelayCategory) -> Result<bool,DB_FAILURES>;
 
-        fn remove_txpool_tx(txid: &monero::Hash);
+        /// `remove_txpool_tx` remove the specified transaction from the transaction pool.
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `txid`: is the hash of the transaction to remove.
+        fn remove_txpool_tx(&mut self, txid: &Hash) -> Result<(),DB_FAILURES>;
 
-        fn get_txpool_tx_meta(txid: &monero::Hash, meta: &txpool_tx_meta_t) -> bool;
+        /// `get_txpool_tx_meta` gets transaction's pool metadata recorded at the specified transaction.
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `txid`: is the hash of metadata's transaction hash.
+        fn get_txpool_tx_meta(&mut self, txid: &Hash) -> Result<txpool_tx_meta_t,DB_FAILURES>;
 
-        fn get_txpool_tx_blob(txid: &monero::Hash, bd: &mut Vec<u8>, tx_category: RelayCategory) -> bool;
+        /// `get_txpool_tx_blob` gets the txpool transaction's blob.
+        /// 
+        /// In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `txid`: is the hash of the transaction to fetch blobdata from.
+        /// `tx_category`: is the relay's category where the tx are coming from. < monerod note: for filtering out hidden/private txes.
+        fn get_txpool_tx_blob(&mut self, txid: &Hash, tx_category: RelayCategory) -> Result<Blobdata,DB_FAILURES>;
 
-        fn get_txpool_tx_blob_but_blob(txid: &monero::Hash, tx_category: RelayCategory) -> Vec<u8>;
-
-        fn txpool_tx_matches_category(tx_hash: &monero::Hash, category: RelayCategory) -> bool;
+        /// `txpool_tx_matches_category` checks if the corresponding transaction belongs to the specified category.
+        /// 
+        /// Return `true` if the transaction belongs to the category, `false` otherwise. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `tx_hash`: is the hash of the transaction to lookup.
+        /// `category`: is the relay's category to check.
+        fn txpool_tx_matches_category(&mut self, tx_hash: &Hash, category: RelayCategory) -> Result<bool,DB_FAILURES>;
 }
 
 // functions defined as useless : init_options(), is_open(), reset_stats(), show_stats(), open(), close(), get_output_histogram(), safesyncmode, get_filenames(), get_db_name(), remove_data_file(), lock(), unlock(), is_read_only(), get_database_size(), get_output_distribution(), set_auto_remove_logs(), check_hard_fork_info(), drop_hard_fork_info(), get_indexing_base();
