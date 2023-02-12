@@ -119,17 +119,6 @@ impl txpool_tx_meta_t {
         }
 }
 
-
-
-
-/// TODO : String -> Vec<u8> they are cryptonote::blobdata
-
-#[derive(Error, Debug)]
-pub enum TESTTT {
-        #[error("AAAAAA")]
-        A,
-}
-
 #[non_exhaustive]
 #[allow(dead_code)]
 #[derive(Error, Debug)]
@@ -173,7 +162,7 @@ pub trait KeyValueDatabase {
 
 }
 
-pub trait BlockchainDB where Self: Sized + KeyValueDatabase {
+pub trait BlockchainDB: KeyValueDatabase {
         // supposed to be private
 
         
