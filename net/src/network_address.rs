@@ -5,7 +5,6 @@ use serde::{de, ser::SerializeStruct, Deserialize, Serialize};
 
 #[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct IPv4Address {
-
     pub m_ip: u32,
     pub m_port: u16,
 }
@@ -13,8 +12,8 @@ pub struct IPv4Address {
 impl From<net::SocketAddrV4> for IPv4Address {
     fn from(value: net::SocketAddrV4) -> Self {
         IPv4Address {
-            m_ip: u32::from_le_bytes(value.ip().octets()), 
-            m_port: value.port() 
+            m_ip: u32::from_le_bytes(value.ip().octets()),
+            m_port: value.port(),
         }
     }
 }

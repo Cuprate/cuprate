@@ -6,6 +6,7 @@ use std::{net, io::{Read, Write}, time::Duration};
 
 use cuprate_net::messages::PeerID;
 use state_machine::peer_list_mgr::PeerStoreConfig;
+use cuprate_net::levin::{InternalStateMachine, Direction};
 
 struct Store;
 
@@ -60,9 +61,11 @@ fn test() {
 
     let mut sm= state_machine::StateMachine::new(info, rng, store, peer_store_cfg);
 
+    let mut protocol = cuprate_net::levin::protocol_machine::Levin::new(sm);
+
     let mut stream = listener.incoming().next().unwrap().unwrap();
     let addr = stream.peer_addr().unwrap();
-    sm.connected(&addr.into(), state_machine::Direction::Inbound);
+    protocol.connected(addr.into(), Direction::Inbound);
     loop {
         std::thread::sleep(Duration::from_secs(2));
         println!("new conn: {}", addr);
@@ -70,14 +73,15 @@ fn test() {
         let len = stream.read(&mut buf).unwrap();
         buf = buf[0..len].to_vec();
         if !buf.is_empty() {
-            sm.message_received(&addr.into(), &buf);
+            println!("recived message");
+            protocol.received_bytes(&addr.into(), &buf);
         }
 
-        let output = sm.next();
+        let output = protocol.next();
         if output.is_some() {
             println!("{:?}", output);
             match output.unwrap() {
-                state_machine::Output::Write(_, bytes) => {
+                cuprate_net::levin::protocol_machine::Output::Write(_, bytes) => {
                     println!("{}, {:?}", bytes.len(), bytes);
                     stream.write_all(&bytes).unwrap()},
                 _ => todo!("reactor I/O")

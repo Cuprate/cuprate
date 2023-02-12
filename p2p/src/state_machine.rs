@@ -1,44 +1,26 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
-use cuprate_net::BucketBody;
+use cuprate_net::levin::{InternalStateMachine, ISMOutput, Direction};
 use cuprate_net::NetworkAddress;
-use cuprate_net::BucketStream;
-use cuprate_net::bucket::Bucket;
-use cuprate_net::bucket::header::P2pCommand;
+use cuprate_net::P2pCommand;
 use cuprate_net::messages::BasicNodeData;
 use cuprate_net::messages::CoreSyncData;
 use cuprate_net::messages::MessageRequest;
 use cuprate_net::messages::MessageResponse;
+use cuprate_net::messages::MessageNotification;
 use cuprate_net::messages::PeerID;
 use cuprate_net::messages::admin::HandshakeRequest;
 use cuprate_net::messages::admin::HandshakeResponse;
-
-use self::outbox::MsgType;
 
 mod outbox;
 mod peer_mgr;
 pub mod peer_list_mgr;
 
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Direction {
-    Inbound,
-    Outbound
-}
-
 #[derive(Debug)]
 pub enum DisconnectReason {
     PeerSentUnexpectedHandshake,
     PeerIsAlreadyConnected,
-}
-
-#[derive(Debug)]
-pub enum Output {
-    Write(NetworkAddress, Vec<u8>),
-    SetTimer(chrono::Duration),
-    Disconnect(NetworkAddress, DisconnectReason),
-    Connect(NetworkAddress)
 }
 
 pub enum Network {
@@ -82,7 +64,6 @@ impl NodeInfo {
 pub struct StateMachine<S> {
     node_info: NodeInfo,
     outbox: outbox::OutBox,
-    streams: HashMap<NetworkAddress, BucketStream>,
     peer_mgr: peer_mgr::PeerMgr,
     peer_list: peer_list_mgr::PeerList<S>,
 }
@@ -92,44 +73,13 @@ impl<S: peer_list_mgr::PeerStore> StateMachine<S> {
         StateMachine {
             node_info: info,
             outbox: outbox::OutBox::new(),
-            streams: HashMap::new(),
             peer_mgr: peer_mgr::PeerMgr::new(),
             peer_list: peer_list_mgr::PeerList::new(store, peer_store_cfg, rng)
         }
     }
 
-    pub fn connected(&mut self, addr: &NetworkAddress, direction: Direction) {
-        let stream = BucketStream::default();
-        self.streams.insert(*addr, stream);
-        self.peer_mgr.connected(*addr, direction, &mut self.outbox);
-    }
-
-    pub fn message_received(&mut self, addr: &NetworkAddress, bytes: &[u8]) {
-        println!("messaged recived len:{}", bytes.len());
-        let Some(stream) = self.streams.get_mut(&addr.clone()) else {
-            println!("peer not connected");
-            return;
-        };
-        stream.received_bytes(bytes);
-        let mut messages = vec![];
-        while let Some(message) = stream.try_decode_next_bucket().unwrap() {////////////////////////
-            println!("{:#?}", message);
-            messages.push(message)
-        }
-
-        for message in messages {
-            self.handle_bucket(*addr, message);
-        }
-    }
-
-    fn handle_bucket(&mut self, addr: NetworkAddress, bucket: Bucket) {
-        match bucket.body {
-            cuprate_net::BucketBody::Request(req) => self.handle_req(addr, *req),
-            _ => todo!("handle res/noti")
-        }
-    }
-
     fn handle_req(&mut self, addr: NetworkAddress, req: MessageRequest) {
+        println!("new req");
         match req {
             MessageRequest::Handshake(handsk) => self.handle_handshake_req(addr, handsk),
             _ => todo!("handle other reqs")
@@ -142,30 +92,76 @@ impl<S: peer_list_mgr::PeerStore> StateMachine<S> {
 
 }
 
+impl<S: peer_list_mgr::PeerStore> InternalStateMachine for StateMachine<S> {
+    type BodyNotification = MessageNotification;
+    type BodyRequest = MessageRequest;
+    type BodyResponse = MessageResponse;
+    type PeerID = NetworkAddress;
+    type DisconnectReason = DisconnectReason;
+
+    fn connected(&mut self, addr: &Self::PeerID, direction: Direction) {
+        self.peer_mgr.connected(*addr, direction, &mut self.outbox);
+    }
+
+    fn disconnected(&mut self, addr: &Self::PeerID) {
+        
+    }
+
+    fn tick(&mut self) {
+        
+    }
+
+    fn wake(&mut self) {
+        
+    }
+
+    fn received_request(&mut self, addr: &Self::PeerID, body: Self::BodyRequest) {
+        self.handle_req(*addr, body);
+    }
+
+    fn received_response(&mut self, addr: &Self::PeerID, body: Self::BodyResponse) {
+        
+    }
+
+    fn received_notification(&mut self, addr: &Self::PeerID, body: Self::BodyNotification) {
+        
+    }
+
+    fn error_decoding_bucket(&mut self, error: cuprate_net::levin::BucketError) {
+        
+    }
+}
+
+
 impl<S: peer_list_mgr::PeerStore> Iterator for StateMachine<S> {
-    type Item = Output;
+    type Item = ISMOutput<
+    NetworkAddress,
+    DisconnectReason,
+    MessageNotification,
+    MessageRequest,
+    MessageResponse,
+>;
     fn next(&mut self) -> Option<Self::Item> {
         let Some(output) = self.outbox.next() else {
             return None;
         };
         Some(match output {
             outbox::Event::Internal(_) => todo!("internal event"),
-            outbox::Event::Connect(addr) => Output::Connect(addr),
-            outbox::Event::Disconnect(addr, reason) => Output::Disconnect(addr, reason),
-            outbox::Event::SendMsg(addr, command , ty) => Output::Write(addr, self.build_bucket_body(command, ty).build_full_bucket_bytes()),
-            outbox::Event::SetTimer(timer) => Output::SetTimer(chrono::Duration::seconds(timer)),
+            outbox::Event::Connect(addr) => ISMOutput::Connect(addr),
+            outbox::Event::Disconnect(addr, reason) => ISMOutput::Disconnect(addr, reason),
+            outbox::Event::SetTimer(timer) => ISMOutput::SetTimer(std::time::Duration::from_secs(timer)),
+            outbox::Event::SendRes(addr, command) => ISMOutput::WriteResponse(addr, self.build_message_response(command)),
+            e => todo!("{:?}",e)
 
         })
     }
 }
 
+// ******************************************
+// **          Message Building            **
+// ******************************************
+
 impl<S: peer_list_mgr::PeerStore> StateMachine<S> {
-    fn build_bucket_body(&mut self, command: P2pCommand, ty: MsgType) -> BucketBody {
-        match ty {
-            MsgType::Response => BucketBody::Response(Box::new(self.build_message_response(command))),
-            _ => todo!("bucket")
-        }
-    }
 
     fn build_message_response(&mut self, command: P2pCommand) -> MessageResponse {
         match command {

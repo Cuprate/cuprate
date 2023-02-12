@@ -5,76 +5,6 @@ use super::{BucketError, LEVIN_SIGNATURE, PROTOCOL_VERSION};
 use bitflags::bitflags;
 use byteorder::{LittleEndian, ReadBytesExt};
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum P2pCommand {
-    Handshake,
-    TimedSync,
-    Ping,
-    SupportFlags,
-
-    NewBlock,
-    NewTransactions,
-    RequestGetObject,
-    ResponseGetObject,
-    RequestChain,
-    ResponseChainEntry,
-    NewFluffyBlock,
-    RequestFluffyMissingTx,
-    GetTxPoolComplement,
-}
-
-impl P2pCommand {
-    fn to_le_bytes(self) -> [u8; 4] {
-        Into::<u32>::into(self).to_le_bytes()
-    }
-}
-
-impl TryFrom<u32> for P2pCommand {
-    type Error = BucketError;
-
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value {
-            1001 => Ok(P2pCommand::Handshake),
-            1002 => Ok(P2pCommand::TimedSync),
-            1003 => Ok(P2pCommand::Ping),
-            1007 => Ok(P2pCommand::SupportFlags),
-
-            2001 => Ok(P2pCommand::NewBlock),
-            2002 => Ok(P2pCommand::NewTransactions),
-            2003 => Ok(P2pCommand::RequestGetObject),
-            2004 => Ok(P2pCommand::ResponseGetObject),
-            2006 => Ok(P2pCommand::RequestChain),
-            2007 => Ok(P2pCommand::ResponseChainEntry),
-            2008 => Ok(P2pCommand::NewFluffyBlock),
-            2009 => Ok(P2pCommand::RequestFluffyMissingTx),
-            2010 => Ok(P2pCommand::GetTxPoolComplement),
-
-            _ => Err(BucketError::UnsupportedP2pCommand(value)),
-        }
-    }
-}
-
-impl From<P2pCommand> for u32 {
-    fn from(val: P2pCommand) -> Self {
-        match val {
-            P2pCommand::Handshake => 1001,
-            P2pCommand::TimedSync => 1002,
-            P2pCommand::Ping => 1003,
-            P2pCommand::SupportFlags => 1007,
-
-            P2pCommand::NewBlock => 2001,
-            P2pCommand::NewTransactions => 2002,
-            P2pCommand::RequestGetObject => 2003,
-            P2pCommand::ResponseGetObject => 2004,
-            P2pCommand::RequestChain => 2006,
-            P2pCommand::ResponseChainEntry => 2007,
-            P2pCommand::NewFluffyBlock => 2008,
-            P2pCommand::RequestFluffyMissingTx => 2009,
-            P2pCommand::GetTxPoolComplement => 2010,
-        }
-    }
-}
-
 bitflags! {
     pub struct Flags: u32 {
         const REQUEST = 1;
@@ -90,7 +20,7 @@ pub struct BucketHead {
     pub signature: u64,
     pub size: u64,
     pub have_to_return_data: bool,
-    pub command: P2pCommand,
+    pub command: u32,
     pub return_code: i32,
     pub flags: Flags,
     pub protocol_version: u32,
@@ -102,7 +32,7 @@ impl BucketHead {
     pub fn build(
         payload_size: u64,
         have_to_return_data: bool,
-        command: P2pCommand,
+        command: u32,
         flags: Flags,
         return_code: i32,
     ) -> BucketHead {
@@ -122,7 +52,7 @@ impl BucketHead {
             signature: r.read_u64::<LittleEndian>()?,
             size: r.read_u64::<LittleEndian>()?,
             have_to_return_data: r.read_u8()? != 0,
-            command: P2pCommand::try_from(r.read_u32::<LittleEndian>()?)?,
+            command: r.read_u32::<LittleEndian>()?,
             return_code: r.read_i32::<LittleEndian>()?,
             flags: Flags::from_bits(r.read_u32::<LittleEndian>()?)
                 .ok_or(BucketError::UnknownFlags)?,
