@@ -13,5 +13,6 @@ authors=[
 monero = {workspace = true, features = ['serde']}
 serde = { workspace = true}
 thiserror = {workspace = true }
+monero-epee-bin-serde = { git = "https://github.com/monero-rs/monero-epee-bin-serde" }
 
 rocksdb = { version = "*", features = ["multi-threaded-cf"]}
