@@ -13,6 +13,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+//!
+//! blockchain_db crates:
+//! Contains the implementation of interaction between the blockchain and the database backend.
+//! There is actually only one storage engine available:
+//! - RocksDB
+//! There is two other storage engine planned:
+//! - HSE (Heteregeonous Storage Engine)
+//! - LMDB (like monerod)
+
 #![deny(unused_attributes)]
 #![forbid(unsafe_code)]
 #![allow(non_camel_case_types)]

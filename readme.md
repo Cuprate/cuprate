@@ -24,9 +24,8 @@ Releasing an alternative node will reinforce the Monero Network if a security vu
   
 ### Status
 
-The project is actually handle by single guy that never really started a big project of this scale nor understand completely the monero codebase. But he really wants to learn and code it.
-
-I'm working on rewriting the blockchain_db part atm.
+@SyntheticBird45 is working on the blockchain_db part.
+@boog900 is working on the net/p2p part.
 
 ### Contributions
 
@@ -38,7 +37,7 @@ For non-developers people, it is time for you to unleash your ideas.
 
 ### Code, Repository & Dependencies
 
-No unsafe code is permitted in the project, and the codebase will never contain `.except()` or `panic!()`. We discourage the use
+No unsafe code is permitted in the project, and the codebase will never contain `.expect()` or `panic!()`. We discourage the use
 of `.unwrap()`, as it implied that all errors are correctly handled.
 
 The organization of the repository is at the moment arbritrary. The blockchain database components can be found under the blockchain_db member.
