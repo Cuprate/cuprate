@@ -28,7 +28,7 @@
 #![deny(clippy::expect_used, clippy::panic)]
 
 use thiserror::Error;
-use monero::{Hash, Transaction, Block, BlockHeader};
+use monero::{Hash, Transaction, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
 use std::{error::Error, ops::Range};
 
 
@@ -128,8 +128,18 @@ impl txpool_tx_meta_t {
         }
 }
 
-#[non_exhaustive]
-#[allow(dead_code)]
+
+pub enum OBJECT_TYPE {
+        BLOCK,
+        BLOCK_BLOB,
+        TRANSACTION,
+        TRANSACTION_BLOB,
+        OUTPUTS,
+        TXPOOL,
+}
+
+#[non_exhaustive]                       // < to remove
+#[allow(dead_code)]                   // < to remove
 #[derive(Error, Debug)]
 pub enum DB_FAILURES {
         #[error("DB_ERROR: `{0}`. The database is likely corrupted.")]
@@ -168,7 +178,7 @@ pub enum DB_FAILURES {
 }
 
 pub trait KeyValueDatabase {
-
+        fn add_data_to_cf<D: ?Sized + Encodable>(cf: &str, data: &D) -> Result<Hash, DB_FAILURES>;
 }
 
 pub trait BlockchainDB: KeyValueDatabase {
@@ -177,30 +187,24 @@ pub trait BlockchainDB: KeyValueDatabase {
         
 
         // TODO: understand
-        /// `add_transaction_data` add the specified transaction data to its storage.
-        /// 
-        /// It only add the transaction blob and tx's metadata, not the collection of outputs. 
-        /// 
-        /// Return the hash of the transaction added. In case of failures, a DB_FAILURES will be return.
-        /// 
-        /// Parameters:
-        /// `blk_hash`: is the hash of the block containing the transaction
-        /// `tx_and_data`: is a tuple containing the transaction and it's blobdata
-        fn add_transaction_data() -> Result<Hash, DB_FAILURES>;
+        
+
+
+        
 
         //fn remove_block() -> Result<(), DB_FAILURES>; useless as it just delete data from the table. pop_block that use it internally also use remove_transaction to literally delete the block. Can be implemented without
 
-        fn remove_transaction_data() -> Result<(),DB_FAILURES>;
+        
 
-        fn add_output() -> Result<u64, DB_FAILURES>;
+        
 
-        fn add_tx_amount_output_indices() -> Result<(), DB_FAILURES>;
+        
 
         fn add_spent_key() -> Result<(), DB_FAILURES>;
 
         fn remove_spent_key() -> Result<(),DB_FAILURES>;
 
-        fn remove_transaction();
+        
 
         fn get_tx_amount_output_indices(tx_id: u64, n_txes: usize) -> Vec<Vec<u64>>;
 
@@ -298,7 +302,7 @@ pub trait BlockchainDB: KeyValueDatabase {
         /// Return the current blockchain height. In case of failures, a DB_FAILURES will be return.
         /// 
         /// No parameters is required.
-        fn height() -> Result<u64,DB_FAILURES>;
+        fn height(&mut self) -> Result<u64,DB_FAILURES>;
 
         /// `set_hard_fork_version` sets which hardfork version a height is on.
         /// 
@@ -318,13 +322,33 @@ pub trait BlockchainDB: KeyValueDatabase {
         fn get_hard_fork_version(&mut self);
 
         /// May not need to be used
-        fn fixup();
+        fn fixup(&mut self);
 
 
 
         // -------------------------------------------|  Outputs  |------------------------------------------------------------
 
 
+
+        /// `add_output` add an output data to it's storage .
+        /// 
+        /// It internally keep track of the global output count. The global output count is also used to index outputs based on 
+        /// their order of creations.
+        /// 
+        /// Should return the amount output index. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `tx_hash`: is the hash of the transaction where the output comes from.
+        /// `output`: is the output to store.
+        /// `index`: is the local output's index (from transaction).
+        /// `unlock_time`: is the unlock time (height) of the output.
+        /// `commitment`: is the RingCT commitment of this output.
+        fn add_output(&mut self, tx_hash: &Hash, output: &Hash, index: TxOutIndex, unlock_time: u64, commitment: RctSig) -> Result<u64, DB_FAILURES>;
+
+        /// `add_tx_amount_output_indices` store amount output indices for a tx's outputs
+        /// 
+        /// TODO
+        fn add_tx_amount_output_indices() -> Result<(), DB_FAILURES>;
 
         /// `get_output_key` get some of an output's data
         /// 
@@ -389,14 +413,34 @@ pub trait BlockchainDB: KeyValueDatabase {
         /// `tx`: is obviously the transaction to add
         /// `tx_hash`: is the hash of the transaction.
         /// `tx_prunable_hash_ptr`: is the hash of the prunable part of the transaction.
-        fn add_transaction() -> Result<(),DB_FAILURES>;
+        fn add_transaction(&mut self, blk_hash: &Hash, tx: Transaction, tx_hash: &Hash, tx_prunable_hash_ptr: &Hash) -> Result<(),DB_FAILURES>;
+
+        /// `add_transaction_data` add the specified transaction data to its storage.
+        /// 
+        /// It only add the transaction blob and tx's metadata, not the collection of outputs. 
+        /// 
+        /// Return the hash of the transaction added. In case of failures, a DB_FAILURES will be return.
+        /// 
+        /// Parameters:
+        /// `blk_hash`: is the hash of the block containing the transaction
+        /// `tx_and_hash`: is a tuple containing the transaction and it's hash
+        /// `tx_prunable_hash`: is the hash of the prunable part of the transaction
+        fn add_transaction_data(&mut self, blk_hash: &Hash, tx_and_hash: (Transaction, &Hash), tx_prunable_hash: &Hash) -> Result<Hash, DB_FAILURES>;
+
+        /// `remove_transaction_data` remove data about a transaction specified by its hash.
+        /// 
+        /// In case of failures, a `DB_FAILURES` will be return. Precisely, a `TX_DNE` will be return if the specified transaction can't be found.
+        /// 
+        /// Parameters:
+        /// `tx_hash`: is the transaction's hash to remove data from.
+        fn remove_transaction_data(&mut self, tx_hash: &Hash) -> Result<(),DB_FAILURES>;
 
         /// `get_tx_count` fetches the total number of transactions stored in the database
         /// 
         /// Should return the count. In case of failure, a DB_FAILURES will be return.
         /// 
         /// No parameters is required.
-        fn get_tx_count(&mut self, ) -> Result<u64,DB_FAILURES>;
+        fn get_tx_count(&mut self) -> Result<u64,DB_FAILURES>;
 
         /// `tx_exists` check if a transaction exist with the given hash.
         /// 
@@ -739,7 +783,7 @@ pub trait BlockchainDB: KeyValueDatabase {
         /// blkid: is the hash of the original block
         /// data: is the metadata for the block
         /// blob: is the blobdata of this alternative block.
-        fn add_alt_block(blkid: &Hash, data: &alt_block_data_t, blob: &Blobdata) -> Result<(),DB_FAILURES>;
+        fn add_alt_block(&mut self, blkid: &Hash, data: &alt_block_data_t, blob: &Blobdata) -> Result<(),DB_FAILURES>;
 
         /// `get_alt_block` gets the specified alternative block.
         /// 
@@ -747,7 +791,7 @@ pub trait BlockchainDB: KeyValueDatabase {
         /// 
         /// Parameters:
         /// `blkid`: is the hash of the requested alternative block.
-        fn get_alt_block(blkid: &Hash) -> Result<(alt_block_data_t,Blobdata),DB_FAILURES>;
+        fn get_alt_block(&mut self, blkid: &Hash) -> Result<(alt_block_data_t,Blobdata),DB_FAILURES>;
 
         /// `remove_alt_block` remove the specified alternative block
         /// 
@@ -755,21 +799,21 @@ pub trait BlockchainDB: KeyValueDatabase {
         /// 
         /// Parameters:
         /// `blkid`: is the hash of the alternative block to remove.
-        fn remove_alt_block(blkid: &Hash) -> Result<(),DB_FAILURES>;
+        fn remove_alt_block(&mut self, blkid: &Hash) -> Result<(),DB_FAILURES>;
 
         /// `get_alt_block` gets the total number of alternative blocks stored
         /// 
         /// In case of failures, a DB_FAILURES will be return.
         /// 
         /// No parameters is required.
-        fn get_alt_block_count() -> Result<u64,DB_FAILURES>;
+        fn get_alt_block_count(&mut self) -> Result<u64,DB_FAILURES>;
 
         /// `drop_alt_block` drop all alternative blocks.
         /// 
         /// In case of failures, a DB_FAILURES will be return.
         /// 
         /// No parameters is required.
-        fn drop_alt_blocks() -> Result<(),DB_FAILURES>;
+        fn drop_alt_blocks(&mut self) -> Result<(),DB_FAILURES>;
 
 
 

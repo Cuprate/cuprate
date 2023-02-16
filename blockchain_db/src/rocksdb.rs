@@ -36,3 +36,14 @@
 //! *alt blocks*----------------------------------------------------
 //! 
 //!     alt_blocks         hash                {bock data, block blob}
+
+// Defining tables
+const CF_BLOCKS: &str = "blocks";
+const CF_HEIGHTS: &str = "heights";
+const CF_BLOCK_METADATA: &str = "b_metadata";
+const CF_TX_PREFIX: &str = "tx_prefix";
+const CF_TX_PRUNABLE: &str = "tx_prunable";
+const CF_TX_HASH: &str = "tx_hash";
+const CF_TX_OPTI_H: &str = "tx_opti_h";
+const CF_TX_OUTPUTS: &str = "tx_outputs";
+const CF_OUTPUTS_TXS: &str = "outputs_txs";
