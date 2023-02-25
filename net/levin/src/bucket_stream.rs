@@ -23,13 +23,14 @@ impl BucketDecoder {
         };
 
         // next we check we have enough bytes to fill the body
-        if let Self::WaitingForBody(head) = self {
+        if let &mut Self::WaitingForBody(head) = self {
             if buf.len() < head.size as usize {
                 return Ok((None, len));
             }
+            *self = BucketDecoder::WaitingForHeader;
             Ok((
                 Some(Bucket {
-                    header: *head,
+                    header: head,
                     body: buf.to_vec(),
                 }),
                 len + head.size as usize,

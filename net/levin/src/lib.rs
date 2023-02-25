@@ -38,6 +38,7 @@ pub enum BucketError {
 pub const PROTOCOL_VERSION: u32 = 1;
 pub const LEVIN_SIGNATURE: u64 = 0x0101010101012101;
 
+#[derive(Debug)]
 pub struct Bucket {
     header: BucketHead,
     body: Vec<u8>,
