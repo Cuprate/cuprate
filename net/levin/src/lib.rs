@@ -1,6 +1,18 @@
+//! # Rust Levin
+//!
+//! A crate for working with the Levin protocol in Rust.
+//!
+//! The Levin protocol is a network protocol used in the Monero cryptocurrency. It is used for
+//! peer-to-peer communication between nodes. This crate provides a Rustimplementation of the Levin
+//! header serilisation and allows developers to define thier own bucket bodies so this is not a
+//! complete monero netowrking crate for that see: ############
+//! ## License
+//!
+//! This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+
+pub mod bucket_sink;
 pub mod bucket_stream;
 pub mod header;
-pub mod protocol_machine;
 
 pub use bucket_stream::BucketStream;
 pub use header::BucketHead;
@@ -50,58 +62,8 @@ impl Bucket {
     }
 }
 
-pub trait BodyDeEnc: Sized {
-    fn decode_body(buf: &[u8], command: u32) -> Result<Self, BucketError>;
-
-    /// returns the encoded body and the "command"
-    fn encode_body(&self) -> (Vec<u8>, u32);
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum Direction {
     Inbound,
-    Outbound
-}
-
-#[derive(Debug)]
-pub enum ISMOutput<A, R, N, Q, S> {
-    Connect(A),
-    Disconnect(A, R),
-    WriteNotification(A, N),
-    WriteRequest(A, Q),
-    WriteResponse(A, S),
-    SetTimer(std::time::Duration),
-}
-
-pub trait InternalStateMachine:
-    Iterator<
-    Item = ISMOutput<
-        Self::PeerID,
-        Self::DisconnectReason,
-        Self::BodyNotification,
-        Self::BodyRequest,
-        Self::BodyResponse,
-    >,
->
-{
-    type PeerID: std::hash::Hash + std::cmp::Eq + Clone;
-
-    type BodyResponse: BodyDeEnc;
-    type BodyRequest: BodyDeEnc;
-    type BodyNotification: BodyDeEnc;
-
-    type DisconnectReason;
-
-    fn tick(&mut self);
-
-    fn wake(&mut self);
-
-    fn connected(&mut self, addr: &Self::PeerID, direction: Direction);
-    fn disconnected(&mut self, addr: &Self::PeerID);
-
-    fn received_response(&mut self, addr: &Self::PeerID, body: Self::BodyResponse);
-    fn received_request(&mut self, addr: &Self::PeerID, body: Self::BodyRequest);
-    fn received_notification(&mut self, addr: &Self::PeerID, body: Self::BodyNotification);
-
-    fn error_decoding_bucket(&mut self, error: BucketError);
+    Outbound,
 }
