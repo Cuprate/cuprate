@@ -59,18 +59,6 @@ impl BucketHead {
             protocol_version: r.read_u32::<LittleEndian>()?,
         };
 
-        if header.signature != LEVIN_SIGNATURE {
-            return Err(BucketError::IncorrectSignature(header.signature));
-        }
-
-        if header.protocol_version != PROTOCOL_VERSION {
-            return Err(BucketError::UnknownProtocolVersion(header.protocol_version));
-        }
-
-        if header.return_code < 0 {
-            return Err(BucketError::Error(header.return_code));
-        }
-
         Ok(header)
     }
 

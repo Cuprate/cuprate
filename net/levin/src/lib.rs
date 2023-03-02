@@ -14,7 +14,10 @@ pub mod bucket_sink;
 pub mod bucket_stream;
 pub mod header;
 
+use std::fmt::Debug;
+
 pub use bucket_stream::BucketStream;
+use bytes::Bytes;
 pub use header::BucketHead;
 
 use thiserror::Error;
@@ -33,12 +36,15 @@ pub enum BucketError {
     /// Revived header with unknown protocol version.
     #[error("Revived header with unknown protocol version: {0}")]
     UnknownProtocolVersion(u32),
-    /// Failed to parse data.
-    #[error("Failed to parse data: {0}")]
-    ParseFailed(String),
     /// More bytes needed to parse data.
     #[error("More bytes needed to parse data")]
     NotEnoughBytes,
+    /// Failed to decode bucket body.
+    #[error("Failed to decode bucket body: {0}")]
+    FailedToDecodeBucketBody(String),
+    /// Failed to encode bucket body.
+    #[error("Failed to encode bucket body: {0}")]
+    FailedToEncodeBucketBody(String),
     /// IO Error.
     #[error("IO Error: {0}")]
     IO(#[from] std::io::Error),
@@ -53,12 +59,12 @@ pub const LEVIN_SIGNATURE: u64 = 0x0101010101012101;
 #[derive(Debug)]
 pub struct Bucket {
     header: BucketHead,
-    body: Vec<u8>,
+    body: Bytes,
 }
 
 impl Bucket {
-    fn to_bytes(&self) -> Vec<u8> {
-        [self.header.to_bytes(), self.body.clone()].concat()
+    fn to_bytes(&self) -> Bytes {
+        [self.header.to_bytes().into(), self.body.clone()].concat().into() // this is probably inefficient I will fix later 
     }
 }
 
