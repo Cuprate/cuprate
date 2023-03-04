@@ -6,7 +6,7 @@
 //! peer-to-peer communication between nodes. This crate provides a Rust implementation of the Levin
 //! header serialization and allows developers to define their own bucket bodies so this is not a
 //! complete Monero networking crate.
-//! 
+//!
 //! ## License
 //!
 //! This project is licensed under the MIT License.
@@ -19,18 +19,19 @@
 #![deny(missing_docs)]
 
 pub mod bucket_sink;
-pub mod message_sink;
 pub mod bucket_stream;
-pub mod message_stream;
 pub mod header;
+pub mod message_sink;
+pub mod message_stream;
 
 pub use header::BucketHead;
 
 use std::fmt::Debug;
 
-use thiserror::Error;
 use bytes::Bytes;
+use thiserror::Error;
 
+/// Possible Errors when working with levin buckets
 #[derive(Error, Debug)]
 pub enum BucketError {
     /// Unsupported p2p command.
@@ -62,9 +63,10 @@ pub enum BucketError {
     Error(i32),
 }
 
-pub const PROTOCOL_VERSION: u32 = 1;
-pub const LEVIN_SIGNATURE: u64 = 0x0101010101012101;
+const PROTOCOL_VERSION: u32 = 1;
+const LEVIN_SIGNATURE: u64 = 0x0101010101012101;
 
+/// A levin Bucket
 #[derive(Debug)]
 pub struct Bucket {
     header: BucketHead,
@@ -73,48 +75,60 @@ pub struct Bucket {
 
 impl Bucket {
     fn to_bytes(&self) -> Bytes {
-        let mut buf =self.header.to_bytes();
+        let mut buf = self.header.to_bytes();
         buf.extend(self.body.iter());
         buf.into()
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum Direction {
-    Inbound,
-    Outbound,
-}
-
+/// An enum represinting if the message is a request or response
 #[derive(Debug)]
-pub enum BucketType {
+pub enum MessageType {
+    /// Request
     Request,
-    Response
+    /// Response
+    Response,
 }
 
-impl Into<header::Flags> for BucketType {
-    fn into(self) -> header::Flags {
-        match self {
-            BucketType::Request => header::Flags::REQUEST,
-            BucketType::Response => header::Flags::RESPONSE
+impl From<MessageType> for header::Flags {
+    fn from(val: MessageType) -> Self {
+        match val {
+            MessageType::Request => header::REQUEST,
+            MessageType::Response => header::RESPONSE,
         }
     }
 }
 
+impl TryInto<MessageType> for header::Flags {
+    type Error = BucketError;
+    fn try_into(self) -> Result<MessageType, Self::Error> {
+        if self.is_request() {
+            Ok(MessageType::Request)
+        } else if self.is_response() {
+            Ok(MessageType::Response)
+        } else {
+            Err(BucketError::UnknownFlags)
+        }
+    }
+}
+
+/// A levin body
 pub trait LevinBody: Sized {
+    /// Dcodes the message from the data in the header
     fn decode_message(
         buf: &[u8],
-        flags: BucketType,
+        typ: MessageType,
         have_to_return: bool,
         command: u32,
     ) -> Result<Self, BucketError>;
 
-    /// Encodes the message 
-    /// 
-    /// returns: 
+    /// Encodes the message
+    ///
+    /// returns:
     ///     return_code: i32,
     ///     command: u32,
     ///     have_to_return: bool,
-    ///     flag: Flags - must only be Request or Response
+    ///     message_type: MessageType
     ///     bytes: Bytes
-    fn encode(&self) -> Result<(i32, u32, bool, BucketType, Bytes), BucketError>;
+    fn encode(&self) -> Result<(i32, u32, bool, MessageType, Bytes), BucketError>;
 }

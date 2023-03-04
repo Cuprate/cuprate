@@ -1,9 +1,8 @@
 //! This module provides a `BucketSink` struct, which writes buckets to the
-//! provided `AsyncWrite`. If you are a user of this library you should 
+//! provided `AsyncWrite`. If you are a user of this library you should
 //! probably use `MessageSink` instead.
 
-
-use std::{collections::VecDeque};
+use std::collections::VecDeque;
 use std::pin::Pin;
 use std::task::Poll;
 

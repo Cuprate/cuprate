@@ -1,8 +1,6 @@
-//! This module provides a `BucketStream` struct, which is a stream of `Bucket`s, 
-//! where only the header is decoded. If you are a user of this library you should 
+//! This module provides a `BucketStream` struct, which is a stream of `Bucket`s,
+//! where only the header is decoded. If you are a user of this library you should
 //! probably use `MessageStream` instead.
-
-
 
 use std::task::Poll;
 
