@@ -1,16 +1,21 @@
-use std::{collections::VecDeque, marker::PhantomData};
+//! This module provides a `BucketSink` struct, which writes buckets to the
+//! provided `AsyncWrite`. If you are a user of this library you should 
+//! probably use `MessageSink` instead.
+
+
+use std::{collections::VecDeque};
 use std::pin::Pin;
 use std::task::Poll;
 
-use bytes::{Buf, BytesMut, Bytes};
+use bytes::{Buf, BytesMut};
 use futures::ready;
 use futures::sink::Sink;
 use futures::AsyncWrite;
 use pin_project::pin_project;
 
-use crate::header::Flags;
-use crate::{Bucket, BucketError, BucketHead};
+use crate::{Bucket, BucketError};
 
+/// A BucketSink writes Bucket instances to the provided AsyncWrite target.
 #[pin_project]
 pub struct BucketSink<W: AsyncWrite + std::marker::Unpin> {
     #[pin]
@@ -74,49 +79,5 @@ impl<W: AsyncWrite + std::marker::Unpin> Sink<Bucket> for BucketSink<W> {
     ) -> Poll<Result<(), Self::Error>> {
         ready!(self.project().writer.poll_close(cx))?;
         Poll::Ready(Ok(()))
-    }
-}
-
-pub trait Encode {
-    /// Encodes the message 
-    /// 
-    /// returns: 
-    ///     return_code: i32,
-    ///     command: u32,
-    ///     have_to_return: bool,
-    ///     flag: Flags - must only be Request or Response
-    ///     bytes: Bytes
-    fn encode(&self) -> Result<(i32, u32, bool, Flags, Bytes), BucketError>;
-}
-
-#[pin_project]
-pub struct MessageSink<W: AsyncWrite + std::marker::Unpin, E: Encode> {
-    #[pin]
-    bucket_sink: BucketSink<W>,
-    phantom: PhantomData<E>
-}
-
-impl<W: AsyncWrite + std::marker::Unpin, E: Encode> Sink<E> for MessageSink<W, E>{
-    type Error = BucketError;
-
-    fn poll_ready(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.project().bucket_sink.poll_ready(cx)
-    }
-
-    fn start_send(self: Pin<&mut Self>, item: E) -> Result<(), Self::Error> {
-        let (return_code, command, have_to_return_data, flags, body) = item.encode()?;
-        let header = BucketHead::build(body.len() as u64, have_to_return_data, command, flags, return_code);
-
-        let bucket = Bucket{header, body};
-
-        self.project().bucket_sink.start_send(bucket)
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.project().bucket_sink.poll_flush(cx)
-    }
-
-    fn poll_close(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.project().bucket_sink.poll_close(cx)
     }
 }

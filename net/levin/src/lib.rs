@@ -3,24 +3,33 @@
 //! A crate for working with the Levin protocol in Rust.
 //!
 //! The Levin protocol is a network protocol used in the Monero cryptocurrency. It is used for
-//! peer-to-peer communication between nodes. This crate provides a Rustimplementation of the Levin
-//! header serilisation and allows developers to define thier own bucket bodies so this is not a
-//! complete monero netowrking crate for that see: ############
+//! peer-to-peer communication between nodes. This crate provides a Rust implementation of the Levin
+//! header serialization and allows developers to define their own bucket bodies so this is not a
+//! complete Monero networking crate.
+//! 
 //! ## License
 //!
-//! This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+//! This project is licensed under the MIT License.
+
+// Coding conventions
+#![forbid(unsafe_code)]
+#![deny(non_upper_case_globals)]
+#![deny(non_camel_case_types)]
+#![deny(unused_mut)]
+#![deny(missing_docs)]
 
 pub mod bucket_sink;
+pub mod message_sink;
 pub mod bucket_stream;
+pub mod message_stream;
 pub mod header;
+
+pub use header::BucketHead;
 
 use std::fmt::Debug;
 
-pub use bucket_stream::BucketStream;
-use bytes::Bytes;
-pub use header::BucketHead;
-
 use thiserror::Error;
+use bytes::Bytes;
 
 #[derive(Error, Debug)]
 pub enum BucketError {
@@ -64,7 +73,9 @@ pub struct Bucket {
 
 impl Bucket {
     fn to_bytes(&self) -> Bytes {
-        [self.header.to_bytes().into(), self.body.clone()].concat().into() // this is probably inefficient I will fix later 
+        let mut buf =self.header.to_bytes();
+        buf.extend(self.body.iter());
+        buf.into()
     }
 }
 
@@ -72,4 +83,38 @@ impl Bucket {
 pub enum Direction {
     Inbound,
     Outbound,
+}
+
+#[derive(Debug)]
+pub enum BucketType {
+    Request,
+    Response
+}
+
+impl Into<header::Flags> for BucketType {
+    fn into(self) -> header::Flags {
+        match self {
+            BucketType::Request => header::Flags::REQUEST,
+            BucketType::Response => header::Flags::RESPONSE
+        }
+    }
+}
+
+pub trait LevinBody: Sized {
+    fn decode_message(
+        buf: &[u8],
+        flags: BucketType,
+        have_to_return: bool,
+        command: u32,
+    ) -> Result<Self, BucketError>;
+
+    /// Encodes the message 
+    /// 
+    /// returns: 
+    ///     return_code: i32,
+    ///     command: u32,
+    ///     have_to_return: bool,
+    ///     flag: Flags - must only be Request or Response
+    ///     bytes: Bytes
+    fn encode(&self) -> Result<(i32, u32, bool, BucketType, Bytes), BucketError>;
 }
