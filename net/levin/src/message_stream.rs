@@ -15,8 +15,8 @@ use crate::LevinBody;
 use crate::LEVIN_SIGNATURE;
 use crate::PROTOCOL_VERSION;
 
-/// A stream that reads from the underlying `BucketStrem` and uses the the
-/// methods on the `LevinBody` trait to decode the inner messages(bodys)
+/// A stream that reads from the underlying `BucketStream` and uses the the
+/// methods on the `LevinBody` trait to decode the inner messages(bodies)
 #[pin_project]
 pub struct MessageStream<D: LevinBody, S: AsyncRead + std::marker::Unpin> {
     #[pin]
@@ -60,6 +60,11 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D
                     || (bucket.header.return_code == 0 && bucket.header.flags.is_response())
                 {
                     return Err(BucketError::Error(bucket.header.return_code))?;
+                }
+
+                if bucket.header.flags.is_dummy() {
+                    cx.waker().wake_by_ref();
+                    return Poll::Pending;
                 }
 
                 Poll::Ready(Some(D::decode_message(

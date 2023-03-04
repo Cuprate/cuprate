@@ -1,47 +1,75 @@
+//! This module defines Monero admin messages
+//!
+//! Admin message requests must be responded to in order unlike
+//! protocol messages.   
+
 use serde::{Deserialize, Serialize};
 
-use super::common::{BasicNodeData, CoreSyncData, PeerListEntryBase};
+use super::{
+    common::{BasicNodeData, CoreSyncData, PeerListEntryBase},
+    PeerID,
+};
 
+/// A Handshake Request
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct HandshakeRequest {
+    /// Basic Node Data
     pub node_data: BasicNodeData,
+    /// Core Sync Data
     pub payload_data: CoreSyncData,
 }
 
+/// A Handshake Response
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct HandshakeResponse {
+    /// Basic Node Data
     pub node_data: BasicNodeData,
+    /// Core Sync Data
     pub payload_data: CoreSyncData,
+    /// PeerList
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
+/// A TimedSync Request
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TimedSyncRequest {
+    /// Core Sync Data
     pub payload_data: CoreSyncData,
 }
 
+/// A TimedSync Response
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TimedSyncResponse {
+    /// Core Sync Data
     pub payload_data: CoreSyncData,
+    /// PeerList
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
+/// The status field of an okay ping response
 pub const PING_OK_RESPONSE_STATUS_TEXT: &str = "OK";
 
+/// A Ping Request
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PingRequest;
 
+/// A Ping Response
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct PingResponse {
+    /// Status: should be `PING_OK_RESPONSE_STATUS_TEXT`
     pub status: String,
-    pub peer_id: u64,
+    /// Peer ID
+    pub peer_id: PeerID,
 }
 
+/// A Support Flags Request
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SupportFlagsRequest;
 
+/// A Support Flags Response
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct SupportFlagsResponse {
+    /// Support Flags
     pub support_flags: u32,
 }
 

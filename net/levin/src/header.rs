@@ -22,7 +22,7 @@ impl Flags {
         self & &rhs == rhs
     }
 
-    /// Converts the inner flags to little endidan bytes
+    /// Converts the inner flags to little endian bytes
     pub fn to_le_bytes(&self) -> [u8; 4] {
         self.0.to_le_bytes()
     }

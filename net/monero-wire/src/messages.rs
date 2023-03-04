@@ -1,11 +1,15 @@
+//! This module defines a Monero `Message` enum which contains
+//! every possible Monero network message (levin body)
+
 pub mod admin;
 pub mod common;
 pub mod protocol;
 
-use bytes::Bytes;
 pub use common::{BasicNodeData, CoreSyncData, PeerID, PeerListEntryBase};
+
+use bytes::Bytes;
 use levin::BucketError;
-pub use levin::header::Flags;
+use levin::MessageType;
 
 use crate::P2pCommand;
 
@@ -21,39 +25,63 @@ fn default_false() -> bool {
     false
 }
 
+/// A message request
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageRequest {
+    /// Handshake
     Handshake(admin::HandshakeRequest),
+    /// TimedSync
     TimedSync(admin::TimedSyncRequest),
+    /// Ping
     Ping(admin::PingRequest),
+    /// SupportFlags
     SupportFlags(admin::SupportFlagsRequest),
 }
 
+/// A message response
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageResponse {
+    /// Handshake
     Handshake(admin::HandshakeResponse),
+    /// TimedSync
     TimedSync(admin::TimedSyncResponse),
+    /// Ping
     Ping(admin::PingResponse),
+    /// SupportFlags
     SupportFlags(admin::SupportFlagsResponse),
 }
 
+/// A messages notification
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageNotification {
+    /// NewBlock
     NewBlock(protocol::NewBlock),
+    /// NewTransactions
     NewTransactions(protocol::NewTransactions),
+    /// RequestGetObject
     RequestGetObject(protocol::GetObjectsRequest),
+    /// ResponseGetObject
     ResponseGetObject(protocol::GetObjectsResponse),
+    /// RequestChain
     RequestChain(protocol::ChainRequest),
+    /// ResponseChainEntry
     ResponseChainEntry(protocol::ChainResponse),
+    /// NewFluffyBlock
     NewFluffyBlock(protocol::NewFluffyBlock),
+    /// RequestFluffyMissingTx
     RequestFluffyMissingTx(protocol::FluffyMissingTransactionsRequest),
+    /// GetTxPoolComplement
     GetTxPoolComplement(protocol::TxPoolCompliment),
 }
 
+/// A Monero Message (levin body)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message {
+    /// Request
     Request(MessageRequest),
+    /// Response
     Response(MessageResponse),
+    /// Notification
     Notification(Box<MessageNotification>), // check benefits/ drawbacks of doing this, im just boxing it for now to satisfy clippy
 }
 
@@ -65,109 +93,6 @@ fn encode_message<T: serde::ser::Serialize>(message: &T) -> Result<Vec<u8>, Buck
     epee_serde::to_bytes(message).map_err(epee_encode_error_to_levin)
 }
 
-impl levin::bucket_sink::Encode for Message {
-    fn encode(&self) -> Result<(i32, u32, bool, Flags, Bytes), BucketError> {
-        let return_code;
-        let command;
-        let have_to_return_data;
-        let flag;
-        let bytes;
-
-        match self {
-            Message::Request(req) => {
-                return_code = 0;
-                have_to_return_data = true;
-                flag = Flags::REQUEST;
-                match req {
-                    MessageRequest::Handshake(handshake) => {
-                        command = P2pCommand::Handshake;
-                        bytes = encode_message(handshake)?;
-                    },
-                    MessageRequest::TimedSync(timedsync) => {
-                        command = P2pCommand::TimedSync;
-                        bytes = encode_message(timedsync)?;
-                    },
-                    MessageRequest::Ping(_) => {
-                        command = P2pCommand::Ping;
-                        bytes = Vec::new();
-                    },
-                    MessageRequest::SupportFlags(_) => {
-                        command = P2pCommand::SupportFlags;
-                        bytes = Vec::new();
-                    }
-                }
-            },
-            Message::Response(res) =>{
-                return_code = 1;
-                have_to_return_data = false;
-                flag = Flags::RESPONSE;
-                match res {
-                    MessageResponse::Handshake(handshake) => {
-                        command = P2pCommand::Handshake;
-                        bytes = encode_message(handshake)?;
-                    },
-                    MessageResponse::TimedSync(timed_sync) => {
-                        command = P2pCommand::TimedSync;
-                        bytes = encode_message(timed_sync)?;
-                    },
-                    MessageResponse::Ping(ping) => {
-                        command = P2pCommand::Ping;
-                        bytes = encode_message(ping)?;
-                    },
-                    MessageResponse::SupportFlags(support_flags) => {
-                        command = P2pCommand::SupportFlags;
-                        bytes = encode_message(support_flags)?;
-                    }
-                }
-            },
-            Message::Notification(noti) => {
-                return_code = 0;
-                have_to_return_data = false;
-                flag = Flags::REQUEST;
-                match noti.as_ref() {
-                    MessageNotification::NewBlock(new_block) => {
-                        command = P2pCommand::NewBlock;
-                        bytes = encode_message(new_block)?;
-                    },
-                    MessageNotification::NewTransactions(new_txs) => {
-                        command = P2pCommand::NewTransactions;
-                        bytes = encode_message(new_txs)?;
-                    }, 
-                    MessageNotification::RequestGetObject(obj) => {
-                        command = P2pCommand::RequestGetObject;
-                        bytes = encode_message(obj)?;
-                    },
-                    MessageNotification::ResponseGetObject(obj) => {
-                        command = P2pCommand::ResponseGetObject;
-                        bytes = encode_message(obj)?;
-                    }
-                    MessageNotification::RequestChain(chain) => {
-                        command = P2pCommand::RequestChain;
-                        bytes = encode_message(chain)?;
-                    },
-                    MessageNotification::ResponseChainEntry(chain_entry) => {
-                        command = P2pCommand::ResponseChainEntry;
-                        bytes = encode_message(chain_entry)?;
-                    },
-                    MessageNotification::NewFluffyBlock(fluffy_block) => {
-                        command  = P2pCommand::NewFluffyBlock;
-                        bytes = encode_message(fluffy_block)?;
-                    },
-                    MessageNotification::RequestFluffyMissingTx(txs) => {
-                        command = P2pCommand::RequestFluffyMissingTx;
-                        bytes = encode_message(txs)?;
-                    },
-                    MessageNotification::GetTxPoolComplement(txpool) => {
-                        command = P2pCommand::GetTxPoolComplement;
-                        bytes = encode_message(txpool)?;
-                    }
-                }
-            }
-        }
-        return Ok((return_code, command.into(), have_to_return_data, flag, bytes.into()));
-    }
-}
-
 fn epee_decode_error_to_levin(err: epee_serde::Error) -> BucketError {
     BucketError::FailedToDecodeBucketBody(err.to_string())
 }
@@ -176,22 +101,17 @@ fn decode_message<T: serde::de::DeserializeOwned>(buf: &[u8]) -> Result<T, Bucke
     epee_serde::from_bytes(buf).map_err(epee_decode_error_to_levin)
 }
 
-pub struct MoneroMessageDecoder;
-
-impl levin::bucket_stream::MessageDecoder for MoneroMessageDecoder {
-    type Message = Message;
-    type Error = levin::BucketError;
-
+impl levin::LevinBody for Message {
     fn decode_message(
         buf: &[u8],
-        flags: Flags,
+        typ: MessageType,
         have_to_return: bool,
         command: u32,
-    ) -> Result<Self::Message, Self::Error> {
+    ) -> Result<Self, BucketError> {
         let command = P2pCommand::try_from(command)?;
 
-        Ok(match flags {
-            Flags::RESPONSE => Message::Response(match command {
+        Ok(match typ {
+            MessageType::Response => Message::Response(match command {
                 P2pCommand::Handshake => MessageResponse::Handshake(decode_message(buf)?),
                 P2pCommand::TimedSync => MessageResponse::TimedSync(decode_message(buf)?),
                 P2pCommand::Ping => MessageResponse::Ping(decode_message(buf)?),
@@ -203,7 +123,7 @@ impl levin::bucket_stream::MessageDecoder for MoneroMessageDecoder {
                 }
             }),
 
-            Flags::REQUEST if have_to_return => Message::Request(match command {
+            MessageType::Request if have_to_return => Message::Request(match command {
                 P2pCommand::Handshake => MessageRequest::Handshake(decode_message(buf)?),
                 P2pCommand::TimedSync => MessageRequest::TimedSync(decode_message(buf)?),
                 P2pCommand::Ping => MessageRequest::Ping(admin::PingRequest),
@@ -217,7 +137,7 @@ impl levin::bucket_stream::MessageDecoder for MoneroMessageDecoder {
                 }
             }),
 
-            Flags::REQUEST if !have_to_return => {
+            MessageType::Request if !have_to_return => {
                 Message::Notification(Box::new(match command {
                     P2pCommand::NewBlock => MessageNotification::NewBlock(decode_message(buf)?),
                     P2pCommand::NewTransactions => {
@@ -251,15 +171,122 @@ impl levin::bucket_stream::MessageDecoder for MoneroMessageDecoder {
                     }
                 }))
             }
-            _ => unreachable!("All other flags are handled in the levin crate"),
+            _ => unreachable!("All typs are handleded"),
         })
+    }
+
+    fn encode(&self) -> Result<(i32, u32, bool, MessageType, Bytes), BucketError> {
+        let return_code;
+        let command;
+        let have_to_return_data;
+        let flag;
+        let bytes;
+
+        match self {
+            Message::Request(req) => {
+                return_code = 0;
+                have_to_return_data = true;
+                flag = MessageType::Request;
+                match req {
+                    MessageRequest::Handshake(handshake) => {
+                        command = P2pCommand::Handshake;
+                        bytes = encode_message(handshake)?;
+                    }
+                    MessageRequest::TimedSync(timedsync) => {
+                        command = P2pCommand::TimedSync;
+                        bytes = encode_message(timedsync)?;
+                    }
+                    MessageRequest::Ping(_) => {
+                        command = P2pCommand::Ping;
+                        bytes = Vec::new();
+                    }
+                    MessageRequest::SupportFlags(_) => {
+                        command = P2pCommand::SupportFlags;
+                        bytes = Vec::new();
+                    }
+                }
+            }
+            Message::Response(res) => {
+                return_code = 1;
+                have_to_return_data = false;
+                flag = MessageType::Response;
+                match res {
+                    MessageResponse::Handshake(handshake) => {
+                        command = P2pCommand::Handshake;
+                        bytes = encode_message(handshake)?;
+                    }
+                    MessageResponse::TimedSync(timed_sync) => {
+                        command = P2pCommand::TimedSync;
+                        bytes = encode_message(timed_sync)?;
+                    }
+                    MessageResponse::Ping(ping) => {
+                        command = P2pCommand::Ping;
+                        bytes = encode_message(ping)?;
+                    }
+                    MessageResponse::SupportFlags(support_flags) => {
+                        command = P2pCommand::SupportFlags;
+                        bytes = encode_message(support_flags)?;
+                    }
+                }
+            }
+            Message::Notification(noti) => {
+                return_code = 0;
+                have_to_return_data = false;
+                flag = MessageType::Response;
+                match noti.as_ref() {
+                    MessageNotification::NewBlock(new_block) => {
+                        command = P2pCommand::NewBlock;
+                        bytes = encode_message(new_block)?;
+                    }
+                    MessageNotification::NewTransactions(new_txs) => {
+                        command = P2pCommand::NewTransactions;
+                        bytes = encode_message(new_txs)?;
+                    }
+                    MessageNotification::RequestGetObject(obj) => {
+                        command = P2pCommand::RequestGetObject;
+                        bytes = encode_message(obj)?;
+                    }
+                    MessageNotification::ResponseGetObject(obj) => {
+                        command = P2pCommand::ResponseGetObject;
+                        bytes = encode_message(obj)?;
+                    }
+                    MessageNotification::RequestChain(chain) => {
+                        command = P2pCommand::RequestChain;
+                        bytes = encode_message(chain)?;
+                    }
+                    MessageNotification::ResponseChainEntry(chain_entry) => {
+                        command = P2pCommand::ResponseChainEntry;
+                        bytes = encode_message(chain_entry)?;
+                    }
+                    MessageNotification::NewFluffyBlock(fluffy_block) => {
+                        command = P2pCommand::NewFluffyBlock;
+                        bytes = encode_message(fluffy_block)?;
+                    }
+                    MessageNotification::RequestFluffyMissingTx(txs) => {
+                        command = P2pCommand::RequestFluffyMissingTx;
+                        bytes = encode_message(txs)?;
+                    }
+                    MessageNotification::GetTxPoolComplement(txpool) => {
+                        command = P2pCommand::GetTxPoolComplement;
+                        bytes = encode_message(txpool)?;
+                    }
+                }
+            }
+        }
+        return Ok((
+            return_code,
+            command.into(),
+            have_to_return_data,
+            flag,
+            bytes.into(),
+        ));
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::MoneroMessageDecoder;
-    use levin::{bucket_stream::MessageDecoder, header::Flags};
+    use super::Message;
+    use levin::{LevinBody, MessageType};
 
     #[test]
     fn decode_handshake_request() {
@@ -290,7 +317,7 @@ mod tests {
             115, 104, 6, 0, 0, 0, 0,
         ];
 
-        let message = MoneroMessageDecoder::decode_message(&buf, Flags::REQUEST, true, 1001);
+        let message = Message::decode_message(&buf, MessageType::Request, true, 1001);
         println!("{:?}", message);
     }
 }

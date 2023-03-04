@@ -81,7 +81,7 @@ impl Bucket {
     }
 }
 
-/// An enum represinting if the message is a request or response
+/// An enum representing if the message is a request or response
 #[derive(Debug)]
 pub enum MessageType {
     /// Request
@@ -114,7 +114,7 @@ impl TryInto<MessageType> for header::Flags {
 
 /// A levin body
 pub trait LevinBody: Sized {
-    /// Dcodes the message from the data in the header
+    /// Decodes the message from the data in the header
     fn decode_message(
         buf: &[u8],
         typ: MessageType,

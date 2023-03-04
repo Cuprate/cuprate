@@ -1,3 +1,19 @@
+//! # Monero Wire
+//!
+//! A crate defining Monero network messages and network addresses,
+//! built on top of the levin crate.
+//!
+//! ## License
+//!
+//! This project is licensed under the MIT License.
+
+// Coding conventions
+#![forbid(unsafe_code)]
+#![deny(non_upper_case_globals)]
+#![deny(non_camel_case_types)]
+#![deny(unused_mut)]
+#![deny(missing_docs)]
+
 #[macro_use]
 mod internal_macros;
 pub mod messages;
@@ -7,24 +23,42 @@ pub use network_address::NetworkAddress;
 
 // re-exports
 pub use levin;
+pub use levin::message_sink::MessageSink;
+pub use levin::message_stream::MessageStream;
 
 use levin::BucketError;
 
+/// The possible commands that can be in a levin header
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum P2pCommand {
+    // 100* commands
+    /// Handshake
     Handshake,
+    /// TimedSync
     TimedSync,
+    /// Ping
     Ping,
+    /// SupportFlags
     SupportFlags,
 
+    // 200* commands
+    /// NewBlock
     NewBlock,
+    /// NewTransactions
     NewTransactions,
+    /// RequestGetObject
     RequestGetObject,
+    /// ResponseGetObject
     ResponseGetObject,
+    /// RequestChain
     RequestChain,
+    /// ResponseChainEntry
     ResponseChainEntry,
+    /// NewFluffyBlock
     NewFluffyBlock,
+    /// RequestFluffyMissingTx
     RequestFluffyMissingTx,
+    /// GetTxPoolComplement
     GetTxPoolComplement,
 }
 

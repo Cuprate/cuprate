@@ -1,11 +1,18 @@
+//! This module defines the addresses that will get passed around the
+//! Monero network. Core Monero has 4 main addresses: IPv4, IPv6, Tor,
+//! I2p. Currently this module only has IPv(4/6).
+//!
 use std::{hash::Hash, net};
 
 use epee_serde::Value;
 use serde::{de, ser::SerializeStruct, Deserialize, Serialize};
 
+/// An IPv4 address with a port
 #[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct IPv4Address {
+    /// IP address
     pub m_ip: u32,
+    /// Port
     pub m_port: u16,
 }
 
@@ -19,7 +26,7 @@ impl From<net::SocketAddrV4> for IPv4Address {
 }
 
 impl IPv4Address {
-    pub fn from_value<E: de::Error>(value: &Value) -> Result<Self, E> {
+    fn from_value<E: de::Error>(value: &Value) -> Result<Self, E> {
         let m_ip = get_val_from_map!(value, "m_ip", get_u32, "u32");
 
         let m_port = get_val_from_map!(value, "m_port", get_u16, "u16");
@@ -31,9 +38,12 @@ impl IPv4Address {
     }
 }
 
+/// An IPv6 address with a port
 #[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Hash)]
 pub struct IPv6Address {
+    /// Address
     pub addr: [u8; 16],
+    /// Port
     pub m_port: u16,
 }
 
@@ -47,7 +57,7 @@ impl From<net::SocketAddrV6> for IPv6Address {
 }
 
 impl IPv6Address {
-    pub fn from_value<E: de::Error>(value: &Value) -> Result<Self, E> {
+    fn from_value<E: de::Error>(value: &Value) -> Result<Self, E> {
         let addr = get_val_from_map!(value, "addr", get_bytes, "Vec<u8>");
 
         let m_port = get_val_from_map!(value, "m_port", get_u16, "u16");
@@ -62,9 +72,13 @@ impl IPv6Address {
     }
 }
 
+/// A network address which can be encoded into the format required
+/// to send to other Monero peers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NetworkAddress {
+    /// IPv4
     IPv4(IPv4Address),
+    /// IPv6
     IPv6(IPv6Address),
 }
 

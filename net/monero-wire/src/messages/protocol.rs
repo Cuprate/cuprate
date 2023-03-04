@@ -1,3 +1,8 @@
+//! This module defines Monero protocol messages
+//!
+//! Protocol message requests don't have to be responded to in order unlike
+//! admin messages.   
+
 use monero::Hash;
 use monero::Transaction;
 use serde::Deserialize;
@@ -9,93 +14,129 @@ use serde_with::TryFromInto;
 use super::common::BlockCompleteEntry;
 use super::{default_false, default_true};
 
+/// A block that SHOULD have transactions
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct NewBlock {
+    /// Block with txs
     pub b: BlockCompleteEntry,
+    /// The Blocks height
     pub current_blockchain_height: u64,
 }
 
+/// A Block that doesn't have transactions unless requested
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct NewFluffyBlock {
+    /// Block which might have transactions
     pub b: BlockCompleteEntry,
+    /// The Block height
     pub current_blockchain_height: u64,
 }
 
+/// A Tx Pool transaction blob
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct TxBlob(#[serde_as(as = "Bytes")] pub Vec<u8>);
 
 impl TxBlob {
+    /// Deserialize the transaction
     pub fn deserialize(&self) -> Result<Transaction, monero::consensus::encode::Error> {
         monero::consensus::deserialize(&self.0)
     }
 }
 
+/// New Tx Pool Transactions
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct NewTransactions {
+    /// Tx Blobs
     pub txs: Vec<TxBlob>,
+    /// Dandelionpp true if fluff - backwards compatible mode is fluff
     #[serde(default = "default_true")]
     pub dandelionpp_fluff: bool,
+    /// Padding
     #[serde(rename = "_")]
     #[serde_as(as = "Bytes")]
     pub padding: Vec<u8>,
 }
 
+/// A Request For Blocks
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GetObjectsRequest {
+    /// Blocks
     #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
     pub blocks: Vec<Hash>,
+    /// Pruned
     #[serde(default = "default_false")]
     pub pruned: bool,
 }
 
+/// A Blocks Response
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GetObjectsResponse {
+    /// Blocks
     pub blocks: Vec<BlockCompleteEntry>,
+    /// Missed IDs
     #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
     pub missed_ids: Vec<Hash>,
+    /// The height of the peers blockchain
     pub current_blockchain_height: u64,
 }
 
+/// A Chain Request
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ChainRequest {
+    /// Block IDs
     #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
     pub block_ids: Vec<Hash>,
+    /// Prune
     #[serde(default = "default_false")]
     pub prune: bool,
 }
 
+/// A Chain Response
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ChainResponse {
+    /// Start Height
     pub start_height: u64,
+    /// Total Height
     pub total_height: u64,
+    /// Cumulative Difficulty Low
     pub cumulative_difficulty_low: u64,
+    /// Cumulative Difficulty High
     pub cumulative_difficulty_high: u64,
+    /// Block IDs
     #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
     pub m_block_ids: Vec<Hash>,
+    /// Block Weights
     pub m_block_weights: Vec<u64>,
+    /// The first Block in the blockchain
     #[serde_as(as = "Bytes")]
     pub first_block: Vec<u8>,
 }
 
+/// A request for Txs we are missing from our TxPool
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct FluffyMissingTransactionsRequest {
+    /// The Block we are missing the Txs in
     #[serde_as(as = "TryFromInto<[u8; 32]>")]
     pub block_hash: Hash,
+    /// The current blockchain height
     pub current_blockchain_height: u64,
+    /// The Tx Indices
     pub missing_tx_indices: Vec<u64>,
 }
 
+/// TxPoolCompliment
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TxPoolCompliment {
+    /// Tx Hashes
     #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
     pub hashes: Vec<Hash>,
 }
