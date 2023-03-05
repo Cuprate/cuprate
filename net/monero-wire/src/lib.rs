@@ -31,7 +31,7 @@ use levin::BucketError;
 /// The possible commands that can be in a levin header
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum P2pCommand {
-    // 100* commands
+    // 100* admin commands
     /// Handshake
     Handshake,
     /// TimedSync
@@ -41,7 +41,7 @@ pub enum P2pCommand {
     /// SupportFlags
     SupportFlags,
 
-    // 200* commands
+    // 200* protocol commands
     /// NewBlock
     NewBlock,
     /// NewTransactions
