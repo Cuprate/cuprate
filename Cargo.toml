@@ -11,13 +11,16 @@ repository = "https://github.com/SyntheticBird45/cuprate"
 
 # All Contributors on github
 authors=[
-        "SyntheticBird45 <@someoneelse495495:matrix.org>"
+        "SyntheticBird45 <@someoneelse495495:matrix.org>",
+        "Boog900"
         ]
 
 [workspace]
 
 members = [
-        "blockchain_db"
+        "blockchain_db",
+        "net/levin",
+        "net/monero-wire"
 ]
 
 [workspace.dependencies]
