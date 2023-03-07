@@ -1,3 +1,18 @@
+// Rust Levin Library
+// Written in 2023 by
+//   Cuprate Contributors
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+
 //! This module provides a `BucketSink` struct, which writes buckets to the
 //! provided `AsyncWrite`. If you are a user of this library you should
 //! probably use `MessageSink` instead.
@@ -38,10 +53,7 @@ impl<W: AsyncWrite + std::marker::Unpin> Sink<Bucket> for BucketSink<W> {
         Ok(())
     }
 
-    fn poll_flush(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         let this = self.project();
         let mut w = this.writer;
         let buffer = this.buffer;
@@ -62,20 +74,17 @@ impl<W: AsyncWrite + std::marker::Unpin> Sink<Bucket> for BucketSink<W> {
                                 } else {
                                     buffer[0].advance(len);
                                 }
-                            }
+                            },
                         }
                     } else {
                         return Poll::Ready(Ok(()));
                     }
-                }
+                },
             }
         }
     }
 
-    fn poll_close(
-        self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Result<(), Self::Error>> {
+    fn poll_close(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         ready!(self.project().writer.poll_close(cx))?;
         Poll::Ready(Ok(()))
     }

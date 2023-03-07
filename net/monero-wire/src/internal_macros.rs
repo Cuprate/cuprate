@@ -1,3 +1,18 @@
+// Rust Levin Library
+// Written in 2023 by
+//   Cuprate Contributors
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+
 macro_rules! get_field_from_map {
     ($map:ident, $field_name:expr) => {
         $map.get($field_name)
@@ -10,17 +25,15 @@ macro_rules! get_val_from_map {
         $map.get($field_name)
             .ok_or_else(|| serde::de::Error::missing_field($field_name))?
             .$get_fn()
-            .ok_or_else(|| {
-                serde::de::Error::invalid_type($map.get_value_type_as_unexpected(), &$expected_ty)
-            })?
+            .ok_or_else(|| serde::de::Error::invalid_type($map.get_value_type_as_unexpected(), &$expected_ty))?
     };
 }
 
 macro_rules! get_internal_val {
     ($value:ident, $get_fn:ident, $expected_ty:expr) => {
-        $value.$get_fn().ok_or_else(|| {
-            serde::de::Error::invalid_type($value.get_value_type_as_unexpected(), &$expected_ty)
-        })?
+        $value
+            .$get_fn()
+            .ok_or_else(|| serde::de::Error::invalid_type($value.get_value_type_as_unexpected(), &$expected_ty))?
     };
 }
 
