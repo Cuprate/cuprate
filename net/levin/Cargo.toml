@@ -5,7 +5,7 @@ edition = "2021"
 description = "A crate for working with the Levin protocol in Rust."
 license = "MIT"
 authors = ["Boog900"]
-repository = "https://github.com/SyntheticBird45/cuprate/#####"
+repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/levin"
 
 [dependencies]
 thiserror = "1.0.24"
