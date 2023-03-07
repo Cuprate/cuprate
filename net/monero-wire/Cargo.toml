@@ -1,0 +1,19 @@
+[package]
+name = "monero-wire"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/monero-wire"
+
+
+[dependencies]
+serde = {version = "1.0", features =["derive"]}
+serde_with = "2.2.0"
+epee-serde = {git="https://github.com/Boog900/epee_serde.git"}
+monero = "0.18.2"
+levin = {path="../levin"}
+byteorder = "1.4.3"
+bytes = "1"
+thiserror = "1.0.24"
+
