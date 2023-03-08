@@ -51,6 +51,7 @@
 //! *alt blocks*----------------------------------------------------
 //! 
 //!     alt_blocks         hash                {bock data, block blob}
+//! 
 
 // Defining tables
 const CF_BLOCKS: &str = "blocks";
