@@ -1,3 +1,18 @@
+// Rust Levin Library
+// Written in 2023 by
+//   Cuprate Contributors
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+
 //! This module defines the addresses that will get passed around the
 //! Monero network. Core Monero has 4 main addresses: IPv4, IPv6, Tor,
 //! I2p. Currently this module only has IPv(4/6).
@@ -114,11 +129,7 @@ impl<'de> Deserialize<'de> for NetworkAddress {
         Ok(match addr_type {
             1 => NetworkAddress::IPv4(IPv4Address::from_value(get_field_from_map!(value, "addr"))?),
             2 => NetworkAddress::IPv6(IPv6Address::from_value(get_field_from_map!(value, "addr"))?),
-            _ => {
-                return Err(de::Error::custom(
-                    "Network address type currently unsupported",
-                ))
-            }
+            _ => return Err(de::Error::custom("Network address type currently unsupported")),
         })
     }
 }
@@ -133,11 +144,11 @@ impl Serialize for NetworkAddress {
             NetworkAddress::IPv4(v) => {
                 state.serialize_field("type", &1_u8)?;
                 state.serialize_field("addr", v)?;
-            }
+            },
             NetworkAddress::IPv6(v) => {
                 state.serialize_field("type", &2_u8)?;
                 state.serialize_field("addr", v)?;
-            }
+            },
         }
         state.end()
     }

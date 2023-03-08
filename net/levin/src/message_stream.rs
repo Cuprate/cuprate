@@ -1,5 +1,20 @@
-//! This contains
-//!
+// Rust Levin Library
+// Written in 2023 by
+//   Cuprate Contributors
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+
+//! This modual provides a `MessageStream` which deserializes partially decoded `Bucket`s
+//! into full Buckets using a user provided `LevinBody`
 
 use std::marker::PhantomData;
 use std::task::Poll;
@@ -37,13 +52,9 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> MessageStream<D, S> {
 impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D, S> {
     type Item = Result<D, BucketError>;
 
-    fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        match ready!(this.bucket_stream.poll_next(cx)).expect("BucketStream will never return None")
-        {
+        match ready!(this.bucket_stream.poll_next(cx)).expect("BucketStream will never return None") {
             Err(e) => Poll::Ready(Some(Err(e))),
             Ok(bucket) => {
                 if bucket.header.signature != LEVIN_SIGNATURE {
@@ -51,9 +62,7 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D
                 }
 
                 if bucket.header.protocol_version != PROTOCOL_VERSION {
-                    return Err(BucketError::UnknownProtocolVersion(
-                        bucket.header.protocol_version,
-                    ))?;
+                    return Err(BucketError::UnknownProtocolVersion(bucket.header.protocol_version))?;
                 }
 
                 if bucket.header.return_code < 0
@@ -73,7 +82,7 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D
                     bucket.header.have_to_return_data,
                     bucket.header.command,
                 )))
-            }
+            },
         }
     }
 }

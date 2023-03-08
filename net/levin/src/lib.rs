@@ -1,3 +1,18 @@
+// Rust Levin Library
+// Written in 2023 by
+//   Cuprate Contributors
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+
 //! # Rust Levin
 //!
 //! A crate for working with the Levin protocol in Rust.
@@ -115,12 +130,7 @@ impl TryInto<MessageType> for header::Flags {
 /// A levin body
 pub trait LevinBody: Sized {
     /// Decodes the message from the data in the header
-    fn decode_message(
-        buf: &[u8],
-        typ: MessageType,
-        have_to_return: bool,
-        command: u32,
-    ) -> Result<Self, BucketError>;
+    fn decode_message(buf: &[u8], typ: MessageType, have_to_return: bool, command: u32) -> Result<Self, BucketError>;
 
     /// Encodes the message
     ///

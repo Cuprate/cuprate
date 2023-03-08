@@ -1,3 +1,18 @@
+// Rust Levin Library
+// Written in 2023 by
+//   Cuprate Contributors
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+
 //! This module provides a `BucketStream` struct, which is a stream of `Bucket`s,
 //! where only the header is decoded. If you are a user of this library you should
 //! probably use `MessageStream` instead.
@@ -31,10 +46,7 @@ impl BucketDecoder {
 
     /// Tries to decode a `Bucket` from the given buffer, returning the decoded `Bucket` and the
     /// number of bytes consumed from the buffer.
-    pub fn try_decode_bucket(
-        &mut self,
-        mut buf: &[u8],
-    ) -> Result<(Option<Bucket>, usize), BucketError> {
+    pub fn try_decode_bucket(&mut self, mut buf: &[u8]) -> Result<(Option<Bucket>, usize), BucketError> {
         let mut len = 0;
 
         // first we decode header
@@ -130,7 +142,7 @@ impl<S: AsyncRead + std::marker::Unpin> Stream for BucketStream<S> {
                     } else {
                         continue;
                     }
-                }
+                },
             }
         }
     }
