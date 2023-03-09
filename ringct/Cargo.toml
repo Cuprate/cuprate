@@ -1,0 +1,13 @@
+[package]
+name = "monero-ringct"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+
+[dependencies]
+monero = "0.18.2"
+curve25519-dalek = "3.0.2"
+thiserror = "1"
+lazy_static = "1.4.0"
+hex = "0.4"

@@ -20,7 +20,8 @@ authors=[
 members = [
         "blockchain_db",
         "net/levin",
-        "net/monero-wire"
+        "net/monero-wire",
+        "ringct"
 ]
 
 [workspace.dependencies]
