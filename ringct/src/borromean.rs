@@ -1,6 +1,8 @@
 
 //! Functions to verify a monero `RangeSig`
 
+#![allow(non_snake_case)]
+
 use monero::util::ringct::{RangeSig, CtKey};
 use monero::util::key::H as CompressedH;
 use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
@@ -11,15 +13,15 @@ use lazy_static::lazy_static;
 
 lazy_static! {
     static ref H: EdwardsPoint = CompressedH.point.decompress().unwrap();
-    static ref HI: [EdwardsPoint; 64] = generate_hi();
+    static ref H2: [EdwardsPoint; 64] = generate_H2();
 }
 
-fn generate_hi() -> [EdwardsPoint; 64] {
-    let mut hi = Vec::with_capacity(64);
+fn generate_H2() -> [EdwardsPoint; 64] {
+    let mut temp = Vec::with_capacity(64);
     for i in 0..64 {
-        hi.push(Scalar::from(2_u128.pow(i as u32)) * *H)
+        temp.push(Scalar::from(2_u128.pow(i as u32)) * *H)
     }
-    hi.try_into().unwrap()
+    temp.try_into().unwrap()
 }
 
 #[derive(Error, Debug)]
@@ -33,15 +35,15 @@ pub enum BorromeanError {
 
 }
 
-fn verify_borromean(p1: Vec<EdwardsPoint>, p2: Vec<EdwardsPoint>, bbee: Scalar, bbs0: Vec<Scalar>, bbs1: Vec<Scalar>) -> Result<(), BorromeanError> {
-    let mut lv: Vec<u8> = Vec::with_capacity(2048);
+fn verify_borromean(P1: Vec<EdwardsPoint>, P2: Vec<EdwardsPoint>, bbee: Scalar, bbs0: Vec<Scalar>, bbs1: Vec<Scalar>) -> Result<(), BorromeanError> {
+    let mut LV: Vec<u8> = Vec::with_capacity(2048);
     for i in 0..64 {
-        let ll = EdwardsPoint::vartime_double_scalar_mul_basepoint(&bbee, &p1[i], &bbs0[i]);
-        let chash = monero::Hash::hash_to_scalar(ll.compress().0).scalar;
-        let lv_temp = EdwardsPoint::vartime_double_scalar_mul_basepoint(&chash, &p2[i], &bbs1[i]);
-        lv.extend(lv_temp.compress().as_bytes());
+        let LL = EdwardsPoint::vartime_double_scalar_mul_basepoint(&bbee, &P1[i], &bbs0[i]);
+        let chash = monero::Hash::hash_to_scalar(LL.compress().as_bytes()).scalar;
+        let LV_temp = EdwardsPoint::vartime_double_scalar_mul_basepoint(&chash, &P2[i], &bbs1[i]);
+        LV.extend(LV_temp.compress().as_bytes());
     }
-    let eecomp = monero::Hash::hash_to_scalar(&lv);
+    let eecomp = monero::Hash::hash_to_scalar(&LV);
 
     if !(eecomp.scalar == bbee) {
         Err(BorromeanError::ComputedeeDoesNotEqualStored)
@@ -52,28 +54,28 @@ fn verify_borromean(p1: Vec<EdwardsPoint>, p2: Vec<EdwardsPoint>, bbee: Scalar, 
 }
 
 
-pub fn verify_rangesig(out_pk: &CtKey, rs: &RangeSig) -> Result<(), BorromeanError> {
-    let mut p1 = Vec::with_capacity(64);
-    let mut p2 = Vec::with_capacity(64);
+pub fn verify_rangesig(C: &CtKey, rs: &RangeSig) -> Result<(), BorromeanError> {
+    let mut P1 = Vec::with_capacity(64);
+    let mut P2 = Vec::with_capacity(64);
     let mut bbs0 = Vec::with_capacity(64);
     let mut bbs1 = Vec::with_capacity(64);
 
     let bbee = Scalar::from_bytes_mod_order(rs.asig.ee.key);
 
-    let mut c_temp = EdwardsPoint::identity();
+    let mut C_temp = EdwardsPoint::identity();
 
     for i in 0..64 {
         bbs0.push(Scalar::from_bytes_mod_order(rs.asig.s0.keys[i].key));
         bbs1.push(Scalar::from_bytes_mod_order(rs.asig.s1.keys[i].key));
-        p1.push(CompressedEdwardsY::from_slice(&rs.Ci.keys[i].key).decompress().ok_or(BorromeanError::StoredCiKeyIsAnInvalidPoint)?);
-        p2.push(p1[i] - HI[i]);
-        c_temp += p1[i];
+        P1.push(CompressedEdwardsY::from_slice(&rs.Ci.keys[i].key).decompress().ok_or(BorromeanError::StoredCiKeyIsAnInvalidPoint)?);
+        P2.push(P1[i] - H2[i]);
+        C_temp += P1[i];
     }
-    if c_temp.compress().as_bytes() != &out_pk.mask.key {
+    if C_temp.compress().as_bytes() != &C.mask.key {
         Err(BorromeanError::SumCiDoesNotEqualC)
     }
     else {
-        verify_borromean(p1, p2, bbee, bbs0, bbs1)
+        verify_borromean(P1, P2, bbee, bbs0, bbs1)
     }
 }
 
