@@ -24,8 +24,10 @@ Releasing an alternative node will reinforce the Monero Network if a security vu
   
 ### Status
 
-@SyntheticBird45 is working on the blockchain_db part.
-@boog900 is working on the net/p2p part.
+Status of current parts being work on can be found in the pull request section.
+
+@SyntheticBird45 is working on the database part.
+@boog900 have delivered the net code and is working on ringCT.
 
 ### Contributions
 
