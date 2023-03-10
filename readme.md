@@ -26,8 +26,10 @@ Releasing an alternative node will reinforce the Monero Network if a security vu
 
 Status of current parts being work on can be found in the pull request section.
 
-@SyntheticBird45 is working on the database part.
 @boog900 have delivered the net code and is working on ringCT.
+
+@SyntheticBird45 is working on the database part.
+
 
 ### Contributions
 
