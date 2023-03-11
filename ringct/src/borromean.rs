@@ -4,25 +4,12 @@
 #![allow(non_snake_case)]
 
 use monero::util::ringct::{RangeSig, CtKey};
-use monero::util::key::H as CompressedH;
 use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
 use curve25519_dalek::scalar::Scalar;
 use curve25519_dalek::traits::Identity;
 use thiserror::Error;
-use lazy_static::lazy_static;
 
-lazy_static! {
-    static ref H: EdwardsPoint = CompressedH.point.decompress().unwrap();
-    static ref H2: [EdwardsPoint; 64] = generate_H2();
-}
-
-fn generate_H2() -> [EdwardsPoint; 64] {
-    let mut temp = Vec::with_capacity(64);
-    for i in 0..64 {
-        temp.push(Scalar::from(2_u128.pow(i as u32)) * *H)
-    }
-    temp.try_into().unwrap()
-}
+use crate::H2;
 
 #[derive(Error, Debug)]
 pub enum BorromeanError {

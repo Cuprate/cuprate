@@ -11,3 +11,7 @@ curve25519-dalek = "3.0.2"
 thiserror = "1"
 lazy_static = "1.4.0"
 hex = "0.4"
+rand = "0.7"
+# This is a C wrapper around moneros hash to point fuction when/ if a better, rust, option
+# becomes avalible we should use that 
+hash_edwards_to_edwards = { git = "https://github.com/comit-network/hash_edwards_to_edwards" }
