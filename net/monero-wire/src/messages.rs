@@ -53,6 +53,18 @@ pub enum MessageRequest {
     SupportFlags(admin::SupportFlagsRequest),
 }
 
+impl MessageRequest {
+    /// Gets the `P2pCommand` for this message
+    pub fn p2p_command(&self) -> P2pCommand {
+        match self {
+            Self::Handshake(_) => P2pCommand::Handshake,
+            Self::TimedSync(_) => P2pCommand::TimedSync,
+            Self::Ping(_) => P2pCommand::Ping,
+            Self::SupportFlags(_) => P2pCommand::SupportFlags,
+        }
+    }
+}
+
 /// A message response
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MessageResponse {
@@ -64,6 +76,18 @@ pub enum MessageResponse {
     Ping(admin::PingResponse),
     /// SupportFlags
     SupportFlags(admin::SupportFlagsResponse),
+}
+
+impl MessageResponse {
+    /// Gets the `P2pCommand` for this message
+    pub fn p2p_command(&self) -> P2pCommand {
+        match self {
+            Self::Handshake(_) => P2pCommand::Handshake,
+            Self::TimedSync(_) => P2pCommand::TimedSync,
+            Self::Ping(_) => P2pCommand::Ping,
+            Self::SupportFlags(_) => P2pCommand::SupportFlags,
+        }
+    }
 }
 
 /// A messages notification
@@ -89,6 +113,23 @@ pub enum MessageNotification {
     GetTxPoolComplement(protocol::TxPoolCompliment),
 }
 
+impl MessageNotification {
+    /// Gets the `P2pCommand` for this message
+    pub fn p2p_command(&self) -> P2pCommand {
+        match self {
+            Self::NewBlock(_) => P2pCommand::NewBlock,
+            Self::NewTransactions(_) => P2pCommand::NewTransactions,
+            Self::RequestGetObject(_) => P2pCommand::RequestGetObject,
+            Self::ResponseGetObject(_) => P2pCommand::ResponseGetObject,
+            Self::RequestChain(_) => P2pCommand::RequestChain,
+            Self::ResponseChainEntry(_) => P2pCommand::ResponseChainEntry,
+            Self::NewFluffyBlock(_) => P2pCommand::NewFluffyBlock,
+            Self::RequestFluffyMissingTx(_) => P2pCommand::RequestFluffyMissingTx,
+            Self::GetTxPoolComplement(_) => P2pCommand::GetTxPoolComplement,
+        }
+    }
+}
+
 /// A Monero Message (levin body)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Message {
@@ -99,6 +140,51 @@ pub enum Message {
     /// Notification
     Notification(Box<MessageNotification>), // check benefits/ drawbacks of doing this, im just boxing it for now to satisfy clippy
 }
+
+impl Message {
+    /// Gets the `P2pCommand` for this message
+    pub fn p2p_command(&self) -> P2pCommand {
+        match self {
+            Message::Notification(noti) => noti.p2p_command(),
+            Message::Request(req) => req.p2p_command(),
+            Message::Response(res) => res.p2p_command(),
+        }
+    }
+
+    /// Returns if this message is a `MessageRequest`
+    pub fn is_request(&self) -> bool {
+        matches!(self, Message::Request(_))
+    }
+
+    /// Returns if this message is a `MessageResponse`
+    pub fn is_response(&self) -> bool {
+        matches!(self, Message::Response(_))
+    }
+
+    /// Returns if this message is a `MessageNotification`
+    pub fn is_notification(&self) -> bool {
+        matches!(self, Message::Notification(_))
+    }
+}
+
+impl From<MessageRequest> for Message {
+    fn from(value: MessageRequest) -> Self {
+        Message::Request(value)
+    }
+}
+
+impl From<MessageResponse> for Message {
+    fn from(value: MessageResponse) -> Self {
+        Message::Response(value)
+    }
+}
+
+impl From<MessageNotification> for Message {
+    fn from(value: MessageNotification) -> Self {
+        Message::Notification(Box::new(value))
+    }
+}
+
 
 fn epee_encode_error_to_levin(err: epee_serde::Error) -> BucketError {
     BucketError::FailedToEncodeBucketBody(err.to_string())
