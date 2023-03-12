@@ -98,7 +98,7 @@ pub mod database {
 		type Value: Encodable + Decodable;
 	}
 	
-	pub struct Interface<'a, D: Database<'a>, T: Transaction<'a>> {
+	pub struct Interface<'a, D: Database<'a>, T: Transaction<'a>>  {
 		pub db: &'a D,
 		pub i_type: Option<T>
 	}
@@ -120,11 +120,12 @@ pub mod database {
 
 	pub trait Database<'a>
 	{
+		type TX: Transaction<'a>;
+		type TXMut: Transaction<'a>;
 
 		// Create a transaction from the database
-		fn tx<T: Transaction<'a>>(&self, ro: bool) -> Result<T, DB_FAILURES>;
+		fn tx(&'a self, ro: bool) -> Result<Self::TX, DB_FAILURES>;
 	}
-	
 	pub struct GenericDatabase<'a, DB> {
 		filepath: Box<Path>,
 		db: Option<&'a DB>,
