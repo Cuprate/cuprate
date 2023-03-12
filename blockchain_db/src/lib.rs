@@ -17,10 +17,9 @@
 //! blockchain_db crates:
 //! Contains the implementation of interaction between the blockchain and the database backend.
 //! There is actually only one storage engine available:
-//! - RocksDB
-//! There is two other storage engine planned:
+//! - MDBX
+//! There is one other storage engine planned:
 //! - HSE (Heteregeonous Storage Engine)
-//! - LMDB (like monerod)
 
 #![deny(unused_attributes)]
 #![forbid(unsafe_code)]
@@ -31,7 +30,137 @@ use thiserror::Error;
 use monero::{Hash, Transaction, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
 use std::{error::Error, ops::Range};
 
-const MONERO_DEFAULT_LOG_CATEGORY: &str = "blockchain.db";
+pub mod mdbx;
+
+const DEFAULT_BLOCKCHAIN_DATABASE_FILENAME: &str = "blockchain.db";
+const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/// Module defining generic database implementations
+pub mod database {
+
+    	use std::{marker::PhantomData, ops::Deref, path::Path, sync::atomic::AtomicBool};
+
+    	use monero::{consensus::{Encodable, Decodable}, Hash};
+    	use serde::Serialize;
+
+	#[allow(dead_code)]
+	#[derive(thiserror::Error, Debug)]
+	pub enum DB_FAILURES {
+		#[error("\n<DB_FAILURES::Corrupted> The database has been reported as corrupted. Please check for eventual reasons before syncing again")]
+		Corrupted,
+
+		#[error("\n<DB_FAILURES::Panic> The database engine has panic. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
+		Panic,
+
+		#[error("\n<DB_FAILURES::Undefined(`{0}`)> Congratulations you just got an error code we've never think it could exist. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
+		Undefined(std::ffi::c_int)
+	}
+
+	/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
+
+
+
+
+
+	/// A trait defining the tables in the database
+	pub trait Table: Send + Sync + 'static {
+		
+		// name of the table
+		const TABLE_NAME: &'static str;
+
+		// Definition of a key & value
+		type Key: Encodable + Decodable;
+		type Value: Encodable + Decodable;
+	}
+	
+	pub struct Interface<'a, D: Database<'a>, T: Transaction<'a>> {
+		pub db: &'a D,
+		pub i_type: Option<T>
+	}
+
+	pub trait Transaction<'a>: Send + Sync {
+
+		fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
+
+		fn put<T: Table>(&self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
+
+		fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(),DB_FAILURES>;
+
+		fn clear<T: Table>(&self, table: T) -> Result<(),DB_FAILURES>;
+
+		fn commit(self) -> Result<(), DB_FAILURES>;
+
+		// + cursors
+	}
+
+	pub trait Database<'a>
+	{
+
+		// Create a transaction from the database
+		fn tx<T: Transaction<'a>>(&self, ro: bool) -> Result<T, DB_FAILURES>;
+	}
+	
+	pub struct GenericDatabase<'a, DB> {
+		filepath: Box<Path>,
+		db: Option<&'a DB>,
+		up_state: AtomicBool,
+	}
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 pub type difficulty_type = u128;
 type Blobdata = Vec<u8>;
@@ -40,12 +169,12 @@ type TxOutIndex = (Hash, u64);
 
 /// Methods tracking how a tx was received and relayed
 pub enum RelayMethod {
-    none,    //< Received via RPC with `do_not_relay` set
-    local,   //< Received via RPC; trying to send over i2p/tor, etc.
-    forward, //< Received over i2p/tor; timer delayed before ipv4/6 public broadcast
-    stem,    //< Received/send over network using Dandelion++ stem
-    fluff,   //< Received/sent over network using Dandelion++ fluff
-    block,   //< Received in block, takes precedence over others
+	none,    //< Received via RPC with `do_not_relay` set
+	local,   //< Received via RPC; trying to send over i2p/tor, etc.
+	forward, //< Received over i2p/tor; timer delayed before ipv4/6 public broadcast
+	stem,    //< Received/send over network using Dandelion++ stem
+	fluff,   //< Received/sent over network using Dandelion++ fluff
+	block,   //< Received in block, takes precedence over others
 }
 
 // the database types are going to be defined in the monero rust library.
@@ -111,12 +240,12 @@ impl txpool_tx_meta_t {
     fn set_relay_method(relay_method: RelayMethod) {}
 
     fn upgrade_relay_method(relay_method: RelayMethod) -> bool {
-        todo!()
+	todo!()
     }
 
     /// See `relay_category` description
     fn matches(category: RelayCategory) -> bool {
-        return matches_category(todo!(), category);
+	return matches_category(todo!(), category);
     }
 }
 
@@ -305,12 +434,12 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `unlock_time`: is the unlock time (height) of the output.
     /// `commitment`: is the RingCT commitment of this output.
     fn add_output(
-        &mut self,
-        tx_hash: &Hash,
-        output: &Hash,
-        index: TxOutIndex,
-        unlock_time: u64,
-        commitment: RctSig,
+	&mut self,
+	tx_hash: &Hash,
+	output: &Hash,
+	index: TxOutIndex,
+	unlock_time: u64,
+	commitment: RctSig,
     ) -> Result<u64, DB_FAILURES>;
 
     /// `add_tx_amount_output_indices` store amount output indices for a tx's outputs
@@ -329,10 +458,10 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `index`: is the output's index (indexed by amount)
     /// `include_commitment` : `true` by default.
     fn get_output_key(
-        &mut self,
-        amount: u64,
-        index: u64,
-        include_commitmemt: bool,
+	&mut self,
+	amount: u64,
+	index: u64,
+	include_commitmemt: bool,
     ) -> Result<output_data_t, DB_FAILURES>;
 
     /// `get_output_tx_and_index_from_global`gets an output's transaction hash and index from output's global index.
@@ -352,10 +481,10 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `offsets`: is a collection of outputs' index (indexed by amount).
     /// `allow partial`: `false` by default.
     fn get_output_key_list(
-        &mut self,
-        amounts: &Vec<u64>,
-        offsets: &Vec<u64>,
-        allow_partial: bool,
+	&mut self,
+	amounts: &Vec<u64>,
+	offsets: &Vec<u64>,
+	allow_partial: bool,
     ) -> Result<Vec<output_data_t>, DB_FAILURES>;
 
     /// `get_output_tx_and_index` gets an output's transaction hash and index
@@ -388,11 +517,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `tx_hash`: is the hash of the transaction.
     /// `tx_prunable_hash_ptr`: is the hash of the prunable part of the transaction.
     fn add_transaction(
-        &mut self,
-        blk_hash: &Hash,
-        tx: Transaction,
-        tx_hash: &Hash,
-        tx_prunable_hash_ptr: &Hash,
+	&mut self,
+	blk_hash: &Hash,
+	tx: Transaction,
+	tx_hash: &Hash,
+	tx_prunable_hash_ptr: &Hash,
     ) -> Result<(), DB_FAILURES>;
 
     /// `add_transaction_data` add the specified transaction data to its storage.
@@ -406,10 +535,10 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `tx_and_hash`: is a tuple containing the transaction and it's hash
     /// `tx_prunable_hash`: is the hash of the prunable part of the transaction
     fn add_transaction_data(
-        &mut self,
-        blk_hash: &Hash,
-        tx_and_hash: (Transaction, &Hash),
-        tx_prunable_hash: &Hash,
+	&mut self,
+	blk_hash: &Hash,
+	tx_and_hash: (Transaction, &Hash),
+	tx_prunable_hash: &Hash,
     ) -> Result<Hash, DB_FAILURES>;
 
     /// `remove_transaction_data` remove data about a transaction specified by its hash.
@@ -534,12 +663,12 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `coins_generated` is the number of coins generated after this block.
     /// `blk_hash`: is the hash of the block.
     fn add_block(
-        blk: Block,
-        blk_hash: Hash,
-        block_weight: u64,
-        long_term_block_weight: u64,
-        cumulative_difficulty: u128,
-        coins_generated: u64,
+	blk: Block,
+	blk_hash: Hash,
+	block_weight: u64,
+	long_term_block_weight: u64,
+	cumulative_difficulty: u128,
+	coins_generated: u64,
     ) -> Result<(), DB_FAILURES>;
 
     /// `pop_block` pops the top block off the blockchain.
@@ -660,15 +789,15 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `skip_coinbase`: is whether to return or skip coinbase transactions (they're in blocks regardless).    
     /// `get_miner_tx_hash`: is whether to calculate and return the miner (coinbase) tx hash.    
     fn get_blocks_from(
-        &mut self,
-        start_height: u64,
-        min_block_count: u64,
-        max_block_count: u64,
-        max_size: usize,
-        max_tx_count: u64,
-        pruned: bool,
-        skip_coinbase: bool,
-        get_miner_tx_hash: bool,
+	&mut self,
+	start_height: u64,
+	min_block_count: u64,
+	max_block_count: u64,
+	max_size: usize,
+	max_tx_count: u64,
+	pruned: bool,
+	skip_coinbase: bool,
+	get_miner_tx_hash: bool,
     ) -> Result<Vec<((String, Hash), Vec<(Hash, String)>)>, DB_FAILURES>;
 
     /// `get_block_height` gets the height of the block with a given hash
@@ -758,9 +887,9 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `start_height`: is the height of the block where the drifts start.
     /// `new_cumulative_difficulties`: is the collection of new cumulative difficulties to be stored
     fn correct_block_cumulative_difficulties(
-        &mut self,
-        start_height: u64,
-        new_cumulative_difficulties: Vec<difficulty_type>,
+	&mut self,
+	start_height: u64,
+	new_cumulative_difficulties: Vec<difficulty_type>,
     ) -> Result<(), DB_FAILURES>;
 
     // --------------------------------------------|  Alt-Block  |------------------------------------------------------------
@@ -816,7 +945,7 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `blob`: is the blobdata of the transaction to add.
     /// `details`: is the metadata of the transaction pool at this specific transaction.
     fn add_txpool_tx(&mut self, txid: &Hash, blob: &BlobdataRef, details: &txpool_tx_meta_t)
-        -> Result<(), DB_FAILURES>;
+	-> Result<(), DB_FAILURES>;
 
     /// `update_txpool_tx` replace pool's transaction metadata.
     ///
