@@ -14,12 +14,14 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //!
-//! blockchain_db crates:
-//! Contains the implementation of interaction between the blockchain and the database backend.
-//! There is actually only one storage engine available:
-//! - MDBX
-//! There is one other storage engine planned:
-//! - HSE (Heteregeonous Storage Engine)
+//! The cuprate-db crates implement (as its name suggests) the relations between the blockchain/txpool objects and their database.
+//! `lib.rs` contains all the generics, trait and specification for a interfaces between blockchain and a backend-agnostic database
+//! Every other files in this folder are implementation of these traits/methods to real storage engine.
+//! 
+//! At the moment, the only storage engine available is MDBX.
+//! The next storage engine planned is HSE (Heteregeonous Storage Engine) from Micron.
+//! 
+//! For more informations, please consult this docs:
 
 #![deny(unused_attributes)]
 #![forbid(unsafe_code)]
@@ -71,13 +73,25 @@ pub mod database {
 	#[allow(dead_code)]
 	#[derive(thiserror::Error, Debug)]
 	pub enum DB_FAILURES {
+        #[error("\n<DB_FAILURES::KeyAlreadyExist> The database tried to put a key that already exist. Key failed to be insert.")]
+        KeyAlreadyExist,
+
+        #[error("\n<DB_FAILURES::KeyNotFound> The database didn't find the corresponding key.")]
+        KeyNotFound,
+
+        #[error("\n<DB_FAILURES::DataNotFound> The database didn't find any data at the specified key")]
+        DataNotFound,
+
+        #[error("\n<DB_FAILURES::DataSizeLimit> The database was inserting something bigger than the storage engine limit. It shouldn't happen. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
+        DataSizeLimit,
+
 		#[error("\n<DB_FAILURES::Corrupted> The database has been reported as corrupted. Please check for eventual reasons before syncing again")]
 		Corrupted,
 
 		#[error("\n<DB_FAILURES::Panic> The database engine has panic. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
 		Panic,
 
-		#[error("\n<DB_FAILURES::Undefined(`{0}`)> Congratulations you just got an error code we've never think it could exist. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
+		#[error("\n<DB_FAILURES::Undefined, error code: `{0}`> Congratulations you just got an error code we've never think it could exist. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
 		Undefined(std::ffi::c_int)
 	}
 
@@ -88,6 +102,7 @@ pub mod database {
 
 
 	/// A trait defining the tables in the database
+    /// TODO : Implement Debug so it can be put back into DB_FAILURES
 	pub trait Table: Send + Sync + 'static {
 		
 		// name of the table
@@ -98,33 +113,40 @@ pub mod database {
 		type Value: Encodable + Decodable;
 	}
 	
+    // TODO : Divide transaction type & change 
 	pub struct Interface<'a, D: Database<'a>, T: Transaction<'a>>  {
 		pub db: &'a D,
-		pub i_type: Option<T>
+		pub t_type: Option<T>
 	}
 
 	pub trait Transaction<'a>: Send + Sync {
 
 		fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
 
-		fn put<T: Table>(&self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
-
-		fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(),DB_FAILURES>;
-
-		fn clear<T: Table>(&self, table: T) -> Result<(),DB_FAILURES>;
-
 		fn commit(self) -> Result<(), DB_FAILURES>;
 
 		// + cursors
 	}
 
+    pub trait WriteTransaction<'a>: Transaction<'a> {
+
+        fn put<T: Table>(&self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
+
+		fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(),DB_FAILURES>;
+
+		fn clear<T: Table>(&self, table: T) -> Result<(),DB_FAILURES>;
+    }
+
 	pub trait Database<'a>
 	{
 		type TX: Transaction<'a>;
-		type TXMut: Transaction<'a>;
+		type TXMut: WriteTransaction<'a>;
+        type Error: Into<DB_FAILURES>;
 
 		// Create a transaction from the database
-		fn tx(&'a self, ro: bool) -> Result<Self::TX, DB_FAILURES>;
+		fn tx(&'a self) -> Result<Self::TX, Self::Error>;
+
+        fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
 	}
 	pub struct GenericDatabase<'a, DB> {
 		filepath: Box<Path>,
