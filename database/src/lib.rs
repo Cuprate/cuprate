@@ -66,11 +66,11 @@ const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
 pub mod database {
 
     use std::{marker::PhantomData, ops::Deref, path::Path, sync::atomic::AtomicBool};
-
     use monero::{consensus::{Encodable, Decodable}, Hash};
     use serde::Serialize;
 
-	#[allow(dead_code)]
+    // ----------------------|   Error Enums  |----------------------
+
 	#[derive(thiserror::Error, Debug)]
 	pub enum DB_FAILURES {
         #[error("\n<DB_FAILURES::KeyAlreadyExist> The database tried to put a key that already exist. Key failed to be insert.")]
@@ -95,6 +95,19 @@ pub mod database {
 		Undefined(std::ffi::c_int)
 	}
 
+    // ----------------------|     Tables    |----------------------
+
+    /// A trait defining a table in the database alongside the appropriate type
+	pub trait Table: Send + Sync + 'static + Clone {
+		
+		// name of the table
+		const TABLE_NAME: &'static str;
+
+		// Definition of a key & value
+		type Key: Encodable + Decodable;
+		type Value: Encodable + Decodable;
+	}
+
     macro_rules! impl_table {
         ($table:ident , $key:ty , $value:ty ) => {
             #[derive(Clone)]
@@ -112,18 +125,7 @@ pub mod database {
 
 	/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
-	/// A trait defining a table in the database alongside the appropriate type
-	pub trait Table: Send + Sync + 'static + Clone {
-		
-		// name of the table
-		const TABLE_NAME: &'static str;
-
-		// Definition of a key & value
-		type Key: Encodable + Decodable;
-		type Value: Encodable + Decodable;
-	}
-
-
+    // ----------------------|     Tables    |---------------------
 	
     pub trait Database<'a>
 	{
@@ -136,7 +138,7 @@ pub mod database {
 
         fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
 	}
-	pub struct GenericDatabase<'a, DB> {
+	pub struct EnvDatabase<'a, DB> {
 		filepath: Box<Path>,
 		db: Option<&'a DB>,
 		up_state: AtomicBool,
@@ -148,6 +150,7 @@ pub mod database {
 	}
 
     impl<'a,D: Database<'a>> Interface<'a,D> {
+
         fn from(db: &'a D) -> Self {
             return Self { db: db, tx: None }
         }
