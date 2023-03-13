@@ -65,10 +65,10 @@ const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
 /// Module defining generic database implementations
 pub mod database {
 
-    	use std::{marker::PhantomData, ops::Deref, path::Path, sync::atomic::AtomicBool};
+    use std::{marker::PhantomData, ops::Deref, path::Path, sync::atomic::AtomicBool};
 
-    	use monero::{consensus::{Encodable, Decodable}, Hash};
-    	use serde::Serialize;
+    use monero::{consensus::{Encodable, Decodable}, Hash};
+    use serde::Serialize;
 
 	#[allow(dead_code)]
 	#[derive(thiserror::Error, Debug)]
@@ -95,15 +95,25 @@ pub mod database {
 		Undefined(std::ffi::c_int)
 	}
 
+    macro_rules! impl_table {
+        ($table:ident , $key:ty , $value:ty ) => {
+            #[derive(Clone)]
+            pub(crate) struct $table;
+
+            impl Table for $table {
+                const TABLE_NAME: &'static str = "$table";
+                type Key = $key;
+                type Value = $value;
+            }
+        };
+    }
+
+    impl_table!(blockhash, u64, Hash);
+
 	/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
 
-
-
-
-
-	/// A trait defining the tables in the database
-    /// TODO : Implement Debug so it can be put back into DB_FAILURES
-	pub trait Table: Send + Sync + 'static {
+	/// A trait defining a table in the database alongside the appropriate type
+	pub trait Table: Send + Sync + 'static + Clone {
 		
 		// name of the table
 		const TABLE_NAME: &'static str;
@@ -112,12 +122,58 @@ pub mod database {
 		type Key: Encodable + Decodable;
 		type Value: Encodable + Decodable;
 	}
+
+
 	
-    // TODO : Divide transaction type & change 
-	pub struct Interface<'a, D: Database<'a>, T: Transaction<'a>>  {
-		pub db: &'a D,
-		pub t_type: Option<T>
+    pub trait Database<'a>
+	{
+		type TX: Transaction<'a>;
+		type TXMut: WriteTransaction<'a>;
+        type Error: Into<DB_FAILURES>;
+
+		// Create a transaction from the database
+		fn tx(&'a self) -> Result<Self::TX, Self::Error>;
+
+        fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
 	}
+	pub struct GenericDatabase<'a, DB> {
+		filepath: Box<Path>,
+		db: Option<&'a DB>,
+		up_state: AtomicBool,
+	}
+
+	pub struct Interface<'a, D: Database<'a>>  {
+		pub db: &'a D,
+		pub tx: Option<D::TXMut>
+	}
+
+    impl<'a,D: Database<'a>> Interface<'a,D> {
+        fn from(db: &'a D) -> Self {
+            return Self { db: db, tx: None }
+        }
+
+        fn open(&mut self) -> Result<(),DB_FAILURES> {
+            match self.db.tx_mut() {
+                Ok(tx) => { self.tx = Some(tx); Ok(())}
+                Err(e) => { return Err(e.into()); }
+            }
+        }
+
+        fn get_block_hash(&self, height: u64) -> Result<Hash,DB_FAILURES> {
+            match self.get::<blockhash>(height) {
+                Ok(hash) => { Ok(hash.unwrap()) }
+                Err(e) => { Err(e)}
+            }
+        }
+    }
+
+    impl<'a, D: Database<'a>> Deref for Interface<'a,D> {
+        type Target = D::TXMut;
+
+        fn deref(&self) -> &Self::Target {
+            return self.tx.as_ref().unwrap()
+        }
+    }
 
 	pub trait Transaction<'a>: Send + Sync {
 
@@ -136,23 +192,6 @@ pub mod database {
 
 		fn clear<T: Table>(&self, table: T) -> Result<(),DB_FAILURES>;
     }
-
-	pub trait Database<'a>
-	{
-		type TX: Transaction<'a>;
-		type TXMut: WriteTransaction<'a>;
-        type Error: Into<DB_FAILURES>;
-
-		// Create a transaction from the database
-		fn tx(&'a self) -> Result<Self::TX, Self::Error>;
-
-        fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
-	}
-	pub struct GenericDatabase<'a, DB> {
-		filepath: Box<Path>,
-		db: Option<&'a DB>,
-		up_state: AtomicBool,
-	}
 	
 }
 
