@@ -1,6 +1,6 @@
 use libmdbx::{RO, RW, DatabaseKind, TransactionKind};
 
-use crate::database::{Database, Transaction, DB_FAILURES, Table, WriteTransaction};
+use crate::{database::{Database},error::DB_FAILURES,table::Table,transaction::{Transaction, WriteTransaction}};
 
 
 impl From<libmdbx::Error> for DB_FAILURES {

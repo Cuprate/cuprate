@@ -14,7 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //!
-//! The cuprate-db crates implement (as its name suggests) the relations between the blockchain/txpool objects and their database.
+//! The cuprate-db crates implement (as its name suggests) the relations between the blockchain/txpool objects and their databases.
 //! `lib.rs` contains all the generics, trait and specification for a interfaces between blockchain and a backend-agnostic database
 //! Every other files in this folder are implementation of these traits/methods to real storage engine.
 //! 
@@ -28,8 +28,10 @@
 #![allow(non_camel_case_types)]
 #![deny(clippy::expect_used, clippy::panic)]
 
+use database::{Database, Interface};
 use thiserror::Error;
-use monero::{Hash, Transaction, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
+use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
+use transaction::Transaction;
 use std::{error::Error, ops::Range};
 
 pub mod mdbx;
@@ -42,36 +44,12 @@ const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
 
 
 
+// ------------------------------------------|   Error Enums  |------------------------------------------
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/// Module defining generic database implementations
-pub mod database {
-
-    use std::{marker::PhantomData, ops::Deref, path::Path, sync::atomic::AtomicBool};
-    use monero::{consensus::{Encodable, Decodable}, Hash};
-    use serde::Serialize;
-
-    // ----------------------|   Error Enums  |----------------------
-
+pub mod error {
+	
 	#[derive(thiserror::Error, Debug)]
+	/// `DB_FAILURES` is an enum for backend-agnostic, internal database errors. The `From` Trait must be implemented to the specific backend errors to match DB_FAILURES.
 	pub enum DB_FAILURES {
         #[error("\n<DB_FAILURES::KeyAlreadyExist> The database tried to put a key that already exist. Key failed to be insert.")]
         KeyAlreadyExist,
@@ -80,76 +58,92 @@ pub mod database {
         KeyNotFound,
 
         #[error("\n<DB_FAILURES::DataNotFound> The database didn't find any data at the specified key")]
-        DataNotFound,
+        DataNotFound, // Will never be used
 
         #[error("\n<DB_FAILURES::DataSizeLimit> The database was inserting something bigger than the storage engine limit. It shouldn't happen. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
         DataSizeLimit,
 
-		#[error("\n<DB_FAILURES::Corrupted> The database has been reported as corrupted. Please check for eventual reasons before syncing again")]
-		Corrupted,
+	#[error("\n<DB_FAILURES::Corrupted> The database has been reported as corrupted. Please check for eventual reasons before syncing again")]
+	Corrupted,
 
-		#[error("\n<DB_FAILURES::Panic> The database engine has panic. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
-		Panic,
+	#[error("\n<DB_FAILURES::Panic> The database engine has panic. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
+	Panic,
 
-		#[error("\n<DB_FAILURES::Undefined, error code: `{0}`> Congratulations you just got an error code we've never think it could exist. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
-		Undefined(std::ffi::c_int)
+	#[error("\n<DB_FAILURES::Undefined, error code: `{0}`> Congratulations you just got an error code we've never think it could exist. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
+	Undefined(std::ffi::c_int)
 	}
 
-    // ----------------------|     Tables    |----------------------
+}
 
-    /// A trait defining a table in the database alongside the appropriate type
+// ------------------------------------------|        Tables        |------------------------------------------
+
+pub mod table {
+
+	use monero::{consensus::{Encodable, Decodable}, Hash};
+
+	/// A trait implementing a table for the database. It is implemented to an empty struct to specify the name and table's associated types.
 	pub trait Table: Send + Sync + 'static + Clone {
 		
 		// name of the table
 		const TABLE_NAME: &'static str;
 
-		// Definition of a key & value
+		// Definition of a key & value types of the database
 		type Key: Encodable + Decodable;
 		type Value: Encodable + Decodable;
 	}
 
-    macro_rules! impl_table {
-        ($table:ident , $key:ty , $value:ty ) => {
-            #[derive(Clone)]
-            pub(crate) struct $table;
+	/// This declarative macro declare a new empty struct and impl the specified name, and corresponding types. 
+	macro_rules! impl_table {
+		($table:ident , $key:ty , $value:ty ) => {
+            		#[derive(Clone)]
+            		pub(crate) struct $table;
 
-            impl Table for $table {
-                const TABLE_NAME: &'static str = "$table";
-                type Key = $key;
-                type Value = $value;
-            }
-        };
-    }
+            		impl Table for $table {
+                		const TABLE_NAME: &'static str = "$table";
+                		type Key = $key;
+                		type Value = $value;
+            		}
+        	};
+    	}
 
-    impl_table!(blockhash, u64, Hash);
+	impl_table!(blockhash, u64, Hash);
+}
 
-	/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- */
+// ------------------------------------------|      Database      |------------------------------------------
 
-    // ----------------------|     Tables    |---------------------
+pub mod database {
+
+    	use std::{ops::Deref, path::Path, sync::{atomic::AtomicBool, Arc}};
+    	use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
 	
-    pub trait Database<'a>
+	/// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the 
+	/// different transaction mode (read & write) and it's native errors.
+	pub trait Database<'a>
 	{
 		type TX: Transaction<'a>;
 		type TXMut: WriteTransaction<'a>;
-        type Error: Into<DB_FAILURES>;
+        	type Error: Into<DB_FAILURES>;
 
 		// Create a transaction from the database
 		fn tx(&'a self) -> Result<Self::TX, Self::Error>;
 
-        fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
+        	fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
 	}
-	pub struct EnvDatabase<'a, DB> {
+
+	/// `SharedDatabase`is a struct containing a shareable pointer to the database & the corresponding metadata.
+	pub struct SharedDatabase<D> {
 		filepath: Box<Path>,
-		db: Option<&'a DB>,
+		db: Option<Arc<D>>,
 		up_state: AtomicBool,
 	}
 
+	/// `Interface` is a struct containing a pointer to the database and a transaction to be used for the implemented method of Interface.
 	pub struct Interface<'a, D: Database<'a>>  {
 		pub db: &'a D,
 		pub tx: Option<D::TXMut>
 	}
 
-    impl<'a,D: Database<'a>> Interface<'a,D> {
+    	impl<'a,D: Database<'a>> Interface<'a,D> {
 
         fn from(db: &'a D) -> Self {
             return Self { db: db, tx: None }
@@ -161,13 +155,6 @@ pub mod database {
                 Err(e) => { return Err(e.into()); }
             }
         }
-
-        fn get_block_hash(&self, height: u64) -> Result<Hash,DB_FAILURES> {
-            match self.get::<blockhash>(height) {
-                Ok(hash) => { Ok(hash.unwrap()) }
-                Err(e) => { Err(e)}
-            }
-        }
     }
 
     impl<'a, D: Database<'a>> Deref for Interface<'a,D> {
@@ -176,9 +163,20 @@ pub mod database {
         fn deref(&self) -> &Self::Target {
             return self.tx.as_ref().unwrap()
         }
-    }
+    }	
+}
+
+// ------------------------------------------|      DatabaseTx     |------------------------------------------
+
+pub mod transaction {
+
+	use crate::{error::DB_FAILURES,table::Table};
+
+	pub trait Cursor {}
 
 	pub trait Transaction<'a>: Send + Sync {
+
+		//type Cursor: Cursor;
 
 		fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
 
@@ -187,22 +185,30 @@ pub mod database {
 		// + cursors
 	}
 
-    pub trait WriteTransaction<'a>: Transaction<'a> {
+	pub trait WriteTransaction<'a>: Transaction<'a> {
 
-        fn put<T: Table>(&self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
+        	fn put<T: Table>(&self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
 
 		fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(),DB_FAILURES>;
 
 		fn clear<T: Table>(&self, table: T) -> Result<(),DB_FAILURES>;
-    }
-	
+    	}
 }
 
+impl<'a, D: Database<'a>> Interface<'a,D> {
 
-
-
-
-
+	fn get_block_hash(&self, height: u64) -> Result<Hash,error::DB_FAILURES>{
+		match self.get::<table::blockhash>(height) {
+			Ok(value) => {
+				match value {
+					Some(value) => Ok(value),
+					None => Err(error::DB_FAILURES::DataNotFound),
+				}
+			},
+			Err(e) => Err(e)
+		}
+	}
+}
 
 
 
@@ -584,7 +590,7 @@ pub trait BlockchainDB: KeyValueDatabase {
     fn add_transaction(
 	&mut self,
 	blk_hash: &Hash,
-	tx: Transaction,
+	tx: monero::Transaction,
 	tx_hash: &Hash,
 	tx_prunable_hash_ptr: &Hash,
     ) -> Result<(), DB_FAILURES>;
@@ -602,7 +608,7 @@ pub trait BlockchainDB: KeyValueDatabase {
     fn add_transaction_data(
 	&mut self,
 	blk_hash: &Hash,
-	tx_and_hash: (Transaction, &Hash),
+	tx_and_hash: (monero::Transaction, &Hash),
 	tx_prunable_hash: &Hash,
     ) -> Result<Hash, DB_FAILURES>;
 
@@ -644,7 +650,7 @@ pub trait BlockchainDB: KeyValueDatabase {
     ///
     /// Parameters:
     /// `h`: is the given hash of transaction to fetch.
-    fn get_tx(&mut self, h: &Hash) -> Result<Transaction, DB_FAILURES>;
+    fn get_tx(&mut self, h: &Hash) -> Result<monero::Transaction, DB_FAILURES>;
 
     /// `get_pruned_tx` fetches the transaction base with the given hash.
     ///
@@ -652,7 +658,7 @@ pub trait BlockchainDB: KeyValueDatabase {
     ///
     /// Parameters:
     /// `h`: is the given hash of transaction to fetch.
-    fn get_pruned_tx(&mut self, h: &Hash) -> Result<Transaction, DB_FAILURES>;
+    fn get_pruned_tx(&mut self, h: &Hash) -> Result<monero::Transaction, DB_FAILURES>;
 
     /// `get_tx_list` fetches the transactions with given hashes.
     ///
