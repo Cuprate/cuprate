@@ -51,6 +51,10 @@ pub mod error {
 	#[derive(thiserror::Error, Debug)]
 	/// `DB_FAILURES` is an enum for backend-agnostic, internal database errors. The `From` Trait must be implemented to the specific backend errors to match DB_FAILURES.
 	pub enum DB_FAILURES {
+
+	#[error("<DB_FAILURES::EncodingError> Failed to encode some data")]
+	EncodingError,
+
         #[error("\n<DB_FAILURES::KeyAlreadyExist> The database tried to put a key that already exist. Key failed to be insert.")]
         KeyAlreadyExist,
 
@@ -187,11 +191,11 @@ pub mod transaction {
 
 	pub trait WriteTransaction<'a>: Transaction<'a> {
 
-        	fn put<T: Table>(&self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
+        	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<usize,DB_FAILURES>;
 
 		fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(),DB_FAILURES>;
 
-		fn clear<T: Table>(&self, table: T) -> Result<(),DB_FAILURES>;
+		fn clear<T: Table>(&self) -> Result<(),DB_FAILURES>;
     	}
 }
 
