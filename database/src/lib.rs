@@ -34,6 +34,7 @@ use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSi
 use transaction::Transaction;
 use std::{error::Error, ops::Range};
 
+#[cfg(feature = "mdbx")]
 pub mod mdbx;
 
 const DEFAULT_BLOCKCHAIN_DATABASE_FILENAME: &str = "blockchain.db";

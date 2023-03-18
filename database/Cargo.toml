@@ -9,12 +9,14 @@ authors=[
         "SyntheticBird45 <@someoneelse495495:matrix.org>"
         ]
 
+[features]
+mdbx = ["dep:libmdbx"]
+
 [dependencies]
 monero = {workspace = true, features = ['serde']}
 serde = { workspace = true}
 thiserror = {workspace = true }
-
-libmdbx = "0.3.1"
+libmdbx = { version = "0.3.1", optional = true }
 
 [build]
 linker="clang"
