@@ -38,4 +38,11 @@ lto = "thin"
 panic = "abort"
 
 [build]
-rustflags=["-Zcf-protection=full", "-Zsanitizer=cfi", "-Crelocation-model=pie", "-Cstack-protector=all"]
+linker="clang"
+rustflags=[
+	"-Clink-arg=-fuse-ld=mold",
+	"-Zcf-protection=full", 
+	"-Zsanitizer=cfi", 
+	"-Crelocation-model=pie", 
+	"-Cstack-protector=all",
+]

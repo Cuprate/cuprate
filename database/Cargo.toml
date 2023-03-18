@@ -15,3 +15,13 @@ serde = { workspace = true}
 thiserror = {workspace = true }
 
 libmdbx = "0.3.1"
+
+[build]
+linker="clang"
+rustflags=[
+	"-Clink-arg=-fuse-ld=mold",
+	"-Zcf-protection=full", 
+	"-Zsanitizer=cfi", 
+	"-Crelocation-model=pie", 
+	"-Cstack-protector=all",
+]

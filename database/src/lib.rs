@@ -58,6 +58,9 @@ pub mod error {
         #[error("\n<DB_FAILURES::KeyAlreadyExist> The database tried to put a key that already exist. Key failed to be insert.")]
         KeyAlreadyExist,
 
+	#[error("\n<DB_FAILURES::FailedToCommit> A transaction tried to commit to the db, but failed.")]
+	FailedToCommit,
+
         #[error("\n<DB_FAILURES::KeyNotFound> The database didn't find the corresponding key.")]
         KeyNotFound,
 
@@ -83,7 +86,7 @@ pub mod error {
 
 pub mod table {
 
-	use monero::{consensus::{Encodable, Decodable}, Hash};
+	use monero::{consensus::{Encodable, Decodable}, Hash, BlockHeader, Block};
 
 	/// A trait implementing a table for the database. It is implemented to an empty struct to specify the name and table's associated types.
 	pub trait Table: Send + Sync + 'static + Clone {
@@ -94,6 +97,12 @@ pub mod table {
 		// Definition of a key & value types of the database
 		type Key: Encodable + Decodable;
 		type Value: Encodable + Decodable;
+	}
+
+	/// A trait implementing a table with DUPlicated data support. Essentially defining what's the type of the subkey.
+	pub trait DupTable: Table {
+
+		type Subkey: Encodable + Decodable;
 	}
 
 	/// This declarative macro declare a new empty struct and impl the specified name, and corresponding types. 
@@ -110,7 +119,22 @@ pub mod table {
         	};
     	}
 
+	/// This declarative macro declare extend the original impl_table! macro by implementy the subkey type for the specified table.
+	macro_rules! impl_duptable {
+		($table:ident, $key:ty, $subkey:ty, $value:ty) => {
+			impl_table!($table, $key, $value)
+
+			impl DupTable for $table {
+				type Subkey: $subkey
+			}
+	    	};
+	}
+
 	impl_table!(blockhash, u64, Hash);
+
+	impl_table!(blockheaders, Hash, BlockHeader);
+
+	impl_table!(blockbody, Hash, Block);
 }
 
 // ------------------------------------------|      Database      |------------------------------------------
@@ -149,17 +173,17 @@ pub mod database {
 
     	impl<'a,D: Database<'a>> Interface<'a,D> {
 
-        fn from(db: &'a D) -> Self {
-            return Self { db: db, tx: None }
-        }
+        	fn from(db: &'a D) -> Self {
+            		return Self { db: db, tx: None }
+        	}	
 
-        fn open(&mut self) -> Result<(),DB_FAILURES> {
-            match self.db.tx_mut() {
-                Ok(tx) => { self.tx = Some(tx); Ok(())}
-                Err(e) => { return Err(e.into()); }
-            }
-        }
-    }
+        	fn open(&mut self) -> Result<(),DB_FAILURES> {
+            		match self.db.tx_mut() {
+                		Ok(tx) => { self.tx = Some(tx); Ok(())}
+                		Err(e) => { return Err(e.into()); }
+            		}
+        	}
+	}
 
     impl<'a, D: Database<'a>> Deref for Interface<'a,D> {
         type Target = D::TXMut;
@@ -176,20 +200,44 @@ pub mod transaction {
 
 	use crate::{error::DB_FAILURES,table::Table};
 
-	pub trait Cursor {}
+	pub trait Cursor<'t, T: Table> {
+
+		fn first(&mut self) -> Result<(T::Key, T::Value),DB_FAILURES>;
+
+		fn get(&mut self) -> Result<(T::Key, T::Value),DB_FAILURES>;
+
+		fn last(&self) -> Result<(T::Key, T::Value),DB_FAILURES>;
+
+		fn  next(&self) -> Result<(T::Key, T::Value),DB_FAILURES>;
+
+		fn prev(&self) -> Result<(T::Key,T::Value),DB_FAILURES>;
+		
+		fn set(&self) -> Result<T::Value,DB_FAILURES>;
+	}
+
+	pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
+
+		fn put(&self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
+
+		fn del(&self) -> Result<(),DB_FAILURES>;
+	}
 
 	pub trait Transaction<'a>: Send + Sync {
 
-		//type Cursor: Cursor;
+		type Cursor<T: Table>: Cursor<'a,T>;
 
 		fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
 
 		fn commit(self) -> Result<(), DB_FAILURES>;
 
+		fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>,DB_FAILURES>;
+
 		// + cursors
 	}
 
 	pub trait WriteTransaction<'a>: Transaction<'a> {
+
+		type WriteCursor<T: Table>: WriteCursor<'a,T>;
 
         	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<usize,DB_FAILURES>;
 
@@ -201,16 +249,8 @@ pub mod transaction {
 
 impl<'a, D: Database<'a>> Interface<'a,D> {
 
-	fn get_block_hash(&self, height: u64) -> Result<Hash,error::DB_FAILURES>{
-		match self.get::<table::blockhash>(height) {
-			Ok(value) => {
-				match value {
-					Some(value) => Ok(value),
-					None => Err(error::DB_FAILURES::DataNotFound),
-				}
-			},
-			Err(e) => Err(e)
-		}
+	fn get_block_hash(&self, height: u64) -> Result<Option<Hash>,error::DB_FAILURES>{
+		self.get::<table::blockhash>(height)
 	}
 }
 
