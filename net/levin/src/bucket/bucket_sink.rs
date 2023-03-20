@@ -27,14 +27,24 @@ use futures::sink::Sink;
 use futures::AsyncWrite;
 use pin_project::pin_project;
 
-use crate::{Bucket, BucketError};
+use super::{Bucket, BucketError};
 
 /// A BucketSink writes Bucket instances to the provided AsyncWrite target.
 #[pin_project]
-pub struct BucketSink<W: AsyncWrite + std::marker::Unpin> {
+pub struct BucketSink<W> {
     #[pin]
     writer: W,
     buffer: VecDeque<BytesMut>,
+}
+
+impl<W: AsyncWrite + std::marker::Unpin> BucketSink<W> {
+    /// Creates a new `BucketSink` from the given `AsyncWrite`
+    pub fn new(writer: W) -> Self {
+        BucketSink {
+            writer,
+            buffer: VecDeque::with_capacity(3),
+        }
+    }
 }
 
 impl<W: AsyncWrite + std::marker::Unpin> Sink<Bucket> for BucketSink<W> {

@@ -29,6 +29,8 @@ use serde_with::TryFromInto;
 use super::common::BlockCompleteEntry;
 use super::{default_false, default_true};
 
+const P2P_PROTOCOL_BASE: u32 = 2000;
+
 /// A block that SHOULD have transactions
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct NewBlock {
@@ -38,14 +40,15 @@ pub struct NewBlock {
     pub current_blockchain_height: u64,
 }
 
-/// A Block that doesn't have transactions unless requested
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct NewFluffyBlock {
-    /// Block which might have transactions
-    pub b: BlockCompleteEntry,
-    /// The Block height
-    pub current_blockchain_height: u64,
-}
+message!(
+    Protocol,
+    Name: NewBlock {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 1,
+);
 
 /// A Tx Pool transaction blob
 #[serde_as]
@@ -75,6 +78,16 @@ pub struct NewTransactions {
     pub padding: Vec<u8>,
 }
 
+message!(
+    Protocol,
+    Name: NewTransactions {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 2,
+);
+
 /// A Request For Blocks
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -86,6 +99,16 @@ pub struct GetObjectsRequest {
     #[serde(default = "default_false")]
     pub pruned: bool,
 }
+
+message!(
+    Protocol,
+    Name: GetObjectsRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 3,
+);
 
 /// A Blocks Response
 #[serde_as]
@@ -100,6 +123,16 @@ pub struct GetObjectsResponse {
     pub current_blockchain_height: u64,
 }
 
+message!(
+    Protocol,
+    Name: GetObjectsResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 4,
+);
+
 /// A Chain Request
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -111,6 +144,16 @@ pub struct ChainRequest {
     #[serde(default = "default_false")]
     pub prune: bool,
 }
+
+message!(
+    Protocol,
+    Name: ChainRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 6,
+);
 
 /// A Chain Response
 #[serde_as]
@@ -134,6 +177,35 @@ pub struct ChainResponse {
     pub first_block: Vec<u8>,
 }
 
+message!(
+    Protocol,
+    Name: ChainResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 7,
+);
+
+/// A Block that doesn't have transactions unless requested
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct NewFluffyBlock {
+    /// Block which might have transactions
+    pub b: BlockCompleteEntry,
+    /// The Block height
+    pub current_blockchain_height: u64,
+}
+
+message!(
+    Protocol,
+    Name: NewFluffyBlock {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 8,
+);
+
 /// A request for Txs we are missing from our TxPool
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -147,14 +219,34 @@ pub struct FluffyMissingTransactionsRequest {
     pub missing_tx_indices: Vec<u64>,
 }
 
+message!(
+    Protocol,
+    Name: FluffyMissingTransactionsRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 9,
+);
+
 /// TxPoolCompliment
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct TxPoolCompliment {
+pub struct GetTxPoolCompliment {
     /// Tx Hashes
     #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
     pub hashes: Vec<Hash>,
 }
+
+message!(
+    Protocol,
+    Name: GetTxPoolCompliment {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 10,
+);
 
 #[cfg(test)]
 mod tests {

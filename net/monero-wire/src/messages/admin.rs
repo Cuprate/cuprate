@@ -25,6 +25,19 @@ use super::{
     PeerID,
 };
 
+const P2P_ADMIN_BASE: u32 = 1000;
+
+#[derive(Debug)]
+pub struct SillyEncodingError;
+
+fn silly_encode<T>(_: &T) -> Result<Vec<u8>, SillyEncodingError> {
+    Ok(vec![])
+}
+
+fn silly_decode<T: Default>(_: &[u8]) -> Result<T, SillyEncodingError> {
+    Ok(T::default())
+}
+
 /// A Handshake Request
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct HandshakeRequest {
@@ -45,6 +58,22 @@ pub struct HandshakeResponse {
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
+message!(
+    Admin,
+    Name: Handshake,
+    ID: P2P_ADMIN_BASE + 1,
+    Request: HandshakeRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    Response: HandshakeResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+);
+
 /// A TimedSync Request
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct TimedSyncRequest {
@@ -61,11 +90,27 @@ pub struct TimedSyncResponse {
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
+message!(
+    Admin,
+    Name: TimedSync,
+    ID: P2P_ADMIN_BASE + 2,
+    Request: TimedSyncRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    Response: TimedSyncResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+);
+
 /// The status field of an okay ping response
 pub const PING_OK_RESPONSE_STATUS_TEXT: &str = "OK";
 
 /// A Ping Request
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct PingRequest;
 
 /// A Ping Response
@@ -77,8 +122,24 @@ pub struct PingResponse {
     pub peer_id: PeerID,
 }
 
+message!(
+    Admin,
+    Name: Ping,
+    ID: P2P_ADMIN_BASE + 3,
+    Request: PingRequest {
+        EncodingError: SillyEncodingError,
+        Encode: silly_encode,
+        Decode: silly_decode,
+    },
+    Response: PingResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+);
+
 /// A Support Flags Request
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SupportFlagsRequest;
 
 /// A Support Flags Response
@@ -87,6 +148,22 @@ pub struct SupportFlagsResponse {
     /// Support Flags
     pub support_flags: u32,
 }
+
+message!(
+    Admin,
+    Name: SupportFlags,
+    ID: P2P_ADMIN_BASE + 7,
+    Request: SupportFlagsRequest {
+        EncodingError: SillyEncodingError,
+        Encode: silly_encode,
+        Decode: silly_decode,
+    },
+    Response: SupportFlagsResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+);
 
 #[cfg(test)]
 mod tests {

@@ -7,6 +7,13 @@ authors = ["Boog900"]
 
 [dependencies]
 monero-wire = {path= "../net/monero-wire"}
+levin = {path="../net/levin"}
 tower = {version = "0.4.13", features = ["util"]}
 futures = "0.3.26"
 thiserror = "1.0.39"
+bytes = "1"
+
+
+[dev-dependencies]
+tokio = {version="1.26", features =["full"]}
+tokio-util ={version="0.7", features=["compat"]}

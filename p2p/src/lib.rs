@@ -1,2 +1,2 @@
-mod protocol;
-mod peer;
+pub mod peer;
+pub mod protocol;
