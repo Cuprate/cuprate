@@ -240,7 +240,7 @@ pub mod transaction {
 
 		type WriteCursor<T: Table>: WriteCursor<'a,T>;
 
-        	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<usize,DB_FAILURES>;
+        	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
 
 		fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(),DB_FAILURES>;
 

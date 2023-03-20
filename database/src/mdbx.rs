@@ -24,14 +24,29 @@ impl From<libmdbx::Error> for DB_FAILURES {
 	}
 }
 
+macro_rules! mdbx_encode_consensus {
+    	( $x:ident, $y:ident ) => {
+		let mut $y: Vec<u8> = Vec::new();
+		if let Err(_) = $x.consensus_encode(&mut $y) {
+			return Err(DB_FAILURES::EncodingError);
+		}
+    	};
+}
 
-macro_rules! match_open_table {
-	($s:ident, $x:block) => {
-		match (&$s).open_table(Some(T::TABLE_NAME)) {
-			Ok(table) => {
-				$x
-			}
-			Err(err) => Err(err.into())
+macro_rules! mdbx_decode_consensus {
+    	( $x:ident, $y:ident ) => {
+		match monero::consensus::deserialize::<T::Value>(&$x) {
+			Ok($y) => Ok(Some($y)), 
+			Err(_) => Err(DB_FAILURES::EncodingError),
+		}
+    	};
+}
+
+macro_rules! mdbx_open_table {
+	( $s:ident | $t:ident | $e:ident, $x:block ) => {
+		match $s.open_table(Some(T::TABLE_NAME)) {
+			Ok($t) => $x,
+			Err($e) => Err($e.into()),
 		}
     	};
 }
@@ -127,44 +142,38 @@ where
 	type Cursor<T: Table> = Cursor<'a, R>;
 
 	fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES> {
-		match_open_table!(self, {
-			let mut encoded_key = Vec::new();
-			key.consensus_encode(&mut encoded_key);
+		mdbx_open_table!(self | table | err, {
+			mdbx_encode_consensus!(key, encoded_key);
 			match self.get::<Vec<u8>>(&table, &encoded_key) {
-				Ok(data) => match data {
-					Some(data) => match monero::consensus::deserialize::<T::Value>(&data) {
-						Ok(decoded) => Ok(Some(decoded)),
-						Err(_) => Err(DB_FAILURES::EncodingError),
-					},
-					None => Ok(None),
+				Ok(data) => {
+					match data {
+						Some(data) => mdbx_decode_consensus!(data, decoded),
+						None => Ok(None)
+					}
 				},
 				Err(err) => Err(err.into()),
 			}
 		})
 	}
 
+	fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>, DB_FAILURES> {
+		mdbx_open_table!(self | table | err, {
+			match self.cursor(&table) {
+				Ok(cursor) => Ok(cursor),
+				Err(err) => Err(err.into()),
+		}})
+	}
+
 	fn commit(self) -> Result<(), DB_FAILURES> {
 		match self.commit() {
 			Ok(res) => {
-				if res {
-					Ok(())
-				} else {
-					Err(DB_FAILURES::FailedToCommit)
-				}
+				if res { Ok(())} 
+				else { Err(DB_FAILURES::FailedToCommit) }
 			},
 			Err(err) => Err(err.into()),
 		}
 	}
-
-	fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>, DB_FAILURES> {
-		match self.open_table(Some(T::TABLE_NAME)) {
-			Ok(table) => match self.cursor(&table) {
-				Ok(cursor) => Ok(cursor),
-				Err(err) => Err(err.into()),
-			},
-			Err(err) => Err(err.into()),
-		}
-	}
+	
 }
 
 impl<'a, E> WriteTransaction<'a> for libmdbx::Transaction<'a, RW, E>
@@ -173,64 +182,38 @@ where
 {
 	type WriteCursor<T: Table> = Cursor<'a, RW>;
 
-	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<usize, DB_FAILURES> {
-		let mut encoded_key: Vec<u8> = Vec::new();
-		match key.consensus_encode(&mut encoded_key) {
-			Ok(len_k) => {
-				let mut encoded_value: Vec<u8> = Vec::new();
-				match value.consensus_encode(&mut encoded_value) {
-					Ok(len_v) => match self.open_table(Some(T::TABLE_NAME)) {
-						Ok(table) => {
-							if let Err(err) = self.put(&table, encoded_key, encoded_value, WriteFlags::empty()) {
-								return Err(err.into());
-							}
-							return Ok(len_k + len_v);
-						},
-						Err(err) => Err(err.into()),
-					},
-					Err(err) => Err(DB_FAILURES::EncodingError),
-				}
-			},
-			Err(err) => Err(DB_FAILURES::EncodingError),
-		}
+	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(), DB_FAILURES> {
+		mdbx_open_table!(self | table | err, {
+			mdbx_encode_consensus!(key, encoded_key);
+			mdbx_encode_consensus!(value, encoded_value);
+
+			if let Err(err) = self.put(&table, encoded_key, encoded_value, WriteFlags::empty()) {
+				return Err(err.into())
+			}
+			Ok(())
+		})
 	}
 
 	fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(), DB_FAILURES> {
-		let mut encoded_key: Vec<u8> = Vec::new();
-		let mut encoded_value: Vec<u8> = Vec::new();
-		let mut ref_ev: Option<&[u8]> = None;
-		match key.consensus_encode(&mut encoded_key) {
-			Ok(_) => {
-				if let Some(value) = value {
-					if let Err(err) = value.consensus_encode(&mut encoded_value) {
-						return Err(DB_FAILURES::EncodingError);
-					} else {
-						ref_ev = Some(&encoded_value.as_slice());
-					}
+		mdbx_open_table!(self | table | err, {
+			mdbx_encode_consensus!(key, encoded_key);
+			if let Some(value) = value {
+				mdbx_encode_consensus!(value, encoded_value);
+				if let Err(err) = self.del(&table, encoded_key, Some(encoded_value.as_slice())) {
+					return Err(err.into())
 				}
-				match self.open_table(Some(T::TABLE_NAME)) {
-					Ok(table) => {
-						if let Err(err) = self.del(&table, encoded_key, ref_ev) {
-							return Err(err.into());
-						}
-						Ok(())
-					},
-					Err(err) => Err(err.into()),
-				}
-			},
-			Err(err) => Err(DB_FAILURES::EncodingError),
-		}
+			}
+			Ok(())
+		})
+		
 	}
 
 	fn clear<T: Table>(&self) -> Result<(), DB_FAILURES> {
-		match self.open_table(Some(T::TABLE_NAME)) {
-			Ok(table) => {
-				if let Err(err) = self.clear_table(&table) {
-					return Err(err.into());
-				}
-				Ok(())
-			},
-			Err(err) => Err(err.into()),
-		}
+		mdbx_open_table!(self | table | err, {
+			if let Err(err) = self.clear_table(&table) {
+				return Err(err.into());
+			}
+			Ok(())
+		})
 	}
 }
