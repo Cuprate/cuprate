@@ -3,7 +3,7 @@ use monero::consensus::Encodable;
 use serde::Serialize;
 
 use crate::{
-	database::{Database},
+	database::Database,
 	error::DB_FAILURES,
 	table::Table,
 	transaction::{Transaction, WriteTransaction},
@@ -24,6 +24,18 @@ impl From<libmdbx::Error> for DB_FAILURES {
 	}
 }
 
+
+macro_rules! match_open_table {
+	($s:ident, $x:block) => {
+		match (&$s).open_table(Some(T::TABLE_NAME)) {
+			Ok(table) => {
+				$x
+			}
+			Err(err) => Err(err.into())
+		}
+    	};
+}
+
 impl<'a, E> Database<'a> for libmdbx::Database<E>
 where
 	E: DatabaseKind,
@@ -42,14 +54,14 @@ where
 }
 
 impl<'a, T: Table, R: TransactionKind> crate::transaction::Cursor<'a, T> for Cursor<'a, R> {
-    	fn first(&mut self) -> Result<(<T as Table>::Key, <T as Table>::Value),DB_FAILURES> {
+    	fn first(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
         	match self.first::<Vec<u8>,Vec<u8>>() {
 			Ok(pair) => { 
 				match pair {
         				Some(pair) => {
 						if let Ok(decoded_key) = monero::consensus::deserialize::<T::Key>(&pair.0) {
 							if let Ok(decoded_value) = monero::consensus::deserialize::<T::Value>(&pair.1) {
-								return Ok((decoded_key, decoded_value));
+								return Ok(Some((decoded_key, decoded_value)));
 							}
 						}
 						Err(DB_FAILURES::EncodingError)
@@ -61,14 +73,14 @@ impl<'a, T: Table, R: TransactionKind> crate::transaction::Cursor<'a, T> for Cur
         	}
     	}
 
-    	fn get(&mut self) -> Result<(<T as Table>::Key, <T as Table>::Value),DB_FAILURES> {
+    	fn get(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
 		match self.get_current::<Vec<u8>,Vec<u8>>() {
     			Ok(pair) =>  {
 				match pair {
         				Some(pair) => {
 						if let Ok(decoded_key) = monero::consensus::deserialize::<T::Key>(&pair.0) {
 							if let Ok(decoded_value) = monero::consensus::deserialize::<T::Value>(&pair.1) {
-								return Ok((decoded_key, decoded_value));
+								return Ok(Some((decoded_key, decoded_value)));
 							}
 						}
 						Err(DB_FAILURES::EncodingError)
@@ -80,19 +92,19 @@ impl<'a, T: Table, R: TransactionKind> crate::transaction::Cursor<'a, T> for Cur
 		}
     	}
 
-    fn last(&self) -> Result<(<T as Table>::Key, <T as Table>::Value),DB_FAILURES> {
+    fn last(&self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
         todo!()
     }
 
-    fn  next(&self) -> Result<(<T as Table>::Key, <T as Table>::Value),DB_FAILURES> {
+    fn  next(&self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
         todo!()
     }
 
-    fn prev(&self) -> Result<(<T as Table>::Key,<T as Table>::Value),DB_FAILURES> {
+    fn prev(&self) -> Result<Option<(<T as Table>::Key,<T as Table>::Value)>,DB_FAILURES> {
         todo!()
     }
 
-    fn set(&self) -> Result<<T as Table>::Value,DB_FAILURES> {
+    fn set(&self) -> Result<Option<<T as Table>::Value>,DB_FAILURES> {
         todo!()
     }
 }
@@ -115,23 +127,20 @@ where
 	type Cursor<T: Table> = Cursor<'a, R>;
 
 	fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES> {
-		match self.open_table(Some(T::TABLE_NAME)) {
-			Ok(table) => {
-				let mut encoded_key = Vec::new();
-				key.consensus_encode(&mut encoded_key);
-				match self.get::<Vec<u8>>(&table, &encoded_key) {
-					Ok(data) => match data {
-						Some(data) => match monero::consensus::deserialize::<T::Value>(&data) {
-							Ok(decoded) => Ok(Some(decoded)),
-							Err(_) => Err(DB_FAILURES::EncodingError),
-						},
-						None => Ok(None),
+		match_open_table!(self, {
+			let mut encoded_key = Vec::new();
+			key.consensus_encode(&mut encoded_key);
+			match self.get::<Vec<u8>>(&table, &encoded_key) {
+				Ok(data) => match data {
+					Some(data) => match monero::consensus::deserialize::<T::Value>(&data) {
+						Ok(decoded) => Ok(Some(decoded)),
+						Err(_) => Err(DB_FAILURES::EncodingError),
 					},
-					Err(err) => Err(err.into()),
-				}
-			},
-			Err(err) => Err(err.into()),
-		}
+					None => Ok(None),
+				},
+				Err(err) => Err(err.into()),
+			}
+		})
 	}
 
 	fn commit(self) -> Result<(), DB_FAILURES> {

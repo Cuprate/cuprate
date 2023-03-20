@@ -66,7 +66,7 @@ pub mod error {
         KeyNotFound,
 
         #[error("\n<DB_FAILURES::DataNotFound> The database didn't find any data at the specified key")]
-        DataNotFound, // Will never be used
+        DataNotFound,
 
         #[error("\n<DB_FAILURES::DataSizeLimit> The database was inserting something bigger than the storage engine limit. It shouldn't happen. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
         DataSizeLimit,
@@ -203,17 +203,17 @@ pub mod transaction {
 
 	pub trait Cursor<'t, T: Table> {
 
-		fn first(&mut self) -> Result<(T::Key, T::Value),DB_FAILURES>;
+		fn first(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn get(&mut self) -> Result<(T::Key, T::Value),DB_FAILURES>;
+		fn get(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn last(&self) -> Result<(T::Key, T::Value),DB_FAILURES>;
+		fn last(&self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn  next(&self) -> Result<(T::Key, T::Value),DB_FAILURES>;
+		fn  next(&self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn prev(&self) -> Result<(T::Key,T::Value),DB_FAILURES>;
+		fn prev(&self) -> Result<Option<(T::Key,T::Value)>,DB_FAILURES>;
 		
-		fn set(&self) -> Result<T::Value,DB_FAILURES>;
+		fn set(&self) -> Result<Option<T::Value>,DB_FAILURES>;
 	}
 
 	pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
