@@ -2,6 +2,7 @@
 name = "cuprate"
 version = "0.0.1"
 edition = "2021"
+rust-version = "1.68.0"
 description = "An upcoming experimental, modern & secure monero node"
 readme = "readme.md"
 license = "AGPL-3.0-only"
@@ -10,7 +11,7 @@ repository = "https://github.com/SyntheticBird45/cuprate"
 
 # All Contributors on github
 authors=[
-        "SyntheticBird45 <@someoneelse495495:matrix.org>",
+        "SyntheticBird45",
         "Boog900"
         ]
 
