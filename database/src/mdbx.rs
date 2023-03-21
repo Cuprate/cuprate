@@ -1,6 +1,5 @@
 use libmdbx::{RO, RW, DatabaseKind, TransactionKind, WriteFlags, Cursor};
 use monero::consensus::Encodable;
-use serde::Serialize;
 
 use crate::{
 	database::Database,
@@ -8,8 +7,6 @@ use crate::{
 	table::Table,
 	transaction::{Transaction, WriteTransaction},
 };
-
-
 
 impl From<libmdbx::Error> for DB_FAILURES {
 	fn from(err: libmdbx::Error) -> Self {
@@ -42,10 +39,12 @@ macro_rules! mdbx_encode_consensus {
 }
 
 macro_rules! mdbx_decode_consensus {
-    	( $x:expr, $y:ident | $g:ty ) => {
-		match monero::consensus::deserialize::<$g>(&$x) {
-			Ok($y) => Ok(Some($y)), 
-			Err(_) => Err(DB_FAILURES::SerializeIssue(DB_SERIAL::ConsensusEncode)),
+    	( $x:expr, $y:ident, $g:ty ) => {
+		let $y : $g;
+		if let Ok(d) = monero::consensus::deserialize::<$g>(&$x) {
+			$y = d;
+		} else {
+			return Err(DB_FAILURES::SerializeIssue(DB_SERIAL::ConsensusDecode($x)));
 		}
     	};
 }
@@ -76,66 +75,112 @@ where
 	}
 }
 
-impl<'a, T: Table, R: TransactionKind> crate::transaction::Cursor<'a, T> for Cursor<'a, R> {
+impl<'a,T,R> crate::transaction::Cursor<'a, T> for Cursor<'a, R> 
+where 
+	T: Table,
+	R: TransactionKind
+{
     	fn first(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES> {
-        	match self.first::<Vec<u8>,Vec<u8>>() {
-			Ok(Some(pair)) => {
-				if let Ok(decoded_key) = monero::consensus::deserialize::<T::Key>(&pair.0) {
-					if let Ok(decoded_value) = monero::consensus::deserialize::<T::Value>(&pair.1) {
-						return Ok(Some((decoded_key, decoded_value)));
-					}
+        	match self.first::<Vec<u8>,Vec<u8>>().map_err(|e| e.into()) {
+			Ok(pair) => {
+				if let Some(pair) = pair {
+					mdbx_decode_consensus!(pair.0, decoded_key, T::Key);
+					mdbx_decode_consensus!(pair.1, decoded_value, T::Value);
+					return Ok(Some((decoded_key,decoded_value)))
 				}
-				Err(DB_FAILURES::SerializeIssue(DB_SERIAL::ConsensusEncode))
-			}	
-			Ok(None) => Ok(None),
-            		Err(err) => Err(err.into()),
-        	}
-    	}
-
-    	fn get(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
-		match self.get_current::<Vec<u8>,Vec<u8>>() {
-    			Ok(pair) =>  {
-				match pair {
-        				Some(pair) => {
-						if let Ok(decoded_key) = monero::consensus::deserialize::<T::Key>(&pair.0) {
-							if let Ok(decoded_value) = monero::consensus::deserialize::<T::Value>(&pair.1) {
-								return Ok(Some((decoded_key, decoded_value)));
-							}
-						}
-						Err(DB_FAILURES::SerializeIssue(DB_SERIAL::ConsensusEncode))
-					},
-        				None => Err(DB_FAILURES::DataNotFound),
-    				}
-			},
-    			Err(err) => Err(err.into()),
+				Ok(None)
+			}
+			Err(e) => Err(e),
 		}
     	}
 
-    fn last(&self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
-        todo!()
+    	fn get(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
+		match self.get_current::<Vec<u8>,Vec<u8>>().map_err(|e| e.into()) {
+			Ok(pair) => {
+				if let Some(pair) = pair {
+					mdbx_decode_consensus!(pair.0, decoded_key, T::Key);
+					mdbx_decode_consensus!(pair.1, decoded_value, T::Value);
+					return Ok(Some((decoded_key,decoded_value)))
+				}
+				Ok(None)
+			}
+			Err(e) => Err(e),
+		}
+    	}
+
+    	fn last(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
+		match self.last::<Vec<u8>,Vec<u8>>().map_err(|e| e.into()) {
+			Ok(pair) => {
+				if let Some(pair) = pair {
+					mdbx_decode_consensus!(pair.0, decoded_key, T::Key);
+					mdbx_decode_consensus!(pair.1, decoded_value, T::Value);
+					return Ok(Some((decoded_key,decoded_value)))
+				}
+				Ok(None)
+			}
+			Err(e) => Err(e),
+		}
+    	}
+
+    fn  next(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
+        match self.next::<Vec<u8>,Vec<u8>>().map_err(|e| e.into()) {
+		Ok(pair) => {
+			if let Some(pair) = pair {
+				mdbx_decode_consensus!(pair.0, decoded_key, T::Key);
+				mdbx_decode_consensus!(pair.1, decoded_value, T::Value);
+				return Ok(Some((decoded_key,decoded_value)))
+			}
+			Ok(None)
+		}
+		Err(e) => Err(e),
+	}
     }
 
-    fn  next(&self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
-        todo!()
+    fn prev(&mut self) -> Result<Option<(<T as Table>::Key,<T as Table>::Value)>,DB_FAILURES> {
+        match self.prev::<Vec<u8>,Vec<u8>>().map_err(|e| e.into()) {
+		Ok(pair) => {
+			if let Some(pair) = pair {
+				mdbx_decode_consensus!(pair.0, decoded_key, T::Key);
+				mdbx_decode_consensus!(pair.1, decoded_value, T::Value);
+				return Ok(Some((decoded_key,decoded_value)))
+			}
+			Ok(None)
+		}
+		Err(e) => Err(e),
+	}
     }
 
-    fn prev(&self) -> Result<Option<(<T as Table>::Key,<T as Table>::Value)>,DB_FAILURES> {
-        todo!()
-    }
-
-    fn set(&self) -> Result<Option<<T as Table>::Value>,DB_FAILURES> {
-        todo!()
+    fn set(&mut self, key: T::Key) -> Result<Option<<T as Table>::Value>,DB_FAILURES> {
+	mdbx_encode_consensus!(key, encoded_key);
+	match self.set::<Vec<u8>>(&encoded_key).map_err(|e| e.into()) {
+   		Ok(value) => {
+			if let Some(value) = value {
+				mdbx_decode_consensus!(value, decoded_value, T::Value);
+				return Ok(Some(decoded_value))
+			}
+			Ok(None)
+		},
+    		Err(e) => Err(e),
+	}
     }
 }
 
-impl<'a, T: Table> crate::transaction::WriteCursor<'a, T> for Cursor<'a, RW> {
-    fn put(&self, key: <T as Table>::Key, value: <T as Table>::Value) -> Result<(),DB_FAILURES> {
-        todo!()
-    }
+impl<'a,T> crate::transaction::WriteCursor<'a, T> for Cursor<'a, RW> 
+where
+	T: Table,
+{
+	fn put(&mut self, key: <T as Table>::Key, value: <T as Table>::Value) -> Result<(),DB_FAILURES> {
+        	mdbx_encode_consensus!(key, encoded_key);
+		mdbx_encode_consensus!(value, encoded_value);
 
-    fn del(&self) -> Result<(),DB_FAILURES> {
-        todo!()
-    }
+		self.put(&encoded_key, &encoded_value, WriteFlags::empty())
+			.map_err(|err| err.into())
+    	}
+
+    	fn del(&mut self) -> Result<(),DB_FAILURES> {
+        	
+		self.del(WriteFlags::empty()).map_err(|err| err.into())
+    	}
 }
 
 // Yes it doesn't work
@@ -147,34 +192,33 @@ where
 
 	fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES> {
 		mdbx_open_table!(self | table | err, {
+
 			mdbx_encode_consensus!(key, encoded_key);
-			match self.get::<Vec<u8>>(&table, &encoded_key) {
-				Ok(data) => {
-					match data {
-						Some(data) => mdbx_decode_consensus!(data, decoded | T::Value),
-						None => Ok(None)
-					}
+			match self.get::<Vec<u8>>(&table, &encoded_key).map_err(|err| err.into()) {
+				Ok(Some(value)) => {
+					mdbx_decode_consensus!(value, decoded_value, T::Value);
+					Ok(Some(decoded_value))
 				},
-				Err(err) => Err(err.into()),
+				Ok(None) => Ok(None),
+				Err(err) => Err(err),
 			}
 		})
 	}
 
 	fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>, DB_FAILURES> {
 		mdbx_open_table!(self | table | err, {
-			match self.cursor(&table) {
-				Ok(cursor) => Ok(cursor),
-				Err(err) => Err(err.into()),
-		}})
+
+			self.cursor(&table).map_err(|err| err.into())
+		})
 	}
 
 	fn commit(self) -> Result<(), DB_FAILURES> {
-		match self.commit() {
-			Ok(res) => {
-				if res { Ok(())} 
+		match self.commit().map_err(|err| err.into()) {
+			Ok(b) => {
+				if b { Ok(()) } 
 				else { Err(DB_FAILURES::FailedToCommit) }
 			},
-			Err(err) => Err(err.into()),
+			Err(err) => Err(err),
 		}
 	}
 	
@@ -191,10 +235,7 @@ where
 			mdbx_encode_consensus!(key, encoded_key);
 			mdbx_encode_consensus!(value, encoded_value);
 
-			if let Err(err) = self.put(&table, encoded_key, encoded_value, WriteFlags::empty()) {
-				return Err(err.into())
-			}
-			Ok(())
+			self.put(&table, encoded_key, encoded_value, WriteFlags::empty()).map_err(|err| err.into())
 		})
 	}
 
@@ -203,21 +244,26 @@ where
 			mdbx_encode_consensus!(key, encoded_key);
 			if let Some(value) = value {
 				mdbx_encode_consensus!(value, encoded_value);
-				if let Err(err) = self.del(&table, encoded_key, Some(encoded_value.as_slice())) {
-					return Err(err.into())
-				}
+				
+				return self.del(&table, encoded_key, Some(encoded_value.as_slice()))
+					.map(|_| ()).map_err(|err| err.into());
 			}
-			Ok(())
+			self.del(&table, encoded_key, None).map(|_| ()).map_err(|err| err.into())
 		})
 		
 	}
 
 	fn clear<T: Table>(&self) -> Result<(), DB_FAILURES> {
 		mdbx_open_table!(self | table | err, {
-			if let Err(err) = self.clear_table(&table) {
-				return Err(err.into());
-			}
-			Ok(())
+			
+			self.clear_table(&table).map_err(|err| err.into())
 		})
+	}
+
+	fn write_cursor<T: Table>(&self) -> Result<Self::WriteCursor<T>, DB_FAILURES> {
+	    	mdbx_open_table!(self | table | err, {
+
+			self.cursor(&table).map_err(|err| err.into())
+	    	})
 	}
 }

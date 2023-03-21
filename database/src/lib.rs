@@ -50,7 +50,8 @@ pub mod table {
 
 	use monero::{consensus::{Encodable, Decodable}, Hash, BlockHeader, Block};
 
-	/// A trait implementing a table for the database. It is implemented to an empty struct to specify the name and table's associated types.
+	/// A trait implementing a table interaction for the database. It is implemented to an empty struct to specify the name and table's associated types. These associated 
+	/// types are used to simplify deserialization process.
 	pub trait Table: Send + Sync + 'static + Clone {
 		
 		// name of the table
@@ -61,7 +62,7 @@ pub mod table {
 		type Value: Encodable + Decodable;
 	}
 
-	/// A trait implementing a table with DUPlicated data support. Essentially defining what's the type of the subkey.
+	/// A trait implementing a table with DUPFIXED support. Essentially defining what's the type of the subkey.
 	pub trait DupTable: Table {
 
 		type Subkey: Encodable + Decodable;
@@ -92,11 +93,27 @@ pub mod table {
 	    	};
 	}
 
+	// Tables definition:
+
+	// ----- BLOCKS -----
+
 	impl_table!(blockhash, u64, Hash);
 
 	impl_table!(blockheaders, Hash, BlockHeader);
 
 	impl_table!(blockbody, Hash, Block);
+
+	// ------- TXNs -------
+
+	impl_table!(txsidentifier, Hash, Hash);
+
+	impl_table!(txsprunabletip, Hash, u64);
+
+	// ---- OUTPUTS ----
+
+	//  ---- SPT KEYS ----
+
+	impl_table!(spentkeys, Hash, u8);
 }
 
 // ------------------------------------------|      Database      |------------------------------------------
@@ -121,10 +138,8 @@ pub mod database {
 	}
 
 	/// `SharedDatabase`is a struct containing a shareable pointer to the database & the corresponding metadata.
-	pub struct SharedDatabase<D> {
-		filepath: Box<Path>,
-		db: Option<Arc<D>>,
-		up_state: AtomicBool,
+	pub struct SharedEnvironnement {
+		path: Path,
 	}
 
 	/// `Interface` is a struct containing a pointer to the database and a transaction to be used for the implemented method of Interface.
@@ -168,20 +183,20 @@ pub mod transaction {
 
 		fn get(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn last(&self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
+		fn last(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn  next(&self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
+		fn  next(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn prev(&self) -> Result<Option<(T::Key,T::Value)>,DB_FAILURES>;
+		fn prev(&mut self) -> Result<Option<(T::Key,T::Value)>,DB_FAILURES>;
 		
-		fn set(&self) -> Result<Option<T::Value>,DB_FAILURES>;
+		fn set(&mut self, key: T::Key) -> Result<Option<T::Value>,DB_FAILURES>;
 	}
 
 	pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
 
-		fn put(&self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
+		fn put(&mut self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
 
-		fn del(&self) -> Result<(),DB_FAILURES>;
+		fn del(&mut self) -> Result<(),DB_FAILURES>;
 	}
 
 	pub trait Transaction<'a>: Send + Sync {
@@ -193,8 +208,6 @@ pub mod transaction {
 		fn commit(self) -> Result<(), DB_FAILURES>;
 
 		fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>,DB_FAILURES>;
-
-		// + cursors
 	}
 
 	pub trait WriteTransaction<'a>: Transaction<'a> {
@@ -206,6 +219,8 @@ pub mod transaction {
 		fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(),DB_FAILURES>;
 
 		fn clear<T: Table>(&self) -> Result<(),DB_FAILURES>;
+
+		fn write_cursor<T: Table>(&self) -> Result<Self::WriteCursor<T>, DB_FAILURES>;
     	}
 }
 

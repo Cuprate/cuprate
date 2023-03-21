@@ -60,7 +60,7 @@ pub enum DB_SERIAL {
 	ConsensusEncode,
 
 	#[error("Bytes failed to be deserialized into the requested object. It is likely an issue from monero-rs library. Please report this error on cuprate's github : https://github.com/Cuprate/cuprate/issues")]
-	ConsensusDecode(Box<Vec<u8>>),
+	ConsensusDecode(Vec<u8>),
 
 	#[error("The database failed to encode bytes in the memory page.")]
 	InternalDBEncode(Box<Vec<u8>>),
