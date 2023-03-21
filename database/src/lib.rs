@@ -34,54 +34,15 @@ use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSi
 use transaction::Transaction;
 use std::{error::Error, ops::Range};
 
+pub mod error;
 #[cfg(feature = "mdbx")]
 pub mod mdbx;
+#[cfg(feature = "hse")]
+pub mod hse;
+
 
 const DEFAULT_BLOCKCHAIN_DATABASE_FILENAME: &str = "blockchain.db";
 const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
-
-
-
-
-
-
-// ------------------------------------------|   Error Enums  |------------------------------------------
-
-pub mod error {
-	
-	#[derive(thiserror::Error, Debug)]
-	/// `DB_FAILURES` is an enum for backend-agnostic, internal database errors. The `From` Trait must be implemented to the specific backend errors to match DB_FAILURES.
-	pub enum DB_FAILURES {
-
-	#[error("<DB_FAILURES::EncodingError> Failed to encode some data")]
-	EncodingError,
-
-        #[error("\n<DB_FAILURES::KeyAlreadyExist> The database tried to put a key that already exist. Key failed to be insert.")]
-        KeyAlreadyExist,
-
-	#[error("\n<DB_FAILURES::FailedToCommit> A transaction tried to commit to the db, but failed.")]
-	FailedToCommit,
-
-        #[error("\n<DB_FAILURES::KeyNotFound> The database didn't find the corresponding key.")]
-        KeyNotFound,
-
-        #[error("\n<DB_FAILURES::DataNotFound> The database didn't find any data at the specified key")]
-        DataNotFound,
-
-        #[error("\n<DB_FAILURES::DataSizeLimit> The database was inserting something bigger than the storage engine limit. It shouldn't happen. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
-        DataSizeLimit,
-
-	#[error("\n<DB_FAILURES::Corrupted> The database has been reported as corrupted. Please check for eventual reasons before syncing again")]
-	Corrupted,
-
-	#[error("\n<DB_FAILURES::Panic> The database engine has panic. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
-	Panic,
-
-	#[error("\n<DB_FAILURES::Undefined, error code: `{0}`> Congratulations you just got an error code we've never think it could exist. Please report this issue on github : https://github.com/SyntheticBird45/cuprate/issues")]
-	Undefined(std::ffi::c_int)
-	}
-
-}
 
 // ------------------------------------------|        Tables        |------------------------------------------
 
@@ -267,7 +228,27 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
 
 
 
-
+/*
+Errors not yet implemented: 
+- MapFull
+- VersionMismatch
+- Invalid
+- PageFull
+- UnableExtendMapsize
+- Incompatible
+- DbsFull - Useless since we used only two database
+- BadTxn
+- BadValSize
+- BadDbi
+- Problem
+- Busy
+- Multival
+- WannaRecovery
+- KeyMismtach
+- InvalidValue
+- Access
+- DecodeError
+*/
 
 
 

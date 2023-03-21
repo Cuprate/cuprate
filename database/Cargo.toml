@@ -11,6 +11,7 @@ authors=[
 
 [features]
 mdbx = ["dep:libmdbx"]
+hse = []
 
 [dependencies]
 monero = {workspace = true, features = ['serde']}

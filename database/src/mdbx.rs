@@ -4,21 +4,29 @@ use serde::Serialize;
 
 use crate::{
 	database::Database,
-	error::DB_FAILURES,
+	error::{DB_FAILURES, DB_FULL, DB_SERIAL},
 	table::Table,
 	transaction::{Transaction, WriteTransaction},
 };
+
+
 
 impl From<libmdbx::Error> for DB_FAILURES {
 	fn from(err: libmdbx::Error) -> Self {
 		use libmdbx::Error;
 		match err {
-			Error::Corrupted => DB_FAILURES::Corrupted,
+			Error::PageFull => DB_FAILURES::Full(DB_FULL::Page),
+			Error::CursorFull => DB_FAILURES::Full(DB_FULL::Cursor),
+			Error::ReadersFull => DB_FAILURES::Full(DB_FULL::ReadTx),
+			Error::TxnFull => DB_FAILURES::Full(DB_FULL::WriteTx),
+			Error::PageNotFound => DB_FAILURES::PageNotFound,
+			Error::Corrupted => DB_FAILURES::PageCorrupted,
 			Error::Panic => DB_FAILURES::Panic,
 			Error::KeyExist => DB_FAILURES::KeyAlreadyExist,
 			Error::NotFound => DB_FAILURES::KeyNotFound,
 			Error::NoData => DB_FAILURES::DataNotFound,
 			Error::TooLarge => DB_FAILURES::DataSizeLimit,
+			Error::Other(errno) => DB_FAILURES::Undefined(errno),
 			_ => DB_FAILURES::Undefined(0),
 		}
 	}
@@ -28,16 +36,16 @@ macro_rules! mdbx_encode_consensus {
     	( $x:ident, $y:ident ) => {
 		let mut $y: Vec<u8> = Vec::new();
 		if let Err(_) = $x.consensus_encode(&mut $y) {
-			return Err(DB_FAILURES::EncodingError);
+			return Err(DB_FAILURES::SerializeIssue(DB_SERIAL::ConsensusEncode));
 		}
     	};
 }
 
 macro_rules! mdbx_decode_consensus {
-    	( $x:ident, $y:ident ) => {
-		match monero::consensus::deserialize::<T::Value>(&$x) {
+    	( $x:expr, $y:ident | $g:ty ) => {
+		match monero::consensus::deserialize::<$g>(&$x) {
 			Ok($y) => Ok(Some($y)), 
-			Err(_) => Err(DB_FAILURES::EncodingError),
+			Err(_) => Err(DB_FAILURES::SerializeIssue(DB_SERIAL::ConsensusEncode)),
 		}
     	};
 }
@@ -69,21 +77,17 @@ where
 }
 
 impl<'a, T: Table, R: TransactionKind> crate::transaction::Cursor<'a, T> for Cursor<'a, R> {
-    	fn first(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
+    	fn first(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES> {
         	match self.first::<Vec<u8>,Vec<u8>>() {
-			Ok(pair) => { 
-				match pair {
-        				Some(pair) => {
-						if let Ok(decoded_key) = monero::consensus::deserialize::<T::Key>(&pair.0) {
-							if let Ok(decoded_value) = monero::consensus::deserialize::<T::Value>(&pair.1) {
-								return Ok(Some((decoded_key, decoded_value)));
-							}
-						}
-						Err(DB_FAILURES::EncodingError)
-					},
-        				None => Err(DB_FAILURES::DataNotFound),
-    				}
-			},
+			Ok(Some(pair)) => {
+				if let Ok(decoded_key) = monero::consensus::deserialize::<T::Key>(&pair.0) {
+					if let Ok(decoded_value) = monero::consensus::deserialize::<T::Value>(&pair.1) {
+						return Ok(Some((decoded_key, decoded_value)));
+					}
+				}
+				Err(DB_FAILURES::SerializeIssue(DB_SERIAL::ConsensusEncode))
+			}	
+			Ok(None) => Ok(None),
             		Err(err) => Err(err.into()),
         	}
     	}
@@ -98,7 +102,7 @@ impl<'a, T: Table, R: TransactionKind> crate::transaction::Cursor<'a, T> for Cur
 								return Ok(Some((decoded_key, decoded_value)));
 							}
 						}
-						Err(DB_FAILURES::EncodingError)
+						Err(DB_FAILURES::SerializeIssue(DB_SERIAL::ConsensusEncode))
 					},
         				None => Err(DB_FAILURES::DataNotFound),
     				}
@@ -147,7 +151,7 @@ where
 			match self.get::<Vec<u8>>(&table, &encoded_key) {
 				Ok(data) => {
 					match data {
-						Some(data) => mdbx_decode_consensus!(data, decoded),
+						Some(data) => mdbx_decode_consensus!(data, decoded | T::Value),
 						None => Ok(None)
 					}
 				},
