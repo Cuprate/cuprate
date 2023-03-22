@@ -15,7 +15,7 @@
 
 //!
 //! The cuprate-db crates implement (as its name suggests) the relations between the blockchain/txpool objects and their databases.
-//! `lib.rs` contains all the generics, trait and specification for a interfaces between blockchain and a backend-agnostic database
+//! `lib.rs` contains all the generics, trait and specification for interfaces between blockchain and a backend-agnostic database
 //! Every other files in this folder are implementation of these traits/methods to real storage engine.
 //! 
 //! At the moment, the only storage engine available is MDBX.
@@ -27,12 +27,13 @@
 #![forbid(unsafe_code)]
 #![allow(non_camel_case_types)]
 #![deny(clippy::expect_used, clippy::panic)]
+#![allow(dead_code, unused_macros)]
 
 use database::{Database, Interface};
 use thiserror::Error;
 use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
 use transaction::Transaction;
-use std::{error::Error, ops::Range};
+use std::ops::Range;
 
 pub mod error;
 #[cfg(feature = "mdbx")]
@@ -70,8 +71,9 @@ pub mod table {
 
 	/// This declarative macro declare a new empty struct and impl the specified name, and corresponding types. 
 	macro_rules! impl_table {
-		($table:ident , $key:ty , $value:ty ) => {
+		($(#[$docs:meta])* $table:ident , $key:ty , $value:ty ) => {
             		#[derive(Clone)]
+			$(#[$docs])*
             		pub(crate) struct $table;
 
             		impl Table for $table {
@@ -97,30 +99,37 @@ pub mod table {
 
 	// ----- BLOCKS -----
 
-	impl_table!(blockhash, u64, Hash);
+	impl_table!(
+		/// `blockhash` is table defining a relation between the hash of a block and its height. Its primary use is to quickly find block's hash by its height.
+		blockhash, u64, Hash);
 
-	impl_table!(blockheaders, Hash, BlockHeader);
+	impl_table!(
+		blockheaders, Hash, BlockHeader);
 
-	impl_table!(blockbody, Hash, Block);
+	impl_table!(
+		blockbody, Hash, Block);
 
 	// ------- TXNs -------
 
-	impl_table!(txsidentifier, Hash, Hash);
+	impl_table!(
+		txsidentifier, Hash, Hash);
 
-	impl_table!(txsprunabletip, Hash, u64);
+	impl_table!(
+		txsprunabletip, Hash, u64);
 
 	// ---- OUTPUTS ----
 
 	//  ---- SPT KEYS ----
 
-	impl_table!(spentkeys, Hash, u8);
+	impl_table!(
+		spentkeys, Hash, u8);
 }
 
 // ------------------------------------------|      Database      |------------------------------------------
 
 pub mod database {
 
-    	use std::{ops::Deref, path::Path, sync::{atomic::AtomicBool, Arc}};
+    	use std::{ops::Deref, path::Path};
     	use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
 	
 	/// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the 
@@ -151,13 +160,13 @@ pub mod database {
     	impl<'a,D: Database<'a>> Interface<'a,D> {
 
         	fn from(db: &'a D) -> Self {
-            		return Self { db: db, tx: None }
+            		Self { db, tx: None }
         	}	
 
         	fn open(&mut self) -> Result<(),DB_FAILURES> {
-            		match self.db.tx_mut() {
+            		match self.db.tx_mut().map_err(|e| e.into()) {
                 		Ok(tx) => { self.tx = Some(tx); Ok(())}
-                		Err(e) => { return Err(e.into()); }
+                		Err(e) => { Err(e) }
             		}
         	}
 	}
@@ -177,6 +186,7 @@ pub mod transaction {
 
 	use crate::{error::DB_FAILURES,table::Table};
 
+	#[allow(clippy::type_complexity)]
 	pub trait Cursor<'t, T: Table> {
 
 		fn first(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
