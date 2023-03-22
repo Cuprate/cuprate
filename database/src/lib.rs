@@ -27,7 +27,7 @@
 #![forbid(unsafe_code)]
 #![allow(non_camel_case_types)]
 #![deny(clippy::expect_used, clippy::panic)]
-#![allow(dead_code, unused_macros)]
+#![allow(dead_code, unused_macros)] // temporary
 
 use database::{Database, Interface};
 use thiserror::Error;
@@ -49,7 +49,7 @@ const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
 
 pub mod table {
 
-	use monero::{consensus::{Encodable, Decodable}, Hash, BlockHeader, Block};
+	use monero::{consensus::{Encodable, Decodable}, Hash, BlockHeader, Block, TxOut, TransactionPrefix, Transaction};
 
 	/// A trait implementing a table interaction for the database. It is implemented to an empty struct to specify the name and table's associated types. These associated 
 	/// types are used to simplify deserialization process.
@@ -63,15 +63,16 @@ pub mod table {
 		type Value: Encodable + Decodable;
 	}
 
-	/// A trait implementing a table with DUPFIXED support. Essentially defining what's the type of the subkey.
+	/// A trait implementing a table with DUPFIXED & DUPSORT support. Essentially defining what's the type of the subkey.
 	pub trait DupTable: Table {
 
+		// Definition of the subkey
 		type Subkey: Encodable + Decodable;
 	}
 
 	/// This declarative macro declare a new empty struct and impl the specified name, and corresponding types. 
 	macro_rules! impl_table {
-		($(#[$docs:meta])* $table:ident , $key:ty , $value:ty ) => {
+		( $(#[$docs:meta])* $table:ident , $key:ty , $value:ty ) => {
             		#[derive(Clone)]
 			$(#[$docs])*
             		pub(crate) struct $table;
@@ -86,11 +87,11 @@ pub mod table {
 
 	/// This declarative macro declare extend the original impl_table! macro by implementy the subkey type for the specified table.
 	macro_rules! impl_duptable {
-		($table:ident, $key:ty, $subkey:ty, $value:ty) => {
-			impl_table!($table, $key, $value)
+		($(#[$docs:meta])* $table:ident, $key:ty, $value:ty) => {
+			impl_table!($(#[$docs])* $table, $key, $value);
 
 			impl DupTable for $table {
-				type Subkey: $subkey
+				type Subkey = $key;
 			}
 	    	};
 	}
@@ -99,30 +100,57 @@ pub mod table {
 
 	// ----- BLOCKS -----
 
-	impl_table!(
+	impl_duptable!(
 		/// `blockhash` is table defining a relation between the hash of a block and its height. Its primary use is to quickly find block's hash by its height.
 		blockhash, u64, Hash);
 
-	impl_table!(
+	impl_duptable!(
+		/// `blockheaders` store blocks' headers along their Hash. For more details on what contains the block's header, see : https://docs.rs/monero/latest/monero/blockdata/block/struct.BlockHeader.html
 		blockheaders, Hash, BlockHeader);
-
+	
 	impl_table!(
-		blockbody, Hash, Block);
+		/// `blockbody` store blocks' bodies along their Hash. The blocks body contains the coinbase transaction and its corresponding mined transactions' hashes.
+		blockbody, Hash, Block); // Incorrect type : BlockBody.
+	
+	impl_table!( 
+		/// `altblock` is a table that permit the storage of blocks from an alternative chains being submitted to the txpool. These blocks can be fetch by their corresponding hash.
+		altblock, Hash, Block);
 
 	// ------- TXNs -------
 
 	impl_table!(
-		txsidentifier, Hash, Hash);
-
+		/// `txsprefix` is table storing TransactionPrefix (or Pruned Tx). These can be fetch by the corresponding Transaction ID.
+		txsprefix, Hash, TransactionPrefix);
+	
 	impl_table!(
-		txsprunabletip, Hash, u64);
+		/// `txsprunable` is a table storing the Prunable part of transactions (Signatures and RctSig). These can be fetch by the corresponding Transaction ID
+		txsprunable, Hash, Transaction); // Incorrect Type :     | txs_prunable |      txn ID   ->    prunable txn blob
+	
+	impl_duptable!(
+		txsprunablehash, Hash, Hash); // -> prunable txn hash
 
+	impl_duptable!(
+		txsprunabletip, Hash, u64);
+	
+	impl_duptable!(
+		txsoutputs, Hash, TxOut); // Incorrect Type :     | tx_outputs |      txn ID   ->    [txn amount output indices]
+
+	impl_duptable!(
+		txsidentifier, Hash, Hash);
+	
 	// ---- OUTPUTS ----
+
+	impl_duptable!(
+		outputinherit, Hash, Hash); // Incorrect type:     | output_txs |  output ID   ->  {txn hash, local index}
+
+	impl_duptable!(
+		outputamounts, u64, TxOut); // Incorrect type :    | output_amounts |  amount   ->  [{amount output index, metadata}...]
 
 	//  ---- SPT KEYS ----
 
-	impl_table!(
+	impl_duptable!(
 		spentkeys, Hash, u8);
+
 }
 
 // ------------------------------------------|      Database      |------------------------------------------
