@@ -1,15 +1,33 @@
-/// This module defines network Requests and Responses 
+/// This module defines InternalRequests and InternalResponses. Cuprate's P2P works by translating network messages into an internal 
+/// request/ response, this is easy for levin "requests" and "responses" (admin messages) but takes a bit more work with "notifications" 
+/// (protocol messages).
+/// 
+/// Some notifications are easy to translate, like `GetObjectsRequest` is obviously a request but others like `NewFluffyBlock` are a 
+/// bit tricker. To translate a `NewFluffyBlock` into a request/ response we will have to look to see if we asked for `FluffyMissingTransactionsRequest`
+/// if we have we interpret `NewFluffyBlock` as a response if not its a request that doesn't require a response.
+/// 
+/// Here is every P2P request/ response. *note admin messages are already request/ response so "Handshake" is actually made of a HandshakeRequest & HandshakeResponse
+/// 
+/// Admin:
+///     Handshake,
+///     TimedSync,
+///     Ping,
+///     SupportFlags
+/// Protocol:
+///     Request: GetObjectsRequest,                 Response: GetObjectsResponse,
+///     Request: ChainRequest,                      Response: ChainResponse,
+///     Request: FluffyMissingTransactionsRequest,  Response: NewFluffyBlock,  <- these 2 could be requests or responses
+///     Request: GetTxPoolCompliment,               Response: NewTransactions, <-
+///     Request: NewBlock,                          Response: None,
+///     Request: NewFluffyBlock,                    Response: None,
+///     Request: NewTransactions,                   Response: None
+/// 
 
 use monero_wire::messages::{
     AdminMessage, ProtocolMessage, Handshake, TimedSync, Ping, SupportFlags, GetObjectsRequest, GetObjectsResponse,
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, NewFluffyBlock, GetTxPoolCompliment,
-    NewTransactions, NewBlock, Message,
+    NewTransactions, NewBlock, Message, MessageResponse, MessageNotification, MessageRequest
 };
-use levin::{
-    connection::{ClientResponseChan, ClientRequest, BucketBuilder, PeerResponse},
-    bucket::header::Flags,
-};
-use levin::bucket::BucketError;
  
 macro_rules! client_request_peer_response {
     (
@@ -19,73 +37,98 @@ macro_rules! client_request_peer_response {
         $(Request: $protocol_req:ident, Response: $(SOME: $protocol_res:ident)? $(NULL: $none:expr)?  ),+
     ) => {
 
-        pub enum MessageRequest {
+        pub enum InternalMessageRequest {
             $($admin_mes(<$admin_mes as AdminMessage>::Request),)+
             $($protocol_req(<$protocol_req as ProtocolMessage>::Notification),)+
         }
 
-        impl MessageRequest {
+
+
+        impl InternalMessageRequest {
             pub fn id(&self) -> u32 {
                 match self {
-                    $(MessageRequest::$admin_mes(_) => $admin_mes::ID,)+
-                    $(MessageRequest::$protocol_req(_) => $protocol_req::ID,)+
+                    $(InternalMessageRequest::$admin_mes(_) => $admin_mes::ID,)+
+                    $(InternalMessageRequest::$protocol_req(_) => $protocol_req::ID,)+
                 }
             }
             pub fn expected_id(&self) -> Option<u32> {
                 match self {
-                    $(MessageRequest::$admin_mes(_) => Some($admin_mes::ID),)+
-                    $(MessageRequest::$protocol_req(_) => $(Some($protocol_res::ID))? $($none)?,)+
-                }
-            }
-            pub fn encode(&self) -> Option<Vec<u8>> {// change me to result
-                match self {
-                    $(MessageRequest::$admin_mes(mes) => mes.encode().ok(),)+
-                    $(MessageRequest::$protocol_req(mes) => mes.encode().ok(),)+
+                    $(InternalMessageRequest::$admin_mes(_) => Some($admin_mes::ID),)+
+                    $(InternalMessageRequest::$protocol_req(_) => $(Some($protocol_res::ID))? $($none)?,)+
                 }
             }
             pub fn is_levin_request(&self) -> bool {
                 match self {
-                    $(MessageRequest::$admin_mes(_) => true,)+
-                    $(MessageRequest::$protocol_req(_) => false,)+
+                    $(InternalMessageRequest::$admin_mes(_) => true,)+
+                    $(InternalMessageRequest::$protocol_req(_) => false,)+
                 }
             }
         }
 
-        pub enum MessageResponse {
+        impl From<MessageRequest> for InternalMessageRequest {
+            fn from(value: MessageRequest) -> Self {
+                match value {
+                    $(MessageRequest::$admin_mes(mes) => InternalMessageRequest::$admin_mes(mes),)+
+                }
+            }
+        }
+
+        #[derive(Debug)]
+        pub struct NotAnInternalRequest;
+
+        impl TryFrom<Message> for InternalMessageRequest {
+            type Error = NotAnInternalRequest;
+            fn try_from(value: Message) -> Result<Self, Self::Error> {
+                match value {
+                    Message::Response(_) => Err(NotAnInternalRequest),
+                    Message::Request(req) => Ok(req.into()),
+                    Message::Notification(noti) => {
+                        match noti {
+                            $(MessageNotification::$protocol_req(noti) => Ok(InternalMessageRequest::$protocol_req(noti)),)+
+                            _ => Err(NotAnInternalRequest),
+                        }
+                    }
+                }
+            }
+        }
+
+        pub enum InternalMessageResponse {
             $($admin_mes(<$admin_mes as AdminMessage>::Response),)+
             $($($protocol_res(<$protocol_res as ProtocolMessage>::Notification),)?)+
         }
 
-        impl MessageResponse {
+        impl InternalMessageResponse {
             pub fn id(&self) -> u32 {
                 match self{
-                    $(MessageResponse::$admin_mes(_) => $admin_mes::ID,)+
-                    $($(MessageResponse::$protocol_res(_) => $protocol_res::ID,)?)+
+                    $(InternalMessageResponse::$admin_mes(_) => $admin_mes::ID,)+
+                    $($(InternalMessageResponse::$protocol_res(_) => $protocol_res::ID,)?)+
                 }
             }
         }
 
-        impl PeerResponse for MessageResponse {
-            fn decode(command: u32, body: bytes::Bytes) -> Result<Self, BucketError> {
-                match command {
-                    $($admin_mes::ID => 
-                        Ok(
-                            MessageResponse::$admin_mes(
-                                <$admin_mes as AdminMessage>::Response::decode(&body)
-                                    .map_err(|e| BucketError::FailedToDecodeBucketBody(e.to_string()))?
-                                )
-                        ),
-                    )+
-                    $($($protocol_res::ID => 
-                        Ok(
-                            MessageResponse::$protocol_res(
-                                <$protocol_res as ProtocolMessage>::Notification::decode(&body)
-                                    .map_err(|e| BucketError::FailedToDecodeBucketBody(e.to_string()))?
-                                )
-                            ),
-                        )?
-                    )+
-                    _ => Err(BucketError::UnsupportedP2pCommand(command))
+        impl From<MessageResponse> for InternalMessageResponse {
+            fn from(value: MessageResponse) -> Self {
+                match value {
+                    $(MessageResponse::$admin_mes(mes) => InternalMessageResponse::$admin_mes(mes),)+
+                }
+            }
+        }
+        
+        #[derive(Debug)]
+        pub struct NotAnInternalResponse;
+
+        impl TryFrom<Message> for InternalMessageResponse {
+            type Error = NotAnInternalResponse;
+            fn try_from(value: Message) -> Result<Self, Self::Error> {
+                match value {
+                    Message::Response(res) => Ok(res.into()),
+                    Message::Request(_) => Err(NotAnInternalResponse),
+                    Message::Notification(noti) => {
+                        match noti {
+                            $($(MessageNotification::$protocol_res(noti) => Ok(InternalMessageResponse::$protocol_res(noti)),)?)+
+                            _ => Err(NotAnInternalResponse),
+                        }
+                    }
                 }
             }
         }
@@ -110,40 +153,3 @@ client_request_peer_response!(
         Request: NewTransactions,                   Response: NULL: None
 );
 
-pub struct ClientReq {
-    req: MessageRequest,
-    tx: Option<ClientResponseChan<MessageResponse>>,
-}
-
-impl ClientReq {
-    pub fn new(req: MessageRequest, tx: ClientResponseChan<MessageResponse>) -> Self {
-        ClientReq{req, tx: Some(tx)}
-    }
-}
-
-impl Into<BucketBuilder> for ClientReq {
-    fn into(self) -> BucketBuilder {
-        let mut bucket_builder = BucketBuilder::default();
-        bucket_builder.set_return_code(0);
-        bucket_builder.set_command(self.command());
-        bucket_builder.set_have_to_return(self.is_levin_request());
-        bucket_builder.set_flags(Flags::new_request());
-        match self.req.encode() {
-            Some(val) => bucket_builder.set_body(val.into()),
-            None => (), // Levin will now error :)
-        }
-        bucket_builder
-    }
-}
-
-impl ClientRequest<MessageResponse> for ClientReq {
-    fn command(&self) -> u32 {
-        self.req.id()
-    }
-    fn is_levin_request(&self) -> bool {
-        self.req.is_levin_request()
-    }
-    fn tx(&mut self) -> Option<ClientResponseChan<MessageResponse>> {
-        std::mem::replace(&mut self.tx, None)
-    }
-}

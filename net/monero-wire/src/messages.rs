@@ -104,7 +104,7 @@ macro_rules! levin_body {
                 match command {
                     $($admin_mes::ID => Ok(
                         MessageRequest::$admin_mes(<$admin_mes as AdminMessage>::Request::decode(buf)
-                        .map_err(|e| BucketError::FailedToDecodeBucketBody(e.to_string()))?)),)+ 
+                        .map_err(|e| BucketError::FailedToDecodeBucketBody(e.to_string()))?)),)+
                     _ => Err(BucketError::UnsupportedP2pCommand(command))
                 }
             }
@@ -128,7 +128,7 @@ macro_rules! levin_body {
                     $($admin_mes::ID => Ok(
                         MessageResponse::$admin_mes(<$admin_mes as AdminMessage>::Response::decode(buf)
                         .map_err(|e| BucketError::FailedToDecodeBucketBody(e.to_string()))?)),)+
-                    _ => Err(BucketError::UnsupportedP2pCommand(command)) 
+                    _ => Err(BucketError::UnsupportedP2pCommand(command))
                 }
             }
 
@@ -149,7 +149,7 @@ macro_rules! levin_body {
                 match command {
                     $($protocol_mes::ID => Ok(
                         MessageNotification::$protocol_mes(<$protocol_mes as ProtocolMessage>::Notification::decode(buf)
-                        .map_err(|e| BucketError::FailedToDecodeBucketBody(e.to_string()))?)),)+ 
+                        .map_err(|e| BucketError::FailedToDecodeBucketBody(e.to_string()))?)),)+
                     _ => Err(BucketError::UnsupportedP2pCommand(command))
                 }
             }
@@ -196,7 +196,7 @@ macro_rules! levin_body {
 
 
         }
-        
+
     };
 }
 

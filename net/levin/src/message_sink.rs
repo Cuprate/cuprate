@@ -55,7 +55,10 @@ impl<W: AsyncWrite + std::marker::Unpin, E: LevinBody> Sink<E> for MessageSink<W
             return_code,
         );
 
-        let bucket = Bucket { header, body: body.into() };
+        let bucket = Bucket {
+            header,
+            body: body.into(),
+        };
 
         self.project().bucket_sink.start_send(bucket)
     }

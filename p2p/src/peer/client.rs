@@ -1,6 +1,9 @@
 use std::pin::Pin;
 
-use futures::{channel::{mpsc, oneshot}, FutureExt, Future};
+use futures::{
+    channel::{mpsc, oneshot},
+    FutureExt, Future,
+};
 use tower::Service;
 
 use crate::protocol::{ClientReq, MessageResponse, MessageRequest};
@@ -8,7 +11,7 @@ use crate::protocol::{ClientReq, MessageResponse, MessageRequest};
 use super::PeerError;
 
 pub struct PeerClient {
-    levin_tx: mpsc::Sender<ClientReq>
+    levin_tx: mpsc::Sender<ClientReq>,
 }
 
 impl Service<MessageRequest> for PeerClient {
@@ -24,7 +27,7 @@ impl Service<MessageRequest> for PeerClient {
 
         match self.levin_tx.try_send(request) {
             Ok(()) => rx.boxed(),
-            Err(e) => todo!("handle err")
+            Err(e) => todo!("handle err"),
         }
     }
 }

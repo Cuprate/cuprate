@@ -66,8 +66,8 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D
                     return Err(BucketError::UnknownProtocolVersion(bucket.header.protocol_version))?;
                 }
 
-                // TODO: we shouldn't return an error if the peer sends an error response we should define a new network 
-                // message: Error. 
+                // TODO: we shouldn't return an error if the peer sends an error response we should define a new network
+                // message: Error.
                 if bucket.header.return_code < 0
                     || (bucket.header.return_code == 0 && bucket.header.flags.is_response())
                 {
