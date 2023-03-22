@@ -37,14 +37,6 @@ impl Flags {
         self & &rhs == rhs
     }
 
-    pub fn new_request() -> Flags {
-        REQUEST
-    }
-
-    pub fn new_response() -> Flags {
-        RESPONSE
-    }
-
     /// Converts the inner flags to little endian bytes
     pub fn to_le_bytes(&self) -> [u8; 4] {
         self.0.to_le_bytes()
@@ -145,12 +137,12 @@ pub struct BucketHead {
     pub signature: u64,
     /// The size of the body
     pub size: u64,
-    /// If the peer has to send data back to peer - some
+    /// If the peer has to send data in the order of requests - some
     /// messages require responses but don't have this set (some notifications)
     pub have_to_return_data: bool,
     /// Command
     pub command: u32,
-    /// Return Code - will be 0 for requests and notifications, >0 for ok responses otherwise will be
+    /// Return Code - will be 0 for requests and >0 for ok responses otherwise will be
     /// a negative number corresponding to the error
     pub return_code: i32,
     /// The Flags of this header
@@ -162,16 +154,6 @@ pub struct BucketHead {
 impl BucketHead {
     /// The size of the header (in bytes)
     pub const SIZE: usize = 33;
-
-    /// Returns true if return_code > 0
-    pub fn is_ok(&self) -> bool {
-        self.return_code > 0
-    }
-
-    /// Returns true if return_code < 0
-    pub fn is_error(&self) -> bool {
-        self.return_code < 0
-    }
 
     /// Builds the header in a Monero specific way
     pub fn build(

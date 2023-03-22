@@ -1,4 +1,4 @@
-pub mod connection;
+pub mod client;
 
 use thiserror::Error;
 

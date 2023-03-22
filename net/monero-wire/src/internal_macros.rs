@@ -59,7 +59,8 @@ macro_rules! message {
             Decode: $res_dec:path,
         },
     ) => {
-        impl crate::messages::Message for $req {
+        #[sealed::sealed]
+        impl crate::messages::NetworkMessage for $req {
             type EncodingError = $req_enc_err;
             fn decode(buf: &[u8]) -> Result<Self, Self::EncodingError> {
                 $req_dec(buf)
@@ -68,8 +69,8 @@ macro_rules! message {
                 $req_enc(self)
             }
         }
-
-        impl crate::messages::Message for $res {
+        #[sealed::sealed]
+        impl crate::messages::NetworkMessage for $res {
             type EncodingError = $res_enc_err;
             fn decode(buf: &[u8]) -> Result<Self, Self::EncodingError> {
                 $res_dec(buf)
@@ -81,6 +82,7 @@ macro_rules! message {
 
         pub struct $name;
 
+        #[sealed::sealed]
         impl crate::messages::AdminMessage for $name {
             const ID: u32 = $id;
 
@@ -97,7 +99,8 @@ macro_rules! message {
         },
         ID: $id:expr,
     ) => {
-        impl crate::messages::Message for $name {
+        #[sealed::sealed]
+        impl crate::messages::NetworkMessage for $name {
             type EncodingError = $enc_err;
             fn decode(buf: &[u8]) -> Result<Self, Self::EncodingError> {
                 $dec(buf)
@@ -107,6 +110,7 @@ macro_rules! message {
             }
         }
 
+        #[sealed::sealed]
         impl crate::messages::ProtocolMessage for $name {
             const ID: u32 = $id;
 

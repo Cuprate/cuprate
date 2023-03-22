@@ -18,6 +18,8 @@
 //! Admin message requests must be responded to in order unlike
 //! protocol messages.   
 
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -29,6 +31,12 @@ const P2P_ADMIN_BASE: u32 = 1000;
 
 #[derive(Debug)]
 pub struct SillyEncodingError;
+
+impl Display for SillyEncodingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Literally impossible to get this error")
+    }
+}
 
 fn silly_encode<T>(_: &T) -> Result<Vec<u8>, SillyEncodingError> {
     Ok(vec![])

@@ -27,26 +27,26 @@ macro_rules! client_request_peer_response {
         impl MessageRequest {
             pub fn id(&self) -> u32 {
                 match self {
-                    $(&MessageRequest::$admin_mes(_) => $admin_mes::ID,)+
-                    $(&MessageRequest::$protocol_req(_) => $protocol_req::ID,)+
+                    $(MessageRequest::$admin_mes(_) => $admin_mes::ID,)+
+                    $(MessageRequest::$protocol_req(_) => $protocol_req::ID,)+
                 }
             }
             pub fn expected_id(&self) -> Option<u32> {
                 match self {
-                    $(&MessageRequest::$admin_mes(_) => Some($admin_mes::ID),)+
-                    $(&MessageRequest::$protocol_req(_) => $(Some($protocol_res::ID))? $($none)?,)+
+                    $(MessageRequest::$admin_mes(_) => Some($admin_mes::ID),)+
+                    $(MessageRequest::$protocol_req(_) => $(Some($protocol_res::ID))? $($none)?,)+
                 }
             }
             pub fn encode(&self) -> Option<Vec<u8>> {// change me to result
                 match self {
-                    $(&MessageRequest::$admin_mes(mes) => mes.encode().ok(),)+
-                    $(&MessageRequest::$protocol_req(mes) => mes.encode().ok(),)+
+                    $(MessageRequest::$admin_mes(mes) => mes.encode().ok(),)+
+                    $(MessageRequest::$protocol_req(mes) => mes.encode().ok(),)+
                 }
             }
             pub fn is_levin_request(&self) -> bool {
                 match self {
-                    $(&MessageRequest::$admin_mes(_) => true,)+
-                    $(&MessageRequest::$protocol_req(_) => false,)+
+                    $(MessageRequest::$admin_mes(_) => true,)+
+                    $(MessageRequest::$protocol_req(_) => false,)+
                 }
             }
         }
@@ -59,8 +59,8 @@ macro_rules! client_request_peer_response {
         impl MessageResponse {
             pub fn id(&self) -> u32 {
                 match self{
-                    $(&MessageResponse::$admin_mes(_) => $admin_mes::ID,)+
-                    $($(&MessageResponse::$protocol_res(_) => $protocol_res::ID,)?)+
+                    $(MessageResponse::$admin_mes(_) => $admin_mes::ID,)+
+                    $($(MessageResponse::$protocol_res(_) => $protocol_res::ID,)?)+
                 }
             }
         }
@@ -85,6 +85,7 @@ macro_rules! client_request_peer_response {
                             ),
                         )?
                     )+
+                    _ => Err(BucketError::UnsupportedP2pCommand(command))
                 }
             }
         }
@@ -112,6 +113,12 @@ client_request_peer_response!(
 pub struct ClientReq {
     req: MessageRequest,
     tx: Option<ClientResponseChan<MessageResponse>>,
+}
+
+impl ClientReq {
+    pub fn new(req: MessageRequest, tx: ClientResponseChan<MessageResponse>) -> Self {
+        ClientReq{req, tx: Some(tx)}
+    }
 }
 
 impl Into<BucketBuilder> for ClientReq {
