@@ -32,12 +32,13 @@
 use database::{Database, Interface};
 use thiserror::Error;
 use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
-use transaction::Transaction;
+use tiny_keccak::Hasher;
+use transaction::{Cursor, Transaction,  WriteTransaction};
 use std::ops::Range;
 
 pub mod error;
 #[cfg(feature = "mdbx")]
-pub mod mdbx;
+//pub mod mdbx;
 #[cfg(feature = "hse")]
 pub mod hse;
 
@@ -161,7 +162,7 @@ pub mod database {
     	use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
 	
 	/// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the 
-	/// different transaction mode (read & write) and it's native errors.
+	/// diffzerent transaction mode (read & write) and it's native errors.
 	pub trait Database<'a>
 	{
 		type TX: Transaction<'a>;
@@ -199,27 +200,27 @@ pub mod database {
         	}
 	}
 
-    impl<'a, D: Database<'a>> Deref for Interface<'a,D> {
-        type Target = D::TXMut;
+    	impl<'a, D: Database<'a>> Deref for Interface<'a,D> {
+        	type Target = <D as Database<'a>>::TXMut;
 
-        fn deref(&self) -> &Self::Target {
-            return self.tx.as_ref().unwrap()
-        }
-    }	
+        	fn deref(&self) -> &Self::Target {
+            		return self.tx.as_ref().unwrap()
+        	}
+    	}	
 }
 
 // ------------------------------------------|      DatabaseTx     |------------------------------------------
 
 pub mod transaction {
 
-	use crate::{error::DB_FAILURES,table::Table};
+	use crate::{error::DB_FAILURES,table::{Table, DupTable}};
 
 	#[allow(clippy::type_complexity)]
 	pub trait Cursor<'t, T: Table> {
 
 		fn first(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn get(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
+		fn get_cursor(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
 		fn last(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
@@ -230,27 +231,49 @@ pub mod transaction {
 		fn set(&mut self, key: T::Key) -> Result<Option<T::Value>,DB_FAILURES>;
 	}
 
+	pub trait DupCursor<'t, T: DupTable>: Cursor<'t, T> {
+
+		fn first_dup(&mut self) -> Result<Option<T::Value>,DB_FAILURES>;
+
+		fn get_dup(&mut self, key: T::Key, value: T::Value) -> Result<Option<T::Value>,DB_FAILURES>;
+
+		fn last_dup(&mut self) -> Result<Option<T::Value>, DB_FAILURES>;
+
+		fn next_dup(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+		
+		fn prev_dup(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+	}
+
 	pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
 
-		fn put(&mut self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
+		fn put_cursor(&mut self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
 
 		fn del(&mut self) -> Result<(),DB_FAILURES>;
+	}
+
+	pub trait DupWriteCursor<'t, T: DupTable>: WriteCursor<'t, T> {
+
+		fn del_nodup(&mut self) -> Result<(),DB_FAILURES>;
 	}
 
 	pub trait Transaction<'a>: Send + Sync {
 
 		type Cursor<T: Table>: Cursor<'a,T>;
+		type DupCursor<T: DupTable>: DupCursor<'a, T> + Cursor<'a, T>;
 
-		fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
+		fn get<T>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES> where T: Table;
 
 		fn commit(self) -> Result<(), DB_FAILURES>;
 
 		fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>,DB_FAILURES>;
+
+		fn cursor_dup<T: DupTable>(&self) -> Result<Self::DupCursor<T>,DB_FAILURES>;
 	}
 
 	pub trait WriteTransaction<'a>: Transaction<'a> {
 
 		type WriteCursor<T: Table>: WriteCursor<'a,T>;
+		type DupWriteCursor<T: DupTable>: DupWriteCursor<'a,T> + DupCursor<'a,T>;
 
         	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
 
@@ -264,8 +287,44 @@ pub mod transaction {
 
 impl<'a, D: Database<'a>> Interface<'a,D> {
 
-	fn get_block_hash(&self, height: u64) -> Result<Option<Hash>,error::DB_FAILURES>{
+	fn height(&self) -> Result<Option<u64>,error::DB_FAILURES> {
+		let mut cursor: <<D as Database>::TXMut as Transaction>::Cursor<table::blockhash> = self.cursor::<table::blockhash>()?;
+		let last = cursor.last()?;
+		
+		if let Some(pair) = last {
+			return Ok(Some(pair.0))
+		}
+		Ok(None)
+	}
+
+	fn add_block(&self, blk: Block) -> Result<(),error::DB_FAILURES> {
+		// just a test function 
+		let mut e_blk = Vec::new();
+		blk.consensus_encode(&mut e_blk);
+		let mut hasher = tiny_keccak::Keccak::v256();
+		hasher.update(&e_blk);
+		let mut block_hash = [0u8; 32];
+		hasher.finalize(&mut block_hash);
+
+		if let Ok(Some(height)) = self.height() {
+			let hash = Hash::from_slice(&block_hash);
+			self.put::<table::blockhash>(&height, &hash);
+			self.put::<table::blockbody>(&hash, &blk);
+		}
+		
+		Ok(())
+	}
+
+	fn get_block_hash(&self, height: u64) -> Result<Option<Hash>,error::DB_FAILURES> {
 		self.get::<table::blockhash>(height)
+	}
+
+	fn get_block_body(&self, hash: Hash) -> Result<Option<Block>,error::DB_FAILURES> {
+		self.get::<table::blockbody>(hash)
+	}
+
+	fn get_block_header(&self, hash: Hash) -> Result<Option<BlockHeader>,error::DB_FAILURES> {
+		self.get::<table::blockheaders>(hash)
 	}
 }
 

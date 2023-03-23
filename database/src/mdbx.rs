@@ -4,7 +4,7 @@ use monero::consensus::Encodable;
 use crate::{
 	database::Database,
 	error::{DB_FAILURES, DB_FULL, DB_SERIAL},
-	table::Table,
+	table::{Table, DupTable},
 	transaction::{Transaction, WriteTransaction},
 };
 
@@ -101,7 +101,7 @@ where
 		cursor_pair_decode!(pair)
     	}
 
-    	fn get(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
+    	fn get_cursor(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
 		let pair = self.get_current::<Vec<u8>,Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 
@@ -144,21 +144,97 @@ where
 	}
 }
 
+impl<'t,T,R> crate::transaction::DupCursor<'t,T> for Cursor<'t,R> 
+where 
+	R: TransactionKind,
+	T: DupTable,
+{
+    	fn first_dup(&mut self) -> Result<Option<T::Value>,DB_FAILURES> {
+        	let value = self.first_dup::<Vec<u8>>()
+			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
+		
+		if let Some(value) = value {
+			mdbx_decode_consensus!(value, decoded_value as T::Value);
+			return Ok(Some(decoded_value))
+		}
+		Ok(None)
+    	}
+
+	fn get_dup(&mut self, key: T::Key, value: T::Value) -> Result<Option<<T>::Value>,DB_FAILURES> {
+		mdbx_encode_consensus!(key, encoded_key);
+		mdbx_encode_consensus!(value, encoded_value);
+
+		let value = self.get_both::<Vec<u8>>(&encoded_key, &encoded_value)
+			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
+		
+		if let Some(value) = value {
+			mdbx_decode_consensus!(value, decoded_value as T::Value);
+			return Ok(Some(decoded_value))
+		}
+		Ok(None)
+	}
+
+	fn last_dup(&mut self) -> Result<Option<<T>::Value>, DB_FAILURES> {
+		let value = self.last_dup::<Vec<u8>>()
+			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
+		
+		if let Some(value) = value {
+			mdbx_decode_consensus!(value, decoded_value as T::Value);
+			return Ok(Some(decoded_value))
+		}
+		Ok(None)
+	}
+
+	fn next_dup(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES> {
+        	let pair = self.next_dup::<Vec<u8>,Vec<u8>>()
+			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
+		
+		if let Some(pair) = pair {
+			mdbx_decode_consensus!(pair.0, decoded_key as T::Key);
+			mdbx_decode_consensus!(pair.1, decoded_value as T::Value);
+			return Ok(Some((decoded_key, decoded_value)))
+		}
+		Ok(None)
+    	}
+
+	fn prev_dup(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES> {
+        	let pair = self.prev_dup::<Vec<u8>,Vec<u8>>()
+			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
+		
+		if let Some(pair) = pair {
+			mdbx_decode_consensus!(pair.0, decoded_key as T::Key);
+			mdbx_decode_consensus!(pair.1, decoded_value as T::Value);
+			return Ok(Some((decoded_key, decoded_value)))
+		}
+		Ok(None)
+    	}
+}
+
 impl<'a,T> crate::transaction::WriteCursor<'a, T> for Cursor<'a, RW> 
 where
 	T: Table,
 {
-	fn put(&mut self, key: <T as Table>::Key, value: <T as Table>::Value) -> Result<(),DB_FAILURES> {
+	fn put_cursor(&mut self, key: <T as Table>::Key, value: <T as Table>::Value) -> Result<(),DB_FAILURES> {
         	mdbx_encode_consensus!(key, encoded_key);
 		mdbx_encode_consensus!(value, encoded_value);
 
 		self.put(&encoded_key, &encoded_value, WriteFlags::empty())
-			.map_err(|err| err.into())
+			.map_err(Into::into)
     	}
 
     	fn del(&mut self) -> Result<(),DB_FAILURES> {
         	
-		self.del(WriteFlags::empty()).map_err(|err| err.into())
+		self.del(WriteFlags::empty()).map_err(Into::into)
+    	}
+}
+
+impl<'a,T> crate::transaction::DupWriteCursor<'a ,T> for Cursor<'a ,RW>
+where
+	T: DupTable,
+{
+    	fn del_nodup(&mut self) -> Result<(),DB_FAILURES> {
+        	
+		self.del(WriteFlags::NO_DUP_DATA).map_err(Into::into)
     	}
 }
 
@@ -168,6 +244,7 @@ where
 	E: DatabaseKind,
 {
 	type Cursor<T: Table> = Cursor<'a, R>;
+	type DupCursor<T: DupTable> = Cursor<'a, R>;
 
 	fn get<T: Table>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES> {
 
@@ -185,7 +262,7 @@ where
 	fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>, DB_FAILURES> {
 		mdbx_open_table!(self, table);
 
-		self.cursor(&table).map_err(|err| err.into())
+		self.cursor(&table).map_err(Into::into)
 	}
 
 	fn commit(self) -> Result<(), DB_FAILURES> {
@@ -195,6 +272,12 @@ where
 		if b { Ok(()) } 
 		else { Err(DB_FAILURES::FailedToCommit) }
 	}
+
+	fn cursor_dup<T: DupTable>(&self) -> Result<Self::DupCursor<T>,DB_FAILURES> {
+        	mdbx_open_table!(self, table);
+
+		self.cursor(&table).map_err(Into::into)
+    	}
 	
 }
 
@@ -203,6 +286,7 @@ where
 	E: DatabaseKind,
 {
 	type WriteCursor<T: Table> = Cursor<'a, RW>;
+	type DupWriteCursor<T: DupTable> = Cursor<'a, RW>;
 
 	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(), DB_FAILURES> {
 		mdbx_open_table!(self, table);
@@ -210,7 +294,7 @@ where
 		mdbx_encode_consensus!(key, encoded_key);
 		mdbx_encode_consensus!(value, encoded_value);
 
-		self.put(&table, encoded_key, encoded_value, WriteFlags::empty()).map_err(|err| err.into())
+		self.put(&table, encoded_key, encoded_value, WriteFlags::empty()).map_err(Into::into)
 	}
 
 	fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(), DB_FAILURES> {
@@ -221,20 +305,20 @@ where
 			mdbx_encode_consensus!(value, encoded_value);
 			
 			return self.del(&table, encoded_key, Some(encoded_value.as_slice()))
-				.map(|_| ()).map_err(|err| err.into());
+				.map(|_| ()).map_err(Into::into);
 		}
-		self.del(&table, encoded_key, None).map(|_| ()).map_err(|err| err.into())		
+		self.del(&table, encoded_key, None).map(|_| ()).map_err(Into::into)		
 	}
 
 	fn clear<T: Table>(&self) -> Result<(), DB_FAILURES> {
 		mdbx_open_table!(self, table);
 			
-		self.clear_table(&table).map_err(|err| err.into())
+		self.clear_table(&table).map_err(Into::into)
 	}
 
 	fn write_cursor<T: Table>(&self) -> Result<Self::WriteCursor<T>, DB_FAILURES> {
 		mdbx_open_table!(self, table);
 
-		self.cursor(&table).map_err(|err| err.into())
+		self.cursor(&table).map_err(Into::into)
 	}
 }

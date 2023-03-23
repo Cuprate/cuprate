@@ -15,6 +15,7 @@ hse = []
 
 [dependencies]
 monero = {workspace = true, features = ['serde']}
+tiny-keccak = { version = "2.0", features = ["sha3"] }
 serde = { workspace = true}
 thiserror = {workspace = true }
 libmdbx = { version = "0.3.1", optional = true }
