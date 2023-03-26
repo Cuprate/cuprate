@@ -24,6 +24,7 @@ Releasing an alternative node will reinforce the Monero Network if a security vu
   
 ### Status
 
+If you wish to follow the development closely or just talk to us, you can join our [Revolt server](https://rvlt.gg/DZtCpfW1).</br>
 Status of current parts being work on can be found in the [pull request section](https://github.com/SyntheticBird45/cuprate/pulls).
 
 @boog900 have delivered the net code and is working on ringCT & P2P.
