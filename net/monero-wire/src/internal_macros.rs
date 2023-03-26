@@ -85,6 +85,7 @@ macro_rules! message {
         #[sealed::sealed]
         impl crate::messages::AdminMessage for $name {
             const ID: u32 = $id;
+            const NAME: &'static str = stringify!($name);
 
             type Request = $req;
             type Response = $res;
@@ -113,6 +114,7 @@ macro_rules! message {
         #[sealed::sealed]
         impl crate::messages::ProtocolMessage for $name {
             const ID: u32 = $id;
+            const NAME: &'static str = stringify!($name);
 
             type Notification = Self;
         }

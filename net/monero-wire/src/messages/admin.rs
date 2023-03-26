@@ -23,7 +23,7 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    common::{BasicNodeData, CoreSyncData, PeerListEntryBase},
+    common::{BasicNodeData, CoreSyncData, PeerListEntryBase, PeerSupportFlags},
     PeerID,
 };
 
@@ -154,7 +154,7 @@ pub struct SupportFlagsRequest;
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct SupportFlagsResponse {
     /// Support Flags
-    pub support_flags: u32,
+    pub support_flags: PeerSupportFlags,
 }
 
 message!(
@@ -180,7 +180,7 @@ mod tests {
     use monero::Hash;
 
     use super::{BasicNodeData, CoreSyncData, HandshakeRequest, HandshakeResponse};
-    use crate::messages::common::PeerID;
+    use crate::messages::common::{PeerID, PeerSupportFlags};
 
     #[test]
     fn serde_handshake_req() {
@@ -201,7 +201,7 @@ mod tests {
             my_port: 0,
             network_id: [18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16],
             peer_id: PeerID(9671405426614699871),
-            support_flags: 1,
+            support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 0,
             rpc_credits_per_hash: 0,
         };
@@ -856,7 +856,7 @@ mod tests {
             my_port: 18080,
             network_id: [18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16],
             peer_id: PeerID(6037804360359455404),
-            support_flags: 1,
+            support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 18089,
             rpc_credits_per_hash: 0,
         };

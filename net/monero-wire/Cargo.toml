@@ -13,7 +13,7 @@ serde = {version = "1.0", features =["derive"]}
 serde_with = "2.2.0"
 sealed = "0.4"
 epee-serde = {git="https://github.com/Boog900/epee_serde.git"}
-monero = "0.18.2"
+monero = {git="https://github.com/Boog900/monero-rs.git", branch="db", features=["database"]}
 byteorder = "1.4.3"
 bytes = "1"
 thiserror = "1.0.24"

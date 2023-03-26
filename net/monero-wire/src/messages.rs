@@ -51,6 +51,7 @@ pub trait NetworkMessage: Sized {
 #[sealed::sealed]
 pub trait AdminMessage {
     const ID: u32;
+    const NAME: &'static str;
     type Request: NetworkMessage;
     type Response: NetworkMessage;
 }
@@ -58,6 +59,7 @@ pub trait AdminMessage {
 #[sealed::sealed]
 pub trait ProtocolMessage {
     const ID: u32;
+    const NAME: &'static str;
     type Notification: NetworkMessage;
 }
 

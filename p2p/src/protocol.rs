@@ -42,9 +42,13 @@ macro_rules! client_request_peer_response {
             $($protocol_req(<$protocol_req as ProtocolMessage>::Notification),)+
         }
 
-
-
         impl InternalMessageRequest {
+            pub fn get_str_name(&self) -> &'static str {
+                match self {
+                    $(InternalMessageRequest::$admin_mes(_) => $admin_mes::NAME,)+
+                    $(InternalMessageRequest::$protocol_req(_) => $protocol_req::NAME,)+
+                }
+            }
             pub fn id(&self) -> u32 {
                 match self {
                     $(InternalMessageRequest::$admin_mes(_) => $admin_mes::ID,)+
@@ -98,6 +102,12 @@ macro_rules! client_request_peer_response {
         }
 
         impl InternalMessageResponse {
+            pub fn get_str_name(&self) -> &'static str {
+                match self {
+                    $(InternalMessageResponse::$admin_mes(_) => $admin_mes::NAME,)+
+                    $($(InternalMessageResponse::$protocol_res(_) => $protocol_res::NAME,)?)+
+                }
+            }
             pub fn id(&self) -> u32 {
                 match self{
                     $(InternalMessageResponse::$admin_mes(_) => $admin_mes::ID,)+

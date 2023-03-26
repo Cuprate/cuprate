@@ -32,7 +32,7 @@ use crate::LevinBody;
 
 /// A Sink that converts levin messages to buckets and passes them onto the `BucketSink`
 #[pin_project]
-pub struct MessageSink<W: AsyncWrite + std::marker::Unpin, E: LevinBody> {
+pub struct MessageSink<W, E> {
     #[pin]
     bucket_sink: BucketSink<W>,
     phantom: PhantomData<E>,

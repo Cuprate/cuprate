@@ -17,6 +17,7 @@
 //
 
 use epee_serde::Value;
+use monero::database::transaction::{TransactionPruned, PrunedHashError};
 use monero::{Block, Hash, Transaction};
 use serde::de;
 use serde::ser::SerializeStruct;
@@ -26,6 +27,32 @@ use serde_with::TryFromInto;
 
 use super::zero_val;
 use crate::NetworkAddress;
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct PeerSupportFlags(u32); // had to name it this to avoid conflict  
+
+impl PeerSupportFlags {
+    const FLUFFY_BLOCKS: u32 = 0b0000_0001;
+    pub fn supports_fluffy_blocks(&self) -> bool {
+        self.0 & Self::FLUFFY_BLOCKS == Self::FLUFFY_BLOCKS
+    }
+    pub fn get_support_flag_fluffy_blocks() -> Self {
+        PeerSupportFlags(Self::FLUFFY_BLOCKS)
+    }
+}
+
+impl From<u8> for PeerSupportFlags {
+    fn from(value: u8) -> Self {
+        PeerSupportFlags(value as u32)
+    }
+}
+
+impl From<u32> for PeerSupportFlags {
+    fn from(value: u32) -> Self {
+        PeerSupportFlags(value)
+    }
+}
 
 /// A PeerID, different from a `NetworkAddress`
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
@@ -44,7 +71,7 @@ pub struct BasicNodeData {
     /// The Peers Support Flags
     /// (If this is not in the message the default is 0)
     #[serde(default = "zero_val")]
-    pub support_flags: u32,
+    pub support_flags: PeerSupportFlags,
     /// RPC Port
     /// (If this is not in the message the default is 0)
     #[serde(default = "zero_val")]
@@ -115,16 +142,19 @@ pub struct PeerListEntryBase {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TxBlobEntry {
     /// The Tx
-    pub tx: Transaction, // ########### use pruned transaction when PR is merged ##############
+    pub tx: TransactionPruned, 
     /// The Prunable Tx Hash
     pub prunable_hash: Hash,
 }
 
 impl TxBlobEntry {
+    pub fn hash(&self) -> Result<monero::Hash, PrunedHashError> {
+        self.tx.hash(Some(self.prunable_hash))
+    }
     fn from_epee_value<E: de::Error>(value: &Value) -> Result<Self, E> {
         let tx_blob = get_val_from_map!(value, "blob", get_bytes, "Vec<u8>");
 
-        let tx = monero_decode_into_serde_err!(Transaction, tx_blob);
+        let tx = monero_decode_into_serde_err!(TransactionPruned, tx_blob);
 
         let prunable_hash_blob = get_val_from_map!(value, "prunable_hash", get_bytes, "Vec<u8>");
 

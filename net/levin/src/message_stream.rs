@@ -34,7 +34,7 @@ use crate::PROTOCOL_VERSION;
 /// A stream that reads from the underlying `BucketStream` and uses the the
 /// methods on the `LevinBody` trait to decode the inner messages(bodies)
 #[pin_project]
-pub struct MessageStream<D: LevinBody, S: AsyncRead + std::marker::Unpin> {
+pub struct MessageStream<D, S> {
     #[pin]
     bucket_stream: BucketStream<S>,
     phantom: PhantomData<D>,

@@ -7,13 +7,11 @@ authors = ["Boog900"]
 
 [dependencies]
 monero-wire = {path= "../net/monero-wire"}
-levin = {path="../net/levin"}
+monero = {git="https://github.com/Boog900/monero-rs.git", branch="db", features=["database"]}
 tower = {version = "0.4.13", features = ["util"]}
+tokio = {version="1.26", features =["net"]}
 futures = "0.3.26"
 thiserror = "1.0.39"
 bytes = "1"
 
 
-[dev-dependencies]
-tokio = {version="1.26", features =["full"]}
-tokio-util ={version="0.7", features=["compat"]}

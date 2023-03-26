@@ -35,3 +35,6 @@ pub mod messages;
 pub mod network_address;
 
 pub use network_address::NetworkAddress;
+pub use messages::{Message, P2pCommand};
+// re-exports
+pub use levin;

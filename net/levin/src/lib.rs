@@ -40,6 +40,8 @@ pub mod message_sink;
 pub mod message_stream;
 
 pub use header::BucketHead;
+pub use message_sink::MessageSink;
+pub use message_stream::MessageStream;
 
 use std::fmt::Debug;
 
