@@ -1,13 +1,13 @@
-/// This module defines InternalRequests and InternalResponses. Cuprate's P2P works by translating network messages into an internal 
-/// request/ response, this is easy for levin "requests" and "responses" (admin messages) but takes a bit more work with "notifications" 
+/// This module defines InternalRequests and InternalResponses. Cuprate's P2P works by translating network messages into an internal
+/// request/ response, this is easy for levin "requests" and "responses" (admin messages) but takes a bit more work with "notifications"
 /// (protocol messages).
-/// 
-/// Some notifications are easy to translate, like `GetObjectsRequest` is obviously a request but others like `NewFluffyBlock` are a 
+///
+/// Some notifications are easy to translate, like `GetObjectsRequest` is obviously a request but others like `NewFluffyBlock` are a
 /// bit tricker. To translate a `NewFluffyBlock` into a request/ response we will have to look to see if we asked for `FluffyMissingTransactionsRequest`
 /// if we have we interpret `NewFluffyBlock` as a response if not its a request that doesn't require a response.
-/// 
+///
 /// Here is every P2P request/ response. *note admin messages are already request/ response so "Handshake" is actually made of a HandshakeRequest & HandshakeResponse
-/// 
+///
 /// Admin:
 ///     Handshake,
 ///     TimedSync,
@@ -21,14 +21,13 @@
 ///     Request: NewBlock,                          Response: None,
 ///     Request: NewFluffyBlock,                    Response: None,
 ///     Request: NewTransactions,                   Response: None
-/// 
-
+///
 use monero_wire::messages::{
     AdminMessage, ProtocolMessage, Handshake, TimedSync, Ping, SupportFlags, GetObjectsRequest, GetObjectsResponse,
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, NewFluffyBlock, GetTxPoolCompliment,
-    NewTransactions, NewBlock, Message, MessageResponse, MessageNotification, MessageRequest
+    NewTransactions, NewBlock, Message, MessageResponse, MessageNotification, MessageRequest,
 };
- 
+
 macro_rules! client_request_peer_response {
     (
     Admin:
@@ -37,6 +36,7 @@ macro_rules! client_request_peer_response {
         $(Request: $protocol_req:ident, Response: $(SOME: $protocol_res:ident)? $(NULL: $none:expr)?  ),+
     ) => {
 
+        #[derive(Debug, Clone)]
         pub enum InternalMessageRequest {
             $($admin_mes(<$admin_mes as AdminMessage>::Request),)+
             $($protocol_req(<$protocol_req as ProtocolMessage>::Notification),)+
@@ -77,6 +77,15 @@ macro_rules! client_request_peer_response {
             }
         }
 
+        impl Into<Message> for InternalMessageRequest {
+            fn into(self) -> Message {
+                match self {
+                    $(InternalMessageRequest::$admin_mes(mes) => Message::Request(MessageRequest::$admin_mes(mes)),)+
+                    $(InternalMessageRequest::$protocol_req(mes) => Message::Notification(MessageNotification::$protocol_req(mes)),)+
+                }
+            }
+        }
+
         #[derive(Debug)]
         pub struct NotAnInternalRequest;
 
@@ -96,6 +105,7 @@ macro_rules! client_request_peer_response {
             }
         }
 
+        #[derive(Debug, Clone)]
         pub enum InternalMessageResponse {
             $($admin_mes(<$admin_mes as AdminMessage>::Response),)+
             $($($protocol_res(<$protocol_res as ProtocolMessage>::Notification),)?)+
@@ -123,7 +133,16 @@ macro_rules! client_request_peer_response {
                 }
             }
         }
-        
+
+        impl Into<Message> for InternalMessageResponse {
+            fn into(self) -> Message {
+                match self {
+                    $(InternalMessageResponse::$admin_mes(mes) => Message::Response(MessageResponse::$admin_mes(mes)),)+
+                    $($(InternalMessageResponse::$protocol_res(mes) => Message::Notification(MessageNotification::$protocol_res(mes)),)?)+
+                }
+            }
+        }
+
         #[derive(Debug)]
         pub struct NotAnInternalResponse;
 
@@ -142,7 +161,6 @@ macro_rules! client_request_peer_response {
                 }
             }
         }
-
     };
 }
 
@@ -162,4 +180,3 @@ client_request_peer_response!(
         Request: NewFluffyBlock,                    Response: NULL: None,
         Request: NewTransactions,                   Response: NULL: None
 );
-

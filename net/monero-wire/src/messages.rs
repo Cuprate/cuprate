@@ -97,11 +97,17 @@ macro_rules! levin_body {
             $($protocol_mes:ident),+
         ) => {
 
+        #[derive(Debug, Clone)]
         pub enum MessageRequest {
             $($admin_mes(<$admin_mes as AdminMessage>::Request),)+
         }
 
         impl MessageRequest {
+            pub fn id(&self) -> u32 {
+                match self {
+                    $(MessageRequest::$admin_mes(_) => $admin_mes::ID,)+
+                }
+            }
             pub fn decode(buf: &[u8], command: u32) -> Result<Self, BucketError> {
                 match command {
                     $($admin_mes::ID => Ok(
@@ -119,12 +125,18 @@ macro_rules! levin_body {
             }
         }
 
-
+        #[derive(Debug, Clone)]
         pub enum MessageResponse {
             $($admin_mes(<$admin_mes as AdminMessage>::Response),)+
         }
 
         impl MessageResponse {
+            pub fn id(&self) -> u32 {
+                match self {
+                    $(MessageResponse::$admin_mes(_) => $admin_mes::ID,)+
+                }
+            }
+
             pub fn decode(buf: &[u8], command: u32) -> Result<Self, BucketError> {
                 match command {
                     $($admin_mes::ID => Ok(
@@ -142,11 +154,19 @@ macro_rules! levin_body {
             }
         }
 
+        #[derive(Debug, Clone)]
         pub enum MessageNotification {
             $($protocol_mes(<$protocol_mes as ProtocolMessage>::Notification),)+
         }
 
         impl MessageNotification {
+            pub fn id(&self) -> u32 {
+                match self {
+                    $(MessageNotification::$protocol_mes(_) => $protocol_mes::ID,)+
+                }
+            }
+
+
             pub fn decode(buf: &[u8], command: u32) -> Result<Self, BucketError> {
                 match command {
                     $($protocol_mes::ID => Ok(
@@ -164,10 +184,30 @@ macro_rules! levin_body {
             }
         }
 
+        #[derive(Debug, Clone)]
         pub enum Message {
             Request(MessageRequest),
             Response(MessageResponse),
             Notification(MessageNotification)
+        }
+
+        impl Message {
+            pub fn id(&self) -> u32 {
+                match self {
+                    Message::Request(req) => req.id(),
+                    Message::Response(res) => res.id(),
+                    Message::Notification(noti) => noti.id(),
+                }
+            }
+            pub fn is_request(&self) -> bool {
+                matches!(self, Self::Request(_))
+            }
+            pub fn is_response(&self) -> bool {
+                matches!(self, Self::Response(_))
+            }
+            pub fn is_notification(&self) -> bool {
+                matches!(self, Self::Notification(_))
+            }
         }
 
         impl levin::LevinBody for Message {

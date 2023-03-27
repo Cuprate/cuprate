@@ -30,7 +30,7 @@ use crate::NetworkAddress;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(transparent)]
-pub struct PeerSupportFlags(u32); // had to name it this to avoid conflict  
+pub struct PeerSupportFlags(u32); // had to name it this to avoid conflict
 
 impl PeerSupportFlags {
     const FLUFFY_BLOCKS: u32 = 0b0000_0001;
@@ -142,7 +142,7 @@ pub struct PeerListEntryBase {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TxBlobEntry {
     /// The Tx
-    pub tx: TransactionPruned, 
+    pub tx: TransactionPruned,
     /// The Prunable Tx Hash
     pub prunable_hash: Hash,
 }

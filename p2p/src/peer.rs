@@ -1,7 +1,8 @@
 pub mod client;
-pub mod handshaker;
 pub mod connection;
+pub mod handshaker;
 
+use monero_wire::levin::BucketError;
 use thiserror::Error;
 
 const BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT: usize = 10000;
@@ -43,9 +44,10 @@ pub enum PeerResponseError {
 }
 
 #[derive(Debug, Error, Clone, Copy)]
+pub enum RequestServiceError {}
+
+#[derive(Debug, Error, Clone, Copy)]
 pub enum PeerError {
-    #[error("The peers height has dropped")]
-    PeerHeightHasDropped,
     #[error("Peer is on a different network")]
     PeerIsOnAnotherNetwork,
     #[error("Peer sent an unexpected response")]
@@ -56,6 +58,18 @@ pub enum PeerError {
     PeerConnectionClosed,
     #[error("The Client `internal` channel was closed")]
     ClientChannelClosed,
+    #[error("The Peer sent an unexpected response")]
+    PeerSentUnexpectedResponse,
+    #[error("The peer sent a bad response: {0}")]
+    ResponseError(#[from] PeerResponseError),
+    #[error("Internal service error: {0}")]
+    InternalService(#[from] RequestServiceError),
     #[error("Levin Error")]
     LevinError, // remove me, this is just temporary
+}
+
+impl From<BucketError> for PeerError {
+    fn from(_: BucketError) -> Self {
+        PeerError::LevinError
+    }
 }
