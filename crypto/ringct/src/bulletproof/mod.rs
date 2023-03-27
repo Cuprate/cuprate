@@ -124,14 +124,11 @@ impl RangeProof {
         self.verify_multiple_with_rng(&[*V], rng)
     }
 
-    /// Verifies an aggregated rangeproof for the given value
-    /// commitments.
-    #[allow(clippy::many_single_char_names)]
-    pub fn verify_multiple_with_rng<T: RngCore + CryptoRng>(
+    pub fn verification_scalars_points<T: RngCore + CryptoRng>(
         &self,
         value_commitments: &[EdwardsPoint],
         rng: &mut T,
-    ) -> Result<(), ProofError> {
+    ) -> Result<(Vec<Scalar>, Vec<Option<EdwardsPoint>>), ProofError> {
         let m = value_commitments.len();
 
         let mut input = vec![];
@@ -210,8 +207,8 @@ impl RangeProof {
         let value_commitment_scalars = util::exp_iter(z).take(m).map(|z_exp| c * zz * z_exp);
         let basepoint_scalar = w * (self.t_x - a * b) + c * (delta(N, m, &y, &z) - self.t_x);
 
-        let mega_check = EdwardsPoint::optional_multiscalar_mul(
-            iter::once(Scalar::one())
+
+        let scalars = Vec::from_iter(iter::once(Scalar::one())
                 .chain(iter::once(x))
                 .chain(iter::once(c * x))
                 .chain(iter::once(c * x * x))
@@ -221,8 +218,10 @@ impl RangeProof {
                 .chain(iter::once(basepoint_scalar))
                 .chain(g)
                 .chain(h)
-                .chain(value_commitment_scalars),
-            iter::once(EIGHT * self.A)
+                .chain(value_commitment_scalars));
+
+
+        let points = Vec::from_iter(iter::once(EIGHT * self.A)
                 .chain(iter::once(EIGHT * self.S))
                 .chain(iter::once(EIGHT * self.T_1))
                 .chain(iter::once(EIGHT * self.T_2))
@@ -233,7 +232,25 @@ impl RangeProof {
                 .chain(Gi[0..m*N].to_owned())
                 .chain(Hi[0..m*N].to_owned())
                 .chain(value_commitments.iter().map(|V| EIGHT * V))
-                .map(Some),
+                .map(Some));
+        
+        Ok((scalars, points))
+        
+    }
+
+    /// Verifies an aggregated rangeproof for the given value
+    /// commitments.
+    #[allow(clippy::many_single_char_names)]
+    pub fn verify_multiple_with_rng<T: RngCore + CryptoRng>(
+        &self,
+        value_commitments: &[EdwardsPoint],
+        rng: &mut T,
+    ) -> Result<(), ProofError> {
+
+        let (scalars, points) = self.verification_scalars_points(value_commitments, rng)?;
+        let mega_check = EdwardsPoint::optional_multiscalar_mul(
+            scalars,
+            points,
         )
         .ok_or(ProofError::VerificationError)?;
 
@@ -244,6 +261,43 @@ impl RangeProof {
         }
     }
 }
+
+fn verification_scalars_points<T>(
+    rng: &mut T,
+    proof: monero::util::ringct::Bulletproof,
+    commitments: &&[CtKey],
+) -> Result<(Vec<Scalar>, Vec<Option<EdwardsPoint>>), ProofError>
+where
+    T: RngCore + CryptoRng,
+{
+    let commitments: Result<Vec<EdwardsPoint>, ProofError> = commitments.iter().map(|key| 
+        CompressedEdwardsY::from_slice(&key.mask.key).decompress().map_or(Err(ProofError::FormatError), |point| Ok(point * INV_EIGHT))
+    ).collect();
+    
+    let proof = RangeProof::try_from(proof).map_err(|_| ProofError::FormatError)?;
+    proof.verification_scalars_points(&commitments?, rng)
+}
+
+pub fn verify_multiple_with_rng<T: RngCore + CryptoRng> (
+    bulletproofs: &[(monero::util::ringct::Bulletproof, &[monero::util::ringct::CtKey])],
+    rng: &mut T,
+) -> Result<(), ProofError> {
+    let mut scalars: Vec<Scalar> = Vec::with_capacity(bulletproofs.len() * 20);
+    let mut points = Vec::with_capacity(bulletproofs.len() * 20);
+    for (proof, commitments) in bulletproofs.iter() {
+        let (temp_scalars, temp_points) = verification_scalars_points(rng, proof.clone(), commitments)?;
+        scalars.extend(temp_scalars.iter());
+        points.extend(temp_points.iter());
+    }
+    let ultra_mega_check = EdwardsPoint::optional_multiscalar_mul(scalars, points).ok_or(ProofError::VerificationError)?;
+
+    if ultra_mega_check.is_identity() {
+        Ok(())
+    } else {
+        Err(ProofError::VerificationError)
+    }
+}
+
 
 /// Compute
 /// \\[
@@ -256,6 +310,7 @@ fn delta(n: usize, m: usize, y: &Scalar, z: &Scalar) -> Scalar {
 
     (z - z * z) * sum_y - z * z * z * sum_2 * sum_z
 }
+
 
 
 #[derive(Debug)]
@@ -326,9 +381,16 @@ fn test() {
         let now = std::time::Instant::now();
         for _ in 0..100 {
             verify_bulletproof(&mut rng, rs.clone(), v.clone()).unwrap();
-
         }
-        println!("{}", now.elapsed().as_millis() /100);
+        println!("one  after the other time: {}", now.elapsed().as_millis() /100);
+        let mut bulletproofs = Vec::with_capacity(100);
+        let now = std::time::Instant::now();
+
+        for _ in 0..100 {
+            bulletproofs.push((rs.clone(), &v[..]));
+        }
+        verify_multiple_with_rng(&bulletproofs, &mut rng);
+        println!("batch time: {}", now.elapsed().as_millis() /100);
 
 
 }

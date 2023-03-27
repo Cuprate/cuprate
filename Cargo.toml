@@ -18,10 +18,9 @@ authors=[
 [workspace]
 
 members = [
-        "blockchain_db",
         "net/levin",
         "net/monero-wire",
-        "ringct"
+        "crypto/ringct"
 ]
 
 [workspace.dependencies]

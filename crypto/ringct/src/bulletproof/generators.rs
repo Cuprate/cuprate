@@ -40,7 +40,7 @@ fn get_exponent(base: EdwardsPoint, index: usize) -> EdwardsPoint {
     input.extend_from_slice(HASH_KEY_BULLETPROOF_EXPONENT);
     input.extend_from_slice(&monero::consensus::serialize(&VarInt(index.try_into().unwrap())));
 
-    let mut output = Hash::new(input);
+    let output = Hash::new(input);
     hash_to_point(output.as_fixed_bytes())
 }
 
