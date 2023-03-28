@@ -18,12 +18,12 @@ use tower::{Service, ServiceExt};
 use crate::Network;
 use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 use super::{
-    PeerError, PeerResponseError, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT, P2P_MAX_PEERS_IN_HANDSHAKE, RequestServiceError,
+    PeerError, PeerResponseError, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT, P2P_MAX_PEERS_IN_HANDSHAKE, RequestServiceError, Direction
 };
 
 pub struct ClientRequest {
-    req: InternalMessageRequest,
-    tx: oneshot::Sender<Result<InternalMessageResponse, PeerError>>,
+    pub req: InternalMessageRequest,
+    pub tx: oneshot::Sender<Result<InternalMessageResponse, PeerError>>,
 }
 
 pub enum State {
@@ -43,11 +43,6 @@ impl State {
     }
 }
 
-pub enum Direction {
-    Inbound,
-    Outbound,
-}
-
 pub struct PeerInfo {
     id: PeerID,
     port: u32,
@@ -58,11 +53,11 @@ pub struct PeerInfo {
     rpc_port: u16,
     rpc_credits_per_hash: u32,
     direction: Direction,
+    network: Network,
 }
 
 pub struct Connection<Svc, Aw, Ar> {
     peer_info: PeerInfo,
-    network: Network,
     state: State,
     sink: MessageSink<Aw, Message>,
     stream: Fuse<MessageStream<Message, Ar>>,
@@ -76,6 +71,16 @@ where
     Aw: AsyncWrite + std::marker::Unpin,
     Ar: AsyncRead + std::marker::Unpin,
 {
+    pub fn new(peer_info: PeerInfo, sink: MessageSink<Aw, Message>, stream: MessageStream<Message, Ar>, client_rx: mpsc::Receiver<ClientRequest>, svc: Svc) -> Connection<Svc, Aw, Ar> {
+        Connection { 
+            peer_info, 
+            state: State::WaitingForRequest, 
+            sink, 
+            stream: stream.fuse(), 
+            client_rx, 
+            svc 
+        }
+    } 
     async fn handle_response(&mut self, res: InternalMessageResponse) -> Result<(), PeerResponseError> {
         let state = std::mem::replace(&mut self.state, State::WaitingForRequest);
         if let State::WaitingForResponse { request, tx } = state {

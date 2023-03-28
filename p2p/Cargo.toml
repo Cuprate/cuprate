@@ -9,7 +9,6 @@ authors = ["Boog900"]
 monero-wire = {path= "../net/monero-wire"}
 monero = {git="https://github.com/Boog900/monero-rs.git", branch="db", features=["database"]}
 tower = {version = "0.4.13", features = ["util"]}
-tokio = {version="1.26", features =["net"]}
 futures = "0.3.26"
 thiserror = "1.0.39"
 bytes = "1"

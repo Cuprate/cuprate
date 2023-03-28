@@ -9,6 +9,11 @@ const BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT: usize = 10000;
 const BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT: usize = 25000;
 const P2P_MAX_PEERS_IN_HANDSHAKE: usize = 250;
 
+pub enum Direction {
+    Inbound,
+    Outbound,
+}
+
 #[derive(Debug, Error, Clone, Copy)]
 pub enum PeerResponseError {
     #[error("The peers sent a wrong response to out request")]

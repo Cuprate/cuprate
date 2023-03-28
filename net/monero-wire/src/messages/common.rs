@@ -34,6 +34,10 @@ pub struct PeerSupportFlags(u32); // had to name it this to avoid conflict
 
 impl PeerSupportFlags {
     const FLUFFY_BLOCKS: u32 = 0b0000_0001;
+    /// checks if `self` has all the flags that `other` has
+    pub fn contains(&self, other: &PeerSupportFlags) -> bool {
+        self.0 & other.0 == other.0
+    }
     pub fn supports_fluffy_blocks(&self) -> bool {
         self.0 & Self::FLUFFY_BLOCKS == Self::FLUFFY_BLOCKS
     }

@@ -19,6 +19,7 @@ authors=[
 
 members = [
         "blockchain_db",
+        "common",
         "net/levin",
         "net/monero-wire",
         "p2p"

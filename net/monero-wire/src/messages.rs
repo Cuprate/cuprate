@@ -102,6 +102,14 @@ macro_rules! levin_body {
             $($admin_mes(<$admin_mes as AdminMessage>::Request),)+
         }
 
+        $(
+            impl From<<$admin_mes as AdminMessage>::Request> for MessageRequest {
+                fn from(value: <$admin_mes as AdminMessage>::Request) -> MessageRequest {
+                    MessageRequest::$admin_mes(value)
+                }
+            }
+        )+
+
         impl MessageRequest {
             pub fn id(&self) -> u32 {
                 match self {
@@ -129,6 +137,14 @@ macro_rules! levin_body {
         pub enum MessageResponse {
             $($admin_mes(<$admin_mes as AdminMessage>::Response),)+
         }
+
+        $(
+            impl From<<$admin_mes as AdminMessage>::Response> for MessageResponse {
+                fn from(value: <$admin_mes as AdminMessage>::Response) -> MessageResponse {
+                    MessageResponse::$admin_mes(value)
+                }
+            }
+        )+
 
         impl MessageResponse {
             pub fn id(&self) -> u32 {
@@ -158,6 +174,15 @@ macro_rules! levin_body {
         pub enum MessageNotification {
             $($protocol_mes(<$protocol_mes as ProtocolMessage>::Notification),)+
         }
+
+        $(
+            impl From<<$protocol_mes as ProtocolMessage>::Notification> for MessageNotification {
+                fn from(value: <$protocol_mes as ProtocolMessage>::Notification) -> MessageNotification {
+                    MessageNotification::$protocol_mes(value)
+                }
+            }
+        )+
+
 
         impl MessageNotification {
             pub fn id(&self) -> u32 {
@@ -189,6 +214,24 @@ macro_rules! levin_body {
             Request(MessageRequest),
             Response(MessageResponse),
             Notification(MessageNotification)
+        }
+
+        impl From<MessageResponse> for Message {
+            fn from(value: MessageResponse) -> Message {
+                Message::Response(value)
+            }
+        }
+
+        impl From<MessageRequest> for Message {
+            fn from(value: MessageRequest) -> Message {
+                Message::Request(value)
+            }
+        }
+
+        impl From<MessageNotification> for Message {
+            fn from(value: MessageNotification) -> Message {
+                Message::Notification(value)
+            }
         }
 
         impl Message {

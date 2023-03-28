@@ -37,6 +37,17 @@ pub struct BucketSink<W> {
     buffer: VecDeque<BytesMut>,
 }
 
+impl<W: AsyncWrite + std::marker::Unpin>  BucketSink<W> {
+    /// Creates a new [`BucketSink`] from the given [`AsyncWrite`] writer.
+    pub fn new(writer: W) -> Self {
+        BucketSink { 
+            writer, 
+            buffer: VecDeque::with_capacity(2) 
+        }
+    }
+}
+ 
+
 impl<W: AsyncWrite + std::marker::Unpin> Sink<Bucket> for BucketSink<W> {
     type Error = BucketError;
 

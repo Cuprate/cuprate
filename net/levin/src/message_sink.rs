@@ -38,6 +38,17 @@ pub struct MessageSink<W, E> {
     phantom: PhantomData<E>,
 }
 
+ 
+impl<W: AsyncWrite + std::marker::Unpin, E: LevinBody>  MessageSink<W, E> {
+    /// Creates a new sink from the provided [`AsyncWrite`]
+    pub fn new(writer: W) -> Self {
+        MessageSink { 
+            bucket_sink: BucketSink::new(writer), 
+            phantom: PhantomData
+        }
+    }
+}
+
 impl<W: AsyncWrite + std::marker::Unpin, E: LevinBody> Sink<E> for MessageSink<W, E> {
     type Error = BucketError;
 
