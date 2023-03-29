@@ -1,2 +1,2 @@
-pub mod network;
 pub mod hardforks;
+pub mod network;
