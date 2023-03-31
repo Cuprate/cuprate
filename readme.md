@@ -118,6 +118,6 @@ If you wish to contact contributors privately, you can import our pgp keys from 
 
 ## Donations
 
-We're working on Cuprate in our free time and try to do things correctly, it take times & effort to make progress. We greatly appreciate your support, it really means a lot and encourage us to continue. If you wanna buy us a coffee (or tea for some of us) you can send your kindness at this address : </br><p align=center><strong>82rrTEtqbEa7GJkk7WeRXn67wC3acqG5mc7k6ce1b37jTdv5uM15gJa3vw7s4fDuA31BEufjBj2DzZUb42UqBaP23APEujL</strong></p>
+We're working on Cuprate in our free time, it take times & effort to make progress. We greatly appreciate your support, it really means a lot and encourage us to continue. If you wanna buy us a coffee (or tea for some of us) you can send your kindness at this address : </br><p align=center><strong>82rrTEtqbEa7GJkk7WeRXn67wC3acqG5mc7k6ce1b37jTdv5uM15gJa3vw7s4fDuA31BEufjBj2DzZUb42UqBaP23APEujL</strong></p>
 
 <div align=center><img src="https://github.com/Cuprate/cuprate/raw/best-readme-ever/qr-code.png"></img></div>
