@@ -1,9 +1,17 @@
 <h1 align=center> Cuprate </h1>
 <h4 align=center> an upcoming experimental, modern & secure monero node. Written in Rust </h4>
 
-<p align=center>(there is nothing working at the moment, stay tuned if you want to see some adventures)</p>
-
 &nbsp;
+<p align="center">
+  <a href="#introduction">Introduction</a> |
+  <a href="#status">Status</a> |
+  <a href="#improvements--features">Features</a> |
+  <a href="#contributions">Contributions</a> |
+  <a href="#contact">Contact</a> |
+  <a href="#donations">Donations</a> |
+</p>
+  
+> **Warning** nothing is working at the moment. But stay tuned for adventures
 
 <h3>Introduction</h3>
 <details>
@@ -24,13 +32,35 @@ Releasing an alternative node will reinforce the Monero Network if a security vu
   
 ### Status
 
-If you wish to follow the development closely or just talk to us, you can join our [Revolt server](https://rvlt.gg/DZtCpfW1).</br>
 Status of current parts being work on can be found in the [pull request section](https://github.com/SyntheticBird45/cuprate/pulls).
 
 @boog900 have delivered the net code and is working on ringCT & P2P.
 
-@SyntheticBird45 is working on the database part.
+@SyntheticBird45 is working on the database.
 
+ ## Improvements & Features
+  
+  <details> <summary>Traffic Obfuscation</summary> </br> Different protocol to bypass DPI will be available, such as with a proposal for <a href="https://github.com/vtnerd/monero/blob/docs_p2p_e2e/docs/LEVIN_PROTOCOL.md#encryption">Levin protocol</a> (TLS based, see https://github.com/monero-project/monero/issues/7078) and QUIC <a href="https://github.com/syncthing/syncthing/pull/5737">like Syncthing have done</a>, but with offset and timing mitigations. Unless the monero-core team decide to implement these protocols, they'll only by available between cuprate peers.</details>
+  
+  <details> <summary>Blockchain Storage</summary> </br>LMDB is replaced by MDBX, a spiritual successor of LMDB with insane performance, already used by the reth Ethereum's rust client. HSE (Heterogeneous Storage Engine for Micron, optimized for SSD & random writes & reads) is also going to be implemented, as a more dsitributed and scalable alternative. </details>
+  
+<details> <summary>Sandboxing & System</summary> </br> 
+- For Linux : There will be maintained SELinux/Apparmor policy for this node for major linux distributions. It will internally use seccomp to limit syscalls being used. Landlock is also going to be setup in order to improve isolation of the node with rest of the OS.
+</br>- For Windows : It still need some research but we could use capability primitives & WinAPI to limit access to certain system functions.
+</br>- For macOS : There is unfortunately no library to setup some isolation, as Apple seems to have deprecated Seatbelt.
+</details>
+  
+<details> <summary>RPC</summary> </br> ZeroMQ as well as gRPC will be available to communicate with the node. Powered by tonic library from Tokio</details>
+  
+<details> <summary>Terminal Interface</summary> </br> More accessible interface based on the excellent <a href="https://lib.rs/crates/tui">tui</a> library. There will be Geolocation of peers on map, VPN Detection, Ressource usages, statistics etc... </details>
+  
+<details> <summary>Tor connections</summary> </br> arti_client library will be embedded to make possible connections to tor peers without a system daemon or proxy (for the moment arti_client can't handle onion services, but it'll certainly in the near future). i2p support is not planned at the moment</details>
+
+### Regressions
+
+- No integrated miner planned
+- LMDB support removed. Which means that the blockchain synced by monerod is incompatible with cuprate.
+- [Some](https://github.com/monero-project/monero/blob/c5d10a4ac43941fe7f234d487f6dd54996a9aa33/src/wallet/wallet2.cpp#L3930) [funny](https://github.com/monero-project/monero/blob/c5d10a4ac43941fe7f234d487f6dd54996a9aa33/src/common/dns_utils.cpp#L134) [messages](https://github.com/monero-project/monero/blob/c5d10a4ac43941fe7f234d487f6dd54996a9aa33/src/common/util.cpp#L602) in the original codebase will be lost.
 
 ## Contributions
 
@@ -81,30 +111,13 @@ This is a type of executable that permit its machine code to be executed regardl
 
 Cuprate is licensed under MIT-AGPL. the corresponding license to each crates can be found in their respective folders.
 
-## Improvements & Features
-  
-  <details> <summary>Traffic Obfuscation</summary> </br> Different protocol to bypass DPI will be available, such as with a proposal for <a href="https://github.com/vtnerd/monero/blob/docs_p2p_e2e/docs/LEVIN_PROTOCOL.md#encryption">Levin protocol</a> (TLS based, see https://github.com/monero-project/monero/issues/7078) and QUIC <a href="https://github.com/syncthing/syncthing/pull/5737">like Syncthing have done</a>, but with offset and timing mitigations. Unless the monero-core team decide to implement these protocols, they'll only by available between cuprate peers.</details>
-  
-  <details> <summary>Blockchain Storage</summary> </br>LMDB is replaced by MDBX, a spiritual successor of LMDB with insane performance, already used by the reth Ethereum's rust client. HSE (Heterogeneous Storage Engine for Micron, optimized for SSD & random writes & reads) is also going to be implemented, as a more dsitributed and scalable alternative. </details>
-  
-<details> <summary>Sandboxing & System</summary> </br> 
-- For Linux : There will be maintained SELinux/Apparmor policy for this node for major linux distributions. It will internally use seccomp to limit syscalls being used. Landlock is also going to be setup in order to improve isolation of the node with rest of the OS.
-</br>- For Windows : It still need some research but we could use capability primitives & WinAPI to limit access to certain system functions.
-</br>- For macOS : There is unfortunately no library to setup some isolation, as Apple seems to have deprecated Seatbelt.
-</details>
-  
-<details> <summary>RPC</summary> </br> ZeroMQ as well as gRPC will be available to communicate with the node. Powered by tonic library from Tokio</details>
-  
-<details> <summary>Terminal Interface</summary> </br> More accessible interface based on the excellent [tui](https://lib.rs/crates/tui) library. There will be Geolocation of peers on map, VPN Detection, Ressource usages, statistics etc... </details>
-  
-<details> <summary>Tor connections</summary> </br> arti_client library will be embedded to make possible connections to tor peers without a system daemon or proxy (for the moment arti_client can't handle onion services, but it'll certainly in the near future). i2p support is not planned at the moment</details>
 
-### Regressions
+## Contact
 
-- No integrated miner planned
-- LMDB support removed. Which means that the blockchain synced by monerod is incompatible with cuprate.
-- [Some](https://github.com/monero-project/monero/blob/c5d10a4ac43941fe7f234d487f6dd54996a9aa33/src/wallet/wallet2.cpp#L3930) [funny](https://github.com/monero-project/monero/blob/c5d10a4ac43941fe7f234d487f6dd54996a9aa33/src/common/dns_utils.cpp#L134) [messages](https://github.com/monero-project/monero/blob/c5d10a4ac43941fe7f234d487f6dd54996a9aa33/src/common/util.cpp#L602) in the original codebase will be lost.
+If you wish to contact contributors privately, you can import our gpg keys from the gpg_keys folder. You can also contact us directly on Matrix (see contributors list in `cargo.toml`). If you wish to follow the development closely or just talk to us more casually, you can join our [Revolt server](https://rvlt.gg/DZtCpfW1).</br>
 
-## PGP keys
+## ☕ Donations
 
-If you wish to contact contributors privately, you can import our gpg keys from the pgp_keys folder.
+We're working on Cuprate in our free time and try to do things correctly, it take times & efforts to make progress. We greatly appreciate your support, it really means a lot and encourage us to continue. If you wanna by us a coffee (or tea for some of us) you can send your kidness at this address : </br><p align=center><strong>82rrTEtqbEa7GJkk7WeRXn67wC3acqG5mc7k6ce1b37jTdv5uM15gJa3vw7s4fDuA31BEufjBj2DzZUb42UqBaP23APEujL</strong></p>
+
+<div align=center><img src="https://github.com/Cuprate/cuprate/raw/best-readme-ever/qr-code.png"></img></div>
