@@ -8,7 +8,7 @@
   <a href="#improvements--features">Features</a> |
   <a href="#contributions">Contributions</a> |
   <a href="#contact">Contact</a> |
-  <a href="#donations">Donations</a> |
+  <a href="#donations">Donations</a>
 </p>
   
 > **Warning** nothing is working at the moment. But stay tuned for adventures
