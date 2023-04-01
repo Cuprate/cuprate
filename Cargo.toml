@@ -22,7 +22,10 @@ members = [
         "common",
         "net/levin",
         "net/monero-wire",
- #       "p2p"
+        "p2p",
+        "p2p/protocol",
+        "p2p/peer",
+        "p2p/sync-states"
 ]
 
 [workspace.dependencies]

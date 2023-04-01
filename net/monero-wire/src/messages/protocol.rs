@@ -172,7 +172,7 @@ pub struct ChainResponse {
     pub m_block_ids: Vec<Hash>,
     /// Block Weights
     pub m_block_weights: Vec<u64>,
-    /// The first Block in the blockchain
+    /// The first Block in the response
     #[serde_as(as = "Bytes")]
     pub first_block: Vec<u8>,
 }

@@ -3,12 +3,17 @@ use monero_wire::{messages::{common::PeerSupportFlags, PeerListEntryBase, admin:
 use thiserror::Error;
 use tower::{Service, ServiceExt};
 
-use crate::{Network, protocol::{InternalMessageRequest, InternalMessageResponse}};
+use cuprate_common::{Network, HardForks};
 
+use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 use super::{client::Client, Direction, connection::{PeerInfo, Connection}, P2P_MAX_PEERS_IN_HANDSHAKE, RequestServiceError};
 
 #[derive(Debug, Error)]
 pub enum HandShakeError {
+    #[error("The peer has a weird pruning scheme")]
+    PeerClaimedWeirdPruning,
+    #[error("The peer has an unexpected top version")]
+    PeerHasUnexpectedTopVersion,
     #[error("The peer does not have the minimum support flags")]
     PeerDoesNotHaveTheMinimumSupportFlags,
     #[error("The address book channel has closed")]
@@ -32,11 +37,15 @@ pub enum AddressBookUpdate {
 }
 
 pub enum SyncerRequest {
-    CoreSyncData
+    CoreSyncData,
+    GetCurrentHeight,
+    Block(monero::Hash),
 }
 
 pub enum SyncerResponse {
     CoreSyncData(CoreSyncData),
+    Height(u64),
+    Block(Option<monero::Block>),
 }
 
 impl SyncerResponse {
@@ -46,6 +55,14 @@ impl SyncerResponse {
             _ => None
         }
     }
+}
+
+pub enum PeerSyncMgrRequest {
+    NewCoreSyncData(CoreSyncData, NetworkAddress)
+} 
+
+pub enum PeerSyncMgrResponse {
+    NewCoreSyncData(Result<(), ()>)
 }
 
 pub struct NetworkConfig {
@@ -78,15 +95,18 @@ impl NetworkConfig {
     }
 }
 
-pub struct Handshaker<Syc, Isv> {
+pub struct Handshaker<Syc, Isv, Psy> {
     config: NetworkConfig,
+    hardforks: HardForks,
     address_book_tx: mpsc::Sender<AddressBookUpdate>,
     syncer: Syc, 
+    peer_sync_mgr: Psy,
     inbound_service: Isv
 }
 
 impl<Syc, Isv> Handshaker<Syc, Isv>
 where
+    Psy: Service<PeerSyncMgrRequest, Response<PeerSyncMgrResponse>,
     Syc: Service<SyncerRequest, Response = SyncerResponse>,
     Isv: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = RequestServiceError>
 {
@@ -105,6 +125,20 @@ where
         peer_sink.send(message).await?;
         Ok(())
     }
+    async fn get_current_height(&mut self) -> Result<u64, HandShakeError> {
+        let syncer = self.syncer.ready().await.map_err(|_| HandShakeError::SyncerError)?;
+        let height: SyncerResponse = syncer.call(
+            SyncerRequest::GetCurrentHeight)
+            .await
+            .map_err(|_| HandShakeError::SyncerError)?;
+        if let SyncerResponse::Height(h) = height {
+            Ok(h)
+        } else {
+            Err(HandShakeError::SyncerError)
+        }
+
+            
+    }
     async fn get_handshake_res<R: AsyncRead + std::marker::Unpin>(&mut self, peer_stream: &mut MessageStream<Message, R>) -> Result<HandshakeResponse, HandShakeError> {
         // put a timeout on this
         let Message::Response(MessageResponse::Handshake(handshake_res)) =  peer_stream.next().await.expect("MessageSink will not return None")? else {
@@ -112,6 +146,7 @@ where
         };
         Ok(handshake_res)
     }
+
 
     fn build_peer_info_from_nd_csd(&self, node_data: &BasicNodeData, payload_data: &CoreSyncData, direction: Direction) -> PeerInfo {
         PeerInfo {
@@ -128,7 +163,26 @@ where
         }
     }
 
-    
+    async fn verify_core_sync(&self, core_sync: &CoreSyncData) -> Result<(), HandShakeError> {
+        if core_sync.current_height > 0 {
+            let version = self.hardforks.get_ideal_version_from_height(core_sync.current_height - 1);
+            if version >= 6 && version != core_sync.top_version {
+                return Err(HandShakeError::PeerHasUnexpectedTopVersion);
+            }
+        }
+        if core_sync.pruning_seed != 0 {
+            let log_stripes = monero::database::pruning::get_pruning_log_stripes(core_sync.pruning_seed);
+            let stripe = monero::database::pruning::get_pruning_stripe_for_seed(core_sync.pruning_seed);
+            if stripe != monero::database::pruning::CRYPTONOTE_PRUNING_LOG_STRIPES || stripe > (1 << log_stripes) {
+                return Err(HandShakeError::PeerClaimedWeirdPruning);
+            }
+        }
+
+        let current_height = self.get_current_height().await?;
+        
+        // check height against peers old height
+
+    }
 
     pub async fn complete_handshake<R, W, Svc>(&mut self, peer_reader: R, peer_writer: W, direction: Direction) -> Result<(Client, Connection<Svc, W, R>), HandShakeError>
     where
@@ -147,6 +201,7 @@ where
                 if handshake_res.local_peerlist_new.len() > P2P_MAX_PEERS_IN_HANDSHAKE {
                     return Err(HandShakeError::PeerSentTooManyPeers);
                 }
+
                 self.address_book_tx.send(AddressBookUpdate::NewPeers(handshake_res.local_peerlist_new)).await;
                 let peer_info = self.build_peer_info_from_nd_csd(&handshake_res.node_data, &handshake_res.payload_data, direction);
 
