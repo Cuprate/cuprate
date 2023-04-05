@@ -1,4 +1,6 @@
 
+use std::collections::HashSet;
+
 use futures::{AsyncRead, AsyncWrite, StreamExt, SinkExt};
 use futures::stream::Fuse;
 use futures::channel::{oneshot, mpsc};
@@ -136,6 +138,13 @@ where
                         || res.m_block_ids.len() > BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT
                     {
                         return Err(PeerError::ResponseError("Peer sent too many block ids/ peers height is too high"));
+                    }
+                    
+                    // This will remove all duplicate hashes in res.m_block_ids 
+                    let all_block_ids: HashSet<&Hash> = HashSet::from_iter(res.m_block_ids.iter());
+
+                    if all_block_ids.len() != res.m_block_ids.len() {
+                        return Err(PeerError::ResponseError("Peer sent the same block twice"));
                     }
                 },
                 (

@@ -23,7 +23,7 @@ use epee_serde::Value;
 use serde::{de, ser::SerializeStruct, Deserialize, Serialize};
 
 /// An IPv4 address with a port
-#[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Serialize, Debug, Default, PartialEq, Eq, Hash)]
 pub struct IPv4Address {
     /// IP address
     pub m_ip: u32,
@@ -54,7 +54,7 @@ impl IPv4Address {
 }
 
 /// An IPv6 address with a port
-#[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Serialize, Debug, Default, PartialEq, Eq, Hash)]
 pub struct IPv6Address {
     /// Address
     pub addr: [u8; 16],
@@ -95,6 +95,12 @@ pub enum NetworkAddress {
     IPv4(IPv4Address),
     /// IPv6
     IPv6(IPv6Address),
+}
+
+impl Default for NetworkAddress {
+    fn default() -> Self {
+        Self::IPv4(IPv4Address::default())
+    }
 }
 
 impl From<net::SocketAddrV4> for NetworkAddress {

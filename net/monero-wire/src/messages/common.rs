@@ -112,6 +112,19 @@ pub struct CoreSyncData {
 }
 
 impl CoreSyncData {
+    pub fn new(cumulative_difficulty_128: u128, current_height: u64, pruning_seed: u32, top_id: Hash, top_version:u8) -> CoreSyncData {
+        let cumulative_difficulty = cumulative_difficulty_128 as u64;
+        let cumulative_difficulty_top64 = (cumulative_difficulty_128 >> 64) as u64;
+        CoreSyncData { 
+            cumulative_difficulty, 
+            cumulative_difficulty_top64, 
+            current_height, 
+            pruning_seed, 
+            top_id, 
+            top_version 
+        }
+
+    }
     /// Returns the 128 bit cumulative difficulty of the peers blockchain
     pub fn cumulative_difficulty(&self) -> u128 {
         let mut ret: u128 = self.cumulative_difficulty_top64 as u128;
@@ -283,5 +296,20 @@ impl Serialize for BlockCompleteEntry {
         }
 
         state.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use monero::Hash;
+
+    use super::CoreSyncData;
+
+    #[test]
+    fn core_sync_cumulative_difficulty() {
+        let core_sync = CoreSyncData::new(u128::MAX, 80085, 200, Hash::null(), 21);
+        assert_eq!(core_sync.cumulative_difficulty(), u128::MAX);
+        let core_sync = CoreSyncData::new(21, 80085, 200, Hash::null(), 21);
+        assert_eq!(core_sync.cumulative_difficulty(), 21);
     }
 }

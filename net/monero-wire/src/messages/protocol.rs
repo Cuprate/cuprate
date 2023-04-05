@@ -177,6 +177,14 @@ pub struct ChainResponse {
     pub first_block: Vec<u8>,
 }
 
+impl ChainResponse {
+    pub fn cumulative_difficulty(&self) -> u128 {
+        let mut ret: u128 = self.cumulative_difficulty_high as u128;
+        ret <<= 64;
+        ret | self.cumulative_difficulty_low as u128
+    }
+}
+
 message!(
     Protocol,
     Name: ChainResponse {
