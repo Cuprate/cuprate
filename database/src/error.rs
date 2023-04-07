@@ -1,5 +1,14 @@
-
-// ------------------------------------------|   Error Enums  |------------------------------------------
+//! ### Error module
+//! This module contains all errors abstraction used by the database crate. By implementing [`From<E>`] to the specific errors of storage engine crates, it let us
+//! handle more easily any type of error that can happen. This module does **NOT** contain interpretation of these errors, as these are defined for Blockchain abstraction. This is another difference
+//! from monerod which interpret these errors directly in its database functions: 
+//! ```cpp
+//! /**
+//! * @brief A base class for BlockchainDB exceptions
+//! */
+//! class DB_EXCEPTION : public std::exception
+//! ```
+//! see `blockchain_db/blockchain_db.h` in monerod src/ folder for more details. 
 
 #[derive(thiserror::Error, Debug)]
 /// `DB_FAILURES` is an enum for backend-agnostic, internal database errors. The `From` Trait must be implemented to the specific backend errors to match DB_FAILURES.
@@ -63,8 +72,8 @@ pub enum DB_SERIAL {
 	ConsensusDecode(Vec<u8>),
 
 	#[error("The database failed to encode bytes in the memory page.")]
-	InternalDBEncode(Box<Vec<u8>>),
+	InternalDBEncode(Vec<u8>),
 
 	#[error("The database failed to decode bytes from the memory page.")]
-	InternalDBDecode(Box<Vec<u8>>),
+	InternalDBDecode(Vec<u8>),
 }

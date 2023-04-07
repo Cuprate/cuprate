@@ -32,133 +32,30 @@
 use database::{Database, Interface};
 use thiserror::Error;
 use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
-use tiny_keccak::Hasher;
-use transaction::{Cursor, Transaction,  WriteTransaction};
+use transaction::{Cursor, Transaction,  WriteTransaction, DupCursor};
 use std::ops::Range;
 
-pub mod error;
-#[cfg(feature = "mdbx")]
+//#[cfg(feature = "mdbx")]
 //pub mod mdbx;
-#[cfg(feature = "hse")]
-pub mod hse;
+//#[cfg(feature = "hse")]
+//pub mod hse;
 
+pub mod error;
+pub mod table;
+pub mod types;
+pub mod encoding;
 
 const DEFAULT_BLOCKCHAIN_DATABASE_FILENAME: &str = "blockchain.db";
 const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
-
-// ------------------------------------------|        Tables        |------------------------------------------
-
-pub mod table {
-
-	use monero::{consensus::{Encodable, Decodable}, Hash, BlockHeader, Block, TxOut, TransactionPrefix, Transaction};
-
-	/// A trait implementing a table interaction for the database. It is implemented to an empty struct to specify the name and table's associated types. These associated 
-	/// types are used to simplify deserialization process.
-	pub trait Table: Send + Sync + 'static + Clone {
-		
-		// name of the table
-		const TABLE_NAME: &'static str;
-
-		// Definition of a key & value types of the database
-		type Key: Encodable + Decodable;
-		type Value: Encodable + Decodable;
-	}
-
-	/// A trait implementing a table with DUPFIXED & DUPSORT support. Essentially defining what's the type of the subkey.
-	pub trait DupTable: Table {
-
-		// Definition of the subkey
-		type Subkey: Encodable + Decodable;
-	}
-
-	/// This declarative macro declare a new empty struct and impl the specified name, and corresponding types. 
-	macro_rules! impl_table {
-		( $(#[$docs:meta])* $table:ident , $key:ty , $value:ty ) => {
-            		#[derive(Clone)]
-			$(#[$docs])*
-            		pub(crate) struct $table;
-
-            		impl Table for $table {
-                		const TABLE_NAME: &'static str = "$table";
-                		type Key = $key;
-                		type Value = $value;
-            		}
-        	};
-    	}
-
-	/// This declarative macro declare extend the original impl_table! macro by implementy the subkey type for the specified table.
-	macro_rules! impl_duptable {
-		($(#[$docs:meta])* $table:ident, $key:ty, $value:ty) => {
-			impl_table!($(#[$docs])* $table, $key, $value);
-
-			impl DupTable for $table {
-				type Subkey = $key;
-			}
-	    	};
-	}
-
-	// Tables definition:
-
-	// ----- BLOCKS -----
-
-	impl_duptable!(
-		/// `blockhash` is table defining a relation between the hash of a block and its height. Its primary use is to quickly find block's hash by its height.
-		blockhash, u64, Hash);
-
-	impl_duptable!(
-		/// `blockheaders` store blocks' headers along their Hash. For more details on what contains the block's header, see : https://docs.rs/monero/latest/monero/blockdata/block/struct.BlockHeader.html
-		blockheaders, Hash, BlockHeader);
-	
-	impl_table!(
-		/// `blockbody` store blocks' bodies along their Hash. The blocks body contains the coinbase transaction and its corresponding mined transactions' hashes.
-		blockbody, Hash, Block); // Incorrect type : BlockBody.
-	
-	impl_table!( 
-		/// `altblock` is a table that permit the storage of blocks from an alternative chains being submitted to the txpool. These blocks can be fetch by their corresponding hash.
-		altblock, Hash, Block);
-
-	// ------- TXNs -------
-
-	impl_table!(
-		/// `txsprefix` is table storing TransactionPrefix (or Pruned Tx). These can be fetch by the corresponding Transaction ID.
-		txsprefix, Hash, TransactionPrefix);
-	
-	impl_table!(
-		/// `txsprunable` is a table storing the Prunable part of transactions (Signatures and RctSig). These can be fetch by the corresponding Transaction ID
-		txsprunable, Hash, Transaction); // Incorrect Type :     | txs_prunable |      txn ID   ->    prunable txn blob
-	
-	impl_duptable!(
-		txsprunablehash, Hash, Hash); // -> prunable txn hash
-
-	impl_duptable!(
-		txsprunabletip, Hash, u64);
-	
-	impl_duptable!(
-		txsoutputs, Hash, TxOut); // Incorrect Type :     | tx_outputs |      txn ID   ->    [txn amount output indices]
-
-	impl_duptable!(
-		txsidentifier, Hash, Hash);
-	
-	// ---- OUTPUTS ----
-
-	impl_duptable!(
-		outputinherit, Hash, Hash); // Incorrect type:     | output_txs |  output ID   ->  {txn hash, local index}
-
-	impl_duptable!(
-		outputamounts, u64, TxOut); // Incorrect type :    | output_amounts |  amount   ->  [{amount output index, metadata}...]
-
-	//  ---- SPT KEYS ----
-
-	impl_duptable!(
-		spentkeys, Hash, u8);
-
-}
+const MAX_MEMORY_CHANGE: u64 = 60*1024u64.pow(2);
+const ZEROKVAL: [u8; 8] = [0u8; 8];
+const NULLHASH: [u8; 32] = [0u8; 32];
 
 // ------------------------------------------|      Database      |------------------------------------------
 
 pub mod database {
 
-    	use std::{ops::Deref, path::Path};
+    	use std::{ops::Deref, path::Path, sync::{Arc, atomic::AtomicU64}};
     	use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
 	
 	/// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the 
@@ -183,13 +80,18 @@ pub mod database {
 	/// `Interface` is a struct containing a pointer to the database and a transaction to be used for the implemented method of Interface.
 	pub struct Interface<'a, D: Database<'a>>  {
 		pub db: &'a D,
-		pub tx: Option<D::TXMut>
+		pub tx: Option<<D as Database<'a>>::TXMut>,
+	}
+
+	pub struct ReadInterface<'a, D: Database<'a>>  {
+		pub db: &'a D,
+		pub tx: Option<<D as Database<'a>>::TXMut>
 	}
 
     	impl<'a,D: Database<'a>> Interface<'a,D> {
 
         	fn from(db: &'a D) -> Self {
-            		Self { db, tx: None }
+            		Self { db, tx: None, /*mm_size: Arc::new(AtomicU64::new(0))*/ }
         	}	
 
         	fn open(&mut self) -> Result<(),DB_FAILURES> {
@@ -286,49 +188,18 @@ pub mod transaction {
 }
 
 impl<'a, D: Database<'a>> Interface<'a,D> {
+	
 
 	fn height(&self) -> Result<Option<u64>,error::DB_FAILURES> {
 		let mut cursor: <<D as Database>::TXMut as Transaction>::Cursor<table::blockhash> = self.cursor::<table::blockhash>()?;
 		let last = cursor.last()?;
 		
 		if let Some(pair) = last {
-			return Ok(Some(pair.0))
+			return Ok(Some(pair.1))
 		}
 		Ok(None)
 	}
-
-	fn add_block(&self, blk: Block) -> Result<(),error::DB_FAILURES> {
-		// just a test function 
-		let mut e_blk = Vec::new();
-		blk.consensus_encode(&mut e_blk);
-		let mut hasher = tiny_keccak::Keccak::v256();
-		hasher.update(&e_blk);
-		let mut block_hash = [0u8; 32];
-		hasher.finalize(&mut block_hash);
-
-		if let Ok(Some(height)) = self.height() {
-			let hash = Hash::from_slice(&block_hash);
-			self.put::<table::blockhash>(&height, &hash);
-			self.put::<table::blockbody>(&hash, &blk);
-		}
-		
-		Ok(())
-	}
-
-	fn get_block_hash(&self, height: u64) -> Result<Option<Hash>,error::DB_FAILURES> {
-		self.get::<table::blockhash>(height)
-	}
-
-	fn get_block_body(&self, hash: Hash) -> Result<Option<Block>,error::DB_FAILURES> {
-		self.get::<table::blockbody>(hash)
-	}
-
-	fn get_block_header(&self, hash: Hash) -> Result<Option<BlockHeader>,error::DB_FAILURES> {
-		self.get::<table::blockheaders>(hash)
-	}
 }
-
-
 
 
 
@@ -361,6 +232,49 @@ Errors not yet implemented:
 - Access
 - DecodeError
 */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
