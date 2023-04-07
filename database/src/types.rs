@@ -7,7 +7,7 @@
 
 use bincode::{Encode, Decode, enc::write::Writer};
 use crate::encoding::{Compat, ReaderCompat};
-use monero::{Hash, Block, PublicKey, util::ringct::{Key, RctSigBase, RctSigPrunable, RctSig}, TransactionPrefix, consensus::{Decodable, Encodable}};
+use monero::{Hash, Block, PublicKey, util::ringct::{Key, RctSigBase, RctSig}, TransactionPrefix, consensus::Decodable};
 
 // ---- BLOCKS ----
 

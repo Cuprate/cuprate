@@ -35,8 +35,8 @@ use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSi
 use transaction::{Cursor, Transaction,  WriteTransaction, DupCursor};
 use std::ops::Range;
 
-//#[cfg(feature = "mdbx")]
-//pub mod mdbx;
+#[cfg(feature = "mdbx")]
+pub mod mdbx;
 //#[cfg(feature = "hse")]
 //pub mod hse;
 
@@ -48,6 +48,7 @@ pub mod encoding;
 const DEFAULT_BLOCKCHAIN_DATABASE_FILENAME: &str = "blockchain.db";
 const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
 const MAX_MEMORY_CHANGE: u64 = 60*1024u64.pow(2);
+const BINCODE_CONFIG: bincode::config::Configuration<bincode::config::LittleEndian, bincode::config::Fixint> = bincode::config::standard().with_fixed_int_encoding();
 const ZEROKVAL: [u8; 8] = [0u8; 8];
 const NULLHASH: [u8; 32] = [0u8; 32];
 
@@ -81,11 +82,6 @@ pub mod database {
 	pub struct Interface<'a, D: Database<'a>>  {
 		pub db: &'a D,
 		pub tx: Option<<D as Database<'a>>::TXMut>,
-	}
-
-	pub struct ReadInterface<'a, D: Database<'a>>  {
-		pub db: &'a D,
-		pub tx: Option<<D as Database<'a>>::TXMut>
 	}
 
     	impl<'a,D: Database<'a>> Interface<'a,D> {
@@ -130,14 +126,15 @@ pub mod transaction {
 
 		fn prev(&mut self) -> Result<Option<(T::Key,T::Value)>,DB_FAILURES>;
 		
-		fn set(&mut self, key: T::Key) -> Result<Option<T::Value>,DB_FAILURES>;
+		fn set(&mut self, key: &T::Key) -> Result<Option<T::Value>,DB_FAILURES>;
 	}
 
+	#[allow(clippy::type_complexity)]
 	pub trait DupCursor<'t, T: DupTable>: Cursor<'t, T> {
 
 		fn first_dup(&mut self) -> Result<Option<T::Value>,DB_FAILURES>;
 
-		fn get_dup(&mut self, key: T::Key, value: T::Value) -> Result<Option<T::Value>,DB_FAILURES>;
+		fn get_dup(&mut self, key: &T::Key, value: &T::Value) -> Result<Option<T::Value>,DB_FAILURES>;
 
 		fn last_dup(&mut self) -> Result<Option<T::Value>, DB_FAILURES>;
 
@@ -148,7 +145,7 @@ pub mod transaction {
 
 	pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
 
-		fn put_cursor(&mut self, key: T::Key, value: T::Value) -> Result<(),DB_FAILURES>;
+		fn put_cursor(&mut self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
 
 		fn del(&mut self) -> Result<(),DB_FAILURES>;
 	}
@@ -163,7 +160,7 @@ pub mod transaction {
 		type Cursor<T: Table>: Cursor<'a,T>;
 		type DupCursor<T: DupTable>: DupCursor<'a, T> + Cursor<'a, T>;
 
-		fn get<T>(&self, key: T::Key) -> Result<Option<T::Value>, DB_FAILURES> where T: Table;
+		fn get<T>(&self, key: &T::Key) -> Result<Option<T::Value>, DB_FAILURES> where T: Table;
 
 		fn commit(self) -> Result<(), DB_FAILURES>;
 
@@ -179,7 +176,7 @@ pub mod transaction {
 
         	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
 
-		fn delete<T: Table>(&self, key: T::Key, value: Option<T::Value>) -> Result<(),DB_FAILURES>;
+		fn delete<T: Table>(&self, key: &T::Key, value: &Option<T::Value>) -> Result<(),DB_FAILURES>;
 
 		fn clear<T: Table>(&self) -> Result<(),DB_FAILURES>;
 
@@ -189,7 +186,11 @@ pub mod transaction {
 
 impl<'a, D: Database<'a>> Interface<'a,D> {
 	
-
+	/// `height` fetch the current blockchain height.
+    	///
+    	/// Return the current blockchain height. In case of failures, a DB_FAILURES will be return.
+    	///
+    	/// No parameters is required.
 	fn height(&self) -> Result<Option<u64>,error::DB_FAILURES> {
 		let mut cursor: <<D as Database>::TXMut as Transaction>::Cursor<table::blockhash> = self.cursor::<table::blockhash>()?;
 		let last = cursor.last()?;
@@ -198,6 +199,36 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
 			return Ok(Some(pair.1))
 		}
 		Ok(None)
+	}
+
+	/// `set_hard_fork_version` sets which hardfork version a height is on.<br>
+    	///
+    	/// In case of failures, a `DB_FAILURES` will be return.
+    	///
+    	/// Parameters:<br>
+ 	/// `height`: is the height where the hard fork happen.<br>
+    	/// `version`: is the version of the hard fork.
+    	fn update_hard_fork_version(&mut self, height: u64, hardfork_version: u8) -> Result<(), error::DB_FAILURES> {
+		let b_hf = self.get::<table::blockhfversion>(&height)?;
+
+		if let Some(b_hf) = b_hf {
+			if b_hf != hardfork_version {
+				self.put::<table::blockhfversion>(&height, &hardfork_version)?;
+			}
+			Ok(())
+		} else {
+			Err(error::DB_FAILURES::DataNotFound)
+		}
+	}
+
+	/// `get_hard_fork_version` checks which hardfork version a height is on.
+    	///
+    	/// In case of failures, a `DB_FAILURES` will be return.
+    	///
+    	/// Parameters:<br>
+    	/// `height`: is the height to check.
+    	fn get_hard_fork_version(&mut self, height: u64) -> Result<Option<u8>, error::DB_FAILURES> {
+		self.get::<table::blockhfversion>(&height)
 	}
 }
 

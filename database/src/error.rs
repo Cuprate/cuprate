@@ -8,7 +8,7 @@
 //! */
 //! class DB_EXCEPTION : public std::exception
 //! ```
-//! see `blockchain_db/blockchain_db.h` in monerod src/ folder for more details. 
+//! see `blockchain_db/blockchain_db.h` in monerod `src/` folder for more details. 
 
 #[derive(thiserror::Error, Debug)]
 /// `DB_FAILURES` is an enum for backend-agnostic, internal database errors. The `From` Trait must be implemented to the specific backend errors to match DB_FAILURES.
@@ -76,4 +76,10 @@ pub enum DB_SERIAL {
 
 	#[error("The database failed to decode bytes from the memory page.")]
 	InternalDBDecode(Vec<u8>),
+
+	#[error("Bincode failed to decode a type from the database")]
+	BincodeDecode(bincode::error::DecodeError),
+
+	#[error("Bincode failed to encode a type for the database")]
+	BincodeEncode(bincode::error::EncodeError),
 }

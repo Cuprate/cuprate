@@ -7,7 +7,6 @@
 use std::{ops::Deref, io::Read, fmt::Debug};
 use bincode::{de::read::Reader, enc::write::Writer};
 use monero::consensus::{Encodable, Decodable};
-use serde::Serialize;
 
 #[derive(Debug, Clone)]
 /// A single-tuple struct, used to contains monero-rs types that implement [`monero::consensus::Encodable`] and [`monero::consensus::Decodable`]

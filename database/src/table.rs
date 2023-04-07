@@ -4,7 +4,7 @@
 //! All tables are defined with docs explaining its purpose, what types are the key and data.
 //! For more details please look at Cuprate's book : <link to cuprate book> 
 
-use monero::{Hash, Block, TxOut, TransactionPrefix, Transaction};
+use monero::{Hash, Block};
 use bincode::{enc::Encode,de::Decode};
 use crate::{types::{BlockMetadata, OutAmountIdx, KeyImage, TxOutputIdx, OutTx, AltBlock, TxIndex, TransactionPruned, RctOutkey}, encoding::Compat};
 
@@ -60,6 +60,10 @@ impl_duptable!(
 impl_table!(
 	/// `blockbody` store blocks' bodies along their Hash. The blocks body contains the coinbase transaction and its corresponding mined transactions' hashes.
 	blocks, u64, Compat<Block>);
+
+impl_table!(
+	/// `blockhfversion` keep track of block's hard fork version. If an outdated node continue to run after a hard fork, it needs to know, after updating, what blocks needs to be update.
+	blockhfversion, u64, u8);
 	
 impl_table!( 
 	/// `altblock` is a table that permit the storage of blocks from an alternative chains being submitted to the txpool. These blocks can be fetch by their corresponding hash.

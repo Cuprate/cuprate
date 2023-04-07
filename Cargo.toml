@@ -24,7 +24,7 @@ members = [
 ]
 
 [workspace.dependencies]
-monero = { git="https://github.com/Boog900/monero-rs.git", branch="db" }
+monero = { version = "*" }
 bincode = { version = "2.0.0-rc.3" }
 serde = { version = "*", features =["derive"]}
 
