@@ -10,7 +10,7 @@ use monero::consensus::{Encodable, Decodable};
 
 #[derive(Debug, Clone)]
 /// A single-tuple struct, used to contains monero-rs types that implement [`monero::consensus::Encodable`] and [`monero::consensus::Decodable`]
-pub struct Compat<T: Encodable +Decodable>(T);
+pub struct Compat<T: Encodable +Decodable>(pub T);
 
 /// A wrapper around a [`bincode::de::read::Reader`] type. Permit us to use [`std::io::Read`] and feed monero-rs functions with an actual `&[u8]`
 pub struct ReaderCompat<'src, R: Reader>(pub &'src mut R);

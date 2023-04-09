@@ -6,7 +6,7 @@
 //! use the [`Compat<T>`] wrapper.
 
 use bincode::{Encode, Decode, enc::write::Writer};
-use crate::encoding::{Compat, ReaderCompat};
+use crate::{encoding::{Compat, ReaderCompat}, error::DB_FAILURES};
 use monero::{Hash, Block, PublicKey, util::ringct::{Key, RctSigBase, RctSig}, TransactionPrefix, consensus::Decodable};
 
 // ---- BLOCKS ----
@@ -137,7 +137,7 @@ pub struct TxOutputIdx(Vec<u64>);
 // ---- OUTPUTS ----
 
 #[derive(Clone, Debug, Encode, Decode)]
-/// [`RctOutkey`] is a struct containing RingCT metadata and an output ID
+/// [`RctOutkey`] is a struct containing RingCT metadata and an output ID. It is equivalent to the `output_data_t` struct in monerod
 /// This struct is used in [`crate::table::outputamounts`]
 pub struct RctOutkey {
 	/// amount_index
@@ -148,7 +148,7 @@ pub struct RctOutkey {
 	pub pubkey: Compat<PublicKey>,
 	/// The output's unlock time (the height at which it is unlocked, it is not a timestamp)
 	pub unlock_time: u64,
-	/// The height of the block which created the output
+	/// The height of the block which used this output
 	pub height: u64,
 	/// The output's amount commitment (for spend verification)
 	/// For compatibility with Pre-RingCT outputs, this field is an option. In fact, monerod distinguish between `pre_rct_output_data_t` and `output_data_t` field like that :
@@ -176,6 +176,7 @@ pub struct OutTx {
 }
 
 // ---- SPENT ----
+
 #[derive(Clone, Debug, Encode, Decode)]
 /// [`KeyImage`] is a single-tuple struct used to contain a [`monero::Hash`]. It is defined for more clarity on its role. This 
 /// struct is used in [`crate::table::spentkeys`] table.

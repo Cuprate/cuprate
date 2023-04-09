@@ -30,6 +30,7 @@
 #![allow(dead_code, unused_macros)] // temporary
 
 use database::{Database, Interface};
+use encoding::Compat;
 use thiserror::Error;
 use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
 use transaction::{Cursor, Transaction,  WriteTransaction, DupCursor};
@@ -60,7 +61,7 @@ pub mod database {
     	use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
 	
 	/// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the 
-	/// diffzerent transaction mode (read & write) and it's native errors.
+	/// different transaction modes (read & write) and it's native errors.
 	pub trait Database<'a>
 	{
 		type TX: Transaction<'a>;
@@ -73,24 +74,20 @@ pub mod database {
         	fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
 	}
 
-	/// `SharedDatabase`is a struct containing a shareable pointer to the database & the corresponding metadata.
-	pub struct SharedEnvironnement {
-		path: Path,
-	}
-
 	/// `Interface` is a struct containing a pointer to the database and a transaction to be used for the implemented method of Interface.
 	pub struct Interface<'a, D: Database<'a>>  {
-		pub db: &'a D,
+		pub db: Arc<D>,
+		pub ro_tx: Option<<D as Database<'a>>::TX>,
 		pub tx: Option<<D as Database<'a>>::TXMut>,
 	}
 
-    	impl<'a,D: Database<'a>> Interface<'a,D> {
+    	impl<'service,D: Database<'service>> Interface<'service,D> {
 
-        	fn from(db: &'a D) -> Self {
-            		Self { db, tx: None, /*mm_size: Arc::new(AtomicU64::new(0))*/ }
+        	fn from(db: Arc<D>) -> Self {
+            		Self { db, ro_tx: None, tx: None }
         	}	
 
-        	fn open(&mut self) -> Result<(),DB_FAILURES> {
+        	fn open(&'service mut self) -> Result<(),DB_FAILURES> {
             		match self.db.tx_mut().map_err(|e| e.into()) {
                 		Ok(tx) => { self.tx = Some(tx); Ok(())}
                 		Err(e) => { Err(e) }
@@ -98,8 +95,8 @@ pub mod database {
         	}
 	}
 
-    	impl<'a, D: Database<'a>> Deref for Interface<'a,D> {
-        	type Target = <D as Database<'a>>::TXMut;
+    	impl<'service, D: Database<'service>> Deref for Interface<'service,D> {
+        	type Target = <D as Database<'service>>::TXMut;
 
         	fn deref(&self) -> &Self::Target {
             		return self.tx.as_ref().unwrap()
@@ -185,6 +182,8 @@ pub mod transaction {
 }
 
 impl<'a, D: Database<'a>> Interface<'a,D> {
+
+	// --------------------------------| Blockchain |--------------------------------
 	
 	/// `height` fetch the current blockchain height.
     	///
@@ -230,6 +229,36 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     	fn get_hard_fork_version(&mut self, height: u64) -> Result<Option<u8>, error::DB_FAILURES> {
 		self.get::<table::blockhfversion>(&height)
 	}
+
+	// --------------------------------| Blocks |--------------------------------
+
+	/// `pop_block` pops the top block off the blockchain.
+    	///
+    	/// Return the block that was popped. In case of failures, a `DB_FAILURES` will be return.
+    	///
+    	/// No parameters is required.
+    	fn pop_block(&mut self) -> Result<Option<Block>, error::DB_FAILURES> {
+		let current_height = self.height()?;
+		if let Some(current_height) = current_height{
+			let blk = self.get::<table::blocks>(&current_height)?;
+
+			if let Some(blk) = blk {
+				self.delete::<table::blocks>(&current_height, &None)?;
+				self.delete::<table::blockmetadata>(&current_height, &None)?;
+
+				// Re-encoding the slice and get the hash
+				let e_blk = bincode::encode_to_vec(blk, BINCODE_CONFIG)
+					.map_err(|e| error::DB_FAILURES::SerializeIssue(error::DB_SERIAL::BincodeEncode(e)))?;
+				let hash = Hash::new(monero::cryptonote::hash::keccak_256(e_blk.as_slice())).into();
+				
+				self.delete::<table::blockhash>(&hash, &None)?;
+
+				return Ok(Some(blk.into())) // a
+			}
+		}
+		Ok(None)
+	}
+	
 }
 
 

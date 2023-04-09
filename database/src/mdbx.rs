@@ -65,6 +65,7 @@ fn cursor_pair_decode<L: bincode::Decode, R: bincode::Decode>(pair: Option<(Vec<
 	}
 }
 
+// Implementation of the database trait with mdbx types
 impl<'a, E> Database<'a> for libmdbx::Database<E>
 where
 	E: DatabaseKind,
