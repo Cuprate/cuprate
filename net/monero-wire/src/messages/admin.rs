@@ -55,6 +55,10 @@ pub struct HandshakeRequest {
     pub payload_data: CoreSyncData,
 }
 
+fn empty_vec<T>() -> Vec<T> {
+    vec![]
+}
+
 /// A Handshake Response
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct HandshakeResponse {
@@ -63,6 +67,7 @@ pub struct HandshakeResponse {
     /// Core Sync Data
     pub payload_data: CoreSyncData,
     /// PeerList
+    #[serde(default = "empty_vec")]
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 

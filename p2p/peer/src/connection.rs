@@ -47,7 +47,7 @@ impl State {
 }
 
 pub struct ConnectionInfo {
-    addr: NetworkAddress,
+    pub addr: NetworkAddress,
 }
 
 pub struct Connection<Svc, Aw, Ar> {

@@ -15,3 +15,7 @@ futures = "0.3.26"
 tower = {version = "0.4.13", features = ["util"]}
 thiserror = "1.0.39"
 
+
+tokio = {version="*", features=["full"]}
+tokio-util = {version ="*", features=["compat"]}
+

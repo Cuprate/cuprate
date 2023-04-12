@@ -5,8 +5,10 @@ use tower::{Service, ServiceExt};
 
 use cuprate_common::{Network, HardForks};
 
-use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
-use super::{client::Client, Direction, connection::{PeerInfo, Connection}, P2P_MAX_PEERS_IN_HANDSHAKE, RequestServiceError};
+use cuprate_protocol::{InternalMessageRequest, InternalMessageResponse, P2P_MAX_PEERS_IN_HANDSHAKE, Direction};
+use cuprate_protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
+
+use crate::{connection::{PeerSyncChange, Connection, ConnectionInfo, ClientRequest}, PeerError};
 
 #[derive(Debug, Error)]
 pub enum HandShakeError {
@@ -23,7 +25,7 @@ pub enum HandShakeError {
     #[error("The peer sent a wrong response to our handshake")]
     PeerSentWrongResponse,
     #[error("The syncer returned an error")]
-    SyncerError,
+    DataBaseError(#[from] DatabaseError),
     #[error("Bucket error while communicating with peer: {0}")]
     BucketError(#[from] BucketError),
 }
@@ -36,34 +38,6 @@ pub enum AddressBookUpdate {
     AnchorPeer(NetworkAddress)
 }
 
-pub enum SyncerRequest {
-    CoreSyncData,
-    GetCurrentHeight,
-    Block(monero::Hash),
-}
-
-pub enum SyncerResponse {
-    CoreSyncData(CoreSyncData),
-    Height(u64),
-    Block(Option<monero::Block>),
-}
-
-impl SyncerResponse {
-    pub fn core_sync_data(self) -> Option<CoreSyncData> {
-        match self {
-            Self::CoreSyncData(csd)=> Some(csd),
-            _ => None
-        }
-    }
-}
-
-pub enum PeerSyncMgrRequest {
-    NewCoreSyncData(CoreSyncData, NetworkAddress)
-} 
-
-pub enum PeerSyncMgrResponse {
-    NewCoreSyncData(Result<(), ()>)
-}
 
 pub struct NetworkConfig {
     /// Port
@@ -82,6 +56,22 @@ pub struct NetworkConfig {
     target_out_peers: u32,
 }
 
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        NetworkConfig { 
+            my_port: 18080, 
+            network: Network::MainNet, 
+            peer_id: PeerID(21), 
+            rpc_port: 0, 
+            rpc_credits_per_hash: 0, 
+            our_support_flags: PeerSupportFlags::get_support_flag_fluffy_blocks(), 
+            minimum_peer_support_flags: PeerSupportFlags::from(0_u32), 
+            max_in_peers: 13, 
+            target_out_peers: 21 
+        }
+    }
+}
+
 impl NetworkConfig {
     pub fn basic_node_data(&self) -> BasicNodeData {
         BasicNodeData { 
@@ -95,50 +85,48 @@ impl NetworkConfig {
     }
 }
 
-pub struct Handshaker<Syc, Isv, Psy> {
+pub struct Handshaker<Bc, Svc> {
     config: NetworkConfig,
-    hardforks: HardForks,
     address_book_tx: mpsc::Sender<AddressBookUpdate>,
-    syncer: Syc, 
-    peer_sync_mgr: Psy,
-    inbound_service: Isv
+    blockchain: Bc, 
+    peer_sync_states: mpsc::Sender<PeerSyncChange>,
+    peer_request_service: Svc,
 }
 
-impl<Syc, Isv> Handshaker<Syc, Isv>
+impl<Bc, Svc> Handshaker<Bc, Svc>
 where
-    Psy: Service<PeerSyncMgrRequest, Response<PeerSyncMgrResponse>,
-    Syc: Service<SyncerRequest, Response = SyncerResponse>,
-    Isv: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = RequestServiceError>,
+    Bc: Service<DataBaseRequest, Response = DataBaseResponse, Error = DatabaseError>,
+    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = PeerError> + Clone + Send + 'static,
 {
+
+    pub fn new(config: NetworkConfig, address_book_tx: mpsc::Sender<AddressBookUpdate>, blockchain: Bc, peer_sync_states: mpsc::Sender<PeerSyncChange>, peer_request_service: Svc) -> Self{
+        Handshaker { 
+            config, 
+            address_book_tx, 
+            blockchain, 
+            peer_sync_states, 
+            peer_request_service
+        }
+    }
+
+
+    async fn get_our_core_sync(&mut self) -> Result<CoreSyncData, DatabaseError> {
+        let blockchain = self.blockchain.ready().await?;
+        let DataBaseResponse::CoreSyncData(core_sync) = blockchain.call(DataBaseRequest::CoreSyncData).await? else {
+            unreachable!("Database will always return the requested item")
+        };
+        Ok(core_sync)
+    }
     async fn send_handshake_req<W: AsyncWrite + std::marker::Unpin>(&mut self, peer_sink: &mut MessageSink<W, Message>) -> Result<(), HandShakeError> {
-        let syncer = self.syncer.ready().await.map_err(|_| HandShakeError::SyncerError)?;
         let handshake_req = HandshakeRequest{
             node_data: self.config.basic_node_data(), 
-            payload_data: syncer.call(
-                SyncerRequest::CoreSyncData)
-                .await
-                .map_err(|_| HandShakeError::SyncerError)?
-                .core_sync_data()
-                .expect("The syncer should return what we asked for")
+            payload_data: self.get_our_core_sync().await?
         };
         let message: Message = Message::Request(handshake_req.into());
         peer_sink.send(message).await?;
         Ok(())
     }
-    async fn get_current_height(&mut self) -> Result<u64, HandShakeError> {
-        let syncer = self.syncer.ready().await.map_err(|_| HandShakeError::SyncerError)?;
-        let height: SyncerResponse = syncer.call(
-            SyncerRequest::GetCurrentHeight)
-            .await
-            .map_err(|_| HandShakeError::SyncerError)?;
-        if let SyncerResponse::Height(h) = height {
-            Ok(h)
-        } else {
-            Err(HandShakeError::SyncerError)
-        }
 
-            
-    }
     async fn get_handshake_res<R: AsyncRead + std::marker::Unpin>(&mut self, peer_stream: &mut MessageStream<Message, R>) -> Result<HandshakeResponse, HandShakeError> {
         // put a timeout on this
         let Message::Response(MessageResponse::Handshake(handshake_res)) =  peer_stream.next().await.expect("MessageSink will not return None")? else {
@@ -147,51 +135,14 @@ where
         Ok(handshake_res)
     }
 
-
-    fn build_peer_info_from_nd_csd(&self, node_data: &BasicNodeData, payload_data: &CoreSyncData, direction: Direction) -> PeerInfo {
-        PeerInfo {
-            id: node_data.peer_id,
-            port: node_data.my_port,
-            current_height: payload_data.current_height,
-            cumulative_difficulty: payload_data.cumulative_difficulty(),
-            support_flags: node_data.support_flags,
-            pruning_seed: payload_data.pruning_seed,
-            rpc_port: node_data.rpc_port,
-            rpc_credits_per_hash: node_data.rpc_credits_per_hash,
-            network: self.config.network,
-            direction,
-        }
-    }
-
-    async fn verify_core_sync(&self, core_sync: &CoreSyncData) -> Result<(), HandShakeError> {
-        if core_sync.current_height > 0 {
-            let version = self.hardforks.get_ideal_version_from_height(core_sync.current_height - 1);
-            if version >= 6 && version != core_sync.top_version {
-                return Err(HandShakeError::PeerHasUnexpectedTopVersion);
-            }
-        }
-        if core_sync.pruning_seed != 0 {
-            let log_stripes = monero::database::pruning::get_pruning_log_stripes(core_sync.pruning_seed);
-            let stripe = monero::database::pruning::get_pruning_stripe_for_seed(core_sync.pruning_seed);
-            if stripe != monero::database::pruning::CRYPTONOTE_PRUNING_LOG_STRIPES || stripe > (1 << log_stripes) {
-                return Err(HandShakeError::PeerClaimedWeirdPruning);
-            }
-        }
-
-        let current_height = self.get_current_height().await?;
-        
-        // check height against peers old height
-
-    }
-
-    pub async fn complete_handshake<R, W, Svc>(&mut self, peer_reader: R, peer_writer: W, direction: Direction) -> Result<(Client, Connection<Svc, W, R>), HandShakeError>
+    pub async fn complete_handshake<R, W>(&mut self, peer_reader: R, peer_writer: W, direction: Direction, addr: NetworkAddress) -> Result<(mpsc::Sender<ClientRequest>, Connection<Svc, W, R>), HandShakeError>
     where
         R: AsyncRead + std::marker::Unpin,
         W: AsyncWrite + std::marker::Unpin,
     {
         let mut peer_sink = MessageSink::new(peer_writer);
         let mut peer_stream =  MessageStream::new(peer_reader);
-        match direction {
+        let (c, conn) =match direction {
             Direction::Outbound => {
                 self.send_handshake_req(&mut peer_sink).await?;
                 let handshake_res = self.get_handshake_res(&mut peer_stream).await?;
@@ -203,11 +154,24 @@ where
                 }
 
                 self.address_book_tx.send(AddressBookUpdate::NewPeers(handshake_res.local_peerlist_new)).await;
-                let peer_info = self.build_peer_info_from_nd_csd(&handshake_res.node_data, &handshake_res.payload_data, direction);
 
+                let connection_info = ConnectionInfo {
+                    addr, 
+                };
 
+                let (client_tx, client_rx) = mpsc::channel(2);
+
+                let con = Connection::new(connection_info, peer_sink, peer_stream, client_rx, self.peer_sync_states.clone(), self.peer_request_service.clone());
+                (client_tx, con)
+
+            },
+            Direction::Inbound => {
+                todo!(
+
+                )
             }
-        }
-        Ok(())
+        };
+
+        Ok((c, conn))
     }
 }

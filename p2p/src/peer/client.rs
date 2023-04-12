@@ -26,7 +26,6 @@ impl Service<InternalMessageRequest> for Client {
     }
     fn call(&mut self, req: InternalMessageRequest) -> Self::Future {
         let (tx, rx) = oneshot::channel();
-
         match self.peer_tx.try_send(ClientRequest {
             req,
             tx

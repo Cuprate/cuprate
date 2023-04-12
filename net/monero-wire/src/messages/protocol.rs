@@ -178,6 +178,19 @@ pub struct ChainResponse {
 }
 
 impl ChainResponse {
+    pub fn new(start_height: u64, total_height: u64, cumulative_difficulty_128: u128, m_block_ids: Vec<Hash>, m_block_weights: Vec<u64>, first_block: Vec<u8>) -> Self {
+        let cumulative_difficulty_low = cumulative_difficulty_128 as u64;
+        let cumulative_difficulty_high = (cumulative_difficulty_128 >> 64) as u64;
+        Self {
+            start_height,
+            total_height,
+            cumulative_difficulty_low,
+            cumulative_difficulty_high,
+            m_block_ids,
+            m_block_weights,
+            first_block
+        }
+    }
     pub fn cumulative_difficulty(&self) -> u128 {
         let mut ret: u128 = self.cumulative_difficulty_high as u128;
         ret <<= 64;
@@ -679,6 +692,12 @@ mod tests {
             63, 227, 242, 49, 240, 193, 59, 178, 3, 197, 245, 89, 85, 30, 161, 45, 248, 248, 91, 110, 107, 144, 12,
             175, 253, 21, 121, 28,
         ];
+
+        let now = std::time::Instant::now();
+        for _ in 0..1000 {
+            let new_transactions: NewTransactions = epee_serde::from_bytes(bytes).unwrap();
+        }
+        println!("in: {}ms", now.elapsed().as_millis());
 
         let new_transactions: NewTransactions = epee_serde::from_bytes(bytes).unwrap();
 
