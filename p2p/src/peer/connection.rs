@@ -18,7 +18,8 @@ use tower::{Service, ServiceExt};
 use cuprate_common::Network;
 use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 use super::{
-    PeerError, PeerResponseError, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT, P2P_MAX_PEERS_IN_HANDSHAKE, RequestServiceError, Direction
+    PeerError, PeerResponseError, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT, P2P_MAX_PEERS_IN_HANDSHAKE, RequestServiceError,
+    Direction,
 };
 
 pub struct ClientRequest {
@@ -71,16 +72,22 @@ where
     Aw: AsyncWrite + std::marker::Unpin,
     Ar: AsyncRead + std::marker::Unpin,
 {
-    pub fn new(peer_info: PeerInfo, sink: MessageSink<Aw, Message>, stream: MessageStream<Message, Ar>, client_rx: mpsc::Receiver<ClientRequest>, svc: Svc) -> Connection<Svc, Aw, Ar> {
-        Connection { 
-            peer_info, 
-            state: State::WaitingForRequest, 
-            sink, 
-            stream: stream.fuse(), 
-            client_rx, 
-            svc 
+    pub fn new(
+        peer_info: PeerInfo,
+        sink: MessageSink<Aw, Message>,
+        stream: MessageStream<Message, Ar>,
+        client_rx: mpsc::Receiver<ClientRequest>,
+        svc: Svc,
+    ) -> Connection<Svc, Aw, Ar> {
+        Connection {
+            peer_info,
+            state: State::WaitingForRequest,
+            sink,
+            stream: stream.fuse(),
+            client_rx,
+            svc,
         }
-    } 
+    }
     async fn handle_response(&mut self, res: InternalMessageResponse) -> Result<(), PeerResponseError> {
         let state = std::mem::replace(&mut self.state, State::WaitingForRequest);
         if let State::WaitingForResponse { request, tx } = state {

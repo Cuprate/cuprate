@@ -22,7 +22,6 @@ pub enum DataBaseRequest {
     Chain,
     BlockHeight(Hash),
     BlockKnown(Hash),
-
 }
 
 pub enum DataBaseResponse {
@@ -31,10 +30,8 @@ pub enum DataBaseResponse {
     CoreSyncData(CoreSyncData),
     Chain(Vec<Hash>),
     BlockHeight(Option<u64>),
-    BlockKnown(BlockKnown)
+    BlockKnown(BlockKnown),
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
-pub enum DatabaseError {
-
-}
+pub enum DatabaseError {}

@@ -1,14 +1,20 @@
-use std::{pin::Pin, sync::{Arc, Mutex}, str::FromStr};
+use std::{
+    pin::Pin,
+    sync::{Arc, Mutex},
+    str::FromStr,
+};
 
 use cuprate_common::{HardForks, Network};
 use cuprate_peer::PeerError;
-use cuprate_protocol::{temp_database::{DataBaseRequest, DataBaseResponse, BlockKnown, DatabaseError}, InternalMessageRequest, InternalMessageResponse, Direction};
+use cuprate_protocol::{
+    temp_database::{DataBaseRequest, DataBaseResponse, BlockKnown, DatabaseError},
+    InternalMessageRequest, InternalMessageResponse, Direction,
+};
 use cuprate_sync_states::SyncStates;
 use futures::{channel::mpsc, Future, FutureExt};
 use monero::Hash;
 use monero_wire::messages::{admin::HandshakeResponse, CoreSyncData};
 use tower::ServiceExt;
-
 
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
@@ -26,14 +32,14 @@ impl tower::Service<DataBaseRequest> for TestBlockchain {
             DataBaseRequest::BlockHeight(h) => DataBaseResponse::BlockHeight(Some(221)),
             DataBaseRequest::BlockKnown(_) => DataBaseResponse::BlockKnown(BlockKnown::OnMainChain),
             DataBaseRequest::Chain => todo!(),
-            DataBaseRequest::CoreSyncData => DataBaseResponse::CoreSyncData(CoreSyncData::new(0, 0, 0, Hash::null(), 0)),
+            DataBaseRequest::CoreSyncData => {
+                DataBaseResponse::CoreSyncData(CoreSyncData::new(0, 0, 0, Hash::null(), 0))
+            },
             DataBaseRequest::CumulativeDifficulty => DataBaseResponse::CumulativeDifficulty(0),
-            DataBaseRequest::CurrentHeight => DataBaseResponse::CurrentHeight(0)
+            DataBaseRequest::CurrentHeight => DataBaseResponse::CurrentHeight(0),
         };
 
-        async {
-            Ok(res)
-        }.boxed()
+        async { Ok(res) }.boxed()
     }
 }
 
@@ -59,10 +65,20 @@ async fn test_p2p_conn() {
     let (sync_tx, sync_rx) = mpsc::channel(21);
     let peer_sync_states = Arc::new(Mutex::default());
 
+    let peer_sync_states = SyncStates::new(
+        sync_rx,
+        HardForks::new(Network::MainNet),
+        peer_sync_states,
+        TestBlockchain,
+    );
 
-    let peer_sync_states = SyncStates::new(sync_rx, HardForks::new(Network::MainNet), peer_sync_states, TestBlockchain);
-
-    let mut  handshaker = cuprate_peer::handshaker::Handshaker::new(conf, addr_tx, TestBlockchain, sync_tx, TestPeerRequest.boxed_clone());
+    let mut handshaker = cuprate_peer::handshaker::Handshaker::new(
+        conf,
+        addr_tx,
+        TestBlockchain,
+        sync_tx,
+        TestPeerRequest.boxed_clone(),
+    );
 
     let soc = tokio::net::TcpSocket::new_v4().unwrap();
     let addr = std::net::SocketAddr::from_str("127.0.0.1:18080").unwrap();
@@ -71,8 +87,15 @@ async fn test_p2p_conn() {
 
     let (r_h, w_h) = con.split();
 
-    let (client, conn) = handshaker.complete_handshake(r_h.compat(), w_h.compat_write(), Direction::Outbound, monero_wire::NetworkAddress::default()).await.unwrap();
+    let (client, conn) = handshaker
+        .complete_handshake(
+            r_h.compat(),
+            w_h.compat_write(),
+            Direction::Outbound,
+            monero_wire::NetworkAddress::default(),
+        )
+        .await
+        .unwrap();
 
     //conn.run().await;
-
 }

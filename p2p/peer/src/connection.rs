@@ -1,4 +1,3 @@
-
 use std::collections::HashSet;
 
 use futures::{AsyncRead, AsyncWrite, StreamExt, SinkExt};
@@ -12,15 +11,16 @@ use monero_wire::{levin, Message, NetworkAddress};
 use levin::{MessageSink, MessageStream};
 use tower::{Service, ServiceExt};
 
-use cuprate_protocol::{InternalMessageRequest, InternalMessageResponse, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT, P2P_MAX_PEERS_IN_HANDSHAKE};
+use cuprate_protocol::{
+    InternalMessageRequest, InternalMessageResponse, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT, P2P_MAX_PEERS_IN_HANDSHAKE,
+};
 
 use super::PeerError;
-
 
 pub enum PeerSyncChange {
     CoreSyncData(NetworkAddress, CoreSyncData),
     ObjectsResponse(NetworkAddress, Vec<Hash>, u64),
-    PeerDisconnected(NetworkAddress)
+    PeerDisconnected(NetworkAddress),
 }
 
 pub struct ClientRequest {
@@ -35,7 +35,6 @@ pub enum State {
         tx: oneshot::Sender<Result<InternalMessageResponse, PeerError>>,
     },
 }
-
 
 impl State {
     pub fn expected_response_id(&self) -> Option<u32> {
@@ -66,48 +65,76 @@ where
     Aw: AsyncWrite + std::marker::Unpin,
     Ar: AsyncRead + std::marker::Unpin,
 {
-    pub fn new(connection_info: ConnectionInfo, sink: MessageSink<Aw, Message>, stream: MessageStream<Message, Ar>, client_rx: mpsc::Receiver<ClientRequest>, sync_state_tx: mpsc::Sender<PeerSyncChange>,  svc: Svc) -> Connection<Svc, Aw, Ar> {
-        Connection { 
+    pub fn new(
+        connection_info: ConnectionInfo,
+        sink: MessageSink<Aw, Message>,
+        stream: MessageStream<Message, Ar>,
+        client_rx: mpsc::Receiver<ClientRequest>,
+        sync_state_tx: mpsc::Sender<PeerSyncChange>,
+        svc: Svc,
+    ) -> Connection<Svc, Aw, Ar> {
+        Connection {
             connection_info,
-            state: State::WaitingForRequest, 
-            sink, 
-            stream: stream.fuse(), 
-            client_rx, 
+            state: State::WaitingForRequest,
+            sink,
+            stream: stream.fuse(),
+            client_rx,
             sync_state_tx,
-            svc 
+            svc,
         }
-    } 
+    }
     async fn handle_response(&mut self, res: InternalMessageResponse) -> Result<(), PeerError> {
         let state = std::mem::replace(&mut self.state, State::WaitingForRequest);
         if let State::WaitingForResponse { request, tx } = state {
             match (request, &res) {
                 (InternalMessageRequest::Handshake(_), InternalMessageResponse::Handshake(_)) => {
                     // we are already connected to the peer
-                    return Err(PeerError::ResponseError("Can't handshake with peer we are already connected"));
+                    return Err(PeerError::ResponseError(
+                        "Can't handshake with peer we are already connected",
+                    ));
                 },
 
                 (InternalMessageRequest::SupportFlags(_), InternalMessageResponse::SupportFlags(_)) => {
                     // we are already connected to the peer - this happens during handshakes
-                    return Err(PeerError::ResponseError("Can't handshake with peer we are already connected"));
+                    return Err(PeerError::ResponseError(
+                        "Can't handshake with peer we are already connected",
+                    ));
                 },
                 (InternalMessageRequest::TimedSync(_), InternalMessageResponse::TimedSync(res)) => {
                     if res.local_peerlist_new.len() > P2P_MAX_PEERS_IN_HANDSHAKE {
-                        return Err(PeerError::ResponseError("Peer sent too many peers, considered spamming"));
+                        return Err(PeerError::ResponseError(
+                            "Peer sent too many peers, considered spamming",
+                        ));
                     }
 
-                    self.sync_state_tx.send(PeerSyncChange::CoreSyncData(self.connection_info.addr, res.payload_data.clone())).await.map_err(|_| PeerError::InternalPeerSyncChannelClosed)?;
+                    self.sync_state_tx
+                        .send(PeerSyncChange::CoreSyncData(
+                            self.connection_info.addr,
+                            res.payload_data.clone(),
+                        ))
+                        .await
+                        .map_err(|_| PeerError::InternalPeerSyncChannelClosed)?;
                 },
                 (InternalMessageRequest::GetObjectsRequest(req), InternalMessageResponse::GetObjectsResponse(res)) => {
                     if req.blocks.len() != res.blocks.len() {
                         return Err(PeerError::ResponseError("Peer sent incorrect amount of blocks"));
                     }
 
-                    self.sync_state_tx.send(PeerSyncChange::ObjectsResponse(self.connection_info.addr, req.blocks, res.current_blockchain_height)).await.map_err(|_| PeerError::InternalPeerSyncChannelClosed)?;
+                    self.sync_state_tx
+                        .send(PeerSyncChange::ObjectsResponse(
+                            self.connection_info.addr,
+                            req.blocks,
+                            res.current_blockchain_height,
+                        ))
+                        .await
+                        .map_err(|_| PeerError::InternalPeerSyncChannelClosed)?;
 
                     for block in res.blocks.iter() {
                         if !req.pruned {
                             if block.pruned || block.block_weight != 0 || !block.txs_pruned.is_empty() {
-                                return Err(PeerError::ResponseError("Peer sent a pruned pruned block when we didn't wan't one"));
+                                return Err(PeerError::ResponseError(
+                                    "Peer sent a pruned pruned block when we didn't wan't one",
+                                ));
                             }
                             if block.txs.len() != block.block.tx_hashes.len() {
                                 return Err(PeerError::ResponseError("Peer sent incorrect amount of transactions"));
@@ -124,7 +151,9 @@ where
                 },
                 (InternalMessageRequest::ChainRequest(_), InternalMessageResponse::ChainResponse(res)) => {
                     if res.m_block_ids.is_empty() {
-                        return Err(PeerError::ResponseError("Peer sent no blocks ids in response to a chain request"));
+                        return Err(PeerError::ResponseError(
+                            "Peer sent no blocks ids in response to a chain request",
+                        ));
                     }
                     if res.total_height < res.m_block_ids.len() as u64
                         || res.start_height > res.total_height - res.m_block_ids.len() as u64
@@ -137,10 +166,12 @@ where
                     if res.total_height >= CRYPTONOTE_MAX_BLOCK_NUMBER
                         || res.m_block_ids.len() > BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT
                     {
-                        return Err(PeerError::ResponseError("Peer sent too many block ids/ peers height is too high"));
+                        return Err(PeerError::ResponseError(
+                            "Peer sent too many block ids/ peers height is too high",
+                        ));
                     }
-                    
-                    // This will remove all duplicate hashes in res.m_block_ids 
+
+                    // This will remove all duplicate hashes in res.m_block_ids
                     let all_block_ids: HashSet<&Hash> = HashSet::from_iter(res.m_block_ids.iter());
 
                     if all_block_ids.len() != res.m_block_ids.len() {
@@ -218,7 +249,6 @@ where
             .next()
             .await
             .expect("MessageStream will never return None")?;
-
 
         if !peer_message.is_request() && self.state.expected_response_id() == Some(peer_message.id()) {
             if let Ok(res) = peer_message.try_into() {

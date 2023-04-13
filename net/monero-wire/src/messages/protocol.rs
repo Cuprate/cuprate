@@ -178,7 +178,14 @@ pub struct ChainResponse {
 }
 
 impl ChainResponse {
-    pub fn new(start_height: u64, total_height: u64, cumulative_difficulty_128: u128, m_block_ids: Vec<Hash>, m_block_weights: Vec<u64>, first_block: Vec<u8>) -> Self {
+    pub fn new(
+        start_height: u64,
+        total_height: u64,
+        cumulative_difficulty_128: u128,
+        m_block_ids: Vec<Hash>,
+        m_block_weights: Vec<u64>,
+        first_block: Vec<u8>,
+    ) -> Self {
         let cumulative_difficulty_low = cumulative_difficulty_128 as u64;
         let cumulative_difficulty_high = (cumulative_difficulty_128 >> 64) as u64;
         Self {
@@ -188,7 +195,7 @@ impl ChainResponse {
             cumulative_difficulty_high,
             m_block_ids,
             m_block_weights,
-            first_block
+            first_block,
         }
     }
     pub fn cumulative_difficulty(&self) -> u128 {

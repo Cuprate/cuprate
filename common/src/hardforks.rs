@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn get_ideal_version() {
-        let hardforks = HardForks::new(Network::MainNet); 
+        let hardforks = HardForks::new(Network::MainNet);
 
         let version = hardforks.get_ideal_version();
         assert_eq!(version as usize, MAIN_NET_FORKS.len());
@@ -135,7 +135,6 @@ mod tests {
         let height = hardforks.get_earliest_ideal_height_for_version(version).unwrap();
         let got_version = hardforks.get_ideal_version_from_height(height);
         assert_eq!(version, got_version);
-
     }
 
     #[test]
