@@ -6,7 +6,7 @@
 //! use the [`Compat<T>`] wrapper.
 
 use bincode::{Encode, Decode, enc::write::Writer};
-use crate::{encoding::{Compat, ReaderCompat}, error::DB_FAILURES};
+use crate::{encoding::{Compat, ReaderCompat}};
 use monero::{Hash, Block, PublicKey, util::ringct::{Key, RctSigBase, RctSig}, TransactionPrefix, consensus::Decodable};
 
 // ---- BLOCKS ----
@@ -126,13 +126,13 @@ pub struct TxIndex {
 	/// The unlock time of this transaction (the height at which it is unlocked, it is not a timestamp)
 	pub unlock_time: u64,
 	/// The height of the block whose transaction belong to
-	pub height: u64,
+	pub height: u64, // TODO USELESS already in txs_prunable_tip
 }
 
 #[derive(Clone, Debug, Encode, Decode)]
-/// [`TxOutputIdx`] is a single-tuple struct used to contain the indexes of the transactions outputs. It is defined for more clarity on its role.
+/// [`TxOutputIdx`] is a single-tuple struct used to contain the indexes (amount and amount indices) of the transactions outputs. It is defined for more clarity on its role.
 /// This struct is used in [`crate::table::txsoutputs`] table.
-pub struct TxOutputIdx(Vec<u64>);
+pub struct TxOutputIdx(Vec<(u64,u64)>);
 
 // ---- OUTPUTS ----
 
@@ -140,8 +140,8 @@ pub struct TxOutputIdx(Vec<u64>);
 /// [`RctOutkey`] is a struct containing RingCT metadata and an output ID. It is equivalent to the `output_data_t` struct in monerod
 /// This struct is used in [`crate::table::outputamounts`]
 pub struct RctOutkey {
-	/// amount_index
-	pub amount_index: u64,
+	// /// amount_index
+	//pub amount_index: u64,
 	/// The output's ID
 	pub output_id: u64,
 	/// The output's public key (for spend verification)
@@ -160,20 +160,39 @@ pub struct RctOutkey {
 }
 
 #[derive(Clone, Debug, Encode, Decode)]
+/// [`OutputMetadata`] is a struct containing Outputs Metadata. It is used in [`crate::table::outputmetadata`]. It is a struct merging the
+/// `out_tx_index` tuple with `output_data_t` structure in monerod, without the output ID. 
+pub struct OutputMetadata {
+
+	pub tx_hash: Compat<Hash>,
+
+	pub local_index: u64,
+
+	pub pubkey: Option<Compat<PublicKey>>,
+
+	pub unlock_time: u64,
+
+	pub height: u64,
+
+	pub commitment: Option<Compat<Key>>,
+}
+
+//#[derive(Clone, Debug, Encode, Decode)]
 /// [`OutAmountIdx`] is a struct tuple used to contain the two keys used in [`crate::table::outputamounts`] table. 
 /// In monerod, the database key is the amount while the *cursor key* (the amount index) is the prefix of the actual data being returned. 
 /// As we prefere to note use cursor with partial data, we prefer to concat these two into a unique key
-pub struct OutAmountIdx(u64,u64);
+//pub struct OutAmountIdx(u64,u64);
+// MAYBE NOT FINALLY
 
-#[derive(Clone, Debug, Encode, Decode)]
+//#[derive(Clone, Debug, Encode, Decode)]
 /// [`OutTx`] is a struct containing the hash of the transaction whose output belongs to, and the local index of this output.
 /// This struct is used in [`crate::table::outputinherit`].
-pub struct OutTx {
+/*pub struct OutTx {
 	/// Output's transaction hash
 	pub tx_hash: Compat<Hash>,
 	/// Local index of the output
 	pub local_index: u64,
-}
+}*/
 
 // ---- SPENT ----
 

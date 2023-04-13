@@ -20,20 +20,26 @@ pub enum DB_FAILURES {
 	#[error("\n<DB::FAILURES::Full> A component is full/busy. The transaction is likely to be restarted  : `{0}`")]
 	Full(DB_FULL),
 
-        #[error("\n<DB_FAILURES::KeyAlreadyExist> The database tried to put a key that already exist. Key failed to be insert.")]
-        KeyAlreadyExist,
+	#[error("\n<DB_FAILURES::NoneFound> `{0}`")]
+	NoneFound(&'static str),
+
+	#[error("\n<DB_FAILURES::Other> `{0}`")]
+	Other(&'static str),
+
+    #[error("\n<DB_FAILURES::KeyAlreadyExist> The database tried to put a key that already exist. Key failed to be insert.")]
+    KeyAlreadyExist,
 
 	#[error("\n<DB_FAILURES::FailedToCommit> A transaction tried to commit to the db, but failed.")]
 	FailedToCommit,
 
-        #[error("\n<DB_FAILURES::KeyNotFound> The database didn't find the corresponding key.")]
-        KeyNotFound,
+    #[error("\n<DB_FAILURES::KeyNotFound> The database didn't find the corresponding key.")]
+    KeyNotFound,
 
-        #[error("\n<DB_FAILURES::DataNotFound> The database failed to retrieve data section for this key.")]
-        DataNotFound,
+    #[error("\n<DB_FAILURES::DataNotFound> The database failed to retrieve data section for this key.")]
+    DataNotFound,
 
-        #[error("\n<DB_FAILURES::DataSizeLimit> The database was inserting something bigger than the storage engine limit. It shouldn't happen. Please report this issue on github : https://github.com/Cuprate/cuprate/issues")]
-        DataSizeLimit,
+    #[error("\n<DB_FAILURES::DataSizeLimit> The database was inserting something bigger than the storage engine limit. It shouldn't happen. Please report this issue on github : https://github.com/Cuprate/cuprate/issues")]
+    DataSizeLimit,
 
 	#[error("\n<DB_FAILURES::PageNotFound> The database failed to retrieve a page. The database is likely corrupted, search for eventual factors before resyncing again.")]
 	PageNotFound,

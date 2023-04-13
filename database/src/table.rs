@@ -6,7 +6,7 @@
 
 use monero::{Hash, Block};
 use bincode::{enc::Encode,de::Decode};
-use crate::{types::{BlockMetadata, OutAmountIdx, KeyImage, TxOutputIdx, OutTx, AltBlock, TxIndex, TransactionPruned, RctOutkey}, encoding::Compat};
+use crate::{types::{BlockMetadata, /*OutAmountIdx,*/ KeyImage, TxOutputIdx, /*OutTx,*/ AltBlock, TxIndex, TransactionPruned, RctOutkey, OutputMetadata}, encoding::Compat};
 
 /// A trait implementing a table interaction for the database. It is implemented to an empty struct to specify the name and table's associated types. These associated 
 /// types are used to simplify deserialization process.
@@ -21,27 +21,33 @@ pub trait Table: Send + Sync + 'static + Clone {
 }
 
 /// A trait implementing a table with DUPFIXED & DUPSORT support.
-pub trait DupTable: Table {}
+pub trait DupTable: Table {
+	type SubKey: Encode + Decode;
+}
 
 /// This declarative macro declare a new empty struct and impl the specified name, and corresponding types. 
 macro_rules! impl_table {
 	( $(#[$docs:meta])* $table:ident , $key:ty , $value:ty ) => {
-        	#[derive(Clone)]
+        #[derive(Clone)]
 		$(#[$docs])*
 		pub(crate) struct $table;
 
    		impl Table for $table {
 	 		const TABLE_NAME: &'static str = "$table";
-        		type Key = $key;
-                	type Value = $value;
-        	}
+        	type Key = $key;
+            type Value = $value;
+        }
 	};
 }
 
 /// This declarative macro declare extend the original impl_table! macro by implementy DupTable trait.
 macro_rules! impl_duptable {
-	($(#[$docs:meta])* $table:ident, $key:ty, $value:ty) => {
+	($(#[$docs:meta])* $table:ident, $key:ty, $subkey:ty, $value:ty) => {
 		impl_table!($(#[$docs])* $table, $key, $value);
+
+		impl DupTable for $table {
+			type SubKey = $subkey;
+		}
 	};
 }
 
@@ -49,11 +55,11 @@ macro_rules! impl_duptable {
 
 // ----- BLOCKS -----
 
-impl_duptable!(
+impl_table!(
 	/// `blockhash` is table defining a relation between the hash of a block and its height. Its primary use is to quickly find block's hash by its height.
 	blockhash, Compat<Hash>, u64);
 
-impl_duptable!(
+impl_table!(
 	/// `blockmetadata` store block metadata alongside their corresponding Hash. The blocks metadata can contains the total_coins_generated, weight, long_term_block_weight & cumulative RingCT
 	blockmetadata, u64, BlockMetadata);
 	
@@ -81,31 +87,34 @@ impl_table!(
 	
 impl_duptable!(
 	/// `txsprunablehash` is a table storing hashes of prunable part of transactions. These hash can be fetch by the corresponding Transaction ID.
-	txsprunablehash, u64, Compat<Hash>);
+	txsprunablehash, u64, (), Compat<Hash>);
 
-impl_duptable!(
+impl_table!(
 	/// `txsprunabletip` is a table used for optimization purpose. It defines at which block's height this transaction belong. These can be fetch by the corresponding Transaction ID.
 	txsprunabletip, u64, u64);
 	
 impl_duptable!(
 	/// `txsoutputs` is a table storing output indices used in a transaction. These can be fetch by the corresponding Transaction ID.
-	txsoutputs, Compat<Hash>, TxOutputIdx);
+	txsoutputs, Compat<Hash>, (), TxOutputIdx);
 
 impl_duptable!(
 	/// `txsidentifier` is a table defining a relation between the hash of a transaction and its transaction Indexes. Its primarly used to quickly find tx's ID by its hash.
-	txsidentifier, Compat<Hash>, TxIndex);
+	txsidentifier, Compat<Hash>, (), TxIndex);
 	
 // ---- OUTPUTS ----
 
 impl_duptable!(
-	/// `outputsinherit` is table defining relation between outputs ID and its transaction's hash and its local index in it.
-	outputinherit, u64, OutTx);
-impl_duptable!(
-	/// `outputamounts` is a table permiting to find the RingCT Output Key with the amount of an output and its amount index.
-	outputamounts, OutAmountIdx, RctOutkey);
+	/// `prerctoutputmetadata` is a duplicated table storing Pre-RingCT output's metadata. The key is the amount of this output, and the subkey is its amount idx.
+	prerctoutputmetadata, u64, u64, OutputMetadata);
+impl_table!(
+	/// `prerctoutputmetadata` is a table storing RingCT output's metadata. The key is the amount idx of this output since amount is always 0 for RingCT outputs.
+	outputmetadata, u64, OutputMetadata);
 
 //  ---- SPT KEYS ----
 
-impl_duptable!(
+impl_table!(
 	/// `spentkeys`is a table storing every KeyImage that have been used to create decoys input. As these KeyImage can't be re used they need to marked. 
 	spentkeys, KeyImage, ());
+
+
+// Put in the Trash bin, but still maybe we'll have to make them work again, in like 3 weeks or maybe 5 years.

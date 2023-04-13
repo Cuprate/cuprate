@@ -30,10 +30,10 @@
 #![allow(dead_code, unused_macros)] // temporary
 
 use database::{Database, Interface};
-use encoding::Compat;
 use thiserror::Error;
-use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
-use transaction::{Cursor, Transaction,  WriteTransaction, DupCursor};
+use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::{RctSig, Key}, cryptonote::hash::keccak_256, TxOut};
+use transaction::{Cursor, Transaction,  WriteTransaction, DupCursor, DupWriteCursor};
+use types::{OutputMetadata};
 use std::ops::Range;
 
 #[cfg(feature = "mdbx")]
@@ -48,17 +48,18 @@ pub mod encoding;
 
 const DEFAULT_BLOCKCHAIN_DATABASE_FILENAME: &str = "blockchain.db";
 const DEFAULT_TXPOOL_DATABASE_FILENAME: &str = "txpool_mem.db";
-const MAX_MEMORY_CHANGE: u64 = 60*1024u64.pow(2);
 const BINCODE_CONFIG: bincode::config::Configuration<bincode::config::LittleEndian, bincode::config::Fixint> = bincode::config::standard().with_fixed_int_encoding();
-const ZEROKVAL: [u8; 8] = [0u8; 8];
-const NULLHASH: [u8; 32] = [0u8; 32];
+const ZEROKVAL: [u8; 0] = [];
 
 // ------------------------------------------|      Database      |------------------------------------------
 
 pub mod database {
+	//! This module contains the Database abstraction trait. Any key/value storage engine implemented need
+	//! to fullfil these associated types and functions, in order to be usable. This module also contains the
+	//! Interface struct which is used by the DB Reactor to interact with the database.
 
-    	use std::{ops::Deref, path::Path, sync::{Arc, atomic::AtomicU64}};
-    	use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
+    use std::{ops::Deref, sync::Arc};
+    use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
 	
 	/// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the 
 	/// different transaction modes (read & write) and it's native errors.
@@ -66,50 +67,55 @@ pub mod database {
 	{
 		type TX: Transaction<'a>;
 		type TXMut: WriteTransaction<'a>;
-        	type Error: Into<DB_FAILURES>;
+        type Error: Into<DB_FAILURES>;
 
 		// Create a transaction from the database
 		fn tx(&'a self) -> Result<Self::TX, Self::Error>;
 
-        	fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
+        fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
 	}
 
-	/// `Interface` is a struct containing a pointer to the database and a transaction to be used for the implemented method of Interface.
+	/// `Interface` is a struct containing a shared pointer to the database and transaction's to be used for the implemented method of Interface.
 	pub struct Interface<'a, D: Database<'a>>  {
 		pub db: Arc<D>,
 		pub ro_tx: Option<<D as Database<'a>>::TX>,
 		pub tx: Option<<D as Database<'a>>::TXMut>,
 	}
 
-    	impl<'service,D: Database<'service>> Interface<'service,D> {
+	// Convenient implementations of database
+    impl<'service,D: Database<'service>> Interface<'service,D> {
 
-        	fn from(db: Arc<D>) -> Self {
-            		Self { db, ro_tx: None, tx: None }
-        	}	
+        fn from(db: Arc<D>) -> Self {
+        		Self { db, ro_tx: None, tx: None }
+    	}	
 
-        	fn open(&'service mut self) -> Result<(),DB_FAILURES> {
-            		match self.db.tx_mut().map_err(|e| e.into()) {
-                		Ok(tx) => { self.tx = Some(tx); Ok(())}
-                		Err(e) => { Err(e) }
-            		}
-        	}
+		fn open(&'service mut self) -> Result<(),DB_FAILURES> {
+    		match self.db.tx_mut().map_err(|e| e.into()) {
+        		Ok(tx) => { self.tx = Some(tx); Ok(())}
+        		Err(e) => { Err(e) }
+    		}
+    	}
 	}
 
-    	impl<'service, D: Database<'service>> Deref for Interface<'service,D> {
-        	type Target = <D as Database<'service>>::TXMut;
+    impl<'service, D: Database<'service>> Deref for Interface<'service,D> {
+    	type Target = <D as Database<'service>>::TXMut;
 
-        	fn deref(&self) -> &Self::Target {
-            		return self.tx.as_ref().unwrap()
-        	}
-    	}	
+    	fn deref(&self) -> &Self::Target {
+    		return self.tx.as_ref().unwrap()
+    	}
+	}	
 }
 
 // ------------------------------------------|      DatabaseTx     |------------------------------------------
 
 pub mod transaction {
+	//! This module contains the abstractions of Transactional Key/Value database functions.
+	//! Any key/value database/storage engine can be implemented easily for Cuprate as long as 
+	//! these functions or equivalent logic exist for it.
 
 	use crate::{error::DB_FAILURES,table::{Table, DupTable}};
 
+	// Abstraction of a read-only cursor, for simple tables
 	#[allow(clippy::type_complexity)]
 	pub trait Cursor<'t, T: Table> {
 
@@ -119,27 +125,30 @@ pub mod transaction {
 
 		fn last(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
-		fn  next(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
+		fn next(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
 
 		fn prev(&mut self) -> Result<Option<(T::Key,T::Value)>,DB_FAILURES>;
 		
 		fn set(&mut self, key: &T::Key) -> Result<Option<T::Value>,DB_FAILURES>;
 	}
 
+	// Abstraction of a read-only cursor with support for duplicated tables. DupCursor inherit Cursor methods as 
+	// a duplicated table can be treated as a simple table.
 	#[allow(clippy::type_complexity)]
 	pub trait DupCursor<'t, T: DupTable>: Cursor<'t, T> {
 
-		fn first_dup(&mut self) -> Result<Option<T::Value>,DB_FAILURES>;
+		fn first_dup(&mut self) -> Result<Option<(T::SubKey,T::Value)>,DB_FAILURES>;
 
-		fn get_dup(&mut self, key: &T::Key, value: &T::Value) -> Result<Option<T::Value>,DB_FAILURES>;
+		fn get_dup(&mut self, key: &T::Key, subkey: &T::SubKey) -> Result<Option<T::Value>,DB_FAILURES>;
 
-		fn last_dup(&mut self) -> Result<Option<T::Value>, DB_FAILURES>;
+		fn last_dup(&mut self) -> Result<Option<(T::SubKey,T::Value)>, DB_FAILURES>;
 
-		fn next_dup(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+		fn next_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES>;
 		
-		fn prev_dup(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+		fn prev_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES>;
 	}
 
+	// Abstraction of a read-write cursor, for simple tables. WriteCursor inherit Cursor methods.
 	pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
 
 		fn put_cursor(&mut self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
@@ -147,49 +156,75 @@ pub mod transaction {
 		fn del(&mut self) -> Result<(),DB_FAILURES>;
 	}
 
+	// Abstraction of a read-write cursor with support for duplicated tables. DupWriteCursor inherit DupCursor and WriteCursor methods.
 	pub trait DupWriteCursor<'t, T: DupTable>: WriteCursor<'t, T> {
+		
+		fn put_cursor_dup(&mut self, key: &T::Key, subkey: &T::SubKey, value: &T::Value) -> Result<(),DB_FAILURES>;
 
+		/// Delete all data under its key
 		fn del_nodup(&mut self) -> Result<(),DB_FAILURES>;
 	}
 
+	// Abstraction of a read-only transaction.
 	pub trait Transaction<'a>: Send + Sync {
 
 		type Cursor<T: Table>: Cursor<'a,T>;
 		type DupCursor<T: DupTable>: DupCursor<'a, T> + Cursor<'a, T>;
 
-		fn get<T>(&self, key: &T::Key) -> Result<Option<T::Value>, DB_FAILURES> where T: Table;
+		fn get<T: Table>(&self, key: &T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
 
 		fn commit(self) -> Result<(), DB_FAILURES>;
 
 		fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>,DB_FAILURES>;
 
 		fn cursor_dup<T: DupTable>(&self) -> Result<Self::DupCursor<T>,DB_FAILURES>;
+
+		fn num_entries<T: Table>(&self) -> Result<usize, DB_FAILURES>;
 	}
 
+	// Abstraction of a read-write transaction. WriteTransaction inherits Transaction methods.
 	pub trait WriteTransaction<'a>: Transaction<'a> {
 
 		type WriteCursor<T: Table>: WriteCursor<'a,T>;
 		type DupWriteCursor<T: DupTable>: DupWriteCursor<'a,T> + DupCursor<'a,T>;
 
-        	fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
+        fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
 
 		fn delete<T: Table>(&self, key: &T::Key, value: &Option<T::Value>) -> Result<(),DB_FAILURES>;
 
 		fn clear<T: Table>(&self) -> Result<(),DB_FAILURES>;
 
 		fn write_cursor<T: Table>(&self) -> Result<Self::WriteCursor<T>, DB_FAILURES>;
+
+		fn write_cursor_dup<T: DupTable>(&self) -> Result<Self::DupWriteCursor<T>, DB_FAILURES>;
     	}
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 impl<'a, D: Database<'a>> Interface<'a,D> {
 
 	// --------------------------------| Blockchain |--------------------------------
 	
 	/// `height` fetch the current blockchain height.
-    	///
-    	/// Return the current blockchain height. In case of failures, a DB_FAILURES will be return.
-    	///
-    	/// No parameters is required.
+    ///
+    /// Return the current blockchain height. In case of failures, a DB_FAILURES will be return.
+    ///
+    /// No parameters is required.
 	fn height(&self) -> Result<Option<u64>,error::DB_FAILURES> {
 		let mut cursor: <<D as Database>::TXMut as Transaction>::Cursor<table::blockhash> = self.cursor::<table::blockhash>()?;
 		let last = cursor.last()?;
@@ -201,13 +236,13 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
 	}
 
 	/// `set_hard_fork_version` sets which hardfork version a height is on.<br>
-    	///
-    	/// In case of failures, a `DB_FAILURES` will be return.
-    	///
-    	/// Parameters:<br>
+    ///
+    /// In case of failures, a `DB_FAILURES` will be return.
+    ///
+    /// Parameters:<br>
  	/// `height`: is the height where the hard fork happen.<br>
-    	/// `version`: is the version of the hard fork.
-    	fn update_hard_fork_version(&mut self, height: u64, hardfork_version: u8) -> Result<(), error::DB_FAILURES> {
+    /// `version`: is the version of the hard fork.
+    fn update_hard_fork_version(&mut self, height: u64, hardfork_version: u8) -> Result<(), error::DB_FAILURES> {
 		let b_hf = self.get::<table::blockhfversion>(&height)?;
 
 		if let Some(b_hf) = b_hf {
@@ -221,42 +256,202 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
 	}
 
 	/// `get_hard_fork_version` checks which hardfork version a height is on.
-    	///
-    	/// In case of failures, a `DB_FAILURES` will be return.
-    	///
-    	/// Parameters:<br>
-    	/// `height`: is the height to check.
-    	fn get_hard_fork_version(&mut self, height: u64) -> Result<Option<u8>, error::DB_FAILURES> {
+    ///
+    /// In case of failures, a `DB_FAILURES` will be return.
+    ///
+    /// Parameters:<br>
+    /// `height`: is the height to check.
+    fn get_hard_fork_version(&mut self, height: u64) -> Result<Option<u8>, error::DB_FAILURES> {
 		self.get::<table::blockhfversion>(&height)
 	}
 
 	// --------------------------------| Blocks |--------------------------------
 
-	/// `pop_block` pops the top block off the blockchain.
-    	///
-    	/// Return the block that was popped. In case of failures, a `DB_FAILURES` will be return.
-    	///
-    	/// No parameters is required.
-    	fn pop_block(&mut self) -> Result<Option<Block>, error::DB_FAILURES> {
+	/// `pop_block` pops the top block off the blockchain. This cause the last block to be deleted
+	/// from all its reference tables, including transactions it was refering to.
+    ///
+	/// Return the block that was popped. In case of failures, a `DB_FAILURES` will be return.
+	///
+    /// No parameters is required.
+    fn pop_block(&mut self) -> Result<Option<Block>, error::DB_FAILURES> {
 		let current_height = self.height()?;
+
 		if let Some(current_height) = current_height{
 			let blk = self.get::<table::blocks>(&current_height)?;
 
+			// Get the block and delete it from block's tables
 			if let Some(blk) = blk {
 				self.delete::<table::blocks>(&current_height, &None)?;
 				self.delete::<table::blockmetadata>(&current_height, &None)?;
 
 				// Re-encoding the slice and get the hash
-				let e_blk = bincode::encode_to_vec(blk, BINCODE_CONFIG)
+				let e_blk = bincode::encode_to_vec(&blk, BINCODE_CONFIG)
 					.map_err(|e| error::DB_FAILURES::SerializeIssue(error::DB_SERIAL::BincodeEncode(e)))?;
-				let hash = Hash::new(monero::cryptonote::hash::keccak_256(e_blk.as_slice())).into();
+				let hash = Hash::new(keccak_256(e_blk.as_slice())).into();
 				
 				self.delete::<table::blockhash>(&hash, &None)?;
 
-				return Ok(Some(blk.into())) // a
+				// Now let's delete all its transactions
+				blk.0.tx_hashes.iter().for_each(|tx| {
+
+					todo!()
+				});
+				return Ok(Some(blk.0))
 			}
 		}
 		Ok(None)
+	}
+
+	// --------------------------------|  Outputs  |--------------------------------
+
+	/// `add_output` add an output data to it's storage .
+    ///
+    /// It internally keep track of the global output count. The global output count is also used to index outputs based on
+    /// their order of creations.
+    ///
+    /// Should return the amount output index. In case of failures, a DB_FAILURES will be return.
+	///
+    /// Parameters:
+    /// `tx_hash`: is the hash of the transaction where the output comes from.
+    /// `output`: is the output's publickey to store.
+	/// `index`: is the local output's index (from transaction).
+	/// `unlock_time`: is the unlock time (height) of the output.
+	/// `commitment`: is the RingCT commitment of this output.
+    fn add_output(&mut self,
+		tx_hash: Hash,
+		output: TxOut,
+		local_index: u64,
+		unlock_time: u64,
+		commitment: Option<Key>,
+    	) -> Result<u64, error::DB_FAILURES> {
+
+		let height = self.height()?;
+
+		if let Some(height) = height {
+
+			let pubkey = output.target.as_one_time_key().map(Into::into);
+
+			// RingCT Outputs
+			if let Some(commitment) = commitment {
+
+				let amount_index = self.get_rct_num_outputs()?;
+
+				let out_metadata = OutputMetadata {
+					tx_hash: tx_hash.into(),
+					local_index,
+					pubkey,
+					unlock_time,
+					height,
+					commitment: Some(commitment.into()),
+				};
+
+				self.put::<table::outputmetadata>(&amount_index, &out_metadata)?;
+				Ok(amount_index)
+			}
+
+			// Pre-RingCT Outputs
+			else {
+
+				let amount_index = self.get_pre_rct_num_outputs(output.amount.0)? + 1;
+
+				let out_metadata = OutputMetadata {
+					tx_hash: tx_hash.into(),
+					local_index,
+					pubkey,
+					unlock_time,
+					height,
+					commitment: None,
+				};
+
+				let mut cursor = self.write_cursor_dup::<table::prerctoutputmetadata>()?;
+				cursor.put_cursor_dup(&output.amount.0, &amount_index, &out_metadata)?;
+				Ok(amount_index)
+			}
+		} else {
+			Err(error::DB_FAILURES::NoneFound("add_output() didn't find a blockchain height"))
+		}
+	}
+
+	/// `get_output_key` get some of an output's data
+    ///
+    /// Return the public key, unlock time, and block height for the output with the given amount and index, collected in a struct
+    /// In case of failures, a `DB_FAILURES` will be return. Precisely, if the output cannot be found, an `OUTPUT_DNE` error will be return.
+    /// If any of the required part for the final struct isn't found, a `DB_ERROR` will be return
+    ///
+    /// Parameters:
+    /// `amount`: is the corresponding amount of the output
+    /// `index`: is the output's index (indexed by amount)
+    /// `include_commitment` : `true` by default.
+    fn get_output_key(&mut self, amount: Option<u64>, index: u64) -> Result<Option<OutputMetadata>, error::DB_FAILURES> {
+		if let Some(amount) = amount {
+			let mut cursor = self.cursor_dup::<table::prerctoutputmetadata>()?;
+			cursor.get_dup(&amount, &index)
+		} else {
+			self.get::<table::outputmetadata>(&index)
+		}
+	}
+
+	/// `get_output_tx_and_index` gets an output's transaction hash and index
+    ///
+    /// Return a tuple containing the transaction hash and the output index. In case of failures, a `DB_FAILURES` will be return.
+    ///
+    /// Parameters:
+    /// `amount`: is the corresponding amount of the output
+    /// `index`: is the output's index (indexed by amount)
+    /*fn get_output_tx_and_index_from_amount_index(&mut self, amount: u64, index: u64) -> Result<Option<OutTx>, error::DB_FAILURES> {
+		let rctoutkey = self.get_output_key(amount, index)?;
+		if let Some(rctoutkey) = rctoutkey {
+			return self.get::<table::outputinherit>(&rctoutkey.output_id)
+		}
+		Ok(None)
+	}*/
+
+    /// `get_output_tx_index` gets an output's transaction hash and index from output's global index.
+    ///
+    /// Return a tuple containing the transaction hash and the output index. In case of failures, a `DB_FAILURES` will be return.
+    ///
+    /// Parameters:
+    /// `index`: is the output's global index.
+	/*
+    fn get_output_tx_and_index_from_global(&mut self, index: u64) -> Result<Option<OutTx>, DB_FAILURES> {
+		todo!()
+	}*/
+
+    /// `get_output_key_list` gets outputs' metadata from a corresponding collection.
+    ///
+    /// Return a collection of output's metadata. In case of failurse, a `DB_FAILURES` will be return.
+    ///
+    /// Parameters:
+    /// `amounts`: is the collection of amounts corresponding to the requested outputs.
+    /// `offsets`: is a collection of outputs' index (indexed by amount).
+    /// `allow partial`: `false` by default.
+    fn get_output_key_list(
+		&mut self,
+		amounts: &Option<Vec<u64>>,
+		offsets: &Vec<u64>,
+		allow_partial: bool,
+    	) -> Result<Option<Vec<OutputMetadata>>, error::DB_FAILURES> {
+		todo!()
+	}
+
+    /// `get_num_outputs` fetches the number of outputs of a given amount.
+    ///
+    /// Return a count of outputs of the given amount. in case of failures a `DB_FAILURES` will be return.
+    ///
+    /// Parameters:
+    /// `amount`: is the output amount being looked up.
+    fn get_rct_num_outputs(&self) -> Result<u64, error::DB_FAILURES> {
+		self.num_entries::<table::outputmetadata>().map(|n| n as u64)
+	}
+
+	fn get_pre_rct_num_outputs(&self, amount: u64) -> Result<u64, error::DB_FAILURES> {
+		let mut cursor = self.cursor_dup::<table::prerctoutputmetadata>()?;
+		transaction::Cursor::set(&mut cursor, &amount)?;
+		let out_metadata: Option<(u64, OutputMetadata)> = transaction::DupCursor::last_dup(&mut cursor)?;
+		if let Some(out_metadata) = out_metadata {
+			return Ok(out_metadata.0)
+		}
+		Err(error::DB_FAILURES::Other("failed to decode the subkey and value"))
 	}
 	
 }

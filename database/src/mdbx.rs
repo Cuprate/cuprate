@@ -10,7 +10,7 @@ use crate::{
 	transaction::{Transaction, WriteTransaction}, BINCODE_CONFIG,
 };
 
-// Conversion from libmdbx::Error to DB_FAILURES
+// Conversion from libmdbx::Error to DB_FAILURES for details about mdbx error, please see lmdb documentation (it has description).
 impl From<libmdbx::Error> for DB_FAILURES {
 	fn from(err: libmdbx::Error) -> Self {
 		use libmdbx::Error;
@@ -74,10 +74,12 @@ where
 	type TXMut = libmdbx::Transaction<'a, RW, E>;
 	type Error = libmdbx::Error;
 
+	// Open a Read-Only transaction
 	fn tx(&'a self) -> Result<Self::TX, Self::Error> {
 		self.begin_ro_txn()
 	}
 
+	// Open a Read-Write transaction
 	fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error> {
 		self.begin_rw_txn()
 	}
@@ -88,43 +90,43 @@ where
 	T: Table,
 	R: TransactionKind
 {
-    	fn first(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES> {
+    fn first(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES> {
         	let pair = self.first::<Vec<u8>,Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 
 		cursor_pair_decode(pair)
-    	}
+    }
 
-    	fn get_cursor(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
+    fn get_cursor(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
 		let pair = self.get_current::<Vec<u8>,Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 
 		cursor_pair_decode(pair)
 		
-    	}
+    }
 
-    	fn last(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
+    fn last(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
 		let pair = self.last::<Vec<u8>,Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 				
 		cursor_pair_decode(pair)
-    	}
+    }
 
-    	fn  next(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
+    fn  next(&mut self) -> Result<Option<(<T as Table>::Key, <T as Table>::Value)>,DB_FAILURES> {
 		let pair = self.next::<Vec<u8>,Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 			
 		cursor_pair_decode(pair)
-    	}
+    }
 
-    	fn prev(&mut self) -> Result<Option<(<T as Table>::Key,<T as Table>::Value)>,DB_FAILURES> {
+    fn prev(&mut self) -> Result<Option<(<T as Table>::Key,<T as Table>::Value)>,DB_FAILURES> {
         	let pair = self.prev::<Vec<u8>,Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 			
 		cursor_pair_decode(pair)
-    	}
+    }
 
-    	fn set(&mut self, key: &T::Key) -> Result<Option<<T as Table>::Value>,DB_FAILURES> {
+    fn set(&mut self, key: &T::Key) -> Result<Option<<T as Table>::Value>,DB_FAILURES> {
 		let encoded_key = mdbx_encode(key)?;
 
 		let value = self.set::<Vec<u8>>(&encoded_key)
@@ -142,20 +144,20 @@ where
 	R: TransactionKind,
 	T: DupTable,
 {
-    	fn first_dup(&mut self) -> Result<Option<T::Value>,DB_FAILURES> {
-        	let value = self.first_dup::<Vec<u8>>()
+    fn first_dup(&mut self) -> Result<Option<(T::SubKey,T::Value)>,DB_FAILURES> {
+        let value = self.first_dup::<Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 		
 		if let Some(value) = value {
 			return Ok(Some(mdbx_decode(value.as_slice())?.0))
 		}
 		Ok(None)
-    	}
+    }
 
-	fn get_dup(&mut self, key: &T::Key, value: &T::Value) -> Result<Option<<T>::Value>,DB_FAILURES> {
-		let (encoded_key, encoded_value) = (mdbx_encode(key)?, mdbx_encode(value)?);
+	fn get_dup(&mut self, key: &T::Key, subkey: &T::SubKey) -> Result<Option<<T>::Value>,DB_FAILURES> {
+		let (encoded_key, encoded_subkey) = (mdbx_encode(key)?, mdbx_encode(subkey)?);
 
-		let value = self.get_both::<Vec<u8>>(&encoded_key, &encoded_value)
+		let value = self.get_both::<Vec<u8>>(&encoded_key, &encoded_subkey)
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 		
 		if let Some(value) = value {
@@ -164,7 +166,7 @@ where
 		Ok(None)
 	}
 
-	fn last_dup(&mut self) -> Result<Option<<T>::Value>, DB_FAILURES> {
+	fn last_dup(&mut self) -> Result<Option<(T::SubKey,T::Value)>, DB_FAILURES> {
 		let value = self.last_dup::<Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 		
@@ -174,8 +176,8 @@ where
 		Ok(None)
 	}
 
-	fn next_dup(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES> {
-        	let pair = self.next_dup::<Vec<u8>,Vec<u8>>()
+	fn next_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES> {
+        let pair = self.next_dup::<Vec<u8>,Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 		
 		if let Some(pair) = pair {
@@ -183,10 +185,10 @@ where
 			return Ok(Some((decoded_key.0, decoded_value.0)))
 		}
 		Ok(None)
-    	}
+    }
 
-	fn prev_dup(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES> {
-        	let pair = self.prev_dup::<Vec<u8>,Vec<u8>>()
+	fn prev_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES> {
+        let pair = self.prev_dup::<Vec<u8>,Vec<u8>>()
 			.map_err(std::convert::Into::<DB_FAILURES>::into)?;
 		
 		if let Some(pair) = pair {
@@ -194,7 +196,7 @@ where
 			return Ok(Some((decoded_key.0, decoded_value.0)))
 		}
 		Ok(None)
-    	}
+    }
 }
 
 impl<'a,T> crate::transaction::WriteCursor<'a, T> for Cursor<'a, RW> 
@@ -202,26 +204,34 @@ where
 	T: Table,
 {
 	fn put_cursor(&mut self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES> {
-        	let (encoded_key, encoded_value) = (mdbx_encode(key)?, mdbx_encode(value)?);
+        let (encoded_key, encoded_value) = (mdbx_encode(key)?, mdbx_encode(value)?);
 
 		self.put(&encoded_key, &encoded_value, WriteFlags::empty())
 			.map_err(Into::into)
-    	}
-
-    	fn del(&mut self) -> Result<(),DB_FAILURES> {
-        	
+    }
+	
+    fn del(&mut self) -> Result<(),DB_FAILURES> {
+    	
 		self.del(WriteFlags::empty()).map_err(Into::into)
-    	}
+    }
 }
 
 impl<'a,T> crate::transaction::DupWriteCursor<'a ,T> for Cursor<'a ,RW>
 where
 	T: DupTable,
 {
-    	fn del_nodup(&mut self) -> Result<(),DB_FAILURES> {
+    fn del_nodup(&mut self) -> Result<(),DB_FAILURES> {
         	
 		self.del(WriteFlags::NO_DUP_DATA).map_err(Into::into)
-    	}
+    }
+
+    fn put_cursor_dup(&mut self, key: &<T>::Key, subkey: &<T as DupTable>::SubKey, value: &<T>::Value) -> Result<(),DB_FAILURES> {
+		let (encoded_key, mut encoded_subkey, mut encoded_value) = (mdbx_encode(key)?, mdbx_encode(subkey)?, mdbx_encode(value)?);
+		encoded_subkey.append(&mut encoded_value);
+
+		self.put(encoded_key.as_slice(), encoded_subkey.as_slice(), WriteFlags::empty())
+			.map_err(Into::into)
+    }
 }
 
 // Yes it doesn't work
@@ -260,10 +270,17 @@ where
 	}
 
 	fn cursor_dup<T: DupTable>(&self) -> Result<Self::DupCursor<T>,DB_FAILURES> {
-        	let table = mdbx_open_table::<_,_,T>(self)?;
+    	let table = mdbx_open_table::<_,_,T>(self)?;
 
 		self.cursor(&table).map_err(Into::into)
-    	}
+    }
+
+	fn num_entries<T: Table>(&self) -> Result<usize, DB_FAILURES> {
+		let table = mdbx_open_table::<_,_,T>(self)?;
+        let stat = self.table_stat(&table)?;
+
+		Ok(stat.entries())
+    }
 	
 }
 
@@ -306,4 +323,10 @@ where
 
 		self.cursor(&table).map_err(Into::into)
 	}
+
+	fn write_cursor_dup<T: DupTable>(&self) -> Result<Self::DupWriteCursor<T>, DB_FAILURES> {
+        let table = mdbx_open_table::<_,_,T>(self)?;
+
+		self.cursor(&table).map_err(Into::into)
+    }
 }
