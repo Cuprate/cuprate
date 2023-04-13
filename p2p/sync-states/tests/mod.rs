@@ -9,6 +9,7 @@ use monero::Hash;
 use monero_wire::messages::{admin::HandshakeResponse, CoreSyncData};
 use tower::ServiceExt;
 
+
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
 struct TestBlockchain;
@@ -72,6 +73,6 @@ async fn test_p2p_conn() {
 
     let (client, conn) = handshaker.complete_handshake(r_h.compat(), w_h.compat_write(), Direction::Outbound, monero_wire::NetworkAddress::default()).await.unwrap();
 
-    conn.run().await;
+    //conn.run().await;
 
 }

@@ -16,6 +16,6 @@ tower = {version = "0.4.13", features = ["util"]}
 thiserror = "1.0.39"
 
 
-tokio = {version="*", features=["full"]}
-tokio-util = {version ="*", features=["compat"]}
+tokio = {version="1.1", features=["full"]}
+tokio-util = {version ="0.7", features=["compat"]}
 
