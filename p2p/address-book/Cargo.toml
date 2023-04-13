@@ -7,3 +7,4 @@ authors = ["Boog900"]
 
 [dependencies]
 monero-wire = {path= "../../net/monero-wire"}
+rand = "0.8"

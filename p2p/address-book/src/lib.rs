@@ -55,6 +55,21 @@ impl PeerList {
         self.peers.len()
     }
 
+    pub fn add_new_peer(&mut self, peer: PeerListEntryBase) {
+        if self.peers.insert(peer.adr, peer.clone()).is_none() {
+            // we just ckecked we don't already have the peer so we don't have to check this list as well
+            let Some(idxs) = self.pruning_idxs.get_mut(&peer.pruning_seed) else {
+                let _ = self.pruning_idxs.insert(peer.pruning_seed, vec![peer.adr]);
+                return;
+            };
+            idxs.push(peer.adr);
+        }
+    }
+
+    pub fn get_peer(&mut self, peer: &NetworkAddress) -> Option<&PeerListEntryBase> {
+        self.peers.get(peer)
+    }
+
     pub fn get_peers_by_pruning_seed(&self, seed: &u32) -> Option<impl Iterator<Item = &PeerListEntryBase>> {
         let addrs = self.pruning_idxs.get(seed)?;
         Some(PeerListIterator::new(&self.peers, addrs))
@@ -65,10 +80,10 @@ impl PeerList {
             .pruning_idxs
             .get_mut(&peer.pruning_seed)
             .expect("Pruning seed must exist if a peer has that seed");
-        let mut i = 0;
-        for peer_adr in peer_list.iter() {
+
+        for (idx, peer_adr) in peer_list.iter().enumerate() {
             if peer_adr == &peer.adr {
-                peer_list.remove(i);
+                peer_list.remove(idx);
                 return;
             }
         }
@@ -124,9 +139,10 @@ impl AddressBook {
 
 #[cfg(test)]
 mod tests {
-    use std::{vec, collections::HashSet};
+    use std::{vec, collections::HashSet, ops::Deref};
 
     use monero_wire::{messages::PeerListEntryBase, NetworkAddress};
+    use rand::Rng;
 
     use crate::PeerList;
 
@@ -140,8 +156,23 @@ mod tests {
         PeerList::new(peer_list)
     }
 
+    fn make_fake_peer_list_with_random_pruning_seeds(numb_o_peers: usize) -> PeerList {
+        let mut r = rand::thread_rng();
+
+        let mut peer_list = vec![PeerListEntryBase::default(); numb_o_peers];
+        for (idx, peer) in peer_list.iter_mut().enumerate() {
+            let NetworkAddress::IPv4(ip) =  &mut peer.adr else {panic!("this test requires default to be ipv4")};
+            ip.m_ip += idx as u32;
+
+            peer.pruning_seed = if r.gen_bool(0.4) {0} else {r.gen_range(384..=391)};
+        }
+
+        PeerList::new(peer_list)
+
+    }
+
     #[test]
-    fn test_reduce_peer_list_length() {
+    fn peer_list_reduce_length() {
         let mut peer_list = make_fake_peer_list(2090);
         let must_keep_peers = HashSet::new();
 
@@ -153,15 +184,53 @@ mod tests {
     }
 
     #[test]
-    fn test_reduce_peer_list_length_with_peers_we_need() {
-        let mut peer_list = make_fake_peer_list(5000);
+    fn peer_list_reduce_length_with_peers_we_need() {
+        let mut peer_list = make_fake_peer_list(500);
         let must_keep_peers = HashSet::from_iter(peer_list.peers.iter().map(|(adr, _)| *adr));
 
-        let target_len = 4990;
+        let target_len = 49;
 
         peer_list.reduce_list(must_keep_peers, target_len);
 
-        // we can't remove any of the peers
-        assert_eq!(peer_list.len(), 5000);
+        // we can't remove any of the peers we said we need them all
+        assert_eq!(peer_list.len(), 500);
+    }
+
+    #[test]
+    fn peer_list_get_peers_by_pruning_seed() {
+        let mut r = rand::thread_rng();
+
+        let peer_list = make_fake_peer_list_with_random_pruning_seeds(1000);
+        let seed =if r.gen_bool(0.4) {0} else {r.gen_range(384..=391)};
+
+        let peers_with_seed = peer_list.get_peers_by_pruning_seed(&seed).expect("If you hit this buy a lottery ticket");
+
+        for peer in peers_with_seed {
+            assert_eq!(peer.pruning_seed, seed);
+        }
+
+        assert_eq!(peer_list.len(), 1000);
+
+    }
+
+    #[test]
+    fn peer_list_remove_specific_peer() {
+        let mut peer_list = make_fake_peer_list_with_random_pruning_seeds(100);
+
+        // generate peer at a random point in the list
+        let mut peer = NetworkAddress::default();
+        let NetworkAddress::IPv4(ip) =  &mut peer else {panic!("this test requires default to be ipv4")};
+        ip.m_ip += 50;
+
+        assert!(peer_list.remove_peer(&peer).is_some());
+
+        let pruning_idxs = peer_list.pruning_idxs;
+        let peers = peer_list.peers;
+
+        for (_, addrs) in pruning_idxs {
+            addrs.iter().for_each(|adr| assert!(adr != &peer))
+        }
+
+        assert!(!peers.contains_key(&peer));
     }
 }
