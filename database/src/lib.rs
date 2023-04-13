@@ -34,7 +34,7 @@ use thiserror::Error;
 use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::{RctSig, Key}, cryptonote::hash::keccak_256, TxOut};
 use transaction::{Cursor, Transaction,  WriteTransaction, DupCursor, DupWriteCursor};
 use types::{OutputMetadata};
-use std::ops::Range;
+use std::ops::{Range, Deref};
 
 #[cfg(feature = "mdbx")]
 pub mod mdbx;
@@ -78,15 +78,15 @@ pub mod database {
 	/// `Interface` is a struct containing a shared pointer to the database and transaction's to be used for the implemented method of Interface.
 	pub struct Interface<'a, D: Database<'a>>  {
 		pub db: Arc<D>,
-		pub ro_tx: Option<<D as Database<'a>>::TX>,
 		pub tx: Option<<D as Database<'a>>::TXMut>,
 	}
 
 	// Convenient implementations of database
     impl<'service,D: Database<'service>> Interface<'service,D> {
 
-        fn from(db: Arc<D>) -> Self {
-        		Self { db, ro_tx: None, tx: None }
+        fn from(db: Arc<D>) -> Result<Self,DB_FAILURES> {
+
+			Ok(Self { db, tx: None})
     	}	
 
 		fn open(&'service mut self) -> Result<(),DB_FAILURES> {
@@ -226,7 +226,7 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     ///
     /// No parameters is required.
 	fn height(&self) -> Result<Option<u64>,error::DB_FAILURES> {
-		let mut cursor: <<D as Database>::TXMut as Transaction>::Cursor<table::blockhash> = self.cursor::<table::blockhash>()?;
+		let mut cursor = self.cursor::<table::blockhash>()?;
 		let last = cursor.last()?;
 		
 		if let Some(pair) = last {
@@ -383,6 +383,7 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     /// `index`: is the output's index (indexed by amount)
     /// `include_commitment` : `true` by default.
     fn get_output_key(&mut self, amount: Option<u64>, index: u64) -> Result<Option<OutputMetadata>, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
 		if let Some(amount) = amount {
 			let mut cursor = self.cursor_dup::<table::prerctoutputmetadata>()?;
 			cursor.get_dup(&amount, &index)
@@ -427,10 +428,14 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     /// `allow partial`: `false` by default.
     fn get_output_key_list(
 		&mut self,
-		amounts: &Option<Vec<u64>>,
+		amounts: &Vec<u64>,
 		offsets: &Vec<u64>,
 		allow_partial: bool,
     	) -> Result<Option<Vec<OutputMetadata>>, error::DB_FAILURES> {
+		
+		offsets.iter().for_each(|o| {
+			
+		});
 		todo!()
 	}
 
