@@ -5,30 +5,6 @@ use std::{
 
 use monero_wire::{messages::PeerListEntryBase, NetworkAddress};
 
-struct PeerListIterator<'a> {
-    list: &'a HashMap<NetworkAddress, PeerListEntryBase>,
-    addrs: &'a [NetworkAddress],
-    next_idx: usize,
-}
-
-impl<'a> PeerListIterator<'a> {
-    pub fn new(list: &'a HashMap<NetworkAddress, PeerListEntryBase>, addrs: &'a [NetworkAddress]) -> Self {
-        PeerListIterator {
-            list,
-            addrs,
-            next_idx: 0,
-        }
-    }
-}
-
-impl<'a> Iterator for PeerListIterator<'a> {
-    type Item = &'a PeerListEntryBase;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.next_idx += 1;
-        self.list.get(self.addrs.get(self.next_idx - 1)?)
-    }
-}
-
 struct PeerList {
     peers: HashMap<NetworkAddress, PeerListEntryBase>,
     pruning_idxs: HashMap<u32, Vec<NetworkAddress>>,
@@ -42,11 +18,10 @@ impl PeerList {
         for peer in list {
             peers.insert(peer.adr, peer);
 
-            let Some(idxs) = pruning_idxs.get_mut(&peer.pruning_seed) else {
-                let _ = pruning_idxs.insert(peer.pruning_seed, vec![peer.adr]);
-                continue;
-            };
-            idxs.push(peer.adr);
+            pruning_idxs
+                .entry(peer.pruning_seed)
+                .or_insert_with(Vec::new)
+                .push(peer.adr);
         }
         PeerList { peers, pruning_idxs }
     }
@@ -57,37 +32,32 @@ impl PeerList {
 
     pub fn add_new_peer(&mut self, peer: PeerListEntryBase) {
         if self.peers.insert(peer.adr, peer.clone()).is_none() {
-            // we just ckecked we don't already have the peer so we don't have to check this list as well
-            let Some(idxs) = self.pruning_idxs.get_mut(&peer.pruning_seed) else {
-                let _ = self.pruning_idxs.insert(peer.pruning_seed, vec![peer.adr]);
-                return;
-            };
-            idxs.push(peer.adr);
+            self.pruning_idxs
+                .entry(peer.pruning_seed)
+                .or_insert_with(Vec::new)
+                .push(peer.adr);
         }
     }
 
-    pub fn get_peer(&mut self, peer: &NetworkAddress) -> Option<&PeerListEntryBase> {
+    pub fn get_peer(&self, peer: &NetworkAddress) -> Option<&PeerListEntryBase> {
         self.peers.get(peer)
     }
 
     pub fn get_peers_by_pruning_seed(&self, seed: &u32) -> Option<impl Iterator<Item = &PeerListEntryBase>> {
         let addrs = self.pruning_idxs.get(seed)?;
-        Some(PeerListIterator::new(&self.peers, addrs))
+        Some(addrs.iter().filter_map(move |addr| self.peers.get(addr)))
     }
 
     fn remove_peer_pruning_idx(&mut self, peer: &PeerListEntryBase) {
-        let peer_list = self
-            .pruning_idxs
-            .get_mut(&peer.pruning_seed)
-            .expect("Pruning seed must exist if a peer has that seed");
-
-        for (idx, peer_adr) in peer_list.iter().enumerate() {
-            if peer_adr == &peer.adr {
+        if let Some(peer_list) = self.pruning_idxs.get_mut(&peer.pruning_seed) {
+            if let Some(idx) = peer_list.iter().position(|peer_adr| peer_adr == &peer.adr) {
                 peer_list.remove(idx);
-                return;
+            } else {
+                unimplemented!("This function will only be called when the peer exists.");
             }
+        } else {
+            unimplemented!("Pruning seed must exist if a peer has that seed.");
         }
-        // this should be unreachable!() but no need
     }
 
     pub fn remove_peer(&mut self, peer: &NetworkAddress) -> Option<PeerListEntryBase> {
@@ -96,24 +66,27 @@ impl PeerList {
         Some(peer_eb)
     }
 
-    pub fn reduce_list(&mut self, must_keep_peers: HashSet<NetworkAddress>, new_len: usize) {
-        if new_len > self.len() {
+    pub fn reduce_list(&mut self, must_keep_peers: &HashSet<NetworkAddress>, new_len: usize) {
+        if new_len >= self.len() {
             return;
         }
-        let mut amt_to_remove = self.len() - new_len;
-        let mut remove_list = Vec::with_capacity(amt_to_remove);
 
-        for (peer_adr, _) in self.peers.iter() {
-            if amt_to_remove == 0 || must_keep_peers.contains(peer_adr) {
+        let target_removed = self.len() - new_len;
+        let mut removed_count = 0;
+        let mut peers_to_remove: Vec<NetworkAddress> = Vec::with_capacity(target_removed);
+
+        for (peer_adr, _) in &self.peers {
+            if removed_count >= target_removed {
                 break;
-            } else {
-                remove_list.push(*peer_adr);
-                amt_to_remove -= 1;
+            }
+            if !must_keep_peers.contains(peer_adr) {
+                peers_to_remove.push(*peer_adr);
+                removed_count += 1;
             }
         }
 
-        for peer in remove_list {
-            let _ = self.remove_peer(&peer);
+        for peer_adr in peers_to_remove {
+            let _ = self.remove_peer(&peer_adr);
         }
     }
 }
@@ -121,6 +94,7 @@ impl PeerList {
 pub struct AddressBook {
     white_list: PeerList,
     gray_list: PeerList,
+    anchor_list: HashSet<NetworkAddress>,
 }
 
 impl AddressBook {
@@ -135,11 +109,13 @@ impl AddressBook {
     fn len_gray_list(&self) -> usize {
         self.gray_list.len()
     }
+
+    
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{vec, collections::HashSet, ops::Deref};
+    use std::{vec, collections::HashSet};
 
     use monero_wire::{messages::PeerListEntryBase, NetworkAddress};
     use rand::Rng;
@@ -164,11 +140,10 @@ mod tests {
             let NetworkAddress::IPv4(ip) =  &mut peer.adr else {panic!("this test requires default to be ipv4")};
             ip.m_ip += idx as u32;
 
-            peer.pruning_seed = if r.gen_bool(0.4) {0} else {r.gen_range(384..=391)};
+            peer.pruning_seed = if r.gen_bool(0.4) { 0 } else { r.gen_range(384..=391) };
         }
 
         PeerList::new(peer_list)
-
     }
 
     #[test]
@@ -178,7 +153,7 @@ mod tests {
 
         let target_len = 2000;
 
-        peer_list.reduce_list(must_keep_peers, target_len);
+        peer_list.reduce_list(&must_keep_peers, target_len);
 
         assert_eq!(peer_list.len(), target_len);
     }
@@ -190,7 +165,7 @@ mod tests {
 
         let target_len = 49;
 
-        peer_list.reduce_list(must_keep_peers, target_len);
+        peer_list.reduce_list(&must_keep_peers, target_len);
 
         // we can't remove any of the peers we said we need them all
         assert_eq!(peer_list.len(), 500);
@@ -201,16 +176,17 @@ mod tests {
         let mut r = rand::thread_rng();
 
         let peer_list = make_fake_peer_list_with_random_pruning_seeds(1000);
-        let seed =if r.gen_bool(0.4) {0} else {r.gen_range(384..=391)};
+        let seed = if r.gen_bool(0.4) { 0 } else { r.gen_range(384..=391) };
 
-        let peers_with_seed = peer_list.get_peers_by_pruning_seed(&seed).expect("If you hit this buy a lottery ticket");
+        let peers_with_seed = peer_list
+            .get_peers_by_pruning_seed(&seed)
+            .expect("If you hit this buy a lottery ticket");
 
         for peer in peers_with_seed {
             assert_eq!(peer.pruning_seed, seed);
         }
 
         assert_eq!(peer_list.len(), 1000);
-
     }
 
     #[test]
@@ -233,4 +209,55 @@ mod tests {
 
         assert!(!peers.contains_key(&peer));
     }
+
+    #[test]
+    fn peer_list_pruning_idxs_are_correct() {
+        let peer_list = make_fake_peer_list_with_random_pruning_seeds(100);
+        let mut total_len = 0;
+
+        for (seed, list) in peer_list.pruning_idxs {
+            for peer in list.iter() {
+                assert_eq!(peer_list.peers.get(peer).unwrap().pruning_seed, seed);
+                total_len += 1;
+            }
+        }
+
+        assert_eq!(total_len, peer_list.peers.len())
+    }
+
+    #[test]
+    fn peer_list_add_new_peer() {
+        let mut peer_list = make_fake_peer_list(10);
+        let mut new_peer = PeerListEntryBase::default();
+        let NetworkAddress::IPv4(ip) =  &mut new_peer.adr else {panic!("this test requires default to be ipv4")};
+        ip.m_ip += 50;
+
+        peer_list.add_new_peer(new_peer.clone());
+
+        assert_eq!(peer_list.len(), 11);
+        assert_eq!(peer_list.get_peer(&new_peer.adr), Some(&new_peer));
+        assert!(peer_list.pruning_idxs.get(&new_peer.pruning_seed).unwrap().contains(&new_peer.adr));
+    }
+
+    #[test]
+    fn peer_list_add_existing_peer() {
+        let mut peer_list = make_fake_peer_list(10);
+        let existing_peer = peer_list.get_peer(&NetworkAddress::default()).unwrap().clone();
+
+        peer_list.add_new_peer(existing_peer.clone());
+
+        assert_eq!(peer_list.len(), 10);
+        assert_eq!(peer_list.get_peer(&existing_peer.adr), Some(&existing_peer));
+    }
+
+    #[test]
+    fn peer_list_get_non_existent_peer() {
+        let peer_list = make_fake_peer_list(10);
+        let mut non_existent_peer = NetworkAddress::default();
+        let NetworkAddress::IPv4(ip) =  &mut non_existent_peer else {panic!("this test requires default to be ipv4")};
+        ip.m_ip += 50;
+
+        assert_eq!(peer_list.get_peer(&non_existent_peer), None);
+    }
+
 }

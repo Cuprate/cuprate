@@ -8,3 +8,4 @@ authors = ["Boog900"]
 
 [dependencies]
 chrono = "0.4"
+thiserror = "1"
