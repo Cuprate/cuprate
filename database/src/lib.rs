@@ -328,54 +328,49 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		commitment: Option<Key>,
     	) -> Result<u64, error::DB_FAILURES> {
 
-		let height = self.height()?;
+		let height = self.height()?
+			.ok_or(error::DB_FAILURES::NoneFound("add_output() didn't find a blockchain height"))?;
 
-		if let Some(height) = height {
+		let pubkey = output.target.as_one_time_key().map(Into::into);
 
-			let pubkey = output.target.as_one_time_key().map(Into::into);
+		// RingCT Outputs
+		if let Some(commitment) = commitment {
 
-			// RingCT Outputs
-			if let Some(commitment) = commitment {
+			let amount_index = self.get_rct_num_outputs()?;
 
-				let amount_index = self.get_rct_num_outputs()?;
+			let out_metadata = OutputMetadata {
+				tx_hash: tx_hash.into(),
+				local_index,
+				pubkey,
+				unlock_time,
+				height,
+				commitment: Some(commitment.into()),
+			};
 
-				let out_metadata = OutputMetadata {
-					tx_hash: tx_hash.into(),
-					local_index,
-					pubkey,
-					unlock_time,
-					height,
-					commitment: Some(commitment.into()),
-				};
+			self.put::<table::outputmetadata>(&amount_index, &out_metadata)?;
+			Ok(amount_index)
+		}
+		// Pre-RingCT Outputs
+		else {
 
-				self.put::<table::outputmetadata>(&amount_index, &out_metadata)?;
-				Ok(amount_index)
-			}
+			let amount_index = self.get_pre_rct_num_outputs(output.amount.0)? + 1;
 
-			// Pre-RingCT Outputs
-			else {
+			let out_metadata = OutputMetadata {
+				tx_hash: tx_hash.into(),
+				local_index,
+				pubkey,
+				unlock_time,
+				height,
+				commitment: None,
+			};
 
-				let amount_index = self.get_pre_rct_num_outputs(output.amount.0)? + 1;
-
-				let out_metadata = OutputMetadata {
-					tx_hash: tx_hash.into(),
-					local_index,
-					pubkey,
-					unlock_time,
-					height,
-					commitment: None,
-				};
-
-				let mut cursor = self.write_cursor_dup::<table::prerctoutputmetadata>()?;
-				cursor.put_cursor_dup(&output.amount.0, &amount_index, &out_metadata)?;
-				Ok(amount_index)
-			}
-		} else {
-			Err(error::DB_FAILURES::NoneFound("add_output() didn't find a blockchain height"))
+			let mut cursor = self.write_cursor_dup::<table::prerctoutputmetadata>()?;
+			cursor.put_cursor_dup(&output.amount.0, &amount_index, &out_metadata)?;
+			Ok(amount_index)
 		}
 	}
 
-	/// `get_output_key` get some of an output's data
+	/// `get_output` get an output's data
     ///
     /// Return the public key, unlock time, and block height for the output with the given amount and index, collected in a struct
     /// In case of failures, a `DB_FAILURES` will be return. Precisely, if the output cannot be found, an `OUTPUT_DNE` error will be return.
@@ -385,7 +380,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `amount`: is the corresponding amount of the output
     /// `index`: is the output's index (indexed by amount)
     /// `include_commitment` : `true` by default.
-    fn get_output_key(&'service self, amount: Option<u64>, index: u64) -> Result<Option<OutputMetadata>, error::DB_FAILURES> {
+    fn get_output(&'service self, amount: Option<u64>, index: u64) -> Result<Option<OutputMetadata>, error::DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		if let Some(amount) = amount {
 			let mut cursor = ro_tx.cursor_dup::<table::prerctoutputmetadata>()?;
@@ -395,56 +390,54 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		}
 	}
 
-	/// `get_output_tx_and_index` gets an output's transaction hash and index
+    /// `get_output_list` gets a collection of output's data from a corresponding index collection.
     ///
-    /// Return a tuple containing the transaction hash and the output index. In case of failures, a `DB_FAILURES` will be return.
-    ///
-    /// Parameters:
-    /// `amount`: is the corresponding amount of the output
-    /// `index`: is the output's index (indexed by amount)
-    /*fn get_output_tx_and_index_from_amount_index(&mut self, amount: u64, index: u64) -> Result<Option<OutTx>, error::DB_FAILURES> {
-		let rctoutkey = self.get_output_key(amount, index)?;
-		if let Some(rctoutkey) = rctoutkey {
-			return self.get::<table::outputinherit>(&rctoutkey.output_id)
-		}
-		Ok(None)
-	}*/
-
-    /// `get_output_tx_index` gets an output's transaction hash and index from output's global index.
-    ///
-    /// Return a tuple containing the transaction hash and the output index. In case of failures, a `DB_FAILURES` will be return.
-    ///
-    /// Parameters:
-    /// `index`: is the output's global index.
-	/*
-    fn get_output_tx_and_index_from_global(&mut self, index: u64) -> Result<Option<OutTx>, DB_FAILURES> {
-		todo!()
-	}*/
-
-    /// `get_output_key_list` gets outputs' metadata from a corresponding collection.
-    ///
-    /// Return a collection of output's metadata. In case of failurse, a `DB_FAILURES` will be return.
+    /// Return a collection of output's data. In case of failurse, a `DB_FAILURES` will be return.
     ///
     /// Parameters:
     /// `amounts`: is the collection of amounts corresponding to the requested outputs.
     /// `offsets`: is a collection of outputs' index (indexed by amount).
     /// `allow partial`: `false` by default.
-    fn get_output_key_list(
+    fn get_output_list(
 		&'service self,
-		amounts: &Vec<u64>,
-		offsets: &Vec<u64>,
-		allow_partial: bool,
+		amounts: Option<Vec<u64>>,
+		offsets: Vec<u64>,
     	) -> Result<Option<Vec<OutputMetadata>>, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let mut result: Vec<OutputMetadata> = Vec::new();
 		
-		offsets.iter().for_each(|o| {
-			
-		});
-		todo!()
+		// Pre-RingCT output to be found.
+		if let Some(amounts) = amounts {
+			let mut cursor = ro_tx.cursor_dup::<table::prerctoutputmetadata>()?;
+
+			for ofs in amounts.into_iter().zip(offsets) {
+
+				if ofs.0 == 0 {
+					let output = ro_tx.get::<table::outputmetadata>(&ofs.1)?
+						.ok_or(error::DB_FAILURES::NoneFound("An output hasn't been found in the database"))?;
+					result.push(output);
+				} else {
+					let output = cursor.get_dup(&ofs.0, &ofs.1)?
+						.ok_or(error::DB_FAILURES::NoneFound("An output hasn't been found in the database"))?;
+					result.push(output);
+				}
+			}
+		// No Pre-RingCT outputs to be found.
+		} else {
+			for ofs in offsets {
+
+				let output = ro_tx.get::<table::outputmetadata>(&ofs)?
+					.ok_or(error::DB_FAILURES::NoneFound("An output hasn't been found in the database"))?;
+				result.push(output);				
+			}
+		}
+
+		Ok(Some(result))
 	}
 
-    /// `get_num_outputs` fetches the number of outputs of a given amount.
+    /// `get_num_outputs` fetches the number post-RingCT output.
     ///
-    /// Return a count of outputs of the given amount. in case of failures a `DB_FAILURES` will be return.
+    /// Return the number of post-RingCT outputs. In case of failures a `DB_FAILURES` will be return.
     ///
     /// Parameters:
     /// `amount`: is the output amount being looked up.
@@ -454,10 +447,16 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		ro_tx.num_entries::<table::outputmetadata>().map(|n| n as u64)
 	}
 
+	/// `get_pre_rct_num_outputs` fetches the number of preRCT outputs of a given amount.
+    ///
+    /// Return a count of outputs of the given amount. in case of failures a `DB_FAILURES` will be return.
+    ///
+    /// Parameters:
+    /// `amount`: is the output amount being looked up.
 	fn get_pre_rct_num_outputs(&'service self, amount: u64) -> Result<u64, error::DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		let mut cursor = ro_tx.cursor_dup::<table::prerctoutputmetadata>()?;
-		
+
 		transaction::Cursor::set(&mut cursor, &amount)?;
 		let out_metadata: Option<(u64, OutputMetadata)> = transaction::DupCursor::last_dup(&mut cursor)?;
 		if let Some(out_metadata) = out_metadata {
@@ -465,7 +464,6 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		}
 		Err(error::DB_FAILURES::Other("failed to decode the subkey and value"))
 	}
-	
 }
 
 
