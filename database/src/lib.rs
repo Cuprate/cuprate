@@ -81,7 +81,7 @@ pub mod database {
 		pub tx: Option<<D as Database<'a>>::TXMut>,
 	}
 
-	// Convenient implementations of database
+	// Convenient implementations for database
     impl<'service,D: Database<'service>> Interface<'service,D> {
 
         fn from(db: Arc<D>) -> Result<Self,DB_FAILURES> {
@@ -90,10 +90,10 @@ pub mod database {
     	}	
 
 		fn open(&'service mut self) -> Result<(),DB_FAILURES> {
-    		match self.db.tx_mut().map_err(|e| e.into()) {
-        		Ok(tx) => { self.tx = Some(tx); Ok(())}
-        		Err(e) => { Err(e) }
-    		}
+    		let tx = self.db.tx_mut().map_err(Into::into)?;
+
+			self.tx = Some(tx);
+			Ok(())
     	}
 	}
 
@@ -197,7 +197,8 @@ pub mod transaction {
 		fn write_cursor<T: Table>(&self) -> Result<Self::WriteCursor<T>, DB_FAILURES>;
 
 		fn write_cursor_dup<T: DupTable>(&self) -> Result<Self::DupWriteCursor<T>, DB_FAILURES>;
-    	}
+    }
+
 }
 
 
@@ -216,7 +217,7 @@ pub mod transaction {
 
 
 
-impl<'a, D: Database<'a>> Interface<'a,D> {
+impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	// --------------------------------| Blockchain |--------------------------------
 	
@@ -225,10 +226,11 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     /// Return the current blockchain height. In case of failures, a DB_FAILURES will be return.
     ///
     /// No parameters is required.
-	fn height(&self) -> Result<Option<u64>,error::DB_FAILURES> {
-		let mut cursor = self.cursor::<table::blockhash>()?;
+	fn height(&'service self) -> Result<Option<u64>,error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let mut cursor = ro_tx.cursor::<table::blockhash>()?;
+
 		let last = cursor.last()?;
-		
 		if let Some(pair) = last {
 			return Ok(Some(pair.1))
 		}
@@ -242,7 +244,7 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     /// Parameters:<br>
  	/// `height`: is the height where the hard fork happen.<br>
     /// `version`: is the version of the hard fork.
-    fn update_hard_fork_version(&mut self, height: u64, hardfork_version: u8) -> Result<(), error::DB_FAILURES> {
+    fn update_hard_fork_version(&'service self, height: u64, hardfork_version: u8) -> Result<(), error::DB_FAILURES> {
 		let b_hf = self.get::<table::blockhfversion>(&height)?;
 
 		if let Some(b_hf) = b_hf {
@@ -261,8 +263,9 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     ///
     /// Parameters:<br>
     /// `height`: is the height to check.
-    fn get_hard_fork_version(&mut self, height: u64) -> Result<Option<u8>, error::DB_FAILURES> {
-		self.get::<table::blockhfversion>(&height)
+    fn get_hard_fork_version(&'service self, height: u64) -> Result<Option<u8>, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		ro_tx.get::<table::blockhfversion>(&height)
 	}
 
 	// --------------------------------| Blocks |--------------------------------
@@ -273,7 +276,7 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
 	/// Return the block that was popped. In case of failures, a `DB_FAILURES` will be return.
 	///
     /// No parameters is required.
-    fn pop_block(&mut self) -> Result<Option<Block>, error::DB_FAILURES> {
+    fn pop_block(&'service self) -> Result<Option<Block>, error::DB_FAILURES> {
 		let current_height = self.height()?;
 
 		if let Some(current_height) = current_height{
@@ -317,7 +320,7 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
 	/// `index`: is the local output's index (from transaction).
 	/// `unlock_time`: is the unlock time (height) of the output.
 	/// `commitment`: is the RingCT commitment of this output.
-    fn add_output(&mut self,
+    fn add_output(&'service self,
 		tx_hash: Hash,
 		output: TxOut,
 		local_index: u64,
@@ -382,13 +385,13 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     /// `amount`: is the corresponding amount of the output
     /// `index`: is the output's index (indexed by amount)
     /// `include_commitment` : `true` by default.
-    fn get_output_key(&mut self, amount: Option<u64>, index: u64) -> Result<Option<OutputMetadata>, error::DB_FAILURES> {
+    fn get_output_key(&'service self, amount: Option<u64>, index: u64) -> Result<Option<OutputMetadata>, error::DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		if let Some(amount) = amount {
-			let mut cursor = self.cursor_dup::<table::prerctoutputmetadata>()?;
+			let mut cursor = ro_tx.cursor_dup::<table::prerctoutputmetadata>()?;
 			cursor.get_dup(&amount, &index)
 		} else {
-			self.get::<table::outputmetadata>(&index)
+			ro_tx.get::<table::outputmetadata>(&index)
 		}
 	}
 
@@ -427,7 +430,7 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     /// `offsets`: is a collection of outputs' index (indexed by amount).
     /// `allow partial`: `false` by default.
     fn get_output_key_list(
-		&mut self,
+		&'service self,
 		amounts: &Vec<u64>,
 		offsets: &Vec<u64>,
 		allow_partial: bool,
@@ -445,12 +448,16 @@ impl<'a, D: Database<'a>> Interface<'a,D> {
     ///
     /// Parameters:
     /// `amount`: is the output amount being looked up.
-    fn get_rct_num_outputs(&self) -> Result<u64, error::DB_FAILURES> {
-		self.num_entries::<table::outputmetadata>().map(|n| n as u64)
+    fn get_rct_num_outputs(&'service self) -> Result<u64, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		
+		ro_tx.num_entries::<table::outputmetadata>().map(|n| n as u64)
 	}
 
-	fn get_pre_rct_num_outputs(&self, amount: u64) -> Result<u64, error::DB_FAILURES> {
-		let mut cursor = self.cursor_dup::<table::prerctoutputmetadata>()?;
+	fn get_pre_rct_num_outputs(&'service self, amount: u64) -> Result<u64, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let mut cursor = ro_tx.cursor_dup::<table::prerctoutputmetadata>()?;
+		
 		transaction::Cursor::set(&mut cursor, &amount)?;
 		let out_metadata: Option<(u64, OutputMetadata)> = transaction::DupCursor::last_dup(&mut cursor)?;
 		if let Some(out_metadata) = out_metadata {

@@ -6,7 +6,7 @@
 
 use monero::{Hash, Block};
 use bincode::{enc::Encode,de::Decode};
-use crate::{types::{BlockMetadata, /*OutAmountIdx,*/ KeyImage, TxOutputIdx, /*OutTx,*/ AltBlock, TxIndex, TransactionPruned, RctOutkey, OutputMetadata}, encoding::Compat};
+use crate::{types::{BlockMetadata, /*OutAmountIdx,*/ KeyImage, TxOutputIdx, /*OutTx,*/ AltBlock, TxIndex, TransactionPruned, /*RctOutkey,*/ OutputMetadata}, encoding::Compat};
 
 /// A trait implementing a table interaction for the database. It is implemented to an empty struct to specify the name and table's associated types. These associated 
 /// types are used to simplify deserialization process.
@@ -22,6 +22,8 @@ pub trait Table: Send + Sync + 'static + Clone {
 
 /// A trait implementing a table with DUPFIXED & DUPSORT support.
 pub trait DupTable: Table {
+
+	// Subkey of the table (prefix of the data)
 	type SubKey: Encode + Decode;
 }
 
