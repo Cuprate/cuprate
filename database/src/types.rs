@@ -7,7 +7,7 @@
 
 use bincode::{Encode, Decode, enc::write::Writer};
 use crate::{encoding::{Compat, ReaderCompat}};
-use monero::{Hash, Block, PublicKey, util::ringct::{Key, RctSigBase, RctSig}, TransactionPrefix, consensus::Decodable};
+use monero::{Hash, Block, PublicKey, util::ringct::{Key, RctSigBase, RctSig, Signature, RctType, RctSigPrunable}, TransactionPrefix, consensus::{Decodable, encode}, Transaction, TxIn};
 
 // ---- BLOCKS ----
 
@@ -115,6 +115,79 @@ impl bincode::Encode for TransactionPruned {
 		}
 		Ok(())
     	}
+}
+
+impl TransactionPruned {
+
+	/// Turns a pruned transaction to a normal transaction with the missing pruned data
+    pub fn to_transaction(self, prunable: &[u8]) -> Result<Transaction, encode::Error> {
+        let mut r = std::io::Cursor::new(prunable);
+        match *self.prefix.version {
+			// Pre-RingCT transactions
+            1 => {
+                let signatures: Result<Vec<Vec<Signature>>, encode::Error> = self.prefix
+                    .inputs
+                    .iter()
+                    .filter_map(|input| match input {
+                        TxIn::ToKey { key_offsets, .. } => {
+                            let sigs: Result<Vec<Signature>, encode::Error> = key_offsets
+                                .iter()
+                                .map(|_| Decodable::consensus_decode(&mut r))
+                                .collect();
+                            Some(sigs)
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                Ok(Transaction {
+                    prefix: self.prefix,
+                    signatures: signatures?,
+                    rct_signatures: RctSig { sig: None, p: None },
+                })
+            }
+			// Post-RingCT Transactions
+            _ => {
+				let signatures = Vec::new();
+                let mut rct_signatures = RctSig { sig: None, p: None };
+                if self.prefix.inputs.is_empty() {
+                    return Ok(Transaction {
+                        prefix:  self.prefix,
+                        signatures,
+                        rct_signatures: RctSig { sig: None, p: None },
+                    });
+                }
+                if let Some(sig) = self.rct_signatures.sig {
+                    let p = {
+                        if sig.rct_type != RctType::Null {
+                            let mixin_size = if !self.prefix.inputs.is_empty() {
+                                match &self.prefix.inputs[0] {
+                                    TxIn::ToKey { key_offsets, .. } => key_offsets.len() - 1,
+                                    _ => 0,
+                                }
+                            } else {
+                                0
+                            };
+                            RctSigPrunable::consensus_decode(
+                                &mut r,
+                                sig.rct_type,
+                                self.prefix.inputs.len(),
+                                self.prefix.outputs.len(),
+                                mixin_size,
+                            )?
+                        } else {
+                            None
+                        }
+                    };
+                    rct_signatures = RctSig { sig: Some(sig), p };
+                }
+                Ok(Transaction {
+                    prefix: self.prefix,
+                    signatures,
+                    rct_signatures,
+                })
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Encode, Decode)]

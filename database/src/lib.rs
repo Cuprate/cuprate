@@ -33,8 +33,9 @@ use database::{Database, Interface};
 use thiserror::Error;
 use monero::{Hash, Block, BlockHeader, consensus::Encodable, util::ringct::{RctSig, Key}, cryptonote::hash::keccak_256, TxOut};
 use transaction::{Cursor, Transaction,  WriteTransaction, DupCursor, DupWriteCursor};
-use types::{OutputMetadata};
-use std::ops::{Range, Deref};
+use types::{OutputMetadata, TransactionPruned};
+use core::slice::SlicePattern;
+use std::ops::{Range};
 
 #[cfg(feature = "mdbx")]
 pub mod mdbx;
@@ -268,6 +269,20 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		ro_tx.get::<table::blockhfversion>(&height)
 	}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	// --------------------------------| Blocks |--------------------------------
 
 	/// `pop_block` pops the top block off the blockchain. This cause the last block to be deleted
@@ -304,6 +319,91 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		}
 		Ok(None)
 	}
+
+
+
+
+
+
+
+
+
+
+	// ------------------------------|  Transactions  |-----------------------------
+
+	/// `get_num_tx` fetches the total number of transactions stored in the database
+    ///
+    /// Should return the count. In case of failure, a DB_FAILURES will be return.
+    ///
+    /// No parameters is required.
+    fn get_num_tx(&'service self) -> Result<u64, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		ro_tx.num_entries::<table::txsprefix>().map(|n| n as u64)
+	}
+
+	/// `tx_exists` check if a transaction exist with the given hash.
+    ///
+    /// Return `true` if the transaction exist, `false` otherwise. In case of failure, a DB_FAILURES will be return.
+    ///
+    /// Parameters :
+    /// `h` is the given hash of transaction to check.
+    ///  `tx_id` is an optional mutable reference to get the transaction id out of the found transaction.
+    fn tx_exists(&'service self, hash: Hash) -> Result<bool, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		Ok(ro_tx.get::<table::txsidentifier>(&hash.into())?.is_some())
+	}
+
+	/// `get_tx_unlock_time` fetch a transaction's unlock time/height
+    ///
+    /// Should return the unlock time/height in u64. In case of failure, a DB_FAILURES will be return.
+    ///
+    /// Parameters:
+    /// `h`: is the given hash of the transaction to check.
+    fn get_tx_unlock_time(&'service self, hash: Hash) -> Result<u64, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let txindex = ro_tx.get::<table::txsidentifier>(&hash.into())?
+			.ok_or(error::DB_FAILURES::NoneFound("wasn't able to find a transaction in the database"))?;
+		Ok(txindex.unlock_time)
+	}
+
+	/// `get_tx` fetches the transaction with the given hash.
+    ///
+    /// Should return the transaction. In case of failure, a DB_FAILURES will be return.
+    ///
+    /// Parameters:
+    /// `h`: is the given hash of transaction to fetch.
+    fn get_tx(&'service self, hash: Hash) -> Result<Option<monero::Transaction>, error::DB_FAILURES> {
+		let pruned_tx = self.get_pruned_tx(hash)?
+			.ok_or(error::DB_FAILURES::NoneFound("failed to find prefix of a transaction"))?;
+		
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let txindex = ro_tx.get::<table::txsidentifier>(&hash.into())?
+			.ok_or(error::DB_FAILURES::NoneFound("failed to find index of a transaction"))?;
+		let prunable_part = ro_tx.get::<table::txsprunable>(&txindex.tx_id)?
+			.ok_or(error::DB_FAILURES::NoneFound("failed to find prunable part of a transaction"))?;
+
+		Ok(Some(pruned_tx.to_transaction(prunable_part.as_slice())
+			.map_err(|e| error::DB_FAILURES::SerializeIssue(error::DB_SERIAL::ConsensusDecode(prunable_part)))?))
+	}
+
+	/// `get_pruned_tx` fetches the transaction base with the given hash.
+    ///
+    /// Should return the transaction. In case of failure, a DB_FAILURES will be return.
+    ///
+    /// Parameters:
+    /// `h`: is the given hash of transaction to fetch.
+    fn get_pruned_tx(&'service self, hash: Hash) -> Result<Option<TransactionPruned>, error::DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+
+		let txindex = ro_tx.get::<table::txsidentifier>(&hash.into())?
+			.ok_or(error::DB_FAILURES::NoneFound("wasn't able to find a transaction in the database"))?;
+		ro_tx.get::<table::txsprefix>(&txindex.tx_id)
+	}
+
+
+
+
+
 
 	// --------------------------------|  Outputs  |--------------------------------
 
@@ -983,7 +1083,7 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Precisly, a HASH_DNE error will be returned with the correspondig hash of transaction that is not found in the DB.
     ///
     /// `hlist`: is the given collection of hashes correspondig to the transactions to fetch.
-    fn get_tx_list(&mut self, hlist: &Vec<Hash>) -> Result<Vec<monero::Transaction>, DB_FAILURES>;
+    fn get_tx_list(&mut self, hlist: Vec<Hash>) -> Result<Vec<monero::Transaction>, DB_FAILURES>;
 
     /// `get_tx_blob` fetches the transaction blob with the given hash.
     ///

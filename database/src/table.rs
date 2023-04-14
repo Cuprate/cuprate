@@ -92,7 +92,7 @@ impl_duptable!(
 	txsprunablehash, u64, (), Compat<Hash>);
 
 impl_table!(
-	/// `txsprunabletip` is a table used for optimization purpose. It defines at which block's height this transaction belong. These can be fetch by the corresponding Transaction ID.
+	/// `txsprunabletip` is a table used for optimization purpose. It defines at which block's height this transaction belong as long as the block is with Tip blocks. These can be fetch by the corresponding Transaction ID.
 	txsprunabletip, u64, u64);
 	
 impl_duptable!(
@@ -117,6 +117,3 @@ impl_table!(
 impl_table!(
 	/// `spentkeys`is a table storing every KeyImage that have been used to create decoys input. As these KeyImage can't be re used they need to marked. 
 	spentkeys, KeyImage, ());
-
-
-// Put in the Trash bin, but still maybe we'll have to make them work again, in like 3 weeks or maybe 5 years.
