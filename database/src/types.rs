@@ -120,7 +120,7 @@ impl bincode::Encode for TransactionPruned {
 impl TransactionPruned {
 
 	/// Turns a pruned transaction to a normal transaction with the missing pruned data
-    pub fn to_transaction(self, prunable: &[u8]) -> Result<Transaction, encode::Error> {
+    pub fn into_transaction(self, prunable: &[u8]) -> Result<Transaction, encode::Error> {
         let mut r = std::io::Cursor::new(prunable);
         match *self.prefix.version {
 			// Pre-RingCT transactions

@@ -32,6 +32,28 @@ impl From<libmdbx::Error> for DB_FAILURES {
 	}
 }
 
+/*
+Errors not yet implemented: 
+- MapFull
+- VersionMismatch
+- Invalid
+- PageFull
+- UnableExtendMapsize
+- Incompatible
+- DbsFull - Useless since we used only two database
+- BadTxn
+- BadValSize
+- BadDbi
+- Problem
+- Busy
+- Multival
+- WannaRecovery
+- KeyMismtach
+- InvalidValue
+- Access
+- DecodeError
+*/
+
 /// [`mdbx_decode`] is a function which the supplied bytes will be deserialized using `bincode::decode_from_slice(src, BINCODE_CONFIG)` 
 /// function. Return `Err(DB_FAILURES::SerializeIssue(DB_SERIAL::BincodeDecode(err)))` if it failed to decode the value. It is used for clarity purpose.
 fn mdbx_decode<T: bincode::Decode>(src: &[u8]) -> Result<(T, usize), DB_FAILURES> {
@@ -85,6 +107,7 @@ where
 	}
 }
 
+// Implementation of the Cursor trait for mdbx's Cursors
 impl<'a,T,R> crate::transaction::Cursor<'a, T> for Cursor<'a, R> 
 where 
 	T: Table,
@@ -139,6 +162,7 @@ where
 	}
 }
 
+// Implementation of the DupCursor trait for mdbx's Cursors
 impl<'t,T,R> crate::transaction::DupCursor<'t,T> for Cursor<'t,R> 
 where 
 	R: TransactionKind,
@@ -199,6 +223,7 @@ where
     }
 }
 
+// Implementation of the WriteCursor trait for mdbx's Cursors in RW permission
 impl<'a,T> crate::transaction::WriteCursor<'a, T> for Cursor<'a, RW> 
 where
 	T: Table,
@@ -216,6 +241,7 @@ where
     }
 }
 
+// Implementation of the DupWriteCursor trait for mdbx's Cursors in RW permission
 impl<'a,T> crate::transaction::DupWriteCursor<'a ,T> for Cursor<'a ,RW>
 where
 	T: DupTable,
@@ -234,7 +260,7 @@ where
     }
 }
 
-// Yes it doesn't work
+// Implementation of the Transaction trait for mdbx's Transactions
 impl<'a, E, R: TransactionKind> Transaction<'a> for libmdbx::Transaction<'_, R, E>
 where
 	E: DatabaseKind,
@@ -284,6 +310,7 @@ where
 	
 }
 
+// Implementation of the Transaction trait for mdbx's Transactions with RW permissions
 impl<'a, E> WriteTransaction<'a> for libmdbx::Transaction<'a, RW, E>
 where
 	E: DatabaseKind,
