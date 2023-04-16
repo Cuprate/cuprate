@@ -6,5 +6,10 @@ license = "AGPL-3.0-only"
 authors = ["Boog900"]
 
 [dependencies]
+chrono = "0.4"
+cuprate-common = {path= "../../common"}
 monero-wire = {path= "../../net/monero-wire"}
 rand = "0.8"
+thiserror = "1.0.39"
+futures = "0.3.26"
+tower = "0.4.13"

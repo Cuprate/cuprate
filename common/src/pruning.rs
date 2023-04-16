@@ -7,7 +7,7 @@
 //! `PruningSeed` also contains a method for checking if a pruning seed is valid for Monero rules (must only be 
 //! split into 8 parts):
 //! 
-//! ```rust 
+//! ```rust
 //! use cuprate_common::pruning::PruningSeed;
 //! 
 //! let seed: u32 = 386; // the seed you wan't to check is valid

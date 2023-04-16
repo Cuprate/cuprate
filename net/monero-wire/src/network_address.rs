@@ -22,6 +22,13 @@ use std::{hash::Hash, net};
 use epee_serde::Value;
 use serde::{de, ser::SerializeStruct, Deserialize, Serialize};
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum NetZone {
+    Public, 
+    Tor,
+    I2p
+}
+
 /// An IPv4 address with a port
 #[derive(Clone, Copy, Serialize, Debug, Default, PartialEq, Eq, Hash)]
 pub struct IPv4Address {
@@ -95,6 +102,31 @@ pub enum NetworkAddress {
     IPv4(IPv4Address),
     /// IPv6
     IPv6(IPv6Address),
+}
+
+impl NetworkAddress {
+    pub fn get_zone(&self) -> NetZone {
+        match self {
+            NetworkAddress::IPv4(_) | NetworkAddress::IPv6(_) => NetZone::Public,
+        }
+    }
+
+    pub fn is_loopback(&self) -> bool {
+        // TODO
+        false
+    }
+
+    pub fn is_local(&self) -> bool {
+        // TODO
+        false
+    }
+
+    pub fn port(&self) -> u16 {
+        match self {
+            NetworkAddress::IPv4(ip) => ip.m_port,
+            NetworkAddress::IPv6(ip) => ip.m_port,
+        }
+    }
 }
 
 impl Default for NetworkAddress {
