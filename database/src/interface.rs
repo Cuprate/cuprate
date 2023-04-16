@@ -2,8 +2,10 @@
 //! This module contains all the implementations of interface. 
 //! These are all the functions that can be executed through DatabaseRequest.
 
-use monero::{cryptonote::hash::{keccak_256, Hashable}, Hash, Block, TxOut, util::ringct::Key, TxIn};
-use crate::{error::{DB_FAILURES, self}, database::{Database, Interface}, table, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex}};
+// TODO: add_transaction() not finished due to ringct zeroCommit missing function
+
+use monero::{cryptonote::hash::{keccak_256, Hashable}, Hash, Block, TxOut, util::ringct::Key, TxIn, BlockHeader};
+use crate::{error::{DB_FAILURES, self}, database::{Database, Interface}, table::{self}, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex, TxOutputIdx}};
 
 // Implementation of Interface
 impl<'service, D: Database<'service>> Interface<'service,D> {
@@ -73,6 +75,110 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+	// ----------------------------------| Blocks |---------------------------------
+
+	/// `blocks_exists` check if the given block exists
+    ///
+    /// Return `true` if the block exist, `false` otherwise. In case of failures, a `DB_FAILURES` will be return.
+    ///
+    /// Parameters:
+    /// `h`: is the given hash of the requested block.
+    fn block_exists(&'service self, hash: Hash) -> Result<bool, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		Ok(ro_tx.get::<table::blockhash>(&hash.into())?.is_some())
+	}
+
+	/// `get_block_hash` fetch the block's hash located at the give height.
+    ///
+    /// Return the hash of the last block. In case of failures, a DB_FAILURES will be return.
+    ///
+    /// No parameters is required
+    fn get_block_hash(&'service self, height: u64) -> Result<Hash, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
+
+		Ok(metadata.block_hash.0)
+	}
+
+	fn get_block(&'service self, hash: Hash) -> Result<Block, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let blk_height = ro_tx.get::<table::blockhash>(&hash.into())?
+			.ok_or(DB_FAILURES::NotFound("Can't find block"))?;
+
+		Ok(ro_tx.get::<table::blocks>(&blk_height)?
+					.ok_or(DB_FAILURES::NotFound("Can't find block"))?.0)
+	}
+
+	fn get_block_from_height(&'service self, height: u64) -> Result<Block, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+
+		Ok(ro_tx.get::<table::blocks>(&height)?
+					.ok_or(DB_FAILURES::NotFound("Can't find block"))?.0)
+	}
+
+	/// `get_block_header` fetches the block's header with the given hash.
+    ///
+    /// Return the requested block header. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+    /// error will be returned if the requested block can't be found.
+    ///
+    /// Parameters:
+    /// `h`: is the given hash of the requested block.
+    fn get_block_header(&'service self, hash: Hash) -> Result<BlockHeader, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let blk_height = ro_tx.get::<table::blockhash>(&hash.into())?
+			.ok_or(DB_FAILURES::NotFound("Can't find block"))?;
+
+		Ok(ro_tx.get::<table::blocks>(&blk_height)?
+					.ok_or(DB_FAILURES::NotFound("Can't find block"))?.0.header)
+	}
+
+	fn get_block_header_from_height(&'service self, height: u64) -> Result<BlockHeader, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+
+		Ok(ro_tx.get::<table::blocks>(&height)?
+					.ok_or(DB_FAILURES::NotFound("Can't find block"))?.0.header)
+	}
+
+	/// `get_top_block` fetch the last/top block of the blockchain
+    ///
+    /// Return the last/top block of the blockchain. In case of failures, a DB_FAILURES, will be return.
+    ///
+    /// No parameters is required.
+    fn get_top_block(&'service self) -> Result<Block, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let blk_height = self.height()?;
+
+		Ok(ro_tx.get::<table::blocks>(&blk_height)?
+					.ok_or(DB_FAILURES::NotFound("Can't find block"))?.0)
+	}
+
+    /// `get_top_block_hash` fetch the block's hash located at the top of the blockchain (the last one).
+    ///
+    /// Return the hash of the last block. In case of failures, a DB_FAILURES will be return.
+    ///
+    /// No parameters is required
+    fn get_top_block_hash(&'service self) -> Result<Hash, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let height = self.height()?;
+		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
+
+		Ok(metadata.block_hash.0)
+	}
 
 
 
@@ -187,6 +293,65 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			self.put::<table::txsprunablehash>(&tx_id, &tx_prunable_hash.into())?;
 		}
 		Ok(tx_id)
+	}
+
+	fn remove_transaction(&'service self, tx_hash: Hash) -> Result<(), DB_FAILURES> {
+		let txpruned = self.get_pruned_tx(tx_hash)?;
+
+		for input in txpruned.prefix.inputs.iter() {
+			if let TxIn::ToKey { amount: _, key_offsets: _, k_image } = input {
+				self.remove_spent_key(KeyImage(k_image.image.into()))?;
+			}
+		}
+
+		self.remove_transaction_data(txpruned.prefix, tx_hash)
+	}
+
+	fn remove_transaction_data(&'service self, txprefix: monero::TransactionPrefix, tx_hash: Hash) -> Result<(), DB_FAILURES> {
+
+		// Checking if the transaction exist and fetching its index
+		let txindex = self.get::<table::txsidentifier>(&tx_hash.into())?
+			.ok_or(DB_FAILURES::NotFound("Attempting to remove transaction that isn't in the db"))?;
+
+		self.delete::<table::txsprefix>(&txindex.tx_id, &None)?;
+		self.delete::<table::txsprunable>(&txindex.tx_id, &None)?;
+		// If Its in Tip blocks range we must delete it
+		if self.get::<table::txsprunabletip>(&txindex.tx_id)?.is_some() {
+			self.delete::<table::txsprunabletip>(&txindex.tx_id, &None)?;
+		}
+		// If v2 Tx we must delete the prunable hash
+		if txprefix.version.0 > 1 {
+			self.delete::<table::txsprunablehash>(&txindex.tx_id, &None)?;
+		}
+
+		self.remove_tx_outputs(txprefix, txindex.tx_id)?;
+
+		self.delete::<table::txsoutputs>(&txindex.tx_id, &None)?;
+		self.delete::<table::txsidentifier>(&tx_hash.into(), &None)
+	}
+
+	fn remove_tx_outputs(&'service self, txprefix: monero::TransactionPrefix, tx_id: u64) -> Result<(), DB_FAILURES> {
+
+		let amount_output_indices: TxOutputIdx = self.get::<table::txsoutputs>(&tx_id)?
+			.ok_or(DB_FAILURES::NotFound("Failed to find tx's outputs indices"))?;
+
+		if amount_output_indices.0.is_empty() {
+			return Err(DB_FAILURES::Other("Attempting to remove outputs of a an empty tx"));
+		}
+		
+		#[allow(clippy::match_like_matches_macro)]
+		let is_pseudo_rct: bool = match &txprefix.inputs[0] {
+			TxIn::Gen {height:_} if txprefix.version.0 > 1 && txprefix.inputs.len() == 1 => { true },
+			_ => { false }
+		};
+		for o in 0..txprefix.outputs.len() {
+			let amount = match is_pseudo_rct {
+				true => 0,
+				false => txprefix.outputs[o].amount.0
+			};
+			self.remove_output(Some(amount), amount_output_indices.0[o].1)?;
+		}
+		Ok(())
 	}
 
 	/// `get_num_tx` fetches the total number of transactions stored in the database
@@ -366,6 +531,21 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			let mut cursor = self.write_cursor_dup::<table::prerctoutputmetadata>()?;
 			cursor.put_cursor_dup(&output.amount.0, &amount_index, &out_metadata)?;
 			Ok(amount_index)
+		}
+	}
+
+	fn remove_output(&'service self, amount: Option<u64>, index: u64) -> Result<(), DB_FAILURES> {
+		if let Some(amount) = amount {
+			if amount == 0 {
+				return self.delete::<table::outputmetadata>(&index, &None)
+			}
+			let mut cursor = self.write_cursor_dup::<table::prerctoutputmetadata>()?;
+			let _ = cursor.get_dup(&amount, &index)?
+				.ok_or(DB_FAILURES::NotFound("Failed to find PreRCT output metadata"))?;
+			cursor.del()
+		} 
+		else {
+			self.delete::<table::outputmetadata>(&index, &None)
 		}
 	}
 

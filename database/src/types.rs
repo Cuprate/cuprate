@@ -226,7 +226,7 @@ pub struct TxIndex {
 #[derive(Clone, Debug, Encode, Decode)]
 /// [`TxOutputIdx`] is a single-tuple struct used to contain the indexes (amount and amount indices) of the transactions outputs. It is defined for more clarity on its role.
 /// This struct is used in [`crate::table::txsoutputs`] table.
-pub struct TxOutputIdx(Vec<(u64,u64)>);
+pub struct TxOutputIdx(pub Vec<(u64,u64)>);
 
 // ---- OUTPUTS ----
 
