@@ -5,54 +5,10 @@
 use libmdbx::{RO, RW, DatabaseKind, TransactionKind, WriteFlags, Cursor};
 use crate::{
 	database::Database,
-	error::{DB_FAILURES, DB_FULL, DB_SERIAL},
+	error::{DB_FAILURES, DB_SERIAL},
 	table::{Table, DupTable},
 	transaction::{Transaction, WriteTransaction}, BINCODE_CONFIG,
 };
-
-// Conversion from libmdbx::Error to DB_FAILURES for details about mdbx error, please see lmdb documentation (it has description).
-impl From<libmdbx::Error> for DB_FAILURES {
-	fn from(err: libmdbx::Error) -> Self {
-		use libmdbx::Error;
-		match err {
-			Error::PageFull => DB_FAILURES::Full(DB_FULL::Page),
-			Error::CursorFull => DB_FAILURES::Full(DB_FULL::Cursor),
-			Error::ReadersFull => DB_FAILURES::Full(DB_FULL::ReadTx),
-			Error::TxnFull => DB_FAILURES::Full(DB_FULL::WriteTx),
-			Error::PageNotFound => DB_FAILURES::PageNotFound,
-			Error::Corrupted => DB_FAILURES::PageCorrupted,
-			Error::Panic => DB_FAILURES::Panic,
-			Error::KeyExist => DB_FAILURES::KeyAlreadyExist,
-			Error::NotFound => DB_FAILURES::KeyNotFound,
-			Error::NoData => DB_FAILURES::DataNotFound,
-			Error::TooLarge => DB_FAILURES::DataSizeLimit,
-			Error::Other(errno) => DB_FAILURES::Undefined(errno),
-			_ => DB_FAILURES::Undefined(0),
-		}
-	}
-}
-
-/*
-Errors not yet implemented: 
-- MapFull
-- VersionMismatch
-- Invalid
-- PageFull
-- UnableExtendMapsize
-- Incompatible
-- DbsFull - Useless since we used only two database
-- BadTxn
-- BadValSize
-- BadDbi
-- Problem
-- Busy
-- Multival
-- WannaRecovery
-- KeyMismtach
-- InvalidValue
-- Access
-- DecodeError
-*/
 
 /// [`mdbx_decode`] is a function which the supplied bytes will be deserialized using `bincode::decode_from_slice(src, BINCODE_CONFIG)` 
 /// function. Return `Err(DB_FAILURES::SerializeIssue(DB_SERIAL::BincodeDecode(err)))` if it failed to decode the value. It is used for clarity purpose.

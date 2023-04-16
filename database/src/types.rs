@@ -190,6 +190,27 @@ impl TransactionPruned {
     }
 }
 
+pub fn get_transaction_prunable_blob<W: std::io::Write + ?Sized>(tx: &monero::Transaction, w: &mut W) -> Result<usize, std::io::Error> {
+	let mut len = 0;
+	match tx.prefix.version.0 {
+		1 => {
+			for sig in tx.signatures.iter() {
+				for c in sig {
+					len += monero::consensus::encode::Encodable::consensus_encode(c, w)?;
+				}
+			}
+		}
+		_ => {
+			if let Some(sig) = &tx.rct_signatures.sig {
+				if let Some(p) = &tx.rct_signatures.p {
+					len += p.consensus_encode(w, sig.rct_type)?;
+				}
+			}
+		}
+	}
+	Ok(len)
+}
+
 #[derive(Clone, Debug, Encode, Decode)]
 /// [`TxIndex`] is a struct used in the [`crate::table::txsidentifier`]. It store the `unlock_time` of a transaction, the `height` of the block 
 /// whose transaction belong to and the Transaction ID (`tx_id`)
@@ -272,4 +293,4 @@ pub struct OutputMetadata {
 #[derive(Clone, Debug, Encode, Decode)]
 /// [`KeyImage`] is a single-tuple struct used to contain a [`monero::Hash`]. It is defined for more clarity on its role. This 
 /// struct is used in [`crate::table::spentkeys`] table.
-pub struct KeyImage(Compat<Hash>);
+pub struct KeyImage(pub Compat<Hash>);

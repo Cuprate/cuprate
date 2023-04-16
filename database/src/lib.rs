@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-//!
 //! The cuprate-db crate implement (as its name suggests) the relations between the blockchain/txpool objects and their databases.
 //! `lib.rs` contains all the generics, trait and specification for interfaces between blockchain and a backend-agnostic database
 //! Every other files in this folder are implementation of these traits/methods to real storage engine.
@@ -369,7 +368,7 @@ pub enum DB_FAILURES {
     HASH_DNE(Option<Hash>),
 }
 
-pub trait BlockchainDBaaaa {
+pub trait BlockchainDB {
     // supposed to be private
 
     // TODO: understand

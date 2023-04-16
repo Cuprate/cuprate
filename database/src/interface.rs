@@ -1,8 +1,9 @@
 //! ### Interface module
-//! This module contains all the implementations of interface.
+//! This module contains all the implementations of interface. 
+//! These are all the functions that can be executed through DatabaseRequest.
 
-use monero::{cryptonote::hash::keccak_256, Hash, Block, TxOut, util::ringct::Key};
-use crate::{error::{DB_FAILURES, self}, database::{Database, Interface}, table, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata}};
+use monero::{cryptonote::hash::{keccak_256, Hashable}, Hash, Block, TxOut, util::ringct::Key, TxIn};
+use crate::{error::{DB_FAILURES, self}, database::{Database, Interface}, table, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex}};
 
 // Implementation of Interface
 impl<'service, D: Database<'service>> Interface<'service,D> {
@@ -26,15 +27,14 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// Return the current blockchain height. In case of failures, a DB_FAILURES will be return.
     ///
     /// No parameters is required.
-	fn height(&'service self) -> Result<Option<u64>,DB_FAILURES> {
+	fn height(&'service self) -> Result<u64,DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		let mut cursor = ro_tx.cursor::<table::blockhash>()?;
 
-		let last = cursor.last()?;
-		if let Some(pair) = last {
-			return Ok(Some(pair.1))
-		}
-		Ok(None)
+		let last = cursor.last()?
+			.ok_or(DB_FAILURES::NotFound("last block not found"))?;
+
+		Ok(last.1)
 	}
 
 	/// `update_hard_fork_version` update which hardfork version a height is on.<br>
@@ -45,16 +45,13 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
  	/// `height`: is the height where the hard fork happen.<br>
     /// `version`: is the version of the hard fork.
     fn update_hard_fork_version(&'service self, height: u64, hardfork_version: u8) -> Result<(), DB_FAILURES> {
-		let b_hf = self.get::<table::blockhfversion>(&height)?;
+		let b_hf = self.get::<table::blockhfversion>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Can't find block hf version"))?;
 
-		if let Some(b_hf) = b_hf {
-			if b_hf != hardfork_version {
-				self.put::<table::blockhfversion>(&height, &hardfork_version)?;
-			}
-			Ok(())
-		} else {
-			Err(DB_FAILURES::DataNotFound)
+		if b_hf != hardfork_version {
+			self.put::<table::blockhfversion>(&height, &hardfork_version)?;
 		}
+		Ok(())
 	}
 
 	/// `get_hard_fork_version` checks which hardfork version a height is on.
@@ -63,9 +60,13 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     ///
     /// Parameters:<br>
     /// `height`: is the height to check.
-    fn get_hard_fork_version(&'service self, height: u64) -> Result<Option<u8>, DB_FAILURES> {
+    fn get_hard_fork_version(&'service self, height: u64) -> Result<u8, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		ro_tx.get::<table::blockhfversion>(&height)
+
+		let hf_version = ro_tx.get::<table::blockhfversion>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Can't find block hf version"))?;
+
+		Ok(hf_version)
 	}
 
 
@@ -87,6 +88,106 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 
 	// ------------------------------|  Transactions  |-----------------------------
+
+	/// `add_transaction` add the corresponding transaction and its hash to the specified block.
+    ///
+    /// In case of failures, a DB_FAILURES will be return. Precisely, a TX_EXISTS will be returned if the
+    /// transaction to be added already exists in the database.
+    ///
+    /// Parameters:
+    /// `blk_hash`: is the hash of the block which inherit the transaction
+    /// `tx`: is obviously the transaction to add
+    /// `tx_hash`: is the hash of the transaction.
+    /// `tx_prunable_hash_ptr`: is the hash of the prunable part of the transaction.
+    fn add_transaction(&'service self, tx: monero::Transaction) 
+	-> Result<(), DB_FAILURES> 
+	{
+		let is_coinbase: bool = tx.prefix.inputs.is_empty();
+		let tx_hash = tx.hash();
+
+		let mut tx_prunable_blob = Vec::new();
+		get_transaction_prunable_blob(&tx, &mut tx_prunable_blob).unwrap();
+
+		let tx_prunable_hash: [u8; 32] = monero::Hash::new(&tx_prunable_blob).0;
+		
+		for txin in tx.prefix.inputs.iter() {
+			if let TxIn::ToKey { amount: _, key_offsets: _, k_image } = txin {
+				self.add_spent_key(crate::types::KeyImage(k_image.image.into()))?;
+			} 
+			else {
+				return Err(DB_FAILURES::Other("Unsupported input type, aborting transaction addition"))
+			}
+		}
+		
+		let tx_id = self.add_transaction_data((tx.clone(), tx_prunable_blob), tx_hash, Hash(tx_prunable_hash))?;
+
+		let tx_num_outputs = tx.prefix.outputs.len();
+		let amount_output_dinces: Vec<u64> = Vec::with_capacity(tx_num_outputs);
+
+		for txout in tx.prefix.outputs.iter().zip(0..tx_num_outputs) {
+
+			if is_coinbase && tx.prefix.version.0 == 2 {
+
+				let commitment: Option<Key> = None;
+				// ZeroCommit is from RingCT Module, not finishable yet
+			}
+		}
+		todo!()
+	}
+
+	/// `add_transaction_data` add the specified transaction data to its storage.
+    ///
+    /// It only add the transaction blob and tx's metadata, not the collection of outputs.
+    ///
+    /// Return the hash of the transaction added. In case of failures, a DB_FAILURES will be return.
+    ///
+    /// Parameters:
+    /// `blk_hash`: is the hash of the block containing the transaction
+    /// `tx_and_hash`: is a tuple containing the transaction and it's hash
+    /// `tx_prunable_hash`: is the hash of the prunable part of the transaction
+    fn add_transaction_data(&'service self, txp: (monero::Transaction, Vec<u8>), tx_hash: Hash, tx_prunable_hash: Hash) 
+	-> Result<u64, DB_FAILURES> 
+	{
+		// Checking if the transaction already exist in the database
+		let res = self.get::<table::txsidentifier>(&tx_hash.into())?;
+		if res.is_some() {
+			return Err(DB_FAILURES::AlreadyExist("Attempting to add transaction that's already in the db"))
+		}
+
+		// Inserting tx index in table::txsindetifier
+		let height = self.height()?;
+		let tx_id = self.get_num_tx()?;
+
+		let txindex = TxIndex {
+    		tx_id,
+    		unlock_time: txp.0.prefix.unlock_time.0,
+    		height,
+		};
+
+		self.put::<table::txsidentifier>(&tx_hash.into(), &txindex)?;
+
+		// TODO: Investigate unprunable_size == 0 condition
+		// Inserting tx pruned part in table::txsprefix
+		let tx_pruned = TransactionPruned {
+			prefix: txp.0.prefix.clone(),
+			rct_signatures: txp.0.rct_signatures
+		};
+		self.put::<table::txsprefix>(&tx_id, &tx_pruned)?;
+
+		// Inserting tx prunable part in table::txs
+		self.put::<table::txsprunable>(&tx_id, &txp.1)?;
+
+		// Checking pruning seed and inserting into table::txsprunabletip accordingly
+		if self.get_blockchain_pruning_seed()? > 0 {
+			self.put::<table::txsprunabletip>(&tx_id, &height)?;
+		}
+
+		// V2 Tx store hash of their prunable part
+		if txp.0.prefix.version.0 > 1 {
+			self.put::<table::txsprunablehash>(&tx_id, &tx_prunable_hash.into())?;
+		}
+		Ok(tx_id)
+	}
 
 	/// `get_num_tx` fetches the total number of transactions stored in the database
     ///
@@ -117,8 +218,11 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `hash`: is the given hash of the transaction to check.
     fn get_tx_unlock_time(&'service self, hash: Hash) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
+
+		// Getting the tx index
 		let txindex = ro_tx.get::<table::txsidentifier>(&hash.into())?
-			.ok_or(DB_FAILURES::NoneFound("wasn't able to find a transaction in the database"))?;
+			.ok_or(DB_FAILURES::NotFound("wasn't able to find a transaction in the database"))?;
+
 		Ok(txindex.unlock_time)
 	}
 
@@ -128,18 +232,38 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     ///
     /// Parameters:
     /// `hash`: is the given hash of transaction to fetch.
-    fn get_tx(&'service self, hash: Hash) -> Result<Option<monero::Transaction>, DB_FAILURES> {
-		let pruned_tx = self.get_pruned_tx(hash)?
-			.ok_or(DB_FAILURES::NoneFound("failed to find prefix of a transaction"))?;
+    fn get_tx(&'service self, hash: Hash) -> Result<monero::Transaction, DB_FAILURES> {
+
+		// Getting the pruned tx
+		let pruned_tx = self.get_pruned_tx(hash)?;
 		
+		// Getting the tx index
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		let txindex = ro_tx.get::<table::txsidentifier>(&hash.into())?
-			.ok_or(DB_FAILURES::NoneFound("failed to find index of a transaction"))?;
-		let prunable_part = ro_tx.get::<table::txsprunable>(&txindex.tx_id)?
-			.ok_or(DB_FAILURES::NoneFound("failed to find prunable part of a transaction"))?;
+			.ok_or(DB_FAILURES::NotFound("failed to find index of a transaction"))?;
 
-		Ok(Some(pruned_tx.into_transaction(prunable_part.as_slice())
-			.map_err(|_| DB_FAILURES::SerializeIssue(error::DB_SERIAL::ConsensusDecode(prunable_part)))?))
+		// Getting its prunable part
+		let prunable_part = ro_tx.get::<table::txsprunable>(&txindex.tx_id)?
+			.ok_or(DB_FAILURES::NotFound("failed to find prunable part of a transaction"))?;
+
+		// Making it a Transaction
+		pruned_tx.into_transaction(&prunable_part)
+			.map_err(|err| DB_FAILURES::SerializeIssue(err.into()))
+	}
+
+	/// `get_tx_list` fetches the transactions with given hashes.
+    ///
+    /// Should return a vector with the requested transactions. In case of failures, a DB_FAILURES will be return.
+    /// Precisly, a HASH_DNE error will be returned with the correspondig hash of transaction that is not found in the DB.
+    ///
+    /// `hlist`: is the given collection of hashes correspondig to the transactions to fetch.
+    fn get_tx_list(&'service self, hash_list: Vec<Hash>) -> Result<Vec<monero::Transaction>, DB_FAILURES> {
+		let mut result: Vec<monero::Transaction> = Vec::new();
+		
+		for hash in hash_list {
+			result.push(self.get_tx(hash)?);
+		}
+		Ok(result)
 	}
 
 	/// `get_pruned_tx` fetches the transaction base with the given hash.
@@ -148,14 +272,29 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     ///
     /// Parameters:
     /// `h`: is the given hash of transaction to fetch.
-    fn get_pruned_tx(&'service self, hash: Hash) -> Result<Option<TransactionPruned>, DB_FAILURES> {
+    fn get_pruned_tx(&'service self, hash: Hash) -> Result<TransactionPruned, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 
 		let txindex = ro_tx.get::<table::txsidentifier>(&hash.into())?
-			.ok_or(DB_FAILURES::NoneFound("wasn't able to find a transaction in the database"))?;
-		ro_tx.get::<table::txsprefix>(&txindex.tx_id)
+			.ok_or(DB_FAILURES::NotFound("wasn't able to find a transaction in the database"))?;
+
+		ro_tx.get::<table::txsprefix>(&txindex.tx_id)?
+			.ok_or(DB_FAILURES::NotFound("failed to find prefix of a transaction"))
 	}
 
+	/// `get_tx_block_height` fetches the height of a transaction's block
+    ///
+    /// Should return the height of the block containing the transaction with the given hash. In case
+    /// of failures, a DB FAILURES will be return. Precisely, a TX_DNE error will be return if the transaction cannot be found.
+    ///
+    /// Parameters:
+    /// `hash`: is the fiven hash of the first transaction
+    fn get_tx_block_height(&'service self, hash: Hash) -> Result<u64, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let txindex = ro_tx.get::<table::txsidentifier>(&hash.into())?
+			.ok_or(DB_FAILURES::NotFound("txindex not found"))?;
+		Ok(txindex.height)
+	}
 
 
 
@@ -199,8 +338,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     fn add_output(&'service self, tx_hash: Hash, output: TxOut, local_index: u64, unlock_time: u64, commitment: Option<Key>) 
 	-> Result<u64, DB_FAILURES> 
 	{
-		let height = self.height()?
-			.ok_or(DB_FAILURES::NoneFound("add_output() didn't find a blockchain height"))?;
+		let height = self.height()?;
 
 		let pubkey = output.target.as_one_time_key().map(Into::into);
 		let mut out_metadata = OutputMetadata {
@@ -241,13 +379,15 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `amount`: is the corresponding amount of the output
     /// `index`: is the output's index (indexed by amount)
     /// `include_commitment` : `true` by default.
-    fn get_output(&'service self, amount: Option<u64>, index: u64) -> Result<Option<OutputMetadata>, DB_FAILURES> {
+    fn get_output(&'service self, amount: Option<u64>, index: u64) -> Result<OutputMetadata, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		if let Some(amount) = amount {
 			let mut cursor = ro_tx.cursor_dup::<table::prerctoutputmetadata>()?;
-			cursor.get_dup(&amount, &index)
+			cursor.get_dup(&amount, &index)?
+				.ok_or(DB_FAILURES::NotFound("Failed to find PreRCT output metadata"))
 		} else {
-			ro_tx.get::<table::outputmetadata>(&index)
+			ro_tx.get::<table::outputmetadata>(&index)?
+				.ok_or(DB_FAILURES::NotFound("Failed to find PostRCT output metadata"))
 		}
 	}
 
@@ -263,7 +403,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		&'service self,
 		amounts: Option<Vec<u64>>,
 		offsets: Vec<u64>,
-    	) -> Result<Option<Vec<OutputMetadata>>, DB_FAILURES> {
+    	) -> Result<Vec<OutputMetadata>, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		let mut result: Vec<OutputMetadata> = Vec::new();
 		
@@ -275,11 +415,11 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 				if ofs.0 == 0 {
 					let output = ro_tx.get::<table::outputmetadata>(&ofs.1)?
-						.ok_or(DB_FAILURES::NoneFound("An output hasn't been found in the database"))?;
+						.ok_or(DB_FAILURES::NotFound("An output hasn't been found in the database"))?;
 					result.push(output);
 				} else {
 					let output = cursor.get_dup(&ofs.0, &ofs.1)?
-						.ok_or(DB_FAILURES::NoneFound("An output hasn't been found in the database"))?;
+						.ok_or(DB_FAILURES::NotFound("An output hasn't been found in the database"))?;
 					result.push(output);
 				}
 			}
@@ -288,12 +428,12 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			for ofs in offsets {
 
 				let output = ro_tx.get::<table::outputmetadata>(&ofs)?
-					.ok_or(DB_FAILURES::NoneFound("An output hasn't been found in the database"))?;
+					.ok_or(DB_FAILURES::NotFound("An output hasn't been found in the database"))?;
 				result.push(output);				
 			}
 		}
 
-		Ok(Some(result))
+		Ok(result)
 	}
 
     /// `get_num_outputs` fetches the number post-RingCT output.
@@ -326,52 +466,64 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		Err(DB_FAILURES::Other("failed to decode the subkey and value"))
 	}
 
+	// ------------------------------| Spent Keys |------------------------------
+
+	/// `add_spent_key` add the supplied key image to the spent key image record
+	fn add_spent_key(&'service self, key_image: KeyImage) -> Result<(), DB_FAILURES> {
+		self.put::<table::spentkeys>(&key_image, &())
+	}
+
+	/// `remove_spent_key` remove the specified key image from the spent key image record
+    fn remove_spent_key(&'service self, key_image: KeyImage) -> Result<(), DB_FAILURES> {
+		self.delete::<table::spentkeys>(&key_image, &None)
+	}
+
+	/// `is_spent_key_recorded` check if the specified key image has been spent
+	fn is_spent_key_recorded(&'service self, key_image: KeyImage) -> Result<bool, DB_FAILURES> {
+		Ok(self.get::<table::spentkeys>(&key_image)?.is_some())
+	}
 
 
 
+	// --------------------------------| Properties |--------------------------------
 
-
-
-
-
+	// No pruning yet
+	fn get_blockchain_pruning_seed(&'service self) -> Result<u32, DB_FAILURES> {
+		Ok(0)
+	} 
 
 
 
 
 	// --------------------------------| Blocks |--------------------------------
-
+	/*
 	/// `pop_block` pops the top block off the blockchain. This cause the last block to be deleted
 	/// from all its reference tables, including transactions it was refering to.
     ///
 	/// Return the block that was popped. In case of failures, a `DB_FAILURES` will be return.
 	///
     /// No parameters is required.
+	
     fn pop_block(&'service self) -> Result<Option<Block>, DB_FAILURES> {
 		let current_height = self.height()?;
 
-		if let Some(current_height) = current_height{
-			let blk = self.get::<table::blocks>(&current_height)?;
+		let blk = self.get::<table::blocks>(&current_height)?;
 
-			// Get the block and delete it from block's tables
-			if let Some(blk) = blk {
-				self.delete::<table::blocks>(&current_height, &None)?;
-				self.delete::<table::blockmetadata>(&current_height, &None)?;
+		self.delete::<table::blocks>(&current_height, &None)?;
+		self.delete::<table::blockmetadata>(&current_height, &None)?;
 
-				// Re-encoding the slice and get the hash
-				let e_blk = bincode::encode_to_vec(&blk, BINCODE_CONFIG)
-					.map_err(|e| DB_FAILURES::SerializeIssue(error::DB_SERIAL::BincodeEncode(e)))?;
-				let hash = Hash::new(keccak_256(e_blk.as_slice())).into();
+		// Re-encoding the slice and get the hash
+		let e_blk = bincode::encode_to_vec(&blk, BINCODE_CONFIG)
+			.map_err(|e| DB_FAILURES::SerializeIssue(error::DB_SERIAL::BincodeEncode(e)))?;
+		let hash = Hash::new(keccak_256(e_blk.as_slice())).into();
 				
-				self.delete::<table::blockhash>(&hash, &None)?;
+		self.delete::<table::blockhash>(&hash, &None)?;
 
-				// Now let's delete all its transactions
-				blk.0.tx_hashes.iter().for_each(|_tx| {
+		// Now let's delete all its transactions
+		blk.0.tx_hashes.iter().for_each(|_tx| {
 
-					todo!()
-				});
-				return Ok(Some(blk.0))
-			}
-		}
-		Ok(None)
-	}
+			todo!()
+		});
+		return Ok(Some(blk.0))
+	}*/
 }
