@@ -3,9 +3,13 @@
 //! These are all the functions that can be executed through DatabaseRequest.
 
 // TODO: add_transaction() not finished due to ringct zeroCommit missing function
+// TODO: in add_transaction_data() Investigate unprunable_size == 0 condition of monerod
+// TODO: Do we need correct_block_cumulative_difficulties()
+// TODO: add drop() method to WriteTransaction
+// TODO: Check all documentations
 
-use monero::{cryptonote::hash::{keccak_256, Hashable}, Hash, Block, TxOut, util::ringct::Key, TxIn, BlockHeader};
-use crate::{error::{DB_FAILURES, self}, database::{Database, Interface}, table::{self}, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex, TxOutputIdx}};
+use monero::{cryptonote::hash::Hashable, Hash, Block, TxOut, util::ringct::Key, TxIn, BlockHeader};
+use crate::{error::DB_FAILURES, database::{Database, Interface}, table::{self}, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex, TxOutputIdx, AltBlock}};
 
 // Implementation of Interface
 impl<'service, D: Database<'service>> Interface<'service,D> {
@@ -90,6 +94,33 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	// ----------------------------------| Blocks |---------------------------------
 
+	/// `add_block` add the block and metadata to the db.
+    ///
+    /// In case of failures, a `DB_FAILURES` will be return. Precisely, a BLOCK_EXISTS error will be returned if
+    /// the block to be added already exist. a BLOCK_INVALID will be returned if the block to be added did not pass validation.
+    ///
+    /// Parameters:
+    /// `blk`: is the block to be added
+    /// `block_weight`: is the weight of the block (data's total)
+    /// `long_term_block_weight`: is the long term weight of the block (data's total)
+    /// `cumulative_difficulty`: is the accumulated difficulty at this block.
+    /// `coins_generated` is the number of coins generated after this block.
+    /// `blk_hash`: is the hash of the block.
+    fn add_block(blk: Block, blk_hash: Hash, block_weight: u64, long_term_block_weight: u64, cumulative_difficulty: u128, coins_generated: u64) 
+	-> Result<(), DB_FAILURES>
+	{
+		todo!()
+	}
+
+	/// `pop_block` pops the top block off the blockchain.
+    ///
+    /// Return the block that was popped. In case of failures, a `DB_FAILURES` will be return.
+    ///
+    /// No parameters is required.
+    fn pop_block(&'service self) -> Result<Block, DB_FAILURES> {
+		todo!()
+	}
+
 	/// `blocks_exists` check if the given block exists
     ///
     /// Return `true` if the block exist, `false` otherwise. In case of failures, a `DB_FAILURES` will be return.
@@ -112,6 +143,90 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.block_hash.0)
+	}
+
+	/// `get_block_height` gets the height of the block with a given hash
+    ///
+    /// Return the requested height.
+    fn get_block_height(&'service self, hash: Hash) -> Result<u64, DB_FAILURES> {
+		let ro_tx= self.db.tx().map_err(Into::into)?;
+		ro_tx.get::<table::blockhash>(&hash.into())?
+			.ok_or(DB_FAILURES::NotFound("Failed to find block height"))
+	}
+
+	/// `get_block_weights` fetch the block's weight located at the given height.
+    ///
+    /// Return the requested block weight. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+    /// error will be returned if the requested block can't be found.
+    ///
+    /// Parameters:
+    /// `height`: is the given height where the requested block is located.
+    fn get_block_weight(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
+
+		Ok(metadata.weight)
+	}
+
+	/// `get_block_already_generated_coins` fetch a block's already generated coins
+    ///
+    /// Return the total coins generated as of the block with the given height. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
+    /// error will be returned if the requested block can't be found.
+    ///
+    /// Parameters:
+    /// `height`: is the given height of the block to seek.
+    fn get_block_already_generated_coins(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
+
+		Ok(metadata.total_coins_generated)
+	}
+
+    /// `get_block_long_term_weight` fetch a block's long term weight.
+    ///
+    /// Should return block's long term weight. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+    /// error will be returned if the requested block can't be found.
+    ///
+    /// Parameters:
+    /// `height`: is the given height where the requested block is located.
+    fn get_block_long_term_weight(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
+
+		Ok(metadata.long_term_block_weight)
+	}
+
+	/// `get_block_timestamp` fetch a block's timestamp.
+    ///
+    /// Should return the timestamp of the block with given height. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+    /// error will be returned if the requested block can't be found.
+    ///
+    /// Parameters:
+    /// `height`: is the given height where the requested block to fetch timestamp is located.
+    fn get_block_timestamp(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
+
+		Ok(metadata.timestamp)	
+	}
+
+	/// `get_block_cumulative_rct_outputs` fetch a blocks' cumulative number of RingCT outputs
+    ///
+    /// Should return the number of RingCT outputs in the blockchain up to the blocks located at the given heights. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
+    /// error will be returned if the requested block can't be found.
+    ///
+    /// Parameters:
+    /// `heights`: is the collection of height to check for RingCT distribution.
+    fn get_block_cumulative_rct_outputs(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
+
+		Ok(metadata.cum_rct)
 	}
 
 	fn get_block(&'service self, hash: Hash) -> Result<Block, DB_FAILURES> {
@@ -646,6 +761,25 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		Err(DB_FAILURES::Other("failed to decode the subkey and value"))
 	}
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	// ------------------------------| Spent Keys |------------------------------
 
 	/// `add_spent_key` add the supplied key image to the spent key image record
@@ -664,6 +798,72 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 	}
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+	// --------------------------------------------|  Alt-Block  |------------------------------------------------------------
+
+    /// `add_alt_block` add a new alternative block.
+    ///
+    /// In case of failures, a DB_FAILURES will be return.
+    ///
+    /// Parameters:
+    /// blkid: is the hash of the original block
+    /// data: is the metadata for the block
+    /// blob: is the blobdata of this alternative block.
+    fn add_alt_block(&'service self, altblock_hash: Hash, data: AltBlock, blob: Vec<u8>) -> Result<(), DB_FAILURES> {
+		todo!()
+	}
+
+    /// `get_alt_block` gets the specified alternative block.
+    ///
+    /// Return a tuple containing the blobdata of the alternative block and its metadata. In case of failures, a DB_FAILURES will be return.
+    ///
+    /// Parameters:
+    /// `blkid`: is the hash of the requested alternative block.
+    fn get_alt_block(&'service self, altblock_hash: Hash) -> Result<AltBlock, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		ro_tx.get::<table::altblock>(&altblock_hash.into())?
+			.ok_or(DB_FAILURES::NotFound("Failed to find an AltBLock in the db"))
+	}
+
+    /// `remove_alt_block` remove the specified alternative block
+    ///
+    /// In case of failures, a DB_FAILURES will be return.
+    ///
+    /// Parameters:
+    /// `blkid`: is the hash of the alternative block to remove.
+    fn remove_alt_block(&mut self, altblock_hash: Hash) -> Result<(), DB_FAILURES> {
+		self.delete::<table::altblock>(&altblock_hash.into(), &None)
+	}
+
+    /// `get_alt_block` gets the total number of alternative blocks stored
+    ///
+    /// In case of failures, a DB_FAILURES will be return.
+    ///
+    /// No parameters is required.
+    fn get_alt_block_count(&'service self) -> Result<u64, DB_FAILURES> {
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+		ro_tx.num_entries::<table::altblock>().map(|n| n as u64)
+	}
+
+    /// `drop_alt_block` drop all alternative blocks.
+    ///
+    /// In case of failures, a DB_FAILURES will be return.
+    ///
+    /// No parameters is required.
+    fn drop_alt_blocks(&mut self) -> Result<(), DB_FAILURES> {
+		todo!() // Add a drop method
+	}
 
 	// --------------------------------| Properties |--------------------------------
 

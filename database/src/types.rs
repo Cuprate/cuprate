@@ -26,9 +26,9 @@ pub struct BlockMetadata {
 	pub difficulty: u128,
 	/// Block's hash
 	pub block_hash: Compat<Hash>,
-	/// bi_cum_rct
+	/// Cumulative number of RingCT outputs up to this block
 	pub cum_rct: u64,
-	/// bi_long_term_block_weight
+	/// Block's long term weight
 	pub long_term_block_weight: u64,
 }
 
@@ -106,7 +106,7 @@ impl bincode::Encode for TransactionPruned {
 		let buf = monero::consensus::serialize(&self.prefix);
 		writer.write(&buf)?;
 		match *self.prefix.version {
-			1 => {} // First transaction format, Pre-RingCT, so the there is no signatures to add
+			1 => {} // First transaction format, Pre-RingCT, so the there is no Rct signatures to add
 			_ => { if let Some(sig) = &self.rct_signatures.sig {
 				// If there is signatures then we append it at the end
 				let buf = monero::consensus::serialize(sig);
