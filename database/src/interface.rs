@@ -5,7 +5,7 @@
 // TODO: add_transaction() not finished due to ringct zeroCommit missing function
 // TODO: in add_transaction_data() Investigate unprunable_size == 0 condition of monerod
 // TODO: Do we need correct_block_cumulative_difficulties()
-// TODO: add drop() method to WriteTransaction
+// TODO: remove_tx_outputs() can be done otherwise since we don't use global output index
 // TODO: Check all documentations
 
 use monero::{cryptonote::hash::Hashable, Hash, Block, TxOut, util::ringct::Key, TxIn, BlockHeader};
@@ -118,7 +118,31 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     ///
     /// No parameters is required.
     fn pop_block(&'service self) -> Result<Block, DB_FAILURES> {
-		todo!()
+
+		// First we delete block from table
+		let height = self.height()?;
+		if height == 0 {
+			return Err(DB_FAILURES::Other("Attempting to remove block from an empty blockchain"))
+		}
+
+		let blk = self.get::<table::blocks>(&(height-1))?
+			.ok_or(DB_FAILURES::NotFound("Attempting to remove block that's not in the db"))?.0;
+
+		let hash = self.get::<table::blockmetadata>(&height)?
+			.ok_or(DB_FAILURES::NotFound("Failed to retrieve block metadata"))?.block_hash;
+
+		self.delete::<table::blockhash>(&hash, &None)?;
+		self.delete::<table::blocks>(&height, &None)?;
+		self.delete::<table::blockmetadata>(&height, &None)?;
+		self.delete::<table::blockhfversion>(&height, &None)?;
+		
+		// Then we delete all its revelent txs
+		for tx_hash in blk.tx_hashes.iter() {
+			// 1 more condition in monerod TODO:
+			self.remove_transaction(*tx_hash)?;
+		}
+		self.remove_transaction(blk.miner_tx.hash())?;
+		Ok(blk)
 	}
 
 	/// `blocks_exists` check if the given block exists
@@ -464,7 +488,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 				true => 0,
 				false => txprefix.outputs[o].amount.0
 			};
-			self.remove_output(Some(amount), amount_output_indices.0[o].1)?;
+			self.remove_output(Some(amount), amount_output_indices.0[o])?;
 		}
 		Ok(())
 	}
@@ -820,8 +844,8 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// blkid: is the hash of the original block
     /// data: is the metadata for the block
     /// blob: is the blobdata of this alternative block.
-    fn add_alt_block(&'service self, altblock_hash: Hash, data: AltBlock, blob: Vec<u8>) -> Result<(), DB_FAILURES> {
-		todo!()
+    fn add_alt_block(&'service self, altblock_hash: Hash, data: AltBlock) -> Result<(), DB_FAILURES> {
+		self.put::<table::altblock>(&altblock_hash.into(), &data)
 	}
 
     /// `get_alt_block` gets the specified alternative block.
@@ -862,7 +886,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     ///
     /// No parameters is required.
     fn drop_alt_blocks(&mut self) -> Result<(), DB_FAILURES> {
-		todo!() // Add a drop method
+		self.clear::<table::altblock>()
 	}
 
 	// --------------------------------| Properties |--------------------------------
