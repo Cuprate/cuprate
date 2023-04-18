@@ -9,7 +9,7 @@
 // TODO: Check all documentations
 
 use monero::{cryptonote::hash::Hashable, Hash, Block, TxOut, util::ringct::Key, TxIn, BlockHeader};
-use crate::{error::DB_FAILURES, database::{Database, Interface}, table::{self}, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex, TxOutputIdx, AltBlock}};
+use crate::{error::DB_FAILURES, database::{Database, Interface}, table::{self}, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex, TxOutputIdx, AltBlock, BlockMetadata}};
 
 // Implementation of Interface
 impl<'service, D: Database<'service>> Interface<'service,D> {
@@ -35,12 +35,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// No parameters is required.
 	fn height(&'service self) -> Result<u64,DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let mut cursor = ro_tx.cursor::<table::blockhash>()?;
-
-		let last = cursor.last()?
-			.ok_or(DB_FAILURES::NotFound("last block not found"))?;
-
-		Ok(last.1)
+		ro_tx.num_entries::<table::blockhash>().map(|n| n as u64)
 	}
 
 	/// `update_hard_fork_version` update which hardfork version a height is on.<br>
@@ -106,10 +101,88 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `cumulative_difficulty`: is the accumulated difficulty at this block.
     /// `coins_generated` is the number of coins generated after this block.
     /// `blk_hash`: is the hash of the block.
-    fn add_block(blk: Block, blk_hash: Hash, block_weight: u64, long_term_block_weight: u64, cumulative_difficulty: u128, coins_generated: u64) 
+    fn add_block(&'service self, blk: Block, txs: Vec<monero::Transaction>, block_weight: u64, long_term_block_weight: u64, cumulative_difficulty: u128, coins_generated: u64) 
+	-> Result<(), DB_FAILURES> 
+	{
+
+		// *sanity*
+		if blk.tx_hashes.len() != txs.len() {
+			return Err(DB_FAILURES::Other("sanity : Inconsistent tx/hashed sizes"));
+		}
+
+		let blk_blob = monero::consensus::serialize(&blk);
+		let blk_hash = Hash::new(blk_blob);
+
+		// let parent_height = self.height()?;
+
+		let mut num_rct_outs = 0u64;
+		self.add_transaction(blk.miner_tx.clone())?;
+		
+		if blk.miner_tx.prefix.version.0 == 2 {
+			num_rct_outs += blk.miner_tx.prefix.outputs.len() as u64;
+		}
+
+		// let mut tx_hash = Hash::null();
+		for tx in txs.into_iter()/*.zip(0usize..)*/ {
+			// tx_hash = blk.tx_hashes[tx.1];
+			for out in tx.prefix.outputs.iter() {
+				if out.amount.0 == 0 {
+					num_rct_outs += 1;
+				}
+			}
+			self.add_transaction(tx/*.0*/)?;
+		}
+
+		let blk_metadata = BlockMetadata {
+    		timestamp: blk.header.timestamp.0,
+    		total_coins_generated: coins_generated,
+    		weight: block_weight,
+    		cumulative_difficulty,
+    		block_hash: blk_hash.into(),
+    		cum_rct: num_rct_outs,
+    		long_term_block_weight,
+		};
+
+		self.add_block_data(blk, blk_metadata)
+	}
+	/// `add_block` add the block and metadata to the db.
+    ///
+    /// In case of failures, a `DB_FAILURES` will be return. Precisely, a BLOCK_EXISTS error will be returned if
+    /// the block to be added already exist. a BLOCK_INVALID will be returned if the block to be added did not pass validation.
+    ///
+    /// Parameters:
+    /// `blk`: is the block to be added
+    /// `block_weight`: is the weight of the block (data's total)
+    /// `long_term_block_weight`: is the long term weight of the block (data's total)
+    /// `cumulative_difficulty`: is the accumulated difficulty at this block.
+    /// `coins_generated` is the number of coins generated after this block.
+    /// `blk_hash`: is the hash of the block.
+    fn add_block_data(&'service self, blk: Block, mut blk_metadata: BlockMetadata) 
 	-> Result<(), DB_FAILURES>
 	{
-		todo!()
+		let height = self.height()?;
+
+		if self.get::<table::blockmetadata>(&height)?.is_some() {
+			return Err(DB_FAILURES::AlreadyExist("Attempting to insert a block alreayd existent in the database"))?
+		}
+
+		if height > 0 {
+			let parent_height = self.get::<table::blockhash>(&blk.header.prev_id.into())?
+				.ok_or(DB_FAILURES::NotFound("Can't find parent block"))?;
+			
+			if parent_height != height-1 {
+				return Err(DB_FAILURES::Other("Top lock is not a new block's parent"))
+			}
+		}
+
+		if blk.header.major_version.0 > 3 {
+			let last_height = height-1;
+
+			let parent_cum_rct = self.get_block_cumulative_rct_outputs(last_height)?;
+			blk_metadata.cum_rct += parent_cum_rct;
+		}
+		self.put::<table::blocks>(&height, &blk.into())?;
+		self.put::<table::blockmetadata>(&height, &blk_metadata)
 	}
 
 	/// `pop_block` pops the top block off the blockchain.

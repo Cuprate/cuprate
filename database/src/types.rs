@@ -22,8 +22,8 @@ pub struct BlockMetadata {
 	pub total_coins_generated: u64,
 	/// Block's weight (sum of all transactions weights)
 	pub weight: u64,
-	/// Block's difficulty. In monerod this field would have been split into two `u64`, since cpp don't support *natively* `uint_128t`/`u128`
-	pub difficulty: u128,
+	/// Block's cumulative_difficulty. In monerod this field would have been split into two `u64`, since cpp don't support *natively* `uint128_t`/`u128`
+	pub cumulative_difficulty: u128,
 	/// Block's hash
 	pub block_hash: Compat<Hash>,
 	/// Cumulative number of RingCT outputs up to this block
