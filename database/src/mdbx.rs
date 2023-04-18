@@ -2,13 +2,21 @@
 //! This module contains the implementation of all the database traits for the MDBX storage engine.
 //! This include basic transactions methods, cursors and errors conversion.
 
-use libmdbx::{RO, RW, DatabaseKind, TransactionKind, WriteFlags, Cursor};
+use std::ops::Range;
+use libmdbx::{RO, RW, DatabaseKind, TransactionKind, WriteFlags, Cursor, Geometry, PageSize, Mode, SyncMode, DatabaseFlags, TableFlags};
 use crate::{
 	database::Database,
 	error::{DB_FAILURES, DB_SERIAL},
-	table::{Table, DupTable},
+	table::{Table, DupTable, self},
 	transaction::{Transaction, WriteTransaction}, BINCODE_CONFIG,
 };
+
+// Constant used in mdbx implementation
+const MDBX_DEFAULT_SYNC_MODE   : SyncMode = SyncMode::Durable;
+const MDBX_MAX_MAP_SIZE: usize = 4*1024usize.pow(3); // 4TB
+const MDBX_GROWTH_STEP : isize = 100*1024isize.pow(2); // 100MB
+const MDBX_PAGE_SIZE   : Option<PageSize> = None;
+const MDBX_GEOMETRY: Geometry<Range<usize>> = Geometry { size: Some(0..MDBX_MAX_MAP_SIZE), growth_step: Some(MDBX_GROWTH_STEP), shrink_threshold: None, page_size: MDBX_PAGE_SIZE };
 
 /// [`mdbx_decode`] is a function which the supplied bytes will be deserialized using `bincode::decode_from_slice(src, BINCODE_CONFIG)` 
 /// function. Return `Err(DB_FAILURES::SerializeIssue(DB_SERIAL::BincodeDecode(err)))` if it failed to decode the value. It is used for clarity purpose.
@@ -60,6 +68,75 @@ where
 	// Open a Read-Write transaction
 	fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error> {
 		self.begin_rw_txn()
+	}
+
+	// Open the database with the given path
+	fn open(path: std::path::PathBuf) -> Result<Self, Self::Error> {
+		let db: libmdbx::Database<E> = libmdbx::Database::new()
+			.set_flags(DatabaseFlags::from(Mode::ReadWrite{sync_mode:MDBX_DEFAULT_SYNC_MODE}))
+			.set_geometry(MDBX_GEOMETRY)
+			.set_max_readers(32)
+			.set_max_tables(15)
+			.open(path.as_path())?;
+
+		Ok(db)
+	}
+
+	// Open each tables to verify if the database is complete.
+	fn check(&'a self) -> Result<(), Self::Error> {
+		let ro_tx = self.begin_ro_txn()?;
+		// ----- BLOCKS -----
+		ro_tx.open_table(Some(table::blockhash::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::blockmetadata::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::blocks::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::blockhfversion::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::altblock::TABLE_NAME))?;
+		// ------ TXNs ------
+		ro_tx.open_table(Some(table::txsprefix::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::txsprunablehash::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::txsprunabletip::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::txsprunable::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::txsoutputs::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::txsidentifier::TABLE_NAME))?;
+		// ---- OUTPUTS -----
+		ro_tx.open_table(Some(table::prerctoutputmetadata::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::outputmetadata::TABLE_NAME))?;
+		// ---- SPT KEYS ----
+		ro_tx.open_table(Some(table::spentkeys::TABLE_NAME))?;
+		// --- PROPERTIES ---
+		ro_tx.open_table(Some(table::properties::TABLE_NAME))?;
+		
+		Ok(())
+	}
+
+	// Construct the table of the database
+	fn build(&'a self) -> Result<(), Self::Error> {
+		let rw_tx = self.begin_rw_txn()?;
+		
+		// Constructing the tables
+		// ----- BLOCKS -----
+		rw_tx.create_table(Some(table::blockhash::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::blockmetadata::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::blocks::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::blockhfversion::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::altblock::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		// ------ TXNs ------
+		rw_tx.create_table(Some(table::txsprefix::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::txsprunable::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::txsprunablehash::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
+		rw_tx.create_table(Some(table::txsprunabletip::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::txsoutputs::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
+		rw_tx.create_table(Some(table::txsidentifier::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
+		// ---- OUTPUTS -----
+		rw_tx.create_table(Some(table::prerctoutputmetadata::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
+		rw_tx.create_table(Some(table::outputmetadata::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		// ---- SPT KEYS ----
+		rw_tx.create_table(Some(table::spentkeys::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
+		// --- PROPERTIES ---
+		rw_tx.create_table(Some(table::properties::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+
+		rw_tx.commit()?;
+		Ok(())
 	}
 }
 

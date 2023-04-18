@@ -35,7 +35,7 @@ macro_rules! impl_table {
 		pub(crate) struct $table;
 
    		impl Table for $table {
-	 		const TABLE_NAME: &'static str = "$table";
+	 		const TABLE_NAME: &'static str = stringify!($table);
         	type Key = $key;
             type Value = $value;
         }
@@ -65,9 +65,9 @@ impl_table!(
 	/// `blockmetadata` store block metadata alongside their corresponding Hash. The blocks metadata can contains the total_coins_generated, weight, long_term_block_weight & cumulative RingCT
 	blockmetadata, u64, BlockMetadata);
 	
-impl_table!(
+impl_duptable!(
 	/// `blockbody` store blocks' bodies along their Hash. The blocks body contains the coinbase transaction and its corresponding mined transactions' hashes.
-	blocks, u64, Compat<Block>);
+	blocks, (), u64, Compat<Block>);
 
 impl_table!(
 	/// `blockhfversion` keep track of block's hard fork version. If an outdated node continue to run after a hard fork, it needs to know, after updating, what blocks needs to be update.
@@ -112,8 +112,14 @@ impl_table!(
 	/// `prerctoutputmetadata` is a table storing RingCT output's metadata. The key is the amount idx of this output since amount is always 0 for RingCT outputs.
 	outputmetadata, u64, OutputMetadata);
 
-//  ---- SPT KEYS ----
+// ---- SPT KEYS ----
 
 impl_table!(
 	/// `spentkeys`is a table storing every KeyImage that have been used to create decoys input. As these KeyImage can't be re used they need to marked. 
 	spentkeys, KeyImage, ());
+
+// ---- PROPERTIES ----
+
+impl_table!(
+	/// `spentkeys`is a table storing every KeyImage that have been used to create decoys input. As these KeyImage can't be re used they need to marked. 
+	properties, u32, u32);

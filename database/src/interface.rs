@@ -966,41 +966,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	// No pruning yet
 	fn get_blockchain_pruning_seed(&'service self) -> Result<u32, DB_FAILURES> {
-		Ok(0)
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+
+		ro_tx.get::<table::properties>(&0)?
+			.ok_or(DB_FAILURES::NotFound("Can't find prunning seed"))
 	} 
-
-
-
-
-	// --------------------------------| Blocks |--------------------------------
-	/*
-	/// `pop_block` pops the top block off the blockchain. This cause the last block to be deleted
-	/// from all its reference tables, including transactions it was refering to.
-    ///
-	/// Return the block that was popped. In case of failures, a `DB_FAILURES` will be return.
-	///
-    /// No parameters is required.
-	
-    fn pop_block(&'service self) -> Result<Option<Block>, DB_FAILURES> {
-		let current_height = self.height()?;
-
-		let blk = self.get::<table::blocks>(&current_height)?;
-
-		self.delete::<table::blocks>(&current_height, &None)?;
-		self.delete::<table::blockmetadata>(&current_height, &None)?;
-
-		// Re-encoding the slice and get the hash
-		let e_blk = bincode::encode_to_vec(&blk, BINCODE_CONFIG)
-			.map_err(|e| DB_FAILURES::SerializeIssue(error::DB_SERIAL::BincodeEncode(e)))?;
-		let hash = Hash::new(keccak_256(e_blk.as_slice())).into();
-				
-		self.delete::<table::blockhash>(&hash, &None)?;
-
-		// Now let's delete all its transactions
-		blk.0.tx_hashes.iter().for_each(|_tx| {
-
-			todo!()
-		});
-		return Ok(Some(blk.0))
-	}*/
 }

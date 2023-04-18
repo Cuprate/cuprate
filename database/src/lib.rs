@@ -54,7 +54,7 @@ pub mod database {
 	//! to fullfil these associated types and functions, in order to be usable. This module also contains the
 	//! Interface struct which is used by the DB Reactor to interact with the database.
 
-    use std::{ops::Deref, sync::Arc};
+    use std::{ops::Deref, sync::Arc, path::PathBuf};
     use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
 	
 	/// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the 
@@ -68,7 +68,17 @@ pub mod database {
 		// Create a transaction from the database
 		fn tx(&'a self) -> Result<Self::TX, Self::Error>;
 
+		// Create a mutable transaction from the database
         fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
+
+		// Open a database from the specified path
+		fn open(path: PathBuf) -> Result<Self, Self::Error> where Self: std::marker::Sized;
+
+		// Check if the database is built.
+		fn check(&'a self) -> Result<(), Self::Error>;
+
+		// Build the database
+		fn build(&'a self) -> Result<(), Self::Error>;
 	}
 
 	/// `Interface` is a struct containing a shared pointer to the database and transaction's to be used for the implemented method of Interface.
