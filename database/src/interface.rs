@@ -1,6 +1,14 @@
 //! ### Interface module
-//! This module contains all the implementations of interface. 
+//! This module contains all the implementations of the database interface. 
 //! These are all the functions that can be executed through DatabaseRequest.
+//! 
+//! The following functions have been separated through 6 categories:
+//! -| Blockchain   |-
+//! -| Blocks       |-
+//! -| Transactions |-
+//! -| Outputs      |-
+//! -| SpentKeys    |-
+//! -| Categories   |-
 
 // TODO: add_transaction() not finished due to ringct zeroCommit missing function
 // TODO: in add_transaction_data() Investigate unprunable_size == 0 condition of monerod
@@ -9,7 +17,7 @@
 // TODO: Check all documentations
 
 use monero::{cryptonote::hash::Hashable, Hash, Block, TxOut, util::ringct::Key, TxIn, BlockHeader};
-use crate::{error::DB_FAILURES, database::{Database, Interface}, table::{self}, transaction::{Transaction, Cursor, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex, TxOutputIdx, AltBlock, BlockMetadata}};
+use crate::{error::DB_FAILURES, database::{Database, Interface}, table::{self}, transaction::{Transaction, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex, TxOutputIdx, AltBlock, BlockMetadata}};
 
 // Implementation of Interface
 impl<'service, D: Database<'service>> Interface<'service,D> {
@@ -36,38 +44,6 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 	fn height(&'service self) -> Result<u64,DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		ro_tx.num_entries::<table::blockhash>().map(|n| n as u64)
-	}
-
-	/// `update_hard_fork_version` update which hardfork version a height is on.<br>
-    ///
-    /// In case of failures, a `DB_FAILURES` will be return.
-    ///
-    /// Parameters:<br>
- 	/// `height`: is the height where the hard fork happen.<br>
-    /// `version`: is the version of the hard fork.
-    fn update_hard_fork_version(&'service self, height: u64, hardfork_version: u8) -> Result<(), DB_FAILURES> {
-		let b_hf = self.get::<table::blockhfversion>(&height)?
-			.ok_or(DB_FAILURES::NotFound("Can't find block hf version"))?;
-
-		if b_hf != hardfork_version {
-			self.put::<table::blockhfversion>(&height, &hardfork_version)?;
-		}
-		Ok(())
-	}
-
-	/// `get_hard_fork_version` checks which hardfork version a height is on.
-    ///
-    /// In case of failures, a `DB_FAILURES` will be return.
-    ///
-    /// Parameters:<br>
-    /// `height`: is the height to check.
-    fn get_hard_fork_version(&'service self, height: u64) -> Result<u8, DB_FAILURES> {
-		let ro_tx = self.db.tx().map_err(Into::into)?;
-
-		let hf_version = ro_tx.get::<table::blockhfversion>(&height)?
-			.ok_or(DB_FAILURES::NotFound("Can't find block hf version"))?;
-
-		Ok(hf_version)
 	}
 
 
@@ -162,12 +138,15 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 	{
 		let height = self.height()?;
 
-		if self.get::<table::blockmetadata>(&height)?.is_some() {
+		let mut cursor_blockhash = self.write_cursor_dup::<table::blockhash>()?;
+		let mut cursor_blockmetadata = self.write_cursor_dup::<table::blockmetadata>()?;
+
+		if cursor_blockmetadata.get_dup(&(), &height)?.is_some() {
 			return Err(DB_FAILURES::AlreadyExist("Attempting to insert a block alreayd existent in the database"))?
 		}
 
 		if height > 0 {
-			let parent_height = self.get::<table::blockhash>(&blk.header.prev_id.into())?
+			let parent_height: u64 = cursor_blockhash.get_dup(&(), &blk.header.prev_id.into())?
 				.ok_or(DB_FAILURES::NotFound("Can't find parent block"))?;
 			
 			if parent_height != height-1 {
@@ -182,7 +161,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			blk_metadata.cum_rct += parent_cum_rct;
 		}
 		self.put::<table::blocks>(&height, &blk.into())?;
-		self.put::<table::blockmetadata>(&height, &blk_metadata)
+		cursor_blockhash.put_cursor_dup(&(), &blk_metadata.block_hash, &height)?;
+		cursor_blockmetadata.put_cursor_dup(&(), &height, &blk_metadata)
+		// blockhfversion missing but do we really need this table?
 	}
 
 	/// `pop_block` pops the top block off the blockchain.
@@ -198,16 +179,21 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			return Err(DB_FAILURES::Other("Attempting to remove block from an empty blockchain"))
 		}
 
+		let mut cursor_blockhash = self.write_cursor_dup::<table::blockhash>()?;
+		let mut cursor_blockmetadata = self.write_cursor_dup::<table::blockmetadata>()?;
+
 		let blk = self.get::<table::blocks>(&(height-1))?
 			.ok_or(DB_FAILURES::NotFound("Attempting to remove block that's not in the db"))?.0;
 
-		let hash = self.get::<table::blockmetadata>(&height)?
+		let hash = cursor_blockmetadata.get_dup(&(), &height)?
 			.ok_or(DB_FAILURES::NotFound("Failed to retrieve block metadata"))?.block_hash;
 
-		self.delete::<table::blockhash>(&hash, &None)?;
-		self.delete::<table::blocks>(&height, &None)?;
-		self.delete::<table::blockmetadata>(&height, &None)?;
-		self.delete::<table::blockhfversion>(&height, &None)?;
+		self.delete::<table::blocks>(&(height-1), &None)?;
+		if cursor_blockhash.get_dup(&(), &hash)?.is_some() {
+			cursor_blockhash.del()?;
+		}
+
+		cursor_blockmetadata.del()?;
 		
 		// Then we delete all its revelent txs
 		for tx_hash in blk.tx_hashes.iter() {
@@ -226,7 +212,8 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `h`: is the given hash of the requested block.
     fn block_exists(&'service self, hash: Hash) -> Result<bool, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		Ok(ro_tx.get::<table::blockhash>(&hash.into())?.is_some())
+		let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
+		Ok(cursor_blockhash.get_dup(&(), &hash.into())?.is_some())
 	}
 
 	/// `get_block_hash` fetch the block's hash located at the give height.
@@ -236,7 +223,8 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// No parameters is required
     fn get_block_hash(&'service self, height: u64) -> Result<Hash, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
+		let metadata = cursor_blockmetadata.get_dup(&(), &height)?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.block_hash.0)
@@ -247,7 +235,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// Return the requested height.
     fn get_block_height(&'service self, hash: Hash) -> Result<u64, DB_FAILURES> {
 		let ro_tx= self.db.tx().map_err(Into::into)?;
-		ro_tx.get::<table::blockhash>(&hash.into())?
+		let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
+
+		cursor_blockhash.get_dup(&(), &hash.into())?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block height"))
 	}
 
@@ -260,7 +250,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `height`: is the given height where the requested block is located.
     fn get_block_weight(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
+
+		let metadata = cursor_blockmetadata.get_dup(&(), &height)?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.weight)
@@ -275,7 +267,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `height`: is the given height of the block to seek.
     fn get_block_already_generated_coins(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
+
+		let metadata = cursor_blockmetadata.get_dup(&(), &height)?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.total_coins_generated)
@@ -290,7 +284,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `height`: is the given height where the requested block is located.
     fn get_block_long_term_weight(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
+
+		let metadata = cursor_blockmetadata.get_dup(&(), &height)?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.long_term_block_weight)
@@ -305,7 +301,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `height`: is the given height where the requested block to fetch timestamp is located.
     fn get_block_timestamp(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
+
+		let metadata = cursor_blockmetadata.get_dup(&(), &height)?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.timestamp)	
@@ -320,7 +318,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `heights`: is the collection of height to check for RingCT distribution.
     fn get_block_cumulative_rct_outputs(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
+
+		let metadata = cursor_blockmetadata.get_dup(&(), &height)?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.cum_rct)
@@ -328,7 +328,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	fn get_block(&'service self, hash: Hash) -> Result<Block, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let blk_height = ro_tx.get::<table::blockhash>(&hash.into())?
+		let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
+
+		let blk_height: u64 = cursor_blockhash.get_dup(&(), &hash.into())?
 			.ok_or(DB_FAILURES::NotFound("Can't find block"))?;
 
 		Ok(ro_tx.get::<table::blocks>(&blk_height)?
@@ -351,11 +353,13 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `h`: is the given hash of the requested block.
     fn get_block_header(&'service self, hash: Hash) -> Result<BlockHeader, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		let blk_height = ro_tx.get::<table::blockhash>(&hash.into())?
+		let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
+
+		let blk_height: u64 = cursor_blockhash.get_dup(&(), &hash.into())?
 			.ok_or(DB_FAILURES::NotFound("Can't find block"))?;
 
 		Ok(ro_tx.get::<table::blocks>(&blk_height)?
-					.ok_or(DB_FAILURES::NotFound("Can't find block"))?.0.header)
+			.ok_or(DB_FAILURES::NotFound("Can't find block"))?.0.header)
 	}
 
 	fn get_block_header_from_height(&'service self, height: u64) -> Result<BlockHeader, DB_FAILURES> {
@@ -372,6 +376,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// No parameters is required.
     fn get_top_block(&'service self) -> Result<Block, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
+
 		let blk_height = self.height()?;
 
 		Ok(ro_tx.get::<table::blocks>(&blk_height)?
@@ -386,7 +391,9 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     fn get_top_block_hash(&'service self) -> Result<Hash, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		let height = self.height()?;
-		let metadata = ro_tx.get::<table::blockmetadata>(&height)?
+		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
+
+		let metadata = cursor_blockmetadata.get_dup(&(), &height)?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.block_hash.0)
@@ -717,6 +724,8 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 	{
 		let height = self.height()?;
 
+		let mut cursor_outputmetadata = self.write_cursor_dup::<table::outputmetadata>()?;
+
 		let pubkey = output.target.as_one_time_key().map(Into::into);
 		let mut out_metadata = OutputMetadata {
 			tx_hash: tx_hash.into(),
@@ -733,7 +742,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			out_metadata.commitment = Some(commitment.into());
 
 			let amount_index = self.get_rct_num_outputs()? + 1;
-			self.put::<table::outputmetadata>(&amount_index, &out_metadata)?;
+			cursor_outputmetadata.put_cursor_dup(&(), &amount_index, &out_metadata)?;
 			Ok(amount_index)
 		}
 		// Pre-RingCT Outputs
@@ -747,17 +756,24 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 	}
 
 	fn remove_output(&'service self, amount: Option<u64>, index: u64) -> Result<(), DB_FAILURES> {
+		let mut cursor_outputmetadata = self.write_cursor_dup::<table::outputmetadata>()?;
+
 		if let Some(amount) = amount {
 			if amount == 0 {
-				return self.delete::<table::outputmetadata>(&index, &None)
+				
+				cursor_outputmetadata.get_dup(&(), &index)?.ok_or(DB_FAILURES::NotFound("Failed to find PostRCT output metadata"))?;
+				cursor_outputmetadata.del()
+			} else {
+				let mut cursor = self.write_cursor_dup::<table::prerctoutputmetadata>()?;
+				let _ = cursor.get_dup(&amount, &index)?
+					.ok_or(DB_FAILURES::NotFound("Failed to find PreRCT output metadata"))?;
+				cursor.del()
 			}
-			let mut cursor = self.write_cursor_dup::<table::prerctoutputmetadata>()?;
-			let _ = cursor.get_dup(&amount, &index)?
-				.ok_or(DB_FAILURES::NotFound("Failed to find PreRCT output metadata"))?;
-			cursor.del()
+			
 		} 
 		else {
-			self.delete::<table::outputmetadata>(&index, &None)
+			cursor_outputmetadata.get_dup(&(), &index)?.ok_or(DB_FAILURES::NotFound("Failed to find PostRCT output metadata"))?;
+			cursor_outputmetadata.del()
 		}
 	}
 
@@ -773,14 +789,17 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `include_commitment` : `true` by default.
     fn get_output(&'service self, amount: Option<u64>, index: u64) -> Result<OutputMetadata, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let mut cursor_outputmetadata = ro_tx.cursor_dup::<table::outputmetadata>()?;
+
 		if let Some(amount) = amount {
-			let mut cursor = ro_tx.cursor_dup::<table::prerctoutputmetadata>()?;
-			cursor.get_dup(&amount, &index)?
-				.ok_or(DB_FAILURES::NotFound("Failed to find PreRCT output metadata"))
-		} else {
-			ro_tx.get::<table::outputmetadata>(&index)?
-				.ok_or(DB_FAILURES::NotFound("Failed to find PostRCT output metadata"))
+			if amount > 0 {
+				let mut cursor = ro_tx.cursor_dup::<table::prerctoutputmetadata>()?;
+				return cursor.get_dup(&amount, &index)?
+					.ok_or(DB_FAILURES::NotFound("Failed to find PreRCT output metadata"))
+			}
 		}
+		cursor_outputmetadata.get_dup(&(), &index)?
+				.ok_or(DB_FAILURES::NotFound("Failed to find PostRCT output metadata"))
 	}
 
     /// `get_output_list` gets a collection of output's data from a corresponding index collection.
@@ -797,6 +816,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		offsets: Vec<u64>,
     	) -> Result<Vec<OutputMetadata>, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
+		let mut cursor_outputmetadata = ro_tx.cursor_dup::<table::outputmetadata>()?;
 		let mut result: Vec<OutputMetadata> = Vec::new();
 		
 		// Pre-RingCT output to be found.
@@ -806,7 +826,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			for ofs in amounts.into_iter().zip(offsets) {
 
 				if ofs.0 == 0 {
-					let output = ro_tx.get::<table::outputmetadata>(&ofs.1)?
+					let output = cursor_outputmetadata.get_dup(&(), &ofs.1)?
 						.ok_or(DB_FAILURES::NotFound("An output hasn't been found in the database"))?;
 					result.push(output);
 				} else {
@@ -819,7 +839,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		} else {
 			for ofs in offsets {
 
-				let output = ro_tx.get::<table::outputmetadata>(&ofs)?
+				let output = cursor_outputmetadata.get_dup(&(), &ofs)?
 					.ok_or(DB_FAILURES::NotFound("An output hasn't been found in the database"))?;
 				result.push(output);				
 			}
@@ -881,17 +901,21 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	/// `add_spent_key` add the supplied key image to the spent key image record
 	fn add_spent_key(&'service self, key_image: KeyImage) -> Result<(), DB_FAILURES> {
-		self.put::<table::spentkeys>(&key_image, &())
+		let mut cursor_spentkeys = self.write_cursor_dup::<table::spentkeys>()?;
+		cursor_spentkeys.put_cursor_dup(&(), &key_image, &())
 	}
 
 	/// `remove_spent_key` remove the specified key image from the spent key image record
     fn remove_spent_key(&'service self, key_image: KeyImage) -> Result<(), DB_FAILURES> {
-		self.delete::<table::spentkeys>(&key_image, &None)
+		let mut cursor_spentkeys = self.write_cursor_dup::<table::spentkeys>()?;
+		cursor_spentkeys.get_dup(&(), &key_image)?;
+		cursor_spentkeys.del()
 	}
 
 	/// `is_spent_key_recorded` check if the specified key image has been spent
 	fn is_spent_key_recorded(&'service self, key_image: KeyImage) -> Result<bool, DB_FAILURES> {
-		Ok(self.get::<table::spentkeys>(&key_image)?.is_some())
+		let mut cursor_spentkeys = self.write_cursor_dup::<table::spentkeys>()?;
+		Ok(cursor_spentkeys.get_dup(&(), &key_image)?.is_some())
 	}
 
 

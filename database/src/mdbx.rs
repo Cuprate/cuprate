@@ -89,7 +89,6 @@ where
 		ro_tx.open_table(Some(table::blockhash::TABLE_NAME))?;
 		ro_tx.open_table(Some(table::blockmetadata::TABLE_NAME))?;
 		ro_tx.open_table(Some(table::blocks::TABLE_NAME))?;
-		ro_tx.open_table(Some(table::blockhfversion::TABLE_NAME))?;
 		ro_tx.open_table(Some(table::altblock::TABLE_NAME))?;
 		// ------ TXNs ------
 		ro_tx.open_table(Some(table::txsprefix::TABLE_NAME))?;
@@ -115,10 +114,9 @@ where
 		
 		// Constructing the tables
 		// ----- BLOCKS -----
-		rw_tx.create_table(Some(table::blockhash::TABLE_NAME), TableFlags::INTEGER_KEY)?;
-		rw_tx.create_table(Some(table::blockmetadata::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::blockhash::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
+		rw_tx.create_table(Some(table::blockmetadata::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
 		rw_tx.create_table(Some(table::blocks::TABLE_NAME), TableFlags::INTEGER_KEY)?;
-		rw_tx.create_table(Some(table::blockhfversion::TABLE_NAME), TableFlags::INTEGER_KEY)?;
 		rw_tx.create_table(Some(table::altblock::TABLE_NAME), TableFlags::INTEGER_KEY)?;
 		// ------ TXNs ------
 		rw_tx.create_table(Some(table::txsprefix::TABLE_NAME), TableFlags::INTEGER_KEY)?;
@@ -129,7 +127,7 @@ where
 		rw_tx.create_table(Some(table::txsidentifier::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
 		// ---- OUTPUTS -----
 		rw_tx.create_table(Some(table::prerctoutputmetadata::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
-		rw_tx.create_table(Some(table::outputmetadata::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::outputmetadata::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
 		// ---- SPT KEYS ----
 		rw_tx.create_table(Some(table::spentkeys::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
 		// --- PROPERTIES ---
@@ -279,17 +277,17 @@ impl<'a,T> crate::transaction::DupWriteCursor<'a ,T> for Cursor<'a ,RW>
 where
 	T: DupTable,
 {
-    fn del_nodup(&mut self) -> Result<(),DB_FAILURES> {
-        	
-		self.del(WriteFlags::NO_DUP_DATA).map_err(Into::into)
-    }
-
     fn put_cursor_dup(&mut self, key: &<T>::Key, subkey: &<T as DupTable>::SubKey, value: &<T>::Value) -> Result<(),DB_FAILURES> {
 		let (encoded_key, mut encoded_subkey, mut encoded_value) = (mdbx_encode(key)?, mdbx_encode(subkey)?, mdbx_encode(value)?);
 		encoded_subkey.append(&mut encoded_value);
 
 		self.put(encoded_key.as_slice(), encoded_subkey.as_slice(), WriteFlags::empty())
 			.map_err(Into::into)
+    }
+
+	fn del_nodup(&mut self) -> Result<(),DB_FAILURES> {
+        	
+		self.del(WriteFlags::NO_DUP_DATA).map_err(Into::into)
     }
 }
 

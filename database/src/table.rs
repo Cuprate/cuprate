@@ -57,21 +57,23 @@ macro_rules! impl_duptable {
 
 // ----- BLOCKS -----
 
-impl_table!(
-	/// `blockhash` is table defining a relation between the hash of a block and its height. Its primary use is to quickly find block's hash by its height.
-	blockhash, Compat<Hash>, u64);
-
-impl_table!(
-	/// `blockmetadata` store block metadata alongside their corresponding Hash. The blocks metadata can contains the total_coins_generated, weight, long_term_block_weight & cumulative RingCT
-	blockmetadata, u64, BlockMetadata);
-	
 impl_duptable!(
-	/// `blockbody` store blocks' bodies along their Hash. The blocks body contains the coinbase transaction and its corresponding mined transactions' hashes.
-	blocks, (), u64, Compat<Block>);
+	/// `blockhash` is table defining a relation between the hash of a block and its height. Its primary use is to quickly find block's hash by its height.
+	blockhash, (), Compat<Hash>, u64);
 
+impl_duptable!(
+	/// `blockmetadata` store block metadata alongside their corresponding Hash. The blocks metadata can contains the total_coins_generated, weight, long_term_block_weight & cumulative RingCT
+	blockmetadata, (), u64, BlockMetadata);
+	
+impl_table!(
+	/// `blockbody` store blocks' bodies along their Hash. The blocks body contains the coinbase transaction and its corresponding mined transactions' hashes.
+	blocks, u64, Compat<Block>);
+
+/*
 impl_table!(
 	/// `blockhfversion` keep track of block's hard fork version. If an outdated node continue to run after a hard fork, it needs to know, after updating, what blocks needs to be update.
 	blockhfversion, u64, u8);
+*/
 	
 impl_table!( 
 	/// `altblock` is a table that permit the storage of blocks from an alternative chains being submitted to the txpool. These blocks can be fetch by their corresponding hash.
@@ -108,15 +110,15 @@ impl_duptable!(
 impl_duptable!(
 	/// `prerctoutputmetadata` is a duplicated table storing Pre-RingCT output's metadata. The key is the amount of this output, and the subkey is its amount idx.
 	prerctoutputmetadata, u64, u64, OutputMetadata);
-impl_table!(
+impl_duptable!(
 	/// `prerctoutputmetadata` is a table storing RingCT output's metadata. The key is the amount idx of this output since amount is always 0 for RingCT outputs.
-	outputmetadata, u64, OutputMetadata);
+	outputmetadata, (), u64, OutputMetadata);
 
 // ---- SPT KEYS ----
 
-impl_table!(
+impl_duptable!(
 	/// `spentkeys`is a table storing every KeyImage that have been used to create decoys input. As these KeyImage can't be re used they need to marked. 
-	spentkeys, KeyImage, ());
+	spentkeys, (), KeyImage, ());
 
 // ---- PROPERTIES ----
 
