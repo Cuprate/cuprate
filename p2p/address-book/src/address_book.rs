@@ -1,70 +1,32 @@
-mod peer_list;
 
 use std::collections::{HashSet, HashMap};
 
+use std::time::Duration;
+use futures::{channel::{mpsc, oneshot}, StreamExt};
+use rand::{Rng, SeedableRng};
+
 use cuprate_common::PruningSeed;
 use monero_wire::{NetworkAddress, messages::PeerListEntryBase, network_address::NetZone};
-use futures::{channel::{mpsc, oneshot}, StreamExt};
-use rand::Rng;
 
+use super::{AddressBookError, AddressBookRequest, AddressBookResponse, AddressBookConfig};
+
+mod peer_list;
 use peer_list::PeerList;
-use super::{AddressBookError, MAX_GRAY_LIST_PEERS, MAX_WHITE_LIST_PEERS};
 
 
 
 
 
-pub enum AddressBookRequest {
-    HandleNewPeerList(Vec<PeerListEntryBase>, NetZone),
-    SetPeerSeen(NetworkAddress, i64),
-    BanPeer(NetworkAddress, chrono::NaiveDateTime),
-    AddPeerToAnchor(NetworkAddress),
-    RemovePeerFromAnchor(NetworkAddress),
 
-    GetRandomGrayPeer(NetZone),
-}
-
-impl AddressBookRequest {
-    pub fn get_zone(&self) -> NetZone {
-        match self {
-            Self::HandleNewPeerList(_, zone) => *zone,
-            Self::SetPeerSeen(peer, _) => peer.get_zone(),
-            Self::BanPeer(peer, _) => peer.get_zone(),
-            Self::AddPeerToAnchor(peer) => peer.get_zone(),
-            Self::RemovePeerFromAnchor(peer) => peer.get_zone(),
-            Self::GetRandomGrayPeer(zone) => *zone,
-
-        }
-    }
-}
-
-pub enum AddressBookResponse {
-    Ok,
-    Peer(PeerListEntryBase),
-}
-
-pub struct AddressBookClientRequest {
+pub(crate) struct AddressBookClientRequest {
     pub req: AddressBookRequest,
     pub tx: oneshot::Sender<Result<AddressBookResponse, AddressBookError>>,
-}
 
-pub struct AddressBookConfig {
-    max_white_peers: usize,
-    max_gray_peers:  usize,
-}
-
-impl Default for AddressBookConfig {
-    fn default() -> Self {
-        AddressBookConfig { 
-            max_white_peers: MAX_WHITE_LIST_PEERS, 
-            max_gray_peers: MAX_GRAY_LIST_PEERS 
-        }
-    }
+    pub span: tracing::Span,
 }
 
 
-
-pub struct AddressBook<R> {
+pub struct AddressBook {
     zone: NetZone,
     config: AddressBookConfig,
     white_list: PeerList,
@@ -73,13 +35,49 @@ pub struct AddressBook<R> {
 
     baned_peers: HashMap<NetworkAddress, chrono::NaiveDateTime>,
 
-    rng: R,
+    rng: rand::rngs::StdRng,
    //banned_subnets:,
 }
 
-impl<R: Rng> AddressBook<R> {
-    pub fn new() {
-        todo!()
+impl AddressBook {
+    pub fn new(
+        config:AddressBookConfig, 
+        zone: NetZone, 
+        white_peers: Vec<PeerListEntryBase>,
+        gray_peers: Vec<PeerListEntryBase>,
+        anchor_peers: Vec<NetworkAddress>,
+        baned_peers: Vec<(NetworkAddress, chrono::NaiveDateTime)>,
+    ) -> AddressBook {
+        let rng = rand::prelude::StdRng::from_entropy();
+        let white_list = PeerList::new(white_peers);
+        let gray_list = PeerList::new(gray_peers);
+        let anchor_list = HashSet::from_iter(anchor_peers);
+        let baned_peers = HashMap::from_iter(baned_peers);
+
+        let mut book = AddressBook{
+            zone,
+            config,
+            white_list,
+            gray_list,
+            anchor_list,
+            baned_peers,
+            rng
+        };
+
+        book.check_unban_peers();
+
+        book
+
+        
+    }
+
+    pub const fn book_name(&self) -> &'static str {
+        match self.zone {
+            NetZone::Public => "PublicAddressBook",
+            NetZone::Tor => "TorAddressBook",
+            NetZone::I2p => "I2pAddressBook",
+
+        }
     }
 
     fn len_white_list(&self) -> usize {
@@ -115,10 +113,14 @@ impl<R: Rng> AddressBook<R> {
             return;
         }
 
+        tracing::debug!("Banning peer: {peer:?} until: {till}");
+
         self.baned_peers.insert(peer, till);
     }
 
     fn add_peer_to_anchor(&mut self, peer: NetworkAddress) -> Result<(), AddressBookError> {
+
+        tracing::debug!("Adding peer: {peer:?} to anchor list");
        // is peer in gray list
        if let Some(peer_eb) = self.gray_list.remove_peer(&peer) {
             self.white_list.add_new_peer(peer_eb);
@@ -138,7 +140,6 @@ impl<R: Rng> AddressBook<R> {
     }
 
     fn set_peer_seen(&mut self, peer: NetworkAddress, last_seen: i64) -> Result<(), AddressBookError>{
-        // is peer in gray list
         if let Some(mut peer) = self.gray_list.remove_peer(&peer) {
             peer.last_seen = last_seen;
             self.white_list.add_new_peer(peer);
@@ -160,6 +161,10 @@ impl<R: Rng> AddressBook<R> {
     }
 
     fn handle_new_peerlist(&mut self, mut peers: Vec<PeerListEntryBase>) -> Result<(), AddressBookError> {
+        let length = peers.len();
+
+        tracing::debug!("Received new peer list, length: {length}");
+
         let mut err = None;
         peers.retain(|peer|
             if err.is_some() {
@@ -171,6 +176,7 @@ impl<R: Rng> AddressBook<R> {
             } else if PruningSeed::try_from(peer.pruning_seed).is_err() {
                 false
             } else if peer.adr.get_zone() != self.zone {
+                tracing::info!("Received an address from a different network zone, ignoring list.");
                 err = Some(AddressBookError::PeerSentAnAddressOutOfZone);
                 false
             } else if self.is_peer_banned(&peer.adr) {
@@ -189,20 +195,29 @@ impl<R: Rng> AddressBook<R> {
             self.gray_list.reduce_list(&HashSet::new(), self.max_gray_peers());
             Ok(())
         }
-    } 
+    }
 
-    pub fn get_random_gray_peer(&mut self) -> Option<PeerListEntryBase> {
-        let gray_len = self.len_gray_list();
-        if gray_len == 0 {
-            None
+    fn get_random_gray_peer(&mut self) -> Option<PeerListEntryBase> {
+        self.gray_list.get_random_peer(&mut self.rng).map(|p| *p)
+    }
+
+    fn get_random_white_peer(&mut self) -> Option<PeerListEntryBase> {
+        self.white_list.get_random_peer(&mut self.rng).map(|p| *p)
+    }
+
+    fn update_peer_info(&mut self, peer: PeerListEntryBase) -> Result<(), AddressBookError> {
+        if let Some(peer_stored) = self.gray_list.get_peer_mut(&peer.adr) {
+            *peer_stored = peer;
+            Ok(())
+        } else if let Some(peer_stored) = self.white_list.get_peer_mut(&peer.adr) {
+            *peer_stored = peer;
+            Ok(())
         } else {
-            let n = self.rng.gen_range(0..gray_len);
-
-            self.gray_list.get_peer_by_idx(n).map(|p| *p)
+            return Err(AddressBookError::PeerNotFound);
         }
     }
 
-    pub async fn run(mut self, mut rx: mpsc::Receiver<AddressBookClientRequest>) {
+    pub(crate) async fn run(mut self, mut rx: mpsc::Receiver<AddressBookClientRequest>) {
         loop {
             let Some(req) = rx.next().await else {
                 // the client has been dropped the node has *possibly* shut down 
@@ -211,6 +226,12 @@ impl<R: Rng> AddressBook<R> {
 
             self.check_unban_peers();
 
+            let span = tracing::debug_span!(parent: &req.span,  "AddressBook");
+            let _guard = span.enter();
+
+            tracing::debug!("{} received request: {}", self.book_name(), req.req);
+
+
 
             let res = match req.req {
                 AddressBookRequest::HandleNewPeerList(new_peers, _) => self.handle_new_peerlist(new_peers).map(|_| AddressBookResponse::Ok),
@@ -218,15 +239,26 @@ impl<R: Rng> AddressBook<R> {
                 AddressBookRequest::BanPeer(peer, till) => {self.ban_peer(peer, till); Ok(AddressBookResponse::Ok)},
                 AddressBookRequest::AddPeerToAnchor(peer) => self.add_peer_to_anchor(peer).map(|_| AddressBookResponse::Ok),
                 AddressBookRequest::RemovePeerFromAnchor(peer) => {self.remove_peer_from_anchor(peer); Ok(AddressBookResponse::Ok)},
+                AddressBookRequest::UpdatePeerInfo(peer) => self.update_peer_info(peer).map(|_| AddressBookResponse::Ok),
 
                 AddressBookRequest::GetRandomGrayPeer(_) =>  {
                     match self.get_random_gray_peer() {
                         Some(peer) => Ok(AddressBookResponse::Peer(peer)),
-                        None => Err(AddressBookError::PeerNotFound),
+                        None => Err(AddressBookError::PeerListEmpty),
                     }
                 },
+                AddressBookRequest::GetRandomWhitePeer(_) => {
+                    match self.get_random_white_peer() {
+                        Some(peer) => Ok(AddressBookResponse::Peer(peer)),
+                        None => Err(AddressBookError::PeerListEmpty),
+                    }
+                }
 
             };
+
+            if let Err(e) = &res {
+                tracing::debug!("Error when handling request, err: {e}")
+            }
 
             let _ = req.tx.send(res);
         }

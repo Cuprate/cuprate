@@ -1,38 +1,92 @@
 use std::pin::Pin;
 use std::future::Future;
 
-use futures::{SinkExt, FutureExt};
+use tower::steer::Steer;
+use futures::FutureExt;
 use futures::channel::{mpsc, oneshot};
+use tokio::task::spawn;
+
 use monero_wire::network_address::NetZone;
 
-use crate::address_book::{AddressBookRequest, AddressBookResponse, AddressBookClientRequest};
-use crate::AddressBookError;
 
-pub struct AddressBookClient {
-    public: Option<mpsc::Sender<AddressBookClientRequest>>,
-    tor: Option<mpsc::Sender<AddressBookClientRequest>>,
-    i2p: Option<mpsc::Sender<AddressBookClientRequest>>,
+use crate::address_book::{AddressBookClientRequest, AddressBook};
+use crate::{AddressBookError, AddressBookStore, AddressBookConfig, AddressBookRequest, AddressBookResponse};
+
+
+pub async fn start_address_book<S>(
+    peer_store: S,
+    config: AddressBookConfig,
+) -> Result<
+    impl tower::Service<AddressBookRequest, Response = AddressBookResponse, Error = AddressBookError, Future = Pin<Box<dyn Future<Output = Result<AddressBookResponse, AddressBookError>> + Send + 'static>>> + Clone,
+    AddressBookError,
+>
+where
+    S: AddressBookStore,
+{
+    let mut builder = AddressBookBuilder::new(peer_store, config);
+
+    let public = builder.build(NetZone::Public).await?;
+    let tor = builder.build(NetZone::Tor).await?;
+    let i2p = builder.build(NetZone::I2p).await?;
+
+    let books = vec![public, tor, i2p];
+
+    Ok(Steer::new(
+        books,
+        |req: &AddressBookRequest, _: &[_]| match req.get_zone() {
+            NetZone::Public => 0,
+            NetZone::Tor => 1,
+            NetZone::I2p => 2,
+        },
+    ))
 }
 
-async fn send_req_to_chan(chan: Option<mpsc::Sender<AddressBookClientRequest>>, req: AddressBookClientRequest) -> Result<(), AddressBookError> {
-    if let Some(mut chan) = chan {
-        chan.send(req).await.map_err(|_| AddressBookError::AddressBooksChannelClosed)
-    } else {
-        unreachable!("If we are getting requests to this addr book the book should have been started")
-    }
+
+pub struct AddressBookBuilder<S> {
+    peer_store: S,
+    config: AddressBookConfig,
 }
 
-impl AddressBookClient {
-    fn get_chan_to_route(&mut self, zone: NetZone) -> Option<mpsc::Sender<AddressBookClientRequest>> {
-        match zone {
-            NetZone::Public => self.public.clone(),
-            NetZone::Tor => self.tor.clone(),
-            NetZone::I2p => self.i2p.clone(),
+impl<S> AddressBookBuilder<S>
+where
+    S: AddressBookStore,
+{
+    fn new(peer_store: S, config: AddressBookConfig) -> Self {
+        AddressBookBuilder {
+            peer_store,
+            config,
         }
+    }
 
+    async fn build(&mut self, zone: NetZone) -> Result<AddressBookClient, AddressBookError> {
+        let (white, gray, anchor, bans) = self
+            .peer_store
+            .load_peers(zone)
+            .await
+            .map_err(Into::into)?;
+
+        let book = AddressBook::new(
+            self.config.clone(),
+            zone,
+            white,
+            gray,
+            anchor,
+            bans,
+        );
+
+        let (tx, rx) = mpsc::channel(5);
+
+        spawn(book.run(rx));
+
+        Ok(AddressBookClient { book: tx })
     }
 }
 
+
+#[derive(Debug, Clone)]
+struct AddressBookClient {
+    book: mpsc::Sender<AddressBookClientRequest>,
+}
 
 impl tower::Service<AddressBookRequest> for AddressBookClient {
     type Error = AddressBookError;
@@ -40,51 +94,31 @@ impl tower::Service<AddressBookRequest> for AddressBookClient {
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
-        let mut all_ready = true;
-    
-        let mut check_channel = |chan: &mut Option<mpsc::Sender<AddressBookClientRequest>> | -> Result<(), Self::Error> {
-            if let Some(chan) = chan.as_mut() {
-                match chan.poll_ready(cx) {
-                    std::task::Poll::Ready(Ok(_)) => {}
-                    std::task::Poll::Ready(Err(_)) => return Err(AddressBookError::AddressBooksChannelClosed),
-                    std::task::Poll::Pending => all_ready = false,
-                }
-            }
-            Ok(())
-        };
-    
-    
-        check_channel(&mut self.public)?;
-    
-        check_channel(&mut self.tor)?;
-
-        check_channel(&mut self.i2p)?;
-    
-        if all_ready {
-            std::task::Poll::Ready(Ok(()))
-        } else {
-            std::task::Poll::Pending
-        }
+        self.book.poll_ready(cx).map_err(|_| AddressBookError::AddressBooksChannelClosed)
     }
 
     fn call(&mut self, req: AddressBookRequest) -> Self::Future {
         let (tx, rx) = oneshot::channel();
-
-        let zone = req.get_zone();
+        // get the callers span 
+        let span = tracing::span::Span::current();
 
         let req = AddressBookClientRequest {
             req,
-            tx
+            tx,
+            span
         };
 
-        let chan = self.get_chan_to_route(zone);
-
-
-        async move {
-            send_req_to_chan(chan, req).await?;
-
-            rx.await.expect("Address Book will not drop requests until completed")
-        }.boxed()
+        match self.book.try_send(req) {
+            Err(_e) => {
+                // I'm assuming all callers will call `poll_ready` first (which they are supposed to)
+                futures::future::ready(Err(AddressBookError::AddressBooksChannelClosed)).boxed()
+            },
+            Ok(()) => {
+                async move {
+                    rx.await.expect("Address Book will not drop requests until completed")
+                }.boxed()
+            }
+        }
     }
         
 }

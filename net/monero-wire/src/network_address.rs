@@ -104,6 +104,7 @@ pub enum NetworkAddress {
     IPv6(IPv6Address),
 }
 
+
 impl NetworkAddress {
     pub fn get_zone(&self) -> NetZone {
         match self {

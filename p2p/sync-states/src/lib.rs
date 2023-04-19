@@ -193,9 +193,10 @@ where
         }
     }
     async fn send_database_request(&mut self, req: DataBaseRequest) -> Result<DataBaseResponse, DatabaseError> {
-        let ready_blockchain = self.blockchain.ready().await.unwrap();
+        let ready_blockchain = self.blockchain.ready().await?;
         ready_blockchain.call(req).await
     }
+    
     async fn handle_core_sync_change(
         &mut self,
         id: &NetworkAddress,
@@ -386,8 +387,8 @@ where
                             let ready_set = peer_set.ready().await.unwrap();
                             let res = ready_set.call(PeerSetRequest::BanPeer(id)).await;
                         },
-                        Ok(res) => {
-                            if res {
+                        Ok(request_chain) => {
+                            if request_chain {
                                 self.get_and_handle_chain_entry(&mut peer_set, id).await;
                             }
                         },

@@ -1,6 +1,7 @@
 use std::collections::{HashSet, HashMap};
 
 use monero_wire::{messages::PeerListEntryBase, NetworkAddress};
+use rand::Rng;
 
 
 pub struct PeerList {
@@ -43,6 +44,17 @@ impl PeerList {
 
     pub fn get_peer_by_idx(&self, n: usize) -> Option<&PeerListEntryBase> {
         self.peers.iter().nth(n).map(|(_, ret)| ret)
+    }
+
+    pub fn get_random_peer<R: Rng>(&self, r: &mut R) -> Option<&PeerListEntryBase> {
+        let len = self.len();
+        if len == 0 {
+            None
+        } else {
+            let n = r.gen_range(0..len);
+
+            self.get_peer_by_idx(n)
+        }
     }
 
     pub fn get_peer_mut(&mut self, peer: &NetworkAddress) -> Option<&mut PeerListEntryBase> {

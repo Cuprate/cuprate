@@ -53,7 +53,7 @@ pub struct Connection<Svc, Aw, Ar> {
     connection_info: ConnectionInfo,
     state: State,
     sink: MessageSink<Aw, Message>,
-    stream: Fuse<MessageStream<Message, Ar>>,
+    stream: Fuse<MessageStream<Ar, Message>>,
     client_rx: mpsc::Receiver<ClientRequest>,
     sync_state_tx: mpsc::Sender<PeerSyncChange>,
     svc: Svc,
@@ -68,7 +68,7 @@ where
     pub fn new(
         connection_info: ConnectionInfo,
         sink: MessageSink<Aw, Message>,
-        stream: MessageStream<Message, Ar>,
+        stream: MessageStream<Ar, Message>,
         client_rx: mpsc::Receiver<ClientRequest>,
         sync_state_tx: mpsc::Sender<PeerSyncChange>,
         svc: Svc,

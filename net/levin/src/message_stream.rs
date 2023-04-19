@@ -34,13 +34,13 @@ use crate::PROTOCOL_VERSION;
 /// A stream that reads from the underlying `BucketStream` and uses the the
 /// methods on the `LevinBody` trait to decode the inner messages(bodies)
 #[pin_project]
-pub struct MessageStream<D, S> {
+pub struct MessageStream<S, D> {
     #[pin]
     bucket_stream: BucketStream<S>,
     phantom: PhantomData<D>,
 }
 
-impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> MessageStream<D, S> {
+impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> MessageStream<S, D> {
     /// Creates a new stream from the provided `AsyncRead`
     pub fn new(stream: S) -> Self {
         MessageStream {
@@ -50,7 +50,7 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> MessageStream<D, S> {
     }
 }
 
-impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D, S> {
+impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<S, D> {
     type Item = Result<D, BucketError>;
 
     fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
