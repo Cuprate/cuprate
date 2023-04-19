@@ -67,16 +67,15 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	/// `add_block` add the block and metadata to the db.
     ///
-    /// In case of failures, a `DB_FAILURES` will be return. Precisely, a BLOCK_EXISTS error will be returned if
-    /// the block to be added already exist. a BLOCK_INVALID will be returned if the block to be added did not pass validation.
+    /// In case of failures, a `DB_FAILURES`
     ///
     /// Parameters:
     /// `blk`: is the block to be added
+	/// `txs`: is the collection of transactions related to this block
     /// `block_weight`: is the weight of the block (data's total)
     /// `long_term_block_weight`: is the long term weight of the block (data's total)
     /// `cumulative_difficulty`: is the accumulated difficulty at this block.
     /// `coins_generated` is the number of coins generated after this block.
-    /// `blk_hash`: is the hash of the block.
     fn add_block(&'service self, blk: Block, txs: Vec<monero::Transaction>, block_weight: u64, long_term_block_weight: u64, cumulative_difficulty: u128, coins_generated: u64) 
 	-> Result<(), DB_FAILURES> 
 	{
@@ -121,18 +120,14 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 		self.add_block_data(blk, blk_metadata)
 	}
-	/// `add_block` add the block and metadata to the db.
+
+	/// `add_block_data` add the actual block's data and metadata to the db. Underlying function of `add_block`
     ///
-    /// In case of failures, a `DB_FAILURES` will be return. Precisely, a BLOCK_EXISTS error will be returned if
-    /// the block to be added already exist. a BLOCK_INVALID will be returned if the block to be added did not pass validation.
+    /// In case of failures, a `DB_FAILURES` will be return.
     ///
     /// Parameters:
-    /// `blk`: is the block to be added
-    /// `block_weight`: is the weight of the block (data's total)
-    /// `long_term_block_weight`: is the long term weight of the block (data's total)
-    /// `cumulative_difficulty`: is the accumulated difficulty at this block.
-    /// `coins_generated` is the number of coins generated after this block.
-    /// `blk_hash`: is the hash of the block.
+    /// `blk`: is the block to add
+    /// `blk_metadata`: is the block's metadata to add
     fn add_block_data(&'service self, blk: Block, mut blk_metadata: BlockMetadata) 
 	-> Result<(), DB_FAILURES>
 	{
@@ -209,7 +204,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// Return `true` if the block exist, `false` otherwise. In case of failures, a `DB_FAILURES` will be return.
     ///
     /// Parameters:
-    /// `h`: is the given hash of the requested block.
+    /// `hash`: is the given hash of the requested block.
     fn block_exists(&'service self, hash: Hash) -> Result<bool, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
@@ -243,8 +238,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	/// `get_block_weights` fetch the block's weight located at the given height.
     ///
-    /// Return the requested block weight. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
-    /// error will be returned if the requested block can't be found.
+    /// Return the requested block weight. In case of failures, a `DB_FAILURES` will be return.
     ///
     /// Parameters:
     /// `height`: is the given height where the requested block is located.
@@ -260,8 +254,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	/// `get_block_already_generated_coins` fetch a block's already generated coins
     ///
-    /// Return the total coins generated as of the block with the given height. In case of failures, a `DB_FAILURES` will be return. Precisely, a `BLOCK_DNE`
-    /// error will be returned if the requested block can't be found.
+    /// Return the total coins generated as of the block with the given height. In case of failures, a `DB_FAILURES` will be return.
     ///
     /// Parameters:
     /// `height`: is the given height of the block to seek.
@@ -277,8 +270,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
     /// `get_block_long_term_weight` fetch a block's long term weight.
     ///
-    /// Should return block's long term weight. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
-    /// error will be returned if the requested block can't be found.
+    /// Should return block's long term weight. In case of failures, a DB_FAILURES will be return.
     ///
     /// Parameters:
     /// `height`: is the given height where the requested block is located.
@@ -294,8 +286,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	/// `get_block_timestamp` fetch a block's timestamp.
     ///
-    /// Should return the timestamp of the block with given height. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
-    /// error will be returned if the requested block can't be found.
+    /// Should return the timestamp of the block with given height. In case of failures, a DB_FAILURES will be return.
     ///
     /// Parameters:
     /// `height`: is the given height where the requested block to fetch timestamp is located.
@@ -311,11 +302,10 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 	/// `get_block_cumulative_rct_outputs` fetch a blocks' cumulative number of RingCT outputs
     ///
-    /// Should return the number of RingCT outputs in the blockchain up to the blocks located at the given heights. In case of failures, a DB_FAILURES will be return. Precisely, a `BLOCK_DNE`
-    /// error will be returned if the requested block can't be found.
+    /// Should return the number of RingCT outputs in the blockchain up to the blocks located at the given heights. In case of failures, a DB_FAILURES will be return.
     ///
     /// Parameters:
-    /// `heights`: is the collection of height to check for RingCT distribution.
+    /// `height`: is the height to check for RingCT distribution.
     fn get_block_cumulative_rct_outputs(&'service self, height: u64) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
@@ -350,7 +340,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// error will be returned if the requested block can't be found.
     ///
     /// Parameters:
-    /// `h`: is the given hash of the requested block.
+    /// `hash`: is the given hash of the requested block.
     fn get_block_header(&'service self, hash: Hash) -> Result<BlockHeader, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
@@ -467,8 +457,8 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// Return the hash of the transaction added. In case of failures, a DB_FAILURES will be return.
     ///
     /// Parameters:
-    /// `blk_hash`: is the hash of the block containing the transaction
-    /// `tx_and_hash`: is a tuple containing the transaction and it's hash
+    /// `txp`: is a tuple containing the transaction and its blob.
+    /// `tx_hash`: is the transaction's hash
     /// `tx_prunable_hash`: is the hash of the prunable part of the transaction
     fn add_transaction_data(&'service self, txp: (monero::Transaction, Vec<u8>), tx_hash: Hash, tx_prunable_hash: Hash) 
 	-> Result<u64, DB_FAILURES> 
@@ -655,7 +645,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// Should return the transaction. In case of failure, a DB_FAILURES will be return.
     ///
     /// Parameters:
-    /// `h`: is the given hash of transaction to fetch.
+    /// `hash`: is the given hash of transaction to fetch.
     fn get_pruned_tx(&'service self, hash: Hash) -> Result<TransactionPruned, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 
@@ -848,12 +838,11 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		Ok(result)
 	}
 
-    /// `get_num_outputs` fetches the number post-RingCT output.
+    /// `get_rct_num_outputs` fetches the number post-RingCT output.
     ///
     /// Return the number of post-RingCT outputs. In case of failures a `DB_FAILURES` will be return.
     ///
-    /// Parameters:
-    /// `amount`: is the output amount being looked up.
+    /// No parameters is required
     fn get_rct_num_outputs(&'service self) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 		
