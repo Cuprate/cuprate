@@ -4,9 +4,9 @@
 //! All tables are defined with docs explaining its purpose, what types are the key and data.
 //! For more details please look at Cuprate's book : <link to cuprate book> 
 
-use monero::{Hash, Block};
+use monero::{Hash, Block, blockdata::transaction::KeyImage};
 use bincode::{enc::Encode,de::Decode};
-use crate::{types::{BlockMetadata, /*OutAmountIdx,*/ KeyImage, TxOutputIdx, /*OutTx,*/ AltBlock, TxIndex, TransactionPruned, /*RctOutkey,*/ OutputMetadata}, encoding::Compat};
+use crate::{types::{BlockMetadata, /*OutAmountIdx,*/ /*KeyImage,*/ TxOutputIdx, /*OutTx,*/ AltBlock, TxIndex, TransactionPruned, /*RctOutkey,*/ OutputMetadata}, encoding::Compat};
 
 /// A trait implementing a table interaction for the database. It is implemented to an empty struct to specify the name and table's associated types. These associated 
 /// types are used to simplify deserialization process.
@@ -20,7 +20,7 @@ pub trait Table: Send + Sync + 'static + Clone {
 	type Value: Encode + Decode;
 }
 
-/// A trait implementing a table with DUPFIXED & DUPSORT support.
+/// A trait implementing a table with duplicated data support.
 pub trait DupTable: Table {
 
 	// Subkey of the table (prefix of the data)
@@ -76,14 +76,14 @@ impl_table!(
 */
 	
 impl_table!( 
-	/// `altblock` is a table that permit the storage of blocks from an alternative chains being submitted to the txpool. These blocks can be fetch by their corresponding hash.
+	/// `altblock` is a table that permits the storage of blocks from an alternative chain, which may cause a re-org. These blocks can be fetch by their corresponding hash.
 	altblock, Compat<Hash>, AltBlock);
 
 // ------- TXNs -------
 
 impl_table!(
-	/// `txsprefix` is table storing TransactionPruned (or Pruned Tx). These can be fetch by the corresponding Transaction ID.
-	txsprefix, u64, TransactionPruned);
+	/// `txspruned` is table storing TransactionPruned (or Pruned Tx). These can be fetch by the corresponding Transaction ID.
+	txspruned, u64, TransactionPruned);
 	
 impl_table!(
 	/// `txsprunable` is a table storing the Prunable part of transactions (Signatures and RctSig), stored as raw bytes. These can be fetch by the corresponding Transaction ID.
@@ -118,7 +118,7 @@ impl_duptable!(
 
 impl_duptable!(
 	/// `spentkeys`is a table storing every KeyImage that have been used to create decoys input. As these KeyImage can't be re used they need to marked. 
-	spentkeys, (), KeyImage, ());
+	spentkeys, (), Compat<KeyImage>, ());
 
 // ---- PROPERTIES ----
 

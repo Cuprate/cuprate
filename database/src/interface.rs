@@ -16,8 +16,8 @@
 // TODO: remove_tx_outputs() can be done otherwise since we don't use global output index
 // TODO: Check all documentations
 
-use monero::{cryptonote::hash::Hashable, Hash, Block, TxOut, util::ringct::Key, TxIn, BlockHeader};
-use crate::{error::DB_FAILURES, database::{Database, Interface}, table::{self}, transaction::{Transaction, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, KeyImage, get_transaction_prunable_blob, TxIndex, TxOutputIdx, AltBlock, BlockMetadata}};
+use monero::{cryptonote::hash::Hashable, Hash, Block, TxOut, util::ringct::Key, TxIn, BlockHeader, blockdata::transaction::KeyImage};
+use crate::{error::DB_FAILURES, database::{Database, Interface}, table::{self}, transaction::{Transaction, WriteTransaction, DupCursor, DupWriteCursor, self, WriteCursor}, BINCODE_CONFIG, types::{TransactionPruned, OutputMetadata, get_transaction_prunable_blob, TxIndex, TxOutputIdx, AltBlock, BlockMetadata, calculate_prunable_hash}};
 
 // Implementation of Interface
 impl<'service, D: Database<'service>> Interface<'service,D> {
@@ -85,8 +85,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			return Err(DB_FAILURES::Other("sanity : Inconsistent tx/hashed sizes"));
 		}
 
-		let blk_blob = monero::consensus::serialize(&blk);
-		let blk_hash = Hash::new(blk_blob);
+		let blk_hash = blk.id();
 
 		// let parent_height = self.height()?;
 
@@ -145,7 +144,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 				.ok_or(DB_FAILURES::NotFound("Can't find parent block"))?;
 			
 			if parent_height != height-1 {
-				return Err(DB_FAILURES::Other("Top lock is not a new block's parent"))
+				return Err(DB_FAILURES::Other("Top block is not a new block's parent"))
 			}
 		}
 
@@ -180,7 +179,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		let blk = self.get::<table::blocks>(&(height-1))?
 			.ok_or(DB_FAILURES::NotFound("Attempting to remove block that's not in the db"))?.0;
 
-		let hash = cursor_blockmetadata.get_dup(&(), &height)?
+		let hash = cursor_blockmetadata.get_dup(&(), &(height-1))?
 			.ok_or(DB_FAILURES::NotFound("Failed to retrieve block metadata"))?.block_hash;
 
 		self.delete::<table::blocks>(&(height-1), &None)?;
@@ -355,7 +354,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 	fn get_block_header_from_height(&'service self, height: u64) -> Result<BlockHeader, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
 
-		Ok(ro_tx.get::<table::blocks>(&height)?
+		Ok(ro_tx.get::<table::blocks>(&(height-1))?
 					.ok_or(DB_FAILURES::NotFound("Can't find block"))?.0.header)
 	}
 
@@ -383,7 +382,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		let height = self.height()?;
 		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
 
-		let metadata = cursor_blockmetadata.get_dup(&(), &height)?
+		let metadata = cursor_blockmetadata.get_dup(&(), &(height-1))?
 			.ok_or(DB_FAILURES::NotFound("Failed to find block's metadata"))?;
 
 		Ok(metadata.block_hash.0)
@@ -423,18 +422,18 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		let mut tx_prunable_blob = Vec::new();
 		get_transaction_prunable_blob(&tx, &mut tx_prunable_blob).unwrap();
 
-		let tx_prunable_hash: [u8; 32] = monero::Hash::new(&tx_prunable_blob).0;
+		let tx_prunable_hash: Option<Hash> = calculate_prunable_hash(&tx, &tx_prunable_blob);
 		
 		for txin in tx.prefix.inputs.iter() {
 			if let TxIn::ToKey { amount: _, key_offsets: _, k_image } = txin {
-				self.add_spent_key(crate::types::KeyImage(k_image.image.into()))?;
+				self.add_spent_key(k_image.clone())?;
 			} 
 			else {
 				return Err(DB_FAILURES::Other("Unsupported input type, aborting transaction addition"))
 			}
 		}
 		
-		let tx_id = self.add_transaction_data((tx.clone(), tx_prunable_blob), tx_hash, Hash(tx_prunable_hash))?;
+		let tx_id = self.add_transaction_data((tx.clone(), tx_prunable_blob), tx_hash, tx_prunable_hash)?;
 
 		let tx_num_outputs = tx.prefix.outputs.len();
 		let amount_output_dinces: Vec<u64> = Vec::with_capacity(tx_num_outputs);
@@ -460,7 +459,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// `txp`: is a tuple containing the transaction and its blob.
     /// `tx_hash`: is the transaction's hash
     /// `tx_prunable_hash`: is the hash of the prunable part of the transaction
-    fn add_transaction_data(&'service self, txp: (monero::Transaction, Vec<u8>), tx_hash: Hash, tx_prunable_hash: Hash) 
+    fn add_transaction_data(&'service self, txp: (monero::Transaction, Vec<u8>), tx_hash: Hash, tx_prunable_hash: Option<Hash>) 
 	-> Result<u64, DB_FAILURES> 
 	{
 		// Checking if the transaction already exist in the database
@@ -482,23 +481,23 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		self.put::<table::txsidentifier>(&tx_hash.into(), &txindex)?;
 
 		// TODO: Investigate unprunable_size == 0 condition
-		// Inserting tx pruned part in table::txsprefix
+		// Inserting tx pruned part in table::txspruned
 		let tx_pruned = TransactionPruned {
 			prefix: txp.0.prefix.clone(),
 			rct_signatures: txp.0.rct_signatures
 		};
-		self.put::<table::txsprefix>(&tx_id, &tx_pruned)?;
+		self.put::<table::txspruned>(&tx_id, &tx_pruned)?;
 
 		// Inserting tx prunable part in table::txs
 		self.put::<table::txsprunable>(&tx_id, &txp.1)?;
 
-		// Checking pruning seed and inserting into table::txsprunabletip accordingly
+		// Checking to see if the database is pruned and inserting into table::txsprunabletip accordingly
 		if self.get_blockchain_pruning_seed()? > 0 {
 			self.put::<table::txsprunabletip>(&tx_id, &height)?;
 		}
 
 		// V2 Tx store hash of their prunable part
-		if txp.0.prefix.version.0 > 1 {
+		if let Some(tx_prunable_hash) = tx_prunable_hash {
 			self.put::<table::txsprunablehash>(&tx_id, &tx_prunable_hash.into())?;
 		}
 		Ok(tx_id)
@@ -509,7 +508,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 
 		for input in txpruned.prefix.inputs.iter() {
 			if let TxIn::ToKey { amount: _, key_offsets: _, k_image } = input {
-				self.remove_spent_key(KeyImage(k_image.image.into()))?;
+				self.remove_spent_key(k_image.clone())?;
 			}
 		}
 
@@ -522,7 +521,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		let txindex = self.get::<table::txsidentifier>(&tx_hash.into())?
 			.ok_or(DB_FAILURES::NotFound("Attempting to remove transaction that isn't in the db"))?;
 
-		self.delete::<table::txsprefix>(&txindex.tx_id, &None)?;
+		self.delete::<table::txspruned>(&txindex.tx_id, &None)?;
 		self.delete::<table::txsprunable>(&txindex.tx_id, &None)?;
 		// If Its in Tip blocks range we must delete it
 		if self.get::<table::txsprunabletip>(&txindex.tx_id)?.is_some() {
@@ -548,13 +547,14 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 			return Err(DB_FAILURES::Other("Attempting to remove outputs of a an empty tx"));
 		}
 		
+		// Checking if the input is a coinbase input
 		#[allow(clippy::match_like_matches_macro)]
-		let is_pseudo_rct: bool = match &txprefix.inputs[0] {
+		let is_coinbase_input: bool = match &txprefix.inputs[0] {
 			TxIn::Gen {height:_} if txprefix.version.0 > 1 && txprefix.inputs.len() == 1 => { true },
 			_ => { false }
 		};
 		for o in 0..txprefix.outputs.len() {
-			let amount = match is_pseudo_rct {
+			let amount = match is_coinbase_input {
 				true => 0,
 				false => txprefix.outputs[o].amount.0
 			};
@@ -570,7 +570,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
     /// No parameters is required.
     fn get_num_tx(&'service self) -> Result<u64, DB_FAILURES> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-		ro_tx.num_entries::<table::txsprefix>().map(|n| n as u64)
+		ro_tx.num_entries::<table::txspruned>().map(|n| n as u64)
 	}
 
 	/// `tx_exists` check if a transaction exist with the given hash.
@@ -652,7 +652,7 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 		let txindex = ro_tx.get::<table::txsidentifier>(&hash.into())?
 			.ok_or(DB_FAILURES::NotFound("wasn't able to find a transaction in the database"))?;
 
-		ro_tx.get::<table::txsprefix>(&txindex.tx_id)?
+		ro_tx.get::<table::txspruned>(&txindex.tx_id)?
 			.ok_or(DB_FAILURES::NotFound("failed to find prefix of a transaction"))
 	}
 
@@ -891,20 +891,20 @@ impl<'service, D: Database<'service>> Interface<'service,D> {
 	/// `add_spent_key` add the supplied key image to the spent key image record
 	fn add_spent_key(&'service self, key_image: KeyImage) -> Result<(), DB_FAILURES> {
 		let mut cursor_spentkeys = self.write_cursor_dup::<table::spentkeys>()?;
-		cursor_spentkeys.put_cursor_dup(&(), &key_image, &())
+		cursor_spentkeys.put_cursor_dup(&(), &key_image.into(), &())
 	}
 
 	/// `remove_spent_key` remove the specified key image from the spent key image record
     fn remove_spent_key(&'service self, key_image: KeyImage) -> Result<(), DB_FAILURES> {
 		let mut cursor_spentkeys = self.write_cursor_dup::<table::spentkeys>()?;
-		cursor_spentkeys.get_dup(&(), &key_image)?;
+		cursor_spentkeys.get_dup(&(), &key_image.into())?;
 		cursor_spentkeys.del()
 	}
 
 	/// `is_spent_key_recorded` check if the specified key image has been spent
 	fn is_spent_key_recorded(&'service self, key_image: KeyImage) -> Result<bool, DB_FAILURES> {
 		let mut cursor_spentkeys = self.write_cursor_dup::<table::spentkeys>()?;
-		Ok(cursor_spentkeys.get_dup(&(), &key_image)?.is_some())
+		Ok(cursor_spentkeys.get_dup(&(), &key_image.into())?.is_some())
 	}
 
 

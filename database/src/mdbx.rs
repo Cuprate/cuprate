@@ -91,7 +91,7 @@ where
 		ro_tx.open_table(Some(table::blocks::TABLE_NAME))?;
 		ro_tx.open_table(Some(table::altblock::TABLE_NAME))?;
 		// ------ TXNs ------
-		ro_tx.open_table(Some(table::txsprefix::TABLE_NAME))?;
+		ro_tx.open_table(Some(table::txspruned::TABLE_NAME))?;
 		ro_tx.open_table(Some(table::txsprunablehash::TABLE_NAME))?;
 		ro_tx.open_table(Some(table::txsprunabletip::TABLE_NAME))?;
 		ro_tx.open_table(Some(table::txsprunable::TABLE_NAME))?;
@@ -119,7 +119,7 @@ where
 		rw_tx.create_table(Some(table::blocks::TABLE_NAME), TableFlags::INTEGER_KEY)?;
 		rw_tx.create_table(Some(table::altblock::TABLE_NAME), TableFlags::INTEGER_KEY)?;
 		// ------ TXNs ------
-		rw_tx.create_table(Some(table::txsprefix::TABLE_NAME), TableFlags::INTEGER_KEY)?;
+		rw_tx.create_table(Some(table::txspruned::TABLE_NAME), TableFlags::INTEGER_KEY)?;
 		rw_tx.create_table(Some(table::txsprunable::TABLE_NAME), TableFlags::INTEGER_KEY)?;
 		rw_tx.create_table(Some(table::txsprunablehash::TABLE_NAME), TableFlags::INTEGER_KEY | TableFlags::DUP_FIXED | TableFlags::DUP_SORT)?;
 		rw_tx.create_table(Some(table::txsprunabletip::TABLE_NAME), TableFlags::INTEGER_KEY)?;
