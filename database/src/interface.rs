@@ -103,7 +103,7 @@ impl<'service, D: Database<'service>> Interface<'service, D> {
             weight: block_weight,
             cumulative_difficulty,
             block_hash: blk_hash.into(),
-            cum_rct: num_rct_outs, // num_rct_outs here is the rct outs of the block + the cumulative rct from `add_block()` fn
+            cum_rct: num_rct_outs, // num_rct_outs here is the rct outs of the block only. The cumulative rct will be added in `add_block_data` fn
             long_term_block_weight,
         };
 
