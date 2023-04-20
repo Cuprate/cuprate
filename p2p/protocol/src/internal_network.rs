@@ -23,9 +23,10 @@
 ///     Request: NewTransactions,                   Response: None
 ///
 use monero_wire::messages::{
-    AdminMessage, ProtocolMessage, Handshake, TimedSync, Ping, SupportFlags, GetObjectsRequest, GetObjectsResponse,
-    ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, NewFluffyBlock, GetTxPoolCompliment,
-    NewTransactions, NewBlock, Message, MessageResponse, MessageNotification, MessageRequest,
+    AdminMessage, ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
+    GetObjectsResponse, GetTxPoolCompliment, Handshake, Message, MessageNotification,
+    MessageRequest, MessageResponse, NewBlock, NewFluffyBlock, NewTransactions, Ping,
+    ProtocolMessage, SupportFlags, TimedSync,
 };
 
 macro_rules! client_request_peer_response {

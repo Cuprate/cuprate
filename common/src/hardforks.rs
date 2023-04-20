@@ -29,7 +29,7 @@ fn get_hard_forks(network: Network) -> [(u8, u64, NaiveDateTime); 16] {
                 (15, 2688888, time_from_timestamp(1656629117)),
                 (16, 2689608, time_from_timestamp(1656629118)),
             ]
-        },
+        }
         Network::TestNet => [
             (1, 1, time_from_timestamp(1341378000)),
             (2, 624634, time_from_timestamp(1445355000)),
@@ -111,16 +111,16 @@ mod tests {
     use super::HardForks;
 
     const MAIN_NET_FORKS: [u64; 16] = [
-        1, 1009827, 1141317, 1220516, 1288616, 1400000, 1546000, 1685555, 1686275, 1788000, 1788720, 1978433, 2210000,
-        2210720, 2688888, 2689608,
+        1, 1009827, 1141317, 1220516, 1288616, 1400000, 1546000, 1685555, 1686275, 1788000,
+        1788720, 1978433, 2210000, 2210720, 2688888, 2689608,
     ];
     const TEST_NET_FORKS: [u64; 16] = [
-        1, 624634, 800500, 801219, 802660, 971400, 1057027, 1057058, 1057778, 1154318, 1155038, 1308737, 1543939,
-        1544659, 1982800, 1983520,
+        1, 624634, 800500, 801219, 802660, 971400, 1057027, 1057058, 1057778, 1154318, 1155038,
+        1308737, 1543939, 1544659, 1982800, 1983520,
     ];
     const STAGE_NET_FORKS: [u64; 16] = [
-        1, 32000, 33000, 34000, 35000, 36000, 37000, 176456, 177176, 269000, 269720, 454721, 675405, 676125, 1151000,
-        1151720,
+        1, 32000, 33000, 34000, 35000, 36000, 37000, 176456, 177176, 269000, 269720, 454721,
+        675405, 676125, 1151000, 1151720,
     ];
 
     #[test]
@@ -132,7 +132,9 @@ mod tests {
         assert_eq!(version as usize, TEST_NET_FORKS.len());
         assert_eq!(version as usize, STAGE_NET_FORKS.len());
 
-        let height = hardforks.get_earliest_ideal_height_for_version(version).unwrap();
+        let height = hardforks
+            .get_earliest_ideal_height_for_version(version)
+            .unwrap();
         let got_version = hardforks.get_ideal_version_from_height(height);
         assert_eq!(version, got_version);
     }
@@ -143,11 +145,15 @@ mod tests {
 
         for (height, version) in MAIN_NET_FORKS.iter().zip(1..MAIN_NET_FORKS.len() as u8) {
             assert_eq!(
-                hardforks.get_earliest_ideal_height_for_version(version).unwrap(),
+                hardforks
+                    .get_earliest_ideal_height_for_version(version)
+                    .unwrap(),
                 *height
             );
             assert_eq!(
-                hardforks.get_earliest_ideal_height_for_version(version).unwrap(),
+                hardforks
+                    .get_earliest_ideal_height_for_version(version)
+                    .unwrap(),
                 *height
             );
         }
@@ -162,11 +168,15 @@ mod tests {
 
         for (height, version) in TEST_NET_FORKS.iter().zip(1..TEST_NET_FORKS.len() as u8) {
             assert_eq!(
-                hardforks.get_earliest_ideal_height_for_version(version).unwrap(),
+                hardforks
+                    .get_earliest_ideal_height_for_version(version)
+                    .unwrap(),
                 *height
             );
             assert_eq!(
-                hardforks.get_earliest_ideal_height_for_version(version).unwrap(),
+                hardforks
+                    .get_earliest_ideal_height_for_version(version)
+                    .unwrap(),
                 *height
             );
         }
@@ -181,11 +191,15 @@ mod tests {
 
         for (height, version) in STAGE_NET_FORKS.iter().zip(1..STAGE_NET_FORKS.len() as u8) {
             assert_eq!(
-                hardforks.get_earliest_ideal_height_for_version(version).unwrap(),
+                hardforks
+                    .get_earliest_ideal_height_for_version(version)
+                    .unwrap(),
                 *height
             );
             assert_eq!(
-                hardforks.get_earliest_ideal_height_for_version(version).unwrap(),
+                hardforks
+                    .get_earliest_ideal_height_for_version(version)
+                    .unwrap(),
                 *height
             );
         }
@@ -200,7 +214,10 @@ mod tests {
 
         for (height, version) in MAIN_NET_FORKS.iter().zip(1..MAIN_NET_FORKS.len() as u8) {
             assert_eq!(hardforks.get_ideal_version_from_height(*height), version);
-            assert_eq!(hardforks.get_ideal_version_from_height(*height - 1), version - 1);
+            assert_eq!(
+                hardforks.get_ideal_version_from_height(*height - 1),
+                version - 1
+            );
         }
     }
 
@@ -210,7 +227,10 @@ mod tests {
 
         for (height, version) in TEST_NET_FORKS.iter().zip(1..TEST_NET_FORKS.len() as u8) {
             assert_eq!(hardforks.get_ideal_version_from_height(*height), version);
-            assert_eq!(hardforks.get_ideal_version_from_height(*height - 1), version - 1);
+            assert_eq!(
+                hardforks.get_ideal_version_from_height(*height - 1),
+                version - 1
+            );
         }
     }
 
@@ -220,7 +240,10 @@ mod tests {
 
         for (height, version) in STAGE_NET_FORKS.iter().zip(1..STAGE_NET_FORKS.len() as u8) {
             assert_eq!(hardforks.get_ideal_version_from_height(*height), version);
-            assert_eq!(hardforks.get_ideal_version_from_height(*height - 1), version - 1);
+            assert_eq!(
+                hardforks.get_ideal_version_from_height(*height - 1),
+                version - 1
+            );
         }
     }
 }

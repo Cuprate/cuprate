@@ -27,9 +27,9 @@
 #![allow(non_camel_case_types)]
 #![deny(clippy::expect_used, clippy::panic)]
 
-use thiserror::Error;
-use monero::{Hash, Transaction, Block, BlockHeader, consensus::Encodable, util::ringct::RctSig};
+use monero::{consensus::Encodable, util::ringct::RctSig, Block, BlockHeader, Hash, Transaction};
 use std::{error::Error, ops::Range};
+use thiserror::Error;
 
 const MONERO_DEFAULT_LOG_CATEGORY: &str = "blockchain.db";
 
@@ -52,8 +52,8 @@ pub enum RelayMethod {
 pub enum RelayCategory {
     broadcasted, //< Public txes received via block/fluff
     relayable,   //< Every tx not marked `relay_method::none`
-    legacy,      //< `relay_category::broadcasted` + `relay_method::none` for rpc relay requests or historical reasons
-    all,         //< Everything in the db
+    legacy, //< `relay_category::broadcasted` + `relay_method::none` for rpc relay requests or historical reasons
+    all,    //< Everything in the db
 }
 
 fn matches_category(relay_method: RelayMethod, relay_category: RelayCategory) -> bool {
@@ -341,7 +341,10 @@ pub trait BlockchainDB: KeyValueDatabase {
     ///
     /// Parameters:
     /// `index`: is the output's global index.
-    fn get_output_tx_and_index_from_global(&mut self, index: u64) -> Result<TxOutIndex, DB_FAILURES>;
+    fn get_output_tx_and_index_from_global(
+        &mut self,
+        index: u64,
+    ) -> Result<TxOutIndex, DB_FAILURES>;
 
     /// `get_output_key_list` gets outputs' metadata from a corresponding collection.
     ///
@@ -365,7 +368,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Parameters:
     /// `amount`: is the corresponding amount of the output
     /// `index`: is the output's index (indexed by amount)
-    fn get_output_tx_and_index(&mut self, amount: u64, index: u64) -> Result<TxOutIndex, DB_FAILURES>;
+    fn get_output_tx_and_index(
+        &mut self,
+        amount: u64,
+        index: u64,
+    ) -> Result<TxOutIndex, DB_FAILURES>;
 
     /// `get_num_outputs` fetches the number of outputs of a given amount.
     ///
@@ -508,7 +515,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Parameters:
     /// `h`: is the given hash of the first transaction/
     /// `count`: is the number of transaction to fetch in canoncial blockchain order.
-    fn get_pruned_tx_blobs_from(&mut self, h: &Hash, count: usize) -> Result<Vec<Blobdata>, DB_FAILURES>;
+    fn get_pruned_tx_blobs_from(
+        &mut self,
+        h: &Hash,
+        count: usize,
+    ) -> Result<Vec<Blobdata>, DB_FAILURES>;
 
     /// `get_tx_block_height` fetches the height of a transaction's block
     ///
@@ -583,7 +594,10 @@ pub trait BlockchainDB: KeyValueDatabase {
     ///
     /// Parameters:
     /// `height_range`: is the range of height where the requested blocks are located.
-    fn get_blocks_from_range(&mut self, height_range: Range<u64>) -> Result<Vec<Block>, DB_FAILURES>;
+    fn get_blocks_from_range(
+        &mut self,
+        height_range: Range<u64>,
+    ) -> Result<Vec<Block>, DB_FAILURES>;
 
     /// `get_block_blob` fetches the block blob with the given hash.
     ///
@@ -628,7 +642,8 @@ pub trait BlockchainDB: KeyValueDatabase {
     ///
     /// Parameters:
     /// `height`: is the given height where the requested block is located.
-    fn get_blocks_hashes_from_range(&mut self, range: Range<u64>) -> Result<Vec<Hash>, DB_FAILURES>;
+    fn get_blocks_hashes_from_range(&mut self, range: Range<u64>)
+        -> Result<Vec<Hash>, DB_FAILURES>;
 
     /// `get_top_block` fetch the last/top block of the blockchain
     ///
@@ -693,7 +708,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Parameters:
     /// `start_height`: is the height to seek before collecting block weights.
     /// `count`: is the number of last blocks' weight to fetch.
-    fn get_block_weights(&mut self, start_height: u64, count: usize) -> Result<Vec<u64>, DB_FAILURES>;
+    fn get_block_weights(
+        &mut self,
+        start_height: u64,
+        count: usize,
+    ) -> Result<Vec<u64>, DB_FAILURES>;
 
     /// `get_block_already_generated_coins` fetch a block's already generated coins
     ///
@@ -722,7 +741,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Parameters:
     /// `start_height`: is the height to seek before collecting block weights.
     /// `count`: is the number of last blocks' long term weight to fetch.
-    fn get_long_term_block_weights(&mut self, height: u64, count: usize) -> Result<Vec<u64>, DB_FAILURES>;
+    fn get_long_term_block_weights(
+        &mut self,
+        height: u64,
+        count: usize,
+    ) -> Result<Vec<u64>, DB_FAILURES>;
 
     /// `get_block_timestamp` fetch a block's timestamp.
     ///
@@ -740,7 +763,10 @@ pub trait BlockchainDB: KeyValueDatabase {
     ///
     /// Parameters:
     /// `heights`: is the collection of height to check for RingCT distribution.
-    fn get_block_cumulative_rct_outputs(&mut self, heights: Vec<u64>) -> Result<Vec<u64>, DB_FAILURES>;
+    fn get_block_cumulative_rct_outputs(
+        &mut self,
+        heights: Vec<u64>,
+    ) -> Result<Vec<u64>, DB_FAILURES>;
 
     /// `get_top_block_timestamp` fetch the top block's timestamp
     ///
@@ -773,7 +799,12 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// blkid: is the hash of the original block
     /// data: is the metadata for the block
     /// blob: is the blobdata of this alternative block.
-    fn add_alt_block(&mut self, blkid: &Hash, data: &alt_block_data_t, blob: &Blobdata) -> Result<(), DB_FAILURES>;
+    fn add_alt_block(
+        &mut self,
+        blkid: &Hash,
+        data: &alt_block_data_t,
+        blob: &Blobdata,
+    ) -> Result<(), DB_FAILURES>;
 
     /// `get_alt_block` gets the specified alternative block.
     ///
@@ -815,8 +846,12 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// `txid`: is the hash of the transaction to add.
     /// `blob`: is the blobdata of the transaction to add.
     /// `details`: is the metadata of the transaction pool at this specific transaction.
-    fn add_txpool_tx(&mut self, txid: &Hash, blob: &BlobdataRef, details: &txpool_tx_meta_t)
-        -> Result<(), DB_FAILURES>;
+    fn add_txpool_tx(
+        &mut self,
+        txid: &Hash,
+        blob: &BlobdataRef,
+        details: &txpool_tx_meta_t,
+    ) -> Result<(), DB_FAILURES>;
 
     /// `update_txpool_tx` replace pool's transaction metadata.
     ///
@@ -825,7 +860,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Parameters:
     /// `txid`: is the hash of the transaction to edit
     /// `details`: is the new metadata to insert.
-    fn update_txpool_tx(&mut self, txid: &monero::Hash, details: &txpool_tx_meta_t) -> Result<(), DB_FAILURES>;
+    fn update_txpool_tx(
+        &mut self,
+        txid: &monero::Hash,
+        details: &txpool_tx_meta_t,
+    ) -> Result<(), DB_FAILURES>;
 
     /// `get_txpool_tx_count` gets the number of transactions in the txpool.
     ///
@@ -843,7 +882,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Parameters:
     /// `txid`: is the hash of the transaction to check for
     /// `tx_category`: is the relay's category where the tx is supposed to come from.
-    fn txpool_has_tx(&mut self, txid: &Hash, tx_category: &RelayCategory) -> Result<bool, DB_FAILURES>;
+    fn txpool_has_tx(
+        &mut self,
+        txid: &Hash,
+        tx_category: &RelayCategory,
+    ) -> Result<bool, DB_FAILURES>;
 
     /// `remove_txpool_tx` remove the specified transaction from the transaction pool.
     ///
@@ -868,7 +911,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Parameters:
     /// `txid`: is the hash of the transaction to fetch blobdata from.
     /// `tx_category`: is the relay's category where the tx are coming from. < monerod note: for filtering out hidden/private txes.
-    fn get_txpool_tx_blob(&mut self, txid: &Hash, tx_category: RelayCategory) -> Result<Blobdata, DB_FAILURES>;
+    fn get_txpool_tx_blob(
+        &mut self,
+        txid: &Hash,
+        tx_category: RelayCategory,
+    ) -> Result<Blobdata, DB_FAILURES>;
 
     /// `txpool_tx_matches_category` checks if the corresponding transaction belongs to the specified category.
     ///
@@ -877,7 +924,11 @@ pub trait BlockchainDB: KeyValueDatabase {
     /// Parameters:
     /// `tx_hash`: is the hash of the transaction to lookup.
     /// `category`: is the relay's category to check.
-    fn txpool_tx_matches_category(&mut self, tx_hash: &Hash, category: RelayCategory) -> Result<bool, DB_FAILURES>;
+    fn txpool_tx_matches_category(
+        &mut self,
+        tx_hash: &Hash,
+        category: RelayCategory,
+    ) -> Result<bool, DB_FAILURES>;
 }
 
 // functions defined as useless : init_options(), is_open(), reset_stats(), show_stats(), open(), close(), get_output_histogram(), safesyncmode, get_filenames(), get_db_name(), remove_data_file(), lock(), unlock(), is_read_only(), get_database_size(), get_output_distribution(), set_auto_remove_logs(), check_hard_fork_info(), drop_hard_fork_info(), get_indexing_base();

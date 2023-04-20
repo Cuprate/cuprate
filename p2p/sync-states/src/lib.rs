@@ -1,19 +1,21 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use tower::{Service, ServiceExt};
-use futures::StreamExt;
 use futures::channel::mpsc;
+use futures::StreamExt;
 use monero::Hash;
 use thiserror::Error;
+use tower::{Service, ServiceExt};
 
-use monero_wire::{NetworkAddress, Message};
-use monero_wire::messages::{CoreSyncData, ChainRequest};
-use monero_wire::messages::protocol::ChainResponse;
+use cuprate_common::{hardforks, HardForks};
 use cuprate_peer::connection::PeerSyncChange;
-use cuprate_common::{HardForks, hardforks};
+use cuprate_protocol::temp_database::{
+    BlockKnown, DataBaseRequest, DataBaseResponse, DatabaseError,
+};
 use cuprate_protocol::{InternalMessageRequest, InternalMessageResponse};
-use cuprate_protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError, BlockKnown};
+use monero_wire::messages::protocol::ChainResponse;
+use monero_wire::messages::{ChainRequest, CoreSyncData};
+use monero_wire::{Message, NetworkAddress};
 
 // TODO: Move this!!!!!!!
 // ********************************
@@ -49,7 +51,11 @@ pub struct PeersSyncData {
 }
 
 impl PeersSyncData {
-    pub fn new_core_sync_data(&mut self, id: &NetworkAddress, core_sync: CoreSyncData) -> Result<(), SyncStatesError> {
+    pub fn new_core_sync_data(
+        &mut self,
+        id: &NetworkAddress,
+        core_sync: CoreSyncData,
+    ) -> Result<(), SyncStatesError> {
         let peer_data = self.peers.get_mut(&id);
         if peer_data.is_none() {
             let ips = IndividualPeerSync {
@@ -98,8 +104,9 @@ impl PeersSyncData {
 
         peer_data.cumulative_difficulty = chain_response.cumulative_difficulty();
         peer_data.height = chain_response.total_height;
-        peer_data.start_height =
-            chain_response.start_height + chain_response.m_block_ids.len() as u64 - needed_blocks.len() as u64;
+        peer_data.start_height = chain_response.start_height
+            + chain_response.m_block_ids.len() as u64
+            - needed_blocks.len() as u64;
         peer_data.needed_blocks = needed_blocks;
         Ok(())
     }
@@ -192,11 +199,14 @@ where
             blockchain,
         }
     }
-    async fn send_database_request(&mut self, req: DataBaseRequest) -> Result<DataBaseResponse, DatabaseError> {
+    async fn send_database_request(
+        &mut self,
+        req: DataBaseRequest,
+    ) -> Result<DataBaseResponse, DatabaseError> {
         let ready_blockchain = self.blockchain.ready().await?;
         ready_blockchain.call(req).await
     }
-    
+
     async fn handle_core_sync_change(
         &mut self,
         id: &NetworkAddress,
@@ -211,9 +221,13 @@ where
             }
         }
         if core_sync.pruning_seed != 0 {
-            let log_stripes = monero::database::pruning::get_pruning_log_stripes(core_sync.pruning_seed);
-            let stripe = monero::database::pruning::get_pruning_stripe_for_seed(core_sync.pruning_seed);
-            if stripe != monero::database::pruning::CRYPTONOTE_PRUNING_LOG_STRIPES || stripe > (1 << log_stripes) {
+            let log_stripes =
+                monero::database::pruning::get_pruning_log_stripes(core_sync.pruning_seed);
+            let stripe =
+                monero::database::pruning::get_pruning_stripe_for_seed(core_sync.pruning_seed);
+            if stripe != monero::database::pruning::CRYPTONOTE_PRUNING_LOG_STRIPES
+                || stripe > (1 << log_stripes)
+            {
                 return Err(SyncStatesError::PeerSentBadPruningSeed);
             }
         }
@@ -279,12 +293,12 @@ where
                                 return Err(SyncStatesError::WeHaveBlockAtDifferentHeight);
                             }
                         }
-                    },
+                    }
                     BlockKnown::OnSideChain => {
                         if expect_unknown {
                             return Err(SyncStatesError::PeerSentAnUnexpectedBlockId);
                         }
-                    },
+                    }
                     BlockKnown::KnownBad => return Err(SyncStatesError::PeerSentKnownBadBlock),
                 }
             }
@@ -351,7 +365,8 @@ where
         peers_height: u64,
     ) -> Result<bool, SyncStatesError> {
         let mut sync_states = self.peer_sync_states.lock().unwrap();
-        let ran_out_of_blocks = sync_states.new_objects_response(&id, HashSet::from_iter(block_ids))?;
+        let ran_out_of_blocks =
+            sync_states.new_objects_response(&id, HashSet::from_iter(block_ids))?;
         drop(sync_states);
         if ran_out_of_blocks {
             let DataBaseResponse::CurrentHeight(our_height) = self.send_database_request(DataBaseRequest::CurrentHeight).await? else {
@@ -386,31 +401,31 @@ where
                             // TODO: check if error needs ban or forget
                             let ready_set = peer_set.ready().await.unwrap();
                             let res = ready_set.call(PeerSetRequest::BanPeer(id)).await;
-                        },
+                        }
                         Ok(request_chain) => {
                             if request_chain {
                                 self.get_and_handle_chain_entry(&mut peer_set, id).await;
                             }
-                        },
+                        }
                     }
-                },
+                }
                 PeerSyncChange::ObjectsResponse(id, block_ids, height) => {
                     match self.handle_objects_response(id, block_ids, height).await {
                         Err(_) => {
                             // TODO: check if error needs ban or forget
                             let ready_set = peer_set.ready().await.unwrap();
                             let res = ready_set.call(PeerSetRequest::BanPeer(id)).await;
-                        },
+                        }
                         Ok(res) => {
                             if res {
                                 self.get_and_handle_chain_entry(&mut peer_set, id).await;
                             }
-                        },
+                        }
                     }
-                },
+                }
                 PeerSyncChange::PeerDisconnected(id) => {
                     self.handle_peer_disconnect(id);
-                },
+                }
             }
         }
     }
@@ -419,7 +434,7 @@ where
 #[cfg(test)]
 mod tests {
     use monero::Hash;
-    use monero_wire::messages::{CoreSyncData, ChainResponse};
+    use monero_wire::messages::{ChainResponse, CoreSyncData};
 
     use crate::{PeersSyncData, SyncStatesError};
 
@@ -503,7 +518,11 @@ mod tests {
         let needed_blocks = vec![(Hash::new(&[2]), None)];
 
         peer_sync_states
-            .new_chain_response(&monero_wire::NetworkAddress::default(), chain_response, needed_blocks)
+            .new_chain_response(
+                &monero_wire::NetworkAddress::default(),
+                chain_response,
+                needed_blocks,
+            )
             .unwrap();
 
         let peer = peer_sync_states

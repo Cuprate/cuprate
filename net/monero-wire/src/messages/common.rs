@@ -17,7 +17,7 @@
 //
 
 use epee_serde::Value;
-use monero::database::transaction::{TransactionPruned, PrunedHashError};
+use monero::database::transaction::{PrunedHashError, TransactionPruned};
 use monero::{Block, Hash, Transaction};
 use serde::de;
 use serde::ser::SerializeStruct;

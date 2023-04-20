@@ -2,9 +2,9 @@ pub mod hardforks;
 pub mod network;
 pub mod pruning;
 
-pub use pruning::{PruningSeed, PruningError};
-pub use network::Network;
 pub use hardforks::HardForks;
+pub use network::Network;
+pub use pruning::{PruningError, PruningSeed};
 
 pub const CRYPTONOTE_MAX_BLOCK_NUMBER: u64 = 500000000;
 

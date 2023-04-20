@@ -1,9 +1,9 @@
+pub mod client;
 pub mod connection;
 pub mod handshaker;
-pub mod client;
 
-use thiserror::Error;
 use monero_wire::levin::BucketError;
+use thiserror::Error;
 
 #[derive(Debug, Error, Clone, Copy)]
 pub enum RequestServiceError {}

@@ -1,14 +1,14 @@
 use std::{
     pin::Pin,
-    sync::{Arc, Mutex},
     str::FromStr,
+    sync::{Arc, Mutex},
 };
 
 use cuprate_common::{HardForks, Network};
 use cuprate_peer::PeerError;
 use cuprate_protocol::{
-    temp_database::{DataBaseRequest, DataBaseResponse, BlockKnown, DatabaseError},
-    InternalMessageRequest, InternalMessageResponse, Direction,
+    temp_database::{BlockKnown, DataBaseRequest, DataBaseResponse, DatabaseError},
+    Direction, InternalMessageRequest, InternalMessageResponse,
 };
 use cuprate_sync_states::SyncStates;
 use futures::{channel::mpsc, Future, FutureExt};
@@ -23,8 +23,12 @@ struct TestBlockchain;
 impl tower::Service<DataBaseRequest> for TestBlockchain {
     type Error = DatabaseError;
     type Response = DataBaseResponse;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
         std::task::Poll::Ready(Ok(()))
     }
     fn call(&mut self, req: DataBaseRequest) -> Self::Future {
@@ -34,7 +38,7 @@ impl tower::Service<DataBaseRequest> for TestBlockchain {
             DataBaseRequest::Chain => todo!(),
             DataBaseRequest::CoreSyncData => {
                 DataBaseResponse::CoreSyncData(CoreSyncData::new(0, 0, 0, Hash::null(), 0))
-            },
+            }
             DataBaseRequest::CumulativeDifficulty => DataBaseResponse::CumulativeDifficulty(0),
             DataBaseRequest::CurrentHeight => DataBaseResponse::CurrentHeight(0),
         };
@@ -49,8 +53,12 @@ struct TestPeerRequest;
 impl tower::Service<InternalMessageRequest> for TestPeerRequest {
     type Error = PeerError;
     type Response = InternalMessageResponse;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
         todo!()
     }
     fn call(&mut self, req: InternalMessageRequest) -> Self::Future {

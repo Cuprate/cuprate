@@ -24,10 +24,10 @@ use futures::AsyncRead;
 use futures::Stream;
 use pin_project::pin_project;
 
-use crate::MessageType;
 use crate::bucket_stream::BucketStream;
 use crate::BucketError;
 use crate::LevinBody;
+use crate::MessageType;
 use crate::LEVIN_SIGNATURE;
 use crate::PROTOCOL_VERSION;
 
@@ -53,9 +53,13 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> MessageStream<S, D> {
 impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<S, D> {
     type Item = Result<D, BucketError>;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        match ready!(this.bucket_stream.poll_next(cx)).expect("BucketStream will never return None") {
+        match ready!(this.bucket_stream.poll_next(cx)).expect("BucketStream will never return None")
+        {
             Err(e) => Poll::Ready(Some(Err(e))),
             Ok(bucket) => {
                 if bucket.header.signature != LEVIN_SIGNATURE {
@@ -63,7 +67,9 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<S
                 }
 
                 if bucket.header.protocol_version != PROTOCOL_VERSION {
-                    return Err(BucketError::UnknownProtocolVersion(bucket.header.protocol_version))?;
+                    return Err(BucketError::UnknownProtocolVersion(
+                        bucket.header.protocol_version,
+                    ))?;
                 }
 
                 // TODO: we shouldn't return an error if the peer sends an error response we should define a new network
@@ -81,10 +87,13 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<S
 
                 Poll::Ready(Some(D::decode_message(
                     &bucket.body,
-                    MessageType::from_flags_and_have_to_return(bucket.header.flags, bucket.header.have_to_return_data)?,
+                    MessageType::from_flags_and_have_to_return(
+                        bucket.header.flags,
+                        bucket.header.have_to_return_data,
+                    )?,
                     bucket.header.command,
                 )))
-            },
+            }
         }
     }
 }

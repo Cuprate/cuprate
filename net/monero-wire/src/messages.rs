@@ -20,14 +20,14 @@ pub mod admin;
 pub mod common;
 pub mod protocol;
 
+pub use admin::{Handshake, Ping, SupportFlags, TimedSync};
 pub use common::{BasicNodeData, CoreSyncData, PeerID, PeerListEntryBase};
-pub use admin::{Handshake, TimedSync, Ping, SupportFlags};
 pub use protocol::{
-    NewBlock, NewTransactions, GetObjectsRequest, GetObjectsResponse, ChainRequest, ChainResponse, NewFluffyBlock,
-    FluffyMissingTransactionsRequest, GetTxPoolCompliment,
+    ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
+    GetObjectsResponse, GetTxPoolCompliment, NewBlock, NewFluffyBlock, NewTransactions,
 };
 
-use levin::{MessageType, BucketError};
+use levin::{BucketError, MessageType};
 
 fn zero_val<T: From<u8>>() -> T {
     T::from(0_u8)

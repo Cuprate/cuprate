@@ -119,7 +119,10 @@ impl MessageType {
     }
 
     /// Returns the `MessageType` given the flags and have_to_return_data fields
-    pub fn from_flags_and_have_to_return(flags: header::Flags, have_to_return: bool) -> Result<Self, BucketError> {
+    pub fn from_flags_and_have_to_return(
+        flags: header::Flags,
+        have_to_return: bool,
+    ) -> Result<Self, BucketError> {
         if flags.is_request() && have_to_return {
             Ok(MessageType::Request)
         } else if flags.is_request() {

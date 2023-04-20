@@ -1,5 +1,3 @@
-
-
 pub struct Client {
-    server_tx:  mpsc::Sender<ClientRequest>
+    server_tx: mpsc::Sender<ClientRequest>,
 }

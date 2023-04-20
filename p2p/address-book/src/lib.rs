@@ -1,16 +1,12 @@
-
-pub(crate) mod address_book;
 mod addr_book_client;
+pub(crate) mod address_book;
 
 pub use addr_book_client::start_address_book;
 
-use monero_wire::{network_address::NetZone, NetworkAddress, messages::PeerListEntryBase};
-
+use monero_wire::{messages::PeerListEntryBase, network_address::NetZone, NetworkAddress};
 
 const MAX_WHITE_LIST_PEERS: usize = 1000;
 const MAX_GRAY_LIST_PEERS: usize = 5000;
-
-
 
 #[derive(Debug, thiserror::Error)]
 pub enum AddressBookError {
@@ -36,8 +32,7 @@ pub enum AddressBookRequest {
     UpdatePeerInfo(PeerListEntryBase),
 
     GetRandomGrayPeer(NetZone),
-    GetRandomWhitePeer(NetZone)
-
+    GetRandomWhitePeer(NetZone),
 }
 
 impl std::fmt::Display for AddressBookRequest {
@@ -45,7 +40,7 @@ impl std::fmt::Display for AddressBookRequest {
         match self {
             Self::HandleNewPeerList(_, _) => f.write_str("HandleNewPeerList"),
             Self::SetPeerSeen(_, _) => f.write_str("SetPeerSeen"),
-            Self::BanPeer(_,_) => f.write_str("BanPeer"),
+            Self::BanPeer(_, _) => f.write_str("BanPeer"),
             Self::AddPeerToAnchor(_) => f.write_str("AddPeerToAnchor"),
             Self::RemovePeerFromAnchor(_) => f.write_str("RemovePeerFromAnchor"),
             Self::UpdatePeerInfo(_) => f.write_str("UpdatePeerInfo"),
@@ -65,10 +60,8 @@ impl AddressBookRequest {
             Self::RemovePeerFromAnchor(peer) => peer.get_zone(),
             Self::UpdatePeerInfo(peer) => peer.adr.get_zone(),
 
-
             Self::GetRandomGrayPeer(zone) => *zone,
             Self::GetRandomWhitePeer(zone) => *zone,
-
         }
     }
 }
@@ -82,14 +75,14 @@ pub enum AddressBookResponse {
 #[derive(Debug, Clone)]
 pub struct AddressBookConfig {
     max_white_peers: usize,
-    max_gray_peers:  usize,
+    max_gray_peers: usize,
 }
 
 impl Default for AddressBookConfig {
     fn default() -> Self {
-        AddressBookConfig { 
-            max_white_peers: MAX_WHITE_LIST_PEERS, 
-            max_gray_peers: MAX_GRAY_LIST_PEERS 
+        AddressBookConfig {
+            max_white_peers: MAX_WHITE_LIST_PEERS,
+            max_gray_peers: MAX_GRAY_LIST_PEERS,
         }
     }
 }
@@ -97,26 +90,31 @@ impl Default for AddressBookConfig {
 #[async_trait::async_trait]
 pub trait AddressBookStore: Clone {
     type Error: Into<AddressBookError>;
-    /// Loads the peers from the peer store. 
+    /// Loads the peers from the peer store.
     /// returns (in order):
     /// the white list,
     /// the gray list,
     /// the anchor list,
-    /// the ban list 
-    async fn load_peers(&mut self, zone: NetZone) 
-    -> Result<(
-        Vec<PeerListEntryBase>, // white list
-        Vec<PeerListEntryBase>, // gray list
-        Vec<NetworkAddress>, // anchor list
-        Vec<(NetworkAddress, chrono::NaiveDateTime)> // ban list
-    ), Self::Error>;
+    /// the ban list
+    async fn load_peers(
+        &mut self,
+        zone: NetZone,
+    ) -> Result<
+        (
+            Vec<PeerListEntryBase>,                       // white list
+            Vec<PeerListEntryBase>,                       // gray list
+            Vec<NetworkAddress>,                          // anchor list
+            Vec<(NetworkAddress, chrono::NaiveDateTime)>, // ban list
+        ),
+        Self::Error,
+    >;
 
     async fn save_peers(
-        &mut self, 
-        zone: NetZone,  
-        white: Vec<PeerListEntryBase>, 
-        gray: Vec<PeerListEntryBase>, 
+        &mut self,
+        zone: NetZone,
+        white: Vec<PeerListEntryBase>,
+        gray: Vec<PeerListEntryBase>,
         anchor: Vec<NetworkAddress>,
-        bans: Vec<(NetworkAddress, chrono::NaiveDateTime)> // ban lists
+        bans: Vec<(NetworkAddress, chrono::NaiveDateTime)>, // ban lists
     ) -> Result<(), Self::Error>;
 }

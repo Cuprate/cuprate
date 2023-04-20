@@ -1,23 +1,34 @@
-use std::pin::Pin;
 use std::future::Future;
+use std::pin::Pin;
 
-use tower::steer::Steer;
-use futures::FutureExt;
 use futures::channel::{mpsc, oneshot};
+use futures::FutureExt;
 use tokio::task::spawn;
+use tower::steer::Steer;
 
 use monero_wire::network_address::NetZone;
 
-
-use crate::address_book::{AddressBookClientRequest, AddressBook};
-use crate::{AddressBookError, AddressBookStore, AddressBookConfig, AddressBookRequest, AddressBookResponse};
-
+use crate::address_book::{AddressBook, AddressBookClientRequest};
+use crate::{
+    AddressBookConfig, AddressBookError, AddressBookRequest, AddressBookResponse, AddressBookStore,
+};
 
 pub async fn start_address_book<S>(
     peer_store: S,
     config: AddressBookConfig,
 ) -> Result<
-    impl tower::Service<AddressBookRequest, Response = AddressBookResponse, Error = AddressBookError, Future = Pin<Box<dyn Future<Output = Result<AddressBookResponse, AddressBookError>> + Send + 'static>>> + Clone,
+    impl tower::Service<
+            AddressBookRequest,
+            Response = AddressBookResponse,
+            Error = AddressBookError,
+            Future = Pin<
+                Box<
+                    dyn Future<Output = Result<AddressBookResponse, AddressBookError>>
+                        + Send
+                        + 'static,
+                >,
+            >,
+        > + Clone,
     AddressBookError,
 >
 where
@@ -41,7 +52,6 @@ where
     ))
 }
 
-
 pub struct AddressBookBuilder<S> {
     peer_store: S,
     config: AddressBookConfig,
@@ -52,27 +62,14 @@ where
     S: AddressBookStore,
 {
     fn new(peer_store: S, config: AddressBookConfig) -> Self {
-        AddressBookBuilder {
-            peer_store,
-            config,
-        }
+        AddressBookBuilder { peer_store, config }
     }
 
     async fn build(&mut self, zone: NetZone) -> Result<AddressBookClient, AddressBookError> {
-        let (white, gray, anchor, bans) = self
-            .peer_store
-            .load_peers(zone)
-            .await
-            .map_err(Into::into)?;
+        let (white, gray, anchor, bans) =
+            self.peer_store.load_peers(zone).await.map_err(Into::into)?;
 
-        let book = AddressBook::new(
-            self.config.clone(),
-            zone,
-            white,
-            gray,
-            anchor,
-            bans,
-        );
+        let book = AddressBook::new(self.config.clone(), zone, white, gray, anchor, bans);
 
         let (tx, rx) = mpsc::channel(5);
 
@@ -82,7 +79,6 @@ where
     }
 }
 
-
 #[derive(Debug, Clone)]
 struct AddressBookClient {
     book: mpsc::Sender<AddressBookClientRequest>,
@@ -91,34 +87,35 @@ struct AddressBookClient {
 impl tower::Service<AddressBookRequest> for AddressBookClient {
     type Error = AddressBookError;
     type Response = AddressBookResponse;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
-        self.book.poll_ready(cx).map_err(|_| AddressBookError::AddressBooksChannelClosed)
+    fn poll_ready(
+        &mut self,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        self.book
+            .poll_ready(cx)
+            .map_err(|_| AddressBookError::AddressBooksChannelClosed)
     }
 
     fn call(&mut self, req: AddressBookRequest) -> Self::Future {
         let (tx, rx) = oneshot::channel();
-        // get the callers span 
+        // get the callers span
         let span = tracing::span::Span::current();
 
-        let req = AddressBookClientRequest {
-            req,
-            tx,
-            span
-        };
+        let req = AddressBookClientRequest { req, tx, span };
 
         match self.book.try_send(req) {
             Err(_e) => {
                 // I'm assuming all callers will call `poll_ready` first (which they are supposed to)
                 futures::future::ready(Err(AddressBookError::AddressBooksChannelClosed)).boxed()
-            },
-            Ok(()) => {
-                async move {
-                    rx.await.expect("Address Book will not drop requests until completed")
-                }.boxed()
             }
+            Ok(()) => async move {
+                rx.await
+                    .expect("Address Book will not drop requests until completed")
+            }
+            .boxed(),
         }
     }
-        
 }

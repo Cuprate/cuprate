@@ -24,9 +24,9 @@ use serde::{de, ser::SerializeStruct, Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NetZone {
-    Public, 
+    Public,
     Tor,
-    I2p
+    I2p,
 }
 
 /// An IPv4 address with a port
@@ -104,7 +104,6 @@ pub enum NetworkAddress {
     IPv6(IPv6Address),
 }
 
-
 impl NetworkAddress {
     pub fn get_zone(&self) -> NetZone {
         match self {
@@ -168,7 +167,11 @@ impl<'de> Deserialize<'de> for NetworkAddress {
         Ok(match addr_type {
             1 => NetworkAddress::IPv4(IPv4Address::from_value(get_field_from_map!(value, "addr"))?),
             2 => NetworkAddress::IPv6(IPv6Address::from_value(get_field_from_map!(value, "addr"))?),
-            _ => return Err(de::Error::custom("Network address type currently unsupported")),
+            _ => {
+                return Err(de::Error::custom(
+                    "Network address type currently unsupported",
+                ))
+            }
         })
     }
 }
@@ -183,11 +186,11 @@ impl Serialize for NetworkAddress {
             NetworkAddress::IPv4(v) => {
                 state.serialize_field("type", &1_u8)?;
                 state.serialize_field("addr", v)?;
-            },
+            }
             NetworkAddress::IPv6(v) => {
                 state.serialize_field("type", &2_u8)?;
                 state.serialize_field("addr", v)?;
-            },
+            }
         }
         state.end()
     }

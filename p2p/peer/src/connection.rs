@@ -1,18 +1,19 @@
 use std::collections::HashSet;
 
-use futures::{AsyncRead, AsyncWrite, StreamExt, SinkExt};
+use futures::channel::{mpsc, oneshot};
 use futures::stream::Fuse;
-use futures::channel::{oneshot, mpsc};
+use futures::{AsyncRead, AsyncWrite, SinkExt, StreamExt};
 use monero::Hash;
 
+use levin::{MessageSink, MessageStream};
 use monero::database::CRYPTONOTE_MAX_BLOCK_NUMBER;
 use monero_wire::messages::CoreSyncData;
 use monero_wire::{levin, Message, NetworkAddress};
-use levin::{MessageSink, MessageStream};
 use tower::{Service, ServiceExt};
 
 use cuprate_protocol::{
-    InternalMessageRequest, InternalMessageResponse, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT, P2P_MAX_PEERS_IN_HANDSHAKE,
+    InternalMessageRequest, InternalMessageResponse, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT,
+    P2P_MAX_PEERS_IN_HANDSHAKE,
 };
 
 use super::PeerError;
@@ -92,14 +93,17 @@ where
                     return Err(PeerError::ResponseError(
                         "Can't handshake with peer we are already connected",
                     ));
-                },
+                }
 
-                (InternalMessageRequest::SupportFlags(_), InternalMessageResponse::SupportFlags(_)) => {
+                (
+                    InternalMessageRequest::SupportFlags(_),
+                    InternalMessageResponse::SupportFlags(_),
+                ) => {
                     // we are already connected to the peer - this happens during handshakes
                     return Err(PeerError::ResponseError(
                         "Can't handshake with peer we are already connected",
                     ));
-                },
+                }
                 (InternalMessageRequest::TimedSync(_), InternalMessageResponse::TimedSync(res)) => {
                     if res.local_peerlist_new.len() > P2P_MAX_PEERS_IN_HANDSHAKE {
                         return Err(PeerError::ResponseError(
@@ -114,10 +118,15 @@ where
                         ))
                         .await
                         .map_err(|_| PeerError::InternalPeerSyncChannelClosed)?;
-                },
-                (InternalMessageRequest::GetObjectsRequest(req), InternalMessageResponse::GetObjectsResponse(res)) => {
+                }
+                (
+                    InternalMessageRequest::GetObjectsRequest(req),
+                    InternalMessageResponse::GetObjectsResponse(res),
+                ) => {
                     if req.blocks.len() != res.blocks.len() {
-                        return Err(PeerError::ResponseError("Peer sent incorrect amount of blocks"));
+                        return Err(PeerError::ResponseError(
+                            "Peer sent incorrect amount of blocks",
+                        ));
                     }
 
                     self.sync_state_tx
@@ -131,25 +140,37 @@ where
 
                     for block in res.blocks.iter() {
                         if !req.pruned {
-                            if block.pruned || block.block_weight != 0 || !block.txs_pruned.is_empty() {
+                            if block.pruned
+                                || block.block_weight != 0
+                                || !block.txs_pruned.is_empty()
+                            {
                                 return Err(PeerError::ResponseError(
                                     "Peer sent a pruned pruned block when we didn't wan't one",
                                 ));
                             }
                             if block.txs.len() != block.block.tx_hashes.len() {
-                                return Err(PeerError::ResponseError("Peer sent incorrect amount of transactions"));
+                                return Err(PeerError::ResponseError(
+                                    "Peer sent incorrect amount of transactions",
+                                ));
                             }
                         } else {
                             if block.block_weight == 0 && block.pruned {
-                                return Err(PeerError::ResponseError("Peer sent pruned a block without weight"));
+                                return Err(PeerError::ResponseError(
+                                    "Peer sent pruned a block without weight",
+                                ));
                             }
                             if block.txs_pruned.len() != block.block.tx_hashes.len() {
-                                return Err(PeerError::ResponseError("Peer sent incorrect amount of transactions"));
+                                return Err(PeerError::ResponseError(
+                                    "Peer sent incorrect amount of transactions",
+                                ));
                             }
                         }
                     }
-                },
-                (InternalMessageRequest::ChainRequest(_), InternalMessageResponse::ChainResponse(res)) => {
+                }
+                (
+                    InternalMessageRequest::ChainRequest(_),
+                    InternalMessageResponse::ChainResponse(res),
+                ) => {
                     if res.m_block_ids.is_empty() {
                         return Err(PeerError::ResponseError(
                             "Peer sent no blocks ids in response to a chain request",
@@ -158,10 +179,16 @@ where
                     if res.total_height < res.m_block_ids.len() as u64
                         || res.start_height > res.total_height - res.m_block_ids.len() as u64
                     {
-                        return Err(PeerError::ResponseError("Peer sent invalid start/nblocks/height"));
+                        return Err(PeerError::ResponseError(
+                            "Peer sent invalid start/nblocks/height",
+                        ));
                     }
-                    if !res.m_block_weights.is_empty() && res.m_block_ids.len() != res.m_block_weights.len() {
-                        return Err(PeerError::ResponseError("Peer sent invalid block weight array"));
+                    if !res.m_block_weights.is_empty()
+                        && res.m_block_ids.len() != res.m_block_weights.len()
+                    {
+                        return Err(PeerError::ResponseError(
+                            "Peer sent invalid block weight array",
+                        ));
                     }
                     if res.total_height >= CRYPTONOTE_MAX_BLOCK_NUMBER
                         || res.m_block_ids.len() > BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT
@@ -177,23 +204,28 @@ where
                     if all_block_ids.len() != res.m_block_ids.len() {
                         return Err(PeerError::ResponseError("Peer sent the same block twice"));
                     }
-                },
+                }
                 (
                     InternalMessageRequest::FluffyMissingTransactionsRequest(req),
                     InternalMessageResponse::NewFluffyBlock(blk),
                 ) => {
                     // fluffy blocks will only be sent for new blocks at the top of the chain hence they won't be pruned so we can just use blk.b.txs.
                     if req.missing_tx_indices.len() != blk.b.txs.len() {
-                        return Err(PeerError::ResponseError("Peer sent incorrect amount of transactions"));
+                        return Err(PeerError::ResponseError(
+                            "Peer sent incorrect amount of transactions",
+                        ));
                     }
                     if blk.b.pruned {
                         return Err(PeerError::ResponseError("Peer sent pruned fluffy block"));
                     }
-                },
-                (InternalMessageRequest::GetTxPoolCompliment(_), InternalMessageResponse::NewTransactions(_)) => {
+                }
+                (
+                    InternalMessageRequest::GetTxPoolCompliment(_),
+                    InternalMessageResponse::NewTransactions(_),
+                ) => {
                     // we could check we received no transactions that we said we knew about but thats going to happen later anyway when they get added to our
                     // mempool
-                },
+                }
                 _ => return Err(PeerError::ResponseError("Peer sent incorrect response")),
             }
             // response passed our tests we can send it to the requestor
@@ -250,7 +282,9 @@ where
             .await
             .expect("MessageStream will never return None")?;
 
-        if !peer_message.is_request() && self.state.expected_response_id() == Some(peer_message.id()) {
+        if !peer_message.is_request()
+            && self.state.expected_response_id() == Some(peer_message.id())
+        {
             if let Ok(res) = peer_message.try_into() {
                 Ok(self.handle_response(res).await?)
             } else {
@@ -271,7 +305,9 @@ where
         loop {
             let _res = match self.state {
                 State::WaitingForRequest => self.state_waiting_for_request().await,
-                State::WaitingForResponse { request: _, tx: _ } => self.state_waiting_for_response().await,
+                State::WaitingForResponse { request: _, tx: _ } => {
+                    self.state_waiting_for_response().await
+                }
             };
         }
     }
