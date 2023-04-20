@@ -18,14 +18,18 @@ authors=[
 [workspace]
 
 members = [
-        "blockchain_db",
+		"cuprate",
+        "database",
         "net/levin",
         "net/monero-wire"
 ]
 
 [workspace.dependencies]
-monero = {version = "*", features = ['serde']}
+monero = { version = "*" }
+bincode = { version = "2.0.0-rc.3" }
 serde = { version = "*", features =["derive"]}
+tracing = "*"
+tracing-subscriber = "*"
 
 # As suggested by /u/danda :
 thiserror = "*"
@@ -38,4 +42,11 @@ lto = "thin"
 panic = "abort"
 
 [build]
-rustflags=["-Zcf-protection=full", "-Zsanitizer=cfi", "-Crelocation-model=pie", "-Cstack-protector=all"]
+linker="clang"
+rustflags=[
+	"-Clink-arg=-fuse-ld=mold",
+	"-Zcf-protection=full", 
+	"-Zsanitizer=cfi", 
+	"-Crelocation-model=pie", 
+	"-Cstack-protector=all",
+]

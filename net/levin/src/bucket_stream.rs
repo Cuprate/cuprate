@@ -46,7 +46,10 @@ impl BucketDecoder {
 
     /// Tries to decode a `Bucket` from the given buffer, returning the decoded `Bucket` and the
     /// number of bytes consumed from the buffer.
-    pub fn try_decode_bucket(&mut self, mut buf: &[u8]) -> Result<(Option<Bucket>, usize), BucketError> {
+    pub fn try_decode_bucket(
+        &mut self,
+        mut buf: &[u8],
+    ) -> Result<(Option<Bucket>, usize), BucketError> {
         let mut len = 0;
 
         // first we decode header
@@ -142,7 +145,7 @@ impl<S: AsyncRead + std::marker::Unpin> Stream for BucketStream<S> {
                     } else {
                         continue;
                     }
-                },
+                }
             }
         }
     }
