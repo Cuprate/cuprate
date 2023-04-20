@@ -130,7 +130,12 @@ impl TryInto<MessageType> for header::Flags {
 /// A levin body
 pub trait LevinBody: Sized {
     /// Decodes the message from the data in the header
-    fn decode_message(buf: &[u8], typ: MessageType, have_to_return: bool, command: u32) -> Result<Self, BucketError>;
+    fn decode_message(
+        buf: &[u8],
+        typ: MessageType,
+        have_to_return: bool,
+        command: u32,
+    ) -> Result<Self, BucketError>;
 
     /// Encodes the message
     ///

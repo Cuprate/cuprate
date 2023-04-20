@@ -53,7 +53,10 @@ impl<W: AsyncWrite + std::marker::Unpin> Sink<Bucket> for BucketSink<W> {
         Ok(())
     }
 
-    fn poll_flush(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_flush(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
         let this = self.project();
         let mut w = this.writer;
         let buffer = this.buffer;
@@ -74,17 +77,20 @@ impl<W: AsyncWrite + std::marker::Unpin> Sink<Bucket> for BucketSink<W> {
                                 } else {
                                     buffer[0].advance(len);
                                 }
-                            },
+                            }
                         }
                     } else {
                         return Poll::Ready(Ok(()));
                     }
-                },
+                }
             }
         }
     }
 
-    fn poll_close(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_close(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Result<(), Self::Error>> {
         ready!(self.project().writer.poll_close(cx))?;
         Poll::Ready(Ok(()))
     }

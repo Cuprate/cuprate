@@ -52,9 +52,13 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> MessageStream<D, S> {
 impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D, S> {
     type Item = Result<D, BucketError>;
 
-    fn poll_next(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         let this = self.project();
-        match ready!(this.bucket_stream.poll_next(cx)).expect("BucketStream will never return None") {
+        match ready!(this.bucket_stream.poll_next(cx)).expect("BucketStream will never return None")
+        {
             Err(e) => Poll::Ready(Some(Err(e))),
             Ok(bucket) => {
                 if bucket.header.signature != LEVIN_SIGNATURE {
@@ -62,7 +66,9 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D
                 }
 
                 if bucket.header.protocol_version != PROTOCOL_VERSION {
-                    return Err(BucketError::UnknownProtocolVersion(bucket.header.protocol_version))?;
+                    return Err(BucketError::UnknownProtocolVersion(
+                        bucket.header.protocol_version,
+                    ))?;
                 }
 
                 if bucket.header.return_code < 0
@@ -82,7 +88,7 @@ impl<D: LevinBody, S: AsyncRead + std::marker::Unpin> Stream for MessageStream<D
                     bucket.header.have_to_return_data,
                     bucket.header.command,
                 )))
-            },
+            }
         }
     }
 }

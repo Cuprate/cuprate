@@ -16,10 +16,10 @@
 //! The cuprate-db crate implement (as its name suggests) the relations between the blockchain/txpool objects and their databases.
 //! `lib.rs` contains all the generics, trait and specification for interfaces between blockchain and a backend-agnostic database
 //! Every other files in this folder are implementation of these traits/methods to real storage engine.
-//! 
+//!
 //! At the moment, the only storage engine available is MDBX.
 //! The next storage engine planned is HSE (Heteregeonous Storage Engine) from Micron.
-//! 
+//!
 //! For more informations, please consult this docs:
 
 #![deny(unused_attributes)]
@@ -28,220 +28,199 @@
 #![deny(clippy::expect_used, clippy::panic)]
 #![allow(dead_code, unused_macros)] // temporary
 
-use thiserror::Error;
-use monero::{Hash, Block, BlockHeader, util::ringct::RctSig};
+use monero::{util::ringct::RctSig, Block, BlockHeader, Hash};
 use std::ops::Range;
+use thiserror::Error;
 
 #[cfg(feature = "mdbx")]
 pub mod mdbx;
 //#[cfg(feature = "hse")]
 //pub mod hse;
 
+pub mod encoding;
 pub mod error;
+pub mod interface;
 pub mod table;
 pub mod types;
-pub mod encoding;
-pub mod interface;
 
 const DEFAULT_BLOCKCHAIN_DATABASE_DIRECTORY: &str = "blockchain";
 const DEFAULT_TXPOOL_DATABASE_DIRECTORY: &str = "txpool_mem";
-const BINCODE_CONFIG: bincode::config::Configuration<bincode::config::LittleEndian, bincode::config::Fixint> = bincode::config::standard().with_fixed_int_encoding();
+const BINCODE_CONFIG: bincode::config::Configuration<
+    bincode::config::LittleEndian,
+    bincode::config::Fixint,
+> = bincode::config::standard().with_fixed_int_encoding();
 
 // ------------------------------------------|      Database      |------------------------------------------
 
 pub mod database {
-	//! This module contains the Database abstraction trait. Any key/value storage engine implemented need
-	//! to fullfil these associated types and functions, in order to be usable. This module also contains the
-	//! Interface struct which is used by the DB Reactor to interact with the database.
+    //! This module contains the Database abstraction trait. Any key/value storage engine implemented need
+    //! to fullfil these associated types and functions, in order to be usable. This module also contains the
+    //! Interface struct which is used by the DB Reactor to interact with the database.
 
-    use std::{ops::Deref, sync::Arc, path::PathBuf};
-    use crate::{error::DB_FAILURES,transaction::{Transaction, WriteTransaction}};
-	
-	/// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the 
-	/// different transaction modes (read & write) and it's native errors.
-	pub trait Database<'a>
-	{
-		type TX: Transaction<'a>;
-		type TXMut: WriteTransaction<'a>;
+    use crate::{
+        error::DB_FAILURES,
+        transaction::{Transaction, WriteTransaction},
+    };
+    use std::{ops::Deref, path::PathBuf, sync::Arc};
+
+    /// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the
+    /// different transaction modes (read & write) and it's native errors.
+    pub trait Database<'a> {
+        type TX: Transaction<'a>;
+        type TXMut: WriteTransaction<'a>;
         type Error: Into<DB_FAILURES>;
 
-		// Create a transaction from the database
-		fn tx(&'a self) -> Result<Self::TX, Self::Error>;
+        // Create a transaction from the database
+        fn tx(&'a self) -> Result<Self::TX, Self::Error>;
 
-		// Create a mutable transaction from the database
+        // Create a mutable transaction from the database
         fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
 
-		// Open a database from the specified path
-		fn open(path: PathBuf) -> Result<Self, Self::Error> where Self: std::marker::Sized;
+        // Open a database from the specified path
+        fn open(path: PathBuf) -> Result<Self, Self::Error>
+        where
+            Self: std::marker::Sized;
 
-		// Check if the database is built.
-		fn check(&'a self) -> Result<(), Self::Error>;
+        // Check if the database is built.
+        fn check_all_tables_exist(&'a self) -> Result<(), Self::Error>;
 
-		// Build the database
-		fn build(&'a self) -> Result<(), Self::Error>;
-	}
+        // Build the database
+        fn build(&'a self) -> Result<(), Self::Error>;
+    }
 
-	/// `Interface` is a struct containing a shared pointer to the database and transaction's to be used for the implemented method of Interface.
-	pub struct Interface<'a, D: Database<'a>>  {
-		pub db: Arc<D>,
-		pub tx: Option<<D as Database<'a>>::TXMut>,
-	}
+    /// `Interface` is a struct containing a shared pointer to the database and transaction's to be used for the implemented method of Interface.
+    pub struct Interface<'a, D: Database<'a>> {
+        pub db: Arc<D>,
+        pub tx: Option<<D as Database<'a>>::TXMut>,
+    }
 
-	// Convenient implementations for database
-    impl<'service,D: Database<'service>> Interface<'service,D> {
+    // Convenient implementations for database
+    impl<'service, D: Database<'service>> Interface<'service, D> {
+        fn from(db: Arc<D>) -> Result<Self, DB_FAILURES> {
+            Ok(Self { db, tx: None })
+        }
 
-        fn from(db: Arc<D>) -> Result<Self,DB_FAILURES> {
-			Ok(Self { db, tx: None})
-    	}	
+        fn open(&'service mut self) -> Result<(), DB_FAILURES> {
+            let tx = self.db.tx_mut().map_err(Into::into)?;
+            self.tx = Some(tx);
+            Ok(())
+        }
+    }
 
-		fn open(&'service mut self) -> Result<(),DB_FAILURES> {
-    		let tx = self.db.tx_mut().map_err(Into::into)?;
-			self.tx = Some(tx);
-			Ok(())
-    	}
-	}
+    impl<'service, D: Database<'service>> Deref for Interface<'service, D> {
+        type Target = <D as Database<'service>>::TXMut;
 
-    impl<'service, D: Database<'service>> Deref for Interface<'service,D> {
-    	type Target = <D as Database<'service>>::TXMut;
-
-    	fn deref(&self) -> &Self::Target {
-    		return self.tx.as_ref().unwrap()
-    	}
-	}	
+        fn deref(&self) -> &Self::Target {
+            return self.tx.as_ref().unwrap();
+        }
+    }
 }
 
 // ------------------------------------------|      DatabaseTx     |------------------------------------------
 
 pub mod transaction {
-	//! This module contains the abstractions of Transactional Key/Value database functions.
-	//! Any key/value database/storage engine can be implemented easily for Cuprate as long as 
-	//! these functions or equivalent logic exist for it.
+    //! This module contains the abstractions of Transactional Key/Value database functions.
+    //! Any key/value database/storage engine can be implemented easily for Cuprate as long as
+    //! these functions or equivalent logic exist for it.
 
-	use crate::{error::DB_FAILURES,table::{Table, DupTable}};
+    use crate::{
+        error::DB_FAILURES,
+        table::{DupTable, Table},
+    };
 
-	// Abstraction of a read-only cursor, for simple tables
-	#[allow(clippy::type_complexity)]
-	pub trait Cursor<'t, T: Table> {
+    // Abstraction of a read-only cursor, for simple tables
+    #[allow(clippy::type_complexity)]
+    pub trait Cursor<'t, T: Table> {
+        fn first(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
 
-		fn first(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
+        fn get_cursor(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
 
-		fn get_cursor(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
+        fn last(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
 
-		fn last(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
+        fn next(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
 
-		fn next(&mut self) -> Result<Option<(T::Key, T::Value)>,DB_FAILURES>;
+        fn prev(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
 
-		fn prev(&mut self) -> Result<Option<(T::Key,T::Value)>,DB_FAILURES>;
-		
-		fn set(&mut self, key: &T::Key) -> Result<Option<T::Value>,DB_FAILURES>;
-	}
-
-	// Abstraction of a read-only cursor with support for duplicated tables. DupCursor inherit Cursor methods as 
-	// a duplicated table can be treated as a simple table.
-	#[allow(clippy::type_complexity)]
-	pub trait DupCursor<'t, T: DupTable>: Cursor<'t, T> {
-
-		fn first_dup(&mut self) -> Result<Option<(T::SubKey,T::Value)>,DB_FAILURES>;
-
-		fn get_dup(&mut self, key: &T::Key, subkey: &T::SubKey) -> Result<Option<T::Value>,DB_FAILURES>;
-
-		fn last_dup(&mut self) -> Result<Option<(T::SubKey,T::Value)>, DB_FAILURES>;
-
-		fn next_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES>;
-		
-		fn prev_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES>;
-	}
-
-	// Abstraction of a read-write cursor, for simple tables. WriteCursor inherit Cursor methods.
-	pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
-
-		fn put_cursor(&mut self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
-
-		fn del(&mut self) -> Result<(),DB_FAILURES>;
-	}
-
-	// Abstraction of a read-write cursor with support for duplicated tables. DupWriteCursor inherit DupCursor and WriteCursor methods.
-	pub trait DupWriteCursor<'t, T: DupTable>: WriteCursor<'t, T> {
-		
-		fn put_cursor_dup(&mut self, key: &T::Key, subkey: &T::SubKey, value: &T::Value) -> Result<(),DB_FAILURES>;
-
-		/// Delete all data under associated to its key
-		fn del_nodup(&mut self) -> Result<(),DB_FAILURES>;
-	}
-
-	// Abstraction of a read-only transaction.
-	pub trait Transaction<'a>: Send + Sync {
-
-		type Cursor<T: Table>: Cursor<'a,T>;
-		type DupCursor<T: DupTable>: DupCursor<'a, T> + Cursor<'a, T>;
-
-		fn get<T: Table>(&self, key: &T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
-
-		fn commit(self) -> Result<(), DB_FAILURES>;
-
-		fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>,DB_FAILURES>;
-
-		fn cursor_dup<T: DupTable>(&self) -> Result<Self::DupCursor<T>,DB_FAILURES>;
-
-		fn num_entries<T: Table>(&self) -> Result<usize, DB_FAILURES>;
-	}
-
-	// Abstraction of a read-write transaction. WriteTransaction inherits Transaction methods.
-	pub trait WriteTransaction<'a>: Transaction<'a> {
-
-		type WriteCursor<T: Table>: WriteCursor<'a,T>;
-		type DupWriteCursor<T: DupTable>: DupWriteCursor<'a,T> + DupCursor<'a,T>;
-
-        fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(),DB_FAILURES>;
-
-		fn delete<T: Table>(&self, key: &T::Key, value: &Option<T::Value>) -> Result<(),DB_FAILURES>;
-
-		fn clear<T: Table>(&self) -> Result<(),DB_FAILURES>;
-
-		fn write_cursor<T: Table>(&self) -> Result<Self::WriteCursor<T>, DB_FAILURES>;
-
-		fn write_cursor_dup<T: DupTable>(&self) -> Result<Self::DupWriteCursor<T>, DB_FAILURES>;
+        fn set(&mut self, key: &T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
     }
 
+    // Abstraction of a read-only cursor with support for duplicated tables. DupCursor inherit Cursor methods as
+    // a duplicated table can be treated as a simple table.
+    #[allow(clippy::type_complexity)]
+    pub trait DupCursor<'t, T: DupTable>: Cursor<'t, T> {
+        fn first_dup(&mut self) -> Result<Option<(T::SubKey, T::Value)>, DB_FAILURES>;
+
+        fn get_dup(
+            &mut self,
+            key: &T::Key,
+            subkey: &T::SubKey,
+        ) -> Result<Option<T::Value>, DB_FAILURES>;
+
+        fn last_dup(&mut self) -> Result<Option<(T::SubKey, T::Value)>, DB_FAILURES>;
+
+        fn next_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES>;
+
+        fn prev_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES>;
+    }
+
+    // Abstraction of a read-write cursor, for simple tables. WriteCursor inherit Cursor methods.
+    pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
+        fn put_cursor(&mut self, key: &T::Key, value: &T::Value) -> Result<(), DB_FAILURES>;
+
+        fn del(&mut self) -> Result<(), DB_FAILURES>;
+    }
+
+    // Abstraction of a read-write cursor with support for duplicated tables. DupWriteCursor inherit DupCursor and WriteCursor methods.
+    pub trait DupWriteCursor<'t, T: DupTable>: WriteCursor<'t, T> {
+        fn put_cursor_dup(
+            &mut self,
+            key: &T::Key,
+            subkey: &T::SubKey,
+            value: &T::Value,
+        ) -> Result<(), DB_FAILURES>;
+
+        /// Delete all data under associated to its key
+        fn del_nodup(&mut self) -> Result<(), DB_FAILURES>;
+    }
+
+    // Abstraction of a read-only transaction.
+    pub trait Transaction<'a>: Send + Sync {
+        type Cursor<T: Table>: Cursor<'a, T>;
+        type DupCursor<T: DupTable>: DupCursor<'a, T> + Cursor<'a, T>;
+
+        fn get<T: Table>(&self, key: &T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
+
+        fn commit(self) -> Result<(), DB_FAILURES>;
+
+        fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>, DB_FAILURES>;
+
+        fn cursor_dup<T: DupTable>(&self) -> Result<Self::DupCursor<T>, DB_FAILURES>;
+
+        fn num_entries<T: Table>(&self) -> Result<usize, DB_FAILURES>;
+    }
+
+    // Abstraction of a read-write transaction. WriteTransaction inherits Transaction methods.
+    pub trait WriteTransaction<'a>: Transaction<'a> {
+        type WriteCursor<T: Table>: WriteCursor<'a, T>;
+        type DupWriteCursor<T: DupTable>: DupWriteCursor<'a, T> + DupCursor<'a, T>;
+
+        fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(), DB_FAILURES>;
+
+        fn delete<T: Table>(
+            &self,
+            key: &T::Key,
+            value: &Option<T::Value>,
+        ) -> Result<(), DB_FAILURES>;
+
+        fn clear<T: Table>(&self) -> Result<(), DB_FAILURES>;
+
+        fn write_cursor<T: Table>(&self) -> Result<Self::WriteCursor<T>, DB_FAILURES>;
+
+        fn write_cursor_dup<T: DupTable>(&self) -> Result<Self::DupWriteCursor<T>, DB_FAILURES>;
+    }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /////////////////////// MONEROD BREAKOUT ////////////////////////////
-
-
-
 
 pub type difficulty_type = u128;
 type Blobdata = Vec<u8>;
@@ -250,20 +229,20 @@ type TxOutIndex = (Hash, u64);
 
 /// Methods tracking how a tx was received and relayed
 pub enum RelayMethod {
-	none,    //< Received via RPC with `do_not_relay` set
-	local,   //< Received via RPC; trying to send over i2p/tor, etc.
-	forward, //< Received over i2p/tor; timer delayed before ipv4/6 public broadcast
-	stem,    //< Received/send over network using Dandelion++ stem
-	fluff,   //< Received/sent over network using Dandelion++ fluff
-	block,   //< Received in block, takes precedence over others
+    none,    //< Received via RPC with `do_not_relay` set
+    local,   //< Received via RPC; trying to send over i2p/tor, etc.
+    forward, //< Received over i2p/tor; timer delayed before ipv4/6 public broadcast
+    stem,    //< Received/send over network using Dandelion++ stem
+    fluff,   //< Received/sent over network using Dandelion++ fluff
+    block,   //< Received in block, takes precedence over others
 }
 
 // the database types are going to be defined in the monero rust library.
 pub enum RelayCategory {
     broadcasted, //< Public txes received via block/fluff
     relayable,   //< Every tx not marked `relay_method::none`
-    legacy,      //< `relay_category::broadcasted` + `relay_method::none` for rpc relay requests or historical reasons
-    all,         //< Everything in the db
+    legacy, //< `relay_category::broadcasted` + `relay_method::none` for rpc relay requests or historical reasons
+    all,    //< Everything in the db
 }
 
 fn matches_category(relay_method: RelayMethod, relay_category: RelayCategory) -> bool {
@@ -321,13 +300,13 @@ impl txpool_tx_meta_t {
     fn set_relay_method(relay_method: RelayMethod) {}
 
     fn upgrade_relay_method(relay_method: RelayMethod) -> bool {
-	todo!()
+        todo!()
     }
 
     /// See `relay_category` description
     fn matches(category: RelayCategory) -> bool {
-		todo!()
-	//return matches_category(todo!(), category);
+        todo!()
+        //return matches_category(todo!(), category);
     }
 }
 
@@ -512,12 +491,12 @@ pub trait BlockchainDB {
     /// `unlock_time`: is the unlock time (height) of the output.
     /// `commitment`: is the RingCT commitment of this output.
     fn add_output(
-	&mut self,
-	tx_hash: &Hash,
-	output: &Hash,
-	index: TxOutIndex,
-	unlock_time: u64,
-	commitment: RctSig,
+        &mut self,
+        tx_hash: &Hash,
+        output: &Hash,
+        index: TxOutIndex,
+        unlock_time: u64,
+        commitment: RctSig,
     ) -> Result<u64, DB_FAILURES>;
 
     /// `add_tx_amount_output_indices` store amount output indices for a tx's outputs
@@ -536,10 +515,10 @@ pub trait BlockchainDB {
     /// `index`: is the output's index (indexed by amount)
     /// `include_commitment` : `true` by default.
     fn get_output_key(
-	&mut self,
-	amount: u64,
-	index: u64,
-	include_commitmemt: bool,
+        &mut self,
+        amount: u64,
+        index: u64,
+        include_commitmemt: bool,
     ) -> Result<output_data_t, DB_FAILURES>;
 
     /// `get_output_tx_and_index_from_global`gets an output's transaction hash and index from output's global index.
@@ -548,7 +527,10 @@ pub trait BlockchainDB {
     ///
     /// Parameters:
     /// `index`: is the output's global index.
-    fn get_output_tx_and_index_from_global(&mut self, index: u64) -> Result<TxOutIndex, DB_FAILURES>;
+    fn get_output_tx_and_index_from_global(
+        &mut self,
+        index: u64,
+    ) -> Result<TxOutIndex, DB_FAILURES>;
 
     /// `get_output_key_list` gets outputs' metadata from a corresponding collection.
     ///
@@ -559,10 +541,10 @@ pub trait BlockchainDB {
     /// `offsets`: is a collection of outputs' index (indexed by amount).
     /// `allow partial`: `false` by default.
     fn get_output_key_list(
-	&mut self,
-	amounts: &Vec<u64>,
-	offsets: &Vec<u64>,
-	allow_partial: bool,
+        &mut self,
+        amounts: &Vec<u64>,
+        offsets: &Vec<u64>,
+        allow_partial: bool,
     ) -> Result<Vec<output_data_t>, DB_FAILURES>;
 
     /// `get_output_tx_and_index` gets an output's transaction hash and index
@@ -572,7 +554,11 @@ pub trait BlockchainDB {
     /// Parameters:
     /// `amount`: is the corresponding amount of the output
     /// `index`: is the output's index (indexed by amount)
-    fn get_output_tx_and_index(&mut self, amount: u64, index: u64) -> Result<TxOutIndex, DB_FAILURES>;
+    fn get_output_tx_and_index(
+        &mut self,
+        amount: u64,
+        index: u64,
+    ) -> Result<TxOutIndex, DB_FAILURES>;
 
     /// `get_num_outputs` fetches the number of outputs of a given amount.
     ///
@@ -595,11 +581,11 @@ pub trait BlockchainDB {
     /// `tx_hash`: is the hash of the transaction.
     /// `tx_prunable_hash_ptr`: is the hash of the prunable part of the transaction.
     fn add_transaction(
-	&mut self,
-	blk_hash: &Hash,
-	tx: monero::Transaction,
-	tx_hash: &Hash,
-	tx_prunable_hash_ptr: &Hash,
+        &mut self,
+        blk_hash: &Hash,
+        tx: monero::Transaction,
+        tx_hash: &Hash,
+        tx_prunable_hash_ptr: &Hash,
     ) -> Result<(), DB_FAILURES>;
 
     /// `add_transaction_data` add the specified transaction data to its storage.
@@ -613,10 +599,10 @@ pub trait BlockchainDB {
     /// `tx_and_hash`: is a tuple containing the transaction and it's hash
     /// `tx_prunable_hash`: is the hash of the prunable part of the transaction
     fn add_transaction_data(
-	&mut self,
-	blk_hash: &Hash,
-	tx_and_hash: (monero::Transaction, &Hash),
-	tx_prunable_hash: &Hash,
+        &mut self,
+        blk_hash: &Hash,
+        tx_and_hash: (monero::Transaction, &Hash),
+        tx_prunable_hash: &Hash,
     ) -> Result<Hash, DB_FAILURES>;
 
     /// `remove_transaction_data` remove data about a transaction specified by its hash.
@@ -715,7 +701,11 @@ pub trait BlockchainDB {
     /// Parameters:
     /// `h`: is the given hash of the first transaction/
     /// `count`: is the number of transaction to fetch in canoncial blockchain order.
-    fn get_pruned_tx_blobs_from(&mut self, h: &Hash, count: usize) -> Result<Vec<Blobdata>, DB_FAILURES>;
+    fn get_pruned_tx_blobs_from(
+        &mut self,
+        h: &Hash,
+        count: usize,
+    ) -> Result<Vec<Blobdata>, DB_FAILURES>;
 
     /// `get_tx_block_height` fetches the height of a transaction's block
     ///
@@ -741,12 +731,12 @@ pub trait BlockchainDB {
     /// `coins_generated` is the number of coins generated after this block.
     /// `blk_hash`: is the hash of the block.
     fn add_block(
-	blk: Block,
-	blk_hash: Hash,
-	block_weight: u64,
-	long_term_block_weight: u64,
-	cumulative_difficulty: u128,
-	coins_generated: u64,
+        blk: Block,
+        blk_hash: Hash,
+        block_weight: u64,
+        long_term_block_weight: u64,
+        cumulative_difficulty: u128,
+        coins_generated: u64,
     ) -> Result<(), DB_FAILURES>;
 
     /// `pop_block` pops the top block off the blockchain.
@@ -790,7 +780,10 @@ pub trait BlockchainDB {
     ///
     /// Parameters:
     /// `height_range`: is the range of height where the requested blocks are located.
-    fn get_blocks_from_range(&mut self, height_range: Range<u64>) -> Result<Vec<Block>, DB_FAILURES>;
+    fn get_blocks_from_range(
+        &mut self,
+        height_range: Range<u64>,
+    ) -> Result<Vec<Block>, DB_FAILURES>;
 
     /// `get_block_blob` fetches the block blob with the given hash.
     ///
@@ -835,7 +828,8 @@ pub trait BlockchainDB {
     ///
     /// Parameters:
     /// `height`: is the given height where the requested block is located.
-    fn get_blocks_hashes_from_range(&mut self, range: Range<u64>) -> Result<Vec<Hash>, DB_FAILURES>;
+    fn get_blocks_hashes_from_range(&mut self, range: Range<u64>)
+        -> Result<Vec<Hash>, DB_FAILURES>;
 
     /// `get_top_block` fetch the last/top block of the blockchain
     ///
@@ -867,15 +861,15 @@ pub trait BlockchainDB {
     /// `skip_coinbase`: is whether to return or skip coinbase transactions (they're in blocks regardless).    
     /// `get_miner_tx_hash`: is whether to calculate and return the miner (coinbase) tx hash.    
     fn get_blocks_from(
-	&mut self,
-	start_height: u64,
-	min_block_count: u64,
-	max_block_count: u64,
-	max_size: usize,
-	max_tx_count: u64,
-	pruned: bool,
-	skip_coinbase: bool,
-	get_miner_tx_hash: bool,
+        &mut self,
+        start_height: u64,
+        min_block_count: u64,
+        max_block_count: u64,
+        max_size: usize,
+        max_tx_count: u64,
+        pruned: bool,
+        skip_coinbase: bool,
+        get_miner_tx_hash: bool,
     ) -> Result<Vec<((String, Hash), Vec<(Hash, String)>)>, DB_FAILURES>;
 
     /// `get_block_height` gets the height of the block with a given hash
@@ -900,7 +894,11 @@ pub trait BlockchainDB {
     /// Parameters:
     /// `start_height`: is the height to seek before collecting block weights.
     /// `count`: is the number of last blocks' weight to fetch.
-    fn get_block_weights(&mut self, start_height: u64, count: usize) -> Result<Vec<u64>, DB_FAILURES>;
+    fn get_block_weights(
+        &mut self,
+        start_height: u64,
+        count: usize,
+    ) -> Result<Vec<u64>, DB_FAILURES>;
 
     /// `get_block_already_generated_coins` fetch a block's already generated coins
     ///
@@ -929,7 +927,11 @@ pub trait BlockchainDB {
     /// Parameters:
     /// `start_height`: is the height to seek before collecting block weights.
     /// `count`: is the number of last blocks' long term weight to fetch.
-    fn get_long_term_block_weights(&mut self, height: u64, count: usize) -> Result<Vec<u64>, DB_FAILURES>;
+    fn get_long_term_block_weights(
+        &mut self,
+        height: u64,
+        count: usize,
+    ) -> Result<Vec<u64>, DB_FAILURES>;
 
     /// `get_block_timestamp` fetch a block's timestamp.
     ///
@@ -947,7 +949,10 @@ pub trait BlockchainDB {
     ///
     /// Parameters:
     /// `heights`: is the collection of height to check for RingCT distribution.
-    fn get_block_cumulative_rct_outputs(&mut self, heights: Vec<u64>) -> Result<Vec<u64>, DB_FAILURES>;
+    fn get_block_cumulative_rct_outputs(
+        &mut self,
+        heights: Vec<u64>,
+    ) -> Result<Vec<u64>, DB_FAILURES>;
 
     /// `get_top_block_timestamp` fetch the top block's timestamp
     ///
@@ -965,9 +970,9 @@ pub trait BlockchainDB {
     /// `start_height`: is the height of the block where the drifts start.
     /// `new_cumulative_difficulties`: is the collection of new cumulative difficulties to be stored
     fn correct_block_cumulative_difficulties(
-	&mut self,
-	start_height: u64,
-	new_cumulative_difficulties: Vec<difficulty_type>,
+        &mut self,
+        start_height: u64,
+        new_cumulative_difficulties: Vec<difficulty_type>,
     ) -> Result<(), DB_FAILURES>;
 
     // --------------------------------------------|  Alt-Block  |------------------------------------------------------------
@@ -980,7 +985,12 @@ pub trait BlockchainDB {
     /// blkid: is the hash of the original block
     /// data: is the metadata for the block
     /// blob: is the blobdata of this alternative block.
-    fn add_alt_block(&mut self, blkid: &Hash, data: &alt_block_data_t, blob: &Blobdata) -> Result<(), DB_FAILURES>;
+    fn add_alt_block(
+        &mut self,
+        blkid: &Hash,
+        data: &alt_block_data_t,
+        blob: &Blobdata,
+    ) -> Result<(), DB_FAILURES>;
 
     /// `get_alt_block` gets the specified alternative block.
     ///
@@ -1022,8 +1032,12 @@ pub trait BlockchainDB {
     /// `txid`: is the hash of the transaction to add.
     /// `blob`: is the blobdata of the transaction to add.
     /// `details`: is the metadata of the transaction pool at this specific transaction.
-    fn add_txpool_tx(&mut self, txid: &Hash, blob: &BlobdataRef, details: &txpool_tx_meta_t)
-	-> Result<(), DB_FAILURES>;
+    fn add_txpool_tx(
+        &mut self,
+        txid: &Hash,
+        blob: &BlobdataRef,
+        details: &txpool_tx_meta_t,
+    ) -> Result<(), DB_FAILURES>;
 
     /// `update_txpool_tx` replace pool's transaction metadata.
     ///
@@ -1032,7 +1046,11 @@ pub trait BlockchainDB {
     /// Parameters:
     /// `txid`: is the hash of the transaction to edit
     /// `details`: is the new metadata to insert.
-    fn update_txpool_tx(&mut self, txid: &monero::Hash, details: &txpool_tx_meta_t) -> Result<(), DB_FAILURES>;
+    fn update_txpool_tx(
+        &mut self,
+        txid: &monero::Hash,
+        details: &txpool_tx_meta_t,
+    ) -> Result<(), DB_FAILURES>;
 
     /// `get_txpool_tx_count` gets the number of transactions in the txpool.
     ///
@@ -1050,7 +1068,11 @@ pub trait BlockchainDB {
     /// Parameters:
     /// `txid`: is the hash of the transaction to check for
     /// `tx_category`: is the relay's category where the tx is supposed to come from.
-    fn txpool_has_tx(&mut self, txid: &Hash, tx_category: &RelayCategory) -> Result<bool, DB_FAILURES>;
+    fn txpool_has_tx(
+        &mut self,
+        txid: &Hash,
+        tx_category: &RelayCategory,
+    ) -> Result<bool, DB_FAILURES>;
 
     /// `remove_txpool_tx` remove the specified transaction from the transaction pool.
     ///
@@ -1075,7 +1097,11 @@ pub trait BlockchainDB {
     /// Parameters:
     /// `txid`: is the hash of the transaction to fetch blobdata from.
     /// `tx_category`: is the relay's category where the tx are coming from. < monerod note: for filtering out hidden/private txes.
-    fn get_txpool_tx_blob(&mut self, txid: &Hash, tx_category: RelayCategory) -> Result<Blobdata, DB_FAILURES>;
+    fn get_txpool_tx_blob(
+        &mut self,
+        txid: &Hash,
+        tx_category: RelayCategory,
+    ) -> Result<Blobdata, DB_FAILURES>;
 
     /// `txpool_tx_matches_category` checks if the corresponding transaction belongs to the specified category.
     ///
@@ -1084,7 +1110,11 @@ pub trait BlockchainDB {
     /// Parameters:
     /// `tx_hash`: is the hash of the transaction to lookup.
     /// `category`: is the relay's category to check.
-    fn txpool_tx_matches_category(&mut self, tx_hash: &Hash, category: RelayCategory) -> Result<bool, DB_FAILURES>;
+    fn txpool_tx_matches_category(
+        &mut self,
+        tx_hash: &Hash,
+        category: RelayCategory,
+    ) -> Result<bool, DB_FAILURES>;
 }
 
 // functions defined as useless : init_options(), is_open(), reset_stats(), show_stats(), open(), close(), get_output_histogram(), safesyncmode, get_filenames(), get_db_name(), remove_data_file(), lock(), unlock(), is_read_only(), get_database_size(), get_output_distribution(), set_auto_remove_logs(), check_hard_fork_info(), drop_hard_fork_info(), get_indexing_base();
