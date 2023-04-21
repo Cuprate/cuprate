@@ -44,6 +44,10 @@ impl PeerSupportFlags {
     pub fn get_support_flag_fluffy_blocks() -> Self {
         PeerSupportFlags(Self::FLUFFY_BLOCKS)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
 }
 
 impl From<u8> for PeerSupportFlags {

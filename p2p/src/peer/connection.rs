@@ -11,7 +11,7 @@ use monero_wire::messages::CoreSyncData;
 use monero_wire::{levin, Message, NetworkAddress};
 use tower::{Service, ServiceExt};
 
-use cuprate_protocol::{
+use crate::protocol::{
     InternalMessageRequest, InternalMessageResponse, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT,
     P2P_MAX_PEERS_IN_HANDSHAKE,
 };
@@ -46,12 +46,8 @@ impl State {
     }
 }
 
-pub struct ConnectionInfo {
-    pub addr: NetworkAddress,
-}
-
 pub struct Connection<Svc, Aw, Ar> {
-    connection_info: ConnectionInfo,
+    address: NetworkAddress,
     state: State,
     sink: MessageSink<Aw, Message>,
     stream: Fuse<MessageStream<Ar, Message>>,
@@ -67,7 +63,7 @@ where
     Ar: AsyncRead + std::marker::Unpin,
 {
     pub fn new(
-        connection_info: ConnectionInfo,
+        address: NetworkAddress,
         sink: MessageSink<Aw, Message>,
         stream: MessageStream<Ar, Message>,
         client_rx: mpsc::Receiver<ClientRequest>,
@@ -75,7 +71,7 @@ where
         svc: Svc,
     ) -> Connection<Svc, Aw, Ar> {
         Connection {
-            connection_info,
+            address,
             state: State::WaitingForRequest,
             sink,
             stream: stream.fuse(),
@@ -113,7 +109,7 @@ where
 
                     self.sync_state_tx
                         .send(PeerSyncChange::CoreSyncData(
-                            self.connection_info.addr,
+                            self.address,
                             res.payload_data.clone(),
                         ))
                         .await
@@ -131,7 +127,7 @@ where
 
                     self.sync_state_tx
                         .send(PeerSyncChange::ObjectsResponse(
-                            self.connection_info.addr,
+                            self.address,
                             req.blocks,
                             res.current_blockchain_height,
                         ))

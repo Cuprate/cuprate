@@ -7,5 +7,5 @@ authors = ["Boog900"]
 
 
 [dependencies]
-chrono = "0.4"
+chrono = "0.4.24"
 thiserror = "1"

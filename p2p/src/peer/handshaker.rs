@@ -1,16 +1,18 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures::FutureExt;
 use futures::{channel::mpsc, AsyncRead, AsyncWrite, SinkExt, StreamExt};
+use monero_wire::messages::admin::{SupportFlagsRequest, SupportFlagsResponse};
 use thiserror::Error;
 use tokio::time;
 use tower::{Service, ServiceExt};
 
-use cuprate_address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
+use crate::address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
 use cuprate_common::{HardForks, Network};
-use cuprate_protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
-use cuprate_protocol::{
+use crate::protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
+use crate::protocol::{
     Direction, InternalMessageRequest, InternalMessageResponse, P2P_MAX_PEERS_IN_HANDSHAKE,
 };
 use monero_wire::{
@@ -24,13 +26,18 @@ use monero_wire::{
 };
 use tracing::Instrument;
 
-use crate::{
-    connection::{ClientRequest, Connection, ConnectionInfo, PeerSyncChange},
+use super::client::Client;
+use super::{
+    connection::{ClientRequest, Connection, PeerSyncChange},
+    client::ConnectionInfo,
     PeerError,
+
 };
 
 #[derive(Debug, Error)]
 pub enum HandShakeError {
+    #[error("The peer did not complete the handshake fast enough")]
+    PeerTimedOut,
     #[error("The peer has a weird pruning scheme")]
     PeerClaimedWeirdPruning,
     #[error("The peer has an unexpected top version")]
@@ -70,6 +77,7 @@ pub struct NetworkConfig {
     rpc_credits_per_hash: u32,
     our_support_flags: PeerSupportFlags,
     minimum_peer_support_flags: PeerSupportFlags,
+    handshake_timeout: time::Duration,
     max_in_peers: u32,
     target_out_peers: u32,
 }
@@ -84,6 +92,7 @@ impl Default for NetworkConfig {
             rpc_credits_per_hash: 0,
             our_support_flags: PeerSupportFlags::get_support_flag_fluffy_blocks(),
             minimum_peer_support_flags: PeerSupportFlags::from(0_u32),
+            handshake_timeout: time::Duration::from_secs(5),
             max_in_peers: 13,
             target_out_peers: 21,
         }
@@ -131,6 +140,7 @@ where
         + Clone
         + Send
         + 'static,
+    Svc::Future: Send,
 
     AdrBook: Service<AddressBookRequest, Response = AddressBookResponse, Error = AddressBookError>
         + Clone
@@ -142,7 +152,7 @@ where
     R: AsyncRead + std::marker::Unpin + Send + 'static,
 {
     type Error = HandShakeError;
-    type Response = ();
+    type Response = Client;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
@@ -163,13 +173,18 @@ where
 
         let span = tracing::debug_span!("Handshaker");
 
+        let connection_span = tracing::debug_span!(parent: &self.parent_span, "Connection");
+
+
+
         let mut blockchain = self.blockchain.clone();
         let mut address_book = self.address_book.clone();
-        //let mut syncer_tx = self.peer_sync_states.clone();
+        let mut syncer_tx = self.peer_sync_states.clone();
+        let peer_request_service = self.peer_request_service.clone();
         let basic_node_data = self.config.basic_node_data();
         let minimum_support_flags = self.config.minimum_peer_support_flags.clone();
 
-        match direction {
+        let fut = match direction {
             Direction::Outbound => {
                 tracing::debug!(
                     parent: &span,
@@ -182,7 +197,7 @@ where
                     send_handshake_req(basic_node_data, our_core_sync, &mut peer_sink).await?;
 
                     let HandshakeResponse {
-                        node_data: peer_node_data,
+                        node_data: mut peer_node_data,
                         payload_data: peer_core_sync,
                         local_peerlist_new,
                     } = get_handshake_res(&mut peer_stream).await?;
@@ -212,13 +227,50 @@ where
                         ))
                         .await?;
 
-                    Ok(())
+                    // coresync 
+
+                    if peer_node_data.support_flags.is_empty() {
+                        send_support_flag_req(&mut peer_sink).await?;
+
+                        let support_flag_res: SupportFlagsResponse = get_support_flag_res(&mut peer_stream).await?;
+
+                        peer_node_data.support_flags = support_flag_res.support_flags;
+                    }
+
+                    address_book
+                        .ready()
+                        .await?
+                        .call(AddressBookRequest::AddPeerToAnchor(
+                            addr
+                        ))
+                        .await?;
+
+                    let (server_tx, server_rx) = mpsc::channel(3);
+
+                    let connection = Connection::new(addr, peer_sink, peer_stream, server_rx, syncer_tx, peer_request_service);
+
+                    let connection_info = Arc::new(ConnectionInfo{addr, support_flags: peer_node_data.support_flags});
+
+                    let client = Client::new(connection_info, server_tx);
+
+                    tokio::task::spawn(connection.run().instrument(connection_span));
+
+                    Ok(client)
                 }
                 .instrument(span)
-                .boxed()
             }
             Direction::Inbound => todo!(),
-        }
+        };
+
+        let ret = time::timeout(self.config.handshake_timeout, fut);
+        
+        async move {
+            match ret.await {
+                Ok(handshake) => handshake,
+                Err(_) => Err(HandShakeError::PeerTimedOut)
+            }
+        }.boxed()
+
     }
 }
 
@@ -263,6 +315,27 @@ async fn get_handshake_res<R: AsyncRead + std::marker::Unpin>(
     Ok(handshake_res)
 }
 
+async fn send_support_flag_req<W: AsyncWrite + std::marker::Unpin>(
+    peer_sink: &mut MessageSink<W, Message>,
+) -> Result<(), HandShakeError> {
+    tracing::trace!("Peer sent no support flags, sending request");
+
+    let message: Message = Message::Request(SupportFlagsRequest.into());
+    peer_sink.send(message).await?;
+    Ok(())
+}
+
+async fn get_support_flag_res<R: AsyncRead + std::marker::Unpin>(
+    peer_stream: &mut MessageStream<R, Message>,
+) -> Result<SupportFlagsResponse, HandShakeError> {
+    let Message::Response(MessageResponse::SupportFlags(support_res)) =  peer_stream.next().await.expect("MessageSink will not return None")? else {
+        return Err(HandShakeError::PeerSentWrongResponse);
+    };
+
+    tracing::trace!("Received support flag response: {support_res:?}");
+
+    Ok(support_res)
+}
 // impl<Bc, Svc> Handshaker<Bc, Svc>
 // where
 //     Bc: Service<DataBaseRequest, Response = DataBaseResponse, Error = DatabaseError>,

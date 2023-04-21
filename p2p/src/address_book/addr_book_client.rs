@@ -8,8 +8,8 @@ use tower::steer::Steer;
 
 use monero_wire::network_address::NetZone;
 
-use crate::address_book::{AddressBook, AddressBookClientRequest};
-use crate::{
+use super::address_book::{AddressBook, AddressBookClientRequest};
+use super::{
     AddressBookConfig, AddressBookError, AddressBookRequest, AddressBookResponse, AddressBookStore,
 };
 
