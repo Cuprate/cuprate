@@ -10,11 +10,11 @@ use tokio::time;
 use tower::{Service, ServiceExt};
 
 use crate::address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
-use cuprate_common::{HardForks, Network};
 use crate::protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
 use crate::protocol::{
     Direction, InternalMessageRequest, InternalMessageResponse, P2P_MAX_PEERS_IN_HANDSHAKE,
 };
+use cuprate_common::{HardForks, Network};
 use monero_wire::{
     levin::{BucketError, MessageSink, MessageStream},
     messages::{
@@ -28,10 +28,9 @@ use tracing::Instrument;
 
 use super::client::Client;
 use super::{
-    connection::{ClientRequest, Connection, PeerSyncChange},
     client::ConnectionInfo,
+    connection::{ClientRequest, Connection, PeerSyncChange},
     PeerError,
-
 };
 
 #[derive(Debug, Error)]
@@ -175,8 +174,6 @@ where
 
         let connection_span = tracing::debug_span!(parent: &self.parent_span, "Connection");
 
-
-
         let mut blockchain = self.blockchain.clone();
         let mut address_book = self.address_book.clone();
         let mut syncer_tx = self.peer_sync_states.clone();
@@ -227,12 +224,13 @@ where
                         ))
                         .await?;
 
-                    // coresync 
+                    // coresync
 
                     if peer_node_data.support_flags.is_empty() {
                         send_support_flag_req(&mut peer_sink).await?;
 
-                        let support_flag_res: SupportFlagsResponse = get_support_flag_res(&mut peer_stream).await?;
+                        let support_flag_res: SupportFlagsResponse =
+                            get_support_flag_res(&mut peer_stream).await?;
 
                         peer_node_data.support_flags = support_flag_res.support_flags;
                     }
@@ -240,16 +238,24 @@ where
                     address_book
                         .ready()
                         .await?
-                        .call(AddressBookRequest::AddPeerToAnchor(
-                            addr
-                        ))
+                        .call(AddressBookRequest::AddPeerToAnchor(addr))
                         .await?;
 
                     let (server_tx, server_rx) = mpsc::channel(3);
 
-                    let connection = Connection::new(addr, peer_sink, peer_stream, server_rx, syncer_tx, peer_request_service);
+                    let connection = Connection::new(
+                        addr,
+                        peer_sink,
+                        peer_stream,
+                        server_rx,
+                        syncer_tx,
+                        peer_request_service,
+                    );
 
-                    let connection_info = Arc::new(ConnectionInfo{addr, support_flags: peer_node_data.support_flags});
+                    let connection_info = Arc::new(ConnectionInfo {
+                        addr,
+                        support_flags: peer_node_data.support_flags,
+                    });
 
                     let client = Client::new(connection_info, server_tx);
 
@@ -263,14 +269,14 @@ where
         };
 
         let ret = time::timeout(self.config.handshake_timeout, fut);
-        
+
         async move {
             match ret.await {
                 Ok(handshake) => handshake,
-                Err(_) => Err(HandShakeError::PeerTimedOut)
+                Err(_) => Err(HandShakeError::PeerTimedOut),
             }
-        }.boxed()
-
+        }
+        .boxed()
     }
 }
 
