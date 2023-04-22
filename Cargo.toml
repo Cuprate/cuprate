@@ -2,7 +2,7 @@
 name = "cuprate"
 version = "0.0.1"
 edition = "2021"
-rust-version = "1.67.0"
+rust-version = "1.68.0"
 description = "An upcoming experimental, modern & secure monero node"
 readme = "readme.md"
 license = "AGPL-3.0-only"
@@ -11,7 +11,7 @@ repository = "https://github.com/SyntheticBird45/cuprate"
 
 # All Contributors on github
 authors=[
-        "SyntheticBird45 <@someoneelse495495:matrix.org>",
+        "SyntheticBird45",
         "Boog900"
         ]
 
@@ -19,6 +19,8 @@ authors=[
 
 members = [
         "common",
+	"cuprate",
+        "database",
         "net/levin",
         "net/monero-wire",
         "p2p",
@@ -26,8 +28,11 @@ members = [
 ]
 
 [workspace.dependencies]
-monero = {version = "*", features = ['serde']}
+monero = { version = "*" }
+bincode = { version = "2.0.0-rc.3" }
 serde = { version = "*", features =["derive"]}
+tracing = "*"
+tracing-subscriber = "*"
 
 # As suggested by /u/danda :
 thiserror = "*"
@@ -40,4 +45,11 @@ lto = "thin"
 panic = "abort"
 
 [build]
-rustflags=["-Zcf-protection=full", "-Zsanitizer=cfi", "-Crelocation-model=pie", "-Cstack-protector=all"]
+linker="clang"
+rustflags=[
+	"-Clink-arg=-fuse-ld=mold",
+	"-Zcf-protection=full", 
+	"-Zsanitizer=cfi", 
+	"-Crelocation-model=pie", 
+	"-Cstack-protector=all",
+]
