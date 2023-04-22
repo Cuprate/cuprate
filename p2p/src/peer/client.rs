@@ -6,6 +6,7 @@ use futures::{
     channel::{mpsc, oneshot},
     FutureExt,
 };
+use monero_wire::messages::PeerID;
 use monero_wire::{messages::common::PeerSupportFlags, NetworkAddress};
 
 use super::{connection::ClientRequest, PeerError};
@@ -13,6 +14,10 @@ use super::{connection::ClientRequest, PeerError};
 pub struct ConnectionInfo {
     pub addr: NetworkAddress,
     pub support_flags: PeerSupportFlags,
+    /// Peer ID
+    pub peer_id: PeerID,
+    pub rpc_port: u16,
+    pub rpc_credits_per_hash: u32,
 }
 
 pub struct Client {

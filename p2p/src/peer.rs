@@ -2,6 +2,9 @@ pub mod client;
 pub mod connection;
 pub mod handshaker;
 
+#[cfg(test)]
+mod tests;
+
 use monero_wire::levin::BucketError;
 use thiserror::Error;
 
