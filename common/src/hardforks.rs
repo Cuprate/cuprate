@@ -2,7 +2,8 @@ use chrono::NaiveDateTime;
 
 use crate::network::Network;
 
-// this function blindly unwraps only call when you know the timestamp is good
+// this function blindly unwraps 
+// SAFETY: only call when you know the timestamp is good
 fn time_from_timestamp(stamp: i64) -> NaiveDateTime {
     NaiveDateTime::from_timestamp_opt(stamp, 0).unwrap()
 }
