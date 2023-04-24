@@ -3,10 +3,8 @@ use std::collections::HashSet;
 use futures::channel::{mpsc, oneshot};
 use futures::stream::Fuse;
 use futures::{AsyncRead, AsyncWrite, SinkExt, StreamExt};
-use monero::Hash;
 
 use levin::{MessageSink, MessageStream};
-use monero::database::CRYPTONOTE_MAX_BLOCK_NUMBER;
 use monero_wire::messages::CoreSyncData;
 use monero_wire::{levin, Message, NetworkAddress};
 use tower::{Service, ServiceExt};
@@ -20,7 +18,7 @@ use super::PeerError;
 
 pub enum PeerSyncChange {
     CoreSyncData(NetworkAddress, CoreSyncData),
-    ObjectsResponse(NetworkAddress, Vec<Hash>, u64),
+    ObjectsResponse(NetworkAddress, Vec<[u8; 32]>, u64),
     PeerDisconnected(NetworkAddress),
 }
 
@@ -84,137 +82,25 @@ where
         let state = std::mem::replace(&mut self.state, State::WaitingForRequest);
         if let State::WaitingForResponse { request, tx } = state {
             match (request, &res) {
-                (InternalMessageRequest::Handshake(_), InternalMessageResponse::Handshake(_)) => {
-                    // we are already connected to the peer
-                    return Err(PeerError::ResponseError(
-                        "Can't handshake with peer we are already connected",
-                    ));
-                }
-
+                (InternalMessageRequest::Handshake(_), InternalMessageResponse::Handshake(_)) => {}
                 (
                     InternalMessageRequest::SupportFlags(_),
                     InternalMessageResponse::SupportFlags(_),
-                ) => {
-                    // we are already connected to the peer - this happens during handshakes
-                    return Err(PeerError::ResponseError(
-                        "Can't handshake with peer we are already connected",
-                    ));
-                }
+                ) => {}
                 (InternalMessageRequest::TimedSync(_), InternalMessageResponse::TimedSync(res)) => {
-                    if res.local_peerlist_new.len() > P2P_MAX_PEERS_IN_HANDSHAKE {
-                        return Err(PeerError::ResponseError(
-                            "Peer sent too many peers, considered spamming",
-                        ));
-                    }
-
-                    self.sync_state_tx
-                        .send(PeerSyncChange::CoreSyncData(
-                            self.address,
-                            res.payload_data.clone(),
-                        ))
-                        .await
-                        .map_err(|_| PeerError::InternalPeerSyncChannelClosed)?;
                 }
                 (
                     InternalMessageRequest::GetObjectsRequest(req),
                     InternalMessageResponse::GetObjectsResponse(res),
-                ) => {
-                    if req.blocks.len() != res.blocks.len() {
-                        return Err(PeerError::ResponseError(
-                            "Peer sent incorrect amount of blocks",
-                        ));
-                    }
-
-                    self.sync_state_tx
-                        .send(PeerSyncChange::ObjectsResponse(
-                            self.address,
-                            req.blocks,
-                            res.current_blockchain_height,
-                        ))
-                        .await
-                        .map_err(|_| PeerError::InternalPeerSyncChannelClosed)?;
-
-                    for block in res.blocks.iter() {
-                        if !req.pruned {
-                            if block.pruned
-                                || block.block_weight != 0
-                                || !block.txs_pruned.is_empty()
-                            {
-                                return Err(PeerError::ResponseError(
-                                    "Peer sent a pruned pruned block when we didn't wan't one",
-                                ));
-                            }
-                            if block.txs.len() != block.block.tx_hashes.len() {
-                                return Err(PeerError::ResponseError(
-                                    "Peer sent incorrect amount of transactions",
-                                ));
-                            }
-                        } else {
-                            if block.block_weight == 0 && block.pruned {
-                                return Err(PeerError::ResponseError(
-                                    "Peer sent pruned a block without weight",
-                                ));
-                            }
-                            if block.txs_pruned.len() != block.block.tx_hashes.len() {
-                                return Err(PeerError::ResponseError(
-                                    "Peer sent incorrect amount of transactions",
-                                ));
-                            }
-                        }
-                    }
-                }
+                ) => {}
                 (
                     InternalMessageRequest::ChainRequest(_),
                     InternalMessageResponse::ChainResponse(res),
-                ) => {
-                    if res.m_block_ids.is_empty() {
-                        return Err(PeerError::ResponseError(
-                            "Peer sent no blocks ids in response to a chain request",
-                        ));
-                    }
-                    if res.total_height < res.m_block_ids.len() as u64
-                        || res.start_height > res.total_height - res.m_block_ids.len() as u64
-                    {
-                        return Err(PeerError::ResponseError(
-                            "Peer sent invalid start/nblocks/height",
-                        ));
-                    }
-                    if !res.m_block_weights.is_empty()
-                        && res.m_block_ids.len() != res.m_block_weights.len()
-                    {
-                        return Err(PeerError::ResponseError(
-                            "Peer sent invalid block weight array",
-                        ));
-                    }
-                    if res.total_height >= CRYPTONOTE_MAX_BLOCK_NUMBER
-                        || res.m_block_ids.len() > BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT
-                    {
-                        return Err(PeerError::ResponseError(
-                            "Peer sent too many block ids/ peers height is too high",
-                        ));
-                    }
-
-                    // This will remove all duplicate hashes in res.m_block_ids
-                    let all_block_ids: HashSet<&Hash> = HashSet::from_iter(res.m_block_ids.iter());
-
-                    if all_block_ids.len() != res.m_block_ids.len() {
-                        return Err(PeerError::ResponseError("Peer sent the same block twice"));
-                    }
-                }
+                ) => {}
                 (
                     InternalMessageRequest::FluffyMissingTransactionsRequest(req),
                     InternalMessageResponse::NewFluffyBlock(blk),
-                ) => {
-                    // fluffy blocks will only be sent for new blocks at the top of the chain hence they won't be pruned so we can just use blk.b.txs.
-                    if req.missing_tx_indices.len() != blk.b.txs.len() {
-                        return Err(PeerError::ResponseError(
-                            "Peer sent incorrect amount of transactions",
-                        ));
-                    }
-                    if blk.b.pruned {
-                        return Err(PeerError::ResponseError("Peer sent pruned fluffy block"));
-                    }
-                }
+                ) => {}
                 (
                     InternalMessageRequest::GetTxPoolCompliment(_),
                     InternalMessageResponse::NewTransactions(_),

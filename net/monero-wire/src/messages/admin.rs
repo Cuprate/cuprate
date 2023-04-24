@@ -217,8 +217,12 @@ mod tests {
             cumulative_difficulty_top64: 0,
             current_height: 0,
             pruning_seed: 0,
-            top_id: hex::decode("0x418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
-            .unwrap().try_into().unwrap(),
+            top_id: hex::decode(
+                "0x418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3",
+            )
+            .unwrap()
+            .try_into()
+            .unwrap(),
             top_version: 1,
         };
 
@@ -1023,7 +1027,9 @@ mod tests {
             top_id: hex::decode(
                 "0x40780072dae9123108599a9f6585f2474d03f7b6dbb5d8c18717baa8cf7756eb",
             )
-            .unwrap().try_into().unwrap(),
+            .unwrap()
+            .try_into()
+            .unwrap(),
             top_version: 16,
         };
 

@@ -18,13 +18,13 @@
 
 use epee_serde::Value;
 use serde::de;
-use serde::ser::{SerializeStruct, SerializeSeq};
+use serde::ser::{SerializeSeq, SerializeStruct};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use serde_with::TryFromInto;
 
-use crate::NetworkAddress;
 use crate::utils;
+use crate::NetworkAddress;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(transparent)]
@@ -182,14 +182,20 @@ impl PrunedTxBlobEntry {
     fn from_epee_value<E: de::Error>(mut value: Value) -> Result<Self, E> {
         let tx = utils::get_internal_val_from_map(&mut value, "blob", Value::get_bytes, "Vec<u8>")?;
 
-        let prunable_hash = utils::get_internal_val_from_map(&mut value, "prunable_hash", Value::get_bytes, "Vec<u8>")?; 
+        let prunable_hash = utils::get_internal_val_from_map(
+            &mut value,
+            "prunable_hash",
+            Value::get_bytes,
+            "Vec<u8>",
+        )?;
         let prunable_hash_len = prunable_hash.len();
 
-        Ok(PrunedTxBlobEntry{ 
-                tx, 
-                prunable_hash: prunable_hash.try_into()
-                    .map_err(|_| E::invalid_length(prunable_hash_len, &"a 16-byte array"))? })
-
+        Ok(PrunedTxBlobEntry {
+            tx,
+            prunable_hash: prunable_hash
+                .try_into()
+                .map_err(|_| E::invalid_length(prunable_hash_len, &"a 16-byte array"))?,
+        })
     }
 }
 
@@ -211,7 +217,6 @@ pub enum TransactionBlobs {
     Normal(Vec<Vec<u8>>),
 }
 
-
 impl TransactionBlobs {
     pub fn len(&self) -> usize {
         match self {
@@ -229,14 +234,14 @@ impl TransactionBlobs {
         if pruned {
             let mut decoded_txs = Vec::with_capacity(txs.len());
             for tx in txs {
-               decoded_txs.push(PrunedTxBlobEntry::from_epee_value(tx)?);
-            } 
+                decoded_txs.push(PrunedTxBlobEntry::from_epee_value(tx)?);
+            }
             Ok(TransactionBlobs::Pruned(decoded_txs))
         } else {
             let mut decoded_txs = Vec::with_capacity(txs.len());
             for tx in txs {
                 decoded_txs.push(utils::get_internal_val(tx, Value::get_bytes, "Vec<u8>")?);
-            } 
+            }
             Ok(TransactionBlobs::Normal(decoded_txs))
         }
     }
@@ -256,8 +261,7 @@ impl Serialize for TransactionBlobs {
                 }
 
                 seq.end()
-            
-            },
+            }
             TransactionBlobs::Normal(txs) => {
                 let mut seq = serializer.serialize_seq(Some(txs.len()))?;
 
@@ -266,7 +270,6 @@ impl Serialize for TransactionBlobs {
                 }
 
                 seq.end()
-            
             }
         }
     }
@@ -296,7 +299,8 @@ impl<'de> Deserialize<'de> for BlockCompleteEntry {
             pruned = utils::get_internal_val(val, Value::get_bool, "bool")?;
         }
 
-        let block = utils::get_internal_val_from_map(&mut value, "block", Value::get_bytes, "Vec<u8>")?;
+        let block =
+            utils::get_internal_val_from_map(&mut value, "block", Value::get_bytes, "Vec<u8>")?;
 
         let mut block_weight = 0;
 
@@ -308,11 +312,14 @@ impl<'de> Deserialize<'de> for BlockCompleteEntry {
             txs = TransactionBlobs::from_epee_value(txs_value, true)?;
         }
 
-
         if pruned {
-            block_weight = utils::get_internal_val_from_map(&mut value, "block_weight", Value::get_u64, "u64")?;
+            block_weight = utils::get_internal_val_from_map(
+                &mut value,
+                "block_weight",
+                Value::get_u64,
+                "u64",
+            )?;
         }
-
 
         Ok(BlockCompleteEntry {
             pruned,
@@ -345,9 +352,6 @@ impl Serialize for BlockCompleteEntry {
         if self.pruned {
             state.serialize_field("pruned", &true)?;
             state.serialize_field("block_weight", &self.block_weight)?;
-            
-
-            
         }
 
         if !self.txs.is_empty() {

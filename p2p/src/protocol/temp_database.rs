@@ -1,4 +1,3 @@
-use monero::Hash;
 use monero_wire::messages::CoreSyncData;
 use thiserror::Error;
 
@@ -20,15 +19,15 @@ pub enum DataBaseRequest {
     CumulativeDifficulty,
     CoreSyncData,
     Chain,
-    BlockHeight(Hash),
-    BlockKnown(Hash),
+    BlockHeight([u8; 32]),
+    BlockKnown([u8; 32]),
 }
 
 pub enum DataBaseResponse {
     CurrentHeight(u64),
     CumulativeDifficulty(u128),
     CoreSyncData(CoreSyncData),
-    Chain(Vec<Hash>),
+    Chain(Vec<[u8; 32]>),
     BlockHeight(Option<u64>),
     BlockKnown(BlockKnown),
 }

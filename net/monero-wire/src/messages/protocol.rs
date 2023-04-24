@@ -22,7 +22,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_with::serde_as;
 use serde_with::Bytes;
-use serde_with::TryFromInto;
 
 use super::common::BlockCompleteEntry;
 use crate::utils::{default_false, default_true};
@@ -53,7 +52,6 @@ message!(
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct TxBlob(#[serde_as(as = "Bytes")] pub Vec<u8>);
-
 
 /// New Tx Pool Transactions
 #[serde_as]
@@ -128,7 +126,7 @@ message!(
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ChainRequest {
     /// Block IDs
-    pub block_ids:  Vec<[u8; 32]>,
+    pub block_ids: Vec<[u8; 32]>,
     /// Prune
     #[serde(default = "default_false")]
     pub prune: bool,
@@ -157,7 +155,7 @@ pub struct ChainResponse {
     /// Cumulative Difficulty High
     pub cumulative_difficulty_high: u64,
     /// Block IDs
-    pub m_block_ids:  Vec<[u8; 32]>,
+    pub m_block_ids: Vec<[u8; 32]>,
     /// Block Weights
     pub m_block_weights: Vec<u64>,
     /// The first Block in the response
@@ -170,7 +168,7 @@ impl ChainResponse {
         start_height: u64,
         total_height: u64,
         cumulative_difficulty_128: u128,
-        m_block_ids:  Vec<[u8; 32]>,
+        m_block_ids: Vec<[u8; 32]>,
         m_block_weights: Vec<u64>,
         first_block: Vec<u8>,
     ) -> Self {
@@ -264,7 +262,6 @@ message!(
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
 
     use super::{NewFluffyBlock, NewTransactions};
 
@@ -781,7 +778,7 @@ mod tests {
 
         let now = std::time::Instant::now();
         for _ in 0..1000 {
-            let new_transactions: NewTransactions = epee_serde::from_bytes(bytes).unwrap();
+            let _new_transactions: NewTransactions = epee_serde::from_bytes(bytes).unwrap();
         }
         println!("in: {}ms", now.elapsed().as_millis());
 
@@ -1137,7 +1134,7 @@ mod tests {
             103, 104, 116, 5, 209, 45, 42, 0, 0, 0, 0, 0,
         ];
         let fluffy_block: NewFluffyBlock = epee_serde::from_bytes(bytes).unwrap();
-        
+
         let encoded_bytes = epee_serde::to_bytes(&fluffy_block).unwrap();
         let fluffy_block_2: NewFluffyBlock = epee_serde::from_bytes(encoded_bytes).unwrap();
 

@@ -10,7 +10,6 @@ authors = ["Boog900"]
 chrono = "0.4.24"
 thiserror = "1.0.39"
 cuprate-common = {path = "../common"}
-monero = {git="https://github.com/Boog900/monero-rs.git", branch="db", features=["database"]}
 monero-wire = {path= "../net/monero-wire"}
 futures = "0.3.26"
 tower = {version = "0.4.13", features = ["util", "steer"]}

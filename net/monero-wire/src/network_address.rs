@@ -82,7 +82,8 @@ impl From<net::SocketAddrV6> for IPv6Address {
 
 impl IPv6Address {
     fn from_value<E: de::Error>(mut value: Value) -> Result<Self, E> {
-        let addr = utils::get_internal_val_from_map(&mut value, "addr", Value::get_bytes, "Vec<u8>")?;
+        let addr =
+            utils::get_internal_val_from_map(&mut value, "addr", Value::get_bytes, "Vec<u8>")?;
         let addr_len = addr.len();
 
         let m_port = utils::get_internal_val_from_map(&mut value, "m_port", Value::get_u16, "u16")?;
@@ -167,8 +168,12 @@ impl<'de> Deserialize<'de> for NetworkAddress {
         let addr_type = utils::get_internal_val_from_map(&mut value, "type", Value::get_u8, "u8")?;
 
         Ok(match addr_type {
-            1 => NetworkAddress::IPv4(IPv4Address::from_value(utils::get_field_from_map(&mut value, "addr")?)?),
-            2 => NetworkAddress::IPv6(IPv6Address::from_value(utils::get_field_from_map(&mut value, "addr")?)?),
+            1 => NetworkAddress::IPv4(IPv4Address::from_value(utils::get_field_from_map(
+                &mut value, "addr",
+            )?)?),
+            2 => NetworkAddress::IPv6(IPv6Address::from_value(utils::get_field_from_map(
+                &mut value, "addr",
+            )?)?),
             _ => {
                 return Err(de::Error::custom(
                     "Network address type currently unsupported",
