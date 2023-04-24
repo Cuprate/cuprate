@@ -18,16 +18,15 @@
 //! Protocol message requests don't have to be responded to in order unlike
 //! admin messages.   
 
-use monero::Hash;
-use monero::Transaction;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_with::serde_as;
 use serde_with::Bytes;
-use serde_with::TryFromInto;
 
 use super::common::BlockCompleteEntry;
-use super::{default_false, default_true};
+use crate::utils::{default_false, default_true};
+
+const P2P_PROTOCOL_BASE: u32 = 2000;
 
 /// A block that SHOULD have transactions
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -38,27 +37,21 @@ pub struct NewBlock {
     pub current_blockchain_height: u64,
 }
 
-/// A Block that doesn't have transactions unless requested
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct NewFluffyBlock {
-    /// Block which might have transactions
-    pub b: BlockCompleteEntry,
-    /// The Block height
-    pub current_blockchain_height: u64,
-}
+message!(
+    Protocol,
+    Name: NewBlock {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 1,
+);
 
 /// A Tx Pool transaction blob
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct TxBlob(#[serde_as(as = "Bytes")] pub Vec<u8>);
-
-impl TxBlob {
-    /// Deserialize the transaction
-    pub fn deserialize(&self) -> Result<Transaction, monero::consensus::encode::Error> {
-        monero::consensus::deserialize(&self.0)
-    }
-}
 
 /// New Tx Pool Transactions
 #[serde_as]
@@ -75,17 +68,36 @@ pub struct NewTransactions {
     pub padding: Vec<u8>,
 }
 
+message!(
+    Protocol,
+    Name: NewTransactions {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 2,
+);
+
 /// A Request For Blocks
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GetObjectsRequest {
     /// Blocks
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub blocks: Vec<Hash>,
+    pub blocks: Vec<[u8; 32]>,
     /// Pruned
     #[serde(default = "default_false")]
     pub pruned: bool,
 }
+
+message!(
+    Protocol,
+    Name: GetObjectsRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 3,
+);
 
 /// A Blocks Response
 #[serde_as]
@@ -94,23 +106,41 @@ pub struct GetObjectsResponse {
     /// Blocks
     pub blocks: Vec<BlockCompleteEntry>,
     /// Missed IDs
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub missed_ids: Vec<Hash>,
+    pub missed_ids: Vec<[u8; 32]>,
     /// The height of the peers blockchain
     pub current_blockchain_height: u64,
 }
+
+message!(
+    Protocol,
+    Name: GetObjectsResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 4,
+);
 
 /// A Chain Request
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ChainRequest {
     /// Block IDs
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub block_ids: Vec<Hash>,
+    pub block_ids: Vec<[u8; 32]>,
     /// Prune
     #[serde(default = "default_false")]
     pub prune: bool,
 }
+
+message!(
+    Protocol,
+    Name: ChainRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 6,
+);
 
 /// A Chain Response
 #[serde_as]
@@ -125,42 +155,113 @@ pub struct ChainResponse {
     /// Cumulative Difficulty High
     pub cumulative_difficulty_high: u64,
     /// Block IDs
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub m_block_ids: Vec<Hash>,
+    pub m_block_ids: Vec<[u8; 32]>,
     /// Block Weights
     pub m_block_weights: Vec<u64>,
-    /// The first Block in the blockchain
+    /// The first Block in the response
     #[serde_as(as = "Bytes")]
     pub first_block: Vec<u8>,
 }
+
+impl ChainResponse {
+    pub fn new(
+        start_height: u64,
+        total_height: u64,
+        cumulative_difficulty_128: u128,
+        m_block_ids: Vec<[u8; 32]>,
+        m_block_weights: Vec<u64>,
+        first_block: Vec<u8>,
+    ) -> Self {
+        let cumulative_difficulty_low = cumulative_difficulty_128 as u64;
+        let cumulative_difficulty_high = (cumulative_difficulty_128 >> 64) as u64;
+        Self {
+            start_height,
+            total_height,
+            cumulative_difficulty_low,
+            cumulative_difficulty_high,
+            m_block_ids,
+            m_block_weights,
+            first_block,
+        }
+    }
+    pub fn cumulative_difficulty(&self) -> u128 {
+        let mut ret: u128 = self.cumulative_difficulty_high as u128;
+        ret <<= 64;
+        ret | self.cumulative_difficulty_low as u128
+    }
+}
+
+message!(
+    Protocol,
+    Name: ChainResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 7,
+);
+
+/// A Block that doesn't have transactions unless requested
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct NewFluffyBlock {
+    /// Block which might have transactions
+    pub b: BlockCompleteEntry,
+    /// The Block height
+    pub current_blockchain_height: u64,
+}
+
+message!(
+    Protocol,
+    Name: NewFluffyBlock {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 8,
+);
 
 /// A request for Txs we are missing from our TxPool
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct FluffyMissingTransactionsRequest {
     /// The Block we are missing the Txs in
-    #[serde_as(as = "TryFromInto<[u8; 32]>")]
-    pub block_hash: Hash,
+    pub block_hash: [u8; 32],
     /// The current blockchain height
     pub current_blockchain_height: u64,
     /// The Tx Indices
     pub missing_tx_indices: Vec<u64>,
 }
 
+message!(
+    Protocol,
+    Name: FluffyMissingTransactionsRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 9,
+);
+
 /// TxPoolCompliment
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub struct TxPoolCompliment {
+pub struct GetTxPoolCompliment {
     /// Tx Hashes
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub hashes: Vec<Hash>,
+    pub hashes: Vec<[u8; 32]>,
 }
+
+message!(
+    Protocol,
+    Name: GetTxPoolCompliment {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    ID: P2P_PROTOCOL_BASE + 10,
+);
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use monero::Hash;
 
     use super::{NewFluffyBlock, NewTransactions};
 
@@ -675,13 +776,15 @@ mod tests {
             248, 248, 91, 110, 107, 144, 12, 175, 253, 21, 121, 28,
         ];
 
+        let now = std::time::Instant::now();
+        for _ in 0..1000 {
+            let _new_transactions: NewTransactions = epee_serde::from_bytes(bytes).unwrap();
+        }
+        println!("in: {}ms", now.elapsed().as_millis());
+
         let new_transactions: NewTransactions = epee_serde::from_bytes(bytes).unwrap();
 
         assert_eq!(4, new_transactions.txs.len());
-
-        for transaction in new_transactions.txs.iter() {
-            transaction.deserialize().unwrap();
-        }
 
         let encoded_bytes = epee_serde::to_bytes(&new_transactions).unwrap();
         let new_transactions_2: NewTransactions = epee_serde::from_bytes(encoded_bytes).unwrap();
@@ -1031,11 +1134,6 @@ mod tests {
             103, 104, 116, 5, 209, 45, 42, 0, 0, 0, 0, 0,
         ];
         let fluffy_block: NewFluffyBlock = epee_serde::from_bytes(bytes).unwrap();
-        let hash =
-            Hash::from_str("0x0bb7f7cfc8fcf55d3da64093a9ef7e9efb57e14249ef6a392b407aeecb1cd844")
-                .unwrap();
-
-        assert_eq!(hash, fluffy_block.b.block.id());
 
         let encoded_bytes = epee_serde::to_bytes(&fluffy_block).unwrap();
         let fluffy_block_2: NewFluffyBlock = epee_serde::from_bytes(encoded_bytes).unwrap();

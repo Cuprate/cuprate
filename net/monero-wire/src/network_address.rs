@@ -22,8 +22,17 @@ use std::{hash::Hash, net};
 use epee_serde::Value;
 use serde::{de, ser::SerializeStruct, Deserialize, Serialize};
 
+use super::utils;
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum NetZone {
+    Public,
+    Tor,
+    I2p,
+}
+
 /// An IPv4 address with a port
-#[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Serialize, Debug, Default, PartialEq, Eq, Hash)]
 pub struct IPv4Address {
     /// IP address
     pub m_ip: u32,
@@ -41,20 +50,20 @@ impl From<net::SocketAddrV4> for IPv4Address {
 }
 
 impl IPv4Address {
-    fn from_value<E: de::Error>(value: &Value) -> Result<Self, E> {
-        let m_ip = get_val_from_map!(value, "m_ip", get_u32, "u32");
+    fn from_value<E: de::Error>(mut value: Value) -> Result<Self, E> {
+        let m_ip = utils::get_internal_val_from_map(&mut value, "m_ip", Value::get_u32, "u32")?;
 
-        let m_port = get_val_from_map!(value, "m_port", get_u16, "u16");
+        let m_port = utils::get_internal_val_from_map(&mut value, "m_port", Value::get_u16, "u16")?;
 
         Ok(IPv4Address {
-            m_ip: *m_ip,
-            m_port: *m_port,
+            m_ip: m_ip,
+            m_port: m_port,
         })
     }
 }
 
 /// An IPv6 address with a port
-#[derive(Clone, Copy, Serialize, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Serialize, Debug, Default, PartialEq, Eq, Hash)]
 pub struct IPv6Address {
     /// Address
     pub addr: [u8; 16],
@@ -72,17 +81,18 @@ impl From<net::SocketAddrV6> for IPv6Address {
 }
 
 impl IPv6Address {
-    fn from_value<E: de::Error>(value: &Value) -> Result<Self, E> {
-        let addr = get_val_from_map!(value, "addr", get_bytes, "Vec<u8>");
+    fn from_value<E: de::Error>(mut value: Value) -> Result<Self, E> {
+        let addr =
+            utils::get_internal_val_from_map(&mut value, "addr", Value::get_bytes, "Vec<u8>")?;
+        let addr_len = addr.len();
 
-        let m_port = get_val_from_map!(value, "m_port", get_u16, "u16");
+        let m_port = utils::get_internal_val_from_map(&mut value, "m_port", Value::get_u16, "u16")?;
 
         Ok(IPv6Address {
             addr: addr
-                .clone()
                 .try_into()
-                .map_err(|_| E::invalid_length(addr.len(), &"a 16-byte array"))?,
-            m_port: *m_port,
+                .map_err(|_| E::invalid_length(addr_len, &"a 16-byte array"))?,
+            m_port,
         })
     }
 }
@@ -95,6 +105,37 @@ pub enum NetworkAddress {
     IPv4(IPv4Address),
     /// IPv6
     IPv6(IPv6Address),
+}
+
+impl NetworkAddress {
+    pub fn get_zone(&self) -> NetZone {
+        match self {
+            NetworkAddress::IPv4(_) | NetworkAddress::IPv6(_) => NetZone::Public,
+        }
+    }
+
+    pub fn is_loopback(&self) -> bool {
+        // TODO
+        false
+    }
+
+    pub fn is_local(&self) -> bool {
+        // TODO
+        false
+    }
+
+    pub fn port(&self) -> u16 {
+        match self {
+            NetworkAddress::IPv4(ip) => ip.m_port,
+            NetworkAddress::IPv6(ip) => ip.m_port,
+        }
+    }
+}
+
+impl Default for NetworkAddress {
+    fn default() -> Self {
+        Self::IPv4(IPv4Address::default())
+    }
 }
 
 impl From<net::SocketAddrV4> for NetworkAddress {
@@ -123,12 +164,16 @@ impl<'de> Deserialize<'de> for NetworkAddress {
     where
         D: serde::Deserializer<'de>,
     {
-        let value = Value::deserialize(deserializer)?;
-        let addr_type = get_val_from_map!(value, "type", get_u8, "u8");
+        let mut value = Value::deserialize(deserializer)?;
+        let addr_type = utils::get_internal_val_from_map(&mut value, "type", Value::get_u8, "u8")?;
 
         Ok(match addr_type {
-            1 => NetworkAddress::IPv4(IPv4Address::from_value(get_field_from_map!(value, "addr"))?),
-            2 => NetworkAddress::IPv6(IPv6Address::from_value(get_field_from_map!(value, "addr"))?),
+            1 => NetworkAddress::IPv4(IPv4Address::from_value(utils::get_field_from_map(
+                &mut value, "addr",
+            )?)?),
+            2 => NetworkAddress::IPv6(IPv6Address::from_value(utils::get_field_from_map(
+                &mut value, "addr",
+            )?)?),
             _ => {
                 return Err(de::Error::custom(
                     "Network address type currently unsupported",

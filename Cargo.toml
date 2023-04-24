@@ -18,10 +18,13 @@ authors=[
 [workspace]
 
 members = [
-		"cuprate",
+        "common",
+	"cuprate",
         "database",
         "net/levin",
-        "net/monero-wire"
+        "net/monero-wire",
+        "p2p",
+      #  "p2p/sync-states"
 ]
 
 [workspace.dependencies]

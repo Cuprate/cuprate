@@ -32,10 +32,20 @@ use crate::LevinBody;
 
 /// A Sink that converts levin messages to buckets and passes them onto the `BucketSink`
 #[pin_project]
-pub struct MessageSink<W: AsyncWrite + std::marker::Unpin, E: LevinBody> {
+pub struct MessageSink<W, E> {
     #[pin]
     bucket_sink: BucketSink<W>,
     phantom: PhantomData<E>,
+}
+
+impl<W: AsyncWrite + std::marker::Unpin, E: LevinBody> MessageSink<W, E> {
+    /// Creates a new sink from the provided [`AsyncWrite`]
+    pub fn new(writer: W) -> Self {
+        MessageSink {
+            bucket_sink: BucketSink::new(writer),
+            phantom: PhantomData,
+        }
+    }
 }
 
 impl<W: AsyncWrite + std::marker::Unpin, E: LevinBody> Sink<E> for MessageSink<W, E> {
@@ -49,16 +59,19 @@ impl<W: AsyncWrite + std::marker::Unpin, E: LevinBody> Sink<E> for MessageSink<W
     }
 
     fn start_send(self: Pin<&mut Self>, item: E) -> Result<(), Self::Error> {
-        let (return_code, command, have_to_return_data, flags, body) = item.encode()?;
+        let (return_code, command, message_type, body) = item.encode()?;
         let header = BucketHead::build(
             body.len() as u64,
-            have_to_return_data,
+            message_type.have_to_return_data(),
             command,
-            flags.into(),
+            message_type.into(),
             return_code,
         );
 
-        let bucket = Bucket { header, body };
+        let bucket = Bucket {
+            header,
+            body: body.into(),
+        };
 
         self.project().bucket_sink.start_send(bucket)
     }

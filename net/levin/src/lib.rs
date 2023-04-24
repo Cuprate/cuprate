@@ -40,6 +40,8 @@ pub mod message_sink;
 pub mod message_stream;
 
 pub use header::BucketHead;
+pub use message_sink::MessageSink;
+pub use message_stream::MessageStream;
 
 use std::fmt::Debug;
 
@@ -103,23 +105,29 @@ pub enum MessageType {
     Request,
     /// Response
     Response,
+    /// Notification
+    Notification,
 }
 
-impl From<MessageType> for header::Flags {
-    fn from(val: MessageType) -> Self {
-        match val {
-            MessageType::Request => header::REQUEST,
-            MessageType::Response => header::RESPONSE,
+impl MessageType {
+    /// Returns if the message requires a response
+    pub fn have_to_return_data(&self) -> bool {
+        match self {
+            MessageType::Request => true,
+            MessageType::Response | MessageType::Notification => false,
         }
     }
-}
 
-impl TryInto<MessageType> for header::Flags {
-    type Error = BucketError;
-    fn try_into(self) -> Result<MessageType, Self::Error> {
-        if self.is_request() {
+    /// Returns the `MessageType` given the flags and have_to_return_data fields
+    pub fn from_flags_and_have_to_return(
+        flags: header::Flags,
+        have_to_return: bool,
+    ) -> Result<Self, BucketError> {
+        if flags.is_request() && have_to_return {
             Ok(MessageType::Request)
-        } else if self.is_response() {
+        } else if flags.is_request() {
+            Ok(MessageType::Notification)
+        } else if flags.is_response() && !have_to_return {
             Ok(MessageType::Response)
         } else {
             Err(BucketError::UnknownFlags)
@@ -127,23 +135,26 @@ impl TryInto<MessageType> for header::Flags {
     }
 }
 
+impl From<MessageType> for header::Flags {
+    fn from(val: MessageType) -> Self {
+        match val {
+            MessageType::Request | MessageType::Notification => header::REQUEST,
+            MessageType::Response => header::RESPONSE,
+        }
+    }
+}
+
 /// A levin body
 pub trait LevinBody: Sized {
     /// Decodes the message from the data in the header
-    fn decode_message(
-        buf: &[u8],
-        typ: MessageType,
-        have_to_return: bool,
-        command: u32,
-    ) -> Result<Self, BucketError>;
+    fn decode_message(buf: &[u8], typ: MessageType, command: u32) -> Result<Self, BucketError>;
 
     /// Encodes the message
     ///
     /// returns:
     ///     return_code: i32,
     ///     command: u32,
-    ///     have_to_return: bool,
     ///     message_type: MessageType
-    ///     bytes: Bytes
-    fn encode(&self) -> Result<(i32, u32, bool, MessageType, Bytes), BucketError>;
+    ///     bytes: Vec<u8>
+    fn encode(&self) -> Result<(i32, u32, MessageType, Vec<u8>), BucketError>;
 }

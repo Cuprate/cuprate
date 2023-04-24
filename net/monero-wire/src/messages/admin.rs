@@ -18,12 +18,33 @@
 //! Admin message requests must be responded to in order unlike
 //! protocol messages.   
 
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use super::{
-    common::{BasicNodeData, CoreSyncData, PeerListEntryBase},
+    common::{BasicNodeData, CoreSyncData, PeerListEntryBase, PeerSupportFlags},
     PeerID,
 };
+
+const P2P_ADMIN_BASE: u32 = 1000;
+
+#[derive(Debug)]
+pub struct SillyEncodingError;
+
+impl Display for SillyEncodingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Literally impossible to get this error")
+    }
+}
+
+fn silly_encode<T>(_: &T) -> Result<Vec<u8>, SillyEncodingError> {
+    Ok(vec![])
+}
+
+fn silly_decode<T: Default>(_: &[u8]) -> Result<T, SillyEncodingError> {
+    Ok(T::default())
+}
 
 /// A Handshake Request
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -34,6 +55,10 @@ pub struct HandshakeRequest {
     pub payload_data: CoreSyncData,
 }
 
+fn empty_vec<T>() -> Vec<T> {
+    vec![]
+}
+
 /// A Handshake Response
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct HandshakeResponse {
@@ -42,8 +67,25 @@ pub struct HandshakeResponse {
     /// Core Sync Data
     pub payload_data: CoreSyncData,
     /// PeerList
+    #[serde(default = "empty_vec")]
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
+
+message!(
+    Admin,
+    Name: Handshake,
+    ID: P2P_ADMIN_BASE + 1,
+    Request: HandshakeRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    Response: HandshakeResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+);
 
 /// A TimedSync Request
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -61,11 +103,27 @@ pub struct TimedSyncResponse {
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
+message!(
+    Admin,
+    Name: TimedSync,
+    ID: P2P_ADMIN_BASE + 2,
+    Request: TimedSyncRequest {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+    Response: TimedSyncResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+);
+
 /// The status field of an okay ping response
 pub const PING_OK_RESPONSE_STATUS_TEXT: &str = "OK";
 
 /// A Ping Request
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct PingRequest;
 
 /// A Ping Response
@@ -77,25 +135,54 @@ pub struct PingResponse {
     pub peer_id: PeerID,
 }
 
+message!(
+    Admin,
+    Name: Ping,
+    ID: P2P_ADMIN_BASE + 3,
+    Request: PingRequest {
+        EncodingError: SillyEncodingError,
+        Encode: silly_encode,
+        Decode: silly_decode,
+    },
+    Response: PingResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+);
+
 /// A Support Flags Request
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SupportFlagsRequest;
 
 /// A Support Flags Response
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct SupportFlagsResponse {
     /// Support Flags
-    pub support_flags: u32,
+    pub support_flags: PeerSupportFlags,
 }
+
+message!(
+    Admin,
+    Name: SupportFlags,
+    ID: P2P_ADMIN_BASE + 7,
+    Request: SupportFlagsRequest {
+        EncodingError: SillyEncodingError,
+        Encode: silly_encode,
+        Decode: silly_decode,
+    },
+    Response: SupportFlagsResponse {
+        EncodingError: epee_serde::Error,
+        Encode: epee_serde::to_bytes,
+        Decode: epee_serde::from_bytes,
+    },
+);
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use monero::Hash;
 
     use super::{BasicNodeData, CoreSyncData, HandshakeRequest, HandshakeResponse};
-    use crate::messages::common::PeerID;
+    use crate::messages::common::{PeerID, PeerSupportFlags};
 
     #[test]
     fn serde_handshake_req() {
@@ -120,7 +207,7 @@ mod tests {
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
             ],
             peer_id: PeerID(9671405426614699871),
-            support_flags: 1,
+            support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 0,
             rpc_credits_per_hash: 0,
         };
@@ -130,9 +217,11 @@ mod tests {
             cumulative_difficulty_top64: 0,
             current_height: 0,
             pruning_seed: 0,
-            top_id: Hash::from_str(
+            top_id: hex::decode(
                 "0x418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3",
             )
+            .unwrap()
+            .try_into()
             .unwrap(),
             top_version: 1,
         };
@@ -925,7 +1014,7 @@ mod tests {
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
             ],
             peer_id: PeerID(6037804360359455404),
-            support_flags: 1,
+            support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 18089,
             rpc_credits_per_hash: 0,
         };
@@ -935,9 +1024,11 @@ mod tests {
             cumulative_difficulty_top64: 0,
             current_height: 2775167,
             pruning_seed: 386,
-            top_id: Hash::from_str(
+            top_id: hex::decode(
                 "0x40780072dae9123108599a9f6585f2474d03f7b6dbb5d8c18717baa8cf7756eb",
             )
+            .unwrap()
+            .try_into()
             .unwrap(),
             top_version: 16,
         };
