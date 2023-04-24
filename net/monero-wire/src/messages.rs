@@ -29,18 +29,6 @@ pub use protocol::{
 
 use levin::{BucketError, MessageType};
 
-fn zero_val<T: From<u8>>() -> T {
-    T::from(0_u8)
-}
-
-fn default_true() -> bool {
-    true
-}
-
-fn default_false() -> bool {
-    false
-}
-
 #[sealed::sealed]
 pub trait NetworkMessage: Sized {
     type EncodingError: std::fmt::Debug;

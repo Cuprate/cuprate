@@ -18,8 +18,6 @@
 //! Protocol message requests don't have to be responded to in order unlike
 //! admin messages.   
 
-use monero::Hash;
-use monero::Transaction;
 use serde::Deserialize;
 use serde::Serialize;
 use serde_with::serde_as;
@@ -27,7 +25,7 @@ use serde_with::Bytes;
 use serde_with::TryFromInto;
 
 use super::common::BlockCompleteEntry;
-use super::{default_false, default_true};
+use crate::utils::{default_false, default_true};
 
 const P2P_PROTOCOL_BASE: u32 = 2000;
 
@@ -56,12 +54,6 @@ message!(
 #[serde(transparent)]
 pub struct TxBlob(#[serde_as(as = "Bytes")] pub Vec<u8>);
 
-impl TxBlob {
-    /// Deserialize the transaction
-    pub fn deserialize(&self) -> Result<Transaction, monero::consensus::encode::Error> {
-        monero::consensus::deserialize(&self.0)
-    }
-}
 
 /// New Tx Pool Transactions
 #[serde_as]
@@ -93,8 +85,7 @@ message!(
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GetObjectsRequest {
     /// Blocks
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub blocks: Vec<Hash>,
+    pub blocks: Vec<[u8; 32]>,
     /// Pruned
     #[serde(default = "default_false")]
     pub pruned: bool,
@@ -117,8 +108,7 @@ pub struct GetObjectsResponse {
     /// Blocks
     pub blocks: Vec<BlockCompleteEntry>,
     /// Missed IDs
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub missed_ids: Vec<Hash>,
+    pub missed_ids: Vec<[u8; 32]>,
     /// The height of the peers blockchain
     pub current_blockchain_height: u64,
 }
@@ -138,8 +128,7 @@ message!(
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct ChainRequest {
     /// Block IDs
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub block_ids: Vec<Hash>,
+    pub block_ids:  Vec<[u8; 32]>,
     /// Prune
     #[serde(default = "default_false")]
     pub prune: bool,
@@ -168,8 +157,7 @@ pub struct ChainResponse {
     /// Cumulative Difficulty High
     pub cumulative_difficulty_high: u64,
     /// Block IDs
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub m_block_ids: Vec<Hash>,
+    pub m_block_ids:  Vec<[u8; 32]>,
     /// Block Weights
     pub m_block_weights: Vec<u64>,
     /// The first Block in the response
@@ -182,7 +170,7 @@ impl ChainResponse {
         start_height: u64,
         total_height: u64,
         cumulative_difficulty_128: u128,
-        m_block_ids: Vec<Hash>,
+        m_block_ids:  Vec<[u8; 32]>,
         m_block_weights: Vec<u64>,
         first_block: Vec<u8>,
     ) -> Self {
@@ -239,8 +227,7 @@ message!(
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct FluffyMissingTransactionsRequest {
     /// The Block we are missing the Txs in
-    #[serde_as(as = "TryFromInto<[u8; 32]>")]
-    pub block_hash: Hash,
+    pub block_hash: [u8; 32],
     /// The current blockchain height
     pub current_blockchain_height: u64,
     /// The Tx Indices
@@ -262,8 +249,7 @@ message!(
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub struct GetTxPoolCompliment {
     /// Tx Hashes
-    #[serde_as(as = "Vec<TryFromInto<[u8; 32]>>")]
-    pub hashes: Vec<Hash>,
+    pub hashes: Vec<[u8; 32]>,
 }
 
 message!(
@@ -279,8 +265,6 @@ message!(
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-
-    use monero::Hash;
 
     use super::{NewFluffyBlock, NewTransactions};
 
@@ -805,10 +789,6 @@ mod tests {
 
         assert_eq!(4, new_transactions.txs.len());
 
-        for transaction in new_transactions.txs.iter() {
-            transaction.deserialize().unwrap();
-        }
-
         let encoded_bytes = epee_serde::to_bytes(&new_transactions).unwrap();
         let new_transactions_2: NewTransactions = epee_serde::from_bytes(encoded_bytes).unwrap();
 
@@ -1157,12 +1137,7 @@ mod tests {
             103, 104, 116, 5, 209, 45, 42, 0, 0, 0, 0, 0,
         ];
         let fluffy_block: NewFluffyBlock = epee_serde::from_bytes(bytes).unwrap();
-        let hash =
-            Hash::from_str("0x0bb7f7cfc8fcf55d3da64093a9ef7e9efb57e14249ef6a392b407aeecb1cd844")
-                .unwrap();
-
-        assert_eq!(hash, fluffy_block.b.block.id());
-
+        
         let encoded_bytes = epee_serde::to_bytes(&fluffy_block).unwrap();
         let fluffy_block_2: NewFluffyBlock = epee_serde::from_bytes(encoded_bytes).unwrap();
 

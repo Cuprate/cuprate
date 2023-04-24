@@ -33,6 +33,7 @@
 mod internal_macros;
 pub mod messages;
 pub mod network_address;
+mod utils;
 
 pub use messages::{Message, P2pCommand};
 pub use network_address::NetworkAddress;
