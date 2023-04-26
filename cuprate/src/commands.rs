@@ -75,10 +75,7 @@ impl Configurable<CuprateConfig> for EntryPoint {
     ///
     /// This can be safely deleted if you don't want to override config
     /// settings from command-line options.
-    fn process_config(
-        &self,
-        config: CuprateConfig,
-    ) -> Result<CuprateConfig, FrameworkError> {
+    fn process_config(&self, config: CuprateConfig) -> Result<CuprateConfig, FrameworkError> {
         match &self.cmd {
             CuprateCmd::Start(cmd) => cmd.override_config(config),
             //

@@ -20,20 +20,3 @@ tracing-subscriber = "*"
 
 # As suggested by /u/danda :
 thiserror = "*"
-
-[profile.release]
-opt-level = 3
-debug = 0
-strip = "symbols"
-lto = "thin"
-panic = "abort"
-
-[build]
-linker="clang"
-rustflags=[
-	"-Clink-arg=-fuse-ld=mold",
-	"-Zcf-protection=full", 
-	"-Zsanitizer=cfi", 
-	"-Crelocation-model=pie", 
-	"-Cstack-protector=all",
-]
