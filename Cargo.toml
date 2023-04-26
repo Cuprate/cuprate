@@ -1,19 +1,3 @@
-[package]
-name = "cuprate"
-version = "0.0.1"
-edition = "2021"
-rust-version = "1.68.0"
-description = "An upcoming experimental, modern & secure monero node"
-readme = "readme.md"
-license = "AGPL-3.0-only"
-repository = "https://github.com/SyntheticBird45/cuprate"
-
-
-# All Contributors on github
-authors=[
-        "SyntheticBird45",
-        "Boog900"
-        ]
 
 [workspace]
 
@@ -36,20 +20,3 @@ tracing-subscriber = "*"
 
 # As suggested by /u/danda :
 thiserror = "*"
-
-[profile.release]
-opt-level = 3
-debug = 0
-strip = "symbols"
-lto = "thin"
-panic = "abort"
-
-[build]
-linker="clang"
-rustflags=[
-	"-Clink-arg=-fuse-ld=mold",
-	"-Zcf-protection=full", 
-	"-Zsanitizer=cfi", 
-	"-Crelocation-model=pie", 
-	"-Cstack-protector=all",
-]
