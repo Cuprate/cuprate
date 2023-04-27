@@ -1,4 +1,4 @@
-<h1 align=center> Cuprate </h1>
+![Cuprate](etc/logo/cuprate_h.png)
 <h4 align=center> an upcoming experimental, modern & secure monero node. Written in Rust </h4>
 
 &nbsp;
