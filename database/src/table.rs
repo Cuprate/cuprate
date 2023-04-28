@@ -5,11 +5,10 @@
 //! For more details please look at Cuprate's book : <link to cuprate book> 
 
 use monero::{Hash, Block, blockdata::transaction::KeyImage};
-use bincode::{enc::Encode,de::Decode};
-use crate::{types::{BlockMetadata, /*OutAmountIdx,*/ /*KeyImage,*/ TxOutputIdx, /*OutTx,*/ AltBlock, TxIndex, TransactionPruned, /*RctOutkey,*/ OutputMetadata}, encoding::Compat};
+use crate::{types::{BlockMetadata, TxOutputIdx, AltBlock, TxIndex, TransactionPruned, OutputMetadata}, encoding::{compat::Compat, Encode, Decode}};
 
 /// A trait implementing a table interaction for the database. It is implemented to an empty struct to specify the name and table's associated types. These associated 
-/// types are used to simplify deserialization process.
+/// types are used to simplify deserialization process and enforce correct usage.
 pub trait Table: Send + Sync + 'static + Clone {
 		
 	// name of the table
@@ -24,7 +23,7 @@ pub trait Table: Send + Sync + 'static + Clone {
 pub trait DupTable: Table {
 
 	// Subkey of the table (prefix of the data)
-	type SubKey: Encode + Decode;
+	type SubKey: Encode + Decode + Ord;
 }
 
 /// This declarative macro declare a new empty struct and impl the specified name, and corresponding types. 
@@ -68,12 +67,6 @@ impl_duptable!(
 impl_table!(
 	/// `blockbody` store blocks' bodies along their Hash. The blocks body contains the coinbase transaction and its corresponding mined transactions' hashes.
 	blocks, u64, Compat<Block>);
-
-/*
-impl_table!(
-	/// `blockhfversion` keep track of block's hard fork version. If an outdated node continue to run after a hard fork, it needs to know, after updating, what blocks needs to be update.
-	blockhfversion, u64, u8);
-*/
 	
 impl_table!( 
 	/// `altblock` is a table that permits the storage of blocks from an alternative chain, which may cause a re-org. These blocks can be fetch by their corresponding hash.
@@ -118,7 +111,7 @@ impl_duptable!(
 
 impl_duptable!(
 	/// `spentkeys`is a table storing every KeyImage that have been used to create decoys input. As these KeyImage can't be re used they need to marked. 
-	spentkeys, (), Compat<KeyImage>, ());
+	spentkeys, (), (), Compat<KeyImage>);
 
 // ---- PROPERTIES ----
 

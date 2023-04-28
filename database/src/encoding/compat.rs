@@ -1,14 +1,14 @@
-//! ### Encoding module
-//! The encoding module contains a trait that permit compatibility between `monero-rs` consensus encoding/decoding logic and `bincode` traits.
-//! The database tables only accept types that implement [`bincode::Encode`] and [`bincode::Decode`] and since we can't implement these on `monero-rs` types directly
+//! ### Compat sub-module
+//! The compat module contains a trait that permit compatibility between `monero-rs` consensus encoding/decoding logic and `bincode` traits.
+//! The database tables only accept types that implement [`crate::encoding::Encode`] and [`crate::encoding::Decode`] and since we can't implement these on `monero-rs` types directly
 //! we use a wrapper struct `Compat<T>` that permit us to use `monero-rs`'s `consensus_encode`/`consensus_decode` functions under bincode traits.
-//! The choice of using `bincode` comes from performance measurement at encoding. Sometimes `bincode` implementations was 5 times faster than `monero-rs` impl.
+//! The choice of using `bincode` comes from performance measurement at encoding. Sometimes `bincode` implementations was 5 times faster than `monero-rs` ones.
 
 use bincode::{de::read::Reader, enc::write::Writer};
 use monero::consensus::{Decodable, Encodable};
 use std::{fmt::Debug, io::Read, ops::Deref};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 /// A single-tuple struct, used to contains monero-rs types that implement [`monero::consensus::Encodable`] and [`monero::consensus::Decodable`]
 pub struct Compat<T: Encodable + Decodable>(pub T);
 
