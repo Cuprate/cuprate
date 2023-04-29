@@ -25,7 +25,6 @@ use crate::{
         calculate_prunable_hash, get_transaction_prunable_blob, AltBlock, BlockMetadata,
         OutputMetadata, TransactionPruned, TxIndex, TxOutputIdx,
     },
-    BINCODE_CONFIG,
 };
 use monero::{
     blockdata::transaction::KeyImage, cryptonote::hash::Hashable, util::ringct::Key, Block,

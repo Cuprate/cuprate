@@ -5,7 +5,7 @@
 //! All these types implement [`bincode::Encode`] and [`bincode::Decode`]. They can store `monero-rs` types in their field. In this case, these field
 //! use the [`Compat<T>`] wrapper.
 
-use crate::encoding::{Compat, ReaderCompat};
+use crate::encoding::compat::{Compat, ReaderCompat};
 use bincode::{enc::write::Writer, Decode, Encode};
 use monero::{
     consensus::{encode, Decodable},
@@ -15,7 +15,7 @@ use monero::{
 
 // ---- BLOCKS ----
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode, PartialEq)]
 /// [`BlockMetadata`] is a struct containing metadata of a block such as  the block's `timestamp`, the `total_coins_generated` at this height, its `weight`, its difficulty (`diff_lo`)
 /// and cumulative difficulty (`diff_hi`), the `block_hash`, the cumulative RingCT (`cum_rct`) and its long term weight (`long_term_block_weight`). The monerod's struct equivalent is `mdb_block_info_4`
 /// This struct is used in [`crate::table::blockmetadata`] table.
@@ -36,7 +36,7 @@ pub struct BlockMetadata {
     pub long_term_block_weight: u64,
 }
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode, PartialEq)]
 /// [`AltBlock`] is a struct contaning an alternative `block` (defining an alternative mainchain) and its metadata (`block_height`, `cumulative_weight`,
 /// `cumulative_difficulty_low`, `cumulative_difficulty_high`, `already_generated_coins`).
 /// This struct is used in [`crate::table::altblock`] table.
@@ -56,7 +56,7 @@ pub struct AltBlock {
 
 // ---- TRANSACTIONS ----
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 /// [`TransactionPruned`] is, as its name suggest, the pruned part of a transaction, which is the Transaction Prefix and its RingCT signatures.
 /// This struct is used in the [`crate::table::txsprefix`] table.
 pub struct TransactionPruned {
@@ -255,7 +255,7 @@ pub fn calculate_prunable_hash(tx: &monero::Transaction, tx_prunable_blob: &[u8]
     Some(Hash::new(tx_prunable_blob))
 }
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, PartialEq, Debug, Encode, Decode)]
 /// [`TxIndex`] is a struct used in the [`crate::table::txsidentifier`]. It store the `unlock_time` of a transaction, the `height` of the block
 /// whose transaction belong to and the Transaction ID (`tx_id`)
 pub struct TxIndex {
@@ -297,7 +297,7 @@ pub struct RctOutkey {
     pub commitment: Option<Compat<Key>>,
 }
 
-#[derive(Clone, Debug, Encode, Decode)]
+#[derive(Clone, PartialEq, Debug, Encode, Decode)]
 /// [`OutputMetadata`] is a struct containing Outputs Metadata. It is used in [`crate::table::outputmetadata`]. It is a struct merging the
 /// `out_tx_index` tuple with `output_data_t` structure in monerod, without the output ID.
 pub struct OutputMetadata {
