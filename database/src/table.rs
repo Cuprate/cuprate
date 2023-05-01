@@ -58,7 +58,7 @@ macro_rules! impl_duptable {
 
 impl_duptable!(
 	/// `blockhash` is table defining a relation between the hash of a block and its height. Its primary use is to quickly find block's hash by its height.
-	blockhash, (), Compat<Hash>, u64);
+	blockhash, (), Hash, u64);
 
 impl_duptable!(
 	/// `blockmetadata` store block metadata alongside their corresponding Hash. The blocks metadata can contains the total_coins_generated, weight, long_term_block_weight & cumulative RingCT
@@ -70,7 +70,7 @@ impl_table!(
 	
 impl_table!( 
 	/// `altblock` is a table that permits the storage of blocks from an alternative chain, which may cause a re-org. These blocks can be fetch by their corresponding hash.
-	altblock, Compat<Hash>, AltBlock);
+	altblock, Hash, AltBlock);
 
 // ------- TXNs -------
 
@@ -96,7 +96,7 @@ impl_duptable!(
 
 impl_duptable!(
 	/// `txsidentifier` is a table defining a relation between the hash of a transaction and its transaction Indexes. Its primarly used to quickly find tx's ID by its hash.
-	txsidentifier, Compat<Hash>, (), TxIndex);
+	txsidentifier, Hash, (), TxIndex);
 	
 // ---- OUTPUTS ----
 

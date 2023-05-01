@@ -165,7 +165,7 @@ pub mod database {
 		use crate::{
 			error::DBException,
 			table::{DupTable, Table},
-			encoding::{Key, Value, SubKey},
+			encoding::{Key, Value, SubKey, Encode},
 		};
 	
 		/// A pair of key|value from a table
@@ -187,7 +187,10 @@ pub mod database {
 		}
 	
 		/// A pair of subkey/value from a duptable
-		pub type SubPair<T> = (SubKey<T>, Value<T>);
+		pub enum SubPair<T: DupTable> {
+			Type(SubKey<T>, Value<T>),
+			Raw(<(T::SubKey,T::Value) as Encode>::Output)
+		}
 		pub type FullPair<T> = (Key<T>, SubPair<T>);
 	
 		/// Abstraction of a read-only cursor with support for duplicated tables. DupCursor inherit Cursor methods as
