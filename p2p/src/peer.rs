@@ -43,6 +43,6 @@ impl From<BucketError> for PeerError {
 }
 
 pub use client::Client;
-pub use connection::Connection;
 pub use client::ConnectionInfo;
+pub use connection::Connection;
 pub use load_tracked_client::LoadTrackedClient;

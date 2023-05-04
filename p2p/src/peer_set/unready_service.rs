@@ -14,7 +14,6 @@ use tower::Service;
 
 use crate::peer_set::set::CancelClientWork;
 
-
 /// A Future that becomes satisfied when an `S`-typed service is ready.
 ///
 /// May fail due to cancellation, i.e. if the service is removed from discovery.
@@ -37,14 +36,14 @@ pub(super) struct UnreadyService<K, S, Req> {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub(super) enum Error<E> {
+pub(super) enum UnreadyError<E> {
     Inner(E),
     Canceled,
     CancelHandleDropped(oneshot::Canceled),
 }
 
 impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
-    type Output = Result<(K, S), (K, Error<S::Error>)>;
+    type Output = Result<(K, S), (K, UnreadyError<S::Error>)>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
@@ -57,9 +56,12 @@ impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
             // Return an error if the service is explicitly canceled,
             // or its cancel handle is dropped, implicitly cancelling it.
             match oneshot_result {
-                Ok(CancelClientWork) => return Poll::Ready(Err((key, Error::Canceled))),
+                Ok(CancelClientWork) => return Poll::Ready(Err((key, UnreadyError::Canceled))),
                 Err(canceled_error) => {
-                    return Poll::Ready(Err((key, Error::CancelHandleDropped(canceled_error))))
+                    return Poll::Ready(Err((
+                        key,
+                        UnreadyError::CancelHandleDropped(canceled_error),
+                    )))
                 }
             }
         }
@@ -84,7 +86,7 @@ impl<K, S: Service<Req>, Req> Future for UnreadyService<K, S, Req> {
 
         match res {
             Ok(()) => Poll::Ready(Ok((key, svc))),
-            Err(e) => Poll::Ready(Err((key, Error::Inner(e)))),
+            Err(e) => Poll::Ready(Err((key, UnreadyError::Inner(e)))),
         }
     }
 }

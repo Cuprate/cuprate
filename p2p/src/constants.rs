@@ -1,7 +1,18 @@
 use core::time::Duration;
 
+use monero_wire::messages::common::PeerSupportFlags;
+
+pub const CUPRATE_SUPPORT_FLAGS: PeerSupportFlags =
+    PeerSupportFlags::get_support_flag_fluffy_blocks();
+
+pub const DEFAULT_TARGET_OUT_PEERS: usize = 20;
+
+pub const DEFAULT_LOAD_OUT_PEERS_MULTIPLIER: usize = 3;
+
+pub const DEFAULT_IN_PEERS: usize = 20;
+
 /// The maximum size of the address books white list.
-/// This number is copied from monerod. 
+/// This number is copied from monerod.
 pub const MAX_WHITE_LIST_PEERS: usize = 1000;
 
 /// The maximum size of the address books gray list.
@@ -31,7 +42,6 @@ pub const EWMA_DEFAULT_RTT: Duration = Duration::from_secs(REQUEST_TIMEOUT.as_se
 /// This should be much larger than the `SYNC_RESTART_TIMEOUT`, so we choose
 /// better peers when we restart the sync.
 pub const EWMA_DECAY_TIME_NANOS: f64 = 200.0 * NANOS_PER_SECOND;
-
 
 /// The number of nanoseconds in one second.
 const NANOS_PER_SECOND: f64 = 1_000_000_000.0;

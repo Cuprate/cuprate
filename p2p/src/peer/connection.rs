@@ -9,9 +9,7 @@ use monero_wire::messages::CoreSyncData;
 use monero_wire::{levin, Message, NetworkAddress};
 use tower::{Service, ServiceExt};
 
-use crate::protocol::{
-    InternalMessageRequest, InternalMessageResponse,
-};
+use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 
 use super::PeerError;
 

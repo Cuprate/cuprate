@@ -2,8 +2,8 @@
 //!
 //! These types can be used to count any kind of active resource.
 //! But they are currently used to track the number of open connections.
-//! 
-//! This file was originally from Zebra 
+//!
+//! This file was originally from Zebra
 
 use std::{fmt, sync::Arc};
 
@@ -116,8 +116,7 @@ impl ActiveConnectionCounter {
 }
 
 impl Drop for ActiveConnectionCounter {
-    fn drop(&mut self) {
-    }
+    fn drop(&mut self) {}
 }
 
 /// A per-connection tracker.

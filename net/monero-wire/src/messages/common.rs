@@ -39,7 +39,7 @@ impl PeerSupportFlags {
     pub fn supports_fluffy_blocks(&self) -> bool {
         self.0 & Self::FLUFFY_BLOCKS == Self::FLUFFY_BLOCKS
     }
-    pub fn get_support_flag_fluffy_blocks() -> Self {
+    pub const fn get_support_flag_fluffy_blocks() -> Self {
         PeerSupportFlags(Self::FLUFFY_BLOCKS)
     }
 

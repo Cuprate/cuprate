@@ -11,11 +11,9 @@ use tokio::time;
 use tower::{Service, ServiceExt};
 
 use crate::address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
-use crate::protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
-use crate::protocol::{
-    Direction, InternalMessageRequest, InternalMessageResponse,
-};
 use crate::constants::P2P_MAX_PEERS_IN_HANDSHAKE;
+use crate::protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
+use crate::protocol::{Direction, InternalMessageRequest, InternalMessageResponse};
 use cuprate_common::{HardForks, Network, PruningSeed};
 use monero_wire::{
     levin::{BucketError, MessageSink, MessageStream},
@@ -59,54 +57,6 @@ pub enum HandShakeError {
     BucketError(#[from] BucketError),
 }
 
-pub struct NetworkConfig {
-    /// Port
-    my_port: u32,
-    /// The Network
-    network: Network,
-    /// Peer ID
-    peer_id: PeerID,
-    /// RPC Port
-    rpc_port: u16,
-    /// RPC Credits Per Hash
-    rpc_credits_per_hash: u32,
-    our_support_flags: PeerSupportFlags,
-    minimum_peer_support_flags: PeerSupportFlags,
-    handshake_timeout: time::Duration,
-    max_in_peers: u32,
-    target_out_peers: u32,
-}
-
-impl Default for NetworkConfig {
-    fn default() -> Self {
-        NetworkConfig {
-            my_port: 18080,
-            network: Network::MainNet,
-            peer_id: PeerID(21),
-            rpc_port: 0,
-            rpc_credits_per_hash: 0,
-            our_support_flags: PeerSupportFlags::get_support_flag_fluffy_blocks(),
-            minimum_peer_support_flags: PeerSupportFlags::from(0_u32),
-            handshake_timeout: time::Duration::from_secs(5),
-            max_in_peers: 13,
-            target_out_peers: 21,
-        }
-    }
-}
-
-impl NetworkConfig {
-    pub fn basic_node_data(&self) -> BasicNodeData {
-        BasicNodeData {
-            my_port: self.my_port,
-            network_id: self.network.network_id(),
-            peer_id: self.peer_id,
-            support_flags: self.our_support_flags,
-            rpc_port: self.rpc_port,
-            rpc_credits_per_hash: self.rpc_credits_per_hash,
-        }
-    }
-}
-
 pub struct Handshake<W, R> {
     sink: MessageSink<W, Message>,
     stream: MessageStream<R, Message>,
@@ -115,7 +65,7 @@ pub struct Handshake<W, R> {
 }
 
 pub struct Handshaker<Bc, Svc, AdrBook> {
-    config: NetworkConfig,
+    config: Config,
     parent_span: tracing::Span,
     address_book: AdrBook,
     blockchain: Bc,

@@ -46,7 +46,6 @@ impl From<Client> for LoadTrackedClient {
     }
 }
 
-
 impl<Request> Service<Request> for LoadTrackedClient
 where
     Client: Service<Request>,

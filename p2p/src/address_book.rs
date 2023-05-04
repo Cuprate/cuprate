@@ -71,21 +71,6 @@ pub enum AddressBookResponse {
     Peer(PeerListEntryBase),
 }
 
-#[derive(Debug, Clone)]
-pub struct AddressBookConfig {
-    max_white_peers: usize,
-    max_gray_peers: usize,
-}
-
-impl Default for AddressBookConfig {
-    fn default() -> Self {
-        AddressBookConfig {
-            max_white_peers: MAX_WHITE_LIST_PEERS,
-            max_gray_peers: MAX_GRAY_LIST_PEERS,
-        }
-    }
-}
-
 #[async_trait::async_trait]
 pub trait AddressBookStore: Clone {
     type Error: Into<AddressBookError>;
