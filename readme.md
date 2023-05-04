@@ -1,5 +1,5 @@
 <div align=center>
-  <img src="misc/logo/CuprateLogo.svg" alt="Cuprate" height="600"/>
+  <img src="misc/logo/CuprateLogo.svg" alt="Cuprate" height="400"/>
 </div>
 
 <h4 align=center> an upcoming experimental, modern & secure monero node. Written in Rust </h4>
