@@ -13,6 +13,7 @@ use futures::{
     stream::FuturesUnordered,
     Stream,
 };
+use futures::FutureExt;
 use tokio::{sync::oneshot::error::TryRecvError, task::JoinHandle};
 use tower::{
     discover::{Change, Discover},
@@ -387,6 +388,8 @@ where
             cancel: rx,
             _req: PhantomData,
         });
+
+        self.cancel_handles.insert(key, tx);
     }
 
     /// Performs P2C on `self.ready_services` to randomly select a less-loaded ready service.

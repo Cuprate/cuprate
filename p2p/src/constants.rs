@@ -11,6 +11,8 @@ pub const DEFAULT_LOAD_OUT_PEERS_MULTIPLIER: usize = 3;
 
 pub const DEFAULT_IN_PEERS: usize = 20;
 
+pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
+
 /// The maximum size of the address books white list.
 /// This number is copied from monerod.
 pub const MAX_WHITE_LIST_PEERS: usize = 1000;

@@ -125,6 +125,7 @@ impl<S: AsyncRead + std::marker::Unpin> Stream for BucketStream<S> {
             // reading a new bucket
             let mut bytes_needed = buffer.len().saturating_sub(decoder.bytes_needed());
             if bytes_needed == 0 {
+                // random value
                 bytes_needed = 1024
             }
 
@@ -132,7 +133,6 @@ impl<S: AsyncRead + std::marker::Unpin> Stream for BucketStream<S> {
             match ready!(stream.as_mut().poll_read(cx, &mut buf)) {
                 Err(e) => match e.kind() {
                     std::io::ErrorKind::WouldBlock => return std::task::Poll::Pending,
-                    std::io::ErrorKind::Interrupted => continue,
                     _ => return Poll::Ready(Some(Err(BucketError::IO(e)))),
                 },
                 Ok(len) => {

@@ -10,7 +10,8 @@ use std::time::Duration;
 use cuprate_common::PruningSeed;
 use monero_wire::{messages::PeerListEntryBase, network_address::NetZone, NetworkAddress};
 
-use super::{AddressBookConfig, AddressBookError, AddressBookRequest, AddressBookResponse};
+use crate::Config;
+use super::{AddressBookError, AddressBookRequest, AddressBookResponse};
 
 mod peer_list;
 use peer_list::PeerList;
@@ -24,7 +25,7 @@ pub(crate) struct AddressBookClientRequest {
 
 pub struct AddressBook {
     zone: NetZone,
-    config: AddressBookConfig,
+    config: Config,
     white_list: PeerList,
     gray_list: PeerList,
     anchor_list: HashSet<NetworkAddress>,
@@ -37,7 +38,7 @@ pub struct AddressBook {
 
 impl AddressBook {
     pub fn new(
-        config: AddressBookConfig,
+        config: Config,
         zone: NetZone,
         white_peers: Vec<PeerListEntryBase>,
         gray_peers: Vec<PeerListEntryBase>,
@@ -82,11 +83,11 @@ impl AddressBook {
     }
 
     fn max_white_peers(&self) -> usize {
-        self.config.max_white_peers
+        self.config.max_white_peers()
     }
 
     fn max_gray_peers(&self) -> usize {
-        self.config.max_gray_peers
+        self.config.max_gray_peers()
     }
 
     fn is_peer_banned(&self, peer: &NetworkAddress) -> bool {

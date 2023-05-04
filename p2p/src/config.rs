@@ -56,4 +56,16 @@ impl Config {
     pub fn peerset_total_connection_limit(&self) -> usize {
         self.target_out_peers * self.out_peers_load_multiplier
     }
+
+    pub fn network(&self) -> Network {
+        self.network
+    }
+
+    pub fn max_white_peers(&self) -> usize {
+        self.max_white_peers
+    }
+
+    pub fn max_gray_peers(&self) -> usize {
+        self.max_gray_peers
+    }
 }

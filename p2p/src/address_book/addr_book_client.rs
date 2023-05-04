@@ -8,14 +8,16 @@ use tower::steer::Steer;
 
 use monero_wire::network_address::NetZone;
 
+use crate::Config;
+
 use super::address_book::{AddressBook, AddressBookClientRequest};
 use super::{
-    AddressBookConfig, AddressBookError, AddressBookRequest, AddressBookResponse, AddressBookStore,
+    AddressBookError, AddressBookRequest, AddressBookResponse, AddressBookStore,
 };
 
 pub async fn start_address_book<S>(
     peer_store: S,
-    config: AddressBookConfig,
+    config: Config,
 ) -> Result<
     impl tower::Service<
             AddressBookRequest,
@@ -54,14 +56,14 @@ where
 
 pub struct AddressBookBuilder<S> {
     peer_store: S,
-    config: AddressBookConfig,
+    config: Config,
 }
 
 impl<S> AddressBookBuilder<S>
 where
     S: AddressBookStore,
 {
-    fn new(peer_store: S, config: AddressBookConfig) -> Self {
+    fn new(peer_store: S, config: Config) -> Self {
         AddressBookBuilder { peer_store, config }
     }
 

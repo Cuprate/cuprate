@@ -10,8 +10,9 @@ use thiserror::Error;
 use tokio::time;
 use tower::{Service, ServiceExt};
 
+use crate::Config;
 use crate::address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
-use crate::constants::P2P_MAX_PEERS_IN_HANDSHAKE;
+use crate::constants::{P2P_MAX_PEERS_IN_HANDSHAKE, HANDSHAKE_TIMEOUT};
 use crate::protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
 use crate::protocol::{Direction, InternalMessageRequest, InternalMessageResponse};
 use cuprate_common::{HardForks, Network, PruningSeed};
@@ -66,6 +67,7 @@ pub struct Handshake<W, R> {
 
 pub struct Handshaker<Bc, Svc, AdrBook> {
     config: Config,
+    our_id: PeerID,
     parent_span: tracing::Span,
     address_book: AdrBook,
     blockchain: Bc,
@@ -130,9 +132,8 @@ where
             peer_stream,
             direction,
             addr,
-            network: self.config.network,
-            basic_node_data: self.config.basic_node_data(),
-            minimum_support_flags: self.config.minimum_peer_support_flags,
+            network: self.config.network(),
+            basic_node_data: self.config.basic_node_data(self.our_id.clone()),
             address_book,
             blockchain,
             peer_request_service,
@@ -140,7 +141,7 @@ where
             state: HandshakeState::Start,
         };
 
-        let ret = time::timeout(self.config.handshake_timeout, state_machine.do_handshake());
+        let ret = time::timeout(HANDSHAKE_TIMEOUT, state_machine.do_handshake());
 
         async move {
             match ret.await {
@@ -180,7 +181,6 @@ struct HandshakeSM<Bc, Svc, AdrBook, W, R> {
     network: Network,
 
     basic_node_data: BasicNodeData,
-    minimum_support_flags: PeerSupportFlags,
     address_book: AdrBook,
     blockchain: Bc,
     peer_request_service: Svc,
@@ -266,14 +266,6 @@ where
             payload_data: peer_core_sync,
             local_peerlist_new,
         } = res;
-
-        if !peer_node_data
-            .support_flags
-            .contains(&self.minimum_support_flags)
-        {
-            tracing::debug!("Handshake failed: peer does not have minimum support flags");
-            return Err(HandShakeError::PeerDoesNotHaveTheMinimumSupportFlags);
-        }
 
         if peer_node_data.network_id != self.network.network_id() {
             tracing::debug!("Handshake failed: peer is on a different network");
