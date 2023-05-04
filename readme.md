@@ -1,5 +1,5 @@
 <div align=center>
-  <img src="misc/logo/CuprateLogo.svg" alt="Cuprate" height="300"/>
+  <img src="misc/logo/CuprateLogo.svg" alt="Cuprate" height="280"/>
 </div>
 <h1 align=center> Cuprate </h1>
 
