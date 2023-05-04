@@ -1,4 +1,4 @@
-![Cuprate](etc/logo/wordmark/CuprateWordmark.png)
+![Cuprate](misc/logo/wordmark/CuprateWordmark.png)
 <h4 align=center> an upcoming experimental, modern & secure monero node. Written in Rust </h4>
 
 &nbsp;
@@ -114,7 +114,7 @@ Cuprate is licensed under AGPL but some of the crates that make up Cuprate are l
 
 ## Contact
 
-If you wish to contact contributors privately, you can import our pgp keys from the etc/gpg_keys folder. You can also contact us directly on Matrix (see contributors list in `Cargo.toml`). If you wish to follow the development closely or just talk to us more casually, you can join our [Revolt server](https://rvlt.gg/DZtCpfW1).</br>
+If you wish to contact contributors privately, you can import our pgp keys from the misc/gpg_keys folder. You can also contact us directly on Matrix (see contributors list in `Cargo.toml`). If you wish to follow the development closely or just talk to us more casually, you can join our [Revolt server](https://rvlt.gg/DZtCpfW1).</br>
 
 ## Donations
 
