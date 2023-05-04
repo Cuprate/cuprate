@@ -1,6 +1,7 @@
 pub mod client;
 pub mod connection;
 pub mod handshaker;
+pub mod load_tracked_client;
 
 #[cfg(test)]
 mod tests;
@@ -40,3 +41,8 @@ impl From<BucketError> for PeerError {
         PeerError::LevinError
     }
 }
+
+pub use client::Client;
+pub use connection::Connection;
+pub use client::ConnectionInfo;
+pub use load_tracked_client::LoadTrackedClient;

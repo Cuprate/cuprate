@@ -13,8 +13,9 @@ use tower::{Service, ServiceExt};
 use crate::address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
 use crate::protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
 use crate::protocol::{
-    Direction, InternalMessageRequest, InternalMessageResponse, P2P_MAX_PEERS_IN_HANDSHAKE,
+    Direction, InternalMessageRequest, InternalMessageResponse,
 };
+use crate::constants::P2P_MAX_PEERS_IN_HANDSHAKE;
 use cuprate_common::{HardForks, Network, PruningSeed};
 use monero_wire::{
     levin::{BucketError, MessageSink, MessageStream},

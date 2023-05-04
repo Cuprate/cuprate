@@ -10,8 +10,7 @@ use monero_wire::{levin, Message, NetworkAddress};
 use tower::{Service, ServiceExt};
 
 use crate::protocol::{
-    InternalMessageRequest, InternalMessageResponse, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT,
-    P2P_MAX_PEERS_IN_HANDSHAKE,
+    InternalMessageRequest, InternalMessageResponse,
 };
 
 use super::PeerError;

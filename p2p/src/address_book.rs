@@ -5,8 +5,7 @@ pub use addr_book_client::start_address_book;
 
 use monero_wire::{messages::PeerListEntryBase, network_address::NetZone, NetworkAddress};
 
-const MAX_WHITE_LIST_PEERS: usize = 1000;
-const MAX_GRAY_LIST_PEERS: usize = 5000;
+use crate::constants::{MAX_GRAY_LIST_PEERS, MAX_WHITE_LIST_PEERS};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AddressBookError {
