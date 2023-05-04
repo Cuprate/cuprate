@@ -47,3 +47,5 @@ pub use client::Client;
 pub use client::ConnectionInfo;
 pub use connection::Connection;
 pub use load_tracked_client::LoadTrackedClient;
+pub use handshaker::Handshaker;
+pub use connector::{Connector, OutboundConnectorRequest};

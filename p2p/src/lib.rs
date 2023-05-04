@@ -7,11 +7,52 @@ pub mod peer_set;
 mod protocol;
 
 pub use config::Config;
+use rand::Rng;
 
-pub enum NodeID {
-    Public(monero_wire::PeerID),
-    Tor(monero_wire::PeerID),
-    I2p(monero_wire::PeerID),
+#[derive(Debug, Clone)]
+pub struct NetZoneBasicNodeData {
+    public: monero_wire::BasicNodeData,
+    tor: monero_wire::BasicNodeData,
+    i2p: monero_wire::BasicNodeData
+}
+
+
+impl NetZoneBasicNodeData {
+    pub fn new(config: &Config, node_id: &NodeID) -> Self {
+        let bnd = monero_wire::BasicNodeData {
+            my_port: config.public_port(),
+            network_id: config.network().network_id(),
+            peer_id: node_id.public,
+            support_flags: constants::CUPRATE_SUPPORT_FLAGS,
+            rpc_port: config.public_rpc_port(),
+            rpc_credits_per_hash: 0,
+        };
+
+        // obviously this is wrong, i will change when i add tor support 
+        NetZoneBasicNodeData { 
+            public: bnd.clone(), 
+            tor: bnd.clone(), 
+            i2p: bnd 
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct NodeID {
+    public: monero_wire::PeerID,
+    tor: monero_wire::PeerID,
+    i2p: monero_wire::PeerID,
+}
+
+impl NodeID {
+    pub fn generate() -> NodeID {
+        let mut rng = rand::thread_rng();
+        NodeID { 
+            public: monero_wire::PeerID(rng.gen()), 
+            tor: monero_wire::PeerID(rng.gen()), 
+            i2p: monero_wire::PeerID(rng.gen()) 
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -44,7 +85,7 @@ pub trait P2PStore: Clone + Send + 'static {
         bans: Vec<(&monero_wire::NetworkAddress, &chrono::NaiveDateTime)>, // ban lists
     ) -> Result<(), &'static str>;
 
-    async fn node_id(&mut self) -> Result<Option<NodeID>, &'static str>;
+    async fn basic_node_data(&mut self) -> Result<Option<NetZoneBasicNodeData>, &'static str>;
 
-    async fn save_node_id(&mut self, node_id: NodeID) -> Result<(), &'static str>;
+    async fn save_basic_node_data(&mut self, node_id: &NetZoneBasicNodeData) -> Result<(), &'static str>;
 }

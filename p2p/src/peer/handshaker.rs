@@ -17,7 +17,7 @@ use crate::protocol::{
     CoreSyncDataRequest, CoreSyncDataResponse, Direction, InternalMessageRequest,
     InternalMessageResponse,
 };
-use crate::Config;
+use crate::{Config, NetZoneBasicNodeData};
 use cuprate_common::{HardForks, Network, PruningSeed};
 use monero_wire::{
     levin::{BucketError, MessageSink, MessageStream},
@@ -67,12 +67,25 @@ pub struct DoHandshakeRequest<W, R> {
 
 #[derive(Debug, Clone)]
 pub struct Handshaker<Svc, CoreSync, AdrBook> {
-    config: Config,
-    our_id: PeerID,
+    basic_node_data: NetZoneBasicNodeData,
+    network: Network,
     parent_span: tracing::Span,
     address_book: AdrBook,
     core_sync_svc: CoreSync,
     peer_request_service: Svc,
+}
+
+impl<Svc, CoreSync, AdrBook> Handshaker<Svc, CoreSync, AdrBook> {
+    pub fn new(basic_node_data: NetZoneBasicNodeData, network: Network, address_book: AdrBook, core_sync_svc: CoreSync, peer_request_service: Svc) -> Self {
+        Handshaker { 
+            basic_node_data, 
+            network,
+            parent_span: tracing::Span::current(), 
+            address_book, 
+            core_sync_svc, 
+            peer_request_service
+        }
+    }
 }
 
 impl<Svc, CoreSync, AdrBook, W, R> tower::Service<DoHandshakeRequest<W, R>>
@@ -113,15 +126,15 @@ where
 
     fn call(&mut self, req: DoHandshakeRequest<W, R>) -> Self::Future {
         let DoHandshakeRequest {
-            read: mut read,
-            write: mut write,
+            read,
+            write,
             direction,
             addr,
             connection_tracker,
         } = req;
 
-        let mut peer_stream = MessageStream::new(read);
-        let mut peer_sink = MessageSink::new(write);
+        let peer_stream = MessageStream::new(read);
+        let peer_sink = MessageSink::new(write);
 
         let span = tracing::debug_span!("Handshaker");
 
@@ -136,8 +149,11 @@ where
             peer_stream,
             direction,
             addr,
-            network: self.config.network(),
-            basic_node_data: self.config.basic_node_data(self.our_id.clone()),
+            network: self.network,
+            basic_node_data: match addr.get_zone() {
+                monero_wire::NetZone::Public => self.basic_node_data.public.clone(),
+                _ => todo!()
+            },
             address_book,
             core_sync_svc,
             peer_request_service,
@@ -154,6 +170,7 @@ where
                 Err(_) => Err(HandShakeError::PeerTimedOut.into()),
             }
         }
+        .instrument(span)
         .boxed()
     }
 }

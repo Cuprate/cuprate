@@ -37,6 +37,7 @@ mod utils;
 
 pub use messages::PeerID;
 pub use messages::PeerListEntryBase;
+pub use messages::BasicNodeData;
 pub use messages::{Message, P2pCommand};
 pub use network_address::NetZone;
 pub use network_address::NetworkAddress;

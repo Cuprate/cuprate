@@ -38,9 +38,10 @@ async fn connect(addr: &NetworkAddress) -> Result<(impl AsyncRead, impl AsyncWri
     }
 }
 
-/// A wrapper around [`Handshake`] that opens a TCP connection before
+/// A wrapper around [`Handshake`] that opens a connection before
 /// forwarding to the inner handshake service. Writing this as its own
 /// [`tower::Service`] lets us apply unified timeout policies, etc.
+#[derive(Debug, Clone)]
 pub struct Connector<Svc, CoreSync, AdrBook>
 where
     CoreSync: Service<CoreSyncDataRequest, Response = CoreSyncDataResponse, Error = BoxError>
@@ -62,33 +63,6 @@ where
     AdrBook::Future: Send,
 {
     handshaker: Handshaker<Svc, CoreSync, AdrBook>,
-}
-
-impl<Svc, CoreSync, AdrBook> Clone for Connector<Svc, CoreSync, AdrBook>
-where
-    CoreSync: Service<CoreSyncDataRequest, Response = CoreSyncDataResponse, Error = BoxError>
-        + Clone
-        + Send
-        + 'static,
-    CoreSync::Future: Send,
-
-    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = BoxError>
-        + Clone
-        + Send
-        + 'static,
-    Svc::Future: Send,
-
-    AdrBook: Service<AddressBookRequest, Response = AddressBookResponse, Error = BoxError>
-        + Clone
-        + Send
-        + 'static,
-    AdrBook::Future: Send,
-{
-    fn clone(&self) -> Self {
-        Connector {
-            handshaker: self.handshaker.clone(),
-        }
-    }
 }
 
 impl<Svc, CoreSync, AdrBook> Connector<Svc, CoreSync, AdrBook>

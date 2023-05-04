@@ -12,7 +12,7 @@ thiserror = "1.0.39"
 cuprate-common = {path = "../common"}
 monero-wire = {path= "../net/monero-wire"}
 futures = "0.3.26"
-tower = {version = "0.4.13", features = ["util", "steer", "load",  "discover", "load-shed", "buffer"]}
+tower = {version = "0.4.13", features = ["util", "steer", "load",  "discover", "load-shed", "buffer", "timeout"]}
 tokio = {version= "1.27", features=["rt", "time", "net"]}
 tokio-util = {version = "0.7.8", features=["compat"]}
 tokio-stream = {version="0.1.14", features=["time"]}
