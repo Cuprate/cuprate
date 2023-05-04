@@ -1,4 +1,7 @@
-![Cuprate](misc/logo/wordmark/CuprateWordmark.png)
+<div align=center>
+  <img src="misc/logo/CuprateLogo.svg" alt="Cuprate" height="600"/>
+</div>
+
 <h4 align=center> an upcoming experimental, modern & secure monero node. Written in Rust </h4>
 
 &nbsp;
