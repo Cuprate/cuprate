@@ -159,6 +159,12 @@ impl From<net::SocketAddr> for NetworkAddress {
     }
 }
 
+impl Into<net::SocketAddr> for NetworkAddress {
+    fn into(self) -> net::SocketAddr {
+        todo!()
+    }
+}
+
 impl<'de> Deserialize<'de> for NetworkAddress {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

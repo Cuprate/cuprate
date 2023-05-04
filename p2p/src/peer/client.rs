@@ -8,6 +8,7 @@ use futures::{
 };
 use monero_wire::messages::PeerID;
 use monero_wire::{messages::common::PeerSupportFlags, NetworkAddress};
+use tower::BoxError;
 
 use super::{connection::ClientRequest, PeerError};
 
@@ -38,7 +39,7 @@ impl Client {
 }
 
 impl tower::Service<InternalMessageRequest> for Client {
-    type Error = PeerError;
+    type Error = BoxError;
     type Response = InternalMessageResponse;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -49,7 +50,7 @@ impl tower::Service<InternalMessageRequest> for Client {
     ) -> std::task::Poll<Result<(), Self::Error>> {
         self.server_tx
             .poll_ready(cx)
-            .map_err(|e| PeerError::ClientChannelClosed)
+            .map_err(|e| PeerError::ClientChannelClosed.into())
     }
     fn call(&mut self, req: InternalMessageRequest) -> Self::Future {
         let (tx, rx) = oneshot::channel();
@@ -59,11 +60,12 @@ impl tower::Service<InternalMessageRequest> for Client {
                 .map(|recv_result| {
                     recv_result
                         .expect("ClientRequest oneshot sender must not be dropped before send")
+                        .map_err(|e| e.into())
                 })
                 .boxed(),
             Err(_e) => {
                 // TODO: better error handling
-                futures::future::ready(Err(PeerError::ClientChannelClosed)).boxed()
+                futures::future::ready(Err(PeerError::ClientChannelClosed.into())).boxed()
             }
         }
     }

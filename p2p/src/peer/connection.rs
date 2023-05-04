@@ -7,7 +7,7 @@ use futures::{AsyncRead, AsyncWrite, SinkExt, StreamExt};
 use levin::{MessageSink, MessageStream};
 use monero_wire::messages::CoreSyncData;
 use monero_wire::{levin, Message, NetworkAddress};
-use tower::{Service, ServiceExt};
+use tower::{Service, ServiceExt, BoxError};
 
 use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 
@@ -53,7 +53,7 @@ pub struct Connection<Svc, Aw, Ar> {
 
 impl<Svc, Aw, Ar> Connection<Svc, Aw, Ar>
 where
-    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = PeerError>,
+    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = BoxError>,
     Aw: AsyncWrite + std::marker::Unpin,
     Ar: AsyncRead + std::marker::Unpin,
 {
@@ -121,9 +121,12 @@ where
 
     async fn handle_peer_request(&mut self, req: InternalMessageRequest) -> Result<(), PeerError> {
         // we should check contents of peer requests for obvious errors like we do with responses
+        todo!()
+        /* 
         let ready_svc = self.svc.ready().await?;
         let res = ready_svc.call(req).await?;
         self.send_message_to_peer(res).await
+        */
     }
 
     async fn handle_client_request(&mut self, req: ClientRequest) -> Result<(), PeerError> {

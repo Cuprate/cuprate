@@ -8,13 +8,12 @@ use monero_wire::messages::admin::{SupportFlagsRequest, SupportFlagsResponse};
 use monero_wire::messages::MessageRequest;
 use thiserror::Error;
 use tokio::time;
-use tower::{Service, ServiceExt};
+use tower::{Service, ServiceExt, BoxError};
 
 use crate::Config;
 use crate::address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
 use crate::constants::{P2P_MAX_PEERS_IN_HANDSHAKE, HANDSHAKE_TIMEOUT};
-use crate::protocol::temp_database::{DataBaseRequest, DataBaseResponse, DatabaseError};
-use crate::protocol::{Direction, InternalMessageRequest, InternalMessageResponse};
+use crate::protocol::{Direction, InternalMessageRequest, InternalMessageResponse, CoreSyncDataRequest, CoreSyncDataResponse};
 use cuprate_common::{HardForks, Network, PruningSeed};
 use monero_wire::{
     levin::{BucketError, MessageSink, MessageStream},
@@ -46,50 +45,47 @@ pub enum HandShakeError {
     PeerDoesNotHaveTheMinimumSupportFlags,
     #[error("The peer is on a different network")]
     PeerIsOnADifferentNetwork,
-    #[error("Address book err: {0}")]
-    AddressBookError(#[from] AddressBookError),
     #[error("The peer sent too many peers, considered spamming")]
     PeerSentTooManyPeers,
     #[error("The peer sent a wrong response to our handshake")]
     PeerSentWrongResponse,
-    #[error("The syncer returned an error")]
-    DataBaseError(#[from] DatabaseError),
     #[error("Bucket error while communicating with peer: {0}")]
     BucketError(#[from] BucketError),
 }
 
-pub struct Handshake<W, R> {
-    sink: MessageSink<W, Message>,
-    stream: MessageStream<R, Message>,
-    direction: Direction,
-    addr: NetworkAddress,
+pub struct DoHandshakeRequest<W, R> {
+    pub read: R,
+    pub write: W,
+    pub direction: Direction,
+    pub addr: NetworkAddress,
 }
 
-pub struct Handshaker<Bc, Svc, AdrBook> {
+#[derive(Debug, Clone)]
+pub struct Handshaker<Svc, CoreSync, AdrBook> {
     config: Config,
     our_id: PeerID,
     parent_span: tracing::Span,
     address_book: AdrBook,
-    blockchain: Bc,
+    core_sync_svc: CoreSync,
     peer_sync_states: mpsc::Sender<PeerSyncChange>,
     peer_request_service: Svc,
 }
 
-impl<Bc, Svc, AdrBook, W, R> tower::Service<Handshake<W, R>> for Handshaker<Bc, Svc, AdrBook>
+impl<Svc, CoreSync, AdrBook, W, R> tower::Service<DoHandshakeRequest<W, R>> for Handshaker<Svc, CoreSync, AdrBook>
 where
-    Bc: Service<DataBaseRequest, Response = DataBaseResponse, Error = DatabaseError>
+    CoreSync: Service<CoreSyncDataRequest, Response = CoreSyncDataResponse, Error = BoxError>
         + Clone
         + Send
         + 'static,
-    Bc::Future: Send,
+    CoreSync::Future: Send,
 
-    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = PeerError>
+    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = BoxError>
         + Clone
         + Send
         + 'static,
     Svc::Future: Send,
 
-    AdrBook: Service<AddressBookRequest, Response = AddressBookResponse, Error = AddressBookError>
+    AdrBook: Service<AddressBookRequest, Response = AddressBookResponse, Error = BoxError>
         + Clone
         + Send
         + 'static,
@@ -98,7 +94,7 @@ where
     W: AsyncWrite + std::marker::Unpin + Send + 'static,
     R: AsyncRead + std::marker::Unpin + Send + 'static,
 {
-    type Error = HandShakeError;
+    type Error = BoxError;
     type Response = Client;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -110,19 +106,22 @@ where
         std::task::Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Handshake<W, R>) -> Self::Future {
-        let Handshake {
-            sink: mut peer_sink,
-            stream: mut peer_stream,
+    fn call(&mut self, req: DoHandshakeRequest<W, R>) -> Self::Future {
+        let DoHandshakeRequest {
+            read: mut read,
+            write: mut write,
             direction,
             addr,
         } = req;
+
+        let mut peer_stream = MessageStream::new(read);
+        let mut peer_sink = MessageSink::new(write);
 
         let span = tracing::debug_span!("Handshaker");
 
         let connection_span = tracing::debug_span!(parent: &self.parent_span, "Connection");
 
-        let blockchain = self.blockchain.clone();
+        let core_sync_svc = self.core_sync_svc.clone();
         let address_book = self.address_book.clone();
         let syncer_tx = self.peer_sync_states.clone();
         let peer_request_service = self.peer_request_service.clone();
@@ -135,7 +134,7 @@ where
             network: self.config.network(),
             basic_node_data: self.config.basic_node_data(self.our_id.clone()),
             address_book,
-            blockchain,
+            core_sync_svc,
             peer_request_service,
             connection_span,
             state: HandshakeState::Start,
@@ -146,7 +145,7 @@ where
         async move {
             match ret.await {
                 Ok(handshake) => handshake,
-                Err(_) => Err(HandShakeError::PeerTimedOut),
+                Err(_) => Err(HandShakeError::PeerTimedOut.into()),
             }
         }
         .boxed()
@@ -173,7 +172,7 @@ impl HandshakeState {
     }
 }
 
-struct HandshakeSM<Bc, Svc, AdrBook, W, R> {
+struct HandshakeSM<Svc, CoreSync, AdrBook, W, R> {
     peer_sink: MessageSink<W, Message>,
     peer_stream: MessageStream<R, Message>,
     direction: Direction,
@@ -182,28 +181,28 @@ struct HandshakeSM<Bc, Svc, AdrBook, W, R> {
 
     basic_node_data: BasicNodeData,
     address_book: AdrBook,
-    blockchain: Bc,
+    core_sync_svc: CoreSync,
     peer_request_service: Svc,
     connection_span: tracing::Span,
 
     state: HandshakeState,
 }
 
-impl<Bc, Svc, AdrBook, W, R> HandshakeSM<Bc, Svc, AdrBook, W, R>
+impl<Svc, CoreSync, AdrBook, W, R> HandshakeSM<Svc, CoreSync, AdrBook, W, R>
 where
-    Bc: Service<DataBaseRequest, Response = DataBaseResponse, Error = DatabaseError>
+    CoreSync: Service<CoreSyncDataRequest, Response = CoreSyncDataResponse, Error = BoxError>
         + Clone
         + Send
         + 'static,
-    Bc::Future: Send,
+    CoreSync::Future: Send,
 
-    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = PeerError>
+    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = BoxError>
         + Clone
         + Send
         + 'static,
     Svc::Future: Send,
 
-    AdrBook: Service<AddressBookRequest, Response = AddressBookResponse, Error = AddressBookError>
+    AdrBook: Service<AddressBookRequest, Response = AddressBookResponse, Error = BoxError>
         + Clone
         + Send
         + 'static,
@@ -212,11 +211,10 @@ where
     W: AsyncWrite + std::marker::Unpin + Send + 'static,
     R: AsyncRead + std::marker::Unpin + Send + 'static,
 {
-    async fn get_our_core_sync(&mut self) -> Result<CoreSyncData, DatabaseError> {
-        let blockchain = self.blockchain.ready().await?;
-        let DataBaseResponse::CoreSyncData(core_sync) = blockchain.call(DataBaseRequest::CoreSyncData).await? else {
-            unreachable!("Database will always return the requested item")
-        };
+    async fn get_our_core_sync(&mut self) -> Result<CoreSyncData, BoxError> {
+        let core_sync_svc = self.core_sync_svc.ready().await?;
+        let CoreSyncDataResponse(core_sync) = core_sync_svc.call(CoreSyncDataRequest).await?;
+        tracing::trace!("Got core sync data: {core_sync:?}");
         Ok(core_sync)
     }
 
@@ -260,7 +258,7 @@ where
     async fn handle_handshake_response(
         &mut self,
         res: HandshakeResponse,
-    ) -> Result<(), HandShakeError> {
+    ) -> Result<(), BoxError> {
         let HandshakeResponse {
             node_data: peer_node_data,
             payload_data: peer_core_sync,
@@ -269,12 +267,12 @@ where
 
         if peer_node_data.network_id != self.network.network_id() {
             tracing::debug!("Handshake failed: peer is on a different network");
-            return Err(HandShakeError::PeerIsOnADifferentNetwork);
+            return Err(HandShakeError::PeerIsOnADifferentNetwork.into());
         }
 
         if local_peerlist_new.len() > P2P_MAX_PEERS_IN_HANDSHAKE {
             tracing::debug!("Handshake failed: peer sent too many peers in response");
-            return Err(HandShakeError::PeerSentTooManyPeers);
+            return Err(HandShakeError::PeerSentTooManyPeers.into());
         }
 
         // Tell the address book about the new peers
@@ -302,7 +300,7 @@ where
     async fn handle_message_response(
         &mut self,
         response: MessageResponse,
-    ) -> Result<(), HandShakeError> {
+    ) -> Result<(), BoxError> {
         match (&mut self.state, response) {
             (
                 HandshakeState::WaitingForHandshakeResponse,
@@ -316,7 +314,7 @@ where
                 self.state = HandshakeState::Complete(bnd.clone());
                 Ok(())
             }
-            _ => Err(HandShakeError::PeerSentWrongResponse),
+            _ => Err(HandShakeError::PeerSentWrongResponse.into()),
         }
     }
 
@@ -329,7 +327,7 @@ where
         Ok(())
     }
 
-    async fn do_outbound_handshake(&mut self) -> Result<(), HandShakeError> {
+    async fn do_outbound_handshake(&mut self) -> Result<(), BoxError> {
         let core_sync = self.get_our_core_sync().await?;
         self.send_handshake_req(self.basic_node_data.clone(), core_sync)
             .await?;
@@ -347,7 +345,7 @@ where
                         Message::Response(response) => {
                             self.handle_message_response(response).await?
                         }
-                        _ => return Err(HandShakeError::PeerSentWrongResponse),
+                        _ => return Err(HandShakeError::PeerSentWrongResponse.into()),
                     }
                 }
                 None => unreachable!("peer_stream wont return None"),
@@ -357,7 +355,7 @@ where
         Ok(())
     }
 
-    async fn do_handshake(mut self) -> Result<Client, HandShakeError> {
+    async fn do_handshake(mut self) -> Result<Client, BoxError> {
         match self.direction {
             Direction::Outbound => self.do_outbound_handshake().await?,
             Direction::Inbound => todo!(),

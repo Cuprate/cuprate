@@ -1,5 +1,6 @@
 pub mod client;
 pub mod connection;
+pub mod connector;
 pub mod handshaker;
 pub mod load_tracked_client;
 

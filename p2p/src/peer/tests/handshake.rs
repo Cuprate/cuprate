@@ -1,1 +1,1 @@
-pub use crate::peer::handshaker::{Handshake, Handshaker};
+pub use crate::peer::handshaker::{Handshaker};
