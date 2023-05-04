@@ -7,17 +7,12 @@ use futures::{AsyncRead, AsyncWrite, SinkExt, StreamExt};
 use levin::{MessageSink, MessageStream};
 use monero_wire::messages::CoreSyncData;
 use monero_wire::{levin, Message, NetworkAddress};
-use tower::{Service, ServiceExt, BoxError};
+use tower::{BoxError, Service, ServiceExt};
 
+use crate::connection_counter::{self, ConnectionTracker};
 use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 
 use super::PeerError;
-
-pub enum PeerSyncChange {
-    CoreSyncData(NetworkAddress, CoreSyncData),
-    ObjectsResponse(NetworkAddress, Vec<[u8; 32]>, u64),
-    PeerDisconnected(NetworkAddress),
-}
 
 pub struct ClientRequest {
     pub req: InternalMessageRequest,
@@ -47,7 +42,18 @@ pub struct Connection<Svc, Aw, Ar> {
     sink: MessageSink<Aw, Message>,
     stream: Fuse<MessageStream<Ar, Message>>,
     client_rx: mpsc::Receiver<ClientRequest>,
-    sync_state_tx: mpsc::Sender<PeerSyncChange>,
+    /// A connection tracker that reduces the open connection count when dropped.
+    /// Used to limit the number of open connections in Zebra.
+    ///
+    /// This field does nothing until it is dropped.
+    ///
+    /// # Security
+    ///
+    /// If this connection tracker or `Connection`s are leaked,
+    /// the number of active connections will appear higher than it actually is.
+    /// If enough connections leak, Zebra will stop making new connections.
+    #[allow(dead_code)]
+    connection_tracker: ConnectionTracker,
     svc: Svc,
 }
 
@@ -62,7 +68,7 @@ where
         sink: MessageSink<Aw, Message>,
         stream: MessageStream<Ar, Message>,
         client_rx: mpsc::Receiver<ClientRequest>,
-        sync_state_tx: mpsc::Sender<PeerSyncChange>,
+        connection_tracker: ConnectionTracker,
         svc: Svc,
     ) -> Connection<Svc, Aw, Ar> {
         Connection {
@@ -71,7 +77,7 @@ where
             sink,
             stream: stream.fuse(),
             client_rx,
-            sync_state_tx,
+            connection_tracker,
             svc,
         }
     }
@@ -122,7 +128,7 @@ where
     async fn handle_peer_request(&mut self, req: InternalMessageRequest) -> Result<(), PeerError> {
         // we should check contents of peer requests for obvious errors like we do with responses
         todo!()
-        /* 
+        /*
         let ready_svc = self.svc.ready().await?;
         let res = ready_svc.call(req).await?;
         self.send_message_to_peer(res).await

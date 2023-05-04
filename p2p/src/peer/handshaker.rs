@@ -8,12 +8,16 @@ use monero_wire::messages::admin::{SupportFlagsRequest, SupportFlagsResponse};
 use monero_wire::messages::MessageRequest;
 use thiserror::Error;
 use tokio::time;
-use tower::{Service, ServiceExt, BoxError};
+use tower::{BoxError, Service, ServiceExt};
 
-use crate::Config;
 use crate::address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
-use crate::constants::{P2P_MAX_PEERS_IN_HANDSHAKE, HANDSHAKE_TIMEOUT};
-use crate::protocol::{Direction, InternalMessageRequest, InternalMessageResponse, CoreSyncDataRequest, CoreSyncDataResponse};
+use crate::connection_counter::ConnectionTracker;
+use crate::constants::{HANDSHAKE_TIMEOUT, P2P_MAX_PEERS_IN_HANDSHAKE};
+use crate::protocol::{
+    CoreSyncDataRequest, CoreSyncDataResponse, Direction, InternalMessageRequest,
+    InternalMessageResponse,
+};
+use crate::Config;
 use cuprate_common::{HardForks, Network, PruningSeed};
 use monero_wire::{
     levin::{BucketError, MessageSink, MessageStream},
@@ -29,7 +33,7 @@ use tracing::Instrument;
 use super::client::Client;
 use super::{
     client::ConnectionInfo,
-    connection::{ClientRequest, Connection, PeerSyncChange},
+    connection::{ClientRequest, Connection},
     PeerError,
 };
 
@@ -58,6 +62,7 @@ pub struct DoHandshakeRequest<W, R> {
     pub write: W,
     pub direction: Direction,
     pub addr: NetworkAddress,
+    pub connection_tracker: ConnectionTracker,
 }
 
 #[derive(Debug, Clone)]
@@ -67,11 +72,11 @@ pub struct Handshaker<Svc, CoreSync, AdrBook> {
     parent_span: tracing::Span,
     address_book: AdrBook,
     core_sync_svc: CoreSync,
-    peer_sync_states: mpsc::Sender<PeerSyncChange>,
     peer_request_service: Svc,
 }
 
-impl<Svc, CoreSync, AdrBook, W, R> tower::Service<DoHandshakeRequest<W, R>> for Handshaker<Svc, CoreSync, AdrBook>
+impl<Svc, CoreSync, AdrBook, W, R> tower::Service<DoHandshakeRequest<W, R>>
+    for Handshaker<Svc, CoreSync, AdrBook>
 where
     CoreSync: Service<CoreSyncDataRequest, Response = CoreSyncDataResponse, Error = BoxError>
         + Clone
@@ -112,6 +117,7 @@ where
             write: mut write,
             direction,
             addr,
+            connection_tracker,
         } = req;
 
         let mut peer_stream = MessageStream::new(read);
@@ -123,7 +129,6 @@ where
 
         let core_sync_svc = self.core_sync_svc.clone();
         let address_book = self.address_book.clone();
-        let syncer_tx = self.peer_sync_states.clone();
         let peer_request_service = self.peer_request_service.clone();
 
         let state_machine = HandshakeSM {
@@ -137,6 +142,7 @@ where
             core_sync_svc,
             peer_request_service,
             connection_span,
+            connection_tracker,
             state: HandshakeState::Start,
         };
 
@@ -183,7 +189,9 @@ struct HandshakeSM<Svc, CoreSync, AdrBook, W, R> {
     address_book: AdrBook,
     core_sync_svc: CoreSync,
     peer_request_service: Svc,
+
     connection_span: tracing::Span,
+    connection_tracker: ConnectionTracker,
 
     state: HandshakeState,
 }
@@ -255,10 +263,7 @@ where
         Ok(())
     }
 
-    async fn handle_handshake_response(
-        &mut self,
-        res: HandshakeResponse,
-    ) -> Result<(), BoxError> {
+    async fn handle_handshake_response(&mut self, res: HandshakeResponse) -> Result<(), BoxError> {
         let HandshakeResponse {
             node_data: peer_node_data,
             payload_data: peer_core_sync,
@@ -297,10 +302,7 @@ where
         Ok(())
     }
 
-    async fn handle_message_response(
-        &mut self,
-        response: MessageResponse,
-    ) -> Result<(), BoxError> {
+    async fn handle_message_response(&mut self, response: MessageResponse) -> Result<(), BoxError> {
         match (&mut self.state, response) {
             (
                 HandshakeState::WaitingForHandshakeResponse,
@@ -363,8 +365,6 @@ where
 
         let (server_tx, server_rx) = mpsc::channel(3);
 
-        let (replace_me, replace_me_rx) = mpsc::channel(3);
-
         let peer_node_data = self
             .state
             .peer_basic_node_data()
@@ -382,7 +382,7 @@ where
             self.peer_sink,
             self.peer_stream,
             server_rx,
-            replace_me,
+            self.connection_tracker,
             self.peer_request_service,
         );
 

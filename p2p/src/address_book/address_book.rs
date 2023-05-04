@@ -4,14 +4,12 @@ use futures::{
     channel::{mpsc, oneshot},
     StreamExt,
 };
-use rand::{Rng, SeedableRng};
-use std::time::Duration;
 
 use cuprate_common::PruningSeed;
 use monero_wire::{messages::PeerListEntryBase, network_address::NetZone, NetworkAddress};
 
-use crate::Config;
 use super::{AddressBookError, AddressBookRequest, AddressBookResponse};
+use crate::{constants::ADDRESS_BOOK_SAVE_INTERVAL, Config, P2PStore};
 
 mod peer_list;
 use peer_list::PeerList;
@@ -23,7 +21,7 @@ pub(crate) struct AddressBookClientRequest {
     pub span: tracing::Span,
 }
 
-pub struct AddressBook {
+pub struct AddressBook<PeerStore> {
     zone: NetZone,
     config: Config,
     white_list: PeerList,
@@ -32,11 +30,10 @@ pub struct AddressBook {
 
     baned_peers: HashMap<NetworkAddress, chrono::NaiveDateTime>,
 
-    rng: rand::rngs::StdRng,
-    //banned_subnets:,
+    p2p_store: PeerStore, //banned_subnets:,
 }
 
-impl AddressBook {
+impl<PeerStore: P2PStore> AddressBook<PeerStore> {
     pub fn new(
         config: Config,
         zone: NetZone,
@@ -44,8 +41,8 @@ impl AddressBook {
         gray_peers: Vec<PeerListEntryBase>,
         anchor_peers: Vec<NetworkAddress>,
         baned_peers: Vec<(NetworkAddress, chrono::NaiveDateTime)>,
-    ) -> AddressBook {
-        let rng = rand::prelude::StdRng::from_entropy();
+        p2p_store: PeerStore,
+    ) -> Self {
         let white_list = PeerList::new(white_peers);
         let gray_list = PeerList::new(gray_peers);
         let anchor_list = HashSet::from_iter(anchor_peers);
@@ -58,7 +55,7 @@ impl AddressBook {
             gray_list,
             anchor_list,
             baned_peers,
-            rng,
+            p2p_store,
         };
 
         book.check_unban_peers();
@@ -80,6 +77,14 @@ impl AddressBook {
 
     fn len_gray_list(&self) -> usize {
         self.gray_list.len()
+    }
+
+    fn len_anchor_list(&self) -> usize {
+        self.anchor_list.len()
+    }
+
+    fn len_banned_list(&self) -> usize {
+        self.baned_peers.len()
     }
 
     fn max_white_peers(&self) -> usize {
@@ -200,11 +205,15 @@ impl AddressBook {
     }
 
     fn get_random_gray_peer(&mut self) -> Option<PeerListEntryBase> {
-        self.gray_list.get_random_peer(&mut self.rng).map(|p| *p)
+        self.gray_list
+            .get_random_peer(&mut rand::thread_rng())
+            .map(|p| *p)
     }
 
     fn get_random_white_peer(&mut self) -> Option<PeerListEntryBase> {
-        self.white_list.get_random_peer(&mut self.rng).map(|p| *p)
+        self.white_list
+            .get_random_peer(&mut rand::thread_rng())
+            .map(|p| *p)
     }
 
     fn update_peer_info(&mut self, peer: PeerListEntryBase) -> Result<(), AddressBookError> {
@@ -219,57 +228,99 @@ impl AddressBook {
         }
     }
 
-    pub(crate) async fn run(mut self, mut rx: mpsc::Receiver<AddressBookClientRequest>) {
-        loop {
-            let Some(req) = rx.next().await else {
-                // the client has been dropped the node has *possibly* shut down 
-                return;
-            };
+    async fn handle_request(&mut self, req: AddressBookClientRequest) {
+        self.check_unban_peers();
 
-            self.check_unban_peers();
+        let span = tracing::debug_span!(parent: &req.span,  "AddressBook");
+        let _guard = span.enter();
 
-            let span = tracing::debug_span!(parent: &req.span,  "AddressBook");
-            let _guard = span.enter();
+        tracing::trace!("received request: {}", req.req);
 
-            tracing::debug!("{} received request: {}", self.book_name(), req.req);
-
-            let res = match req.req {
-                AddressBookRequest::HandleNewPeerList(new_peers, _) => self
-                    .handle_new_peerlist(new_peers)
-                    .map(|_| AddressBookResponse::Ok),
-                AddressBookRequest::SetPeerSeen(peer, last_seen) => self
-                    .set_peer_seen(peer, last_seen)
-                    .map(|_| AddressBookResponse::Ok),
-                AddressBookRequest::BanPeer(peer, till) => {
-                    self.ban_peer(peer, till);
-                    Ok(AddressBookResponse::Ok)
-                }
-                AddressBookRequest::AddPeerToAnchor(peer) => self
-                    .add_peer_to_anchor(peer)
-                    .map(|_| AddressBookResponse::Ok),
-                AddressBookRequest::RemovePeerFromAnchor(peer) => {
-                    self.remove_peer_from_anchor(peer);
-                    Ok(AddressBookResponse::Ok)
-                }
-                AddressBookRequest::UpdatePeerInfo(peer) => {
-                    self.update_peer_info(peer).map(|_| AddressBookResponse::Ok)
-                }
-
-                AddressBookRequest::GetRandomGrayPeer(_) => match self.get_random_gray_peer() {
-                    Some(peer) => Ok(AddressBookResponse::Peer(peer)),
-                    None => Err(AddressBookError::PeerListEmpty),
-                },
-                AddressBookRequest::GetRandomWhitePeer(_) => match self.get_random_white_peer() {
-                    Some(peer) => Ok(AddressBookResponse::Peer(peer)),
-                    None => Err(AddressBookError::PeerListEmpty),
-                },
-            };
-
-            if let Err(e) = &res {
-                tracing::debug!("Error when handling request, err: {e}")
+        let res = match req.req {
+            AddressBookRequest::HandleNewPeerList(new_peers, _) => self
+                .handle_new_peerlist(new_peers)
+                .map(|_| AddressBookResponse::Ok),
+            AddressBookRequest::SetPeerSeen(peer, last_seen) => self
+                .set_peer_seen(peer, last_seen)
+                .map(|_| AddressBookResponse::Ok),
+            AddressBookRequest::BanPeer(peer, till) => {
+                self.ban_peer(peer, till);
+                Ok(AddressBookResponse::Ok)
+            }
+            AddressBookRequest::AddPeerToAnchor(peer) => self
+                .add_peer_to_anchor(peer)
+                .map(|_| AddressBookResponse::Ok),
+            AddressBookRequest::RemovePeerFromAnchor(peer) => {
+                self.remove_peer_from_anchor(peer);
+                Ok(AddressBookResponse::Ok)
+            }
+            AddressBookRequest::UpdatePeerInfo(peer) => {
+                self.update_peer_info(peer).map(|_| AddressBookResponse::Ok)
             }
 
-            let _ = req.tx.send(res);
+            AddressBookRequest::GetRandomGrayPeer(_) => match self.get_random_gray_peer() {
+                Some(peer) => Ok(AddressBookResponse::Peer(peer)),
+                None => Err(AddressBookError::PeerListEmpty),
+            },
+            AddressBookRequest::GetRandomWhitePeer(_) => match self.get_random_white_peer() {
+                Some(peer) => Ok(AddressBookResponse::Peer(peer)),
+                None => Err(AddressBookError::PeerListEmpty),
+            },
+        };
+
+        if let Err(e) = &res {
+            tracing::debug!("Error when handling request, err: {e}")
+        }
+
+        let _ = req.tx.send(res);
+    }
+
+    #[tracing::instrument(level="trace", skip(self), fields(name = self.book_name()) )]
+    async fn save(&mut self) {
+        tracing::trace!(
+            "white_len: {}, gray_len: {}, anchor_len: {}, banned_len: {}",
+            self.len_white_list(),
+            self.len_gray_list(),
+            self.len_anchor_list(),
+            self.len_banned_list()
+        );
+        let res = self
+            .p2p_store
+            .save_peers(
+                self.zone,
+                (&self.white_list).into(),
+                (&self.gray_list).into(),
+                self.anchor_list.iter().collect(),
+                self.baned_peers.iter().collect(),
+            )
+            .await;
+        match res {
+            Ok(()) => tracing::trace!("Complete"),
+            Err(e) => tracing::debug!("Error saving address book: {e}"),
+        }
+    }
+
+    pub(crate) async fn run(mut self, mut rx: mpsc::Receiver<AddressBookClientRequest>) {
+        let mut save_interval = tokio::time::interval(ADDRESS_BOOK_SAVE_INTERVAL);
+        save_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        // Interval ticks at 0, interval, 2 interval, ...
+        // this is just to ignore the first tick
+        save_interval.tick().await;
+        let mut save_interval = tokio_stream::wrappers::IntervalStream::new(save_interval).fuse();
+
+        loop {
+            futures::select! {
+                req = rx.next() => {
+                    if let Some(req) = req {
+                        self.handle_request(req).await
+                    } else {
+                        tracing::debug!("{} req channel closed, saving and shutting down book", self.book_name());
+                        self.save().await;
+                        return;
+                    }
+                }
+                _ = save_interval.next() => self.save().await
+            }
         }
     }
 }

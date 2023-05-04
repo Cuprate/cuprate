@@ -7,13 +7,13 @@ use std::{
     task::{Context, Poll},
 };
 
+use futures::FutureExt;
 use futures::TryFutureExt;
 use futures::{
     channel::{mpsc, oneshot},
     stream::FuturesUnordered,
     Stream,
 };
-use futures::FutureExt;
 use tokio::{sync::oneshot::error::TryRecvError, task::JoinHandle};
 use tower::{
     discover::{Change, Discover},

@@ -5,8 +5,6 @@ pub use addr_book_client::start_address_book;
 
 use monero_wire::{messages::PeerListEntryBase, network_address::NetZone, NetworkAddress};
 
-use crate::constants::{MAX_GRAY_LIST_PEERS, MAX_WHITE_LIST_PEERS};
-
 #[derive(Debug, thiserror::Error)]
 pub enum AddressBookError {
     #[error("Peer was not found in book")]
@@ -69,36 +67,4 @@ impl AddressBookRequest {
 pub enum AddressBookResponse {
     Ok,
     Peer(PeerListEntryBase),
-}
-
-#[async_trait::async_trait]
-pub trait AddressBookStore: Clone {
-    type Error: Into<AddressBookError>;
-    /// Loads the peers from the peer store.
-    /// returns (in order):
-    /// the white list,
-    /// the gray list,
-    /// the anchor list,
-    /// the ban list
-    async fn load_peers(
-        &mut self,
-        zone: NetZone,
-    ) -> Result<
-        (
-            Vec<PeerListEntryBase>,                       // white list
-            Vec<PeerListEntryBase>,                       // gray list
-            Vec<NetworkAddress>,                          // anchor list
-            Vec<(NetworkAddress, chrono::NaiveDateTime)>, // ban list
-        ),
-        Self::Error,
-    >;
-
-    async fn save_peers(
-        &mut self,
-        zone: NetZone,
-        white: Vec<PeerListEntryBase>,
-        gray: Vec<PeerListEntryBase>,
-        anchor: Vec<NetworkAddress>,
-        bans: Vec<(NetworkAddress, chrono::NaiveDateTime)>, // ban lists
-    ) -> Result<(), Self::Error>;
 }

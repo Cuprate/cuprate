@@ -8,6 +8,12 @@ pub struct PeerList {
     pruning_idxs: HashMap<u32, Vec<NetworkAddress>>,
 }
 
+impl<'a> Into<Vec<&'a PeerListEntryBase>> for &'a PeerList {
+    fn into(self) -> Vec<&'a PeerListEntryBase> {
+        self.peers.iter().map(|(_, peb)| peb).collect()
+    }
+}
+
 impl PeerList {
     pub fn new(list: Vec<PeerListEntryBase>) -> PeerList {
         let mut peers = HashMap::with_capacity(list.len());

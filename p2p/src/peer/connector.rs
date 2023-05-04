@@ -2,30 +2,39 @@
 
 use std::{
     future::Future,
-    net::{SocketAddr},
+    net::SocketAddr,
     pin::Pin,
     task::{Context, Poll},
 };
 
 use futures::{AsyncRead, AsyncWrite, FutureExt};
-use monero_wire::{NetworkAddress, network_address::NetZone};
+use monero_wire::{network_address::NetZone, NetworkAddress};
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
-use tower::{Service, ServiceExt, BoxError};
+use tower::{BoxError, Service, ServiceExt};
 use tracing::Instrument;
 
-use crate::{protocol::{InternalMessageRequest, InternalMessageResponse, CoreSyncDataResponse, CoreSyncDataRequest}, connection_counter::ConnectionTracker, address_book::{AddressBookRequest, AddressBookResponse}};
+use crate::{
+    address_book::{AddressBookRequest, AddressBookResponse},
+    connection_counter::ConnectionTracker,
+    protocol::{
+        CoreSyncDataRequest, CoreSyncDataResponse, InternalMessageRequest, InternalMessageResponse,
+    },
+};
 
-use super::{handshaker::{Handshaker, DoHandshakeRequest}, Client};
-
+use super::{
+    handshaker::{DoHandshakeRequest, Handshaker},
+    Client,
+};
 
 async fn connect(addr: &NetworkAddress) -> Result<(impl AsyncRead, impl AsyncWrite), BoxError> {
     match addr.get_zone() {
         NetZone::Public => {
-            let stream = tokio::net::TcpStream::connect(SocketAddr::try_from(*addr).unwrap()).await?;
+            let stream =
+                tokio::net::TcpStream::connect(SocketAddr::try_from(*addr).unwrap()).await?;
             let (read, write) = stream.into_split();
             Ok((read.compat(), write.compat_write()))
-        },
-        _ => unimplemented!()
+        }
+        _ => unimplemented!(),
     }
 }
 
@@ -165,6 +174,7 @@ where
                     write,
                     direction: crate::protocol::Direction::Outbound,
                     addr,
+                    connection_tracker,
                 })
                 .await?;
             Ok((addr, client))

@@ -35,7 +35,10 @@ pub mod messages;
 pub mod network_address;
 mod utils;
 
+pub use messages::PeerID;
+pub use messages::PeerListEntryBase;
 pub use messages::{Message, P2pCommand};
+pub use network_address::NetZone;
 pub use network_address::NetworkAddress;
 // re-exports
 pub use levin;
