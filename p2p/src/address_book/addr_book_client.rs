@@ -4,8 +4,8 @@ use std::pin::Pin;
 use futures::channel::{mpsc, oneshot};
 use futures::FutureExt;
 use tokio::task::spawn;
-use tower::BoxError;
 use tower::steer::Steer;
+use tower::BoxError;
 
 use monero_wire::network_address::NetZone;
 
@@ -19,17 +19,13 @@ pub async fn start_address_book<S>(
     config: Config,
 ) -> Result<
     impl tower::Service<
-            AddressBookRequest,
-            Response = AddressBookResponse,
-            Error = BoxError,
-            Future = Pin<
-                Box<
-                    dyn Future<Output = Result<AddressBookResponse, BoxError>>
-                        + Send
-                        + 'static,
-                >,
-            >,
+        AddressBookRequest,
+        Response = AddressBookResponse,
+        Error = BoxError,
+        Future = Pin<
+            Box<dyn Future<Output = Result<AddressBookResponse, BoxError>> + Send + 'static>,
         >,
+    >,
     BoxError,
 >
 where
@@ -121,7 +117,8 @@ impl tower::Service<AddressBookRequest> for AddressBookClient {
         match self.book.try_send(req) {
             Err(_e) => {
                 // I'm assuming all callers will call `poll_ready` first (which they are supposed to)
-                futures::future::ready(Err(AddressBookError::AddressBooksChannelClosed.into())).boxed()
+                futures::future::ready(Err(AddressBookError::AddressBooksChannelClosed.into()))
+                    .boxed()
             }
             Ok(()) => async move {
                 rx.await

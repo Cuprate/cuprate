@@ -1,11 +1,13 @@
 use cuprate_common::Network;
 use monero_wire::messages::{common::PeerSupportFlags, BasicNodeData, PeerID};
 
-use crate::{constants::{
-    CUPRATE_SUPPORT_FLAGS, DEFAULT_IN_PEERS, DEFAULT_LOAD_OUT_PEERS_MULTIPLIER,
-    DEFAULT_TARGET_OUT_PEERS, MAX_GRAY_LIST_PEERS, MAX_WHITE_LIST_PEERS,
-}, NodeID};
-
+use crate::{
+    constants::{
+        CUPRATE_SUPPORT_FLAGS, DEFAULT_IN_PEERS, DEFAULT_LOAD_OUT_PEERS_MULTIPLIER,
+        DEFAULT_TARGET_OUT_PEERS, MAX_GRAY_LIST_PEERS, MAX_WHITE_LIST_PEERS,
+    },
+    NodeID,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Config {
@@ -15,7 +17,6 @@ pub struct Config {
     network: Network,
     /// RPC Port
     rpc_port: u16,
-
 
     target_out_peers: usize,
     out_peers_load_multiplier: usize,

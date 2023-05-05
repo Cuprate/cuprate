@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use futures::FutureExt;
@@ -76,14 +77,20 @@ pub struct Handshaker<Svc, CoreSync, AdrBook> {
 }
 
 impl<Svc, CoreSync, AdrBook> Handshaker<Svc, CoreSync, AdrBook> {
-    pub fn new(basic_node_data: NetZoneBasicNodeData, network: Network, address_book: AdrBook, core_sync_svc: CoreSync, peer_request_service: Svc) -> Self {
-        Handshaker { 
-            basic_node_data, 
+    pub fn new(
+        basic_node_data: NetZoneBasicNodeData,
+        network: Network,
+        address_book: AdrBook,
+        core_sync_svc: CoreSync,
+        peer_request_service: Svc,
+    ) -> Self {
+        Handshaker {
+            basic_node_data,
             network,
-            parent_span: tracing::Span::current(), 
-            address_book, 
-            core_sync_svc, 
-            peer_request_service
+            parent_span: tracing::Span::current(),
+            address_book,
+            core_sync_svc,
+            peer_request_service,
         }
     }
 }
@@ -152,7 +159,7 @@ where
             network: self.network,
             basic_node_data: match addr.get_zone() {
                 monero_wire::NetZone::Public => self.basic_node_data.public.clone(),
-                _ => todo!()
+                _ => todo!(),
             },
             address_book,
             core_sync_svc,
@@ -178,18 +185,18 @@ where
 enum HandshakeState {
     Start,
     WaitingForHandshakeResponse,
-    WaitingForSupportFlagResponse(BasicNodeData),
-    Complete(BasicNodeData),
+    WaitingForSupportFlagResponse(BasicNodeData, CoreSyncData),
+    Complete(BasicNodeData, CoreSyncData),
 }
 
 impl HandshakeState {
     pub fn is_complete(&self) -> bool {
-        matches!(self, HandshakeState::Complete(_))
+        matches!(self, Complete(_))
     }
 
-    pub fn peer_basic_node_data(self) -> Option<BasicNodeData> {
+    pub fn peer_data(self) -> Option<(BasicNodeData, CoreSyncData)> {
         match self {
-            HandshakeState::Complete(sup) => Some(sup),
+            HandshakeState::Complete(bnd, coresync) => Some((bnd, coresync)),
             _ => None,
         }
     }
@@ -311,9 +318,10 @@ where
 
         if peer_node_data.support_flags.is_empty() {
             self.send_support_flag_req().await?;
-            self.state = HandshakeState::WaitingForSupportFlagResponse(peer_node_data);
+            self.state =
+                HandshakeState::WaitingForSupportFlagResponse(peer_node_data, CoreSyncData);
         } else {
-            self.state = HandshakeState::Complete(peer_node_data);
+            self.state = HandshakeState::Complete(peer_node_data, CoreSyncData);
         }
 
         Ok(())
@@ -326,11 +334,11 @@ where
                 MessageResponse::Handshake(handshake),
             ) => self.handle_handshake_response(handshake).await,
             (
-                HandshakeState::WaitingForSupportFlagResponse(bnd),
+                HandshakeState::WaitingForSupportFlagResponse(bnd, coresync),
                 MessageResponse::SupportFlags(support_flags),
             ) => {
                 bnd.support_flags = support_flags.support_flags;
-                self.state = HandshakeState::Complete(bnd.clone());
+                self.state = HandshakeState::Complete(bnd.clone(), coresync.clone());
                 Ok(())
             }
             _ => Err(HandShakeError::PeerSentWrongResponse.into()),
@@ -382,13 +390,20 @@ where
 
         let (server_tx, server_rx) = mpsc::channel(3);
 
-        let peer_node_data = self
+        let (peer_node_data, coresync) = self
             .state
-            .peer_basic_node_data()
+            .peer_data()
             .expect("We must be in state complete to be here");
+
+        let pruning_seed = PruningSeed::try_from(coresync.pruning_seed).map_err(Into::into)?;
+
+        let peer_height = AtomicU64::new(coresync.current_height).into();
+
         let connection_info = ConnectionInfo {
             addr: self.addr,
             support_flags: peer_node_data.support_flags,
+            pruning_seed,
+            peer_height: peer_height_cumm_diff.clone(),
             peer_id: peer_node_data.peer_id,
             rpc_port: peer_node_data.rpc_port,
             rpc_credits_per_hash: peer_node_data.rpc_credits_per_hash,
@@ -398,6 +413,7 @@ where
             self.addr,
             self.peer_sink,
             self.peer_stream,
+            peer_height,
             server_rx,
             self.connection_tracker,
             self.peer_request_service,

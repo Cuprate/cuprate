@@ -13,9 +13,8 @@ use rand::Rng;
 pub struct NetZoneBasicNodeData {
     public: monero_wire::BasicNodeData,
     tor: monero_wire::BasicNodeData,
-    i2p: monero_wire::BasicNodeData
+    i2p: monero_wire::BasicNodeData,
 }
-
 
 impl NetZoneBasicNodeData {
     pub fn new(config: &Config, node_id: &NodeID) -> Self {
@@ -28,11 +27,11 @@ impl NetZoneBasicNodeData {
             rpc_credits_per_hash: 0,
         };
 
-        // obviously this is wrong, i will change when i add tor support 
-        NetZoneBasicNodeData { 
-            public: bnd.clone(), 
-            tor: bnd.clone(), 
-            i2p: bnd 
+        // obviously this is wrong, i will change when i add tor support
+        NetZoneBasicNodeData {
+            public: bnd.clone(),
+            tor: bnd.clone(),
+            i2p: bnd,
         }
     }
 }
@@ -47,10 +46,10 @@ pub struct NodeID {
 impl NodeID {
     pub fn generate() -> NodeID {
         let mut rng = rand::thread_rng();
-        NodeID { 
-            public: monero_wire::PeerID(rng.gen()), 
-            tor: monero_wire::PeerID(rng.gen()), 
-            i2p: monero_wire::PeerID(rng.gen()) 
+        NodeID {
+            public: monero_wire::PeerID(rng.gen()),
+            tor: monero_wire::PeerID(rng.gen()),
+            i2p: monero_wire::PeerID(rng.gen()),
         }
     }
 }
@@ -87,5 +86,8 @@ pub trait P2PStore: Clone + Send + 'static {
 
     async fn basic_node_data(&mut self) -> Result<Option<NetZoneBasicNodeData>, &'static str>;
 
-    async fn save_basic_node_data(&mut self, node_id: &NetZoneBasicNodeData) -> Result<(), &'static str>;
+    async fn save_basic_node_data(
+        &mut self,
+        node_id: &NetZoneBasicNodeData,
+    ) -> Result<(), &'static str>;
 }

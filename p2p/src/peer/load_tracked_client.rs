@@ -1,11 +1,13 @@
 //! A peer connection service wrapper type to handle load tracking and provide access to the
 //! reported protocol version.
 
+use std::sync::atomic::Ordering;
 use std::{
     sync::Arc,
     task::{Context, Poll},
 };
 
+use cuprate_common::PruningSeed;
 use tower::{
     load::{Load, PeakEwma},
     Service,
@@ -25,6 +27,24 @@ pub struct LoadTrackedClient {
 
     /// The metadata for the connected peer `service`.
     connection_info: Arc<ConnectionInfo>,
+}
+
+impl LoadTrackedClient {
+    pub fn current_height(&self) -> u64 {
+        self.connection_info.peer_height.load(Ordering::SeqCst)
+    }
+
+    pub fn pruning_seed(&self) -> PruningSeed {
+        self.connection_info.pruning_seed
+    }
+
+    pub fn has_full_block(&self, block_height: u64) -> bool {
+        let seed = self.pruning_seed();
+        let Some(log_stripes) = seed.get_log_stripes() else {
+            return true;
+        };
+        seed.will_have_complete_block(block_height, self.current_height(), log_stripes)
+    }
 }
 
 /// Create a new [`LoadTrackedClient`] wrapping the provided `client` service.

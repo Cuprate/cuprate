@@ -7,13 +7,13 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::FutureExt;
 use futures::TryFutureExt;
 use futures::{
     channel::{mpsc, oneshot},
     stream::FuturesUnordered,
     Stream,
 };
+use futures::{FutureExt, SinkExt};
 use tokio::{sync::oneshot::error::TryRecvError, task::JoinHandle};
 use tower::{
     discover::{Change, Discover},
@@ -340,8 +340,18 @@ where
         }
     }
 
+    /// Calls the poll functions used at the start of all `poll_ready`s
+    pub fn poll_all(&mut self, cx: &mut Context<'_>) -> Result<(), BoxError> {
+        self.poll_background_errors(cx)?;
+
+        // Update peer statuses
+        let _ = self.poll_discover(cx)?;
+        self.poll_unready(cx);
+        Ok(())
+    }
+
     /// Takes a ready service by key, invalidating `preselected_p2c_peer` if needed.
-    fn take_ready_service(&mut self, key: &D::Key) -> Option<D::Service> {
+    pub fn take_ready_service(&mut self, key: &D::Key) -> Option<D::Service> {
         if let Some(svc) = self.ready_services.remove(key) {
             if Some(*key) == self.preselected_p2c_peer {
                 self.preselected_p2c_peer = None;
@@ -392,8 +402,24 @@ where
         self.cancel_handles.insert(key, tx);
     }
 
+    pub fn preselect_p2c_peer_with_full_block(&self, block_height: u64) -> Option<D::Key> {
+        self.select_p2c_peer_from_list(
+            &self
+                .ready_services
+                .iter()
+                .filter_map(|(key, serv)| {
+                    if serv.has_full_block(block_height) {
+                        Some(key)
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        )
+    }
+
     /// Performs P2C on `self.ready_services` to randomly select a less-loaded ready service.
-    fn preselect_p2c_peer(&self) -> Option<D::Key> {
+    pub fn preselect_p2c_peer(&self) -> Option<D::Key> {
         self.select_p2c_peer_from_list(&self.ready_services.keys().collect())
     }
 
@@ -407,7 +433,10 @@ where
 
     // Performs P2C on `ready_service_list` to randomly select a less-loaded ready service.
     #[allow(clippy::unwrap_in_result)]
-    fn select_p2c_peer_from_list(&self, ready_service_list: &HashSet<&D::Key>) -> Option<D::Key> {
+    pub fn select_p2c_peer_from_list(
+        &self,
+        ready_service_list: &HashSet<&D::Key>,
+    ) -> Option<D::Key> {
         match ready_service_list.len() {
             0 => None,
             1 => Some(
@@ -456,120 +485,7 @@ where
         }
     }
 
-    /// Routes a request using P2C load-balancing.
-    fn route_p2c(
-        &mut self,
-        req: InternalMessageRequest,
-    ) -> <Self as tower::Service<InternalMessageRequest>>::Future {
-        let preselected_key = self
-            .preselected_p2c_peer
-            .expect("ready peer service must have a preselected peer");
-
-        tracing::trace!(?preselected_key, "routing based on p2c");
-
-        let mut svc = self
-            .take_ready_service(&preselected_key)
-            .expect("ready peer set must have preselected a ready peer");
-
-        let fut = svc.call(req);
-        self.push_unready(preselected_key, svc);
-        fut.map_err(Into::into).boxed()
-    }
-}
-
-impl<D> Service<InternalMessageRequest> for PeerSet<D>
-where
-    D: Discover<Key = NetworkAddress, Service = LoadTrackedClient> + Unpin,
-    D::Error: Into<BoxError>,
-{
-    type Response = InternalMessageResponse;
-    type Error = BoxError;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.poll_background_errors(cx)?;
-
-        // Update peer statuses
-        let _ = self.poll_discover(cx)?;
-        self.poll_unready(cx);
-
-        //self.log_peer_set_size();
-        //self.update_metrics();
-
-        loop {
-            // Re-check that the pre-selected service is ready, in case
-            // something has happened since (e.g., it failed, peer closed
-            // connection, ...)
-            if let Some(key) = self.preselected_p2c_peer {
-                tracing::trace!(preselected_key = ?key);
-                let mut service = self
-                    .take_ready_service(&key)
-                    .expect("preselected peer must be in the ready list");
-                match service.poll_ready(cx) {
-                    Poll::Ready(Ok(())) => {
-                        tracing::trace!("preselected service is still ready, keeping it selected");
-                        self.preselected_p2c_peer = Some(key);
-                        self.ready_services.insert(key, service);
-                        return Poll::Ready(Ok(()));
-                    }
-                    Poll::Pending => {
-                        tracing::trace!(
-                            "preselected service is no longer ready, moving to unready list"
-                        );
-                        self.push_unready(key, service);
-                    }
-                    Poll::Ready(Err(error)) => {
-                        tracing::trace!(%error, "preselected service failed, dropping it");
-                        std::mem::drop(service);
-                    }
-                }
-            }
-
-            tracing::trace!(
-                "preselected service was not ready, preselecting another ready service"
-            );
-            self.preselected_p2c_peer = self.preselect_p2c_peer();
-            //self.update_metrics();
-
-            if self.preselected_p2c_peer.is_none() {
-                // CORRECTNESS
-                //
-                // If the channel is full, drop the demand signal rather than waiting.
-                // If we waited here, the crawler could deadlock sending a request to
-                // fetch more peers, because it also empties the channel.
-                tracing::trace!("no ready services, sending demand signal");
-                let _ = self.demand_signal.try_send(MorePeers);
-
-                // CORRECTNESS
-                //
-                // The current task must be scheduled for wakeup every time we
-                // return `Poll::Pending`.
-                //
-                // As long as there are unready or new peers, this task will run,
-                // because:
-                // - `poll_discover` schedules this task for wakeup when new
-                //   peers arrive.
-                // - if there are unready peers, `poll_unready` schedules this
-                //   task for wakeup when peer services become ready.
-                // - if the preselected peer is not ready, `service.poll_ready`
-                //   schedules this task for wakeup when that service becomes
-                //   ready.
-                //
-                // To avoid peers blocking on a full background error channel:
-                // - if no background tasks have exited since the last poll,
-                //   `poll_background_errors` schedules this task for wakeup when
-                //   the next task exits.
-                return Poll::Pending;
-            }
-        }
-    }
-
-    fn call(&mut self, req: InternalMessageRequest) -> Self::Future {
-        let fut = self.route_p2c(req);
-
-        //self.update_metrics();
-
-        fut
+    pub fn demand_more_peers(&mut self) {
+        let _ = self.demand_signal.try_send(MorePeers);
     }
 }

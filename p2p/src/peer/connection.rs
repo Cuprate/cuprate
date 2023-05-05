@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::atomic::AtomicU64;
 
 use futures::channel::{mpsc, oneshot};
 use futures::stream::Fuse;
@@ -42,6 +43,10 @@ pub struct Connection<Svc, Aw, Ar> {
     sink: MessageSink<Aw, Message>,
     stream: Fuse<MessageStream<Ar, Message>>,
     client_rx: mpsc::Receiver<ClientRequest>,
+    /// A field shared between the [`Client`](super::Client) and the connection
+    /// used so we know what peers to route certain requests to. This stores
+    /// the peers height and cumulative difficulty.
+    peer_height: std::sync::Arc<AtomicU64>,
     /// A connection tracker that reduces the open connection count when dropped.
     /// Used to limit the number of open connections in Zebra.
     ///
@@ -67,6 +72,7 @@ where
         address: NetworkAddress,
         sink: MessageSink<Aw, Message>,
         stream: MessageStream<Ar, Message>,
+        peer_height: std::sync::Arc<AtomicU64>,
         client_rx: mpsc::Receiver<ClientRequest>,
         connection_tracker: ConnectionTracker,
         svc: Svc,
@@ -76,6 +82,7 @@ where
             state: State::WaitingForRequest,
             sink,
             stream: stream.fuse(),
+            peer_height,
             client_rx,
             connection_tracker,
             svc,

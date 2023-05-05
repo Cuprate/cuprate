@@ -50,6 +50,7 @@ pub enum PruningError {
 ///
 // Internally we use an Option<u32> to represent if a pruning seed is 0 (None)which means
 // no pruning will take place.
+#[derive(Debug, Copy, Clone)]
 pub struct PruningSeed(Option<u32>);
 
 impl PruningSeed {
@@ -90,8 +91,26 @@ impl PruningSeed {
         }
     }
 
+    pub fn will_have_complete_block(
+        &self,
+        block_height: u64,
+        blockchain_height: u64,
+        log_stripes: u32,
+    ) -> bool {
+        let Some(block_stripe) = get_block_pruning_stripe(block_height, blockchain_height, log_stripes) else {
+            // None is returned if the block is within `TipBlocks`
+            return true;
+        };
+        let Some(seed_stripe) = self.get_stripe() else {
+            // None is returned if the seed doesnt do any pruning
+            return true;
+        };
+
+        block_stripe == seed_stripe
+    }
+
     // Gets log2 of the total amount of stripes this seed is using.
-    fn get_log_stripes(&self) -> Option<u32> {
+    pub fn get_log_stripes(&self) -> Option<u32> {
         let seed: u32 = self.0?;
         Some((seed >> PRUNING_SEED_LOG_STRIPES_SHIFT) & PRUNING_SEED_LOG_STRIPES_MASK)
     }

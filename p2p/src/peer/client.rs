@@ -1,20 +1,25 @@
 use std::pin::Pin;
+use std::sync::atomic::AtomicU64;
 use std::{future::Future, sync::Arc};
 
-use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 use futures::{
     channel::{mpsc, oneshot},
     FutureExt,
 };
-use monero_wire::messages::PeerID;
-use monero_wire::{messages::common::PeerSupportFlags, NetworkAddress};
 use tower::BoxError;
 
+use cuprate_common::PruningSeed;
+use monero_wire::messages::PeerID;
+use monero_wire::{messages::common::PeerSupportFlags, NetworkAddress};
+
 use super::{connection::ClientRequest, PeerError};
+use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 
 pub struct ConnectionInfo {
     pub addr: NetworkAddress,
     pub support_flags: PeerSupportFlags,
+    pub pruning_seed: PruningSeed,
+    pub peer_height: std::sync::Arc<AtomicU64>,
     /// Peer ID
     pub peer_id: PeerID,
     pub rpc_port: u16,
@@ -39,8 +44,8 @@ impl Client {
 }
 
 impl tower::Service<InternalMessageRequest> for Client {
-    type Error = BoxError;
     type Response = InternalMessageResponse;
+    type Error = BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
