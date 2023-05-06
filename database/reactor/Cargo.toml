@@ -1,0 +1,16 @@
+[package]
+name = "cuprate-database-reactor"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = "*"
+cuprate-database = { path = "../" }
+tokio = {version="1.27", features=["rt"]}
+tower = {version = "0.4.13", features=["steer"]}
+libmdbx = { version = "0.3.2"}
+monero = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

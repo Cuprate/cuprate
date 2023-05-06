@@ -3,8 +3,9 @@
 
 members = [
         "common",
-	"cuprate",
+		"cuprate",
         "database",
+		"database/reactor",
         "net/levin",
         "net/monero-wire",
         "p2p",

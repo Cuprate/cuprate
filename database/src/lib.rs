@@ -30,8 +30,8 @@
 
 #[cfg(feature = "mdbx")]
 pub mod mdbx;
-//#[cfg(feature = "hse")]
-//pub mod hse;
+#[cfg(feature = "hse")]
+pub mod hse;
 
 pub mod encoding;
 pub mod interface;
@@ -85,6 +85,9 @@ pub mod error {
 		#[error("The object have not been found in the database: {0}")]
 		NotFound(String),
 
+		#[error("The database failed to commit changes")]
+		FailedToCommit,
+
 		#[error("An uncategorized error occured: {0}")]
 		Other(&'static str),
 
@@ -110,10 +113,10 @@ pub mod database {
         type TXMut: WriteTransaction<'a>;
         type Error: Into<DBException>;
 
-        /// Create a transaction from the database
+        /// Create a read transaction from the database
         fn tx(&'a self) -> Result<Self::TX, Self::Error>;
 
-        /// Create a mutable transaction from the database
+        /// Create a write transaction from the database
         fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
 
         /// Open a database from the specified path
@@ -134,9 +137,9 @@ pub mod database {
         pub tx: Option<<D as Database<'a>>::TXMut>,
     }
 
-    // Convenient implementations for database.
+    /// Convenient implementations for database.
     impl<'thread, D: Database<'thread>> Interface<'thread, D> {
-        fn from(db: Arc<D>) -> Result<Self, DBException> {
+        fn from_db(db: Arc<D>) -> Result<Self, DBException> {
             Ok(Self { db, tx: None })
         }
 
@@ -147,7 +150,9 @@ pub mod database {
         }
     }
 
-	// Used to easily dereference the WriteTransaction from the interface.
+	/// Used to easily dereference the WriteTransaction from the interface.
+	/// SAFETY: The write transaction must automatically be regenerated after commiting
+	/// or properly shutdown the thread if it failed
     impl<'thread, D: Database<'thread>> Deref for Interface<'thread, D> {
         type Target = <D as Database<'thread>>::TXMut;
 
@@ -161,15 +166,18 @@ pub mod database {
 		//! This sub-module contains the abstractions of Transactional Key/Value database functions.
 		//! Any key/value database/storage engine can be implemented easily for Cuprate as long as
 		//! these functions or equivalent logic exist for it.
+		//! 
+		//! A lot of these functions use a constant boolean B. When B is true the database must return
+		//! directly the encoded blob of the database value. The decoded type otherwise
 	
 		use crate::{
 			error::DBException,
 			table::{DupTable, Table},
-			encoding::{Key, Value, SubKey, Encode},
+			encoding::{Value, Encode},
 		};
 	
 		/// A pair of key|value from a table
-		pub type Pair<T> = (Key<T>, Value<T>);
+		pub type Pair<T> = (<T as Table>::Key, Value<T>);
 	
 		/// Abstraction of a read-only cursor, for simple tables
 		pub trait Cursor<'t, T: Table> {
@@ -183,22 +191,22 @@ pub mod database {
 	
 			fn prev<const B: bool>(&mut self) -> Result<Option<Pair<T>>, DBException>;
 	
-			fn set<const B: bool>(&mut self, key: &Key<T>) -> Result<Option<Value<T>>, DBException>;
+			fn set<const B: bool>(&mut self, key: &T::Key) -> Result<Option<Value<T>>, DBException>;
 		}
 	
 		/// A pair of subkey/value from a duptable
 		pub enum SubPair<T: DupTable> {
-			Type(SubKey<T>, Value<T>),
-			Raw(<(T::SubKey,T::Value) as Encode>::Output)
+			Type(T::SubKey, T::Value),
+			Raw(<T::SubKey as Encode>::Output,<T::Value as Encode>::Output) // Subjet to change
 		}
-		pub type FullPair<T> = (Key<T>, SubPair<T>);
+		pub type FullPair<T> = (<T as Table>::Key, SubPair<T>);
 	
 		/// Abstraction of a read-only cursor with support for duplicated tables. DupCursor inherit Cursor methods as
 		/// a duplicated table can be treated as a simple table.
 		pub trait DupCursor<'t, T: DupTable>: Cursor<'t, T> {
 			fn first_dup<const B: bool>(&mut self) -> Result<Option<SubPair<T>>, DBException>;
 	
-			fn get_dup<const B: bool>(&mut self, key: &Key<T>, subkey: &SubKey<T>) 
+			fn get_dup<const B: bool>(&mut self, key: &T::Key, subkey: &T::SubKey) 
 			-> Result<Option<Value<T>>, DBException>;
 	
 			fn last_dup<const B: bool>(&mut self) -> Result<Option<SubPair<T>>, DBException>;
@@ -210,7 +218,7 @@ pub mod database {
 	
 		// Abstraction of a read-write cursor, for simple tables. WriteCursor inherit Cursor methods.
 		pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
-			fn put_cursor(&mut self, key: &Key<T>, value: &Value<T>) -> Result<(), DBException>;
+			fn put_cursor(&mut self, key: &T::Key, value: &Value<T>) -> Result<(), DBException>;
 	
 			fn del(&mut self) -> Result<(), DBException>;
 		}
@@ -219,8 +227,8 @@ pub mod database {
 		pub trait DupWriteCursor<'t, T: DupTable>: WriteCursor<'t, T> {
 			fn put_cursor_dup(
 				&mut self,
-				key: &Key<T>,
-				subkey: &SubKey<T>,
+				key: &T::Key,
+				subkey: &T::SubKey,
 				value: &Value<T>,
 			) -> Result<(), DBException>;
 	
@@ -249,12 +257,12 @@ pub mod database {
 			type WriteCursor<T: Table>: WriteCursor<'a, T>;
 			type DupWriteCursor<T: DupTable>: DupWriteCursor<'a, T> + DupCursor<'a, T>;
 	
-			fn put<T: Table>(&self, key: &Key<T>, value: &Value<T>) -> Result<(), DBException>;
+			fn put<T: Table>(&self, key: &T::Key, value: &Value<T>) -> Result<(), DBException>;
 	
 			fn delete<T: Table>(
 				&self,
-				key: &Key<T>,
-				value: &Option<Value<T>>,
+				key: &T::Key,
+				value: &Option<T::Value>,
 			) -> Result<(), DBException>;
 	
 			fn clear<T: Table>(&self) -> Result<(), DBException>;

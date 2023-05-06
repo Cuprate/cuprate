@@ -6,7 +6,7 @@ use std::{fmt::Debug, io::Write};
 
 use monero::{Hash, PublicKey, util::ringct::Key, consensus::{Encodable, Decodable}};
 use crate::{types::{BlockMetadata, TransactionPruned, OutputMetadata, TxIndex, AltBlock, TxOutputIdx}, BINCODE_CONFIG};
-use super::{Encode, Error, Decode, compat::Compat};
+use super::{Encode, Error, Decode, compat::Compat, Buffer};
 
 /// A macro for idiomatic implementation of encode|decode for integer primitives
 macro_rules! impl_encode_decode_integer {
@@ -41,10 +41,10 @@ impl<A,B> Encode for (A,B) where A: Encode, B: Encode {
     type Output = Vec<u8>;
 
     fn encode(&self) -> Result<Self::Output, Error> {
-		let mut vec = Vec::new();
-		vec.write_all(self.0.encode()?.as_ref())?;
-		vec.write_all(self.1.encode()?.as_ref())?;
-        Ok(vec)
+		let mut buf = Self::Output::new();
+		buf.write_all(self.0.encode()?.as_ref())?;
+		buf.write_all(self.1.encode()?.as_ref())?;
+        Ok(buf)
     }
 }
 
@@ -136,7 +136,7 @@ impl Encode for BlockMetadata {
 	type Output = [u8; 88];
 
 	fn encode(&self) -> Result<Self::Output, Error> {
-        let mut buf = [0u8; 88];
+        let mut buf = Self::Output::new();
 		buf[0..8].copy_from_slice(&self.timestamp.to_le_bytes());
 		buf[8..16].copy_from_slice(&self.total_coins_generated.to_le_bytes());
 		buf[16..24].copy_from_slice(&self.weight.to_le_bytes());
@@ -206,7 +206,7 @@ impl Encode for TxIndex {
 	type Output = [u8; 24];
 
 	fn encode(&self) -> Result<Self::Output, Error> {
-        let mut buf = [0u8; 24];
+        let mut buf = Self::Output::new();
 		buf[0..8].copy_from_slice(&self.tx_id.to_le_bytes());
 		buf[8..16].copy_from_slice(&self.unlock_time.to_le_bytes());
 		buf[16..24].copy_from_slice(&self.height.to_le_bytes());
@@ -251,7 +251,7 @@ impl Encode for OutputMetadata {
 	type Output = [u8; 120];
 
 	fn encode(&self) -> Result<Self::Output, Error> {
-		let mut buf = [0u8; 120];
+		let mut buf = Self::Output::new();
 		buf[0..32].copy_from_slice(&self.tx_hash.0.0);
 		buf[32..40].copy_from_slice(&self.local_index.to_le_bytes());
 		if let Some(pubkey) = &self.pubkey {

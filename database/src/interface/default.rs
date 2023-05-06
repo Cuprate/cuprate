@@ -3,7 +3,7 @@
 use monero::{Hash, BlockHeader, Block};
 use monero::blockdata::transaction::KeyImage;
 
-use crate::{encoding::{Key, Value, SubKey}, database::{Interface, Database, transaction::Transaction}, error::DBException, interface::{ReadInterface, WriteInterface}, table, types::{AltBlock, TransactionPruned}};
+use crate::{encoding::Value, database::{Interface, Database, transaction::Transaction}, error::DBException, interface::{ReadInterface, WriteInterface}, table, types::{AltBlock, TransactionPruned}};
 
 impl<'thread, D: Database<'thread>> ReadInterface<'thread> for Interface<'thread, D> {
 

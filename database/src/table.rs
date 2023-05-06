@@ -7,6 +7,9 @@
 use monero::{Hash, Block, blockdata::transaction::KeyImage};
 use crate::{types::{BlockMetadata, TxOutputIdx, AltBlock, TxIndex, TransactionPruned, OutputMetadata}, encoding::{compat::Compat, Encode, Decode}};
 
+pub trait Key: Encode + Decode + Ord + Eq {}
+pub trait Value: Encode + Decode {}
+
 /// A trait implementing a table interaction for the database. It is implemented to an empty struct to specify the name and table's associated types. These associated 
 /// types are used to simplify deserialization process and enforce correct usage.
 pub trait Table: Send + Sync + 'static + Clone {

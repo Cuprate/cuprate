@@ -5,17 +5,28 @@
 //! to the cuprate-common crate.
 
 use std::{fmt::Debug, array::TryFromSliceError, convert::Infallible, io};
-use crate::table::{DupTable, Table};
+use crate::table::Table;
 
 pub mod compat;
+pub mod buffer;
 pub mod implementation;
+
+/// The `Buffer` trait permit us, with generics, to easily generate a new buffer in which an
+/// encoded type can be drain into. It is often used in database implementation to separate subkey from value
+pub trait Buffer: AsRef<[u8]> + AsMut<[u8]> + Send + Sync + Sized {
+
+	fn new() -> Self;
+}
 
 /// The `Encode` trait permit the use of manual encoding implementation for database types
 /// or bincode2 implementation otherwise.
 pub trait Encode: Send + Sync + Sized + Debug {
 
 	/// The encoded output
-	type Output: AsRef<[u8]> + Send + Sync;
+	#[cfg(not(feature = "mdbx"))]
+	type Output: Buffer;
+	#[cfg(feature = "mdbx")]
+	type Output: Buffer + for<'a> libmdbx::Decodable<'a>;
 
 	/// Provide an encoded output from a reference
 	fn encode(&self) -> Result<Self::Output, Error>;
@@ -27,35 +38,6 @@ pub trait Decode: Send + Sync + Sized + Debug {
 
 	/// Decode the type out of a slice
 	fn decode<S: AsRef<[u8]> + Send + Sync>(src: &S) -> Result<Self, Error>;
-}
-
-/// An enum used to either give the Key type of a table or its already serialized to data to the database
-/// to proceed. It's size is the same as the generic used, since the serialized data are smaller
-/// than the type in memory.
-pub enum Key<T: Table> {
-	// The type
-	Type(<T>::Key),
-	// The encoded type
-	Raw(<<T>::Key as Encode>::Output),
-}
-
-impl<'a, T: Table> Key<T> {
-
-	fn as_type(&'a self) -> &'a <T as Table>::Key {
-		if let Key::Type(key) = self {
-			key
-		} else {
-			unreachable!("as_type must NEVER be used on a Raw type");
-		}
-	}
-
-	fn as_raw(&'a self) -> &'a <<T as Table>::Key as Encode>::Output {
-        if let Key::Raw(raw) = self {
-			raw
-		} else {
-			unreachable!("as_raw must NEVER be used on a Type type");
-		}
-    }
 }
 
 /// An enum used to either give the Value type of a table or its already serialized to data to the database
@@ -80,35 +62,6 @@ impl<'a, T: Table> Value<T> {
 
 	fn as_raw(&'a self) -> &'a <<T as Table>::Value as Encode>::Output {
         if let Value::Raw(raw) = self {
-			raw
-		} else {
-			unreachable!("as_raw must NEVER be used on a Type type");
-		}
-    }
-}
-
-/// An enum used to either give the SubKey type of a duptable or its already serialized to data to the database
-/// to proceed. It's size is the same as the generic used, since the serialized data are smaller
-/// than the type in memory.
-pub enum SubKey<T: DupTable> {
-	// The type
-	Type(<T>::SubKey),
-	// The encoded type
-	Raw(<<T>::SubKey as Encode>::Output),
-}
-
-impl<'a, T: DupTable> SubKey<T> {
-
-	fn as_type(&'a self) -> &'a <T as DupTable>::SubKey {
-		if let SubKey::Type(subkey) = self {
-			subkey
-		} else {
-			unreachable!("as_type must NEVER be used on a Raw type");
-		}
-	}
-
-	fn as_raw(&'a self) -> &'a <<T as DupTable>::SubKey as Encode>::Output {
-        if let SubKey::Raw(raw) = self {
 			raw
 		} else {
 			unreachable!("as_raw must NEVER be used on a Type type");
