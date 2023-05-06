@@ -68,7 +68,7 @@ pub mod error {
 	#[derive(Error, Debug)]
 	pub enum DBException {
 	
-		// Database errors :
+		// Database specific errors :
 	
 		#[cfg(feature = "mdbx")]
 		#[error("MDBX failed and returned an error: {0}")]
@@ -133,17 +133,22 @@ pub mod database {
 
     /// `Interface` is a struct containing a shared pointer to the database and transaction's to be used for the implemented method of Interface.
     pub struct Interface<'a, D: Database<'a>> {
+		/// The shared pointer to the database
         pub db: Arc<D>,
+		/// A write transaction
         pub tx: Option<<D as Database<'a>>::TXMut>,
     }
 
     /// Convenient implementations for database.
     impl<'thread, D: Database<'thread>> Interface<'thread, D> {
-        fn from_db(db: Arc<D>) -> Result<Self, DBException> {
+
+		/// Create an interface from the database
+        fn from(db: Arc<D>) -> Result<Self, DBException> {
             Ok(Self { db, tx: None })
         }
 
-        fn open(&'thread mut self) -> Result<(), DBException> {
+		/// Try to open a write transaction for the interface
+        fn try_open(&'thread mut self) -> Result<(), DBException> {
             let tx = self.db.tx_mut().map_err(Into::into)?;
             self.tx = Some(tx);
             Ok(())
@@ -168,7 +173,7 @@ pub mod database {
 		//! these functions or equivalent logic exist for it.
 		//! 
 		//! A lot of these functions use a constant boolean B. When B is true the database must return
-		//! directly the encoded blob of the database value. The decoded type otherwise
+		//! directly the encoded blob from the database. The decoded type otherwise.
 	
 		use crate::{
 			error::DBException,
@@ -216,14 +221,14 @@ pub mod database {
 			fn prev_dup<const B: bool>(&mut self) -> Result<Option<FullPair<T>>, DBException>;
 		}
 	
-		// Abstraction of a read-write cursor, for simple tables. WriteCursor inherit Cursor methods.
+		/// Abstraction of a read-write cursor, for simple tables. WriteCursor inherit Cursor methods.
 		pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
 			fn put_cursor(&mut self, key: &T::Key, value: &Value<T>) -> Result<(), DBException>;
 	
 			fn del(&mut self) -> Result<(), DBException>;
 		}
 	
-		// Abstraction of a read-write cursor with support for duplicated tables. DupWriteCursor inherit DupCursor and WriteCursor methods.
+		/// Abstraction of a read-write cursor with support for duplicated tables. DupWriteCursor inherit DupCursor and WriteCursor methods.
 		pub trait DupWriteCursor<'t, T: DupTable>: WriteCursor<'t, T> {
 			fn put_cursor_dup(
 				&mut self,
@@ -236,7 +241,7 @@ pub mod database {
 			fn del_nodup(&mut self) -> Result<(), DBException>;
 		}
 	
-		// Abstraction of a read-only transaction.
+		/// Abstraction of a read-only transaction.
 		pub trait Transaction<'a>: Send + Sync {
 			type Cursor<T: Table>: Cursor<'a, T>;
 			type DupCursor<T: DupTable>: DupCursor<'a, T> + Cursor<'a, T>;
@@ -252,7 +257,7 @@ pub mod database {
 			fn num_entries<T: Table>(&self) -> Result<usize, DBException>;
 		}
 	
-		// Abstraction of a read-write transaction. WriteTransaction inherits Transaction methods.
+		/// Abstraction of a read-write transaction. WriteTransaction inherits Transaction methods.
 		pub trait WriteTransaction<'a>: Transaction<'a> {
 			type WriteCursor<T: Table>: WriteCursor<'a, T>;
 			type DupWriteCursor<T: DupTable>: DupWriteCursor<'a, T> + DupCursor<'a, T>;

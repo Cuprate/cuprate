@@ -3,6 +3,7 @@
 use monero::{Hash, BlockHeader, Block};
 use monero::blockdata::transaction::KeyImage;
 
+use crate::database::transaction::DupCursor;
 use crate::{encoding::Value, database::{Interface, Database, transaction::Transaction}, error::DBException, interface::{ReadInterface, WriteInterface}, table, types::{AltBlock, TransactionPruned}};
 
 impl<'thread, D: Database<'thread>> ReadInterface<'thread> for Interface<'thread, D> {
@@ -10,13 +11,18 @@ impl<'thread, D: Database<'thread>> ReadInterface<'thread> for Interface<'thread
 	// --------------------------------| Blockchain |--------------------------------
 
     fn height(&'thread self) -> Result<u64, DBException> {
-        todo!()
+        let ro_tx = self.db.tx().map_err(Into::into)?;
+		
+		ro_tx.num_entries::<table::blockhash>().map(|n| n as u64)
     }
 
 	// ----------------------------------| Blocks |---------------------------------
 
     fn block_exists(&'thread self, hash: &Hash) -> Result<bool, DBException> {
-		todo!()
+		let ro_tx = self.db.tx().map_err(Into::into)?;
+
+        let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
+        Ok(cursor_blockhash.get_dup::<true>(&(), hash)?.is_some())
     }
 
     fn get_block_hash(&'thread self, height: &u64) -> Result<Hash, DBException> {
@@ -47,11 +53,11 @@ impl<'thread, D: Database<'thread>> ReadInterface<'thread> for Interface<'thread
         todo!()
     }
 
-    fn get_block(&'thread self, hash: &Hash) -> Result<Block, DBException> {
+    fn get_block<const B: bool>(&'thread self, hash: &Hash) -> Result<Block, DBException> {
         todo!()
     }
 
-    fn get_block_from_height(&'thread self, height: &u64) -> Result<Block, DBException> {
+    fn get_block_from_height<const B: bool>(&'thread self, height: &u64) -> Result<Block, DBException> {
         todo!()
     }
 
@@ -85,7 +91,7 @@ impl<'thread, D: Database<'thread>> ReadInterface<'thread> for Interface<'thread
         todo!()
     }
 
-    fn get_tx(&'thread self, hash: &Hash) -> Result<monero::Transaction, DBException> {
+    fn get_tx<const B: bool>(&'thread self, hash: &Hash) -> Result<monero::Transaction, DBException> {
         todo!()
     }
 

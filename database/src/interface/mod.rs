@@ -39,10 +39,10 @@ pub trait ReadInterface<'thread> {
 	fn get_block_cumulative_rct_outputs(&'thread self, height: &u64) -> Result<u64, DBException>;
 
 	/// `get_block` fetch the requested block (with its given hash)
-	fn get_block(&'thread self, hash: &Hash) -> Result<Block, DBException>;
+	fn get_block<const B: bool>(&'thread self, hash: &Hash) -> Result<Block, DBException>;
 
 	/// `get_block_from_height` fetch the requested block (with its given height)
-	fn get_block_from_height(&'thread self, height: &u64) -> Result<Block, DBException>;
+	fn get_block_from_height<const B: bool>(&'thread self, height: &u64) -> Result<Block, DBException>;
 
 	/// `get_block_header` fetch the requested block's header (with its given hash)
 	fn get_block_header(&'thread self, hash: &Hash) -> Result<BlockHeader, DBException>;
@@ -68,7 +68,7 @@ pub trait ReadInterface<'thread> {
 	fn get_tx_unlock_time(&'thread self, hash: &Hash) -> Result<u64, DBException>;
 
 	/// `get_tx` fetch requested transaction (with its given hash)
-	fn get_tx(&'thread self, hash: &Hash) -> Result<monero::Transaction, DBException>;
+	fn get_tx<const B: bool>(&'thread self, hash: &Hash) -> Result<monero::Transaction, DBException>;
 
 	/// `get_tx_list` fetch the requested transactions (with there given hashes)
 	fn get_tx_list(&'thread self, hash_list: &[Hash]) -> Result<Vec<monero::Transaction>, DBException>;

@@ -11,8 +11,8 @@ pub mod compat;
 pub mod buffer;
 pub mod implementation;
 
-/// The `Buffer` trait permit us, with generics, to easily generate a new buffer in which an
-/// encoded type can be drain into. It is often used in database implementation to separate subkey from value
+/// The `Buffer` trait permit, with generics, to easily generate a new buffer in which an
+/// encoded type can be copied into. It is often used in database implementation to separate subkey from value
 pub trait Buffer: AsRef<[u8]> + AsMut<[u8]> + Send + Sync + Sized {
 
 	fn new() -> Self;
@@ -32,7 +32,7 @@ pub trait Encode: Send + Sync + Sized + Debug {
 	fn encode(&self) -> Result<Self::Output, Error>;
 }
 
-/// The `Encode` trait permit the use of manual decoding implementation for database types
+/// The `Decode` trait permit the use of manual decoding implementation for database types
 /// or bincode2 implementation otherwise.
 pub trait Decode: Send + Sync + Sized + Debug {
 
@@ -50,9 +50,13 @@ pub enum Value<T: Table> {
 	Raw(<<T>::Value as Encode>::Output),
 }
 
+/// Convenient implementation for Interface used. these functions let us get the inner type of the enum.
+/// SAFETY: This is relatively safe because when using database methods you now, by setting const B: bool, which 
+/// variant of Value you should receive. But be careful on your code, or it might crash.
 impl<'a, T: Table> Value<T> {
 
 	fn as_type(&'a self) -> &'a <T as Table>::Value {
+		assert!(matches!(self, Value::Type(_))); // Hint for the compiler to check the boundaries
 		if let Value::Type(value) = self {
 			value
 		} else {
@@ -61,6 +65,7 @@ impl<'a, T: Table> Value<T> {
 	}
 
 	fn as_raw(&'a self) -> &'a <<T as Table>::Value as Encode>::Output {
+		assert!(matches!(self, Value::Raw(_))); // Hint for the compiler to check the boundaries
         if let Value::Raw(raw) = self {
 			raw
 		} else {
