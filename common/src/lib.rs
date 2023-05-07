@@ -1,6 +1,7 @@
 pub mod hardforks;
 pub mod network;
 pub mod pruning;
+pub mod shutdown;
 
 pub use hardforks::HardForks;
 pub use network::Network;
