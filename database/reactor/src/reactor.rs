@@ -1,7 +1,7 @@
 use std::{thread::JoinHandle, path::PathBuf, sync::{RwLock, Arc}};
 
 use futures::{channel::{oneshot, mpsc::{self, Receiver}}, Future, FutureExt};
-use cuprate_database::{database::{Database, Interface}, error::DB_FAILURES};
+use cuprate_database::{database::{Database, Interface}, error::DBException};
 use libmdbx::{NoWriteMap, WriteMap};
 use tracing::{span, Level, event, Span};
 use crate::{message::{DatabaseRequest, DatabaseResponse, DatabaseClientRequest}, DatabaseClient, thread::{WriteThread, ReadThread}};
@@ -15,8 +15,6 @@ pub struct DatabaseReactor {
 	write_thread: Option<WriteThread>,
 	/// Vector of ReadThread
 	read_threads: Vec<ReadThread>,
-	/// The (theorical) on-going memory changes in the database
-	mm_size: u64,
 	/// The number of write being performed in the database
 	write_count: u64,
 }

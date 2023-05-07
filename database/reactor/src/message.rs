@@ -21,7 +21,6 @@ pub enum DatabaseRequest {
     Chain,
     BlockHeight(Hash),
     BlockKnown(Hash),
-	Shutdown,
 }
 
 /// `DatabaseResponse` is an enum listing all the response sent from the reactor, to answer their corresponding Request.
@@ -32,7 +31,6 @@ pub enum DatabaseResponse {
     Chain(Vec<Hash>),
     BlockHeight(Option<u64>),
     BlockKnown(BlockKnown),
-	Shutdowned
 }
 
 // Temporary

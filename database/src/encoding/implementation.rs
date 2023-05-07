@@ -5,8 +5,8 @@
 use std::{fmt::Debug, io::Write};
 
 use monero::{Hash, PublicKey, util::ringct::Key, consensus::{Encodable, Decodable}};
-use crate::{types::{BlockMetadata, TransactionPruned, OutputMetadata, TxIndex, AltBlock, TxOutputIdx}, BINCODE_CONFIG};
-use super::{Encode, Error, Decode, compat::Compat, Buffer};
+use crate::{types::{BlockMetadata, TransactionPruned, OutputMetadata, TxIndex, AltBlock, TxOutputIdx}};
+use super::{Encode, Error, Decode, compat::Compat, Buffer, BINCODE_CONFIG};
 
 /// A macro for idiomatic implementation of encode|decode for integer primitives
 macro_rules! impl_encode_decode_integer {
@@ -141,7 +141,7 @@ impl Encode for BlockMetadata {
 		buf[8..16].copy_from_slice(&self.total_coins_generated.to_le_bytes());
 		buf[16..24].copy_from_slice(&self.weight.to_le_bytes());
 		buf[24..40].copy_from_slice(&self.cumulative_difficulty.to_le_bytes());
-		buf[40..72].copy_from_slice(&self.block_hash.0.0); // < When Hash will be implemented pls remove the Compat this
+		buf[40..72].copy_from_slice(&self.block_hash.0);
 		buf[72..80].copy_from_slice(&self.cum_rct.to_le_bytes());
 		buf[80..88].copy_from_slice(&self.long_term_block_weight.to_le_bytes());
 		Ok(buf)
@@ -159,7 +159,7 @@ impl Decode for BlockMetadata {
 				total_coins_generated: u64::from_le_bytes(src[8..16].try_into().map_err(Error::TryInto)?),
 				weight: u64::from_le_bytes(src[16..24].try_into().map_err(Error::TryInto)?),
 				cumulative_difficulty: u128::from_le_bytes(src[24..40].try_into().map_err(Error::TryInto)?),
-				block_hash: Compat(Hash::from_slice(src[40..72].try_into().map_err(Error::Infallible)?)), // < When Hash will be implemented pls remove the Compat this
+				block_hash: Hash::from_slice(src[40..72].try_into().map_err(Error::Infallible)?), // < When Hash will be implemented pls remove the Compat this
 				cum_rct: u64::from_le_bytes(src[72..80].try_into().map_err(Error::TryInto)?),
 				long_term_block_weight: u64::from_le_bytes(src[80..88].try_into().map_err(Error::TryInto)?),
 			}
@@ -395,11 +395,11 @@ mod tests {
 			total_coins_generated: 17, 
 			weight: 4300, 
 			cumulative_difficulty: 965904, 
-			block_hash: Compat(Hash([
+			block_hash: Hash([
 				0x5c, 0x5e, 0x69, 0xd8, 0xfc, 0x0d, 0x22, 0x6a, 0x60, 0x91, 0x47, 0xda, 0x98, 0x36,
 				0x06, 0x00, 0xf4, 0xea, 0x49, 0xcc, 0x49, 0x45, 0x2c, 0x5e, 0xf8, 0xba, 0x20, 0xf5,
 				0x93, 0xd4, 0x80, 0x7d,
-			])), 
+			]), 
 			cum_rct: 7, 
 			long_term_block_weight: 30 
 		};

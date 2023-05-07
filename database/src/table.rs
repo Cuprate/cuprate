@@ -26,6 +26,7 @@ pub trait Table: Send + Sync + 'static + Clone {
 pub trait DupTable: Table {
 
 	// Subkey of the table (prefix of the data)
+	// Warning: it should be a type with constant-size
 	type SubKey: Encode + Decode + Ord;
 }
 

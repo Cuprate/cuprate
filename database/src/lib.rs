@@ -14,7 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 //! The cuprate-db crate implement (as its name suggests) the relations between the blockchain/txpool objects and their databases.
-//! `lib.rs` contains all the generics, trait and specification for interfaces between blockchain and a backend-agnostic database
+//! `lib.rs` contains all the generics, trait and specification for interfaces between the reactor and a database
 //! Every other files in this folder are implementation of these traits/methods to real storage engine.
 //!
 //! At the moment, the only storage engine available is MDBX.
@@ -40,10 +40,7 @@ pub mod types;
 
 const DEFAULT_BLOCKCHAIN_DATABASE_DIRECTORY: &str = "blockchain";
 const DEFAULT_TXPOOL_DATABASE_DIRECTORY: &str = "txpool_mem";
-const BINCODE_CONFIG: bincode::config::Configuration<
-    bincode::config::LittleEndian,
-    bincode::config::Fixint,
-> = bincode::config::standard().with_fixed_int_encoding();
+
 
 // ------------------------------------------|      Errors      |------------------------------------------
 

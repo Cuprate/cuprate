@@ -38,6 +38,12 @@ pub trait ReadInterface<'thread> {
 	/// `get_block_cumulative_rct_outputs` fetch the amount of RingCT outputs at the given block's height
 	fn get_block_cumulative_rct_outputs(&'thread self, height: &u64) -> Result<u64, DBException>;
 
+	/// `get_block_cumulative_difficulty` fetch the requested block's cumulative difficulty (with its given height)
+	fn get_block_cumulative_difficulty(&'thread self, height: &u64) -> Result<u128, DBException>;
+
+	/// `get_block_difficulty` fetch the requested block's cumulative difficulty (with its given height)
+	fn get_block_difficulty(&'thread self, height: &u64) -> Result<u128, DBException>;
+
 	/// `get_block` fetch the requested block (with its given hash)
 	fn get_block<const B: bool>(&'thread self, hash: &Hash) -> Result<Block, DBException>;
 

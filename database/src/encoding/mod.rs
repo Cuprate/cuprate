@@ -7,6 +7,11 @@
 use std::{fmt::Debug, array::TryFromSliceError, convert::Infallible, io};
 use crate::table::Table;
 
+const BINCODE_CONFIG: bincode::config::Configuration<
+    bincode::config::LittleEndian,
+    bincode::config::Fixint,
+> = bincode::config::standard().with_fixed_int_encoding();
+
 pub mod compat;
 pub mod buffer;
 pub mod implementation;
@@ -55,7 +60,7 @@ pub enum Value<T: Table> {
 /// variant of Value you should receive. But be careful on your code, or it might crash.
 impl<'a, T: Table> Value<T> {
 
-	fn as_type(&'a self) -> &'a <T as Table>::Value {
+	pub fn as_type(&'a self) -> &'a <T as Table>::Value {
 		assert!(matches!(self, Value::Type(_))); // Hint for the compiler to check the boundaries
 		if let Value::Type(value) = self {
 			value
@@ -64,7 +69,7 @@ impl<'a, T: Table> Value<T> {
 		}
 	}
 
-	fn as_raw(&'a self) -> &'a <<T as Table>::Value as Encode>::Output {
+	pub fn as_raw(&'a self) -> &'a <<T as Table>::Value as Encode>::Output {
 		assert!(matches!(self, Value::Raw(_))); // Hint for the compiler to check the boundaries
         if let Value::Raw(raw) = self {
 			raw

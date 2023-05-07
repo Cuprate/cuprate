@@ -15,7 +15,7 @@ use monero::{
 
 // ---- BLOCKS ----
 
-#[derive(Clone, Debug, Encode, Decode, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 /// [`BlockMetadata`] is a struct containing metadata of a block such as  the block's `timestamp`, the `total_coins_generated` at this height, its `weight`, its difficulty (`diff_lo`)
 /// and cumulative difficulty (`diff_hi`), the `block_hash`, the cumulative RingCT (`cum_rct`) and its long term weight (`long_term_block_weight`). The monerod's struct equivalent is `mdb_block_info_4`
 /// This struct is used in [`crate::table::blockmetadata`] table.
@@ -29,7 +29,7 @@ pub struct BlockMetadata {
     /// Block's cumulative_difficulty. In monerod this field would have been split into two `u64`, since cpp don't support *natively* `uint128_t`/`u128`
     pub cumulative_difficulty: u128,
     /// Block's hash
-    pub block_hash: Compat<Hash>,
+    pub block_hash: Hash,
     /// Cumulative number of RingCT outputs up to this block
     pub cum_rct: u64,
     /// Block's long term weight
