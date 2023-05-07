@@ -49,6 +49,12 @@ impl From<net::SocketAddrV4> for IPv4Address {
     }
 }
 
+impl Into<net::SocketAddrV4> for IPv4Address {
+    fn into(self) -> net::SocketAddrV4 {
+        net::SocketAddrV4::new(self.m_ip.into(), self.m_port)
+    }
+}
+
 impl IPv4Address {
     fn from_value<E: de::Error>(mut value: Value) -> Result<Self, E> {
         let m_ip = utils::get_internal_val_from_map(&mut value, "m_ip", Value::get_u32, "u32")?;
@@ -77,6 +83,12 @@ impl From<net::SocketAddrV6> for IPv6Address {
             addr: value.ip().octets(),
             m_port: value.port(),
         }
+    }
+}
+
+impl Into<net::SocketAddrV6> for IPv6Address {
+    fn into(self) -> net::SocketAddrV6 {
+        net::SocketAddrV6::new(self.addr.into(), self.m_port, 0, 0)
     }
 }
 
@@ -161,7 +173,10 @@ impl From<net::SocketAddr> for NetworkAddress {
 
 impl Into<net::SocketAddr> for NetworkAddress {
     fn into(self) -> net::SocketAddr {
-        todo!()
+        match self {
+            NetworkAddress::IPv4(ipv4) => net::SocketAddr::V4(ipv4.into()),
+            NetworkAddress::IPv6(ipv6) => net::SocketAddr::V6(ipv6.into()),
+        }
     }
 }
 

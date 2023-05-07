@@ -93,8 +93,8 @@ struct AddressBookClient {
 }
 
 impl tower::Service<AddressBookRequest> for AddressBookClient {
-    type Error = BoxError;
     type Response = AddressBookResponse;
+    type Error = BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 

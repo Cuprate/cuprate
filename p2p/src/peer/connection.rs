@@ -10,7 +10,8 @@ use monero_wire::messages::CoreSyncData;
 use monero_wire::{levin, Message, NetworkAddress};
 use tower::{BoxError, Service, ServiceExt};
 
-use crate::connection_counter::{self, ConnectionTracker};
+use crate::connection_tracker::{self, ConnectionTracker};
+use crate::peer::handshaker::ConnectionAddr;
 use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 
 use super::PeerError;
@@ -38,14 +39,13 @@ impl State {
 }
 
 pub struct Connection<Svc, Aw, Ar> {
-    address: NetworkAddress,
+    address: ConnectionAddr,
     state: State,
     sink: MessageSink<Aw, Message>,
     stream: Fuse<MessageStream<Ar, Message>>,
     client_rx: mpsc::Receiver<ClientRequest>,
     /// A field shared between the [`Client`](super::Client) and the connection
-    /// used so we know what peers to route certain requests to. This stores
-    /// the peers height and cumulative difficulty.
+    /// used so we know what peers to route certain requests to.
     peer_height: std::sync::Arc<AtomicU64>,
     /// A connection tracker that reduces the open connection count when dropped.
     /// Used to limit the number of open connections in Zebra.
@@ -56,7 +56,7 @@ pub struct Connection<Svc, Aw, Ar> {
     ///
     /// If this connection tracker or `Connection`s are leaked,
     /// the number of active connections will appear higher than it actually is.
-    /// If enough connections leak, Zebra will stop making new connections.
+    /// If enough connections leak, Cuprate will stop making new connections.
     #[allow(dead_code)]
     connection_tracker: ConnectionTracker,
     svc: Svc,
@@ -69,7 +69,7 @@ where
     Ar: AsyncRead + std::marker::Unpin,
 {
     pub fn new(
-        address: NetworkAddress,
+        address: ConnectionAddr,
         sink: MessageSink<Aw, Message>,
         stream: MessageStream<Ar, Message>,
         peer_height: std::sync::Arc<AtomicU64>,

@@ -5,6 +5,9 @@ use monero_wire::messages::common::PeerSupportFlags;
 pub const CUPRATE_SUPPORT_FLAGS: PeerSupportFlags =
     PeerSupportFlags::get_support_flag_fluffy_blocks();
 
+pub const CUPRATE_MINIMUM_SUPPORT_FLAGS: PeerSupportFlags =
+    PeerSupportFlags::get_support_flag_fluffy_blocks();
+
 pub const DEFAULT_TARGET_OUT_PEERS: usize = 20;
 
 pub const DEFAULT_LOAD_OUT_PEERS_MULTIPLIER: usize = 3;

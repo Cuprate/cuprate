@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::ops::Div;
 use std::{
     collections::{HashMap, HashSet},
     convert,
@@ -7,6 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use futures::future::BoxFuture;
 use futures::TryFutureExt;
 use futures::{
     channel::{mpsc, oneshot},
@@ -75,19 +77,6 @@ where
     /// or send requests to Zebra.
     ready_services: HashMap<D::Key, D::Service>,
 
-    // Request Routing
-    //
-    /// A preselected ready service.
-    ///
-    /// # Correctness
-    ///
-    /// If this is `Some(addr)`, `addr` must be a key for a peer in `ready_services`.
-    /// If that peer is removed from `ready_services`, we must set the preselected peer to `None`.
-    ///
-    /// This is handled by [`PeerSet::take_ready_service`] and
-    /// [`PeerSet::disconnect_from_outdated_peers`].
-    preselected_p2c_peer: Option<D::Key>,
-
     // Peer Tracking: Busy Peers
     //
     /// Connected peers that are handling a Zebra request,
@@ -144,8 +133,6 @@ where
 
             // Ready peers
             ready_services: HashMap::new(),
-            // Request Routing
-            preselected_p2c_peer: None,
 
             // Busy peers
             unready_services: FuturesUnordered::new(),
@@ -243,7 +230,6 @@ where
     /// - channels by closing the channel
     fn shut_down_tasks_and_channels(&mut self) {
         // Drop services and cancel their background tasks.
-        self.preselected_p2c_peer = None;
         self.ready_services = HashMap::new();
 
         for (_peer_key, handle) in self.cancel_handles.drain() {
@@ -350,13 +336,38 @@ where
         Ok(())
     }
 
-    /// Takes a ready service by key, invalidating `preselected_p2c_peer` if needed.
+    pub fn poll_ready(&mut self, cx: &mut Context<'_>) {
+        let mut ready_services = HashMap::with_capacity(self.ready_services.len());
+        for (key, mut svc) in self.ready_services.drain() {
+            match svc.poll_ready(cx) {
+                Poll::Pending => {
+                    self.push_unready(key, svc);
+                }
+                Poll::Ready(Ok(())) => {
+                    ready_services.insert(key, svc);
+                }
+                Poll::Ready(Err(e)) => {
+                    tracing::trace!("Peer poll_ready returned error: {}", e);
+                    // peer svc will get dropped at the start of next loop
+                }
+            }
+        }
+        self.ready_services = ready_services;
+    }
+
+    pub fn proportion_ready(&self) -> f64 {
+        let total_services = self.ready_services.len() + self.unready_services.len();
+
+        if total_services == 0 {
+            return 1.0;
+        }
+
+        self.ready_services.len() as f64 / total_services as f64
+    }
+
+    /// Takes a ready service by key.
     pub fn take_ready_service(&mut self, key: &D::Key) -> Option<D::Service> {
         if let Some(svc) = self.ready_services.remove(key) {
-            if Some(*key) == self.preselected_p2c_peer {
-                self.preselected_p2c_peer = None;
-            }
-
             assert!(
                 !self.cancel_handles.contains_key(key),
                 "cancel handles are only used for unready service work"
@@ -389,7 +400,7 @@ where
     ///
     /// If the service is for a connection to an outdated peer, the request is cancelled and the
     /// service is dropped.
-    fn push_unready(&mut self, key: D::Key, svc: D::Service) {
+    pub fn push_unready(&mut self, key: D::Key, svc: D::Service) {
         let (tx, rx) = oneshot::channel();
 
         self.unready_services.push(UnreadyService {
@@ -485,6 +496,15 @@ where
         }
     }
 
+    pub fn all_ready(&mut self) -> &mut HashMap<NetworkAddress, LoadTrackedClient> {
+        &mut self.ready_services
+    }
+
+    pub fn push_all_unready(&mut self) {
+        for (key, svc) in self.ready_services.drain() {
+            self.push_unready(key, svc)
+        }
+    }
     pub fn demand_more_peers(&mut self) {
         let _ = self.demand_signal.try_send(MorePeers);
     }

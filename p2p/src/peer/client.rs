@@ -8,6 +8,7 @@ use futures::{
 };
 use tower::BoxError;
 
+use crate::peer::handshaker::ConnectionAddr;
 use cuprate_common::PruningSeed;
 use monero_wire::messages::PeerID;
 use monero_wire::{messages::common::PeerSupportFlags, NetworkAddress};
@@ -16,7 +17,7 @@ use super::{connection::ClientRequest, PeerError};
 use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 
 pub struct ConnectionInfo {
-    pub addr: NetworkAddress,
+    pub addr: ConnectionAddr,
     pub support_flags: PeerSupportFlags,
     pub pruning_seed: PruningSeed,
     pub peer_height: std::sync::Arc<AtomicU64>,

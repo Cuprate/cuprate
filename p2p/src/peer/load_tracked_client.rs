@@ -30,6 +30,10 @@ pub struct LoadTrackedClient {
 }
 
 impl LoadTrackedClient {
+    pub fn supports_fluffy_blocks(&self) -> bool {
+        self.connection_info.support_flags.supports_fluffy_blocks()
+    }
+
     pub fn current_height(&self) -> u64 {
         self.connection_info.peer_height.load(Ordering::SeqCst)
     }

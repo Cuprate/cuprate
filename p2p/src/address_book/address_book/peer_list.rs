@@ -1,7 +1,17 @@
 use std::collections::{HashMap, HashSet};
 
-use monero_wire::{messages::PeerListEntryBase, NetworkAddress};
+use cuprate_common::PruningSeed;
+use monero_wire::{messages::PeerListEntryBase, NetworkAddress, PeerID};
 use rand::Rng;
+
+pub struct PeerListEntry {
+    id: PeerID,
+    last_seen: chrono::NaiveDateTime,
+    /// The Pruning Seed
+    pruning_seed: PruningSeed,
+    /// The RPC port
+    rpc_port: u16,
+}
 
 pub struct PeerList {
     peers: HashMap<NetworkAddress, PeerListEntryBase>,

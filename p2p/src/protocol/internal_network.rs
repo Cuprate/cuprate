@@ -78,6 +78,25 @@ macro_rules! client_request_peer_response {
             }
         }
 
+        $(
+            impl From<$protocol_req> for InternalMessageRequest {
+                fn from(value: $protocol_req) -> Self {
+                    InternalMessageRequest::$protocol_req(value)
+                }
+            }
+        )+
+
+        /*
+        // Rust does not like this?
+        $(
+            impl From<<$admin_mes as AdminMessage>::Request> for InternalMessageRequest {
+                fn from(value: <$admin_mes as AdminMessage>::Request) -> Self {
+                    InternalMessageRequest::$admin_mes(value)
+                }
+            }
+        )+
+         */
+
         impl Into<Message> for InternalMessageRequest {
             fn into(self) -> Message {
                 match self {

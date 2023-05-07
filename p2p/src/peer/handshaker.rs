@@ -12,8 +12,10 @@ use tokio::time;
 use tower::{BoxError, Service, ServiceExt};
 
 use crate::address_book::{AddressBookError, AddressBookRequest, AddressBookResponse};
-use crate::connection_counter::ConnectionTracker;
-use crate::constants::{HANDSHAKE_TIMEOUT, P2P_MAX_PEERS_IN_HANDSHAKE};
+use crate::connection_tracker::ConnectionTracker;
+use crate::constants::{
+    CUPRATE_MINIMUM_SUPPORT_FLAGS, HANDSHAKE_TIMEOUT, P2P_MAX_PEERS_IN_HANDSHAKE,
+};
 use crate::protocol::{
     CoreSyncDataRequest, CoreSyncDataResponse, Direction, InternalMessageRequest,
     InternalMessageResponse,
@@ -27,7 +29,7 @@ use monero_wire::{
         common::PeerSupportFlags,
         BasicNodeData, CoreSyncData, MessageResponse, PeerID, PeerListEntryBase,
     },
-    Message, NetworkAddress,
+    Message, NetZone, NetworkAddress,
 };
 use tracing::Instrument;
 
@@ -58,11 +60,37 @@ pub enum HandShakeError {
     BucketError(#[from] BucketError),
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum ConnectionAddr {
+    OutBound { address: NetworkAddress },
+    InBoundDirect { address: NetworkAddress },
+    InBoundProxy { net_zone: NetZone },
+}
+
+impl ConnectionAddr {
+    pub fn get_network_address(&self) -> Option<NetworkAddress> {
+        match self {
+            ConnectionAddr::OutBound { address } | ConnectionAddr::InBoundDirect { address } => {
+                Some(*address)
+            }
+            _ => None,
+        }
+    }
+    pub fn get_zone(&self) -> NetZone {
+        match self {
+            ConnectionAddr::OutBound { address } | ConnectionAddr::InBoundDirect { address } => {
+                address.get_zone()
+            }
+            ConnectionAddr::InBoundProxy { net_zone } => *net_zone,
+        }
+    }
+}
+
 pub struct DoHandshakeRequest<W, R> {
     pub read: R,
     pub write: W,
     pub direction: Direction,
-    pub addr: NetworkAddress,
+    pub addr: ConnectionAddr,
     pub connection_tracker: ConnectionTracker,
 }
 
@@ -119,8 +147,8 @@ where
     W: AsyncWrite + std::marker::Unpin + Send + 'static,
     R: AsyncRead + std::marker::Unpin + Send + 'static,
 {
-    type Error = BoxError;
     type Response = Client;
+    type Error = BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
@@ -191,7 +219,7 @@ enum HandshakeState {
 
 impl HandshakeState {
     pub fn is_complete(&self) -> bool {
-        matches!(self, Complete(_))
+        matches!(self, Self::Complete(..))
     }
 
     pub fn peer_data(self) -> Option<(BasicNodeData, CoreSyncData)> {
@@ -206,7 +234,7 @@ struct HandshakeSM<Svc, CoreSync, AdrBook, W, R> {
     peer_sink: MessageSink<W, Message>,
     peer_stream: MessageStream<R, Message>,
     direction: Direction,
-    addr: NetworkAddress,
+    addr: ConnectionAddr,
     network: Network,
 
     basic_node_data: BasicNodeData,
@@ -299,6 +327,14 @@ where
             return Err(HandShakeError::PeerIsOnADifferentNetwork.into());
         }
 
+        if !peer_node_data
+            .support_flags
+            .contains(&CUPRATE_MINIMUM_SUPPORT_FLAGS)
+        {
+            tracing::debug!("Handshake failed: peer does not have minimum required support flags");
+            return Err(HandShakeError::PeerDoesNotHaveTheMinimumSupportFlags.into());
+        }
+
         if local_peerlist_new.len() > P2P_MAX_PEERS_IN_HANDSHAKE {
             tracing::debug!("Handshake failed: peer sent too many peers in response");
             return Err(HandShakeError::PeerSentTooManyPeers.into());
@@ -319,9 +355,9 @@ where
         if peer_node_data.support_flags.is_empty() {
             self.send_support_flag_req().await?;
             self.state =
-                HandshakeState::WaitingForSupportFlagResponse(peer_node_data, CoreSyncData);
+                HandshakeState::WaitingForSupportFlagResponse(peer_node_data, peer_core_sync);
         } else {
-            self.state = HandshakeState::Complete(peer_node_data, CoreSyncData);
+            self.state = HandshakeState::Complete(peer_node_data, peer_core_sync);
         }
 
         Ok(())
@@ -383,27 +419,38 @@ where
     }
 
     async fn do_handshake(mut self) -> Result<Client, BoxError> {
+        let mut peer_reachable = false;
         match self.direction {
-            Direction::Outbound => self.do_outbound_handshake().await?,
+            Direction::Outbound => {
+                self.do_outbound_handshake().await?;
+                peer_reachable = true
+            }
             Direction::Inbound => todo!(),
         }
 
-        let (server_tx, server_rx) = mpsc::channel(3);
+        let (server_tx, server_rx) = mpsc::channel(0);
 
         let (peer_node_data, coresync) = self
             .state
             .peer_data()
             .expect("We must be in state complete to be here");
 
-        let pruning_seed = PruningSeed::try_from(coresync.pruning_seed).map_err(Into::into)?;
+        if peer_reachable {
+            let network_addr = self
+                .addr
+                .get_network_address()
+                .expect("For peer to be reachable it needs an address");
+        }
 
-        let peer_height = AtomicU64::new(coresync.current_height).into();
+        let pruning_seed = PruningSeed::try_from(coresync.pruning_seed).map_err(|e| Box::new(e))?;
+
+        let peer_height: std::sync::Arc<AtomicU64> = AtomicU64::new(coresync.current_height).into();
 
         let connection_info = ConnectionInfo {
             addr: self.addr,
             support_flags: peer_node_data.support_flags,
             pruning_seed,
-            peer_height: peer_height_cumm_diff.clone(),
+            peer_height: peer_height.clone(),
             peer_id: peer_node_data.peer_id,
             rpc_port: peer_node_data.rpc_port,
             rpc_credits_per_hash: peer_node_data.rpc_credits_per_hash,

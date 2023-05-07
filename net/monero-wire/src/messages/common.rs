@@ -218,6 +218,10 @@ pub enum TransactionBlobs {
 }
 
 impl TransactionBlobs {
+    pub fn new_unpruned(txs: Vec<Vec<u8>>) -> Self {
+        TransactionBlobs::Normal(txs)
+    }
+
     pub fn len(&self) -> usize {
         match self {
             TransactionBlobs::Normal(txs) => txs.len(),
