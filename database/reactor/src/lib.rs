@@ -1,3 +1,4 @@
+//! # Database Reactor
 //! This crate contains the database reactor implementation.
 
 pub mod client;
@@ -5,22 +6,39 @@ pub mod message;
 pub mod reactor;
 pub mod thread;
 
-use std::{pin::Pin, thread::JoinHandle, path::{Path, PathBuf}, sync::Arc};
+use std::{pin::Pin, thread::JoinHandle, sync::Arc, time::Duration};
 
 use cuprate_database::error::DBException;
 use futures::{channel::{oneshot, mpsc}, Future, FutureExt};
 use message::{DatabaseRequest, DatabaseResponse, DatabaseClientRequest};
+use tower::Service;
 
 #[derive(Debug, Clone)]
+/// `Databaseclient` is a struct shared across the daemon to interact with database reactor, and therefore the underlying database
 pub struct DatabaseClient {
+	/// The channel used to send request to the reactor
 	db: mpsc::Sender<DatabaseClientRequest>,
+	/// A shared pointer to the reactor thread. Used to check if the reactor shutdowned properly.
 	reactor_thread: Arc<JoinHandle<()>>,
 }
 
 impl DatabaseClient {
 
-	pub fn stop_reactor() -> Result<(), ()> {
-		todo!()
+	/// This function send a message to stop the reactor, and check if it shutdowned properly.
+	pub async fn shutdown(mut self) -> Result<(), ()> {
+
+		if let DatabaseResponse::Shutdowned = self
+			.call(DatabaseRequest::Shutdown)
+			.await
+			.map_err(|err| {})?
+		{
+			// A small delay is placed here to let the OS thread shutdown. The upper response is sent just before the end of the thread.
+			std::thread::sleep(Duration::from_millis(200));
+			if self.reactor_thread.is_finished() {
+				return Ok(())
+			}
+		}
+		Err(())
 	}
 }
 
