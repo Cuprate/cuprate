@@ -61,7 +61,7 @@ impl From<u32> for PeerSupportFlags {
 }
 
 /// A PeerID, different from a `NetworkAddress`
-#[derive(Debug, Clone, Default, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Copy, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(transparent)]
 pub struct PeerID(pub u64);
 
@@ -160,13 +160,6 @@ pub struct PeerListEntryBase {
     /// The RPC credits per hash
     #[serde(default = "utils::zero_val")]
     pub rpc_credits_per_hash: u32,
-}
-
-impl std::hash::Hash for PeerListEntryBase {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // We only hash the adr so we can look this up in a HashSet.
-        self.adr.hash(state)
-    }
 }
 
 /// A pruned tx with the hash of the missing prunable data

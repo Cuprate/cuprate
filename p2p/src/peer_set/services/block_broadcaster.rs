@@ -1,3 +1,4 @@
+// TODO: Investigate tor/i2p block broadcasting; should we do it? randomise delay?
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -10,7 +11,7 @@ use tower::BoxError;
 
 use monero_wire::messages::common::{BlockCompleteEntry, TransactionBlobs};
 use monero_wire::messages::{NewBlock, NewFluffyBlock};
-use monero_wire::NetworkAddress;
+use monero_wire::{NetworkAddress, PeerID};
 
 use crate::peer::LoadTrackedClient;
 use crate::peer_set::set::PeerSet;
@@ -27,7 +28,7 @@ pub enum BlockBroadCasterResponse {
 
 pub struct BlockBroadCaster<D>
 where
-    D: Discover<Key = NetworkAddress, Service = LoadTrackedClient> + Unpin,
+    D: Discover<Key = PeerID, Service = LoadTrackedClient> + Unpin,
     D::Error: Into<BoxError>,
 {
     peer_set: std::sync::Arc<Mutex<PeerSet<D>>>,
@@ -41,7 +42,7 @@ where
 
 impl<D> tower::Service<BlockBroadCasterRequest> for BlockBroadCaster<D>
 where
-    D: Discover<Key = NetworkAddress, Service = LoadTrackedClient> + Unpin + Send,
+    D: Discover<Key = PeerID, Service = LoadTrackedClient> + Unpin + Send + 'static,
     D::Error: Into<BoxError>,
 {
     type Response = BlockBroadCasterResponse;
@@ -51,7 +52,7 @@ where
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         let mutex = self.peer_set.clone();
-        match Box::pin(mutex.lock()).poll_unpin(cx) {
+        let ret = match Box::pin(mutex.lock()).poll_unpin(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(mut peer_set) => {
                 peer_set.poll_all(cx)?;
@@ -62,7 +63,8 @@ where
                     Poll::Pending
                 }
             }
-        }
+        };
+        ret
     }
 
     fn call(&mut self, req: BlockBroadCasterRequest) -> Self::Future {
@@ -95,7 +97,7 @@ where
 
                     for (_, svc) in all_ready_peers {
                         if svc.supports_fluffy_blocks() {
-                            fut.push_back(svc.call(new_fluffy_block.into()));
+                            fut.push_back(svc.call(new_fluffy_block.clone().into()));
                         } else {
                             tracing::error!(
                                 "Peer which doesn't support fluffy blocks is in the PeerSet"

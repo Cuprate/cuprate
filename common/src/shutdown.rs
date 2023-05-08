@@ -21,7 +21,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub static IS_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+static IS_SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 
 /// Returns true if the application is shutting down.
 pub fn is_shutting_down() -> bool {

@@ -13,6 +13,7 @@ use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 use tower::{BoxError, Service, ServiceExt};
 use tracing::Instrument;
 
+use crate::peer::handshaker::ConnectionAddr;
 use crate::{
     address_book::{AddressBookRequest, AddressBookResponse},
     connection_tracker::ConnectionTracker,
@@ -133,25 +134,25 @@ where
 
     fn call(&mut self, req: OutboundConnectorRequest) -> Self::Future {
         let OutboundConnectorRequest {
-            addr,
+            addr: address,
             connection_tracker,
         }: OutboundConnectorRequest = req;
 
         let hs = self.handshaker.clone();
-        let connector_span = tracing::info_span!("connector", peer = ?addr);
+        let connector_span = tracing::info_span!("connector", peer = ?address);
 
         async move {
-            let (read, write) = connect(&addr).await?;
+            let (read, write) = connect(&address).await?;
             let client = hs
                 .oneshot(DoHandshakeRequest {
                     read,
                     write,
                     direction: crate::protocol::Direction::Outbound,
-                    addr,
+                    addr: ConnectionAddr::OutBound { address },
                     connection_tracker,
                 })
                 .await?;
-            Ok((addr, client))
+            Ok((address, client))
         }
         .instrument(connector_span)
         .boxed()

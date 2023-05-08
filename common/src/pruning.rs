@@ -258,6 +258,12 @@ impl TryFrom<u32> for PruningSeed {
     }
 }
 
+impl Into<u32> for PruningSeed {
+    fn into(self) -> u32 {
+        self.0.unwrap_or(0)
+    }
+}
+
 fn get_block_pruning_stripe(
     block_height: u64,
     blockchain_height: u64,

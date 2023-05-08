@@ -23,7 +23,7 @@ use tower::{
     BoxError, Service,
 };
 
-use monero_wire::NetworkAddress;
+use monero_wire::{NetworkAddress, PeerID};
 
 use super::{unready_service::UnreadyError, UnreadyService};
 use crate::{
@@ -59,11 +59,11 @@ pub struct CancelClientWork;
 /// Otherwise, malicious peers could interfere with other peers' `PeerSet` state.
 pub struct PeerSet<D>
 where
-    D: Discover<Key = NetworkAddress, Service = LoadTrackedClient> + Unpin,
+    D: Discover<Key = PeerID, Service = LoadTrackedClient> + Unpin,
     D::Error: Into<BoxError>,
 {
-    // Peer Tracking: New Peers
-    //
+    /// Peer Tracking: New Peers
+    ///
     /// Provides new and deleted peer [`Change`]s to the peer set,
     /// via the [`Discover`] trait implementation.
     discover: D,
@@ -71,14 +71,14 @@ where
     /// A channel that asks the peer crawler task to connect to more peers.
     demand_signal: mpsc::Sender<MorePeers>,
 
-    // Peer Tracking: Ready Peers
-    //
+    /// Peer Tracking: Ready Peers
+    ///
     /// Connected peers that are ready to receive requests from Zebra,
     /// or send requests to Zebra.
     ready_services: HashMap<D::Key, D::Service>,
 
-    // Peer Tracking: Busy Peers
-    //
+    /// Peer Tracking: Busy Peers
+    ///
     /// Connected peers that are handling a Zebra request,
     /// or Zebra is handling one of their requests.
     unready_services: FuturesUnordered<UnreadyService<D::Key, D::Service, InternalMessageRequest>>,
@@ -103,12 +103,12 @@ where
     ///
     /// These guards are checked for errors as part of `poll_ready` which lets
     /// the `PeerSet` propagate errors from background tasks back to the user
-    guards: futures::stream::FuturesUnordered<JoinHandle<Result<(), BoxError>>>,
+    guards: FuturesUnordered<JoinHandle<Result<(), BoxError>>>,
 }
 
 impl<D> PeerSet<D>
 where
-    D: Discover<Key = NetworkAddress, Service = LoadTrackedClient> + Unpin,
+    D: Discover<Key = PeerID, Service = LoadTrackedClient> + Unpin,
     D::Error: Into<BoxError>,
 {
     /// Construct a peerset which uses `discover` to manage peer connections.
@@ -338,10 +338,11 @@ where
 
     pub fn poll_ready(&mut self, cx: &mut Context<'_>) {
         let mut ready_services = HashMap::with_capacity(self.ready_services.len());
+        let mut pending_services = vec![];
         for (key, mut svc) in self.ready_services.drain() {
             match svc.poll_ready(cx) {
                 Poll::Pending => {
-                    self.push_unready(key, svc);
+                    pending_services.push((key, svc));
                 }
                 Poll::Ready(Ok(())) => {
                     ready_services.insert(key, svc);
@@ -351,6 +352,9 @@ where
                     // peer svc will get dropped at the start of next loop
                 }
             }
+        }
+        for (key, svc) in pending_services {
+            self.push_unready(key, svc);
         }
         self.ready_services = ready_services;
     }
@@ -496,12 +500,13 @@ where
         }
     }
 
-    pub fn all_ready(&mut self) -> &mut HashMap<NetworkAddress, LoadTrackedClient> {
+    pub fn all_ready(&mut self) -> &mut HashMap<PeerID, LoadTrackedClient> {
         &mut self.ready_services
     }
 
     pub fn push_all_unready(&mut self) {
-        for (key, svc) in self.ready_services.drain() {
+        let all_ready: Vec<(_, _)> = self.ready_services.drain().collect();
+        for (key, svc) in all_ready {
             self.push_unready(key, svc)
         }
     }

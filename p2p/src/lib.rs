@@ -70,7 +70,7 @@ pub trait P2PStore: Clone + Send + 'static {
             Vec<monero_wire::PeerListEntryBase>, // white list
             Vec<monero_wire::PeerListEntryBase>, // gray list
             Vec<monero_wire::NetworkAddress>,    // anchor list
-            Vec<(monero_wire::NetworkAddress, chrono::NaiveDateTime)>, // ban list
+                                                 // Vec<(monero_wire::NetworkAddress, chrono::NaiveDateTime)>, // ban list
         ),
         &'static str,
     >;
@@ -81,7 +81,7 @@ pub trait P2PStore: Clone + Send + 'static {
         white: Vec<&monero_wire::PeerListEntryBase>,
         gray: Vec<&monero_wire::PeerListEntryBase>,
         anchor: Vec<&monero_wire::NetworkAddress>,
-        bans: Vec<(&monero_wire::NetworkAddress, &chrono::NaiveDateTime)>, // ban lists
+        //  bans: Vec<(&monero_wire::NetworkAddress, &chrono::NaiveDateTime)>, // ban lists
     ) -> Result<(), &'static str>;
 
     async fn basic_node_data(&mut self) -> Result<Option<NetZoneBasicNodeData>, &'static str>;

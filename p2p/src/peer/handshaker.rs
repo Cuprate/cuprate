@@ -440,6 +440,8 @@ where
                 .addr
                 .get_network_address()
                 .expect("For peer to be reachable it needs an address");
+
+            //self.address_book.ready().await.call()
         }
 
         let pruning_seed = PruningSeed::try_from(coresync.pruning_seed).map_err(|e| Box::new(e))?;

@@ -10,7 +10,7 @@ use tower::BoxError;
 
 use monero_wire::messages::GetObjectsRequest;
 use monero_wire::messages::{GetObjectsResponse, MessageNotification};
-use monero_wire::{Message, NetworkAddress};
+use monero_wire::{Message, NetworkAddress, PeerID};
 
 use crate::peer::LoadTrackedClient;
 use crate::peer_set::set::PeerSet;
@@ -37,7 +37,7 @@ pub enum BlockGetterResponse {
 
 pub struct BlockGetterService<D>
 where
-    D: Discover<Key = NetworkAddress, Service = LoadTrackedClient> + Unpin,
+    D: Discover<Key = PeerID, Service = LoadTrackedClient> + Unpin,
     D::Error: Into<BoxError>,
 {
     peer_set: Arc<Mutex<PeerSet<D>>>,
@@ -47,7 +47,7 @@ where
 
 impl<D> tower::Service<BlockGetterRequest> for BlockGetterService<D>
 where
-    D: Discover<Key = NetworkAddress, Service = LoadTrackedClient> + Unpin + Send,
+    D: Discover<Key = PeerID, Service = LoadTrackedClient> + Unpin + Send + 'static,
     D::Error: Into<BoxError>,
 {
     type Response = BlockGetterResponse;
@@ -99,14 +99,13 @@ where
                 );
 
                 let mutex = self.peer_set.clone();
-                match Box::pin(mutex.lock()).poll_unpin(cx) {
+                let ret = match Box::pin(mutex.lock()).poll_unpin(cx) {
                     Poll::Pending => Poll::Pending,
                     Poll::Ready(mut peer_set) => {
                         peer_set.poll_all(cx)?;
 
                         if peer_no_longer_ready {
-                            let (key, svc) = self
-                                .p2c_peer
+                            let (key, svc) = std::mem::replace(&mut self.p2c_peer, None)
                                 .expect("Peer must exist for it to not be ready");
                             peer_set.push_unready(key, svc);
                         }
@@ -130,7 +129,8 @@ where
                             .and_then(|svc| Some((p2c_peer, svc)));
                         Poll::Ready(Ok(()))
                     }
-                }
+                };
+                ret
             }
         }
     }

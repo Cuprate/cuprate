@@ -24,6 +24,7 @@ use serde::{de, ser::SerializeStruct, Deserialize, Serialize};
 
 use super::utils;
 
+/// The different network zones that Cuprate supports.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NetZone {
     Public,
@@ -61,10 +62,7 @@ impl IPv4Address {
 
         let m_port = utils::get_internal_val_from_map(&mut value, "m_port", Value::get_u16, "u16")?;
 
-        Ok(IPv4Address {
-            m_ip: m_ip,
-            m_port: m_port,
-        })
+        Ok(IPv4Address { m_ip, m_port })
     }
 }
 
@@ -123,6 +121,19 @@ impl NetworkAddress {
     pub fn get_zone(&self) -> NetZone {
         match self {
             NetworkAddress::IPv4(_) | NetworkAddress::IPv6(_) => NetZone::Public,
+        }
+    }
+
+    /// Returns an identifier that links peers that should be banned together.
+    ///
+    /// For example 2 peers can use the same ip but be on different ports, this means
+    /// they will have 2 distinct [`NetworkAddress`], this is a problem if we wanted
+    /// to ban a peer as the peer can just spin up again on a different port. This
+    /// function therefor returns an identifier that can be used to link these peers.
+    pub fn ban_identifier(&self) -> Vec<u8> {
+        match self {
+            NetworkAddress::IPv4(ipv4) => ipv4.m_ip.to_le_bytes().into(),
+            NetworkAddress::IPv6(ipv6) => ipv6.addr.into(),
         }
     }
 

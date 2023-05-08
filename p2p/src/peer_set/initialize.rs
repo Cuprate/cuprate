@@ -17,7 +17,7 @@ use crate::{peer, Config, NetZoneBasicNodeData, P2PStore};
 use super::set::{MorePeers, PeerSet};
 
 type DiscoveredPeer = Result<(NetworkAddress, peer::Client), BoxError>;
-
+/*
 pub async fn init<Svc, CoreSync, P2PS>(
     config: Config,
     inbound_service: Svc,
@@ -91,3 +91,4 @@ where
 
     Ok(address_book)
 }
+*/
