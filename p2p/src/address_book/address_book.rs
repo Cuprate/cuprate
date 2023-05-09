@@ -38,6 +38,9 @@ use crate::{constants::ADDRESS_BOOK_SAVE_INTERVAL, Config, P2PStore};
 mod peer_list;
 use peer_list::PeerList;
 
+#[cfg(test)]
+mod tests;
+
 /// A request sent to the address book task.
 pub(crate) struct AddressBookClientRequest {
     /// The request

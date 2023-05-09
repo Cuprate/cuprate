@@ -17,19 +17,22 @@ pub struct PeerConnectionClosed;
 /// communication.
 #[derive(Debug)]
 pub struct AddressBookConnectionHandle {
-    connection_closed: oneshot::Sender<PeerConnectionClosed>,
+    connection_closed: Option<oneshot::Sender<PeerConnectionClosed>>,
     close: CancellationToken,
 }
 
 impl AddressBookConnectionHandle {
-    /// Tell the address book the connection has closed.
-    pub fn connection_closed(self) {
-        let _ = self.connection_closed.send(PeerConnectionClosed);
-    }
     /// Returns true if the address book has told us to kill the
     /// connection.
     pub fn is_canceled(&self) -> bool {
         self.close.is_cancelled()
+    }
+}
+
+impl Drop for AddressBookConnectionHandle {
+    fn drop(&mut self) {
+        let connection_closed = std::mem::replace(&mut self.connection_closed, None).unwrap();
+        let _ = connection_closed.send(PeerConnectionClosed);
     }
 }
 
@@ -70,7 +73,7 @@ pub fn new_address_book_connection_handle(
     let token = CancellationToken::new();
 
     let ab_c_h = AddressBookConnectionHandle {
-        connection_closed: tx,
+        connection_closed: Some(tx),
         close: token.clone(),
     };
     let c_ab_h = ConnectionAddressBookHandle {
@@ -85,6 +88,7 @@ pub fn new_address_book_connection_handle(
 mod tests {
     use crate::address_book::connection_handle::new_address_book_connection_handle;
 
+    #[test]
     fn close_connection_from_address_book() {
         let (conn_side, mut addr_side) = new_address_book_connection_handle();
 
@@ -94,12 +98,13 @@ mod tests {
         assert!(conn_side.is_canceled());
     }
 
+    #[test]
     fn close_connection_from_connection() {
         let (conn_side, mut addr_side) = new_address_book_connection_handle();
 
         assert!(!conn_side.is_canceled());
         assert!(!addr_side.connection_closed());
-        conn_side.connection_closed();
+        drop(conn_side);
         assert!(addr_side.connection_closed());
     }
 }

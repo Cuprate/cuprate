@@ -147,7 +147,6 @@ where
                 .oneshot(DoHandshakeRequest {
                     read,
                     write,
-                    direction: crate::protocol::Direction::Outbound,
                     addr: ConnectionAddr::OutBound { address },
                     connection_tracker,
                 })

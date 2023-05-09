@@ -124,6 +124,19 @@ impl NetworkAddress {
         }
     }
 
+    pub fn from_ip_port(ip: net::IpAddr, port: u16) -> NetworkAddress {
+        match ip {
+            net::IpAddr::V4(ipv4) => NetworkAddress::IPv4(IPv4Address {
+                m_ip: ipv4.into(),
+                m_port: port,
+            }),
+            net::IpAddr::V6(ipv6) => NetworkAddress::IPv6(IPv6Address {
+                addr: ipv6.octets(),
+                m_port: port,
+            }),
+        }
+    }
+
     /// Returns an identifier that links peers that should be banned together.
     ///
     /// For example 2 peers can use the same ip but be on different ports, this means

@@ -5,6 +5,7 @@ use futures::channel::{mpsc, oneshot};
 use futures::stream::Fuse;
 use futures::{AsyncRead, AsyncWrite, SinkExt, StreamExt};
 
+use crate::address_book::connection_handle::AddressBookConnectionHandle;
 use levin::{MessageSink, MessageStream};
 use monero_wire::messages::CoreSyncData;
 use monero_wire::{levin, Message, NetworkAddress};
@@ -38,15 +39,11 @@ impl State {
     }
 }
 
-pub struct Connection<Svc, Aw, Ar> {
+pub struct Connection<Svc, Aw> {
     address: ConnectionAddr,
     state: State,
     sink: MessageSink<Aw, Message>,
-    stream: Fuse<MessageStream<Ar, Message>>,
     client_rx: mpsc::Receiver<ClientRequest>,
-    /// A field shared between the [`Client`](super::Client) and the connection
-    /// used so we know what peers to route certain requests to.
-    peer_height: std::sync::Arc<AtomicU64>,
     /// A connection tracker that reduces the open connection count when dropped.
     /// Used to limit the number of open connections in Zebra.
     ///
@@ -59,32 +56,32 @@ pub struct Connection<Svc, Aw, Ar> {
     /// If enough connections leak, Cuprate will stop making new connections.
     #[allow(dead_code)]
     connection_tracker: ConnectionTracker,
+    /// A handle to our slot in the address book so we can tell the address
+    /// book when we disconnect and the address book can tell us to disconnect.
+    address_book_handle: AddressBookConnectionHandle,
     svc: Svc,
 }
 
-impl<Svc, Aw, Ar> Connection<Svc, Aw, Ar>
+impl<Svc, Aw> Connection<Svc, Aw>
 where
     Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = BoxError>,
     Aw: AsyncWrite + std::marker::Unpin,
-    Ar: AsyncRead + std::marker::Unpin,
 {
     pub fn new(
         address: ConnectionAddr,
         sink: MessageSink<Aw, Message>,
-        stream: MessageStream<Ar, Message>,
-        peer_height: std::sync::Arc<AtomicU64>,
         client_rx: mpsc::Receiver<ClientRequest>,
         connection_tracker: ConnectionTracker,
+        address_book_handle: AddressBookConnectionHandle,
         svc: Svc,
-    ) -> Connection<Svc, Aw, Ar> {
+    ) -> Connection<Svc, Aw> {
         Connection {
             address,
             state: State::WaitingForRequest,
             sink,
-            stream: stream.fuse(),
-            peer_height,
             client_rx,
             connection_tracker,
+            address_book_handle,
             svc,
         }
     }

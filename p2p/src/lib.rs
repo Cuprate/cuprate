@@ -17,6 +17,12 @@ pub struct NetZoneBasicNodeData {
 }
 
 impl NetZoneBasicNodeData {
+    pub fn basic_node_data(&self, net_zone: &monero_wire::NetZone) -> monero_wire::BasicNodeData {
+        match net_zone {
+            monero_wire::NetZone::Public => self.public.clone(),
+            _ => todo!(),
+        }
+    }
     pub fn new(config: &Config, node_id: &NodeID) -> Self {
         let bnd = monero_wire::BasicNodeData {
             my_port: config.public_port(),
