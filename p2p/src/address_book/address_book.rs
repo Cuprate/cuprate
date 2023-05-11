@@ -2,7 +2,7 @@
 //!
 //! The address book is split into multiple [`PeerList`]:
 //!
-//! - A White list: For peers we have connected to ourselves,
+//! - A White list: For peers we have connected to ourselves.
 //!
 //! - A Gray list: For Peers we have been told about but
 //!   haven't connected to ourselves.
@@ -12,7 +12,7 @@
 //!   connect to them again. For example an inbound proxy
 //!   connection would not get added to this list as we cant
 //!   connect to this peer ourselves. Behind the scenes we
-//!   are just storing the key to a peer in the whit list.
+//!   are just storing the key to a peer in the white list.
 //!
 use std::collections::{HashMap, HashSet};
 use std::future::Future;

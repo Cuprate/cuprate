@@ -524,7 +524,7 @@ where
         match self.addr.direction() {
             Direction::Outbound => {
                 self.do_outbound_handshake().await?;
-                // If this is an outbound handshake the obviously the peer
+                // If this is an outbound handshake then obviously the peer
                 // is reachable.
                 peer_reachable = true
             }
