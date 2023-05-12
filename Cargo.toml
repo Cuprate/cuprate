@@ -8,7 +8,6 @@ members = [
         "net/levin",
         "net/monero-wire",
         "p2p",
-      #  "p2p/sync-states"
 ]
 
 [workspace.dependencies]
