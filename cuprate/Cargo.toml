@@ -8,6 +8,8 @@ edition = "2021"
 clap = "4"
 serde = { version = "1", features = ["serde_derive"] }
 thiserror = "1"
+toml = "0.7.3"
+##cuprate-p2p = {path="../p2p"}
 
 [dependencies.abscissa_core]
 version = "0.7.0"

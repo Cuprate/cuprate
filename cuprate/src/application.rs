@@ -6,6 +6,7 @@ use abscissa_core::{
     config::{self, CfgCell},
     trace, Application, FrameworkError, StandardPaths,
 };
+use std::path::Path;
 
 /// Application state
 pub static APP: AppCell<CuprateApp> = AppCell::new();
@@ -75,6 +76,16 @@ impl Application for CuprateApp {
         components.after_config(&config)?;
         self.config.set_once(config);
         Ok(())
+    }
+
+    /// Name of application
+    fn name(&self) -> &'static str {
+        "Cuprate"
+    }
+
+    /// Description of application
+    fn description(&self) -> &'static str {
+        "A Rust Monero node."
     }
 
     /// Get tracing configuration from command-line options
