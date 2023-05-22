@@ -60,7 +60,7 @@ pub enum Value<T: Table> {
 /// variant of Value you should receive. But be careful on your code, or it might crash.
 impl<'a, T: Table> Value<T> {
 
-	pub fn as_type(&'a self) -> &'a <T as Table>::Value {
+	pub fn as_type(self) -> <T as Table>::Value {
 		assert!(matches!(self, Value::Type(_))); // Hint for the compiler to check the boundaries
 		if let Value::Type(value) = self {
 			value

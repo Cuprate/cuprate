@@ -3,7 +3,7 @@
 use monero::{Hash, BlockHeader, Block};
 use monero::blockdata::transaction::KeyImage;
 
-use crate::database::transaction::DupCursor;
+use crate::database::transaction::{DupCursor, Cursor};
 use crate::{encoding::Value, database::{Interface, Database, transaction::Transaction}, error::DBException, interface::{ReadInterface, WriteInterface}, table, types::{AltBlock, TransactionPruned}};
 
 impl<'thread, D: Database<'thread>> ReadInterface<'thread> for Interface<'thread, D> {
@@ -43,7 +43,7 @@ impl<'thread, D: Database<'thread>> ReadInterface<'thread> for Interface<'thread
         cursor_blockhash
             .get_dup::<false>(&(), hash)?
             .ok_or(DBException::NotFound(format!("Failed to find height of block: {}", hash)))
-			.map(|res| *res.as_type())
+			.map(|res| res.as_type())
     }
 
     fn get_block_weight(&'thread self, height: &u64) -> Result<u64, DBException> {
@@ -132,32 +132,73 @@ impl<'thread, D: Database<'thread>> ReadInterface<'thread> for Interface<'thread
 
     fn get_block<const B: bool>(&'thread self, hash: &Hash) -> Result<Block, DBException> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-        todo!()
+        let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
+
+        let blk_height = cursor_blockhash
+            .get_dup::<false>(&(), hash)?
+            .ok_or(DBException::NotFound(format!("Can't height of block: {}", hash)))
+			.map(|res| res.as_type())?;
+
+        ro_tx
+            .get::<false, table::blocks>(&blk_height)?
+            .ok_or(DBException::NotFound(format!("Can't find block at height: {}", blk_height)))
+            .map(|res| res.as_type().0)
     }
 
     fn get_block_from_height<const B: bool>(&'thread self, height: &u64) -> Result<Block, DBException> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-        todo!()
+        
+		ro_tx
+            .get::<false, table::blocks>(height)?
+            .ok_or(DBException::NotFound(format!("Can't find block at height: {}", height)))
+            .map(|res| res.as_type().0)
     }
 
     fn get_block_header(&'thread self, hash: &Hash) -> Result<BlockHeader, DBException> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-        todo!()
+		let mut cursor_blockhash = ro_tx.cursor_dup::<table::blockhash>()?;
+
+		let blk_height = cursor_blockhash
+            .get_dup::<false>(&(), hash)?
+            .ok_or(DBException::NotFound(format!("Can't height of block: {}", hash)))
+			.map(|res| res.as_type())?;
+        
+		ro_tx
+            .get::<false, table::blocks>(&blk_height)?
+            .ok_or(DBException::NotFound(format!("Can't find block at height: {}", &blk_height)))
+            .map(|res| res.as_type().0.header)
     }
 
     fn get_block_header_from_height(&'thread self, height: &u64) -> Result<BlockHeader, DBException> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-        todo!()
+        
+		ro_tx
+            .get::<false, table::blocks>(height)?
+            .ok_or(DBException::NotFound(format!("Can't find block at height: {}", height)))
+            .map(|res| res.as_type().0.header)
     }
 
     fn get_top_block(&'thread self) -> Result<Block, DBException> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-        todo!()
+        
+		let height = self.height()?;
+
+		ro_tx
+            .get::<false, table::blocks>(&height)?
+            .ok_or(DBException::NotFound(format!("Can't find block at height: {}", height)))
+            .map(|res| res.as_type().0)
     }
 
     fn get_top_block_hash(&'thread self) -> Result<Hash, DBException> {
 		let ro_tx = self.db.tx().map_err(Into::into)?;
-        todo!()
+		let mut cursor_blockmetadata = ro_tx.cursor_dup::<table::blockmetadata>()?;
+        
+		let height = self.height()?;
+		let metadata = cursor_blockmetadata
+            .get_dup::<false>(&(), &height)?
+            .ok_or(DBException::NotFound(format!("Failed to find block's metadata at height : {}", height)))?;
+
+        Ok(metadata.as_type().block_hash)
     }
 
 	// ------------------------------|  Transactions  |-----------------------------
