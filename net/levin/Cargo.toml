@@ -5,11 +5,10 @@ edition = "2021"
 description = "A crate for working with the Levin protocol in Rust."
 license = "MIT"
 authors = ["Boog900"]
-repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/levin"
+repository = "https://github.com/Cuprate/cuprate/tree/main/net/levin"
 
 [dependencies]
-thiserror = "1.0.24"
-byteorder = "1.4.3"
-futures = "0.3"
+thiserror = "1"
 bytes = "1"
-pin-project = "1"
+tokio-util = {version = "0.7", features = ["codec"]}
+
