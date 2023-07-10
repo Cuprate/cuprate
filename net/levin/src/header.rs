@@ -17,7 +17,7 @@
 //! message.
 
 use crate::LEVIN_DEFAULT_MAX_PACKET_SIZE;
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 
 use super::{BucketError, LEVIN_SIGNATURE, PROTOCOL_VERSION};
 
@@ -102,7 +102,7 @@ impl BucketHead {
     pub const SIZE: usize = 33;
 
     /// Builds the header in a Monero specific way
-    pub fn build(
+    pub fn build_monero(
         payload_size: u64,
         have_to_return_data: bool,
         command: u32,

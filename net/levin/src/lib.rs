@@ -19,8 +19,8 @@
 //!
 //! The Levin protocol is a network protocol used in the Monero cryptocurrency. It is used for
 //! peer-to-peer communication between nodes. This crate provides a Rust implementation of the Levin
-//! header serialization and allows developers to define their own bucket bodies so this is not a
-//! complete Monero networking crate.
+//! header serialization and allows developers to define their own bucket bodies, for a complete
+//! monero protocol crate see: monero-wire.
 //!
 //! ## License
 //!
@@ -31,7 +31,7 @@
 #![deny(non_upper_case_globals)]
 #![deny(non_camel_case_types)]
 #![deny(unused_mut)]
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 
 pub mod codec;
 pub mod header;
@@ -41,7 +41,6 @@ pub use header::BucketHead;
 
 use std::fmt::Debug;
 
-use bytes::Bytes;
 use thiserror::Error;
 
 const PROTOCOL_VERSION: u32 = 1;
@@ -57,6 +56,9 @@ pub enum BucketError {
     /// Levin bucket exceeded max size
     #[error("Levin bucket exceeded max size")]
     BucketExceededMaxSize,
+    /// Invalid Fragmented Message
+    #[error("Levin fragmented message was invalid: {0}")]
+    InvalidFragmentedMessage(&'static str),
     /// I/O error
     #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),
@@ -68,5 +70,131 @@ pub struct Bucket {
     /// The bucket header
     pub header: BucketHead,
     /// The bucket body
-    pub body: Bytes,
+    pub body: Vec<u8>,
+}
+
+/// An enum representing if the message is a request or response
+#[derive(Debug, Eq, PartialEq)]
+pub enum MessageType {
+    /// Request
+    Request,
+    /// Response
+    Response,
+    /// Notification
+    Notification,
+}
+
+impl MessageType {
+    /// Returns if the message requires a response
+    pub fn have_to_return_data(&self) -> bool {
+        match self {
+            MessageType::Request => true,
+            MessageType::Response | MessageType::Notification => false,
+        }
+    }
+
+    /// Returns the `MessageType` given the flags and have_to_return_data fields
+    pub fn from_flags_and_have_to_return(
+        flags: header::Flags,
+        have_to_return: bool,
+    ) -> Result<Self, BucketError> {
+        if flags.request && have_to_return {
+            Ok(MessageType::Request)
+        } else if flags.request {
+            Ok(MessageType::Notification)
+        } else if flags.response && !have_to_return {
+            Ok(MessageType::Response)
+        } else {
+            Err(BucketError::InvalidHeaderFlags(
+                "Unable to assign a message type to this bucket",
+            ))
+        }
+    }
+
+    pub fn as_flags(&self) -> header::Flags {
+        match self {
+            MessageType::Request | MessageType::Notification => header::Flags {
+                request: true,
+                ..Default::default()
+            },
+            MessageType::Response => header::Flags {
+                response: true,
+                ..Default::default()
+            },
+        }
+    }
+}
+
+pub struct BucketBuilder {
+    signature: Option<u64>,
+    ty: Option<MessageType>,
+    command: Option<u32>,
+    return_code: Option<i32>,
+    protocol_version: Option<u32>,
+    body: Option<Vec<u8>>,
+}
+
+impl Default for BucketBuilder {
+    fn default() -> Self {
+        Self {
+            signature: Some(LEVIN_SIGNATURE),
+            ty: None,
+            command: None,
+            return_code: None,
+            protocol_version: Some(PROTOCOL_VERSION),
+            body: None,
+        }
+    }
+}
+
+impl BucketBuilder {
+    pub fn set_signature(&mut self, sig: u64) {
+        self.signature = Some(sig)
+    }
+
+    pub fn set_message_type(&mut self, ty: MessageType) {
+        self.ty = Some(ty)
+    }
+
+    pub fn set_command(&mut self, command: u32) {
+        self.command = Some(command)
+    }
+
+    pub fn set_return_code(&mut self, code: i32) {
+        self.return_code = Some(code)
+    }
+
+    pub fn set_protocol_version(&mut self, version: u32) {
+        self.protocol_version = Some(version)
+    }
+
+    pub fn set_body(&mut self, body: Vec<u8>) {
+        self.body = Some(body)
+    }
+
+    pub fn finish(self) -> Bucket {
+        let body = self.body.unwrap();
+        let ty = self.ty.unwrap();
+        Bucket {
+            header: BucketHead {
+                signature: self.signature.unwrap(),
+                size: body.len().try_into().unwrap(),
+                have_to_return_data: ty.have_to_return_data(),
+                command: self.command.unwrap(),
+                return_code: self.return_code.unwrap(),
+                flags: ty.as_flags(),
+                protocol_version: self.protocol_version.unwrap(),
+            },
+            body,
+        }
+    }
+}
+
+/// A levin body
+pub trait LevinBody: Sized {
+    /// Decodes the message from the data in the header
+    fn decode_message(buf: &[u8], typ: MessageType, command: u32) -> Result<Self, BucketError>;
+
+    /// Encodes the message
+    fn encode(&self, builder: &mut BucketBuilder) -> Result<(), BucketError>;
 }
