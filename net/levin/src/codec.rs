@@ -27,8 +27,10 @@ use crate::{
 };
 
 /// The levin tokio-codec for decoding and encoding levin buckets
+#[derive(Default)]
 pub enum LevinCodec {
     /// Waiting for the peer to send a header.
+    #[default]
     WaitingForHeader,
     /// Waiting for a peer to send a body.
     WaitingForBody(BucketHead),
@@ -50,7 +52,10 @@ impl Decoder for LevinCodec {
                 }
                 LevinCodec::WaitingForBody(head) => {
                     // We size check header while decoding it.
-                    let body_len = head.size.try_into().unwrap();
+                    let body_len = head
+                        .size
+                        .try_into()
+                        .map_err(|_| BucketError::BucketExceededMaxSize)?;
                     if src.len() < body_len {
                         src.reserve(body_len - src.len());
                         return Ok(None);
@@ -85,7 +90,9 @@ impl Encoder<Bucket> for LevinCodec {
     }
 }
 
+#[derive(Default)]
 enum MessageState {
+    #[default]
     WaitingForBucket,
     WaitingForRestOfFragment(Vec<u8>, MessageType, u32),
 }
