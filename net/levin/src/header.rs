@@ -16,117 +16,63 @@
 //! This module provides a struct BucketHead for the header of a levin protocol
 //! message.
 
-use std::io::Read;
+use crate::LEVIN_DEFAULT_MAX_PACKET_SIZE;
+use bytes::{Buf, BufMut, BytesMut};
 
 use super::{BucketError, LEVIN_SIGNATURE, PROTOCOL_VERSION};
 
-use byteorder::{LittleEndian, ReadBytesExt};
+const REQUEST: u32 = 0b0000_0001;
+const RESPONSE: u32 = 0b0000_0010;
+const START_FRAGMENT: u32 = 0b0000_0100;
+const END_FRAGMENT: u32 = 0b0000_1000;
 
-/// The Flags for the levin header
+/// Levin header flags
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
-pub struct Flags(u32);
+pub struct Flags {
+    /// Q bit
+    pub request: bool,
+    /// S bit
+    pub response: bool,
+    /// B bit
+    pub start_fragment: bool,
+    /// E bit
+    pub end_fragment: bool,
+}
 
-pub(crate) const REQUEST: Flags = Flags(0b0000_0001);
-pub(crate) const RESPONSE: Flags = Flags(0b0000_0010);
-const START_FRAGMENT: Flags = Flags(0b0000_0100);
-const END_FRAGMENT: Flags = Flags(0b0000_1000);
-const DUMMY: Flags = Flags(0b0000_1100); // both start and end fragment set
-
-impl Flags {
-    fn contains_flag(&self, rhs: Self) -> bool {
-        self & &rhs == rhs
-    }
-
-    /// Converts the inner flags to little endian bytes
-    pub fn to_le_bytes(&self) -> [u8; 4] {
-        self.0.to_le_bytes()
-    }
-
-    /// Checks if the flags have the `REQUEST` flag set and
-    /// does not have the `RESPONSE` flag set, this does
-    /// not check for other flags
-    pub fn is_request(&self) -> bool {
-        self.contains_flag(REQUEST) && !self.contains_flag(RESPONSE)
-    }
-
-    /// Checks if the flags have the `RESPONSE` flag set and
-    /// does not have the `REQUEST` flag set, this does
-    /// not check for other flags
-    pub fn is_response(&self) -> bool {
-        self.contains_flag(RESPONSE) && !self.contains_flag(REQUEST)
-    }
-
-    /// Checks if the flags have the `START_FRAGMENT`and the
-    /// `END_FRAGMENT` flags set, this does
-    /// not check for other flags
-    pub fn is_dummy(&self) -> bool {
-        self.contains_flag(DUMMY)
-    }
-
-    /// Checks if the flags have the `START_FRAGMENT` flag
-    /// set and does not have the `END_FRAGMENT` flag set, this
-    /// does not check for other flags
-    pub fn is_start_fragment(&self) -> bool {
-        self.contains_flag(START_FRAGMENT) && !self.is_dummy()
-    }
-
-    /// Checks if the flags have the `END_FRAGMENT` flag
-    /// set and does not have the `START_FRAGMENT` flag set, this
-    /// does not check for other flags
-    pub fn is_end_fragment(&self) -> bool {
-        self.contains_flag(END_FRAGMENT) && !self.is_dummy()
-    }
-
-    /// Sets the `REQUEST` flag
-    pub fn set_flag_request(&mut self) {
-        *self |= REQUEST
-    }
-
-    /// Sets the `RESPONSE` flag
-    pub fn set_flag_response(&mut self) {
-        *self |= RESPONSE
-    }
-
-    /// Sets the `START_FRAGMENT` flag
-    pub fn set_flag_start_fragment(&mut self) {
-        *self |= START_FRAGMENT
-    }
-
-    /// Sets the `END_FRAGMENT` flag
-    pub fn set_flag_end_fragment(&mut self) {
-        *self |= END_FRAGMENT
-    }
-
-    /// Sets the `START_FRAGMENT` and `END_FRAGMENT` flag
-    pub fn set_flag_dummy(&mut self) {
-        self.set_flag_start_fragment();
-        self.set_flag_end_fragment();
+impl TryFrom<u32> for Flags {
+    type Error = BucketError;
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
+        let flags = Flags {
+            request: value & REQUEST > 0,
+            response: value & RESPONSE > 0,
+            start_fragment: value & START_FRAGMENT > 0,
+            end_fragment: value & END_FRAGMENT > 0,
+        };
+        if flags.request && flags.response {
+            return Err(BucketError::InvalidHeaderFlags(
+                "Request and Response bits set",
+            ));
+        };
+        Ok(flags)
     }
 }
 
-impl From<u32> for Flags {
-    fn from(value: u32) -> Self {
-        Flags(value)
-    }
-}
-
-impl core::ops::BitAnd for &Flags {
-    type Output = Flags;
-    fn bitand(self, rhs: Self) -> Self::Output {
-        Flags(self.0 & rhs.0)
-    }
-}
-
-impl core::ops::BitOr for &Flags {
-    type Output = Flags;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Flags(self.0 | rhs.0)
-    }
-}
-
-impl core::ops::BitOrAssign for Flags {
-    fn bitor_assign(&mut self, rhs: Self) {
-        self.0 |= rhs.0
+impl From<Flags> for u32 {
+    fn from(value: Flags) -> Self {
+        let mut ret = 0;
+        if value.request {
+            ret |= REQUEST;
+        };
+        if value.response {
+            ret |= RESPONSE;
+        };
+        if value.start_fragment {
+            ret |= START_FRAGMENT;
+        };
+        if value.end_fragment {
+            ret |= END_FRAGMENT;
+        };
+        ret
     }
 }
 
@@ -156,7 +102,7 @@ impl BucketHead {
     pub const SIZE: usize = 33;
 
     /// Builds the header in a Monero specific way
-    pub fn build(
+    pub fn build_monero(
         payload_size: u64,
         have_to_return_data: bool,
         command: u32,
@@ -176,52 +122,38 @@ impl BucketHead {
 
     /// Builds the header from bytes, this function does not check any fields should
     /// match the expected ones (signature, protocol_version)
-    pub fn from_bytes<R: Read + ?Sized>(r: &mut R) -> Result<BucketHead, BucketError> {
+    ///
+    /// # Panics
+    /// This function will panic if there aren't enough bytes to fill the header.
+    /// Currently ['SIZE'](BucketHead::SIZE)
+    pub fn from_bytes(buf: &mut BytesMut) -> Result<BucketHead, BucketError> {
         let header = BucketHead {
-            signature: r.read_u64::<LittleEndian>()?,
-            size: r.read_u64::<LittleEndian>()?,
-            have_to_return_data: r.read_u8()? != 0,
-            command: r.read_u32::<LittleEndian>()?,
-            return_code: r.read_i32::<LittleEndian>()?,
-            // this is incorrect an will not work for fragmented messages
-            flags: Flags::from(r.read_u32::<LittleEndian>()?),
-            protocol_version: r.read_u32::<LittleEndian>()?,
+            signature: buf.get_u64_le(),
+            size: buf.get_u64_le(),
+            have_to_return_data: buf.get_u8() != 0,
+            command: buf.get_u32_le(),
+            return_code: buf.get_i32_le(),
+            flags: Flags::try_from(buf.get_u32_le())?,
+            protocol_version: buf.get_u32_le(),
         };
+
+        if header.size > LEVIN_DEFAULT_MAX_PACKET_SIZE {
+            return Err(BucketError::BucketExceededMaxSize);
+        }
 
         Ok(header)
     }
 
     /// Serializes the header
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(BucketHead::SIZE);
-        out.extend_from_slice(&self.signature.to_le_bytes());
-        out.extend_from_slice(&self.size.to_le_bytes());
-        out.push(if self.have_to_return_data { 1 } else { 0 });
-        out.extend_from_slice(&self.command.to_le_bytes());
-        out.extend_from_slice(&self.return_code.to_le_bytes());
-        out.extend_from_slice(&self.flags.to_le_bytes());
-        out.extend_from_slice(&self.protocol_version.to_le_bytes());
-        out
-    }
-}
+    pub fn write_bytes(&self, dst: &mut BytesMut) {
+        dst.reserve(BucketHead::SIZE);
 
-#[cfg(test)]
-mod tests {
-    use super::Flags;
-
-    #[test]
-    fn set_flags() {
-        macro_rules! set_and_check {
-            ($set:ident, $check:ident) => {
-                let mut flag = Flags::default();
-                flag.$set();
-                assert!(flag.$check());
-            };
-        }
-        set_and_check!(set_flag_request, is_request);
-        set_and_check!(set_flag_response, is_response);
-        set_and_check!(set_flag_start_fragment, is_start_fragment);
-        set_and_check!(set_flag_end_fragment, is_end_fragment);
-        set_and_check!(set_flag_dummy, is_dummy);
+        dst.put_u64_le(self.signature);
+        dst.put_u64_le(self.size);
+        dst.put_u8(if self.have_to_return_data { 1 } else { 0 });
+        dst.put_u32_le(self.command);
+        dst.put_i32_le(self.return_code);
+        dst.put_u32_le(self.flags.into());
+        dst.put_u32_le(self.protocol_version);
     }
 }

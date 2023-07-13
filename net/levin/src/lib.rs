@@ -19,8 +19,8 @@
 //!
 //! The Levin protocol is a network protocol used in the Monero cryptocurrency. It is used for
 //! peer-to-peer communication between nodes. This crate provides a Rust implementation of the Levin
-//! header serialization and allows developers to define their own bucket bodies so this is not a
-//! complete Monero networking crate.
+//! header serialization and allows developers to define their own bucket bodies, for a complete
+//! monero protocol crate see: monero-wire.
 //!
 //! ## License
 //!
@@ -31,75 +31,50 @@
 #![deny(non_upper_case_globals)]
 #![deny(non_camel_case_types)]
 #![deny(unused_mut)]
-#![deny(missing_docs)]
+//#![deny(missing_docs)]
 
-pub mod bucket_sink;
-pub mod bucket_stream;
+pub mod codec;
 pub mod header;
-pub mod message_sink;
-pub mod message_stream;
 
+pub use codec::LevinCodec;
 pub use header::BucketHead;
-pub use message_sink::MessageSink;
-pub use message_stream::MessageStream;
 
 use std::fmt::Debug;
 
-use bytes::Bytes;
 use thiserror::Error;
+
+const PROTOCOL_VERSION: u32 = 1;
+const LEVIN_SIGNATURE: u64 = 0x0101010101012101;
+const LEVIN_DEFAULT_MAX_PACKET_SIZE: u64 = 100_000_000; // 100MB
 
 /// Possible Errors when working with levin buckets
 #[derive(Error, Debug)]
 pub enum BucketError {
-    /// Unsupported p2p command.
-    #[error("Unsupported p2p command: {0}")]
-    UnsupportedP2pCommand(u32),
-    /// Revived header with incorrect signature.
-    #[error("Revived header with incorrect signature: {0}")]
-    IncorrectSignature(u64),
-    /// Header contains unknown flags.
-    #[error("Header contains unknown flags")]
-    UnknownFlags,
-    /// Revived header with unknown protocol version.
-    #[error("Revived header with unknown protocol version: {0}")]
-    UnknownProtocolVersion(u32),
-    /// More bytes needed to parse data.
-    #[error("More bytes needed to parse data")]
-    NotEnoughBytes,
-    /// Failed to decode bucket body.
-    #[error("Failed to decode bucket body: {0}")]
-    FailedToDecodeBucketBody(String),
-    /// Failed to encode bucket body.
-    #[error("Failed to encode bucket body: {0}")]
-    FailedToEncodeBucketBody(String),
-    /// IO Error.
-    #[error("IO Error: {0}")]
+    /// Invalid header flags
+    #[error("Invalid header flags: {0}")]
+    InvalidHeaderFlags(&'static str),
+    /// Levin bucket exceeded max size
+    #[error("Levin bucket exceeded max size")]
+    BucketExceededMaxSize,
+    /// Invalid Fragmented Message
+    #[error("Levin fragmented message was invalid: {0}")]
+    InvalidFragmentedMessage(&'static str),
+    /// I/O error
+    #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),
-    /// Peer sent an error response code.
-    #[error("Peer sent an error response code: {0}")]
-    Error(i32),
 }
-
-const PROTOCOL_VERSION: u32 = 1;
-const LEVIN_SIGNATURE: u64 = 0x0101010101012101;
 
 /// A levin Bucket
 #[derive(Debug)]
 pub struct Bucket {
-    header: BucketHead,
-    body: Bytes,
-}
-
-impl Bucket {
-    fn to_bytes(&self) -> Bytes {
-        let mut buf = self.header.to_bytes();
-        buf.extend(self.body.iter());
-        buf.into()
-    }
+    /// The bucket header
+    pub header: BucketHead,
+    /// The bucket body
+    pub body: Vec<u8>,
 }
 
 /// An enum representing if the message is a request or response
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum MessageType {
     /// Request
     Request,
@@ -123,23 +98,94 @@ impl MessageType {
         flags: header::Flags,
         have_to_return: bool,
     ) -> Result<Self, BucketError> {
-        if flags.is_request() && have_to_return {
+        if flags.request && have_to_return {
             Ok(MessageType::Request)
-        } else if flags.is_request() {
+        } else if flags.request {
             Ok(MessageType::Notification)
-        } else if flags.is_response() && !have_to_return {
+        } else if flags.response && !have_to_return {
             Ok(MessageType::Response)
         } else {
-            Err(BucketError::UnknownFlags)
+            Err(BucketError::InvalidHeaderFlags(
+                "Unable to assign a message type to this bucket",
+            ))
+        }
+    }
+
+    pub fn as_flags(&self) -> header::Flags {
+        match self {
+            MessageType::Request | MessageType::Notification => header::Flags {
+                request: true,
+                ..Default::default()
+            },
+            MessageType::Response => header::Flags {
+                response: true,
+                ..Default::default()
+            },
         }
     }
 }
 
-impl From<MessageType> for header::Flags {
-    fn from(val: MessageType) -> Self {
-        match val {
-            MessageType::Request | MessageType::Notification => header::REQUEST,
-            MessageType::Response => header::RESPONSE,
+pub struct BucketBuilder {
+    signature: Option<u64>,
+    ty: Option<MessageType>,
+    command: Option<u32>,
+    return_code: Option<i32>,
+    protocol_version: Option<u32>,
+    body: Option<Vec<u8>>,
+}
+
+impl Default for BucketBuilder {
+    fn default() -> Self {
+        Self {
+            signature: Some(LEVIN_SIGNATURE),
+            ty: None,
+            command: None,
+            return_code: None,
+            protocol_version: Some(PROTOCOL_VERSION),
+            body: None,
+        }
+    }
+}
+
+impl BucketBuilder {
+    pub fn set_signature(&mut self, sig: u64) {
+        self.signature = Some(sig)
+    }
+
+    pub fn set_message_type(&mut self, ty: MessageType) {
+        self.ty = Some(ty)
+    }
+
+    pub fn set_command(&mut self, command: u32) {
+        self.command = Some(command)
+    }
+
+    pub fn set_return_code(&mut self, code: i32) {
+        self.return_code = Some(code)
+    }
+
+    pub fn set_protocol_version(&mut self, version: u32) {
+        self.protocol_version = Some(version)
+    }
+
+    pub fn set_body(&mut self, body: Vec<u8>) {
+        self.body = Some(body)
+    }
+
+    pub fn finish(self) -> Bucket {
+        let body = self.body.unwrap();
+        let ty = self.ty.unwrap();
+        Bucket {
+            header: BucketHead {
+                signature: self.signature.unwrap(),
+                size: body.len().try_into().unwrap(),
+                have_to_return_data: ty.have_to_return_data(),
+                command: self.command.unwrap(),
+                return_code: self.return_code.unwrap(),
+                flags: ty.as_flags(),
+                protocol_version: self.protocol_version.unwrap(),
+            },
+            body,
         }
     }
 }
@@ -150,11 +196,5 @@ pub trait LevinBody: Sized {
     fn decode_message(buf: &[u8], typ: MessageType, command: u32) -> Result<Self, BucketError>;
 
     /// Encodes the message
-    ///
-    /// returns:
-    ///     return_code: i32,
-    ///     command: u32,
-    ///     message_type: MessageType
-    ///     bytes: Vec<u8>
-    fn encode(&self) -> Result<(i32, u32, MessageType, Vec<u8>), BucketError>;
+    fn encode(&self, builder: &mut BucketBuilder) -> Result<(), BucketError>;
 }
