@@ -20,34 +20,14 @@
 
 use std::fmt::Display;
 
-use serde::{Deserialize, Serialize};
+use epee_encoding::EpeeObject;
 
-use super::{
-    common::{BasicNodeData, CoreSyncData, PeerListEntryBase, PeerSupportFlags},
-    PeerID,
-};
+use super::common::{BasicNodeData, CoreSyncData, PeerListEntryBase, PeerSupportFlags};
 
 const P2P_ADMIN_BASE: u32 = 1000;
 
-#[derive(Debug)]
-pub struct SillyEncodingError;
-
-impl Display for SillyEncodingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Literally impossible to get this error")
-    }
-}
-
-fn silly_encode<T>(_: &T) -> Result<Vec<u8>, SillyEncodingError> {
-    Ok(vec![])
-}
-
-fn silly_decode<T: Default>(_: &[u8]) -> Result<T, SillyEncodingError> {
-    Ok(T::default())
-}
-
 /// A Handshake Request
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct HandshakeRequest {
     /// Basic Node Data
     pub node_data: BasicNodeData,
@@ -55,69 +35,33 @@ pub struct HandshakeRequest {
     pub payload_data: CoreSyncData,
 }
 
-fn empty_vec<T>() -> Vec<T> {
-    vec![]
-}
-
 /// A Handshake Response
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct HandshakeResponse {
     /// Basic Node Data
     pub node_data: BasicNodeData,
     /// Core Sync Data
     pub payload_data: CoreSyncData,
     /// PeerList
-    #[serde(default = "empty_vec")]
+    #[epee_default(Vec::new())]
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
-message!(
-    Admin,
-    Name: Handshake,
-    ID: P2P_ADMIN_BASE + 1,
-    Request: HandshakeRequest {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    Response: HandshakeResponse {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-);
-
 /// A TimedSync Request
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct TimedSyncRequest {
     /// Core Sync Data
     pub payload_data: CoreSyncData,
 }
 
 /// A TimedSync Response
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct TimedSyncResponse {
     /// Core Sync Data
     pub payload_data: CoreSyncData,
     /// PeerList
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
-
-message!(
-    Admin,
-    Name: TimedSync,
-    ID: P2P_ADMIN_BASE + 2,
-    Request: TimedSyncRequest {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    Response: TimedSyncResponse {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-);
 
 /// The status field of an okay ping response
 pub const PING_OK_RESPONSE_STATUS_TEXT: &str = "OK";
@@ -127,62 +71,31 @@ pub const PING_OK_RESPONSE_STATUS_TEXT: &str = "OK";
 pub struct PingRequest;
 
 /// A Ping Response
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct PingResponse {
     /// Status: should be `PING_OK_RESPONSE_STATUS_TEXT`
     pub status: String,
     /// Peer ID
-    pub peer_id: PeerID,
+    pub peer_id: u64,
 }
-
-message!(
-    Admin,
-    Name: Ping,
-    ID: P2P_ADMIN_BASE + 3,
-    Request: PingRequest {
-        EncodingError: SillyEncodingError,
-        Encode: silly_encode,
-        Decode: silly_decode,
-    },
-    Response: PingResponse {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-);
 
 /// A Support Flags Request
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct SupportFlagsRequest;
 
 /// A Support Flags Response
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct SupportFlagsResponse {
     /// Support Flags
+    #[epee_flatten]
     pub support_flags: PeerSupportFlags,
 }
-
-message!(
-    Admin,
-    Name: SupportFlags,
-    ID: P2P_ADMIN_BASE + 7,
-    Request: SupportFlagsRequest {
-        EncodingError: SillyEncodingError,
-        Encode: silly_encode,
-        Decode: silly_decode,
-    },
-    Response: SupportFlagsResponse {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-);
 
 #[cfg(test)]
 mod tests {
 
     use super::{BasicNodeData, CoreSyncData, HandshakeRequest, HandshakeResponse};
-    use crate::messages::common::{PeerID, PeerSupportFlags};
+    use crate::messages::common::PeerSupportFlags;
 
     #[test]
     fn serde_handshake_req() {
@@ -200,13 +113,13 @@ mod tests {
             186, 15, 178, 70, 173, 170, 187, 31, 70, 50, 227, 11, 116, 111, 112, 95, 118, 101, 114,
             115, 105, 111, 110, 8, 1,
         ];
-        let handshake: HandshakeRequest = epee_serde::from_bytes(bytes).unwrap();
+        let handshake: HandshakeRequest = epee_encoding::from_bytes(&bytes).unwrap();
         let basic_node_data = BasicNodeData {
             my_port: 0,
             network_id: [
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
             ],
-            peer_id: PeerID(9671405426614699871),
+            peer_id: 9671405426614699871,
             support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 0,
             rpc_credits_per_hash: 0,
@@ -217,20 +130,18 @@ mod tests {
             cumulative_difficulty_top64: 0,
             current_height: 0,
             pruning_seed: 0,
-            top_id: hex::decode(
-                "0x418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3",
-            )
-            .unwrap()
-            .try_into()
-            .unwrap(),
+            top_id: hex::decode("418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
+                .unwrap()
+                .try_into()
+                .unwrap(),
             top_version: 1,
         };
 
         assert_eq!(basic_node_data, handshake.node_data);
         assert_eq!(core_sync_data, handshake.payload_data);
 
-        let encoded_bytes = epee_serde::to_bytes(&handshake).unwrap();
-        let handshake_2: HandshakeRequest = epee_serde::from_bytes(encoded_bytes).unwrap();
+        let encoded_bytes = epee_encoding::to_bytes(&handshake).unwrap();
+        let handshake_2: HandshakeRequest = epee_encoding::from_bytes(&encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);
     }
@@ -1006,14 +917,14 @@ mod tests {
             181, 216, 193, 135, 23, 186, 168, 207, 119, 86, 235, 11, 116, 111, 112, 95, 118, 101,
             114, 115, 105, 111, 110, 8, 16,
         ];
-        let handshake: HandshakeResponse = epee_serde::from_bytes(bytes).unwrap();
+        let handshake: HandshakeResponse = epee_encoding::from_bytes(&bytes).unwrap();
 
         let basic_node_data = BasicNodeData {
             my_port: 18080,
             network_id: [
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
             ],
-            peer_id: PeerID(6037804360359455404),
+            peer_id: 6037804360359455404,
             support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 18089,
             rpc_credits_per_hash: 0,
@@ -1024,12 +935,10 @@ mod tests {
             cumulative_difficulty_top64: 0,
             current_height: 2775167,
             pruning_seed: 386,
-            top_id: hex::decode(
-                "0x40780072dae9123108599a9f6585f2474d03f7b6dbb5d8c18717baa8cf7756eb",
-            )
-            .unwrap()
-            .try_into()
-            .unwrap(),
+            top_id: hex::decode("40780072dae9123108599a9f6585f2474d03f7b6dbb5d8c18717baa8cf7756eb")
+                .unwrap()
+                .try_into()
+                .unwrap(),
             top_version: 16,
         };
 
@@ -1037,8 +946,8 @@ mod tests {
         assert_eq!(core_sync_data, handshake.payload_data);
         assert_eq!(250, handshake.local_peerlist_new.len());
 
-        let encoded_bytes = epee_serde::to_bytes(&handshake).unwrap();
-        let handshake_2: HandshakeResponse = epee_serde::from_bytes(encoded_bytes).unwrap();
+        let encoded_bytes = epee_encoding::to_bytes(&handshake).unwrap();
+        let handshake_2: HandshakeResponse = epee_encoding::from_bytes(&encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);
     }
