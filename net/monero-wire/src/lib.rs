@@ -16,7 +16,7 @@
 //! # Monero Wire
 //!
 //! A crate defining Monero network messages and network addresses,
-//! built on top of the levin crate.
+//! built on top of the levin-cuprate crate.
 //!
 //! ## License
 //!
@@ -29,8 +29,6 @@
 #![deny(unused_mut)]
 //#![deny(missing_docs)]
 
-#[macro_use]
-mod internal_macros;
 pub mod messages;
 pub mod network_address;
 

@@ -20,9 +20,6 @@
 use std::net::{SocketAddrV4, SocketAddrV6};
 use std::{hash::Hash, net};
 
-use epee_encoding::io::Write;
-use epee_encoding::EpeeObject;
-
 mod builder;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

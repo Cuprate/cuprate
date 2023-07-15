@@ -21,11 +21,21 @@ use crate::NetworkAddress;
 
 mod builders;
 
-#[derive(Debug, Clone, Copy, EpeeObject, PartialEq, Eq)]
-pub struct PeerSupportFlags {
-    #[epee_default(0)]
-    pub support_flags: u32,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PeerSupportFlags(u32);
+
+impl From<u32> for PeerSupportFlags {
+    fn from(value: u32) -> Self {
+        PeerSupportFlags(value)
+    }
 }
+
+impl From<PeerSupportFlags> for u32 {
+    fn from(value: PeerSupportFlags) -> Self {
+        value.0
+    }
+}
+
 /*
 impl PeerSupportFlags {
     const FLUFFY_BLOCKS: u32 = 0b0000_0001;
@@ -49,15 +59,7 @@ impl PeerSupportFlags {
 */
 impl From<u8> for PeerSupportFlags {
     fn from(value: u8) -> Self {
-        PeerSupportFlags {
-            support_flags: value.into(),
-        }
-    }
-}
-
-impl From<u32> for PeerSupportFlags {
-    fn from(support_flags: u32) -> Self {
-        PeerSupportFlags { support_flags }
+        PeerSupportFlags(value.into())
     }
 }
 
@@ -72,7 +74,8 @@ pub struct BasicNodeData {
     pub peer_id: u64,
     /// The Peers Support Flags
     /// (If this is not in the message the default is 0)
-    #[epee_flatten]
+    #[epee_try_from_into(u32)]
+    #[epee_default(0)]
     pub support_flags: PeerSupportFlags,
     /// RPC Port
     /// (If this is not in the message the default is 0)

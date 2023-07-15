@@ -18,13 +18,9 @@
 //! Admin message requests must be responded to in order unlike
 //! protocol messages.   
 
-use std::fmt::Display;
-
 use epee_encoding::EpeeObject;
 
 use super::common::{BasicNodeData, CoreSyncData, PeerListEntryBase, PeerSupportFlags};
-
-const P2P_ADMIN_BASE: u32 = 1000;
 
 /// A Handshake Request
 #[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
@@ -66,10 +62,6 @@ pub struct TimedSyncResponse {
 /// The status field of an okay ping response
 pub const PING_OK_RESPONSE_STATUS_TEXT: &str = "OK";
 
-/// A Ping Request
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct PingRequest;
-
 /// A Ping Response
 #[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct PingResponse {
@@ -79,15 +71,11 @@ pub struct PingResponse {
     pub peer_id: u64,
 }
 
-/// A Support Flags Request
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct SupportFlagsRequest;
-
 /// A Support Flags Response
 #[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct SupportFlagsResponse {
     /// Support Flags
-    #[epee_flatten]
+    #[epee_try_from_into(u32)]
     pub support_flags: PeerSupportFlags,
 }
 
