@@ -17,12 +17,10 @@
 //! Monero network. Core Monero has 4 main addresses: IPv4, IPv6, Tor,
 //! I2p. Currently this module only has IPv(4/6).
 //!
+use std::net::{SocketAddrV4, SocketAddrV6};
 use std::{hash::Hash, net};
 
-use epee_serde::Value;
-use serde::{de, ser::SerializeStruct, Deserialize, Serialize};
-
-use super::utils;
+mod builder;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NetZone {
@@ -31,80 +29,14 @@ pub enum NetZone {
     I2p,
 }
 
-/// An IPv4 address with a port
-#[derive(Clone, Copy, Serialize, Debug, Default, PartialEq, Eq, Hash)]
-pub struct IPv4Address {
-    /// IP address
-    pub m_ip: u32,
-    /// Port
-    pub m_port: u16,
-}
-
-impl From<net::SocketAddrV4> for IPv4Address {
-    fn from(value: net::SocketAddrV4) -> Self {
-        IPv4Address {
-            m_ip: u32::from_le_bytes(value.ip().octets()),
-            m_port: value.port(),
-        }
-    }
-}
-
-impl IPv4Address {
-    fn from_value<E: de::Error>(mut value: Value) -> Result<Self, E> {
-        let m_ip = utils::get_internal_val_from_map(&mut value, "m_ip", Value::get_u32, "u32")?;
-
-        let m_port = utils::get_internal_val_from_map(&mut value, "m_port", Value::get_u16, "u16")?;
-
-        Ok(IPv4Address {
-            m_ip: m_ip,
-            m_port: m_port,
-        })
-    }
-}
-
-/// An IPv6 address with a port
-#[derive(Clone, Copy, Serialize, Debug, Default, PartialEq, Eq, Hash)]
-pub struct IPv6Address {
-    /// Address
-    pub addr: [u8; 16],
-    /// Port
-    pub m_port: u16,
-}
-
-impl From<net::SocketAddrV6> for IPv6Address {
-    fn from(value: net::SocketAddrV6) -> Self {
-        IPv6Address {
-            addr: value.ip().octets(),
-            m_port: value.port(),
-        }
-    }
-}
-
-impl IPv6Address {
-    fn from_value<E: de::Error>(mut value: Value) -> Result<Self, E> {
-        let addr =
-            utils::get_internal_val_from_map(&mut value, "addr", Value::get_bytes, "Vec<u8>")?;
-        let addr_len = addr.len();
-
-        let m_port = utils::get_internal_val_from_map(&mut value, "m_port", Value::get_u16, "u16")?;
-
-        Ok(IPv6Address {
-            addr: addr
-                .try_into()
-                .map_err(|_| E::invalid_length(addr_len, &"a 16-byte array"))?,
-            m_port,
-        })
-    }
-}
-
 /// A network address which can be encoded into the format required
 /// to send to other Monero peers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NetworkAddress {
     /// IPv4
-    IPv4(IPv4Address),
+    IPv4(SocketAddrV4),
     /// IPv6
-    IPv6(IPv6Address),
+    IPv6(SocketAddrV6),
 }
 
 impl NetworkAddress {
@@ -126,27 +58,21 @@ impl NetworkAddress {
 
     pub fn port(&self) -> u16 {
         match self {
-            NetworkAddress::IPv4(ip) => ip.m_port,
-            NetworkAddress::IPv6(ip) => ip.m_port,
+            NetworkAddress::IPv4(ip) => ip.port(),
+            NetworkAddress::IPv6(ip) => ip.port(),
         }
-    }
-}
-
-impl Default for NetworkAddress {
-    fn default() -> Self {
-        Self::IPv4(IPv4Address::default())
     }
 }
 
 impl From<net::SocketAddrV4> for NetworkAddress {
     fn from(value: net::SocketAddrV4) -> Self {
-        NetworkAddress::IPv4(value.into())
+        NetworkAddress::IPv4(value)
     }
 }
 
 impl From<net::SocketAddrV6> for NetworkAddress {
     fn from(value: net::SocketAddrV6) -> Self {
-        NetworkAddress::IPv6(value.into())
+        NetworkAddress::IPv6(value)
     }
 }
 
@@ -156,49 +82,5 @@ impl From<net::SocketAddr> for NetworkAddress {
             net::SocketAddr::V4(v4) => v4.into(),
             net::SocketAddr::V6(v6) => v6.into(),
         }
-    }
-}
-
-impl<'de> Deserialize<'de> for NetworkAddress {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let mut value = Value::deserialize(deserializer)?;
-        let addr_type = utils::get_internal_val_from_map(&mut value, "type", Value::get_u8, "u8")?;
-
-        Ok(match addr_type {
-            1 => NetworkAddress::IPv4(IPv4Address::from_value(utils::get_field_from_map(
-                &mut value, "addr",
-            )?)?),
-            2 => NetworkAddress::IPv6(IPv6Address::from_value(utils::get_field_from_map(
-                &mut value, "addr",
-            )?)?),
-            _ => {
-                return Err(de::Error::custom(
-                    "Network address type currently unsupported",
-                ))
-            }
-        })
-    }
-}
-
-impl Serialize for NetworkAddress {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut state = serializer.serialize_struct("", 2)?;
-        match self {
-            NetworkAddress::IPv4(v) => {
-                state.serialize_field("type", &1_u8)?;
-                state.serialize_field("addr", v)?;
-            }
-            NetworkAddress::IPv6(v) => {
-                state.serialize_field("type", &2_u8)?;
-                state.serialize_field("addr", v)?;
-            }
-        }
-        state.end()
     }
 }

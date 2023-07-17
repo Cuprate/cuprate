@@ -59,6 +59,9 @@ pub enum BucketError {
     /// Invalid Fragmented Message
     #[error("Levin fragmented message was invalid: {0}")]
     InvalidFragmentedMessage(&'static str),
+    /// Error decoding the body
+    #[error("Error decoding bucket body")]
+    BodyDecodingError(Box<dyn Debug>),
     /// I/O error
     #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),
@@ -73,7 +76,7 @@ pub struct Bucket {
     pub body: Vec<u8>,
 }
 
-/// An enum representing if the message is a request or response
+/// An enum representing if the message is a request, response or notification.
 #[derive(Debug, Eq, PartialEq)]
 pub enum MessageType {
     /// Request
@@ -125,6 +128,7 @@ impl MessageType {
     }
 }
 
+#[derive(Debug)]
 pub struct BucketBuilder {
     signature: Option<u64>,
     ty: Option<MessageType>,
@@ -193,7 +197,7 @@ impl BucketBuilder {
 /// A levin body
 pub trait LevinBody: Sized {
     /// Decodes the message from the data in the header
-    fn decode_message(buf: &[u8], typ: MessageType, command: u32) -> Result<Self, BucketError>;
+    fn decode_message(body: &[u8], typ: MessageType, command: u32) -> Result<Self, BucketError>;
 
     /// Encodes the message
     fn encode(&self, builder: &mut BucketBuilder) -> Result<(), BucketError>;

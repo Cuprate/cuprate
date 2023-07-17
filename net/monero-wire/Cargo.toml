@@ -8,14 +8,9 @@ repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/monero-wi
 
 
 [dependencies]
-levin = {path="../levin"}
-serde = {version = "1.0", features =["derive"]}
-serde_with = "2.2.0"
-sealed = "0.4"
-epee-serde = {git="https://github.com/Cuprate/epee_serde.git"}
-#monero = {git="https://github.com/Boog900/monero-rs.git", branch="db", features=["database"]}
-byteorder = "1.4.3"
-bytes = "1"
-thiserror = "1.0.24"
+levin-cuprate = {path="../levin"}
+epee-encoding = { git = "https://github.com/boog900/epee-encoding"}
+
+[dev-dependencies]
 hex = "0.4.3"
 

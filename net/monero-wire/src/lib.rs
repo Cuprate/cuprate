@@ -16,7 +16,7 @@
 //! # Monero Wire
 //!
 //! A crate defining Monero network messages and network addresses,
-//! built on top of the levin crate.
+//! built on top of the levin-cuprate crate.
 //!
 //! ## License
 //!
@@ -29,13 +29,11 @@
 #![deny(unused_mut)]
 //#![deny(missing_docs)]
 
-#[macro_use]
-mod internal_macros;
 pub mod messages;
 pub mod network_address;
-mod utils;
 
-pub use messages::{Message, P2pCommand};
 pub use network_address::NetworkAddress;
-// re-exports
-pub use levin;
+
+pub use messages::*;
+
+pub type MoneroWireCodec = levin_cuprate::codec::LevinMessageCodec<Message>;

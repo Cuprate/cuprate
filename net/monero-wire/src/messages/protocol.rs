@@ -18,18 +18,12 @@
 //! Protocol message requests don't have to be responded to in order unlike
 //! admin messages.   
 
-use serde::Deserialize;
-use serde::Serialize;
-use serde_with::serde_as;
-use serde_with::Bytes;
+use epee_encoding::EpeeObject;
 
 use super::common::BlockCompleteEntry;
-use crate::utils::{default_false, default_true};
-
-const P2P_PROTOCOL_BASE: u32 = 2000;
 
 /// A block that SHOULD have transactions
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct NewBlock {
     /// Block with txs
     pub b: BlockCompleteEntry,
@@ -37,71 +31,31 @@ pub struct NewBlock {
     pub current_blockchain_height: u64,
 }
 
-message!(
-    Protocol,
-    Name: NewBlock {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 1,
-);
-
-/// A Tx Pool transaction blob
-#[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(transparent)]
-pub struct TxBlob(#[serde_as(as = "Bytes")] pub Vec<u8>);
-
 /// New Tx Pool Transactions
-#[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct NewTransactions {
     /// Tx Blobs
-    pub txs: Vec<TxBlob>,
+    pub txs: Vec<Vec<u8>>,
     /// Dandelionpp true if fluff - backwards compatible mode is fluff
-    #[serde(default = "default_true")]
+    #[epee_default(true)]
     pub dandelionpp_fluff: bool,
     /// Padding
-    #[serde(rename = "_")]
-    #[serde_as(as = "Bytes")]
+    #[epee_alt_name("_")]
     pub padding: Vec<u8>,
 }
 
-message!(
-    Protocol,
-    Name: NewTransactions {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 2,
-);
-
 /// A Request For Blocks
-#[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct GetObjectsRequest {
-    /// Blocks
+    /// Block hashes we want
     pub blocks: Vec<[u8; 32]>,
     /// Pruned
-    #[serde(default = "default_false")]
+    #[epee_default(false)]
     pub pruned: bool,
 }
 
-message!(
-    Protocol,
-    Name: GetObjectsRequest {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 3,
-);
-
 /// A Blocks Response
-#[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct GetObjectsResponse {
     /// Blocks
     pub blocks: Vec<BlockCompleteEntry>,
@@ -111,40 +65,18 @@ pub struct GetObjectsResponse {
     pub current_blockchain_height: u64,
 }
 
-message!(
-    Protocol,
-    Name: GetObjectsResponse {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 4,
-);
-
 /// A Chain Request
-#[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct ChainRequest {
     /// Block IDs
     pub block_ids: Vec<[u8; 32]>,
     /// Prune
-    #[serde(default = "default_false")]
+    #[epee_default(false)]
     pub prune: bool,
 }
 
-message!(
-    Protocol,
-    Name: ChainRequest {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 6,
-);
-
 /// A Chain Response
-#[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct ChainResponse {
     /// Start Height
     pub start_height: u64,
@@ -159,7 +91,6 @@ pub struct ChainResponse {
     /// Block Weights
     pub m_block_weights: Vec<u64>,
     /// The first Block in the response
-    #[serde_as(as = "Bytes")]
     pub first_block: Vec<u8>,
 }
 
@@ -191,18 +122,8 @@ impl ChainResponse {
     }
 }
 
-message!(
-    Protocol,
-    Name: ChainResponse {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 7,
-);
-
 /// A Block that doesn't have transactions unless requested
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct NewFluffyBlock {
     /// Block which might have transactions
     pub b: BlockCompleteEntry,
@@ -210,19 +131,8 @@ pub struct NewFluffyBlock {
     pub current_blockchain_height: u64,
 }
 
-message!(
-    Protocol,
-    Name: NewFluffyBlock {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 8,
-);
-
 /// A request for Txs we are missing from our TxPool
-#[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct FluffyMissingTransactionsRequest {
     /// The Block we are missing the Txs in
     pub block_hash: [u8; 32],
@@ -232,33 +142,12 @@ pub struct FluffyMissingTransactionsRequest {
     pub missing_tx_indices: Vec<u64>,
 }
 
-message!(
-    Protocol,
-    Name: FluffyMissingTransactionsRequest {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 9,
-);
-
 /// TxPoolCompliment
-#[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct GetTxPoolCompliment {
     /// Tx Hashes
     pub hashes: Vec<[u8; 32]>,
 }
-
-message!(
-    Protocol,
-    Name: GetTxPoolCompliment {
-        EncodingError: epee_serde::Error,
-        Encode: epee_serde::to_bytes,
-        Decode: epee_serde::from_bytes,
-    },
-    ID: P2P_PROTOCOL_BASE + 10,
-);
 
 #[cfg(test)]
 mod tests {
@@ -778,16 +667,17 @@ mod tests {
 
         let now = std::time::Instant::now();
         for _ in 0..1000 {
-            let _new_transactions: NewTransactions = epee_serde::from_bytes(bytes).unwrap();
+            let _new_transactions: NewTransactions = epee_encoding::from_bytes(&bytes).unwrap();
         }
         println!("in: {}ms", now.elapsed().as_millis());
 
-        let new_transactions: NewTransactions = epee_serde::from_bytes(bytes).unwrap();
+        let new_transactions: NewTransactions = epee_encoding::from_bytes(&bytes).unwrap();
 
         assert_eq!(4, new_transactions.txs.len());
 
-        let encoded_bytes = epee_serde::to_bytes(&new_transactions).unwrap();
-        let new_transactions_2: NewTransactions = epee_serde::from_bytes(encoded_bytes).unwrap();
+        let encoded_bytes = epee_encoding::to_bytes(&new_transactions).unwrap();
+        let new_transactions_2: NewTransactions =
+            epee_encoding::from_bytes(&encoded_bytes).unwrap();
 
         assert_eq!(new_transactions, new_transactions_2);
     }
@@ -1133,10 +1023,10 @@ mod tests {
             101, 110, 116, 95, 98, 108, 111, 99, 107, 99, 104, 97, 105, 110, 95, 104, 101, 105,
             103, 104, 116, 5, 209, 45, 42, 0, 0, 0, 0, 0,
         ];
-        let fluffy_block: NewFluffyBlock = epee_serde::from_bytes(bytes).unwrap();
+        let fluffy_block: NewFluffyBlock = epee_encoding::from_bytes(&bytes).unwrap();
 
-        let encoded_bytes = epee_serde::to_bytes(&fluffy_block).unwrap();
-        let fluffy_block_2: NewFluffyBlock = epee_serde::from_bytes(encoded_bytes).unwrap();
+        let encoded_bytes = epee_encoding::to_bytes(&fluffy_block).unwrap();
+        let fluffy_block_2: NewFluffyBlock = epee_encoding::from_bytes(&encoded_bytes).unwrap();
 
         assert_eq!(fluffy_block, fluffy_block_2);
     }
