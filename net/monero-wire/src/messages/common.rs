@@ -75,7 +75,7 @@ pub struct BasicNodeData {
     /// The Peers Support Flags
     /// (If this is not in the message the default is 0)
     #[epee_try_from_into(u32)]
-    #[epee_default(0)]
+    #[epee_default(0_u32)]
     pub support_flags: PeerSupportFlags,
     /// RPC Port
     /// (If this is not in the message the default is 0)

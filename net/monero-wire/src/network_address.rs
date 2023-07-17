@@ -72,7 +72,7 @@ impl From<net::SocketAddrV4> for NetworkAddress {
 
 impl From<net::SocketAddrV6> for NetworkAddress {
     fn from(value: net::SocketAddrV6) -> Self {
-        NetworkAddress::IPv6(value.into())
+        NetworkAddress::IPv6(value)
     }
 }
 

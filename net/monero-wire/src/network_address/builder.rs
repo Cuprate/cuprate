@@ -46,7 +46,7 @@ struct NetworkAddressWriter<'a, T> {
 struct NetworkAddressWBuilder;
 
 impl<'a, T> EpeeObjectBuilder<NetworkAddressWriter<'a, T>> for NetworkAddressWBuilder {
-    fn add_field<R: Read>(&mut self, name: &str, r: &mut R) -> epee_encoding::Result<bool> {
+    fn add_field<R: Read>(&mut self, _name: &str, _r: &mut R) -> epee_encoding::Result<bool> {
         panic!("Not used")
     }
 
@@ -84,7 +84,7 @@ impl EpeeObject for NetworkAddressBuilderIntermediate {
         panic!("This is only used on deserialization")
     }
 
-    fn write_fields<W: Write>(&self, w: &mut W) -> epee_encoding::error::Result<()> {
+    fn write_fields<W: Write>(&self, _w: &mut W) -> epee_encoding::error::Result<()> {
         panic!("This is only used on deserialization")
     }
 }

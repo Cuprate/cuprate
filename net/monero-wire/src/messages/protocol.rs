@@ -22,8 +22,6 @@ use epee_encoding::EpeeObject;
 
 use super::common::BlockCompleteEntry;
 
-const P2P_PROTOCOL_BASE: u32 = 2000;
-
 /// A block that SHOULD have transactions
 #[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
 pub struct NewBlock {
