@@ -106,6 +106,7 @@ pub struct CoreSyncData {
     /// Hash of the top block
     pub top_id: [u8; 32],
     /// Version of the top block
+    #[epee_default(0)]
     pub top_version: u8,
 }
 
