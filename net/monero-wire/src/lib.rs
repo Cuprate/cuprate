@@ -32,8 +32,7 @@
 pub mod messages;
 pub mod network_address;
 
-pub use network_address::NetworkAddress;
-
 pub use messages::*;
+pub use network_address::*;
 
 pub type MoneroWireCodec = levin_cuprate::codec::LevinMessageCodec<Message>;

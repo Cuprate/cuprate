@@ -7,16 +7,6 @@ members = [
     #    "database",
         "net/levin",
         "net/monero-wire",
-     #   "p2p",
+        "p2p",
       #  "p2p/sync-states"
 ]
-
-[workspace.dependencies]
-monero = { version = "*" }
-bincode = { version = "2.0.0-rc.3" }
-serde = { version = "*", features =["derive"]}
-tracing = "*"
-tracing-subscriber = "*"
-
-# As suggested by /u/danda :
-thiserror = "*"

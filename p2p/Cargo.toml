@@ -1,5 +1,5 @@
 [package]
-name = "cuprate-peer"
+name = "cuprate-p2p"
 version = "0.1.0"
 edition = "2021"
 license = "AGPL-3.0-only"
@@ -7,13 +7,18 @@ authors = ["Boog900"]
 
 
 [dependencies]
-chrono = "0.4.24"
-thiserror = "1.0.39"
-cuprate-common = {path = "../common"}
 monero-wire = {path= "../net/monero-wire"}
-futures = "0.3.26"
-tower = {version = "0.4.13", features = ["util", "steer"]}
-tokio = {version= "1.27", features=["rt", "time"]}
-async-trait = "0.1.68"
-tracing = "0.1.37"
-rand = "0.8.5"
+
+
+#chrono = "0.4.24"
+#thiserror = "1.0.39"
+#cuprate-common = {path = "../common"}
+#futures = "0.3.26"
+#tower = {version = "0.4.13", features = ["util", "steer", "load",  "discover", "load-shed", "buffer", "timeout"]}
+#tokio = {version= "1.27", features=["rt", "time", "net"]}
+#tokio-util = {version = "0.7.8", features=["compat"]}
+#tokio-stream = {version="0.1.14", features=["time"]}
+#async-trait = "0.1.68"
+#tracing = "0.1.37"
+#rand = "0.8.5"
+#pin-project = "1.0.12"
