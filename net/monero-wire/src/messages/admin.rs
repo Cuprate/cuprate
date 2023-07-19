@@ -20,7 +20,7 @@
 
 use epee_encoding::EpeeObject;
 
-use super::common::{BasicNodeData, CoreSyncData, PeerListEntryBase, PeerSupportFlags};
+use super::common::{BasicNodeData, CoreSyncData, PeerID, PeerListEntryBase, PeerSupportFlags};
 
 /// A Handshake Request
 #[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
@@ -68,7 +68,8 @@ pub struct PingResponse {
     /// Status: should be `PING_OK_RESPONSE_STATUS_TEXT`
     pub status: String,
     /// Peer ID
-    pub peer_id: u64,
+    #[epee_try_from_into(u64)]
+    pub peer_id: PeerID,
 }
 
 /// A Support Flags Response
@@ -107,7 +108,7 @@ mod tests {
             network_id: [
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
             ],
-            peer_id: 9671405426614699871,
+            peer_id: 9671405426614699871.into(),
             support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 0,
             rpc_credits_per_hash: 0,
@@ -912,7 +913,7 @@ mod tests {
             network_id: [
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
             ],
-            peer_id: 6037804360359455404,
+            peer_id: 6037804360359455404.into(),
             support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 18089,
             rpc_credits_per_hash: 0,

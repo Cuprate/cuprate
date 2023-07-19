@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// The levin tokio-codec for decoding and encoding levin buckets
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 pub enum LevinCodec {
     /// Waiting for the peer to send a header.
     #[default]
@@ -90,7 +90,7 @@ impl Encoder<Bucket> for LevinCodec {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone)]
 enum MessageState {
     #[default]
     WaitingForBucket,
@@ -99,10 +99,21 @@ enum MessageState {
 
 /// A tokio-codec for levin messages or in other words the decoded body
 /// of a levin bucket.
+#[derive(Debug, Clone)]
 pub struct LevinMessageCodec<T> {
     message_ty: PhantomData<T>,
     bucket_codec: LevinCodec,
     state: MessageState,
+}
+
+impl<T> Default for LevinMessageCodec<T> {
+    fn default() -> Self {
+        Self {
+            message_ty: Default::default(),
+            bucket_codec: Default::default(),
+            state: Default::default(),
+        }
+    }
 }
 
 impl<T: LevinBody> Decoder for LevinMessageCodec<T> {

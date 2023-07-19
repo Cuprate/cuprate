@@ -35,4 +35,6 @@ pub mod network_address;
 pub use messages::*;
 pub use network_address::*;
 
+pub use levin_cuprate::BucketError;
+
 pub type MoneroWireCodec = levin_cuprate::codec::LevinMessageCodec<Message>;

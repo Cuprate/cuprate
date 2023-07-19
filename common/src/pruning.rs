@@ -50,6 +50,7 @@ pub enum PruningError {
 ///
 // Internally we use an Option<u32> to represent if a pruning seed is 0 (None)which means
 // no pruning will take place.
+#[derive(Debug, Clone, Copy)]
 pub struct PruningSeed(Option<u32>);
 
 impl PruningSeed {
@@ -78,7 +79,7 @@ impl PruningSeed {
     /// and 3 for `log_stripes`.*
     ///
     pub fn new(stripe: u32, log_stripes: u32) -> Result<PruningSeed, PruningError> {
-        if !(log_stripes <= PRUNING_SEED_LOG_STRIPES_MASK) {
+        if log_stripes > PRUNING_SEED_LOG_STRIPES_MASK {
             Err(PruningError::LogStripesOutOfRange)
         } else if !(stripe > 0 && stripe <= (1 << log_stripes)) {
             Err(PruningError::StripeOutOfRange)

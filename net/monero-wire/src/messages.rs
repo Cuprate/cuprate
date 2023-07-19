@@ -26,7 +26,7 @@ pub use admin::{
     HandshakeRequest, HandshakeResponse, PingResponse, SupportFlagsResponse, TimedSyncRequest,
     TimedSyncResponse,
 };
-pub use common::{BasicNodeData, CoreSyncData, PeerListEntryBase};
+pub use common::{BasicNodeData, CoreSyncData, PeerID, PeerListEntryBase};
 pub use protocol::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
     GetObjectsResponse, GetTxPoolCompliment, NewBlock, NewFluffyBlock, NewTransactions,
