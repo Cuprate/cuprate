@@ -155,7 +155,8 @@ pub struct PeerListEntryBase {
     /// The Peer Address
     pub adr: NetworkAddress,
     /// The Peer ID
-    pub id: u64,
+    #[epee_try_from_into(u64)]
+    pub id: PeerID,
     /// The last Time The Peer Was Seen
     #[epee_default(0)]
     pub last_seen: i64,

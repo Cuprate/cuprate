@@ -40,7 +40,7 @@ use super::{
 };
 use crate::address_book::connection_handle::new_address_book_connection_handle;
 use crate::address_book::{AddressBookRequest, AddressBookResponse};
-use crate::connection_tracker::ConnectionTracker;
+use crate::connection_counter::ConnectionTracker;
 use crate::constants::{
     CUPRATE_MINIMUM_SUPPORT_FLAGS, HANDSHAKE_TIMEOUT, P2P_MAX_PEERS_IN_HANDSHAKE,
 };

@@ -29,28 +29,6 @@ pub struct LoadTrackedClient {
     connection_info: Arc<ConnectionInfo>,
 }
 
-impl LoadTrackedClient {
-    pub fn supports_fluffy_blocks(&self) -> bool {
-        self.connection_info.support_flags.supports_fluffy_blocks()
-    }
-
-    pub fn current_height(&self) -> u64 {
-        self.connection_info.peer_height.load(Ordering::SeqCst)
-    }
-
-    pub fn pruning_seed(&self) -> PruningSeed {
-        self.connection_info.pruning_seed
-    }
-
-    pub fn has_full_block(&self, block_height: u64) -> bool {
-        let seed = self.pruning_seed();
-        let Some(log_stripes) = seed.get_log_stripes() else {
-            return true;
-        };
-        seed.will_have_complete_block(block_height, self.current_height(), log_stripes)
-    }
-}
-
 /// Create a new [`LoadTrackedClient`] wrapping the provided `client` service.
 impl From<Client> for LoadTrackedClient {
     fn from(client: Client) -> Self {

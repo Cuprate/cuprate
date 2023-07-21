@@ -4,20 +4,9 @@ pub mod connector;
 pub mod handshaker;
 pub mod load_tracked_client;
 
+mod error;
 #[cfg(test)]
 mod tests;
-
-use monero_wire::levin::BucketError;
-use thiserror::Error;
-
-#[derive(Debug, Error, Clone, Copy)]
-pub enum RequestServiceError {}
-
-#[derive(Debug, Error, Clone, Copy)]
-pub enum PeerError {
-    #[error("The connection task has closed.")]
-    ConnectionTaskClosed,
-}
 
 pub use client::Client;
 pub use client::ConnectionInfo;

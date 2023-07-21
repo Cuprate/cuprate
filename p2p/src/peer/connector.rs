@@ -16,7 +16,7 @@ use tracing::Instrument;
 use crate::peer::handshaker::ConnectionAddr;
 use crate::{
     address_book::{AddressBookRequest, AddressBookResponse},
-    connection_tracker::ConnectionTracker,
+    connection_counter::ConnectionTracker,
     protocol::{
         CoreSyncDataRequest, CoreSyncDataResponse, InternalMessageRequest, InternalMessageResponse,
     },

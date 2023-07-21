@@ -61,7 +61,7 @@ pub enum BucketError {
     InvalidFragmentedMessage(&'static str),
     /// Error decoding the body
     #[error("Error decoding bucket body")]
-    BodyDecodingError(Box<dyn Debug + Send + Sync>),
+    BodyDecodingError(Box<dyn std::error::Error + Send + Sync>),
     /// I/O error
     #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),

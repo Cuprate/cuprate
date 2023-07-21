@@ -10,21 +10,21 @@ use futures::{
 use tokio::task::JoinHandle;
 use tower::BoxError;
 
-use crate::peer::handshaker::ConnectionAddr;
-use cuprate_common::shutdown::set_shutting_down;
 use cuprate_common::PruningSeed;
-use monero_wire::messages::PeerID;
 use monero_wire::{messages::common::PeerSupportFlags, NetworkAddress};
 
-use super::{connection::ClientRequest, PeerError};
+use super::{
+    connection::ClientRequest,
+    error::{ErrorSlot, PeerError, SharedPeerError},
+    PeerError,
+};
+use crate::connection_handle::PeerHandle;
 use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
 
 pub struct ConnectionInfo {
-    pub addr: ConnectionAddr,
     pub support_flags: PeerSupportFlags,
     pub pruning_seed: PruningSeed,
-    /// Peer ID
-    pub peer_id: PeerID,
+    pub handle: PeerHandle,
     pub rpc_port: u16,
     pub rpc_credits_per_hash: u32,
 }
@@ -37,6 +37,8 @@ pub struct Client {
     server_tx: mpsc::Sender<ClientRequest>,
     connection_task: JoinHandle<()>,
     heartbeat_task: JoinHandle<()>,
+
+    error_slot: ErrorSlot,
 }
 
 impl Client {
@@ -46,6 +48,7 @@ impl Client {
         server_tx: mpsc::Sender<ClientRequest>,
         connection_task: JoinHandle<()>,
         heartbeat_task: JoinHandle<()>,
+        error_slot: ErrorSlot,
     ) -> Self {
         Client {
             connection_info,
@@ -53,6 +56,7 @@ impl Client {
             server_tx,
             connection_task,
             heartbeat_task,
+            error_slot,
         }
     }
 
@@ -140,7 +144,7 @@ impl Client {
 
 impl tower::Service<InternalMessageRequest> for Client {
     type Response = InternalMessageResponse;
-    type Error = PeerError;
+    type Error = SharedPeerError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
@@ -163,7 +167,7 @@ impl tower::Service<InternalMessageRequest> for Client {
                         .map_err(|e| e.into())
                 })
                 .boxed(),
-            Err(_e) => {
+            Err(_) => {
                 // TODO: better error handling
                 futures::future::ready(Err(PeerError::ClientChannelClosed.into())).boxed()
             }

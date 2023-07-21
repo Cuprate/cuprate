@@ -1,123 +1,77 @@
-use std::collections::HashSet;
-use std::sync::atomic::AtomicU64;
-
 use futures::channel::{mpsc, oneshot};
-use futures::stream::Fuse;
-use futures::{AsyncRead, AsyncWrite, SinkExt, StreamExt};
+use futures::{Sink, SinkExt, Stream};
 
-use crate::address_book::connection_handle::AddressBookConnectionHandle;
-use levin::{MessageSink, MessageStream};
-use monero_wire::messages::CoreSyncData;
-use monero_wire::{levin, Message, NetworkAddress};
+use monero_wire::{BucketError, Message};
 use tower::{BoxError, Service, ServiceExt};
 
-use crate::connection_tracker::{self, ConnectionTracker};
+use crate::connection_handle::DisconnectSignal;
+use crate::peer::error::{ErrorSlot, PeerError, SharedPeerError};
 use crate::peer::handshaker::ConnectionAddr;
-use crate::protocol::{InternalMessageRequest, InternalMessageResponse};
-
-use super::PeerError;
+use crate::protocol::internal_network::{MessageID, Request, Response};
 
 pub struct ClientRequest {
-    pub req: InternalMessageRequest,
-    pub tx: oneshot::Sender<Result<InternalMessageResponse, PeerError>>,
+    pub req: Request,
+    pub tx: oneshot::Sender<Result<Response, SharedPeerError>>,
 }
 
 pub enum State {
     WaitingForRequest,
     WaitingForResponse {
-        request: InternalMessageRequest,
-        tx: oneshot::Sender<Result<InternalMessageResponse, PeerError>>,
+        request_id: MessageID,
+        tx: oneshot::Sender<Result<Response, SharedPeerError>>,
     },
 }
 
-impl State {
-    pub fn expected_response_id(&self) -> Option<u32> {
-        match self {
-            Self::WaitingForRequest => None,
-            Self::WaitingForResponse { request, tx: _ } => request.expected_id(),
-        }
-    }
-}
-
-pub struct Connection<Svc, Aw> {
+pub struct Connection<Svc, Snk> {
     address: ConnectionAddr,
     state: State,
-    sink: MessageSink<Aw, Message>,
+    sink: Snk,
     client_rx: mpsc::Receiver<ClientRequest>,
-    /// A connection tracker that reduces the open connection count when dropped.
-    /// Used to limit the number of open connections in Zebra.
-    ///
-    /// This field does nothing until it is dropped.
-    ///
+
+    error_slot: ErrorSlot,
+
     /// # Security
     ///
     /// If this connection tracker or `Connection`s are leaked,
     /// the number of active connections will appear higher than it actually is.
     /// If enough connections leak, Cuprate will stop making new connections.
-    #[allow(dead_code)]
-    connection_tracker: ConnectionTracker,
-    /// A handle to our slot in the address book so we can tell the address
-    /// book when we disconnect and the address book can tell us to disconnect.
-    address_book_handle: AddressBookConnectionHandle,
+    connection_tracker: DisconnectSignal,
+
     svc: Svc,
 }
 
-impl<Svc, Aw> Connection<Svc, Aw>
+impl<Svc, Snk> Connection<Svc, Snk>
 where
-    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = BoxError>,
-    Aw: AsyncWrite + std::marker::Unpin,
+    Svc: Service<Request, Response = Response, Error = BoxError>,
+    Snk: Sink<Message, Error = BucketError> + Unpin,
 {
     pub fn new(
         address: ConnectionAddr,
-        sink: MessageSink<Aw, Message>,
+        sink: Snk,
         client_rx: mpsc::Receiver<ClientRequest>,
-        connection_tracker: ConnectionTracker,
-        address_book_handle: AddressBookConnectionHandle,
+        error_slot: ErrorSlot,
+        connection_tracker: DisconnectSignal,
         svc: Svc,
-    ) -> Connection<Svc, Aw> {
+    ) -> Connection<Svc, Snk> {
         Connection {
             address,
             state: State::WaitingForRequest,
             sink,
             client_rx,
+            error_slot,
             connection_tracker,
-            address_book_handle,
             svc,
         }
     }
-    async fn handle_response(&mut self, res: InternalMessageResponse) -> Result<(), PeerError> {
+    async fn handle_response(&mut self, res: Response) -> Result<(), PeerError> {
         let state = std::mem::replace(&mut self.state, State::WaitingForRequest);
-        if let State::WaitingForResponse { request, tx } = state {
-            match (request, &res) {
-                (InternalMessageRequest::Handshake(_), InternalMessageResponse::Handshake(_)) => {}
-                (
-                    InternalMessageRequest::SupportFlags(_),
-                    InternalMessageResponse::SupportFlags(_),
-                ) => {}
-                (InternalMessageRequest::TimedSync(_), InternalMessageResponse::TimedSync(res)) => {
-                }
-                (
-                    InternalMessageRequest::GetObjectsRequest(req),
-                    InternalMessageResponse::GetObjectsResponse(res),
-                ) => {}
-                (
-                    InternalMessageRequest::ChainRequest(_),
-                    InternalMessageResponse::ChainResponse(res),
-                ) => {}
-                (
-                    InternalMessageRequest::FluffyMissingTransactionsRequest(req),
-                    InternalMessageResponse::NewFluffyBlock(blk),
-                ) => {}
-                (
-                    InternalMessageRequest::GetTxPoolCompliment(_),
-                    InternalMessageResponse::NewTransactions(_),
-                ) => {
-                    // we could check we received no transactions that we said we knew about but thats going to happen later anyway when they get added to our
-                    // mempool
-                }
-                _ => return Err(PeerError::ResponseError("Peer sent incorrect response")),
+        if let State::WaitingForResponse { request_id, tx } = state {
+            if request_id != res.id() {
+                // TODO: Fail here
+                return Err(PeerError::PeerSentIncorrectResponse);
             }
-            // response passed our tests we can send it to the requestor
+
+            // response passed our tests we can send it to the requester
             let _ = tx.send(Ok(res));
             Ok(())
         } else {
@@ -129,7 +83,7 @@ where
         Ok(self.sink.send(mes.into()).await?)
     }
 
-    async fn handle_peer_request(&mut self, req: InternalMessageRequest) -> Result<(), PeerError> {
+    async fn handle_peer_request(&mut self, req: Request) -> Result<(), PeerError> {
         // we should check contents of peer requests for obvious errors like we do with responses
         todo!()
         /*
@@ -140,13 +94,13 @@ where
     }
 
     async fn handle_client_request(&mut self, req: ClientRequest) -> Result<(), PeerError> {
-        // check we need a response
-        if let Some(_) = req.req.expected_id() {
+        if req.req.needs_response() {
             self.state = State::WaitingForResponse {
-                request: req.req.clone(),
+                request_id: req.req.id(),
                 tx: req.tx,
             };
         }
+        // TODO: send NA response to requester
         self.send_message_to_peer(req.req).await
     }
 
@@ -197,9 +151,7 @@ where
         loop {
             let _res = match self.state {
                 State::WaitingForRequest => self.state_waiting_for_request().await,
-                State::WaitingForResponse { request: _, tx: _ } => {
-                    self.state_waiting_for_response().await
-                }
+                State::WaitingForResponse { .. } => self.state_waiting_for_response().await,
             };
         }
     }
