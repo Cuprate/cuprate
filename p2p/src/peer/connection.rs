@@ -1,8 +1,9 @@
 use futures::channel::{mpsc, oneshot};
-use futures::{Sink, SinkExt, Stream};
+use futures::stream::FusedStream;
+use futures::{Sink, SinkExt, Stream, StreamExt};
 
 use monero_wire::{BucketError, Message};
-use tower::{BoxError, Service, ServiceExt};
+use tower::{BoxError, Service};
 
 use crate::connection_handle::DisconnectSignal;
 use crate::peer::error::{ErrorSlot, PeerError, SharedPeerError};
@@ -104,12 +105,15 @@ where
         self.send_message_to_peer(req.req).await
     }
 
-    async fn state_waiting_for_request(&mut self) -> Result<(), PeerError> {
+    async fn state_waiting_for_request<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
+    where
+        Str: FusedStream<Item = Result<Message, BucketError>> + Unpin,
+    {
         futures::select! {
-            peer_message = self.stream.next() => {
+            peer_message = stream.next() => {
                 match peer_message.expect("MessageStream will never return None") {
                     Ok(message) => {
-                        self.handle_peer_request(message.try_into().map_err(|_| PeerError::PeerSentUnexpectedResponse)?).await
+                        self.handle_peer_request(message.try_into().map_err(|_| PeerError::ResponseError(""))?).await
                     },
                     Err(e) => Err(e.into()),
                 }
@@ -120,10 +124,12 @@ where
         }
     }
 
-    async fn state_waiting_for_response(&mut self) -> Result<(), PeerError> {
+    async fn state_waiting_for_response<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
+    where
+        Str: FusedStream<Item = Result<Message, BucketError>> + Unpin,
+    {
         // put a timeout on this
-        let peer_message = self
-            .stream
+        let peer_message = stream
             .next()
             .await
             .expect("MessageStream will never return None")?;
@@ -147,11 +153,16 @@ where
         }
     }
 
-    pub async fn run(mut self) {
+    pub async fn run<Str>(mut self, mut stream: Str)
+    where
+        Str: FusedStream<Item = Result<Message, BucketError>> + Unpin,
+    {
         loop {
             let _res = match self.state {
-                State::WaitingForRequest => self.state_waiting_for_request().await,
-                State::WaitingForResponse { .. } => self.state_waiting_for_response().await,
+                State::WaitingForRequest => self.state_waiting_for_request(&mut stream).await,
+                State::WaitingForResponse { .. } => {
+                    self.state_waiting_for_response(&mut stream).await
+                }
             };
         }
     }

@@ -25,9 +25,11 @@
 use monero_wire::{
     ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
     GetObjectsResponse, GetTxPoolCompliment, HandshakeRequest, HandshakeResponse, Message,
-    NewBlock, NewFluffyBlock, NewTransactions, PingResponse, SupportFlagsResponse,
+    NewBlock, NewFluffyBlock, NewTransactions, PingResponse, RequestMessage, SupportFlagsResponse,
     TimedSyncRequest, TimedSyncResponse,
 };
+
+mod try_from;
 
 /// An enum representing a request/ response combination, so a handshake request
 /// and response would have the same [`MessageID`]. This allows associating the
@@ -42,7 +44,7 @@ pub enum MessageID {
     GetObjects,
     GetChain,
     FluffyMissingTxs,
-    GetTxPollCompliment,
+    GetTxPoolCompliment,
     NewBlock,
     NewFluffyBlock,
     NewTransactions,
@@ -57,7 +59,7 @@ pub enum Request {
     GetObjects(GetObjectsRequest),
     GetChain(ChainRequest),
     FluffyMissingTxs(FluffyMissingTransactionsRequest),
-    GetTxPollCompliment(GetTxPoolCompliment),
+    GetTxPoolCompliment(GetTxPoolCompliment),
     NewBlock(NewBlock),
     NewFluffyBlock(NewFluffyBlock),
     NewTransactions(NewTransactions),
@@ -74,7 +76,7 @@ impl Request {
             Request::GetObjects(_) => MessageID::GetObjects,
             Request::GetChain(_) => MessageID::GetChain,
             Request::FluffyMissingTxs(_) => MessageID::FluffyMissingTxs,
-            Request::GetTxPollCompliment(_) => MessageID::GetTxPollCompliment,
+            Request::GetTxPoolCompliment(_) => MessageID::GetTxPoolCompliment,
             Request::NewBlock(_) => MessageID::NewBlock,
             Request::NewFluffyBlock(_) => MessageID::NewFluffyBlock,
             Request::NewTransactions(_) => MessageID::NewTransactions,

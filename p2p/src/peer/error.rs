@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
+use monero_wire::BucketError;
 use thiserror::Error;
 use tracing_error::TracedError;
-use monero_wire::BucketError;
 
 /// A wrapper around `Arc<PeerError>` that implements `Error`.
 #[derive(Error, Debug, Clone)]
@@ -27,14 +27,18 @@ impl SharedPeerError {
     }
 }
 
-#[derive(Debug, Error, Clone)]
+#[derive(Debug, Error)]
 pub enum PeerError {
     #[error("The connection task has closed.")]
     ConnectionTaskClosed,
+    #[error("Error with peers response: {0}.")]
+    ResponseError(&'static str),
+    #[error("The connected peer sent an an unexpected response message.")]
+    PeerSentUnexpectedResponse,
     #[error("The connected peer sent an incorrect response.")]
-    PeerSentIncorrectResponse,
-    #[error("The connected peer sent an incorrect response.")]
-    BucketError(#[from] BucketError)
+    BucketError(#[from] BucketError),
+    #[error("The channel was closed.")]
+    ClientChannelClosed,
 }
 
 /// A shared error slot for peer errors.
