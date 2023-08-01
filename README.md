@@ -1,6 +1,5 @@
-<div>
-  <img src="misc/logo/wordmark/CuprateWordmark.svg" alt="Cuprate"/>
-</div>
+![Cuprate](misc/logo/wordmark/CuprateWordmark.svg)
+
 
 ----
 
