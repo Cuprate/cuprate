@@ -22,36 +22,79 @@ use bytes::{Buf, BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
-    Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, MessageType,
-    LEVIN_DEFAULT_MAX_PACKET_SIZE,
+    Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand, MessageType, Protocol,
 };
 
-/// The levin tokio-codec for decoding and encoding levin buckets
-#[derive(Default, Debug, Clone)]
-pub enum LevinCodec {
+#[derive(Debug, Clone)]
+pub enum LevinBucketState<C> {
     /// Waiting for the peer to send a header.
-    #[default]
     WaitingForHeader,
     /// Waiting for a peer to send a body.
-    WaitingForBody(BucketHead),
+    WaitingForBody(BucketHead<C>),
 }
 
-impl Decoder for LevinCodec {
-    type Item = Bucket;
+/// The levin tokio-codec for decoding and encoding raw levin buckets
+///
+#[derive(Debug, Clone)]
+pub struct LevinBucketCodec<C> {
+    state: LevinBucketState<C>,
+    protocol: Protocol,
+    handshake_message_seen: bool,
+}
+
+impl<C> Default for LevinBucketCodec<C> {
+    fn default() -> Self {
+        LevinBucketCodec {
+            state: LevinBucketState::WaitingForHeader,
+            protocol: Protocol::default(),
+            handshake_message_seen: false,
+        }
+    }
+}
+
+impl<C> LevinBucketCodec<C> {
+    pub fn new(protocol: Protocol) -> Self {
+        LevinBucketCodec {
+            state: LevinBucketState::WaitingForHeader,
+            protocol,
+            handshake_message_seen: false,
+        }
+    }
+}
+
+impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
+    type Item = Bucket<C>;
     type Error = BucketError;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         loop {
-            match self {
-                LevinCodec::WaitingForHeader => {
-                    if src.len() < BucketHead::SIZE {
+            match &self.state {
+                LevinBucketState::WaitingForHeader => {
+                    if src.len() < BucketHead::<C>::SIZE {
                         return Ok(None);
                     };
 
-                    let head = BucketHead::from_bytes(src)?;
-                    let _ = std::mem::replace(self, LevinCodec::WaitingForBody(head));
+                    let head = BucketHead::<C>::from_bytes(src);
+
+                    if head.size > self.protocol.max_packet_size
+                        || head.size > head.command.bucket_size_limit()
+                    {
+                        return Err(BucketError::BucketExceededMaxSize);
+                    }
+
+                    if !self.handshake_message_seen {
+                        if head.size > self.protocol.max_packet_size_before_handshake {
+                            return Err(BucketError::BucketExceededMaxSize);
+                        }
+
+                        if head.command.is_handshake() {
+                            self.handshake_message_seen = true;
+                        }
+                    }
+
+                    let _ =
+                        std::mem::replace(&mut self.state, LevinBucketState::WaitingForBody(head));
                 }
-                LevinCodec::WaitingForBody(head) => {
-                    // We size check header while decoding it.
+                LevinBucketState::WaitingForBody(head) => {
                     let body_len = head
                         .size
                         .try_into()
@@ -61,7 +104,7 @@ impl Decoder for LevinCodec {
                         return Ok(None);
                     }
 
-                    let LevinCodec::WaitingForBody(header) = std::mem::replace(self, LevinCodec::WaitingForHeader) else {
+                    let LevinBucketState::WaitingForBody(header) = std::mem::replace(&mut self.state, LevinBucketState::WaitingForHeader) else {
                         unreachable!()
                     };
 
@@ -75,10 +118,10 @@ impl Decoder for LevinCodec {
     }
 }
 
-impl Encoder<Bucket> for LevinCodec {
+impl<C: LevinCommand> Encoder<Bucket<C>> for LevinBucketCodec<C> {
     type Error = BucketError;
-    fn encode(&mut self, item: Bucket, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        if dst.capacity() < BucketHead::SIZE + item.body.len() {
+    fn encode(&mut self, item: Bucket<C>, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        if dst.capacity() < BucketHead::<C>::SIZE + item.body.len() {
             return Err(BucketError::IO(std::io::Error::new(
                 ErrorKind::OutOfMemory,
                 "Not enough capacity to write the bucket",
@@ -91,22 +134,22 @@ impl Encoder<Bucket> for LevinCodec {
 }
 
 #[derive(Default, Debug, Clone)]
-enum MessageState {
+enum MessageState<C> {
     #[default]
     WaitingForBucket,
-    WaitingForRestOfFragment(Vec<u8>, MessageType, u32),
+    WaitingForRestOfFragment(Vec<u8>, MessageType, C),
 }
 
 /// A tokio-codec for levin messages or in other words the decoded body
 /// of a levin bucket.
 #[derive(Debug, Clone)]
-pub struct LevinMessageCodec<T> {
+pub struct LevinMessageCodec<T: LevinBody> {
     message_ty: PhantomData<T>,
-    bucket_codec: LevinCodec,
-    state: MessageState,
+    bucket_codec: LevinBucketCodec<T::Command>,
+    state: MessageState<T::Command>,
 }
 
-impl<T> Default for LevinMessageCodec<T> {
+impl<T: LevinBody> Default for LevinMessageCodec<T> {
     fn default() -> Self {
         Self {
             message_ty: Default::default(),
@@ -127,23 +170,20 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         return Ok(None);
                     };
 
-                    let end_fragment = bucket.header.flags.end_fragment;
-                    let start_fragment = bucket.header.flags.start_fragment;
-                    let request = bucket.header.flags.request;
-                    let response = bucket.header.flags.response;
+                    let flags = &bucket.header.flags;
 
-                    if start_fragment && end_fragment {
+                    if flags.is_start_fragment() && flags.is_end_fragment() {
                         // Dummy message
                         return Ok(None);
                     };
 
-                    if end_fragment {
+                    if flags.is_end_fragment() {
                         return Err(BucketError::InvalidHeaderFlags(
                             "Flag end fragment received before a start fragment",
                         ));
                     };
 
-                    if !request && !response {
+                    if !flags.is_request() && !flags.is_response() {
                         return Err(BucketError::InvalidHeaderFlags(
                             "Request and response flags both not set",
                         ));
@@ -154,13 +194,13 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         bucket.header.have_to_return_data,
                     )?;
 
-                    if start_fragment {
+                    if flags.is_start_fragment() {
                         let _ = std::mem::replace(
                             &mut self.state,
                             MessageState::WaitingForRestOfFragment(
                                 bucket.body.to_vec(),
                                 message_type,
-                                bucket.header.protocol_version,
+                                bucket.header.command,
                             ),
                         );
 
@@ -178,17 +218,14 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         return Ok(None);
                     };
 
-                    let end_fragment = bucket.header.flags.end_fragment;
-                    let start_fragment = bucket.header.flags.start_fragment;
-                    let request = bucket.header.flags.request;
-                    let response = bucket.header.flags.response;
+                    let flags = &bucket.header.flags;
 
-                    if start_fragment && end_fragment {
+                    if flags.is_start_fragment() && flags.is_end_fragment() {
                         // Dummy message
                         return Ok(None);
                     };
 
-                    if !request && !response {
+                    if !flags.is_request() && !flags.is_response() {
                         return Err(BucketError::InvalidHeaderFlags(
                             "Request and response flags both not set",
                         ));
@@ -207,12 +244,12 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     if bucket.header.command != *command {
                         return Err(BucketError::InvalidFragmentedMessage(
-                            "Command not consistent across message",
+                            "Command not consistent across fragments",
                         ));
                     }
 
-                    if bytes.len() + bucket.body.len()
-                        > LEVIN_DEFAULT_MAX_PACKET_SIZE.try_into().unwrap()
+                    if bytes.len().saturating_add(bucket.body.len())
+                        > command.bucket_size_limit().try_into().unwrap()
                     {
                         return Err(BucketError::InvalidFragmentedMessage(
                             "Fragmented message exceeded maximum size",
@@ -221,7 +258,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     bytes.append(&mut bucket.body.to_vec());
 
-                    if end_fragment {
+                    if flags.is_end_fragment() {
                         let MessageState::WaitingForRestOfFragment(bytes, ty, command) =
                             std::mem::replace(&mut self.state, MessageState::WaitingForBucket) else {
                             unreachable!();
