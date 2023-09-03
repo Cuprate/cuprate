@@ -1,0 +1,31 @@
+[package]
+name = "monero-consensus"
+version = "0.1.0"
+edition = "2021"
+description = "A crate implimenting all Moneros consensus rules."
+license = "MIT"
+authors = ["Boog900"]
+repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
+
+[features]
+default = ["binaries"]
+binaries = ["rpc", "dep:tokio", "dep:tracing-subscriber", "tower/retry", "tower/balance"]
+rpc = ["dep:futures"]
+
+[dependencies]
+hex = "0.4"
+thiserror = "1"
+tower = {version = "0.4", features = ["util"]}
+tracing = "0.1"
+
+monero-serai = {git="https://github.com/Cuprate/serai.git", rev = "84b77b1"}
+
+cuprate-common = {path = "../common"}
+
+# used for rpc
+futures = {version = "0.3", optional = true}
+# used in binaries
+tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
+tracing-subscriber = {version = "0.3", optional = true}
+# here to help cargo to pick a version - remove me
+syn = "2.0.29"

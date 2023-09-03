@@ -10,17 +10,17 @@ const STAGENET_NETWORK_ID: [u8; 16] = [
 
 #[derive(Debug, Clone, Copy)]
 pub enum Network {
-    MainNet,
-    TestNet,
-    StageNet,
+    Mainnet,
+    Testnet,
+    Stagenet,
 }
 
 impl Network {
     pub fn network_id(&self) -> [u8; 16] {
         match self {
-            Network::MainNet => MAINNET_NETWORK_ID,
-            Network::TestNet => TESTNET_NETWORK_ID,
-            Network::StageNet => STAGENET_NETWORK_ID,
+            Network::Mainnet => MAINNET_NETWORK_ID,
+            Network::Testnet => TESTNET_NETWORK_ID,
+            Network::Stagenet => STAGENET_NETWORK_ID,
         }
     }
 }

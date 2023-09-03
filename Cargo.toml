@@ -2,7 +2,8 @@
 [workspace]
 
 members = [
-       # "common",
+        "common",
+        "consensus",
 	#"cuprate",
     #    "database",
         "net/levin",
