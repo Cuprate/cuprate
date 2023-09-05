@@ -7,13 +7,12 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use tower::balance::p2c::Balance;
 use tower::discover::Change;
-use tower::util::{BoxService};
+use tower::util::BoxService;
 
 use tracing::level_filters::LevelFilter;
 
 use monero_consensus::hardforks::{HardForkConfig, HardForks};
 use monero_consensus::rpc::Rpc;
-
 
 struct RpcDiscoverer(Vec<String>, u64);
 
@@ -80,7 +79,7 @@ async fn main() {
     let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 3);
     let rpc = tower::retry::Retry::new(Attempts(3), rpc_buffer);
 
-    let _hfs = HardForks::init(HardForkConfig::default(), rpc.clone())
+    let _hfs = HardForks::init_at_chain_height(HardForkConfig::default(), 1009827, rpc.clone())
         .await
         .unwrap();
 }

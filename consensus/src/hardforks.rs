@@ -230,6 +230,27 @@ impl HardForks {
              panic!("Database sent incorrect response")
          };
 
+        let mut hfs =
+            HardForks::init_at_chain_height(config, chain_height, database.clone()).await?;
+
+        // This is only needed if the database moves independently of the HardFork class aka if we are checking a node instead of keeping state ourself.
+        hfs.resync(&mut database).await?;
+
+        hfs.check_set_new_hf();
+
+        tracing::info!("HardFork state: {:?}", hfs);
+
+        Ok(hfs)
+    }
+
+    pub async fn init_at_chain_height<D: Database + Clone>(
+        config: HardForkConfig,
+        chain_height: u64,
+        mut database: D,
+    ) -> Result<Self, Error>
+    where
+        D::Future: Send + 'static,
+    {
         let block_heights = if chain_height > config.window {
             chain_height - config.window..chain_height
         } else {
@@ -257,8 +278,6 @@ impl HardForks {
             last_height: chain_height - 1,
         };
 
-        hfs.resync(&mut database).await?;
-
         hfs.check_set_new_hf();
 
         tracing::info!("HardFork state: {:?}", hfs);
@@ -285,7 +304,7 @@ impl HardForks {
         loop {
             while chain_height > self.last_height + 1 {
                 self.get_and_account_new_block(self.last_height + 1, &mut database)
-                    .await;
+                    .await?;
             }
 
             let DatabaseResponse::ChainHeight(c_h) = database
@@ -309,13 +328,16 @@ impl HardForks {
         }
     }
 
-    async fn get_and_account_new_block<D: Database>(&mut self, height: u64, mut database: D) {
-        let header = get_block_header(&mut database, height)
-            .await
-            .expect("Error retrieving block we should have in database");
+    async fn get_and_account_new_block<D: Database>(
+        &mut self,
+        height: u64,
+        mut database: D,
+    ) -> Result<(), Error> {
+        let header = get_block_header(&mut database, height).await?;
 
         self.new_block(HardFork::from_vote(&header.minor_version), height, database)
-            .await
+            .await;
+        Ok(())
     }
 
     pub fn check_block_version_vote(&self, version: &HardFork, vote: &HardFork) -> bool {
