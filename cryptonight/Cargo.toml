@@ -1,0 +1,14 @@
+[package]
+name = "cryptonight-cuprate"
+version = "0.1.0"
+edition = "2021"
+description = "A wrapper around Monero's CryptoNight hash function."
+license = "MIT"
+authors = ["Boog900", "The Monero Project"]
+repository = "https://github.com/Cuprate/cuprate/tree/main/cryptonight"
+
+[dependencies]
+
+
+[build-dependencies]
+cc = "1"

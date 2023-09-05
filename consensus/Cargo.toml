@@ -18,9 +18,11 @@ thiserror = "1"
 tower = {version = "0.4", features = ["util"]}
 tracing = "0.1"
 
+randomx-rs = "1"
 monero-serai = {git="https://github.com/Cuprate/serai.git", rev = "84b77b1"}
 
 cuprate-common = {path = "../common"}
+cryptonight-cuprate = {path = "../cryptonight"}
 
 # used for rpc
 futures = {version = "0.3", optional = true}
