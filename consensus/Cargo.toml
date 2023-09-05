@@ -9,7 +9,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [features]
 default = ["binaries"]
-binaries = ["rpc", "dep:tokio", "dep:tracing-subscriber", "tower/retry", "tower/balance"]
+binaries = ["rpc", "dep:tokio", "dep:tracing-subscriber", "tower/retry", "tower/balance", "tower/buffer"]
 rpc = ["dep:futures"]
 
 [dependencies]

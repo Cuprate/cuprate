@@ -78,7 +78,7 @@ impl PruningSeed {
     /// and 3 for `log_stripes`.*
     ///
     pub fn new(stripe: u32, log_stripes: u32) -> Result<PruningSeed, PruningError> {
-        if !(log_stripes <= PRUNING_SEED_LOG_STRIPES_MASK) {
+        if log_stripes > PRUNING_SEED_LOG_STRIPES_MASK {
             Err(PruningError::LogStripesOutOfRange)
         } else if !(stripe > 0 && stripe <= (1 << log_stripes)) {
             Err(PruningError::StripeOutOfRange)

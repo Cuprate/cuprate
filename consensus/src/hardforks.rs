@@ -1,3 +1,5 @@
+use futures::stream::FuturesUnordered;
+use futures::{StreamExt, TryFutureExt};
 use std::ops::Range;
 
 use monero_serai::block::BlockHeader;
@@ -195,7 +197,7 @@ impl Default for HardForkConfig {
     fn default() -> Self {
         Self {
             network: Network::Mainnet,
-            window: 3, //DEFAULT_WINDOW_SIZE,
+            window: DEFAULT_WINDOW_SIZE,
         }
     }
 }
@@ -213,9 +215,12 @@ pub struct HardForks {
 }
 
 impl HardForks {
-    pub async fn init<D>(config: HardForkConfig, database: &mut D) -> Result<Self, Error>
+    pub async fn init<D: Database + Clone>(
+        config: HardForkConfig,
+        mut database: D,
+    ) -> Result<Self, Error>
     where
-        D: Database,
+        D::Future: Send + 'static,
     {
         let DatabaseResponse::ChainHeight(chain_height) = database
              .ready()
@@ -231,13 +236,13 @@ impl HardForks {
             0..chain_height
         };
 
-        let votes = get_votes_in_range(database, block_heights).await?;
+        let votes = get_votes_in_range(database.clone(), block_heights).await?;
 
         if chain_height > config.window {
-            assert_eq!(votes.total_votes(), config.window)
+            debug_assert_eq!(votes.total_votes(), config.window)
         }
 
-        let latest_header = get_block_header(database, chain_height - 1).await?;
+        let latest_header = get_block_header(&mut database, chain_height - 1).await?;
 
         let current_hardfork = HardFork::from_version(&latest_header.major_version)
             .expect("Invalid major version in stored block");
@@ -252,40 +257,108 @@ impl HardForks {
             last_height: chain_height - 1,
         };
 
-        // chain_height = height + 1
-        hfs.check_set_new_hf(chain_height);
+        hfs.resync(&mut database).await?;
+
+        hfs.check_set_new_hf();
+
+        tracing::info!("HardFork state: {:?}", hfs);
 
         Ok(hfs)
+    }
+
+    #[instrument(skip(self, database))]
+    async fn resync<D: Database>(&mut self, mut database: D) -> Result<(), Error> {
+        let DatabaseResponse::ChainHeight(mut chain_height) = database
+            .ready()
+            .await?
+            .call(DatabaseRequest::ChainHeight)
+            .await? else {
+            panic!("Database sent incorrect response")
+        };
+
+        tracing::debug!(
+            "chain-tip: {}, last height: {}",
+            chain_height - 1,
+            self.last_height
+        );
+
+        loop {
+            while chain_height > self.last_height + 1 {
+                self.get_and_account_new_block(self.last_height + 1, &mut database)
+                    .await;
+            }
+
+            let DatabaseResponse::ChainHeight(c_h) = database
+                .ready()
+                .await?
+                .call(DatabaseRequest::ChainHeight)
+                .await? else {
+                panic!("Database sent incorrect response")
+            };
+            chain_height = c_h;
+
+            if chain_height == self.last_height + 1 {
+                return Ok(());
+            }
+
+            tracing::debug!(
+                "chain-tip: {}, last height: {}",
+                chain_height - 1,
+                self.last_height
+            );
+        }
+    }
+
+    async fn get_and_account_new_block<D: Database>(&mut self, height: u64, mut database: D) {
+        let header = get_block_header(&mut database, height)
+            .await
+            .expect("Error retrieving block we should have in database");
+
+        self.new_block(HardFork::from_vote(&header.minor_version), height, database)
+            .await
     }
 
     pub fn check_block_version_vote(&self, version: &HardFork, vote: &HardFork) -> bool {
         &self.current_hardfork == version && vote >= &self.current_hardfork
     }
 
-    pub async fn new_block<D: Database>(&mut self, vote: HardFork, height: u64, database: &mut D) {
-        assert_eq!(self.last_height + 1, height);
+    pub async fn new_block<D: Database>(&mut self, vote: HardFork, height: u64, mut database: D) {
+        debug_assert_eq!(self.last_height + 1, height);
         self.last_height += 1;
+
+        tracing::debug!(
+            "Accounting for new blocks vote, height: {}, vote: {:?}",
+            self.last_height,
+            vote
+        );
 
         self.votes.add_vote_for_hf(&vote);
 
         for offset in self.config.window..self.votes.total_votes() {
-            let header = get_block_header(database, height - offset)
+            let header = get_block_header(&mut database, height - offset)
                 .await
                 .expect("Error retrieving block we should have in database");
-            self.votes
-                .remove_vote_for_hf(&HardFork::from_vote(&header.minor_version));
+
+            let vote = HardFork::from_vote(&header.minor_version);
+            tracing::debug!(
+                "Removing block {} vote ({:?}) as they have left the window",
+                height - offset,
+                vote
+            );
+
+            self.votes.remove_vote_for_hf(&vote);
         }
 
         if height > self.config.window {
-            assert_eq!(self.votes.total_votes(), self.config.window);
+            debug_assert_eq!(self.votes.total_votes(), self.config.window);
         }
 
-        self.check_set_new_hf(height + 1)
+        self.check_set_new_hf()
     }
 
-    fn check_set_new_hf(&mut self, height: u64) {
+    fn check_set_new_hf(&mut self) {
         while let Some(new_hf) = self.next_hardfork {
-            if height >= new_hf.fork_height(&self.config.network)
+            if self.last_height + 1 >= new_hf.fork_height(&self.config.network)
                 && self.votes.get_votes_for_hf(&new_hf)
                     >= new_hf.votes_needed(&self.config.network, self.config.window)
             {
@@ -303,18 +376,25 @@ impl HardForks {
 }
 
 #[instrument(skip(database))]
-async fn get_votes_in_range<D: Database>(
-    database: &mut D,
+async fn get_votes_in_range<D: Database + Clone>(
+    database: D,
     block_heights: Range<u64>,
-) -> Result<HFVotes, Error> {
+) -> Result<HFVotes, Error>
+where
+    D::Future: Send + 'static,
+{
     let mut votes = HFVotes::default();
 
-    for height in block_heights {
-        let header = get_block_header(database, height).await?;
+    let mut fut =
+        FuturesUnordered::from_iter(block_heights.map(|height| {
+            get_block_header(database.clone(), height).map_ok(move |res| (height, res))
+        }));
 
+    while let Some(res) = fut.next().await {
+        let (height, header): (u64, BlockHeader) = res?;
         let vote = HardFork::from_vote(&header.minor_version);
 
-        tracing::info!("Block vote for height: {} = {:?}", height, vote);
+        tracing::debug!("Block vote for height: {} = {:?}", height, vote);
 
         votes.add_vote_for_hf(&HardFork::from_vote(&header.minor_version));
     }
@@ -323,7 +403,7 @@ async fn get_votes_in_range<D: Database>(
 }
 
 async fn get_block_header<D: Database>(
-    database: &mut D,
+    database: D,
     block_id: impl Into<BlockID>,
 ) -> Result<BlockHeader, Error> {
     let DatabaseResponse::BlockHeader(header) = database

@@ -1,4 +1,6 @@
-use tower::ServiceExt;
+
+
+
 
 pub mod genesis;
 pub mod hardforks;
@@ -23,7 +25,7 @@ impl<T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tow
 {
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DatabaseRequest {
     BlockHeader(cuprate_common::BlockID),
     ChainHeight,

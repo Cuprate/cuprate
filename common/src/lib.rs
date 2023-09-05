@@ -13,7 +13,7 @@ pub const CRYPTONOTE_PRUNING_LOG_STRIPES: u32 = 3;
 pub const CRYPTONOTE_PRUNING_STRIPE_SIZE: u64 = 4096;
 pub const CRYPTONOTE_PRUNING_TIP_BLOCKS: u64 = 5500;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BlockID {
     Hash([u8; 32]),
     Height(u64),
