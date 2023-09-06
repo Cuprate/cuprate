@@ -39,7 +39,7 @@ impl<Req: Clone, Res, E> tower::retry::Policy<Req, Res, E> for Attempts {
     type Future = futures::future::Ready<Self>;
     fn retry(&self, _: &Req, result: Result<&Res, &E>) -> Option<Self::Future> {
         if result.is_err() {
-            Some(futures::future::ready(Attempts(self.0 - 1)))
+            Some(futures::future::ready(Attempts(self.0 )))
         } else {
             None
         }
@@ -92,11 +92,13 @@ async fn main() {
 
     println!("{pow_info:?}");
 
-    let difficulty = DifficultyCalculator::init_from_chain_height(2968227, rpc.clone())
+    let difficulty = DifficultyCalculator::init_from_chain_height(578656, rpc.clone())
         .await
         .unwrap();
 
-    println!("{:?}", difficulty.next_difficulty(&HardFork::V16)); //257344482654
+    println!("{:?}", difficulty);
+
+    println!("{:?}", difficulty.next_difficulty(&HardFork::V1)); //774466376
 
     //let _hfs = HardForks::init_at_chain_height(HardForkConfig::default(), 1009827, rpc.clone())
     //    .await

@@ -25,7 +25,7 @@ fn genesis_miner_tx(network: &Network) -> Transaction {
 
 /// Generates the Monero genesis block.
 ///
-/// ref: consensus-doc#Genesis
+/// ref: https://cuprate.github.io/monero-docs/consensus_rules/genesis_block.html
 pub fn generate_genesis_block(network: &Network) -> Block {
     Block {
         header: BlockHeader {

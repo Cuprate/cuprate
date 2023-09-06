@@ -51,7 +51,11 @@ impl DifficultyCalculator {
         chain_height: u64,
         mut database: D,
     ) -> Result<Self, Error> {
-        let block_start = chain_height.saturating_sub(DIFFICULTY_BLOCKS_COUNT);
+        let mut block_start = chain_height.saturating_sub(DIFFICULTY_BLOCKS_COUNT);
+
+        if block_start == 0 {
+            block_start = 1;
+        }
 
         let timestamps =
             get_blocks_in_range_timestamps(database.clone(), block_start..chain_height).await?;
@@ -111,7 +115,12 @@ impl DifficultyCalculator {
     }
 
     async fn update_windowed_work<D: Database>(&mut self, mut database: D) -> Result<(), Error> {
-        let block_start = (self.last_accounted_height + 1).saturating_sub(DIFFICULTY_BLOCKS_COUNT);
+        let mut block_start =
+            (self.last_accounted_height + 1).saturating_sub(DIFFICULTY_BLOCKS_COUNT);
+
+        if block_start == 0 {
+            block_start = 1;
+        }
 
         let (start, end) = get_window_start_and_end(self.timestamps.len());
 
@@ -137,7 +146,9 @@ impl DifficultyCalculator {
         }
 
         let mut sorted_timestamps = self.timestamps.clone();
-        sorted_timestamps.drain(DIFFICULTY_WINDOW..);
+        if sorted_timestamps.len() > DIFFICULTY_WINDOW {
+            sorted_timestamps.drain(DIFFICULTY_WINDOW..);
+        };
         sorted_timestamps.sort_unstable();
 
         let (window_start, window_end) = get_window_start_and_end(sorted_timestamps.len());
@@ -194,6 +205,7 @@ async fn get_blocks_in_range_timestamps<D: Database + Clone>(
 }
 
 async fn get_block_timestamp<D: Database>(database: D, height: u64) -> Result<u64, Error> {
+    tracing::debug!("Getting block timestamp: {}", height);
     let DatabaseResponse::BlockPOWInfo(pow) = database
         .oneshot(DatabaseRequest::BlockPOWInfo(height.into()))
         .await?
