@@ -8,10 +8,13 @@ use std::task::{Context, Poll};
 use tower::balance::p2c::Balance;
 use tower::discover::Change;
 use tower::util::BoxService;
+use tower::{Service, ServiceExt};
 
+use monero_consensus::DatabaseRequest;
 use tracing::level_filters::LevelFilter;
 
-use monero_consensus::hardforks::{HardForkConfig, HardForks};
+use monero_consensus::hardforks::HardFork;
+use monero_consensus::pow::difficulty::DifficultyCalculator;
 use monero_consensus::rpc::Rpc;
 
 struct RpcDiscoverer(Vec<String>, u64);
@@ -77,9 +80,25 @@ async fn main() {
     );
     let rpc_balance = Balance::new(rpc_discoverer);
     let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 3);
-    let rpc = tower::retry::Retry::new(Attempts(3), rpc_buffer);
+    let mut rpc = tower::retry::Retry::new(Attempts(3), rpc_buffer);
 
-    let _hfs = HardForks::init_at_chain_height(HardForkConfig::default(), 1009827, rpc.clone())
+    let pow_info = rpc
+        .ready()
+        .await
+        .unwrap()
+        .call(DatabaseRequest::BlockPOWInfo(64.into()))
         .await
         .unwrap();
+
+    println!("{pow_info:?}");
+
+    let difficulty = DifficultyCalculator::init_from_chain_height(2968227, rpc.clone())
+        .await
+        .unwrap();
+
+    println!("{:?}", difficulty.next_difficulty(&HardFork::V16)); //257344482654
+
+    //let _hfs = HardForks::init_at_chain_height(HardForkConfig::default(), 1009827, rpc.clone())
+    //    .await
+    //    .unwrap();
 }

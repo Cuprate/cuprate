@@ -1,5 +1,6 @@
 
 [workspace]
+resolver = "2"
 
 members = [
         "common",
@@ -12,4 +13,5 @@ members = [
      #   "p2p",
       #  "p2p/sync-states"
 ]
+
 

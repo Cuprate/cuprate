@@ -1,9 +1,6 @@
-
-
-
-
 pub mod genesis;
 pub mod hardforks;
+pub mod pow;
 #[cfg(feature = "rpc")]
 pub mod rpc;
 
@@ -28,11 +25,13 @@ impl<T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tow
 #[derive(Debug, Clone)]
 pub enum DatabaseRequest {
     BlockHeader(cuprate_common::BlockID),
+    BlockPOWInfo(cuprate_common::BlockID),
     ChainHeight,
 }
 
 #[derive(Debug)]
 pub enum DatabaseResponse {
     BlockHeader(monero_serai::block::BlockHeader),
+    BlockPOWInfo(pow::BlockPOWInfo),
     ChainHeight(u64),
 }

@@ -1,16 +1,18 @@
-use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
-use futures::{FutureExt, TryFutureExt};
 use std::future::Future;
-
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
+use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
+use futures::{FutureExt, TryFutureExt};
 use monero_serai::rpc::{HttpRpc, RpcConnection};
+use serde::Deserialize;
+use serde_json::json;
 use tower::BoxError;
 
 use cuprate_common::BlockID;
 
+use crate::pow::BlockPOWInfo;
 use crate::{DatabaseRequest, DatabaseResponse};
 
 enum RpcState<R: RpcConnection> {
@@ -109,6 +111,59 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
                 }
                 .boxed(),
             },
+            DatabaseRequest::BlockPOWInfo(id) => get_blocks_pow_info(id, rpc).boxed(),
         }
     }
+}
+
+async fn get_blocks_pow_info<R: RpcConnection>(
+    id: BlockID,
+    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
+) -> Result<DatabaseResponse, tower::BoxError> {
+    #[derive(Deserialize, Debug)]
+    struct BlockHeaderResponse {
+        cumulative_difficulty: u64,
+        cumulative_difficulty_top64: u64,
+        timestamp: u64,
+    }
+
+    #[derive(Deserialize, Debug)]
+    struct Response {
+        block_header: BlockHeaderResponse,
+    }
+
+    match id {
+        BlockID::Height(height) => {
+            let res = rpc
+                .json_rpc_call::<Response>(
+                    "get_block_header_by_height",
+                    Some(json!({"height": height})),
+                )
+                .await?;
+            Ok(DatabaseResponse::BlockPOWInfo(BlockPOWInfo {
+                timestamp: res.block_header.timestamp,
+                cumulative_difficulty: u128_from_low_high(
+                    res.block_header.cumulative_difficulty,
+                    res.block_header.cumulative_difficulty_top64,
+                ),
+            }))
+        }
+        BlockID::Hash(hash) => {
+            let res = rpc
+                .json_rpc_call::<Response>("get_block_header_by_hash", Some(json!({"hash": hash})))
+                .await?;
+            Ok(DatabaseResponse::BlockPOWInfo(BlockPOWInfo {
+                timestamp: res.block_header.timestamp,
+                cumulative_difficulty: u128_from_low_high(
+                    res.block_header.cumulative_difficulty,
+                    res.block_header.cumulative_difficulty_top64,
+                ),
+            }))
+        }
+    }
+}
+
+fn u128_from_low_high(low: u64, high: u64) -> u128 {
+    let res: u128 = high as u128;
+    res << 64 | low as u128
 }

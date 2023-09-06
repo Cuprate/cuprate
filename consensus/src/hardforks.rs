@@ -1,5 +1,6 @@
 use futures::stream::FuturesUnordered;
 use futures::{StreamExt, TryFutureExt};
+use std::fmt::{Display, Formatter};
 use std::ops::Range;
 
 use monero_serai::block::BlockHeader;
@@ -154,6 +155,30 @@ struct HFVotes {
     votes: [u64; 16],
 }
 
+impl Display for HFVotes {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HFVotes")
+            .field("total", &self.total_votes())
+            .field("V1", &self.votes_for_hf(&HardFork::V1))
+            .field("V2", &self.votes_for_hf(&HardFork::V2))
+            .field("V3", &self.votes_for_hf(&HardFork::V3))
+            .field("V4", &self.votes_for_hf(&HardFork::V4))
+            .field("V5", &self.votes_for_hf(&HardFork::V5))
+            .field("V6", &self.votes_for_hf(&HardFork::V6))
+            .field("V7", &self.votes_for_hf(&HardFork::V7))
+            .field("V8", &self.votes_for_hf(&HardFork::V8))
+            .field("V9", &self.votes_for_hf(&HardFork::V9))
+            .field("V10", &self.votes_for_hf(&HardFork::V10))
+            .field("V11", &self.votes_for_hf(&HardFork::V11))
+            .field("V12", &self.votes_for_hf(&HardFork::V12))
+            .field("V13", &self.votes_for_hf(&HardFork::V13))
+            .field("V14", &self.votes_for_hf(&HardFork::V14))
+            .field("V15", &self.votes_for_hf(&HardFork::V15))
+            .field("V16", &self.votes_for_hf(&HardFork::V16))
+            .finish()
+    }
+}
+
 impl HFVotes {
     /// Add votes for a hard-fork
     pub fn add_votes_for_hf(&mut self, hf: &HardFork, votes: u64) {
@@ -173,7 +198,7 @@ impl HFVotes {
     /// Returns the total votes for a hard-fork.
     ///
     /// http://localhost:3000/consensus_rules/hardforks.html#accepting-a-fork
-    pub fn get_votes_for_hf(&self, hf: &HardFork) -> u64 {
+    pub fn votes_for_hf(&self, hf: &HardFork) -> u64 {
         self.votes[*hf as usize - 1..].iter().sum()
     }
 
@@ -223,12 +248,13 @@ impl HardForks {
         D::Future: Send + 'static,
     {
         let DatabaseResponse::ChainHeight(chain_height) = database
-             .ready()
-             .await?
-             .call(DatabaseRequest::ChainHeight)
-             .await? else {
-             panic!("Database sent incorrect response")
-         };
+            .ready()
+            .await?
+            .call(DatabaseRequest::ChainHeight)
+            .await?
+        else {
+            panic!("Database sent incorrect response")
+        };
 
         let mut hfs =
             HardForks::init_at_chain_height(config, chain_height, database.clone()).await?;
@@ -251,13 +277,9 @@ impl HardForks {
     where
         D::Future: Send + 'static,
     {
-        let block_heights = if chain_height > config.window {
-            chain_height - config.window..chain_height
-        } else {
-            0..chain_height
-        };
+        let block_start = chain_height.saturating_sub(config.window);
 
-        let votes = get_votes_in_range(database.clone(), block_heights).await?;
+        let votes = get_votes_in_range(database.clone(), block_start..chain_height).await?;
 
         if chain_height > config.window {
             debug_assert_eq!(votes.total_votes(), config.window)
@@ -291,7 +313,8 @@ impl HardForks {
             .ready()
             .await?
             .call(DatabaseRequest::ChainHeight)
-            .await? else {
+            .await?
+        else {
             panic!("Database sent incorrect response")
         };
 
@@ -311,7 +334,8 @@ impl HardForks {
                 .ready()
                 .await?
                 .call(DatabaseRequest::ChainHeight)
-                .await? else {
+                .await?
+            else {
                 panic!("Database sent incorrect response")
             };
             chain_height = c_h;
@@ -381,7 +405,7 @@ impl HardForks {
     fn check_set_new_hf(&mut self) {
         while let Some(new_hf) = self.next_hardfork {
             if self.last_height + 1 >= new_hf.fork_height(&self.config.network)
-                && self.votes.get_votes_for_hf(&new_hf)
+                && self.votes.votes_for_hf(&new_hf)
                     >= new_hf.votes_needed(&self.config.network, self.config.window)
             {
                 self.set_hf(new_hf);
@@ -430,7 +454,8 @@ async fn get_block_header<D: Database>(
 ) -> Result<BlockHeader, Error> {
     let DatabaseResponse::BlockHeader(header) = database
         .oneshot(DatabaseRequest::BlockHeader(block_id.into()))
-        .await? else {
+        .await?
+    else {
         panic!("Database sent incorrect response for block header request")
     };
     Ok(header)

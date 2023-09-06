@@ -126,7 +126,7 @@ impl PruningSeed {
             Err(PruningError::BlockChainHeightTooLarge)
         } else {
             let Some(seed_stripe) = self.get_stripe() else {
-                // If the `get_stripe` returns None that means no pruning so the next 
+                // If the `get_stripe` returns None that means no pruning so the next
                 // unpruned block is the one inputted.
                 return Ok(block_height);
             };
@@ -192,7 +192,7 @@ impl PruningSeed {
         blockchain_height: u64,
     ) -> Result<u64, PruningError> {
         let Some(seed_stripe) = self.get_stripe() else {
-            // If the `get_stripe` returns None that means no pruning so the next 
+            // If the `get_stripe` returns None that means no pruning so the next
             // pruned block is nonexistent so we return the blockchain_height.
             return Ok(blockchain_height);
         };

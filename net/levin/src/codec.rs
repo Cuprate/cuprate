@@ -61,7 +61,9 @@ impl Decoder for LevinCodec {
                         return Ok(None);
                     }
 
-                    let LevinCodec::WaitingForBody(header) = std::mem::replace(self, LevinCodec::WaitingForHeader) else {
+                    let LevinCodec::WaitingForBody(header) =
+                        std::mem::replace(self, LevinCodec::WaitingForHeader)
+                    else {
                         unreachable!()
                     };
 
@@ -212,7 +214,8 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     if end_fragment {
                         let MessageState::WaitingForRestOfFragment(bytes, ty, command) =
-                            std::mem::replace(&mut self.state, MessageState::WaitingForBucket) else {
+                            std::mem::replace(&mut self.state, MessageState::WaitingForBucket)
+                        else {
                             unreachable!();
                         };
 
