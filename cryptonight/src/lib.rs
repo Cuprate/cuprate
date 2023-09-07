@@ -15,15 +15,14 @@ pub enum Variant {
     V0,
     V1,
     V2,
-    V3,
-    V4 { height: u64 },
+    R { height: u64 },
 }
 
 impl Variant {
     /// Returns the height of the block we are hashing, if thats relevant for this variant otherwise
     /// `0` is returned.
     fn height(&self) -> u64 {
-        if let Variant::V4 { height } = self {
+        if let Variant::R { height } = self {
             *height
         } else {
             0
@@ -35,8 +34,7 @@ impl Variant {
             Variant::V0 => 0,
             Variant::V1 => 1,
             Variant::V2 => 2,
-            Variant::V3 => 3,
-            Variant::V4 { .. } => 4,
+            Variant::R { .. } => 4,
         }
     }
 }
