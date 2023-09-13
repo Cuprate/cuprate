@@ -1,0 +1,17 @@
+[package]
+name = "random-x"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["jit"]
+jit = ["dep:dynasmrt"]
+
+[dependencies]
+blake2 = "0.10"
+argon2 = "0.5"
+
+dynasmrt = {version = "2.0.0", optional = true}
+
+[profile.dev]
+opt-level = 2

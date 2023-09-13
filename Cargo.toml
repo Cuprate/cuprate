@@ -6,6 +6,7 @@ members = [
         "common",
         "consensus",
         "cryptonight",
+        "random-x",
 	#"cuprate",
     #    "database",
         "net/levin",
