@@ -10,6 +10,8 @@ jit = ["dep:dynasmrt"]
 [dependencies]
 blake2 = "0.10"
 argon2 = "0.5"
+aes = {version = "0.8", features = ["hazmat"]}
+hex-literal = "0.4"
 
 dynasmrt = {version = "2.0.0", optional = true}
 

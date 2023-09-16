@@ -1,3 +1,4 @@
+mod aes_hash;
 mod blake2_generator;
 mod config;
 //mod dataset;
