@@ -1,5 +1,5 @@
 use crate::registers::RGroupRegisterID;
-use crate::superscalar::cpu::{MacroOp, SlotLen};
+use crate::superscalar::cpu::MacroOp;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[allow(non_camel_case_types)]

@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::config::SUPERSCALAR_MAX_SIZE;
 use crate::registers::{RGroupRegisterID, RGroupRegisters};
-use crate::superscalar::cpu::{MacroOp, ProgramSchedule, SlotLen};
+use crate::superscalar::cpu::{ProgramSchedule, SlotLen};
 use crate::superscalar::instructions::ScalarInstruction;
 use crate::superscalar::SSProgram;
 use crate::{
@@ -497,7 +497,7 @@ enum ScalarInstructionBuilderSM {
         macro_op_idx: usize,
     },
     /// NULL state, this state will only be finished on is the program is full.
-    NULL,
+    Null,
 }
 
 impl ScalarInstructionBuilderSM {
@@ -510,8 +510,8 @@ impl ScalarInstructionBuilderSM {
         program_state: &mut ProgramState,
     ) {
         loop {
-            match std::mem::replace(self, ScalarInstructionBuilderSM::NULL) {
-                ScalarInstructionBuilderSM::NULL => {
+            match std::mem::replace(self, ScalarInstructionBuilderSM::Null) {
+                ScalarInstructionBuilderSM::Null => {
                     return;
                 }
                 ScalarInstructionBuilderSM::Generate { .. } => {
@@ -682,8 +682,7 @@ impl ScalarInstructionBuilderSM {
 
         let mut set = false;
         for _ in 0..LOOK_FORWARD_CYCLES {
-            if !builder.select_destination(gen, *scheduled_cycle, allow_chain_mul, &registers_info)
-            {
+            if !builder.select_destination(gen, *scheduled_cycle, allow_chain_mul, registers_info) {
                 *scheduled_cycle += 1;
                 *cycle += 1;
             } else {
@@ -731,7 +730,7 @@ impl ScalarInstructionBuilderSM {
         match self {
             ScalarInstructionBuilderSM::Generate { last_instruction } => *last_instruction,
             ScalarInstructionBuilderSM::PartiallyComplete { builder, .. } => Some(builder.id),
-            ScalarInstructionBuilderSM::NULL => {
+            ScalarInstructionBuilderSM::Null => {
                 panic!("Should not be calling this function in this state")
             }
         }

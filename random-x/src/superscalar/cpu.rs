@@ -37,6 +37,7 @@ impl AllowedPorts {
     }
 }
 
+#[allow(non_camel_case_types)]
 pub enum MacroOp {
     SUB_RR,
     XOR_RR,

@@ -31,6 +31,10 @@ impl RGroupRegisterID {
 pub struct RGroupRegisters([u64; 8]);
 
 impl RGroupRegisters {
+    pub fn inner(self) -> [u64; 8] {
+        self.0
+    }
+
     pub fn apply_to_dst(&mut self, dst: &RGroupRegisterID, f: impl FnOnce(u64) -> u64) {
         *self.get_mut(dst) = f(self.get(dst));
     }
