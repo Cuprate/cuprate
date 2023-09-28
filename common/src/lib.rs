@@ -2,6 +2,7 @@
 pub mod network;
 pub mod pruning;
 
+use std::fmt::{Formatter, Write};
 //pub use hardforks::HardForks;
 pub use network::Network;
 pub use pruning::{PruningError, PruningSeed};
@@ -17,6 +18,15 @@ pub const CRYPTONOTE_PRUNING_TIP_BLOCKS: u64 = 5500;
 pub enum BlockID {
     Hash([u8; 32]),
     Height(u64),
+}
+
+impl std::fmt::Display for BlockID {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlockID::Hash(hash) => f.write_str(&format!("Hash: {}", hex::encode(hash))),
+            BlockID::Height(height) => f.write_str(&format!("Height: {}", height)),
+        }
+    }
 }
 
 impl From<u64> for BlockID {

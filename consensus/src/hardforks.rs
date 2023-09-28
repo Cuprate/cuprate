@@ -81,24 +81,7 @@ impl HardFork {
 
     /// Returns the next hard-fork.
     pub fn next_fork(&self) -> Option<HardFork> {
-        match self {
-            HardFork::V1 => Some(HardFork::V2),
-            HardFork::V2 => Some(HardFork::V3),
-            HardFork::V3 => Some(HardFork::V4),
-            HardFork::V4 => Some(HardFork::V5),
-            HardFork::V5 => Some(HardFork::V6),
-            HardFork::V6 => Some(HardFork::V7),
-            HardFork::V7 => Some(HardFork::V8),
-            HardFork::V8 => Some(HardFork::V9),
-            HardFork::V9 => Some(HardFork::V10),
-            HardFork::V10 => Some(HardFork::V11),
-            HardFork::V11 => Some(HardFork::V12),
-            HardFork::V12 => Some(HardFork::V13),
-            HardFork::V13 => Some(HardFork::V14),
-            HardFork::V14 => Some(HardFork::V15),
-            HardFork::V15 => Some(HardFork::V16),
-            HardFork::V16 => None,
-        }
+        HardFork::from_version(&(*self as u8 + 1)).ok()
     }
 
     /// Returns the threshold of this fork.
@@ -153,6 +136,13 @@ impl HardFork {
             HardFork::V15 => 2688888,
             HardFork::V16 => 2689608,
         }
+    }
+
+    /// Returns if the hard-fork is in range:
+    ///
+    /// start <= hf < end
+    pub fn in_range(&self, start: &HardFork, end: &HardFork) -> bool {
+        start <= self && self < end
     }
 }
 

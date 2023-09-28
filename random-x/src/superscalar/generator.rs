@@ -249,7 +249,8 @@ fn get_imm32(gen: &mut Blake2Generator, id: &ScalarInstructionID) -> Option<u32>
 
 fn get_mod_shift(gen: &mut Blake2Generator, id: &ScalarInstructionID) -> Option<u8> {
     match id {
-        ScalarInstructionID::IADD_RS => Some(gen.next_u8()),
+        // keep the shit between 0 and 3.
+        ScalarInstructionID::IADD_RS => Some((gen.next_u8() >> 2) % 4),
         _ => None,
     }
 }

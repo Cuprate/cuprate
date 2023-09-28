@@ -34,4 +34,4 @@ serde = {version = "1", optional = true, features = ["derive"]}
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
 tracing-subscriber = {version = "0.3", optional = true}
 # here to help cargo to pick a version - remove me
-syn = "2.0.29"
+syn = "2.0.37"

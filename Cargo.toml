@@ -1,4 +1,3 @@
-
 [workspace]
 resolver = "2"
 
@@ -14,5 +13,3 @@ members = [
      #   "p2p",
       #  "p2p/sync-states"
 ]
-
-

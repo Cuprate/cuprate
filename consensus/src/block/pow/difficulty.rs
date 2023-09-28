@@ -1,5 +1,5 @@
 use futures::stream::FuturesOrdered;
-use futures::{StreamExt, TryFutureExt};
+use futures::{TryFutureExt, TryStreamExt};
 use std::ops::Range;
 use tower::ServiceExt;
 use tracing::instrument;
@@ -184,24 +184,12 @@ async fn get_blocks_in_range_timestamps<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
 ) -> Result<Vec<u64>, Error> {
-    let start = block_heights.start;
-    let mut timestamps = Vec::with_capacity(
-        TryInto::<usize>::try_into(block_heights.end - start)
-            .expect("Height does not fit into usize!"),
+    let timestamp_fut = FuturesOrdered::from_iter(
+        block_heights
+            .map(|height| get_block_timestamp(database.clone(), height).map_ok(move |res| res)),
     );
 
-    let mut timestamp_fut = FuturesOrdered::from_iter(block_heights.map(|height| {
-        get_block_timestamp(database.clone(), height).map_ok(move |res| (height, res))
-    }));
-
-    while let Some(res) = timestamp_fut.next().await {
-        let (height, timestamp): (u64, u64) = res?;
-        tracing::debug!("Block timestamp for height: {} = {:?}", height, timestamp);
-
-        timestamps.push(timestamp);
-    }
-
-    Ok(timestamps)
+    timestamp_fut.try_collect().await
 }
 
 async fn get_block_timestamp<D: Database>(database: D, height: u64) -> Result<u64, Error> {
