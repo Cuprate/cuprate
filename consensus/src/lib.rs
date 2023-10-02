@@ -6,7 +6,7 @@ pub mod miner_tx;
 pub mod rpc;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum ConsensusError {
     #[error("Invalid hard fork version: {0}")]
     InvalidHardForkVersion(&'static str),
     #[error("Database error: {0}")]
@@ -25,22 +25,26 @@ impl<T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tow
 
 #[derive(Debug, Clone)]
 pub enum DatabaseRequest {
-    BlockHeader(cuprate_common::BlockID),
+    BlockHFInfo(cuprate_common::BlockID),
     BlockPOWInfo(cuprate_common::BlockID),
     BlockWeights(cuprate_common::BlockID),
 
+    BlockHfInfoInRange(std::ops::Range<u64>),
     BlockWeightsInRange(std::ops::Range<u64>),
+    BlockPOWInfoInRange(std::ops::Range<u64>),
 
     ChainHeight,
 }
 
 #[derive(Debug)]
 pub enum DatabaseResponse {
-    BlockHeader(monero_serai::block::BlockHeader),
+    BlockHfInfo(hardforks::BlockHFInfo),
     BlockPOWInfo(block::pow::BlockPOWInfo),
     BlockWeights(block::weight::BlockWeightInfo),
 
+    BlockHfInfoInRange(Vec<hardforks::BlockHFInfo>),
     BlockWeightsInRange(Vec<block::weight::BlockWeightInfo>),
+    BlockPOWInfoInRange(Vec<block::pow::BlockPOWInfo>),
 
     ChainHeight(u64),
 }

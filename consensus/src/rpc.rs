@@ -18,9 +18,10 @@ use cuprate_common::BlockID;
 
 use crate::block::pow::BlockPOWInfo;
 use crate::block::weight::BlockWeightInfo;
+use crate::hardforks::BlockHFInfo;
 use crate::{DatabaseRequest, DatabaseResponse};
 
-const MAX_BLOCKS_IN_RANGE: u64 = 25;
+const MAX_BLOCKS_IN_RANGE: u64 = 50;
 
 #[derive(Clone)]
 pub struct Attempts(u64);
@@ -84,38 +85,94 @@ where
         let this = self.rpcs.clone();
 
         match req {
-            DatabaseRequest::BlockWeightsInRange(range) => async move {
-                let res_to_weights = |res| {
-                    let DatabaseResponse::BlockWeightsInRange(range) = res else {
-                        panic!("Incorrect Response!");
+            DatabaseRequest::BlockPOWInfoInRange(range) => {
+                let resp_to_ret = |resp: DatabaseResponse| {
+                    let DatabaseResponse::BlockPOWInfoInRange(pow_info) = resp else {
+                        panic!("Database sent incorrect response");
                     };
-                    range
+                    pow_info
                 };
-
-                let iter = (0..range.clone().count() as u64)
-                    .step_by(MAX_BLOCKS_IN_RANGE as usize)
-                    .map(|i| {
-                        let new_range = (range.start + i)
-                            ..(min(range.start + i + MAX_BLOCKS_IN_RANGE, range.end));
-                        this.clone()
-                            .oneshot(DatabaseRequest::BlockWeightsInRange(new_range))
-                            .map_ok(res_to_weights)
-                    });
-
-                let fut = FuturesOrdered::from_iter(iter);
-
-                let mut res = Vec::with_capacity(range.count());
-
-                for mut rpc_res in fut.try_collect::<Vec<Vec<_>>>().await?.into_iter() {
-                    res.append(&mut rpc_res)
-                }
-
-                Ok(DatabaseResponse::BlockWeightsInRange(res))
+                split_range_request(
+                    this,
+                    range,
+                    DatabaseRequest::BlockPOWInfoInRange,
+                    DatabaseResponse::BlockPOWInfoInRange,
+                    resp_to_ret,
+                )
             }
-            .boxed(),
+
+            DatabaseRequest::BlockWeightsInRange(range) => {
+                let resp_to_ret = |resp: DatabaseResponse| {
+                    let DatabaseResponse::BlockWeightsInRange(weights) = resp else {
+                        panic!("Database sent incorrect response");
+                    };
+                    weights
+                };
+                split_range_request(
+                    this,
+                    range,
+                    DatabaseRequest::BlockWeightsInRange,
+                    DatabaseResponse::BlockWeightsInRange,
+                    resp_to_ret,
+                )
+            }
+            DatabaseRequest::BlockHfInfoInRange(range) => {
+                let resp_to_ret = |resp: DatabaseResponse| {
+                    let DatabaseResponse::BlockHfInfoInRange(hf_info) = resp else {
+                        panic!("Database sent incorrect response");
+                    };
+                    hf_info
+                };
+                split_range_request(
+                    this,
+                    range,
+                    DatabaseRequest::BlockHfInfoInRange,
+                    DatabaseResponse::BlockHfInfoInRange,
+                    resp_to_ret,
+                )
+            }
             req => this.oneshot(req).boxed(),
         }
     }
+}
+
+fn split_range_request<T, Ret>(
+    rpc: T,
+    range: Range<u64>,
+    req: impl FnOnce(Range<u64>) -> DatabaseRequest + Clone + Send + 'static,
+    resp: impl FnOnce(Vec<Ret>) -> DatabaseResponse + Send + 'static,
+    resp_to_ret: impl Fn(DatabaseResponse) -> Vec<Ret> + Copy + Send + 'static,
+) -> Pin<Box<dyn Future<Output = Result<DatabaseResponse, tower::BoxError>> + Send + 'static>>
+where
+    T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tower::BoxError>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+    T::Future: Send + 'static,
+    Ret: Send + 'static,
+{
+    let iter = (0..range.clone().count() as u64)
+        .step_by(MAX_BLOCKS_IN_RANGE as usize)
+        .map(|i| {
+            let req = req.clone();
+            let new_range =
+                (range.start + i)..(min(range.start + i + MAX_BLOCKS_IN_RANGE, range.end));
+            rpc.clone().oneshot(req(new_range)).map_ok(resp_to_ret)
+        });
+
+    let fut = FuturesOrdered::from_iter(iter);
+
+    let mut res = Vec::with_capacity(range.count());
+
+    async move {
+        for mut rpc_res in fut.try_collect::<Vec<Vec<_>>>().await?.into_iter() {
+            res.append(&mut rpc_res)
+        }
+
+        Ok(resp(res))
+    }
+    .boxed()
 }
 
 enum RpcState<R: RpcConnection> {
@@ -194,34 +251,17 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
             }
             .boxed(),
 
-            DatabaseRequest::BlockHeader(id) => match id {
-                BlockID::Hash(hash) => async move {
-                    let res: Result<_, RpcError> = rpc
-                        .get_block(hash)
-                        .map_ok(|block| DatabaseResponse::BlockHeader(block.header))
-                        .await;
-                    if let Err(e) = &res {
-                        *err_slot.lock().unwrap() = Some(e.clone());
-                    }
-                    res.map_err(Into::into)
-                }
-                .boxed(),
-                BlockID::Height(height) => async move {
-                    let res: Result<_, RpcError> = rpc
-                        .get_block_by_number(height.try_into().unwrap())
-                        .map_ok(|block| DatabaseResponse::BlockHeader(block.header))
-                        .await;
-                    if let Err(e) = &res {
-                        *err_slot.lock().unwrap() = Some(e.clone());
-                    }
-                    res.map_err(Into::into)
-                }
-                .boxed(),
-            },
             DatabaseRequest::BlockPOWInfo(id) => get_blocks_pow_info(id, rpc).boxed(),
             DatabaseRequest::BlockWeights(id) => get_blocks_weight_info(id, rpc).boxed(),
+            DatabaseRequest::BlockHFInfo(id) => get_blocks_hf_info(id, rpc).boxed(),
+            DatabaseRequest::BlockHfInfoInRange(range) => {
+                get_blocks_hf_info_in_range(range, rpc).boxed()
+            }
             DatabaseRequest::BlockWeightsInRange(range) => {
                 get_blocks_weight_info_in_range(range, rpc).boxed()
+            }
+            DatabaseRequest::BlockPOWInfoInRange(range) => {
+                get_blocks_pow_info_in_range(range, rpc).boxed()
             }
         }
     }
@@ -234,6 +274,9 @@ struct BlockInfo {
     timestamp: u64,
     block_weight: usize,
     long_term_weight: usize,
+
+    major_version: u8,
+    minor_version: u8,
 }
 
 async fn get_block_info_in_range<R: RpcConnection>(
@@ -252,7 +295,7 @@ async fn get_block_info_in_range<R: RpcConnection>(
         )
         .await?;
 
-    tracing::info!("Retrieved blocks in range: {:?}", range);
+    tracing::debug!("Retrieved blocks in range: {:?}", range);
 
     Ok(res.headers)
 }
@@ -303,6 +346,25 @@ async fn get_blocks_weight_info_in_range<R: RpcConnection>(
     ))
 }
 
+async fn get_blocks_pow_info_in_range<R: RpcConnection>(
+    range: Range<u64>,
+    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
+) -> Result<DatabaseResponse, tower::BoxError> {
+    let info = get_block_info_in_range(range, rpc).await?;
+
+    Ok(DatabaseResponse::BlockPOWInfoInRange(
+        info.into_iter()
+            .map(|info| BlockPOWInfo {
+                timestamp: info.timestamp,
+                cumulative_difficulty: u128_from_low_high(
+                    info.cumulative_difficulty,
+                    info.cumulative_difficulty_top64,
+                ),
+            })
+            .collect(),
+    ))
+}
+
 async fn get_blocks_weight_info<R: RpcConnection>(
     id: BlockID,
     rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
@@ -333,4 +395,30 @@ async fn get_blocks_pow_info<R: RpcConnection>(
 fn u128_from_low_high(low: u64, high: u64) -> u128 {
     let res: u128 = high as u128;
     res << 64 | low as u128
+}
+
+async fn get_blocks_hf_info<R: RpcConnection>(
+    id: BlockID,
+    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
+) -> Result<DatabaseResponse, tower::BoxError> {
+    let info = get_block_info(id, rpc).await?;
+
+    Ok(DatabaseResponse::BlockHfInfo(
+        BlockHFInfo::from_major_minor(info.major_version, info.minor_version)?,
+    ))
+}
+
+async fn get_blocks_hf_info_in_range<R: RpcConnection>(
+    range: Range<u64>,
+    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
+) -> Result<DatabaseResponse, tower::BoxError> {
+    let info = get_block_info_in_range(range, rpc).await?;
+
+    Ok(DatabaseResponse::BlockHfInfoInRange(
+        info.into_iter()
+            .map(|info| {
+                BlockHFInfo::from_major_minor(info.major_version, info.minor_version).unwrap()
+            })
+            .collect(),
+    ))
 }

@@ -4,7 +4,7 @@ use std::ops::Range;
 use tower::ServiceExt;
 use tracing::instrument;
 
-use crate::{hardforks::HardFork, Database, DatabaseRequest, DatabaseResponse, Error};
+use crate::{hardforks::HardFork, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
 
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
@@ -22,7 +22,7 @@ const DIFFICULTY_ACCOUNTED_WINDOW_LEN: usize = DIFFICULTY_WINDOW - 2 * DIFFICULT
 
 /// This struct is able to calculate difficulties from blockchain information.
 #[derive(Debug)]
-pub struct DifficultyCalculator {
+pub struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
     timestamps: Vec<u64>,
@@ -33,8 +33,8 @@ pub struct DifficultyCalculator {
     last_accounted_height: u64,
 }
 
-impl DifficultyCalculator {
-    pub async fn init<D: Database + Clone>(mut database: D) -> Result<Self, Error> {
+impl DifficultyCache {
+    pub async fn init<D: Database + Clone>(mut database: D) -> Result<Self, ConsensusError> {
         let DatabaseResponse::ChainHeight(chain_height) = database
             .ready()
             .await?
@@ -44,13 +44,14 @@ impl DifficultyCalculator {
             panic!("Database sent incorrect response")
         };
 
-        DifficultyCalculator::init_from_chain_height(chain_height, database).await
+        DifficultyCache::init_from_chain_height(chain_height, database).await
     }
 
+    #[instrument(name = "init_difficulty_cache", level = "info", skip(database))]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
         mut database: D,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self, ConsensusError> {
         let mut block_start = chain_height.saturating_sub(DIFFICULTY_BLOCKS_COUNT);
 
         if block_start == 0 {
@@ -60,13 +61,7 @@ impl DifficultyCalculator {
         let timestamps =
             get_blocks_in_range_timestamps(database.clone(), block_start..chain_height).await?;
 
-        tracing::debug!(
-            "Current chain height: {}, accounting for {} blocks timestamps",
-            chain_height,
-            timestamps.len()
-        );
-
-        let mut diff = DifficultyCalculator {
+        let mut diff = DifficultyCache {
             timestamps,
             windowed_work: 0,
             last_accounted_height: chain_height - 1,
@@ -74,10 +69,19 @@ impl DifficultyCalculator {
 
         diff.update_windowed_work(&mut database).await?;
 
+        tracing::info!(
+            "Current chain height: {}, accounting for {} blocks timestamps",
+            chain_height,
+            diff.timestamps.len()
+        );
+
         Ok(diff)
     }
 
-    pub async fn resync<D: Database + Clone>(&mut self, mut database: D) -> Result<(), Error> {
+    pub async fn resync<D: Database + Clone>(
+        &mut self,
+        mut database: D,
+    ) -> Result<(), ConsensusError> {
         let DatabaseResponse::ChainHeight(chain_height) = database
             .ready()
             .await?
@@ -114,7 +118,10 @@ impl DifficultyCalculator {
         self.update_windowed_work(database).await
     }
 
-    async fn update_windowed_work<D: Database>(&mut self, mut database: D) -> Result<(), Error> {
+    async fn update_windowed_work<D: Database>(
+        &mut self,
+        mut database: D,
+    ) -> Result<(), ConsensusError> {
         let mut block_start =
             (self.last_accounted_height + 1).saturating_sub(DIFFICULTY_BLOCKS_COUNT);
 
@@ -140,6 +147,9 @@ impl DifficultyCalculator {
         Ok(())
     }
 
+    /// Returns the required difficulty for the next block.
+    ///
+    /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/difficulty.html#calculating-difficulty
     pub fn next_difficulty(&self, hf: &HardFork) -> u128 {
         if self.timestamps.len() <= 1 {
             return 1;
@@ -179,31 +189,22 @@ fn get_window_start_and_end(window_len: usize) -> (usize, usize) {
     }
 }
 
-#[instrument(skip(database))]
+#[instrument(name = "get_blocks_timestamps", skip(database))]
 async fn get_blocks_in_range_timestamps<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
-) -> Result<Vec<u64>, Error> {
-    let timestamp_fut = FuturesOrdered::from_iter(
-        block_heights
-            .map(|height| get_block_timestamp(database.clone(), height).map_ok(move |res| res)),
-    );
-
-    timestamp_fut.try_collect().await
-}
-
-async fn get_block_timestamp<D: Database>(database: D, height: u64) -> Result<u64, Error> {
-    tracing::debug!("Getting block timestamp: {}", height);
-    let DatabaseResponse::BlockPOWInfo(pow) = database
-        .oneshot(DatabaseRequest::BlockPOWInfo(height.into()))
+) -> Result<Vec<u64>, ConsensusError> {
+    let DatabaseResponse::BlockPOWInfoInRange(pow_infos) = database
+        .oneshot(DatabaseRequest::BlockPOWInfoInRange(block_heights))
         .await?
     else {
-        panic!("Database service sent incorrect response!");
+        panic!("Database sent incorrect response");
     };
-    Ok(pow.timestamp)
+
+    Ok(pow_infos.into_iter().map(|info| info.timestamp).collect())
 }
 
-async fn get_block_cum_diff<D: Database>(database: D, height: u64) -> Result<u128, Error> {
+async fn get_block_cum_diff<D: Database>(database: D, height: u64) -> Result<u128, ConsensusError> {
     let DatabaseResponse::BlockPOWInfo(pow) = database
         .oneshot(DatabaseRequest::BlockPOWInfo(height.into()))
         .await?
