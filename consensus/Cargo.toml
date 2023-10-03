@@ -9,14 +9,14 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [features]
 default = ["binaries"]
-binaries = ["rpc", "dep:tokio", "dep:tracing-subscriber", "tower/retry", "tower/balance", "tower/buffer"]
-rpc = ["dep:futures", "dep:serde_json", "dep:serde"]
+binaries = ["dep:tokio", "dep:tracing-subscriber", "tower/retry", "tower/balance", "tower/buffer", "dep:serde_json", "dep:serde", "dep:epee-encoding"]
 
 [dependencies]
 hex = "0.4"
 thiserror = "1"
 tower = {version = "0.4", features = ["util"]}
 tracing = "0.1"
+futures = "0.3"
 
 crypto-bigint = "0.5"
 
@@ -26,11 +26,10 @@ monero-serai = {git="https://github.com/Cuprate/serai.git", rev = "84b77b1"}
 cuprate-common = {path = "../common"}
 cryptonight-cuprate = {path = "../cryptonight"}
 
-# used for rpc
-futures = {version = "0.3", optional = true}
+# used in binaries
+epee-encoding = {version = "0.5", optional = true}
 serde_json = {version = "1", optional = true}
 serde = {version = "1", optional = true, features = ["derive"]}
-# used in binaries
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
 tracing-subscriber = {version = "0.3", optional = true}
 # here to help cargo to pick a version - remove me

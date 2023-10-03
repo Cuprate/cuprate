@@ -1,5 +1,5 @@
-use futures::stream::FuturesOrdered;
-use futures::{TryFutureExt, TryStreamExt};
+
+
 use std::ops::Range;
 use tower::ServiceExt;
 use tracing::instrument;
@@ -21,7 +21,7 @@ const DIFFICULTY_BLOCKS_COUNT: u64 = (DIFFICULTY_WINDOW + DIFFICULTY_LAG) as u64
 const DIFFICULTY_ACCOUNTED_WINDOW_LEN: usize = DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT;
 
 /// This struct is able to calculate difficulties from blockchain information.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
@@ -52,6 +52,8 @@ impl DifficultyCache {
         chain_height: u64,
         mut database: D,
     ) -> Result<Self, ConsensusError> {
+        tracing::info!("Initializing difficulty cache this may take a while.");
+
         let mut block_start = chain_height.saturating_sub(DIFFICULTY_BLOCKS_COUNT);
 
         if block_start == 0 {
@@ -122,6 +124,10 @@ impl DifficultyCache {
         &mut self,
         mut database: D,
     ) -> Result<(), ConsensusError> {
+        if self.last_accounted_height == 0 {
+            return Ok(());
+        }
+
         let mut block_start =
             (self.last_accounted_height + 1).saturating_sub(DIFFICULTY_BLOCKS_COUNT);
 
@@ -189,11 +195,13 @@ fn get_window_start_and_end(window_len: usize) -> (usize, usize) {
     }
 }
 
-#[instrument(name = "get_blocks_timestamps", skip(database))]
+#[instrument(name = "get_blocks_timestamps", skip(database), level = "info")]
 async fn get_blocks_in_range_timestamps<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
 ) -> Result<Vec<u64>, ConsensusError> {
+    tracing::info!("Getting blocks timestamps");
+
     let DatabaseResponse::BlockPOWInfoInRange(pow_infos) = database
         .oneshot(DatabaseRequest::BlockPOWInfoInRange(block_heights))
         .await?

@@ -2,7 +2,7 @@
 pub mod network;
 pub mod pruning;
 
-use std::fmt::{Formatter, Write};
+use std::fmt::Formatter;
 //pub use hardforks::HardForks;
 pub use network::Network;
 pub use pruning::{PruningError, PruningSeed};

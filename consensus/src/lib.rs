@@ -2,8 +2,9 @@ pub mod block;
 pub mod genesis;
 pub mod hardforks;
 pub mod miner_tx;
-#[cfg(feature = "rpc")]
+#[cfg(feature = "binaries")]
 pub mod rpc;
+pub mod state;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConsensusError {
@@ -34,11 +35,14 @@ pub enum DatabaseRequest {
     BlockPOWInfoInRange(std::ops::Range<u64>),
 
     ChainHeight,
+
+    #[cfg(feature = "binaries")]
+    BlockBatchInRange(std::ops::Range<u64>),
 }
 
 #[derive(Debug)]
 pub enum DatabaseResponse {
-    BlockHfInfo(hardforks::BlockHFInfo),
+    BlockHFInfo(hardforks::BlockHFInfo),
     BlockPOWInfo(block::pow::BlockPOWInfo),
     BlockWeights(block::weight::BlockWeightInfo),
 
@@ -47,4 +51,7 @@ pub enum DatabaseResponse {
     BlockPOWInfoInRange(Vec<block::pow::BlockPOWInfo>),
 
     ChainHeight(u64),
+
+    #[cfg(feature = "binaries")]
+    BlockBatchInRange(Vec<monero_serai::block::Block>),
 }

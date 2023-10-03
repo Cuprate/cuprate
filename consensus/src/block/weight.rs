@@ -57,6 +57,7 @@ pub fn penalty_free_zone(hf: &HardFork) -> usize {
 ///
 /// These calculations require a lot of data from the database so by caching
 /// this data it reduces the load on the database.
+#[derive(Clone)]
 pub struct BlockWeightsCache {
     /// This list is not sorted.
     short_term_block_weights: VecDeque<usize>,
@@ -87,6 +88,8 @@ impl BlockWeightsCache {
         chain_height: u64,
         database: D,
     ) -> Result<Self, ConsensusError> {
+        tracing::info!("Initializing weight cache this may take a while.");
+
         let mut long_term_weights = get_long_term_weight_in_range(
             chain_height.saturating_sub(LONG_TERM_WINDOW)..chain_height,
             database.clone(),
@@ -266,6 +269,8 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
     range: Range<u64>,
     database: D,
 ) -> Result<Vec<usize>, ConsensusError> {
+    tracing::info!("getting block weights.");
+
     let DatabaseResponse::BlockWeightsInRange(weights) = database
         .oneshot(DatabaseRequest::BlockWeightsInRange(range))
         .await?
@@ -276,11 +281,13 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
     Ok(weights.into_iter().map(|info| info.block_weight).collect())
 }
 
-#[instrument(name = "get_long_term_weights", skip(database))]
+#[instrument(name = "get_long_term_weights", skip(database), level = "info")]
 async fn get_long_term_weight_in_range<D: Database + Clone>(
     range: Range<u64>,
     database: D,
 ) -> Result<Vec<usize>, ConsensusError> {
+    tracing::info!("getting block long term weights.");
+
     let DatabaseResponse::BlockWeightsInRange(weights) = database
         .oneshot(DatabaseRequest::BlockWeightsInRange(range))
         .await?

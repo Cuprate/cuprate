@@ -7,6 +7,7 @@ use std::task::{Context, Poll};
 
 use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
 use futures::{stream::FuturesOrdered, FutureExt, TryFutureExt, TryStreamExt};
+use monero_serai::block::Block;
 use monero_serai::rpc::{HttpRpc, RpcConnection, RpcError};
 use serde::Deserialize;
 use serde_json::json;
@@ -21,7 +22,7 @@ use crate::block::weight::BlockWeightInfo;
 use crate::hardforks::BlockHFInfo;
 use crate::{DatabaseRequest, DatabaseResponse};
 
-const MAX_BLOCKS_IN_RANGE: u64 = 50;
+pub const MAX_BLOCKS_IN_RANGE: u64 = 50;
 
 #[derive(Clone)]
 pub struct Attempts(u64);
@@ -85,6 +86,21 @@ where
         let this = self.rpcs.clone();
 
         match req {
+            DatabaseRequest::BlockBatchInRange(range) => {
+                let resp_to_ret = |resp: DatabaseResponse| {
+                    let DatabaseResponse::BlockBatchInRange(pow_info) = resp else {
+                        panic!("Database sent incorrect response");
+                    };
+                    pow_info
+                };
+                split_range_request(
+                    this,
+                    range,
+                    DatabaseRequest::BlockBatchInRange,
+                    DatabaseResponse::BlockBatchInRange,
+                    resp_to_ret,
+                )
+            }
             DatabaseRequest::BlockPOWInfoInRange(range) => {
                 let resp_to_ret = |resp: DatabaseResponse| {
                     let DatabaseResponse::BlockPOWInfoInRange(pow_info) = resp else {
@@ -263,8 +279,48 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
             DatabaseRequest::BlockPOWInfoInRange(range) => {
                 get_blocks_pow_info_in_range(range, rpc).boxed()
             }
+            DatabaseRequest::BlockBatchInRange(range) => get_blocks_in_range(range, rpc).boxed(),
         }
     }
+}
+
+async fn get_blocks_in_range<R: RpcConnection>(
+    range: Range<u64>,
+    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
+) -> Result<DatabaseResponse, tower::BoxError> {
+    tracing::info!("Getting blocks in range: {:?}", range);
+
+    mod i_64079 {
+        use epee_encoding::EpeeObject;
+
+        #[derive(EpeeObject)]
+        pub struct Request {
+            pub heights: Vec<u64>,
+        }
+
+        #[derive(EpeeObject)]
+        pub struct Response {
+            pub blocks: Vec<Vec<u8>>,
+        }
+    }
+    use i_64079::*;
+
+    let res = rpc
+        .bin_call(
+            "get_blocks_by_height.bin",
+            epee_encoding::to_bytes(&Request {
+                heights: range.collect(),
+            })?,
+        )
+        .await?;
+    let res: Response = epee_encoding::from_bytes(&res)?;
+
+    Ok(DatabaseResponse::BlockBatchInRange(
+        res.blocks
+            .into_iter()
+            .map(|buf| Block::read(&mut buf.as_slice()))
+            .collect::<Result<_, _>>()?,
+    ))
 }
 
 #[derive(Deserialize, Debug)]
@@ -295,7 +351,7 @@ async fn get_block_info_in_range<R: RpcConnection>(
         )
         .await?;
 
-    tracing::debug!("Retrieved blocks in range: {:?}", range);
+    tracing::info!("Retrieved block headers in range: {:?}", range);
 
     Ok(res.headers)
 }
@@ -304,7 +360,7 @@ async fn get_block_info<R: RpcConnection>(
     id: BlockID,
     rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
 ) -> Result<BlockInfo, tower::BoxError> {
-    tracing::debug!("Retrieving block info with id: {}", id);
+    tracing::info!("Retrieving block info with id: {}", id);
 
     #[derive(Deserialize, Debug)]
     struct Response {
@@ -403,7 +459,7 @@ async fn get_blocks_hf_info<R: RpcConnection>(
 ) -> Result<DatabaseResponse, tower::BoxError> {
     let info = get_block_info(id, rpc).await?;
 
-    Ok(DatabaseResponse::BlockHfInfo(
+    Ok(DatabaseResponse::BlockHFInfo(
         BlockHFInfo::from_major_minor(info.major_version, info.minor_version)?,
     ))
 }

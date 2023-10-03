@@ -167,7 +167,7 @@ impl HardFork {
 }
 
 /// A struct holding the current voting state of the blockchain.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct HFVotes {
     votes: [u64; 16],
 }
@@ -227,7 +227,7 @@ impl HFVotes {
 
 /// Configuration for hard-forks.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HardForkConfig {
     /// The network we are on.
     network: Network,
@@ -235,8 +235,8 @@ pub struct HardForkConfig {
     window: u64,
 }
 
-impl Default for HardForkConfig {
-    fn default() -> Self {
+impl HardForkConfig {
+    pub fn main_net() -> HardForkConfig {
         Self {
             network: Network::Mainnet,
             window: DEFAULT_WINDOW_SIZE,
@@ -245,8 +245,8 @@ impl Default for HardForkConfig {
 }
 
 /// A struct that keeps track of the current hard-fork and current votes.
-#[derive(Debug)]
-pub struct HardForks {
+#[derive(Debug, Clone)]
+pub struct HardForkState {
     current_hardfork: HardFork,
     next_hardfork: Option<HardFork>,
 
@@ -256,14 +256,11 @@ pub struct HardForks {
     last_height: u64,
 }
 
-impl HardForks {
+impl HardForkState {
     pub async fn init<D: Database + Clone>(
         config: HardForkConfig,
         mut database: D,
-    ) -> Result<Self, ConsensusError>
-    where
-        D::Future: Send + 'static,
-    {
+    ) -> Result<Self, ConsensusError> {
         let DatabaseResponse::ChainHeight(chain_height) = database
             .ready()
             .await?
@@ -273,22 +270,19 @@ impl HardForks {
             panic!("Database sent incorrect response")
         };
 
-        let mut hfs =
-            HardForks::init_at_chain_height(config, chain_height, database.clone()).await?;
-
-        tracing::info!("HardFork state: {:?}", hfs);
+        let hfs = HardForkState::init_from_chain_height(config, chain_height, database).await?;
 
         Ok(hfs)
     }
 
-    pub async fn init_at_chain_height<D: Database + Clone>(
+    #[instrument(name = "init_hardfork_state", skip(config, database), level = "info")]
+    pub async fn init_from_chain_height<D: Database + Clone>(
         config: HardForkConfig,
         chain_height: u64,
         mut database: D,
-    ) -> Result<Self, ConsensusError>
-    where
-        D::Future: Send + 'static,
-    {
+    ) -> Result<Self, ConsensusError> {
+        tracing::info!("Initializing hard-fork state this may take a while.");
+
         let block_start = chain_height.saturating_sub(config.window);
 
         let votes = get_votes_in_range(database.clone(), block_start..chain_height).await?;
@@ -297,10 +291,10 @@ impl HardForks {
             debug_assert_eq!(votes.total_votes(), config.window)
         }
 
-        let DatabaseResponse::BlockHfInfo(hf_info) = database
+        let DatabaseResponse::BlockHFInfo(hf_info) = database
             .ready()
             .await?
-            .call(DatabaseRequest::BlockPOWInfo((chain_height - 1).into()))
+            .call(DatabaseRequest::BlockHFInfo((chain_height - 1).into()))
             .await?
         else {
             panic!("Database sent incorrect response!");
@@ -310,7 +304,7 @@ impl HardForks {
 
         let next_hardfork = current_hardfork.next_fork();
 
-        let mut hfs = HardForks {
+        let mut hfs = HardForkState {
             config,
             current_hardfork,
             next_hardfork,
@@ -320,14 +314,18 @@ impl HardForks {
 
         hfs.check_set_new_hf();
 
-        tracing::info!("HardFork state: {:?}", hfs);
+        tracing::info!(
+            "Initialized Hfs, current fork: {:?}, {}",
+            hfs.current_hardfork,
+            hfs.votes
+        );
 
         Ok(hfs)
     }
 
     pub fn check_block_version_vote(&self, block_hf_info: &BlockHFInfo) -> bool {
-        &self.current_hardfork == &block_hf_info.version
-            && &block_hf_info.vote >= &self.current_hardfork
+        self.current_hardfork == block_hf_info.version
+            && block_hf_info.vote >= self.current_hardfork
     }
 
     pub async fn new_block<D: Database>(
@@ -350,10 +348,10 @@ impl HardForks {
         for height_to_remove in
             (self.config.window..self.votes.total_votes()).map(|offset| height - offset)
         {
-            let DatabaseResponse::BlockHfInfo(hf_info) = database
+            let DatabaseResponse::BlockHFInfo(hf_info) = database
                 .ready()
                 .await?
-                .call(DatabaseRequest::BlockPOWInfo(height_to_remove.into()))
+                .call(DatabaseRequest::BlockHFInfo(height_to_remove.into()))
                 .await?
             else {
                 panic!("Database sent incorrect response!");
@@ -400,13 +398,10 @@ impl HardForks {
 }
 
 #[instrument(name = "get_votes", skip(database))]
-async fn get_votes_in_range<D: Database + Clone>(
+async fn get_votes_in_range<D: Database>(
     database: D,
     block_heights: Range<u64>,
-) -> Result<HFVotes, ConsensusError>
-where
-    D::Future: Send + 'static,
-{
+) -> Result<HFVotes, ConsensusError> {
     let mut votes = HFVotes::default();
 
     let DatabaseResponse::BlockHfInfoInRange(vote_list) = database
