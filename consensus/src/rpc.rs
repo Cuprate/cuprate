@@ -7,7 +7,6 @@ use std::task::{Context, Poll};
 
 use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
 use futures::{stream::FuturesOrdered, FutureExt, TryFutureExt, TryStreamExt};
-use monero_serai::block::Block;
 use monero_serai::rpc::{HttpRpc, RpcConnection, RpcError};
 use serde::Deserialize;
 use serde_json::json;
@@ -22,7 +21,8 @@ use crate::block::weight::BlockWeightInfo;
 use crate::hardforks::BlockHFInfo;
 use crate::{DatabaseRequest, DatabaseResponse};
 
-pub const MAX_BLOCKS_IN_RANGE: u64 = 50;
+pub const MAX_BLOCKS_IN_RANGE: u64 = 10;
+pub const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 50;
 
 #[derive(Clone)]
 pub struct Attempts(u64);
@@ -31,8 +31,11 @@ impl<Req: Clone, Res, E> tower::retry::Policy<Req, Res, E> for Attempts {
     type Future = futures::future::Ready<Self>;
     fn retry(&self, _: &Req, result: Result<&Res, &E>) -> Option<Self::Future> {
         if result.is_err() {
-            // TODO:
-            Some(futures::future::ready(Attempts(self.0)))
+            if self.0 == 0 {
+                None
+            } else {
+                Some(futures::future::ready(Attempts(self.0 - 1)))
+            }
         } else {
             None
         }
@@ -45,8 +48,14 @@ impl<Req: Clone, Res, E> tower::retry::Policy<Req, Res, E> for Attempts {
 
 pub fn init_rpc_load_balancer(
     addresses: Vec<String>,
-) -> impl tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tower::BoxError> + Clone
-{
+) -> impl tower::Service<
+    DatabaseRequest,
+    Response = DatabaseResponse,
+    Error = tower::BoxError,
+    Future = Pin<
+        Box<dyn Future<Output = Result<DatabaseResponse, tower::BoxError>> + Send + 'static>,
+    >,
+> + Clone {
     let rpc_discoverer = tower::discover::ServiceList::new(
         addresses
             .into_iter()
@@ -54,7 +63,7 @@ pub fn init_rpc_load_balancer(
     );
     let rpc_balance = Balance::new(rpc_discoverer);
     let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 3);
-    let rpcs = tower::retry::Retry::new(Attempts(3), rpc_buffer);
+    let rpcs = tower::retry::Retry::new(Attempts(2), rpc_buffer);
 
     RpcBalancer { rpcs }
 }
@@ -99,6 +108,7 @@ where
                     DatabaseRequest::BlockBatchInRange,
                     DatabaseResponse::BlockBatchInRange,
                     resp_to_ret,
+                    MAX_BLOCKS_IN_RANGE,
                 )
             }
             DatabaseRequest::BlockPOWInfoInRange(range) => {
@@ -114,6 +124,7 @@ where
                     DatabaseRequest::BlockPOWInfoInRange,
                     DatabaseResponse::BlockPOWInfoInRange,
                     resp_to_ret,
+                    MAX_BLOCKS_HEADERS_IN_RANGE,
                 )
             }
 
@@ -130,6 +141,7 @@ where
                     DatabaseRequest::BlockWeightsInRange,
                     DatabaseResponse::BlockWeightsInRange,
                     resp_to_ret,
+                    MAX_BLOCKS_HEADERS_IN_RANGE,
                 )
             }
             DatabaseRequest::BlockHfInfoInRange(range) => {
@@ -145,6 +157,7 @@ where
                     DatabaseRequest::BlockHfInfoInRange,
                     DatabaseResponse::BlockHfInfoInRange,
                     resp_to_ret,
+                    MAX_BLOCKS_HEADERS_IN_RANGE,
                 )
             }
             req => this.oneshot(req).boxed(),
@@ -158,6 +171,7 @@ fn split_range_request<T, Ret>(
     req: impl FnOnce(Range<u64>) -> DatabaseRequest + Clone + Send + 'static,
     resp: impl FnOnce(Vec<Ret>) -> DatabaseResponse + Send + 'static,
     resp_to_ret: impl Fn(DatabaseResponse) -> Vec<Ret> + Copy + Send + 'static,
+    max_request_per_rpc: u64,
 ) -> Pin<Box<dyn Future<Output = Result<DatabaseResponse, tower::BoxError>> + Send + 'static>>
 where
     T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tower::BoxError>
@@ -169,11 +183,11 @@ where
     Ret: Send + 'static,
 {
     let iter = (0..range.clone().count() as u64)
-        .step_by(MAX_BLOCKS_IN_RANGE as usize)
+        .step_by(max_request_per_rpc as usize)
         .map(|i| {
             let req = req.clone();
             let new_range =
-                (range.start + i)..(min(range.start + i + MAX_BLOCKS_IN_RANGE, range.end));
+                (range.start + i)..(min(range.start + i + max_request_per_rpc, range.end));
             rpc.clone().oneshot(req(new_range)).map_ok(resp_to_ret)
         });
 
@@ -280,46 +294,39 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
                 get_blocks_pow_info_in_range(range, rpc).boxed()
             }
             DatabaseRequest::BlockBatchInRange(range) => get_blocks_in_range(range, rpc).boxed(),
+            DatabaseRequest::Transactions(txs) => get_transactions(txs, rpc).boxed(),
         }
     }
+}
+
+async fn get_transactions<R: RpcConnection>(
+    txs: Vec<[u8; 32]>,
+    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
+) -> Result<DatabaseResponse, tower::BoxError> {
+    if txs.is_empty() {
+        return Ok(DatabaseResponse::Transactions(vec![]));
+    }
+    tracing::info!("Getting transactions, count: {}", txs.len());
+
+    let txs = rpc.get_transactions(&txs).await?;
+
+    Ok(DatabaseResponse::Transactions(txs))
 }
 
 async fn get_blocks_in_range<R: RpcConnection>(
     range: Range<u64>,
     rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
 ) -> Result<DatabaseResponse, tower::BoxError> {
+    let fut = FuturesOrdered::from_iter(
+        range
+            .clone()
+            .map(|height| rpc.get_block_by_number(height as usize)),
+    );
+
     tracing::info!("Getting blocks in range: {:?}", range);
 
-    mod i_64079 {
-        use epee_encoding::EpeeObject;
-
-        #[derive(EpeeObject)]
-        pub struct Request {
-            pub heights: Vec<u64>,
-        }
-
-        #[derive(EpeeObject)]
-        pub struct Response {
-            pub blocks: Vec<Vec<u8>>,
-        }
-    }
-    use i_64079::*;
-
-    let res = rpc
-        .bin_call(
-            "get_blocks_by_height.bin",
-            epee_encoding::to_bytes(&Request {
-                heights: range.collect(),
-            })?,
-        )
-        .await?;
-    let res: Response = epee_encoding::from_bytes(&res)?;
-
     Ok(DatabaseResponse::BlockBatchInRange(
-        res.blocks
-            .into_iter()
-            .map(|buf| Block::read(&mut buf.as_slice()))
-            .collect::<Result<_, _>>()?,
+        fut.try_collect().await?,
     ))
 }
 

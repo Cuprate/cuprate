@@ -1,6 +1,8 @@
 #![cfg(feature = "binaries")]
 
 use cuprate_common::Network;
+use futures::stream::FuturesOrdered;
+use futures::{stream, StreamExt};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
@@ -8,13 +10,13 @@ use tower::{Service, ServiceExt};
 use tracing::instrument;
 use tracing::level_filters::LevelFilter;
 
-
-
-use monero_consensus::rpc::{init_rpc_load_balancer, MAX_BLOCKS_IN_RANGE};
+use monero_consensus::rpc::init_rpc_load_balancer;
 use monero_consensus::{
-    state::{Config, State},
+    verifier::{Config, Verifier},
     ConsensusError, Database, DatabaseRequest, DatabaseResponse,
 };
+
+const BATCH_SIZE: u64 = 50;
 
 /// A cache which can keep chain state while scanning.
 ///
@@ -27,6 +29,8 @@ struct ScanningCache {
     numb_outs: HashMap<u64, u64>,
     /// The height of the *next* block to scan.
     height: u64,
+    /// The hash of the *last* block scanned.
+    last_block_hash: [u8; 32],
 }
 
 impl Default for ScanningCache {
@@ -34,7 +38,8 @@ impl Default for ScanningCache {
         ScanningCache {
             network: Default::default(),
             numb_outs: Default::default(),
-            height: 1,
+            height: 0,
+            last_block_hash: [0; 32],
         }
     }
 }
@@ -71,11 +76,14 @@ impl Display for ScanningCache {
 }
 
 #[instrument(skip_all, level = "info")]
-async fn scan_chain<D: Database + Clone>(
+async fn scan_chain<D: Database + Clone + Send + 'static>(
     cache: ScanningCache,
     network: Network,
     mut database: D,
-) -> Result<(), ConsensusError> {
+) -> Result<(), tower::BoxError>
+where
+    D::Future: Send + 'static,
+{
     tracing::info!("Beginning chain scan, {}", &cache);
 
     let DatabaseResponse::ChainHeight(chain_height) = database
@@ -94,21 +102,67 @@ async fn scan_chain<D: Database + Clone>(
         _ => todo!(),
     };
 
-    let _state = State::init_at_chain_height(config, cache.height, database.clone()).await?;
+    let _state = Verifier::init_at_chain_height(config, cache.height + 1, database.clone()).await?;
 
-    tracing::info!("Initialised state, begging scan");
+    tracing::info!("Initialised verifier, begging scan");
 
-    for height in (cache.height..chain_height).step_by(MAX_BLOCKS_IN_RANGE as usize) {
-        let DatabaseResponse::BlockBatchInRange(_blocks) = database
-            .ready()
-            .await?
-            .call(DatabaseRequest::BlockBatchInRange(
-                height..(height + MAX_BLOCKS_IN_RANGE).max(chain_height),
-            ))
-            .await?
-        else {
+    let mut next_fut = tokio::spawn(database.clone().ready().await?.call(
+        DatabaseRequest::BlockBatchInRange(
+            cache.height..(cache.height + BATCH_SIZE).min(chain_height),
+        ),
+    ));
+
+    for height in (cache.height..chain_height)
+        .step_by(BATCH_SIZE as usize)
+        .skip(1)
+    {
+        // Call the next batch while we handle this batch. The RPC does not require use to use .await before
+        // it starts working on the request.
+        let current_fut = std::mem::replace(
+            &mut next_fut,
+            tokio::spawn(
+                database
+                    .ready()
+                    .await?
+                    .call(DatabaseRequest::BlockBatchInRange(
+                        height..(height + BATCH_SIZE).min(chain_height),
+                    )),
+            ),
+        );
+
+        let DatabaseResponse::BlockBatchInRange(blocks) = current_fut.await?? else {
             panic!("Database sent incorrect response!");
         };
+
+        let mut block_data_fut = FuturesOrdered::from_iter(blocks.iter().map(|b| async {
+            if !b.txs.is_empty() {
+                let txs = b.txs.clone();
+                let db = database.clone();
+                tokio::spawn(async move {
+                    let DatabaseResponse::Transactions(txs) =
+                        db.oneshot(DatabaseRequest::Transactions(txs)).await?
+                    else {
+                        panic!("Database sent incorrect response!");
+                    };
+                    Ok(txs)
+                })
+                .await
+                .unwrap()
+            } else {
+                Ok(vec![])
+            }
+        }))
+        .zip(stream::iter(blocks.iter()));
+
+        while let Some((txs, block)) = block_data_fut.next().await {
+            let txs = txs.map_err(|e: ConsensusError| e)?;
+        }
+
+        tracing::info!(
+            "Moving onto next batch: {:?}, chain height: {}",
+            height..(height + BATCH_SIZE).min(chain_height),
+            chain_height
+        );
     }
 
     Ok(())
@@ -124,17 +178,17 @@ async fn main() {
         "http://xmr-node.cakewallet.com:18081".to_string(),
         "http://node.sethforprivacy.com".to_string(),
         "http://nodex.monerujo.io:18081".to_string(),
-        "http://node.community.rino.io:18081".to_string(),
+        //   "http://node.community.rino.io:18081".to_string(),
         "http://nodes.hashvault.pro:18081".to_string(),
-        "http://node.moneroworld.com:18089".to_string(),
+        //   "http://node.moneroworld.com:18089".to_string(),
         "http://node.c3pool.com:18081".to_string(),
         //
         "http://xmr-node.cakewallet.com:18081".to_string(),
         "http://node.sethforprivacy.com".to_string(),
         "http://nodex.monerujo.io:18081".to_string(),
-        "http://node.community.rino.io:18081".to_string(),
+        // "http://node.community.rino.io:18081".to_string(),
         "http://nodes.hashvault.pro:18081".to_string(),
-        "http://node.moneroworld.com:18089".to_string(),
+        // "http://node.moneroworld.com:18089".to_string(),
         "http://node.c3pool.com:18081".to_string(),
     ];
 

@@ -4,7 +4,7 @@ pub mod hardforks;
 pub mod miner_tx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
-pub mod state;
+pub mod verifier;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConsensusError {
@@ -38,6 +38,8 @@ pub enum DatabaseRequest {
 
     #[cfg(feature = "binaries")]
     BlockBatchInRange(std::ops::Range<u64>),
+    #[cfg(feature = "binaries")]
+    Transactions(Vec<[u8; 32]>),
 }
 
 #[derive(Debug)]
@@ -54,4 +56,6 @@ pub enum DatabaseResponse {
 
     #[cfg(feature = "binaries")]
     BlockBatchInRange(Vec<monero_serai::block::Block>),
+    #[cfg(feature = "binaries")]
+    Transactions(Vec<monero_serai::transaction::Transaction>),
 }
