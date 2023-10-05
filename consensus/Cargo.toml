@@ -9,7 +9,17 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [features]
 default = ["binaries"]
-binaries = ["dep:tokio", "dep:tracing-subscriber", "tower/retry", "tower/balance", "tower/buffer", "dep:serde_json", "dep:serde", "dep:epee-encoding"]
+binaries = [
+    "dep:tokio",
+    "dep:tracing-subscriber",
+    "tower/retry",
+    "tower/balance",
+    "tower/buffer",
+    "dep:serde_json",
+    "dep:serde",
+    "dep:monero-epee-bin-serde",
+    "dep:monero-wire"
+]
 
 [dependencies]
 hex = "0.4"
@@ -27,7 +37,8 @@ cuprate-common = {path = "../common"}
 cryptonight-cuprate = {path = "../cryptonight"}
 
 # used in binaries
-epee-encoding = {version = "0.5", optional = true}
+monero-wire = {path="../net/monero-wire", optional = true}
+monero-epee-bin-serde = {git = "https://github.com/monero-rs/monero-epee-bin-serde.git", rev = "e4a585a", optional = true}
 serde_json = {version = "1", optional = true}
 serde = {version = "1", optional = true, features = ["derive"]}
 tokio = { version = "1", features = ["rt-multi-thread", "macros"], optional = true }
@@ -35,5 +46,3 @@ tracing-subscriber = {version = "0.3", optional = true}
 # here to help cargo to pick a version - remove me
 syn = "2.0.37"
 
-[profile.dev]
-opt-level = 3

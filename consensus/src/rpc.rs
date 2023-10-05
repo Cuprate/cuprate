@@ -8,21 +8,22 @@ use std::task::{Context, Poll};
 use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
 use futures::{stream::FuturesOrdered, FutureExt, TryFutureExt, TryStreamExt};
 use monero_serai::rpc::{HttpRpc, RpcConnection, RpcError};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tower::balance::p2c::Balance;
 use tower::util::BoxService;
 use tower::ServiceExt;
 
 use cuprate_common::BlockID;
+use monero_wire::common::{BlockCompleteEntry, TransactionBlobs};
 
 use crate::block::pow::BlockPOWInfo;
 use crate::block::weight::BlockWeightInfo;
 use crate::hardforks::BlockHFInfo;
 use crate::{DatabaseRequest, DatabaseResponse};
 
-pub const MAX_BLOCKS_IN_RANGE: u64 = 10;
-pub const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 50;
+pub const MAX_BLOCKS_IN_RANGE: u64 = 75;
+pub const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 200;
 
 #[derive(Clone)]
 pub struct Attempts(u64);
@@ -227,16 +228,6 @@ impl Rpc<HttpRpc> {
     }
 }
 
-impl<R: RpcConnection> Clone for Rpc<R> {
-    fn clone(&self) -> Self {
-        Rpc {
-            rpc: Arc::clone(&self.rpc),
-            rpc_state: RpcState::Locked,
-            error_slot: Arc::clone(&self.error_slot),
-        }
-    }
-}
-
 impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> for Rpc<R> {
     type Response = DatabaseResponse;
     type Error = tower::BoxError;
@@ -269,6 +260,17 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
         let err_slot = self.error_slot.clone();
 
         match req {
+            DatabaseRequest::BlockHash(height) => async move {
+                let res: Result<_, RpcError> = rpc
+                    .get_block_hash(height as usize)
+                    .map_ok(|hash| DatabaseResponse::BlockHash(hash))
+                    .await;
+                if let Err(e) = &res {
+                    *err_slot.lock().unwrap() = Some(e.clone());
+                }
+                res.map_err(Into::into)
+            }
+            .boxed(),
             DatabaseRequest::ChainHeight => async move {
                 let res: Result<_, RpcError> = rpc
                     .get_height()
@@ -294,39 +296,62 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
                 get_blocks_pow_info_in_range(range, rpc).boxed()
             }
             DatabaseRequest::BlockBatchInRange(range) => get_blocks_in_range(range, rpc).boxed(),
-            DatabaseRequest::Transactions(txs) => get_transactions(txs, rpc).boxed(),
         }
     }
-}
-
-async fn get_transactions<R: RpcConnection>(
-    txs: Vec<[u8; 32]>,
-    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
-) -> Result<DatabaseResponse, tower::BoxError> {
-    if txs.is_empty() {
-        return Ok(DatabaseResponse::Transactions(vec![]));
-    }
-    tracing::info!("Getting transactions, count: {}", txs.len());
-
-    let txs = rpc.get_transactions(&txs).await?;
-
-    Ok(DatabaseResponse::Transactions(txs))
 }
 
 async fn get_blocks_in_range<R: RpcConnection>(
     range: Range<u64>,
     rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
 ) -> Result<DatabaseResponse, tower::BoxError> {
-    let fut = FuturesOrdered::from_iter(
-        range
-            .clone()
-            .map(|height| rpc.get_block_by_number(height as usize)),
-    );
-
     tracing::info!("Getting blocks in range: {:?}", range);
 
+    #[derive(Serialize)]
+    pub struct Request {
+        pub heights: Vec<u64>,
+    }
+
+    #[derive(Deserialize)]
+    pub struct Response {
+        pub blocks: Vec<BlockCompleteEntry>,
+    }
+
+    let res = rpc
+        .bin_call(
+            "get_blocks_by_height.bin",
+            monero_epee_bin_serde::to_bytes(&Request {
+                heights: range.collect(),
+            })?,
+        )
+        .await?;
+
+    let blocks: Response = monero_epee_bin_serde::from_bytes(&res)?;
+
     Ok(DatabaseResponse::BlockBatchInRange(
-        fut.try_collect().await?,
+        blocks
+            .blocks
+            .into_iter()
+            .map(|b| {
+                Ok((
+                    monero_serai::block::Block::read(&mut b.block.as_slice())?,
+                    if let Some(txs) = b.txs {
+                        match txs {
+                            TransactionBlobs::Pruned(_) => {
+                                return Err("node sent pruned txs!".into())
+                            }
+                            TransactionBlobs::Normal(txs) => txs
+                                .into_iter()
+                                .map(|tx| {
+                                    monero_serai::transaction::Transaction::read(&mut tx.as_slice())
+                                })
+                                .collect::<Result<_, _>>()?,
+                        }
+                    } else {
+                        vec![]
+                    },
+                ))
+            })
+            .collect::<Result<_, tower::BoxError>>()?,
     ))
 }
 
@@ -484,4 +509,9 @@ async fn get_blocks_hf_info_in_range<R: RpcConnection>(
             })
             .collect(),
     ))
+}
+
+#[derive(Deserialize)]
+pub struct BResponse {
+    pub blocks: Vec<BlockCompleteEntry>,
 }

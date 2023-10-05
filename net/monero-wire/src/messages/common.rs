@@ -17,11 +17,15 @@
 //
 use epee_encoding::EpeeObject;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, Bytes};
 
-use crate::NetworkAddress;
+use crate::{
+    serde_helpers::{default_false, default_zero},
+    NetworkAddress,
+};
 
 mod builders;
-mod serde_helpers;
+mod serde_impls;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PeerSupportFlags(u32);
@@ -197,18 +201,23 @@ impl TransactionBlobs {
 }
 
 /// A Block that can contain transactions
+#[serde_as]
 #[derive(Clone, Debug, EpeeObject, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BlockCompleteEntry {
     /// True if tx data is pruned
     #[epee_default(false)]
+    #[serde(default = "default_false")]
     pub pruned: bool,
     /// The Block
+    #[serde_as(as = "Bytes")]
     pub block: Vec<u8>,
     /// The Block Weight/Size
     #[epee_default(0)]
+    #[serde(default = "default_zero")]
     pub block_weight: u64,
     /// The blocks txs
     #[epee_default(None)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub txs: Option<TransactionBlobs>,
 }
 

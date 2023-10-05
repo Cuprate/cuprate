@@ -31,6 +31,7 @@
 
 pub mod messages;
 pub mod network_address;
+mod serde_helpers;
 
 pub use network_address::NetworkAddress;
 

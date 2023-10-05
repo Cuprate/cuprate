@@ -10,6 +10,8 @@ pub mod verifier;
 pub enum ConsensusError {
     #[error("Invalid hard fork version: {0}")]
     InvalidHardForkVersion(&'static str),
+    #[error("The block has a different previous hash than expected")]
+    BlockIsNotApartOfChain,
     #[error("Database error: {0}")]
     Database(#[from] tower::BoxError),
 }
@@ -29,6 +31,7 @@ pub enum DatabaseRequest {
     BlockHFInfo(cuprate_common::BlockID),
     BlockPOWInfo(cuprate_common::BlockID),
     BlockWeights(cuprate_common::BlockID),
+    BlockHash(u64),
 
     BlockHfInfoInRange(std::ops::Range<u64>),
     BlockWeightsInRange(std::ops::Range<u64>),
@@ -38,8 +41,6 @@ pub enum DatabaseRequest {
 
     #[cfg(feature = "binaries")]
     BlockBatchInRange(std::ops::Range<u64>),
-    #[cfg(feature = "binaries")]
-    Transactions(Vec<[u8; 32]>),
 }
 
 #[derive(Debug)]
@@ -47,6 +48,7 @@ pub enum DatabaseResponse {
     BlockHFInfo(hardforks::BlockHFInfo),
     BlockPOWInfo(block::pow::BlockPOWInfo),
     BlockWeights(block::weight::BlockWeightInfo),
+    BlockHash([u8; 32]),
 
     BlockHfInfoInRange(Vec<hardforks::BlockHFInfo>),
     BlockWeightsInRange(Vec<block::weight::BlockWeightInfo>),
@@ -55,7 +57,10 @@ pub enum DatabaseResponse {
     ChainHeight(u64),
 
     #[cfg(feature = "binaries")]
-    BlockBatchInRange(Vec<monero_serai::block::Block>),
-    #[cfg(feature = "binaries")]
-    Transactions(Vec<monero_serai::transaction::Transaction>),
+    BlockBatchInRange(
+        Vec<(
+            monero_serai::block::Block,
+            Vec<monero_serai::transaction::Transaction>,
+        )>,
+    ),
 }

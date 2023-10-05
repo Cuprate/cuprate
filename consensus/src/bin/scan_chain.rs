@@ -1,27 +1,26 @@
 #![cfg(feature = "binaries")]
 
-use cuprate_common::Network;
-use futures::stream::FuturesOrdered;
-use futures::{stream, StreamExt};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
-use tower::{Service, ServiceExt};
+use tower::ServiceExt;
 use tracing::instrument;
 use tracing::level_filters::LevelFilter;
 
-use monero_consensus::rpc::init_rpc_load_balancer;
+use cuprate_common::Network;
+
+use monero_consensus::rpc::{init_rpc_load_balancer, MAX_BLOCKS_IN_RANGE};
 use monero_consensus::{
     verifier::{Config, Verifier},
-    ConsensusError, Database, DatabaseRequest, DatabaseResponse,
+    Database, DatabaseRequest, DatabaseResponse,
 };
 
-const BATCH_SIZE: u64 = 50;
+const BATCH_SIZE: u64 = MAX_BLOCKS_IN_RANGE * 4;
 
 /// A cache which can keep chain state while scanning.
 ///
-/// Because we are using a RPC interface with node we need to keep track
-/// of certain data that node doesn't hold like the number of outputs at
+/// Because we are using a RPC interface with a node we need to keep track
+/// of certain data that the node doesn't hold like the number of outputs at
 /// a certain time.
 #[derive(Debug, Clone)]
 struct ScanningCache {
@@ -29,8 +28,6 @@ struct ScanningCache {
     numb_outs: HashMap<u64, u64>,
     /// The height of the *next* block to scan.
     height: u64,
-    /// The hash of the *last* block scanned.
-    last_block_hash: [u8; 32],
 }
 
 impl Default for ScanningCache {
@@ -38,8 +35,7 @@ impl Default for ScanningCache {
         ScanningCache {
             network: Default::default(),
             numb_outs: Default::default(),
-            height: 0,
-            last_block_hash: [0; 32],
+            height: 1,
         }
     }
 }
@@ -102,7 +98,7 @@ where
         _ => todo!(),
     };
 
-    let _state = Verifier::init_at_chain_height(config, cache.height + 1, database.clone()).await?;
+    let verifier = Verifier::init_at_chain_height(config, cache.height, database.clone()).await?;
 
     tracing::info!("Initialised verifier, begging scan");
 
@@ -116,8 +112,7 @@ where
         .step_by(BATCH_SIZE as usize)
         .skip(1)
     {
-        // Call the next batch while we handle this batch. The RPC does not require use to use .await before
-        // it starts working on the request.
+        // Call the next batch while we handle this batch.
         let current_fut = std::mem::replace(
             &mut next_fut,
             tokio::spawn(
@@ -134,28 +129,8 @@ where
             panic!("Database sent incorrect response!");
         };
 
-        let mut block_data_fut = FuturesOrdered::from_iter(blocks.iter().map(|b| async {
-            if !b.txs.is_empty() {
-                let txs = b.txs.clone();
-                let db = database.clone();
-                tokio::spawn(async move {
-                    let DatabaseResponse::Transactions(txs) =
-                        db.oneshot(DatabaseRequest::Transactions(txs)).await?
-                    else {
-                        panic!("Database sent incorrect response!");
-                    };
-                    Ok(txs)
-                })
-                .await
-                .unwrap()
-            } else {
-                Ok(vec![])
-            }
-        }))
-        .zip(stream::iter(blocks.iter()));
-
-        while let Some((txs, block)) = block_data_fut.next().await {
-            let txs = txs.map_err(|e: ConsensusError| e)?;
+        for (block, txs) in blocks.into_iter() {
+            println!("{}, {}", hex::encode(block.hash()), txs.len());
         }
 
         tracing::info!(
@@ -178,7 +153,7 @@ async fn main() {
         "http://xmr-node.cakewallet.com:18081".to_string(),
         "http://node.sethforprivacy.com".to_string(),
         "http://nodex.monerujo.io:18081".to_string(),
-        //   "http://node.community.rino.io:18081".to_string(),
+        //"http://node.community.rino.io:18081".to_string(),
         "http://nodes.hashvault.pro:18081".to_string(),
         //   "http://node.moneroworld.com:18089".to_string(),
         "http://node.c3pool.com:18081".to_string(),
@@ -186,7 +161,7 @@ async fn main() {
         "http://xmr-node.cakewallet.com:18081".to_string(),
         "http://node.sethforprivacy.com".to_string(),
         "http://nodex.monerujo.io:18081".to_string(),
-        // "http://node.community.rino.io:18081".to_string(),
+        //"http://node.community.rino.io:18081".to_string(),
         "http://nodes.hashvault.pro:18081".to_string(),
         // "http://node.moneroworld.com:18089".to_string(),
         "http://node.c3pool.com:18081".to_string(),
