@@ -10,6 +10,8 @@ repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/monero-wi
 [dependencies]
 levin-cuprate = {path="../levin"}
 epee-encoding = { git = "https://github.com/boog900/epee-encoding"}
+monero-epee-bin-serde = {git = "https://github.com/monero-rs/monero-epee-bin-serde.git"}
+serde = {version = "1", features = ["derive"]}
 
 [dev-dependencies]
 hex = "0.4.3"

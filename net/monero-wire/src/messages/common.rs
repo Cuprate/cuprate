@@ -16,10 +16,12 @@
 //! Common types that are used across multiple messages.
 //
 use epee_encoding::EpeeObject;
+use serde::{Deserialize, Serialize};
 
 use crate::NetworkAddress;
 
 mod builders;
+mod serde_helpers;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PeerSupportFlags(u32);
@@ -195,7 +197,7 @@ impl TransactionBlobs {
 }
 
 /// A Block that can contain transactions
-#[derive(Clone, Debug, EpeeObject, PartialEq, Eq)]
+#[derive(Clone, Debug, EpeeObject, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BlockCompleteEntry {
     /// True if tx data is pruned
     #[epee_default(false)]
