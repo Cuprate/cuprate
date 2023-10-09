@@ -18,12 +18,13 @@
 //! Protocol message requests don't have to be responded to in order unlike
 //! admin messages.   
 
-use epee_encoding::EpeeObject;
+use serde::{Deserialize, Serialize};
 
 use super::common::BlockCompleteEntry;
+use crate::serde_helpers::*;
 
 /// A block that SHOULD have transactions
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewBlock {
     /// Block with txs
     pub b: BlockCompleteEntry,
@@ -32,51 +33,53 @@ pub struct NewBlock {
 }
 
 /// New Tx Pool Transactions
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewTransactions {
     /// Tx Blobs
     pub txs: Vec<Vec<u8>>,
     /// Dandelionpp true if fluff - backwards compatible mode is fluff
-    #[epee_default(true)]
+    #[serde(default = "default_true")]
     pub dandelionpp_fluff: bool,
     /// Padding
-    #[epee_alt_name("_")]
+    #[serde(rename = "_")]
     pub padding: Vec<u8>,
 }
 
 /// A Request For Blocks
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GetObjectsRequest {
     /// Block hashes we want
     pub blocks: Vec<[u8; 32]>,
     /// Pruned
-    #[epee_default(false)]
+    #[serde(default = "default_false")]
     pub pruned: bool,
 }
 
 /// A Blocks Response
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GetObjectsResponse {
     /// Blocks
+    // We dont need to give this a default value as there always is at least 1 block
     pub blocks: Vec<BlockCompleteEntry>,
     /// Missed IDs
+    #[serde(default = "Vec::new")]
     pub missed_ids: Vec<[u8; 32]>,
     /// The height of the peers blockchain
     pub current_blockchain_height: u64,
 }
 
 /// A Chain Request
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChainRequest {
     /// Block IDs
     pub block_ids: Vec<[u8; 32]>,
     /// Prune
-    #[epee_default(false)]
+    #[serde(default = "default_false")]
     pub prune: bool,
 }
 
 /// A Chain Response
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChainResponse {
     /// Start Height
     pub start_height: u64,
@@ -123,7 +126,7 @@ impl ChainResponse {
 }
 
 /// A Block that doesn't have transactions unless requested
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewFluffyBlock {
     /// Block which might have transactions
     pub b: BlockCompleteEntry,
@@ -132,7 +135,7 @@ pub struct NewFluffyBlock {
 }
 
 /// A request for Txs we are missing from our TxPool
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FluffyMissingTransactionsRequest {
     /// The Block we are missing the Txs in
     pub block_hash: [u8; 32],
@@ -143,9 +146,10 @@ pub struct FluffyMissingTransactionsRequest {
 }
 
 /// TxPoolCompliment
-#[derive(Debug, Clone, EpeeObject, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GetTxPoolCompliment {
     /// Tx Hashes
+    #[serde(default = "Vec::new")]
     pub hashes: Vec<[u8; 32]>,
 }
 

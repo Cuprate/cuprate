@@ -60,8 +60,11 @@ pub enum BucketError {
     #[error("Levin fragmented message was invalid: {0}")]
     InvalidFragmentedMessage(&'static str),
     /// Error decoding the body
-    #[error("Error decoding bucket body")]
-    BodyDecodingError(Box<dyn Debug>),
+    #[error("Error decoding bucket body: {0}")]
+    BodyDecodingError(Box<dyn std::error::Error>),
+    /// The levin command is unknown
+    #[error("The levin command is unknown")]
+    UnknownCommand,
     /// I/O error
     #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),

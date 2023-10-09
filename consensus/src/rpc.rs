@@ -13,6 +13,7 @@ use serde_json::json;
 use tower::balance::p2c::Balance;
 use tower::util::BoxService;
 use tower::ServiceExt;
+use tracing::Instrument;
 
 use cuprate_common::BlockID;
 use monero_wire::common::{BlockCompleteEntry, TransactionBlobs};
@@ -22,7 +23,9 @@ use crate::block::weight::BlockWeightInfo;
 use crate::hardforks::BlockHFInfo;
 use crate::{DatabaseRequest, DatabaseResponse};
 
-pub const MAX_BLOCKS_IN_RANGE: u64 = 75;
+mod discover;
+
+pub const MAX_BLOCKS_IN_RANGE: u64 = 200;
 pub const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 200;
 
 #[derive(Clone)]
@@ -213,15 +216,17 @@ enum RpcState<R: RpcConnection> {
 }
 pub struct Rpc<R: RpcConnection> {
     rpc: Arc<futures::lock::Mutex<monero_serai::rpc::Rpc<R>>>,
+    addr: String,
     rpc_state: RpcState<R>,
     error_slot: Arc<Mutex<Option<RpcError>>>,
 }
 
 impl Rpc<HttpRpc> {
     pub fn new_http(addr: String) -> Rpc<HttpRpc> {
-        let http_rpc = HttpRpc::new(addr).unwrap();
+        let http_rpc = HttpRpc::new(addr.clone()).unwrap();
         Rpc {
             rpc: Arc::new(futures::lock::Mutex::new(http_rpc)),
+            addr,
             rpc_state: RpcState::Locked,
             error_slot: Arc::new(Mutex::new(None)),
         }
@@ -257,19 +262,22 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
             panic!("poll_ready was not called first!");
         };
 
+        let span = tracing::info_span!("rpc_request", addr = &self.addr);
+
         let err_slot = self.error_slot.clone();
 
         match req {
             DatabaseRequest::BlockHash(height) => async move {
                 let res: Result<_, RpcError> = rpc
                     .get_block_hash(height as usize)
-                    .map_ok(|hash| DatabaseResponse::BlockHash(hash))
+                    .map_ok(DatabaseResponse::BlockHash)
                     .await;
                 if let Err(e) = &res {
                     *err_slot.lock().unwrap() = Some(e.clone());
                 }
                 res.map_err(Into::into)
             }
+            .instrument(span)
             .boxed(),
             DatabaseRequest::ChainHeight => async move {
                 let res: Result<_, RpcError> = rpc
@@ -281,21 +289,32 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
                 }
                 res.map_err(Into::into)
             }
+            .instrument(span)
             .boxed(),
 
-            DatabaseRequest::BlockPOWInfo(id) => get_blocks_pow_info(id, rpc).boxed(),
-            DatabaseRequest::BlockWeights(id) => get_blocks_weight_info(id, rpc).boxed(),
-            DatabaseRequest::BlockHFInfo(id) => get_blocks_hf_info(id, rpc).boxed(),
-            DatabaseRequest::BlockHfInfoInRange(range) => {
-                get_blocks_hf_info_in_range(range, rpc).boxed()
+            DatabaseRequest::BlockPOWInfo(id) => {
+                get_blocks_pow_info(id, rpc).instrument(span).boxed()
             }
+            DatabaseRequest::BlockWeights(id) => {
+                get_blocks_weight_info(id, rpc).instrument(span).boxed()
+            }
+            DatabaseRequest::BlockHFInfo(id) => {
+                get_blocks_hf_info(id, rpc).instrument(span).boxed()
+            }
+            DatabaseRequest::BlockHfInfoInRange(range) => get_blocks_hf_info_in_range(range, rpc)
+                .instrument(span)
+                .boxed(),
             DatabaseRequest::BlockWeightsInRange(range) => {
-                get_blocks_weight_info_in_range(range, rpc).boxed()
+                get_blocks_weight_info_in_range(range, rpc)
+                    .instrument(span)
+                    .boxed()
             }
-            DatabaseRequest::BlockPOWInfoInRange(range) => {
-                get_blocks_pow_info_in_range(range, rpc).boxed()
+            DatabaseRequest::BlockPOWInfoInRange(range) => get_blocks_pow_info_in_range(range, rpc)
+                .instrument(span)
+                .boxed(),
+            DatabaseRequest::BlockBatchInRange(range) => {
+                get_blocks_in_range(range, rpc).instrument(span).boxed()
             }
-            DatabaseRequest::BlockBatchInRange(range) => get_blocks_in_range(range, rpc).boxed(),
         }
     }
 }
@@ -334,20 +353,15 @@ async fn get_blocks_in_range<R: RpcConnection>(
             .map(|b| {
                 Ok((
                     monero_serai::block::Block::read(&mut b.block.as_slice())?,
-                    if let Some(txs) = b.txs {
-                        match txs {
-                            TransactionBlobs::Pruned(_) => {
-                                return Err("node sent pruned txs!".into())
-                            }
-                            TransactionBlobs::Normal(txs) => txs
-                                .into_iter()
-                                .map(|tx| {
-                                    monero_serai::transaction::Transaction::read(&mut tx.as_slice())
-                                })
-                                .collect::<Result<_, _>>()?,
-                        }
-                    } else {
-                        vec![]
+                    match b.txs {
+                        TransactionBlobs::Pruned(_) => return Err("node sent pruned txs!".into()),
+                        TransactionBlobs::Normal(txs) => txs
+                            .into_iter()
+                            .map(|tx| {
+                                monero_serai::transaction::Transaction::read(&mut tx.as_slice())
+                            })
+                            .collect::<Result<_, _>>()?,
+                        TransactionBlobs::None => vec![],
                     },
                 ))
             })
@@ -509,9 +523,4 @@ async fn get_blocks_hf_info_in_range<R: RpcConnection>(
             })
             .collect(),
     ))
-}
-
-#[derive(Deserialize)]
-pub struct BResponse {
-    pub blocks: Vec<BlockCompleteEntry>,
 }

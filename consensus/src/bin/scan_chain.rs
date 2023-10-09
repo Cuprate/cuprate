@@ -15,7 +15,7 @@ use monero_consensus::{
     Database, DatabaseRequest, DatabaseResponse,
 };
 
-const BATCH_SIZE: u64 = MAX_BLOCKS_IN_RANGE * 4;
+const BATCH_SIZE: u64 = MAX_BLOCKS_IN_RANGE * 3;
 
 /// A cache which can keep chain state while scanning.
 ///
@@ -153,17 +153,7 @@ async fn main() {
         "http://xmr-node.cakewallet.com:18081".to_string(),
         "http://node.sethforprivacy.com".to_string(),
         "http://nodex.monerujo.io:18081".to_string(),
-        //"http://node.community.rino.io:18081".to_string(),
         "http://nodes.hashvault.pro:18081".to_string(),
-        //   "http://node.moneroworld.com:18089".to_string(),
-        "http://node.c3pool.com:18081".to_string(),
-        //
-        "http://xmr-node.cakewallet.com:18081".to_string(),
-        "http://node.sethforprivacy.com".to_string(),
-        "http://nodex.monerujo.io:18081".to_string(),
-        //"http://node.community.rino.io:18081".to_string(),
-        "http://nodes.hashvault.pro:18081".to_string(),
-        // "http://node.moneroworld.com:18089".to_string(),
         "http://node.c3pool.com:18081".to_string(),
     ];
 
