@@ -2,11 +2,11 @@ use std::cmp::min;
 use std::future::Future;
 use std::ops::Range;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::task::{Context, Poll};
 
 use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
-use futures::{stream::FuturesOrdered, FutureExt, TryFutureExt, TryStreamExt};
+use futures::{stream::FuturesOrdered, FutureExt, StreamExt, TryFutureExt, TryStreamExt};
 use monero_serai::rpc::{HttpRpc, RpcConnection, RpcError};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -25,8 +25,24 @@ use crate::{DatabaseRequest, DatabaseResponse};
 
 mod discover;
 
-pub const MAX_BLOCKS_IN_RANGE: u64 = 200;
-pub const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 200;
+#[derive(Debug, Copy, Clone)]
+pub struct RpcConfig {
+    pub max_blocks_per_node: u64,
+    pub max_block_headers_per_node: u64,
+}
+
+impl RpcConfig {
+    pub fn block_batch_size(&self) -> u64 {
+        self.max_blocks_per_node * 3
+    }
+
+    pub fn new(max_blocks_per_node: u64, max_block_headers_per_node: u64) -> RpcConfig {
+        RpcConfig {
+            max_block_headers_per_node,
+            max_blocks_per_node,
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Attempts(u64);
@@ -52,6 +68,7 @@ impl<Req: Clone, Res, E> tower::retry::Policy<Req, Res, E> for Attempts {
 
 pub fn init_rpc_load_balancer(
     addresses: Vec<String>,
+    config: Arc<RwLock<RpcConfig>>,
 ) -> impl tower::Service<
     DatabaseRequest,
     Response = DatabaseResponse,
@@ -60,21 +77,28 @@ pub fn init_rpc_load_balancer(
         Box<dyn Future<Output = Result<DatabaseResponse, tower::BoxError>> + Send + 'static>,
     >,
 > + Clone {
-    let rpc_discoverer = tower::discover::ServiceList::new(
-        addresses
-            .into_iter()
-            .map(|addr| tower::load::Constant::new(Rpc::new_http(addr), 0)),
-    );
-    let rpc_balance = Balance::new(rpc_discoverer);
+    let (rpc_discoverer_tx, rpc_discoverer_rx) = futures::channel::mpsc::channel(30);
+
+    let rpc_balance = Balance::new(rpc_discoverer_rx.map(Result::<_, tower::BoxError>::Ok));
     let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 3);
     let rpcs = tower::retry::Retry::new(Attempts(2), rpc_buffer);
 
-    RpcBalancer { rpcs }
+    let discover = discover::RPCDiscover {
+        rpc: rpcs.clone(),
+        initial_list: addresses,
+        ok_channel: rpc_discoverer_tx,
+        already_connected: Default::default(),
+    };
+
+    tokio::spawn(discover.run());
+
+    RpcBalancer { rpcs, config }
 }
 
 #[derive(Clone)]
 pub struct RpcBalancer<T: Clone> {
     rpcs: T,
+    config: Arc<RwLock<RpcConfig>>,
 }
 
 impl<T> tower::Service<DatabaseRequest> for RpcBalancer<T>
@@ -97,6 +121,8 @@ where
 
     fn call(&mut self, req: DatabaseRequest) -> Self::Future {
         let this = self.rpcs.clone();
+        let config_mutex = self.config.clone();
+        let config = config_mutex.read().unwrap();
 
         match req {
             DatabaseRequest::BlockBatchInRange(range) => {
@@ -112,7 +138,7 @@ where
                     DatabaseRequest::BlockBatchInRange,
                     DatabaseResponse::BlockBatchInRange,
                     resp_to_ret,
-                    MAX_BLOCKS_IN_RANGE,
+                    config.max_blocks_per_node,
                 )
             }
             DatabaseRequest::BlockPOWInfoInRange(range) => {
@@ -128,7 +154,7 @@ where
                     DatabaseRequest::BlockPOWInfoInRange,
                     DatabaseResponse::BlockPOWInfoInRange,
                     resp_to_ret,
-                    MAX_BLOCKS_HEADERS_IN_RANGE,
+                    config.max_block_headers_per_node,
                 )
             }
 
@@ -145,7 +171,7 @@ where
                     DatabaseRequest::BlockWeightsInRange,
                     DatabaseResponse::BlockWeightsInRange,
                     resp_to_ret,
-                    MAX_BLOCKS_HEADERS_IN_RANGE,
+                    config.max_block_headers_per_node,
                 )
             }
             DatabaseRequest::BlockHfInfoInRange(range) => {
@@ -161,7 +187,7 @@ where
                     DatabaseRequest::BlockHfInfoInRange,
                     DatabaseResponse::BlockHfInfoInRange,
                     resp_to_ret,
-                    MAX_BLOCKS_HEADERS_IN_RANGE,
+                    config.max_block_headers_per_node,
                 )
             }
             req => this.oneshot(req).boxed(),
@@ -523,4 +549,18 @@ async fn get_blocks_hf_info_in_range<R: RpcConnection>(
             })
             .collect(),
     ))
+}
+
+#[tokio::test]
+async fn t() {
+    let rpc = Rpc::new_http("http://node.c3pool.com:18081".to_string());
+    let res: serde_json::Value = rpc
+        .rpc
+        .try_lock()
+        .unwrap()
+        .json_rpc_call("get_connections", None)
+        .await
+        .unwrap();
+
+    println!("{res}");
 }

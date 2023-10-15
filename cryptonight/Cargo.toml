@@ -9,6 +9,8 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/cryptonight"
 
 [dependencies]
 
-
 [build-dependencies]
 cc = "1"
+
+[dev-dependencies]
+hex = "0.4"

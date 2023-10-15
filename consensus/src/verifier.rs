@@ -4,19 +4,26 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use crate::{
-    block::{pow::difficulty::DifficultyCache, weight::BlockWeightsCache},
+    block::{
+        difficulty::{DifficultyCache, DifficultyCacheConfig},
+        weight::{BlockWeightsCache, BlockWeightsCacheConfig},
+    },
     hardforks::{HardForkConfig, HardForkState},
     ConsensusError, Database, DatabaseRequest, DatabaseResponse,
 };
 
 pub struct Config {
     hard_fork_cfg: HardForkConfig,
+    difficulty_cfg: DifficultyCacheConfig,
+    weights_config: BlockWeightsCacheConfig,
 }
 
 impl Config {
     pub fn main_net() -> Config {
         Config {
             hard_fork_cfg: HardForkConfig::main_net(),
+            difficulty_cfg: DifficultyCacheConfig::main_net(),
+            weights_config: BlockWeightsCacheConfig::main_net(),
         }
     }
 }
@@ -47,7 +54,6 @@ impl State {
         Self::init_at_chain_height(config, chain_height, database).await
     }
 
-    #[instrument(name = "init_state", skip_all)]
     pub async fn init_at_chain_height<D: Database + Clone>(
         config: Config,
         chain_height: u64,
@@ -63,8 +69,16 @@ impl State {
         };
 
         let (block_weight, difficulty, hard_fork) = join!(
-            BlockWeightsCache::init_from_chain_height(chain_height, database.clone()),
-            DifficultyCache::init_from_chain_height(chain_height, database.clone()),
+            BlockWeightsCache::init_from_chain_height(
+                chain_height,
+                config.weights_config,
+                database.clone()
+            ),
+            DifficultyCache::init_from_chain_height(
+                chain_height,
+                config.difficulty_cfg,
+                database.clone()
+            ),
             HardForkState::init_from_chain_height(config.hard_fork_cfg, chain_height, database)
         );
 
@@ -99,7 +113,6 @@ impl Verifier {
         Self::init_at_chain_height(config, chain_height, database).await
     }
 
-    #[instrument(name = "init_verifier", skip_all)]
     pub async fn init_at_chain_height<D: Database + Clone>(
         config: Config,
         chain_height: u64,

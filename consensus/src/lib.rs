@@ -1,6 +1,7 @@
 pub mod block;
 pub mod genesis;
 pub mod hardforks;
+mod helper;
 pub mod miner_tx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
@@ -8,6 +9,10 @@ pub mod verifier;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConsensusError {
+    #[error("Block has a timestamp outside of the valid range")]
+    BlockTimestampInvalid,
+    #[error("Block is too large")]
+    BlockIsTooLarge,
     #[error("Invalid hard fork version: {0}")]
     InvalidHardForkVersion(&'static str),
     #[error("The block has a different previous hash than expected")]
@@ -46,13 +51,13 @@ pub enum DatabaseRequest {
 #[derive(Debug)]
 pub enum DatabaseResponse {
     BlockHFInfo(hardforks::BlockHFInfo),
-    BlockPOWInfo(block::pow::BlockPOWInfo),
+    BlockPOWInfo(block::BlockPOWInfo),
     BlockWeights(block::weight::BlockWeightInfo),
     BlockHash([u8; 32]),
 
     BlockHfInfoInRange(Vec<hardforks::BlockHFInfo>),
-    BlockWeightsInRange(Vec<block::weight::BlockWeightInfo>),
-    BlockPOWInfoInRange(Vec<block::pow::BlockPOWInfo>),
+    BlockWeightsInRange(Vec<block::BlockWeightInfo>),
+    BlockPOWInfoInRange(Vec<block::BlockPOWInfo>),
 
     ChainHeight(u64),
 

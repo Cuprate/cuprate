@@ -1,10 +1,13 @@
-
-
+use std::collections::VecDeque;
 use std::ops::Range;
+
 use tower::ServiceExt;
 use tracing::instrument;
 
-use crate::{hardforks::HardFork, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
+use crate::{
+    hardforks::HardFork, helper::median, ConsensusError, Database, DatabaseRequest,
+    DatabaseResponse,
+};
 
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
@@ -15,26 +18,62 @@ const DIFFICULTY_CUT: usize = 60;
 /// The amount of blocks we add onto the window before doing any calculations so that the
 /// difficulty lags by this amount of blocks
 const DIFFICULTY_LAG: usize = 15;
-/// The total amount of blocks we need to track to calculate difficulty
-const DIFFICULTY_BLOCKS_COUNT: u64 = (DIFFICULTY_WINDOW + DIFFICULTY_LAG) as u64;
-/// The amount of blocks we account for after removing the outliers.
-const DIFFICULTY_ACCOUNTED_WINDOW_LEN: usize = DIFFICULTY_WINDOW - 2 * DIFFICULTY_CUT;
+
+/// Configuration for the difficulty cache.
+///
+#[derive(Debug, Clone)]
+pub struct DifficultyCacheConfig {
+    window: usize,
+    cut: usize,
+    lag: usize,
+}
+
+impl DifficultyCacheConfig {
+    pub fn new(window: usize, cut: usize, lag: usize) -> DifficultyCacheConfig {
+        DifficultyCacheConfig { window, cut, lag }
+    }
+
+    /// Returns the total amount of blocks we need to track to calculate difficulty
+    pub fn total_block_count(&self) -> u64 {
+        (self.window + self.lag).try_into().unwrap()
+    }
+
+    /// The amount of blocks we account for after removing the outliers.
+    pub fn accounted_window_len(&self) -> usize {
+        self.window - 2 * self.cut
+    }
+
+    pub fn main_net() -> DifficultyCacheConfig {
+        DifficultyCacheConfig {
+            window: DIFFICULTY_WINDOW,
+            cut: DIFFICULTY_CUT,
+            lag: DIFFICULTY_LAG,
+        }
+    }
+}
 
 /// This struct is able to calculate difficulties from blockchain information.
 #[derive(Debug, Clone)]
 pub struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
-    timestamps: Vec<u64>,
+    timestamps: VecDeque<u64>,
     /// The work done in the [`DIFFICULTY_ACCOUNTED_WINDOW_LEN`] window, this is an optimisation
     /// so we don't need to keep track of cumulative difficulties as well as timestamps.
     windowed_work: u128,
+    /// The current cumulative difficulty of the chain.
+    cumulative_difficulty: u128,
     /// The last height we accounted for.
     last_accounted_height: u64,
+    /// The config
+    config: DifficultyCacheConfig,
 }
 
 impl DifficultyCache {
-    pub async fn init<D: Database + Clone>(mut database: D) -> Result<Self, ConsensusError> {
+    pub async fn init<D: Database + Clone>(
+        config: DifficultyCacheConfig,
+        mut database: D,
+    ) -> Result<Self, ConsensusError> {
         let DatabaseResponse::ChainHeight(chain_height) = database
             .ready()
             .await?
@@ -44,17 +83,18 @@ impl DifficultyCache {
             panic!("Database sent incorrect response")
         };
 
-        DifficultyCache::init_from_chain_height(chain_height, database).await
+        DifficultyCache::init_from_chain_height(chain_height, config, database).await
     }
 
-    #[instrument(name = "init_difficulty_cache", level = "info", skip(database))]
+    #[instrument(name = "init_difficulty_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
+        config: DifficultyCacheConfig,
         mut database: D,
     ) -> Result<Self, ConsensusError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
-        let mut block_start = chain_height.saturating_sub(DIFFICULTY_BLOCKS_COUNT);
+        let mut block_start = chain_height.saturating_sub(config.total_block_count());
 
         if block_start == 0 {
             block_start = 1;
@@ -66,7 +106,9 @@ impl DifficultyCache {
         let mut diff = DifficultyCache {
             timestamps,
             windowed_work: 0,
+            cumulative_difficulty: 0,
             last_accounted_height: chain_height - 1,
+            config,
         };
 
         diff.update_windowed_work(&mut database).await?;
@@ -80,44 +122,21 @@ impl DifficultyCache {
         Ok(diff)
     }
 
-    pub async fn resync<D: Database + Clone>(
+    pub async fn new_block<D: Database>(
         &mut self,
-        mut database: D,
+        height: u64,
+        timestamp: u64,
+        database: D,
     ) -> Result<(), ConsensusError> {
-        let DatabaseResponse::ChainHeight(chain_height) = database
-            .ready()
-            .await?
-            .call(DatabaseRequest::ChainHeight)
-            .await?
-        else {
-            panic!("Database sent incorrect response")
-        };
+        assert_eq!(self.last_accounted_height + 1, height);
+        self.last_accounted_height += 1;
 
-        // TODO: We need to handle re-orgs
-        assert!(chain_height > self.last_accounted_height);
+        self.timestamps.pop_front();
+        self.timestamps.push_back(timestamp);
 
-        if chain_height == self.last_accounted_height + 1 {
-            return Ok(());
-        }
+        self.update_windowed_work(database).await?;
 
-        let mut timestamps = get_blocks_in_range_timestamps(
-            database.clone(),
-            self.last_accounted_height + 1..chain_height,
-        )
-        .await?;
-
-        self.timestamps.append(&mut timestamps);
-
-        self.timestamps.drain(
-            0..self
-                .timestamps
-                .len()
-                .saturating_sub(DIFFICULTY_BLOCKS_COUNT as usize),
-        );
-
-        self.last_accounted_height = chain_height - 1;
-
-        self.update_windowed_work(database).await
+        Ok(())
     }
 
     async fn update_windowed_work<D: Database>(
@@ -129,13 +148,14 @@ impl DifficultyCache {
         }
 
         let mut block_start =
-            (self.last_accounted_height + 1).saturating_sub(DIFFICULTY_BLOCKS_COUNT);
+            (self.last_accounted_height + 1).saturating_sub(self.config.total_block_count());
 
         if block_start == 0 {
             block_start = 1;
         }
 
-        let (start, end) = get_window_start_and_end(self.timestamps.len());
+        let (start, end) =
+            get_window_start_and_end(self.timestamps.len(), self.config.accounted_window_len());
 
         let low_cumulative_difficulty = get_block_cum_diff(
             &mut database,
@@ -149,6 +169,10 @@ impl DifficultyCache {
         )
         .await?;
 
+        let chain_cumulative_difficulty =
+            get_block_cum_diff(&mut database, self.last_accounted_height).await?;
+
+        self.cumulative_difficulty = chain_cumulative_difficulty;
         self.windowed_work = high_cumulative_difficulty - low_cumulative_difficulty;
         Ok(())
     }
@@ -165,9 +189,10 @@ impl DifficultyCache {
         if sorted_timestamps.len() > DIFFICULTY_WINDOW {
             sorted_timestamps.drain(DIFFICULTY_WINDOW..);
         };
-        sorted_timestamps.sort_unstable();
+        sorted_timestamps.make_contiguous().sort_unstable();
 
-        let (window_start, window_end) = get_window_start_and_end(sorted_timestamps.len());
+        let (window_start, window_end) =
+            get_window_start_and_end(sorted_timestamps.len(), self.config.accounted_window_len());
 
         let mut time_span =
             u128::from(sorted_timestamps[window_end - 1] - sorted_timestamps[window_start]);
@@ -176,22 +201,35 @@ impl DifficultyCache {
             time_span = 1;
         }
 
-        (self.windowed_work * target_time_for_hf(hf) + time_span - 1) / time_span
+        (self.windowed_work * hf.block_time().as_secs() as u128 + time_span - 1) / time_span
+    }
+
+    /// Returns the median timestamp over the last `numb_blocks`.
+    ///
+    /// Will panic if `numb_blocks` is larger than amount of blocks in the cache.
+    pub fn median_timestamp(&self, numb_blocks: usize) -> u64 {
+        median(
+            &self
+                .timestamps
+                .range(self.timestamps.len().checked_sub(numb_blocks).unwrap()..)
+                .copied()
+                .collect::<Vec<_>>(),
+        )
     }
 }
 
-fn get_window_start_and_end(window_len: usize) -> (usize, usize) {
+fn get_window_start_and_end(window_len: usize, accounted_window: usize) -> (usize, usize) {
     let window_len = if window_len > DIFFICULTY_WINDOW {
         DIFFICULTY_WINDOW
     } else {
         window_len
     };
 
-    if window_len <= DIFFICULTY_ACCOUNTED_WINDOW_LEN {
+    if window_len <= accounted_window {
         (0, window_len)
     } else {
-        let start = (window_len - (DIFFICULTY_ACCOUNTED_WINDOW_LEN) + 1) / 2;
-        (start, start + DIFFICULTY_ACCOUNTED_WINDOW_LEN)
+        let start = (window_len - (accounted_window) + 1) / 2;
+        (start, start + accounted_window)
     }
 }
 
@@ -199,7 +237,7 @@ fn get_window_start_and_end(window_len: usize) -> (usize, usize) {
 async fn get_blocks_in_range_timestamps<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
-) -> Result<Vec<u64>, ConsensusError> {
+) -> Result<VecDeque<u64>, ConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
     let DatabaseResponse::BlockPOWInfoInRange(pow_infos) = database
@@ -220,11 +258,4 @@ async fn get_block_cum_diff<D: Database>(database: D, height: u64) -> Result<u12
         panic!("Database service sent incorrect response!");
     };
     Ok(pow.cumulative_difficulty)
-}
-
-fn target_time_for_hf(hf: &HardFork) -> u128 {
-    match hf {
-        HardFork::V1 => 60,
-        _ => 120,
-    }
 }

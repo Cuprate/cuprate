@@ -14,7 +14,10 @@ use monero_serai::{block::Block, transaction::Transaction};
 use tower::ServiceExt;
 use tracing::instrument;
 
-use crate::{hardforks::HardFork, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
+use crate::{
+    hardforks::HardFork, helper::median, ConsensusError, Database, DatabaseRequest,
+    DatabaseResponse,
+};
 
 const PENALTY_FREE_ZONE_1: usize = 20000;
 const PENALTY_FREE_ZONE_2: usize = 60000;
@@ -52,6 +55,30 @@ pub fn penalty_free_zone(hf: &HardFork) -> usize {
     }
 }
 
+/// Configuration for the block weight cache.
+///
+#[derive(Debug, Clone)]
+pub struct BlockWeightsCacheConfig {
+    short_term_window: u64,
+    long_term_window: u64,
+}
+
+impl BlockWeightsCacheConfig {
+    pub fn new(short_term_window: u64, long_term_window: u64) -> BlockWeightsCacheConfig {
+        BlockWeightsCacheConfig {
+            short_term_window,
+            long_term_window,
+        }
+    }
+
+    pub fn main_net() -> BlockWeightsCacheConfig {
+        BlockWeightsCacheConfig {
+            short_term_window: SHORT_TERM_WINDOW,
+            long_term_window: LONG_TERM_WINDOW,
+        }
+    }
+}
+
 /// A cache used to calculate block weight limits, the effective median and
 /// long term block weights.
 ///
@@ -65,11 +92,16 @@ pub struct BlockWeightsCache {
     long_term_weights: Vec<usize>,
     /// The height of the top block.
     tip_height: u64,
+
+    config: BlockWeightsCacheConfig,
 }
 
 impl BlockWeightsCache {
     /// Initialize the [`BlockWeightsCache`] at the the height of the database.
-    pub async fn init<D: Database + Clone>(mut database: D) -> Result<Self, ConsensusError> {
+    pub async fn init<D: Database + Clone>(
+        config: BlockWeightsCacheConfig,
+        mut database: D,
+    ) -> Result<Self, ConsensusError> {
         let DatabaseResponse::ChainHeight(chain_height) = database
             .ready()
             .await?
@@ -79,19 +111,20 @@ impl BlockWeightsCache {
             panic!("Database sent incorrect response!");
         };
 
-        Self::init_from_chain_height(chain_height, database).await
+        Self::init_from_chain_height(chain_height, config, database).await
     }
 
     /// Initialize the [`BlockWeightsCache`] at the the given chain height.
-    #[instrument(name = "init_weight_cache", level = "info", skip(database))]
+    #[instrument(name = "init_weight_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
+        config: BlockWeightsCacheConfig,
         database: D,
     ) -> Result<Self, ConsensusError> {
         tracing::info!("Initializing weight cache this may take a while.");
 
         let mut long_term_weights = get_long_term_weight_in_range(
-            chain_height.saturating_sub(LONG_TERM_WINDOW)..chain_height,
+            chain_height.saturating_sub(config.long_term_window)..chain_height,
             database.clone(),
         )
         .await?;
@@ -103,7 +136,7 @@ impl BlockWeightsCache {
         );
 
         let short_term_block_weights: VecDeque<usize> = get_blocks_weight_in_range(
-            chain_height.saturating_sub(SHORT_TERM_WINDOW)..chain_height,
+            chain_height.saturating_sub(config.short_term_window)..chain_height,
             database,
         )
         .await?
@@ -115,6 +148,7 @@ impl BlockWeightsCache {
             short_term_block_weights,
             long_term_weights,
             tip_height: chain_height - 1,
+            config,
         })
     }
 
@@ -142,7 +176,7 @@ impl BlockWeightsCache {
             Ok(idx) | Err(idx) => self.long_term_weights.insert(idx, long_term_weight),
         };
 
-        if let Some(height_to_remove) = block_height.checked_sub(LONG_TERM_WINDOW) {
+        if let Some(height_to_remove) = block_height.checked_sub(self.config.long_term_window) {
             tracing::debug!(
                 "Block {} is out of the long term weight window, removing it",
                 height_to_remove
@@ -161,7 +195,7 @@ impl BlockWeightsCache {
         }
 
         self.short_term_block_weights.push_back(block_weight);
-        if self.short_term_block_weights.len() > SHORT_TERM_WINDOW.try_into().unwrap() {
+        if self.short_term_block_weights.len() > self.config.short_term_window.try_into().unwrap() {
             self.short_term_block_weights.pop_front();
         }
 
@@ -190,9 +224,18 @@ impl BlockWeightsCache {
         )
     }
 
-    /// Returns the block weight limit.
-    pub fn next_block_weight_limit(&self, hf: &HardFork) -> usize {
-        2 * self.effective_median_block_weight(hf)
+    /// Returns the median weight used to calculate block reward punishment.
+    ///
+    /// https://cuprate.github.io/monero-book/consensus_rules/blocks/reward.html#calculating-block-reward
+    pub fn median_for_block_reward(&self, hf: &HardFork) -> usize {
+        if hf.in_range(&HardFork::V1, &HardFork::V12) {
+            let mut sorted_short_term_weights: Vec<usize> =
+                self.short_term_block_weights.clone().into();
+            sorted_short_term_weights.sort_unstable();
+            median(&sorted_short_term_weights)
+        } else {
+            self.effective_median_block_weight(hf)
+        }
     }
 }
 
@@ -243,25 +286,6 @@ fn calculate_block_long_term_weight(
         };
 
     min(short_term_constraint, adjusted_block_weight)
-}
-
-fn get_mid(a: usize, b: usize) -> usize {
-    // https://github.com/monero-project/monero/blob/90294f09ae34ef96f3dea5fea544816786df87c8/contrib/epee/include/misc_language.h#L43
-    (a / 2) + (b / 2) + ((a - 2 * (a / 2)) + (b - 2 * (b / 2))) / 2
-}
-
-fn median(array: &[usize]) -> usize {
-    let mid = array.len() / 2;
-
-    if array.len() == 1 {
-        return array[0];
-    }
-
-    if array.len() % 2 == 0 {
-        get_mid(array[mid - 1], array[mid])
-    } else {
-        array[mid]
-    }
 }
 
 #[instrument(name = "get_block_weights", skip(database))]

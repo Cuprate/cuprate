@@ -1,5 +1,6 @@
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
+use std::time::Duration;
 
 use monero_serai::block::BlockHeader;
 use tower::ServiceExt;
@@ -11,6 +12,10 @@ use crate::{ConsensusError, Database, DatabaseRequest, DatabaseResponse};
 
 // https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
 const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a week
+const BLOCK_TIME_V1: Duration = Duration::from_secs(60);
+const BLOCK_TIME_V2: Duration = Duration::from_secs(120);
+
+const NUMB_OF_HARD_FORKS: usize = 16;
 
 #[derive(Debug, Clone, Copy)]
 pub struct BlockHFInfo {
@@ -31,6 +36,65 @@ impl BlockHFInfo {
             version: HardFork::from_version(&major_version)?,
             vote: HardFork::from_vote(&minor_version),
         })
+    }
+}
+
+/// Information about a given hard-fork.
+#[derive(Debug, Clone, Copy)]
+pub struct HFInfo {
+    height: u64,
+    threshold: u64,
+}
+impl HFInfo {
+    pub fn new(height: u64, threshold: u64) -> HFInfo {
+        HFInfo { height, threshold }
+    }
+
+    /// Returns the main-net hard-fork information.
+    ///
+    /// https://cuprate.github.io/monero-book/consensus_rules/hardforks.html#Mainnet-Hard-Forks
+    pub fn main_net() -> [HFInfo; NUMB_OF_HARD_FORKS] {
+        [
+            HFInfo::new(0, 0),
+            HFInfo::new(1009827, 0),
+            HFInfo::new(1141317, 0),
+            HFInfo::new(1220516, 0),
+            HFInfo::new(1288616, 0),
+            HFInfo::new(1400000, 0),
+            HFInfo::new(1546000, 0),
+            HFInfo::new(1685555, 0),
+            HFInfo::new(1686275, 0),
+            HFInfo::new(1788000, 0),
+            HFInfo::new(1788720, 0),
+            HFInfo::new(1978433, 0),
+            HFInfo::new(2210000, 0),
+            HFInfo::new(2210720, 0),
+            HFInfo::new(2688888, 0),
+            HFInfo::new(2689608, 0),
+        ]
+    }
+}
+
+/// Configuration for hard-forks.
+///
+#[derive(Debug, Clone)]
+pub struct HardForkConfig {
+    /// The network we are on.
+    forks: [HFInfo; NUMB_OF_HARD_FORKS],
+    /// The amount of votes we are taking into account to decide on a fork activation.
+    window: u64,
+}
+
+impl HardForkConfig {
+    fn fork_info(&self, hf: &HardFork) -> HFInfo {
+        self.forks[*hf as usize - 1]
+    }
+
+    pub fn main_net() -> HardForkConfig {
+        Self {
+            forks: HFInfo::main_net(),
+            window: DEFAULT_WINDOW_SIZE,
+        }
     }
 }
 
@@ -104,72 +168,26 @@ impl HardFork {
         HardFork::from_version(&(*self as u8 + 1)).ok()
     }
 
-    /// Returns the threshold of this fork.
-    pub fn fork_threshold(&self, _: &Network) -> u64 {
-        // No Monero hard forks actually use voting
-        0
-    }
-
-    /// Returns the votes needed for this fork.
-    ///
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
-    pub fn votes_needed(&self, network: &Network, window: u64) -> u64 {
-        (self.fork_threshold(network) * window + 99) / 100
-    }
-
-    /// Returns the minimum height this fork will activate at
-    pub fn fork_height(&self, network: &Network) -> u64 {
-        match network {
-            Network::Mainnet => self.mainnet_fork_height(),
-            Network::Stagenet => self.stagenet_fork_height(),
-            Network::Testnet => self.testnet_fork_height(),
-        }
-    }
-
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#Stagenet-Hard-Forks
-    fn stagenet_fork_height(&self) -> u64 {
-        todo!()
-    }
-
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#Testnet-Hard-Forks
-    fn testnet_fork_height(&self) -> u64 {
-        todo!()
-    }
-
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#Mainnet-Hard-Forks
-    fn mainnet_fork_height(&self) -> u64 {
-        match self {
-            HardFork::V1 => 0, // Monero core has this as 1, which is strange
-            HardFork::V2 => 1009827,
-            HardFork::V3 => 1141317,
-            HardFork::V4 => 1220516,
-            HardFork::V5 => 1288616,
-            HardFork::V6 => 1400000,
-            HardFork::V7 => 1546000,
-            HardFork::V8 => 1685555,
-            HardFork::V9 => 1686275,
-            HardFork::V10 => 1788000,
-            HardFork::V11 => 1788720,
-            HardFork::V12 => 1978433,
-            HardFork::V13 => 2210000,
-            HardFork::V14 => 2210720,
-            HardFork::V15 => 2688888,
-            HardFork::V16 => 2689608,
-        }
-    }
-
     /// Returns if the hard-fork is in range:
     ///
     /// start <= hf < end
     pub fn in_range(&self, start: &HardFork, end: &HardFork) -> bool {
         start <= self && self < end
     }
+
+    /// Returns the target block time for this hardfork.
+    pub fn block_time(&self) -> Duration {
+        match self {
+            HardFork::V1 => BLOCK_TIME_V1,
+            _ => BLOCK_TIME_V2,
+        }
+    }
 }
 
 /// A struct holding the current voting state of the blockchain.
 #[derive(Debug, Default, Clone)]
 struct HFVotes {
-    votes: [u64; 16],
+    votes: [u64; NUMB_OF_HARD_FORKS],
 }
 
 impl Display for HFVotes {
@@ -222,25 +240,6 @@ impl HFVotes {
     /// Returns the total amount of votes being tracked
     pub fn total_votes(&self) -> u64 {
         self.votes.iter().sum()
-    }
-}
-
-/// Configuration for hard-forks.
-///
-#[derive(Debug, Clone)]
-pub struct HardForkConfig {
-    /// The network we are on.
-    network: Network,
-    /// The amount of votes we are taking into account to decide on a fork activation.
-    window: u64,
-}
-
-impl HardForkConfig {
-    pub fn main_net() -> HardForkConfig {
-        Self {
-            network: Network::Mainnet,
-            window: DEFAULT_WINDOW_SIZE,
-        }
     }
 }
 
@@ -379,9 +378,10 @@ impl HardForkState {
     /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
     fn check_set_new_hf(&mut self) {
         while let Some(new_hf) = self.next_hardfork {
-            if self.last_height + 1 >= new_hf.fork_height(&self.config.network)
+            let hf_info = self.config.fork_info(&new_hf);
+            if self.last_height + 1 >= hf_info.height
                 && self.votes.votes_for_hf(&new_hf)
-                    >= new_hf.votes_needed(&self.config.network, self.config.window)
+                    >= votes_needed(hf_info.threshold, self.config.window)
             {
                 self.set_hf(new_hf);
             } else {
@@ -395,6 +395,13 @@ impl HardForkState {
         self.next_hardfork = new_hf.next_fork();
         self.current_hardfork = new_hf;
     }
+}
+
+/// Returns the votes needed for this fork.
+///
+/// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
+pub fn votes_needed(threshold: u64, window: u64) -> u64 {
+    (threshold * window + 99) / 100
 }
 
 #[instrument(name = "get_votes", skip(database))]

@@ -31,7 +31,7 @@ futures = "0.3"
 crypto-bigint = "0.5"
 
 randomx-rs = "1"
-monero-serai = {git="https://github.com/Cuprate/serai.git", rev = "46f4370"}
+monero-serai = {git="https://github.com/Cuprate/serai.git", rev = "df4af7b"}
 
 cuprate-common = {path = "../common"}
 cryptonight-cuprate = {path = "../cryptonight"}
@@ -46,3 +46,5 @@ tracing-subscriber = {version = "0.3", optional = true}
 # here to help cargo to pick a version - remove me
 syn = "2.0.37"
 
+[profile.dev]
+opt-level = 3
