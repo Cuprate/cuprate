@@ -10,59 +10,64 @@ extern "C" {
     );
 }
 
-/// CryptoNight variants used in Monero, with data needed for specific variants.
-pub enum Variant {
-    V0,
-    V1,
-    V2,
-    R { height: u64 },
-}
-
-impl Variant {
-    /// Returns the height of the block we are hashing, if thats relevant for this variant otherwise
-    /// `0` is returned.
-    fn height(&self) -> u64 {
-        if let Variant::R { height } = self {
-            *height
-        } else {
-            0
-        }
-    }
-
-    fn identifier(&self) -> i32 {
-        match self {
-            Variant::V0 => 0,
-            Variant::V1 => 1,
-            Variant::V2 => 2,
-            Variant::R { .. } => 4,
-        }
-    }
-}
-
-/// Calculates the CryptoNight variant hash of buf.
-pub fn cryptonight_hash(buf: &[u8], variant: &Variant) -> [u8; 32] {
+/// Calculates the CryptoNight v0 hash of buf.
+///
+pub fn cryptonight_hash_v0(buf: &[u8]) -> [u8; 32] {
     let mut hash = [0; 32];
     unsafe {
-        cn_slow_hash(
-            buf.as_ptr(),
-            buf.len(),
-            hash.as_mut_ptr(),
-            variant.identifier(),
-            0,
-            variant.height(),
-        );
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 0, 0, 0);
+    }
+    hash
+}
+
+#[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
+#[error("Data can't be hashed")]
+pub struct DataCanNotBeHashed;
+
+/// Calculates the CryptoNight v1 hash of buf.
+///
+/// This will return an error if buf is less than43 bytes.
+///
+pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
+    if buf.len() < 43 {
+        return Err(DataCanNotBeHashed);
+    }
+
+    let mut hash = [0; 32];
+    unsafe {
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 1, 0, 0);
+    }
+    Ok(hash)
+}
+
+/// Calculates the CryptoNight v2 hash of buf.
+///
+pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
+    let mut hash = [0; 32];
+    unsafe {
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 2, 0, 0);
+    }
+    hash
+}
+
+/// Calculates the CryptoNight R hash of buf.
+///
+pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
+    let mut hash = [0; 32];
+    unsafe {
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 4, 0, height);
     }
     hash
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{cryptonight_hash, Variant};
+    use crate::*;
 
     #[test]
     fn slow_hash_0() {
         let test = |inp: &str, exp: &str| {
-            let res = hex::encode(cryptonight_hash(&hex::decode(inp).unwrap(), &Variant::V0));
+            let res = hex::encode(cryptonight_hash_v0(&hex::decode(inp).unwrap()));
             assert_eq!(&res, exp);
         };
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow.txt
@@ -87,7 +92,7 @@ mod tests {
     #[test]
     fn slow_hash_1() {
         let test = |inp: &str, exp: &str| {
-            let res = hex::encode(cryptonight_hash(&hex::decode(inp).unwrap(), &Variant::V1));
+            let res = hex::encode(cryptonight_hash_v1(&hex::decode(inp).unwrap()).unwrap());
             assert_eq!(&res, exp);
         };
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow-1.txt
@@ -116,7 +121,7 @@ mod tests {
     #[test]
     fn slow_hash_2() {
         let test = |inp: &str, exp: &str| {
-            let res = hex::encode(cryptonight_hash(&hex::decode(inp).unwrap(), &Variant::V2));
+            let res = hex::encode(cryptonight_hash_v2(&hex::decode(inp).unwrap()));
             assert_eq!(&res, exp);
         };
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow-2.txt
@@ -165,10 +170,7 @@ mod tests {
     #[test]
     fn slow_hash_r() {
         let test = |inp: &str, exp: &str, height: u64| {
-            let res = hex::encode(cryptonight_hash(
-                &hex::decode(inp).unwrap(),
-                &Variant::R { height },
-            ));
+            let res = hex::encode(cryptonight_hash_r(&hex::decode(inp).unwrap(), height));
             assert_eq!(&res, exp);
         };
 

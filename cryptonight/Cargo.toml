@@ -8,6 +8,7 @@ authors = ["Boog900", "The Monero Project"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/cryptonight"
 
 [dependencies]
+thiserror = "1"
 
 [build-dependencies]
 cc = "1"
