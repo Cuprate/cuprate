@@ -19,8 +19,8 @@ const NUMB_OF_HARD_FORKS: usize = 16;
 
 #[derive(Debug, Clone, Copy)]
 pub struct BlockHFInfo {
-    version: HardFork,
-    vote: HardFork,
+    pub version: HardFork,
+    pub vote: HardFork,
 }
 
 impl BlockHFInfo {

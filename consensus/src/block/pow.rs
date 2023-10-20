@@ -1,5 +1,8 @@
 use crypto_bigint::{CheckedMul, U256};
-use cryptonight_cuprate::{cryptonight_hash, Variant};
+
+use cryptonight_cuprate::{
+    cryptonight_hash_r, cryptonight_hash_v0, cryptonight_hash_v1, cryptonight_hash_v2,
+};
 
 use crate::{hardforks::HardFork, ConsensusError};
 
@@ -7,6 +10,15 @@ use crate::{hardforks::HardFork, ConsensusError};
 pub struct BlockPOWInfo {
     pub timestamp: u64,
     pub cumulative_difficulty: u128,
+}
+
+impl BlockPOWInfo {
+    pub fn new(timestamp: u64, cumulative_difficulty: u128) -> BlockPOWInfo {
+        BlockPOWInfo {
+            timestamp,
+            cumulative_difficulty,
+        }
+    }
 }
 
 /// Returns if the blocks POW hash is valid for the current difficulty.
@@ -21,24 +33,29 @@ pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> bool {
 }
 
 /// Calcualtes the POW hash of this block.
-pub fn calculate_pow_hash(buf: &[u8], height: u64, hf: &HardFork) -> [u8; 32] {
+pub fn calculate_pow_hash(
+    buf: &[u8],
+    height: u64,
+    hf: &HardFork,
+) -> Result<[u8; 32], ConsensusError> {
     if height == 202612 {
-        return hex::decode("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        return Ok(
+            hex::decode("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000")
+                .unwrap()
+                .try_into()
+                .unwrap(),
+        );
     }
 
-    if hf.in_range(&HardFork::V1, &HardFork::V7) {
-        cryptonight_hash(buf, &Variant::V0)
-        //cryptonight_hash::cryptonight_hash(buf, &Variant::V0)
+    Ok(if hf.in_range(&HardFork::V1, &HardFork::V7) {
+        cryptonight_hash_v0(buf)
     } else if hf == &HardFork::V7 {
-        cryptonight_hash(buf, &Variant::V1)
+        cryptonight_hash_v1(buf).map_err(|_| ConsensusError::BlockPOWInvalid)?
     } else if hf.in_range(&HardFork::V8, &HardFork::V10) {
-        cryptonight_hash(buf, &Variant::V2)
+        cryptonight_hash_v2(buf)
     } else if hf.in_range(&HardFork::V10, &HardFork::V12) {
-        cryptonight_hash(buf, &Variant::R { height })
+        cryptonight_hash_r(buf, height)
     } else {
         todo!("RandomX")
-    }
+    })
 }

@@ -96,6 +96,7 @@ impl DifficultyCache {
 
         let mut block_start = chain_height.saturating_sub(config.total_block_count());
 
+        // skip the genesis block.
         if block_start == 0 {
             block_start = 1;
         }
@@ -150,6 +151,7 @@ impl DifficultyCache {
         let mut block_start =
             (self.last_accounted_height + 1).saturating_sub(self.config.total_block_count());
 
+        // skip the genesis block
         if block_start == 0 {
             block_start = 1;
         }
@@ -215,6 +217,15 @@ impl DifficultyCache {
                 .copied()
                 .collect::<Vec<_>>(),
         )
+    }
+
+    /// Returns the cumulative difficulty of the chain.
+    pub fn cumulative_difficulty(&self) -> u128 {
+        self.cumulative_difficulty
+    }
+
+    pub fn top_block_timestamp(&self) -> Option<u64> {
+        self.timestamps.back().copied()
     }
 }
 

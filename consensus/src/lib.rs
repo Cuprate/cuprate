@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 pub mod block;
 pub mod genesis;
 pub mod hardforks;
@@ -5,10 +7,27 @@ mod helper;
 pub mod miner_tx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
+pub mod transactions;
 pub mod verifier;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConsensusError {
+    #[error("Transaction sig invalid: {0}")]
+    TransactionSignatureInvalid(&'static str),
+    #[error("Transaction inputs overflow")]
+    TransactionInputsOverflow,
+    #[error("Transaction outputs overflow")]
+    TransactionOutputsOverflow,
+    #[error("Transaction has an invalid output: {0}")]
+    TransactionInvalidOutput(&'static str),
+    #[error("Transaction has an invalid version")]
+    TransactionVersionInvalid,
+    #[error("Transaction an invalid input: {0}")]
+    TransactionHasInvalidInput(&'static str),
+    #[error("Transaction has invalid ring: {0}")]
+    TransactionHasInvalidRing(&'static str),
+    #[error("Block has an invalid proof of work")]
+    BlockPOWInvalid,
     #[error("Block has a timestamp outside of the valid range")]
     BlockTimestampInvalid,
     #[error("Block is too large")]
@@ -44,6 +63,9 @@ pub enum DatabaseRequest {
 
     ChainHeight,
 
+    Outputs(HashMap<u64, HashSet<u64>>),
+    NumberOutputsWithAmount(u64),
+
     #[cfg(feature = "binaries")]
     BlockBatchInRange(std::ops::Range<u64>),
 }
@@ -60,6 +82,9 @@ pub enum DatabaseResponse {
     BlockPOWInfoInRange(Vec<block::BlockPOWInfo>),
 
     ChainHeight(u64),
+
+    Outputs(HashMap<u64, HashMap<u64, [curve25519_dalek::EdwardsPoint; 2]>>),
+    NumberOutputsWithAmount(usize),
 
     #[cfg(feature = "binaries")]
     BlockBatchInRange(

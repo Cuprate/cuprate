@@ -293,6 +293,7 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
         let err_slot = self.error_slot.clone();
 
         match req {
+            _ => todo!(),
             DatabaseRequest::BlockHash(height) => async move {
                 let res: Result<_, RpcError> = rpc
                     .get_block_hash(height as usize)

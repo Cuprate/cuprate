@@ -39,7 +39,7 @@ impl Default for ScanningCache {
         ScanningCache {
             network: Default::default(),
             numb_outs: Default::default(),
-            height: 1,
+            height: 1_000_000,
         }
     }
 }
@@ -106,65 +106,101 @@ where
     tracing::info!("Initialised verifier, begging scan");
     let batch_size = rpc_config.read().unwrap().block_batch_size();
 
-    let mut next_fut = tokio::spawn(database.clone().ready().await?.call(
-        DatabaseRequest::BlockBatchInRange(
-            cache.height..(cache.height + batch_size).min(chain_height),
-        ),
-    ));
+    let mut db = database.clone();
+    let mut next_fut = tokio::spawn(async move {
+        let now = std::time::Instant::now();
+        (
+            db.ready()
+                .await
+                .unwrap()
+                .call(DatabaseRequest::BlockBatchInRange(
+                    cache.height..(cache.height + batch_size).min(chain_height),
+                ))
+                .await
+                .unwrap(),
+            now.elapsed(),
+        )
+    });
 
     let mut current_height = cache.height;
     let mut next_batch_start_height = cache.height + batch_size;
 
     let mut time_to_verify_last_batch: u128 = 0;
 
-    let mut first = true;
+    let mut batches_till_check_batch_size: u64 = 2;
 
     while next_batch_start_height < chain_height {
         let next_batch_size = rpc_config.read().unwrap().block_batch_size();
-        let time_to_retrieve_batch = std::time::Instant::now();
 
         // Call the next batch while we handle this batch.
+        let mut db = database.clone();
         let current_fut = std::mem::replace(
             &mut next_fut,
-            tokio::spawn(
-                database
-                    .ready()
-                    .await?
-                    .call(DatabaseRequest::BlockBatchInRange(
-                        next_batch_start_height
-                            ..(next_batch_start_height + next_batch_size).min(chain_height),
-                    )),
-            ),
+            tokio::spawn(async move {
+                let now = std::time::Instant::now();
+
+                (
+                    db.ready()
+                        .await
+                        .unwrap()
+                        .call(DatabaseRequest::BlockBatchInRange(
+                            next_batch_start_height
+                                ..(next_batch_start_height + next_batch_size).min(chain_height),
+                        ))
+                        .await
+                        .unwrap(),
+                    now.elapsed(),
+                )
+            }),
         );
 
-        let DatabaseResponse::BlockBatchInRange(blocks) = current_fut.await?? else {
+        let (DatabaseResponse::BlockBatchInRange(blocks), time_to_retrieve_batch) =
+            current_fut.await?
+        else {
             panic!("Database sent incorrect response!");
         };
 
         let time_to_verify_batch = std::time::Instant::now();
 
-        let time_to_retrieve_batch = time_to_retrieve_batch.elapsed().as_millis();
+        let time_to_retrieve_batch = time_to_retrieve_batch.as_millis();
 
-        if time_to_retrieve_batch > 2000 && !first {
+        if time_to_retrieve_batch > time_to_verify_last_batch + 2000
+            && batches_till_check_batch_size == 0
+        {
+            batches_till_check_batch_size = 3;
+
             let mut conf = rpc_config.write().unwrap();
+            tracing::info!(
+                "Decreasing batch size time to verify last batch: {}, time_to_retrieve_batch: {}",
+                time_to_verify_last_batch,
+                time_to_retrieve_batch
+            );
             conf.max_blocks_per_node = (conf.max_blocks_per_node
-                * TryInto::<u64>::try_into(
-                    time_to_verify_last_batch
-                        / (time_to_verify_last_batch + time_to_retrieve_batch),
-                )
-                .unwrap())
-            .max(10_u64)
-            .min(MAX_BLOCKS_IN_RANGE);
-            tracing::info!("Decreasing batch size to: {}", conf.max_blocks_per_node);
-        } else if time_to_retrieve_batch < 100 {
-            let mut conf = rpc_config.write().unwrap();
-            conf.max_blocks_per_node = (conf.max_blocks_per_node * 2)
+                * time_to_verify_last_batch as u64
+                / (time_to_retrieve_batch as u64))
                 .max(10_u64)
                 .min(MAX_BLOCKS_IN_RANGE);
-            tracing::info!("Increasing batch size to: {}", conf.max_blocks_per_node);
-        }
+            tracing::info!("Decreasing batch size to: {}", conf.max_blocks_per_node);
+        } else if time_to_retrieve_batch + 2000 < time_to_verify_last_batch
+            && batches_till_check_batch_size == 0
+        {
+            batches_till_check_batch_size = 3;
 
-        first = false;
+            let mut conf = rpc_config.write().unwrap();
+            tracing::info!(
+                "Increasing batch size time to verify last batch: {}, time_to_retrieve_batch: {}",
+                time_to_verify_last_batch,
+                time_to_retrieve_batch
+            );
+            conf.max_blocks_per_node = (conf.max_blocks_per_node
+                * (time_to_verify_last_batch as u64)
+                / time_to_retrieve_batch.max(1) as u64)
+                .max(30_u64)
+                .min(MAX_BLOCKS_IN_RANGE);
+            tracing::info!("Increasing batch size to: {}", conf.max_blocks_per_node);
+        } else {
+            batches_till_check_batch_size = batches_till_check_batch_size.saturating_sub(1);
+        }
 
         tracing::info!(
             "Handling batch: {:?}, chain height: {}",
@@ -227,7 +263,10 @@ async fn main() {
         "http://145.239.97.211:18089".to_string(),
     ];
 
-    let rpc_config = RpcConfig::new(10, INITIAL_MAX_BLOCKS_HEADERS_IN_RANGE);
+    let rpc_config = RpcConfig::new(
+        INITIAL_MAX_BLOCKS_IN_RANGE,
+        INITIAL_MAX_BLOCKS_HEADERS_IN_RANGE,
+    );
     let rpc_config = Arc::new(RwLock::new(rpc_config));
 
     let rpc = init_rpc_load_balancer(urls, rpc_config.clone());

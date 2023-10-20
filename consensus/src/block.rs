@@ -17,11 +17,36 @@ const BLOCK_FUTURE_TIME_LIMIT: u64 = 60 * 60 * 2;
 pub struct BlockVerificationData {
     hf: BlockHFInfo,
     pow: BlockPOWInfo,
+    current_difficulty: u128,
     weights: BlockWeightInfo,
     block_blob: Vec<u8>,
     block: Block,
     block_hash: [u8; 32],
     pow_hash: [u8; 32],
+    // txs: Vec<T>,
+}
+
+impl BlockVerificationData {
+    pub fn new(
+        block: Block,
+        difficulty_cache: &DifficultyCache,
+        weight_cache: &BlockWeightsCache,
+    ) -> Result<BlockVerificationData, ConsensusError> {
+        let hf = BlockHFInfo::from_block_header(&block.header)?;
+
+        let current_diff = difficulty_cache.next_difficulty(&hf.version);
+        let cum_diff = difficulty_cache.cumulative_difficulty() + current_diff;
+
+        todo!()
+        /*
+
+        Ok(BlockVerificationData {
+            hf: BlockHFInfo::from_block_header(&block.header)?,
+            pow: BlockPOWInfo::new(block.header.timestamp, cum_diff),
+            weights:
+        })
+        */
+    }
 }
 
 /// Sanity check on the block blob size.
@@ -70,7 +95,7 @@ fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), Consensus
     if block.header.timestamp < median_timestamp
         || block.header.timestamp > current_time() + BLOCK_FUTURE_TIME_LIMIT
     {
-        return Err(ConsensusError::BlockTimestampInvalid);
+        Err(ConsensusError::BlockTimestampInvalid)
     } else {
         Ok(())
     }
