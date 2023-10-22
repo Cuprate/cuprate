@@ -1,14 +1,37 @@
 use std::collections::{HashMap, HashSet};
 
 pub mod block;
+pub mod context;
 pub mod genesis;
-pub mod hardforks;
 mod helper;
 pub mod miner_tx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
 pub mod transactions;
-pub mod verifier;
+
+pub use block::VerifyBlockRequest;
+pub use context::{ContextConfig, HardFork};
+pub use transactions::VerifyTxRequest;
+
+pub async fn initialize_verifier<D>(
+    database: D,
+    cfg: ContextConfig,
+) -> Result<
+    (
+        impl tower::Service<VerifyBlockRequest, Response = (), Error = ConsensusError>,
+        impl tower::Service<VerifyTxRequest, Response = (), Error = ConsensusError>,
+    ),
+    ConsensusError,
+>
+where
+    D: Database + Clone + Send + Sync + 'static,
+    D::Future: Send + 'static,
+{
+    let context_svc = context::initialize_blockchain_context(cfg, database.clone()).await?;
+    let tx_svc = transactions::TxVerifierService::new(database);
+    let block_svc = block::BlockVerifierService::new(context_svc, tx_svc.clone());
+    Ok((block_svc, tx_svc))
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConsensusError {
@@ -50,16 +73,32 @@ impl<T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tow
 {
 }
 
+#[derive(Debug)]
+pub struct OutputOnChain {
+    height: u64,
+    time_lock: monero_serai::transaction::Timelock,
+    key: curve25519_dalek::EdwardsPoint,
+    mask: curve25519_dalek::EdwardsPoint,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct ExtendedBlockHeader {
+    pub version: HardFork,
+    pub vote: HardFork,
+
+    pub timestamp: u64,
+    pub cumulative_difficulty: u128,
+
+    pub block_weight: usize,
+    pub long_term_weight: usize,
+}
+
 #[derive(Debug, Clone)]
 pub enum DatabaseRequest {
-    BlockHFInfo(cuprate_common::BlockID),
-    BlockPOWInfo(cuprate_common::BlockID),
-    BlockWeights(cuprate_common::BlockID),
+    BlockExtendedHeader(cuprate_common::BlockID),
     BlockHash(u64),
 
-    BlockHfInfoInRange(std::ops::Range<u64>),
-    BlockWeightsInRange(std::ops::Range<u64>),
-    BlockPOWInfoInRange(std::ops::Range<u64>),
+    BlockExtendedHeaderInRange(std::ops::Range<u64>),
 
     ChainHeight,
 
@@ -72,18 +111,14 @@ pub enum DatabaseRequest {
 
 #[derive(Debug)]
 pub enum DatabaseResponse {
-    BlockHFInfo(hardforks::BlockHFInfo),
-    BlockPOWInfo(block::BlockPOWInfo),
-    BlockWeights(block::weight::BlockWeightInfo),
+    BlockExtendedHeader(ExtendedBlockHeader),
     BlockHash([u8; 32]),
 
-    BlockHfInfoInRange(Vec<hardforks::BlockHFInfo>),
-    BlockWeightsInRange(Vec<block::BlockWeightInfo>),
-    BlockPOWInfoInRange(Vec<block::BlockPOWInfo>),
+    BlockExtendedHeaderInRange(Vec<ExtendedBlockHeader>),
 
-    ChainHeight(u64),
+    ChainHeight(u64, [u8; 32]),
 
-    Outputs(HashMap<u64, HashMap<u64, [curve25519_dalek::EdwardsPoint; 2]>>),
+    Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
     NumberOutputsWithAmount(usize),
 
     #[cfg(feature = "binaries")]

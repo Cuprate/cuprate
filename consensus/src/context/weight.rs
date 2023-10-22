@@ -6,17 +6,18 @@
 //! For more information please see the [block weights chapter](https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html)
 //! in the Monero Book.
 //!
-use std::cmp::{max, min};
-use std::collections::VecDeque;
-use std::ops::Range;
+use std::{
+    cmp::{max, min},
+    collections::VecDeque,
+    ops::Range,
+};
 
 use monero_serai::{block::Block, transaction::Transaction};
 use tower::ServiceExt;
 use tracing::instrument;
 
 use crate::{
-    hardforks::HardFork, helper::median, ConsensusError, Database, DatabaseRequest,
-    DatabaseResponse,
+    helper::median, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
 };
 
 const PENALTY_FREE_ZONE_1: usize = 20000;
@@ -102,7 +103,7 @@ impl BlockWeightsCache {
         config: BlockWeightsCacheConfig,
         mut database: D,
     ) -> Result<Self, ConsensusError> {
-        let DatabaseResponse::ChainHeight(chain_height) = database
+        let DatabaseResponse::ChainHeight(chain_height, _) = database
             .ready()
             .await?
             .call(DatabaseRequest::ChainHeight)
@@ -156,12 +157,12 @@ impl BlockWeightsCache {
     ///
     /// The block_height **MUST** be one more than the last height the cache has
     /// seen.
-    pub async fn new_block_added<D: Database>(
+    pub async fn new_block<D: Database>(
         &mut self,
         block_height: u64,
         block_weight: usize,
         long_term_weight: usize,
-        database: &mut D,
+        database: D,
     ) -> Result<(), ConsensusError> {
         tracing::debug!(
             "Adding new block's {} weights to block cache, weight: {}, long term weight: {}",
@@ -181,15 +182,17 @@ impl BlockWeightsCache {
                 "Block {} is out of the long term weight window, removing it",
                 height_to_remove
             );
-            let DatabaseResponse::BlockWeights(weights) = database
-                .oneshot(DatabaseRequest::BlockWeights(height_to_remove.into()))
+            let DatabaseResponse::BlockExtendedHeader(ext_header) = database
+                .oneshot(DatabaseRequest::BlockExtendedHeader(
+                    height_to_remove.into(),
+                ))
                 .await?
             else {
                 panic!("Database sent incorrect response!");
             };
             let idx = self
                 .long_term_weights
-                .binary_search(&weights.long_term_weight)
+                .binary_search(&ext_header.long_term_weight)
                 .expect("Weight must be in list if in the window");
             self.long_term_weights.remove(idx);
         }
@@ -207,6 +210,11 @@ impl BlockWeightsCache {
     /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#calculating-a-blocks-long-term-weight
     pub fn next_block_long_term_weight(&self, hf: &HardFork, block_weight: usize) -> usize {
         calculate_block_long_term_weight(hf, block_weight, &self.long_term_weights)
+    }
+
+    /// Returns the median long term weight over the last [`LONG_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
+    pub fn median_long_term_weight(&self) -> usize {
+        median(&self.long_term_weights)
     }
 
     /// Returns the effective median weight, used for block reward calculations and to calculate
@@ -295,14 +303,17 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
 ) -> Result<Vec<usize>, ConsensusError> {
     tracing::info!("getting block weights.");
 
-    let DatabaseResponse::BlockWeightsInRange(weights) = database
-        .oneshot(DatabaseRequest::BlockWeightsInRange(range))
+    let DatabaseResponse::BlockExtendedHeaderInRange(ext_headers) = database
+        .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(range))
         .await?
     else {
         panic!("Database sent incorrect response!")
     };
 
-    Ok(weights.into_iter().map(|info| info.block_weight).collect())
+    Ok(ext_headers
+        .into_iter()
+        .map(|info| info.block_weight)
+        .collect())
 }
 
 #[instrument(name = "get_long_term_weights", skip(database), level = "info")]
@@ -312,14 +323,14 @@ async fn get_long_term_weight_in_range<D: Database + Clone>(
 ) -> Result<Vec<usize>, ConsensusError> {
     tracing::info!("getting block long term weights.");
 
-    let DatabaseResponse::BlockWeightsInRange(weights) = database
-        .oneshot(DatabaseRequest::BlockWeightsInRange(range))
+    let DatabaseResponse::BlockExtendedHeaderInRange(ext_headers) = database
+        .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(range))
         .await?
     else {
         panic!("Database sent incorrect response!")
     };
 
-    Ok(weights
+    Ok(ext_headers
         .into_iter()
         .map(|info| info.long_term_weight)
         .collect())

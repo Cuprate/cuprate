@@ -1,12 +1,10 @@
-use std::collections::VecDeque;
-use std::ops::Range;
+use std::{collections::VecDeque, ops::Range};
 
 use tower::ServiceExt;
 use tracing::instrument;
 
 use crate::{
-    hardforks::HardFork, helper::median, ConsensusError, Database, DatabaseRequest,
-    DatabaseResponse,
+    helper::median, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
 };
 
 /// The amount of blocks we account for to calculate difficulty
@@ -53,6 +51,7 @@ impl DifficultyCacheConfig {
 }
 
 /// This struct is able to calculate difficulties from blockchain information.
+///
 #[derive(Debug, Clone)]
 pub struct DifficultyCache {
     /// The list of timestamps in the window.
@@ -74,7 +73,7 @@ impl DifficultyCache {
         config: DifficultyCacheConfig,
         mut database: D,
     ) -> Result<Self, ConsensusError> {
-        let DatabaseResponse::ChainHeight(chain_height) = database
+        let DatabaseResponse::ChainHeight(chain_height, _) = database
             .ready()
             .await?
             .call(DatabaseRequest::ChainHeight)
@@ -90,7 +89,7 @@ impl DifficultyCache {
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
         config: DifficultyCacheConfig,
-        mut database: D,
+        database: D,
     ) -> Result<Self, ConsensusError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
@@ -112,7 +111,7 @@ impl DifficultyCache {
             config,
         };
 
-        diff.update_windowed_work(&mut database).await?;
+        diff.update_windowed_work(database).await?;
 
         tracing::info!(
             "Current chain height: {}, accounting for {} blocks timestamps",
@@ -251,22 +250,22 @@ async fn get_blocks_in_range_timestamps<D: Database + Clone>(
 ) -> Result<VecDeque<u64>, ConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
-    let DatabaseResponse::BlockPOWInfoInRange(pow_infos) = database
-        .oneshot(DatabaseRequest::BlockPOWInfoInRange(block_heights))
+    let DatabaseResponse::BlockExtendedHeaderInRange(ext_header) = database
+        .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(block_heights))
         .await?
     else {
         panic!("Database sent incorrect response");
     };
 
-    Ok(pow_infos.into_iter().map(|info| info.timestamp).collect())
+    Ok(ext_header.into_iter().map(|info| info.timestamp).collect())
 }
 
 async fn get_block_cum_diff<D: Database>(database: D, height: u64) -> Result<u128, ConsensusError> {
-    let DatabaseResponse::BlockPOWInfo(pow) = database
-        .oneshot(DatabaseRequest::BlockPOWInfo(height.into()))
+    let DatabaseResponse::BlockExtendedHeader(ext_header) = database
+        .oneshot(DatabaseRequest::BlockExtendedHeader(height.into()))
         .await?
     else {
         panic!("Database service sent incorrect response!");
     };
-    Ok(pow.cumulative_difficulty)
+    Ok(ext_header.cumulative_difficulty)
 }
