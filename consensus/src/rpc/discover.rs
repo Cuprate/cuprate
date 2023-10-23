@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use futures::channel::mpsc::SendError;
@@ -11,11 +12,11 @@ use tower::load::PeakEwma;
 use tower::ServiceExt;
 use tracing::instrument;
 
-use super::Rpc;
+use super::{cache::ScanningCache, Rpc};
 use crate::Database;
 
-#[instrument]
-async fn check_rpc(addr: String) -> Option<Rpc<HttpRpc>> {
+#[instrument(skip(cache))]
+async fn check_rpc(addr: String, cache: Arc<RwLock<ScanningCache>>) -> Option<Rpc<HttpRpc>> {
     tracing::debug!("Sending request to node.");
     let rpc = HttpRpc::new(addr.clone()).ok()?;
     // make sure the RPC is actually reachable
@@ -26,7 +27,7 @@ async fn check_rpc(addr: String) -> Option<Rpc<HttpRpc>> {
 
     tracing::debug!("Node sent ok response.");
 
-    Some(Rpc::new_http(addr))
+    Some(Rpc::new_http(addr, cache))
 }
 
 pub(crate) struct RPCDiscover<T> {
@@ -34,6 +35,7 @@ pub(crate) struct RPCDiscover<T> {
     pub initial_list: Vec<String>,
     pub ok_channel: mpsc::Sender<Change<usize, PeakEwma<Rpc<HttpRpc>>>>,
     pub already_connected: HashSet<String>,
+    pub cache: Arc<RwLock<ScanningCache>>,
 }
 
 impl<T: Database> RPCDiscover<T> {
@@ -63,7 +65,11 @@ impl<T: Database> RPCDiscover<T> {
 
     pub async fn run(mut self) {
         if !self.initial_list.is_empty() {
-            let mut fut = FuturesUnordered::from_iter(self.initial_list.drain(..).map(check_rpc));
+            let mut fut = FuturesUnordered::from_iter(
+                self.initial_list
+                    .drain(..)
+                    .map(|addr| check_rpc(addr, self.cache.clone())),
+            );
 
             while let Some(res) = fut.next().await {
                 if let Some(rpc) = res {

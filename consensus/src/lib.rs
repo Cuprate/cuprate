@@ -4,22 +4,26 @@ pub mod block;
 pub mod context;
 pub mod genesis;
 mod helper;
-pub mod miner_tx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
 pub mod transactions;
 
-pub use block::VerifyBlockRequest;
-pub use context::{ContextConfig, HardFork};
-pub use transactions::VerifyTxRequest;
+pub use block::{VerifiedBlockInformation, VerifyBlockRequest};
+pub use context::{ContextConfig, HardFork, UpdateBlockchainCacheRequest};
+pub use transactions::{VerifyTxRequest, VerifyTxResponse};
 
 pub async fn initialize_verifier<D>(
     database: D,
     cfg: ContextConfig,
 ) -> Result<
     (
-        impl tower::Service<VerifyBlockRequest, Response = (), Error = ConsensusError>,
-        impl tower::Service<VerifyTxRequest, Response = (), Error = ConsensusError>,
+        impl tower::Service<
+            VerifyBlockRequest,
+            Response = VerifiedBlockInformation,
+            Error = ConsensusError,
+        >,
+        impl tower::Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
+        impl tower::Service<UpdateBlockchainCacheRequest, Response = (), Error = tower::BoxError>,
     ),
     ConsensusError,
 >
@@ -27,14 +31,16 @@ where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
 {
-    let context_svc = context::initialize_blockchain_context(cfg, database.clone()).await?;
+    let (context_svc, context_svc_updater) = context::initialize_blockchain_context(cfg, database.clone()).await?;
     let tx_svc = transactions::TxVerifierService::new(database);
-    let block_svc = block::BlockVerifierService::new(context_svc, tx_svc.clone());
-    Ok((block_svc, tx_svc))
+    let block_svc = block::BlockVerifierService::new(context_svc.clone(), tx_svc.clone());
+    Ok((block_svc, tx_svc, context_svc_updater))
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConsensusError {
+    #[error("Miner transaction invalid: {0}")]
+    MinerTransaction(&'static str),
     #[error("Transaction sig invalid: {0}")]
     TransactionSignatureInvalid(&'static str),
     #[error("Transaction inputs overflow")]
@@ -101,6 +107,7 @@ pub enum DatabaseRequest {
     BlockExtendedHeaderInRange(std::ops::Range<u64>),
 
     ChainHeight,
+    GeneratedCoins,
 
     Outputs(HashMap<u64, HashSet<u64>>),
     NumberOutputsWithAmount(u64),
@@ -117,6 +124,7 @@ pub enum DatabaseResponse {
     BlockExtendedHeaderInRange(Vec<ExtendedBlockHeader>),
 
     ChainHeight(u64, [u8; 32]),
+    GeneratedCoins(u64),
 
     Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
     NumberOutputsWithAmount(usize),

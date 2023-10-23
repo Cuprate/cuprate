@@ -131,8 +131,10 @@ impl DifficultyCache {
         assert_eq!(self.last_accounted_height + 1, height);
         self.last_accounted_height += 1;
 
-        self.timestamps.pop_front();
         self.timestamps.push_back(timestamp);
+        if u64::try_from(self.timestamps.len()).unwrap() > self.config.total_block_count() {
+            self.timestamps.pop_front();
+        }
 
         self.update_windowed_work(database).await?;
 

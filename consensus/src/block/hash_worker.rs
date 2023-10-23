@@ -1,36 +1,8 @@
-use crypto_bigint::{CheckedMul, U256};
-
 use cryptonight_cuprate::{
     cryptonight_hash_r, cryptonight_hash_v0, cryptonight_hash_v1, cryptonight_hash_v2,
 };
 
-use crate::{hardforks::HardFork, ConsensusError};
-
-#[derive(Debug)]
-pub struct BlockPOWInfo {
-    pub timestamp: u64,
-    pub cumulative_difficulty: u128,
-}
-
-impl BlockPOWInfo {
-    pub fn new(timestamp: u64, cumulative_difficulty: u128) -> BlockPOWInfo {
-        BlockPOWInfo {
-            timestamp,
-            cumulative_difficulty,
-        }
-    }
-}
-
-/// Returns if the blocks POW hash is valid for the current difficulty.
-///
-/// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/difficulty.html#checking-a-blocks-proof-of-work
-pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> bool {
-    let int_hash = U256::from_le_slice(hash);
-
-    let difficulty = U256::from_u128(difficulty);
-
-    int_hash.checked_mul(&difficulty).is_some().unwrap_u8() == 1
-}
+use crate::{ConsensusError, HardFork};
 
 /// Calcualtes the POW hash of this block.
 pub fn calculate_pow_hash(

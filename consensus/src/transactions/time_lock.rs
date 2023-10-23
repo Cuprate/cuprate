@@ -2,7 +2,7 @@ use std::cmp::min;
 
 use monero_serai::transaction::Timelock;
 
-use crate::{block::DifficultyCache, hardforks::HardFork, helper::current_time};
+use crate::{context::difficulty::DifficultyCache, helper::current_time, HardFork};
 
 const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
 

@@ -177,24 +177,26 @@ impl BlockWeightsCache {
             Ok(idx) | Err(idx) => self.long_term_weights.insert(idx, long_term_weight),
         };
 
-        if let Some(height_to_remove) = block_height.checked_sub(self.config.long_term_window) {
-            tracing::debug!(
-                "Block {} is out of the long term weight window, removing it",
-                height_to_remove
-            );
-            let DatabaseResponse::BlockExtendedHeader(ext_header) = database
-                .oneshot(DatabaseRequest::BlockExtendedHeader(
-                    height_to_remove.into(),
-                ))
-                .await?
-            else {
-                panic!("Database sent incorrect response!");
-            };
-            let idx = self
-                .long_term_weights
-                .binary_search(&ext_header.long_term_weight)
-                .expect("Weight must be in list if in the window");
-            self.long_term_weights.remove(idx);
+        if u64::try_from(self.long_term_weights.len()).unwrap() > self.config.long_term_window {
+            if let Some(height_to_remove) = block_height.checked_sub(self.config.long_term_window) {
+                tracing::debug!(
+                    "Block {} is out of the long term weight window, removing it",
+                    height_to_remove
+                );
+                let DatabaseResponse::BlockExtendedHeader(ext_header) = database
+                    .oneshot(DatabaseRequest::BlockExtendedHeader(
+                        height_to_remove.into(),
+                    ))
+                    .await?
+                else {
+                    panic!("Database sent incorrect response!");
+                };
+                let idx = self
+                    .long_term_weights
+                    .binary_search(&ext_header.long_term_weight)
+                    .expect("Weight must be in list if in the window");
+                self.long_term_weights.remove(idx);
+            }
         }
 
         self.short_term_block_weights.push_back(block_weight);
@@ -244,6 +246,7 @@ impl BlockWeightsCache {
         } else {
             self.effective_median_block_weight(hf)
         }
+        .max(penalty_free_zone(hf))
     }
 }
 
@@ -253,7 +256,7 @@ fn calculate_effective_median_block_weight(
     sorted_long_term_window: &[usize],
 ) -> usize {
     if hf.in_range(&HardFork::V1, &HardFork::V10) {
-        return median(sorted_short_term_window);
+        return median(sorted_short_term_window).max(penalty_free_zone(hf));
     }
 
     let long_term_median = median(sorted_long_term_window).max(PENALTY_FREE_ZONE_5);

@@ -1,102 +1,180 @@
-use monero_serai::block::Block;
+use std::{
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
-use crate::{hardforks::BlockHFInfo, helper::current_time, ConsensusError};
+use futures::FutureExt;
+use monero_serai::{block::Block, transaction::Transaction};
+use tower::{Service, ServiceExt};
 
-pub mod difficulty;
-pub mod pow;
-pub mod reward;
-pub mod weight;
+use crate::{
+    context::{BlockChainContext, BlockChainContextRequest},
+    transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
+    ConsensusError, HardFork,
+};
 
-pub use difficulty::{DifficultyCache, DifficultyCacheConfig};
-pub use pow::{check_block_pow, BlockPOWInfo};
-pub use weight::{block_weight, BlockWeightInfo, BlockWeightsCache, BlockWeightsCacheConfig};
+mod hash_worker;
+mod miner_tx;
 
-const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;
-const BLOCK_FUTURE_TIME_LIMIT: u64 = 60 * 60 * 2;
+#[derive(Debug)]
+pub struct VerifiedBlockInformation {
+    pub block: Block,
+    pub hf_vote: HardFork,
+    pub txs: Vec<Arc<TransactionVerificationData>>,
+    pub block_hash: [u8; 32],
+    pub pow_hash: [u8; 32],
+    pub height: u64,
+    pub generated_coins: u64,
+    pub weight: usize,
+    pub long_term_weight: usize,
+}
 
-pub struct BlockVerificationData {
-    hf: BlockHFInfo,
-    pow: BlockPOWInfo,
-    current_difficulty: u128,
-    weights: BlockWeightInfo,
-    block_blob: Vec<u8>,
+pub enum VerifyBlockRequest {
+    MainChainBatchSetupVerify(Block, Vec<Transaction>),
+    MainChain(Block, Vec<Arc<TransactionVerificationData>>),
+}
+
+pub enum VerifyBlockResponse {
+    MainChainBatchSetupVerify(),
+}
+
+// TODO: it is probably a bad idea for this to derive clone, if 2 places (RPC, P2P) receive valid but different blocks
+// then they will both get approved but only one should go to main chain.
+#[derive(Clone)]
+pub struct BlockVerifierService<C: Clone, Tx: Clone> {
+    context_svc: C,
+    tx_verifier_svc: Tx,
+}
+
+impl<C, Tx> BlockVerifierService<C, Tx>
+where
+    C: Service<BlockChainContextRequest, Response = BlockChainContext> + Clone + Send + 'static,
+    Tx: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>
+        + Clone
+        + Send
+        + 'static,
+{
+    pub fn new(context_svc: C, tx_verifier_svc: Tx) -> BlockVerifierService<C, Tx> {
+        BlockVerifierService {
+            context_svc,
+            tx_verifier_svc,
+        }
+    }
+}
+
+impl<C, Tx> Service<VerifyBlockRequest> for BlockVerifierService<C, Tx>
+where
+    C: Service<BlockChainContextRequest, Response = BlockChainContext, Error = tower::BoxError>
+        + Clone
+        + Send
+        + 'static,
+    C::Future: Send + 'static,
+    Tx: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>
+        + Clone
+        + Send
+        + 'static,
+    Tx::Future: Send + 'static,
+{
+    type Response = VerifiedBlockInformation;
+    type Error = ConsensusError;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        futures::ready!(self.context_svc.poll_ready(cx)).map(Into::into)?;
+        self.tx_verifier_svc.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: VerifyBlockRequest) -> Self::Future {
+        let context_svc = self.context_svc.clone();
+        let tx_verifier_svc = self.tx_verifier_svc.clone();
+
+        async move {
+            match req {
+                VerifyBlockRequest::MainChainBatchSetupVerify(block, txs) => {
+                    batch_setup_verify_main_chain_block(block, txs, context_svc, tx_verifier_svc)
+                        .await
+                }
+                _ => todo!(),
+            }
+        }
+        .boxed()
+    }
+}
+
+async fn batch_setup_verify_main_chain_block<C, Tx>(
     block: Block,
-    block_hash: [u8; 32],
-    pow_hash: [u8; 32],
-    // txs: Vec<T>,
-}
+    txs: Vec<Transaction>,
+    context_svc: C,
+    tx_verifier_svc: Tx,
+) -> Result<VerifiedBlockInformation, ConsensusError>
+where
+    C: Service<BlockChainContextRequest, Response = BlockChainContext, Error = tower::BoxError>
+        + Send
+        + 'static,
+    C::Future: Send + 'static,
+    Tx: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
+{
+    tracing::info!("getting blockchain context");
+    let context = context_svc
+        .oneshot(BlockChainContextRequest)
+        .await
+        .map_err(Into::<ConsensusError>::into)?;
 
-impl BlockVerificationData {
-    pub fn new(
-        block: Block,
-        difficulty_cache: &DifficultyCache,
-        weight_cache: &BlockWeightsCache,
-    ) -> Result<BlockVerificationData, ConsensusError> {
-        let hf = BlockHFInfo::from_block_header(&block.header)?;
+    tracing::info!("got blockchain context: {:?}", context);
 
-        let current_diff = difficulty_cache.next_difficulty(&hf.version);
-        let cum_diff = difficulty_cache.cumulative_difficulty() + current_diff;
-
-        todo!()
-        /*
-
-        Ok(BlockVerificationData {
-            hf: BlockHFInfo::from_block_header(&block.header)?,
-            pow: BlockPOWInfo::new(block.header.timestamp, cum_diff),
-            weights:
-        })
-        */
-    }
-}
-
-/// Sanity check on the block blob size.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks.html#block-weight-and-size
-fn block_size_sanity_check(
-    block_blob_len: usize,
-    effective_median: usize,
-) -> Result<(), ConsensusError> {
-    if block_blob_len > effective_median * 2 + BLOCK_SIZE_SANITY_LEEWAY {
-        Err(ConsensusError::BlockIsTooLarge)
+    let txs = if !txs.is_empty() {
+        let VerifyTxResponse::BatchSetupOk(txs) = tx_verifier_svc
+            .oneshot(VerifyTxRequest::BatchSetupVerifyBlock {
+                txs,
+                current_chain_height: context.chain_height,
+                hf: context.current_hard_fork,
+            })
+            .await?
+        else {
+            panic!("tx verifier sent incorrect response!");
+        };
+        txs
     } else {
-        Ok(())
-    }
-}
+        vec![]
+    };
 
-/// Sanity check on the block weight.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks.html#block-weight-and-siz
-fn block_weight_check(
-    block_weight: usize,
-    median_for_block_reward: usize,
-) -> Result<(), ConsensusError> {
-    if block_weight > median_for_block_reward * 2 {
-        Err(ConsensusError::BlockIsTooLarge)
-    } else {
-        Ok(())
-    }
-}
+    let block_weight = block.miner_tx.weight() + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
+    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
 
-/// Verifies the previous id is the last blocks hash
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks.html#previous-id
-fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), ConsensusError> {
-    if &block.header.previous != top_hash {
-        Err(ConsensusError::BlockIsNotApartOfChain)
-    } else {
-        Ok(())
-    }
-}
+    let generated_coins = miner_tx::check_miner_tx(
+        &block.miner_tx,
+        total_fees,
+        context.chain_height,
+        block_weight,
+        context.median_weight_for_block_reward,
+        context.already_generated_coins,
+        &context.current_hard_fork,
+    )?;
 
-/// Checks the blocks timestamp is in the valid range.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks.html#timestamp
-fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), ConsensusError> {
-    if block.header.timestamp < median_timestamp
-        || block.header.timestamp > current_time() + BLOCK_FUTURE_TIME_LIMIT
-    {
-        Err(ConsensusError::BlockTimestampInvalid)
-    } else {
-        Ok(())
-    }
+    let hashing_blob = block.serialize_hashable();
+
+    let pow_hash = tokio::task::spawn_blocking(move || {
+        hash_worker::calculate_pow_hash(
+            &hashing_blob,
+            context.chain_height,
+            &context.current_hard_fork,
+        )
+    })
+    .await
+    .unwrap()?;
+
+    Ok(VerifiedBlockInformation {
+        block_hash: block.hash(),
+        block,
+        txs,
+        pow_hash,
+        generated_coins,
+        weight: block_weight,
+        height: context.chain_height,
+        long_term_weight: 0,
+        hf_vote: HardFork::V1,
+    })
 }

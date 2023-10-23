@@ -7,6 +7,7 @@
 //! and this happens during ring signature verification in monero-serai.
 //!
 use monero_serai::{ring_signatures::RingSignature, transaction::Input};
+use rayon::prelude::*;
 
 use super::Rings;
 use crate::ConsensusError;
@@ -16,9 +17,9 @@ use crate::ConsensusError;
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#the-ring-signature-must-be-valid
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#amount-of-ring-signatures
 pub fn verify_inputs_signatures(
-    rings: &Rings,
     inputs: &[Input],
     signatures: &[RingSignature],
+    rings: &Rings,
     tx_sig_hash: &[u8; 32],
 ) -> Result<(), ConsensusError> {
     match rings {
@@ -30,17 +31,22 @@ pub fn verify_inputs_signatures(
                 ));
             }
 
-            for ((input, ring), sig) in inputs.iter().zip(rings).zip(signatures) {
-                let Input::ToKey { key_image, .. } = input else {
-                    panic!("How did we build a ring with no decoys?");
-                };
+            inputs
+                .par_iter()
+                .zip(rings)
+                .zip(signatures)
+                .try_for_each(|((input, ring), sig)| {
+                    let Input::ToKey { key_image, .. } = input else {
+                        panic!("How did we build a ring with no decoys?");
+                    };
 
-                if !sig.verify_ring_signature(tx_sig_hash, ring, key_image) {
-                    return Err(ConsensusError::TransactionSignatureInvalid(
-                        "Invalid ring signature",
-                    ));
-                }
-            }
+                    if !sig.verify_ring_signature(tx_sig_hash, ring, key_image) {
+                        return Err(ConsensusError::TransactionSignatureInvalid(
+                            "Invalid ring signature",
+                        ));
+                    }
+                    Ok(())
+                })?;
         }
         _ => panic!("tried to verify v1 tx with a non v1 ring"),
     }

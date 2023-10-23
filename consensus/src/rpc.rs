@@ -1,4 +1,6 @@
+use curve25519_dalek::edwards::CompressedEdwardsY;
 use std::cmp::min;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::ops::Range;
 use std::pin::Pin;
@@ -8,22 +10,23 @@ use std::task::{Context, Poll};
 use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
 use futures::{stream::FuturesOrdered, FutureExt, StreamExt, TryFutureExt, TryStreamExt};
 use monero_serai::rpc::{HttpRpc, RpcConnection, RpcError};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tower::balance::p2c::Balance;
 use tower::util::BoxService;
 use tower::ServiceExt;
-use tracing::Instrument;
+use tracing::{instrument, Instrument};
 
 use cuprate_common::BlockID;
 use monero_wire::common::{BlockCompleteEntry, TransactionBlobs};
 
-use crate::block::pow::BlockPOWInfo;
-use crate::block::weight::BlockWeightInfo;
-use crate::hardforks::BlockHFInfo;
-use crate::{DatabaseRequest, DatabaseResponse};
+use crate::{DatabaseRequest, DatabaseResponse, ExtendedBlockHeader, HardFork, OutputOnChain};
 
+pub mod cache;
 mod discover;
+
+use cache::ScanningCache;
 
 #[derive(Debug, Copy, Clone)]
 pub struct RpcConfig {
@@ -68,6 +71,7 @@ impl<Req: Clone, Res, E> tower::retry::Policy<Req, Res, E> for Attempts {
 
 pub fn init_rpc_load_balancer(
     addresses: Vec<String>,
+    cache: Arc<RwLock<ScanningCache>>,
     config: Arc<RwLock<RpcConfig>>,
 ) -> impl tower::Service<
     DatabaseRequest,
@@ -80,19 +84,23 @@ pub fn init_rpc_load_balancer(
     let (rpc_discoverer_tx, rpc_discoverer_rx) = futures::channel::mpsc::channel(30);
 
     let rpc_balance = Balance::new(rpc_discoverer_rx.map(Result::<_, tower::BoxError>::Ok));
-    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 3);
-    let rpcs = tower::retry::Retry::new(Attempts(2), rpc_buffer);
+    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 30);
+    //let rpcs = tower::retry::Retry::new(Attempts(2), rpc_buffer);
 
     let discover = discover::RPCDiscover {
-        rpc: rpcs.clone(),
+        rpc: rpc_buffer.clone(),
         initial_list: addresses,
         ok_channel: rpc_discoverer_tx,
         already_connected: Default::default(),
+        cache,
     };
 
     tokio::spawn(discover.run());
 
-    RpcBalancer { rpcs, config }
+    RpcBalancer {
+        rpcs: rpc_buffer,
+        config,
+    }
 }
 
 #[derive(Clone)]
@@ -141,9 +149,9 @@ where
                     config.max_blocks_per_node,
                 )
             }
-            DatabaseRequest::BlockPOWInfoInRange(range) => {
+            DatabaseRequest::BlockExtendedHeaderInRange(range) => {
                 let resp_to_ret = |resp: DatabaseResponse| {
-                    let DatabaseResponse::BlockPOWInfoInRange(pow_info) = resp else {
+                    let DatabaseResponse::BlockExtendedHeaderInRange(pow_info) = resp else {
                         panic!("Database sent incorrect response");
                     };
                     pow_info
@@ -151,41 +159,8 @@ where
                 split_range_request(
                     this,
                     range,
-                    DatabaseRequest::BlockPOWInfoInRange,
-                    DatabaseResponse::BlockPOWInfoInRange,
-                    resp_to_ret,
-                    config.max_block_headers_per_node,
-                )
-            }
-
-            DatabaseRequest::BlockWeightsInRange(range) => {
-                let resp_to_ret = |resp: DatabaseResponse| {
-                    let DatabaseResponse::BlockWeightsInRange(weights) = resp else {
-                        panic!("Database sent incorrect response");
-                    };
-                    weights
-                };
-                split_range_request(
-                    this,
-                    range,
-                    DatabaseRequest::BlockWeightsInRange,
-                    DatabaseResponse::BlockWeightsInRange,
-                    resp_to_ret,
-                    config.max_block_headers_per_node,
-                )
-            }
-            DatabaseRequest::BlockHfInfoInRange(range) => {
-                let resp_to_ret = |resp: DatabaseResponse| {
-                    let DatabaseResponse::BlockHfInfoInRange(hf_info) = resp else {
-                        panic!("Database sent incorrect response");
-                    };
-                    hf_info
-                };
-                split_range_request(
-                    this,
-                    range,
-                    DatabaseRequest::BlockHfInfoInRange,
-                    DatabaseResponse::BlockHfInfoInRange,
+                    DatabaseRequest::BlockExtendedHeaderInRange,
+                    DatabaseResponse::BlockExtendedHeaderInRange,
                     resp_to_ret,
                     config.max_block_headers_per_node,
                 )
@@ -244,16 +219,18 @@ pub struct Rpc<R: RpcConnection> {
     rpc: Arc<futures::lock::Mutex<monero_serai::rpc::Rpc<R>>>,
     addr: String,
     rpc_state: RpcState<R>,
+    cache: Arc<RwLock<ScanningCache>>,
     error_slot: Arc<Mutex<Option<RpcError>>>,
 }
 
 impl Rpc<HttpRpc> {
-    pub fn new_http(addr: String) -> Rpc<HttpRpc> {
+    pub fn new_http(addr: String, cache: Arc<RwLock<ScanningCache>>) -> Rpc<HttpRpc> {
         let http_rpc = HttpRpc::new(addr.clone()).unwrap();
         Rpc {
             rpc: Arc::new(futures::lock::Mutex::new(http_rpc)),
             addr,
             rpc_state: RpcState::Locked,
+            cache,
             error_slot: Arc::new(Mutex::new(None)),
         }
     }
@@ -288,12 +265,13 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
             panic!("poll_ready was not called first!");
         };
 
+        let cache = self.cache.clone();
+
         let span = tracing::info_span!("rpc_request", addr = &self.addr);
 
         let err_slot = self.error_slot.clone();
 
         match req {
-            _ => todo!(),
             DatabaseRequest::BlockHash(height) => async move {
                 let res: Result<_, RpcError> = rpc
                     .get_block_hash(height as usize)
@@ -307,43 +285,132 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
             .instrument(span)
             .boxed(),
             DatabaseRequest::ChainHeight => async move {
-                let res: Result<_, RpcError> = rpc
-                    .get_height()
-                    .map_ok(|height| DatabaseResponse::ChainHeight(height.try_into().unwrap()))
-                    .await;
-                if let Err(e) = &res {
-                    *err_slot.lock().unwrap() = Some(e.clone());
-                }
-                res.map_err(Into::into)
+                let height = cache.read().unwrap().height;
+
+                let hash = rpc
+                    .get_block_hash((height - 1) as usize)
+                    .await
+                    .map_err(Into::<tower::BoxError>::into)?;
+
+                Ok(DatabaseResponse::ChainHeight(height, hash))
             }
             .instrument(span)
             .boxed(),
 
-            DatabaseRequest::BlockPOWInfo(id) => {
-                get_blocks_pow_info(id, rpc).instrument(span).boxed()
+            DatabaseRequest::GeneratedCoins => async move {
+                Ok(DatabaseResponse::GeneratedCoins(
+                    cache.read().unwrap().already_generated_coins,
+                ))
             }
-            DatabaseRequest::BlockWeights(id) => {
-                get_blocks_weight_info(id, rpc).instrument(span).boxed()
+            .instrument(span)
+            .boxed(),
+
+            DatabaseRequest::BlockExtendedHeader(id) => {
+                get_block_info(id, rpc).instrument(span).boxed()
             }
-            DatabaseRequest::BlockHFInfo(id) => {
-                get_blocks_hf_info(id, rpc).instrument(span).boxed()
+            DatabaseRequest::BlockExtendedHeaderInRange(range) => {
+                get_block_info_in_range(range, rpc).instrument(span).boxed()
             }
-            DatabaseRequest::BlockHfInfoInRange(range) => get_blocks_hf_info_in_range(range, rpc)
-                .instrument(span)
-                .boxed(),
-            DatabaseRequest::BlockWeightsInRange(range) => {
-                get_blocks_weight_info_in_range(range, rpc)
-                    .instrument(span)
-                    .boxed()
-            }
-            DatabaseRequest::BlockPOWInfoInRange(range) => get_blocks_pow_info_in_range(range, rpc)
-                .instrument(span)
-                .boxed(),
             DatabaseRequest::BlockBatchInRange(range) => {
                 get_blocks_in_range(range, rpc).instrument(span).boxed()
             }
+            DatabaseRequest::Outputs(out_ids) => {
+                get_outputs(out_ids, cache, rpc).instrument(span).boxed()
+            }
+            DatabaseRequest::NumberOutputsWithAmount(amt) => async move {
+                Ok(DatabaseResponse::NumberOutputsWithAmount(
+                    cache.read().unwrap().numb_outs(amt) as usize,
+                ))
+            }
+            .boxed(),
         }
     }
+}
+
+#[instrument(skip_all)]
+async fn get_outputs<R: RpcConnection>(
+    out_ids: HashMap<u64, HashSet<u64>>,
+    cache: Arc<RwLock<ScanningCache>>,
+    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
+) -> Result<DatabaseResponse, tower::BoxError> {
+    tracing::info!(
+        "Getting outputs len: {}",
+        out_ids.values().map(|amt_map| amt_map.len()).sum::<usize>()
+    );
+
+    #[derive(Serialize, Copy, Clone)]
+    struct OutputID {
+        amount: u64,
+        index: u64,
+    }
+
+    #[derive(Serialize, Clone)]
+    struct Request {
+        outputs: Vec<OutputID>,
+    }
+
+    #[derive(Deserialize)]
+    struct OutputRes {
+        height: u64,
+        key: [u8; 32],
+        mask: [u8; 32],
+        txid: [u8; 32],
+    }
+
+    #[derive(Deserialize)]
+    struct Response {
+        outs: Vec<OutputRes>,
+    }
+
+    let outputs = out_ids
+        .into_iter()
+        .flat_map(|(amt, amt_map)| {
+            amt_map
+                .into_iter()
+                .map(|amt_idx| OutputID {
+                    amount: amt,
+                    index: amt_idx,
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let res = rpc
+        .bin_call(
+            "get_outs.bin",
+            monero_epee_bin_serde::to_bytes(&Request {
+                outputs: outputs.clone(),
+            })?,
+        )
+        .await?;
+
+    let outs: Response = monero_epee_bin_serde::from_bytes(&res)?;
+
+    tracing::info!("Got outputs len: {}", outs.outs.len());
+
+    let mut ret = HashMap::new();
+    let cache = cache.read().unwrap();
+
+    for (out, idx) in outs.outs.iter().zip(outputs) {
+        ret.entry(idx.amount).or_insert_with(HashMap::new).insert(
+            idx.index,
+            OutputOnChain {
+                height: out.height,
+                time_lock: cache.outputs_time_lock(&out.txid),
+                // we unwrap these as we are checking already approved rings so if these points are bad
+                // then a bad proof has been approved.
+                key: CompressedEdwardsY::from_slice(&out.key)
+                    .unwrap()
+                    .decompress()
+                    .unwrap(),
+                mask: CompressedEdwardsY::from_slice(&out.mask)
+                    .unwrap()
+                    .decompress()
+                    .unwrap(),
+            },
+        );
+    }
+    Ok(DatabaseResponse::Outputs(ret))
 }
 
 async fn get_blocks_in_range<R: RpcConnection>(
@@ -376,14 +443,14 @@ async fn get_blocks_in_range<R: RpcConnection>(
     Ok(DatabaseResponse::BlockBatchInRange(
         blocks
             .blocks
-            .into_iter()
+            .into_par_iter()
             .map(|b| {
                 Ok((
                     monero_serai::block::Block::read(&mut b.block.as_slice())?,
                     match b.txs {
                         TransactionBlobs::Pruned(_) => return Err("node sent pruned txs!".into()),
                         TransactionBlobs::Normal(txs) => txs
-                            .into_iter()
+                            .into_par_iter()
                             .map(|tx| {
                                 monero_serai::transaction::Transaction::read(&mut tx.as_slice())
                             })
@@ -411,7 +478,7 @@ struct BlockInfo {
 async fn get_block_info_in_range<R: RpcConnection>(
     range: Range<u64>,
     rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
-) -> Result<Vec<BlockInfo>, tower::BoxError> {
+) -> Result<DatabaseResponse, tower::BoxError> {
     #[derive(Deserialize, Debug)]
     struct Response {
         headers: Vec<BlockInfo>,
@@ -426,48 +493,18 @@ async fn get_block_info_in_range<R: RpcConnection>(
 
     tracing::info!("Retrieved block headers in range: {:?}", range);
 
-    Ok(res.headers)
-}
-
-async fn get_block_info<R: RpcConnection>(
-    id: BlockID,
-    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
-) -> Result<BlockInfo, tower::BoxError> {
-    tracing::info!("Retrieving block info with id: {}", id);
-
-    #[derive(Deserialize, Debug)]
-    struct Response {
-        block_header: BlockInfo,
-    }
-
-    match id {
-        BlockID::Height(height) => {
-            let res = rpc
-                .json_rpc_call::<Response>(
-                    "get_block_header_by_height",
-                    Some(json!({"height": height})),
-                )
-                .await?;
-            Ok(res.block_header)
-        }
-        BlockID::Hash(hash) => {
-            let res = rpc
-                .json_rpc_call::<Response>("get_block_header_by_hash", Some(json!({"hash": hash})))
-                .await?;
-            Ok(res.block_header)
-        }
-    }
-}
-
-async fn get_blocks_weight_info_in_range<R: RpcConnection>(
-    range: Range<u64>,
-    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
-) -> Result<DatabaseResponse, tower::BoxError> {
-    let info = get_block_info_in_range(range, rpc).await?;
-
-    Ok(DatabaseResponse::BlockWeightsInRange(
-        info.into_iter()
-            .map(|info| BlockWeightInfo {
+    Ok(DatabaseResponse::BlockExtendedHeaderInRange(
+        res.headers
+            .into_iter()
+            .map(|info| ExtendedBlockHeader {
+                version: HardFork::from_version(&info.major_version)
+                    .expect("previously checked block has incorrect version"),
+                vote: HardFork::from_vote(&info.minor_version),
+                timestamp: info.timestamp,
+                cumulative_difficulty: u128_from_low_high(
+                    info.cumulative_difficulty,
+                    info.cumulative_difficulty_top64,
+                ),
                 block_weight: info.block_weight,
                 long_term_weight: info.long_term_weight,
             })
@@ -475,93 +512,50 @@ async fn get_blocks_weight_info_in_range<R: RpcConnection>(
     ))
 }
 
-async fn get_blocks_pow_info_in_range<R: RpcConnection>(
-    range: Range<u64>,
-    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
-) -> Result<DatabaseResponse, tower::BoxError> {
-    let info = get_block_info_in_range(range, rpc).await?;
-
-    Ok(DatabaseResponse::BlockPOWInfoInRange(
-        info.into_iter()
-            .map(|info| BlockPOWInfo {
-                timestamp: info.timestamp,
-                cumulative_difficulty: u128_from_low_high(
-                    info.cumulative_difficulty,
-                    info.cumulative_difficulty_top64,
-                ),
-            })
-            .collect(),
-    ))
-}
-
-async fn get_blocks_weight_info<R: RpcConnection>(
+async fn get_block_info<R: RpcConnection>(
     id: BlockID,
     rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
 ) -> Result<DatabaseResponse, tower::BoxError> {
-    let info = get_block_info(id, rpc).await?;
+    tracing::info!("Retrieving block info with id: {}", id);
 
-    Ok(DatabaseResponse::BlockWeights(BlockWeightInfo {
-        block_weight: info.block_weight,
-        long_term_weight: info.long_term_weight,
-    }))
-}
+    #[derive(Deserialize, Debug)]
+    struct Response {
+        block_header: BlockInfo,
+    }
 
-async fn get_blocks_pow_info<R: RpcConnection>(
-    id: BlockID,
-    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
-) -> Result<DatabaseResponse, tower::BoxError> {
-    let info = get_block_info(id, rpc).await?;
+    let info = match id {
+        BlockID::Height(height) => {
+            let res = rpc
+                .json_rpc_call::<Response>(
+                    "get_block_header_by_height",
+                    Some(json!({"height": height})),
+                )
+                .await?;
+            res.block_header
+        }
+        BlockID::Hash(hash) => {
+            let res = rpc
+                .json_rpc_call::<Response>("get_block_header_by_hash", Some(json!({"hash": hash})))
+                .await?;
+            res.block_header
+        }
+    };
 
-    Ok(DatabaseResponse::BlockPOWInfo(BlockPOWInfo {
+    Ok(DatabaseResponse::BlockExtendedHeader(ExtendedBlockHeader {
+        version: HardFork::from_version(&info.major_version)
+            .expect("previously checked block has incorrect version"),
+        vote: HardFork::from_vote(&info.minor_version),
         timestamp: info.timestamp,
         cumulative_difficulty: u128_from_low_high(
             info.cumulative_difficulty,
             info.cumulative_difficulty_top64,
         ),
+        block_weight: info.block_weight,
+        long_term_weight: info.long_term_weight,
     }))
 }
 
 fn u128_from_low_high(low: u64, high: u64) -> u128 {
     let res: u128 = high as u128;
     res << 64 | low as u128
-}
-
-async fn get_blocks_hf_info<R: RpcConnection>(
-    id: BlockID,
-    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
-) -> Result<DatabaseResponse, tower::BoxError> {
-    let info = get_block_info(id, rpc).await?;
-
-    Ok(DatabaseResponse::BlockHFInfo(
-        BlockHFInfo::from_major_minor(info.major_version, info.minor_version)?,
-    ))
-}
-
-async fn get_blocks_hf_info_in_range<R: RpcConnection>(
-    range: Range<u64>,
-    rpc: OwnedMutexGuard<monero_serai::rpc::Rpc<R>>,
-) -> Result<DatabaseResponse, tower::BoxError> {
-    let info = get_block_info_in_range(range, rpc).await?;
-
-    Ok(DatabaseResponse::BlockHfInfoInRange(
-        info.into_iter()
-            .map(|info| {
-                BlockHFInfo::from_major_minor(info.major_version, info.minor_version).unwrap()
-            })
-            .collect(),
-    ))
-}
-
-#[tokio::test]
-async fn t() {
-    let rpc = Rpc::new_http("http://node.c3pool.com:18081".to_string());
-    let res: serde_json::Value = rpc
-        .rpc
-        .try_lock()
-        .unwrap()
-        .json_rpc_call("get_connections", None)
-        .await
-        .unwrap();
-
-    println!("{res}");
 }
