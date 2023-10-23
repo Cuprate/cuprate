@@ -16,6 +16,7 @@ binaries = [
     "tower/retry",
     "tower/balance",
     "tower/buffer",
+    "tower/timeout",
     "dep:serde_json",
     "dep:serde",
     "dep:monero-epee-bin-serde",

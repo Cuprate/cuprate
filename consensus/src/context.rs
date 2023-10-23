@@ -117,7 +117,6 @@ where
         chain_height: Arc::new(chain_height.into()),
         already_generated_coins: Arc::new(already_generated_coins.into()),
         top_block_hash: Arc::new(top_block_hash.into()),
-        database,
     };
 
     let context_svc_update = context_svc.clone();
@@ -130,9 +129,9 @@ where
 #[derive(Debug, Clone, Copy)]
 pub struct BlockChainContext {
     /// The next blocks difficulty.
-    next_difficulty: u128,
+    pub next_difficulty: u128,
     /// The current cumulative difficulty.
-    cumulative_difficulty: u128,
+    pub cumulative_difficulty: u128,
     /// The current effective median block weight.
     effective_median_weight: usize,
     /// The median long term block weight.
@@ -155,7 +154,7 @@ pub struct BlockChainContext {
 pub struct BlockChainContextRequest;
 
 #[derive(Clone)]
-pub struct BlockChainContextService<D> {
+pub struct BlockChainContextService {
     difficulty_cache: Arc<RwLock<difficulty::DifficultyCache>>,
     weight_cache: Arc<RwLock<weight::BlockWeightsCache>>,
     hardfork_state: Arc<RwLock<hardforks::HardForkState>>,
@@ -163,11 +162,9 @@ pub struct BlockChainContextService<D> {
     chain_height: Arc<RwLock<u64>>,
     top_block_hash: Arc<RwLock<[u8; 32]>>,
     already_generated_coins: Arc<RwLock<u64>>,
-
-    database: D,
 }
 
-impl<D> Service<BlockChainContextRequest> for BlockChainContextService<D> {
+impl Service<BlockChainContextRequest> for BlockChainContextService {
     type Response = BlockChainContext;
     type Error = ConsensusError;
     type Future =
@@ -218,20 +215,17 @@ pub struct UpdateBlockchainCacheRequest {
     pub long_term_weight: usize,
     pub generated_coins: u64,
     pub vote: HardFork,
+    pub cumulative_difficulty: u128,
 }
 
-impl<D> tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService<D>
-where
-    D: Database + Clone + Send + Sync + 'static,
-    D::Future: Send + 'static,
-{
+impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
     type Response = ();
     type Error = tower::BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.database.poll_ready(cx).map_err(Into::into)
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, new: UpdateBlockchainCacheRequest) -> Self::Future {
@@ -243,30 +237,23 @@ where
         let top_hash = self.top_block_hash.clone();
         let already_generated_coins = self.already_generated_coins.clone();
 
-        let database = self.database.clone();
-
         async move {
             difficulty_cache
                 .write()
                 .await
-                .new_block(new.height, new.timestamp, database.clone())
+                .new_block(new.height, new.timestamp, new.cumulative_difficulty)
                 .await?;
 
             weight_cache
                 .write()
                 .await
-                .new_block(
-                    new.height,
-                    new.weight,
-                    new.long_term_weight,
-                    database.clone(),
-                )
+                .new_block(new.height, new.weight, new.long_term_weight)
                 .await?;
 
             hardfork_state
                 .write()
                 .await
-                .new_block(new.vote, new.height, database)
+                .new_block(new.vote, new.height)
                 .await?;
 
             *chain_height.write().await = new.height + 1;

@@ -1,4 +1,5 @@
 use std::{
+    collections::VecDeque,
     fmt::{Display, Formatter},
     ops::Range,
     time::Duration,
@@ -192,9 +193,11 @@ impl HardFork {
 }
 
 /// A struct holding the current voting state of the blockchain.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 struct HFVotes {
     votes: [u64; NUMB_OF_HARD_FORKS],
+    vote_list: VecDeque<HardFork>,
+    window_size: usize,
 }
 
 impl Display for HFVotes {
@@ -222,19 +225,22 @@ impl Display for HFVotes {
 }
 
 impl HFVotes {
-    /// Add votes for a hard-fork
-    pub fn add_votes_for_hf(&mut self, hf: &HardFork, votes: u64) {
-        self.votes[*hf as usize - 1] += votes;
+    pub fn new(window_size: usize) -> HFVotes {
+        HFVotes {
+            votes: [0; NUMB_OF_HARD_FORKS],
+            vote_list: VecDeque::with_capacity(window_size),
+            window_size,
+        }
     }
 
-    /// Add a vote for a hard-fork.
+    /// Add a vote for a hard-fork, this function removes votes outside of the window.
     pub fn add_vote_for_hf(&mut self, hf: &HardFork) {
-        self.add_votes_for_hf(hf, 1)
-    }
-
-    /// Remove a vote for a hard-fork.
-    pub fn remove_vote_for_hf(&mut self, hf: &HardFork) {
-        self.votes[*hf as usize - 1] -= 1;
+        self.vote_list.push_back(*hf);
+        self.votes[*hf as usize - 1] += 1;
+        if self.vote_list.len() > self.window_size {
+            let hf = self.vote_list.pop_front().unwrap();
+            self.votes[hf as usize - 1] -= 1;
+        }
     }
 
     /// Returns the total votes for a hard-fork.
@@ -291,7 +297,12 @@ impl HardForkState {
 
         let block_start = chain_height.saturating_sub(config.window);
 
-        let votes = get_votes_in_range(database.clone(), block_start..chain_height).await?;
+        let votes = get_votes_in_range(
+            database.clone(),
+            block_start..chain_height,
+            usize::try_from(config.window).unwrap(),
+        )
+        .await?;
 
         if chain_height > config.window {
             debug_assert_eq!(votes.total_votes(), config.window)
@@ -331,12 +342,7 @@ impl HardForkState {
         Ok(hfs)
     }
 
-    pub async fn new_block<D: Database>(
-        &mut self,
-        vote: HardFork,
-        height: u64,
-        mut database: D,
-    ) -> Result<(), ConsensusError> {
+    pub async fn new_block(&mut self, vote: HardFork, height: u64) -> Result<(), ConsensusError> {
         assert_eq!(self.last_height + 1, height);
         self.last_height += 1;
 
@@ -347,29 +353,6 @@ impl HardForkState {
         );
 
         self.votes.add_vote_for_hf(&vote);
-
-        for height_to_remove in
-            (self.config.window..self.votes.total_votes()).map(|offset| height - offset)
-        {
-            let DatabaseResponse::BlockExtendedHeader(ext_header) = database
-                .ready()
-                .await?
-                .call(DatabaseRequest::BlockExtendedHeader(
-                    height_to_remove.into(),
-                ))
-                .await?
-            else {
-                panic!("Database sent incorrect response!");
-            };
-
-            tracing::debug!(
-                "Removing block {} vote ({:?}) as they have left the window",
-                height_to_remove,
-                ext_header.vote
-            );
-
-            self.votes.remove_vote_for_hf(&ext_header.vote);
-        }
 
         if height > self.config.window {
             debug_assert_eq!(self.votes.total_votes(), self.config.window);
@@ -418,8 +401,9 @@ pub fn votes_needed(threshold: u64, window: u64) -> u64 {
 async fn get_votes_in_range<D: Database>(
     database: D,
     block_heights: Range<u64>,
+    window_size: usize,
 ) -> Result<HFVotes, ConsensusError> {
-    let mut votes = HFVotes::default();
+    let mut votes = HFVotes::new(window_size);
 
     let DatabaseResponse::BlockExtendedHeaderInRange(vote_list) = database
         .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(block_heights))

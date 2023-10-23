@@ -21,5 +21,7 @@ fn main() {
         .file("c/CryptonightR_JIT.c")
         .file("c/CryptonightR_template.S")
         .flag("-maes")
+        .flag("-Ofast")
+        .flag("-fexceptions")
         .compile("cryptonight")
 }
