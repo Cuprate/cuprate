@@ -19,7 +19,7 @@ mod inputs;
 pub(crate) mod outputs;
 mod ring;
 mod sigs;
-//mod time_lock;
+mod time_lock;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TxVersion {
@@ -71,6 +71,7 @@ pub enum VerifyTxRequest {
     Block {
         txs: Vec<Arc<TransactionVerificationData>>,
         current_chain_height: u64,
+        time_for_time_lock: u64,
         hf: HardFork,
     },
     /// Batches the setup of [`TransactionVerificationData`] and verifies the transactions
@@ -78,6 +79,7 @@ pub enum VerifyTxRequest {
     BatchSetupVerifyBlock {
         txs: Vec<Transaction>,
         current_chain_height: u64,
+        time_for_time_lock: u64,
         hf: HardFork,
     },
 }
@@ -123,14 +125,29 @@ where
             VerifyTxRequest::Block {
                 txs,
                 current_chain_height,
+                time_for_time_lock,
                 hf,
-            } => verify_transactions_for_block(database, txs, current_chain_height, hf).boxed(),
+            } => verify_transactions_for_block(
+                database,
+                txs,
+                current_chain_height,
+                time_for_time_lock,
+                hf,
+            )
+            .boxed(),
             VerifyTxRequest::BatchSetupVerifyBlock {
                 txs,
                 current_chain_height,
+                time_for_time_lock,
                 hf,
-            } => batch_setup_verify_transactions_for_block(database, txs, current_chain_height, hf)
-                .boxed(),
+            } => batch_setup_verify_transactions_for_block(
+                database,
+                txs,
+                current_chain_height,
+                time_for_time_lock,
+                hf,
+            )
+            .boxed(),
         }
     }
 }
@@ -166,6 +183,7 @@ async fn batch_setup_verify_transactions_for_block<D>(
     database: D,
     txs: Vec<Transaction>,
     current_chain_height: u64,
+    time_for_time_lock: u64,
     hf: HardFork,
 ) -> Result<VerifyTxResponse, ConsensusError>
 where
@@ -180,7 +198,14 @@ where
     .await
     .unwrap()?;
 
-    verify_transactions_for_block(database, txs.clone(), current_chain_height, hf).await?;
+    verify_transactions_for_block(
+        database,
+        txs.clone(),
+        current_chain_height,
+        time_for_time_lock,
+        hf,
+    )
+    .await?;
     Ok(VerifyTxResponse::BatchSetupOk(txs))
 }
 
@@ -189,6 +214,7 @@ async fn verify_transactions_for_block<D>(
     database: D,
     txs: Vec<Arc<TransactionVerificationData>>,
     current_chain_height: u64,
+    time_for_time_lock: u64,
     hf: HardFork,
 ) -> Result<VerifyTxResponse, ConsensusError>
 where
@@ -202,7 +228,13 @@ where
 
     tokio::task::spawn_blocking(move || {
         txs.par_iter().try_for_each(|tx| {
-            verify_transaction_for_block(tx, current_chain_height, hf, spent_kis.clone())
+            verify_transaction_for_block(
+                tx,
+                current_chain_height,
+                time_for_time_lock,
+                hf,
+                spent_kis.clone(),
+            )
         })
     });
 
@@ -212,10 +244,11 @@ where
 fn verify_transaction_for_block(
     tx_verification_data: &TransactionVerificationData,
     current_chain_height: u64,
+    time_for_time_lock: u64,
     hf: HardFork,
     spent_kis: Arc<std::sync::Mutex<HashSet<[u8; 32]>>>,
 ) -> Result<(), ConsensusError> {
-    tracing::trace!(
+    tracing::debug!(
         "Verifying transaction: {}",
         hex::encode(tx_verification_data.tx_hash)
     );
@@ -228,7 +261,14 @@ fn verify_transaction_for_block(
         None => panic!("rings_member_info needs to be set to be able to verify!"),
     };
 
-    check_tx_version(&rings_member_info.decoy_info, &tx_version, &hf)?;
+    check_tx_version(&rings_member_info.decoy_info, tx_version, &hf)?;
+
+    time_lock::check_all_time_locks(
+        &rings_member_info.time_locked_outs,
+        current_chain_height,
+        time_for_time_lock,
+        &hf,
+    )?;
 
     let sum_outputs =
         outputs::check_outputs(&tx_verification_data.tx.prefix.outputs, &hf, tx_version)?;
@@ -241,6 +281,15 @@ fn verify_transaction_for_block(
         tx_version,
         spent_kis,
     )?;
+
+    if tx_version == &TxVersion::RingSignatures {
+        if sum_outputs >= sum_inputs {
+            return Err(ConsensusError::TransactionOutputsTooMuch);
+        }
+        // check that monero-serai is calculating the correct value here, why can't we just use this
+        // value? because we don't have this when we create the object.
+        assert_eq!(tx_verification_data.fee, sum_inputs - sum_outputs);
+    }
 
     sigs::verify_signatures(&tx_verification_data.tx, &rings_member_info.rings)?;
 

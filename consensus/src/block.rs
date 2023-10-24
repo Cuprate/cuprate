@@ -132,6 +132,7 @@ where
             .oneshot(VerifyTxRequest::BatchSetupVerifyBlock {
                 txs,
                 current_chain_height: context.chain_height,
+                time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
                 hf: context.current_hard_fork,
             })
             .await?

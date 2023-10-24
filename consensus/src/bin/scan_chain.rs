@@ -1,17 +1,11 @@
 #![cfg(feature = "binaries")]
 
-use futures::Sink;
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
-use std::io::Read;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use rayon::prelude::*;
 use tower::{Service, ServiceExt};
-use tracing::instrument;
 use tracing::level_filters::LevelFilter;
 
 use cuprate_common::Network;
@@ -53,7 +47,8 @@ where
 {
     tracing::info!("Beginning chain scan");
 
-    let chain_height = 3_000_000;
+    // TODO: when we implement all rules use the RPCs chain height, for now we don't check v2 txs.
+    let chain_height = 1288616;
 
     tracing::info!("scanning to chain height: {}", chain_height);
 
@@ -79,10 +74,6 @@ where
     let mut current_height = start_height;
     let mut next_batch_start_height = start_height + batch_size;
 
-    let mut time_to_verify_last_batch: u128 = 0;
-
-    let mut batches_till_check_batch_size: u64 = 2;
-
     while next_batch_start_height < chain_height {
         let next_batch_size = rpc_config.read().unwrap().block_batch_size();
 
@@ -96,55 +87,9 @@ where
             )),
         );
 
-        let (DatabaseResponse::BlockBatchInRange(blocks), time_to_retrieve_batch) =
-            current_fut.await??
-        else {
+        let (DatabaseResponse::BlockBatchInRange(blocks), _) = current_fut.await?? else {
             panic!("Database sent incorrect response!");
         };
-
-        let time_to_verify_batch = std::time::Instant::now();
-
-        let time_to_retrieve_batch = time_to_retrieve_batch.as_millis();
-        /*
-               if time_to_retrieve_batch > time_to_verify_last_batch + 2000
-                   && batches_till_check_batch_size == 0
-               {
-                   batches_till_check_batch_size = 3;
-
-                   let mut conf = rpc_config.write().unwrap();
-                   tracing::info!(
-                       "Decreasing batch size time to verify last batch: {}, time_to_retrieve_batch: {}",
-                       time_to_verify_last_batch,
-                       time_to_retrieve_batch
-                   );
-                   conf.max_blocks_per_node = (conf.max_blocks_per_node
-                       * time_to_verify_last_batch as u64
-                       / (time_to_retrieve_batch as u64))
-                       .max(10_u64)
-                       .min(MAX_BLOCKS_IN_RANGE);
-                   tracing::info!("Decreasing batch size to: {}", conf.max_blocks_per_node);
-               } else if time_to_retrieve_batch + 2000 < time_to_verify_last_batch
-                   && batches_till_check_batch_size == 0
-               {
-                   batches_till_check_batch_size = 3;
-
-                   let mut conf = rpc_config.write().unwrap();
-                   tracing::info!(
-                       "Increasing batch size time to verify last batch: {}, time_to_retrieve_batch: {}",
-                       time_to_verify_last_batch,
-                       time_to_retrieve_batch
-                   );
-                   conf.max_blocks_per_node = (conf.max_blocks_per_node
-                       * (time_to_verify_last_batch as u64)
-                       / time_to_retrieve_batch.max(1) as u64)
-                       .max(30_u64)
-                       .min(MAX_BLOCKS_IN_RANGE);
-                   tracing::info!("Increasing batch size to: {}", conf.max_blocks_per_node);
-               } else {
-                   batches_till_check_batch_size = batches_till_check_batch_size.saturating_sub(1);
-               }
-
-        */
 
         tracing::info!(
             "Handling batch: {:?}, chain height: {}",
@@ -190,8 +135,6 @@ where
                 cache.write().unwrap().save(&save_file)?;
             }
         }
-
-        time_to_verify_last_batch = time_to_verify_batch.elapsed().as_millis();
     }
 
     Ok(())
@@ -200,7 +143,7 @@ where
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::DEBUG)
+        .with_max_level(LevelFilter::INFO)
         .init();
 
     let network = Network::Mainnet;

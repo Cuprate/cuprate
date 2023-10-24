@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::Read;
 use std::path::Path;
 use std::{
@@ -7,7 +8,7 @@ use std::{
 };
 
 use bincode::{Decode, Encode};
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_serai::transaction::{Input, Timelock, Transaction};
 use tracing_subscriber::fmt::MakeWriter;
 
 use cuprate_common::Network;
@@ -24,6 +25,7 @@ pub struct ScanningCache {
     //    network: u8,
     numb_outs: HashMap<u64, u64>,
     time_locked_out: HashMap<[u8; 32], u64>,
+    kis: HashSet<[u8; 32]>,
     pub already_generated_coins: u64,
     /// The height of the *next* block to scan.
     pub height: u64,
@@ -67,10 +69,21 @@ impl ScanningCache {
                 .outputs
                 .iter()
                 .for_each(|out| self.add_outs(out.amount.unwrap_or(0), 1));
+
+            tx.tx.prefix.inputs.iter().for_each(|inp| match inp {
+                Input::ToKey { key_image, .. } => {
+                    assert!(self.kis.insert(key_image.compress().to_bytes()))
+                }
+                _ => unreachable!(),
+            })
         });
 
         self.already_generated_coins = self.already_generated_coins.saturating_add(generated_coins);
         self.height += 1;
+    }
+
+    pub fn are_kis_spent(&self, kis: HashSet<[u8; 32]>) -> bool {
+        self.kis.is_disjoint(&kis)
     }
 
     pub fn outputs_time_lock(&self, tx: &[u8; 32]) -> Timelock {

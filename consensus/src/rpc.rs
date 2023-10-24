@@ -295,7 +295,13 @@ impl<R: RpcConnection + Send + Sync + 'static> tower::Service<DatabaseRequest> f
             }
             .instrument(span)
             .boxed(),
-
+            DatabaseRequest::CheckKIsNotSpent(kis) => async move {
+                Ok(DatabaseResponse::CheckKIsNotSpent(
+                    cache.read().unwrap().are_kis_spent(kis),
+                ))
+            }
+            .instrument(span)
+            .boxed(),
             DatabaseRequest::GeneratedCoins => async move {
                 Ok(DatabaseResponse::GeneratedCoins(
                     cache.read().unwrap().already_generated_coins,

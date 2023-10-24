@@ -1,11 +1,11 @@
-use std::{
-    cmp::{max, min, Ordering},
-    collections::HashSet,
-    sync::Arc,
-};
+//! # Inputs
+//!
+//! This module contains all consensus rules for non-miner transaction inputs, excluding time locks.
+//!
+
+use std::{cmp::Ordering, collections::HashSet, sync::Arc};
 
 use monero_serai::transaction::Input;
-use tower::{Service, ServiceExt};
 
 use crate::{
     transactions::{
@@ -69,6 +69,7 @@ pub(crate) fn check_key_images(
 ) -> Result<(), ConsensusError> {
     match input {
         Input::ToKey { key_image, .. } => {
+            // this happens in monero-serai but we may as well duplicate the check.
             if !key_image.is_torsion_free() {
                 return Err(ConsensusError::TransactionHasInvalidInput(
                     "key image has torsion",
@@ -120,6 +121,7 @@ fn check_input_has_decoys(input: &Input) -> Result<(), ConsensusError> {
 
 /// Checks that the ring members for the input are unique after hard-fork 6.
 ///
+/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#unique-ring-members
 fn check_ring_members_unique(input: &Input, hf: &HardFork) -> Result<(), ConsensusError> {
     if hf >= &HardFork::V6 {
         match input {
@@ -139,6 +141,9 @@ fn check_ring_members_unique(input: &Input, hf: &HardFork) -> Result<(), Consens
     }
 }
 
+/// Checks that from hf 7 the inputs are sorted by key image.
+///
+/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#sorted-inputs
 fn check_inputs_sorted(inputs: &[Input], hf: &HardFork) -> Result<(), ConsensusError> {
     let get_ki = |inp: &Input| match inp {
         Input::ToKey { key_image, .. } => key_image.compress().to_bytes(),
@@ -162,6 +167,9 @@ fn check_inputs_sorted(inputs: &[Input], hf: &HardFork) -> Result<(), ConsensusE
     }
 }
 
+/// Checks the youngest output is at least 10 blocks old.
+///
+/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#10-block-lock
 fn check_10_block_lock(
     ring_member_info: &TxRingMembersInfo,
     current_chain_height: u64,
@@ -170,7 +178,7 @@ fn check_10_block_lock(
     if hf >= &HardFork::V12 {
         if ring_member_info.youngest_used_out_height + 10 > current_chain_height {
             Err(ConsensusError::TransactionHasInvalidRing(
-                "tx has one ring member which is too younge",
+                "tx has one ring member which is too young",
             ))
         } else {
             Ok(())
@@ -203,6 +211,10 @@ fn sum_inputs_v1(inputs: &[Input]) -> Result<u64, ConsensusError> {
     Ok(sum)
 }
 
+/// Checks all input consensus rules.
+///
+/// TODO: list rules.
+///
 pub fn check_inputs(
     inputs: &[Input],
     ring_member_info: &TxRingMembersInfo,
@@ -219,6 +231,8 @@ pub fn check_inputs(
 
     if let Some(decoy_info) = &ring_member_info.decoy_info {
         check_decoy_info(decoy_info, hf)?;
+    } else {
+        assert_eq!(hf, &HardFork::V1);
     }
 
     for input in inputs {

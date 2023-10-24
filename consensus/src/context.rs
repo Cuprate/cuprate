@@ -6,6 +6,7 @@
 //!
 
 use std::{
+    cmp::min,
     future::Future,
     ops::{Deref, DerefMut},
     pin::Pin,
@@ -17,7 +18,7 @@ use futures::FutureExt;
 use tokio::sync::RwLock;
 use tower::{Service, ServiceExt};
 
-use crate::{ConsensusError, Database, DatabaseRequest, DatabaseResponse};
+use crate::{helper::current_time, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
 
 pub mod difficulty;
 mod hardforks;
@@ -27,7 +28,7 @@ pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::{HardFork, HardForkConfig};
 pub use weight::BlockWeightsCacheConfig;
 
-const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: usize = 60;
+const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
 
 pub struct ContextConfig {
     hard_fork_cfg: HardForkConfig,
@@ -143,11 +144,10 @@ pub struct BlockChainContext {
     pub median_weight_for_block_reward: usize,
     /// The amount of coins minted already.
     pub already_generated_coins: u64,
-    /// Timestamp to use to check time locked outputs.
-    pub time_lock_timestamp: u64,
     /// The median timestamp over the last [`BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW`] blocks, will be None if there aren't
     /// [`BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW`] blocks.
     pub median_block_timestamp: Option<u64>,
+    top_block_timestamp: Option<u64>,
     /// The height of the chain.
     pub chain_height: u64,
     /// The top blocks hash
@@ -157,6 +157,29 @@ pub struct BlockChainContext {
 }
 
 impl BlockChainContext {
+    /// Returns the timestamp the should be used when checking locked outputs.
+    ///
+    /// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
+    pub fn current_adjusted_timestamp_for_time_lock(&self) -> u64 {
+        if self.current_hard_fork < HardFork::V13 || self.median_block_timestamp.is_none() {
+            current_time()
+        } else {
+            // This is safe as we just checked if this was None.
+            let median = self.median_block_timestamp.unwrap();
+
+            let adjusted_median = median
+                + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1)
+                    * self.current_hard_fork.block_time().as_secs()
+                    / 2;
+
+            // This is safe as we just checked if the median was None and this will only be none for genesis and the first block.
+            let adjusted_top_block =
+                self.top_block_timestamp.unwrap() + self.current_hard_fork.block_time().as_secs();
+
+            min(adjusted_median, adjusted_top_block)
+        }
+    }
+
     pub fn block_blob_size_limit(&self) -> usize {
         self.effective_median_weight * 2 - 600
     }
@@ -227,9 +250,9 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                 median_long_term_weight: weight_cache.median_long_term_weight(),
                 median_weight_for_block_reward: weight_cache.median_for_block_reward(&current_hf),
                 already_generated_coins: *already_generated_coins,
-                time_lock_timestamp: 0, //TODO:
+                top_block_timestamp: difficulty_cache.top_block_timestamp(),
                 median_block_timestamp: difficulty_cache
-                    .median_timestamp(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW),
+                    .median_timestamp(usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap()),
                 chain_height: *chain_height,
                 top_hash: *top_block_hash,
                 current_hard_fork: current_hf,

@@ -1,3 +1,7 @@
+//! # Outputs
+//!
+//! Consensus rules relating to non-miner transaction outputs
+
 use std::sync::OnceLock;
 
 use monero_serai::transaction::Output;
@@ -127,11 +131,11 @@ pub fn check_outputs(
     hf: &HardFork,
     tx_version: &TxVersion,
 ) -> Result<u64, ConsensusError> {
-    check_output_types(outputs, &hf)?;
+    check_output_types(outputs, hf)?;
     check_output_keys(outputs)?;
 
     match tx_version {
-        TxVersion::RingSignatures => sum_outputs_v1(outputs, &hf),
+        TxVersion::RingSignatures => sum_outputs_v1(outputs, hf),
         _ => todo!("RingCT"),
     }
 }

@@ -31,18 +31,22 @@ where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
 {
-    let (context_svc, context_svc_updater) = context::initialize_blockchain_context(cfg, database.clone()).await?;
+    let (context_svc, context_svc_updater) =
+        context::initialize_blockchain_context(cfg, database.clone()).await?;
     let tx_svc = transactions::TxVerifierService::new(database);
     let block_svc = block::BlockVerifierService::new(context_svc.clone(), tx_svc.clone());
     Ok((block_svc, tx_svc, context_svc_updater))
 }
 
+// TODO: split this enum up.
 #[derive(Debug, thiserror::Error)]
 pub enum ConsensusError {
     #[error("Miner transaction invalid: {0}")]
     MinerTransaction(&'static str),
     #[error("Transaction sig invalid: {0}")]
     TransactionSignatureInvalid(&'static str),
+    #[error("Transaction has too high output amount")]
+    TransactionOutputsTooMuch,
     #[error("Transaction inputs overflow")]
     TransactionInputsOverflow,
     #[error("Transaction outputs overflow")]
@@ -111,6 +115,8 @@ pub enum DatabaseRequest {
 
     Outputs(HashMap<u64, HashSet<u64>>),
     NumberOutputsWithAmount(u64),
+    
+    CheckKIsNotSpent(HashSet<[u8; 32]>),
 
     #[cfg(feature = "binaries")]
     BlockBatchInRange(std::ops::Range<u64>),
@@ -128,6 +134,8 @@ pub enum DatabaseResponse {
 
     Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
     NumberOutputsWithAmount(usize),
+
+    CheckKIsNotSpent(bool),
 
     #[cfg(feature = "binaries")]
     BlockBatchInRange(
