@@ -170,28 +170,32 @@ impl DifficultyCache {
     ///
     /// Will return [`None`] if there aren't enough blocks.
     pub fn median_timestamp(&self, numb_blocks: usize) -> Option<u64> {
-        let timestamps = if self.last_accounted_height + 1 == u64::try_from(numb_blocks).unwrap() {
-            // if the chain height is equal to `numb_blocks` add the genesis block.
-            // otherwise if the chain height is less than `numb_blocks` None is returned
-            // and if its more than it would be excluded from calculations.
-            let mut timestamps = self.timestamps.clone();
-            // all genesis blocks have a timestamp of 0.
-            // https://cuprate.github.io/monero-book/consensus_rules/genesis_block.html
-            timestamps.push_front(0);
-            timestamps.into()
-        } else {
-            self.timestamps
-                .range(self.timestamps.len().checked_sub(numb_blocks)?..)
-                .copied()
-                .collect::<Vec<_>>()
-        };
+        let mut timestamps =
+            if self.last_accounted_height + 1 == u64::try_from(numb_blocks).unwrap() {
+                // if the chain height is equal to `numb_blocks` add the genesis block.
+                // otherwise if the chain height is less than `numb_blocks` None is returned
+                // and if its more than it would be excluded from calculations.
+                let mut timestamps = self.timestamps.clone();
+                // all genesis blocks have a timestamp of 0.
+                // https://cuprate.github.io/monero-book/consensus_rules/genesis_block.html
+                timestamps.push_front(0);
+                timestamps.into()
+            } else {
+                self.timestamps
+                    .range(self.timestamps.len().checked_sub(numb_blocks)?..)
+                    .copied()
+                    .collect::<Vec<_>>()
+            };
+        timestamps.sort_unstable();
+        debug_assert_eq!(timestamps.len(), numb_blocks);
 
         Some(median(&timestamps))
     }
 
     /// Returns the cumulative difficulty of the chain.
     pub fn cumulative_difficulty(&self) -> u128 {
-        self.cumulative_difficulties.back().copied().unwrap_or(0)
+        // the genesis block has a difficulty of 1
+        self.cumulative_difficulties.back().copied().unwrap_or(1)
     }
 
     pub fn top_block_timestamp(&self) -> Option<u64> {
