@@ -197,7 +197,7 @@ impl BlockWeightsCache {
             self.short_term_block_weights.clone().into();
         sorted_short_term_weights.par_sort_unstable();
 
-        /// TODO: this sometimes takes a while (>5s)
+        // TODO: this sometimes takes a while (>5s)
         let mut sorted_long_term_weights: Vec<usize> = self.long_term_weights.clone().into();
         sorted_long_term_weights.par_sort_unstable();
 

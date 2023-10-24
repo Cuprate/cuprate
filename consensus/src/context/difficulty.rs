@@ -166,17 +166,27 @@ impl DifficultyCache {
         (windowed_work * hf.block_time().as_secs() as u128 + time_span - 1) / time_span
     }
 
-    /// Returns the median timestamp over the last `numb_blocks`.
+    /// Returns the median timestamp over the last `numb_blocks`, including the genesis block if the block height is low enough.
     ///
     /// Will return [`None`] if there aren't enough blocks.
     pub fn median_timestamp(&self, numb_blocks: usize) -> Option<u64> {
-        Some(median(
-            &self
-                .timestamps
+        let timestamps = if self.last_accounted_height + 1 == u64::try_from(numb_blocks).unwrap() {
+            // if the chain height is equal to `numb_blocks` add the genesis block.
+            // otherwise if the chain height is less than `numb_blocks` None is returned
+            // and if its more than it would be excluded from calculations.
+            let mut timestamps = self.timestamps.clone();
+            // all genesis blocks have a timestamp of 0.
+            // https://cuprate.github.io/monero-book/consensus_rules/genesis_block.html
+            timestamps.push_front(0);
+            timestamps.into()
+        } else {
+            self.timestamps
                 .range(self.timestamps.len().checked_sub(numb_blocks)?..)
                 .copied()
-                .collect::<Vec<_>>(),
-        ))
+                .collect::<Vec<_>>()
+        };
+
+        Some(median(&timestamps))
     }
 
     /// Returns the cumulative difficulty of the chain.
