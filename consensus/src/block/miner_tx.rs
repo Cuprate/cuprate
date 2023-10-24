@@ -46,7 +46,8 @@ pub fn calculate_block_reward(
 /// Checks the miner transactions version.
 ///
 /// https://cuprate.github.io/monero-book/consensus_rules/blocks/miner_tx.html#version
-fn check_tx_version(tx_version: &TxVersion, hf: &HardFork) -> Result<(), ConsensusError> {
+fn check_miner_tx_version(tx_version: &TxVersion, hf: &HardFork) -> Result<(), ConsensusError> {
+    // The TxVersion enum checks if the version is not 1 or 2
     if hf >= &HardFork::V12 && tx_version != &TxVersion::RingCT {
         Err(ConsensusError::MinerTransaction("Version invalid"))
     } else {
@@ -162,7 +163,7 @@ pub fn check_miner_tx(
     hf: &HardFork,
 ) -> Result<u64, ConsensusError> {
     let tx_version = TxVersion::from_raw(tx.prefix.version)?;
-    check_tx_version(&tx_version, hf)?;
+    check_miner_tx_version(&tx_version, hf)?;
 
     if hf >= &HardFork::V12 && tx.rct_signatures.rct_type() != RctType::Null {
         return Err(ConsensusError::MinerTransaction("RctType is not null"));

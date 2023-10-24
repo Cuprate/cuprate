@@ -18,28 +18,6 @@ const BLOCK_TIME_V2: Duration = Duration::from_secs(120);
 
 const NUMB_OF_HARD_FORKS: usize = 16;
 
-#[derive(Debug, Clone, Copy)]
-pub struct BlockHFInfo {
-    pub version: HardFork,
-    pub vote: HardFork,
-}
-
-impl BlockHFInfo {
-    pub fn from_block_header(block_header: &BlockHeader) -> Result<BlockHFInfo, ConsensusError> {
-        BlockHFInfo::from_major_minor(block_header.major_version, block_header.minor_version)
-    }
-
-    pub fn from_major_minor(
-        major_version: u8,
-        minor_version: u8,
-    ) -> Result<BlockHFInfo, ConsensusError> {
-        Ok(BlockHFInfo {
-            version: HardFork::from_version(&major_version)?,
-            vote: HardFork::from_vote(&minor_version),
-        })
-    }
-}
-
 /// Information about a given hard-fork.
 #[derive(Debug, Clone, Copy)]
 pub struct HFInfo {
@@ -187,8 +165,20 @@ impl HardFork {
     /// Checks a blocks version and vote, assuming that `self` is the current hard-fork.
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/blocks.html#version-and-vote
-    pub fn check_block_version_vote(&self, block_hf_info: &BlockHFInfo) -> bool {
-        self == &block_hf_info.version && &block_hf_info.vote >= self
+    pub fn check_block_version_vote(
+        &self,
+        block_header: &BlockHeader,
+    ) -> Result<(), ConsensusError> {
+        let version = HardFork::from_version(&block_header.major_version)?;
+        let vote = HardFork::from_vote(&block_header.minor_version);
+
+        if self == &version && &vote >= self {
+            Ok(())
+        } else {
+            Err(ConsensusError::InvalidHardForkVersion(
+                "Block version or vote incorrect",
+            ))
+        }
     }
 }
 

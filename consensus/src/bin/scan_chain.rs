@@ -132,7 +132,28 @@ where
 
             if current_height % 500 == 0 {
                 tracing::info!("Saving cache to: {}", save_file.display());
-                cache.write().unwrap().save(&save_file)?;
+                cache.read().unwrap().save(&save_file)?;
+
+                let DatabaseResponse::BlockExtendedHeader(header) = database
+                    .ready()
+                    .await?
+                    .call(DatabaseRequest::BlockExtendedHeader(
+                        verified_block_info.height.into(),
+                    ))
+                    .await?
+                else {
+                    panic!();
+                };
+
+                assert_eq!(header.block_weight, verified_block_info.weight);
+                assert_eq!(
+                    header.cumulative_difficulty,
+                    verified_block_info.cumulative_difficulty
+                );
+                assert_eq!(
+                    header.long_term_weight,
+                    verified_block_info.long_term_weight
+                );
             }
         }
     }

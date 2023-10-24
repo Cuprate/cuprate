@@ -57,5 +57,3 @@ dirs = {version="5.0", optional = true}
 # here to help cargo to pick a version - remove me
 syn = "2.0.37"
 
-[profile.dev]
-opt-level = 3

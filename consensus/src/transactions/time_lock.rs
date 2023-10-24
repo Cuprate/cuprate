@@ -58,7 +58,7 @@ fn output_unlocked(
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#block-height
 fn check_block_time_lock(unlock_height: u64, current_chain_height: u64) -> bool {
     // current_chain_height = 1 + top height
-    unlock_height >= current_chain_height
+    unlock_height <= current_chain_height
 }
 
 /// ///

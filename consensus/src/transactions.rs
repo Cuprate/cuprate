@@ -236,7 +236,9 @@ where
                 spent_kis.clone(),
             )
         })
-    });
+    })
+    .await
+    .unwrap()?;
 
     Ok(VerifyTxResponse::Ok)
 }

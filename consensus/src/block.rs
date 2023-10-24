@@ -15,7 +15,7 @@ use crate::{
     ConsensusError, HardFork,
 };
 
-//mod checks;
+mod checks;
 mod hash_worker;
 mod miner_tx;
 
@@ -127,6 +127,8 @@ where
 
     tracing::debug!("got blockchain context: {:?}", context);
 
+    // TODO: reorder these tests so we do the cheap tests first.
+
     let txs = if !txs.is_empty() {
         let VerifyTxResponse::BatchSetupOk(txs) = tx_verifier_svc
             .oneshot(VerifyTxRequest::BatchSetupVerifyBlock {
@@ -159,6 +161,17 @@ where
 
     let hashing_blob = block.serialize_hashable();
 
+    checks::block_size_sanity_check(block.serialize().len(), context.effective_median_weight)?;
+    checks::block_weight_check(block_weight, context.median_weight_for_block_reward)?;
+
+    checks::check_amount_txs(block.txs.len())?;
+    checks::check_prev_id(&block, &context.top_hash)?;
+    if let Some(median_timestamp) = context.median_block_timestamp {
+        // will only be None for the first 60 blocks
+        checks::check_timestamp(&block, median_timestamp)?;
+    }
+
+    // do POW test last
     let pow_hash = tokio::task::spawn_blocking(move || {
         hash_worker::calculate_pow_hash(
             &hashing_blob,
@@ -168,6 +181,12 @@ where
     })
     .await
     .unwrap()?;
+
+    checks::check_block_pow(&pow_hash, context.next_difficulty)?;
+
+    context
+        .current_hard_fork
+        .check_block_version_vote(&block.header)?;
 
     Ok(VerifiedBlockInformation {
         block_hash: block.hash(),

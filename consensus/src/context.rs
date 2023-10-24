@@ -137,7 +137,7 @@ pub struct BlockChainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
     /// The current effective median block weight.
-    effective_median_weight: usize,
+    pub effective_median_weight: usize,
     /// The median long term block weight.
     median_long_term_weight: usize,
     /// Median weight to use for block reward calculations.
