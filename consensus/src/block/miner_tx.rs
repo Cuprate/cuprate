@@ -27,8 +27,6 @@ pub fn calculate_block_reward(
     already_generated_coins: u64,
     hf: &HardFork,
 ) -> u64 {
-    tracing::info!("bw: {} median: {}", block_weight, median_bw);
-
     let base_reward: u128 = calculate_base_reward(already_generated_coins, hf).into();
 
     if block_weight <= median_bw {

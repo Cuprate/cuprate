@@ -6,6 +6,7 @@ use std::ops::Range;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, RwLock};
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
 use futures::{stream::FuturesOrdered, FutureExt, StreamExt, TryFutureExt, TryStreamExt};
@@ -84,11 +85,12 @@ pub fn init_rpc_load_balancer(
     let (rpc_discoverer_tx, rpc_discoverer_rx) = futures::channel::mpsc::channel(30);
 
     let rpc_balance = Balance::new(rpc_discoverer_rx.map(Result::<_, tower::BoxError>::Ok));
-    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 30);
-    //let rpcs = tower::retry::Retry::new(Attempts(2), rpc_buffer);
+    let timeout = tower::timeout::Timeout::new(rpc_balance, Duration::from_secs(120));
+    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(timeout), 30);
+    let rpcs = tower::retry::Retry::new(Attempts(3), rpc_buffer);
 
     let discover = discover::RPCDiscover {
-        rpc: rpc_buffer.clone(),
+        rpc: rpcs.clone(),
         initial_list: addresses,
         ok_channel: rpc_discoverer_tx,
         already_connected: Default::default(),
@@ -97,10 +99,7 @@ pub fn init_rpc_load_balancer(
 
     tokio::spawn(discover.run());
 
-    RpcBalancer {
-        rpcs: rpc_buffer,
-        config,
-    }
+    RpcBalancer { rpcs, config }
 }
 
 #[derive(Clone)]

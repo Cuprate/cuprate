@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::io::Read;
 use std::ops::Range;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -42,7 +43,7 @@ async fn call_batch<D: Database>(
 
 async fn scan_chain<D>(
     cache: Arc<RwLock<ScanningCache>>,
-    network: Network,
+    save_file: PathBuf,
     rpc_config: Arc<RwLock<RpcConfig>>,
     mut database: D,
 ) -> Result<(), tower::BoxError>
@@ -65,7 +66,7 @@ where
     let start_height = cache.read().unwrap().height;
 
     tracing::info!(
-        "Initialised verifier, begging scan from {} to {}",
+        "Initialised verifier, beginning scan from {} to {}",
         start_height,
         chain_height
     );
@@ -175,6 +176,7 @@ where
                     long_term_weight: verified_block_info.long_term_weight,
                     vote: verified_block_info.hf_vote,
                     generated_coins: verified_block_info.generated_coins,
+                    cumulative_difficulty: verified_block_info.cumulative_difficulty,
                 })
                 .await?;
 
@@ -182,6 +184,11 @@ where
 
             current_height += 1;
             next_batch_start_height += 1;
+
+            if current_height % 500 == 0 {
+                tracing::info!("Saving cache to: {}", save_file.display());
+                cache.write().unwrap().save(&save_file)?;
+            }
         }
 
         time_to_verify_last_batch = time_to_verify_batch.elapsed().as_millis();
@@ -193,10 +200,13 @@ where
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::INFO)
+        .with_max_level(LevelFilter::DEBUG)
         .init();
 
     let network = Network::Mainnet;
+
+    let mut file_for_cache = dirs::cache_dir().unwrap();
+    file_for_cache.push("cuprate_rpc_scanning_cache.bin");
 
     let urls = vec![
         "http://xmr-node.cakewallet.com:18081".to_string(),
@@ -230,26 +240,32 @@ async fn main() {
     );
     let rpc_config = Arc::new(RwLock::new(rpc_config));
 
-    let cache = Arc::new(RwLock::new(ScanningCache::default()));
+    let cache = match ScanningCache::load(&file_for_cache) {
+        Ok(cache) => {
+            tracing::info!("Reloaded from cache, chain height: {}", cache.height);
+            Arc::new(RwLock::new(cache))
+        }
+        Err(_) => {
+            tracing::info!("Couldn't load from cache starting from scratch");
+            let mut cache = ScanningCache::default();
+            let genesis = monero_consensus::genesis::generate_genesis_block(&network);
 
-    let mut cache_write = cache.write().unwrap();
+            let total_outs = genesis
+                .miner_tx
+                .prefix
+                .outputs
+                .iter()
+                .map(|out| out.amount.unwrap_or(0))
+                .sum::<u64>();
 
-    if cache_write.height == 0 {
-        let genesis = monero_consensus::genesis::generate_genesis_block(&network);
-
-        let total_outs = genesis
-            .miner_tx
-            .prefix
-            .outputs
-            .iter()
-            .map(|out| out.amount.unwrap_or(0))
-            .sum::<u64>();
-
-        cache_write.add_new_block_data(total_outs, &genesis.miner_tx, &[]);
-    }
-    drop(cache_write);
+            cache.add_new_block_data(total_outs, &genesis.miner_tx, &[]);
+            Arc::new(RwLock::new(cache))
+        }
+    };
 
     let rpc = init_rpc_load_balancer(urls, cache.clone(), rpc_config.clone());
 
-    scan_chain(cache, network, rpc_config, rpc).await.unwrap();
+    scan_chain(cache, file_for_cache, rpc_config, rpc)
+        .await
+        .unwrap();
 }

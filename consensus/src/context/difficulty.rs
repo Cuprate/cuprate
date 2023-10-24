@@ -168,15 +168,15 @@ impl DifficultyCache {
 
     /// Returns the median timestamp over the last `numb_blocks`.
     ///
-    /// Will panic if `numb_blocks` is larger than amount of blocks in the cache.
-    pub fn median_timestamp(&self, numb_blocks: usize) -> u64 {
-        median(
+    /// Will return [`None`] if there aren't enough blocks.
+    pub fn median_timestamp(&self, numb_blocks: usize) -> Option<u64> {
+        Some(median(
             &self
                 .timestamps
-                .range(self.timestamps.len().checked_sub(numb_blocks).unwrap()..)
+                .range(self.timestamps.len().checked_sub(numb_blocks)?..)
                 .copied()
                 .collect::<Vec<_>>(),
-        )
+        ))
     }
 
     /// Returns the cumulative difficulty of the chain.

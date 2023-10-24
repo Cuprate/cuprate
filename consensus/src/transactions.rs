@@ -19,7 +19,7 @@ mod inputs;
 pub(crate) mod outputs;
 mod ring;
 mod sigs;
-mod time_lock;
+//mod time_lock;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TxVersion {
@@ -194,7 +194,7 @@ async fn verify_transactions_for_block<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
-    tracing::info!("Verifying transactions for block, amount: {}", txs.len());
+    tracing::debug!("Verifying transactions for block, amount: {}", txs.len());
 
     set_missing_ring_members(database, &txs, &hf).await?;
 

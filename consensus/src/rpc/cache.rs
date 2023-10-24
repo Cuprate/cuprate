@@ -1,33 +1,52 @@
+use std::io::Read;
+use std::path::Path;
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
     sync::Arc,
 };
 
-use monero_serai::{
-    block::Block,
-    transaction::{Timelock, Transaction},
-};
+use bincode::{Decode, Encode};
+use monero_serai::transaction::{Timelock, Transaction};
+use tracing_subscriber::fmt::MakeWriter;
+
+use cuprate_common::Network;
 
 use crate::transactions::TransactionVerificationData;
-use cuprate_common::Network;
 
 /// A cache which can keep chain state while scanning.
 ///
 /// Because we are using a RPC interface with a node we need to keep track
 /// of certain data that the node doesn't hold or give us like the number
 /// of outputs at a certain time.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Encode, Decode)]
 pub struct ScanningCache {
-    network: Network,
+    //    network: u8,
     numb_outs: HashMap<u64, u64>,
-    time_locked_out: HashMap<[u8; 32], Timelock>,
+    time_locked_out: HashMap<[u8; 32], u64>,
     pub already_generated_coins: u64,
     /// The height of the *next* block to scan.
     pub height: u64,
 }
 
 impl ScanningCache {
+    pub fn save(&self, file: &Path) -> Result<(), tower::BoxError> {
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(file)?;
+        let mut writer = file.make_writer();
+        bincode::encode_into_std_write(self, &mut writer, bincode::config::standard())?;
+        Ok(())
+    }
+
+    pub fn load(file: &Path) -> Result<ScanningCache, tower::BoxError> {
+        let mut file = std::fs::OpenOptions::new().read(true).open(file)?;
+
+        bincode::decode_from_std_read(&mut file, bincode::config::standard()).map_err(Into::into)
+    }
+
     pub fn add_new_block_data(
         &mut self,
         generated_coins: u64,
@@ -55,17 +74,26 @@ impl ScanningCache {
     }
 
     pub fn outputs_time_lock(&self, tx: &[u8; 32]) -> Timelock {
-        self.time_locked_out
-            .get(tx)
-            .copied()
-            .unwrap_or(Timelock::None)
+        let time_lock = self.time_locked_out.get(tx).copied().unwrap_or(0);
+        match time_lock {
+            0 => Timelock::None,
+            block if block < 500_000_000 => Timelock::Block(block as usize),
+            time => Timelock::Time(time),
+        }
     }
 
     pub fn add_tx_time_lock(&mut self, tx: [u8; 32], time_lock: Timelock) {
         match time_lock {
             Timelock::None => (),
             lock => {
-                self.time_locked_out.insert(tx, lock);
+                self.time_locked_out.insert(
+                    tx,
+                    match lock {
+                        Timelock::None => unreachable!(),
+                        Timelock::Block(x) => x as u64,
+                        Timelock::Time(x) => x,
+                    },
+                );
             }
         }
     }

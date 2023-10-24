@@ -7,6 +7,7 @@
 
 use std::{
     future::Future,
+    ops::{Deref, DerefMut},
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -14,8 +15,7 @@ use std::{
 
 use futures::FutureExt;
 use tokio::sync::RwLock;
-use tower::buffer::future::ResponseFuture;
-use tower::{buffer::Buffer, Service, ServiceExt};
+use tower::{Service, ServiceExt};
 
 use crate::{ConsensusError, Database, DatabaseRequest, DatabaseResponse};
 
@@ -27,7 +27,7 @@ pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::{HardFork, HardForkConfig};
 pub use weight::BlockWeightsCacheConfig;
 
-const BUFFER_CONTEXT_CHANNEL_SIZE: usize = 5;
+const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: usize = 60;
 
 pub struct ContextConfig {
     hard_fork_cfg: HardForkConfig,
@@ -111,19 +111,22 @@ where
     });
 
     let context_svc = BlockChainContextService {
-        difficulty_cache: Arc::new(difficulty_cache_handle.await.unwrap()?.into()),
-        weight_cache: Arc::new(weight_cache_handle.await.unwrap()?.into()),
-        hardfork_state: Arc::new(hardfork_state_handle.await.unwrap()?.into()),
-        chain_height: Arc::new(chain_height.into()),
-        already_generated_coins: Arc::new(already_generated_coins.into()),
-        top_block_hash: Arc::new(top_block_hash.into()),
+        internal_blockchain_context: Arc::new(
+            InternalBlockChainContext {
+                difficulty_cache: difficulty_cache_handle.await.unwrap()?,
+                weight_cache: weight_cache_handle.await.unwrap()?,
+                hardfork_state: hardfork_state_handle.await.unwrap()?,
+                chain_height,
+                already_generated_coins,
+                top_block_hash,
+            }
+            .into(),
+        ),
     };
 
     let context_svc_update = context_svc.clone();
 
-    let buffered_svc = Buffer::new(context_svc.boxed(), BUFFER_CONTEXT_CHANNEL_SIZE);
-
-    Ok((buffered_svc.clone(), context_svc_update))
+    Ok((context_svc_update.clone(), context_svc_update))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -141,32 +144,58 @@ pub struct BlockChainContext {
     /// The amount of coins minted already.
     pub already_generated_coins: u64,
     /// Timestamp to use to check time locked outputs.
-    time_lock_timestamp: u64,
+    pub time_lock_timestamp: u64,
+    /// The median timestamp over the last [`BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW`] blocks, will be None if there aren't
+    /// [`BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW`] blocks.
+    pub median_block_timestamp: Option<u64>,
     /// The height of the chain.
     pub chain_height: u64,
     /// The top blocks hash
-    top_hash: [u8; 32],
+    pub top_hash: [u8; 32],
     /// The current hard fork.
     pub current_hard_fork: HardFork,
+}
+
+impl BlockChainContext {
+    pub fn block_blob_size_limit(&self) -> usize {
+        self.effective_median_weight * 2 - 600
+    }
+
+    pub fn block_weight_limit(&self) -> usize {
+        self.median_weight_for_block_reward * 2
+    }
+
+    pub fn next_block_long_term_weight(&self, block_weight: usize) -> usize {
+        weight::calculate_block_long_term_weight(
+            &self.current_hard_fork,
+            block_weight,
+            self.median_long_term_weight,
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct BlockChainContextRequest;
 
 #[derive(Clone)]
-pub struct BlockChainContextService {
-    difficulty_cache: Arc<RwLock<difficulty::DifficultyCache>>,
-    weight_cache: Arc<RwLock<weight::BlockWeightsCache>>,
-    hardfork_state: Arc<RwLock<hardforks::HardForkState>>,
+struct InternalBlockChainContext {
+    difficulty_cache: difficulty::DifficultyCache,
+    weight_cache: weight::BlockWeightsCache,
+    hardfork_state: hardforks::HardForkState,
 
-    chain_height: Arc<RwLock<u64>>,
-    top_block_hash: Arc<RwLock<[u8; 32]>>,
-    already_generated_coins: Arc<RwLock<u64>>,
+    chain_height: u64,
+    top_block_hash: [u8; 32],
+    already_generated_coins: u64,
+}
+
+#[derive(Clone)]
+pub struct BlockChainContextService {
+    internal_blockchain_context: Arc<RwLock<InternalBlockChainContext>>,
 }
 
 impl Service<BlockChainContextRequest> for BlockChainContextService {
     type Response = BlockChainContext;
-    type Error = ConsensusError;
+    type Error = tower::BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
@@ -175,18 +204,19 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
     }
 
     fn call(&mut self, _: BlockChainContextRequest) -> Self::Future {
-        let hardfork_state = self.hardfork_state.clone();
-        let difficulty_cache = self.difficulty_cache.clone();
-        let weight_cache = self.weight_cache.clone();
-
-        let chain_height = self.chain_height.clone();
-        let top_hash = self.top_block_hash.clone();
-        let already_generated_coins = self.already_generated_coins.clone();
+        let internal_blockchain_context = self.internal_blockchain_context.clone();
 
         async move {
-            let hardfork_state = hardfork_state.read().await;
-            let difficulty_cache = difficulty_cache.read().await;
-            let weight_cache = weight_cache.read().await;
+            let internal_blockchain_context_lock = internal_blockchain_context.read().await;
+
+            let InternalBlockChainContext {
+                difficulty_cache,
+                weight_cache,
+                hardfork_state,
+                chain_height,
+                top_block_hash,
+                already_generated_coins,
+            } = internal_blockchain_context_lock.deref();
 
             let current_hf = hardfork_state.current_hardfork();
 
@@ -196,10 +226,12 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                 effective_median_weight: weight_cache.effective_median_block_weight(&current_hf),
                 median_long_term_weight: weight_cache.median_long_term_weight(),
                 median_weight_for_block_reward: weight_cache.median_for_block_reward(&current_hf),
-                already_generated_coins: *already_generated_coins.read().await,
+                already_generated_coins: *already_generated_coins,
                 time_lock_timestamp: 0, //TODO:
-                chain_height: *chain_height.read().await,
-                top_hash: *top_hash.read().await,
+                median_block_timestamp: difficulty_cache
+                    .median_timestamp(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW),
+                chain_height: *chain_height,
+                top_hash: *top_block_hash,
                 current_hard_fork: current_hf,
             })
         }
@@ -207,6 +239,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
     }
 }
 
+// TODO: join these services, there is no need for 2.
 pub struct UpdateBlockchainCacheRequest {
     pub new_top_hash: [u8; 32],
     pub height: u64,
@@ -229,36 +262,32 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
     }
 
     fn call(&mut self, new: UpdateBlockchainCacheRequest) -> Self::Future {
-        let hardfork_state = self.hardfork_state.clone();
-        let difficulty_cache = self.difficulty_cache.clone();
-        let weight_cache = self.weight_cache.clone();
-
-        let chain_height = self.chain_height.clone();
-        let top_hash = self.top_block_hash.clone();
-        let already_generated_coins = self.already_generated_coins.clone();
+        let internal_blockchain_context = self.internal_blockchain_context.clone();
 
         async move {
+            let mut internal_blockchain_context_lock = internal_blockchain_context.write().await;
+
+            let InternalBlockChainContext {
+                difficulty_cache,
+                weight_cache,
+                hardfork_state,
+                chain_height,
+                top_block_hash,
+                already_generated_coins,
+            } = internal_blockchain_context_lock.deref_mut();
+
             difficulty_cache
-                .write()
-                .await
                 .new_block(new.height, new.timestamp, new.cumulative_difficulty)
                 .await?;
 
             weight_cache
-                .write()
-                .await
                 .new_block(new.height, new.weight, new.long_term_weight)
                 .await?;
 
-            hardfork_state
-                .write()
-                .await
-                .new_block(new.vote, new.height)
-                .await?;
+            hardfork_state.new_block(new.vote, new.height).await?;
 
-            *chain_height.write().await = new.height + 1;
-            *top_hash.write().await = new.new_top_hash;
-            let mut already_generated_coins = already_generated_coins.write().await;
+            *chain_height = new.height + 1;
+            *top_block_hash = new.new_top_hash;
             *already_generated_coins = already_generated_coins.saturating_add(new.generated_coins);
 
             Ok(())

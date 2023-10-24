@@ -13,6 +13,7 @@ use std::{
 };
 
 use monero_serai::{block::Block, transaction::Transaction};
+use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
 
@@ -87,10 +88,8 @@ impl BlockWeightsCacheConfig {
 /// this data it reduces the load on the database.
 #[derive(Clone)]
 pub struct BlockWeightsCache {
-    /// This list is not sorted.
     short_term_block_weights: VecDeque<usize>,
-    /// This list is sorted.
-    long_term_weights: Vec<usize>,
+    long_term_weights: VecDeque<usize>,
     /// The height of the top block.
     tip_height: u64,
 
@@ -124,17 +123,12 @@ impl BlockWeightsCache {
     ) -> Result<Self, ConsensusError> {
         tracing::info!("Initializing weight cache this may take a while.");
 
-        let mut long_term_weights = get_long_term_weight_in_range(
+        let long_term_weights: VecDeque<usize> = get_long_term_weight_in_range(
             chain_height.saturating_sub(config.long_term_window)..chain_height,
             database.clone(),
         )
-        .await?;
-
-        long_term_weights.sort_unstable();
-        tracing::debug!(
-            "Sorted long term weights with length: {}",
-            long_term_weights.len()
-        );
+        .await?
+        .into();
 
         let short_term_block_weights: VecDeque<usize> = get_blocks_weight_in_range(
             chain_height.saturating_sub(config.short_term_window)..chain_height,
@@ -157,66 +151,41 @@ impl BlockWeightsCache {
     ///
     /// The block_height **MUST** be one more than the last height the cache has
     /// seen.
-    pub async fn new_block<D: Database>(
+    pub async fn new_block(
         &mut self,
         block_height: u64,
         block_weight: usize,
         long_term_weight: usize,
-        database: D,
     ) -> Result<(), ConsensusError> {
+        assert_eq!(self.tip_height + 1, block_height);
+        self.tip_height += 1;
         tracing::debug!(
             "Adding new block's {} weights to block cache, weight: {}, long term weight: {}",
-            block_weight,
+            self.tip_height,
             block_weight,
             long_term_weight
         );
-        assert_eq!(self.tip_height + 1, block_height);
-        self.tip_height += 1;
 
-        match self.long_term_weights.binary_search(&long_term_weight) {
-            Ok(idx) | Err(idx) => self.long_term_weights.insert(idx, long_term_weight),
-        };
-
+        self.long_term_weights.push_back(long_term_weight);
         if u64::try_from(self.long_term_weights.len()).unwrap() > self.config.long_term_window {
-            if let Some(height_to_remove) = block_height.checked_sub(self.config.long_term_window) {
-                tracing::debug!(
-                    "Block {} is out of the long term weight window, removing it",
-                    height_to_remove
-                );
-                let DatabaseResponse::BlockExtendedHeader(ext_header) = database
-                    .oneshot(DatabaseRequest::BlockExtendedHeader(
-                        height_to_remove.into(),
-                    ))
-                    .await?
-                else {
-                    panic!("Database sent incorrect response!");
-                };
-                let idx = self
-                    .long_term_weights
-                    .binary_search(&ext_header.long_term_weight)
-                    .expect("Weight must be in list if in the window");
-                self.long_term_weights.remove(idx);
-            }
+            self.long_term_weights.pop_front();
         }
 
         self.short_term_block_weights.push_back(block_weight);
-        if self.short_term_block_weights.len() > self.config.short_term_window.try_into().unwrap() {
+        if u64::try_from(self.short_term_block_weights.len()).unwrap()
+            > self.config.short_term_window
+        {
             self.short_term_block_weights.pop_front();
         }
 
         Ok(())
     }
 
-    /// Returns the next blocks long term weight.
-    ///
-    /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#calculating-a-blocks-long-term-weight
-    pub fn next_block_long_term_weight(&self, hf: &HardFork, block_weight: usize) -> usize {
-        calculate_block_long_term_weight(hf, block_weight, &self.long_term_weights)
-    }
-
     /// Returns the median long term weight over the last [`LONG_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
     pub fn median_long_term_weight(&self) -> usize {
-        median(&self.long_term_weights)
+        let mut sorted_long_term_weights: Vec<usize> = self.long_term_weights.clone().into();
+        sorted_long_term_weights.par_sort_unstable();
+        median(&sorted_long_term_weights)
     }
 
     /// Returns the effective median weight, used for block reward calculations and to calculate
@@ -226,11 +195,16 @@ impl BlockWeightsCache {
     pub fn effective_median_block_weight(&self, hf: &HardFork) -> usize {
         let mut sorted_short_term_weights: Vec<usize> =
             self.short_term_block_weights.clone().into();
-        sorted_short_term_weights.sort_unstable();
+        sorted_short_term_weights.par_sort_unstable();
+
+        /// TODO: this sometimes takes a while (>5s)
+        let mut sorted_long_term_weights: Vec<usize> = self.long_term_weights.clone().into();
+        sorted_long_term_weights.par_sort_unstable();
+
         calculate_effective_median_block_weight(
             hf,
             &sorted_short_term_weights,
-            &self.long_term_weights,
+            &sorted_long_term_weights,
         )
     }
 
@@ -276,16 +250,16 @@ fn calculate_effective_median_block_weight(
     effective_median.max(penalty_free_zone(hf))
 }
 
-fn calculate_block_long_term_weight(
+pub fn calculate_block_long_term_weight(
     hf: &HardFork,
     block_weight: usize,
-    sorted_long_term_window: &[usize],
+    long_term_median: usize,
 ) -> usize {
     if hf.in_range(&HardFork::V1, &HardFork::V10) {
         return block_weight;
     }
 
-    let long_term_median = max(penalty_free_zone(hf), median(sorted_long_term_window));
+    let long_term_median = max(penalty_free_zone(hf), long_term_median);
 
     let (short_term_constraint, adjusted_block_weight) =
         if hf.in_range(&HardFork::V10, &HardFork::V15) {

@@ -15,6 +15,7 @@ use crate::{
     ConsensusError, HardFork,
 };
 
+//mod checks;
 mod hash_worker;
 mod miner_tx;
 
@@ -29,6 +30,7 @@ pub struct VerifiedBlockInformation {
     pub generated_coins: u64,
     pub weight: usize,
     pub long_term_weight: usize,
+    pub cumulative_difficulty: u128,
 }
 
 pub enum VerifyBlockRequest {
@@ -117,13 +119,13 @@ where
     C::Future: Send + 'static,
     Tx: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
 {
-    tracing::info!("getting blockchain context");
+    tracing::debug!("getting blockchain context");
     let context = context_svc
         .oneshot(BlockChainContextRequest)
         .await
         .map_err(Into::<ConsensusError>::into)?;
 
-    tracing::info!("got blockchain context: {:?}", context);
+    tracing::debug!("got blockchain context: {:?}", context);
 
     let txs = if !txs.is_empty() {
         let VerifyTxResponse::BatchSetupOk(txs) = tx_verifier_svc
@@ -174,7 +176,8 @@ where
         generated_coins,
         weight: block_weight,
         height: context.chain_height,
-        long_term_weight: 0,
+        long_term_weight: context.next_block_long_term_weight(block_weight),
         hf_vote: HardFork::V1,
+        cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
     })
 }
