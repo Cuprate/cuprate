@@ -7,7 +7,7 @@ use std::{
 use futures::{
     channel::mpsc::{self, SendError},
     stream::FuturesUnordered,
-    SinkExt,
+    SinkExt, StreamExt,
 };
 use monero_serai::rpc::HttpRpc;
 use tokio::time::timeout;

@@ -1,7 +1,9 @@
+use std::io::Write;
 use std::{
     collections::HashMap,
     collections::HashSet,
     fmt::{Display, Formatter},
+    io::BufWriter,
     path::Path,
     sync::Arc,
 };
@@ -35,8 +37,9 @@ impl ScanningCache {
             .truncate(true)
             .create(true)
             .open(file)?;
-        let mut writer = file.make_writer();
+        let mut writer = BufWriter::new(file.make_writer());
         bincode::encode_into_std_write(self, &mut writer, bincode::config::standard())?;
+        writer.flush()?;
         Ok(())
     }
 
