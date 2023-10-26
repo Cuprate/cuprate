@@ -1,15 +1,17 @@
-use std::collections::HashSet;
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::{
+    collections::HashSet,
+    sync::{Arc, RwLock},
+    time::Duration,
+};
 
-use futures::channel::mpsc::SendError;
-use futures::stream::FuturesUnordered;
-use futures::{channel::mpsc, SinkExt, Stream, StreamExt, TryFutureExt, TryStream};
+use futures::{
+    channel::mpsc::{self, SendError},
+    stream::FuturesUnordered,
+    SinkExt,
+};
 use monero_serai::rpc::HttpRpc;
 use tokio::time::timeout;
-use tower::discover::Change;
-use tower::load::PeakEwma;
-use tower::ServiceExt;
+use tower::{discover::Change, load::PeakEwma};
 use tracing::instrument;
 
 use super::{cache::ScanningCache, Rpc};

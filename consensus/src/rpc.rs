@@ -1,22 +1,24 @@
-use curve25519_dalek::edwards::CompressedEdwardsY;
-use std::cmp::min;
-use std::collections::{HashMap, HashSet};
-use std::future::Future;
-use std::ops::Range;
-use std::pin::Pin;
-use std::sync::{Arc, Mutex, RwLock};
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::{
+    cmp::min,
+    collections::{HashMap, HashSet},
+    future::Future,
+    ops::Range,
+    pin::Pin,
+    sync::{Arc, Mutex, RwLock},
+    task::{Context, Poll},
+};
 
-use futures::lock::{OwnedMutexGuard, OwnedMutexLockFuture};
-use futures::{stream::FuturesOrdered, FutureExt, StreamExt, TryFutureExt, TryStreamExt};
+use curve25519_dalek::edwards::CompressedEdwardsY;
+use futures::{
+    lock::{OwnedMutexGuard, OwnedMutexLockFuture},
+    stream::{FuturesOrdered, FuturesUnordered},
+    FutureExt, StreamExt, TryFutureExt, TryStreamExt,
+};
 use monero_serai::rpc::{HttpRpc, RpcConnection, RpcError};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tower::balance::p2c::Balance;
-use tower::util::BoxService;
-use tower::ServiceExt;
+use tower::{balance::p2c::Balance, util::BoxService, ServiceExt};
 use tracing::{instrument, Instrument};
 
 use cuprate_common::BlockID;
@@ -28,6 +30,8 @@ pub mod cache;
 mod discover;
 
 use cache::ScanningCache;
+
+const MAX_OUTS_PER_RPC: usize = 5000; // the cap for monerod is 5000
 
 #[derive(Debug, Copy, Clone)]
 pub struct RpcConfig {
@@ -85,9 +89,9 @@ pub fn init_rpc_load_balancer(
     let (rpc_discoverer_tx, rpc_discoverer_rx) = futures::channel::mpsc::channel(30);
 
     let rpc_balance = Balance::new(rpc_discoverer_rx.map(Result::<_, tower::BoxError>::Ok));
-    let timeout = tower::timeout::Timeout::new(rpc_balance, Duration::from_secs(120));
-    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(timeout), 30);
-    let rpcs = tower::retry::Retry::new(Attempts(3), rpc_buffer);
+    //  let timeout = tower::timeout::Timeout::new(rpc_balance, Duration::from_secs(120));
+    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 30);
+    let rpcs = tower::retry::Retry::new(Attempts(10), rpc_buffer);
 
     let discover = discover::RPCDiscover {
         rpc: rpcs.clone(),
@@ -164,6 +168,56 @@ where
                     config.max_block_headers_per_node,
                 )
             }
+            DatabaseRequest::Outputs(outs) => async move {
+                let mut split_outs: Vec<HashMap<u64, HashSet<u64>>> = Vec::new();
+                let mut i: usize = 0;
+                for (amount, ixs) in outs {
+                    if ixs.len() > MAX_OUTS_PER_RPC {
+                        for ii in (0..ixs.len()).step_by(MAX_OUTS_PER_RPC) {
+                            let mut amt_map = HashSet::with_capacity(MAX_OUTS_PER_RPC);
+                            amt_map.extend(ixs.iter().skip(ii).copied().take(MAX_OUTS_PER_RPC));
+
+                            let mut map = HashMap::new();
+                            map.insert(amount, amt_map);
+                            split_outs.push(map);
+                            i += 1;
+                        }
+                        continue;
+                    }
+
+                    if let Some(map) = split_outs.get_mut(i.saturating_sub(1)) {
+                        if map.iter().map(|(_, amt_map)| amt_map.len()).sum::<usize>() + ixs.len()
+                            < MAX_OUTS_PER_RPC
+                        {
+                            assert!(map.insert(amount, ixs).is_none());
+                            continue;
+                        }
+                    }
+                    let mut map = HashMap::new();
+                    map.insert(amount, ixs);
+                    split_outs.push(map);
+                    i += 1;
+                }
+
+                let mut futs = FuturesUnordered::from_iter(
+                    split_outs
+                        .into_iter()
+                        .map(|map| this.clone().oneshot(DatabaseRequest::Outputs(map))),
+                );
+
+                let mut outs = HashMap::new();
+
+                while let Some(out_response) = futs.next().await {
+                    let DatabaseResponse::Outputs(out_response) = out_response? else {
+                        panic!("RPC sent incorrect response!");
+                    };
+                    out_response.into_iter().for_each(|(amt, amt_map)| {
+                        outs.entry(amt).or_insert_with(HashMap::new).extend(amt_map)
+                    });
+                }
+                Ok(DatabaseResponse::Outputs(outs))
+            }
+            .boxed(),
             req => this.oneshot(req).boxed(),
         }
     }

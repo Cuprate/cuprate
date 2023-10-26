@@ -99,11 +99,100 @@ where
                     batch_setup_verify_main_chain_block(block, txs, context_svc, tx_verifier_svc)
                         .await
                 }
+                VerifyBlockRequest::MainChain(block, txs) => {
+                    verify_main_chain_block(block, txs, context_svc, tx_verifier_svc).await
+                }
                 _ => todo!(),
             }
         }
         .boxed()
     }
+}
+
+async fn verify_main_chain_block<C, Tx>(
+    block: Block,
+    txs: Vec<Arc<TransactionVerificationData>>,
+    context_svc: C,
+    tx_verifier_svc: Tx,
+) -> Result<VerifiedBlockInformation, ConsensusError>
+where
+    C: Service<BlockChainContextRequest, Response = BlockChainContext, Error = tower::BoxError>
+        + Send
+        + 'static,
+    C::Future: Send + 'static,
+    Tx: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
+{
+    tracing::debug!("getting blockchain context");
+    let context = context_svc
+        .oneshot(BlockChainContextRequest)
+        .await
+        .map_err(Into::<ConsensusError>::into)?;
+
+    tracing::debug!("got blockchain context: {:?}", context);
+
+    let block_weight = block.miner_tx.weight() + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
+    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
+
+    tx_verifier_svc
+        .oneshot(VerifyTxRequest::Block {
+            txs: txs.clone(),
+            current_chain_height: context.chain_height,
+            time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
+            hf: context.current_hard_fork,
+        })
+        .await?;
+
+    let generated_coins = miner_tx::check_miner_tx(
+        &block.miner_tx,
+        total_fees,
+        context.chain_height,
+        block_weight,
+        context.median_weight_for_block_reward,
+        context.already_generated_coins,
+        &context.current_hard_fork,
+    )?;
+
+    let hashing_blob = block.serialize_hashable();
+
+    checks::block_size_sanity_check(block.serialize().len(), context.effective_median_weight)?;
+    checks::block_weight_check(block_weight, context.median_weight_for_block_reward)?;
+
+    checks::check_amount_txs(block.txs.len())?;
+    checks::check_prev_id(&block, &context.top_hash)?;
+    if let Some(median_timestamp) = context.median_block_timestamp {
+        // will only be None for the first 60 blocks
+        checks::check_timestamp(&block, median_timestamp)?;
+    }
+
+    // do POW test last
+    let pow_hash = tokio::task::spawn_blocking(move || {
+        hash_worker::calculate_pow_hash(
+            &hashing_blob,
+            context.chain_height,
+            &context.current_hard_fork,
+        )
+    })
+    .await
+    .unwrap()?;
+
+    checks::check_block_pow(&pow_hash, context.next_difficulty)?;
+
+    context
+        .current_hard_fork
+        .check_block_version_vote(&block.header)?;
+
+    Ok(VerifiedBlockInformation {
+        block_hash: block.hash(),
+        block,
+        txs,
+        pow_hash,
+        generated_coins,
+        weight: block_weight,
+        height: context.chain_height,
+        long_term_weight: context.next_block_long_term_weight(block_weight),
+        hf_vote: HardFork::V1,
+        cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
+    })
 }
 
 async fn batch_setup_verify_main_chain_block<C, Tx>(

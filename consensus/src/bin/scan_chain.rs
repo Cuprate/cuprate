@@ -1,38 +1,37 @@
 #![cfg(feature = "binaries")]
 
-use std::ops::Range;
-use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::{
+    io::Read,
+    ops::Range,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
 use cuprate_common::Network;
 
-use monero_consensus::rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig};
 use monero_consensus::{
     context::{ContextConfig, UpdateBlockchainCacheRequest},
-    initialize_verifier, Database, DatabaseRequest, DatabaseResponse, VerifiedBlockInformation,
-    VerifyBlockRequest,
+    initialize_verifier,
+    rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig},
+    transactions::VerifyTxRequest,
+    Database, DatabaseRequest, DatabaseResponse, HardFork, VerifiedBlockInformation,
+    VerifyBlockRequest, VerifyTxResponse,
 };
 
-const INITIAL_MAX_BLOCKS_IN_RANGE: u64 = 1000;
-const MAX_BLOCKS_IN_RANGE: u64 = 1000;
-const INITIAL_MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 250;
+const MAX_BLOCKS_IN_RANGE: u64 = 500;
+const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 250;
 
 /// Calls for a batch of blocks, returning the response and the time it took.
 async fn call_batch<D: Database>(
     range: Range<u64>,
     database: D,
-) -> Result<(DatabaseResponse, Duration), tower::BoxError> {
-    let now = std::time::Instant::now();
-    Ok((
-        database
-            .oneshot(DatabaseRequest::BlockBatchInRange(range))
-            .await?,
-        now.elapsed(),
-    ))
+) -> Result<DatabaseResponse, tower::BoxError> {
+    Ok(database
+        .oneshot(DatabaseRequest::BlockBatchInRange(range))
+        .await?)
 }
 
 async fn scan_chain<D>(
@@ -48,13 +47,13 @@ where
     tracing::info!("Beginning chain scan");
 
     // TODO: when we implement all rules use the RPCs chain height, for now we don't check v2 txs.
-    let chain_height = 1288616;
+    let chain_height = 1009827;
 
     tracing::info!("scanning to chain height: {}", chain_height);
 
     let config = ContextConfig::main_net();
 
-    let (mut block_verifier, _, mut context_updater) =
+    let (mut block_verifier, mut transaction_verifier, mut context_updater) =
         initialize_verifier(database.clone(), config).await?;
 
     let batch_size = rpc_config.read().unwrap().block_batch_size();
@@ -75,6 +74,7 @@ where
     let mut next_batch_start_height = start_height + batch_size;
 
     while next_batch_start_height < chain_height {
+        // TODO: utilize dynamic batch sizes
         let next_batch_size = rpc_config.read().unwrap().block_batch_size();
 
         // Call the next batch while we handle this batch.
@@ -87,7 +87,7 @@ where
             )),
         );
 
-        let (DatabaseResponse::BlockBatchInRange(blocks), _) = current_fut.await?? else {
+        let (DatabaseResponse::BlockBatchInRange(blocks)) = current_fut.await?? else {
             panic!("Database sent incorrect response!");
         };
 
@@ -97,19 +97,55 @@ where
             chain_height
         );
 
-        //  let block_len = blocks.len();
-        for (block, txs) in blocks {
+        let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
+
+        // This is an optimisation, we batch ALL the transactions together to get their outputs, saving a
+        // massive amount of time at the cost of inaccurate data, specifically the only thing that's inaccurate
+        // is the amount of outputs at a certain time and as this would be lower (so more strict) than the true value
+        // this will fail when this is an issue.
+        let mut txs_per_block = [0; (MAX_BLOCKS_IN_RANGE * 3) as usize];
+        let txs = txs
+            .into_iter()
+            .enumerate()
+            .flat_map(|(block_id, block_batch_txs)| {
+                // block id is just this blocks position in the batch.
+                txs_per_block[block_id] = block_batch_txs.len();
+                block_batch_txs
+            })
+            .collect();
+
+        let VerifyTxResponse::BatchSetupOk(txs) = transaction_verifier
+            .ready()
+            .await?
+            .call(VerifyTxRequest::BatchSetup {
+                txs,
+                // TODO: we need to get the haf from the context svc
+                hf: HardFork::V1,
+            })
+            .await?
+        else {
+            panic!("tx verifier returned incorrect response");
+        };
+
+        let mut done_txs = 0;
+        for (block_id, block) in blocks.into_iter().enumerate() {
+            // block id is just this blocks position in the batch.
+            let txs = &txs[done_txs..done_txs + txs_per_block[block_id]];
+            done_txs += txs_per_block[block_id];
+
             let verified_block_info: VerifiedBlockInformation = block_verifier
                 .ready()
                 .await?
-                .call(VerifyBlockRequest::MainChainBatchSetupVerify(block, txs))
+                .call(VerifyBlockRequest::MainChain(block, txs.into()))
                 .await?;
 
+            // add the new block to the cache
             cache.write().unwrap().add_new_block_data(
                 verified_block_info.generated_coins,
                 &verified_block_info.block.miner_tx,
                 &verified_block_info.txs,
             );
+            // update the chain context svc with the new block
             context_updater
                 .ready()
                 .await?
@@ -130,10 +166,12 @@ where
             current_height += 1;
             next_batch_start_height += 1;
 
-            if current_height % 500 == 0 {
+            if current_height % 25000 == 0 {
                 tracing::info!("Saving cache to: {}", save_file.display());
                 cache.read().unwrap().save(&save_file)?;
 
+                // Get the block header to check our information matches what it should be, we don't need
+                // to do this all the time
                 let DatabaseResponse::BlockExtendedHeader(header) = database
                     .ready()
                     .await?
@@ -163,6 +201,12 @@ where
 
 #[tokio::main]
 async fn main() {
+    // TODO: take this in as config options:
+    // - nodes to connect to
+    // - block batch size (not header)
+    // - network
+    // - tracing level
+
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::INFO)
         .init();
@@ -198,10 +242,7 @@ async fn main() {
         "http://145.239.97.211:18089".to_string(),
     ];
 
-    let rpc_config = RpcConfig::new(
-        INITIAL_MAX_BLOCKS_IN_RANGE,
-        INITIAL_MAX_BLOCKS_HEADERS_IN_RANGE,
-    );
+    let rpc_config = RpcConfig::new(MAX_BLOCKS_IN_RANGE, MAX_BLOCKS_HEADERS_IN_RANGE);
     let rpc_config = Arc::new(RwLock::new(rpc_config));
 
     let cache = match ScanningCache::load(&file_for_cache) {

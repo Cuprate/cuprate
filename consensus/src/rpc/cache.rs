@@ -1,17 +1,14 @@
-use std::collections::HashSet;
-use std::io::Read;
-use std::path::Path;
 use std::{
     collections::HashMap,
+    collections::HashSet,
     fmt::{Display, Formatter},
+    path::Path,
     sync::Arc,
 };
 
 use bincode::{Decode, Encode};
 use monero_serai::transaction::{Input, Timelock, Transaction};
 use tracing_subscriber::fmt::MakeWriter;
-
-use cuprate_common::Network;
 
 use crate::transactions::TransactionVerificationData;
 

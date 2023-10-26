@@ -74,6 +74,8 @@ pub enum VerifyTxRequest {
         time_for_time_lock: u64,
         hf: HardFork,
     },
+    /// Batches the setup of [`TransactionVerificationData`].
+    BatchSetup { txs: Vec<Transaction>, hf: HardFork },
     /// Batches the setup of [`TransactionVerificationData`] and verifies the transactions
     /// in the context of a block.
     BatchSetupVerifyBlock {
@@ -135,6 +137,14 @@ where
                 hf,
             )
             .boxed(),
+            VerifyTxRequest::BatchSetup {
+                txs,
+                hf
+            } => batch_setup_transactions(
+                database,
+                txs, 
+                hf
+            ).boxed(),
             VerifyTxRequest::BatchSetupVerifyBlock {
                 txs,
                 current_chain_height,
@@ -177,6 +187,28 @@ where
     ring::batch_fill_ring_member_info(&txs_needing_ring_members, hf, database).await?;
 
     Ok(())
+}
+
+async fn batch_setup_transactions<D>(
+    database: D,
+    txs: Vec<Transaction>,
+    hf: HardFork,
+) -> Result<VerifyTxResponse, ConsensusError>
+    where
+        D: Database + Clone + Sync + Send + 'static,
+{
+    // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
+    let txs = tokio::task::spawn_blocking(|| {
+        txs.into_par_iter()
+            .map(|tx| Ok(Arc::new(TransactionVerificationData::new(tx)?)))
+            .collect::<Result<Vec<_>, ConsensusError>>()
+    })
+        .await
+        .unwrap()?;
+
+    set_missing_ring_members(database, &txs, &hf).await?;
+
+    Ok(VerifyTxResponse::BatchSetupOk(txs))
 }
 
 async fn batch_setup_verify_transactions_for_block<D>(
