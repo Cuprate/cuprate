@@ -1,0 +1,45 @@
+# This [clippys, tests, builds] on [windows, macos, linux]
+
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  # Show full panics.
+  RUST_BACKTRACE: "full"
+  # Increase thread stack size to 8 megabytes.
+  RUST_MIN_STACK: 8000000
+
+jobs:
+  ci:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-2019, macos-11, ubuntu-20.04]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Cache
+      uses: actions/cache@v3
+      with:
+        path: target
+        key: ${{ matrix.os }}
+
+    - name: Clippy
+      run: cargo clippy
+
+    - name: Test
+      run: cargo test
+
+    - name: Build
+      run: cargo build
