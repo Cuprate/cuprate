@@ -6,6 +6,7 @@ use std::{
     pin::Pin,
     sync::{Arc, Mutex, RwLock},
     task::{Context, Poll},
+    time::Duration,
 };
 
 use curve25519_dalek::edwards::CompressedEdwardsY;
@@ -89,8 +90,8 @@ pub fn init_rpc_load_balancer(
     let (rpc_discoverer_tx, rpc_discoverer_rx) = futures::channel::mpsc::channel(30);
 
     let rpc_balance = Balance::new(rpc_discoverer_rx.map(Result::<_, tower::BoxError>::Ok));
-    //  let timeout = tower::timeout::Timeout::new(rpc_balance, Duration::from_secs(120));
-    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(rpc_balance), 30);
+    let timeout = tower::timeout::Timeout::new(rpc_balance, Duration::from_secs(1200));
+    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(timeout), 30);
     let rpcs = tower::retry::Retry::new(Attempts(10), rpc_buffer);
 
     let discover = discover::RPCDiscover {
