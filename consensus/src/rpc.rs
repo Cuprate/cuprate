@@ -95,7 +95,6 @@ pub fn init_rpc_load_balancer(
     let rpcs = tower::retry::Retry::new(Attempts(10), rpc_buffer);
 
     let discover = discover::RPCDiscover {
-        rpc: rpcs.clone(),
         initial_list: addresses,
         ok_channel: rpc_discoverer_tx,
         already_connected: Default::default(),
@@ -413,7 +412,7 @@ async fn get_outputs<R: RpcConnection>(
     struct OutputRes {
         height: u64,
         key: [u8; 32],
-        mask: [u8; 32],
+        //    mask: [u8; 32],
         txid: [u8; 32],
     }
 
@@ -463,10 +462,13 @@ async fn get_outputs<R: RpcConnection>(
                     .unwrap()
                     .decompress()
                     .unwrap(),
+                /*
                 mask: CompressedEdwardsY::from_slice(&out.mask)
                     .unwrap()
                     .decompress()
                     .unwrap(),
+
+                 */
             },
         );
     }
@@ -498,7 +500,7 @@ async fn get_blocks_in_range<R: RpcConnection>(
         )
         .await?;
 
-    let blocks: Response = monero_epee_bin_serde::from_bytes(&res)?;
+    let blocks: Response = monero_epee_bin_serde::from_bytes(res)?;
 
     Ok(DatabaseResponse::BlockBatchInRange(
         blocks

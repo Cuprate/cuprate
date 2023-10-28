@@ -117,7 +117,7 @@ fn insert_ring_member_ids(
                 ..
             } => output_ids
                 .entry(amount.unwrap_or(0))
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .extend(get_absolute_offsets(key_offsets)?),
             // https://cuprate.github.io/monero-book/consensus_rules/transactions.html#input-type
             _ => {
@@ -132,11 +132,12 @@ fn insert_ring_member_ids(
 
 /// Represents the ring members of all the inputs.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Rings {
     /// Legacy, pre-ringCT, rings.
     Legacy(Vec<Vec<EdwardsPoint>>),
-    /// TODO:
-    RingCT,
+    // TODO:
+    //  RingCT,
 }
 
 impl Rings {

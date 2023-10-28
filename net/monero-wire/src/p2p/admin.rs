@@ -101,7 +101,7 @@ mod tests {
             186, 15, 178, 70, 173, 170, 187, 31, 70, 50, 227, 11, 116, 111, 112, 95, 118, 101, 114,
             115, 105, 111, 110, 8, 1,
         ];
-        let handshake: HandshakeRequest = monero_epee_bin_serde::from_bytes(&bytes).unwrap();
+        let handshake: HandshakeRequest = monero_epee_bin_serde::from_bytes(bytes).unwrap();
         let basic_node_data = BasicNodeData {
             my_port: 0,
             network_id: [
@@ -130,7 +130,7 @@ mod tests {
 
         let encoded_bytes = monero_epee_bin_serde::to_bytes(&handshake).unwrap();
         let handshake_2: HandshakeRequest =
-            monero_epee_bin_serde::from_bytes(&encoded_bytes).unwrap();
+            monero_epee_bin_serde::from_bytes(encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);
     }
@@ -906,7 +906,7 @@ mod tests {
             181, 216, 193, 135, 23, 186, 168, 207, 119, 86, 235, 11, 116, 111, 112, 95, 118, 101,
             114, 115, 105, 111, 110, 8, 16,
         ];
-        let handshake: HandshakeResponse = monero_epee_bin_serde::from_bytes(&bytes).unwrap();
+        let handshake: HandshakeResponse = monero_epee_bin_serde::from_bytes(bytes).unwrap();
 
         let basic_node_data = BasicNodeData {
             my_port: 18080,
@@ -937,7 +937,7 @@ mod tests {
 
         let encoded_bytes = monero_epee_bin_serde::to_bytes(&handshake).unwrap();
         let handshake_2: HandshakeResponse =
-            monero_epee_bin_serde::from_bytes(&encoded_bytes).unwrap();
+            monero_epee_bin_serde::from_bytes(encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);
     }

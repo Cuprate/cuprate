@@ -57,3 +57,8 @@ dirs = {version="5.0", optional = true}
 # here to help cargo to pick a version - remove me
 syn = "2.0.37"
 
+
+[dev-dependencies]
+tokio = {version = "1", features = ["rt-multi-thread", "macros"]}
+proptest = "1"
+proptest-derive = "0.4.0"

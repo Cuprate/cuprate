@@ -1,13 +1,7 @@
-use std::sync::{Arc, OnceLock};
-
 use crypto_bigint::{CheckedMul, U256};
-use futures::stream::{FuturesOrdered, StreamExt};
-use monero_serai::{
-    block::Block,
-    transaction::{Timelock, Transaction},
-};
+use monero_serai::block::Block;
 
-use crate::{helper::current_time, ConsensusError, Database, HardFork};
+use crate::{helper::current_time, ConsensusError};
 
 const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;
 const BLOCK_FUTURE_TIME_LIMIT: u64 = 60 * 60 * 2;

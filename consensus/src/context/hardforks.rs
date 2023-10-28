@@ -11,6 +11,9 @@ use tracing::instrument;
 
 use crate::{ConsensusError, Database, DatabaseRequest, DatabaseResponse};
 
+#[cfg(test)]
+mod tests;
+
 // https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
 const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a week
 const BLOCK_TIME_V1: Duration = Duration::from_secs(60);
@@ -25,14 +28,14 @@ pub struct HFInfo {
     threshold: u64,
 }
 impl HFInfo {
-    pub fn new(height: u64, threshold: u64) -> HFInfo {
+    pub const fn new(height: u64, threshold: u64) -> HFInfo {
         HFInfo { height, threshold }
     }
 
     /// Returns the main-net hard-fork information.
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/hardforks.html#Mainnet-Hard-Forks
-    pub fn main_net() -> [HFInfo; NUMB_OF_HARD_FORKS] {
+    pub const fn main_net() -> [HFInfo; NUMB_OF_HARD_FORKS] {
         [
             HFInfo::new(0, 0),
             HFInfo::new(1009827, 0),
@@ -69,7 +72,7 @@ impl HardForkConfig {
         self.forks[*hf as usize - 1]
     }
 
-    pub fn main_net() -> HardForkConfig {
+    pub const fn main_net() -> HardForkConfig {
         Self {
             forks: HFInfo::main_net(),
             window: DEFAULT_WINDOW_SIZE,
@@ -79,6 +82,7 @@ impl HardForkConfig {
 
 /// An identifier for every hard-fork Monero has had.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[repr(u8)]
 pub enum HardFork {
     V1 = 1,

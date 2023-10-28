@@ -102,7 +102,6 @@ where
                 VerifyBlockRequest::MainChain(block, txs) => {
                     verify_main_chain_block(block, txs, context_svc, tx_verifier_svc).await
                 }
-                _ => todo!(),
             }
         }
         .boxed()

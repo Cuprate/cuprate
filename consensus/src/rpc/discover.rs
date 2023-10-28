@@ -15,7 +15,6 @@ use tower::{discover::Change, load::PeakEwma};
 use tracing::instrument;
 
 use super::{cache::ScanningCache, Rpc};
-use crate::Database;
 
 #[instrument(skip(cache))]
 async fn check_rpc(addr: String, cache: Arc<RwLock<ScanningCache>>) -> Option<Rpc<HttpRpc>> {
@@ -32,15 +31,14 @@ async fn check_rpc(addr: String, cache: Arc<RwLock<ScanningCache>>) -> Option<Rp
     Some(Rpc::new_http(addr, cache))
 }
 
-pub(crate) struct RPCDiscover<T> {
-    pub rpc: T,
+pub(crate) struct RPCDiscover {
     pub initial_list: Vec<String>,
     pub ok_channel: mpsc::Sender<Change<usize, PeakEwma<Rpc<HttpRpc>>>>,
     pub already_connected: HashSet<String>,
     pub cache: Arc<RwLock<ScanningCache>>,
 }
 
-impl<T: Database> RPCDiscover<T> {
+impl RPCDiscover {
     async fn found_rpc(&mut self, rpc: Rpc<HttpRpc>) -> Result<(), SendError> {
         //if self.already_connected.contains(&rpc.addr) {
         //    return Ok(());

@@ -21,8 +21,8 @@ use tower::{Service, ServiceExt};
 use crate::{helper::current_time, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
 
 pub mod difficulty;
-mod hardforks;
-mod weight;
+pub mod hardforks;
+pub mod weight;
 
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::{HardFork, HardForkConfig};
@@ -280,7 +280,7 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
@@ -299,13 +299,9 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
                 already_generated_coins,
             } = internal_blockchain_context_lock.deref_mut();
 
-            difficulty_cache
-                .new_block(new.height, new.timestamp, new.cumulative_difficulty)
-                .await?;
+            difficulty_cache.new_block(new.height, new.timestamp, new.cumulative_difficulty);
 
-            weight_cache
-                .new_block(new.height, new.weight, new.long_term_weight)
-                .await?;
+            weight_cache.new_block(new.height, new.weight, new.long_term_weight);
 
             hardfork_state.new_block(new.vote, new.height).await?;
 

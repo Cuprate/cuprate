@@ -7,6 +7,9 @@ use crate::{
     helper::median, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
 };
 
+#[cfg(test)]
+mod tests;
+
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
 /// The proportion of blocks we remove from the [`DIFFICULTY_WINDOW`]. When the window
@@ -27,7 +30,7 @@ pub struct DifficultyCacheConfig {
 }
 
 impl DifficultyCacheConfig {
-    pub fn new(window: usize, cut: usize, lag: usize) -> DifficultyCacheConfig {
+    pub const fn new(window: usize, cut: usize, lag: usize) -> DifficultyCacheConfig {
         DifficultyCacheConfig { window, cut, lag }
     }
 
@@ -100,28 +103,23 @@ impl DifficultyCache {
         let (timestamps, cumulative_difficulties) =
             get_blocks_in_pow_info(database.clone(), block_start..chain_height).await?;
 
-        let mut diff = DifficultyCache {
+        tracing::info!(
+            "Current chain height: {}, accounting for {} blocks timestamps",
+            chain_height,
+            timestamps.len()
+        );
+
+        let diff = DifficultyCache {
             timestamps,
             cumulative_difficulties,
             last_accounted_height: chain_height - 1,
             config,
         };
 
-        tracing::info!(
-            "Current chain height: {}, accounting for {} blocks timestamps",
-            chain_height,
-            diff.timestamps.len()
-        );
-
         Ok(diff)
     }
 
-    pub async fn new_block(
-        &mut self,
-        height: u64,
-        timestamp: u64,
-        cumulative_difficulty: u128,
-    ) -> Result<(), ConsensusError> {
+    pub fn new_block(&mut self, height: u64, timestamp: u64, cumulative_difficulty: u128) {
         assert_eq!(self.last_accounted_height + 1, height);
         self.last_accounted_height += 1;
 
@@ -132,8 +130,6 @@ impl DifficultyCache {
             self.timestamps.pop_front();
             self.cumulative_difficulties.pop_front();
         }
-
-        Ok(())
     }
 
     /// Returns the required difficulty for the next block.
@@ -145,13 +141,16 @@ impl DifficultyCache {
         }
 
         let mut sorted_timestamps = self.timestamps.clone();
-        if sorted_timestamps.len() > DIFFICULTY_WINDOW {
-            sorted_timestamps.drain(DIFFICULTY_WINDOW..);
+        if sorted_timestamps.len() > self.config.window {
+            sorted_timestamps.drain(self.config.window..);
         };
         sorted_timestamps.make_contiguous().sort_unstable();
 
-        let (window_start, window_end) =
-            get_window_start_and_end(sorted_timestamps.len(), self.config.accounted_window_len());
+        let (window_start, window_end) = get_window_start_and_end(
+            sorted_timestamps.len(),
+            self.config.accounted_window_len(),
+            self.config.window,
+        );
 
         let mut time_span =
             u128::from(sorted_timestamps[window_end - 1] - sorted_timestamps[window_start]);
@@ -163,6 +162,7 @@ impl DifficultyCache {
             time_span = 1;
         }
 
+        // TODO: do checked operations here and unwrap so we don't silently overflow?
         (windowed_work * hf.block_time().as_secs() as u128 + time_span - 1) / time_span
     }
 
@@ -203,9 +203,15 @@ impl DifficultyCache {
     }
 }
 
-fn get_window_start_and_end(window_len: usize, accounted_window: usize) -> (usize, usize) {
-    let window_len = if window_len > DIFFICULTY_WINDOW {
-        DIFFICULTY_WINDOW
+fn get_window_start_and_end(
+    window_len: usize,
+    accounted_window: usize,
+    window: usize,
+) -> (usize, usize) {
+    debug_assert!(window > accounted_window);
+
+    let window_len = if window_len > window {
+        window
     } else {
         window_len
     };

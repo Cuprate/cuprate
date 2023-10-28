@@ -9,23 +9,21 @@ use crate::NetworkAddress;
 pub(crate) struct TaggedNetworkAddress {
     #[serde(rename = "type")]
     ty: u8,
-    #[serde(flatten)]
-    addr: RawNetworkAddress,
+    addr: AllFieldsNetworkAddress,
 }
 
 #[derive(Error, Debug)]
-#[error("Invalid network address tag")]
-pub(crate) struct InvalidNetworkAddressTag;
+#[error("Invalid network address")]
+pub(crate) struct InvalidNetworkAddress;
 
 impl TryFrom<TaggedNetworkAddress> for NetworkAddress {
-    type Error = InvalidNetworkAddressTag;
+    type Error = InvalidNetworkAddress;
 
     fn try_from(value: TaggedNetworkAddress) -> Result<Self, Self::Error> {
-        Ok(match (value.ty, value.addr) {
-            (1, RawNetworkAddress::IPv4(addr)) => NetworkAddress::IPv4(addr),
-            (2, RawNetworkAddress::IPv6(addr)) => NetworkAddress::IPv6(addr),
-            _ => return Err(InvalidNetworkAddressTag),
-        })
+        value
+            .addr
+            .try_into_network_address(value.ty)
+            .ok_or(InvalidNetworkAddress)
     }
 }
 
@@ -34,59 +32,45 @@ impl From<NetworkAddress> for TaggedNetworkAddress {
         match value {
             NetworkAddress::IPv4(addr) => TaggedNetworkAddress {
                 ty: 1,
-                addr: RawNetworkAddress::IPv4(addr),
+                addr: AllFieldsNetworkAddress {
+                    m_ip: Some(u32::from_be_bytes(addr.ip().octets())),
+                    m_port: Some(addr.port()),
+                    ..Default::default()
+                },
             },
             NetworkAddress::IPv6(addr) => TaggedNetworkAddress {
                 ty: 2,
-                addr: RawNetworkAddress::IPv6(addr),
+                addr: AllFieldsNetworkAddress {
+                    addr: Some(addr.ip().octets()),
+                    m_port: Some(addr.port()),
+                    ..Default::default()
+                },
             },
         }
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(untagged)]
-pub(crate) enum RawNetworkAddress {
-    /// IPv4
-    IPv4(#[serde(with = "SocketAddrV4Def")] SocketAddrV4),
-    /// IPv6
-    IPv6(#[serde(with = "SocketAddrV6Def")] SocketAddrV6),
+#[derive(Serialize, Deserialize, Default)]
+struct AllFieldsNetworkAddress {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    m_ip: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    m_port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    addr: Option<[u8; 16]>,
 }
 
-#[derive(Deserialize, Serialize)]
-#[serde(remote = "SocketAddrV4")]
-pub(crate) struct SocketAddrV4Def {
-    #[serde(getter = "get_ip_v4")]
-    m_ip: u32,
-    #[serde(getter = "SocketAddrV4::port")]
-    m_port: u16,
-}
-
-fn get_ip_v4(addr: &SocketAddrV4) -> u32 {
-    u32::from_be_bytes(addr.ip().octets())
-}
-
-impl From<SocketAddrV4Def> for SocketAddrV4 {
-    fn from(def: SocketAddrV4Def) -> SocketAddrV4 {
-        SocketAddrV4::new(Ipv4Addr::from(def.m_ip), def.m_port)
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-#[serde(remote = "SocketAddrV6")]
-pub(crate) struct SocketAddrV6Def {
-    #[serde(getter = "get_ip_v6")]
-    addr: [u8; 16],
-    #[serde(getter = "SocketAddrV6::port")]
-    m_port: u16,
-}
-
-fn get_ip_v6(addr: &SocketAddrV6) -> [u8; 16] {
-    addr.ip().octets()
-}
-
-impl From<SocketAddrV6Def> for SocketAddrV6 {
-    fn from(def: SocketAddrV6Def) -> SocketAddrV6 {
-        SocketAddrV6::new(Ipv6Addr::from(def.addr), def.m_port, 0, 0)
+impl AllFieldsNetworkAddress {
+    fn try_into_network_address(self, ty: u8) -> Option<NetworkAddress> {
+        Some(match ty {
+            1 => NetworkAddress::IPv4(SocketAddrV4::new(Ipv4Addr::from(self.m_ip?), self.m_port?)),
+            2 => NetworkAddress::IPv6(SocketAddrV6::new(
+                Ipv6Addr::from(self.addr?),
+                self.m_port?,
+                0,
+                0,
+            )),
+            _ => return None,
+        })
     }
 }

@@ -1,27 +1,9 @@
 use std::{
-    io::{Cursor, Error, ErrorKind},
     ops::{Add, Div, Mul, Sub},
     time::{SystemTime, UNIX_EPOCH},
 };
 
 use curve25519_dalek::edwards::CompressedEdwardsY;
-
-/// Deserializes an object using the give `des` function, checking that all the bytes
-/// are consumed.
-pub(crate) fn size_check_decode<T>(
-    buf: &[u8],
-    des: impl Fn(&mut Cursor<&[u8]>) -> Result<T, Error>,
-) -> Result<T, Error> {
-    let mut cur = Cursor::new(buf);
-    let t = des(&mut cur)?;
-    if TryInto::<usize>::try_into(cur.position()).unwrap() != buf.len() {
-        return Err(Error::new(
-            ErrorKind::Other,
-            "Data not fully consumed while decoding!",
-        ));
-    }
-    Ok(t)
-}
 
 pub(crate) fn get_mid<T>(a: T, b: T) -> T
 where
@@ -33,6 +15,9 @@ where
     (a / two) + (b / two) + ((a - two * (a / two)) + (b - two * (b / two))) / two
 }
 
+/// Gets the median from a sorted slice.
+///
+/// If not sorted the output will be invalid.
 pub(crate) fn median<T>(array: &[T]) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Div<Output = T> + Mul<Output = T> + Copy + From<u8>,

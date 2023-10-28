@@ -137,14 +137,9 @@ where
                 hf,
             )
             .boxed(),
-            VerifyTxRequest::BatchSetup {
-                txs,
-                hf
-            } => batch_setup_transactions(
-                database,
-                txs, 
-                hf
-            ).boxed(),
+            VerifyTxRequest::BatchSetup { txs, hf } => {
+                batch_setup_transactions(database, txs, hf).boxed()
+            }
             VerifyTxRequest::BatchSetupVerifyBlock {
                 txs,
                 current_chain_height,
@@ -194,8 +189,8 @@ async fn batch_setup_transactions<D>(
     txs: Vec<Transaction>,
     hf: HardFork,
 ) -> Result<VerifyTxResponse, ConsensusError>
-    where
-        D: Database + Clone + Sync + Send + 'static,
+where
+    D: Database + Clone + Sync + Send + 'static,
 {
     // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
     let txs = tokio::task::spawn_blocking(|| {
@@ -203,8 +198,8 @@ async fn batch_setup_transactions<D>(
             .map(|tx| Ok(Arc::new(TransactionVerificationData::new(tx)?)))
             .collect::<Result<Vec<_>, ConsensusError>>()
     })
-        .await
-        .unwrap()?;
+    .await
+    .unwrap()?;
 
     set_missing_ring_members(database, &txs, &hf).await?;
 

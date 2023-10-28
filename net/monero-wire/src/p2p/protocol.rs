@@ -19,6 +19,7 @@
 //! admin messages.   
 
 use serde::{Deserialize, Serialize};
+use serde_bytes::ByteBuf;
 
 use super::common::BlockCompleteEntry;
 use crate::serde_helpers::*;
@@ -36,13 +37,13 @@ pub struct NewBlock {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NewTransactions {
     /// Tx Blobs
-    pub txs: Vec<Vec<u8>>,
+    pub txs: Vec<ByteBuf>,
     /// Dandelionpp true if fluff - backwards compatible mode is fluff
     #[serde(default = "default_true")]
     pub dandelionpp_fluff: bool,
     /// Padding
     #[serde(rename = "_")]
-    pub padding: Vec<u8>,
+    pub padding: ByteBuf,
 }
 
 /// A Request For Blocks
@@ -669,19 +670,13 @@ mod tests {
             248, 248, 91, 110, 107, 144, 12, 175, 253, 21, 121, 28,
         ];
 
-        let now = std::time::Instant::now();
-        for _ in 0..1000 {
-            let _new_transactions: NewTransactions = epee_encoding::from_bytes(&bytes).unwrap();
-        }
-        println!("in: {}ms", now.elapsed().as_millis());
-
-        let new_transactions: NewTransactions = epee_encoding::from_bytes(&bytes).unwrap();
+        let new_transactions: NewTransactions = monero_epee_bin_serde::from_bytes(bytes).unwrap();
 
         assert_eq!(4, new_transactions.txs.len());
 
-        let encoded_bytes = epee_encoding::to_bytes(&new_transactions).unwrap();
+        let encoded_bytes = monero_epee_bin_serde::to_bytes(&new_transactions).unwrap();
         let new_transactions_2: NewTransactions =
-            epee_encoding::from_bytes(&encoded_bytes).unwrap();
+            monero_epee_bin_serde::from_bytes(encoded_bytes).unwrap();
 
         assert_eq!(new_transactions, new_transactions_2);
     }
@@ -1027,10 +1022,11 @@ mod tests {
             101, 110, 116, 95, 98, 108, 111, 99, 107, 99, 104, 97, 105, 110, 95, 104, 101, 105,
             103, 104, 116, 5, 209, 45, 42, 0, 0, 0, 0, 0,
         ];
-        let fluffy_block: NewFluffyBlock = epee_encoding::from_bytes(&bytes).unwrap();
+        let fluffy_block: NewFluffyBlock = monero_epee_bin_serde::from_bytes(bytes).unwrap();
 
-        let encoded_bytes = epee_encoding::to_bytes(&fluffy_block).unwrap();
-        let fluffy_block_2: NewFluffyBlock = epee_encoding::from_bytes(&encoded_bytes).unwrap();
+        let encoded_bytes = monero_epee_bin_serde::to_bytes(&fluffy_block).unwrap();
+        let fluffy_block_2: NewFluffyBlock =
+            monero_epee_bin_serde::from_bytes(encoded_bytes).unwrap();
 
         assert_eq!(fluffy_block, fluffy_block_2);
     }

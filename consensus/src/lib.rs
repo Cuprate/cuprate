@@ -6,6 +6,8 @@ pub mod genesis;
 mod helper;
 #[cfg(feature = "binaries")]
 pub mod rpc;
+#[cfg(test)]
+mod test_utils;
 pub mod transactions;
 
 pub use block::{VerifiedBlockInformation, VerifyBlockRequest};
@@ -88,7 +90,7 @@ pub struct OutputOnChain {
     height: u64,
     time_lock: monero_serai::transaction::Timelock,
     key: curve25519_dalek::EdwardsPoint,
-    mask: curve25519_dalek::EdwardsPoint,
+    //mask: curve25519_dalek::EdwardsPoint,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -115,7 +117,7 @@ pub enum DatabaseRequest {
 
     Outputs(HashMap<u64, HashSet<u64>>),
     NumberOutputsWithAmount(u64),
-    
+
     CheckKIsNotSpent(HashSet<[u8; 32]>),
 
     #[cfg(feature = "binaries")]

@@ -21,18 +21,15 @@ use crate::{
     helper::median, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
 };
 
+#[cfg(test)]
+mod tests;
+
 const PENALTY_FREE_ZONE_1: usize = 20000;
 const PENALTY_FREE_ZONE_2: usize = 60000;
 const PENALTY_FREE_ZONE_5: usize = 300000;
 
 const SHORT_TERM_WINDOW: u64 = 100;
 const LONG_TERM_WINDOW: u64 = 100000;
-
-#[derive(Debug)]
-pub struct BlockWeightInfo {
-    pub block_weight: usize,
-    pub long_term_weight: usize,
-}
 
 /// Calculates the blocks weight.
 ///
@@ -66,7 +63,7 @@ pub struct BlockWeightsCacheConfig {
 }
 
 impl BlockWeightsCacheConfig {
-    pub fn new(short_term_window: u64, long_term_window: u64) -> BlockWeightsCacheConfig {
+    pub const fn new(short_term_window: u64, long_term_window: u64) -> BlockWeightsCacheConfig {
         BlockWeightsCacheConfig {
             short_term_window,
             long_term_window,
@@ -151,12 +148,7 @@ impl BlockWeightsCache {
     ///
     /// The block_height **MUST** be one more than the last height the cache has
     /// seen.
-    pub async fn new_block(
-        &mut self,
-        block_height: u64,
-        block_weight: usize,
-        long_term_weight: usize,
-    ) -> Result<(), ConsensusError> {
+    pub fn new_block(&mut self, block_height: u64, block_weight: usize, long_term_weight: usize) {
         assert_eq!(self.tip_height + 1, block_height);
         self.tip_height += 1;
         tracing::debug!(
@@ -177,8 +169,6 @@ impl BlockWeightsCache {
         {
             self.short_term_block_weights.pop_front();
         }
-
-        Ok(())
     }
 
     /// Returns the median long term weight over the last [`LONG_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
@@ -188,23 +178,22 @@ impl BlockWeightsCache {
         median(&sorted_long_term_weights)
     }
 
+    pub fn median_short_term_weight(&self) -> usize {
+        let mut sorted_short_term_block_weights: Vec<usize> =
+            self.short_term_block_weights.clone().into();
+        sorted_short_term_block_weights.sort_unstable();
+        median(&sorted_short_term_block_weights)
+    }
+
     /// Returns the effective median weight, used for block reward calculations and to calculate
     /// the block weight limit.
     ///
     /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#calculating-effective-median-weight
     pub fn effective_median_block_weight(&self, hf: &HardFork) -> usize {
-        let mut sorted_short_term_weights: Vec<usize> =
-            self.short_term_block_weights.clone().into();
-        sorted_short_term_weights.par_sort_unstable();
-
-        // TODO: this sometimes takes a while (>5s)
-        let mut sorted_long_term_weights: Vec<usize> = self.long_term_weights.clone().into();
-        sorted_long_term_weights.par_sort_unstable();
-
         calculate_effective_median_block_weight(
             hf,
-            &sorted_short_term_weights,
-            &sorted_long_term_weights,
+            self.median_short_term_weight(),
+            self.median_long_term_weight(),
         )
     }
 
@@ -213,10 +202,7 @@ impl BlockWeightsCache {
     /// https://cuprate.github.io/monero-book/consensus_rules/blocks/reward.html#calculating-block-reward
     pub fn median_for_block_reward(&self, hf: &HardFork) -> usize {
         if hf.in_range(&HardFork::V1, &HardFork::V12) {
-            let mut sorted_short_term_weights: Vec<usize> =
-                self.short_term_block_weights.clone().into();
-            sorted_short_term_weights.sort_unstable();
-            median(&sorted_short_term_weights)
+            self.median_short_term_weight()
         } else {
             self.effective_median_block_weight(hf)
         }
@@ -226,15 +212,15 @@ impl BlockWeightsCache {
 
 fn calculate_effective_median_block_weight(
     hf: &HardFork,
-    sorted_short_term_window: &[usize],
-    sorted_long_term_window: &[usize],
+    median_short_term_weight: usize,
+    median_long_term_weight: usize,
 ) -> usize {
     if hf.in_range(&HardFork::V1, &HardFork::V10) {
-        return median(sorted_short_term_window).max(penalty_free_zone(hf));
+        return median_short_term_weight.max(penalty_free_zone(hf));
     }
 
-    let long_term_median = median(sorted_long_term_window).max(PENALTY_FREE_ZONE_5);
-    let short_term_median = median(sorted_short_term_window);
+    let long_term_median = median_long_term_weight.max(PENALTY_FREE_ZONE_5);
+    let short_term_median = median_short_term_weight;
     let effective_median = if hf.in_range(&HardFork::V10, &HardFork::V15) {
         min(
             max(PENALTY_FREE_ZONE_5, short_term_median),

@@ -2,14 +2,13 @@
 
 use std::path::Path;
 use std::{
-    io::Read,
     ops::Range,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
 
 use monero_serai::{block::Block, transaction::Transaction};
-use tower::{Service, ServiceExt};
+use tower::ServiceExt;
 use tracing::level_filters::LevelFilter;
 
 use cuprate_common::Network;
@@ -23,7 +22,7 @@ use monero_consensus::{
     VerifiedBlockInformation, VerifyBlockRequest, VerifyTxResponse,
 };
 
-const MAX_BLOCKS_IN_RANGE: u64 = 500;
+const MAX_BLOCKS_IN_RANGE: u64 = 300;
 const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 250;
 
 /// Calls for a batch of blocks, returning the response and the time it took.
@@ -41,6 +40,15 @@ fn simple_get_hf(height: u64) -> HardFork {
         0..=1009826 => HardFork::V1,
         1009827..=1141316 => HardFork::V2,
         1141317..=1220515 => HardFork::V3,
+        _ => todo!("rules past v3"),
+    }
+}
+
+fn get_hf_height(hf: &HardFork) -> u64 {
+    match hf {
+        HardFork::V1 => 0,
+        HardFork::V2 => 1009827,
+        HardFork::V3 => 1141317,
         _ => todo!("rules past v3"),
     }
 }
@@ -81,6 +89,7 @@ where
 /// Batches all transactions together when getting outs
 ///
 /// TODO: reduce the amount of parameters of this function
+#[allow(clippy::too_many_arguments)]
 async fn batch_txs_verify_blocks<Tx, Blk, Ctx>(
     cache: &RwLock<ScanningCache>,
     save_file: &Path,
@@ -144,50 +153,7 @@ where
 
         update_cache_and_context(cache, context_updater, verified_block_info).await?;
 
-        if current_height + u64::try_from(block_id).unwrap() % 25000 == 0 {
-            tracing::info!("Saving cache to: {}", save_file.display());
-            cache.read().unwrap().save(save_file)?;
-        }
-    }
-
-    Ok(())
-}
-
-/// Batches only transactions per block together when getting outs
-///
-/// TODO: reduce the amount of parameters of this function
-async fn verify_blocks<Blk, Ctx>(
-    cache: &RwLock<ScanningCache>,
-    save_file: &Path,
-    txs: Vec<Vec<Transaction>>,
-    blocks: Vec<Block>,
-    block_verifier: &mut Blk,
-    context_updater: &mut Ctx,
-    current_height: u64,
-) -> Result<(), tower::BoxError>
-where
-    Blk: tower::Service<
-        VerifyBlockRequest,
-        Response = VerifiedBlockInformation,
-        Error = ConsensusError,
-    >,
-    Ctx: tower::Service<UpdateBlockchainCacheRequest, Response = (), Error = tower::BoxError>,
-{
-    for (block_id, (block, txs)) in blocks.into_iter().zip(txs.into_iter()).enumerate() {
-        let verified_block_info: VerifiedBlockInformation = block_verifier
-            .ready()
-            .await?
-            .call(VerifyBlockRequest::MainChainBatchSetupVerify(block, txs))
-            .await?;
-
-        tracing::info!(
-            "verified block: {}",
-            current_height + u64::try_from(block_id).unwrap()
-        );
-
-        update_cache_and_context(cache, context_updater, verified_block_info).await?;
-
-        if current_height + u64::try_from(block_id).unwrap() % 25000 == 0 {
+        if (current_height + u64::try_from(block_id).unwrap()) % 25000 == 0 {
             tracing::info!("Saving cache to: {}", save_file.display());
             cache.read().unwrap().save(save_file)?;
         }
@@ -200,7 +166,7 @@ async fn scan_chain<D>(
     cache: Arc<RwLock<ScanningCache>>,
     save_file: PathBuf,
     rpc_config: Arc<RwLock<RpcConfig>>,
-    mut database: D,
+    database: D,
 ) -> Result<(), tower::BoxError>
 where
     D: Database + Clone + Send + Sync + 'static,
@@ -259,7 +225,7 @@ where
             chain_height
         );
 
-        let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
+        let (mut blocks, mut txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
         let batch_len = u64::try_from(blocks.len()).unwrap();
 
         let hf_start_batch = simple_get_hf(current_height);
@@ -279,23 +245,46 @@ where
                 hf_start_batch,
             )
             .await?;
+            current_height += batch_len;
+            next_batch_start_height += batch_len;
         } else {
-            tracing::warn!(
-                "Hard fork during batch, getting outputs per block this will take a while!"
-            );
-            verify_blocks(
+            let end_hf_start = get_hf_height(&hf_end_batch);
+            let height_diff = (end_hf_start - current_height) as usize;
+
+            batch_txs_verify_blocks(
+                &cache,
+                &save_file,
+                txs.drain(0..height_diff).collect(),
+                blocks.drain(0..height_diff).collect(),
+                &mut transaction_verifier,
+                &mut block_verifier,
+                &mut context_updater,
+                current_height,
+                hf_start_batch,
+            )
+            .await?;
+
+            current_height += height_diff as u64;
+            next_batch_start_height += height_diff as u64;
+
+            tracing::info!("Hard fork activating: {:?}", hf_end_batch);
+
+            batch_txs_verify_blocks(
                 &cache,
                 &save_file,
                 txs,
                 blocks,
+                &mut transaction_verifier,
                 &mut block_verifier,
                 &mut context_updater,
                 current_height,
+                hf_end_batch,
             )
             .await?;
+
+            current_height += batch_len - height_diff as u64;
+            next_batch_start_height += batch_len - height_diff as u64;
         }
-        current_height += batch_len;
-        next_batch_start_height += batch_len;
     }
 
     Ok(())
