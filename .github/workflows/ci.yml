@@ -21,7 +21,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [windows-2019, macos-11, ubuntu-20.04]
+        os: [ubuntu-latest]
 
     steps:
     - name: Checkout
@@ -34,6 +34,9 @@ jobs:
       with:
         path: target
         key: ${{ matrix.os }}
+
+    - name: Install dependencies
+      run: sudo apt install -y libboost-dev
 
     - name: Clippy
       run: cargo clippy
