@@ -109,9 +109,29 @@ unlicensed = "deny"
 # See https://spdx.org/licenses/ for list of possible licenses
 # [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 allow = [
-    #"MIT",
-    #"Apache-2.0",
-    #"Apache-2.0 WITH LLVM-exception",
+	# Nothing required - free to use without permission.
+    "CC0-1.0",                        # https://creativecommons.org/publicdomain/zero/1.0/
+
+	# Must include copyright notice.
+    "BSD-2-Clause",                   # https://tldrlegal.com/license/bsd-2-clause-license-(freebsd)
+    "BSD-3-Clause",                   # https://tldrlegal.com/license/bsd-3-clause-license-(revised)
+    "ISC",                            # https://tldrlegal.com/license/isc-license
+    "MIT",                            # https://tldrlegal.com/license/mit-license
+
+	# Must include copyright notice/attribution/changes/etc
+    "Apache-2.0 WITH LLVM-exception", # https://spdx.org/licenses/LLVM-exception.html
+    "Apache-2.0",                     # https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)
+    "MPL-2.0",                        # https://www.mozilla.org/en-US/MPL/2.0/FAQ/
+    "BSL-1.0",                        # https://tldrlegal.com/license/boost-software-license-1.0-explained
+
+	# OpenSSL 3.0+ uses Apache-2.0
+	# OpenSSL 1.x.x uses https://www.openssl.org/source/license-openssl-ssleay.txt
+    "OpenSSL",                        # https://www.openssl.org/source/license.html
+
+	# Font licenses.
+    # "LicenseRef-UFL-1.0",             # https://tldrlegal.com/license/ubuntu-font-license,-1.0
+    # "OFL-1.1",                        # https://spdx.org/licenses/OFL-1.1.html
+    # "Unicode-DFS-2016",               # https://spdx.org/licenses/Unicode-DFS-2016.html
 ]
 # List of explicitly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
