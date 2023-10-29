@@ -1,0 +1,33 @@
+# This runs `cargo deny check` on all dependencies (only if Cargo deps changed)
+
+name: Deny
+
+on:
+  push:
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  audit:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Cache
+      uses: actions/cache@v3.2.3
+      with:
+        path: |
+          ~/.cargo
+          target
+        key: deny
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Install dependencies
+      run: cargo install cargo-deny
+    - name: Deny
+      run: cargo deny check

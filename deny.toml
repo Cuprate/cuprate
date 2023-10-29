@@ -110,28 +110,31 @@ unlicensed = "deny"
 # [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 allow = [
 	# Nothing required - free to use without permission.
-    "CC0-1.0",                        # https://creativecommons.org/publicdomain/zero/1.0/
+	"CC0-1.0",                        # https://creativecommons.org/publicdomain/zero/1.0/
 
 	# Must include copyright notice.
-    "BSD-2-Clause",                   # https://tldrlegal.com/license/bsd-2-clause-license-(freebsd)
-    "BSD-3-Clause",                   # https://tldrlegal.com/license/bsd-3-clause-license-(revised)
-    "ISC",                            # https://tldrlegal.com/license/isc-license
-    "MIT",                            # https://tldrlegal.com/license/mit-license
+	"BSD-2-Clause",                   # https://tldrlegal.com/license/bsd-2-clause-license-(freebsd)
+	"BSD-3-Clause",                   # https://tldrlegal.com/license/bsd-3-clause-license-(revised)
+	"ISC",                            # https://tldrlegal.com/license/isc-license
+	"MIT",                            # https://tldrlegal.com/license/mit-license
 
 	# Must include copyright notice/attribution/changes/etc
-    "Apache-2.0 WITH LLVM-exception", # https://spdx.org/licenses/LLVM-exception.html
-    "Apache-2.0",                     # https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)
-    "MPL-2.0",                        # https://www.mozilla.org/en-US/MPL/2.0/FAQ/
-    "BSL-1.0",                        # https://tldrlegal.com/license/boost-software-license-1.0-explained
+	"Apache-2.0 WITH LLVM-exception", # https://spdx.org/licenses/LLVM-exception.html
+	"Apache-2.0",                     # https://tldrlegal.com/license/apache-license-2.0-(apache-2.0)
+	"MPL-2.0",                        # https://www.mozilla.org/en-US/MPL/2.0/FAQ/
+	"BSL-1.0",                        # https://tldrlegal.com/license/boost-software-license-1.0-explained
 
 	# OpenSSL 3.0+ uses Apache-2.0
 	# OpenSSL 1.x.x uses https://www.openssl.org/source/license-openssl-ssleay.txt
-    "OpenSSL",                        # https://www.openssl.org/source/license.html
+	"OpenSSL",                        # https://www.openssl.org/source/license.html
+
+	# Copyleft.
+	# "AGPL-3.0",                     # https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0
 
 	# Font licenses.
-    # "LicenseRef-UFL-1.0",             # https://tldrlegal.com/license/ubuntu-font-license,-1.0
-    # "OFL-1.1",                        # https://spdx.org/licenses/OFL-1.1.html
-    # "Unicode-DFS-2016",               # https://spdx.org/licenses/Unicode-DFS-2016.html
+	"Unicode-DFS-2016",               # https://spdx.org/licenses/Unicode-DFS-2016.html
+	# "LicenseRef-UFL-1.0",           # https://tldrlegal.com/license/ubuntu-font-license,-1.0
+	# "OFL-1.1",                      # https://spdx.org/licenses/OFL-1.1.html
 ]
 # List of explicitly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
@@ -163,9 +166,12 @@ confidence-threshold = 0.8
 # Allow 1 or more licenses on a per-crate basis, so that particular licenses
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
-    # Each entry is the crate and version constraint, and its specific allow
-    # list
-    #{ allow = ["Zlib"], name = "adler32", version = "*" },
+	# Cuprate (AGPL-3.0)
+	{ allow = ["AGPL-3.0"], name = "cuprate-common", version = "*" }
+
+	# Each entry is the crate and version constraint, and its specific allow
+	# list
+	#{ allow = ["Zlib"], name = "adler32", version = "*" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,
