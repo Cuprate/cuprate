@@ -20,6 +20,13 @@
 # dependencies not shared by any other crates, would be ignored, as the target
 # list here is effectively saying which targets you are building for.
 targets = [
+	{ triple = "x86_64-apple-darwin" },
+	{ triple = "x86_64-pc-windows-gnu" },
+	{ triple = "x86_64-pc-windows-msvc" },
+	{ triple = "x86_64-unknown-linux-gnu" },
+	{ triple = "x86_64-unknown-linux-musl" },
+	{ triple = "aarch64-apple-darwin" },
+
     # The triple can be any string, but only the target triples built in to
     # rustc (as of 1.40) can be checked against actual config expressions
     #{ triple = "x86_64-unknown-linux-musl" },
