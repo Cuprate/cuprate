@@ -12,7 +12,7 @@ use tracing::instrument;
 use crate::{ConsensusError, Database, DatabaseRequest, DatabaseResponse};
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
 // https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
 const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a week
@@ -263,24 +263,6 @@ pub struct HardForkState {
 }
 
 impl HardForkState {
-    pub async fn init<D: Database + Clone>(
-        config: HardForkConfig,
-        mut database: D,
-    ) -> Result<Self, ConsensusError> {
-        let DatabaseResponse::ChainHeight(chain_height, _) = database
-            .ready()
-            .await?
-            .call(DatabaseRequest::ChainHeight)
-            .await?
-        else {
-            panic!("Database sent incorrect response")
-        };
-
-        let hfs = HardForkState::init_from_chain_height(chain_height, config, database).await?;
-
-        Ok(hfs)
-    }
-
     #[instrument(name = "init_hardfork_state", skip(config, database), level = "info")]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
@@ -336,7 +318,7 @@ impl HardForkState {
         Ok(hfs)
     }
 
-    pub async fn new_block(&mut self, vote: HardFork, height: u64) -> Result<(), ConsensusError> {
+    pub fn new_block(&mut self, vote: HardFork, height: u64) {
         assert_eq!(self.last_height + 1, height);
         self.last_height += 1;
 
@@ -353,7 +335,6 @@ impl HardForkState {
         }
 
         self.check_set_new_hf();
-        Ok(())
     }
 
     /// Checks if the next hard-fork should be activated and activates it if it should.

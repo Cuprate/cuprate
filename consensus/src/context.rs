@@ -16,13 +16,17 @@ use std::{
 
 use futures::FutureExt;
 use tokio::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 
 use crate::{helper::current_time, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
 
-pub mod difficulty;
-pub mod hardforks;
-pub mod weight;
+mod difficulty;
+mod hardforks;
+mod weight;
+
+#[cfg(test)]
+mod tests;
 
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::{HardFork, HardForkConfig};
@@ -31,9 +35,9 @@ pub use weight::BlockWeightsCacheConfig;
 const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
 
 pub struct ContextConfig {
-    hard_fork_cfg: HardForkConfig,
-    difficulty_cfg: DifficultyCacheConfig,
-    weights_config: BlockWeightsCacheConfig,
+    pub hard_fork_cfg: HardForkConfig,
+    pub difficulty_cfg: DifficultyCacheConfig,
+    pub weights_config: BlockWeightsCacheConfig,
 }
 
 impl ContextConfig {
@@ -114,6 +118,7 @@ where
     let context_svc = BlockChainContextService {
         internal_blockchain_context: Arc::new(
             InternalBlockChainContext {
+                current_validity_token: CancellationToken::new(),
                 difficulty_cache: difficulty_cache_handle.await.unwrap()?,
                 weight_cache: weight_cache_handle.await.unwrap()?,
                 hardfork_state: hardfork_state_handle.await.unwrap()?,
@@ -130,8 +135,10 @@ where
     Ok((context_svc_update.clone(), context_svc_update))
 }
 
+/// Raw blockchain context, gotten from [`BlockChainContext`]. This data may turn invalid so is not ok to keep
+/// around. You should keep around [`BlockChainContext`] instead.
 #[derive(Debug, Clone, Copy)]
-pub struct BlockChainContext {
+pub struct RawBlockChainContext {
     /// The next blocks difficulty.
     pub next_difficulty: u128,
     /// The current cumulative difficulty.
@@ -156,7 +163,7 @@ pub struct BlockChainContext {
     pub current_hard_fork: HardFork,
 }
 
-impl BlockChainContext {
+impl RawBlockChainContext {
     /// Returns the timestamp the should be used when checking locked outputs.
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
@@ -197,11 +204,44 @@ impl BlockChainContext {
     }
 }
 
+/// Blockchain context which keeps a token of validity so users will know when the data is no longer valid.
+#[derive(Debug, Clone)]
+pub struct BlockChainContext {
+    /// A token representing this data's validity.
+    validity_token: CancellationToken,
+    /// The actual block chain context.
+    raw: RawBlockChainContext,
+}
+
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("data is no longer valid")]
+pub struct DataNoLongerValid;
+
+impl BlockChainContext {
+    /// Checks if the data is still valid.
+    pub fn is_still_valid(&self) -> bool {
+        !self.validity_token.is_cancelled()
+    }
+
+    /// Checks if the data is valid returning an Err if not and a reference to the blockchain context if
+    /// it is.
+    pub fn blockchain_context(&self) -> Result<RawBlockChainContext, DataNoLongerValid> {
+        if !self.is_still_valid() {
+            return Err(DataNoLongerValid);
+        }
+        Ok(self.raw)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BlockChainContextRequest;
 
 #[derive(Clone)]
 struct InternalBlockChainContext {
+    /// A token used to invalidate previous contexts when a new
+    /// block is added to the chain.
+    current_validity_token: CancellationToken,
+
     difficulty_cache: difficulty::DifficultyCache,
     weight_cache: weight::BlockWeightsCache,
     hardfork_state: hardforks::HardForkState,
@@ -233,6 +273,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
             let internal_blockchain_context_lock = internal_blockchain_context.read().await;
 
             let InternalBlockChainContext {
+                current_validity_token,
                 difficulty_cache,
                 weight_cache,
                 hardfork_state,
@@ -244,18 +285,24 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
             let current_hf = hardfork_state.current_hardfork();
 
             Ok(BlockChainContext {
-                next_difficulty: difficulty_cache.next_difficulty(&current_hf),
-                cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
-                effective_median_weight: weight_cache.effective_median_block_weight(&current_hf),
-                median_long_term_weight: weight_cache.median_long_term_weight(),
-                median_weight_for_block_reward: weight_cache.median_for_block_reward(&current_hf),
-                already_generated_coins: *already_generated_coins,
-                top_block_timestamp: difficulty_cache.top_block_timestamp(),
-                median_block_timestamp: difficulty_cache
-                    .median_timestamp(usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap()),
-                chain_height: *chain_height,
-                top_hash: *top_block_hash,
-                current_hard_fork: current_hf,
+                validity_token: current_validity_token.child_token(),
+                raw: RawBlockChainContext {
+                    next_difficulty: difficulty_cache.next_difficulty(&current_hf),
+                    cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
+                    effective_median_weight: weight_cache
+                        .effective_median_block_weight(&current_hf),
+                    median_long_term_weight: weight_cache.median_long_term_weight(),
+                    median_weight_for_block_reward: weight_cache
+                        .median_for_block_reward(&current_hf),
+                    already_generated_coins: *already_generated_coins,
+                    top_block_timestamp: difficulty_cache.top_block_timestamp(),
+                    median_block_timestamp: difficulty_cache.median_timestamp(
+                        usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap(),
+                    ),
+                    chain_height: *chain_height,
+                    top_hash: *top_block_hash,
+                    current_hard_fork: current_hf,
+                },
             })
         }
         .boxed()
@@ -291,6 +338,7 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
             let mut internal_blockchain_context_lock = internal_blockchain_context.write().await;
 
             let InternalBlockChainContext {
+                current_validity_token,
                 difficulty_cache,
                 weight_cache,
                 hardfork_state,
@@ -299,11 +347,14 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
                 already_generated_coins,
             } = internal_blockchain_context_lock.deref_mut();
 
+            // Cancel the validity token and replace it with a new one.
+            std::mem::replace(current_validity_token, CancellationToken::new()).cancel();
+
             difficulty_cache.new_block(new.height, new.timestamp, new.cumulative_difficulty);
 
             weight_cache.new_block(new.height, new.weight, new.long_term_weight);
 
-            hardfork_state.new_block(new.vote, new.height).await?;
+            hardfork_state.new_block(new.vote, new.height);
 
             *chain_height = new.height + 1;
             *top_block_hash = new.new_top_hash;

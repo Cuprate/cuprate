@@ -26,7 +26,7 @@ const TEST_HFS: [HFInfo; NUMB_OF_HARD_FORKS] = [
     HFInfo::new(150, 0),
 ];
 
-const TEST_HARD_FORK_CONFIG: HardForkConfig = HardForkConfig {
+pub const TEST_HARD_FORK_CONFIG: HardForkConfig = HardForkConfig {
     window: TEST_WINDOW_SIZE,
     forks: TEST_HFS,
 };
@@ -62,9 +62,13 @@ async fn hard_fork_set_depends_on_top_block() {
         DummyBlockExtendedHeader::default().with_hard_fork_info(HardFork::V14, HardFork::V16),
     );
 
-    let state = HardForkState::init(TEST_HARD_FORK_CONFIG, db_builder.finish())
-        .await
-        .unwrap();
+    let state = HardForkState::init_from_chain_height(
+        TEST_WINDOW_SIZE + 1,
+        TEST_HARD_FORK_CONFIG,
+        db_builder.finish(),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(state.current_hardfork, HardFork::V14);
 }

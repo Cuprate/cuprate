@@ -1,7 +1,7 @@
 use super::{BlockWeightsCache, BlockWeightsCacheConfig};
 use crate::test_utils::mock_db::*;
 
-const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig = BlockWeightsCacheConfig::new(100, 5000);
+pub const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig = BlockWeightsCacheConfig::new(100, 5000);
 
 #[tokio::test]
 async fn blocks_out_of_window_not_counted() -> Result<(), tower::BoxError> {
@@ -11,7 +11,9 @@ async fn blocks_out_of_window_not_counted() -> Result<(), tower::BoxError> {
         db_builder.add_block(block);
     }
 
-    let mut weight_cache = BlockWeightsCache::init(TEST_WEIGHT_CONFIG, db_builder.finish()).await?;
+    let mut weight_cache =
+        BlockWeightsCache::init_from_chain_height(5000, TEST_WEIGHT_CONFIG, db_builder.finish())
+            .await?;
     assert_eq!(weight_cache.median_long_term_weight(), 2500);
     assert_eq!(weight_cache.median_short_term_weight(), 4950);
 
@@ -33,7 +35,9 @@ async fn weight_cache_calculates_correct_median() -> Result<(), tower::BoxError>
     let block = DummyBlockExtendedHeader::default().with_weight_into(0, 0);
     db_builder.add_block(block);
 
-    let mut weight_cache = BlockWeightsCache::init(TEST_WEIGHT_CONFIG, db_builder.finish()).await?;
+    let mut weight_cache =
+        BlockWeightsCache::init_from_chain_height(1, TEST_WEIGHT_CONFIG, db_builder.finish())
+            .await?;
 
     for height in 1..=100 {
         weight_cache.new_block(height as u64, height, height);

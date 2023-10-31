@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
@@ -69,22 +69,6 @@ pub struct DifficultyCache {
 }
 
 impl DifficultyCache {
-    pub async fn init<D: Database + Clone>(
-        config: DifficultyCacheConfig,
-        mut database: D,
-    ) -> Result<Self, ConsensusError> {
-        let DatabaseResponse::ChainHeight(chain_height, _) = database
-            .ready()
-            .await?
-            .call(DatabaseRequest::ChainHeight)
-            .await?
-        else {
-            panic!("Database sent incorrect response")
-        };
-
-        DifficultyCache::init_from_chain_height(chain_height, config, database).await
-    }
-
     #[instrument(name = "init_difficulty_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,

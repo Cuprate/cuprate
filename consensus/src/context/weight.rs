@@ -12,7 +12,6 @@ use std::{
     ops::Range,
 };
 
-use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
@@ -22,7 +21,7 @@ use crate::{
 };
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 
 const PENALTY_FREE_ZONE_1: usize = 20000;
 const PENALTY_FREE_ZONE_2: usize = 60000;
@@ -30,16 +29,6 @@ const PENALTY_FREE_ZONE_5: usize = 300000;
 
 const SHORT_TERM_WINDOW: u64 = 100;
 const LONG_TERM_WINDOW: u64 = 100000;
-
-/// Calculates the blocks weight.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#blocks-weight
-pub fn block_weight(block: &Block, txs: &[Transaction]) -> usize {
-    txs.iter()
-        .chain([&block.miner_tx])
-        .map(|tx| tx.weight())
-        .sum()
-}
 
 /// Returns the penalty free zone
 ///
@@ -94,23 +83,6 @@ pub struct BlockWeightsCache {
 }
 
 impl BlockWeightsCache {
-    /// Initialize the [`BlockWeightsCache`] at the the height of the database.
-    pub async fn init<D: Database + Clone>(
-        config: BlockWeightsCacheConfig,
-        mut database: D,
-    ) -> Result<Self, ConsensusError> {
-        let DatabaseResponse::ChainHeight(chain_height, _) = database
-            .ready()
-            .await?
-            .call(DatabaseRequest::ChainHeight)
-            .await?
-        else {
-            panic!("Database sent incorrect response!");
-        };
-
-        Self::init_from_chain_height(chain_height, config, database).await
-    }
-
     /// Initialize the [`BlockWeightsCache`] at the the given chain height.
     #[instrument(name = "init_weight_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(

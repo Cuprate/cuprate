@@ -1,4 +1,3 @@
-use futures::FutureExt;
 use std::{
     future::Future,
     pin::Pin,
@@ -6,20 +5,53 @@ use std::{
     task::{Context, Poll},
 };
 
-use cuprate_common::BlockID;
+use futures::FutureExt;
+use proptest::{
+    arbitrary::{any, any_with},
+    prop_compose,
+    sample::size_range,
+    strategy::Strategy,
+};
+use proptest_derive::Arbitrary;
 use tower::{BoxError, Service};
+
+use cuprate_common::BlockID;
 
 use crate::{DatabaseRequest, DatabaseResponse, ExtendedBlockHeader, HardFork};
 
-#[derive(Default, Debug, Clone, Copy)]
+prop_compose! {
+    /// Generates an arbitrary full [`DummyDatabase`], it is not safe to do consensus checks on the returned database
+    /// but is ok for testing certain parts of the code with.
+    pub fn arb_dummy_database(height: usize)
+                   (
+                       mut blocks in any_with::<Vec<DummyBlockExtendedHeader>>(size_range(height).lift())
+                   ) -> DummyDatabase {
+        let mut builder = DummyDatabaseBuilder::default();
+
+        blocks.sort_by(|a, b| a.cumulative_difficulty.cmp(&b.cumulative_difficulty));
+
+        for block in blocks {
+            builder.add_block(block);
+        }
+        builder.finish()
+    }
+}
+
+#[derive(Default, Debug, Clone, Copy, Arbitrary)]
 pub struct DummyBlockExtendedHeader {
+    #[proptest(strategy = "any::<HardFork>().prop_map(Some)")]
     pub version: Option<HardFork>,
+    #[proptest(strategy = "any::<HardFork>().prop_map(Some)")]
     pub vote: Option<HardFork>,
 
+    #[proptest(strategy = "any::<u64>().prop_map(Some)")]
     pub timestamp: Option<u64>,
+    #[proptest(strategy = "any::<u128>().prop_map(|x| Some(x % u128::from(u64::MAX)))")]
     pub cumulative_difficulty: Option<u128>,
 
+    #[proptest(strategy = "any::<usize>().prop_map(|x| Some(x % 100_000_000))")]
     pub block_weight: Option<usize>,
+    #[proptest(strategy = "any::<usize>().prop_map(|x| Some(x % 100_000_000))")]
     pub long_term_weight: Option<usize>,
 }
 
@@ -85,7 +117,7 @@ impl DummyDatabaseBuilder {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DummyDatabase {
     blocks: Arc<RwLock<Vec<DummyBlockExtendedHeader>>>,
 }

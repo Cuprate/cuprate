@@ -122,10 +122,13 @@ where
     Tx: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
 {
     tracing::debug!("getting blockchain context");
-    let context = context_svc
+    let checked_context = context_svc
         .oneshot(BlockChainContextRequest)
         .await
         .map_err(Into::<ConsensusError>::into)?;
+
+    // TODO: should we unwrap here, we did just get the data so it should be ok.
+    let context = checked_context.blockchain_context().unwrap();
 
     tracing::debug!("got blockchain context: {:?}", context);
 
@@ -208,10 +211,13 @@ where
     Tx: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
 {
     tracing::debug!("getting blockchain context");
-    let context = context_svc
+    let checked_context = context_svc
         .oneshot(BlockChainContextRequest)
         .await
         .map_err(Into::<ConsensusError>::into)?;
+
+    // TODO: should we unwrap here, we did just get the data so it should be ok.
+    let context = checked_context.blockchain_context().unwrap();
 
     tracing::debug!("got blockchain context: {:?}", context);
 

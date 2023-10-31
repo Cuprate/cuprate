@@ -11,7 +11,7 @@ const TEST_LAG: usize = 2;
 
 const TEST_TOTAL_ACCOUNTED_BLOCKS: usize = TEST_WINDOW + TEST_LAG;
 
-const TEST_DIFFICULTY_CONFIG: DifficultyCacheConfig =
+pub const TEST_DIFFICULTY_CONFIG: DifficultyCacheConfig =
     DifficultyCacheConfig::new(TEST_WINDOW, TEST_CUT, TEST_LAG);
 
 #[tokio::test]
@@ -21,7 +21,8 @@ async fn first_3_blocks_fixed_difficulty() -> Result<(), tower::BoxError> {
     db_builder.add_block(genesis);
 
     let mut difficulty_cache =
-        DifficultyCache::init(TEST_DIFFICULTY_CONFIG, db_builder.finish()).await?;
+        DifficultyCache::init_from_chain_height(1, TEST_DIFFICULTY_CONFIG, db_builder.finish())
+            .await?;
 
     for height in 1..3 {
         assert_eq!(difficulty_cache.next_difficulty(&HardFork::V1), 1);
@@ -35,7 +36,9 @@ async fn genesis_block_skipped() -> Result<(), tower::BoxError> {
     let mut db_builder = DummyDatabaseBuilder::default();
     let genesis = DummyBlockExtendedHeader::default().with_difficulty_info(0, 1);
     db_builder.add_block(genesis);
-    let diff_cache = DifficultyCache::init(TEST_DIFFICULTY_CONFIG, db_builder.finish()).await?;
+    let diff_cache =
+        DifficultyCache::init_from_chain_height(1, TEST_DIFFICULTY_CONFIG, db_builder.finish())
+            .await?;
     assert!(diff_cache.cumulative_difficulties.is_empty());
     assert!(diff_cache.timestamps.is_empty());
     Ok(())

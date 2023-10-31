@@ -45,6 +45,7 @@ cryptonight-cuprate = {path = "../cryptonight"}
 
 rayon = "1"
 tokio = "1"
+tokio-util = "0.7"
 
 # used in binaries
 monero-wire = {path="../net/monero-wire", optional = true}
