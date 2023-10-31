@@ -2,16 +2,34 @@
 resolver = "2"
 
 members = [
-        "common",
-        "consensus",
-        "cryptonight",
-	#"cuprate",
-    #    "database",
-        "net/levin",
-        "net/monero-wire",
-     #   "p2p",
-      #  "p2p/sync-states"
+	"common",
+	"consensus",
+	"cryptonight",
+	# "cuprate",
+	# "database",
+	"net/levin",
+	"net/monero-wire",
+	# "p2p",
+	# "p2p/sync-states"
 ]
+
+[profile.release]
+lto           = true   # Build with LTO
+strip         = "none" # Keep panic stack traces
+codegen-units = 1      # Optimize for binary speed over compile times
+opt-level     = 3
+
+[profile.dev]
+lto           = false
+strip         = "none"
+# Not much slower compile times than opt-level 0, but much faster code.
+opt-level     = 1
+
+[profile.dev.package."*"]
+# Compile dependencies with max optimization.
+# This is obviously slower on a cold build,
+# but you only build these once.
+opt-level = 3
 
 [workspace.dependencies]
 async-trait           = { version = "0.1" }
