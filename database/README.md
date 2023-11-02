@@ -1,9 +1,7 @@
 # Database
 This is the main design document and implementation of the database used by Cuprate.
 
-The source is located at the repository root in `database/`.
-
-The code within `database/` is also littered with comments. Some `grep`-able keywords:
+The code within `database/src` is also littered with comments. Some `grep`-able keywords:
 
 | Word        | Meaning |
 |-------------|---------|
