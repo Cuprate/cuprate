@@ -1,4 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    future::Future,
+    sync::Arc,
+};
 
 pub mod block;
 pub mod context;
@@ -11,12 +15,17 @@ mod test_utils;
 pub mod transactions;
 
 pub use block::{VerifiedBlockInformation, VerifyBlockRequest};
-pub use context::{ContextConfig, HardFork, UpdateBlockchainCacheRequest};
+pub use context::{
+    initialize_blockchain_context, BlockChainContext, BlockChainContextRequest, ContextConfig,
+    HardFork, UpdateBlockchainCacheRequest,
+};
 pub use transactions::{VerifyTxRequest, VerifyTxResponse};
 
-pub async fn initialize_verifier<D>(
+// TODO: instead of (ab)using generic returns return the acc type
+pub async fn initialize_verifier<D, TxP, Ctx>(
     database: D,
-    cfg: ContextConfig,
+    tx_pool: TxP,
+    ctx_svc: Ctx,
 ) -> Result<
     (
         impl tower::Service<
@@ -24,20 +33,39 @@ pub async fn initialize_verifier<D>(
             Response = VerifiedBlockInformation,
             Error = ConsensusError,
         >,
-        impl tower::Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
-        impl tower::Service<UpdateBlockchainCacheRequest, Response = (), Error = tower::BoxError>,
+        impl tower::Service<
+                VerifyTxRequest,
+                Response = VerifyTxResponse,
+                Error = ConsensusError,
+                Future = impl Future<Output = Result<VerifyTxResponse, ConsensusError>> + Send + 'static,
+            > + Clone
+            + Send
+            + 'static,
     ),
     ConsensusError,
 >
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
+    TxP: tower::Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+    TxP::Future: Send + 'static,
+    Ctx: tower::Service<
+            BlockChainContextRequest,
+            Response = BlockChainContext,
+            Error = tower::BoxError,
+        > + Clone
+        + Send
+        + Sync
+        + 'static,
+    Ctx::Future: Send + 'static,
 {
-    let (context_svc, context_svc_updater) =
-        context::initialize_blockchain_context(cfg, database.clone()).await?;
     let tx_svc = transactions::TxVerifierService::new(database);
-    let block_svc = block::BlockVerifierService::new(context_svc.clone(), tx_svc.clone());
-    Ok((block_svc, tx_svc, context_svc_updater))
+    let block_svc = block::BlockVerifierService::new(ctx_svc, tx_svc.clone(), tx_pool);
+    Ok((block_svc, tx_svc))
 }
 
 // TODO: split this enum up.
@@ -71,6 +99,8 @@ pub enum ConsensusError {
     InvalidHardForkVersion(&'static str),
     #[error("The block has a different previous hash than expected")]
     BlockIsNotApartOfChain,
+    #[error("One or more transaction is not in the transaction pool")]
+    TxNotInPool(#[from] TxNotInPool),
     #[error("Database error: {0}")]
     Database(#[from] tower::BoxError),
 }
@@ -137,6 +167,7 @@ pub enum DatabaseResponse {
     Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
     NumberOutputsWithAmount(usize),
 
+    /// returns true if key images are spent
     CheckKIsNotSpent(bool),
 
     #[cfg(feature = "binaries")]
@@ -146,4 +177,16 @@ pub enum DatabaseResponse {
             Vec<monero_serai::transaction::Transaction>,
         )>,
     ),
+}
+
+#[derive(Debug, Copy, Clone, thiserror::Error)]
+#[error("The transaction requested was not in the transaction pool")]
+pub struct TxNotInPool;
+
+pub enum TxPoolRequest {
+    Transactions(Vec<[u8; 32]>),
+}
+
+pub enum TxPoolResponse {
+    Transactions(Vec<Arc<transactions::TransactionVerificationData>>),
 }

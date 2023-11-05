@@ -10,14 +10,16 @@ use std::{
 use futures::FutureExt;
 use monero_serai::transaction::Transaction;
 use rayon::prelude::*;
-use tower::Service;
+use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use crate::{ConsensusError, Database, HardFork};
+use crate::{
+    context::ReOrgToken, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
+};
 
+mod contextual_data;
 mod inputs;
 pub(crate) mod outputs;
-mod ring;
 mod sigs;
 mod time_lock;
 
@@ -49,7 +51,7 @@ pub struct TransactionVerificationData {
     pub tx_hash: [u8; 32],
     /// We put this behind a mutex as the information is not constant and is based of past outputs idxs
     /// which could change on re-orgs.
-    rings_member_info: std::sync::Mutex<Option<ring::TxRingMembersInfo>>,
+    rings_member_info: std::sync::Mutex<Option<contextual_data::TxRingMembersInfo>>,
 }
 
 impl TransactionVerificationData {
@@ -73,16 +75,14 @@ pub enum VerifyTxRequest {
         current_chain_height: u64,
         time_for_time_lock: u64,
         hf: HardFork,
+        re_org_token: ReOrgToken,
     },
-    /// Batches the setup of [`TransactionVerificationData`].
-    BatchSetup { txs: Vec<Transaction>, hf: HardFork },
-    /// Batches the setup of [`TransactionVerificationData`] and verifies the transactions
-    /// in the context of a block.
-    BatchSetupVerifyBlock {
+    /// Batches the setup of [`TransactionVerificationData`], does *minimal* verification, you need to call [`VerifyTxRequest::Block`]
+    /// with the returned data.
+    BatchSetup {
         txs: Vec<Transaction>,
-        current_chain_height: u64,
-        time_for_time_lock: u64,
         hf: HardFork,
+        re_org_token: ReOrgToken,
     },
 }
 
@@ -129,65 +129,30 @@ where
                 current_chain_height,
                 time_for_time_lock,
                 hf,
+                re_org_token,
             } => verify_transactions_for_block(
                 database,
                 txs,
                 current_chain_height,
                 time_for_time_lock,
                 hf,
+                re_org_token,
             )
             .boxed(),
-            VerifyTxRequest::BatchSetup { txs, hf } => {
-                batch_setup_transactions(database, txs, hf).boxed()
-            }
-            VerifyTxRequest::BatchSetupVerifyBlock {
+            VerifyTxRequest::BatchSetup {
                 txs,
-                current_chain_height,
-                time_for_time_lock,
                 hf,
-            } => batch_setup_verify_transactions_for_block(
-                database,
-                txs,
-                current_chain_height,
-                time_for_time_lock,
-                hf,
-            )
-            .boxed(),
+                re_org_token,
+            } => batch_setup_transactions(database, txs, hf, re_org_token).boxed(),
         }
     }
-}
-
-async fn set_missing_ring_members<D>(
-    database: D,
-    txs: &[Arc<TransactionVerificationData>],
-    hf: &HardFork,
-) -> Result<(), ConsensusError>
-where
-    D: Database + Clone + Sync + Send + 'static,
-{
-    // TODO: handle re-orgs.
-
-    let txs_needing_ring_members = txs
-        .iter()
-        // Safety: we must not hold the mutex lock for long to not block the async runtime.
-        .filter(|tx| tx.rings_member_info.lock().unwrap().is_none())
-        .cloned()
-        .collect::<Vec<_>>();
-
-    tracing::debug!(
-        "Retrieving ring members for {} txs",
-        txs_needing_ring_members.len()
-    );
-
-    ring::batch_fill_ring_member_info(&txs_needing_ring_members, hf, database).await?;
-
-    Ok(())
 }
 
 async fn batch_setup_transactions<D>(
     database: D,
     txs: Vec<Transaction>,
     hf: HardFork,
+    re_org_token: ReOrgToken,
 ) -> Result<VerifyTxResponse, ConsensusError>
 where
     D: Database + Clone + Sync + Send + 'static,
@@ -201,38 +166,8 @@ where
     .await
     .unwrap()?;
 
-    set_missing_ring_members(database, &txs, &hf).await?;
+    contextual_data::batch_fill_ring_member_info(&txs, &hf, re_org_token, database).await?;
 
-    Ok(VerifyTxResponse::BatchSetupOk(txs))
-}
-
-async fn batch_setup_verify_transactions_for_block<D>(
-    database: D,
-    txs: Vec<Transaction>,
-    current_chain_height: u64,
-    time_for_time_lock: u64,
-    hf: HardFork,
-) -> Result<VerifyTxResponse, ConsensusError>
-where
-    D: Database + Clone + Sync + Send + 'static,
-{
-    // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
-    let txs = tokio::task::spawn_blocking(|| {
-        txs.into_par_iter()
-            .map(|tx| Ok(Arc::new(TransactionVerificationData::new(tx)?)))
-            .collect::<Result<Vec<_>, ConsensusError>>()
-    })
-    .await
-    .unwrap()?;
-
-    verify_transactions_for_block(
-        database,
-        txs.clone(),
-        current_chain_height,
-        time_for_time_lock,
-        hf,
-    )
-    .await?;
     Ok(VerifyTxResponse::BatchSetupOk(txs))
 }
 
@@ -243,16 +178,19 @@ async fn verify_transactions_for_block<D>(
     current_chain_height: u64,
     time_for_time_lock: u64,
     hf: HardFork,
+    re_org_token: ReOrgToken,
 ) -> Result<VerifyTxResponse, ConsensusError>
 where
     D: Database + Clone + Sync + Send + 'static,
 {
     tracing::debug!("Verifying transactions for block, amount: {}", txs.len());
 
-    set_missing_ring_members(database, &txs, &hf).await?;
+    contextual_data::batch_refresh_ring_member_info(&txs, &hf, re_org_token, database.clone())
+        .await?;
 
     let spent_kis = Arc::new(std::sync::Mutex::new(HashSet::new()));
 
+    let cloned_spent_kis = spent_kis.clone();
     tokio::task::spawn_blocking(move || {
         txs.par_iter().try_for_each(|tx| {
             verify_transaction_for_block(
@@ -260,12 +198,27 @@ where
                 current_chain_height,
                 time_for_time_lock,
                 hf,
-                spent_kis.clone(),
+                cloned_spent_kis.clone(),
             )
         })
     })
     .await
     .unwrap()?;
+
+    let DatabaseResponse::CheckKIsNotSpent(kis_spent) = database
+        .oneshot(DatabaseRequest::CheckKIsNotSpent(
+            Arc::into_inner(spent_kis).unwrap().into_inner().unwrap(),
+        ))
+        .await?
+    else {
+        panic!("Database sent incorrect response!");
+    };
+
+    if kis_spent {
+        return Err(ConsensusError::TransactionHasInvalidInput(
+            "One or more key image spent!",
+        ));
+    }
 
     Ok(VerifyTxResponse::Ok)
 }
@@ -329,7 +282,7 @@ fn verify_transaction_for_block(
 ///
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#version
 fn check_tx_version(
-    decoy_info: &Option<ring::DecoyInfo>,
+    decoy_info: &Option<contextual_data::DecoyInfo>,
     version: &TxVersion,
     hf: &HardFork,
 ) -> Result<(), ConsensusError> {

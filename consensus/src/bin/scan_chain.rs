@@ -1,28 +1,29 @@
 #![cfg(feature = "binaries")]
 
-use std::path::Path;
 use std::{
     ops::Range,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
 
-use monero_serai::{block::Block, transaction::Transaction};
-use tower::ServiceExt;
+use futures::{channel::mpsc, SinkExt, StreamExt};
+use monero_serai::block::Block;
+use tokio::sync::oneshot;
+use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
 use cuprate_common::Network;
 
 use monero_consensus::{
     context::{ContextConfig, UpdateBlockchainCacheRequest},
-    initialize_verifier,
+    initialize_blockchain_context, initialize_verifier,
     rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig},
-    transactions::VerifyTxRequest,
-    ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
-    VerifiedBlockInformation, VerifyBlockRequest, VerifyTxResponse,
+    Database, DatabaseRequest, DatabaseResponse, VerifiedBlockInformation, VerifyBlockRequest,
 };
 
-const MAX_BLOCKS_IN_RANGE: u64 = 300;
+mod tx_pool;
+
+const MAX_BLOCKS_IN_RANGE: u64 = 1000;
 const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 250;
 
 /// Calls for a batch of blocks, returning the response and the time it took.
@@ -33,24 +34,6 @@ async fn call_batch<D: Database>(
     database
         .oneshot(DatabaseRequest::BlockBatchInRange(range))
         .await
-}
-
-fn simple_get_hf(height: u64) -> HardFork {
-    match height {
-        0..=1009826 => HardFork::V1,
-        1009827..=1141316 => HardFork::V2,
-        1141317..=1220515 => HardFork::V3,
-        _ => todo!("rules past v3"),
-    }
-}
-
-fn get_hf_height(hf: &HardFork) -> u64 {
-    match hf {
-        HardFork::V1 => 0,
-        HardFork::V2 => 1009827,
-        HardFork::V3 => 1141317,
-        _ => todo!("rules past v3"),
-    }
 }
 
 async fn update_cache_and_context<Ctx>(
@@ -86,77 +69,54 @@ where
     Ok(())
 }
 
-/// Batches all transactions together when getting outs
-///
-/// TODO: reduce the amount of parameters of this function
-#[allow(clippy::too_many_arguments)]
-async fn batch_txs_verify_blocks<Tx, Blk, Ctx>(
-    cache: &RwLock<ScanningCache>,
-    save_file: &Path,
-    txs: Vec<Vec<Transaction>>,
-    blocks: Vec<Block>,
-    tx_verifier: &mut Tx,
-    block_verifier: &mut Blk,
-    context_updater: &mut Ctx,
-    current_height: u64,
-    hf: HardFork,
+async fn call_blocks<D>(
+    mut new_tx_chan: tx_pool::NewTxChanSen,
+    mut block_chan: mpsc::Sender<Vec<Block>>,
+    start_height: u64,
+    chain_height: u64,
+    database: D,
 ) -> Result<(), tower::BoxError>
 where
-    Blk: tower::Service<
-        VerifyBlockRequest,
-        Response = VerifiedBlockInformation,
-        Error = ConsensusError,
-    >,
-    Tx: tower::Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
-    Ctx: tower::Service<UpdateBlockchainCacheRequest, Response = (), Error = tower::BoxError>,
+    D: Database + Clone + Send + Sync + 'static,
+    D::Future: Send + 'static,
 {
-    // This is an optimisation, we batch ALL the transactions together to get their outputs, saving a
-    // massive amount of time at the cost of inaccurate data, specifically the only thing that's inaccurate
-    // is the amount of outputs at a certain time and as this would be lower (so more strict) than the true value
-    // this will fail when this is an issue.
-    let mut txs_per_block = [0; (MAX_BLOCKS_IN_RANGE * 3) as usize];
-    let txs = txs
-        .into_iter()
-        .enumerate()
-        .flat_map(|(block_id, block_batch_txs)| {
-            // block id is just this blocks position in the batch.
-            txs_per_block[block_id] = block_batch_txs.len();
-            block_batch_txs
-        })
-        .collect();
+    let mut next_fut = tokio::spawn(call_batch(
+        start_height..(start_height + MAX_BLOCKS_IN_RANGE).min(chain_height),
+        database.clone(),
+    ));
 
-    let VerifyTxResponse::BatchSetupOk(txs) = tx_verifier
-        .ready()
-        .await?
-        .call(VerifyTxRequest::BatchSetup { txs, hf })
-        .await?
-    else {
-        panic!("tx verifier returned incorrect response");
-    };
-
-    let mut done_txs = 0;
-    for (block_id, block) in blocks.into_iter().enumerate() {
-        // block id is just this blocks position in the batch.
-        let txs = &txs[done_txs..done_txs + txs_per_block[block_id]];
-        done_txs += txs_per_block[block_id];
-
-        let verified_block_info: VerifiedBlockInformation = block_verifier
-            .ready()
-            .await?
-            .call(VerifyBlockRequest::MainChain(block, txs.into()))
-            .await?;
-
-        tracing::info!(
-            "verified block: {}",
-            current_height + u64::try_from(block_id).unwrap()
+    for next_batch_start in (start_height..chain_height)
+        .step_by(MAX_BLOCKS_IN_RANGE as usize)
+        .skip(1)
+    {
+        // Call the next batch while we handle this batch.
+        let current_fut = std::mem::replace(
+            &mut next_fut,
+            tokio::spawn(call_batch(
+                next_batch_start..(next_batch_start + MAX_BLOCKS_IN_RANGE).min(chain_height),
+                database.clone(),
+            )),
         );
 
-        update_cache_and_context(cache, context_updater, verified_block_info).await?;
+        let DatabaseResponse::BlockBatchInRange(blocks) = current_fut.await?? else {
+            panic!("Database sent incorrect response!");
+        };
 
-        if (current_height + u64::try_from(block_id).unwrap()) % 25000 == 0 {
-            tracing::info!("Saving cache to: {}", save_file.display());
-            cache.read().unwrap().save(save_file)?;
-        }
+        tracing::info!(
+            "Handling batch: {:?}, chain height: {}",
+            (next_batch_start - MAX_BLOCKS_IN_RANGE)..(next_batch_start),
+            chain_height
+        );
+
+        let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
+
+        let (tx, rx) = oneshot::channel();
+        new_tx_chan
+            .send((txs.into_iter().flatten().collect(), tx))
+            .await?;
+        rx.await??;
+
+        block_chan.send(blocks).await?;
     }
 
     Ok(())
@@ -164,8 +124,8 @@ where
 
 async fn scan_chain<D>(
     cache: Arc<RwLock<ScanningCache>>,
-    save_file: PathBuf,
-    rpc_config: Arc<RwLock<RpcConfig>>,
+    _save_file: PathBuf,
+    _rpc_config: Arc<RwLock<RpcConfig>>,
     database: D,
 ) -> Result<(), tower::BoxError>
 where
@@ -181,109 +141,37 @@ where
 
     let config = ContextConfig::main_net();
 
-    let (mut block_verifier, mut transaction_verifier, mut context_updater) =
-        initialize_verifier(database.clone(), config).await?;
+    let (ctx_svc, mut context_updater) =
+        initialize_blockchain_context(config, database.clone()).await?;
 
-    let batch_size = rpc_config.read().unwrap().block_batch_size();
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    let (tx_pool_svc, new_tx_chan) = tx_pool::TxPool::spawn(rx, ctx_svc.clone()).await?;
+
+    let (mut block_verifier, transaction_verifier) =
+        initialize_verifier(database.clone(), tx_pool_svc, ctx_svc).await?;
+
+    tx.send(transaction_verifier).map_err(|_| "").unwrap();
+
     let start_height = cache.read().unwrap().height;
 
-    tracing::info!(
-        "Initialised verifier, beginning scan from {} to {}",
-        start_height,
-        chain_height
-    );
+    let (block_tx, mut incoming_blocks) = mpsc::channel(3);
 
-    let mut next_fut = tokio::spawn(call_batch(
-        start_height..(start_height + batch_size).min(chain_height),
-        database.clone(),
-    ));
+    tokio::spawn(async move {
+        call_blocks(new_tx_chan, block_tx, start_height, chain_height, database).await
+    });
 
-    let mut current_height = start_height;
-    let mut next_batch_start_height = start_height + batch_size;
+    while let Some(blocks) = incoming_blocks.next().await {
+        for block in blocks {
+            let verified_block_info = block_verifier
+                .ready()
+                .await?
+                .call(VerifyBlockRequest::MainChain(block))
+                .await?;
 
-    while next_batch_start_height < chain_height {
-        // TODO: utilize dynamic batch sizes
-        let next_batch_size = rpc_config.read().unwrap().block_batch_size();
+            tracing::info!("verified block: {}", verified_block_info.height);
 
-        // Call the next batch while we handle this batch.
-        let current_fut = std::mem::replace(
-            &mut next_fut,
-            tokio::spawn(call_batch(
-                next_batch_start_height
-                    ..(next_batch_start_height + next_batch_size).min(chain_height),
-                database.clone(),
-            )),
-        );
-
-        let DatabaseResponse::BlockBatchInRange(blocks) = current_fut.await?? else {
-            panic!("Database sent incorrect response!");
-        };
-
-        tracing::info!(
-            "Handling batch: {:?}, chain height: {}",
-            current_height..(current_height + blocks.len() as u64),
-            chain_height
-        );
-
-        let (mut blocks, mut txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
-        let batch_len = u64::try_from(blocks.len()).unwrap();
-
-        let hf_start_batch = simple_get_hf(current_height);
-        let hf_end_batch = simple_get_hf(current_height + batch_len);
-
-        if hf_start_batch == hf_end_batch {
-            // we can only batch transactions on the same hard fork
-            batch_txs_verify_blocks(
-                &cache,
-                &save_file,
-                txs,
-                blocks,
-                &mut transaction_verifier,
-                &mut block_verifier,
-                &mut context_updater,
-                current_height,
-                hf_start_batch,
-            )
-            .await?;
-            current_height += batch_len;
-            next_batch_start_height += batch_len;
-        } else {
-            let end_hf_start = get_hf_height(&hf_end_batch);
-            let height_diff = (end_hf_start - current_height) as usize;
-
-            batch_txs_verify_blocks(
-                &cache,
-                &save_file,
-                txs.drain(0..height_diff).collect(),
-                blocks.drain(0..height_diff).collect(),
-                &mut transaction_verifier,
-                &mut block_verifier,
-                &mut context_updater,
-                current_height,
-                hf_start_batch,
-            )
-            .await?;
-
-            current_height += height_diff as u64;
-            next_batch_start_height += height_diff as u64;
-
-            tracing::info!("Hard fork activating: {:?}", hf_end_batch);
-
-            batch_txs_verify_blocks(
-                &cache,
-                &save_file,
-                txs,
-                blocks,
-                &mut transaction_verifier,
-                &mut block_verifier,
-                &mut context_updater,
-                current_height,
-                hf_end_batch,
-            )
-            .await?;
-
-            current_height += batch_len - height_diff as u64;
-            next_batch_start_height += batch_len - height_diff as u64;
+            update_cache_and_context(&cache, &mut context_updater, verified_block_info).await?;
         }
     }
 

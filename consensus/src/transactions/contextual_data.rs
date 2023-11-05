@@ -1,4 +1,4 @@
-//! # Rings
+//! # Contextual Data
 //!
 //! This module contains [`TxRingMembersInfo`] which is a struct made up from blockchain information about the
 //! ring members of inputs. This module does minimal consensus checks, only when needed, and should not be relied
@@ -6,7 +6,12 @@
 //!
 //! The data collected by this module can be used to perform consensus checks.
 //!
+//! ## Why not use the context service?
+//!
+//! Because this data is unique for *every* transaction and the context service is just for blockchain state data.
+//!
 
+use std::ops::Deref;
 use std::{
     cmp::{max, min},
     collections::{HashMap, HashSet},
@@ -21,17 +26,102 @@ use monero_serai::{
 use tower::ServiceExt;
 
 use crate::{
-    transactions::TransactionVerificationData, ConsensusError, Database, DatabaseRequest,
-    DatabaseResponse, HardFork, OutputOnChain,
+    context::ReOrgToken, transactions::TransactionVerificationData, ConsensusError, Database,
+    DatabaseRequest, DatabaseResponse, HardFork, OutputOnChain,
 };
+
+pub async fn batch_refresh_ring_member_info<D: Database + Clone + Send + Sync + 'static>(
+    txs_verification_data: &[Arc<TransactionVerificationData>],
+    hf: &HardFork,
+    re_org_token: ReOrgToken,
+    database: D,
+) -> Result<(), ConsensusError> {
+    let (txs_needing_full_refresh, txs_needing_partial_refresh) =
+        ring_member_info_needing_refresh(txs_verification_data, hf);
+
+    batch_fill_ring_member_info(
+        &txs_needing_full_refresh,
+        hf,
+        re_org_token,
+        database.clone(),
+    )
+    .await?;
+
+    for tx_v_data in txs_needing_partial_refresh {
+        let decoy_info = if hf != &HardFork::V1 {
+            // this data is only needed after hard-fork 1.
+            Some(DecoyInfo::new(&tx_v_data.tx.prefix.inputs, hf, database.clone()).await?)
+        } else {
+            None
+        };
+
+        // Temporarily acquirer the mutex lock to add the ring member info.
+        tx_v_data
+            .rings_member_info
+            .lock()
+            .unwrap()
+            .as_mut()
+            // this unwrap is safe as otherwise this would require a full refresh not a partial one.
+            .unwrap()
+            .decoy_info = decoy_info;
+    }
+
+    Ok(())
+}
+
+/// This function returns the transaction verification datas that need refreshing.
+///
+/// The first returned vec needs a full refresh.
+/// The second returned vec only needs a partial refresh.
+///
+/// A full refresh is a refresh of all the ring members and the decoy info.
+/// A partial refresh is just a refresh of the decoy info.
+fn ring_member_info_needing_refresh(
+    txs_verification_data: &[Arc<TransactionVerificationData>],
+    hf: &HardFork,
+) -> (
+    Vec<Arc<TransactionVerificationData>>,
+    Vec<Arc<TransactionVerificationData>>,
+) {
+    let mut txs_needing_full_refresh = Vec::new();
+    let mut txs_needing_partial_refresh = Vec::new();
+
+    for tx in txs_verification_data {
+        let tx_ring_member_info = tx.rings_member_info.lock().unwrap();
+
+        // if we don't have ring members or if a re-org has happened or if we changed hf do a full refresh.
+        // doing a full refresh each hf isn't needed now but its so rare it makes sense to just do a full one.
+        if let Some(tx_ring_member_info) = tx_ring_member_info.deref() {
+            if tx_ring_member_info.re_org_token.reorg_happened() || &tx_ring_member_info.hf != hf {
+                txs_needing_full_refresh.push(tx.clone());
+                continue;
+            }
+        } else {
+            txs_needing_full_refresh.push(tx.clone());
+            continue;
+        }
+
+        // if any input does not have a 0 amount do a partial refresh, this is because some decoy info
+        // data is based on the amount of non-ringCT outputs at a certain point.
+        if tx.tx.prefix.inputs.iter().any(|inp| match inp {
+            Input::Gen(_) => false,
+            Input::ToKey { amount, .. } => amount.is_some(),
+        }) {
+            txs_needing_partial_refresh.push(tx.clone());
+        }
+    }
+
+    (txs_needing_full_refresh, txs_needing_partial_refresh)
+}
 
 /// Fills the `rings_member_info` field on the inputted [`TransactionVerificationData`].
 ///
 /// This function batch gets all the ring members for the inputted transactions and fills in data about
-/// them, like the youngest used out and the time locks.
+/// them.
 pub async fn batch_fill_ring_member_info<D: Database + Clone + Send + Sync + 'static>(
     txs_verification_data: &[Arc<TransactionVerificationData>],
     hf: &HardFork,
+    re_org_token: ReOrgToken,
     mut database: D,
 ) -> Result<(), ConsensusError> {
     let mut output_ids = HashMap::new();
@@ -54,6 +144,7 @@ pub async fn batch_fill_ring_member_info<D: Database + Clone + Send + Sync + 'st
             get_ring_members_for_inputs(&outputs, &tx_v_data.tx.prefix.inputs)?;
 
         let decoy_info = if hf != &HardFork::V1 {
+            // this data is only needed after hard-fork 1.
             Some(DecoyInfo::new(&tx_v_data.tx.prefix.inputs, hf, database.clone()).await?)
         } else {
             None
@@ -68,6 +159,8 @@ pub async fn batch_fill_ring_member_info<D: Database + Clone + Send + Sync + 'st
                 ring_members_for_tx,
                 decoy_info,
                 tx_v_data.tx.rct_signatures.rct_type(),
+                *hf,
+                re_org_token.clone(),
             ));
     }
 
@@ -163,6 +256,10 @@ pub struct TxRingMembersInfo {
     pub decoy_info: Option<DecoyInfo>,
     pub youngest_used_out_height: u64,
     pub time_locked_outs: Vec<Timelock>,
+    /// A token used to check if a re org has happened since getting this data.
+    re_org_token: ReOrgToken,
+    /// The hard-fork this data was retrived for.
+    hf: HardFork,
 }
 
 impl TxRingMembersInfo {
@@ -173,6 +270,8 @@ impl TxRingMembersInfo {
         used_outs: Vec<Vec<&OutputOnChain>>,
         decoy_info: Option<DecoyInfo>,
         rct_type: RctType,
+        hf: HardFork,
+        re_org_token: ReOrgToken,
     ) -> TxRingMembersInfo {
         TxRingMembersInfo {
             youngest_used_out_height: used_outs
@@ -200,7 +299,9 @@ impl TxRingMembersInfo {
                 })
                 .collect(),
             rings: Rings::new(used_outs, rct_type),
+            re_org_token,
             decoy_info,
+            hf,
         }
     }
 }
@@ -242,7 +343,13 @@ fn get_ring_members_for_inputs<'a>(
         .collect::<Result<_, ConsensusError>>()
 }
 
-/// A struct holding information about the inputs and their decoys.
+/// A struct holding information about the inputs and their decoys. This data can vary by block so
+/// this data needs to be retrieved after every change in the blockchain.
+///
+/// This data *does not* need to be refreshed if one of these are true:
+///
+///     - The input amounts are *ALL* 0
+///     - The top block hash is the same as when this data was retrieved.
 ///
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html
 #[derive(Debug)]
@@ -298,6 +405,7 @@ impl DecoyInfo {
                             mixable += 1;
                         }
                     } else {
+                        // ringCT amounts are always mixable.
                         mixable += 1;
                     }
 
@@ -331,13 +439,13 @@ impl DecoyInfo {
 ///
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#minimum-amount-of-decoys
 pub(crate) fn minimum_decoys(hf: &HardFork) -> usize {
-    use HardFork::*;
+    use HardFork as HF;
     match hf {
-        V1 => panic!("hard-fork 1 does not use these rules!"),
-        V2 | V3 | V4 | V5 => 2,
-        V6 => 4,
-        V7 => 6,
-        V8 | V9 | V10 | V11 | V12 | V13 | V14 => 10,
-        _ => 15,
+        HF::V1 => panic!("hard-fork 1 does not use these rules!"),
+        HF::V2 | HF::V3 | HF::V4 | HF::V5 => 2,
+        HF::V6 => 4,
+        HF::V7 => 6,
+        HF::V8 | HF::V9 | HF::V10 | HF::V11 | HF::V12 | HF::V13 | HF::V14 => 10,
+        HF::V15 | HF::V16 => 15,
     }
 }

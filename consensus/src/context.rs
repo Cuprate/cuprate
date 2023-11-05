@@ -16,7 +16,6 @@ use std::{
 
 use futures::FutureExt;
 use tokio::sync::RwLock;
-use tokio_util::sync::CancellationToken;
 use tower::{Service, ServiceExt};
 
 use crate::{helper::current_time, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
@@ -27,9 +26,11 @@ mod weight;
 
 #[cfg(test)]
 mod tests;
+mod tokens;
 
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::{HardFork, HardForkConfig};
+pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
 const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
@@ -118,7 +119,8 @@ where
     let context_svc = BlockChainContextService {
         internal_blockchain_context: Arc::new(
             InternalBlockChainContext {
-                current_validity_token: CancellationToken::new(),
+                current_validity_token: ValidityToken::new(),
+                current_reorg_token: ReOrgToken::new(),
                 difficulty_cache: difficulty_cache_handle.await.unwrap()?,
                 weight_cache: weight_cache_handle.await.unwrap()?,
                 hardfork_state: hardfork_state_handle.await.unwrap()?,
@@ -137,7 +139,7 @@ where
 
 /// Raw blockchain context, gotten from [`BlockChainContext`]. This data may turn invalid so is not ok to keep
 /// around. You should keep around [`BlockChainContext`] instead.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct RawBlockChainContext {
     /// The next blocks difficulty.
     pub next_difficulty: u128,
@@ -161,6 +163,8 @@ pub struct RawBlockChainContext {
     pub top_hash: [u8; 32],
     /// The current hard fork.
     pub current_hard_fork: HardFork,
+    /// A token which is used to signal if a reorg has happened since creating the token.
+    pub re_org_token: ReOrgToken,
 }
 
 impl RawBlockChainContext {
@@ -208,7 +212,7 @@ impl RawBlockChainContext {
 #[derive(Debug, Clone)]
 pub struct BlockChainContext {
     /// A token representing this data's validity.
-    validity_token: CancellationToken,
+    validity_token: ValidityToken,
     /// The actual block chain context.
     raw: RawBlockChainContext,
 }
@@ -220,16 +224,16 @@ pub struct DataNoLongerValid;
 impl BlockChainContext {
     /// Checks if the data is still valid.
     pub fn is_still_valid(&self) -> bool {
-        !self.validity_token.is_cancelled()
+        self.validity_token.is_data_valid()
     }
 
     /// Checks if the data is valid returning an Err if not and a reference to the blockchain context if
     /// it is.
-    pub fn blockchain_context(&self) -> Result<RawBlockChainContext, DataNoLongerValid> {
+    pub fn blockchain_context(&self) -> Result<&RawBlockChainContext, DataNoLongerValid> {
         if !self.is_still_valid() {
             return Err(DataNoLongerValid);
         }
-        Ok(self.raw)
+        Ok(&self.raw)
     }
 }
 
@@ -240,7 +244,9 @@ pub struct BlockChainContextRequest;
 struct InternalBlockChainContext {
     /// A token used to invalidate previous contexts when a new
     /// block is added to the chain.
-    current_validity_token: CancellationToken,
+    current_validity_token: ValidityToken,
+    /// A token which is used to signal a reorg has happened.
+    current_reorg_token: ReOrgToken,
 
     difficulty_cache: difficulty::DifficultyCache,
     weight_cache: weight::BlockWeightsCache,
@@ -274,6 +280,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
 
             let InternalBlockChainContext {
                 current_validity_token,
+                current_reorg_token,
                 difficulty_cache,
                 weight_cache,
                 hardfork_state,
@@ -285,7 +292,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
             let current_hf = hardfork_state.current_hardfork();
 
             Ok(BlockChainContext {
-                validity_token: current_validity_token.child_token(),
+                validity_token: current_validity_token.clone(),
                 raw: RawBlockChainContext {
                     next_difficulty: difficulty_cache.next_difficulty(&current_hf),
                     cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
@@ -302,6 +309,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                     chain_height: *chain_height,
                     top_hash: *top_block_hash,
                     current_hard_fork: current_hf,
+                    re_org_token: current_reorg_token.clone(),
                 },
             })
         }
@@ -339,6 +347,7 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
 
             let InternalBlockChainContext {
                 current_validity_token,
+                current_reorg_token: _,
                 difficulty_cache,
                 weight_cache,
                 hardfork_state,
@@ -348,7 +357,7 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
             } = internal_blockchain_context_lock.deref_mut();
 
             // Cancel the validity token and replace it with a new one.
-            std::mem::replace(current_validity_token, CancellationToken::new()).cancel();
+            std::mem::replace(current_validity_token, ValidityToken::new()).set_data_invalid();
 
             difficulty_cache.new_block(new.height, new.timestamp, new.cumulative_difficulty);
 

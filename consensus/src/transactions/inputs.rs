@@ -9,7 +9,7 @@ use monero_serai::transaction::Input;
 
 use crate::{
     transactions::{
-        ring::{minimum_decoys, DecoyInfo, TxRingMembersInfo},
+        contextual_data::{minimum_decoys, DecoyInfo, TxRingMembersInfo},
         TxVersion,
     },
     ConsensusError, HardFork,

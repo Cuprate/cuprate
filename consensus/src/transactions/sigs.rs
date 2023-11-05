@@ -1,6 +1,6 @@
 use monero_serai::transaction::Transaction;
 
-use crate::{transactions::ring::Rings, ConsensusError};
+use crate::{transactions::contextual_data::Rings, ConsensusError};
 
 mod ring_sigs;
 
