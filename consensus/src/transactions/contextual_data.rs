@@ -347,9 +347,8 @@ fn get_ring_members_for_inputs<'a>(
 /// this data needs to be retrieved after every change in the blockchain.
 ///
 /// This data *does not* need to be refreshed if one of these are true:
-///
-///     - The input amounts are *ALL* 0
-///     - The top block hash is the same as when this data was retrieved.
+/// - The input amounts are *ALL* 0
+/// - The top block hash is the same as when this data was retrieved.
 ///
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html
 #[derive(Debug)]
