@@ -17,7 +17,8 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use crate::{
-    helper::median, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
+    helper::{median, rayon_spawn_async},
+    ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
 };
 
 #[cfg(test)]
@@ -144,9 +145,16 @@ impl BlockWeightsCache {
     }
 
     /// Returns the median long term weight over the last [`LONG_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
-    pub fn median_long_term_weight(&self) -> usize {
+    pub async fn median_long_term_weight(&self) -> usize {
         let mut sorted_long_term_weights: Vec<usize> = self.long_term_weights.clone().into();
-        sorted_long_term_weights.par_sort_unstable();
+
+        // Move this out of the async runtime as this can take a bit.
+        let sorted_long_term_weights = rayon_spawn_async(|| {
+            sorted_long_term_weights.par_sort_unstable();
+            sorted_long_term_weights
+        })
+        .await;
+
         median(&sorted_long_term_weights)
     }
 
@@ -161,22 +169,22 @@ impl BlockWeightsCache {
     /// the block weight limit.
     ///
     /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#calculating-effective-median-weight
-    pub fn effective_median_block_weight(&self, hf: &HardFork) -> usize {
+    pub async fn effective_median_block_weight(&self, hf: &HardFork) -> usize {
         calculate_effective_median_block_weight(
             hf,
             self.median_short_term_weight(),
-            self.median_long_term_weight(),
+            self.median_long_term_weight().await,
         )
     }
 
     /// Returns the median weight used to calculate block reward punishment.
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/blocks/reward.html#calculating-block-reward
-    pub fn median_for_block_reward(&self, hf: &HardFork) -> usize {
+    pub async fn median_for_block_reward(&self, hf: &HardFork) -> usize {
         if hf.in_range(&HardFork::V1, &HardFork::V12) {
             self.median_short_term_weight()
         } else {
-            self.effective_median_block_weight(hf)
+            self.effective_median_block_weight(hf).await
         }
         .max(penalty_free_zone(hf))
     }

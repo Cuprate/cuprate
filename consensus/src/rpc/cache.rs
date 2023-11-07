@@ -82,8 +82,9 @@ impl ScanningCache {
         self.height += 1;
     }
 
+    /// Returns true if any kis are included in our spent set.
     pub fn are_kis_spent(&self, kis: HashSet<[u8; 32]>) -> bool {
-        self.kis.is_disjoint(&kis)
+        !self.kis.is_disjoint(&kis)
     }
 
     pub fn outputs_time_lock(&self, tx: &[u8; 32]) -> Timelock {

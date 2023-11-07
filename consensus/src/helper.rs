@@ -5,6 +5,19 @@ use std::{
 
 use curve25519_dalek::edwards::CompressedEdwardsY;
 
+/// Spawns a task for the rayon thread pool and awaits the result without blocking the async runtime.
+pub(crate) async fn rayon_spawn_async<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    rayon::spawn(|| {
+        let _ = tx.send(f());
+    });
+    rx.await.expect("The sender must not be dropped")
+}
+
 pub(crate) fn get_mid<T>(a: T, b: T) -> T
 where
     T: Add<Output = T> + Sub<Output = T> + Div<Output = T> + Mul<Output = T> + Copy + From<u8>,

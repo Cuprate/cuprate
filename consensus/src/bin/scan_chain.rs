@@ -124,7 +124,7 @@ where
 
 async fn scan_chain<D>(
     cache: Arc<RwLock<ScanningCache>>,
-    _save_file: PathBuf,
+    save_file: PathBuf,
     _rpc_config: Arc<RwLock<RpcConfig>>,
     database: D,
 ) -> Result<(), tower::BoxError>
@@ -170,6 +170,11 @@ where
                 .await?;
 
             tracing::info!("verified block: {}", verified_block_info.height);
+
+            if verified_block_info.height % 5000 == 0 {
+                tracing::info!("saving cache to: {}", save_file.display());
+                cache.write().unwrap().save(&save_file).unwrap();
+            }
 
             update_cache_and_context(&cache, &mut context_updater, verified_block_info).await?;
         }

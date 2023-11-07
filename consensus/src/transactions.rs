@@ -14,7 +14,8 @@ use tower::{Service, ServiceExt};
 use tracing::instrument;
 
 use crate::{
-    context::ReOrgToken, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
+    context::ReOrgToken, helper::rayon_spawn_async, ConsensusError, Database, DatabaseRequest,
+    DatabaseResponse, HardFork,
 };
 
 mod contextual_data;
@@ -158,13 +159,12 @@ where
     D: Database + Clone + Sync + Send + 'static,
 {
     // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
-    let txs = tokio::task::spawn_blocking(|| {
+    let txs = rayon_spawn_async(|| {
         txs.into_par_iter()
             .map(|tx| Ok(Arc::new(TransactionVerificationData::new(tx)?)))
             .collect::<Result<Vec<_>, ConsensusError>>()
     })
-    .await
-    .unwrap()?;
+    .await?;
 
     contextual_data::batch_fill_ring_member_info(&txs, &hf, re_org_token, database).await?;
 
@@ -191,7 +191,8 @@ where
     let spent_kis = Arc::new(std::sync::Mutex::new(HashSet::new()));
 
     let cloned_spent_kis = spent_kis.clone();
-    tokio::task::spawn_blocking(move || {
+
+    rayon_spawn_async(move || {
         txs.par_iter().try_for_each(|tx| {
             verify_transaction_for_block(
                 tx,
@@ -202,8 +203,7 @@ where
             )
         })
     })
-    .await
-    .unwrap()?;
+    .await?;
 
     let DatabaseResponse::CheckKIsNotSpent(kis_spent) = database
         .oneshot(DatabaseRequest::CheckKIsNotSpent(

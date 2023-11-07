@@ -25,7 +25,10 @@ use tracing::{instrument, Instrument};
 use cuprate_common::BlockID;
 use monero_wire::common::{BlockCompleteEntry, TransactionBlobs};
 
-use crate::{DatabaseRequest, DatabaseResponse, ExtendedBlockHeader, HardFork, OutputOnChain};
+use crate::{
+    helper::rayon_spawn_async, DatabaseRequest, DatabaseResponse, ExtendedBlockHeader, HardFork,
+    OutputOnChain,
+};
 
 pub mod cache;
 mod discover;
@@ -503,25 +506,30 @@ async fn get_blocks_in_range<R: RpcConnection>(
     let blocks: Response = monero_epee_bin_serde::from_bytes(res)?;
 
     Ok(DatabaseResponse::BlockBatchInRange(
-        blocks
-            .blocks
-            .into_par_iter()
-            .map(|b| {
-                Ok((
-                    monero_serai::block::Block::read(&mut b.block.as_slice())?,
-                    match b.txs {
-                        TransactionBlobs::Pruned(_) => return Err("node sent pruned txs!".into()),
-                        TransactionBlobs::Normal(txs) => txs
-                            .into_par_iter()
-                            .map(|tx| {
-                                monero_serai::transaction::Transaction::read(&mut tx.as_slice())
-                            })
-                            .collect::<Result<_, _>>()?,
-                        TransactionBlobs::None => vec![],
-                    },
-                ))
-            })
-            .collect::<Result<_, tower::BoxError>>()?,
+        rayon_spawn_async(|| {
+            blocks
+                .blocks
+                .into_par_iter()
+                .map(|b| {
+                    Ok((
+                        monero_serai::block::Block::read(&mut b.block.as_slice())?,
+                        match b.txs {
+                            TransactionBlobs::Pruned(_) => {
+                                return Err("node sent pruned txs!".into())
+                            }
+                            TransactionBlobs::Normal(txs) => txs
+                                .into_par_iter()
+                                .map(|tx| {
+                                    monero_serai::transaction::Transaction::read(&mut tx.as_slice())
+                                })
+                                .collect::<Result<_, _>>()?,
+                            TransactionBlobs::None => vec![],
+                        },
+                    ))
+                })
+                .collect::<Result<_, tower::BoxError>>()
+        })
+        .await?,
     ))
 }
 
@@ -556,21 +564,24 @@ async fn get_block_info_in_range<R: RpcConnection>(
     tracing::info!("Retrieved block headers in range: {:?}", range);
 
     Ok(DatabaseResponse::BlockExtendedHeaderInRange(
-        res.headers
-            .into_iter()
-            .map(|info| ExtendedBlockHeader {
-                version: HardFork::from_version(&info.major_version)
-                    .expect("previously checked block has incorrect version"),
-                vote: HardFork::from_vote(&info.minor_version),
-                timestamp: info.timestamp,
-                cumulative_difficulty: u128_from_low_high(
-                    info.cumulative_difficulty,
-                    info.cumulative_difficulty_top64,
-                ),
-                block_weight: info.block_weight,
-                long_term_weight: info.long_term_weight,
-            })
-            .collect(),
+        rayon_spawn_async(|| {
+            res.headers
+                .into_iter()
+                .map(|info| ExtendedBlockHeader {
+                    version: HardFork::from_version(&info.major_version)
+                        .expect("previously checked block has incorrect version"),
+                    vote: HardFork::from_vote(&info.minor_version),
+                    timestamp: info.timestamp,
+                    cumulative_difficulty: u128_from_low_high(
+                        info.cumulative_difficulty,
+                        info.cumulative_difficulty_top64,
+                    ),
+                    block_weight: info.block_weight,
+                    long_term_weight: info.long_term_weight,
+                })
+                .collect()
+        })
+        .await,
     ))
 }
 
