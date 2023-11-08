@@ -77,6 +77,14 @@ impl BlockWeightsCacheConfig {
 pub struct BlockWeightsCache {
     short_term_block_weights: VecDeque<usize>,
     long_term_weights: VecDeque<usize>,
+
+    /// The short term block weights sorted so we don't have to sort them every time we need
+    /// the median.
+    cached_sorted_long_term_weights: Vec<usize>,
+    /// The long term block weights sorted so we don't have to sort them every time we need
+    /// the median.
+    cached_sorted_short_term_weights: Vec<usize>,
+
     /// The height of the top block.
     tip_height: u64,
 
@@ -93,25 +101,37 @@ impl BlockWeightsCache {
     ) -> Result<Self, ConsensusError> {
         tracing::info!("Initializing weight cache this may take a while.");
 
-        let long_term_weights: VecDeque<usize> = get_long_term_weight_in_range(
+        let long_term_weights = get_long_term_weight_in_range(
             chain_height.saturating_sub(config.long_term_window)..chain_height,
             database.clone(),
         )
-        .await?
-        .into();
+        .await?;
 
-        let short_term_block_weights: VecDeque<usize> = get_blocks_weight_in_range(
+        let short_term_block_weights = get_blocks_weight_in_range(
             chain_height.saturating_sub(config.short_term_window)..chain_height,
             database,
         )
-        .await?
-        .into();
+        .await?;
 
         tracing::info!("Initialized block weight cache, chain-height: {:?}, long term weights length: {:?}, short term weights length: {:?}", chain_height, long_term_weights.len(), short_term_block_weights.len());
 
+        let mut cloned_short_term_weights = short_term_block_weights.clone();
+        let mut cloned_long_term_weights = long_term_weights.clone();
         Ok(BlockWeightsCache {
-            short_term_block_weights,
-            long_term_weights,
+            short_term_block_weights: short_term_block_weights.into(),
+            long_term_weights: long_term_weights.into(),
+
+            cached_sorted_long_term_weights: rayon_spawn_async(|| {
+                cloned_long_term_weights.par_sort_unstable();
+                cloned_long_term_weights
+            })
+            .await,
+            cached_sorted_short_term_weights: rayon_spawn_async(|| {
+                cloned_short_term_weights.par_sort_unstable();
+                cloned_short_term_weights
+            })
+            .await,
+
             tip_height: chain_height - 1,
             config,
         })
@@ -132,59 +152,88 @@ impl BlockWeightsCache {
         );
 
         self.long_term_weights.push_back(long_term_weight);
+        match self
+            .cached_sorted_long_term_weights
+            .binary_search(&long_term_weight)
+        {
+            Ok(idx) | Err(idx) => self
+                .cached_sorted_long_term_weights
+                .insert(idx, long_term_weight),
+        }
+
         if u64::try_from(self.long_term_weights.len()).unwrap() > self.config.long_term_window {
-            self.long_term_weights.pop_front();
+            let val = self
+                .long_term_weights
+                .pop_front()
+                .expect("long term window can't be negative");
+
+            match self.cached_sorted_long_term_weights.binary_search(&val) {
+                Ok(idx) | Err(idx) => self.cached_sorted_long_term_weights.remove(idx),
+            };
         }
 
         self.short_term_block_weights.push_back(block_weight);
+        match self
+            .cached_sorted_short_term_weights
+            .binary_search(&long_term_weight)
+        {
+            Ok(idx) | Err(idx) => self
+                .cached_sorted_short_term_weights
+                .insert(idx, long_term_weight),
+        }
+
         if u64::try_from(self.short_term_block_weights.len()).unwrap()
             > self.config.short_term_window
         {
-            self.short_term_block_weights.pop_front();
+            let val = self
+                .short_term_block_weights
+                .pop_front()
+                .expect("short term window can't be negative");
+
+            match self.cached_sorted_short_term_weights.binary_search(&val) {
+                Ok(idx) | Err(idx) => self.cached_sorted_short_term_weights.remove(idx),
+            };
         }
+
+        debug_assert_eq!(
+            self.cached_sorted_long_term_weights.len(),
+            self.long_term_weights.len()
+        );
+        debug_assert_eq!(
+            self.cached_sorted_short_term_weights.len(),
+            self.short_term_block_weights.len()
+        );
     }
 
     /// Returns the median long term weight over the last [`LONG_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
-    pub async fn median_long_term_weight(&self) -> usize {
-        let mut sorted_long_term_weights: Vec<usize> = self.long_term_weights.clone().into();
-
-        // Move this out of the async runtime as this can take a bit.
-        let sorted_long_term_weights = rayon_spawn_async(|| {
-            sorted_long_term_weights.par_sort_unstable();
-            sorted_long_term_weights
-        })
-        .await;
-
-        median(&sorted_long_term_weights)
+    pub fn median_long_term_weight(&self) -> usize {
+        median(&self.cached_sorted_long_term_weights)
     }
 
     pub fn median_short_term_weight(&self) -> usize {
-        let mut sorted_short_term_block_weights: Vec<usize> =
-            self.short_term_block_weights.clone().into();
-        sorted_short_term_block_weights.sort_unstable();
-        median(&sorted_short_term_block_weights)
+        median(&self.cached_sorted_short_term_weights)
     }
 
     /// Returns the effective median weight, used for block reward calculations and to calculate
     /// the block weight limit.
     ///
     /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#calculating-effective-median-weight
-    pub async fn effective_median_block_weight(&self, hf: &HardFork) -> usize {
+    pub fn effective_median_block_weight(&self, hf: &HardFork) -> usize {
         calculate_effective_median_block_weight(
             hf,
             self.median_short_term_weight(),
-            self.median_long_term_weight().await,
+            self.median_long_term_weight(),
         )
     }
 
     /// Returns the median weight used to calculate block reward punishment.
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/blocks/reward.html#calculating-block-reward
-    pub async fn median_for_block_reward(&self, hf: &HardFork) -> usize {
+    pub fn median_for_block_reward(&self, hf: &HardFork) -> usize {
         if hf.in_range(&HardFork::V1, &HardFork::V12) {
             self.median_short_term_weight()
         } else {
-            self.effective_median_block_weight(hf).await
+            self.effective_median_block_weight(hf)
         }
         .max(penalty_free_zone(hf))
     }

@@ -24,7 +24,7 @@ use monero_consensus::{
 mod tx_pool;
 
 const MAX_BLOCKS_IN_RANGE: u64 = 1000;
-const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 250;
+const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 500;
 
 /// Calls for a batch of blocks, returning the response and the time it took.
 async fn call_batch<D: Database>(
@@ -229,13 +229,14 @@ async fn main() {
     let rpc_config = RpcConfig::new(MAX_BLOCKS_IN_RANGE, MAX_BLOCKS_HEADERS_IN_RANGE);
     let rpc_config = Arc::new(RwLock::new(rpc_config));
 
+    tracing::info!("Attempting to open cache at: {}", file_for_cache.display());
     let cache = match ScanningCache::load(&file_for_cache) {
         Ok(cache) => {
             tracing::info!("Reloaded from cache, chain height: {}", cache.height);
             Arc::new(RwLock::new(cache))
         }
         Err(_) => {
-            tracing::info!("Couldn't load from cache starting from scratch");
+            tracing::warn!("Couldn't load from cache starting from scratch");
             let mut cache = ScanningCache::default();
             let genesis = monero_consensus::genesis::generate_genesis_block(&network);
 

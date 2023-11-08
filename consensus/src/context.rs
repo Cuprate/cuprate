@@ -297,12 +297,10 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                     next_difficulty: difficulty_cache.next_difficulty(&current_hf),
                     cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
                     effective_median_weight: weight_cache
-                        .effective_median_block_weight(&current_hf)
-                        .await,
-                    median_long_term_weight: weight_cache.median_long_term_weight().await,
+                        .effective_median_block_weight(&current_hf),
+                    median_long_term_weight: weight_cache.median_long_term_weight(),
                     median_weight_for_block_reward: weight_cache
-                        .median_for_block_reward(&current_hf)
-                        .await,
+                        .median_for_block_reward(&current_hf),
                     already_generated_coins: *already_generated_coins,
                     top_block_timestamp: difficulty_cache.top_block_timestamp(),
                     median_block_timestamp: difficulty_cache.median_timestamp(
