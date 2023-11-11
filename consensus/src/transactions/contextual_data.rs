@@ -19,16 +19,15 @@ use std::{
 };
 
 use curve25519_dalek::EdwardsPoint;
-use monero_serai::{
-    ringct::RctType,
-    transaction::{Input, Timelock},
-};
+use monero_serai::transaction::{Input, Timelock};
 use tower::ServiceExt;
 
 use crate::{
     context::ReOrgToken, transactions::TransactionVerificationData, ConsensusError, Database,
     DatabaseRequest, DatabaseResponse, HardFork, OutputOnChain,
 };
+
+use super::TxVersion;
 
 pub async fn batch_refresh_ring_member_info<D: Database + Clone + Send + Sync + 'static>(
     txs_verification_data: &[Arc<TransactionVerificationData>],
@@ -158,7 +157,7 @@ pub async fn batch_fill_ring_member_info<D: Database + Clone + Send + Sync + 'st
             .insert(TxRingMembersInfo::new(
                 ring_members_for_tx,
                 decoy_info,
-                tx_v_data.tx.rct_signatures.rct_type(),
+                tx_v_data.version,
                 *hf,
                 re_org_token.clone(),
             ));
@@ -229,21 +228,31 @@ fn insert_ring_member_ids(
 pub enum Rings {
     /// Legacy, pre-ringCT, rings.
     Legacy(Vec<Vec<EdwardsPoint>>),
-    // TODO:
-    //  RingCT,
+    // RingCT rings, (outkey, mask).
+    RingCT(Vec<Vec<[EdwardsPoint; 2]>>),
 }
 
 impl Rings {
     /// Builds the rings for the transaction inputs, from the given outputs.
-    fn new(outputs: Vec<Vec<&OutputOnChain>>, rct_type: RctType) -> Rings {
-        match rct_type {
-            RctType::Null => Rings::Legacy(
+    fn new(outputs: Vec<Vec<&OutputOnChain>>, tx_version: TxVersion) -> Rings {
+        match tx_version {
+            TxVersion::RingSignatures => Rings::Legacy(
                 outputs
                     .into_iter()
                     .map(|inp_outs| inp_outs.into_iter().map(|out| out.key).collect())
                     .collect(),
             ),
-            _ => todo!("RingCT"),
+            TxVersion::RingCT => Rings::RingCT(
+                outputs
+                    .into_iter()
+                    .map(|inp_outs| {
+                        inp_outs
+                            .into_iter()
+                            .map(|out| [out.key, out.mask])
+                            .collect()
+                    })
+                    .collect(),
+            ),
         }
     }
 }
@@ -269,7 +278,7 @@ impl TxRingMembersInfo {
     fn new(
         used_outs: Vec<Vec<&OutputOnChain>>,
         decoy_info: Option<DecoyInfo>,
-        rct_type: RctType,
+        tx_version: TxVersion,
         hf: HardFork,
         re_org_token: ReOrgToken,
     ) -> TxRingMembersInfo {
@@ -298,7 +307,7 @@ impl TxRingMembersInfo {
                         .collect::<Vec<_>>()
                 })
                 .collect(),
-            rings: Rings::new(used_outs, rct_type),
+            rings: Rings::new(used_outs, tx_version),
             re_org_token,
             decoy_info,
             hf,

@@ -93,8 +93,8 @@ pub fn init_rpc_load_balancer(
     let (rpc_discoverer_tx, rpc_discoverer_rx) = futures::channel::mpsc::channel(30);
 
     let rpc_balance = Balance::new(rpc_discoverer_rx.map(Result::<_, tower::BoxError>::Ok));
-    let timeout = tower::timeout::Timeout::new(rpc_balance, Duration::from_secs(1200));
-    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(timeout), 30);
+    let timeout = tower::timeout::Timeout::new(rpc_balance, Duration::from_secs(300));
+    let rpc_buffer = tower::buffer::Buffer::new(BoxService::new(timeout), 50);
     let rpcs = tower::retry::Retry::new(Attempts(10), rpc_buffer);
 
     let discover = discover::RPCDiscover {
@@ -415,7 +415,7 @@ async fn get_outputs<R: RpcConnection>(
     struct OutputRes {
         height: u64,
         key: [u8; 32],
-        //    mask: [u8; 32],
+        mask: [u8; 32],
         txid: [u8; 32],
     }
 
@@ -424,18 +424,21 @@ async fn get_outputs<R: RpcConnection>(
         outs: Vec<OutputRes>,
     }
 
-    let outputs = out_ids
-        .into_iter()
-        .flat_map(|(amt, amt_map)| {
-            amt_map
-                .into_iter()
-                .map(|amt_idx| OutputID {
-                    amount: amt,
-                    index: amt_idx,
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
+    let outputs = rayon_spawn_async(|| {
+        out_ids
+            .into_par_iter()
+            .flat_map(|(amt, amt_map)| {
+                amt_map
+                    .into_iter()
+                    .map(|amt_idx| OutputID {
+                        amount: amt,
+                        index: amt_idx,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
+    })
+    .await;
 
     let res = rpc
         .bin_call(
@@ -446,36 +449,36 @@ async fn get_outputs<R: RpcConnection>(
         )
         .await?;
 
-    let outs: Response = monero_epee_bin_serde::from_bytes(&res)?;
+    rayon_spawn_async(move || {
+        let outs: Response = monero_epee_bin_serde::from_bytes(&res)?;
 
-    tracing::info!("Got outputs len: {}", outs.outs.len());
+        tracing::info!("Got outputs len: {}", outs.outs.len());
 
-    let mut ret = HashMap::new();
-    let cache = cache.read().unwrap();
+        let mut ret = HashMap::new();
+        let cache = cache.read().unwrap();
 
-    for (out, idx) in outs.outs.iter().zip(outputs) {
-        ret.entry(idx.amount).or_insert_with(HashMap::new).insert(
-            idx.index,
-            OutputOnChain {
-                height: out.height,
-                time_lock: cache.outputs_time_lock(&out.txid),
-                // we unwrap these as we are checking already approved rings so if these points are bad
-                // then a bad proof has been approved.
-                key: CompressedEdwardsY::from_slice(&out.key)
-                    .unwrap()
-                    .decompress()
-                    .unwrap(),
-                /*
-                mask: CompressedEdwardsY::from_slice(&out.mask)
-                    .unwrap()
-                    .decompress()
-                    .unwrap(),
-
-                 */
-            },
-        );
-    }
-    Ok(DatabaseResponse::Outputs(ret))
+        for (out, idx) in outs.outs.iter().zip(outputs) {
+            ret.entry(idx.amount).or_insert_with(HashMap::new).insert(
+                idx.index,
+                OutputOnChain {
+                    height: out.height,
+                    time_lock: cache.outputs_time_lock(&out.txid),
+                    // we unwrap these as we are checking already approved rings so if these points are bad
+                    // then a bad proof has been approved.
+                    key: CompressedEdwardsY::from_slice(&out.key)
+                        .unwrap()
+                        .decompress()
+                        .unwrap(),
+                    mask: CompressedEdwardsY::from_slice(&out.mask)
+                        .unwrap()
+                        .decompress()
+                        .unwrap(),
+                },
+            );
+        }
+        Ok(DatabaseResponse::Outputs(ret))
+    })
+    .await
 }
 
 async fn get_blocks_in_range<R: RpcConnection>(
@@ -566,7 +569,7 @@ async fn get_block_info_in_range<R: RpcConnection>(
     Ok(DatabaseResponse::BlockExtendedHeaderInRange(
         rayon_spawn_async(|| {
             res.headers
-                .into_iter()
+                .into_par_iter()
                 .map(|info| ExtendedBlockHeader {
                     version: HardFork::from_version(&info.major_version)
                         .expect("previously checked block has incorrect version"),

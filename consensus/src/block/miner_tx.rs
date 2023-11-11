@@ -87,6 +87,7 @@ fn check_time_lock(time_lock: &Timelock, chain_height: u64) -> Result<(), Consen
     match time_lock {
         Timelock::Block(till_height) => {
             if u64::try_from(*till_height).unwrap() != chain_height + MINER_TX_TIME_LOCKED_BLOCKS {
+                tracing::warn!("{}, {}", till_height, chain_height);
                 Err(ConsensusError::MinerTransaction(
                     "Time lock has invalid block height",
                 ))

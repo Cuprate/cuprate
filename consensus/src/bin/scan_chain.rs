@@ -19,6 +19,7 @@ use monero_consensus::{
     initialize_blockchain_context, initialize_verifier,
     rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig},
     Database, DatabaseRequest, DatabaseResponse, VerifiedBlockInformation, VerifyBlockRequest,
+    VerifyBlockResponse,
 };
 
 mod tx_pool;
@@ -81,19 +82,19 @@ where
     D::Future: Send + 'static,
 {
     let mut next_fut = tokio::spawn(call_batch(
-        start_height..(start_height + MAX_BLOCKS_IN_RANGE).min(chain_height),
+        start_height..(start_height + (MAX_BLOCKS_IN_RANGE * 2)).min(chain_height),
         database.clone(),
     ));
 
     for next_batch_start in (start_height..chain_height)
-        .step_by(MAX_BLOCKS_IN_RANGE as usize)
+        .step_by((MAX_BLOCKS_IN_RANGE * 2) as usize)
         .skip(1)
     {
         // Call the next batch while we handle this batch.
         let current_fut = std::mem::replace(
             &mut next_fut,
             tokio::spawn(call_batch(
-                next_batch_start..(next_batch_start + MAX_BLOCKS_IN_RANGE).min(chain_height),
+                next_batch_start..(next_batch_start + (MAX_BLOCKS_IN_RANGE * 2)).min(chain_height),
                 database.clone(),
             )),
         );
@@ -103,8 +104,8 @@ where
         };
 
         tracing::info!(
-            "Handling batch: {:?}, chain height: {}",
-            (next_batch_start - MAX_BLOCKS_IN_RANGE)..(next_batch_start),
+            "Retrived batch: {:?}, chain height: {}",
+            (next_batch_start - (MAX_BLOCKS_IN_RANGE * 2))..(next_batch_start),
             chain_height
         );
 
@@ -161,15 +162,48 @@ where
         call_blocks(new_tx_chan, block_tx, start_height, chain_height, database).await
     });
 
-    while let Some(blocks) = incoming_blocks.next().await {
-        for block in blocks {
-            let verified_block_info = block_verifier
+    let (mut prepared_blocks_tx, mut prepared_blocks_rx) = mpsc::channel(2);
+
+    let mut cloned_block_verifier = block_verifier.clone();
+    tokio::spawn(async move {
+        while let Some(mut next_blocks) = incoming_blocks.next().await {
+            while !next_blocks.is_empty() {
+                tracing::info!(
+                    "preparing next batch, number of blocks: {}",
+                    next_blocks.len().min(100)
+                );
+
+                let res = cloned_block_verifier
+                    .ready()
+                    .await?
+                    .call(VerifyBlockRequest::BatchSetup(
+                        next_blocks.drain(0..next_blocks.len().min(100)).collect(),
+                    ))
+                    .await;
+
+                prepared_blocks_tx.send(res).await.unwrap();
+            }
+        }
+
+        Result::<_, tower::BoxError>::Ok(())
+    });
+
+    while let Some(prepared_blocks) = prepared_blocks_rx.next().await {
+        let VerifyBlockResponse::BatchSetup(prepared_blocks) = prepared_blocks? else {
+            panic!("block verifier sent incorrect response!");
+        };
+        let mut height = 0;
+        for block in prepared_blocks {
+            let VerifyBlockResponse::MainChain(verified_block_info) = block_verifier
                 .ready()
                 .await?
-                .call(VerifyBlockRequest::MainChain(block))
-                .await?;
+                .call(VerifyBlockRequest::MainChainPreparedBlock(block))
+                .await?
+            else {
+                panic!("Block verifier sent incorrect response!");
+            };
 
-            tracing::info!("verified block: {}", verified_block_info.height);
+            height = verified_block_info.height;
 
             if verified_block_info.height % 5000 == 0 {
                 tracing::info!("saving cache to: {}", save_file.display());
@@ -178,6 +212,12 @@ where
 
             update_cache_and_context(&cache, &mut context_updater, verified_block_info).await?;
         }
+
+        tracing::info!(
+            "verified blocks: {:?}, chain height: {}",
+            0..height,
+            chain_height
+        );
     }
 
     Ok(())

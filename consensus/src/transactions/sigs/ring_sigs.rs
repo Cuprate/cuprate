@@ -47,7 +47,8 @@ pub fn verify_inputs_signatures(
                     }
                     Ok(())
                 })?;
-        } // _ => panic!("tried to verify v1 tx with a non v1 ring"),
+        },
+         _ => panic!("tried to verify v1 tx with a non v1 ring"),
     }
     Ok(())
 }

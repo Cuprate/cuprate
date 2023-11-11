@@ -12,6 +12,6 @@ pub fn verify_signatures(tx: &Transaction, rings: &Rings) -> Result<(), Consensu
             rings,
             &tx.signature_hash(),
         ),
-        //_ => panic!("TODO: RCT"),
+        _ => panic!("TODO: RCT"),
     }
 }

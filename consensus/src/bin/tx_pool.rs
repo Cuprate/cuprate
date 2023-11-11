@@ -139,10 +139,8 @@ where
                 .await?
                 .call(BlockChainContextRequest)
                 .await?;
-            self.current_ctx
-                .blockchain_context()
-                .map_err(Into::into)
-                .cloned()
+
+            Ok(self.current_ctx.unchecked_blockchain_context().clone())
         }
     }
 

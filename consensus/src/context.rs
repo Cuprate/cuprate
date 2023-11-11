@@ -14,8 +14,10 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::FutureExt;
-use tokio::sync::RwLock;
+use futures::{
+    lock::{Mutex, OwnedMutexGuard, OwnedMutexLockFuture},
+    FutureExt,
+};
 use tower::{Service, ServiceExt};
 
 use crate::{helper::current_time, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
@@ -130,6 +132,7 @@ where
             }
             .into(),
         ),
+        lock_state: MutexLockState::Locked,
     };
 
     let context_svc_update = context_svc.clone();
@@ -235,6 +238,11 @@ impl BlockChainContext {
         }
         Ok(&self.raw)
     }
+
+    /// Returns the blockchain context without checking the validity token.
+    pub fn unchecked_blockchain_context(&self) -> &RawBlockChainContext {
+        &self.raw
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -257,9 +265,23 @@ struct InternalBlockChainContext {
     already_generated_coins: u64,
 }
 
-#[derive(Clone)]
+enum MutexLockState {
+    Locked,
+    Acquiring(OwnedMutexLockFuture<InternalBlockChainContext>),
+    Acquired(OwnedMutexGuard<InternalBlockChainContext>),
+}
 pub struct BlockChainContextService {
-    internal_blockchain_context: Arc<RwLock<InternalBlockChainContext>>,
+    internal_blockchain_context: Arc<Mutex<InternalBlockChainContext>>,
+    lock_state: MutexLockState,
+}
+
+impl Clone for BlockChainContextService {
+    fn clone(&self) -> Self {
+        BlockChainContextService {
+            internal_blockchain_context: self.internal_blockchain_context.clone(),
+            lock_state: MutexLockState::Locked,
+        }
+    }
 }
 
 impl Service<BlockChainContextRequest> for BlockChainContextService {
@@ -268,16 +290,30 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        loop {
+            match &mut self.lock_state {
+                MutexLockState::Locked => {
+                    self.lock_state = MutexLockState::Acquiring(
+                        Arc::clone(&self.internal_blockchain_context).lock_owned(),
+                    )
+                }
+                MutexLockState::Acquiring(rpc) => {
+                    self.lock_state = MutexLockState::Acquired(futures::ready!(rpc.poll_unpin(cx)))
+                }
+                MutexLockState::Acquired(_) => return Poll::Ready(Ok(())),
+            }
+        }
     }
 
     fn call(&mut self, _: BlockChainContextRequest) -> Self::Future {
-        let internal_blockchain_context = self.internal_blockchain_context.clone();
+        let MutexLockState::Acquired(internal_blockchain_context) =
+            std::mem::replace(&mut self.lock_state, MutexLockState::Locked)
+        else {
+            panic!("poll_ready() was not called first!")
+        };
 
         async move {
-            let internal_blockchain_context_lock = internal_blockchain_context.read().await;
-
             let InternalBlockChainContext {
                 current_validity_token,
                 current_reorg_token,
@@ -287,7 +323,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                 chain_height,
                 top_block_hash,
                 already_generated_coins,
-            } = internal_blockchain_context_lock.deref();
+            } = internal_blockchain_context.deref();
 
             let current_hf = hardfork_state.current_hardfork();
 
@@ -335,16 +371,30 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        loop {
+            match &mut self.lock_state {
+                MutexLockState::Locked => {
+                    self.lock_state = MutexLockState::Acquiring(
+                        Arc::clone(&self.internal_blockchain_context).lock_owned(),
+                    )
+                }
+                MutexLockState::Acquiring(rpc) => {
+                    self.lock_state = MutexLockState::Acquired(futures::ready!(rpc.poll_unpin(cx)))
+                }
+                MutexLockState::Acquired(_) => return Poll::Ready(Ok(())),
+            }
+        }
     }
 
     fn call(&mut self, new: UpdateBlockchainCacheRequest) -> Self::Future {
-        let internal_blockchain_context = self.internal_blockchain_context.clone();
+        let MutexLockState::Acquired(mut internal_blockchain_context) =
+            std::mem::replace(&mut self.lock_state, MutexLockState::Locked)
+        else {
+            panic!("poll_ready() was not called first!")
+        };
 
         async move {
-            let mut internal_blockchain_context_lock = internal_blockchain_context.write().await;
-
             let InternalBlockChainContext {
                 current_validity_token,
                 current_reorg_token: _,
@@ -354,7 +404,7 @@ impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
                 chain_height,
                 top_block_hash,
                 already_generated_coins,
-            } = internal_blockchain_context_lock.deref_mut();
+            } = internal_blockchain_context.deref_mut();
 
             // Cancel the validity token and replace it with a new one.
             std::mem::replace(current_validity_token, ValidityToken::new()).set_data_invalid();

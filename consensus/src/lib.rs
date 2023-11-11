@@ -14,7 +14,9 @@ pub mod rpc;
 mod test_utils;
 pub mod transactions;
 
-pub use block::{VerifiedBlockInformation, VerifyBlockRequest};
+pub use block::{
+    PrePreparedBlock, VerifiedBlockInformation, VerifyBlockRequest, VerifyBlockResponse,
+};
 pub use context::{
     initialize_blockchain_context, BlockChainContext, BlockChainContextRequest, ContextConfig,
     HardFork, UpdateBlockchainCacheRequest,
@@ -29,10 +31,15 @@ pub async fn initialize_verifier<D, TxP, Ctx>(
 ) -> Result<
     (
         impl tower::Service<
-            VerifyBlockRequest,
-            Response = VerifiedBlockInformation,
-            Error = ConsensusError,
-        >,
+                VerifyBlockRequest,
+                Response = VerifyBlockResponse,
+                Error = ConsensusError,
+                Future = impl Future<Output = Result<VerifyBlockResponse, ConsensusError>>
+                             + Send
+                             + 'static,
+            > + Clone
+            + Send
+            + 'static,
         impl tower::Service<
                 VerifyTxRequest,
                 Response = VerifyTxResponse,
@@ -120,7 +127,7 @@ pub struct OutputOnChain {
     height: u64,
     time_lock: monero_serai::transaction::Timelock,
     key: curve25519_dalek::EdwardsPoint,
-    //mask: curve25519_dalek::EdwardsPoint,
+    mask: curve25519_dalek::EdwardsPoint,
 }
 
 #[derive(Debug, Copy, Clone)]
