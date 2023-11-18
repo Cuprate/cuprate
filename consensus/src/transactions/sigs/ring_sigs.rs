@@ -40,15 +40,15 @@ pub fn verify_inputs_signatures(
                         panic!("How did we build a ring with no decoys?");
                     };
 
-                    if !sig.verify_ring_signature(tx_sig_hash, ring, key_image) {
+                    if !sig.verify(tx_sig_hash, ring, key_image) {
                         return Err(ConsensusError::TransactionSignatureInvalid(
                             "Invalid ring signature",
                         ));
                     }
                     Ok(())
                 })?;
-        },
-         _ => panic!("tried to verify v1 tx with a non v1 ring"),
+        }
+        _ => panic!("tried to verify v1 tx with a non v1 ring"),
     }
     Ok(())
 }

@@ -1,7 +1,7 @@
-use std::ops::Deref;
 use std::{
     collections::HashSet,
     future::Future,
+    ops::Deref,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},

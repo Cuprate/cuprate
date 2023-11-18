@@ -38,13 +38,15 @@ pub async fn batch_refresh_ring_member_info<D: Database + Clone + Send + Sync + 
     let (txs_needing_full_refresh, txs_needing_partial_refresh) =
         ring_member_info_needing_refresh(txs_verification_data, hf);
 
-    batch_fill_ring_member_info(
-        &txs_needing_full_refresh,
-        hf,
-        re_org_token,
-        database.clone(),
-    )
-    .await?;
+    if !txs_needing_full_refresh.is_empty() {
+        batch_fill_ring_member_info(
+            &txs_needing_full_refresh,
+            hf,
+            re_org_token,
+            database.clone(),
+        )
+        .await?;
+    }
 
     for tx_v_data in txs_needing_partial_refresh {
         let decoy_info = if hf != &HardFork::V1 {
@@ -88,10 +90,9 @@ fn ring_member_info_needing_refresh(
     for tx in txs_verification_data {
         let tx_ring_member_info = tx.rings_member_info.lock().unwrap();
 
-        // if we don't have ring members or if a re-org has happened or if we changed hf do a full refresh.
-        // doing a full refresh each hf isn't needed now but its so rare it makes sense to just do a full one.
+        // if we don't have ring members or if a re-org has happened do a full refresh.
         if let Some(tx_ring_member_info) = tx_ring_member_info.deref() {
-            if tx_ring_member_info.re_org_token.reorg_happened() || &tx_ring_member_info.hf != hf {
+            if tx_ring_member_info.re_org_token.reorg_happened() {
                 txs_needing_full_refresh.push(tx.clone());
                 continue;
             }
@@ -102,10 +103,17 @@ fn ring_member_info_needing_refresh(
 
         // if any input does not have a 0 amount do a partial refresh, this is because some decoy info
         // data is based on the amount of non-ringCT outputs at a certain point.
-        if tx.tx.prefix.inputs.iter().any(|inp| match inp {
-            Input::Gen(_) => false,
-            Input::ToKey { amount, .. } => amount.is_some(),
-        }) {
+        // Or if a hf has happened as this will change the default minimum decoys.
+        if &tx_ring_member_info
+            .as_ref()
+            .expect("We just checked if this was None")
+            .hf
+            != hf
+            || tx.tx.prefix.inputs.iter().any(|inp| match inp {
+                Input::Gen(_) => false,
+                Input::ToKey { amount, .. } => amount.is_some(),
+            })
+        {
             txs_needing_partial_refresh.push(tx.clone());
         }
     }

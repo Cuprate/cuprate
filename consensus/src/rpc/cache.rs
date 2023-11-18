@@ -22,7 +22,7 @@ use crate::transactions::TransactionVerificationData;
 #[derive(Debug, Default, Clone, Encode, Decode)]
 pub struct ScanningCache {
     //    network: u8,
-    numb_outs: HashMap<u64, u64>,
+    numb_outs: HashMap<u64, usize>,
     time_locked_out: HashMap<[u8; 32], u64>,
     kis: HashSet<[u8; 32]>,
     pub already_generated_coins: u64,
@@ -112,15 +112,15 @@ impl ScanningCache {
         }
     }
 
-    pub fn total_outs(&self) -> u64 {
+    pub fn total_outs(&self) -> usize {
         self.numb_outs.values().sum()
     }
 
-    pub fn numb_outs(&self, amount: u64) -> u64 {
+    pub fn numb_outs(&self, amount: u64) -> usize {
         *self.numb_outs.get(&amount).unwrap_or(&0)
     }
 
-    pub fn add_outs(&mut self, amount: u64, count: u64) {
+    pub fn add_outs(&mut self, amount: u64, count: usize) {
         if let Some(numb_outs) = self.numb_outs.get_mut(&amount) {
             *numb_outs += count;
         } else {

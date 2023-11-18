@@ -24,7 +24,7 @@ use monero_consensus::{
 
 mod tx_pool;
 
-const MAX_BLOCKS_IN_RANGE: u64 = 1000;
+const MAX_BLOCKS_IN_RANGE: u64 = 500;
 const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 500;
 
 /// Calls for a batch of blocks, returning the response and the time it took.
@@ -82,19 +82,19 @@ where
     D::Future: Send + 'static,
 {
     let mut next_fut = tokio::spawn(call_batch(
-        start_height..(start_height + (MAX_BLOCKS_IN_RANGE * 2)).min(chain_height),
+        start_height..(start_height + (MAX_BLOCKS_IN_RANGE * 3)).min(chain_height),
         database.clone(),
     ));
 
     for next_batch_start in (start_height..chain_height)
-        .step_by((MAX_BLOCKS_IN_RANGE * 2) as usize)
+        .step_by((MAX_BLOCKS_IN_RANGE * 3) as usize)
         .skip(1)
     {
         // Call the next batch while we handle this batch.
         let current_fut = std::mem::replace(
             &mut next_fut,
             tokio::spawn(call_batch(
-                next_batch_start..(next_batch_start + (MAX_BLOCKS_IN_RANGE * 2)).min(chain_height),
+                next_batch_start..(next_batch_start + (MAX_BLOCKS_IN_RANGE * 3)).min(chain_height),
                 database.clone(),
             )),
         );
@@ -105,7 +105,7 @@ where
 
         tracing::info!(
             "Retrived batch: {:?}, chain height: {}",
-            (next_batch_start - (MAX_BLOCKS_IN_RANGE * 2))..(next_batch_start),
+            (next_batch_start - (MAX_BLOCKS_IN_RANGE * 3))..(next_batch_start),
             chain_height
         );
 
@@ -162,7 +162,7 @@ where
         call_blocks(new_tx_chan, block_tx, start_height, chain_height, database).await
     });
 
-    let (mut prepared_blocks_tx, mut prepared_blocks_rx) = mpsc::channel(2);
+    let (mut prepared_blocks_tx, mut prepared_blocks_rx) = mpsc::channel(3);
 
     let mut cloned_block_verifier = block_verifier.clone();
     tokio::spawn(async move {
@@ -170,14 +170,14 @@ where
             while !next_blocks.is_empty() {
                 tracing::info!(
                     "preparing next batch, number of blocks: {}",
-                    next_blocks.len().min(100)
+                    next_blocks.len().min(150)
                 );
 
                 let res = cloned_block_verifier
                     .ready()
                     .await?
                     .call(VerifyBlockRequest::BatchSetup(
-                        next_blocks.drain(0..next_blocks.len().min(100)).collect(),
+                        next_blocks.drain(0..next_blocks.len().min(150)).collect(),
                     ))
                     .await;
 
@@ -242,7 +242,7 @@ async fn main() {
 
     let urls = vec![
         "http://xmr-node.cakewallet.com:18081".to_string(),
-        "http://node.sethforprivacy.com".to_string(),
+        "https://node.sethforprivacy.com".to_string(),
         "http://nodex.monerujo.io:18081".to_string(),
         "http://nodes.hashvault.pro:18081".to_string(),
         "http://node.c3pool.com:18081".to_string(),
@@ -254,7 +254,7 @@ async fn main() {
         "http://145.239.97.211:18089".to_string(),
         //
         "http://xmr-node.cakewallet.com:18081".to_string(),
-        "http://node.sethforprivacy.com".to_string(),
+        "https://node.sethforprivacy.com".to_string(),
         "http://nodex.monerujo.io:18081".to_string(),
         "http://nodes.hashvault.pro:18081".to_string(),
         "http://node.c3pool.com:18081".to_string(),

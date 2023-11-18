@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+mod batch_verifier;
 pub mod block;
 pub mod context;
 pub mod genesis;

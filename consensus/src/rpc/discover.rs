@@ -10,46 +10,51 @@ use futures::{
     SinkExt, StreamExt,
 };
 use monero_serai::rpc::HttpRpc;
-use tokio::time::timeout;
 use tower::{discover::Change, load::PeakEwma};
 use tracing::instrument;
 
-use super::{cache::ScanningCache, Rpc};
+use super::{
+    cache::ScanningCache,
+    connection::{RpcConnection, RpcConnectionSvc},
+};
 
 #[instrument(skip(cache))]
-async fn check_rpc(addr: String, cache: Arc<RwLock<ScanningCache>>) -> Option<Rpc<HttpRpc>> {
+async fn check_rpc(addr: String, cache: Arc<RwLock<ScanningCache>>) -> Option<RpcConnectionSvc> {
     tracing::debug!("Sending request to node.");
-    let rpc = HttpRpc::new(addr.clone()).ok()?;
-    // make sure the RPC is actually reachable
-    timeout(Duration::from_secs(2), rpc.get_height())
-        .await
-        .ok()?
-        .ok()?;
 
-    tracing::debug!("Node sent ok response.");
+    let con = HttpRpc::new(addr.clone()).await.ok()?;
+    let (tx, rx) = mpsc::channel(1);
+    let rpc = RpcConnection {
+        address: addr.clone(),
+        con,
+        cache,
+        req_chan: rx,
+    };
 
-    Some(Rpc::new_http(addr, cache))
+    rpc.check_rpc_alive().await.ok()?;
+    let handle = tokio::spawn(rpc.run());
+
+    Some(RpcConnectionSvc {
+        address: addr,
+        rpc_task_chan: tx,
+        rpc_task_handle: handle,
+    })
 }
 
 pub(crate) struct RPCDiscover {
     pub initial_list: Vec<String>,
-    pub ok_channel: mpsc::Sender<Change<usize, PeakEwma<Rpc<HttpRpc>>>>,
-    pub already_connected: HashSet<String>,
+    pub ok_channel: mpsc::Sender<Change<usize, PeakEwma<RpcConnectionSvc>>>,
+    pub already_connected: usize,
     pub cache: Arc<RwLock<ScanningCache>>,
 }
 
 impl RPCDiscover {
-    async fn found_rpc(&mut self, rpc: Rpc<HttpRpc>) -> Result<(), SendError> {
-        //if self.already_connected.contains(&rpc.addr) {
-        //    return Ok(());
-        //}
+    async fn found_rpc(&mut self, rpc: RpcConnectionSvc) -> Result<(), SendError> {
+        self.already_connected += 1;
 
-        tracing::info!("Connecting to node: {}", &rpc.addr);
-
-        let addr = rpc.addr.clone();
         self.ok_channel
             .send(Change::Insert(
-                self.already_connected.len(),
+                self.already_connected,
                 PeakEwma::new(
                     rpc,
                     Duration::from_secs(5000),
@@ -58,7 +63,6 @@ impl RPCDiscover {
                 ),
             ))
             .await?;
-        self.already_connected.insert(addr);
 
         Ok(())
     }

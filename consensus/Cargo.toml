@@ -36,14 +36,15 @@ crypto-bigint = "0.5"
 curve25519-dalek = "4"
 
 randomx-rs = "1"
-monero-serai = {git="https://github.com/Cuprate/serai.git", rev = "39eafae"}
-multiexp = {git="https://github.com/Cuprate/serai.git", rev = "39eafae"}
-dalek-ff-group = {git="https://github.com/Cuprate/serai.git", rev = "39eafae"}
+monero-serai = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
+multiexp = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
+dalek-ff-group = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
 
 cuprate-common = {path = "../common"}
 cryptonight-cuprate = {path = "../cryptonight"}
 
 rayon = "1"
+thread_local = "1.1.7"
 tokio = "1"
 tokio-util = "0.7"
 

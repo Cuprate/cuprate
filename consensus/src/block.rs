@@ -175,32 +175,17 @@ fn prepare_block(block: Block) -> Result<PrePreparedBlock, ConsensusError> {
         }
     };
 
-    let block_hashing_blob = block.serialize_hashable();
-    let (pow_hash, mut prepared_block) = rayon::join(
-        || {
-            // we calculate the POW hash on a different task because this takes a massive amount of time.
-            calculate_pow_hash(&block_hashing_blob, height, &hf_version)
-        },
-        || {
-            PrePreparedBlock {
-                block_blob: block.serialize(),
-                block_hash: block.hash(),
-                // set a dummy pow hash for now. We use u8::MAX so if something odd happens and this value isn't changed it will fail for
-                // difficulties > 1.
-                pow_hash: [u8::MAX; 32],
-                miner_tx_weight: block.miner_tx.weight(),
-                block,
-                hf_vote,
-                hf_version,
-            }
-        },
-    );
+    tracing::debug!("preparing block: {}", height);
 
-    prepared_block.pow_hash = pow_hash?;
-
-    tracing::debug!("prepared block: {}", height);
-
-    Ok(prepared_block)
+    Ok(PrePreparedBlock {
+        block_blob: block.serialize(),
+        block_hash: block.hash(),
+        pow_hash: calculate_pow_hash(&block.serialize_hashable(), height, &hf_version)?,
+        miner_tx_weight: block.miner_tx.weight(),
+        block,
+        hf_vote,
+        hf_version,
+    })
 }
 
 async fn verify_prepared_main_chain_block<C, TxV, TxP>(
@@ -231,22 +216,29 @@ where
 
     tracing::debug!("got blockchain context: {:?}", context);
 
-    let TxPoolResponse::Transactions(txs) = tx_pool
-        .oneshot(TxPoolRequest::Transactions(block.block.txs.clone()))
-        .await?;
+    let txs = if !block.block.txs.is_empty() {
+        let TxPoolResponse::Transactions(txs) = tx_pool
+            .oneshot(TxPoolRequest::Transactions(block.block.txs.clone()))
+            .await?;
+        txs
+    } else {
+        vec![]
+    };
 
     let block_weight = block.miner_tx_weight + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
     let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
 
-    tx_verifier_svc
-        .oneshot(VerifyTxRequest::Block {
-            txs: txs.clone(),
-            current_chain_height: context.chain_height,
-            time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
-            hf: context.current_hard_fork,
-            re_org_token: context.re_org_token.clone(),
-        })
-        .await?;
+    if !txs.is_empty() {
+        tx_verifier_svc
+            .oneshot(VerifyTxRequest::Block {
+                txs: txs.clone(),
+                current_chain_height: context.chain_height,
+                time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
+                hf: context.current_hard_fork,
+                re_org_token: context.re_org_token.clone(),
+            })
+            .await?;
+    }
 
     let generated_coins = miner_tx::check_miner_tx(
         &block.block.miner_tx,
