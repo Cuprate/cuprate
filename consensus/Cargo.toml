@@ -1,0 +1,66 @@
+[package]
+name = "monero-consensus"
+version = "0.1.0"
+edition = "2021"
+description = "A crate implimenting all Moneros consensus rules."
+license = "MIT"
+authors = ["Boog900"]
+repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
+
+[features]
+default = ["binaries"]
+binaries = [
+    "tokio/rt-multi-thread",
+    "tokio/macros",
+    "dep:tracing-subscriber",
+    "tower/retry",
+    "tower/balance",
+    "tower/buffer",
+    "tower/timeout",
+    "dep:serde_json",
+    "dep:serde",
+    "dep:monero-epee-bin-serde",
+    "dep:monero-wire",
+    "dep:bincode",
+    "dep:dirs"
+]
+
+[dependencies]
+hex = "0.4"
+thiserror = "1"
+tower = {version = "0.4", features = ["util"]}
+tracing = "0.1"
+futures = "0.3"
+
+crypto-bigint = "0.5"
+curve25519-dalek = "4"
+
+randomx-rs = "1"
+monero-serai = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
+multiexp = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
+dalek-ff-group = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
+
+cuprate-common = {path = "../common"}
+cryptonight-cuprate = {path = "../cryptonight"}
+
+rayon = "1"
+thread_local = "1.1.7"
+tokio = "1"
+tokio-util = "0.7"
+
+# used in binaries
+monero-wire = {path="../net/monero-wire", optional = true}
+monero-epee-bin-serde = {git = "https://github.com/monero-rs/monero-epee-bin-serde.git", rev = "e4a585a", optional = true}
+serde_json = {version = "1", optional = true}
+serde = {version = "1", optional = true, features = ["derive"]}
+tracing-subscriber = {version = "0.3", optional = true}
+bincode = {version = "2.0.0-rc.3", optional = true}
+dirs = {version="5.0", optional = true}
+# here to help cargo to pick a version - remove me
+syn = "2.0.37"
+
+
+[dev-dependencies]
+tokio = {version = "1", features = ["rt-multi-thread", "macros"]}
+proptest = "1"
+proptest-derive = "0.4.0"

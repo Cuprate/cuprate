@@ -57,12 +57,12 @@ pub struct AltBlock {
 // ---- TRANSACTIONS ----
 
 #[derive(Clone, Debug)]
-/// [`TransactionPruned`] is, as its name suggest, the pruned part of a transaction, which is the Transaction Prefix and its RingCT signatures.
+/// [`TransactionPruned`] is, as its name suggest, the pruned part of a transaction, which is the Transaction Prefix and its RingCT ring.
 /// This struct is used in the [`crate::table::txsprefix`] table.
 pub struct TransactionPruned {
     /// The transaction prefix.
     pub prefix: TransactionPrefix,
-    /// The RingCT signatures, will only contain the 'sig' field.
+    /// The RingCT ring, will only contain the 'sig' field.
     pub rct_signatures: RctSig,
 }
 
@@ -80,7 +80,7 @@ impl bincode::Decode for TransactionPruned {
 
         // Handle the prefix accordingly to its version
         match *prefix.version {
-            // First transaction format, Pre-RingCT, so the signatures are None
+            // First transaction format, Pre-RingCT, so the ring are None
             1 => Ok(TransactionPruned {
                 prefix,
                 rct_signatures: RctSig { sig: None, p: None },
@@ -94,7 +94,7 @@ impl bincode::Decode for TransactionPruned {
                         rct_signatures,
                     });
                 }
-                // Otherwise get the RingCT signatures for the tx inputs
+                // Otherwise get the RingCT ring for the tx inputs
                 if let Some(sig) = RctSigBase::consensus_decode(&mut r, inputs, outputs)
                     .map_err(|_| bincode::error::DecodeError::Other("Monero-rs decoding failed"))?
                 {
@@ -123,10 +123,10 @@ impl bincode::Encode for TransactionPruned {
         let buf = monero::consensus::serialize(&self.prefix);
         writer.write(&buf)?;
         match *self.prefix.version {
-            1 => {} // First transaction format, Pre-RingCT, so the there is no Rct signatures to add
+            1 => {} // First transaction format, Pre-RingCT, so the there is no Rct ring to add
             _ => {
                 if let Some(sig) = &self.rct_signatures.sig {
-                    // If there is signatures then we append it at the end
+                    // If there is ring then we append it at the end
                     let buf = monero::consensus::serialize(sig);
                     writer.write(&buf)?;
                 }

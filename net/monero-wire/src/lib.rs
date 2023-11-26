@@ -29,12 +29,11 @@
 #![deny(unused_mut)]
 //#![deny(missing_docs)]
 
-pub mod messages;
 pub mod network_address;
+pub mod p2p;
+mod serde_helpers;
 
-pub use messages::*;
-pub use network_address::*;
-
-pub use levin_cuprate::BucketError;
+pub use network_address::NetworkAddress;
+pub use p2p::*;
 
 pub type MoneroWireCodec = levin_cuprate::codec::LevinMessageCodec<Message>;

@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg id="Layer_4" data-name="Layer 4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1326.54 904.57">
+<svg id="Layer_4" data-name="Layer 4" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="11.8 416.13 1314.77 471.6">
   <defs>
     <style>
       .cls-1 {
@@ -13,14 +12,14 @@
       .cls-3 {
         fill: url(#linear-gradient);
       }
-    </style>
+    </style><style class="darkreader darkreader--sync" media="screen"/>
     <clipPath id="clippath">
       <rect class="cls-2" x="11.77" y="416.14" width="1314.77" height="471.59"/>
     </clipPath>
     <linearGradient id="linear-gradient" x1="669.15" y1="419.68" x2="669.15" y2="1186.42" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2f4beb"/>
-      <stop offset=".02" stop-color="#2f4beb"/>
-      <stop offset=".96" stop-color="#172261"/>
+      <stop offset="0" stop-color="#2f4beb" style="--darkreader-inline-stopcolor: #1028ab;" data-darkreader-inline-stopcolor=""/>
+      <stop offset=".02" stop-color="#2f4beb" style="--darkreader-inline-stopcolor: #1028ab;" data-darkreader-inline-stopcolor=""/>
+      <stop offset=".96" stop-color="#172261" style="--darkreader-inline-stopcolor: #121b4e;" data-darkreader-inline-stopcolor=""/>
     </linearGradient>
   </defs>
   <g class="cls-1">

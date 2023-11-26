@@ -20,7 +20,10 @@
 use std::net::{SocketAddrV4, SocketAddrV6};
 use std::{hash::Hash, net};
 
-mod builder;
+use serde::{Deserialize, Serialize};
+
+mod serde_helper;
+use serde_helper::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NetZone {
@@ -31,7 +34,9 @@ pub enum NetZone {
 
 /// A network address which can be encoded into the format required
 /// to send to other Monero peers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "TaggedNetworkAddress")]
+#[serde(into = "TaggedNetworkAddress")]
 pub enum NetworkAddress {
     /// IPv4
     IPv4(SocketAddrV4),

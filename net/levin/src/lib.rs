@@ -36,17 +36,16 @@
 pub mod codec;
 pub mod header;
 
-pub use codec::*;
+pub use codec::LevinCodec;
 pub use header::BucketHead;
 
 use std::fmt::Debug;
 
 use thiserror::Error;
 
-const MONERO_PROTOCOL_VERSION: u32 = 1;
-const MONERO_LEVIN_SIGNATURE: u64 = 0x0101010101012101;
-const MONERO_MAX_PACKET_SIZE_BEFORE_HANDSHAKE: u64 = 256 * 1000; // 256 KiB
-const MONERO_MAX_PACKET_SIZE: u64 = 100_000_000; // 100MB
+const PROTOCOL_VERSION: u32 = 1;
+const LEVIN_SIGNATURE: u64 = 0x0101010101012101;
+const LEVIN_DEFAULT_MAX_PACKET_SIZE: u64 = 100_000_000; // 100MB
 
 /// Possible Errors when working with levin buckets
 #[derive(Error, Debug)]
@@ -60,50 +59,28 @@ pub enum BucketError {
     /// Invalid Fragmented Message
     #[error("Levin fragmented message was invalid: {0}")]
     InvalidFragmentedMessage(&'static str),
-    /// The Header did not have the correct signature
-    #[error("Levin header had incorrect signature")]
-    InvalidHeaderSignature,
     /// Error decoding the body
-    #[error("Error decoding bucket body")]
-    BodyDecodingError(Box<dyn std::error::Error + Send + Sync>),
+    #[error("Error decoding bucket body: {0}")]
+    BodyDecodingError(Box<dyn std::error::Error>),
+    /// The levin command is unknown
+    #[error("The levin command is unknown")]
+    UnknownCommand,
     /// I/O error
     #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),
 }
 
-/// Levin protocol settings, allows setting custom parameters.
-///
-/// For Monero use [`Default::default()`]
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub struct Protocol {
-    pub version: u32,
-    pub signature: u64,
-    pub max_packet_size_before_handshake: u64,
-    pub max_packet_size: u64,
-}
-
-impl Default for Protocol {
-    fn default() -> Self {
-        Protocol {
-            version: MONERO_PROTOCOL_VERSION,
-            signature: MONERO_LEVIN_SIGNATURE,
-            max_packet_size_before_handshake: MONERO_MAX_PACKET_SIZE_BEFORE_HANDSHAKE,
-            max_packet_size: MONERO_MAX_PACKET_SIZE,
-        }
-    }
-}
-
 /// A levin Bucket
 #[derive(Debug)]
-pub struct Bucket<C> {
+pub struct Bucket {
     /// The bucket header
-    pub header: BucketHead<C>,
+    pub header: BucketHead,
     /// The bucket body
     pub body: Vec<u8>,
 }
 
 /// An enum representing if the message is a request, response or notification.
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum MessageType {
     /// Request
     Request,
@@ -127,11 +104,11 @@ impl MessageType {
         flags: header::Flags,
         have_to_return: bool,
     ) -> Result<Self, BucketError> {
-        if flags.is_request() && have_to_return {
+        if flags.request && have_to_return {
             Ok(MessageType::Request)
-        } else if flags.is_request() {
+        } else if flags.request {
             Ok(MessageType::Notification)
-        } else if flags.is_response() && !have_to_return {
+        } else if flags.response && !have_to_return {
             Ok(MessageType::Response)
         } else {
             Err(BucketError::InvalidHeaderFlags(
@@ -142,36 +119,42 @@ impl MessageType {
 
     pub fn as_flags(&self) -> header::Flags {
         match self {
-            MessageType::Request | MessageType::Notification => header::Flags::REQUEST,
-            MessageType::Response => header::Flags::RESPONSE,
+            MessageType::Request | MessageType::Notification => header::Flags {
+                request: true,
+                ..Default::default()
+            },
+            MessageType::Response => header::Flags {
+                response: true,
+                ..Default::default()
+            },
         }
     }
 }
 
 #[derive(Debug)]
-pub struct BucketBuilder<C> {
+pub struct BucketBuilder {
     signature: Option<u64>,
     ty: Option<MessageType>,
-    command: Option<C>,
+    command: Option<u32>,
     return_code: Option<i32>,
     protocol_version: Option<u32>,
     body: Option<Vec<u8>>,
 }
 
-impl<C> Default for BucketBuilder<C> {
+impl Default for BucketBuilder {
     fn default() -> Self {
         Self {
-            signature: Some(MONERO_LEVIN_SIGNATURE),
+            signature: Some(LEVIN_SIGNATURE),
             ty: None,
             command: None,
             return_code: None,
-            protocol_version: Some(MONERO_PROTOCOL_VERSION),
+            protocol_version: Some(PROTOCOL_VERSION),
             body: None,
         }
     }
 }
 
-impl<C: LevinCommand> BucketBuilder<C> {
+impl BucketBuilder {
     pub fn set_signature(&mut self, sig: u64) {
         self.signature = Some(sig)
     }
@@ -180,7 +163,7 @@ impl<C: LevinCommand> BucketBuilder<C> {
         self.ty = Some(ty)
     }
 
-    pub fn set_command(&mut self, command: C) {
+    pub fn set_command(&mut self, command: u32) {
         self.command = Some(command)
     }
 
@@ -196,7 +179,7 @@ impl<C: LevinCommand> BucketBuilder<C> {
         self.body = Some(body)
     }
 
-    pub fn finish(self) -> Bucket<C> {
+    pub fn finish(self) -> Bucket {
         let body = self.body.unwrap();
         let ty = self.ty.unwrap();
         Bucket {
@@ -216,28 +199,9 @@ impl<C: LevinCommand> BucketBuilder<C> {
 
 /// A levin body
 pub trait LevinBody: Sized {
-    type Command: LevinCommand;
-
     /// Decodes the message from the data in the header
-    fn decode_message(
-        body: &[u8],
-        typ: MessageType,
-        command: Self::Command,
-    ) -> Result<Self, BucketError>;
+    fn decode_message(body: &[u8], typ: MessageType, command: u32) -> Result<Self, BucketError>;
 
     /// Encodes the message
-    fn encode(&self, builder: &mut BucketBuilder<Self::Command>) -> Result<(), BucketError>;
-}
-
-/// The levin commands.
-///
-/// Implementers should account for all possible u32 values, this means
-/// you will probably need some sort of `Unknown` variant.
-pub trait LevinCommand: From<u32> + Into<u32> + PartialEq + Clone {
-    /// Returns the size limit for this command.
-    ///
-    /// must be less than [`usize::MAX`]
-    fn bucket_size_limit(&self) -> u64;
-    /// Returns if this is a handshake
-    fn is_handshake(&self) -> bool;
+    fn encode(&self, builder: &mut BucketBuilder) -> Result<(), BucketError>;
 }
