@@ -17,8 +17,7 @@
 //! Monero network. Core Monero has 4 main addresses: IPv4, IPv6, Tor,
 //! I2p. Currently this module only has IPv(4/6).
 //!
-use std::net::{SocketAddrV4, SocketAddrV6};
-use std::{hash::Hash, net};
+use std::{hash::Hash, net, net::SocketAddr};
 
 use serde::{Deserialize, Serialize};
 
@@ -38,16 +37,13 @@ pub enum NetZone {
 #[serde(try_from = "TaggedNetworkAddress")]
 #[serde(into = "TaggedNetworkAddress")]
 pub enum NetworkAddress {
-    /// IPv4
-    IPv4(SocketAddrV4),
-    /// IPv6
-    IPv6(SocketAddrV6),
+    Clear(SocketAddr),
 }
 
 impl NetworkAddress {
     pub fn get_zone(&self) -> NetZone {
         match self {
-            NetworkAddress::IPv4(_) | NetworkAddress::IPv6(_) => NetZone::Public,
+            NetworkAddress::Clear(_) => NetZone::Public,
         }
     }
 
@@ -63,29 +59,28 @@ impl NetworkAddress {
 
     pub fn port(&self) -> u16 {
         match self {
-            NetworkAddress::IPv4(ip) => ip.port(),
-            NetworkAddress::IPv6(ip) => ip.port(),
+            NetworkAddress::Clear(ip) => ip.port(),
         }
     }
 }
 
 impl From<net::SocketAddrV4> for NetworkAddress {
     fn from(value: net::SocketAddrV4) -> Self {
-        NetworkAddress::IPv4(value)
+        NetworkAddress::Clear(value.into())
     }
 }
 
 impl From<net::SocketAddrV6> for NetworkAddress {
     fn from(value: net::SocketAddrV6) -> Self {
-        NetworkAddress::IPv6(value)
+        NetworkAddress::Clear(value.into())
     }
 }
 
-impl From<net::SocketAddr> for NetworkAddress {
-    fn from(value: net::SocketAddr) -> Self {
+impl From<SocketAddr> for NetworkAddress {
+    fn from(value: SocketAddr) -> Self {
         match value {
-            net::SocketAddr::V4(v4) => v4.into(),
-            net::SocketAddr::V6(v6) => v6.into(),
+            SocketAddr::V4(v4) => v4.into(),
+            SocketAddr::V6(v6) => v6.into(),
         }
     }
 }

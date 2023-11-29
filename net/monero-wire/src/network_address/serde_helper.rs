@@ -1,4 +1,4 @@
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -30,20 +30,22 @@ impl TryFrom<TaggedNetworkAddress> for NetworkAddress {
 impl From<NetworkAddress> for TaggedNetworkAddress {
     fn from(value: NetworkAddress) -> Self {
         match value {
-            NetworkAddress::IPv4(addr) => TaggedNetworkAddress {
-                ty: 1,
-                addr: AllFieldsNetworkAddress {
-                    m_ip: Some(u32::from_be_bytes(addr.ip().octets())),
-                    m_port: Some(addr.port()),
-                    ..Default::default()
+            NetworkAddress::Clear(addr) => match addr {
+                SocketAddr::V4(addr) => TaggedNetworkAddress {
+                    ty: 1,
+                    addr: AllFieldsNetworkAddress {
+                        m_ip: Some(u32::from_be_bytes(addr.ip().octets())),
+                        m_port: Some(addr.port()),
+                        ..Default::default()
+                    },
                 },
-            },
-            NetworkAddress::IPv6(addr) => TaggedNetworkAddress {
-                ty: 2,
-                addr: AllFieldsNetworkAddress {
-                    addr: Some(addr.ip().octets()),
-                    m_port: Some(addr.port()),
-                    ..Default::default()
+                SocketAddr::V6(addr) => TaggedNetworkAddress {
+                    ty: 2,
+                    addr: AllFieldsNetworkAddress {
+                        addr: Some(addr.ip().octets()),
+                        m_port: Some(addr.port()),
+                        ..Default::default()
+                    },
                 },
             },
         }
@@ -63,8 +65,8 @@ struct AllFieldsNetworkAddress {
 impl AllFieldsNetworkAddress {
     fn try_into_network_address(self, ty: u8) -> Option<NetworkAddress> {
         Some(match ty {
-            1 => NetworkAddress::IPv4(SocketAddrV4::new(Ipv4Addr::from(self.m_ip?), self.m_port?)),
-            2 => NetworkAddress::IPv6(SocketAddrV6::new(
+            1 => NetworkAddress::from(SocketAddrV4::new(Ipv4Addr::from(self.m_ip?), self.m_port?)),
+            2 => NetworkAddress::from(SocketAddrV6::new(
                 Ipv6Addr::from(self.addr?),
                 self.m_port?,
                 0,

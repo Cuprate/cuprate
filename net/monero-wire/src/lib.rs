@@ -33,7 +33,8 @@ pub mod network_address;
 pub mod p2p;
 mod serde_helpers;
 
-pub use network_address::NetworkAddress;
+pub use network_address::{NetworkAddress, NetZone};
 pub use p2p::*;
+pub use levin_cuprate::BucketError;
 
 pub type MoneroWireCodec = levin_cuprate::codec::LevinMessageCodec<Message>;

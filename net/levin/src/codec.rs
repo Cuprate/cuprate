@@ -104,7 +104,9 @@ impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
                         return Ok(None);
                     }
 
-                    let LevinBucketState::WaitingForBody(header) = std::mem::replace(&mut self.state, LevinBucketState::WaitingForHeader) else {
+                    let LevinBucketState::WaitingForBody(header) =
+                        std::mem::replace(&mut self.state, LevinBucketState::WaitingForHeader)
+                    else {
                         unreachable!()
                     };
 
@@ -260,7 +262,8 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     if flags.is_end_fragment() {
                         let MessageState::WaitingForRestOfFragment(bytes, ty, command) =
-                            std::mem::replace(&mut self.state, MessageState::WaitingForBucket) else {
+                            std::mem::replace(&mut self.state, MessageState::WaitingForBucket)
+                        else {
                             unreachable!();
                         };
 
