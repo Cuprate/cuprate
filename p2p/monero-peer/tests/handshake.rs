@@ -2,7 +2,6 @@ use std::{net::SocketAddr, str::FromStr};
 
 use futures::{channel::mpsc, StreamExt};
 use tower::{Service, ServiceExt};
-use tracing::level_filters::LevelFilter;
 
 use cuprate_common::Network;
 use monero_wire::{common::PeerSupportFlags, BasicNodeData};
@@ -22,9 +21,6 @@ use utils::*;
 async fn handshake_cuprate_to_cuprate() {
     // Tests a Cuprate <-> Cuprate handshake by making 2 handshake services and making them talk to
     // each other.
-    tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::TRACE)
-        .init();
 
     let our_basic_node_data_1 = BasicNodeData {
         my_port: 0,
@@ -97,10 +93,6 @@ async fn handshake_cuprate_to_cuprate() {
 
 #[tokio::test]
 async fn handshake() {
-    tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::TRACE)
-        .init();
-
     let addr = "127.0.0.1:18080";
 
     let our_basic_node_data = BasicNodeData {
