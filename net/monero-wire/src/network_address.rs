@@ -84,3 +84,17 @@ impl From<SocketAddr> for NetworkAddress {
         }
     }
 }
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, thiserror::Error)]
+#[error("Network address is not in the correct zone")]
+pub struct NetworkAddressIncorrectZone;
+
+impl TryFrom<NetworkAddress> for SocketAddr {
+    type Error = NetworkAddressIncorrectZone;
+    fn try_from(value: NetworkAddress) -> Result<Self, Self::Error> {
+        match value {
+            NetworkAddress::Clear(addr) => Ok(addr),
+            //_ => Err(NetworkAddressIncorrectZone)
+        }
+    }
+}

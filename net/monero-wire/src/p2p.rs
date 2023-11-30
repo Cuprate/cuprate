@@ -351,6 +351,18 @@ pub enum Message {
 }
 
 impl Message {
+    pub fn is_request(&self) -> bool {
+        matches!(self, Message::Request(_))
+    }
+
+    pub fn is_response(&self) -> bool {
+        matches!(self, Message::Response(_))
+    }
+
+    pub fn is_protocol(&self) -> bool {
+        matches!(self, Message::Protocol(_))
+    }
+
     pub fn command(&self) -> LevinCommand {
         match self {
             Message::Request(mes) => mes.command(),
