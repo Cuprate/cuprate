@@ -7,7 +7,6 @@ use super::{PeerRequest, PeerResponse};
 
 pub struct MessageConversionError;
 
-
 macro_rules! match_body {
     (match $value: ident {$($body:tt)*} ($left:pat => $right_ty:expr) $($todo:tt)*) => {
         match_body!( match $value {
@@ -18,10 +17,9 @@ macro_rules! match_body {
     (match $value: ident {$($body:tt)*}) => {
          match $value {
             $($body)*
-        } 
+        }
     };
 }
-
 
 macro_rules! from {
     ($left_ty:ident, $right_ty:ident, {$($left:ident $(($val: ident))? = $right:ident $(($vall: ident))?,)+}) => {
@@ -82,8 +80,6 @@ try_from_try_from!(PeerRequest, ProtocolMessage,{
     GetTxPoolCompliment(val) = GetTxPoolCompliment(val),
 });
 
-
-
 impl TryFrom<Message> for PeerRequest {
     type Error = MessageConversionError;
 
@@ -105,13 +101,23 @@ impl From<PeerRequest> for Message {
             PeerRequest::TimedSync(val) => Message::Request(RequestMessage::TimedSync(val)),
 
             PeerRequest::NewBlock(val) => Message::Protocol(ProtocolMessage::NewBlock(val)),
-            PeerRequest::NewFluffyBlock(val) => Message::Protocol(ProtocolMessage::NewFluffyBlock(val)),
-            PeerRequest::GetObjects(val) => Message::Protocol(ProtocolMessage::GetObjectsRequest(val)),
+            PeerRequest::NewFluffyBlock(val) => {
+                Message::Protocol(ProtocolMessage::NewFluffyBlock(val))
+            }
+            PeerRequest::GetObjects(val) => {
+                Message::Protocol(ProtocolMessage::GetObjectsRequest(val))
+            }
             PeerRequest::GetChain(val) => Message::Protocol(ProtocolMessage::ChainRequest(val)),
-            PeerRequest::NewTransactions(val) => Message::Protocol(ProtocolMessage::NewTransactions(val)),
-            PeerRequest::FluffyMissingTxs(val) => Message::Protocol(ProtocolMessage::FluffyMissingTransactionsRequest(val)),
-            PeerRequest::GetTxPoolCompliment(val) => Message::Protocol(ProtocolMessage::GetTxPoolCompliment(val)),
-        }   
+            PeerRequest::NewTransactions(val) => {
+                Message::Protocol(ProtocolMessage::NewTransactions(val))
+            }
+            PeerRequest::FluffyMissingTxs(val) => {
+                Message::Protocol(ProtocolMessage::FluffyMissingTransactionsRequest(val))
+            }
+            PeerRequest::GetTxPoolCompliment(val) => {
+                Message::Protocol(ProtocolMessage::GetTxPoolCompliment(val))
+            }
+        }
     }
 }
 
@@ -148,14 +154,24 @@ impl TryFrom<PeerResponse> for Message {
     fn try_from(value: PeerResponse) -> Result<Self, Self::Error> {
         Ok(match value {
             PeerResponse::Handshake(val) => Message::Response(ResponseMessage::Handshake(val)),
-            PeerResponse::Ping(val) =>  Message::Response(ResponseMessage::Ping(val)),
-            PeerResponse::SupportFlags(val) =>  Message::Response(ResponseMessage::SupportFlags(val)),
-            PeerResponse::TimedSync(val) =>  Message::Response(ResponseMessage::TimedSync(val)),
+            PeerResponse::Ping(val) => Message::Response(ResponseMessage::Ping(val)),
+            PeerResponse::SupportFlags(val) => {
+                Message::Response(ResponseMessage::SupportFlags(val))
+            }
+            PeerResponse::TimedSync(val) => Message::Response(ResponseMessage::TimedSync(val)),
 
-            PeerResponse::NewFluffyBlock(val) => Message::Protocol(ProtocolMessage::NewFluffyBlock(val)),
-            PeerResponse::GetObjects(val) => Message::Protocol(ProtocolMessage::GetObjectsResponse(val)),
-            PeerResponse::GetChain(val) => Message::Protocol(ProtocolMessage::ChainEntryResponse(val)),
-            PeerResponse::NewTransactions(val) => Message::Protocol(ProtocolMessage::NewTransactions(val)),
+            PeerResponse::NewFluffyBlock(val) => {
+                Message::Protocol(ProtocolMessage::NewFluffyBlock(val))
+            }
+            PeerResponse::GetObjects(val) => {
+                Message::Protocol(ProtocolMessage::GetObjectsResponse(val))
+            }
+            PeerResponse::GetChain(val) => {
+                Message::Protocol(ProtocolMessage::ChainEntryResponse(val))
+            }
+            PeerResponse::NewTransactions(val) => {
+                Message::Protocol(ProtocolMessage::NewTransactions(val))
+            }
 
             PeerResponse::NA => return Err(MessageConversionError),
         })

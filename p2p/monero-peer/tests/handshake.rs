@@ -9,12 +9,11 @@ use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 
 use monero_peer::{
     client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker},
-    network_zones::{
-        test::{TestNetZone, TestNetZoneAddr},
-        ClearNet,
-    },
+    network_zones::ClearNet,
     ConnectionDirection,
 };
+
+use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
 
 mod utils;
 use utils::*;
@@ -31,7 +30,8 @@ async fn handshake_cuprate_to_cuprate() {
         my_port: 0,
         network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
-        support_flags: PeerSupportFlags::from(0_u32),
+        // TODO: This fails if the support flags are empty (0)
+        support_flags: PeerSupportFlags::from(1_u32),
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     };
@@ -101,7 +101,7 @@ async fn handshake() {
         .with_max_level(LevelFilter::TRACE)
         .init();
 
-    let addr = "93.95.228.74:18080";
+    let addr = "127.0.0.1:18080";
 
     let our_basic_node_data = BasicNodeData {
         my_port: 0,

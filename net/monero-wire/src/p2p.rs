@@ -120,7 +120,7 @@ impl From<u32> for LevinCommand {
             2007 => LevinCommand::ChainResponse,
             2008 => LevinCommand::NewFluffyBlock,
             2009 => LevinCommand::FluffyMissingTxsRequest,
-            2010 => LevinCommand::NewBlock,
+            2010 => LevinCommand::GetTxPoolCompliment,
 
             x => LevinCommand::Unknown(x),
         }

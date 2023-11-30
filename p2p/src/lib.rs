@@ -42,24 +42,6 @@ impl NetZoneBasicNodeData {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct NodeID {
-    public: monero_wire::PeerID,
-    tor: monero_wire::PeerID,
-    i2p: monero_wire::PeerID,
-}
-
-impl NodeID {
-    pub fn generate() -> NodeID {
-        let mut rng = rand::thread_rng();
-        NodeID {
-            public: monero_wire::PeerID(rng.gen()),
-            tor: monero_wire::PeerID(rng.gen()),
-            i2p: monero_wire::PeerID(rng.gen()),
-        }
-    }
-}
-
 #[async_trait::async_trait]
 pub trait P2PStore: Clone + Send + 'static {
     /// Loads the peers from the peer store.

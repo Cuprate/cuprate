@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::{future::Future, pin::Pin};
 
 use futures::{Sink, Stream};
@@ -13,7 +15,7 @@ pub mod protocol;
 pub mod services;
 
 pub use error::*;
-use protocol::*;
+pub use protocol::*;
 use services::*;
 
 const MAX_PEERS_IN_PEER_LIST_MESSAGE: usize = 250;

@@ -10,11 +10,11 @@ use std::{
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use futures::{
     channel::{mpsc, oneshot},
-    ready, FutureExt, SinkExt, StreamExt, TryStreamExt,
+    FutureExt, StreamExt,
 };
 use monero_serai::{
     block::Block,
-    rpc::{HttpRpc, Rpc, RpcError},
+    rpc::{HttpRpc, Rpc},
     transaction::Transaction,
 };
 use monero_wire::common::{BlockCompleteEntry, TransactionBlobs};
@@ -216,7 +216,7 @@ impl RpcConnection {
 
         let blocks: Response = monero_epee_bin_serde::from_bytes(res)?;
 
-        Ok(rayon_spawn_async(|| {
+        rayon_spawn_async(|| {
             blocks
                 .blocks
                 .into_par_iter()
@@ -237,7 +237,7 @@ impl RpcConnection {
                 })
                 .collect::<Result<_, tower::BoxError>>()
         })
-        .await?)
+        .await
     }
 
     async fn get_outputs(

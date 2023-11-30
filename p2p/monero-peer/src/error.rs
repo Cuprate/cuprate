@@ -1,5 +1,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum PeerError {
+    #[error("The connection tasks client channel was closed")]
+    ClientChannelClosed,
     #[error("error with peer response: {0}")]
     ResponseError(&'static str),
     #[error("the peer sent an incorrect response to our request")]

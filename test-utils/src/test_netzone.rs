@@ -6,18 +6,14 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::{
-    channel::mpsc::{Receiver, Sender as InnerSender},
-    stream::BoxStream,
-    Sink, Stream,
-};
+use futures::{channel::mpsc::Sender as InnerSender, stream::BoxStream, Sink};
 
 use monero_wire::{
     network_address::{NetworkAddress, NetworkAddressIncorrectZone},
     BucketError, Message,
 };
 
-use crate::NetworkZone;
+use monero_peer::NetworkZone;
 
 #[derive(Clone)]
 pub struct TestNetZoneAddr(pub u32);

@@ -1,7 +1,10 @@
-use futures::{stream::FusedStream, SinkExt, StreamExt};
-use tokio::sync::{mpsc, oneshot};
+use futures::{
+    channel::{mpsc, oneshot},
+    stream::FusedStream,
+    SinkExt, StreamExt,
+};
 
-use monero_wire::Message;
+use monero_wire::{LevinCommand, Message};
 
 use crate::{MessageID, NetworkZone, PeerError, PeerRequest, PeerRequestHandler, PeerResponse};
 
@@ -16,6 +19,31 @@ pub enum State {
         request_id: MessageID,
         tx: oneshot::Sender<Result<PeerResponse, PeerError>>,
     },
+}
+
+impl State {
+    /// Returns if the [`LevinCommand`] is the correct response message for our request.
+    ///
+    /// e.g that we didn't get a block for a txs request.
+    fn levin_command_response(&self, command: LevinCommand) -> bool {
+        match self {
+            State::WaitingForResponse { request_id, .. } => matches!(
+                (request_id, command),
+                (MessageID::Handshake, LevinCommand::Handshake)
+                    | (MessageID::TimedSync, LevinCommand::TimedSync)
+                    | (MessageID::Ping, LevinCommand::Ping)
+                    | (MessageID::SupportFlags, LevinCommand::SupportFlags)
+                    | (MessageID::GetObjects, LevinCommand::GetObjectsResponse)
+                    | (MessageID::GetChain, LevinCommand::ChainResponse)
+                    | (MessageID::FluffyMissingTxs, LevinCommand::NewFluffyBlock)
+                    | (
+                        MessageID::GetTxPoolCompliment,
+                        LevinCommand::NewTransactions
+                    )
+            ),
+            _ => false,
+        }
+    }
 }
 
 pub struct Connection<Z: NetworkZone, ReqHndlr> {
@@ -67,7 +95,7 @@ where
         Ok(self.peer_sink.send(mes.into()).await?)
     }
 
-    async fn handle_peer_request(&mut self, req: PeerRequest) -> Result<(), PeerError> {
+    async fn handle_peer_request(&mut self, _req: PeerRequest) -> Result<(), PeerError> {
         // we should check contents of peer requests for obvious errors like we do with responses
         todo!()
         /*
@@ -90,7 +118,7 @@ where
 
     async fn state_waiting_for_request<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
     where
-        Str: FusedStream<Item = Result<Message, BucketError>> + Unpin,
+        Str: FusedStream<Item = Result<Message, monero_wire::BucketError>> + Unpin,
     {
         futures::select! {
             peer_message = stream.next() => {
@@ -117,22 +145,18 @@ where
             .await
             .expect("MessageStream will never return None")?;
 
-        if !peer_message.is_request()
-            && self.state.expected_response_id() == Some(peer_message.id())
-        {
+        if !peer_message.is_request() && self.state.levin_command_response(peer_message.command()) {
             if let Ok(res) = peer_message.try_into() {
                 Ok(self.handle_response(res).await?)
             } else {
                 // im almost certain this is impossible to hit, but im not certain enough to use unreachable!()
                 Err(PeerError::ResponseError("Peer sent incorrect response"))
             }
+        } else if let Ok(req) = peer_message.try_into() {
+            self.handle_peer_request(req).await
         } else {
-            if let Ok(req) = peer_message.try_into() {
-                self.handle_peer_request(req).await
-            } else {
-                // this can be hit if the peer sends a protocol response with the wrong id
-                Err(PeerError::ResponseError("Peer sent incorrect response"))
-            }
+            // this can be hit if the peer sends an incorrect response message
+            Err(PeerError::ResponseError("Peer sent incorrect response"))
         }
     }
 

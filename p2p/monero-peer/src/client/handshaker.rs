@@ -119,6 +119,7 @@ where
             peer_request_svc,
             our_basic_node_data,
             state: HandshakeState::Start,
+            eager_protocol_messages: vec![],
         };
 
         async move {
@@ -181,6 +182,10 @@ struct HandshakeStateMachine<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
     our_basic_node_data: BasicNodeData,
 
     state: HandshakeState,
+
+    /// Monero allows protocol messages to be sent before a handshake response, so we have to
+    /// keep track of them here. For saftey we only keep a Max of 2 messages.
+    eager_protocol_messages: Vec<monero_wire::ProtocolMessage>,
 }
 
 impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandshakeStateMachine<Z, AdrBook, CSync, ReqHdlr>
@@ -367,6 +372,20 @@ where
     async fn handle_incoming_message(&mut self, message: Message) -> Result<(), HandshakeError> {
         tracing::debug!("Received message from peer: {}", message.command());
 
+        if let Message::Protocol(protocol_message) = message {
+            if self.eager_protocol_messages.len() == 2 {
+                tracing::debug!("Peer sent too many protocl messages before a handshake response.");
+                return Err(HandshakeError::PeerSentInvalidMessage(
+                    "Peer sent too many protocol messages",
+                ));
+            }
+            tracing::debug!(
+                "Protocol message getting added to queue for when handshake is complete."
+            );
+            self.eager_protocol_messages.push(protocol_message);
+            return Ok(());
+        }
+
         match std::mem::replace(&mut self.state, HandshakeState::Invalid) {
             HandshakeState::Start => match message {
                 Message::Request(RequestMessage::Ping) => {
@@ -470,6 +489,6 @@ where
 
         tracing::debug!("Handshake complete.");
 
-        return Ok(());
+        Ok(())
     }
 }

@@ -2,7 +2,7 @@ use futures::channel::{mpsc, oneshot};
 use futures::stream::FusedStream;
 use futures::{Sink, SinkExt, Stream, StreamExt};
 
-use monero_wire::{BucketError, Message};
+use monero_wire::{Message, BucketError};
 use tower::{BoxError, Service};
 
 use crate::connection_handle::DisconnectSignal;

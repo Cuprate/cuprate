@@ -31,7 +31,7 @@ use monero_wire::{
     protocol::{
         ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
         GetObjectsResponse, GetTxPoolCompliment, NewBlock, NewFluffyBlock, NewTransactions,
-    }, 
+    },
 };
 
 mod try_from;
@@ -89,12 +89,12 @@ impl PeerRequest {
     }
 
     pub fn needs_response(&self) -> bool {
-        match self {
+        !matches!(
+            self,
             PeerRequest::NewBlock(_)
-            | PeerRequest::NewFluffyBlock(_)
-            | PeerRequest::NewTransactions(_) => false,
-            _ => true,
-        }
+                | PeerRequest::NewFluffyBlock(_)
+                | PeerRequest::NewTransactions(_)
+        )
     }
 }
 
