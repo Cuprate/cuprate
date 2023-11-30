@@ -35,6 +35,9 @@ jobs:
         path: target
         key: ${{ matrix.os }}
 
+    - name: Spawn monerod
+      uses: ./.github/actions/monerod-regtest
+
     - name: Install dependencies
       run: sudo apt install -y libboost-dev
 

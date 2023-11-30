@@ -22,18 +22,12 @@
 //!
 //! This project is licensed under the MIT License.
 
-// Coding conventions
-#![forbid(unsafe_code)]
-#![deny(non_upper_case_globals)]
-#![deny(non_camel_case_types)]
-#![deny(unused_mut)]
-//#![deny(missing_docs)]
-
 pub mod network_address;
 pub mod p2p;
 mod serde_helpers;
 
-pub use network_address::NetworkAddress;
+pub use levin_cuprate::BucketError;
+pub use network_address::{NetZone, NetworkAddress};
 pub use p2p::*;
 
 pub type MoneroWireCodec = levin_cuprate::codec::LevinMessageCodec<Message>;

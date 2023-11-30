@@ -1,0 +1,11 @@
+[package]
+name = "cuprate-test-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+monero-wire = {path = "../net/monero-wire"}
+monero-peer = {path = "../p2p/monero-peer"}
+
+futures = "0.3.29"
+async-trait = "0.1.74"

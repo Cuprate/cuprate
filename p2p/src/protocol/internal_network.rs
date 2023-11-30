@@ -22,162 +22,104 @@
 ///     Request: NewFluffyBlock,                    Response: None,
 ///     Request: NewTransactions,                   Response: None
 ///
-use monero_wire::messages::{
-    AdminMessage, ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
-    GetObjectsResponse, GetTxPoolCompliment, Handshake, Message, MessageNotification,
-    MessageRequest, MessageResponse, NewBlock, NewFluffyBlock, NewTransactions, Ping,
-    ProtocolMessage, SupportFlags, TimedSync,
+use monero_wire::{
+    ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
+    GetObjectsResponse, GetTxPoolCompliment, HandshakeRequest, HandshakeResponse, Message,
+    NewBlock, NewFluffyBlock, NewTransactions, PingResponse, RequestMessage, SupportFlagsResponse,
+    TimedSyncRequest, TimedSyncResponse,
 };
 
-macro_rules! client_request_peer_response {
-    (
-    Admin:
-        $($admin_mes:ident),+
-    Protocol:
-        $(Request: $protocol_req:ident, Response: $(SOME: $protocol_res:ident)? $(NULL: $none:expr)?  ),+
-    ) => {
+mod try_from;
 
-        #[derive(Debug, Clone)]
-        pub enum InternalMessageRequest {
-            $($admin_mes(<$admin_mes as AdminMessage>::Request),)+
-            $($protocol_req(<$protocol_req as ProtocolMessage>::Notification),)+
-        }
+/// An enum representing a request/ response combination, so a handshake request
+/// and response would have the same [`MessageID`]. This allows associating the
+/// correct response to a request.
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub enum MessageID {
+    Handshake,
+    TimedSync,
+    Ping,
+    SupportFlags,
 
-        impl InternalMessageRequest {
-            pub fn get_str_name(&self) -> &'static str {
-                match self {
-                    $(InternalMessageRequest::$admin_mes(_) => $admin_mes::NAME,)+
-                    $(InternalMessageRequest::$protocol_req(_) => $protocol_req::NAME,)+
-                }
-            }
-            pub fn id(&self) -> u32 {
-                match self {
-                    $(InternalMessageRequest::$admin_mes(_) => $admin_mes::ID,)+
-                    $(InternalMessageRequest::$protocol_req(_) => $protocol_req::ID,)+
-                }
-            }
-            pub fn expected_id(&self) -> Option<u32> {
-                match self {
-                    $(InternalMessageRequest::$admin_mes(_) => Some($admin_mes::ID),)+
-                    $(InternalMessageRequest::$protocol_req(_) => $(Some($protocol_res::ID))? $($none)?,)+
-                }
-            }
-            pub fn is_levin_request(&self) -> bool {
-                match self {
-                    $(InternalMessageRequest::$admin_mes(_) => true,)+
-                    $(InternalMessageRequest::$protocol_req(_) => false,)+
-                }
-            }
-        }
-
-        impl From<MessageRequest> for InternalMessageRequest {
-            fn from(value: MessageRequest) -> Self {
-                match value {
-                    $(MessageRequest::$admin_mes(mes) => InternalMessageRequest::$admin_mes(mes),)+
-                }
-            }
-        }
-
-        impl Into<Message> for InternalMessageRequest {
-            fn into(self) -> Message {
-                match self {
-                    $(InternalMessageRequest::$admin_mes(mes) => Message::Request(MessageRequest::$admin_mes(mes)),)+
-                    $(InternalMessageRequest::$protocol_req(mes) => Message::Notification(MessageNotification::$protocol_req(mes)),)+
-                }
-            }
-        }
-
-        #[derive(Debug)]
-        pub struct NotAnInternalRequest;
-
-        impl TryFrom<Message> for InternalMessageRequest {
-            type Error = NotAnInternalRequest;
-            fn try_from(value: Message) -> Result<Self, Self::Error> {
-                match value {
-                    Message::Response(_) => Err(NotAnInternalRequest),
-                    Message::Request(req) => Ok(req.into()),
-                    Message::Notification(noti) => {
-                        match noti {
-                            $(MessageNotification::$protocol_req(noti) => Ok(InternalMessageRequest::$protocol_req(noti)),)+
-                            _ => Err(NotAnInternalRequest),
-                        }
-                    }
-                }
-            }
-        }
-
-        #[derive(Debug, Clone)]
-        pub enum InternalMessageResponse {
-            $($admin_mes(<$admin_mes as AdminMessage>::Response),)+
-            $($($protocol_res(<$protocol_res as ProtocolMessage>::Notification),)?)+
-        }
-
-        impl InternalMessageResponse {
-            pub fn get_str_name(&self) -> &'static str {
-                match self {
-                    $(InternalMessageResponse::$admin_mes(_) => $admin_mes::NAME,)+
-                    $($(InternalMessageResponse::$protocol_res(_) => $protocol_res::NAME,)?)+
-                }
-            }
-            pub fn id(&self) -> u32 {
-                match self{
-                    $(InternalMessageResponse::$admin_mes(_) => $admin_mes::ID,)+
-                    $($(InternalMessageResponse::$protocol_res(_) => $protocol_res::ID,)?)+
-                }
-            }
-        }
-
-        impl From<MessageResponse> for InternalMessageResponse {
-            fn from(value: MessageResponse) -> Self {
-                match value {
-                    $(MessageResponse::$admin_mes(mes) => InternalMessageResponse::$admin_mes(mes),)+
-                }
-            }
-        }
-
-        impl Into<Message> for InternalMessageResponse {
-            fn into(self) -> Message {
-                match self {
-                    $(InternalMessageResponse::$admin_mes(mes) => Message::Response(MessageResponse::$admin_mes(mes)),)+
-                    $($(InternalMessageResponse::$protocol_res(mes) => Message::Notification(MessageNotification::$protocol_res(mes)),)?)+
-                }
-            }
-        }
-
-        #[derive(Debug)]
-        pub struct NotAnInternalResponse;
-
-        impl TryFrom<Message> for InternalMessageResponse {
-            type Error = NotAnInternalResponse;
-            fn try_from(value: Message) -> Result<Self, Self::Error> {
-                match value {
-                    Message::Response(res) => Ok(res.into()),
-                    Message::Request(_) => Err(NotAnInternalResponse),
-                    Message::Notification(noti) => {
-                        match noti {
-                            $($(MessageNotification::$protocol_res(noti) => Ok(InternalMessageResponse::$protocol_res(noti)),)?)+
-                            _ => Err(NotAnInternalResponse),
-                        }
-                    }
-                }
-            }
-        }
-    };
+    GetObjects,
+    GetChain,
+    FluffyMissingTxs,
+    GetTxPoolCompliment,
+    NewBlock,
+    NewFluffyBlock,
+    NewTransactions,
 }
 
-client_request_peer_response!(
-    Admin:
-        Handshake,
-        TimedSync,
-        Ping,
-        SupportFlags
-    Protocol:
-        Request: GetObjectsRequest,                 Response: SOME: GetObjectsResponse,
-        Request: ChainRequest,                      Response: SOME: ChainResponse,
-        Request: FluffyMissingTransactionsRequest,  Response: SOME: NewFluffyBlock,  // these 2 could be requests or responses
-        Request: GetTxPoolCompliment,               Response: SOME: NewTransactions, //
-        // these don't need to be responded to
-        Request: NewBlock,                          Response: NULL: None,
-        Request: NewFluffyBlock,                    Response: NULL: None,
-        Request: NewTransactions,                   Response: NULL: None
-);
+pub enum Request {
+    Handshake(HandshakeRequest),
+    TimedSync(TimedSyncRequest),
+    Ping,
+    SupportFlags,
+
+    GetObjects(GetObjectsRequest),
+    GetChain(ChainRequest),
+    FluffyMissingTxs(FluffyMissingTransactionsRequest),
+    GetTxPoolCompliment(GetTxPoolCompliment),
+    NewBlock(NewBlock),
+    NewFluffyBlock(NewFluffyBlock),
+    NewTransactions(NewTransactions),
+}
+
+impl Request {
+    pub fn id(&self) -> MessageID {
+        match self {
+            Request::Handshake(_) => MessageID::Handshake,
+            Request::TimedSync(_) => MessageID::TimedSync,
+            Request::Ping => MessageID::Ping,
+            Request::SupportFlags => MessageID::SupportFlags,
+
+            Request::GetObjects(_) => MessageID::GetObjects,
+            Request::GetChain(_) => MessageID::GetChain,
+            Request::FluffyMissingTxs(_) => MessageID::FluffyMissingTxs,
+            Request::GetTxPoolCompliment(_) => MessageID::GetTxPoolCompliment,
+            Request::NewBlock(_) => MessageID::NewBlock,
+            Request::NewFluffyBlock(_) => MessageID::NewFluffyBlock,
+            Request::NewTransactions(_) => MessageID::NewTransactions,
+        }
+    }
+
+    pub fn needs_response(&self) -> bool {
+        match self {
+            Request::NewBlock(_) | Request::NewFluffyBlock(_) | Request::NewTransactions(_) => {
+                false
+            }
+            _ => true,
+        }
+    }
+}
+
+pub enum Response {
+    Handshake(HandshakeResponse),
+    TimedSync(TimedSyncResponse),
+    Ping(PingResponse),
+    SupportFlags(SupportFlagsResponse),
+
+    GetObjects(GetObjectsResponse),
+    GetChain(ChainResponse),
+    NewFluffyBlock(NewFluffyBlock),
+    NewTransactions(NewTransactions),
+    NA,
+}
+
+impl Response {
+    pub fn id(&self) -> MessageID {
+        match self {
+            Response::Handshake(_) => MessageID::Handshake,
+            Response::TimedSync(_) => MessageID::TimedSync,
+            Response::Ping(_) => MessageID::Ping,
+            Response::SupportFlags(_) => MessageID::SupportFlags,
+
+            Response::GetObjects(_) => MessageID::GetObjects,
+            Response::GetChain(_) => MessageID::GetChain,
+            Response::NewFluffyBlock(_) => MessageID::NewBlock,
+            Response::NewTransactions(_) => MessageID::NewFluffyBlock,
+
+            Response::NA => panic!("Can't get message ID for a non existent response"),
+        }
+    }
+}

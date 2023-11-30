@@ -50,6 +50,7 @@ pub enum PruningError {
 ///
 // Internally we use an Option<u32> to represent if a pruning seed is 0 (None)which means
 // no pruning will take place.
+#[derive(Debug, Clone, Copy)]
 pub struct PruningSeed(Option<u32>);
 
 impl PruningSeed {

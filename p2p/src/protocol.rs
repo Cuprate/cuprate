@@ -1,13 +1,29 @@
 pub mod internal_network;
-pub mod temp_database;
 
 pub use internal_network::{InternalMessageRequest, InternalMessageResponse};
 
-pub const BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT: usize = 10000;
-pub const BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT: usize = 25000;
-pub const P2P_MAX_PEERS_IN_HANDSHAKE: usize = 250;
+use monero_wire::messages::CoreSyncData;
 
+/// A request to a [`tower::Service`] that handles sync states.
+pub enum CoreSyncDataRequest {
+    /// Get our [`CoreSyncData`].
+    GetOurs,
+    /// Handle an incoming [`CoreSyncData`].
+    NewIncoming(CoreSyncData),
+}
+
+/// A response from a [`tower::Service`] that handles sync states.
+pub enum CoreSyncDataResponse {
+    /// Our [`CoreSyncData`]
+    Ours(CoreSyncData),
+    /// The incoming [`CoreSyncData`] is ok.
+    Ok,
+}
+
+/// The direction of a connection.
 pub enum Direction {
+    /// An inbound connection.
     Inbound,
+    /// An outbound connection.
     Outbound,
 }

@@ -9,8 +9,8 @@ members = [
 	# "database",
 	"net/levin",
 	"net/monero-wire",
-	# "p2p",
-	# "p2p/sync-states"
+	"p2p/monero-peer",
+	"test-utils"
 ]
 
 [profile.release]
