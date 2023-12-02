@@ -11,7 +11,7 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 
 use crate::{
-    context::{BlockChainContext, BlockChainContextRequest},
+    context::{BlockChainContextRequest, BlockChainContextResponse},
     helper::rayon_spawn_async,
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     ConsensusError, HardFork, TxNotInPool, TxPoolRequest, TxPoolResponse,
@@ -75,7 +75,10 @@ pub struct BlockVerifierService<C: Clone, TxV: Clone, TxP: Clone> {
 
 impl<C, TxV, TxP> BlockVerifierService<C, TxV, TxP>
 where
-    C: Service<BlockChainContextRequest, Response = BlockChainContext> + Clone + Send + 'static,
+    C: Service<BlockChainContextRequest, Response = BlockChainContextResponse>
+        + Clone
+        + Send
+        + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>
         + Clone
         + Send
@@ -100,8 +103,11 @@ where
 
 impl<C, TxV, TxP> Service<VerifyBlockRequest> for BlockVerifierService<C, TxV, TxP>
 where
-    C: Service<BlockChainContextRequest, Response = BlockChainContext, Error = tower::BoxError>
-        + Clone
+    C: Service<
+            BlockChainContextRequest,
+            Response = BlockChainContextResponse,
+            Error = tower::BoxError,
+        > + Clone
         + Send
         + 'static,
     C::Future: Send + 'static,
@@ -123,14 +129,12 @@ where
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        futures::ready!(self.context_svc.poll_ready(cx)).map(Into::into)?;
-        self.tx_verifier_svc.poll_ready(cx)
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: VerifyBlockRequest) -> Self::Future {
         let context_svc = self.context_svc.clone();
-        let context_svc = std::mem::replace(&mut self.context_svc, context_svc);
         let tx_verifier_svc = self.tx_verifier_svc.clone();
         let tx_pool = self.tx_pool.clone();
 
@@ -195,8 +199,11 @@ async fn verify_prepared_main_chain_block<C, TxV, TxP>(
     tx_pool: TxP,
 ) -> Result<VerifyBlockResponse, ConsensusError>
 where
-    C: Service<BlockChainContextRequest, Response = BlockChainContext, Error = tower::BoxError>
-        + Send
+    C: Service<
+            BlockChainContextRequest,
+            Response = BlockChainContextResponse,
+            Error = tower::BoxError,
+        > + Send
         + 'static,
     C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
@@ -206,12 +213,14 @@ where
         + 'static,
 {
     tracing::debug!("getting blockchain context");
-    let checked_context = context_svc
-        .oneshot(BlockChainContextRequest)
+    let BlockChainContextResponse::Context(checked_context) = context_svc
+        .oneshot(BlockChainContextRequest::Get)
         .await
-        .map_err(Into::<ConsensusError>::into)?;
+        .map_err(Into::<ConsensusError>::into)?
+    else {
+        panic!("Context service returned wrong response!");
+    };
 
-    // TODO: should we unwrap here, we did just get the data so it should be ok.
     let context = checked_context.unchecked_blockchain_context().clone();
 
     tracing::debug!("got blockchain context: {:?}", context);
@@ -275,7 +284,7 @@ where
         weight: block_weight,
         height: context.chain_height,
         long_term_weight: context.next_block_long_term_weight(block_weight),
-        hf_vote: HardFork::V1,
+        hf_vote: block.hf_vote,
         cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
     }))
 }
@@ -287,8 +296,11 @@ async fn verify_main_chain_block<C, TxV, TxP>(
     tx_pool: TxP,
 ) -> Result<VerifyBlockResponse, ConsensusError>
 where
-    C: Service<BlockChainContextRequest, Response = BlockChainContext, Error = tower::BoxError>
-        + Send
+    C: Service<
+            BlockChainContextRequest,
+            Response = BlockChainContextResponse,
+            Error = tower::BoxError,
+        > + Send
         + 'static,
     C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
@@ -298,12 +310,14 @@ where
         + 'static,
 {
     tracing::debug!("getting blockchain context");
-    let checked_context = context_svc
-        .oneshot(BlockChainContextRequest)
+    let BlockChainContextResponse::Context(checked_context) = context_svc
+        .oneshot(BlockChainContextRequest::Get)
         .await
-        .map_err(Into::<ConsensusError>::into)?;
+        .map_err(Into::<ConsensusError>::into)?
+    else {
+        panic!("Context service returned wrong response!");
+    };
 
-    // TODO: should we unwrap here, we did just get the data so it should be ok.
     let context = checked_context.unchecked_blockchain_context().clone();
 
     tracing::debug!("got blockchain context: {:?}", context);

@@ -5,7 +5,7 @@ use tower::ServiceExt;
 use super::{
     difficulty::tests::TEST_DIFFICULTY_CONFIG, hardforks::tests::TEST_HARD_FORK_CONFIG,
     initialize_blockchain_context, weight::tests::TEST_WEIGHT_CONFIG, BlockChainContextRequest,
-    ContextConfig, UpdateBlockchainCacheRequest,
+    BlockChainContextResponse, ContextConfig, UpdateBlockchainCacheData,
 };
 use crate::{test_utils::mock_db::*, HardFork};
 
@@ -25,25 +25,33 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
         .unwrap()
         .current();
 
-    let (ctx_svc, updater) = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
+    let ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
-    let context = ctx_svc.oneshot(BlockChainContextRequest).await?;
+    let BlockChainContextResponse::Context(context) = ctx_svc
+        .clone()
+        .oneshot(BlockChainContextRequest::Get)
+        .await?
+    else {
+        panic!("Context service returned wrong response!");
+    };
 
     assert!(context.is_still_valid());
     assert!(context.is_still_valid());
     assert!(context.is_still_valid());
 
-    updater
-        .oneshot(UpdateBlockchainCacheRequest {
-            new_top_hash: [0; 32],
-            height: BLOCKCHAIN_HEIGHT,
-            timestamp: 0,
-            weight: 0,
-            long_term_weight: 0,
-            generated_coins: 0,
-            vote: HardFork::V1,
-            cumulative_difficulty: 0,
-        })
+    ctx_svc
+        .oneshot(BlockChainContextRequest::Update(
+            UpdateBlockchainCacheData {
+                new_top_hash: [0; 32],
+                height: BLOCKCHAIN_HEIGHT,
+                timestamp: 0,
+                weight: 0,
+                long_term_weight: 0,
+                generated_coins: 0,
+                vote: HardFork::V1,
+                cumulative_difficulty: 0,
+            },
+        ))
         .await?;
 
     assert!(!context.is_still_valid());
@@ -61,9 +69,13 @@ async fn context_height_correct() -> Result<(), tower::BoxError> {
         .unwrap()
         .current();
 
-    let (ctx_svc, _) = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
+    let ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
-    let context = ctx_svc.oneshot(BlockChainContextRequest).await?;
+    let BlockChainContextResponse::Context(context) =
+        ctx_svc.oneshot(BlockChainContextRequest::Get).await?
+    else {
+        panic!("context service returned incorrect response!")
+    };
 
     assert_eq!(
         context.blockchain_context().unwrap().chain_height,

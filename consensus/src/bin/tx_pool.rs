@@ -2,19 +2,24 @@
 
 use std::{
     collections::HashMap,
-    future::Future,
-    pin::Pin,
     sync::{Arc, Mutex},
     task::{Context, Poll},
 };
 
-use futures::{channel::mpsc, FutureExt, StreamExt};
+use futures::{
+    channel::{mpsc, oneshot},
+    StreamExt,
+};
 use monero_serai::transaction::Transaction;
-use tokio::sync::oneshot;
 use tower::{Service, ServiceExt};
 
+use cuprate_common::tower_utils::InfallibleOneshotReceiver;
+
 use monero_consensus::{
-    context::{BlockChainContext, BlockChainContextRequest, RawBlockChainContext},
+    context::{
+        BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
+        RawBlockChainContext,
+    },
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     ConsensusError, TxNotInPool, TxPoolRequest, TxPoolResponse,
 };
@@ -31,8 +36,7 @@ pub struct TxPoolHandle {
 impl tower::Service<TxPoolRequest> for TxPoolHandle {
     type Response = TxPoolResponse;
     type Error = TxNotInPool;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if self.tx_pool_task.is_finished() {
@@ -50,11 +54,7 @@ impl tower::Service<TxPoolRequest> for TxPoolHandle {
             .try_send((req, tx))
             .expect("You need to use `poll_ready` to check capacity!");
 
-        async move {
-            rx.await
-                .expect("Tx pool will always respond without dropping the sender")
-        }
-        .boxed()
+        rx.into()
     }
 }
 
@@ -83,8 +83,11 @@ where
         + Send
         + 'static,
     TxV::Future: Send + 'static,
-    Ctx: Service<BlockChainContextRequest, Response = BlockChainContext, Error = tower::BoxError>
-        + Send
+    Ctx: Service<
+            BlockChainContextRequest,
+            Response = BlockChainContextResponse,
+            Error = tower::BoxError,
+        > + Send
         + 'static,
     Ctx::Future: Send + 'static,
 {
@@ -101,11 +104,14 @@ where
         ),
         tower::BoxError,
     > {
-        let current_ctx = ctx_svc
+        let BlockChainContextResponse::Context(current_ctx) = ctx_svc
             .ready()
             .await?
-            .call(BlockChainContextRequest)
-            .await?;
+            .call(BlockChainContextRequest::Get)
+            .await?
+        else {
+            panic!("Context service service returned wrong response!")
+        };
 
         let tx_pool = TxPool {
             txs: Default::default(),
@@ -133,12 +139,17 @@ where
         if let Ok(current_ctx) = self.current_ctx.blockchain_context().cloned() {
             Ok(current_ctx)
         } else {
-            self.current_ctx = self
+            let BlockChainContextResponse::Context(current_ctx) = self
                 .ctx_svc
                 .ready()
                 .await?
-                .call(BlockChainContextRequest)
-                .await?;
+                .call(BlockChainContextRequest::Get)
+                .await?
+            else {
+                panic!("Context service service returned wrong response!")
+            };
+
+            self.current_ctx = current_ctx;
 
             Ok(self.current_ctx.unchecked_blockchain_context().clone())
         }

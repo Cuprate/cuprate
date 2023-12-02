@@ -1,8 +1,4 @@
-use std::{
-    collections::HashSet,
-    sync::{Arc, RwLock},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use futures::{
     channel::mpsc::{self, SendError},
@@ -10,6 +6,7 @@ use futures::{
     SinkExt, StreamExt,
 };
 use monero_serai::rpc::HttpRpc;
+use tokio::sync::RwLock;
 use tower::{discover::Change, load::PeakEwma};
 use tracing::instrument;
 
@@ -22,8 +19,10 @@ use super::{
 async fn check_rpc(addr: String, cache: Arc<RwLock<ScanningCache>>) -> Option<RpcConnectionSvc> {
     tracing::debug!("Sending request to node.");
 
-    let con = HttpRpc::new(addr.clone()).await.ok()?;
-    let (tx, rx) = mpsc::channel(1);
+    let con = HttpRpc::new_custom_timeout(addr.clone(), Duration::from_secs(u64::MAX))
+        .await
+        .ok()?;
+    let (tx, rx) = mpsc::channel(0);
     let rpc = RpcConnection {
         address: addr.clone(),
         con,
@@ -58,7 +57,7 @@ impl RPCDiscover {
                 PeakEwma::new(
                     rpc,
                     Duration::from_secs(5000),
-                    300.0,
+                    3000.0,
                     tower::load::CompleteOnResponse::default(),
                 ),
             ))

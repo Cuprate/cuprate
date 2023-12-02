@@ -1,21 +1,23 @@
 #![cfg(feature = "binaries")]
 
-use std::{
-    ops::Range,
-    path::PathBuf,
-    sync::{Arc, RwLock},
-};
+use std::{ops::Range, path::PathBuf, sync::Arc};
 
-use futures::{channel::mpsc, SinkExt, StreamExt};
+use futures::{
+    channel::{mpsc, oneshot},
+    SinkExt, StreamExt,
+};
 use monero_serai::block::Block;
-use tokio::sync::oneshot;
+use tokio::sync::RwLock;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
 
 use cuprate_common::Network;
 
 use monero_consensus::{
-    context::{ContextConfig, UpdateBlockchainCacheRequest},
+    context::{
+        BlockChainContextRequest, BlockChainContextResponse, ContextConfig,
+        UpdateBlockchainCacheData,
+    },
     initialize_blockchain_context, initialize_verifier,
     rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig},
     Database, DatabaseRequest, DatabaseResponse, VerifiedBlockInformation, VerifyBlockRequest,
@@ -24,8 +26,8 @@ use monero_consensus::{
 
 mod tx_pool;
 
-const MAX_BLOCKS_IN_RANGE: u64 = 500;
-const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 500;
+const MAX_BLOCKS_IN_RANGE: u64 = 1000;
+const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 1000;
 
 /// Calls for a batch of blocks, returning the response and the time it took.
 async fn call_batch<D: Database>(
@@ -43,10 +45,14 @@ async fn update_cache_and_context<Ctx>(
     verified_block_info: VerifiedBlockInformation,
 ) -> Result<(), tower::BoxError>
 where
-    Ctx: tower::Service<UpdateBlockchainCacheRequest, Response = (), Error = tower::BoxError>,
+    Ctx: tower::Service<
+        BlockChainContextRequest,
+        Response = BlockChainContextResponse,
+        Error = tower::BoxError,
+    >,
 {
     // add the new block to the cache
-    cache.write().unwrap().add_new_block_data(
+    cache.write().await.add_new_block_data(
         verified_block_info.generated_coins,
         &verified_block_info.block.miner_tx,
         &verified_block_info.txs,
@@ -55,16 +61,18 @@ where
     context_updater
         .ready()
         .await?
-        .call(UpdateBlockchainCacheRequest {
-            new_top_hash: verified_block_info.block_hash,
-            height: verified_block_info.height,
-            timestamp: verified_block_info.block.header.timestamp,
-            weight: verified_block_info.weight,
-            long_term_weight: verified_block_info.long_term_weight,
-            vote: verified_block_info.hf_vote,
-            generated_coins: verified_block_info.generated_coins,
-            cumulative_difficulty: verified_block_info.cumulative_difficulty,
-        })
+        .call(BlockChainContextRequest::Update(
+            UpdateBlockchainCacheData {
+                new_top_hash: verified_block_info.block_hash,
+                height: verified_block_info.height,
+                timestamp: verified_block_info.block.header.timestamp,
+                weight: verified_block_info.weight,
+                long_term_weight: verified_block_info.long_term_weight,
+                vote: verified_block_info.hf_vote,
+                generated_coins: verified_block_info.generated_coins,
+                cumulative_difficulty: verified_block_info.cumulative_difficulty,
+            },
+        ))
         .await?;
 
     Ok(())
@@ -126,7 +134,7 @@ where
 async fn scan_chain<D>(
     cache: Arc<RwLock<ScanningCache>>,
     save_file: PathBuf,
-    _rpc_config: Arc<RwLock<RpcConfig>>,
+    _rpc_config: Arc<std::sync::RwLock<RpcConfig>>,
     database: D,
 ) -> Result<(), tower::BoxError>
 where
@@ -142,19 +150,18 @@ where
 
     let config = ContextConfig::main_net();
 
-    let (ctx_svc, mut context_updater) =
-        initialize_blockchain_context(config, database.clone()).await?;
+    let mut ctx_svc = initialize_blockchain_context(config, database.clone()).await?;
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
+    let (tx, rx) = oneshot::channel();
 
     let (tx_pool_svc, new_tx_chan) = tx_pool::TxPool::spawn(rx, ctx_svc.clone()).await?;
 
     let (mut block_verifier, transaction_verifier) =
-        initialize_verifier(database.clone(), tx_pool_svc, ctx_svc).await?;
+        initialize_verifier(database.clone(), tx_pool_svc, ctx_svc.clone()).await?;
 
     tx.send(transaction_verifier).map_err(|_| "").unwrap();
 
-    let start_height = cache.read().unwrap().height;
+    let start_height = cache.read().await.height;
 
     let (block_tx, mut incoming_blocks) = mpsc::channel(3);
 
@@ -207,10 +214,10 @@ where
 
             if verified_block_info.height % 5000 == 0 {
                 tracing::info!("saving cache to: {}", save_file.display());
-                cache.write().unwrap().save(&save_file).unwrap();
+                cache.write().await.save(&save_file).unwrap();
             }
 
-            update_cache_and_context(&cache, &mut context_updater, verified_block_info).await?;
+            update_cache_and_context(&cache, &mut ctx_svc, verified_block_info).await?;
         }
 
         tracing::info!(
@@ -267,7 +274,7 @@ async fn main() {
     ];
 
     let rpc_config = RpcConfig::new(MAX_BLOCKS_IN_RANGE, MAX_BLOCKS_HEADERS_IN_RANGE);
-    let rpc_config = Arc::new(RwLock::new(rpc_config));
+    let rpc_config = Arc::new(std::sync::RwLock::new(rpc_config));
 
     tracing::info!("Attempting to open cache at: {}", file_for_cache.display());
     let cache = match ScanningCache::load(&file_for_cache) {

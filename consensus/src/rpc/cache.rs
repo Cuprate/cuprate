@@ -1,9 +1,8 @@
-use std::io::Write;
 use std::{
     collections::HashMap,
     collections::HashSet,
     fmt::{Display, Formatter},
-    io::BufWriter,
+    io::{BufWriter, Write},
     path::Path,
     sync::Arc,
 };

@@ -19,8 +19,8 @@ pub use block::{
     PrePreparedBlock, VerifiedBlockInformation, VerifyBlockRequest, VerifyBlockResponse,
 };
 pub use context::{
-    initialize_blockchain_context, BlockChainContext, BlockChainContextRequest, ContextConfig,
-    HardFork, UpdateBlockchainCacheRequest,
+    initialize_blockchain_context, BlockChainContext, BlockChainContextRequest,
+    BlockChainContextResponse, ContextConfig, HardFork,
 };
 pub use transactions::{VerifyTxRequest, VerifyTxResponse};
 
@@ -63,7 +63,7 @@ where
     TxP::Future: Send + 'static,
     Ctx: tower::Service<
             BlockChainContextRequest,
-            Response = BlockChainContext,
+            Response = BlockChainContextResponse,
             Error = tower::BoxError,
         > + Clone
         + Send

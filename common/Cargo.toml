@@ -10,3 +10,5 @@ authors = ["Boog900"]
 chrono = "0.4.24"
 thiserror = "1"
 hex = "0.4"
+
+futures = "0.3.29"

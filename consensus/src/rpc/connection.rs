@@ -1,16 +1,14 @@
 use std::{
     collections::{HashMap, HashSet},
-    future::Future,
     ops::Range,
-    pin::Pin,
-    sync::{Arc, RwLock},
+    sync::Arc,
     task::{Context, Poll},
 };
 
 use curve25519_dalek::edwards::CompressedEdwardsY;
 use futures::{
     channel::{mpsc, oneshot},
-    FutureExt, StreamExt,
+    StreamExt,
 };
 use monero_serai::{
     block::Block,
@@ -24,11 +22,12 @@ use serde_json::json;
 use tokio::{
     task::JoinHandle,
     time::{timeout, Duration},
+    sync::RwLock
 };
 use tower::Service;
 use tracing::{instrument, Instrument};
 
-use cuprate_common::BlockID;
+use cuprate_common::{tower_utils::InfallibleOneshotReceiver, BlockID};
 
 use super::ScanningCache;
 use crate::{
@@ -36,6 +35,7 @@ use crate::{
     OutputOnChain,
 };
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(300);
+const OUTPUTS_TIMEOUT: Duration = Duration::from_secs(20);
 
 pub struct RpcConnectionSvc {
     pub(crate) address: String,
@@ -47,8 +47,7 @@ pub struct RpcConnectionSvc {
 impl Service<DatabaseRequest> for RpcConnectionSvc {
     type Response = DatabaseResponse;
     type Error = tower::BoxError;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if self.rpc_task_handle.is_finished() {
@@ -70,11 +69,7 @@ impl Service<DatabaseRequest> for RpcConnectionSvc {
             .try_send(req)
             .expect("poll_ready should be called first!");
 
-        async move {
-            rx.await
-                .expect("sender will not be dropped without response")
-        }
-        .boxed()
+        rx.into()
     }
 }
 
@@ -214,9 +209,9 @@ impl RpcConnection {
             )
             .await?;
 
-        let blocks: Response = monero_epee_bin_serde::from_bytes(res)?;
-
         rayon_spawn_async(|| {
+            let blocks: Response = monero_epee_bin_serde::from_bytes(res)?;
+
             blocks
                 .blocks
                 .into_par_iter()
@@ -256,8 +251,8 @@ impl RpcConnection {
         }
 
         #[derive(Serialize, Clone)]
-        struct Request {
-            outputs: Vec<OutputID>,
+        struct Request<'a> {
+            outputs: &'a [OutputID],
         }
 
         #[derive(Deserialize)]
@@ -273,30 +268,32 @@ impl RpcConnection {
             outs: Vec<OutputRes>,
         }
 
-        let outputs = out_ids
-            .into_iter()
-            .flat_map(|(amt, amt_map)| {
-                amt_map
-                    .into_iter()
-                    .map(|amt_idx| OutputID {
-                        amount: amt,
-                        index: amt_idx,
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
+        let outputs = rayon_spawn_async(|| {
+            out_ids
+                .into_iter()
+                .flat_map(|(amt, amt_map)| {
+                    amt_map
+                        .into_iter()
+                        .map(|amt_idx| OutputID {
+                            amount: amt,
+                            index: amt_idx,
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        })
+        .await;
 
         let res = self
             .con
             .bin_call(
                 "get_outs.bin",
-                monero_epee_bin_serde::to_bytes(&Request {
-                    outputs: outputs.clone(),
-                })?,
+                monero_epee_bin_serde::to_bytes(&Request { outputs: &outputs })?,
             )
             .await?;
 
-        let cache = self.cache.clone();
+        let cache = self.cache.clone().read_owned().await;
+
         let span = tracing::Span::current();
         rayon_spawn_async(move || {
             let outs: Response = monero_epee_bin_serde::from_bytes(&res)?;
@@ -304,9 +301,8 @@ impl RpcConnection {
             tracing::info!(parent: &span, "Got outputs len: {}", outs.outs.len());
 
             let mut ret = HashMap::new();
-            let cache = cache.read().unwrap();
 
-            for (out, idx) in outs.outs.iter().zip(outputs) {
+            for (out, idx) in outs.outs.into_iter().zip(outputs) {
                 ret.entry(idx.amount).or_insert_with(HashMap::new).insert(
                     idx.index,
                     OutputOnChain {
@@ -341,7 +337,7 @@ impl RpcConnection {
                     .map(DatabaseResponse::BlockHash)
             }
             DatabaseRequest::ChainHeight => {
-                let height = self.cache.read().unwrap().height;
+                let height = self.cache.read().await.height;
 
                 let hash = timeout(DEFAULT_TIMEOUT, self.get_block_hash(height - 1)).await??;
 
@@ -364,7 +360,7 @@ impl RpcConnection {
                     .map(DatabaseResponse::BlockBatchInRange)
             }
             DatabaseRequest::Outputs(out_ids) => {
-                timeout(DEFAULT_TIMEOUT, self.get_outputs(out_ids))
+                timeout(OUTPUTS_TIMEOUT, self.get_outputs(out_ids))
                     .await?
                     .map(DatabaseResponse::Outputs)
             }

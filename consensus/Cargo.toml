@@ -36,9 +36,9 @@ crypto-bigint = "0.5"
 curve25519-dalek = "4"
 
 randomx-rs = "1"
-monero-serai = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
-multiexp = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
-dalek-ff-group = {git="https://github.com/serai-dex/serai.git", rev = "c328e5e"}
+monero-serai = {git="https://github.com/cuprate/serai.git", rev = "4a5d860"}
+multiexp = {git="https://github.com/cuprate/serai.git", rev = "4a5d860"}
+dalek-ff-group = {git="https://github.com/cuprate/serai.git", rev = "4a5d860"}
 
 cuprate-common = {path = "../common"}
 cryptonight-cuprate = {path = "../cryptonight"}
