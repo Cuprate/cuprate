@@ -13,7 +13,7 @@ use futures::{
     FutureExt, StreamExt, TryFutureExt, TryStreamExt,
 };
 use tokio::sync::RwLock;
-use tower::{balance::p2c::Balance, util::BoxService, ServiceExt};
+use tower::{balance::p2c::Balance, ServiceExt};
 
 use crate::{helper::rayon_spawn_async, DatabaseRequest, DatabaseResponse};
 

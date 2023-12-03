@@ -56,29 +56,6 @@ fn check_decoy_info(decoy_info: &DecoyInfo, hf: &HardFork) -> Result<(), Consens
     Ok(())
 }
 
-/// Checks that the key image is torsion free.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#torsion-free-key-image
-pub(crate) fn check_key_images_torsion(input: &Input) -> Result<(), ConsensusError> {
-    match input {
-        Input::ToKey { key_image, .. } => {
-            // this happens in monero-serai but we may as well duplicate the check.
-            if !key_image.is_torsion_free() {
-                return Err(ConsensusError::TransactionHasInvalidInput(
-                    "key image has torsion",
-                ));
-            }
-        }
-        _ => {
-            return Err(ConsensusError::TransactionHasInvalidInput(
-                "Input not ToKey",
-            ))
-        }
-    }
-
-    Ok(())
-}
-
 /// Checks the inputs key images for torsion and for duplicates in the transaction.
 ///
 /// The `spent_kis` parameter is not meant to be a complete list of key images, just a list of related transactions
@@ -232,37 +209,6 @@ fn sum_inputs_v1(inputs: &[Input]) -> Result<u64, ConsensusError> {
     }
 
     Ok(sum)
-}
-
-/// Checks the inputs semantics are  valid.
-///
-/// This does all the checks that don't need blockchain context.
-///
-/// Although technically hard-fork is contextual data we class it as not because
-/// blocks keep their hf in the header.
-pub fn check_inputs_semantics(
-    inputs: &[Input],
-    hf: &HardFork,
-    tx_version: &TxVersion,
-) -> Result<u64, ConsensusError> {
-    if inputs.is_empty() {
-        return Err(ConsensusError::TransactionHasInvalidInput("no inputs"));
-    }
-
-    for input in inputs {
-        check_input_type(input)?;
-        check_input_has_decoys(input)?;
-
-        check_ring_members_unique(input, hf)?;
-        check_key_images_torsion(input)?;
-    }
-
-    check_inputs_sorted(inputs, hf)?;
-
-    match tx_version {
-        TxVersion::RingSignatures => sum_inputs_v1(inputs),
-        _ => panic!("TODO: RCT"),
-    }
 }
 
 /// Checks all input consensus rules.

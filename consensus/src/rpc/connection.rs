@@ -20,9 +20,9 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::{
+    sync::RwLock,
     task::JoinHandle,
     time::{timeout, Duration},
-    sync::RwLock
 };
 use tower::Service;
 use tracing::{instrument, Instrument};
