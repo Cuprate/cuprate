@@ -5,7 +5,7 @@ members = [
 	"common",
 	"consensus",
 	"cryptonight",
-	# "cuprate",
+	"cuprate",
 	# "database",
 	"net/levin",
 	"net/monero-wire",
