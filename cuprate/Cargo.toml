@@ -1,8 +1,31 @@
 [package]
 name = "cuprate"
+authors = []
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+# Shared workspace dependencies.
+anyhow      = { workspace = true }
+bincode     = { workspace = true }
+clap        = { workspace = true }
+hex         = { workspace = true }
+rand        = { workspace = true }
+rayon       = { workspace = true }
+serde_bytes = { workspace = true }
+serde_json  = { workspace = true }
+serde       = { workspace = true }
+thiserror   = { workspace = true }
+zip         = { workspace = true }
+
+# `cuprate` CLI specific.
+termimad = { version = "0.26.1" }
+
+## TODO: use `disk` or manual serde/directories?
+# toml_edit = { workspace = true }
+# dirs      = { workspace = true }
+# disk      = { workspace = true }
+
+## One day needed?
+# readable = { workspace = true }
+# json-rpc = { workspace = true }
