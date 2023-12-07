@@ -6,17 +6,22 @@ edition = "2021"
 
 [dependencies]
 # Shared workspace dependencies.
-anyhow      = { workspace = true }
-bincode     = { workspace = true }
-clap        = { workspace = true }
-hex         = { workspace = true }
-rand        = { workspace = true }
-rayon       = { workspace = true }
-serde_bytes = { workspace = true }
-serde_json  = { workspace = true }
-serde       = { workspace = true }
-thiserror   = { workspace = true }
-zip         = { workspace = true }
+anyhow       = { workspace = true }
+bincode      = { workspace = true }
+clap         = { workspace = true }
+const_format = { workspace = true }
+hex          = { workspace = true }
+once_cell    = { workspace = true }
+open         = { workspace = true }
+rand         = { workspace = true }
+rayon        = { workspace = true }
+serde_bytes  = { workspace = true }
+serde_json   = { workspace = true }
+serde        = { workspace = true }
+strum        = { workspace = true }
+thiserror    = { workspace = true }
+zeroize      = { workspace = true }
+zip          = { workspace = true }
 
 # `cuprate` CLI specific.
 termimad = { version = "0.26.1" }
@@ -24,7 +29,7 @@ termimad = { version = "0.26.1" }
 ## TODO: use `disk` or manual serde/directories?
 # toml_edit = { workspace = true }
 # dirs      = { workspace = true }
-# disk      = { workspace = true }
+disk      = { workspace = true }
 
 ## One day needed?
 # readable = { workspace = true }
