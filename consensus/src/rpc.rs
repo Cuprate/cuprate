@@ -130,7 +130,7 @@ where
     fn call(&mut self, req: DatabaseRequest) -> Self::Future {
         let this = self.rpcs.clone();
         let config_mutex = self.config.clone();
-        let config = config_mutex.read().unwrap();
+        let config = config_mutex.clone();
 
         let cache = self.cache.clone();
 
@@ -166,7 +166,7 @@ where
                     DatabaseRequest::BlockBatchInRange,
                     DatabaseResponse::BlockBatchInRange,
                     resp_to_ret,
-                    config.max_blocks_per_node,
+                    config.read().unwrap().max_blocks_per_node,
                 )
                 .boxed()
             }
@@ -183,7 +183,7 @@ where
                     DatabaseRequest::BlockExtendedHeaderInRange,
                     DatabaseResponse::BlockExtendedHeaderInRange,
                     resp_to_ret,
-                    config.max_block_headers_per_node,
+                    config.read().unwrap().max_block_headers_per_node,
                 )
                 .boxed()
             }

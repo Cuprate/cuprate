@@ -2,6 +2,7 @@
 
 use std::{ops::Range, path::PathBuf, sync::Arc};
 
+use clap::Parser;
 use futures::{
     channel::{mpsc, oneshot},
     SinkExt, StreamExt,
@@ -230,48 +231,84 @@ where
     Ok(())
 }
 
+#[derive(Parser)]
+struct Args {
+    /// The log level, valid values:
+    /// "off", "error", "warn", "info", "debug", "trace", or a number 0-5.
+    #[arg(short, long, default_value = "info")]
+    log_level: LevelFilter,
+    /// The network we should scan, valid values:
+    /// "mainnet", "testnet", "stagenet".
+    #[arg(short, long, default_value = "mainnet")]
+    network: String,
+    /// A list of RPC nodes we should use.
+    /// Example: http://xmr-node.cakewallet.com:18081
+    #[arg(long)]
+    rpc_nodes: Vec<String>,
+    /// Stops the scanner from including the default list of nodes, this is not
+    /// recommended unless you have sufficient self defined nodes with `rpc_nodes`
+    #[arg(long)]
+    dont_use_default_nodes: bool,
+    /// The directory/ folder to save the scanning cache in.
+    /// This will default to your user cache directory.
+    #[arg(long)]
+    cache_dir: Option<PathBuf>,
+}
+
 #[tokio::main]
 async fn main() {
-    // TODO: take this in as config options:
-    // - nodes to connect to
-    // - block batch size (not header)
-    // - network
-    // - tracing level
+    let args = Args::parse();
+
+    if args.dont_use_default_nodes & args.rpc_nodes.is_empty() {
+        panic!("Can't run scanner with no RPC nodes, see `--help` ")
+    }
 
     tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::INFO)
+        .with_max_level(args.log_level)
         .init();
 
-    let network = Network::Mainnet;
+    let network = match args.network.as_str() {
+        "mainnet" => Network::Mainnet,
+        _ => panic!("Invalid network, scanner currently only supports mainnet"),
+    };
 
-    let mut file_for_cache = dirs::cache_dir().unwrap();
+    let mut file_for_cache = match args.cache_dir {
+        Some(dir) => dir,
+        None => dirs::cache_dir().unwrap(),
+    };
     file_for_cache.push("cuprate_rpc_scanning_cache.bin");
 
-    let urls = vec![
-        "http://xmr-node.cakewallet.com:18081".to_string(),
-        "https://node.sethforprivacy.com".to_string(),
-        "http://nodex.monerujo.io:18081".to_string(),
-        "http://nodes.hashvault.pro:18081".to_string(),
-        "http://node.c3pool.com:18081".to_string(),
-        "http://node.trocador.app:18089".to_string(),
-        "http://xmr.lukas.services:18089".to_string(),
-        "http://xmr-node-eu.cakewallet.com:18081".to_string(),
-        "http://38.105.209.54:18089".to_string(),
-        "http://68.118.241.70:18089".to_string(),
-        "http://145.239.97.211:18089".to_string(),
-        //
-        "http://xmr-node.cakewallet.com:18081".to_string(),
-        "https://node.sethforprivacy.com".to_string(),
-        "http://nodex.monerujo.io:18081".to_string(),
-        "http://nodes.hashvault.pro:18081".to_string(),
-        "http://node.c3pool.com:18081".to_string(),
-        "http://node.trocador.app:18089".to_string(),
-        "http://xmr.lukas.services:18089".to_string(),
-        "http://xmr-node-eu.cakewallet.com:18081".to_string(),
-        "http://38.105.209.54:18089".to_string(),
-        "http://68.118.241.70:18089".to_string(),
-        "http://145.239.97.211:18089".to_string(),
-    ];
+    let mut urls = if args.dont_use_default_nodes {
+        vec![]
+    } else {
+        vec![
+            "http://xmr-node.cakewallet.com:18081".to_string(),
+            "https://node.sethforprivacy.com".to_string(),
+            "http://nodex.monerujo.io:18081".to_string(),
+            "http://nodes.hashvault.pro:18081".to_string(),
+            "http://node.c3pool.com:18081".to_string(),
+            "http://node.trocador.app:18089".to_string(),
+            "http://xmr.lukas.services:18089".to_string(),
+            "http://xmr-node-eu.cakewallet.com:18081".to_string(),
+            "http://38.105.209.54:18089".to_string(),
+            "http://68.118.241.70:18089".to_string(),
+            "http://145.239.97.211:18089".to_string(),
+            //
+            "http://xmr-node.cakewallet.com:18081".to_string(),
+            "https://node.sethforprivacy.com".to_string(),
+            "http://nodex.monerujo.io:18081".to_string(),
+            "http://nodes.hashvault.pro:18081".to_string(),
+            "http://node.c3pool.com:18081".to_string(),
+            "http://node.trocador.app:18089".to_string(),
+            "http://xmr.lukas.services:18089".to_string(),
+            "http://xmr-node-eu.cakewallet.com:18081".to_string(),
+            "http://38.105.209.54:18089".to_string(),
+            "http://68.118.241.70:18089".to_string(),
+            "http://145.239.97.211:18089".to_string(),
+        ]
+    };
+
+    urls.extend(args.rpc_nodes.into_iter());
 
     let rpc_config = RpcConfig::new(MAX_BLOCKS_IN_RANGE, MAX_BLOCKS_HEADERS_IN_RANGE);
     let rpc_config = Arc::new(std::sync::RwLock::new(rpc_config));
