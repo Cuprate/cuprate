@@ -62,15 +62,7 @@ impl PeerList {
     pub fn len(&self) -> usize {
         self.peers.len()
     }
-
-    /// Gets the amount of peers with a specific seed.
-    pub fn len_by_seed(&self, pruning_seed: &u32) -> usize {
-        self.pruning_idxs
-            .get(pruning_seed)
-            .map(|indexes| indexes.len())
-            .unwrap_or(0)
-    }
-
+    
     /// Adds a new peer to the peer list
     pub fn add_new_peer(&mut self, peer: PeerListEntryBase) {
         if let None = self.peers.insert(peer.adr, peer) {

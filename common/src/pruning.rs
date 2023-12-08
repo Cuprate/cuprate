@@ -18,6 +18,8 @@
 //! ```
 //!
 
+use std::cmp::Ordering;
+
 use thiserror::Error;
 
 use super::{
@@ -50,8 +52,32 @@ pub enum PruningError {
 ///
 // Internally we use an Option<u32> to represent if a pruning seed is 0 (None)which means
 // no pruning will take place.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "borsh",
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
+)]
 pub struct PruningSeed(Option<u32>);
+
+impl PartialOrd for PruningSeed {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PruningSeed {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match (self.get_log_stripes(), other.get_log_stripes()) {
+            (None, None) => Ordering::Equal,
+            (None, Some(_)) => Ordering::Greater,
+            (Some(_), None) => Ordering::Less,
+            (Some(stripe_s), Some(stripe_o)) => match stripe_s.cmp(&stripe_o) {
+                Ordering::Equal => self.get_stripe().unwrap().cmp(&other.get_stripe().unwrap()),
+                ordering => ordering,
+            },
+        }
+    }
+}
 
 impl PruningSeed {
     /// Creates a new pruning seed from a `stripe` and `log_stripes`
@@ -237,6 +263,12 @@ impl TryFrom<u32> for PruningSeed {
             }
             Ok(seed)
         }
+    }
+}
+
+impl From<PruningSeed> for u32 {
+    fn from(value: PruningSeed) -> Self {
+        value.0.unwrap_or(0)
     }
 }
 

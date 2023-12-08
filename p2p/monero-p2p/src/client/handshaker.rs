@@ -31,7 +31,7 @@ pub enum HandshakeError {
     #[error("peer is on a different network")]
     IncorrectNetwork,
     #[error("peer sent a peer list with peers from different zones")]
-    PeerSentIncorrectZonePeerList(#[from] crate::NetworkAddressIncorrectZone),
+    PeerSentIncorrectPeerList(#[from] crate::services::PeerListConversionError),
     #[error("peer sent invalid message: {0}")]
     PeerSentInvalidMessage(&'static str),
     #[error("Levin bucket error: {0}")]
@@ -234,7 +234,9 @@ where
             .address_book
             .ready()
             .await?
-            .call(AddressBookRequest::GetPeers(MAX_PEERS_IN_PEER_LIST_MESSAGE))
+            .call(AddressBookRequest::GetWhitePeers(
+                MAX_PEERS_IN_PEER_LIST_MESSAGE,
+            ))
             .await?
         else {
             panic!("Address book sent incorrect response");

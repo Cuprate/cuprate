@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{future::Future, pin::Pin};
+use std::{fmt::Debug, future::Future, hash::Hash, pin::Pin};
 
 use futures::{Sink, Stream};
 
@@ -10,6 +10,7 @@ use monero_wire::{
 
 pub mod client;
 pub mod error;
+pub mod handles;
 pub mod network_zones;
 pub mod protocol;
 pub mod services;
@@ -26,9 +27,63 @@ pub enum ConnectionDirection {
     OutBound,
 }
 
+#[cfg(not(feature = "borsh"))]
+pub trait NetZoneAddress:
+    TryFrom<NetworkAddress, Error = NetworkAddressIncorrectZone>
+    + Into<NetworkAddress>
+    + std::fmt::Display
+    + Hash
+    + Eq
+    + Clone
+    + Copy
+    + Send
+    + Unpin
+    + 'static
+{
+    /// Cuprate needs to be able to ban peers by IP addresses and not just by SocketAddr as
+    /// that include the port, to be able to facilitate this network addresses must have a ban ID
+    /// which for hidden services could just be the address it self but for clear net addresses will
+    /// be the IP address.
+    /// TODO: IP zone banning?
+    type BanID: Debug + Hash + Eq + Clone + Copy + Send + 'static;
+
+    fn ban_id(&self) -> Self::BanID;
+
+    fn should_add_to_peer_list(&self) -> bool;
+}
+
+#[cfg(feature = "borsh")]
+pub trait NetZoneAddress:
+    TryFrom<NetworkAddress, Error = NetworkAddressIncorrectZone>
+    + Into<NetworkAddress>
+    + std::fmt::Display
+    + borsh::BorshSerialize
+    + borsh::BorshDeserialize
+    + Hash
+    + Eq
+    + Clone
+    + Copy
+    + Send
+    + Unpin
+    + 'static
+{
+    /// Cuprate needs to be able to ban peers by IP addresses and not just by SocketAddr as
+    /// that include the port, to be able to facilitate this network addresses must have a ban ID
+    /// which for hidden services could just be the address it self but for clear net addresses will
+    /// be the IP address.
+    /// TODO: IP zone banning?
+    type BanID: Debug + Hash + Eq + Clone + Copy + Send + 'static;
+
+    fn ban_id(&self) -> Self::BanID;
+
+    fn should_add_to_peer_list(&self) -> bool;
+}
+
 /// An abstraction over a network zone (tor/i2p/clear)
 #[async_trait::async_trait]
-pub trait NetworkZone: Clone + Send + 'static {
+pub trait NetworkZone: Clone + Copy + Send + 'static {
+    /// The network name.
+    const NAME: &'static str;
     /// Allow syncing over this network.
     ///
     /// Not recommended for anonymity networks.
@@ -44,12 +99,8 @@ pub trait NetworkZone: Clone + Send + 'static {
     const CHECK_NODE_ID: bool;
 
     /// The address type of this network.
-    type Addr: TryFrom<NetworkAddress, Error = NetworkAddressIncorrectZone>
-        + Into<NetworkAddress>
-        + std::fmt::Display
-        + Clone
-        + Send
-        + 'static;
+    type Addr: NetZoneAddress;
+
     /// The stream (incoming data) type for this network.
     type Stream: Stream<Item = Result<Message, BucketError>> + Unpin + Send + 'static;
     /// The sink (outgoing data) type for this network.
@@ -69,33 +120,26 @@ pub(crate) trait AddressBook<Z: NetworkZone>:
         AddressBookRequest<Z>,
         Response = AddressBookResponse<Z>,
         Error = tower::BoxError,
-        Future = Pin<
-            Box<
-                dyn Future<Output = Result<AddressBookResponse<Z>, tower::BoxError>>
-                    + Send
-                    + 'static,
-            >,
-        >,
+        Future = Self::Future2,
     > + Send
     + 'static
 {
+    // This allows us to put more restrictive bounds on the future without defining the future here
+    // explicitly.
+    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
 }
 
-impl<T, Z: NetworkZone> AddressBook<Z> for T where
+impl<T, Z: NetworkZone> AddressBook<Z> for T
+where
     T: tower::Service<
             AddressBookRequest<Z>,
             Response = AddressBookResponse<Z>,
             Error = tower::BoxError,
-            Future = Pin<
-                Box<
-                    dyn Future<Output = Result<AddressBookResponse<Z>, tower::BoxError>>
-                        + Send
-                        + 'static,
-                >,
-            >,
         > + Send
-        + 'static
+        + 'static,
+    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
 {
+    type Future2 = T::Future;
 }
 
 pub(crate) trait CoreSyncSvc:

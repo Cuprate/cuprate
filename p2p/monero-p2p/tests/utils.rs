@@ -7,7 +7,7 @@ use std::{
 use futures::FutureExt;
 use tower::Service;
 
-use monero_peer::{
+use monero_p2p::{
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
     },
@@ -30,7 +30,7 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for DummyAddressBook {
     fn call(&mut self, req: AddressBookRequest<Z>) -> Self::Future {
         async move {
             Ok(match req {
-                AddressBookRequest::GetPeers(_) => AddressBookResponse::Peers(vec![]),
+                AddressBookRequest::GetWhitePeers(_) => AddressBookResponse::Peers(vec![]),
                 _ => AddressBookResponse::Ok,
             })
         }

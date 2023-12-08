@@ -6,7 +6,7 @@ use tower::{Service, ServiceExt};
 use cuprate_common::Network;
 use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 
-use monero_peer::{
+use monero_p2p::{
     client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker},
     network_zones::ClearNet,
     ConnectionDirection,

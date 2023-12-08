@@ -41,7 +41,7 @@ impl State {
                         LevinCommand::NewTransactions
                     )
             ),
-            _ => false,
+            _ => panic!("We are not in a state to be checking responses!"),
         }
     }
 }

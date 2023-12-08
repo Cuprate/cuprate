@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use monero_wire::MoneroWireCodec;
 
@@ -8,15 +8,28 @@ use tokio::net::{
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
 
-use crate::NetworkZone;
+use crate::{NetZoneAddress, NetworkZone};
 
-#[derive(Clone)]
+impl NetZoneAddress for SocketAddr {
+    type BanID = IpAddr;
+
+    fn ban_id(&self) -> Self::BanID {
+        self.ip()
+    }
+
+    fn should_add_to_peer_list(&self) -> bool {
+        todo!()
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct ClearNet;
 
 pub struct ClearNetServerCfg {}
 
 #[async_trait::async_trait]
 impl NetworkZone for ClearNet {
+    const NAME: &'static str = "ClearNet";
     const ALLOW_SYNC: bool = true;
     const DANDELION_PP: bool = true;
     const CHECK_NODE_ID: bool = true;

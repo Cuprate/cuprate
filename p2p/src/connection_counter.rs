@@ -1,8 +1,3 @@
-//! Counting active connections used by Cuprate.
-//!
-//! These types can be used to count any kind of active resource.
-//! But they are currently used to track the number of open connections.
-
 use std::{fmt, sync::Arc};
 
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};

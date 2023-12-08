@@ -6,6 +6,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use borsh::{BorshDeserialize, BorshSerialize};
 use futures::{channel::mpsc::Sender as InnerSender, stream::BoxStream, Sink};
 
 use monero_wire::{
@@ -13,10 +14,22 @@ use monero_wire::{
     BucketError, Message,
 };
 
-use monero_peer::NetworkZone;
+use monero_p2p::{NetZoneAddress, NetworkZone};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct TestNetZoneAddr(pub u32);
+
+impl NetZoneAddress for TestNetZoneAddr {
+    type BanID = Self;
+
+    fn ban_id(&self) -> Self::BanID {
+        *self
+    }
+
+    fn should_add_to_peer_list(&self) -> bool {
+        true
+    }
+}
 
 impl std::fmt::Display for TestNetZoneAddr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -83,13 +96,14 @@ impl Sink<Message> for Sender {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct TestNetZone<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool>;
 
 #[async_trait::async_trait]
 impl<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool> NetworkZone
     for TestNetZone<ALLOW_SYNC, DANDELION_PP, CHECK_NODE_ID>
 {
+    const NAME: &'static str = "Testing";
     const ALLOW_SYNC: bool = ALLOW_SYNC;
     const DANDELION_PP: bool = DANDELION_PP;
     const CHECK_NODE_ID: bool = CHECK_NODE_ID;

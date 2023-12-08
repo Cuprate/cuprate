@@ -47,7 +47,7 @@ where
         let mut handshaker = self.handshaker.clone();
 
         async move {
-            let (peer_stream, peer_sink) = Z::connect_to_peer(req.addr.clone()).await?;
+            let (peer_stream, peer_sink) = Z::connect_to_peer(req.addr).await?;
             let req = DoHandshakeRequest {
                 addr: req.addr,
                 peer_stream,

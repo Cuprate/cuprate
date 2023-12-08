@@ -1,24 +1,28 @@
 [package]
-name = "monero-peer"
+name = "monero-p2p"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
 
 [features]
-default = []
+default = ["borsh"]
+borsh = ["dep:borsh"]
 
 [dependencies]
 monero-wire = {path= "../../net/monero-wire"}
-cuprate-common = {path = "../../common"}
+cuprate-common = {path = "../../common", features = ["borsh"]}
 
 tokio = {version= "1.34.0", default-features = false, features = ["net"]}
 tokio-util = { version = "0.7.10", default-features = false, features = ["codec"] }
 futures = "0.3.29"
 async-trait = "0.1.74"
-
 tower = { version= "0.4.13", features = ["util"] }
-thiserror = "1.0.50"
 
+thiserror = "1.0.50"
 tracing = "0.1.40"
+
+borsh = {version = "1.2.1", default-features = false, features = ["derive", "std"], optional = true }
 
 [dev-dependencies]
 cuprate-test-utils = {path = "../../test-utils"}
