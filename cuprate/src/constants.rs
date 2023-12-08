@@ -1,13 +1,5 @@
 //---------------------------------------------------------------------------------------------------- Use
 use const_format::{formatcp,assertcp};
-use shukusai::constants::{
-	COMMIT,
-	SHUKUSAI_NAME_VER,
-	COLLECTION_VERSION,
-	AUDIO_VERSION,
-	PLAYLIST_VERSION,
-	OS_ARCH,
-};
 
 //---------------------------------------------------------------------------------------------------- Version
 /// The name of the Cuprate node binary.
@@ -115,7 +107,7 @@ pub const CUPRATE_RESTRICTED_RPC_PORT: u16 = 18089;
 /// The default configuration file, as a `str`.
 ///
 /// `cuprate` will write this to disk and use it if there is no config detected.
-pub const CUPRATE_CONFIG: &str = include_str!("../config/cuprate.toml");
+pub const CUPRATE_CONFIG: &str = include_str!(formatcp!("../config/{CUPRATE_VERSION}.toml"));
 
 //---------------------------------------------------------------------------------------------------- TESTS
 //#[cfg(test)]
