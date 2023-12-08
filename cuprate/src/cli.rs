@@ -228,14 +228,14 @@ pub enum Rpc {
 
 //---------------------------------------------------------------------------------------------------- CLI argument handling
 // Result of parsing the CLI arguments, to be passed back to `main()`.
-struct CliResult {
-	dry_run: bool,
-	log_level: Option<tracing::Level>,
-	config: Option<ConfigBuilder>,
+pub struct CliResult {
+	pub dry_run: bool,
+	pub log_level: Option<tracing::Level>,
+	pub config: Option<ConfigBuilder>,
 }
 
 impl CliResult {
-	const DEFAULT: Self = Self {
+	pub const DEFAULT: Self = Self {
 		dry_run: false,
 		log_level: Some(tracing::Level::INFO),
 		config: None,
@@ -251,7 +251,7 @@ impl Default for CliResult {
 //---------------------------------------------------------------------------------------------------- CLI argument handling
 impl Cli {
 	// `main()` calls this once.
-	pub fn get() -> CliResult {
+	pub fn init() -> CliResult {
 		Self::parse().handle_args()
 	}
 
