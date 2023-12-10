@@ -52,7 +52,7 @@ randomx-rs            = { version = "1.2.1" }
 rand                  = { version = "0.8.5" }
 rayon                 = { version = "1.8.0" }
 serde_bytes           = { version = "0.11.12" }
-serde_json            = { version = "1.0.108" }
+serde_json            = { version = "1.0.108", features = ["raw_value"] }
 serde                 = { version = "1.0.190", features = ["derive"] }
 thiserror             = { version = "1.0.50" }
 tokio-util            = { version = "0.7.10", features = ["codec"]}

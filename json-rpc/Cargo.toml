@@ -10,5 +10,5 @@ license        = "MIT"
 description    = "JSON-RPC 2.0 types"
 
 [dependencies]
-serde      = { version = "1", features = ["derive"] }
-serde_json = { version = "1", features = ["raw_value"] }
+serde      = { workspace = true }
+serde_json = { workspace = true }
