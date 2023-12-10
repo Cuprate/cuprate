@@ -1,0 +1,14 @@
+[package]
+name           = "json-rpc"
+version        = "0.1.2"
+edition        = "2021"
+authors        = ["hinto-janai <hinto.janai@protonmail.com>"]
+keywords       = ["json", "rpc"]
+categories     = ["encoding"]
+readme         = "README.md"
+license        = "MIT"
+description    = "JSON-RPC 2.0 types"
+
+[dependencies]
+serde      = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["raw_value"] }
