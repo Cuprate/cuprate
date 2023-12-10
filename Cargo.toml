@@ -11,7 +11,8 @@ members = [
 	"net/monero-wire",
 	"p2p/monero-p2p",
 	"p2p/address-book",
-	"test-utils"
+	"test-utils",
+	"json-rpc",
 ]
 
 [profile.release]
@@ -76,4 +77,3 @@ tracing               = { version = "0.1.40" }
 # Maybe one day.
 # disk     = { version = "*" } # (De)serialization to/from disk with various file formats | https://github.com/hinto-janai/disk
 # readable = { version = "*" } # Stack-based string formatting utilities                  | https://github.com/hinto-janai/readable
-# json-rpc = { git = "https://github.com/hinto-janai/json-rpc" }                          # JSON-RPC 2.0 types
