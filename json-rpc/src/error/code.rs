@@ -104,11 +104,26 @@ impl ErrorCode {
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
-impl From<i32> for ErrorCode {
-    fn from(code: i32) -> ErrorCode {
-        Self::from_code(code)
-    }
+// Implements `From<N>` where N is any number that can fit inside `i32`.
+macro_rules! impl_from_num {
+    ($($num:ty),* $(,)?) => {
+        $(
+            impl From<$num> for ErrorCode {
+                #[inline]
+                fn from(code: $num) -> ErrorCode {
+                    Self::from_code(code as i32)
+                }
+            }
+            impl From<&$num> for ErrorCode {
+                #[inline]
+                fn from(code: &$num) -> ErrorCode {
+                    Self::from_code(*code as i32)
+                }
+            }
+        )*
+    };
 }
+impl_from_num!(i8, i16, i32, u8, u16);
 
 impl<'a> Deserialize<'a> for ErrorCode {
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<ErrorCode, D::Error> {
