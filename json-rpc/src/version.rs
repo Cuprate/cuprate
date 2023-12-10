@@ -46,7 +46,7 @@ impl<'de> Deserialize<'de> for Version {
 
 struct VersionVisitor;
 
-impl<'a> Visitor<'_> for VersionVisitor {
+impl Visitor<'_> for VersionVisitor {
     type Value = Version;
 
     fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -62,6 +62,7 @@ impl<'a> Visitor<'_> for VersionVisitor {
 }
 
 //---------------------------------------------------------------------------------------------------- TEST
+#[cfg(test)]
 mod test {
 	use super::*;
 
@@ -71,10 +72,10 @@ mod test {
 		let s = serde_json::to_string(&Version).unwrap();
 		assert_eq!(s, "\"2.0\"");
 
-		let d: Version = serde_json::from_str(&s).unwrap();
+		let _: Version = serde_json::from_str(&s).unwrap();
 
-		assert!(serde_json::from_str::<Version>(&"1.0").is_err());
-		assert!(serde_json::from_str::<Version>(&"2.0").is_err()); // must be a string, not a float
-		assert!(serde_json::from_str::<Version>(&"").is_err());
+		assert!(serde_json::from_str::<Version>("1.0").is_err());
+		assert!(serde_json::from_str::<Version>("2.0").is_err()); // must be a string, not a float
+		assert!(serde_json::from_str::<Version>("").is_err());
 	}
 }

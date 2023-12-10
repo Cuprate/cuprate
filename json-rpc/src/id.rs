@@ -1,9 +1,6 @@
 //---------------------------------------------------------------------------------------------------- Use
-use serde::{Serialize, Deserialize, Deserializer, Serializer};
-use serde::de::{Error, Visitor};
-use crate::error::{ErrorCode, ErrorObject};
+use serde::{Serialize, Deserialize};
 use std::borrow::Cow;
-use std::fmt;
 
 //---------------------------------------------------------------------------------------------------- Id
 #[derive(Debug,Clone,PartialEq,Eq,PartialOrd,Ord,Hash,Serialize,Deserialize)]
@@ -21,7 +18,7 @@ pub enum Id<'a> {
     Str(Cow<'a, str>),
 }
 
-impl<'a> Id<'_> {
+impl Id<'_> {
 	#[inline]
 	/// Return inner [`u64`] if [`Id`] is a number
 	pub fn as_u64(&self) -> Option<u64> {
@@ -74,7 +71,7 @@ impl Id<'static> {
 
 		match s.as_str() {
 			"null"|"Null"|"NULL" => Self::Null,
-			_ => Self::Str(Cow::Owned(s.into()))
+			_ => Self::Str(Cow::Owned(s))
 		}
 	}
 }
@@ -119,6 +116,7 @@ macro_rules! impl_u {
 impl_u!(u8,u16,u32,u64,i8,i16,i32,i64,f32,f64);
 
 //---------------------------------------------------------------------------------------------------- TESTS
+#[cfg(test)]
 mod test {
 	use super::*;
 

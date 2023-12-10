@@ -23,7 +23,6 @@
 	for_loops_over_fallibles,
 	large_assignments,
 	overlapping_range_endpoints,
-	private_in_public,
 	semicolon_in_expressions_from_macros,
 	redundant_semicolons,
 	unconditional_recursion,
@@ -36,7 +35,7 @@
 	unused_labels,
 	while_true,
 	keyword_idents,
-//	missing_docs,
+//	missing_docs, // TODO(hinto): add docs
 	non_ascii_idents,
 	noop_method_call,
 	unreachable_pub,
@@ -63,6 +62,7 @@ mod response;
 pub use response::*;
 
 //---------------------------------------------------------------------------------------------------- TESTS
+#[cfg(test)]
 mod tests {
 	use super::*;
 	use std::net::*;
@@ -87,7 +87,7 @@ mod tests {
 			Some(Id::Num(123)),
 		);
 
-		let request1 = to_value(&request1).unwrap();
+		let request1 = to_value(request1).unwrap();
 		assert_eq!(expected_request1, request1);
 
 		//------------------------------------------------ Request 2, null/no id
@@ -102,7 +102,7 @@ mod tests {
 			None,
 		);
 
-		let request2 = to_value(&request2).unwrap();
+		let request2 = to_value(request2).unwrap();
 		assert_eq!(expected_request2, request2);
 
 		//------------------------------------------------ Request 3, string id, no params
@@ -117,7 +117,7 @@ mod tests {
 			Some(Id::Str("string_id".into())),
 		);
 
-		let request3 = to_value(&request3).unwrap();
+		let request3 = to_value(request3).unwrap();
 		assert_eq!(expected_request3, request3);
 
 		//------------------------------------------------ The (incorrect) server `Response`
@@ -153,7 +153,7 @@ mod tests {
 				let (mut stream, _) = listen.accept().unwrap();
 
 				// Assert received bytes are the same as expected.
-				stream.read_to_end(&mut vec);
+				stream.read_to_end(&mut vec).unwrap();
 				let json: Request<&str, [u8; 3]> = from_slice(&vec).unwrap();
 				assert_eq!(i, to_value(&json).unwrap());
 
@@ -178,11 +178,11 @@ mod tests {
 
 			// Send `Request`'s
 			let bytes = to_vec(&i).unwrap();
-			stream.write(&bytes);
+			stream.write_all(&bytes).unwrap();
 
 			// Read the `Response`.
-			stream.shutdown(std::net::Shutdown::Write);
-			stream.read_to_end(&mut vec);
+			stream.shutdown(std::net::Shutdown::Write).unwrap();
+			stream.read_to_end(&mut vec).unwrap();
 			let json: Response<Cow<str>> = from_slice(&vec).unwrap();
 			assert_eq!(json, response);
 

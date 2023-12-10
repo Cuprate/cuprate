@@ -3,7 +3,6 @@ use serde::{Serialize, Deserialize};
 use std::borrow::Cow;
 use crate::version::Version;
 use crate::id::Id;
-use serde_json::value::Value;
 
 //---------------------------------------------------------------------------------------------------- Request
 /// JSON-RPC 2.0 Request object
@@ -72,7 +71,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
-impl<'a, M, P> std::fmt::Display for Request<'_, M, P>
+impl<M, P> std::fmt::Display for Request<'_, M, P>
 where
 	M: Clone + std::fmt::Display + Serialize,
 	P: Clone + std::fmt::Display + Serialize,
@@ -85,19 +84,20 @@ where
 	}
 }
 
-impl<'a, M, P> PartialEq for Request<'_, M, P>
+impl<M, P> PartialEq for Request<'_, M, P>
 where
 	M: Clone + PartialEq,
 	P: Clone + PartialEq,
 {
 	fn eq(&self, other: &Self) -> bool {
-		let this_v = self.params.as_ref().map(|r| r);
-		let other_v = other.params.as_ref().map(|r| r);
+		let this_v = self.params.as_ref();
+		let other_v = other.params.as_ref();
 		self.method == other.method && this_v == other_v
 	}
 }
 
 //---------------------------------------------------------------------------------------------------- TESTS
+#[cfg(test)]
 mod test {
 	use super::*;
 	use crate::id::Id;

@@ -13,7 +13,7 @@ pub(crate) enum Key {
 
 struct KeyVisitor;
 
-impl<'a> Visitor<'_> for KeyVisitor {
+impl Visitor<'_> for KeyVisitor {
 	type Value = Key;
 
 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

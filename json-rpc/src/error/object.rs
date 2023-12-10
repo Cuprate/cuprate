@@ -1,8 +1,22 @@
 //---------------------------------------------------------------------------------------------------- Use
-use serde::{Serialize, Deserialize, Deserializer, Serializer};
+use serde::{Serialize, Deserialize};
 use serde_json::value::Value;
-use crate::error::*;
 use std::borrow::Cow;
+use crate::error::{
+	ErrorCode,
+	PARSE_ERROR,
+	INVALID_REQUEST,
+	METHOD_NOT_FOUND,
+	INVALID_PARAMS,
+	INTERNAL_ERROR,
+	UNKNOWN_ERROR,
+	BATCH_NOT_SUPPORTED,
+	OVERSIZED_REQUEST,
+	OVERSIZED_RESPONSE,
+	OVERSIZED_BATCH_REQUEST,
+	OVERSIZED_BATCH_RESPONSE,
+	SERVER_IS_BUSY,
+};
 
 //---------------------------------------------------------------------------------------------------- ErrorObject
 /// [Error object](https://www.jsonrpc.org/specification)
@@ -21,7 +35,7 @@ pub struct ErrorObject<'a> {
 	pub data: Option<Cow<'a, Value>>,
 }
 
-impl<'a> ErrorObject<'_> {
+impl ErrorObject<'_> {
 	#[inline]
 	/// Creates new error, deriving message from the code.
 	pub const fn from_code(code: ErrorCode) -> Self {
@@ -80,16 +94,16 @@ impl<'a> ErrorObject<'_> {
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
-impl<'a> From<ErrorCode> for ErrorObject<'_> {
+impl From<ErrorCode> for ErrorObject<'_> {
 	fn from(code: ErrorCode) -> Self {
 		Self::from_code(code)
 	}
 }
 
-impl<'a> PartialEq for ErrorObject<'_> {
+impl PartialEq for ErrorObject<'_> {
 	fn eq(&self, other: &Self) -> bool {
-		let this_v = self.data.as_ref().map(|r| r);
-		let other_v = other.data.as_ref().map(|r| r);
+		let this_v = self.data.as_ref();
+		let other_v = other.data.as_ref();
 		self.code == other.code && self.message == other.message && this_v == other_v
 	}
 }

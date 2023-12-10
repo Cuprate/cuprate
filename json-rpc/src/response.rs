@@ -1,9 +1,7 @@
 //---------------------------------------------------------------------------------------------------- Use
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::ser::SerializeStruct;
-use std::marker::PhantomData;
 use std::borrow::Cow;
-use std::fmt;
 use crate::error::ErrorObject;
 use crate::version::Version;
 use crate::id::Id;
@@ -184,7 +182,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
-impl<'a, T> std::fmt::Display for Response<'_, T>
+impl<T> std::fmt::Display for Response<'_, T>
 where
 	T: Clone + Serialize,
 {
@@ -197,7 +195,7 @@ where
 }
 
 
-impl<'a, T> PartialEq for Response<'_, T>
+impl<T> PartialEq for Response<'_, T>
 where
 	T: Clone + PartialEq,
 {
@@ -210,7 +208,7 @@ where
 	}
 }
 
-impl<'a, T> Serialize for Response<'_, T>
+impl<T> Serialize for Response<'_, T>
 where
 	T: Serialize + Clone,
 {
@@ -295,7 +293,7 @@ where
 			}
 		}
 
-		const FIELDS: &'static [&'static str] = &["jsonrpc", "payload", "id"];
+		const FIELDS: &[&str] = &["jsonrpc", "payload", "id"];
 		der.deserialize_struct(
 			"Response",
 			FIELDS,
@@ -305,6 +303,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- TESTS
+#[cfg(test)]
 mod test {
 	use super::*;
 	use crate::id::Id;
