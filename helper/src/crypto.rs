@@ -45,5 +45,4 @@ pub fn check_point(point: &CompressedEdwardsY) -> bool {
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {
-}
+mod test {}

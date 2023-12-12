@@ -40,7 +40,7 @@ bytes                 = { version = "1.5.0" }
 clap                  = { version = "4.4.7" }
 chrono                = { version = "0.4.31" }
 crypto-bigint         = { version = "0.5.3" }
-curve25519-dalek      = { version = "4.11" }
+curve25519-dalek      = { version = "4.1.1" }
 dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "39eafae" }
 dirs                  = { version = "5.0.1" }
 futures               = { version = "0.3.29" }

@@ -38,5 +38,4 @@ pub fn current_time_try() -> Result<u64, SystemTimeError> {
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {
-}
+mod test {}

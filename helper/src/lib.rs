@@ -1,14 +1,43 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+#![doc = include_str!("../README.md")]
+//---------------------------------------------------------------------------------------------------- Lints
+#![allow(clippy::len_zero, clippy::type_complexity, clippy::module_inception)]
+#![deny(nonstandard_style, deprecated, missing_docs)]
+#![forbid(
+    unused_mut,
+    unused_unsafe,
+    future_incompatible,
+    break_with_label_and_loop,
+    coherence_leak_check,
+    duplicate_macro_attributes,
+    exported_private_dependencies,
+    for_loops_over_fallibles,
+    large_assignments,
+    overlapping_range_endpoints,
+    // private_in_public,
+    semicolon_in_expressions_from_macros,
+    redundant_semicolons,
+    unconditional_recursion,
+    unreachable_patterns,
+    unused_allocation,
+    unused_braces,
+    unused_comparisons,
+    unused_doc_comments,
+    unused_parens,
+    unused_labels,
+    while_true,
+    keyword_idents,
+    non_ascii_idents,
+    noop_method_call,
+	unreachable_pub,
+    single_use_lifetimes,
+	// variant_size_differences,
+)]
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+//---------------------------------------------------------------------------------------------------- Public API
+pub mod crypto;
+pub mod num;
+pub mod sys;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+//---------------------------------------------------------------------------------------------------- Private Usage
+
+//----------------------------------------------------------------------------------------------------
