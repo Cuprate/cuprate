@@ -26,7 +26,7 @@ fn main() {
 	// Merge CLI options with on-disk config and init the logger.
 	//
 	// INVARIANT1: Logger gets set here, don't init elsewhere.
-	// INVARIANT2: Initialize `CONFIG` - this must be set once only
+	// INVARIANT2: WE must initialize `crate::config::CONFIG`
 	//
 	// The reason the logger gets initialized here is because:
 	// 1. We want to log within `init()`, but...

@@ -4,7 +4,7 @@ use disk::Empty;
 use std::path::{Path,PathBuf};
 use const_format::formatcp;
 use once_cell::sync::OnceCell;
-use crate::constants::CUPRATE_PROJECT_DIR;
+use crate::constants::PROJECT_DIR;
 
 //---------------------------------------------------------------------------------------------------- Constants
 // Compile-time zipped bytes of Cuprate documentation.
