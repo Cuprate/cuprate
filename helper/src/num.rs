@@ -4,7 +4,46 @@
 //---------------------------------------------------------------------------------------------------- Use
 use std::ops::{Add, Div, Mul, Sub};
 
-//---------------------------------------------------------------------------------------------------- Public API
+//---------------------------------------------------------------------------------------------------- Types
+// INVARIANT: must be private.
+// Protects against outside-crate implementations.
+mod private {
+    pub trait Sealed: Copy + PartialOrd<Self> + std::fmt::Display {}
+}
+
+/// Non-floating point numbers
+///
+/// This trait is sealed and is only implemented on:
+/// - [`u8`] to [`u128`] and [`usize`]
+/// - [`i8`] to [`i128`] and [`isize`]
+pub trait Number: private::Sealed {}
+macro_rules! impl_number {
+    ($($num:ty),* $(,)?) => {
+        $(
+            impl Number for $num {}
+            impl private::Sealed for $num {}
+        )*
+    };
+}
+impl_number!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+
+/// Floating point numbers
+///
+/// This trait is sealed and is only implemented on:
+/// - [`f32`]
+/// - [`f64`]
+pub trait Float: private::Sealed {}
+macro_rules! impl_float {
+    ($($num:ty),* $(,)?) => {
+        $(
+            impl Float for $num {}
+            impl private::Sealed for $num {}
+        )*
+    };
+}
+impl_float!(f32, f64);
+
+//---------------------------------------------------------------------------------------------------- Free Functions
 #[inline]
 /// Returns the average of two numbers; works with at least all integral and floating point types
 ///
@@ -59,6 +98,73 @@ where
         get_mid(array[mid - 1], array[mid])
     } else {
         array[mid]
+    }
+}
+
+#[inline]
+/// Compare 2 non-`NaN` floats.
+///
+/// ```rust
+/// # use helper::num::*;
+/// # use std::cmp::Ordering;
+/// assert_eq!(cmp_float(0.0, 1.0), Ordering::Less);
+/// assert_eq!(cmp_float(1.0, 1.0), Ordering::Equal);
+/// assert_eq!(cmp_float(2.0, 1.0), Ordering::Greater);
+///
+/// assert_eq!(cmp_float(1.0,           f32::INFINITY), Ordering::Less);
+/// assert_eq!(cmp_float(f32::INFINITY, f32::INFINITY), Ordering::Equal);
+/// assert_eq!(cmp_float(f32::INFINITY, 1.0),           Ordering::Greater);
+
+/// assert_eq!(cmp_float(f32::NEG_INFINITY, f32::INFINITY),     Ordering::Less);
+/// assert_eq!(cmp_float(f32::NEG_INFINITY, f32::NEG_INFINITY), Ordering::Equal);
+/// assert_eq!(cmp_float(f32::INFINITY,     f32::NEG_INFINITY), Ordering::Greater);
+/// ```
+///
+/// # Panic
+/// This function panics if either floats are NaNs.
+///
+/// ```rust,should_panic
+/// # use helper::num::*;
+/// cmp_float(0.0, f32::NAN);
+/// ```
+pub fn cmp_float<F: Float>(a: F, b: F) -> std::cmp::Ordering {
+    match (a <= b, a >= b) {
+        (false, true) => std::cmp::Ordering::Greater,
+        (true, false) => std::cmp::Ordering::Less,
+        (true, true) => std::cmp::Ordering::Equal,
+        _ => panic!("cmp_float() has failed, input: {a} - {b}"),
+    }
+}
+
+#[inline]
+/// Compare 2 floats, `NaN`'s will always return [`std::cmp::Ordering::Equal`].
+///
+/// ```rust
+/// # use helper::num::*;
+/// # use std::cmp::Ordering;
+/// assert_eq!(cmp_float_nan(0.0, 1.0), Ordering::Less);
+/// assert_eq!(cmp_float_nan(1.0, 1.0), Ordering::Equal);
+/// assert_eq!(cmp_float_nan(2.0, 1.0), Ordering::Greater);
+///
+/// assert_eq!(cmp_float_nan(1.0,           f32::INFINITY), Ordering::Less);
+/// assert_eq!(cmp_float_nan(f32::INFINITY, f32::INFINITY), Ordering::Equal);
+/// assert_eq!(cmp_float_nan(f32::INFINITY, 1.0),           Ordering::Greater);
+///
+/// assert_eq!(cmp_float_nan(f32::NEG_INFINITY, f32::INFINITY),     Ordering::Less);
+/// assert_eq!(cmp_float_nan(f32::NEG_INFINITY, f32::NEG_INFINITY), Ordering::Equal);
+/// assert_eq!(cmp_float_nan(f32::INFINITY,     f32::NEG_INFINITY), Ordering::Greater);
+///
+/// assert_eq!(cmp_float_nan(f32::NAN, -0.0),              Ordering::Equal);
+/// assert_eq!(cmp_float_nan(f32::NAN, 0.0),               Ordering::Equal);
+/// assert_eq!(cmp_float_nan(f32::NAN, f32::NAN),          Ordering::Equal);
+/// assert_eq!(cmp_float_nan(f32::NAN, f32::INFINITY),     Ordering::Equal);
+/// assert_eq!(cmp_float_nan(f32::NAN, f32::NEG_INFINITY), Ordering::Equal);
+/// ```
+pub fn cmp_float_nan<F: Float>(a: F, b: F) -> std::cmp::Ordering {
+    match (a <= b, a >= b) {
+        (false, true) => std::cmp::Ordering::Greater,
+        (true, false) => std::cmp::Ordering::Less,
+        _ => std::cmp::Ordering::Equal,
     }
 }
 
