@@ -5,23 +5,26 @@ use tracing::{error,info,warn,debug,trace};
 use disk::Toml;
 use crate::constants::{
 	CUPRATE,
-	CUPRATE_PORT,
-	CUPRATE_CONFIG,
+	DEFAULT_RPC_PORT,
+	DEFAULT_CONFIG,
 };
-use std::net::IpAddr;
-use std::collections::BTreeSet;
-use std::path::PathBuf;
-use once_cell::sync::OnceCell;
+use std::{
+	net::IpAddr,
+	collections::BTreeSet,
+	path::PathBuf,
+	sync::OnceLock,
+};
 
 //---------------------------------------------------------------------------------------------------- Statics
-static CONFIG: OnceCell<Config> = OnceCell::new();
+static CONFIG_CELL: OnceLock<Config> = OnceLock::new();
 #[inline(always)]
+#[allow(non_snake_case)]
 /// Acquire our runtime configuration.
-pub fn config() -> &'static Config {
-	// SAFETY:
+pub fn CONFIG() -> &'static Config {
+	// INVARIANT:
 	// This should always get initialized in the
 	// `.builder()` below, by `main()` during init.
-	unsafe { CONFIG.get_unchecked() }
+	CONFIG_CELL.get_or_init(|| unreachable!("CONFIG was not initialized at main()"))
 }
 
 //---------------------------------------------------------------------------------------------------- Constants
@@ -95,16 +98,20 @@ impl Default for ConfigBuilder {
 }
 
 impl ConfigBuilder {
+	/// Initialize the global `CONFIG` that lives for the rest of the program.
+	///
+	/// ## Panics
+	/// This panics if this function is called more than once.
 	pub fn init(
 		log_level: Option<tracing::Level>,
 		cli: Option<Self>,
 	) -> &'static Config {
-		todo!()
+		// SAFETY: we only set `CONFIG` here.
+		CONFIG_CELL.set(todo!() /* Self::init_inner() */).unwrap();
+		CONFIG()
 	}
 
-	// INVARIANT: must be called once and only once.
-	// Sets `CONFIG`, and returns a ref.
-	pub fn build_and_set(self) -> &'static Config {
+	fn init_inner(self) -> Config {
 		let ConfigBuilder {
 			ip,
 			port,
@@ -281,9 +288,7 @@ impl ConfigBuilder {
 		info!("Authorization: {}", AUTH.get().is_some());
 		info!("{DASH} Configuration");
 
-		// SAFETY: unwrap is okay, we only set `CONFIG` here.
-		CONFIG.set(c).unwrap();
-		config()
+		c
 	}
 
 	// Read from disk, or create a default.
