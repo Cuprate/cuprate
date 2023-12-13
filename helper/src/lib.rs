@@ -1,9 +1,8 @@
 #![doc = include_str!("../README.md")]
 //---------------------------------------------------------------------------------------------------- Lints
 #![allow(clippy::len_zero, clippy::type_complexity, clippy::module_inception)]
-#![deny(nonstandard_style, deprecated, missing_docs)]
+#![deny(nonstandard_style, deprecated, missing_docs, unused_mut)]
 #![forbid(
-    unused_mut,
     unused_unsafe,
     future_incompatible,
     break_with_label_and_loop,
@@ -34,6 +33,7 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Public API
+pub mod asynch; // async collides
 pub mod crypto;
 pub mod num;
 pub mod time;

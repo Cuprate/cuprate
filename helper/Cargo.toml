@@ -6,3 +6,7 @@ edition = "2021"
 [dependencies]
 chrono           = { workspace = true }
 curve25519-dalek = { workspace = true }
+futures          = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

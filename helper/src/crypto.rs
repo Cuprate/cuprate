@@ -7,7 +7,7 @@ use curve25519_dalek::edwards::CompressedEdwardsY;
 #[inline]
 /// Checks that a point is canonical.
 ///
-/// TODO: non-canonical points are ignored, and will return true?
+/// https://github.com/dalek-cryptography/curve25519-dalek/issues/380
 ///
 /// ```rust
 /// # use helper::crypto::*;
@@ -15,24 +15,7 @@ use curve25519_dalek::edwards::CompressedEdwardsY;
 /// let slice = [1; 32];
 /// let point = CompressedEdwardsY(slice);
 /// assert!(check_point(&point));
-///
-/// // non_canonical_bytes_because_unreduced
-/// let slice = [16; 32];
-/// let point = CompressedEdwardsY(slice);
-/// assert!(check_point(&point));
-///
-/// // non_canonical_bytes_because_highbit
-/// let slice = [
-///   0, 0, 0, 0, 0, 0, 0, 0,
-///   0, 0, 0, 0, 0, 0, 0, 0,
-///   0, 0, 0, 0, 0, 0, 0, 0,
-///   0, 0, 0, 0, 0, 0, 0, 128,
-/// ];
-/// let point = CompressedEdwardsY(slice);
-/// assert!(check_point(&point));
 /// ```
-///
-/// https://github.com/dalek-cryptography/curve25519-dalek/issues/380
 pub fn check_point(point: &CompressedEdwardsY) -> bool {
     let bytes = point.as_bytes();
 
