@@ -3,10 +3,19 @@ name = "helper"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+# All features on by default.
+default = ["full"]
+full    = ["asynch", "crypto", "num", "time"]
+asynch  = ["dep:futures"]
+crypto  = ["dep:curve25519-dalek"]
+num     = []
+time    = ["dep:chrono"]
+
 [dependencies]
-chrono           = { workspace = true }
-curve25519-dalek = { workspace = true }
-futures          = { workspace = true }
+chrono           = { workspace = true, optional = true }
+curve25519-dalek = { workspace = true, optional = true }
+futures          = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }

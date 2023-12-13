@@ -1,4 +1,4 @@
-//! System related
+//! `async` related
 
 //---------------------------------------------------------------------------------------------------- Use
 use futures::channel::oneshot::Receiver;

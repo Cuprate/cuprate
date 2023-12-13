@@ -33,9 +33,13 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Public API
+#[cfg(feature = "async")]
 pub mod asynch; // async collides
+#[cfg(feature = "crypto")]
 pub mod crypto;
+#[cfg(feature = "num")]
 pub mod num;
+#[cfg(feature = "time")]
 pub mod time;
 
 //---------------------------------------------------------------------------------------------------- Private Usage
