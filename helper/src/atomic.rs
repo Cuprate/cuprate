@@ -34,9 +34,11 @@ macro_rules! impl_atomic_f {
 	) => {
         /// An atomic float.
         ///
-        /// [Quoting the std library:](https://doc.rust-lang.org/1.70.0/std/primitive.f32.html#method.to_bits)
+        /// ## Portability
+        /// [Quoting the std library: ](https://doc.rust-lang.org/1.70.0/std/primitive.f32.html#method.to_bits)
         /// "See from_bits for some discussion of the portability of this operation (there are almost no issues)."
         ///
+        /// ## Compile-time failure
         /// This internal functions `std` uses will panic _at compile time_
         /// if the bit transmutation operations it uses are not available
         /// on the build target, aka, if it compiles we're probably safe.
@@ -55,6 +57,11 @@ macro_rules! impl_atomic_f {
             pub const BITS_0_100: $unsigned = $bits_1;
 
             #[allow(clippy::declare_interior_mutable_const)]
+            // FIXME:
+            // Seems like `std` internals has some unstable cfg options that
+            // allow interior mutable consts to be defined without clippy complaining:
+            // https://doc.rust-lang.org/1.70.0/src/core/sync/atomic.rs.html#3013.
+            //
             /// `0.0`, returned by [`Self::default`].
             pub const DEFAULT: Self = Self($atomic_unsigned::new($bits_0));
 
@@ -224,7 +231,7 @@ macro_rules! impl_atomic_f {
                 set_order: Ordering,
                 fetch_order: Ordering,
                 mut f: F,
-            ) -> $float
+            ) -> Result<$float, $float>
             where
                 F: FnMut($float) -> Option<$float>,
             {
@@ -236,8 +243,8 @@ macro_rules! impl_atomic_f {
                 let f = |bits: $unsigned| f($float::from_bits(bits)).map(|f| $float::to_bits(f));
 
                 match self.0.fetch_update(set_order, fetch_order, f) {
-                    Ok(b) => $float::from_bits(b),
-                    Err(b) => $float::from_bits(b),
+                    Ok(b) => Ok($float::from_bits(b)),
+                    Err(b) => Err($float::from_bits(b)),
                 }
             }
 
@@ -337,11 +344,17 @@ mod tests {
             float.compare_exchange(2.0, 5.0, ordering, ordering),
             Ok(2.0)
         );
+        assert_eq!(
+            float.fetch_update(ordering, ordering, |f| Some(f * 3.0)),
+            Ok(5.0)
+        );
+        assert_eq!(float.get(), 15.0);
+
         // Could be `loop {}` although there's no way
         // this spuriously fails 128 times in a row... right?
         for _ in 0..128 {
-            if let Ok(float) = float.compare_exchange_weak(5.0, 2.0, ordering, ordering) {
-                assert_eq!(float, 5.0);
+            if let Ok(float) = float.compare_exchange_weak(15.0, 2.0, ordering, ordering) {
+                assert_eq!(float, 15.0);
                 break;
             }
         }
@@ -361,9 +374,15 @@ mod tests {
             float.compare_exchange(2.0, 5.0, ordering, ordering),
             Ok(2.0)
         );
+        assert_eq!(
+            float.fetch_update(ordering, ordering, |f| Some(f * 3.0)),
+            Ok(5.0)
+        );
+        assert_eq!(float.get(), 15.0);
+
         for _ in 0..128 {
-            if let Ok(float) = float.compare_exchange_weak(5.0, 2.0, ordering, ordering) {
-                assert_eq!(float, 5.0);
+            if let Ok(float) = float.compare_exchange_weak(15.0, 2.0, ordering, ordering) {
+                assert_eq!(float, 15.0);
                 break;
             }
         }
@@ -372,7 +391,6 @@ mod tests {
     #[test]
     fn f32_bits() {
         assert_eq!(AtomicF32::default().get(), 0.00);
-        assert_eq!(AtomicF32::DEFAULT.get(), 0.00);
         assert_eq!(AtomicF32::from_bits(AtomicF32::BITS_0).get(), 0.00);
         assert_eq!(AtomicF32::from_bits(AtomicF32::BITS_0_25).get(), 0.25);
         assert_eq!(AtomicF32::from_bits(AtomicF32::BITS_0_50).get(), 0.50);
@@ -383,7 +401,6 @@ mod tests {
     #[test]
     fn f64_bits() {
         assert_eq!(AtomicF64::default().get(), 0.00);
-        assert_eq!(AtomicF64::DEFAULT.get(), 0.00);
         assert_eq!(AtomicF64::from_bits(AtomicF64::BITS_0).get(), 0.00);
         assert_eq!(AtomicF64::from_bits(AtomicF64::BITS_0_25).get(), 0.25);
         assert_eq!(AtomicF64::from_bits(AtomicF64::BITS_0_50).get(), 0.50);
