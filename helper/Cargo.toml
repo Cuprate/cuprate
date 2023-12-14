@@ -6,7 +6,8 @@ edition = "2021"
 [features]
 # All features on by default.
 default = ["full"]
-full    = ["asynch", "crypto", "num", "time", "thread"]
+full    = ["atomic", "asynch", "crypto", "num", "time", "thread"]
+atomic  = []
 asynch  = ["dep:futures"]
 crypto  = ["dep:curve25519-dalek"]
 num     = []
