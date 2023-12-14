@@ -1,0 +1,24 @@
+[package]
+name = "monero-consensus"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+proptest = ["dep:proptest", "dep:proptest-derive"]
+rayon = ["dep:rayon"]
+
+[dependencies]
+monero-serai = { workspace = true }
+curve25519-dalek = { workspace = true }
+
+tracing = { workspace = true }
+
+thiserror = { workspace = true }
+
+rayon = { workspace = true, optional = true }
+
+# Testing
+proptest = {workspace = true, optional = true}
+proptest-derive = {workspace = true, optional = true}
+
