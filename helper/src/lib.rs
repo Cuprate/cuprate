@@ -39,10 +39,10 @@ pub mod asynch; // async collides
 pub mod crypto;
 #[cfg(feature = "num")]
 pub mod num;
-#[cfg(feature = "time")]
-pub mod time;
 #[cfg(feature = "thread")]
 pub mod thread;
+#[cfg(feature = "time")]
+pub mod time;
 
 //---------------------------------------------------------------------------------------------------- Private Usage
 
