@@ -41,6 +41,8 @@ pub mod crypto;
 pub mod num;
 #[cfg(feature = "time")]
 pub mod time;
+#[cfg(feature = "thread")]
+pub mod thread;
 
 //---------------------------------------------------------------------------------------------------- Private Usage
 

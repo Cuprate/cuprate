@@ -6,11 +6,12 @@ edition = "2021"
 [features]
 # All features on by default.
 default = ["full"]
-full    = ["asynch", "crypto", "num", "time"]
+full    = ["asynch", "crypto", "num", "time", "thread"]
 asynch  = ["dep:futures"]
 crypto  = ["dep:curve25519-dalek"]
 num     = []
 time    = ["dep:chrono"]
+thread  = []
 
 [dependencies]
 chrono           = { workspace = true, optional = true }
