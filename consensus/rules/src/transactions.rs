@@ -4,6 +4,9 @@ use monero_serai::transaction::{Input, Output, Timelock};
 
 use crate::{check_point, is_decomposed_amount, HardFork, TxVersion};
 
+mod contextual_data;
+pub use contextual_data::*;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TransactionError {
     //-------------------------------------------------------- OUTPUTS
@@ -38,6 +41,8 @@ pub enum TransactionError {
     InputsOverflow,
     #[error("The transaction has no inputs.")]
     NoInputs,
+    #[error("Ring member not in database")]
+    RingMemberNotFound,
 }
 
 //----------------------------------------------------------------------------------------------------------- OUTPUTS
@@ -136,43 +141,74 @@ pub fn check_outputs(
     }
 }
 
-//----------------------------------------------------------------------------------------------------------- INPUTS
+//----------------------------------------------------------------------------------------------------------- TIME LOCKS
 
-/// A struct holding information about the inputs and their decoys. This data can vary by block so
-/// this data needs to be retrieved after every change in the blockchain.
+/// Checks all the time locks are unlocked.
 ///
-/// This data *does not* need to be refreshed if one of these are true:
-/// - The input amounts are *ALL* 0 (RCT)
-/// - The top block hash is the same as when this data was retrieved (the blockchain state is unchanged).
+/// `current_time_lock_timestamp` must be: https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html
-#[derive(Debug)]
-pub struct DecoyInfo {
-    /// The number of inputs that have enough outputs on the chain to mix with.
-    pub mixable: usize,
-    /// The number of inputs that don't have enough outputs on the chain to mix with.
-    pub not_mixable: usize,
-    /// The minimum amount of decoys used in the transaction.
-    pub min_decoys: usize,
-    /// The maximum amount of decoys used in the transaction.
-    pub max_decoys: usize,
+/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#unlock-time
+pub fn check_all_time_locks(
+    time_locks: &[Timelock],
+    current_chain_height: u64,
+    current_time_lock_timestamp: u64,
+    hf: &HardFork,
+) -> Result<(), TransactionError> {
+    time_locks.iter().try_for_each(|time_lock| {
+        if !output_unlocked(
+            time_lock,
+            current_chain_height,
+            current_time_lock_timestamp,
+            hf,
+        ) {
+            Err(TransactionError::OneOrMoreDecoysLocked)
+        } else {
+            Ok(())
+        }
+    })
 }
 
-/// Returns the default minimum amount of decoys for a hard-fork.
-/// **There are exceptions to this always being the minimum decoys**
+/// Checks if an outputs unlock time has passed.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#minimum-amount-of-decoys
-fn minimum_decoys(hf: &HardFork) -> usize {
-    use HardFork as HF;
-    match hf {
-        HF::V1 => panic!("hard-fork 1 does not use these rules!"),
-        HF::V2 | HF::V3 | HF::V4 | HF::V5 => 2,
-        HF::V6 => 4,
-        HF::V7 => 6,
-        HF::V8 | HF::V9 | HF::V10 | HF::V11 | HF::V12 | HF::V13 | HF::V14 => 10,
-        HF::V15 | HF::V16 => 15,
+/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#unlock-time
+fn output_unlocked(
+    time_lock: &Timelock,
+    current_chain_height: u64,
+    current_time_lock_timestamp: u64,
+    hf: &HardFork,
+) -> bool {
+    match *time_lock {
+        Timelock::None => true,
+        Timelock::Block(unlock_height) => {
+            check_block_time_lock(unlock_height.try_into().unwrap(), current_chain_height)
+        }
+        Timelock::Time(unlock_time) => {
+            check_timestamp_time_lock(unlock_time, current_time_lock_timestamp, hf)
+        }
     }
 }
+
+/// Returns if a locked output, which uses a block height, can be spend.
+///
+/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#block-height
+fn check_block_time_lock(unlock_height: u64, current_chain_height: u64) -> bool {
+    // current_chain_height = 1 + top height
+    unlock_height <= current_chain_height
+}
+
+/// ///
+/// Returns if a locked output, which uses a block height, can be spend.
+///
+/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#timestamp
+fn check_timestamp_time_lock(
+    unlock_timestamp: u64,
+    current_time_lock_timestamp: u64,
+    hf: &HardFork,
+) -> bool {
+    current_time_lock_timestamp + hf.block_time().as_secs() >= unlock_timestamp
+}
+
+//----------------------------------------------------------------------------------------------------------- INPUTS
 
 /// Checks the decoys are allowed.
 ///
@@ -348,9 +384,8 @@ fn sum_inputs_v1(inputs: &[Input]) -> Result<u64, TransactionError> {
 ///
 pub fn check_inputs(
     inputs: &[Input],
-    youngest_used_out_height: u64,
+    tx_ring_members_info: &TxRingMembersInfo,
     current_chain_height: u64,
-    decoys_info: Option<&DecoyInfo>,
     hf: &HardFork,
     tx_version: &TxVersion,
     spent_kis: Arc<std::sync::Mutex<HashSet<[u8; 32]>>>,
@@ -359,9 +394,13 @@ pub fn check_inputs(
         return Err(TransactionError::NoInputs);
     }
 
-    check_10_block_lock(youngest_used_out_height, current_chain_height, hf)?;
+    check_10_block_lock(
+        tx_ring_members_info.youngest_used_out_height,
+        current_chain_height,
+        hf,
+    )?;
 
-    if let Some(decoys_info) = decoys_info {
+    if let Some(decoys_info) = &tx_ring_members_info.decoy_info {
         check_decoy_info(decoys_info, hf)?;
     } else {
         assert_eq!(hf, &HardFork::V1);
@@ -386,71 +425,4 @@ pub fn check_inputs(
         TxVersion::RingSignatures => sum_inputs_v1(inputs),
         _ => panic!("TODO: RCT"),
     }
-}
-
-//----------------------------------------------------------------------------------------------------------- TIME LOCKS
-
-/// Checks all the time locks are unlocked.
-///
-/// `current_time_lock_timestamp` must be: https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#unlock-time
-pub fn check_all_time_locks(
-    time_locks: &[Timelock],
-    current_chain_height: u64,
-    current_time_lock_timestamp: u64,
-    hf: &HardFork,
-) -> Result<(), TransactionError> {
-    time_locks.iter().try_for_each(|time_lock| {
-        if !output_unlocked(
-            time_lock,
-            current_chain_height,
-            current_time_lock_timestamp,
-            hf,
-        ) {
-            Err(TransactionError::OneOrMoreDecoysLocked)
-        } else {
-            Ok(())
-        }
-    })
-}
-
-/// Checks if an outputs unlock time has passed.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#unlock-time
-fn output_unlocked(
-    time_lock: &Timelock,
-    current_chain_height: u64,
-    current_time_lock_timestamp: u64,
-    hf: &HardFork,
-) -> bool {
-    match *time_lock {
-        Timelock::None => true,
-        Timelock::Block(unlock_height) => {
-            check_block_time_lock(unlock_height.try_into().unwrap(), current_chain_height)
-        }
-        Timelock::Time(unlock_time) => {
-            check_timestamp_time_lock(unlock_time, current_time_lock_timestamp, hf)
-        }
-    }
-}
-
-/// Returns if a locked output, which uses a block height, can be spend.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#block-height
-fn check_block_time_lock(unlock_height: u64, current_chain_height: u64) -> bool {
-    // current_chain_height = 1 + top height
-    unlock_height <= current_chain_height
-}
-
-/// ///
-/// Returns if a locked output, which uses a block height, can be spend.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#timestamp
-fn check_timestamp_time_lock(
-    unlock_timestamp: u64,
-    current_time_lock_timestamp: u64,
-    hf: &HardFork,
-) -> bool {
-    current_time_lock_timestamp + hf.block_time().as_secs() >= unlock_timestamp
 }

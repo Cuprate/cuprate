@@ -1,5 +1,6 @@
-use curve25519_dalek::EdwardsPoint;
 use monero_serai::transaction::Transaction;
+
+use crate::transactions::Rings;
 
 mod ring_signatures;
 
@@ -9,15 +10,6 @@ pub enum SignatureError {
     MismatchSignatureSize,
     #[error("The signature is incorrect.")]
     IncorrectSignature,
-}
-
-/// Represents the ring members of all the inputs.
-#[derive(Debug)]
-pub enum Rings {
-    /// Legacy, pre-ringCT, rings.
-    Legacy(Vec<Vec<EdwardsPoint>>),
-    // RingCT rings, (outkey, amount commitment).
-    RingCT(Vec<Vec<[EdwardsPoint; 2]>>),
 }
 
 pub fn verify_contextual_signatures(tx: &Transaction, rings: &Rings) -> Result<(), SignatureError> {
