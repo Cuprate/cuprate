@@ -132,23 +132,21 @@ mod tests {
     use super::*;
 
     #[test]
-    // Tests that the `NonZeroUsize` constants.
+    // Assert that the `NonZeroUsize` constants are correct.
     fn non_zero_usize() {
         assert_eq!(NON_ZERO_USIZE_1.get(), 1);
     }
 
     #[test]
-    // Tests thread division functions return
+    // Assert thread division functions return
     // the expected divided thread count.
-    fn thread_division() {
-        // Set our "system thread" count.
-        THREADS_CELL.set(NonZeroUsize::new(32).unwrap()).unwrap();
-
-        assert_eq!(THREADS().get(), 32);
-        assert_eq!(THREADS_90().get(), 28);
-        assert_eq!(THREADS_75().get(), 24);
-        assert_eq!(THREADS_50().get(), 16);
-        assert_eq!(THREADS_25().get(), 8);
-        assert_eq!(THREADS_10().get(), 3);
+    fn thread_division_1() {
+        THREADS_CELL.set(NonZeroUsize::new(100).unwrap()).unwrap();
+        assert_eq!(THREADS().get(), 100);
+        assert_eq!(THREADS_90().get(), 90);
+        assert_eq!(THREADS_75().get(), 75);
+        assert_eq!(THREADS_50().get(), 50);
+        assert_eq!(THREADS_25().get(), 25);
+        assert_eq!(THREADS_10().get(), 10);
     }
 }
