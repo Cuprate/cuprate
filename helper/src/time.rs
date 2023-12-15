@@ -1,4 +1,6 @@
 //! System related
+//!
+//! Requires `std`.
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::time::{SystemTime, SystemTimeError, UNIX_EPOCH};

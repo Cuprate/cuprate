@@ -1,13 +1,15 @@
 //! `async` related
+//!
+//! `#[no_std]` compatible.
 
 //---------------------------------------------------------------------------------------------------- Use
-use futures::channel::oneshot::Receiver;
-use futures::FutureExt;
-use std::{
+use core::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
+use futures::channel::oneshot::Receiver;
+use futures::FutureExt;
 
 //---------------------------------------------------------------------------------------------------- InfallibleOneshotReceiver
 /// A oneshot receiver channel that doesn't return an Error.

@@ -1,4 +1,6 @@
 //! Crypto related
+//!
+//! `#[no_std]` compatible.
 
 //---------------------------------------------------------------------------------------------------- Use
 use curve25519_dalek::edwards::CompressedEdwardsY;

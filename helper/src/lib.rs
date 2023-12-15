@@ -31,6 +31,7 @@
     single_use_lifetimes,
 	// variant_size_differences,
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
 
 //---------------------------------------------------------------------------------------------------- Public API
 #[cfg(feature = "asynch")]

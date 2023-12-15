@@ -1,7 +1,9 @@
 //! Atomic related
+//!
+//! `#[no_std]` compatible.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 
 //---------------------------------------------------------------------------------------------------- Atomic Float
 // An AtomicF(32|64) implementation.
