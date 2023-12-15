@@ -13,6 +13,16 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 // convert between actual floats, and the bit
 // representations for storage.
 //
+// Using `UnsafeCell<float>` is also viable,
+// and would allow for a `const fn new(f: float) -> Self`
+// except that becomes problematic with NaN's and infinites:
+// - https://github.com/rust-lang/rust/issues/73328
+// - https://github.com/rust-lang/rfcs/pull/3514
+//
+// This is most likely safe(?) but... instead of risking UB,
+// this just uses the Atomic unsigned integer as the inner
+// type instead of transmuting from `UnsafeCell`.
+//
 // This creates the types:
 // - `AtomicF32`
 // - `AtomicF64`
@@ -42,6 +52,9 @@ macro_rules! impl_atomic_f {
         /// This internal functions `std` uses will panic _at compile time_
         /// if the bit transmutation operations it uses are not available
         /// on the build target, aka, if it compiles we're probably safe.
+        #[repr(transparent)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "bincode", derive(bincode::Encode, bincode::Decode))]
         pub struct $atomic_float($atomic_unsigned);
 
         impl $atomic_float {
@@ -171,58 +184,79 @@ macro_rules! impl_atomic_f {
             // operate on the _numerical_ value and not the
             // bit representations.
             //
-            // This means using some type of CAS, which comes
-            // with the regular tradeoffs...
+            // This means using some type of CAS,
+            // which comes with the regular tradeoffs...
+
+            // The (private) function using CAS to implement `fetch_*()` operations.
             //
-            // For now, these aren't implemented.
+            // This is function body used in all the below `fetch_*()` functions.
+            fn fetch_update_unwrap<F>(&self, ordering: Ordering, mut update: F) -> $float
+            where
+                F: FnMut($float) -> $float,
+            {
+                // Since it's a CAS, we need a second ordering for failures,
+                // this will take the user input and return an appropriate order.
+                let second_order = match ordering {
+                    Ordering::Release | Ordering::Relaxed => Ordering::Relaxed,
+                    Ordering::Acquire | Ordering::AcqRel => Ordering::Acquire,
+                    Ordering::SeqCst => Ordering::SeqCst,
+                    // Ordering is #[non_exhaustive], so we must do this.
+                    ordering => ordering,
+                };
 
-            // #[inline]
-            // /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_add
-            // pub fn fetch_add(&self, val: $float, order: Ordering) -> $float {
-            //     $float::from_bits(self.0.fetch_add(val.to_bits(), order))
-            // }
+                // SAFETY:
+                // unwrap is safe since `fetch_update()` only panics
+                // if the closure we pass it returns `None`.
+                // As seen below, we're passing a `Some`.
+                //
+                // https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_update
+                self.fetch_update(ordering, second_order, |f| Some(update(f)))
+                    .unwrap()
+            }
 
-            // #[inline]
-            // /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_sub
-            // pub fn fetch_sub(&self, val: $float, order: Ordering) -> $float {
-            //     $float::from_bits(self.0.fetch_sub(val.to_bits(), order))
-            // }
+            #[inline]
+            /// This function is implemented with [`Self::fetch_update`], and is not 100% equivalent to
+            /// https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_add.
+            ///
+            /// In particular, this method will not circumvent the [ABA Problem](https://en.wikipedia.org/wiki/ABA_problem).
+            ///
+            /// Other than this not actually being atomic, all other behaviors are the same.
+            pub fn fetch_add(&self, val: $float, order: Ordering) -> $float {
+                self.fetch_update_unwrap(order, |f| f + val)
+            }
 
-            // #[inline]
-            // /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_and
-            // pub fn fetch_and(&self, val: $float, order: Ordering) -> $float {
-            //     $float::from_bits(self.0.fetch_and(val.to_bits(), order))
-            // }
+            #[inline]
+            /// This function is implemented with [`Self::fetch_update`], and is not 100% equivalent to
+            /// https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_sub.
+            ///
+            /// In particular, this method will not circumvent the [ABA Problem](https://en.wikipedia.org/wiki/ABA_problem).
+            ///
+            /// Other than this not actually being atomic, all other behaviors are the same.
+            pub fn fetch_sub(&self, val: $float, order: Ordering) -> $float {
+                self.fetch_update_unwrap(order, |f| f - val)
+            }
 
-            // #[inline]
-            // /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_nand
-            // pub fn fetch_nand(&self, val: $float, order: Ordering) -> $float {
-            //     $float::from_bits(self.0.fetch_nand(val.to_bits(), order))
-            // }
+            #[inline]
+            /// This function is implemented with [`Self::fetch_update`], and is not 100% equivalent to
+            /// https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_max.
+            ///
+            /// In particular, this method will not circumvent the [ABA Problem](https://en.wikipedia.org/wiki/ABA_problem).
+            ///
+            /// Other than this not actually being atomic, all other behaviors are the same.
+            pub fn fetch_max(&self, val: $float, order: Ordering) -> $float {
+                self.fetch_update_unwrap(order, |f| f.max(val))
+            }
 
-            // #[inline]
-            // /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_or
-            // pub fn fetch_or(&self, val: $float, order: Ordering) -> $float {
-            //     $float::from_bits(self.0.fetch_or(val.to_bits(), order))
-            // }
-
-            // #[inline]
-            // /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_xor
-            // pub fn fetch_xor(&self, val: $float, order: Ordering) -> $float {
-            //     $float::from_bits(self.0.fetch_xor(val.to_bits(), order))
-            // }
-
-            // #[inline]
-            // /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_max
-            // pub fn fetch_max(&self, val: $float, order: Ordering) -> $float {
-            //     $float::from_bits(self.0.fetch_max(val as $unsigned, order))
-            // }
-
-            // #[inline]
-            // /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_min
-            // pub fn fetch_min(&self, val: $float, order: Ordering) -> $float {
-            //     $float::from_bits(self.0.fetch_min(val.to_bits(), order))
-            // }
+            #[inline]
+            /// This function is implemented with [`Self::fetch_update`], and is not 100% equivalent to
+            /// https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_min.
+            ///
+            /// In particular, this method will not circumvent the [ABA Problem](https://en.wikipedia.org/wiki/ABA_problem).
+            ///
+            /// Other than this not actually being atomic, all other behaviors are the same.
+            pub fn fetch_min(&self, val: $float, order: Ordering) -> $float {
+                self.fetch_update_unwrap(order, |f| f.min(val))
+            }
 
             #[inline]
             /// Equivalent to https://doc.rust-lang.org/1.70.0/std/sync/atomic/struct.AtomicUsize.html#method.fetch_update
@@ -349,15 +383,18 @@ mod tests {
             Ok(5.0)
         );
         assert_eq!(float.get(), 15.0);
-
-        // Could be `loop {}` although there's no way
-        // this spuriously fails 128 times in a row... right?
-        for _ in 0..128 {
+        loop {
             if let Ok(float) = float.compare_exchange_weak(15.0, 2.0, ordering, ordering) {
                 assert_eq!(float, 15.0);
                 break;
             }
         }
+
+        // `fetch_*()` functions
+        assert_eq!(float.fetch_add(1.0, ordering), 2.0);
+        assert_eq!(float.fetch_sub(1.0, ordering), 3.0);
+        assert_eq!(float.fetch_max(5.0, ordering), 2.0);
+        assert_eq!(float.fetch_min(0.0, ordering), 5.0);
     }
 
     #[test]
@@ -380,12 +417,17 @@ mod tests {
         );
         assert_eq!(float.get(), 15.0);
 
-        for _ in 0..128 {
+        loop {
             if let Ok(float) = float.compare_exchange_weak(15.0, 2.0, ordering, ordering) {
                 assert_eq!(float, 15.0);
                 break;
             }
         }
+
+        assert_eq!(float.fetch_add(1.0, ordering), 2.0);
+        assert_eq!(float.fetch_sub(1.0, ordering), 3.0);
+        assert_eq!(float.fetch_max(5.0, ordering), 2.0);
+        assert_eq!(float.fetch_min(0.0, ordering), 5.0);
     }
 
     #[test]

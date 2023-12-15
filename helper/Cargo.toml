@@ -18,6 +18,8 @@ thread  = []
 chrono           = { workspace = true, optional = true }
 curve25519-dalek = { workspace = true, optional = true }
 futures          = { workspace = true, optional = true }
+serde            = { workspace = true, optional = true }
+bincode          = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
