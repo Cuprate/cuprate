@@ -1,26 +1,25 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
+pub mod blocks;
 mod decomposed_amount;
+pub mod genesis;
 mod hard_forks;
-mod miner_tx;
-mod signatures;
-mod transactions;
+pub mod miner_tx;
+pub mod signatures;
+pub mod transactions;
 
 pub use decomposed_amount::is_decomposed_amount;
 pub use hard_forks::{HFVotes, HFsInfo, HardFork};
+pub use transactions::TxVersion;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum TxVersion {
-    RingSignatures,
-    RingCT,
-}
-
-impl TxVersion {
-    pub fn from_raw(version: u64) -> Option<TxVersion> {
-        Some(match version {
-            1 => TxVersion::RingSignatures,
-            2 => TxVersion::RingCT,
-            _ => return None,
-        })
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum ConsensusError {
+    #[error("Block error: {0}")]
+    Block(#[from] blocks::BlockError),
+    #[error("Transaction error: {0}")]
+    Transaction(#[from] transactions::TransactionError),
+    #[error("Signatures error: {0}")]
+    Signatures(#[from] signatures::SignatureError),
 }
 
 /// Checks that a point is canonical.
@@ -34,6 +33,13 @@ fn check_point(point: &curve25519_dalek::edwards::CompressedEdwardsY) -> bool {
         // Ban points which are either unreduced or -0
         .filter(|point| point.compress().as_bytes() == bytes)
         .is_some()
+}
+
+pub(crate) fn current_time() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
 }
 
 #[cfg(feature = "rayon")]

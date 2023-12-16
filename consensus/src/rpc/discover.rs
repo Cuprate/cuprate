@@ -19,7 +19,7 @@ use super::{
 async fn check_rpc(addr: String, cache: Arc<RwLock<ScanningCache>>) -> Option<RpcConnectionSvc> {
     tracing::debug!("Sending request to node.");
 
-    let con = HttpRpc::new_custom_timeout(addr.clone(), Duration::from_secs(u64::MAX))
+    let con = HttpRpc::with_custom_timeout(addr.clone(), Duration::from_secs(u64::MAX))
         .await
         .ok()?;
     let (tx, rx) = mpsc::channel(0);

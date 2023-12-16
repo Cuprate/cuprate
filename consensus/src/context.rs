@@ -20,8 +20,11 @@ use futures::{
 use tower::{Service, ServiceExt};
 
 use cuprate_common::tower_utils::InstaFuture;
+use monero_consensus::{blocks::ContextToVerifyBlock, HardFork};
 
-use crate::{helper::current_time, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
+use crate::{
+    helper::current_time, Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError,
+};
 
 mod difficulty;
 mod hardforks;
@@ -32,7 +35,7 @@ mod tests;
 mod tokens;
 
 pub use difficulty::DifficultyCacheConfig;
-pub use hardforks::{HardFork, HardForkConfig};
+pub use hardforks::HardForkConfig;
 pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
@@ -69,7 +72,7 @@ pub async fn initialize_blockchain_context<D>(
         + Send
         + Sync
         + 'static,
-    ConsensusError,
+    ExtendedConsensusError,
 >
 where
     D: Database + Clone + Send + Sync + 'static,
@@ -140,30 +143,21 @@ where
 /// around. You should keep around [`BlockChainContext`] instead.
 #[derive(Debug, Clone)]
 pub struct RawBlockChainContext {
-    /// The next blocks difficulty.
-    pub next_difficulty: u128,
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
-    /// The current effective median block weight.
-    pub effective_median_weight: usize,
-    /// The median long term block weight.
-    median_long_term_weight: usize,
-    /// Median weight to use for block reward calculations.
-    pub median_weight_for_block_reward: usize,
-    /// The amount of coins minted already.
-    pub already_generated_coins: u64,
-    /// The median timestamp over the last [`BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW`] blocks, will be None if there aren't
-    /// [`BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW`] blocks.
-    pub median_block_timestamp: Option<u64>,
-    top_block_timestamp: Option<u64>,
-    /// The height of the chain.
-    pub chain_height: u64,
-    /// The top blocks hash
-    pub top_hash: [u8; 32],
-    /// The current hard fork.
-    pub current_hard_fork: HardFork,
     /// A token which is used to signal if a reorg has happened since creating the token.
     pub re_org_token: ReOrgToken,
+    pub context_to_verify_block: ContextToVerifyBlock,
+    /// The median long term block weight.
+    median_long_term_weight: usize,
+    top_block_timestamp: Option<u64>,
+}
+
+impl std::ops::Deref for RawBlockChainContext {
+    type Target = ContextToVerifyBlock;
+    fn deref(&self) -> &Self::Target {
+        &self.context_to_verify_block
+    }
 }
 
 impl RawBlockChainContext {
@@ -171,20 +165,19 @@ impl RawBlockChainContext {
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
     pub fn current_adjusted_timestamp_for_time_lock(&self) -> u64 {
-        if self.current_hard_fork < HardFork::V13 || self.median_block_timestamp.is_none() {
+        if self.current_hf < HardFork::V13 || self.median_block_timestamp.is_none() {
             current_time()
         } else {
             // This is safe as we just checked if this was None.
             let median = self.median_block_timestamp.unwrap();
 
             let adjusted_median = median
-                + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1)
-                    * self.current_hard_fork.block_time().as_secs()
+                + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1) * self.current_hf.block_time().as_secs()
                     / 2;
 
             // This is safe as we just checked if the median was None and this will only be none for genesis and the first block.
             let adjusted_top_block =
-                self.top_block_timestamp.unwrap() + self.current_hard_fork.block_time().as_secs();
+                self.top_block_timestamp.unwrap() + self.current_hf.block_time().as_secs();
 
             min(adjusted_median, adjusted_top_block)
         }
@@ -200,7 +193,7 @@ impl RawBlockChainContext {
 
     pub fn next_block_long_term_weight(&self, block_weight: usize) -> usize {
         weight::calculate_block_long_term_weight(
-            &self.current_hard_fork,
+            &self.current_hf,
             block_weight,
             self.median_long_term_weight,
         )
@@ -346,21 +339,23 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                 InstaFuture::from(Ok(BlockChainContextResponse::Context(BlockChainContext {
                     validity_token: current_validity_token.clone(),
                     raw: RawBlockChainContext {
-                        next_difficulty: difficulty_cache.next_difficulty(&current_hf),
+                        context_to_verify_block: ContextToVerifyBlock {
+                            median_weight_for_block_reward: weight_cache
+                                .median_for_block_reward(&current_hf),
+                            effective_median_weight: weight_cache
+                                .effective_median_block_weight(&current_hf),
+                            top_hash: *top_block_hash,
+                            median_block_timestamp: difficulty_cache.median_timestamp(
+                                usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap(),
+                            ),
+                            chain_height: *chain_height,
+                            current_hf,
+                            next_difficulty: difficulty_cache.next_difficulty(&current_hf),
+                            already_generated_coins: *already_generated_coins,
+                        },
                         cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
-                        effective_median_weight: weight_cache
-                            .effective_median_block_weight(&current_hf),
                         median_long_term_weight: weight_cache.median_long_term_weight(),
-                        median_weight_for_block_reward: weight_cache
-                            .median_for_block_reward(&current_hf),
-                        already_generated_coins: *already_generated_coins,
                         top_block_timestamp: difficulty_cache.top_block_timestamp(),
-                        median_block_timestamp: difficulty_cache.median_timestamp(
-                            usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap(),
-                        ),
-                        chain_height: *chain_height,
-                        top_hash: *top_block_hash,
-                        current_hard_fork: current_hf,
                         re_org_token: current_reorg_token.clone(),
                     },
                 })))

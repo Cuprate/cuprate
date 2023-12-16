@@ -11,10 +11,10 @@ use crate::{transactions::TransactionError, HardFork, TxVersion};
 /// An already approved previous transaction output.
 #[derive(Debug)]
 pub struct OutputOnChain {
-    height: u64,
-    time_lock: Timelock,
-    key: EdwardsPoint,
-    mask: EdwardsPoint,
+    pub height: u64,
+    pub time_lock: Timelock,
+    pub key: EdwardsPoint,
+    pub mask: EdwardsPoint,
 }
 
 /// Gets the absolute offsets from the relative offsets.
@@ -67,7 +67,7 @@ pub fn insert_ring_member_ids(
 /// Get the ring members for the inputs from the outputs on the chain.
 ///
 /// Will error if `outputs` does not contain the outputs needed.
-fn get_ring_members_for_inputs<'a>(
+pub fn get_ring_members_for_inputs<'a>(
     outputs: &'a HashMap<u64, HashMap<u64, OutputOnChain>>,
     inputs: &[Input],
 ) -> Result<Vec<Vec<&'a OutputOnChain>>, TransactionError> {
@@ -139,16 +139,18 @@ pub struct TxRingMembersInfo {
     pub decoy_info: Option<DecoyInfo>,
     pub youngest_used_out_height: u64,
     pub time_locked_outs: Vec<Timelock>,
+    pub hf: HardFork,
 }
 
 impl TxRingMembersInfo {
     /// Construct a [`TxRingMembersInfo`] struct.
     ///
     /// The used outs must be all the ring members used in the transactions inputs.
-    fn new(
+    pub fn new(
         used_outs: Vec<Vec<&OutputOnChain>>,
         decoy_info: Option<DecoyInfo>,
         tx_version: TxVersion,
+        hf: HardFork,
     ) -> TxRingMembersInfo {
         TxRingMembersInfo {
             youngest_used_out_height: used_outs
@@ -175,6 +177,7 @@ impl TxRingMembersInfo {
                         .collect::<Vec<_>>()
                 })
                 .collect(),
+            hf,
             rings: Rings::new(used_outs, tx_version),
             decoy_info,
         }
@@ -216,7 +219,7 @@ impl DecoyInfo {
     ///
     pub fn new(
         inputs: &[Input],
-        outputs_with_amount: &[Option<usize>],
+        outputs_with_amount: &HashMap<u64, usize>,
         hf: &HardFork,
     ) -> Result<DecoyInfo, TransactionError> {
         let mut min_decoys = usize::MAX;
@@ -226,10 +229,18 @@ impl DecoyInfo {
 
         let minimum_decoys = minimum_decoys(hf);
 
-        for (inp, outs_with_amt) in inputs.iter().zip(outputs_with_amount) {
+        for inp in inputs.iter() {
             match inp {
-                Input::ToKey { key_offsets, .. } => {
-                    if let Some(outs_with_amt) = *outs_with_amt {
+                Input::ToKey {
+                    key_offsets,
+                    amount,
+                    ..
+                } => {
+                    if let Some(amount) = amount {
+                        let outs_with_amt = *outputs_with_amount
+                            .get(amount)
+                            .expect("outputs_with_amount does not include needed amount.");
+
                         // https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#mixable-and-unmixable-inputs
                         if outs_with_amt <= minimum_decoys {
                             not_mixable += 1;

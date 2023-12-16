@@ -131,9 +131,9 @@ impl RpcConnection {
         };
 
         Ok(ExtendedBlockHeader {
-            version: HardFork::from_version(&info.major_version)
+            version: HardFork::from_version(info.major_version)
                 .expect("previously checked block has incorrect version"),
-            vote: HardFork::from_vote(&info.minor_version),
+            vote: HardFork::from_vote(info.minor_version),
             timestamp: info.timestamp,
             cumulative_difficulty: u128_from_low_high(
                 info.cumulative_difficulty,
@@ -167,9 +167,9 @@ impl RpcConnection {
             res.headers
                 .into_iter()
                 .map(|info| ExtendedBlockHeader {
-                    version: HardFork::from_version(&info.major_version)
+                    version: HardFork::from_version(info.major_version)
                         .expect("previously checked block has incorrect version"),
-                    vote: HardFork::from_vote(&info.minor_version),
+                    vote: HardFork::from_vote(info.minor_version),
                     timestamp: info.timestamp,
                     cumulative_difficulty: u128_from_low_high(
                         info.cumulative_difficulty,

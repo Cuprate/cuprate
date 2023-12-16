@@ -27,7 +27,8 @@ binaries = [
 ]
 
 [dependencies]
-hex = "0.4"
+monero-consensus = {path = "./rules", features = ["rayon"]}
+
 thiserror = "1"
 tower = {version = "0.4", features = ["util"]}
 tracing = "0.1"
@@ -37,17 +38,18 @@ crypto-bigint = "0.5"
 curve25519-dalek = "4"
 
 randomx-rs = "1"
-monero-serai = {git="https://github.com/cuprate/serai.git", rev = "4a5d860"}
+monero-serai = { workspace = true }
 multiexp = {git="https://github.com/cuprate/serai.git", rev = "4a5d860"}
 dalek-ff-group = {git="https://github.com/cuprate/serai.git", rev = "4a5d860"}
 
 cuprate-common = {path = "../common"}
-cryptonight-cuprate = {path = "../cryptonight"}
 
 rayon = "1"
 thread_local = "1.1.7"
 tokio = "1"
 tokio-util = "0.7"
+
+hex = "0.4"
 
 # used in binaries
 monero-wire = {path="../net/monero-wire", optional = true}

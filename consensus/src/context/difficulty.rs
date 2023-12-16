@@ -4,7 +4,7 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use crate::{
-    helper::median, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
+    helper::median, Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork,
 };
 
 #[cfg(test)]
@@ -74,7 +74,7 @@ impl DifficultyCache {
         chain_height: u64,
         config: DifficultyCacheConfig,
         database: D,
-    ) -> Result<Self, ConsensusError> {
+    ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
         let mut block_start = chain_height.saturating_sub(config.total_block_count());
@@ -212,7 +212,7 @@ fn get_window_start_and_end(
 async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
-) -> Result<(VecDeque<u64>, VecDeque<u128>), ConsensusError> {
+) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
     let DatabaseResponse::BlockExtendedHeaderInRange(ext_header) = database

@@ -115,8 +115,11 @@ impl ScanningCache {
         self.numb_outs.values().sum()
     }
 
-    pub fn numb_outs(&self, amount: u64) -> usize {
-        *self.numb_outs.get(&amount).unwrap_or(&0)
+    pub fn numb_outs(&self, amounts: &[u64]) -> HashMap<u64, usize> {
+        amounts
+            .iter()
+            .map(|amount| (*amount, *self.numb_outs.get(amount).unwrap_or(&0)))
+            .collect()
     }
 
     pub fn add_outs(&mut self, amount: u64, count: usize) {
@@ -130,7 +133,7 @@ impl ScanningCache {
 
 impl Display for ScanningCache {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let rct_outs = self.numb_outs(0);
+        let rct_outs = *self.numb_outs(&[0]).get(&0).unwrap();
         let total_outs = self.total_outs();
 
         f.debug_struct("Cache")

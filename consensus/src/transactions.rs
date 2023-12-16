@@ -13,32 +13,21 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
+use monero_consensus::{
+    signatures::verify_contextual_signatures,
+    transactions::{
+        check_all_time_locks, check_inputs, check_outputs, check_tx_version, TransactionError,
+        TxRingMembersInfo,
+    },
+    ConsensusError, HardFork, TxVersion,
+};
+
 use crate::{
-    context::ReOrgToken, helper::rayon_spawn_async, ConsensusError, Database, DatabaseRequest,
-    DatabaseResponse, HardFork,
+    context::ReOrgToken, helper::rayon_spawn_async, Database, DatabaseRequest, DatabaseResponse,
+    ExtendedConsensusError,
 };
 
 mod contextual_data;
-mod inputs;
-pub(crate) mod outputs;
-mod sigs;
-mod time_lock;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum TxVersion {
-    RingSignatures,
-    RingCT,
-}
-
-impl TxVersion {
-    pub fn from_raw(version: u64) -> Result<TxVersion, ConsensusError> {
-        match version {
-            1 => Ok(TxVersion::RingSignatures),
-            2 => Ok(TxVersion::RingCT),
-            _ => Err(ConsensusError::TransactionVersionInvalid),
-        }
-    }
-}
 
 /// Data needed to verify a transaction.
 ///
@@ -52,7 +41,7 @@ pub struct TransactionVerificationData {
     pub tx_hash: [u8; 32],
     /// We put this behind a mutex as the information is not constant and is based of past outputs idxs
     /// which could change on re-orgs.
-    rings_member_info: std::sync::Mutex<Option<contextual_data::TxRingMembersInfo>>,
+    rings_member_info: std::sync::Mutex<Option<(TxRingMembersInfo, ReOrgToken)>>,
 }
 
 impl TransactionVerificationData {
@@ -63,7 +52,8 @@ impl TransactionVerificationData {
             tx_weight: tx.weight(),
             fee: tx.rct_signatures.base.fee,
             rings_member_info: std::sync::Mutex::new(None),
-            version: TxVersion::from_raw(tx.prefix.version)?,
+            version: TxVersion::from_raw(tx.prefix.version)
+                .ok_or(TransactionError::TransactionVersionInvalid)?,
             tx,
         })
     }
@@ -113,7 +103,7 @@ where
     D::Future: Send + 'static,
 {
     type Response = VerifyTxResponse;
-    type Error = ConsensusError;
+    type Error = ExtendedConsensusError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
@@ -154,7 +144,7 @@ async fn batch_setup_transactions<D>(
     txs: Vec<Transaction>,
     hf: HardFork,
     re_org_token: ReOrgToken,
-) -> Result<VerifyTxResponse, ConsensusError>
+) -> Result<VerifyTxResponse, ExtendedConsensusError>
 where
     D: Database + Clone + Sync + Send + 'static,
 {
@@ -179,7 +169,7 @@ async fn verify_transactions_for_block<D>(
     time_for_time_lock: u64,
     hf: HardFork,
     re_org_token: ReOrgToken,
-) -> Result<VerifyTxResponse, ConsensusError>
+) -> Result<VerifyTxResponse, ExtendedConsensusError>
 where
     D: Database + Clone + Sync + Send + 'static,
 {
@@ -215,9 +205,7 @@ where
     };
 
     if kis_spent {
-        return Err(ConsensusError::TransactionHasInvalidInput(
-            "One or more key image spent!",
-        ));
+        Err(ConsensusError::Transaction(TransactionError::KeyImageSpent))?;
     }
 
     Ok(VerifyTxResponse::Ok)
@@ -243,21 +231,20 @@ fn verify_transaction_for_block(
         None => panic!("rings_member_info needs to be set to be able to verify!"),
     };
 
-    check_tx_version(&rings_member_info.decoy_info, tx_version, &hf)?;
+    check_tx_version(&rings_member_info.0.decoy_info, tx_version, &hf)?;
 
-    time_lock::check_all_time_locks(
-        &rings_member_info.time_locked_outs,
+    check_all_time_locks(
+        &rings_member_info.0.time_locked_outs,
         current_chain_height,
         time_for_time_lock,
         &hf,
     )?;
 
-    let sum_outputs =
-        outputs::check_outputs(&tx_verification_data.tx.prefix.outputs, &hf, tx_version)?;
+    let sum_outputs = check_outputs(&tx_verification_data.tx.prefix.outputs, &hf, tx_version)?;
 
-    let sum_inputs = inputs::check_inputs(
-        &tx_verification_data.tx.prefix.inputs,
-        rings_member_info,
+    let sum_inputs = check_inputs(
+        tx_verification_data.tx.prefix.inputs.as_slice(),
+        &rings_member_info.0,
         current_chain_height,
         &hf,
         tx_version,
@@ -266,59 +253,14 @@ fn verify_transaction_for_block(
 
     if tx_version == &TxVersion::RingSignatures {
         if sum_outputs >= sum_inputs {
-            return Err(ConsensusError::TransactionOutputsTooMuch);
+            Err(TransactionError::OutputsTooHigh)?;
         }
         // check that monero-serai is calculating the correct value here, why can't we just use this
         // value? because we don't have this when we create the object.
         assert_eq!(tx_verification_data.fee, sum_inputs - sum_outputs);
     }
 
-    sigs::verify_signatures(&tx_verification_data.tx, &rings_member_info.rings)?;
+    verify_contextual_signatures(&tx_verification_data.tx, &rings_member_info.0.rings)?;
 
     Ok(())
-}
-
-/// Checks the version is in the allowed range.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#version
-fn check_tx_version(
-    decoy_info: &Option<contextual_data::DecoyInfo>,
-    version: &TxVersion,
-    hf: &HardFork,
-) -> Result<(), ConsensusError> {
-    if let Some(decoy_info) = decoy_info {
-        let max = max_tx_version(hf);
-        if version > &max {
-            return Err(ConsensusError::TransactionVersionInvalid);
-        }
-
-        // TODO: Doc is wrong here
-        let min = min_tx_version(hf);
-        if version < &min && decoy_info.not_mixable != 0 {
-            return Err(ConsensusError::TransactionVersionInvalid);
-        }
-    } else {
-        // This will only happen for hard-fork 1 when only RingSignatures are allowed.
-        if version != &TxVersion::RingSignatures {
-            return Err(ConsensusError::TransactionVersionInvalid);
-        }
-    }
-
-    Ok(())
-}
-
-fn max_tx_version(hf: &HardFork) -> TxVersion {
-    if hf <= &HardFork::V3 {
-        TxVersion::RingSignatures
-    } else {
-        TxVersion::RingCT
-    }
-}
-
-fn min_tx_version(hf: &HardFork) -> TxVersion {
-    if hf >= &HardFork::V6 {
-        TxVersion::RingCT
-    } else {
-        TxVersion::RingSignatures
-    }
 }

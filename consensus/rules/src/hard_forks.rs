@@ -6,6 +6,7 @@
 //! This module also contains a [`HFVotes`] struct which keeps track of current blockchain voting, and
 //! has a method [`HFVotes::check_next_hard_fork`] to check if the next hard-fork should be activated.
 //!
+use monero_serai::block::BlockHeader;
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter},
@@ -103,7 +104,7 @@ impl HardFork {
     /// Returns the hard-fork for a blocks `major_version` field.
     ///
     /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#blocks-version-and-vote
-    pub fn from_version(version: &u8) -> Result<HardFork, HardForkError> {
+    pub fn from_version(version: u8) -> Result<HardFork, HardForkError> {
         Ok(match version {
             1 => HardFork::V1,
             2 => HardFork::V2,
@@ -128,8 +129,8 @@ impl HardFork {
     /// Returns the hard-fork for a blocks `minor_version` (vote) field.
     ///
     /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#blocks-version-and-vote
-    pub fn from_vote(vote: &u8) -> HardFork {
-        if *vote == 0 {
+    pub fn from_vote(vote: u8) -> HardFork {
+        if vote == 0 {
             // A vote of 0 is interpreted as 1 as that's what Monero used to default to.
             return HardFork::V1;
         }
@@ -137,9 +138,16 @@ impl HardFork {
         Self::from_version(vote).unwrap_or(HardFork::V16)
     }
 
+    pub fn from_block_header(header: &BlockHeader) -> Result<(HardFork, HardFork), HardForkError> {
+        Ok((
+            HardFork::from_version(header.major_version)?,
+            HardFork::from_vote(header.minor_version),
+        ))
+    }
+
     /// Returns the next hard-fork.
     pub fn next_fork(&self) -> Option<HardFork> {
-        HardFork::from_version(&(*self as u8 + 1)).ok()
+        HardFork::from_version(*self as u8 + 1).ok()
     }
 
     /// Returns the target block time for this hardfork.
@@ -154,14 +162,15 @@ impl HardFork {
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/blocks.html#version-and-vote
     pub fn check_block_version_vote(
-        current_hf: &Self,
+        &self,
         version: &HardFork,
         vote: &HardFork,
     ) -> Result<(), HardForkError> {
-        if current_hf != version {
+        // self = current hf
+        if self != version {
             Err(HardForkError::VersionIncorrect)?;
         }
-        if current_hf < vote {
+        if self < vote {
             Err(HardForkError::VoteTooLow)?;
         }
 
@@ -235,7 +244,7 @@ impl HFVotes {
     /// Checks if a future hard fork should be activated, returning the next hard-fork that should be
     /// activated.
     ///
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
+    /// https://cuprate.github.io/monero-book/consensus_rules/hardforks.html#accepting-a-fork
     pub fn check_next_hard_fork(
         &self,
         current_hf: &HardFork,

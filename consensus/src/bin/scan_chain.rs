@@ -14,7 +14,7 @@ use tracing::level_filters::LevelFilter;
 
 use cuprate_common::Network;
 
-use monero_consensus::{
+use cuprate_consensus::{
     context::{
         BlockChainContextRequest, BlockChainContextResponse, ContextConfig,
         UpdateBlockchainCacheData,
@@ -170,42 +170,13 @@ where
         call_blocks(new_tx_chan, block_tx, start_height, chain_height, database).await
     });
 
-    let (mut prepared_blocks_tx, mut prepared_blocks_rx) = mpsc::channel(3);
-
-    let mut cloned_block_verifier = block_verifier.clone();
-    tokio::spawn(async move {
-        while let Some(mut next_blocks) = incoming_blocks.next().await {
-            while !next_blocks.is_empty() {
-                tracing::info!(
-                    "preparing next batch, number of blocks: {}",
-                    next_blocks.len().min(150)
-                );
-
-                let res = cloned_block_verifier
-                    .ready()
-                    .await?
-                    .call(VerifyBlockRequest::BatchSetup(
-                        next_blocks.drain(0..next_blocks.len().min(150)).collect(),
-                    ))
-                    .await;
-
-                prepared_blocks_tx.send(res).await.unwrap();
-            }
-        }
-
-        Result::<_, tower::BoxError>::Ok(())
-    });
-
-    while let Some(prepared_blocks) = prepared_blocks_rx.next().await {
-        let VerifyBlockResponse::BatchSetup(prepared_blocks) = prepared_blocks? else {
-            panic!("block verifier sent incorrect response!");
-        };
+    while let Some(incoming_blocks) = incoming_blocks.next().await {
         let mut height = 0;
-        for block in prepared_blocks {
+        for block in incoming_blocks {
             let VerifyBlockResponse::MainChain(verified_block_info) = block_verifier
                 .ready()
                 .await?
-                .call(VerifyBlockRequest::MainChainPreparedBlock(block))
+                .call(VerifyBlockRequest::MainChain(block))
                 .await?
             else {
                 panic!("Block verifier sent incorrect response!");
@@ -219,13 +190,15 @@ where
             }
 
             update_cache_and_context(&cache, &mut ctx_svc, verified_block_info).await?;
-        }
 
-        tracing::info!(
-            "verified blocks: {:?}, chain height: {}",
-            0..height,
-            chain_height
-        );
+            if height % 200 == 0 {
+                tracing::info!(
+                    "verified blocks: {:?}, chain height: {}",
+                    0..height,
+                    chain_height
+                );
+            }
+        }
     }
 
     Ok(())

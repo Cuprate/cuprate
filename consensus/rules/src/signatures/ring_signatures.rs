@@ -12,7 +12,7 @@ use monero_serai::{ring_signatures::RingSignature, transaction::Input};
 use rayon::prelude::*;
 
 use super::{Rings, SignatureError};
-use crate::par_iter;
+use crate::try_par_iter;
 
 /// Verifies the ring signature.
 ///
@@ -31,7 +31,7 @@ pub fn verify_inputs_signatures(
                 return Err(SignatureError::MismatchSignatureSize);
             }
 
-            par_iter(inputs)
+            try_par_iter(inputs)
                 .zip(rings)
                 .zip(signatures)
                 .try_for_each(|((input, ring), sig)| {

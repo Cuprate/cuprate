@@ -7,21 +7,19 @@ use std::{
 
 use futures::FutureExt;
 use monero_serai::{block::Block, transaction::Input};
-use rayon::prelude::*;
 use tower::{Service, ServiceExt};
+
+use monero_consensus::{
+    blocks::{calculate_pow_hash, check_block, check_block_pow},
+    ConsensusError, HardFork,
+};
 
 use crate::{
     context::{BlockChainContextRequest, BlockChainContextResponse},
     helper::rayon_spawn_async,
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
-    ConsensusError, HardFork, TxNotInPool, TxPoolRequest, TxPoolResponse,
+    ExtendedConsensusError, TxNotInPool, TxPoolRequest, TxPoolResponse,
 };
-
-mod checks;
-mod hash_worker;
-mod miner_tx;
-
-use hash_worker::calculate_pow_hash;
 
 #[derive(Debug)]
 pub struct PrePreparedBlock {
@@ -53,9 +51,6 @@ pub struct VerifiedBlockInformation {
 
 pub enum VerifyBlockRequest {
     MainChain(Block),
-
-    BatchSetup(Vec<Block>),
-    MainChainPreparedBlock(PrePreparedBlock),
 }
 
 pub enum VerifyBlockResponse {
@@ -79,7 +74,7 @@ where
         + Clone
         + Send
         + 'static,
-    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>
+    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>
         + Clone
         + Send
         + 'static,
@@ -112,7 +107,7 @@ where
         + 'static,
     C::Future: Send + 'static,
 
-    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>
+    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>
         + Clone
         + Send
         + 'static,
@@ -125,7 +120,7 @@ where
     TxP::Future: Send + 'static,
 {
     type Response = VerifyBlockResponse;
-    type Error = ConsensusError;
+    type Error = ExtendedConsensusError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
@@ -143,150 +138,10 @@ where
                 VerifyBlockRequest::MainChain(block) => {
                     verify_main_chain_block(block, context_svc, tx_verifier_svc, tx_pool).await
                 }
-                VerifyBlockRequest::BatchSetup(blocks) => batch_prepare_block(blocks).await,
-                VerifyBlockRequest::MainChainPreparedBlock(block) => {
-                    verify_prepared_main_chain_block(block, context_svc, tx_verifier_svc, tx_pool)
-                        .await
-                }
             }
         }
         .boxed()
     }
-}
-
-async fn batch_prepare_block(blocks: Vec<Block>) -> Result<VerifyBlockResponse, ConsensusError> {
-    Ok(VerifyBlockResponse::BatchSetup(
-        rayon_spawn_async(move || {
-            blocks
-                .into_par_iter()
-                .map(prepare_block)
-                .collect::<Result<Vec<_>, _>>()
-        })
-        .await?,
-    ))
-}
-
-fn prepare_block(block: Block) -> Result<PrePreparedBlock, ConsensusError> {
-    let hf_version = HardFork::from_version(&block.header.major_version)?;
-    let hf_vote = HardFork::from_vote(&block.header.major_version);
-
-    let height = match block.miner_tx.prefix.inputs.get(0) {
-        Some(Input::Gen(height)) => *height,
-        _ => {
-            return Err(ConsensusError::MinerTransaction(
-                "Input is not a miner input",
-            ))
-        }
-    };
-
-    tracing::debug!("preparing block: {}", height);
-
-    Ok(PrePreparedBlock {
-        block_blob: block.serialize(),
-        block_hash: block.hash(),
-        pow_hash: calculate_pow_hash(&block.serialize_hashable(), height, &hf_version)?,
-        miner_tx_weight: block.miner_tx.weight(),
-        block,
-        hf_vote,
-        hf_version,
-    })
-}
-
-async fn verify_prepared_main_chain_block<C, TxV, TxP>(
-    block: PrePreparedBlock,
-    context_svc: C,
-    tx_verifier_svc: TxV,
-    tx_pool: TxP,
-) -> Result<VerifyBlockResponse, ConsensusError>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
-    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
-    TxP: Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
-        + Clone
-        + Send
-        + 'static,
-{
-    tracing::debug!("getting blockchain context");
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .oneshot(BlockChainContextRequest::Get)
-        .await
-        .map_err(Into::<ConsensusError>::into)?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
-    let context = checked_context.unchecked_blockchain_context().clone();
-
-    tracing::debug!("got blockchain context: {:?}", context);
-
-    let txs = if !block.block.txs.is_empty() {
-        let TxPoolResponse::Transactions(txs) = tx_pool
-            .oneshot(TxPoolRequest::Transactions(block.block.txs.clone()))
-            .await?;
-        txs
-    } else {
-        vec![]
-    };
-
-    let block_weight = block.miner_tx_weight + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
-    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
-
-    if !txs.is_empty() {
-        tx_verifier_svc
-            .oneshot(VerifyTxRequest::Block {
-                txs: txs.clone(),
-                current_chain_height: context.chain_height,
-                time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
-                hf: context.current_hard_fork,
-                re_org_token: context.re_org_token.clone(),
-            })
-            .await?;
-    }
-
-    let generated_coins = miner_tx::check_miner_tx(
-        &block.block.miner_tx,
-        total_fees,
-        context.chain_height,
-        block_weight,
-        context.median_weight_for_block_reward,
-        context.already_generated_coins,
-        &context.current_hard_fork,
-    )?;
-
-    checks::block_size_sanity_check(block.block_blob.len(), context.effective_median_weight)?;
-    checks::block_weight_check(block_weight, context.median_weight_for_block_reward)?;
-
-    checks::check_amount_txs(block.block.txs.len())?;
-    checks::check_prev_id(&block.block, &context.top_hash)?;
-    if let Some(median_timestamp) = context.median_block_timestamp {
-        // will only be None for the first 60 blocks
-        checks::check_timestamp(&block.block, median_timestamp)?;
-    }
-
-    checks::check_block_pow(&block.pow_hash, context.next_difficulty)?;
-
-    context
-        .current_hard_fork
-        .check_block_version_vote(&block.block.header)?;
-
-    Ok(VerifyBlockResponse::MainChain(VerifiedBlockInformation {
-        block_hash: block.block_hash,
-        block: block.block,
-        txs,
-        pow_hash: block.pow_hash,
-        generated_coins,
-        weight: block_weight,
-        height: context.chain_height,
-        long_term_weight: context.next_block_long_term_weight(block_weight),
-        hf_vote: block.hf_vote,
-        cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
-    }))
 }
 
 async fn verify_main_chain_block<C, TxV, TxP>(
@@ -294,7 +149,7 @@ async fn verify_main_chain_block<C, TxV, TxP>(
     context_svc: C,
     tx_verifier_svc: TxV,
     tx_pool: TxP,
-) -> Result<VerifyBlockResponse, ConsensusError>
+) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
     C: Service<
             BlockChainContextRequest,
@@ -303,7 +158,7 @@ where
         > + Send
         + 'static,
     C::Future: Send + 'static,
-    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
+    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
     TxP: Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
         + Clone
         + Send
@@ -313,7 +168,7 @@ where
     let BlockChainContextResponse::Context(checked_context) = context_svc
         .oneshot(BlockChainContextRequest::Get)
         .await
-        .map_err(Into::<ConsensusError>::into)?
+        .map_err(Into::<ExtendedConsensusError>::into)?
     else {
         panic!("Context service returned wrong response!");
     };
@@ -326,57 +181,39 @@ where
         .oneshot(TxPoolRequest::Transactions(block.txs.clone()))
         .await?;
 
-    let block_weight = block.miner_tx.weight() + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
-    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
-
     tx_verifier_svc
         .oneshot(VerifyTxRequest::Block {
             txs: txs.clone(),
             current_chain_height: context.chain_height,
             time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
-            hf: context.current_hard_fork,
+            hf: context.current_hf,
             re_org_token: context.re_org_token.clone(),
         })
         .await?;
 
-    let generated_coins = miner_tx::check_miner_tx(
-        &block.miner_tx,
+    let block_weight = block.miner_tx.weight() + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
+    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
+
+    let (hf_vote, generated_coins) = check_block(
+        &block,
         total_fees,
-        context.chain_height,
         block_weight,
-        context.median_weight_for_block_reward,
-        context.already_generated_coins,
-        &context.current_hard_fork,
-    )?;
+        block.serialize().len(),
+        &context.context_to_verify_block,
+    )
+    .map_err(ConsensusError::Block)?;
 
     let hashing_blob = block.serialize_hashable();
 
-    checks::block_size_sanity_check(block.serialize().len(), context.effective_median_weight)?;
-    checks::block_weight_check(block_weight, context.median_weight_for_block_reward)?;
-
-    checks::check_amount_txs(block.txs.len())?;
-    checks::check_prev_id(&block, &context.top_hash)?;
-    if let Some(median_timestamp) = context.median_block_timestamp {
-        // will only be None for the first 60 blocks
-        checks::check_timestamp(&block, median_timestamp)?;
-    }
-
     // do POW test last
-    let pow_hash = tokio::task::spawn_blocking(move || {
-        hash_worker::calculate_pow_hash(
-            &hashing_blob,
-            context.chain_height,
-            &context.current_hard_fork,
-        )
-    })
-    .await
-    .unwrap()?;
+    let chain_height = context.chain_height;
+    let current_hf = context.current_hf;
+    let pow_hash =
+        rayon_spawn_async(move || calculate_pow_hash(&hashing_blob, chain_height, &current_hf))
+            .await
+            .map_err(ConsensusError::Block)?;
 
-    checks::check_block_pow(&pow_hash, context.next_difficulty)?;
-
-    context
-        .current_hard_fork
-        .check_block_version_vote(&block.header)?;
+    check_block_pow(&pow_hash, context.next_difficulty).map_err(ConsensusError::Block)?;
 
     Ok(VerifyBlockResponse::MainChain(VerifiedBlockInformation {
         block_hash: block.hash(),
@@ -387,7 +224,7 @@ where
         weight: block_weight,
         height: context.chain_height,
         long_term_weight: context.next_block_long_term_weight(block_weight),
-        hf_vote: HardFork::V1,
+        hf_vote,
         cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
     }))
 }

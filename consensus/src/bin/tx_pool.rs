@@ -15,13 +15,13 @@ use tower::{Service, ServiceExt};
 
 use cuprate_common::tower_utils::InfallibleOneshotReceiver;
 
-use monero_consensus::{
+use cuprate_consensus::{
     context::{
         BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
         RawBlockChainContext,
     },
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
-    ConsensusError, TxNotInPool, TxPoolRequest, TxPoolResponse,
+    ExtendedConsensusError, TxNotInPool, TxPoolRequest, TxPoolResponse,
 };
 
 #[derive(Clone)]
@@ -78,7 +78,7 @@ pub struct TxPool<TxV, Ctx> {
 
 impl<TxV, Ctx> TxPool<TxV, Ctx>
 where
-    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>
+    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>
         + Clone
         + Send
         + 'static,
@@ -199,7 +199,7 @@ where
                 .unwrap()
                 .call(VerifyTxRequest::BatchSetup {
                     txs: new_txs,
-                    hf: current_ctx.current_hard_fork,
+                    hf: current_ctx.current_hf,
                     re_org_token: current_ctx.re_org_token.clone(),
                 })
                 .await

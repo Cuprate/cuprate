@@ -2,13 +2,15 @@ use std::{cmp::Ordering, collections::HashSet, sync::Arc};
 
 use monero_serai::transaction::{Input, Output, Timelock};
 
-use crate::{check_point, is_decomposed_amount, HardFork, TxVersion};
+use crate::{check_point, is_decomposed_amount, HardFork};
 
 mod contextual_data;
 pub use contextual_data::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TransactionError {
+    #[error("The transactions version is incorrect.")]
+    TransactionVersionInvalid,
     //-------------------------------------------------------- OUTPUTS
     #[error("Output is not a valid point.")]
     OutputNotValidPoint,
@@ -20,6 +22,8 @@ pub enum TransactionError {
     AmountNotDecomposed,
     #[error("The transactions outputs overflow.")]
     OutputsOverflow,
+    #[error("The transactions outputs too much.")]
+    OutputsTooHigh,
     //-------------------------------------------------------- INPUTS
     #[error("One or more inputs don't have the expected number of decoys.")]
     InputDoesNotHaveExpectedNumbDecoys,
@@ -43,6 +47,22 @@ pub enum TransactionError {
     NoInputs,
     #[error("Ring member not in database")]
     RingMemberNotFound,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum TxVersion {
+    RingSignatures,
+    RingCT,
+}
+
+impl TxVersion {
+    pub fn from_raw(version: u64) -> Option<TxVersion> {
+        Some(match version {
+            1 => TxVersion::RingSignatures,
+            2 => TxVersion::RingCT,
+            _ => return None,
+        })
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------- OUTPUTS
@@ -424,5 +444,50 @@ pub fn check_inputs(
     match tx_version {
         TxVersion::RingSignatures => sum_inputs_v1(inputs),
         _ => panic!("TODO: RCT"),
+    }
+}
+
+/// Checks the version is in the allowed range.
+///
+/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#version
+pub fn check_tx_version(
+    decoy_info: &Option<contextual_data::DecoyInfo>,
+    version: &TxVersion,
+    hf: &HardFork,
+) -> Result<(), TransactionError> {
+    if let Some(decoy_info) = decoy_info {
+        let max = max_tx_version(hf);
+        if version > &max {
+            return Err(TransactionError::TransactionVersionInvalid);
+        }
+
+        // TODO: Doc is wrong here
+        let min = min_tx_version(hf);
+        if version < &min && decoy_info.not_mixable != 0 {
+            return Err(TransactionError::TransactionVersionInvalid);
+        }
+    } else {
+        // This will only happen for hard-fork 1 when only RingSignatures are allowed.
+        if version != &TxVersion::RingSignatures {
+            return Err(TransactionError::TransactionVersionInvalid);
+        }
+    }
+
+    Ok(())
+}
+
+fn max_tx_version(hf: &HardFork) -> TxVersion {
+    if hf <= &HardFork::V3 {
+        TxVersion::RingSignatures
+    } else {
+        TxVersion::RingCT
+    }
+}
+
+fn min_tx_version(hf: &HardFork) -> TxVersion {
+    if hf >= &HardFork::V6 {
+        TxVersion::RingCT
+    } else {
+        TxVersion::RingSignatures
     }
 }

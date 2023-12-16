@@ -9,11 +9,16 @@ proptest = ["dep:proptest", "dep:proptest-derive"]
 rayon = ["dep:rayon"]
 
 [dependencies]
+cryptonight-cuprate = {path = "../../cryptonight"}
+cuprate-common = {path = "../../common"}
+
 monero-serai = { workspace = true }
 curve25519-dalek = { workspace = true }
 
-tracing = { workspace = true }
+hex = "0.4"
+primitive-types = { version =  "0.12.2", default-features = false }
 
+tracing = { workspace = true }
 thiserror = { workspace = true }
 
 rayon = { workspace = true, optional = true }
