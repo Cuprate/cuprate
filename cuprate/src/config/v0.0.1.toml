@@ -1,0 +1,212 @@
+#==============#
+# cuprate.toml #
+#================================================================#
+# This is `cuprate`'s config file.                               #
+# It is in the TOML (https://en.wikipedia.org/wiki/TOML) format. #
+#                                                                #
+# Values will be loaded from this file on startup.               #
+# If overlapping `--command-flags` are provided,                 #
+# they will be used instead.                                     #
+#                                                                #
+# For full documentation on config options, see:                 #
+# <https://TODO>                                                 #
+#================================================================#
+
+
+#----------------------------------------------------------------#
+#                             P2P                                #
+#----------------------------------------------------------------#
+# The IPv4 address(es) `cuprate` will bind to for P2P.
+#
+# DEFAULT | "0.0.0.0"
+# EXAMPLE | "192.168.2.10", "::1",
+# TYPE    | IPv4/IPv6 string
+p2p_ip = "0.0.0.0"
+
+# The port `cuprate` bind to for P2P.
+#
+# Using port 0 will select a random port.
+#
+# DEFAULT | 18081
+# EXAMPLE | 15000, 8080, 9999
+# TYPE    | number (0..65535)
+p2p_port = 18080
+
+
+#----------------------------------------------------------------#
+#             LOCAL RPC (unsafe to use publically)               #
+#----------------------------------------------------------------#
+# The IPv4 address(es) `cuprate` will bind to for RPC.
+#
+# DEFAULT | "127.0.0.1"
+# EXAMPLE | "192.168.2.10", "::1",
+# TYPE    | IPv4/IPv6 string
+rpc_ip = "127.0.0.1"
+
+# The port `cuprate` bind to for RPC.
+#
+# Using port 0 will select a random port.
+#
+# DEFAULT | 18081
+# EXAMPLE | 15000, 8080, 9999
+# TYPE    | number (0..65535)
+rpc_port = 18081
+
+# Confirm you consciously set 'rpc_ip' to a
+# non-localhost IP and you understand the consequences.
+#
+# DEFAULT | false
+# VALUES  | false, true
+# TYPE    | boolean
+confirm_external_bind = false
+
+
+#----------------------------------------------------------------#
+#             RESTRICTED RPC (safer to use publically)           #
+#----------------------------------------------------------------#
+# The IPv4 address(es) `cuprate` will bind to for restricted RPC.
+#
+# DEFAULT | "127.0.0.1"
+# EXAMPLE | "192.168.2.10", "::1",
+# TYPE    | IPv4/IPv6 string
+rpc_restricted_ip = "127.0.0.1"
+
+# The port `cuprate` bind to for restricted RPC.
+#
+# Using port 0 will select a random port.
+#
+# DEFAULT | 18089
+# EXAMPLE | 15000, 8080, 9999
+# TYPE    | number (0..65535)
+rpc_restricted_port = 18089
+
+
+#----------------------------------------------------------------#
+#                            PEER                                #
+#----------------------------------------------------------------#
+# Set max number of outgoing connections to other nodes.
+# Usually the default is 12, but modern machines can do more.
+#
+# DEFAULT | 12
+# EXAMPLE | 1, 6, 8, 100, 9999
+# TYPE    | number (0..65535)
+out_peers = 12
+
+# Set max number of incoming connections (nodes connecting to you).
+#
+# DEFAULT | 12
+# EXAMPLE | 1, 6, 8, 100, 9999
+# TYPE    | number (0..65535)
+in_peers = 12
+
+#----------------------------------------------------------------#
+#                          BANDWIDTH                             #
+#----------------------------------------------------------------#
+# Quick conversion help:
+#
+# | Kilobytes | Bytes           | Bits     |
+# |-----------|-----------------|----------|
+# | 125000    | 125   Megabytes | 1   Gbit |
+# | 62500     | 62.5  Megabytes | 500 Mbit |
+# | 31250     | 32.25 Megabytes | 250 Mbit |
+# | 16125     | 16.12 Megabytes | 125 Mbit |
+# | 1000      | 1     Megabyte  | 8   Mbit |
+#
+#    ^
+#    |__ Use these numbers for
+#        the below options :)
+
+# Limit outgoing data transfer limit in [kB/s]
+#
+# DEFAULT | 16125
+# EXAMPLE | 1000, 66666, 125000
+# TYPE    | number (kilobytes)
+limit_rate_up = 16125
+
+# Limit outgoing data transfer limit in [kB/s]
+#
+# DEFAULT | 16125
+# EXAMPLE | 1000, 66666, 125000
+# TYPE    | number (kilobytes)
+limit-rate-down = 16125
+
+
+#----------------------------------------------------------------#
+#                           TOR/I2P                              #
+#----------------------------------------------------------------#
+# TODO
+
+#tx_proxy = tor,127.0.0.1:9050
+#tx_proxy = i2p,127.0.0.1:9000
+#anonymous_inbound = YOUR_ONION_ADDRESS.onion:18083,127.0.0.1:18083,100
+#anonymous_inbound = YOUR_I2P_ADDRESS.b32.i2p:5000,127.0.0.1:30000
+#pad-transactions = true
+
+
+#----------------------------------------------------------------#
+#                           LOGGING                              #
+#----------------------------------------------------------------#
+# The logging level `cuprate` will use.
+#
+# "error" will only show critical error messages,
+# "warn" will in addition show warnings,
+# "info" will in addition show info, etc, etc.
+#
+# DEFAULT | "error"
+# VALUES  | "off", "error", "warn", "info", "debug", "trace"
+# TYPE    | string, one of the above
+log_level = "info"
+
+
+#----------------------------------------------------------------#
+#                          FILESYSTEM                            #
+#----------------------------------------------------------------#
+# TODO
+# Does std::path::Path::from_str() convert ~ into $HOME?
+#
+# DEFAULT | "~/.local/share/cuprate/db"
+# EXAMPLE | "~/.cuprate/db", "/mnt/cuprate/db"
+# TYPE    | PATH strings
+data_dir = "~/.local/share/cuprate/db"
+
+
+#----------------------------------------------------------------#
+#                          PERFORMANCE                           #
+#----------------------------------------------------------------#
+
+
+#----------------------------------------------------------------#
+#                         AUTHORIZATION                          #
+#----------------------------------------------------------------#
+
+#----------------------------------------------------------------#
+#                              ZMQ                               #
+#----------------------------------------------------------------#
+# TODO
+
+#zmq_pub = tcp://127.0.0.1:18083
+#no_zmq = true
+
+
+#----------------------------------------------------------------#
+#                              DNS                               #
+#----------------------------------------------------------------#
+# TODO
+
+#disable_dns_checkpoints = false
+#enable_dns_blocklist = false
+
+
+#----------------------------------------------------------------#
+#                              DNS                               #
+#----------------------------------------------------------------#
+
+#----------------------------------------------------------------#
+#                        SPECIAL NODES                           #
+#----------------------------------------------------------------#
+# TODO
+
+#add_peer = ""
+#add_peer = "TOR_ADDRESS.onion:PORT"
+#add_priority_node = ""
+#add_exclusive_node = ""
