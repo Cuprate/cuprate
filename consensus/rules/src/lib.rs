@@ -22,10 +22,10 @@ pub enum ConsensusError {
     Signatures(#[from] signatures::SignatureError),
 }
 
-/// Checks that a point is canonical.
+/// Checks that a point is canonically encoded.
 ///
 /// https://github.com/dalek-cryptography/curve25519-dalek/issues/380
-fn check_point(point: &curve25519_dalek::edwards::CompressedEdwardsY) -> bool {
+fn check_point_canonically_encoded(point: &curve25519_dalek::edwards::CompressedEdwardsY) -> bool {
     let bytes = point.as_bytes();
 
     point
@@ -35,7 +35,7 @@ fn check_point(point: &curve25519_dalek::edwards::CompressedEdwardsY) -> bool {
         .is_some()
 }
 
-pub(crate) fn current_time() -> u64 {
+pub fn current_unix_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()

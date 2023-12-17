@@ -2,7 +2,7 @@ use std::{cmp::Ordering, collections::HashSet, sync::Arc};
 
 use monero_serai::transaction::{Input, Output, Timelock};
 
-use crate::{check_point, is_decomposed_amount, HardFork};
+use crate::{check_point_canonically_encoded, is_decomposed_amount, HardFork};
 
 mod contextual_data;
 pub use contextual_data::*;
@@ -67,12 +67,12 @@ impl TxVersion {
 
 //----------------------------------------------------------------------------------------------------------- OUTPUTS
 
-/// Checks the output keys are canonical points.
+/// Checks the output keys are canonically encoded points.
 ///
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#output-keys-canonical
 fn check_output_keys(outputs: &[Output]) -> Result<(), TransactionError> {
     for out in outputs {
-        if !check_point(&out.key) {
+        if !check_point_canonically_encoded(&out.key) {
             return Err(TransactionError::OutputNotValidPoint);
         }
     }

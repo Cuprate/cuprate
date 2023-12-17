@@ -1,7 +1,4 @@
-use std::{
-    ops::{Add, Div, Mul, Sub},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::ops::{Add, Div, Mul, Sub};
 
 /// Spawns a task for the rayon thread pool and awaits the result without blocking the async runtime.
 pub(crate) async fn rayon_spawn_async<F, R>(f: F) -> R
@@ -44,11 +41,4 @@ where
     } else {
         array[mid]
     }
-}
-
-pub(crate) fn current_time() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
 }

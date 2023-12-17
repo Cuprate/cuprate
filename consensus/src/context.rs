@@ -14,17 +14,15 @@ use std::{
 };
 
 use futures::{
+    future::{ready, Ready},
     lock::{Mutex, OwnedMutexGuard, OwnedMutexLockFuture},
     FutureExt,
 };
 use tower::{Service, ServiceExt};
 
-use cuprate_common::tower_utils::InstaFuture;
-use monero_consensus::{blocks::ContextToVerifyBlock, HardFork};
+use monero_consensus::{blocks::ContextToVerifyBlock, current_unix_timestamp, HardFork};
 
-use crate::{
-    helper::current_time, Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError,
-};
+use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 
 mod difficulty;
 mod hardforks;
@@ -166,7 +164,7 @@ impl RawBlockChainContext {
     /// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
     pub fn current_adjusted_timestamp_for_time_lock(&self) -> u64 {
         if self.current_hf < HardFork::V13 || self.median_block_timestamp.is_none() {
-            current_time()
+            current_unix_timestamp()
         } else {
             // This is safe as we just checked if this was None.
             let median = self.median_block_timestamp.unwrap();
@@ -296,7 +294,7 @@ impl Clone for BlockChainContextService {
 impl Service<BlockChainContextRequest> for BlockChainContextService {
     type Response = BlockChainContextResponse;
     type Error = tower::BoxError;
-    type Future = InstaFuture<Result<Self::Response, Self::Error>>;
+    type Future = Ready<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {
@@ -332,11 +330,11 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
             already_generated_coins,
         } = internal_blockchain_context.deref_mut();
 
-        match req {
+        let res = match req {
             BlockChainContextRequest::Get => {
                 let current_hf = hardfork_state.current_hardfork();
 
-                InstaFuture::from(Ok(BlockChainContextResponse::Context(BlockChainContext {
+                BlockChainContextResponse::Context(BlockChainContext {
                     validity_token: current_validity_token.clone(),
                     raw: RawBlockChainContext {
                         context_to_verify_block: ContextToVerifyBlock {
@@ -358,7 +356,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                         top_block_timestamp: difficulty_cache.top_block_timestamp(),
                         re_org_token: current_reorg_token.clone(),
                     },
-                })))
+                })
             }
             BlockChainContextRequest::Update(new) => {
                 // Cancel the validity token and replace it with a new one.
@@ -375,8 +373,10 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                 *already_generated_coins =
                     already_generated_coins.saturating_add(new.generated_coins);
 
-                InstaFuture::from(Ok(BlockChainContextResponse::Ok))
+                BlockChainContextResponse::Ok
             }
-        }
+        };
+
+        ready(Ok(res))
     }
 }

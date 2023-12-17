@@ -4,7 +4,7 @@ use primitive_types::U256;
 use cryptonight_cuprate::*;
 
 use crate::{
-    current_time,
+    current_unix_timestamp,
     hard_forks::HardForkError,
     miner_tx::{check_miner_tx, MinerTxError},
     HardFork,
@@ -125,7 +125,7 @@ fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
 /// https://cuprate.github.io/monero-book/consensus_rules/blocks.html#timestamp
 fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockError> {
     if block.header.timestamp < median_timestamp
-        || block.header.timestamp > current_time() + BLOCK_FUTURE_TIME_LIMIT
+        || block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT
     {
         Err(BlockError::TimeStampInvalid)
     } else {

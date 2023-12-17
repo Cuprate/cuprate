@@ -26,24 +26,3 @@ impl<T> Future for InfallibleOneshotReceiver<T> {
             .map(|res| res.expect("Oneshot must not be cancelled before response!"))
     }
 }
-
-/// A future that is ready straight away.
-pub struct InstaFuture<T>(Option<T>);
-
-impl<T: Unpin> From<T> for InstaFuture<T> {
-    fn from(value: T) -> Self {
-        InstaFuture(Some(value))
-    }
-}
-
-impl<T: Unpin> Future for InstaFuture<T> {
-    type Output = T;
-
-    fn poll(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
-        Poll::Ready(
-            self.0
-                .take()
-                .expect("Can't call future twice after Poll::Ready"),
-        )
-    }
-}
