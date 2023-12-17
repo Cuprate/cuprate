@@ -119,26 +119,17 @@ impl HardForkState {
     ///
     /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
     fn check_set_new_hf(&mut self) {
-        if let Some(next_fork) = self.votes.check_next_hard_fork(
+        self.current_hardfork = self.votes.current_fork(
             &self.current_hardfork,
             self.last_height + 1,
             self.config.window,
             &self.config.info,
-        ) {
-            self.current_hardfork = next_fork;
-        }
+        );
     }
 
     pub fn current_hardfork(&self) -> HardFork {
         self.current_hardfork
     }
-}
-
-/// Returns the votes needed for this fork.
-///
-/// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
-pub fn votes_needed(threshold: u64, window: u64) -> u64 {
-    (threshold * window + 99) / 100
 }
 
 #[instrument(name = "get_votes", skip(database))]

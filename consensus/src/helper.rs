@@ -3,8 +3,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use curve25519_dalek::edwards::CompressedEdwardsY;
-
 /// Spawns a task for the rayon thread pool and awaits the result without blocking the async runtime.
 pub(crate) async fn rayon_spawn_async<F, R>(f: F) -> R
 where
@@ -53,17 +51,4 @@ pub(crate) fn current_time() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs()
-}
-
-/// Checks that a point is canonical.
-///
-/// https://github.com/dalek-cryptography/curve25519-dalek/issues/380
-pub(crate) fn check_point(point: &CompressedEdwardsY) -> bool {
-    let bytes = point.as_bytes();
-
-    point
-        .decompress()
-        // Ban points which are either unreduced or -0
-        .filter(|point| point.compress().as_bytes() == bytes)
-        .is_some()
 }

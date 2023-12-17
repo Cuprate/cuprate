@@ -171,7 +171,7 @@ where
     });
 
     while let Some(incoming_blocks) = incoming_blocks.next().await {
-        let mut height = 0;
+        let mut height;
         for block in incoming_blocks {
             let VerifyBlockResponse::MainChain(verified_block_info) = block_verifier
                 .ready()

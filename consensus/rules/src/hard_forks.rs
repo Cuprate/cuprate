@@ -4,7 +4,7 @@
 //! an identifier for every current hard-fork.
 //!
 //! This module also contains a [`HFVotes`] struct which keeps track of current blockchain voting, and
-//! has a method [`HFVotes::check_next_hard_fork`] to check if the next hard-fork should be activated.
+//! has a method [`HFVotes::current_fork`] to check if the next hard-fork should be activated.
 //!
 use monero_serai::block::BlockHeader;
 use std::{
@@ -13,12 +13,15 @@ use std::{
     time::Duration,
 };
 
+#[cfg(test)]
+mod tests;
+
 /// Target block time for hf 1.
 const BLOCK_TIME_V1: Duration = Duration::from_secs(60);
 /// Target block time from v2.
 const BLOCK_TIME_V2: Duration = Duration::from_secs(120);
 
-const NUMB_OF_HARD_FORKS: usize = 16;
+pub const NUMB_OF_HARD_FORKS: usize = 16;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum HardForkError {
@@ -51,6 +54,10 @@ impl HFsInfo {
         self.0[*hf as usize - 1]
     }
 
+    pub const fn new(hfs: [HFInfo; NUMB_OF_HARD_FORKS]) -> Self {
+        Self(hfs)
+    }
+
     /// Returns the main-net hard-fork information.
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/hardforks.html#Mainnet-Hard-Forks
@@ -78,7 +85,7 @@ impl HFsInfo {
 
 /// An identifier for every hard-fork Monero has had.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
-#[cfg_attr(proptest, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(any(feature = "proptest", test), derive(proptest_derive::Arbitrary))]
 #[repr(u8)]
 pub enum HardFork {
     V1 = 1,
@@ -245,29 +252,30 @@ impl HFVotes {
     /// activated.
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/hardforks.html#accepting-a-fork
-    pub fn check_next_hard_fork(
+    pub fn current_fork(
         &self,
         current_hf: &HardFork,
         current_height: u64,
         window: u64,
         hfs_info: &HFsInfo,
-    ) -> Option<HardFork> {
-        let mut approved_next_hf = None;
+    ) -> HardFork {
+        let mut current_hf = *current_hf;
+
         while let Some(next_hf) = current_hf.next_fork() {
             let hf_info = hfs_info.info_for_hf(&next_hf);
             if current_height >= hf_info.height
                 && self.votes_for_hf(&next_hf) >= votes_needed(hf_info.threshold, window)
             {
-                approved_next_hf = Some(next_hf);
+                current_hf = next_hf;
             } else {
                 // if we don't have enough votes for this fork any future fork won't have enough votes
                 // as votes are cumulative.
                 // TODO: If a future fork has a lower threshold that could not be true, but as all current forks
                 // have threshold 0 it is ok for now.
-                return approved_next_hf;
+                return current_hf;
             }
         }
-        approved_next_hf
+        current_hf
     }
 }
 

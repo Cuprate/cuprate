@@ -6,7 +6,7 @@ use std::{
 };
 
 use futures::FutureExt;
-use monero_serai::{block::Block, transaction::Input};
+use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
 use monero_consensus::{

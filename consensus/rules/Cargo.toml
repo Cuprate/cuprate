@@ -23,7 +23,10 @@ thiserror = { workspace = true }
 
 rayon = { workspace = true, optional = true }
 
-# Testing
 proptest = {workspace = true, optional = true}
 proptest-derive = {workspace = true, optional = true}
 
+[dev-dependencies]
+proptest = {workspace = true}
+proptest-derive = {workspace = true}
+tokio = {version = "1.35.0", features = ["rt-multi-thread", "macros"]}

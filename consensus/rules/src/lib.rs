@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub mod blocks;
 mod decomposed_amount;
 pub mod genesis;
-mod hard_forks;
+pub mod hard_forks;
 pub mod miner_tx;
 pub mod signatures;
 pub mod transactions;

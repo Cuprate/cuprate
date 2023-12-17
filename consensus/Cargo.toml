@@ -65,6 +65,8 @@ syn = "2.0.37"
 
 
 [dev-dependencies]
+monero-consensus =  {path = "./rules", features = ["proptest"]}
+
 tokio = {version = "1", features = ["rt-multi-thread", "macros"]}
 proptest = "1"
 proptest-derive = "0.4.0"
