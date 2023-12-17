@@ -93,6 +93,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-lock"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7125e42787d53db9dd54261812ef17e937c95a51e4d291373b670342fa44310c"
+dependencies = [
+ "event-listener",
+ "event-listener-strategy",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -346,6 +357,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 
 [[package]]
+name = "concurrent-queue"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d16048cd947b08fa32c24458a22f5dc5e835264f689f4f5653210c69fd107363"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -449,6 +469,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-consensus"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "clap",
+ "crypto-bigint",
+ "cuprate-common",
+ "curve25519-dalek",
+ "dalek-ff-group",
+ "dirs",
+ "futures",
+ "hex",
+ "monero-consensus",
+ "monero-epee-bin-serde",
+ "monero-serai",
+ "monero-wire",
+ "multiexp",
+ "proptest",
+ "proptest-derive",
+ "randomx-rs",
+ "rayon",
+ "serde",
+ "serde_json",
+ "syn 2.0.41",
+ "thiserror",
+ "thread_local",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "cuprate-test-utils"
 version = "0.1.0"
 dependencies = [
@@ -492,7 +546,7 @@ dependencies = [
 [[package]]
 name = "dalek-ff-group"
 version = "0.4.1"
-source = "git+https://github.com/cuprate/serai.git?rev=4a5d860#4a5d86017086415c88d96f7ee44acd54e922c8f6"
+source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -553,7 +607,7 @@ dependencies = [
 [[package]]
 name = "dleq"
 version = "0.4.1"
-source = "git+https://github.com/cuprate/serai.git?rev=4a5d860#4a5d86017086415c88d96f7ee44acd54e922c8f6"
+source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
 dependencies = [
  "digest",
  "ff",
@@ -588,6 +642,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "event-listener"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "770d968249b5d99410d61f5bf89057f3199a077a04d087092f58e7d10692baae"
+dependencies = [
+ "concurrent-queue",
+ "parking",
+ "pin-project-lite",
+]
+
+[[package]]
+name = "event-listener-strategy"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "958e4d70b6d5e81971bebec42271ec641e7ff4e170a6fa605f2b8a8b65cb97d3"
+dependencies = [
+ "event-listener",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -611,9 +686,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "27573eac26f4dd11e2b1916c3fe1baa56407c83c71a773a8ba17ec0bca03b6b7"
 
 [[package]]
+name = "fixed-hash"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "835c052cb0c08c1acf6ffd71c022172e18723949c8282f2b9f27efbc51e64534"
+dependencies = [
+ "static_assertions",
+]
+
+[[package]]
 name = "flexible-transcript"
 version = "0.3.2"
-source = "git+https://github.com/cuprate/serai.git?rev=4a5d860#4a5d86017086415c88d96f7ee44acd54e922c8f6"
+source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
 dependencies = [
  "blake2",
  "digest",
@@ -1079,34 +1163,18 @@ dependencies = [
 name = "monero-consensus"
 version = "0.1.0"
 dependencies = [
- "bincode",
- "clap",
- "crypto-bigint",
  "cryptonight-cuprate",
  "cuprate-common",
  "curve25519-dalek",
- "dalek-ff-group",
- "dirs",
- "futures",
  "hex",
- "monero-epee-bin-serde",
  "monero-serai",
- "monero-wire",
- "multiexp",
+ "primitive-types",
  "proptest",
  "proptest-derive",
- "randomx-rs",
  "rayon",
- "serde",
- "serde_json",
- "syn 2.0.41",
  "thiserror",
- "thread_local",
  "tokio",
- "tokio-util",
- "tower",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -1121,7 +1189,7 @@ dependencies = [
 [[package]]
 name = "monero-generators"
 version = "0.4.0"
-source = "git+https://github.com/cuprate/serai.git?rev=4a5d860#4a5d86017086415c88d96f7ee44acd54e922c8f6"
+source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -1153,8 +1221,9 @@ dependencies = [
 [[package]]
 name = "monero-serai"
 version = "0.1.4-alpha"
-source = "git+https://github.com/cuprate/serai.git?rev=4a5d860#4a5d86017086415c88d96f7ee44acd54e922c8f6"
+source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
 dependencies = [
+ "async-lock",
  "async-trait",
  "base58-monero",
  "curve25519-dalek",
@@ -1162,7 +1231,6 @@ dependencies = [
  "digest_auth",
  "dleq",
  "flexible-transcript",
- "futures",
  "group",
  "hex",
  "hex-literal",
@@ -1199,7 +1267,7 @@ dependencies = [
 [[package]]
 name = "multiexp"
 version = "0.4.0"
-source = "git+https://github.com/cuprate/serai.git?rev=4a5d860#4a5d86017086415c88d96f7ee44acd54e922c8f6"
+source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
 dependencies = [
  "ff",
  "group",
@@ -1273,6 +1341,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
+name = "parking"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb813b8af86854136c6922af0598d719255ecb2179515e6e7730d468f05c9cae"
+
+[[package]]
 name = "password-hash"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1338,6 +1412,16 @@ name = "ppv-lite86"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
+
+[[package]]
+name = "primitive-types"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b34d9fd68ae0b74a41b21c03c2f62847aa0ffea044eee893b4c140b37e244e2"
+dependencies = [
+ "fixed-hash",
+ "uint",
+]
 
 [[package]]
 name = "proc-macro-crate"
@@ -1768,7 +1852,7 @@ dependencies = [
 [[package]]
 name = "simple-request"
 version = "0.1.0"
-source = "git+https://github.com/cuprate/serai.git?rev=4a5d860#4a5d86017086415c88d96f7ee44acd54e922c8f6"
+source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -1817,9 +1901,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
 name = "std-shims"
 version = "0.1.1"
-source = "git+https://github.com/cuprate/serai.git?rev=4a5d860#4a5d86017086415c88d96f7ee44acd54e922c8f6"
+source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
 dependencies = [
  "hashbrown 0.14.3",
  "spin",
@@ -2098,6 +2188,18 @@ name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "uint"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76f64bba2c53b04fcab63c01a7d7427eadc821e3bc48c34dc9ba29c501164b52"
+dependencies = [
+ "byteorder",
+ "crunchy",
+ "hex",
+ "static_assertions",
+]
 
 [[package]]
 name = "unarray"
