@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use bincode::{Decode, Encode};
+use borsh::{BorshDeserialize, BorshSerialize};
 use monero_serai::transaction::{Input, Timelock, Transaction};
 use tracing_subscriber::fmt::MakeWriter;
 
@@ -18,7 +18,7 @@ use crate::transactions::TransactionVerificationData;
 /// Because we are using a RPC interface with a node we need to keep track
 /// of certain data that the node doesn't hold or give us like the number
 /// of outputs at a certain time.
-#[derive(Debug, Default, Clone, Encode, Decode)]
+#[derive(Debug, Default, Clone, BorshSerialize, BorshDeserialize)]
 pub struct ScanningCache {
     //    network: u8,
     numb_outs: HashMap<u64, usize>,
@@ -37,7 +37,7 @@ impl ScanningCache {
             .create(true)
             .open(file)?;
         let mut writer = BufWriter::new(file.make_writer());
-        bincode::encode_into_std_write(self, &mut writer, bincode::config::standard())?;
+        borsh::to_writer(&mut writer, &self)?;
         writer.flush()?;
         Ok(())
     }
@@ -45,7 +45,7 @@ impl ScanningCache {
     pub fn load(file: &Path) -> Result<ScanningCache, tower::BoxError> {
         let mut file = std::fs::OpenOptions::new().read(true).open(file)?;
 
-        bincode::decode_from_std_read(&mut file, bincode::config::standard()).map_err(Into::into)
+        Ok(borsh::from_reader(&mut file)?)
     }
 
     pub fn add_new_block_data(
