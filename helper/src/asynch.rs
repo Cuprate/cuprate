@@ -34,29 +34,6 @@ impl<T> Future for InfallibleOneshotReceiver<T> {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- InstaFuture
-/// A future that is ready straight away.
-pub struct InstaFuture<T>(Option<T>);
-
-impl<T: Unpin> From<T> for InstaFuture<T> {
-    fn from(value: T) -> Self {
-        InstaFuture(Some(value))
-    }
-}
-
-impl<T: Unpin> Future for InstaFuture<T> {
-    type Output = T;
-
-    #[inline]
-    fn poll(mut self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<Self::Output> {
-        Poll::Ready(
-            self.0
-                .take()
-                .expect("Can't call future twice after Poll::Ready"),
-        )
-    }
-}
-
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
@@ -72,13 +49,5 @@ mod test {
 
         let oneshot = InfallibleOneshotReceiver::from(rx);
         assert_eq!(oneshot.await, msg);
-    }
-
-    #[tokio::test]
-    // Assert basic value taking works.
-    async fn insta_future() {
-        let msg = "hello world!";
-        let insta = InstaFuture::from(msg.to_string());
-        assert_eq!(insta.await, msg);
     }
 }
