@@ -1147,15 +1147,20 @@ dependencies = [
  "cryptonight-cuprate",
  "cuprate-common",
  "curve25519-dalek",
+ "dalek-ff-group",
  "hex",
+ "hex-literal",
  "monero-serai",
+ "multiexp",
  "primitive-types",
  "proptest",
  "proptest-derive",
+ "rand",
  "rayon",
  "thiserror",
  "tokio",
  "tracing",
+ "zeroize",
 ]
 
 [[package]]

@@ -5,6 +5,7 @@ use monero_serai::transaction::{Input, Output, Timelock};
 use crate::{check_point_canonically_encoded, is_decomposed_amount, HardFork};
 
 mod contextual_data;
+mod ring_ct;
 pub use contextual_data::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
