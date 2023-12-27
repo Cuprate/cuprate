@@ -45,7 +45,8 @@ impl ScanningCache {
     pub fn load(file: &Path) -> Result<ScanningCache, tower::BoxError> {
         let mut file = std::fs::OpenOptions::new().read(true).open(file)?;
 
-        Ok(borsh::from_reader(&mut file)?)
+        let data: ScanningCache = borsh::from_reader(&mut file)?;
+        Ok(data)
     }
 
     pub fn add_new_block_data(

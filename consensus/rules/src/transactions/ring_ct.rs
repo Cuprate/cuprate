@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use curve25519_dalek::{EdwardsPoint, Scalar};
 use hex_literal::hex;
 use monero_serai::{
@@ -8,7 +6,7 @@ use monero_serai::{
         mlsag::{AggregateRingMatrixBuilder, MlsagError, RingMatrix},
         RctPrunable, RctSignatures, RctType,
     },
-    transaction::{Input, Output},
+    transaction::{Input, Output, Transaction},
     H,
 };
 use multiexp::BatchVerifier;
@@ -135,11 +133,28 @@ fn check_output_range_proofs(
     }
 }
 
+pub fn ring_ct_semantic_checks(
+    tx: &Transaction,
+    tx_hash: &[u8; 32],
+    verifier: &mut BatchVerifier<(), dalek_ff_group::EdwardsPoint>,
+    hf: &HardFork,
+) -> Result<(), RingCTError> {
+    check_output_amount(&tx.prefix.outputs)?;
+    check_rct_type(&tx.rct_signatures.rct_type(), *hf, tx_hash)?;
+    check_output_range_proofs(&tx.rct_signatures, verifier)?;
+
+    if tx.rct_signatures.rct_type() != RctType::MlsagAggregate {
+        simple_type_balances(&tx.rct_signatures)?;
+    }
+
+    Ok(())
+}
+
 /// Check the input signatures, MLSAG, CLSAG.
 ///
 /// https://monero-book.cuprate.org/consensus_rules/ring_ct/mlsag.html
 /// https://monero-book.cuprate.org/consensus_rules/ring_ct/clsag.html
-fn check_input_signatures(
+pub fn check_input_signatures(
     msg: &[u8; 32],
     inputs: &[Input],
     rct_sig: &RctSignatures,

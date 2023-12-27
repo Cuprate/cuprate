@@ -14,17 +14,16 @@ use tower::{Service, ServiceExt};
 use tracing::instrument;
 
 use monero_consensus::{
-    signatures::verify_contextual_signatures,
     transactions::{
-        check_all_time_locks, check_inputs, check_outputs, check_tx_version, TransactionError,
+        check_transaction_contextual, check_transaction_semantic, RingCTError, TransactionError,
         TxRingMembersInfo,
     },
     ConsensusError, HardFork, TxVersion,
 };
 
 use crate::{
-    context::ReOrgToken, helper::rayon_spawn_async, Database, DatabaseRequest, DatabaseResponse,
-    ExtendedConsensusError,
+    batch_verifier::MultiThreadedBatchVerifier, context::ReOrgToken, helper::rayon_spawn_async,
+    Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError,
 };
 
 mod contextual_data;
@@ -45,12 +44,23 @@ pub struct TransactionVerificationData {
 }
 
 impl TransactionVerificationData {
-    pub fn new(tx: Transaction) -> Result<TransactionVerificationData, ConsensusError> {
+    pub fn new(
+        tx: Transaction,
+        hf: &HardFork,
+        verifier: Arc<MultiThreadedBatchVerifier>,
+    ) -> Result<TransactionVerificationData, ConsensusError> {
+        let tx_hash = tx.hash();
+
+        let fee = verifier.queue_statement(|verifier| {
+            check_transaction_semantic(&tx, &tx_hash, hf, verifier)
+                .map_err(ConsensusError::Transaction)
+        })?;
+
         Ok(TransactionVerificationData {
-            tx_hash: tx.hash(),
+            tx_hash,
             tx_blob: tx.serialize(),
             tx_weight: tx.weight(),
-            fee: tx.rct_signatures.base.fee,
+            fee,
             rings_member_info: std::sync::Mutex::new(None),
             version: TxVersion::from_raw(tx.prefix.version)
                 .ok_or(TransactionError::TransactionVersionInvalid)?,
@@ -68,7 +78,7 @@ pub enum VerifyTxRequest {
         hf: HardFork,
         re_org_token: ReOrgToken,
     },
-    /// Batches the setup of [`TransactionVerificationData`], does *minimal* verification, you need to call [`VerifyTxRequest::Block`]
+    /// Batches the setup of [`TransactionVerificationData`], does *some* verification, you need to call [`VerifyTxRequest::Block`]
     /// with the returned data.
     BatchSetup {
         txs: Vec<Transaction>,
@@ -148,13 +158,28 @@ async fn batch_setup_transactions<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
+    let batch_verifier = Arc::new(MultiThreadedBatchVerifier::new(rayon::current_num_threads()));
+
+    let cloned_verifier = batch_verifier.clone();
     // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
-    let txs = rayon_spawn_async(|| {
+    let txs = rayon_spawn_async(move || {
         txs.into_par_iter()
-            .map(|tx| Ok(Arc::new(TransactionVerificationData::new(tx)?)))
+            .map(|tx| {
+                Ok(Arc::new(TransactionVerificationData::new(
+                    tx,
+                    &hf,
+                    cloned_verifier.clone(),
+                )?))
+            })
             .collect::<Result<Vec<_>, ConsensusError>>()
     })
     .await?;
+
+    if !Arc::into_inner(batch_verifier).unwrap().verify() {
+        Err(ConsensusError::Transaction(TransactionError::RingCTError(
+            RingCTError::BulletproofsRangeInvalid,
+        )))?
+    }
 
     contextual_data::batch_fill_ring_member_info(&txs, &hf, re_org_token, database).await?;
 
@@ -223,44 +248,20 @@ fn verify_transaction_for_block(
         hex::encode(tx_verification_data.tx_hash)
     );
 
-    let tx_version = &tx_verification_data.version;
-
     let rings_member_info_lock = tx_verification_data.rings_member_info.lock().unwrap();
     let rings_member_info = match rings_member_info_lock.deref() {
         Some(rings_member_info) => rings_member_info,
         None => panic!("rings_member_info needs to be set to be able to verify!"),
     };
 
-    check_tx_version(&rings_member_info.0.decoy_info, tx_version, &hf)?;
-
-    check_all_time_locks(
-        &rings_member_info.0.time_locked_outs,
+    check_transaction_contextual(
+        &tx_verification_data.tx,
+        &rings_member_info.0,
         current_chain_height,
         time_for_time_lock,
         &hf,
-    )?;
-
-    let sum_outputs = check_outputs(&tx_verification_data.tx.prefix.outputs, &hf, tx_version)?;
-
-    let sum_inputs = check_inputs(
-        tx_verification_data.tx.prefix.inputs.as_slice(),
-        &rings_member_info.0,
-        current_chain_height,
-        &hf,
-        tx_version,
         spent_kis,
     )?;
-
-    if tx_version == &TxVersion::RingSignatures {
-        if sum_outputs >= sum_inputs {
-            Err(TransactionError::OutputsTooHigh)?;
-        }
-        // check that monero-serai is calculating the correct value here, why can't we just use this
-        // value? because we don't have this when we create the object.
-        assert_eq!(tx_verification_data.fee, sum_inputs - sum_outputs);
-    }
-
-    verify_contextual_signatures(&tx_verification_data.tx, &rings_member_info.0.rings)?;
 
     Ok(())
 }

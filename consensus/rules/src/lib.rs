@@ -5,7 +5,6 @@ mod decomposed_amount;
 pub mod genesis;
 pub mod hard_forks;
 pub mod miner_tx;
-pub mod signatures;
 pub mod transactions;
 
 pub use decomposed_amount::is_decomposed_amount;
@@ -18,8 +17,6 @@ pub enum ConsensusError {
     Block(#[from] blocks::BlockError),
     #[error("Transaction error: {0}")]
     Transaction(#[from] transactions::TransactionError),
-    #[error("Signatures error: {0}")]
-    Signatures(#[from] signatures::SignatureError),
 }
 
 /// Checks that a point is canonically encoded.

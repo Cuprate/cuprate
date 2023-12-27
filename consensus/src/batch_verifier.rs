@@ -8,7 +8,7 @@ use crate::ConsensusError;
 
 /// A multi threaded batch verifier.
 pub struct MultiThreadedBatchVerifier {
-    internal: ThreadLocal<UnsafeCell<InternalBatchVerifier<usize, dalek_ff_group::EdwardsPoint>>>,
+    internal: ThreadLocal<UnsafeCell<InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>>>,
 }
 
 impl MultiThreadedBatchVerifier {
@@ -19,12 +19,12 @@ impl MultiThreadedBatchVerifier {
         }
     }
 
-    pub fn queue_statement(
+    pub fn queue_statement<R>(
         &self,
         stmt: impl FnOnce(
-            &mut InternalBatchVerifier<usize, dalek_ff_group::EdwardsPoint>,
-        ) -> Result<(), ConsensusError>,
-    ) -> Result<(), ConsensusError> {
+            &mut InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>,
+        ) -> Result<R, ConsensusError>,
+    ) -> Result<R, ConsensusError> {
         let verifier_cell = self
             .internal
             .get_or(|| UnsafeCell::new(InternalBatchVerifier::new(0)));

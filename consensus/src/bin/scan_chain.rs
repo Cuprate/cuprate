@@ -8,6 +8,7 @@ use futures::{
     SinkExt, StreamExt,
 };
 use monero_serai::block::Block;
+use rayon::prelude::*;
 use tokio::sync::RwLock;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
@@ -21,13 +22,13 @@ use cuprate_consensus::{
     },
     initialize_blockchain_context, initialize_verifier,
     rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig},
-    Database, DatabaseRequest, DatabaseResponse, VerifiedBlockInformation, VerifyBlockRequest,
-    VerifyBlockResponse,
+    Database, DatabaseRequest, DatabaseResponse, PrePreparedBlock, VerifiedBlockInformation,
+    VerifyBlockRequest, VerifyBlockResponse,
 };
 
 mod tx_pool;
 
-const MAX_BLOCKS_IN_RANGE: u64 = 1000;
+const MAX_BLOCKS_IN_RANGE: u64 = 500;
 const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 1000;
 
 /// Calls for a batch of blocks, returning the response and the time it took.
@@ -166,21 +167,33 @@ where
 
     let (block_tx, mut incoming_blocks) = mpsc::channel(3);
 
+    let (mut prepped_blocks_tx, mut prepped_blocks_rx) = mpsc::channel(3);
+
     tokio::spawn(async move {
         call_blocks(new_tx_chan, block_tx, start_height, chain_height, database).await
     });
 
-    while let Some(incoming_blocks) = incoming_blocks.next().await {
+    tokio::spawn(async move {
+        while let Some(blocks) = incoming_blocks.next().await {
+            let blocks = rayon_spawn_async(|| {
+                blocks
+                    .into_par_iter()
+                    .map(|block| PrePreparedBlock::new(block).unwrap())
+                    .collect::<Vec<_>>()
+            })
+            .await;
+            prepped_blocks_tx.send(blocks).await.unwrap();
+        }
+    });
+
+    while let Some(incoming_blocks) = prepped_blocks_rx.next().await {
         let mut height;
         for block in incoming_blocks {
             let VerifyBlockResponse::MainChain(verified_block_info) = block_verifier
                 .ready()
                 .await?
-                .call(VerifyBlockRequest::MainChain(block))
-                .await?
-            else {
-                panic!("Block verifier sent incorrect response!");
-            };
+                .call(VerifyBlockRequest::MainChainPrepared(block))
+                .await?;
 
             height = verified_block_info.height;
 
@@ -315,4 +328,16 @@ async fn main() {
     scan_chain(cache, file_for_cache, rpc_config, rpc)
         .await
         .unwrap();
+}
+
+async fn rayon_spawn_async<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    rayon::spawn(|| {
+        let _ = tx.send(f());
+    });
+    rx.await.expect("The sender must not be dropped")
 }

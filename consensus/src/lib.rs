@@ -7,6 +7,7 @@ use std::{
 use monero_consensus::{transactions::OutputOnChain, ConsensusError, HardFork};
 
 //mod batch_verifier;
+mod batch_verifier;
 pub mod block;
 pub mod context;
 mod helper;

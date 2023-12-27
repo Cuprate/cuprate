@@ -278,7 +278,7 @@ impl DecoyInfo {
 /// **There are exceptions to this always being the minimum decoys**
 ///
 /// https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#minimum-amount-of-decoys
-pub fn minimum_decoys(hf: &HardFork) -> usize {
+pub(crate) fn minimum_decoys(hf: &HardFork) -> usize {
     use HardFork as HF;
     match hf {
         HF::V1 => panic!("hard-fork 1 does not use these rules!"),

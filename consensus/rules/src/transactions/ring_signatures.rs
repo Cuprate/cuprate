@@ -11,7 +11,7 @@ use monero_serai::{ring_signatures::RingSignature, transaction::Input};
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use super::{Rings, SignatureError};
+use super::{Rings, TransactionError};
 use crate::try_par_iter;
 
 /// Verifies the ring signature.
@@ -23,12 +23,12 @@ pub fn verify_inputs_signatures(
     signatures: &[RingSignature],
     rings: &Rings,
     tx_sig_hash: &[u8; 32],
-) -> Result<(), SignatureError> {
+) -> Result<(), TransactionError> {
     match rings {
         Rings::Legacy(rings) => {
             // rings.len() != inputs.len() can't happen but check any way.
             if signatures.len() != inputs.len() || rings.len() != inputs.len() {
-                return Err(SignatureError::MismatchSignatureSize);
+                return Err(TransactionError::RingSignatureIncorrect);
             }
 
             try_par_iter(inputs)
@@ -40,7 +40,7 @@ pub fn verify_inputs_signatures(
                     };
 
                     if !sig.verify(tx_sig_hash, ring, key_image) {
-                        return Err(SignatureError::IncorrectSignature);
+                        return Err(TransactionError::RingSignatureIncorrect);
                     }
                     Ok(())
                 })?;
