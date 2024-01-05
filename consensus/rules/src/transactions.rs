@@ -470,7 +470,7 @@ fn check_tx_version(
 
         // TODO: Doc is wrong here
         let min = min_tx_version(hf);
-        if version < &min && decoy_info.not_mixable != 0 {
+        if version < &min && decoy_info.not_mixable == 0 {
             return Err(TransactionError::TransactionVersionInvalid);
         }
     } else {

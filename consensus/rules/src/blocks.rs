@@ -12,6 +12,11 @@ use crate::{
 
 const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;
 const BLOCK_FUTURE_TIME_LIMIT: u64 = 60 * 60 * 2;
+const BLOCK_202612_POW_HASH: [u8; 32] =
+    hex_literal::hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000");
+
+const RX_SEEDHASH_EPOCH_BLOCKS: u64 = 2048;
+const RX_SEEDHASH_EPOCH_LAG: u64 = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum BlockError {
@@ -31,15 +36,33 @@ pub enum BlockError {
     MinerTxError(#[from] MinerTxError),
 }
 
+pub trait RandomX {
+    type Error;
+
+    fn calculate_hash(&self, buf: &[u8]) -> Result<[u8; 32], Self::Error>;
+}
+
+pub fn is_randomx_seed_height(height: u64) -> bool {
+    height % RX_SEEDHASH_EPOCH_BLOCKS == 0
+}
+
+pub fn randomx_seed_height(height: u64) -> u64 {
+    if height <= RX_SEEDHASH_EPOCH_BLOCKS + RX_SEEDHASH_EPOCH_LAG {
+        0
+    } else {
+        (height - RX_SEEDHASH_EPOCH_LAG - 1) & !(RX_SEEDHASH_EPOCH_BLOCKS - 1)
+    }
+}
+
 /// Calculates the POW hash of this block.
-pub fn calculate_pow_hash(buf: &[u8], height: u64, hf: &HardFork) -> Result<[u8; 32], BlockError> {
+pub fn calculate_pow_hash<R: RandomX>(
+    randomx_vm: &R,
+    buf: &[u8],
+    height: u64,
+    hf: &HardFork,
+) -> Result<[u8; 32], BlockError> {
     if height == 202612 {
-        return Ok(
-            hex::decode("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000")
-                .unwrap()
-                .try_into()
-                .unwrap(),
-        );
+        return Ok(BLOCK_202612_POW_HASH);
     }
 
     Ok(if hf < &HardFork::V7 {
@@ -51,7 +74,9 @@ pub fn calculate_pow_hash(buf: &[u8], height: u64, hf: &HardFork) -> Result<[u8;
     } else if hf < &HardFork::V12 {
         cryptonight_hash_r(buf, height)
     } else {
-        todo!("RandomX")
+        randomx_vm
+            .calculate_hash(buf)
+            .map_err(|_| BlockError::POWInvalid)?
     })
 }
 
@@ -64,6 +89,11 @@ pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> Result<(), BlockErr
     let difficulty = U256::from(difficulty);
 
     if int_hash.checked_mul(difficulty).is_none() {
+        tracing::debug!(
+            "Invalid POW: {}, difficulty: {}",
+            hex::encode(hash),
+            difficulty
+        );
         Err(BlockError::POWInvalid)
     } else {
         Ok(())

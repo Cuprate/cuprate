@@ -23,6 +23,7 @@ use cuprate_consensus::{
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     ExtendedConsensusError, TxNotInPool, TxPoolRequest, TxPoolResponse,
 };
+use monero_consensus::HardFork;
 
 #[derive(Clone)]
 pub struct TxPoolHandle {
@@ -59,12 +60,12 @@ impl tower::Service<TxPoolRequest> for TxPoolHandle {
 }
 
 pub type NewTxChanRec = mpsc::Receiver<(
-    Vec<Transaction>,
+    Vec<(Vec<Transaction>, HardFork)>,
     oneshot::Sender<Result<(), tower::BoxError>>,
 )>;
 
 pub type NewTxChanSen = mpsc::Sender<(
-    Vec<Transaction>,
+    Vec<(Vec<Transaction>, HardFork)>,
     oneshot::Sender<Result<(), tower::BoxError>>,
 )>;
 
@@ -94,16 +95,7 @@ where
     pub async fn spawn(
         tx_verifier_chan: oneshot::Receiver<TxV>,
         mut ctx_svc: Ctx,
-    ) -> Result<
-        (
-            TxPoolHandle,
-            mpsc::Sender<(
-                Vec<Transaction>,
-                oneshot::Sender<Result<(), tower::BoxError>>,
-            )>,
-        ),
-        tower::BoxError,
-    > {
+    ) -> Result<(TxPoolHandle, NewTxChanSen), tower::BoxError> {
         let BlockChainContextResponse::Context(current_ctx) = ctx_svc
             .ready()
             .await?
@@ -155,8 +147,8 @@ where
         }
     }
 
-    fn handle_txs_req(
-        &self,
+    async fn handle_txs_req(
+        &mut self,
         req: TxPoolRequest,
         tx: oneshot::Sender<Result<TxPoolResponse, TxNotInPool>>,
     ) {
@@ -164,10 +156,9 @@ where
 
         let mut res = Vec::with_capacity(txs_to_get.len());
 
-        let mut txs = self.txs.lock().unwrap();
-
         for tx_hash in txs_to_get {
-            let Some(tx) = txs.remove(&tx_hash) else {
+            let Some(tx) = self.txs.lock().unwrap().remove(&tx_hash) else {
+                tracing::debug!("tx not in pool: {}", hex::encode(tx_hash));
                 let _ = tx.send(Err(TxNotInPool));
                 return;
             };
@@ -179,7 +170,7 @@ where
 
     async fn handle_new_txs(
         &mut self,
-        new_txs: Vec<Transaction>,
+        new_txs: Vec<(Vec<Transaction>, HardFork)>,
         res_chan: oneshot::Sender<Result<(), tower::BoxError>>,
     ) -> Result<(), tower::BoxError> {
         if self.tx_verifier.is_none() {
@@ -192,26 +183,31 @@ where
         let tx_pool = self.txs.clone();
 
         tokio::spawn(async move {
-            // We only batch the setup a real tx pool would also call `VerifyTxRequest::Block`
-            let VerifyTxResponse::BatchSetupOk(txs) = tx_verifier
-                .ready()
-                .await
-                .unwrap()
-                .call(VerifyTxRequest::BatchSetup {
-                    txs: new_txs,
-                    hf: current_ctx.current_hf,
-                    re_org_token: current_ctx.re_org_token.clone(),
-                })
-                .await
-                .unwrap()
-            else {
-                panic!("Tx verifier sent incorrect response!");
-            };
+            for (txs, hf) in new_txs {
+                // We only batch the setup a real tx pool would also call `VerifyTxRequest::Block`
+                let VerifyTxResponse::BatchSetupOk(txs) = tx_verifier
+                    .ready()
+                    .await
+                    .unwrap()
+                    .call(VerifyTxRequest::BatchSetup {
+                        txs,
+                        hf,
+                        re_org_token: current_ctx.re_org_token.clone(),
+                    })
+                    .await
+                    .unwrap()
+                else {
+                    panic!("Tx verifier sent incorrect response!");
+                };
 
-            let mut locked_pool = tx_pool.lock().unwrap();
+                let mut locked_pool = tx_pool.lock().unwrap();
 
-            for tx in txs {
-                locked_pool.insert(tx.tx_hash, tx);
+                for tx in txs {
+                    let tx_hash = tx.tx_hash;
+                    if locked_pool.insert(tx_hash, tx).is_some() {
+                        panic!("added same tx to pool twice: {}", hex::encode(tx_hash))
+                    }
+                }
             }
             res_chan.send(Ok(())).unwrap();
         });
@@ -227,19 +223,20 @@ where
         mut new_tx_channel: NewTxChanRec,
     ) {
         loop {
-            futures::select! {
-                pool_req = tx_pool_handle.next() => {
-                    let Some((req, tx)) = pool_req  else {
-                        todo!("Shutdown txpool")
-                    };
-                    self.handle_txs_req(req, tx);
-                }
+            tokio::select! {
+                biased;
                 new_txs = new_tx_channel.next() => {
                     let Some(new_txs) = new_txs  else {
                         todo!("Shutdown txpool")
                     };
 
                     self.handle_new_txs(new_txs.0, new_txs.1).await.unwrap()
+                }
+                pool_req = tx_pool_handle.next() => {
+                    let Some((req, tx)) = pool_req  else {
+                        todo!("Shutdown txpool")
+                    };
+                    self.handle_txs_req(req, tx).await;
                 }
             }
         }

@@ -527,7 +527,7 @@ dependencies = [
 [[package]]
 name = "dalek-ff-group"
 version = "0.4.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
+source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -588,7 +588,7 @@ dependencies = [
 [[package]]
 name = "dleq"
 version = "0.4.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
+source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
 dependencies = [
  "digest",
  "ff",
@@ -678,7 +678,7 @@ dependencies = [
 [[package]]
 name = "flexible-transcript"
 version = "0.3.2"
-source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
+source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
 dependencies = [
  "blake2",
  "digest",
@@ -1175,7 +1175,7 @@ dependencies = [
 [[package]]
 name = "monero-generators"
 version = "0.4.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
+source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -1207,7 +1207,7 @@ dependencies = [
 [[package]]
 name = "monero-serai"
 version = "0.1.4-alpha"
-source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
+source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
 dependencies = [
  "async-lock",
  "async-trait",
@@ -1253,7 +1253,7 @@ dependencies = [
 [[package]]
 name = "multiexp"
 version = "0.4.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
+source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
 dependencies = [
  "ff",
  "group",
@@ -1555,8 +1555,7 @@ dependencies = [
 [[package]]
 name = "randomx-rs"
 version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14fb999f322669968fd0e80aeca5cb91e7a817a94ebf2b0fcd345a4a7c695203"
+source = "git+https://github.com/Cuprate/randomx-rs.git#6496a61208852a020575dafc160080cf50bda67f"
 dependencies = [
  "bitflags 1.3.2",
  "libc",
@@ -1838,7 +1837,7 @@ dependencies = [
 [[package]]
 name = "simple-request"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
+source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
 dependencies = [
  "hyper",
  "hyper-rustls",
@@ -1895,7 +1894,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "std-shims"
 version = "0.1.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=77edd00#77edd007255faf256db9026850b1a31201ede22f"
+source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
 dependencies = [
  "hashbrown 0.14.3",
  "spin",

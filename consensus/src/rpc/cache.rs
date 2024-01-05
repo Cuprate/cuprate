@@ -1,3 +1,5 @@
+#![cfg(feature = "binaries")]
+
 use std::{
     collections::HashMap,
     collections::HashSet,

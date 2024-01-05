@@ -35,19 +35,19 @@ opt-level = 3
 
 [workspace.dependencies]
 async-trait           = { version = "0.1.74" }
-borsh                 = { version = "1.2.1"  }
+borsh                 = { version = "1.2.1", features = ["derive"]  }
 bytes                 = { version = "1.5.0" }
 clap                  = { version = "4.4.7" }
 chrono                = { version = "0.4.31" }
 crypto-bigint         = { version = "0.5.3" }
 curve25519-dalek      = { version = "4.1.1" }
-dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "77edd00" }
+dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b" }
 dirs                  = { version = "5.0.1" }
 futures               = { version = "0.3.29" }
 hex                   = { version = "0.4.3" }
 monero-epee-bin-serde = { git = "https://github.com/monero-rs/monero-epee-bin-serde.git", rev = "e4a585a" }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "77edd00" }
-multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "77edd00" }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b" }
+multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b" }
 randomx-rs            = { version = "1.2.1" }
 rand                  = { version = "0.8.5" }
 rayon                 = { version = "1.8.0" }

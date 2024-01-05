@@ -168,18 +168,19 @@ impl BlockWeightsCache {
                 .expect("long term window can't be negative");
 
             match self.cached_sorted_long_term_weights.binary_search(&val) {
-                Ok(idx) | Err(idx) => self.cached_sorted_long_term_weights.remove(idx),
+                Ok(idx) => self.cached_sorted_long_term_weights.remove(idx),
+                Err(_) => panic!("Long term cache has incorrect values!"),
             };
         }
 
         self.short_term_block_weights.push_back(block_weight);
         match self
             .cached_sorted_short_term_weights
-            .binary_search(&long_term_weight)
+            .binary_search(&block_weight)
         {
             Ok(idx) | Err(idx) => self
                 .cached_sorted_short_term_weights
-                .insert(idx, long_term_weight),
+                .insert(idx, block_weight),
         }
 
         if u64::try_from(self.short_term_block_weights.len()).unwrap()
@@ -191,7 +192,8 @@ impl BlockWeightsCache {
                 .expect("short term window can't be negative");
 
             match self.cached_sorted_short_term_weights.binary_search(&val) {
-                Ok(idx) | Err(idx) => self.cached_sorted_short_term_weights.remove(idx),
+                Ok(idx) => self.cached_sorted_short_term_weights.remove(idx),
+                Err(_) => panic!("Short term cache has incorrect values"),
             };
         }
 

@@ -35,7 +35,7 @@ use crate::{
     OutputOnChain,
 };
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(300);
-const OUTPUTS_TIMEOUT: Duration = Duration::from_secs(20);
+const OUTPUTS_TIMEOUT: Duration = Duration::from_secs(50);
 
 pub struct RpcConnectionSvc {
     pub(crate) address: String,
@@ -209,26 +209,34 @@ impl RpcConnection {
             )
             .await?;
 
-        rayon_spawn_async(|| {
+        let address = self.address.clone();
+        rayon_spawn_async(move || {
             let blocks: Response = monero_epee_bin_serde::from_bytes(res)?;
 
             blocks
                 .blocks
                 .into_par_iter()
                 .map(|b| {
-                    Ok((
-                        Block::read(&mut b.block.as_slice())?,
-                        match b.txs {
-                            TransactionBlobs::Pruned(_) => {
-                                return Err("node sent pruned txs!".into())
-                            }
-                            TransactionBlobs::Normal(txs) => txs
-                                .into_par_iter()
-                                .map(|tx| Transaction::read(&mut tx.as_slice()))
-                                .collect::<Result<_, _>>()?,
-                            TransactionBlobs::None => vec![],
-                        },
-                    ))
+                    let block = Block::read(&mut b.block.as_slice())?;
+
+                    let txs = match b.txs {
+                        TransactionBlobs::Pruned(_) => return Err("node sent pruned txs!".into()),
+                        TransactionBlobs::Normal(txs) => txs
+                            .into_par_iter()
+                            .map(|tx| Transaction::read(&mut tx.as_slice()))
+                            .collect::<Result<_, _>>()?,
+                        TransactionBlobs::None => vec![],
+                    };
+
+                    assert_eq!(
+                        block.txs.len(),
+                        txs.len(),
+                        "node: {}, height: {}, node is pruned, which is not supported!",
+                        address,
+                        block.number(),
+                    );
+
+                    Ok((block, txs))
                 })
                 .collect::<Result<_, tower::BoxError>>()
         })

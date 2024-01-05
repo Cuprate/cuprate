@@ -30,6 +30,20 @@ impl HardForkConfig {
             window: DEFAULT_WINDOW_SIZE,
         }
     }
+
+    pub const fn stage_net() -> HardForkConfig {
+        Self {
+            info: HFsInfo::stage_net(),
+            window: DEFAULT_WINDOW_SIZE,
+        }
+    }
+
+    pub const fn test_net() -> HardForkConfig {
+        Self {
+            info: HFsInfo::test_net(),
+            window: DEFAULT_WINDOW_SIZE,
+        }
+    }
 }
 
 /// A struct that keeps track of the current hard-fork and current votes.

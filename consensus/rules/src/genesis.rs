@@ -8,7 +8,7 @@ use monero_serai::{
 
 use cuprate_common::Network;
 
-fn genesis_nonce(network: &Network) -> u32 {
+const fn genesis_nonce(network: &Network) -> u32 {
     match network {
         Network::Mainnet => 10000,
         Network::Testnet => 10001,

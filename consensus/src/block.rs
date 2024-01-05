@@ -10,7 +10,7 @@ use monero_serai::block::Block;
 use monero_serai::transaction::Input;
 use tower::{Service, ServiceExt};
 
-use monero_consensus::blocks::BlockError;
+use monero_consensus::blocks::{BlockError, RandomX};
 use monero_consensus::miner_tx::MinerTxError;
 use monero_consensus::{
     blocks::{calculate_pow_hash, check_block, check_block_pow},
@@ -23,6 +23,37 @@ use crate::{
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     ExtendedConsensusError, TxNotInPool, TxPoolRequest, TxPoolResponse,
 };
+
+#[derive(Debug)]
+pub struct PrePreparedBlockExPOW {
+    pub block: Block,
+    pub block_blob: Vec<u8>,
+
+    pub hf_vote: HardFork,
+    pub hf_version: HardFork,
+
+    pub block_hash: [u8; 32],
+
+    pub miner_tx_weight: usize,
+}
+
+impl PrePreparedBlockExPOW {
+    pub fn new(block: Block) -> Result<PrePreparedBlockExPOW, ConsensusError> {
+        let (hf_version, hf_vote) =
+            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
+
+        Ok(PrePreparedBlockExPOW {
+            block_blob: block.serialize(),
+            hf_vote,
+            hf_version,
+
+            block_hash: block.hash(),
+
+            miner_tx_weight: block.miner_tx.weight(),
+            block,
+        })
+    }
+}
 
 #[derive(Debug)]
 pub struct PrePreparedBlock {
@@ -39,26 +70,31 @@ pub struct PrePreparedBlock {
 }
 
 impl PrePreparedBlock {
-    pub fn new(block: Block) -> Result<PrePreparedBlock, ConsensusError> {
-        let (hf_version, hf_vote) =
-            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
-
-        let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
+    pub fn new<R: RandomX>(
+        block: PrePreparedBlockExPOW,
+        randomx_vm: &R,
+    ) -> Result<PrePreparedBlock, ConsensusError> {
+        let Some(Input::Gen(height)) = block.block.miner_tx.prefix.inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
         };
 
         Ok(PrePreparedBlock {
-            block_blob: block.serialize(),
-            hf_vote,
-            hf_version,
+            block_blob: block.block_blob,
+            hf_vote: block.hf_vote,
+            hf_version: block.hf_version,
 
-            block_hash: block.hash(),
-            pow_hash: calculate_pow_hash(&block.serialize_hashable(), *height, &hf_vote)?,
+            block_hash: block.block_hash,
+            pow_hash: calculate_pow_hash(
+                randomx_vm,
+                &block.block.serialize_hashable(),
+                *height,
+                &block.hf_version,
+            )?,
 
-            miner_tx_weight: block.miner_tx.weight(),
-            block,
+            miner_tx_weight: block.block.miner_tx.weight(),
+            block: block.block,
         })
     }
 }
@@ -321,10 +357,13 @@ where
     // do POW test last
     let chain_height = context.chain_height;
     let current_hf = context.current_hf;
-    let pow_hash =
-        rayon_spawn_async(move || calculate_pow_hash(&hashing_blob, chain_height, &current_hf))
-            .await
-            .map_err(ConsensusError::Block)?;
+    let pow_hash = todo!();
+    /*
+       rayon_spawn_async(move || calculate_pow_hash(, &hashing_blob, chain_height, &current_hf))
+           .await
+           .map_err(ConsensusError::Block)?;
+
+    */
 
     check_block_pow(&pow_hash, context.next_difficulty).map_err(ConsensusError::Block)?;
 

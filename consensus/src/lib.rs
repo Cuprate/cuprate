@@ -11,6 +11,7 @@ mod batch_verifier;
 pub mod block;
 pub mod context;
 mod helper;
+pub mod randomx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
 #[cfg(test)]

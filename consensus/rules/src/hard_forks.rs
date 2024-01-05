@@ -81,6 +81,48 @@ impl HFsInfo {
             HFInfo::new(2689608, 0),
         ])
     }
+
+    pub const fn test_net() -> HFsInfo {
+        Self([
+            HFInfo::new(0, 0),
+            HFInfo::new(624634, 0),
+            HFInfo::new(800500, 0),
+            HFInfo::new(801219, 0),
+            HFInfo::new(802660, 0),
+            HFInfo::new(971400, 0),
+            HFInfo::new(1057027, 0),
+            HFInfo::new(1057058, 0),
+            HFInfo::new(1057778, 0),
+            HFInfo::new(1154318, 0),
+            HFInfo::new(1155038, 0),
+            HFInfo::new(1308737, 0),
+            HFInfo::new(1543939, 0),
+            HFInfo::new(1544659, 0),
+            HFInfo::new(1982800, 0),
+            HFInfo::new(1983520, 0),
+        ])
+    }
+
+    pub const fn stage_net() -> HFsInfo {
+        Self([
+            HFInfo::new(0, 0),
+            HFInfo::new(32000, 0),
+            HFInfo::new(33000, 0),
+            HFInfo::new(34000, 0),
+            HFInfo::new(35000, 0),
+            HFInfo::new(36000, 0),
+            HFInfo::new(37000, 0),
+            HFInfo::new(176456, 0),
+            HFInfo::new(177176, 0),
+            HFInfo::new(269000, 0),
+            HFInfo::new(269720, 0),
+            HFInfo::new(454721, 0),
+            HFInfo::new(675405, 0),
+            HFInfo::new(676125, 0),
+            HFInfo::new(1151000, 0),
+            HFInfo::new(1151720, 0),
+        ])
+    }
 }
 
 /// An identifier for every hard-fork Monero has had.
@@ -177,7 +219,7 @@ impl HardFork {
         if self != version {
             Err(HardForkError::VersionIncorrect)?;
         }
-        if self < vote {
+        if self > vote {
             Err(HardForkError::VoteTooLow)?;
         }
 

@@ -28,6 +28,7 @@ mod difficulty;
 mod hardforks;
 mod weight;
 
+mod rx_seed;
 #[cfg(test)]
 mod tests;
 mod tokens;
@@ -49,6 +50,22 @@ impl ContextConfig {
     pub fn main_net() -> ContextConfig {
         ContextConfig {
             hard_fork_cfg: HardForkConfig::main_net(),
+            difficulty_cfg: DifficultyCacheConfig::main_net(),
+            weights_config: BlockWeightsCacheConfig::main_net(),
+        }
+    }
+
+    pub fn stage_net() -> ContextConfig {
+        ContextConfig {
+            hard_fork_cfg: HardForkConfig::stage_net(),
+            difficulty_cfg: DifficultyCacheConfig::main_net(),
+            weights_config: BlockWeightsCacheConfig::main_net(),
+        }
+    }
+
+    pub fn test_net() -> ContextConfig {
+        ContextConfig {
+            hard_fork_cfg: HardForkConfig::test_net(),
             difficulty_cfg: DifficultyCacheConfig::main_net(),
             weights_config: BlockWeightsCacheConfig::main_net(),
         }
@@ -117,6 +134,11 @@ where
         hardforks::HardForkState::init_from_chain_height(chain_height, hard_fork_cfg, db).await
     });
 
+    let db = database.clone();
+    let rx_seed_handle = tokio::spawn(async move {
+        rx_seed::RandomXSeed::init_from_chain_height(chain_height, db).await
+    });
+
     let context_svc = BlockChainContextService {
         internal_blockchain_context: Arc::new(
             InternalBlockChainContext {
@@ -124,6 +146,7 @@ where
                 current_reorg_token: ReOrgToken::new(),
                 difficulty_cache: difficulty_cache_handle.await.unwrap()?,
                 weight_cache: weight_cache_handle.await.unwrap()?,
+                rx_seed_cache: rx_seed_handle.await.unwrap()?,
                 hardfork_state: hardfork_state_handle.await.unwrap()?,
                 chain_height,
                 already_generated_coins,
@@ -145,6 +168,7 @@ pub struct RawBlockChainContext {
     pub cumulative_difficulty: u128,
     /// A token which is used to signal if a reorg has happened since creating the token.
     pub re_org_token: ReOrgToken,
+    pub rx_seed_cache: rx_seed::RandomXSeed,
     pub context_to_verify_block: ContextToVerifyBlock,
     /// The median long term block weight.
     median_long_term_weight: usize,
@@ -254,8 +278,6 @@ pub enum BlockChainContextResponse {
     Context(BlockChainContext),
     Ok,
 }
-
-#[derive(Clone)]
 struct InternalBlockChainContext {
     /// A token used to invalidate previous contexts when a new
     /// block is added to the chain.
@@ -265,6 +287,7 @@ struct InternalBlockChainContext {
 
     difficulty_cache: difficulty::DifficultyCache,
     weight_cache: weight::BlockWeightsCache,
+    rx_seed_cache: rx_seed::RandomXSeed,
     hardfork_state: hardforks::HardForkState,
 
     chain_height: u64,
@@ -324,6 +347,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
             current_reorg_token,
             difficulty_cache,
             weight_cache,
+            rx_seed_cache,
             hardfork_state,
             chain_height,
             top_block_hash,
@@ -351,6 +375,7 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                             next_difficulty: difficulty_cache.next_difficulty(&current_hf),
                             already_generated_coins: *already_generated_coins,
                         },
+                        rx_seed_cache: rx_seed_cache.clone(),
                         cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
                         median_long_term_weight: weight_cache.median_long_term_weight(),
                         top_block_timestamp: difficulty_cache.top_block_timestamp(),
@@ -367,6 +392,8 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                 weight_cache.new_block(new.height, new.weight, new.long_term_weight);
 
                 hardfork_state.new_block(new.vote, new.height);
+
+                rx_seed_cache.new_block(new.height, &new.new_top_hash);
 
                 *chain_height = new.height + 1;
                 *top_block_hash = new.new_top_hash;
