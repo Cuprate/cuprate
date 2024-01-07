@@ -7,7 +7,6 @@ pub struct RandomXVM {
     vms: ThreadLocal<VMInner>,
     cache: RandomXCache,
     flags: RandomXFlag,
-    seed: [u8; 32],
 }
 
 impl RandomXVM {
@@ -20,7 +19,6 @@ impl RandomXVM {
             vms: ThreadLocal::new(),
             cache,
             flags,
-            seed,
         })
     }
 }

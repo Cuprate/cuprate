@@ -1,17 +1,18 @@
 #![cfg(feature = "binaries")]
 
-use std::collections::{HashMap, HashSet};
-use std::ops::Deref;
-use std::time::Duration;
-use std::{ops::Range, path::PathBuf, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Range,
+    path::PathBuf,
+    sync::Arc,
+};
 
 use clap::Parser;
 use futures::{
     channel::{mpsc, oneshot},
-    SinkExt, StreamExt, TryFutureExt,
+    SinkExt, StreamExt,
 };
 use monero_serai::{block::Block, transaction::Transaction};
-use rayon::prelude::*;
 use tokio::sync::RwLock;
 use tower::{Service, ServiceExt};
 use tracing::level_filters::LevelFilter;
@@ -221,7 +222,7 @@ where
     let mut randomx_vms: Option<HashMap<u64, RandomXVM>> = Some(HashMap::new());
 
     tokio::spawn(async move {
-        while let Some(mut blocks) = incoming_blocks.next().await {
+        while let Some(blocks) = incoming_blocks.next().await {
             let unwrapped_rx_vms = randomx_vms.as_mut().unwrap();
 
             let blocks = rayon_spawn_async(move || {
@@ -243,12 +244,9 @@ where
             unwrapped_rx_vms.retain(|seed_height, _| seeds_needed.contains(seed_height));
 
             for seed_height in seeds_needed {
-                if !unwrapped_rx_vms.contains_key(&seed_height) {
-                    unwrapped_rx_vms.insert(
-                        seed_height,
-                        RandomXVM::new(rx_seed_cache.get_seeds_hash(seed_height)).unwrap(),
-                    );
-                }
+                unwrapped_rx_vms.entry(seed_height).or_insert_with(|| {
+                    RandomXVM::new(rx_seed_cache.get_seeds_hash(seed_height)).unwrap()
+                });
             }
 
             let arc_rx_vms = Arc::new(randomx_vms.take().unwrap());

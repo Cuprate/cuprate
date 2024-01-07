@@ -39,6 +39,8 @@ const MINER_TX_TIME_LOCKED_BLOCKS: u64 = 60;
 
 /// Calculates the base block reward without taking away the penalty for expanding
 /// the block.
+///
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/reward.html#calculating-base-block-reward
 fn calculate_base_reward(already_generated_coins: u64, hf: &HardFork) -> u64 {
     let target_mins = hf.block_time().as_secs() / 60;
     let emission_speed_factor = 20 - (target_mins - 1);
@@ -47,6 +49,8 @@ fn calculate_base_reward(already_generated_coins: u64, hf: &HardFork) -> u64 {
 }
 
 /// Calculates the miner reward for this block.
+///
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/reward.html#calculating-block-reward
 pub fn calculate_block_reward(
     block_weight: usize,
     median_bw: usize,
@@ -71,7 +75,7 @@ pub fn calculate_block_reward(
 
 /// Checks the miner transactions version.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/miner_tx.html#version
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#version
 fn check_miner_tx_version(tx_version: &TxVersion, hf: &HardFork) -> Result<(), MinerTxError> {
     // The TxVersion enum checks if the version is not 1 or 2
     if hf >= &HardFork::V12 && tx_version != &TxVersion::RingCT {
@@ -83,8 +87,7 @@ fn check_miner_tx_version(tx_version: &TxVersion, hf: &HardFork) -> Result<(), M
 
 /// Checks the miner transactions inputs.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/miner_tx.html#input
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/miner_tx.html#height
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#input
 fn check_inputs(inputs: &[Input], chain_height: u64) -> Result<(), MinerTxError> {
     if inputs.len() != 1 {
         return Err(MinerTxError::IncorrectNumbOfInputs);
@@ -104,13 +107,13 @@ fn check_inputs(inputs: &[Input], chain_height: u64) -> Result<(), MinerTxError>
 
 /// Checks the miner transaction has a correct time lock.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/miner_tx.html#unlock-time
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#unlock-time
 fn check_time_lock(time_lock: &Timelock, chain_height: u64) -> Result<(), MinerTxError> {
     match time_lock {
         Timelock::Block(till_height) => {
             // Lock times above this amount are timestamps not blocks.
             // This is just for safety though and shouldn't actually be hit.
-            if till_height >= &500_000_000 {
+            if till_height > &500_000_000 {
                 Err(MinerTxError::InvalidLockTime)?;
             }
             if u64::try_from(*till_height).unwrap() != chain_height + MINER_TX_TIME_LOCKED_BLOCKS {
@@ -125,7 +128,7 @@ fn check_time_lock(time_lock: &Timelock, chain_height: u64) -> Result<(), MinerT
 
 /// Sums the outputs checking for overflow.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/miner_tx.html#output-amounts
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#output-amounts
 fn sum_outputs(outputs: &[Output], hf: &HardFork) -> Result<u64, MinerTxError> {
     let mut sum: u64 = 0;
     for out in outputs {
@@ -140,7 +143,7 @@ fn sum_outputs(outputs: &[Output], hf: &HardFork) -> Result<u64, MinerTxError> {
 
 /// Checks the total outputs amount is correct returning the amount of coins collected by the miner.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/miner_tx.html#total-outputs
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#total-outputs
 fn check_total_output_amt(
     total_output: u64,
     reward: u64,
@@ -160,6 +163,12 @@ fn check_total_output_amt(
     }
 }
 
+/// Checks all miner transactions rules.
+///
+/// Excluding:
+/// https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#v2-output-pool
+///
+/// as this needs to be done in a database.
 pub fn check_miner_tx(
     tx: &Transaction,
     total_fees: u64,
@@ -172,6 +181,7 @@ pub fn check_miner_tx(
     let tx_version = TxVersion::from_raw(tx.prefix.version).ok_or(MinerTxError::VersionInvalid)?;
     check_miner_tx_version(&tx_version, hf)?;
 
+    // ref: https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#ringct-type
     if hf >= &HardFork::V12 && tx.rct_signatures.rct_type() != RctType::Null {
         return Err(MinerTxError::RCTTypeNotNULL);
     }

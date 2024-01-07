@@ -10,16 +10,14 @@ use monero_serai::block::Block;
 use monero_serai::transaction::Input;
 use tower::{Service, ServiceExt};
 
-use monero_consensus::blocks::{BlockError, RandomX};
-use monero_consensus::miner_tx::MinerTxError;
 use monero_consensus::{
-    blocks::{calculate_pow_hash, check_block, check_block_pow},
+    blocks::{calculate_pow_hash, check_block, check_block_pow, BlockError, RandomX},
+    miner_tx::MinerTxError,
     ConsensusError, HardFork,
 };
 
 use crate::{
     context::{BlockChainContextRequest, BlockChainContextResponse},
-    helper::rayon_spawn_async,
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     ExtendedConsensusError, TxNotInPool, TxPoolRequest, TxPoolResponse,
 };
@@ -294,10 +292,10 @@ where
 }
 
 async fn verify_main_chain_block<C, TxV, TxP>(
-    block: Block,
-    context_svc: C,
-    tx_verifier_svc: TxV,
-    tx_pool: TxP,
+    _block: Block,
+    _context_svc: C,
+    _tx_verifier_svc: TxV,
+    _tx_pool: TxP,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
     C: Service<
@@ -313,6 +311,9 @@ where
         + Send
         + 'static,
 {
+    todo!("Single main chain block.");
+
+    /*
     tracing::debug!("getting blockchain context");
     let BlockChainContextResponse::Context(checked_context) = context_svc
         .oneshot(BlockChainContextRequest::Get)
@@ -379,4 +380,5 @@ where
         hf_vote,
         cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
     }))
+     */
 }

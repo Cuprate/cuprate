@@ -32,6 +32,7 @@ fn check_point_canonically_encoded(point: &curve25519_dalek::edwards::Compressed
         .is_some()
 }
 
+/// Returns the current UNIX timestamp.
 pub fn current_unix_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -39,6 +40,8 @@ pub fn current_unix_timestamp() -> u64 {
         .as_secs()
 }
 
+/// An internal function that returns an iterator or a parallel iterator if the
+/// `rayon` feature is enabled.
 #[cfg(feature = "rayon")]
 fn try_par_iter<T>(t: T) -> T::Iter
 where
@@ -47,6 +50,8 @@ where
     t.into_par_iter()
 }
 
+/// An internal function that returns an iterator or a parallel iterator if the
+/// `rayon` feature is enabled.
 #[cfg(not(feature = "rayon"))]
 fn try_par_iter<T>(t: T) -> impl std::iter::Iterator<Item = T::Item>
 where

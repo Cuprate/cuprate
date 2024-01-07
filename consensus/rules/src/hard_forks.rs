@@ -17,8 +17,12 @@ use std::{
 mod tests;
 
 /// Target block time for hf 1.
+///
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds
 const BLOCK_TIME_V1: Duration = Duration::from_secs(60);
 /// Target block time from v2.
+///
+/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds
 const BLOCK_TIME_V2: Duration = Duration::from_secs(120);
 
 pub const NUMB_OF_HARD_FORKS: usize = 16;
@@ -60,7 +64,7 @@ impl HFsInfo {
 
     /// Returns the main-net hard-fork information.
     ///
-    /// https://cuprate.github.io/monero-book/consensus_rules/hardforks.html#Mainnet-Hard-Forks
+    /// ref: https://monero-book.cuprate.org/consensus_rules/hardforks.html#Mainnet-Hard-Forks
     pub const fn main_net() -> HFsInfo {
         Self([
             HFInfo::new(0, 0),
@@ -82,6 +86,9 @@ impl HFsInfo {
         ])
     }
 
+    /// Returns the test-net hard-fork information.
+    ///
+    /// ref: https://monero-book.cuprate.org/consensus_rules/hardforks.html#Testnet-Hard-Forks
     pub const fn test_net() -> HFsInfo {
         Self([
             HFInfo::new(0, 0),
@@ -103,6 +110,9 @@ impl HFsInfo {
         ])
     }
 
+    /// Returns the test-net hard-fork information.
+    ///
+    /// ref: https://monero-book.cuprate.org/consensus_rules/hardforks.html#Stagenet-Hard-Forks
     pub const fn stage_net() -> HFsInfo {
         Self([
             HFInfo::new(0, 0),
@@ -152,7 +162,7 @@ pub enum HardFork {
 impl HardFork {
     /// Returns the hard-fork for a blocks `major_version` field.
     ///
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#blocks-version-and-vote
+    /// https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote
     pub fn from_version(version: u8) -> Result<HardFork, HardForkError> {
         Ok(match version {
             1 => HardFork::V1,
@@ -177,7 +187,7 @@ impl HardFork {
 
     /// Returns the hard-fork for a blocks `minor_version` (vote) field.
     ///
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#blocks-version-and-vote
+    /// https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote
     pub fn from_vote(vote: u8) -> HardFork {
         if vote == 0 {
             // A vote of 0 is interpreted as 1 as that's what Monero used to default to.
@@ -200,6 +210,8 @@ impl HardFork {
     }
 
     /// Returns the target block time for this hardfork.
+    ///
+    /// ref: https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds
     pub fn block_time(&self) -> Duration {
         match self {
             HardFork::V1 => BLOCK_TIME_V1,
@@ -209,7 +221,7 @@ impl HardFork {
 
     /// Checks a blocks version and vote, assuming that `self` is the current hard-fork.
     ///
-    /// https://cuprate.github.io/monero-book/consensus_rules/blocks.html#version-and-vote
+    /// ref: https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote
     pub fn check_block_version_vote(
         &self,
         version: &HardFork,
@@ -280,7 +292,7 @@ impl HFVotes {
 
     /// Returns the total votes for a hard-fork.
     ///
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
+    /// ref: https://monero-book.cuprate.org/consensus_rules/hardforks.html#accepting-a-fork
     pub fn votes_for_hf(&self, hf: &HardFork) -> u64 {
         self.votes[*hf as usize - 1..].iter().sum()
     }
@@ -293,7 +305,7 @@ impl HFVotes {
     /// Checks if a future hard fork should be activated, returning the next hard-fork that should be
     /// activated.
     ///
-    /// https://cuprate.github.io/monero-book/consensus_rules/hardforks.html#accepting-a-fork
+    /// ref: https://monero-book.cuprate.org/consensus_rules/hardforks.html#accepting-a-fork
     pub fn current_fork(
         &self,
         current_hf: &HardFork,
@@ -323,7 +335,7 @@ impl HFVotes {
 
 /// Returns the votes needed for a hard-fork.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/hardforks.html#accepting-a-fork
+/// ref: https://monero-book.cuprate.org/consensus_rules/hardforks.html#accepting-a-fork
 pub fn votes_needed(threshold: u64, window: u64) -> u64 {
     (threshold * window).div_ceil(100)
 }
