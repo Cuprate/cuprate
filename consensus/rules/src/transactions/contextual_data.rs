@@ -135,7 +135,7 @@ impl Rings {
 #[derive(Debug)]
 pub struct TxRingMembersInfo {
     pub rings: Rings,
-    /// Information on the structure of the decoys, will be [`None`] for txs before [`HardFork::V1`]
+    /// Information on the structure of the decoys, must be [`None`] for txs before [`HardFork::V1`]
     pub decoy_info: Option<DecoyInfo>,
     pub youngest_used_out_height: u64,
     pub time_locked_outs: Vec<Timelock>,
@@ -277,7 +277,7 @@ impl DecoyInfo {
 /// Returns the default minimum amount of decoys for a hard-fork.
 /// **There are exceptions to this always being the minimum decoys**
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#minimum-amount-of-decoys
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#default-minimum-decoys
 pub(crate) fn minimum_decoys(hf: &HardFork) -> usize {
     use HardFork as HF;
     match hf {

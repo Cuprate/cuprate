@@ -6,7 +6,7 @@ use monero_serai::{
         mlsag::{AggregateRingMatrixBuilder, MlsagError, RingMatrix},
         RctPrunable, RctSignatures, RctType,
     },
-    transaction::{Input, Output, Transaction},
+    transaction::{Input, Transaction},
     H,
 };
 use multiexp::BatchVerifier;
@@ -27,8 +27,6 @@ const GRANDFATHERED_TRANSACTIONS: [[u8; 32]; 2] = [
 pub enum RingCTError {
     #[error("The RingCT type used is not allowed.")]
     TypeNotAllowed,
-    #[error("One or more of the outputs do not have a zero amount.")]
-    OutputNotZero,
     #[error("RingCT simple: sum pseudo-outs does not equal outputs.")]
     SimpleAmountDoNotBalance,
     #[error("The borromean range proof is invalid.")]
@@ -59,19 +57,6 @@ fn check_rct_type(ty: &RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), 
         T::BulletproofsPlus if hf >= F::V15 => Ok(()),
         _ => Err(RingCTError::TypeNotAllowed),
     }
-}
-
-/// Checks all the outputs have a zero amount.
-///
-/// https://monero-book.cuprate.org/consensus_rules/ring_ct.html#output-amount
-fn check_output_amount(outputs: &[Output]) -> Result<(), RingCTError> {
-    outputs.iter().try_for_each(|out| {
-        if out.amount.is_none() {
-            Ok(())
-        } else {
-            Err(RingCTError::OutputNotZero)
-        }
-    })
 }
 
 /// Checks that the pseudo-outs sum to the same point as the output commitments.
@@ -133,28 +118,29 @@ fn check_output_range_proofs(
     }
 }
 
-pub fn ring_ct_semantic_checks(
+pub(crate) fn ring_ct_semantic_checks(
     tx: &Transaction,
     tx_hash: &[u8; 32],
     verifier: &mut BatchVerifier<(), dalek_ff_group::EdwardsPoint>,
     hf: &HardFork,
 ) -> Result<(), RingCTError> {
-    check_output_amount(&tx.prefix.outputs)?;
-    check_rct_type(&tx.rct_signatures.rct_type(), *hf, tx_hash)?;
+    let rct_type = tx.rct_signatures.rct_type();
+
+    check_rct_type(&rct_type, *hf, tx_hash)?;
     check_output_range_proofs(&tx.rct_signatures, verifier)?;
 
-    if tx.rct_signatures.rct_type() != RctType::MlsagAggregate {
+    if rct_type != RctType::MlsagAggregate {
         simple_type_balances(&tx.rct_signatures)?;
     }
 
     Ok(())
 }
 
-/// Check the input signatures, MLSAG, CLSAG.
+/// Check the input signatures: MLSAG, CLSAG.
 ///
 /// https://monero-book.cuprate.org/consensus_rules/ring_ct/mlsag.html
 /// https://monero-book.cuprate.org/consensus_rules/ring_ct/clsag.html
-pub fn check_input_signatures(
+pub(crate) fn check_input_signatures(
     msg: &[u8; 32],
     inputs: &[Input],
     rct_sig: &RctSignatures,

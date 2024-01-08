@@ -15,6 +15,10 @@ const BLOCK_FUTURE_TIME_LIMIT: u64 = 60 * 60 * 2;
 const BLOCK_202612_POW_HASH: [u8; 32] =
     hex_literal::hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000");
 
+pub const PENALTY_FREE_ZONE_1: usize = 20000;
+pub const PENALTY_FREE_ZONE_2: usize = 60000;
+pub const PENALTY_FREE_ZONE_5: usize = 300000;
+
 const RX_SEEDHASH_EPOCH_BLOCKS: u64 = 2048;
 const RX_SEEDHASH_EPOCH_LAG: u64 = 64;
 
@@ -109,6 +113,19 @@ pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> Result<(), BlockErr
     }
 }
 
+/// Returns the penalty free zone
+///
+/// https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#penalty-free-zone
+pub fn penalty_free_zone(hf: &HardFork) -> usize {
+    if hf == &HardFork::V1 {
+        PENALTY_FREE_ZONE_1
+    } else if hf >= &HardFork::V2 && hf < &HardFork::V5 {
+        PENALTY_FREE_ZONE_2
+    } else {
+        PENALTY_FREE_ZONE_5
+    }
+}
+
 /// Sanity check on the block blob size.
 ///
 /// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size
@@ -177,7 +194,7 @@ fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockErro
 /// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#no-duplicate-transactions
 fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
     txs.windows(2).try_for_each(|window| {
-        if window[0] != window[1] {
+        if window[0] == window[1] {
             Err(BlockError::DuplicateTransaction)?;
         }
         Ok(())

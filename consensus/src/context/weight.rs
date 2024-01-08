@@ -16,6 +16,8 @@ use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
 
+use monero_consensus::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
+
 use crate::{
     helper::{median, rayon_spawn_async},
     Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork,
@@ -24,25 +26,8 @@ use crate::{
 #[cfg(test)]
 pub(super) mod tests;
 
-const PENALTY_FREE_ZONE_1: usize = 20000;
-const PENALTY_FREE_ZONE_2: usize = 60000;
-const PENALTY_FREE_ZONE_5: usize = 300000;
-
 const SHORT_TERM_WINDOW: u64 = 100;
 const LONG_TERM_WINDOW: u64 = 100000;
-
-/// Returns the penalty free zone
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#penalty-free-zone
-pub fn penalty_free_zone(hf: &HardFork) -> usize {
-    if hf == &HardFork::V1 {
-        PENALTY_FREE_ZONE_1
-    } else if hf >= &HardFork::V2 && hf < &HardFork::V5 {
-        PENALTY_FREE_ZONE_2
-    } else {
-        PENALTY_FREE_ZONE_5
-    }
-}
 
 /// Configuration for the block weight cache.
 ///

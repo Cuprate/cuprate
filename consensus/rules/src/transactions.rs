@@ -1,9 +1,12 @@
+use monero_serai::ringct::RctType;
 use std::{cmp::Ordering, collections::HashSet, sync::Arc};
 
 use monero_serai::transaction::{Input, Output, Timelock, Transaction};
 use multiexp::BatchVerifier;
 
-use crate::{check_point_canonically_encoded, is_decomposed_amount, HardFork};
+use crate::{
+    blocks::penalty_free_zone, check_point_canonically_encoded, is_decomposed_amount, HardFork,
+};
 
 mod contextual_data;
 mod ring_ct;
@@ -12,10 +15,15 @@ mod ring_signatures;
 pub use contextual_data::*;
 pub use ring_ct::RingCTError;
 
+const MAX_BULLETPROOFS_OUTPUTS: usize = 16;
+const MAX_TX_BLOB_SIZE: usize = 1_000_000;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TransactionError {
     #[error("The transactions version is incorrect.")]
     TransactionVersionInvalid,
+    #[error("The transactions is too big.")]
+    TooBig,
     //-------------------------------------------------------- OUTPUTS
     #[error("Output is not a valid point.")]
     OutputNotValidPoint,
@@ -23,12 +31,16 @@ pub enum TransactionError {
     OutputTypeInvalid,
     #[error("The transaction is v1 with a 0 amount output.")]
     ZeroOutputForV1,
+    #[error("The transaction is v2 with a non 0 amount output.")]
+    NonZeroOutputForV2,
     #[error("The transaction has an output which is not decomposed.")]
     AmountNotDecomposed,
     #[error("The transactions outputs overflow.")]
     OutputsOverflow,
     #[error("The transactions outputs too much.")]
     OutputsTooHigh,
+    #[error("The transactions has too many outputs.")]
+    InvalidNumberOfOutputs,
     //-------------------------------------------------------- INPUTS
     #[error("One or more inputs don't have the expected number of decoys.")]
     InputDoesNotHaveExpectedNumbDecoys,
@@ -57,16 +69,25 @@ pub enum TransactionError {
     RingSignatureIncorrect,
     //-------------------------------------------------------- RingCT
     #[error("RingCT Error: {0}.")]
-    RingCTError(#[from] ring_ct::RingCTError),
+    RingCTError(#[from] RingCTError),
 }
 
+/// An enum representing all valid Monero transaction versions.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TxVersion {
+    /// Legacy ring signatures.
     RingSignatures,
+    /// RingCT
     RingCT,
 }
 
 impl TxVersion {
+    /// Converts a `raw` version value to a [`TxVersion`].
+    ///
+    /// This will return `None` on invalid values.
+    ///
+    /// ref: https://monero-book.cuprate.org/consensus_rules/transactions.html#version
+    ///  &&  https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#version  
     pub fn from_raw(version: u64) -> Option<TxVersion> {
         Some(match version {
             1 => TxVersion::RingSignatures,
@@ -80,7 +101,7 @@ impl TxVersion {
 
 /// Checks the output keys are canonically encoded points.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#output-keys-canonical
+/// https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#output-keys-canonical
 fn check_output_keys(outputs: &[Output]) -> Result<(), TransactionError> {
     for out in outputs {
         if !check_point_canonically_encoded(&out.key) {
@@ -91,12 +112,12 @@ fn check_output_keys(outputs: &[Output]) -> Result<(), TransactionError> {
     Ok(())
 }
 
-/// Checks the output types are allowed.
+/// Checks the output types are allowed for the given hard-fork.
 ///
 /// This is also used during miner-tx verification.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#output-type
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/miner_tx.html#output-type
+/// https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#output-type
+/// https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#output-type
 pub(crate) fn check_output_types(
     outputs: &[Output],
     hf: &HardFork,
@@ -120,9 +141,9 @@ pub(crate) fn check_output_types(
     Ok(())
 }
 
-/// Checks the outputs amount for version 1 txs.
+/// Checks the individual outputs amount for version 1 txs.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#output-amount
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#output-amount
 fn check_output_amount_v1(amount: u64, hf: &HardFork) -> Result<(), TransactionError> {
     if amount == 0 {
         return Err(TransactionError::ZeroOutputForV1);
@@ -135,20 +156,35 @@ fn check_output_amount_v1(amount: u64, hf: &HardFork) -> Result<(), TransactionE
     Ok(())
 }
 
+/// Checks the individual outputs amount for version 2 txs.
+///
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#output-amount
+fn check_output_amount_v2(amount: u64) -> Result<(), TransactionError> {
+    if amount == 0 {
+        Ok(())
+    } else {
+        Err(TransactionError::NonZeroOutputForV2)
+    }
+}
+
 /// Sums the outputs, checking for overflow and other consensus rules.
 ///
-/// Should only be used on v1 transactions.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#inputs-and-outputs-must-not-overflow
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#output-amount
-fn sum_outputs_v1(outputs: &[Output], hf: &HardFork) -> Result<u64, TransactionError> {
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#output-amount
+/// &&   https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#outputs-must-not-overflow
+fn sum_outputs(
+    outputs: &[Output],
+    hf: &HardFork,
+    tx_version: &TxVersion,
+) -> Result<u64, TransactionError> {
     let mut sum: u64 = 0;
 
     for out in outputs {
         let raw_amount = out.amount.unwrap_or(0);
 
-        check_output_amount_v1(raw_amount, hf)?;
-
+        match tx_version {
+            TxVersion::RingSignatures => check_output_amount_v1(raw_amount, hf)?,
+            TxVersion::RingCT => check_output_amount_v2(raw_amount)?,
+        }
         sum = sum
             .checked_add(raw_amount)
             .ok_or(TransactionError::OutputsOverflow)?;
@@ -157,26 +193,60 @@ fn sum_outputs_v1(outputs: &[Output], hf: &HardFork) -> Result<u64, TransactionE
     Ok(sum)
 }
 
+/// Checks the number of outputs is allowed.
+///
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#2-outputs
+/// &&   https://monero-book.cuprate.org/consensus_rules/transactions/ring_ct/bulletproofs.html#max-outputs
+/// &&   https://monero-book.cuprate.org/consensus_rules/transactions/ring_ct/bulletproofs+.html#max-outputs
+fn check_number_of_outputs(
+    outputs: usize,
+    hf: &HardFork,
+    tx_version: &TxVersion,
+    rct_type: &RctType,
+) -> Result<(), TransactionError> {
+    if tx_version == &TxVersion::RingSignatures {
+        return Ok(());
+    }
+
+    if hf >= &HardFork::V12 && outputs < 2 {
+        return Err(TransactionError::InvalidNumberOfOutputs);
+    }
+
+    match rct_type {
+        RctType::Bulletproofs | RctType::BulletproofsCompactAmount | RctType::BulletproofsPlus => {
+            if outputs <= MAX_BULLETPROOFS_OUTPUTS {
+                Ok(())
+            } else {
+                Err(TransactionError::InvalidNumberOfOutputs)
+            }
+        }
+        _ => Ok(()),
+    }
+}
+
 /// Checks the outputs against all output consensus rules, returning the sum of the output amounts.
+///
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html
+/// &&   https://monero-book.cuprate.org/consensus_rules/transactions/ring_ct/bulletproofs.html#max-outputs
+/// &&   https://monero-book.cuprate.org/consensus_rules/transactions/ring_ct/bulletproofs+.html#max-outputs
 fn check_outputs_semantics(
     outputs: &[Output],
     hf: &HardFork,
     tx_version: &TxVersion,
+    rct_type: &RctType,
 ) -> Result<u64, TransactionError> {
     check_output_types(outputs, hf)?;
     check_output_keys(outputs)?;
+    check_number_of_outputs(outputs.len(), hf, tx_version, rct_type)?;
 
-    match tx_version {
-        TxVersion::RingSignatures => sum_outputs_v1(outputs, hf),
-        TxVersion::RingCT => Ok(0), // RCT outputs are checked to be zero in RCT checks.
-    }
+    sum_outputs(outputs, hf, tx_version)
 }
 
 //----------------------------------------------------------------------------------------------------------- TIME LOCKS
 
 /// Checks if an outputs unlock time has passed.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#unlock-time
+/// https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html
 fn output_unlocked(
     time_lock: &Timelock,
     current_chain_height: u64,
@@ -194,18 +264,17 @@ fn output_unlocked(
     }
 }
 
-/// Returns if a locked output, which uses a block height, can be spend.
+/// Returns if a locked output, which uses a block height, can be spent.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#block-height
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#block-height
 fn check_block_time_lock(unlock_height: u64, current_chain_height: u64) -> bool {
     // current_chain_height = 1 + top height
     unlock_height <= current_chain_height
 }
 
-/// ///
 /// Returns if a locked output, which uses a block height, can be spend.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#timestamp
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#timestamp
 fn check_timestamp_time_lock(
     unlock_timestamp: u64,
     current_time_lock_timestamp: u64,
@@ -216,9 +285,10 @@ fn check_timestamp_time_lock(
 
 /// Checks all the time locks are unlocked.
 ///
-/// `current_time_lock_timestamp` must be: https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
+/// `current_time_lock_timestamp` must be: https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#getting-the-current-time
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#unlock-time
+/// https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html
+/// https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#the-output-must-not-be-locked
 fn check_all_time_locks(
     time_locks: &[Timelock],
     current_chain_height: u64,
@@ -243,8 +313,8 @@ fn check_all_time_locks(
 
 /// Checks the decoys are allowed.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#minimum-decoys
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#equal-number-of-decoys
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#minimum-decoys
+/// &&   https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#equal-number-of-decoys
 fn check_decoy_info(decoy_info: &DecoyInfo, hf: &HardFork) -> Result<(), TransactionError> {
     if hf == &HardFork::V15 {
         // Hard-fork 15 allows both v14 and v16 rules
@@ -276,13 +346,13 @@ fn check_decoy_info(decoy_info: &DecoyInfo, hf: &HardFork) -> Result<(), Transac
     Ok(())
 }
 
-/// Checks the inputs key images for torsion and for duplicates in the transaction.
+/// Checks the inputs key images for torsion and for duplicates in the spent_kis list.
 ///
 /// The `spent_kis` parameter is not meant to be a complete list of key images, just a list of related transactions
 /// key images, for example transactions in a block. The chain will be checked for duplicates later.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#unique-key-image
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#torsion-free-key-image
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#unique-key-image
+/// &&   https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#torsion-free-key-image
 fn check_key_images(
     input: &Input,
     spent_kis: &mut HashSet<[u8; 32]>,
@@ -305,7 +375,7 @@ fn check_key_images(
 
 /// Checks that the input is of type [`Input::ToKey`] aka txin_to_key.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#input-type
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#input-type
 fn check_input_type(input: &Input) -> Result<(), TransactionError> {
     match input {
         Input::ToKey { .. } => Ok(()),
@@ -315,7 +385,7 @@ fn check_input_type(input: &Input) -> Result<(), TransactionError> {
 
 /// Checks that the input has decoys.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#inputs-must-have-decoys
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#no-empty-decoys
 fn check_input_has_decoys(input: &Input) -> Result<(), TransactionError> {
     match input {
         Input::ToKey { key_offsets, .. } => {
@@ -331,7 +401,7 @@ fn check_input_has_decoys(input: &Input) -> Result<(), TransactionError> {
 
 /// Checks that the ring members for the input are unique after hard-fork 6.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#unique-ring-members
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#unique-ring-members
 fn check_ring_members_unique(input: &Input, hf: &HardFork) -> Result<(), TransactionError> {
     if hf >= &HardFork::V6 {
         match input {
@@ -351,7 +421,7 @@ fn check_ring_members_unique(input: &Input, hf: &HardFork) -> Result<(), Transac
 
 /// Checks that from hf 7 the inputs are sorted by key image.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#sorted-inputs
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#sorted-inputs
 fn check_inputs_sorted(inputs: &[Input], hf: &HardFork) -> Result<(), TransactionError> {
     let get_ki = |inp: &Input| match inp {
         Input::ToKey { key_image, .. } => Ok(key_image.compress().to_bytes()),
@@ -373,7 +443,7 @@ fn check_inputs_sorted(inputs: &[Input], hf: &HardFork) -> Result<(), Transactio
 
 /// Checks the youngest output is at least 10 blocks old.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#10-block-lock
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#10-block-lock
 fn check_10_block_lock(
     youngest_used_out_height: u64,
     current_chain_height: u64,
@@ -392,7 +462,7 @@ fn check_10_block_lock(
 
 /// Sums the inputs checking for overflow.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#inputs-and-outputs-must-not-overflow
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#inputs-must-not-overflow
 fn sum_inputs_check_overflow(inputs: &[Input]) -> Result<u64, TransactionError> {
     let mut sum: u64 = 0;
     for inp in inputs {
@@ -409,7 +479,13 @@ fn sum_inputs_check_overflow(inputs: &[Input]) -> Result<u64, TransactionError> 
     Ok(sum)
 }
 
+/// Checks the inputs semantically validity, returning the sum of the inputs.
+///
+/// Semantic rules are rules that don't require blockchain context, the hard-fork does not require blockchain context as:
+/// - The tx-pool will use the current hard-fork
+/// - When syncing the hard-fork is in the block header.
 fn check_inputs_semantics(inputs: &[Input], hf: &HardFork) -> Result<u64, TransactionError> {
+    // https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#no-empty-inputs
     if inputs.is_empty() {
         return Err(TransactionError::NoInputs);
     }
@@ -426,6 +502,14 @@ fn check_inputs_semantics(inputs: &[Input], hf: &HardFork) -> Result<u64, Transa
     sum_inputs_check_overflow(inputs)
 }
 
+/// Checks the inputs contextual validity.
+///
+/// Contextual rules are rules that require blockchain context to check.
+///
+/// This function does not check signatures.
+///
+/// The `spent_kis` parameter is not meant to be a complete list of key images, just a list of related transactions
+/// key images, for example transactions in a block. The chain should be checked for duplicates later.
 fn check_inputs_contextual(
     inputs: &[Input],
     tx_ring_members_info: &TxRingMembersInfo,
@@ -454,9 +538,11 @@ fn check_inputs_contextual(
     Ok(())
 }
 
+//----------------------------------------------------------------------------------------------------------- OVERALL
+
 /// Checks the version is in the allowed range.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#version
+/// https://monero-book.cuprate.org/consensus_rules/transactions.html#version
 fn check_tx_version(
     decoy_info: &Option<DecoyInfo>,
     version: &TxVersion,
@@ -468,7 +554,6 @@ fn check_tx_version(
             return Err(TransactionError::TransactionVersionInvalid);
         }
 
-        // TODO: Doc is wrong here
         let min = min_tx_version(hf);
         if version < &min && decoy_info.not_mixable == 0 {
             return Err(TransactionError::TransactionVersionInvalid);
@@ -483,6 +568,7 @@ fn check_tx_version(
     Ok(())
 }
 
+/// Returns the default maximum tx version for the given hard-fork.
 fn max_tx_version(hf: &HardFork) -> TxVersion {
     if hf <= &HardFork::V3 {
         TxVersion::RingSignatures
@@ -491,6 +577,7 @@ fn max_tx_version(hf: &HardFork) -> TxVersion {
     }
 }
 
+/// Returns the default minimum tx version for the given hard-fork.
 fn min_tx_version(hf: &HardFork) -> TxVersion {
     if hf >= &HardFork::V6 {
         TxVersion::RingCT
@@ -499,16 +586,42 @@ fn min_tx_version(hf: &HardFork) -> TxVersion {
     }
 }
 
+fn transaction_weight_limit(hf: &HardFork) -> usize {
+    penalty_free_zone(hf) / 2 - 600
+}
+
+/// Checks the transaction is semantically valid.
+///
+/// Semantic rules are rules that don't require blockchain context, the hard-fork does not require blockchain context as:
+/// - The tx-pool will use the current hard-fork
+/// - When syncing the hard-fork is in the block header.
+///
+/// To fully verify a transaction this must be accompanied with [`check_transaction_contextual`]
+///
 pub fn check_transaction_semantic(
     tx: &Transaction,
+    tx_blob_size: usize,
+    tx_weight: usize,
     tx_hash: &[u8; 32],
     hf: &HardFork,
     verifier: &mut BatchVerifier<(), dalek_ff_group::EdwardsPoint>,
 ) -> Result<u64, TransactionError> {
+    // https://monero-book.cuprate.org/consensus_rules/transactions.html#transaction-size
+    if tx_blob_size > MAX_TX_BLOB_SIZE
+        || (hf >= &HardFork::V8 && tx_weight > transaction_weight_limit(hf))
+    {
+        Err(TransactionError::TooBig)?;
+    }
+
     let tx_version = TxVersion::from_raw(tx.prefix.version)
         .ok_or(TransactionError::TransactionVersionInvalid)?;
 
-    let outputs_sum = check_outputs_semantics(&tx.prefix.outputs, hf, &tx_version)?;
+    let outputs_sum = check_outputs_semantics(
+        &tx.prefix.outputs,
+        hf,
+        &tx_version,
+        &tx.rct_signatures.rct_type(),
+    )?;
     let inputs_sum = check_inputs_semantics(&tx.prefix.inputs, hf)?;
 
     let fee = match tx_version {
@@ -527,6 +640,12 @@ pub fn check_transaction_semantic(
 
     Ok(fee)
 }
+
+/// Checks the transaction is contextually valid.
+///
+/// To fully verify a transaction this must be accompanied with [`check_transaction_semantic`]
+///
+/// `current_time_lock_timestamp` must be: https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#getting-the-current-time
 
 pub fn check_transaction_contextual(
     tx: &Transaction,
@@ -556,7 +675,7 @@ pub fn check_transaction_contextual(
     )?;
 
     match tx_version {
-        TxVersion::RingSignatures => ring_signatures::verify_inputs_signatures(
+        TxVersion::RingSignatures => ring_signatures::check_input_signatures(
             &tx.prefix.inputs,
             &tx.signatures,
             &tx_ring_members_info.rings,

@@ -8,6 +8,7 @@ use std::{
 };
 
 use futures::FutureExt;
+use monero_serai::ringct::RctType;
 use monero_serai::transaction::Transaction;
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
@@ -50,16 +51,26 @@ impl TransactionVerificationData {
         verifier: Arc<MultiThreadedBatchVerifier>,
     ) -> Result<TransactionVerificationData, ConsensusError> {
         let tx_hash = tx.hash();
+        let tx_blob = tx.serialize();
+
+        // the tx weight is only different from the blobs length for bp(+) txs.
+        let tx_weight = match tx.rct_signatures.rct_type() {
+            RctType::Bulletproofs
+            | RctType::BulletproofsCompactAmount
+            | RctType::Clsag
+            | RctType::BulletproofsPlus => tx.weight(),
+            _ => tx_blob.len(),
+        };
 
         let fee = verifier.queue_statement(|verifier| {
-            check_transaction_semantic(&tx, &tx_hash, hf, verifier)
+            check_transaction_semantic(&tx, tx_blob.len(), tx_weight, &tx_hash, hf, verifier)
                 .map_err(ConsensusError::Transaction)
         })?;
 
         Ok(TransactionVerificationData {
             tx_hash,
-            tx_blob: tx.serialize(),
-            tx_weight: tx.weight(),
+            tx_blob,
+            tx_weight,
             fee,
             rings_member_info: std::sync::Mutex::new(None),
             version: TxVersion::from_raw(tx.prefix.version)
