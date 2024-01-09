@@ -68,7 +68,44 @@ pub struct PrePreparedBlock {
 }
 
 impl PrePreparedBlock {
-    pub fn new<R: RandomX>(
+    pub fn new(block: Block) -> Result<PrePreparedBlock, ConsensusError> {
+        struct DummyRX;
+
+        impl RandomX for DummyRX {
+            type Error = ();
+            fn calculate_hash(&self, _: &[u8]) -> Result<[u8; 32], Self::Error> {
+                panic!("DummyRX cant calculate hash")
+            }
+        }
+
+        let (hf_version, hf_vote) =
+            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
+
+        let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
+            Err(ConsensusError::Block(BlockError::MinerTxError(
+                MinerTxError::InputNotOfTypeGen,
+            )))?
+        };
+
+        Ok(PrePreparedBlock {
+            block_blob: block.serialize(),
+            hf_vote,
+            hf_version,
+
+            block_hash: block.hash(),
+
+            pow_hash: calculate_pow_hash::<DummyRX>(
+                None,
+                &block.serialize_hashable(),
+                *height,
+                &hf_version,
+            )?,
+            miner_tx_weight: block.miner_tx.weight(),
+            block,
+        })
+    }
+
+    pub fn new_rx<R: RandomX>(
         block: PrePreparedBlockExPOW,
         randomx_vm: &R,
     ) -> Result<PrePreparedBlock, ConsensusError> {
@@ -85,7 +122,7 @@ impl PrePreparedBlock {
 
             block_hash: block.block_hash,
             pow_hash: calculate_pow_hash(
-                randomx_vm,
+                Some(randomx_vm),
                 &block.block.serialize_hashable(),
                 *height,
                 &block.hf_version,

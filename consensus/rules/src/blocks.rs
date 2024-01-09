@@ -67,9 +67,11 @@ pub fn randomx_seed_height(height: u64) -> u64 {
 
 /// Calculates the POW hash of this block.
 ///
+/// `randomx_vm` must be [`Some`] after hf 12.
+///
 /// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#pow-function
 pub fn calculate_pow_hash<R: RandomX>(
-    randomx_vm: &R,
+    randomx_vm: Option<&R>,
     buf: &[u8],
     height: u64,
     hf: &HardFork,
@@ -88,6 +90,7 @@ pub fn calculate_pow_hash<R: RandomX>(
         cryptonight_hash_r(buf, height)
     } else {
         randomx_vm
+            .expect("RandomX VM needed from hf 12")
             .calculate_hash(buf)
             .map_err(|_| BlockError::POWInvalid)?
     })

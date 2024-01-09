@@ -61,8 +61,11 @@ impl RandomXSeed {
                 }
             }
 
-            self.seeds.pop_back();
             self.seeds.push_front((height, *hash));
+
+            if self.seeds.len() > RX_SEEDS_CACHED {
+                self.seeds.pop_back();
+            }
         }
     }
 }

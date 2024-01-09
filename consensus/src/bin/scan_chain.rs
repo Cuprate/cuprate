@@ -36,7 +36,8 @@ use monero_consensus::{blocks::randomx_seed_height, HardFork};
 
 mod tx_pool;
 
-const MAX_BLOCKS_IN_RANGE: u64 = 200;
+const MAX_BLOCKS_IN_RANGE: u64 = 1000;
+const BATCHES_IN_REQUEST: u64 = 3;
 const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 1000;
 
 /// Calls for a batch of blocks, returning the response and the time it took.
@@ -100,19 +101,21 @@ where
     D::Future: Send + 'static,
 {
     let mut next_fut = tokio::spawn(call_batch(
-        start_height..(start_height + (MAX_BLOCKS_IN_RANGE * 4)).min(chain_height),
+        start_height..(start_height + (MAX_BLOCKS_IN_RANGE * BATCHES_IN_REQUEST)).min(chain_height),
         database.clone(),
     ));
 
     for next_batch_start in (start_height..chain_height)
-        .step_by((MAX_BLOCKS_IN_RANGE * 4) as usize)
+        .step_by((MAX_BLOCKS_IN_RANGE * BATCHES_IN_REQUEST) as usize)
         .skip(1)
     {
         // Call the next batch while we handle this batch.
         let current_fut = std::mem::replace(
             &mut next_fut,
             tokio::spawn(call_batch(
-                next_batch_start..(next_batch_start + (MAX_BLOCKS_IN_RANGE * 4)).min(chain_height),
+                next_batch_start
+                    ..(next_batch_start + (MAX_BLOCKS_IN_RANGE * BATCHES_IN_REQUEST))
+                        .min(chain_height),
                 database.clone(),
             )),
         );
@@ -123,7 +126,7 @@ where
 
         tracing::info!(
             "Got batch: {:?}, chain height: {}",
-            (next_batch_start - (MAX_BLOCKS_IN_RANGE * 4))..(next_batch_start),
+            (next_batch_start - (MAX_BLOCKS_IN_RANGE * BATCHES_IN_REQUEST))..(next_batch_start),
             chain_height
         );
 
@@ -223,50 +226,62 @@ where
 
     tokio::spawn(async move {
         while let Some(blocks) = incoming_blocks.next().await {
-            let unwrapped_rx_vms = randomx_vms.as_mut().unwrap();
+            if blocks.last().unwrap().header.major_version >= 12 {
+                let unwrapped_rx_vms = randomx_vms.as_mut().unwrap();
 
-            let blocks = rayon_spawn_async(move || {
-                blocks
-                    .into_iter()
-                    .map(move |block| PrePreparedBlockExPOW::new(block).unwrap())
-                    .collect::<Vec<_>>()
-            })
-            .await;
-
-            let seeds_needed = blocks
-                .iter()
-                .map(|block| {
-                    rx_seed_cache.new_block(block.block.number() as u64, &block.block_hash);
-                    randomx_seed_height(block.block.number() as u64)
+                let blocks = rayon_spawn_async(move || {
+                    blocks
+                        .into_iter()
+                        .map(move |block| PrePreparedBlockExPOW::new(block).unwrap())
+                        .collect::<Vec<_>>()
                 })
-                .collect::<HashSet<_>>();
+                .await;
 
-            unwrapped_rx_vms.retain(|seed_height, _| seeds_needed.contains(seed_height));
-
-            for seed_height in seeds_needed {
-                unwrapped_rx_vms.entry(seed_height).or_insert_with(|| {
-                    RandomXVM::new(rx_seed_cache.get_seeds_hash(seed_height)).unwrap()
-                });
-            }
-
-            let arc_rx_vms = Arc::new(randomx_vms.take().unwrap());
-            let cloned_arc_rx_vms = arc_rx_vms.clone();
-            let blocks = rayon_spawn_async(move || {
-                blocks
-                    .into_iter()
-                    .map(move |block| {
-                        let rx_vm = arc_rx_vms
-                            .get(&randomx_seed_height(block.block.number() as u64))
-                            .unwrap();
-                        PrePreparedBlock::new(block, rx_vm).unwrap()
+                let seeds_needed = blocks
+                    .iter()
+                    .map(|block| {
+                        rx_seed_cache.new_block(block.block.number() as u64, &block.block_hash);
+                        randomx_seed_height(block.block.number() as u64)
                     })
-                    .collect::<Vec<_>>()
-            })
-            .await;
+                    .collect::<HashSet<_>>();
 
-            randomx_vms = Some(Arc::into_inner(cloned_arc_rx_vms).unwrap());
+                unwrapped_rx_vms.retain(|seed_height, _| seeds_needed.contains(seed_height));
 
-            prepped_blocks_tx.send(blocks).await.unwrap();
+                for seed_height in seeds_needed {
+                    unwrapped_rx_vms.entry(seed_height).or_insert_with(|| {
+                        RandomXVM::new(rx_seed_cache.get_seeds_hash(seed_height)).unwrap()
+                    });
+                }
+
+                let arc_rx_vms = Arc::new(randomx_vms.take().unwrap());
+                let cloned_arc_rx_vms = arc_rx_vms.clone();
+                let blocks = rayon_spawn_async(move || {
+                    blocks
+                        .into_iter()
+                        .map(move |block| {
+                            let rx_vm = arc_rx_vms
+                                .get(&randomx_seed_height(block.block.number() as u64))
+                                .unwrap();
+                            PrePreparedBlock::new_rx(block, rx_vm).unwrap()
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .await;
+
+                randomx_vms = Some(Arc::into_inner(cloned_arc_rx_vms).unwrap());
+
+                prepped_blocks_tx.send(blocks).await.unwrap();
+            } else {
+                let blocks = rayon_spawn_async(move || {
+                    blocks
+                        .into_iter()
+                        .map(move |block| PrePreparedBlock::new(block).unwrap())
+                        .collect::<Vec<_>>()
+                })
+                .await;
+
+                prepped_blocks_tx.send(blocks).await.unwrap();
+            }
         }
     });
 

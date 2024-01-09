@@ -1,10 +1,12 @@
 extern crate cc;
 
+use std::env;
+
 use cc::Build;
 
 fn main() {
-    Build::new()
-        .include("c")
+    let mut cfg = Build::new();
+    cfg.include("c")
         .file("c/aesb.c")
         .file("c/blake256.c")
         .file("c/groestl.c")
@@ -20,8 +22,13 @@ fn main() {
         .file("c/slow-hash.c")
         .file("c/CryptonightR_JIT.c")
         .file("c/CryptonightR_template.S")
-        .flag("-maes")
         .flag("-O3")
-        .flag("-fexceptions")
-        .compile("cryptonight")
+        .flag("-fexceptions");
+
+    let target = env::var("TARGET").unwrap();
+    if target.contains("x86_64") {
+        cfg.flag("-maes").flag("-msse2");
+    }
+
+    cfg.compile("cryptonight")
 }

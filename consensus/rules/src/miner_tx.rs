@@ -129,10 +129,20 @@ fn check_time_lock(time_lock: &Timelock, chain_height: u64) -> Result<(), MinerT
 /// Sums the outputs checking for overflow.
 ///
 /// ref: https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#output-amounts
-fn sum_outputs(outputs: &[Output], hf: &HardFork) -> Result<u64, MinerTxError> {
+/// &&   https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#zero-amount-v1-output
+fn sum_outputs(
+    outputs: &[Output],
+    hf: &HardFork,
+    tx_version: &TxVersion,
+) -> Result<u64, MinerTxError> {
     let mut sum: u64 = 0;
     for out in outputs {
         let amt = out.amount.unwrap_or(0);
+
+        if tx_version == &TxVersion::RingSignatures && amt == 0 {
+            return Err(MinerTxError::OutputAmountIncorrect);
+        }
+
         if hf == &HardFork::V3 && !is_decomposed_amount(&amt) {
             return Err(MinerTxError::OutputNotDecomposed);
         }
@@ -193,7 +203,7 @@ pub fn check_miner_tx(
     check_output_types(&tx.prefix.outputs, hf).map_err(|_| MinerTxError::InvalidOutputType)?;
 
     let reward = calculate_block_reward(block_weight, median_bw, already_generated_coins, hf);
-    let total_outs = sum_outputs(&tx.prefix.outputs, hf)?;
+    let total_outs = sum_outputs(&tx.prefix.outputs, hf, &tx_version)?;
 
     check_total_output_amt(total_outs, reward, total_fees, hf)
 }
