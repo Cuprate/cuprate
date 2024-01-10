@@ -21,13 +21,14 @@ fn main() {
         .file("c/skein.c")
         .file("c/slow-hash.c")
         .file("c/CryptonightR_JIT.c")
-        .file("c/CryptonightR_template.S")
         .flag("-O3")
         .flag("-fexceptions");
 
     let target = env::var("TARGET").unwrap();
     if target.contains("x86_64") {
-        cfg.flag("-maes").flag("-msse2");
+        cfg.file("c/CryptonightR_template.S")
+            .flag("-maes")
+            .flag("-msse2");
     }
 
     cfg.compile("cryptonight")

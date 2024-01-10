@@ -36,7 +36,7 @@ use monero_consensus::{blocks::randomx_seed_height, HardFork};
 
 mod tx_pool;
 
-const MAX_BLOCKS_IN_RANGE: u64 = 1000;
+const MAX_BLOCKS_IN_RANGE: u64 = 500;
 const BATCHES_IN_REQUEST: u64 = 3;
 const MAX_BLOCKS_HEADERS_IN_RANGE: u64 = 1000;
 
@@ -226,7 +226,8 @@ where
 
     tokio::spawn(async move {
         while let Some(blocks) = incoming_blocks.next().await {
-            if blocks.last().unwrap().header.major_version >= 12 {
+            // RX technically starts at hf 12 but we do 11 so the seed hash is in the cache.
+            if blocks.last().unwrap().header.major_version >= 11 {
                 let unwrapped_rx_vms = randomx_vms.as_mut().unwrap();
 
                 let blocks = rayon_spawn_async(move || {
