@@ -221,13 +221,29 @@ where
         panic!("ctx svc sent wrong response!");
     };
     let mut rx_seed_cache = ctx.unchecked_blockchain_context().rx_seed_cache.clone();
+    let mut rx_seed_cache_initiated = false;
 
     let mut randomx_vms: Option<HashMap<u64, RandomXVM>> = Some(HashMap::new());
 
+    let mut cloned_ctx_svc = ctx_svc.clone();
     tokio::spawn(async move {
         while let Some(blocks) = incoming_blocks.next().await {
-            // RX technically starts at hf 12 but we do 11 so the seed hash is in the cache.
-            if blocks.last().unwrap().header.major_version >= 11 {
+            if blocks.last().unwrap().header.major_version >= 12 {
+                if !rx_seed_cache_initiated {
+                    let BlockChainContextResponse::Context(ctx) = cloned_ctx_svc
+                        .ready()
+                        .await
+                        .unwrap()
+                        .call(BlockChainContextRequest::Get)
+                        .await
+                        .unwrap()
+                    else {
+                        panic!("ctx svc sent wrong response!");
+                    };
+                    rx_seed_cache = ctx.unchecked_blockchain_context().rx_seed_cache.clone();
+                    rx_seed_cache_initiated = true;
+                }
+
                 let unwrapped_rx_vms = randomx_vms.as_mut().unwrap();
 
                 let blocks = rayon_spawn_async(move || {
