@@ -80,6 +80,7 @@ pub struct ChainRequest {
 }
 
 /// A Chain Response
+// TODO: Fix the fields on this: m_block_ids, m_block_weights
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChainResponse {
     /// Start Height
@@ -87,36 +88,41 @@ pub struct ChainResponse {
     /// Total Height
     pub total_height: u64,
     /// Cumulative Difficulty Low
-    pub cumulative_difficulty_low: u64,
+    pub cumulative_difficulty: u64,
     /// Cumulative Difficulty High
-    pub cumulative_difficulty_high: u64,
+    #[serde(default = "default_zero")]
+    pub cumulative_difficulty_top64: u64,
     /// Block IDs
-    pub m_block_ids: Vec<[u8; 32]>,
+    #[serde(default = "ByteBuf::new")]
+    pub m_block_ids: ByteBuf,
     /// Block Weights
-    pub m_block_weights: Vec<u64>,
+    #[serde(default = "ByteBuf::new")]
+    pub m_block_weights: ByteBuf,
     /// The first Block in the response
-    pub first_block: Vec<u8>,
+    #[serde(default = "ByteBuf::new")]
+    pub first_block: ByteBuf,
 }
 
 impl ChainResponse {
+    /*
     pub fn new(
         start_height: u64,
         total_height: u64,
         cumulative_difficulty_128: u128,
-        m_block_ids: Vec<[u8; 32]>,
+        m_block_ids: ByteBuf,
         m_block_weights: Vec<u64>,
-        first_block: Vec<u8>,
+        first_block: ByteBuf,
     ) -> Self {
         let cumulative_difficulty_low = cumulative_difficulty_128 as u64;
         let cumulative_difficulty_high = (cumulative_difficulty_128 >> 64) as u64;
         Self {
-            start_height,
-            total_height,
-            cumulative_difficulty_low,
-            cumulative_difficulty_high,
+            //  start_height,
+            // total_height,
+            // cumulative_difficulty_low,
+            // cumulative_difficulty_high,
             m_block_ids,
-            m_block_weights,
-            first_block,
+            //     m_block_weights,
+            // first_block,
         }
     }
     pub fn cumulative_difficulty(&self) -> u128 {
@@ -124,6 +130,9 @@ impl ChainResponse {
         ret <<= 64;
         ret | self.cumulative_difficulty_low as u128
     }
+
+
+     */
 }
 
 /// A Block that doesn't have transactions unless requested
