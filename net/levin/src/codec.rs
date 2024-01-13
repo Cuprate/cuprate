@@ -15,7 +15,6 @@
 
 //! A tokio-codec for levin buckets
 
-use std::io::ErrorKind;
 use std::marker::PhantomData;
 
 use bytes::{Buf, BufMut, BytesMut};

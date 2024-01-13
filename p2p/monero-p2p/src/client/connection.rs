@@ -97,11 +97,18 @@ where
                 request_id: req.request.id(),
                 tx: req.response_channel,
             };
+            self.send_message_to_peer(req.request.into()).await?;
         } else {
-            // TODO: we should send this after sending the message to the peer.
-            req.response_channel.send(Ok(PeerResponse::NA));
+            let res = self.send_message_to_peer(req.request.into()).await;
+            if let Err(e) = res {
+                let err_str = e.to_string();
+                let _ = req.response_channel.send(Err(err_str.clone().into()));
+                Err(e)?
+            } else {
+                req.response_channel.send(Ok(PeerResponse::NA));
+            }
         }
-        self.send_message_to_peer(req.request.into()).await
+        Ok(())
     }
 
     async fn handle_peer_request(&mut self, req: PeerRequest) -> Result<(), PeerError> {
