@@ -64,7 +64,7 @@ pub enum BucketError {
     #[error("Levin header had incorrect signature")]
     InvalidHeaderSignature,
     /// Error decoding the body
-    #[error("Error decoding bucket body")]
+    #[error("Error decoding bucket body: {0}")]
     BodyDecodingError(Box<dyn std::error::Error + Send + Sync>),
     /// Unknown command ID
     #[error("Unknown command ID")]
