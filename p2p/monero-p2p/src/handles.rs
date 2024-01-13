@@ -11,6 +11,10 @@ pub struct HandleBuilder {
 }
 
 impl HandleBuilder {
+    pub fn new() -> Self {
+        Self { permit: None }
+    }
+
     pub fn with_permit(mut self, permit: OwnedSemaphorePermit) -> Self {
         self.permit = Some(permit);
         self

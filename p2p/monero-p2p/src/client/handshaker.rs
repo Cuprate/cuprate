@@ -2,10 +2,12 @@ use std::{
     future::Future,
     marker::PhantomData,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
 use futures::{FutureExt, SinkExt, StreamExt};
+use tokio::sync::{broadcast, mpsc, OwnedSemaphorePermit};
 use tower::{Service, ServiceExt};
 use tracing::Instrument;
 
@@ -20,9 +22,11 @@ use monero_wire::{
 };
 
 use crate::{
+    client::{connection::Connection, Client, InternalPeerID},
+    handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, ConnectionDirection, CoreSyncDataRequest,
-    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerRequestHandler,
-    MAX_PEERS_IN_PEER_LIST_MESSAGE,
+    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerBroadcast, PeerRequestHandler,
+    SharedError, MAX_PEERS_IN_PEER_LIST_MESSAGE,
 };
 
 const MAX_EAGER_PROTOCOL_MESSAGES: usize = 2;
@@ -46,10 +50,11 @@ pub enum HandshakeError {
 }
 
 pub struct DoHandshakeRequest<Z: NetworkZone> {
-    pub addr: Z::Addr,
+    pub addr: InternalPeerID<Z::Addr>,
     pub peer_stream: Z::Stream,
     pub peer_sink: Z::Sink,
     pub direction: ConnectionDirection,
+    pub permit: OwnedSemaphorePermit,
 }
 
 #[derive(Debug, Clone)]
@@ -60,6 +65,8 @@ pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
 
     our_basic_node_data: BasicNodeData,
 
+    broadcast_tx: broadcast::Sender<Arc<PeerBroadcast>>,
+
     _zone: PhantomData<Z>,
 }
 
@@ -69,12 +76,15 @@ impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqH
         core_sync_svc: CSync,
         peer_request_svc: ReqHdlr,
 
+        broadcast_tx: broadcast::Sender<Arc<PeerBroadcast>>,
+
         our_basic_node_data: BasicNodeData,
     ) -> Self {
         Self {
             address_book,
             core_sync_svc,
             peer_request_svc,
+            broadcast_tx,
             our_basic_node_data,
             _zone: PhantomData,
         }
@@ -88,7 +98,7 @@ where
     CSync: CoreSyncSvc + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
 {
-    type Response = ();
+    type Response = Client<Z>;
     type Error = HandshakeError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -103,7 +113,10 @@ where
             peer_stream,
             peer_sink,
             direction,
+            permit,
         } = req;
+
+        let broadcast_rx = self.broadcast_tx.subscribe();
 
         let address_book = self.address_book.clone();
         let peer_request_svc = self.peer_request_svc.clone();
@@ -119,6 +132,8 @@ where
                 peer_stream,
                 peer_sink,
                 direction,
+                permit,
+                broadcast_rx,
                 address_book,
                 core_sync_svc,
                 peer_request_svc,
@@ -133,15 +148,19 @@ where
 
 #[allow(clippy::too_many_arguments)]
 async fn handshake<Z: NetworkZone, AdrBook, CSync, ReqHdlr>(
-    addr: Z::Addr,
+    addr: InternalPeerID<Z::Addr>,
     mut peer_stream: Z::Stream,
     mut peer_sink: Z::Sink,
     direction: ConnectionDirection,
+
+    permit: OwnedSemaphorePermit,
+    broadcast_rx: broadcast::Receiver<Arc<PeerBroadcast>>,
+
     mut address_book: AdrBook,
     mut core_sync_svc: CSync,
     peer_request_svc: ReqHdlr,
     our_basic_node_data: BasicNodeData,
-) -> Result<(), HandshakeError>
+) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z>,
     CSync: CoreSyncSvc,
@@ -277,7 +296,27 @@ where
 
     tracing::debug!("Handshake complete.");
 
-    Ok(())
+    let error_slot = SharedError::new();
+
+    let (connection_guard, handle, _) = HandleBuilder::new().with_permit(permit).build();
+
+    let (connection_tx, client_rx) = mpsc::channel(3);
+
+    let connection = Connection::<Z, _>::new(
+        peer_sink,
+        client_rx,
+        broadcast_rx,
+        peer_request_svc,
+        connection_guard,
+        error_slot.clone(),
+    );
+
+    let connection_handle =
+        tokio::spawn(connection.run(peer_stream.fuse(), eager_protocol_messages));
+
+    let client = Client::<Z>::new(addr, handle, connection_tx, connection_handle, error_slot);
+
+    Ok(client)
 }
 
 /// Sends a [`HandshakeRequest`] to the peer.

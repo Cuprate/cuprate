@@ -5,6 +5,7 @@ use monero_wire::{Message, ProtocolMessage, RequestMessage, ResponseMessage};
 
 use super::{PeerRequest, PeerResponse};
 
+#[derive(Debug)]
 pub struct MessageConversionError;
 
 macro_rules! match_body {

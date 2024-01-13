@@ -55,6 +55,13 @@ pub enum MessageID {
     NewTransactions,
 }
 
+/// This is a sub-set of [`PeerRequest`] for requests that should be sent to all nodes.
+pub enum PeerBroadcast {
+    Transactions(NewTransactions),
+    NewBlock(NewBlock),
+    NewFluffyBlock(NewFluffyBlock),
+}
+
 pub enum PeerRequest {
     Handshake(HandshakeRequest),
     TimedSync(TimedSyncRequest),
