@@ -16,10 +16,9 @@
 //! Common types that are used across multiple messages.
 
 use serde::{Deserialize, Serialize};
-use serde_bytes::ByteBuf;
 
 use crate::{
-    serde_helpers::{default_false, default_zero},
+    serde_helpers::{default_false, default_zero, serde_vec_bytes},
     NetworkAddress,
 };
 
@@ -159,7 +158,8 @@ impl std::hash::Hash for PeerListEntryBase {
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct PrunedTxBlobEntry {
     /// The Tx
-    pub tx: ByteBuf,
+    #[serde(with = "serde_bytes")]
+    pub tx: Vec<u8>,
     /// The Prunable Tx Hash
     pub prunable_hash: [u8; 32],
 }
@@ -168,12 +168,29 @@ pub struct PrunedTxBlobEntry {
 #[serde(untagged)]
 pub enum TransactionBlobs {
     Pruned(Vec<PrunedTxBlobEntry>),
-    Normal(Vec<ByteBuf>),
+    #[serde(with = "serde_vec_bytes")]
+    Normal(Vec<Vec<u8>>),
     #[serde(skip_serializing)]
     None,
 }
 
 impl TransactionBlobs {
+    pub fn take_pruned(self) -> Option<Vec<PrunedTxBlobEntry>> {
+        match self {
+            TransactionBlobs::Normal(_) => None,
+            TransactionBlobs::Pruned(txs) => Some(txs),
+            TransactionBlobs::None => Some(vec![]),
+        }
+    }
+
+    pub fn take_normal(self) -> Option<Vec<Vec<u8>>> {
+        match self {
+            TransactionBlobs::Normal(txs) => Some(txs),
+            TransactionBlobs::Pruned(_) => None,
+            TransactionBlobs::None => Some(vec![]),
+        }
+    }
+
     pub fn len(&self) -> usize {
         match self {
             TransactionBlobs::Normal(txs) => txs.len(),
@@ -198,7 +215,6 @@ pub struct BlockCompleteEntry {
     #[serde(default = "default_false")]
     pub pruned: bool,
     /// The Block
-    //#[serde_as(as = "Bytes")]
     #[serde(with = "serde_bytes")]
     pub block: Vec<u8>,
     /// The Block Weight/Size

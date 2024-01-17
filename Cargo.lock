@@ -463,7 +463,7 @@ dependencies = [
  "futures",
  "hex",
  "monero-consensus",
- "monero-epee-bin-serde",
+ "monero-epee-bin-serde 1.0.1 (git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=e4a585a)",
  "monero-serai",
  "monero-wire",
  "multiexp",
@@ -1166,6 +1166,16 @@ dependencies = [
 [[package]]
 name = "monero-epee-bin-serde"
 version = "1.0.1"
+source = "git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=aafe4ba#aafe4ba1b9912b03cf616db7403628fc2bd82eb1"
+dependencies = [
+ "byteorder",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
+name = "monero-epee-bin-serde"
+version = "1.0.1"
 source = "git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=e4a585a#e4a585a9deda5f888ebca766d5e61a2bb987147c"
 dependencies = [
  "byteorder",
@@ -1245,7 +1255,7 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "levin-cuprate",
- "monero-epee-bin-serde",
+ "monero-epee-bin-serde 1.0.1 (git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=aafe4ba)",
  "serde",
  "serde_bytes",
  "thiserror",

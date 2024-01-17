@@ -21,6 +21,8 @@
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
 
+use monero_epee_bin_serde::container_as_blob;
+
 use super::common::BlockCompleteEntry;
 use crate::serde_helpers::*;
 
@@ -43,13 +45,17 @@ pub struct NewTransactions {
     pub dandelionpp_fluff: bool,
     /// Padding
     #[serde(rename = "_")]
-    pub padding: ByteBuf,
+    #[serde(with = "serde_bytes")]
+    pub padding: Vec<u8>,
 }
 
 /// A Request For Blocks
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GetObjectsRequest {
     /// Block hashes we want
+    #[serde(default = "Vec::new")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(with = "container_as_blob")]
     pub blocks: Vec<[u8; 32]>,
     /// Pruned
     #[serde(default = "default_false")]
@@ -64,6 +70,8 @@ pub struct GetObjectsResponse {
     pub blocks: Vec<BlockCompleteEntry>,
     /// Missed IDs
     #[serde(default = "Vec::new")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(with = "container_as_blob")]
     pub missed_ids: Vec<[u8; 32]>,
     /// The height of the peers blockchain
     pub current_blockchain_height: u64,
@@ -73,6 +81,9 @@ pub struct GetObjectsResponse {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChainRequest {
     /// Block IDs
+    #[serde(default = "Vec::new")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(with = "container_as_blob")]
     pub block_ids: Vec<[u8; 32]>,
     /// Prune
     #[serde(default = "default_false")]
@@ -80,7 +91,6 @@ pub struct ChainRequest {
 }
 
 /// A Chain Response
-// TODO: Fix the fields on this: m_block_ids, m_block_weights
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChainResponse {
     /// Start Height
@@ -93,46 +103,19 @@ pub struct ChainResponse {
     #[serde(default = "default_zero")]
     pub cumulative_difficulty_top64: u64,
     /// Block IDs
-    #[serde(default = "ByteBuf::new")]
-    pub m_block_ids: ByteBuf,
+    #[serde(default = "Vec::new")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(with = "container_as_blob")]
+    pub m_block_ids: Vec<[u8; 32]>,
     /// Block Weights
-    #[serde(default = "ByteBuf::new")]
-    pub m_block_weights: ByteBuf,
+    #[serde(default = "Vec::new")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(with = "container_as_blob")]
+    pub m_block_weights: Vec<u64>,
     /// The first Block in the response
-    #[serde(default = "ByteBuf::new")]
-    pub first_block: ByteBuf,
-}
-
-impl ChainResponse {
-    /*
-    pub fn new(
-        start_height: u64,
-        total_height: u64,
-        cumulative_difficulty_128: u128,
-        m_block_ids: ByteBuf,
-        m_block_weights: Vec<u64>,
-        first_block: ByteBuf,
-    ) -> Self {
-        let cumulative_difficulty_low = cumulative_difficulty_128 as u64;
-        let cumulative_difficulty_high = (cumulative_difficulty_128 >> 64) as u64;
-        Self {
-            //  start_height,
-            // total_height,
-            // cumulative_difficulty_low,
-            // cumulative_difficulty_high,
-            m_block_ids,
-            //     m_block_weights,
-            // first_block,
-        }
-    }
-    pub fn cumulative_difficulty(&self) -> u128 {
-        let mut ret: u128 = self.cumulative_difficulty_high as u128;
-        ret <<= 64;
-        ret | self.cumulative_difficulty_low as u128
-    }
-
-
-     */
+    #[serde(default = "Vec::new")]
+    #[serde(with = "serde_bytes")]
+    pub first_block: Vec<u8>,
 }
 
 /// A Block that doesn't have transactions unless requested
@@ -152,6 +135,9 @@ pub struct FluffyMissingTransactionsRequest {
     /// The current blockchain height
     pub current_blockchain_height: u64,
     /// The Tx Indices
+    #[serde(default = "Vec::new")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(with = "container_as_blob")]
     pub missing_tx_indices: Vec<u64>,
 }
 
@@ -160,6 +146,8 @@ pub struct FluffyMissingTransactionsRequest {
 pub struct GetTxPoolCompliment {
     /// Tx Hashes
     #[serde(default = "Vec::new")]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(with = "container_as_blob")]
     pub hashes: Vec<[u8; 32]>,
 }
 
