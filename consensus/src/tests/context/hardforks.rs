@@ -4,7 +4,7 @@ use monero_consensus::HFsInfo;
 use crate::{
     context::{hardforks::HardForkState, HardForkConfig},
     tests::{
-        context::data::hfs::{HFS_2678808_2688888, HFS_2688888_2689608},
+        context::data::{HFS_2678808_2688888, HFS_2688888_2689608},
         mock_db::*,
     },
 };

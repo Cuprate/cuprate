@@ -136,7 +136,7 @@ impl Service<DatabaseRequest> for DummyDatabase {
 
     fn call(&mut self, req: DatabaseRequest) -> Self::Future {
         let blocks = self.blocks.clone();
-        let dummy_height = self.dummy_height.clone();
+        let dummy_height = self.dummy_height;
 
         async move {
             Ok(match req {
