@@ -7,9 +7,6 @@ use crate::{
     helper::median, Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork,
 };
 
-#[cfg(test)]
-pub(super) mod tests;
-
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
 /// The proportion of blocks we remove from the [`DIFFICULTY_WINDOW`]. When the window
@@ -24,9 +21,9 @@ const DIFFICULTY_LAG: usize = 15;
 ///
 #[derive(Debug, Clone)]
 pub struct DifficultyCacheConfig {
-    window: usize,
-    cut: usize,
-    lag: usize,
+    pub(crate) window: usize,
+    pub(crate) cut: usize,
+    pub(crate) lag: usize,
 }
 
 impl DifficultyCacheConfig {
@@ -56,16 +53,16 @@ impl DifficultyCacheConfig {
 /// This struct is able to calculate difficulties from blockchain information.
 ///
 #[derive(Debug, Clone)]
-pub struct DifficultyCache {
+pub(crate) struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
-    timestamps: VecDeque<u64>,
+    pub(crate) timestamps: VecDeque<u64>,
     /// The current cumulative difficulty of the chain.
-    cumulative_difficulties: VecDeque<u128>,
+    pub(crate) cumulative_difficulties: VecDeque<u128>,
     /// The last height we accounted for.
-    last_accounted_height: u64,
+    pub(crate) last_accounted_height: u64,
     /// The config
-    config: DifficultyCacheConfig,
+    pub(crate) config: DifficultyCacheConfig,
 }
 
 impl DifficultyCache {

@@ -15,7 +15,7 @@ pub mod randomx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
 #[cfg(test)]
-mod test_utils;
+mod tests;
 pub mod transactions;
 
 pub use block::{

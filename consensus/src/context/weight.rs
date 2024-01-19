@@ -23,9 +23,6 @@ use crate::{
     Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork,
 };
 
-#[cfg(test)]
-pub(super) mod tests;
-
 const SHORT_TERM_WINDOW: u64 = 100;
 const LONG_TERM_WINDOW: u64 = 100000;
 

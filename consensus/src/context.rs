@@ -24,13 +24,11 @@ use monero_consensus::{blocks::ContextToVerifyBlock, current_unix_timestamp, Har
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 
-mod difficulty;
-mod hardforks;
-mod weight;
+pub(crate) mod difficulty;
+pub(crate) mod hardforks;
+pub(crate) mod rx_seed;
+pub(crate) mod weight;
 
-mod rx_seed;
-#[cfg(test)]
-mod tests;
 mod tokens;
 
 pub use difficulty::DifficultyCacheConfig;

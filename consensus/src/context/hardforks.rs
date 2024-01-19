@@ -7,9 +7,6 @@ use monero_consensus::{HFVotes, HFsInfo, HardFork};
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 
-#[cfg(test)]
-pub(super) mod tests;
-
 // https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
 const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a week
 
@@ -18,9 +15,9 @@ const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a
 #[derive(Debug, Clone)]
 pub struct HardForkConfig {
     /// The network we are on.
-    info: HFsInfo,
+    pub(crate) info: HFsInfo,
     /// The amount of votes we are taking into account to decide on a fork activation.
-    window: u64,
+    pub(crate) window: u64,
 }
 
 impl HardForkConfig {
@@ -49,12 +46,12 @@ impl HardForkConfig {
 /// A struct that keeps track of the current hard-fork and current votes.
 #[derive(Debug, Clone)]
 pub struct HardForkState {
-    current_hardfork: HardFork,
+    pub(crate) current_hardfork: HardFork,
 
-    config: HardForkConfig,
-    votes: HFVotes,
+    pub(crate) config: HardForkConfig,
+    pub(crate) votes: HFVotes,
 
-    last_height: u64,
+    pub(crate) last_height: u64,
 }
 
 impl HardForkState {

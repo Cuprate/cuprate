@@ -1,8 +1,13 @@
 use monero_consensus::hard_forks::{HFInfo, HardFork, NUMB_OF_HARD_FORKS};
 use monero_consensus::HFsInfo;
 
-use super::{HardForkConfig, HardForkState};
-use crate::test_utils::mock_db::*;
+use crate::{
+    context::{hardforks::HardForkState, HardForkConfig},
+    tests::{
+        context::data::hfs::{HFS_2678808_2688888, HFS_2688888_2689608},
+        mock_db::*,
+    },
+};
 
 const TEST_WINDOW_SIZE: u64 = 25;
 
@@ -46,10 +51,35 @@ async fn hard_fork_set_depends_on_top_block() {
     let state = HardForkState::init_from_chain_height(
         TEST_WINDOW_SIZE + 1,
         TEST_HARD_FORK_CONFIG,
-        db_builder.finish(),
+        db_builder.finish(None),
     )
     .await
     .unwrap();
 
     assert_eq!(state.current_hardfork, HardFork::V14);
+}
+
+#[tokio::test]
+async fn hf_v15_v16_correct() {
+    let mut db_builder = DummyDatabaseBuilder::default();
+
+    for (version, vote) in HFS_2678808_2688888 {
+        db_builder
+            .add_block(DummyBlockExtendedHeader::default().with_hard_fork_info(version, vote));
+    }
+
+    let mut state = HardForkState::init_from_chain_height(
+        2688888,
+        HardForkConfig::main_net(),
+        db_builder.finish(Some(2688888)),
+    )
+    .await
+    .unwrap();
+
+    for (i, (_, vote)) in HFS_2688888_2689608.into_iter().enumerate() {
+        assert_eq!(state.current_hardfork, HardFork::V15);
+        state.new_block(vote, (2688888 + i) as u64);
+    }
+
+    assert_eq!(state.current_hardfork, HardFork::V16);
 }
