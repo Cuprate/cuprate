@@ -3,8 +3,10 @@
 //! `#[no_std]` compatible.
 
 //---------------------------------------------------------------------------------------------------- Use
-use core::cmp::Ordering;
-use core::ops::{Add, Div, Mul, Sub};
+use core::{
+    cmp::Ordering,
+    ops::{Add, Div, Mul, Sub},
+};
 
 //---------------------------------------------------------------------------------------------------- Types
 // INVARIANT: must be private.

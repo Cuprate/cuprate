@@ -38,8 +38,6 @@
 pub mod asynch; // async collides
 #[cfg(feature = "atomic")]
 pub mod atomic;
-#[cfg(feature = "crypto")]
-pub mod crypto;
 #[cfg(feature = "num")]
 pub mod num;
 #[cfg(feature = "thread")]

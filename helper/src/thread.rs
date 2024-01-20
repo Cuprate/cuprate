@@ -3,9 +3,7 @@
 //! Requires `std`.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::cmp::max;
-use std::num::NonZeroUsize;
-use std::sync::OnceLock;
+use std::{cmp::max, num::NonZeroUsize};
 
 //---------------------------------------------------------------------------------------------------- Constants
 // FIXME: switch to `.unwrap()` when const stablized
@@ -74,7 +72,7 @@ impl_thread_percent! {
 ///
 /// On macOS and *BSD: +20
 /// On Linux: +19
-fn low_priority_thread() {
+pub fn low_priority_thread() {
     #[cfg(target_os = "windows")]
     {
         use target_os_lib as windows;

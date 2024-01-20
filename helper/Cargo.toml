@@ -5,21 +5,18 @@ edition = "2021"
 
 [features]
 # All features on by default.
-default = ["std", "atomic", "asynch", "crypto", "num", "time", "thread"]
+default = ["std", "atomic", "asynch", "num", "time", "thread"]
 std     = []
 atomic  = []
-asynch  = ["dep:futures"]
-crypto  = ["dep:curve25519-dalek"]
+asynch  = ["dep:futures", "dep:rayon"]
 num     = []
 time    = ["dep:chrono", "std"]
 thread  = ["std", "dep:target_os_lib"]
 
 [dependencies]
 chrono           = { workspace = true, optional = true }
-curve25519-dalek = { workspace = true, optional = true }
 futures          = { workspace = true, optional = true }
-serde            = { workspace = true, optional = true }
-bincode          = { workspace = true, optional = true }
+rayon            = { workspace = true, optional = true }
 
 # This is kinda a stupid work around.
 # [thread] needs to activate one of these libs (windows|libc)
