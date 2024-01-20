@@ -3,7 +3,7 @@
 //! Requires `std`.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::time::{SystemTime, SystemTimeError, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 //---------------------------------------------------------------------------------------------------- Public API
 #[inline]
@@ -11,31 +11,16 @@ use std::time::{SystemTime, SystemTimeError, UNIX_EPOCH};
 ///
 /// ```rust
 /// # use helper::time::*;
-/// assert!(current_time() > 0);
+/// assert!(current_unix_timestamp() > 0);
 /// ```
 ///
 /// # Panics
 /// This function panics if the call to get the system time fails.
-pub fn current_time() -> u64 {
+pub fn current_unix_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs()
-}
-
-#[inline]
-/// Returns the current system time as a UNIX timestamp in a [`Result`].
-///
-/// This function returns [`Err`] if the call to get the system time fails.
-///
-/// ```rust
-/// # use helper::time::*;
-/// assert!(current_time_try().unwrap() > 0);
-/// ```
-pub fn current_time_try() -> Result<u64, SystemTimeError> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
 }
 
 #[inline]
