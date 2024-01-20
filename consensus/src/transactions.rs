@@ -8,37 +8,26 @@ use std::{
 };
 
 use futures::FutureExt;
+use monero_serai::ringct::RctType;
 use monero_serai::transaction::Transaction;
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
+use monero_consensus::{
+    transactions::{
+        check_transaction_contextual, check_transaction_semantic, RingCTError, TransactionError,
+        TxRingMembersInfo,
+    },
+    ConsensusError, HardFork, TxVersion,
+};
+
 use crate::{
-    context::ReOrgToken, helper::rayon_spawn_async, ConsensusError, Database, DatabaseRequest,
-    DatabaseResponse, HardFork,
+    batch_verifier::MultiThreadedBatchVerifier, context::ReOrgToken, helper::rayon_spawn_async,
+    Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError,
 };
 
 mod contextual_data;
-mod inputs;
-pub(crate) mod outputs;
-mod sigs;
-mod time_lock;
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum TxVersion {
-    RingSignatures,
-    RingCT,
-}
-
-impl TxVersion {
-    pub fn from_raw(version: u64) -> Result<TxVersion, ConsensusError> {
-        match version {
-            1 => Ok(TxVersion::RingSignatures),
-            2 => Ok(TxVersion::RingCT),
-            _ => Err(ConsensusError::TransactionVersionInvalid),
-        }
-    }
-}
 
 /// Data needed to verify a transaction.
 ///
@@ -52,18 +41,40 @@ pub struct TransactionVerificationData {
     pub tx_hash: [u8; 32],
     /// We put this behind a mutex as the information is not constant and is based of past outputs idxs
     /// which could change on re-orgs.
-    rings_member_info: std::sync::Mutex<Option<contextual_data::TxRingMembersInfo>>,
+    rings_member_info: std::sync::Mutex<Option<(TxRingMembersInfo, ReOrgToken)>>,
 }
 
 impl TransactionVerificationData {
-    pub fn new(tx: Transaction) -> Result<TransactionVerificationData, ConsensusError> {
+    pub fn new(
+        tx: Transaction,
+        hf: &HardFork,
+        verifier: Arc<MultiThreadedBatchVerifier>,
+    ) -> Result<TransactionVerificationData, ConsensusError> {
+        let tx_hash = tx.hash();
+        let tx_blob = tx.serialize();
+
+        // the tx weight is only different from the blobs length for bp(+) txs.
+        let tx_weight = match tx.rct_signatures.rct_type() {
+            RctType::Bulletproofs
+            | RctType::BulletproofsCompactAmount
+            | RctType::Clsag
+            | RctType::BulletproofsPlus => tx.weight(),
+            _ => tx_blob.len(),
+        };
+
+        let fee = verifier.queue_statement(|verifier| {
+            check_transaction_semantic(&tx, tx_blob.len(), tx_weight, &tx_hash, hf, verifier)
+                .map_err(ConsensusError::Transaction)
+        })?;
+
         Ok(TransactionVerificationData {
-            tx_hash: tx.hash(),
-            tx_blob: tx.serialize(),
-            tx_weight: tx.weight(),
-            fee: tx.rct_signatures.base.fee,
+            tx_hash,
+            tx_blob,
+            tx_weight,
+            fee,
             rings_member_info: std::sync::Mutex::new(None),
-            version: TxVersion::from_raw(tx.prefix.version)?,
+            version: TxVersion::from_raw(tx.prefix.version)
+                .ok_or(TransactionError::TransactionVersionInvalid)?,
             tx,
         })
     }
@@ -78,7 +89,7 @@ pub enum VerifyTxRequest {
         hf: HardFork,
         re_org_token: ReOrgToken,
     },
-    /// Batches the setup of [`TransactionVerificationData`], does *minimal* verification, you need to call [`VerifyTxRequest::Block`]
+    /// Batches the setup of [`TransactionVerificationData`], does *some* verification, you need to call [`VerifyTxRequest::Block`]
     /// with the returned data.
     BatchSetup {
         txs: Vec<Transaction>,
@@ -113,7 +124,7 @@ where
     D::Future: Send + 'static,
 {
     type Response = VerifyTxResponse;
-    type Error = ConsensusError;
+    type Error = ExtendedConsensusError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
@@ -154,17 +165,32 @@ async fn batch_setup_transactions<D>(
     txs: Vec<Transaction>,
     hf: HardFork,
     re_org_token: ReOrgToken,
-) -> Result<VerifyTxResponse, ConsensusError>
+) -> Result<VerifyTxResponse, ExtendedConsensusError>
 where
     D: Database + Clone + Sync + Send + 'static,
 {
+    let batch_verifier = Arc::new(MultiThreadedBatchVerifier::new(rayon::current_num_threads()));
+
+    let cloned_verifier = batch_verifier.clone();
     // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
-    let txs = rayon_spawn_async(|| {
+    let txs = rayon_spawn_async(move || {
         txs.into_par_iter()
-            .map(|tx| Ok(Arc::new(TransactionVerificationData::new(tx)?)))
+            .map(|tx| {
+                Ok(Arc::new(TransactionVerificationData::new(
+                    tx,
+                    &hf,
+                    cloned_verifier.clone(),
+                )?))
+            })
             .collect::<Result<Vec<_>, ConsensusError>>()
     })
     .await?;
+
+    if !Arc::into_inner(batch_verifier).unwrap().verify() {
+        Err(ConsensusError::Transaction(TransactionError::RingCTError(
+            RingCTError::BulletproofsRangeInvalid,
+        )))?
+    }
 
     contextual_data::batch_fill_ring_member_info(&txs, &hf, re_org_token, database).await?;
 
@@ -179,7 +205,7 @@ async fn verify_transactions_for_block<D>(
     time_for_time_lock: u64,
     hf: HardFork,
     re_org_token: ReOrgToken,
-) -> Result<VerifyTxResponse, ConsensusError>
+) -> Result<VerifyTxResponse, ExtendedConsensusError>
 where
     D: Database + Clone + Sync + Send + 'static,
 {
@@ -215,9 +241,7 @@ where
     };
 
     if kis_spent {
-        return Err(ConsensusError::TransactionHasInvalidInput(
-            "One or more key image spent!",
-        ));
+        Err(ConsensusError::Transaction(TransactionError::KeyImageSpent))?;
     }
 
     Ok(VerifyTxResponse::Ok)
@@ -235,90 +259,20 @@ fn verify_transaction_for_block(
         hex::encode(tx_verification_data.tx_hash)
     );
 
-    let tx_version = &tx_verification_data.version;
-
     let rings_member_info_lock = tx_verification_data.rings_member_info.lock().unwrap();
     let rings_member_info = match rings_member_info_lock.deref() {
         Some(rings_member_info) => rings_member_info,
         None => panic!("rings_member_info needs to be set to be able to verify!"),
     };
 
-    check_tx_version(&rings_member_info.decoy_info, tx_version, &hf)?;
-
-    time_lock::check_all_time_locks(
-        &rings_member_info.time_locked_outs,
+    check_transaction_contextual(
+        &tx_verification_data.tx,
+        &rings_member_info.0,
         current_chain_height,
         time_for_time_lock,
         &hf,
-    )?;
-
-    let sum_outputs =
-        outputs::check_outputs(&tx_verification_data.tx.prefix.outputs, &hf, tx_version)?;
-
-    let sum_inputs = inputs::check_inputs(
-        &tx_verification_data.tx.prefix.inputs,
-        rings_member_info,
-        current_chain_height,
-        &hf,
-        tx_version,
         spent_kis,
     )?;
 
-    if tx_version == &TxVersion::RingSignatures {
-        if sum_outputs >= sum_inputs {
-            return Err(ConsensusError::TransactionOutputsTooMuch);
-        }
-        // check that monero-serai is calculating the correct value here, why can't we just use this
-        // value? because we don't have this when we create the object.
-        assert_eq!(tx_verification_data.fee, sum_inputs - sum_outputs);
-    }
-
-    sigs::verify_signatures(&tx_verification_data.tx, &rings_member_info.rings)?;
-
     Ok(())
-}
-
-/// Checks the version is in the allowed range.
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#version
-fn check_tx_version(
-    decoy_info: &Option<contextual_data::DecoyInfo>,
-    version: &TxVersion,
-    hf: &HardFork,
-) -> Result<(), ConsensusError> {
-    if let Some(decoy_info) = decoy_info {
-        let max = max_tx_version(hf);
-        if version > &max {
-            return Err(ConsensusError::TransactionVersionInvalid);
-        }
-
-        // TODO: Doc is wrong here
-        let min = min_tx_version(hf);
-        if version < &min && decoy_info.not_mixable != 0 {
-            return Err(ConsensusError::TransactionVersionInvalid);
-        }
-    } else {
-        // This will only happen for hard-fork 1 when only RingSignatures are allowed.
-        if version != &TxVersion::RingSignatures {
-            return Err(ConsensusError::TransactionVersionInvalid);
-        }
-    }
-
-    Ok(())
-}
-
-fn max_tx_version(hf: &HardFork) -> TxVersion {
-    if hf <= &HardFork::V3 {
-        TxVersion::RingSignatures
-    } else {
-        TxVersion::RingCT
-    }
-}
-
-fn min_tx_version(hf: &HardFork) -> TxVersion {
-    if hf >= &HardFork::V6 {
-        TxVersion::RingCT
-    } else {
-        TxVersion::RingSignatures
-    }
 }

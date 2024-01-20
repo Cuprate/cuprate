@@ -1,0 +1,38 @@
+[package]
+name = "monero-consensus"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+proptest = ["dep:proptest", "dep:proptest-derive"]
+rayon = ["dep:rayon"]
+
+[dependencies]
+cryptonight-cuprate = {path = "../../cryptonight"}
+cuprate-common = {path = "../../common"}
+
+monero-serai = { workspace = true }
+multiexp = { workspace = true }
+dalek-ff-group = { workspace = true }
+zeroize = "1.7"
+curve25519-dalek = { workspace = true }
+
+rand = { workspace = true }
+
+hex = "0.4"
+hex-literal = "0.4"
+primitive-types = { version =  "0.12.2", default-features = false }
+
+tracing = { workspace = true }
+thiserror = { workspace = true }
+
+rayon = { workspace = true, optional = true }
+
+proptest = {workspace = true, optional = true}
+proptest-derive = {workspace = true, optional = true}
+
+[dev-dependencies]
+proptest = {workspace = true}
+proptest-derive = {workspace = true}
+tokio = {version = "1.35.0", features = ["rt-multi-thread", "macros"]}

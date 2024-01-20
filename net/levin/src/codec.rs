@@ -15,7 +15,6 @@
 
 //! A tokio-codec for levin buckets
 
-use std::io::ErrorKind;
 use std::marker::PhantomData;
 
 use bytes::{Buf, BufMut, BytesMut};
@@ -123,12 +122,12 @@ impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
 impl<C: LevinCommand> Encoder<Bucket<C>> for LevinBucketCodec<C> {
     type Error = BucketError;
     fn encode(&mut self, item: Bucket<C>, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        if dst.capacity() < BucketHead::<C>::SIZE + item.body.len() {
-            return Err(BucketError::IO(std::io::Error::new(
-                ErrorKind::OutOfMemory,
-                "Not enough capacity to write the bucket",
-            )));
+        if let Some(additional) =
+            (BucketHead::<C>::SIZE + item.body.len()).checked_sub(dst.capacity())
+        {
+            dst.reserve(additional)
         }
+
         item.header.write_bytes(dst);
         dst.put_slice(&item.body);
         Ok(())

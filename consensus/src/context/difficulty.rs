@@ -4,11 +4,8 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use crate::{
-    helper::median, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
+    helper::median, Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork,
 };
-
-#[cfg(test)]
-pub(super) mod tests;
 
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
@@ -24,9 +21,9 @@ const DIFFICULTY_LAG: usize = 15;
 ///
 #[derive(Debug, Clone)]
 pub struct DifficultyCacheConfig {
-    window: usize,
-    cut: usize,
-    lag: usize,
+    pub(crate) window: usize,
+    pub(crate) cut: usize,
+    pub(crate) lag: usize,
 }
 
 impl DifficultyCacheConfig {
@@ -56,16 +53,16 @@ impl DifficultyCacheConfig {
 /// This struct is able to calculate difficulties from blockchain information.
 ///
 #[derive(Debug, Clone)]
-pub struct DifficultyCache {
+pub(crate) struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
-    timestamps: VecDeque<u64>,
+    pub(crate) timestamps: VecDeque<u64>,
     /// The current cumulative difficulty of the chain.
-    cumulative_difficulties: VecDeque<u128>,
+    pub(crate) cumulative_difficulties: VecDeque<u128>,
     /// The last height we accounted for.
-    last_accounted_height: u64,
+    pub(crate) last_accounted_height: u64,
     /// The config
-    config: DifficultyCacheConfig,
+    pub(crate) config: DifficultyCacheConfig,
 }
 
 impl DifficultyCache {
@@ -74,7 +71,7 @@ impl DifficultyCache {
         chain_height: u64,
         config: DifficultyCacheConfig,
         database: D,
-    ) -> Result<Self, ConsensusError> {
+    ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
         let mut block_start = chain_height.saturating_sub(config.total_block_count());
@@ -212,7 +209,7 @@ fn get_window_start_and_end(
 async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
-) -> Result<(VecDeque<u64>, VecDeque<u128>), ConsensusError> {
+) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
     let DatabaseResponse::BlockExtendedHeaderInRange(ext_header) = database

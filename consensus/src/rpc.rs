@@ -149,7 +149,7 @@ where
             .boxed(),
             DatabaseRequest::NumberOutputsWithAmount(amt) => async move {
                 Ok(DatabaseResponse::NumberOutputsWithAmount(
-                    cache.read().await.numb_outs(amt),
+                    cache.read().await.numb_outs(&amt),
                 ))
             }
             .boxed(),

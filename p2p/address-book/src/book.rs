@@ -7,7 +7,11 @@ use std::{
     time::Duration,
 };
 
-use futures::{stream::FuturesUnordered, FutureExt, StreamExt};
+use futures::{
+    future::{ready, Ready},
+    stream::FuturesUnordered,
+    FutureExt, StreamExt,
+};
 use pin_project::pin_project;
 use tokio::{
     task::JoinHandle,
@@ -15,7 +19,7 @@ use tokio::{
 };
 use tower::Service;
 
-use cuprate_common::{tower_utils::InstaFuture, PruningSeed};
+use cuprate_common::PruningSeed;
 use monero_p2p::{
     client::InternalPeerID,
     handles::ConnectionHandle,
@@ -363,7 +367,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
 impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
     type Response = AddressBookResponse<Z>;
     type Error = AddressBookError;
-    type Future = InstaFuture<Result<Self::Response, Self::Error>>;
+    type Future = Ready<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.poll_unban_peers(cx);
@@ -419,6 +423,6 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             }
         };
 
-        InstaFuture::from(response)
+        ready(response)
     }
 }

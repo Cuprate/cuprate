@@ -16,33 +16,15 @@ use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
 
+use monero_consensus::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
+
 use crate::{
     helper::{median, rayon_spawn_async},
-    ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
+    Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork,
 };
-
-#[cfg(test)]
-pub(super) mod tests;
-
-const PENALTY_FREE_ZONE_1: usize = 20000;
-const PENALTY_FREE_ZONE_2: usize = 60000;
-const PENALTY_FREE_ZONE_5: usize = 300000;
 
 const SHORT_TERM_WINDOW: u64 = 100;
 const LONG_TERM_WINDOW: u64 = 100000;
-
-/// Returns the penalty free zone
-///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#penalty-free-zone
-pub fn penalty_free_zone(hf: &HardFork) -> usize {
-    if hf == &HardFork::V1 {
-        PENALTY_FREE_ZONE_1
-    } else if hf.in_range(&HardFork::V2, &HardFork::V5) {
-        PENALTY_FREE_ZONE_2
-    } else {
-        PENALTY_FREE_ZONE_5
-    }
-}
 
 /// Configuration for the block weight cache.
 ///
@@ -98,7 +80,7 @@ impl BlockWeightsCache {
         chain_height: u64,
         config: BlockWeightsCacheConfig,
         database: D,
-    ) -> Result<Self, ConsensusError> {
+    ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing weight cache this may take a while.");
 
         let long_term_weights = get_long_term_weight_in_range(
@@ -168,18 +150,19 @@ impl BlockWeightsCache {
                 .expect("long term window can't be negative");
 
             match self.cached_sorted_long_term_weights.binary_search(&val) {
-                Ok(idx) | Err(idx) => self.cached_sorted_long_term_weights.remove(idx),
+                Ok(idx) => self.cached_sorted_long_term_weights.remove(idx),
+                Err(_) => panic!("Long term cache has incorrect values!"),
             };
         }
 
         self.short_term_block_weights.push_back(block_weight);
         match self
             .cached_sorted_short_term_weights
-            .binary_search(&long_term_weight)
+            .binary_search(&block_weight)
         {
             Ok(idx) | Err(idx) => self
                 .cached_sorted_short_term_weights
-                .insert(idx, long_term_weight),
+                .insert(idx, block_weight),
         }
 
         if u64::try_from(self.short_term_block_weights.len()).unwrap()
@@ -191,7 +174,8 @@ impl BlockWeightsCache {
                 .expect("short term window can't be negative");
 
             match self.cached_sorted_short_term_weights.binary_search(&val) {
-                Ok(idx) | Err(idx) => self.cached_sorted_short_term_weights.remove(idx),
+                Ok(idx) => self.cached_sorted_short_term_weights.remove(idx),
+                Err(_) => panic!("Short term cache has incorrect values"),
             };
         }
 
@@ -230,7 +214,7 @@ impl BlockWeightsCache {
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/blocks/reward.html#calculating-block-reward
     pub fn median_for_block_reward(&self, hf: &HardFork) -> usize {
-        if hf.in_range(&HardFork::V1, &HardFork::V12) {
+        if hf < &HardFork::V12 {
             self.median_short_term_weight()
         } else {
             self.effective_median_block_weight(hf)
@@ -244,13 +228,13 @@ fn calculate_effective_median_block_weight(
     median_short_term_weight: usize,
     median_long_term_weight: usize,
 ) -> usize {
-    if hf.in_range(&HardFork::V1, &HardFork::V10) {
+    if hf < &HardFork::V10 {
         return median_short_term_weight.max(penalty_free_zone(hf));
     }
 
     let long_term_median = median_long_term_weight.max(PENALTY_FREE_ZONE_5);
     let short_term_median = median_short_term_weight;
-    let effective_median = if hf.in_range(&HardFork::V10, &HardFork::V15) {
+    let effective_median = if hf >= &HardFork::V10 && hf < &HardFork::V15 {
         min(
             max(PENALTY_FREE_ZONE_5, short_term_median),
             50 * long_term_median,
@@ -270,14 +254,14 @@ pub fn calculate_block_long_term_weight(
     block_weight: usize,
     long_term_median: usize,
 ) -> usize {
-    if hf.in_range(&HardFork::V1, &HardFork::V10) {
+    if hf < &HardFork::V10 {
         return block_weight;
     }
 
     let long_term_median = max(penalty_free_zone(hf), long_term_median);
 
     let (short_term_constraint, adjusted_block_weight) =
-        if hf.in_range(&HardFork::V10, &HardFork::V15) {
+        if hf >= &HardFork::V10 && hf < &HardFork::V15 {
             let stc = long_term_median + long_term_median * 2 / 5;
             (stc, block_weight)
         } else {
@@ -292,7 +276,7 @@ pub fn calculate_block_long_term_weight(
 async fn get_blocks_weight_in_range<D: Database + Clone>(
     range: Range<u64>,
     database: D,
-) -> Result<Vec<usize>, ConsensusError> {
+) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block weights.");
 
     let DatabaseResponse::BlockExtendedHeaderInRange(ext_headers) = database
@@ -312,7 +296,7 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
 async fn get_long_term_weight_in_range<D: Database + Clone>(
     range: Range<u64>,
     database: D,
-) -> Result<Vec<usize>, ConsensusError> {
+) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block long term weights.");
 
     let DatabaseResponse::BlockExtendedHeaderInRange(ext_headers) = database

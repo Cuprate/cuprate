@@ -414,7 +414,7 @@ mod tests {
             )
         }
 
-        for (_, seed) in all_valid_seeds.iter().enumerate() {
+        for seed in all_valid_seeds.iter() {
             assert_eq!(
                 seed.get_next_unpruned_block(76437863 - 1, blockchain_height)
                     .unwrap(),

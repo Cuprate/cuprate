@@ -86,10 +86,10 @@ impl Service<PeerRequest> for DummyPeerRequestHandlerSvc {
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, _: PeerRequest) -> Self::Future {
-        todo!()
+        async move { Ok(PeerResponse::NA) }.boxed()
     }
 }

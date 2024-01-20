@@ -5,15 +5,17 @@ use std::{
 };
 
 use futures::FutureExt;
+use tokio::sync::OwnedSemaphorePermit;
 use tower::{Service, ServiceExt};
 
 use crate::{
-    client::{DoHandshakeRequest, HandShaker, HandshakeError},
+    client::{Client, DoHandshakeRequest, HandShaker, HandshakeError, InternalPeerID},
     AddressBook, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerRequestHandler,
 };
 
 pub struct ConnectRequest<Z: NetworkZone> {
     pub addr: Z::Addr,
+    pub permit: OwnedSemaphorePermit,
 }
 
 pub struct Connector<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
@@ -33,7 +35,7 @@ where
     CSync: CoreSyncSvc + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
 {
-    type Response = ();
+    type Response = Client<Z>;
     type Error = HandshakeError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -49,7 +51,8 @@ where
         async move {
             let (peer_stream, peer_sink) = Z::connect_to_peer(req.addr).await?;
             let req = DoHandshakeRequest {
-                addr: req.addr,
+                addr: InternalPeerID::KnownAddr(req.addr),
+                permit: req.permit,
                 peer_stream,
                 peer_sink,
                 direction: ConnectionDirection::OutBound,

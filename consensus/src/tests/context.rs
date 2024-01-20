@@ -2,12 +2,20 @@ use proptest::strategy::ValueTree;
 use proptest::{strategy::Strategy, test_runner::TestRunner};
 use tower::ServiceExt;
 
-use super::{
-    difficulty::tests::TEST_DIFFICULTY_CONFIG, hardforks::tests::TEST_HARD_FORK_CONFIG,
-    initialize_blockchain_context, weight::tests::TEST_WEIGHT_CONFIG, BlockChainContextRequest,
-    BlockChainContextResponse, ContextConfig, UpdateBlockchainCacheData,
+use crate::context::{
+    initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
+    ContextConfig, UpdateBlockchainCacheData,
 };
-use crate::{test_utils::mock_db::*, HardFork};
+use crate::{tests::mock_db::*, HardFork};
+
+pub(crate) mod data;
+mod difficulty;
+mod hardforks;
+mod weight;
+
+use difficulty::*;
+use hardforks::*;
+use weight::*;
 
 const TEST_CONTEXT_CONFIG: ContextConfig = ContextConfig {
     hard_fork_cfg: TEST_HARD_FORK_CONFIG,

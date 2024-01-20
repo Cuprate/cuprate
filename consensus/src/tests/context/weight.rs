@@ -1,5 +1,11 @@
-use super::{BlockWeightsCache, BlockWeightsCacheConfig};
-use crate::test_utils::mock_db::*;
+use crate::{
+    context::{
+        weight::{calculate_block_long_term_weight, BlockWeightsCache},
+        BlockWeightsCacheConfig,
+    },
+    tests::{context::data::BW_2850000_3050000, mock_db::*},
+};
+use monero_consensus::HardFork;
 
 pub const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig = BlockWeightsCacheConfig::new(100, 5000);
 
@@ -11,9 +17,12 @@ async fn blocks_out_of_window_not_counted() -> Result<(), tower::BoxError> {
         db_builder.add_block(block);
     }
 
-    let mut weight_cache =
-        BlockWeightsCache::init_from_chain_height(5000, TEST_WEIGHT_CONFIG, db_builder.finish())
-            .await?;
+    let mut weight_cache = BlockWeightsCache::init_from_chain_height(
+        5000,
+        TEST_WEIGHT_CONFIG,
+        db_builder.finish(None),
+    )
+    .await?;
     assert_eq!(weight_cache.median_long_term_weight(), 2500);
     assert_eq!(weight_cache.median_short_term_weight(), 4950);
 
@@ -36,7 +45,7 @@ async fn weight_cache_calculates_correct_median() -> Result<(), tower::BoxError>
     db_builder.add_block(block);
 
     let mut weight_cache =
-        BlockWeightsCache::init_from_chain_height(1, TEST_WEIGHT_CONFIG, db_builder.finish())
+        BlockWeightsCache::init_from_chain_height(1, TEST_WEIGHT_CONFIG, db_builder.finish(None))
             .await?;
 
     for height in 1..=100 {
@@ -52,6 +61,34 @@ async fn weight_cache_calculates_correct_median() -> Result<(), tower::BoxError>
         assert_eq!(weight_cache.median_long_term_weight(), height / 2);
     }
     Ok(())
+}
+
+#[tokio::test]
+async fn calc_bw_ltw_2850000_3050000() {
+    let mut db_builder = DummyDatabaseBuilder::default();
+
+    for (weight, ltw) in BW_2850000_3050000.iter().take(100_000) {
+        let block = DummyBlockExtendedHeader::default().with_weight_into(*weight, *ltw);
+        db_builder.add_block(block);
+    }
+
+    let mut weight_cache = BlockWeightsCache::init_from_chain_height(
+        2950000,
+        TEST_WEIGHT_CONFIG,
+        db_builder.finish(Some(2950000)),
+    )
+    .await
+    .unwrap();
+
+    for (i, (weight, ltw)) in BW_2850000_3050000.iter().skip(100_000).enumerate() {
+        let calc_ltw = calculate_block_long_term_weight(
+            &HardFork::V16,
+            *weight,
+            weight_cache.median_long_term_weight(),
+        );
+        assert_eq!(calc_ltw, *ltw);
+        weight_cache.new_block((2950000 + i) as u64, *weight, *ltw);
+    }
 }
 
 // TODO: protests

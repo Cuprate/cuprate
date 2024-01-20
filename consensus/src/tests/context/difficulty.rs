@@ -2,8 +2,7 @@ use std::collections::VecDeque;
 
 use proptest::{arbitrary::any, prop_assert_eq, prop_compose, proptest};
 
-use super::{DifficultyCache, DifficultyCacheConfig};
-use crate::{helper::median, test_utils::mock_db::*, HardFork};
+use crate::{context::difficulty::*, helper::median, tests::mock_db::*, HardFork};
 
 const TEST_WINDOW: usize = 72;
 const TEST_CUT: usize = 6;
@@ -21,7 +20,7 @@ async fn first_3_blocks_fixed_difficulty() -> Result<(), tower::BoxError> {
     db_builder.add_block(genesis);
 
     let mut difficulty_cache =
-        DifficultyCache::init_from_chain_height(1, TEST_DIFFICULTY_CONFIG, db_builder.finish())
+        DifficultyCache::init_from_chain_height(1, TEST_DIFFICULTY_CONFIG, db_builder.finish(None))
             .await?;
 
     for height in 1..3 {
@@ -37,7 +36,7 @@ async fn genesis_block_skipped() -> Result<(), tower::BoxError> {
     let genesis = DummyBlockExtendedHeader::default().with_difficulty_info(0, 1);
     db_builder.add_block(genesis);
     let diff_cache =
-        DifficultyCache::init_from_chain_height(1, TEST_DIFFICULTY_CONFIG, db_builder.finish())
+        DifficultyCache::init_from_chain_height(1, TEST_DIFFICULTY_CONFIG, db_builder.finish(None))
             .await?;
     assert!(diff_cache.cumulative_difficulties.is_empty());
     assert!(diff_cache.timestamps.is_empty());

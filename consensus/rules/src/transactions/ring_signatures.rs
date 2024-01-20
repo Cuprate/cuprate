@@ -1,38 +1,37 @@
 //! Version 1 ring signature verification.
 //!
 //! Some checks have to be done at deserialization or with data we don't have so we can't do them here, those checks are:
-//! https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#signatures-must-be-canonical
+//! https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#signatures-must-be-canonical
 //! this happens at deserialization in monero-serai.
-//! https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#amount-of-signatures-in-a-ring
+//! https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#amount-of-signatures-in-a-ring
 //! and this happens during ring signature verification in monero-serai.
 //!
 use monero_serai::{ring_signatures::RingSignature, transaction::Input};
+
+#[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use super::Rings;
-use crate::ConsensusError;
+use super::{Rings, TransactionError};
+use crate::try_par_iter;
 
 /// Verifies the ring signature.
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#the-ring-signature-must-be-valid
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/pre_rct.html#amount-of-ring-signatures
-pub fn verify_inputs_signatures(
+/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html
+pub fn check_input_signatures(
     inputs: &[Input],
     signatures: &[RingSignature],
     rings: &Rings,
     tx_sig_hash: &[u8; 32],
-) -> Result<(), ConsensusError> {
+) -> Result<(), TransactionError> {
     match rings {
         Rings::Legacy(rings) => {
+            // https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#amount-of-ring-signatures
             // rings.len() != inputs.len() can't happen but check any way.
             if signatures.len() != inputs.len() || rings.len() != inputs.len() {
-                return Err(ConsensusError::TransactionSignatureInvalid(
-                    "number of ring sigs != inputs",
-                ));
+                return Err(TransactionError::RingSignatureIncorrect);
             }
 
-            inputs
-                .par_iter()
+            try_par_iter(inputs)
                 .zip(rings)
                 .zip(signatures)
                 .try_for_each(|((input, ring), sig)| {
@@ -41,9 +40,7 @@ pub fn verify_inputs_signatures(
                     };
 
                     if !sig.verify(tx_sig_hash, ring, key_image) {
-                        return Err(ConsensusError::TransactionSignatureInvalid(
-                            "Invalid ring signature",
-                        ));
+                        return Err(TransactionError::RingSignatureIncorrect);
                     }
                     Ok(())
                 })?;

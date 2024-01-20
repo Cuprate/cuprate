@@ -33,7 +33,7 @@ prop_compose! {
         for block in blocks {
             builder.add_block(block);
         }
-        builder.finish()
+        builder.finish(None)
     }
 }
 
@@ -110,9 +110,10 @@ impl DummyDatabaseBuilder {
         self.blocks.push(block);
     }
 
-    pub fn finish(self) -> DummyDatabase {
+    pub fn finish(self, dummy_height: Option<usize>) -> DummyDatabase {
         DummyDatabase {
             blocks: Arc::new(self.blocks.into()),
+            dummy_height,
         }
     }
 }
@@ -120,6 +121,7 @@ impl DummyDatabaseBuilder {
 #[derive(Clone, Debug)]
 pub struct DummyDatabase {
     blocks: Arc<RwLock<Vec<DummyBlockExtendedHeader>>>,
+    dummy_height: Option<usize>,
 }
 
 impl Service<DatabaseRequest> for DummyDatabase {
@@ -134,15 +136,23 @@ impl Service<DatabaseRequest> for DummyDatabase {
 
     fn call(&mut self, req: DatabaseRequest) -> Self::Future {
         let blocks = self.blocks.clone();
+        let dummy_height = self.dummy_height;
 
         async move {
             Ok(match req {
                 DatabaseRequest::BlockExtendedHeader(BlockID::Height(id)) => {
+                    let mut id = usize::try_from(id).unwrap();
+                    if let Some(dummy_height) = dummy_height {
+                        let block_len = blocks.read().unwrap().len();
+
+                        id -= dummy_height - block_len;
+                    }
+
                     DatabaseResponse::BlockExtendedHeader(
                         blocks
                             .read()
                             .unwrap()
-                            .get(usize::try_from(id).unwrap())
+                            .get(id)
                             .copied()
                             .map(Into::into)
                             .ok_or("block not in database!")?,
@@ -154,20 +164,33 @@ impl Service<DatabaseRequest> for DummyDatabase {
                     DatabaseResponse::BlockHash(hash)
                 }
                 DatabaseRequest::BlockExtendedHeaderInRange(range) => {
+                    let mut end = usize::try_from(range.end).unwrap();
+                    let mut start = usize::try_from(range.start).unwrap();
+
+                    if let Some(dummy_height) = dummy_height {
+                        let block_len = blocks.read().unwrap().len();
+
+                        end -= dummy_height - block_len;
+                        start -= dummy_height - block_len;
+                    }
+
                     DatabaseResponse::BlockExtendedHeaderInRange(
                         blocks
                             .read()
                             .unwrap()
                             .iter()
-                            .take(usize::try_from(range.end).unwrap())
-                            .skip(usize::try_from(range.start).unwrap())
+                            .take(end)
+                            .skip(start)
                             .copied()
                             .map(Into::into)
                             .collect(),
                     )
                 }
                 DatabaseRequest::ChainHeight => {
-                    let height = u64::try_from(blocks.read().unwrap().len()).unwrap();
+                    let height: u64 = dummy_height
+                        .unwrap_or(blocks.read().unwrap().len())
+                        .try_into()
+                        .unwrap();
 
                     let mut top_hash = [0; 32];
                     top_hash[0..8].copy_from_slice(&height.to_le_bytes());

@@ -2,34 +2,9 @@ use std::convert::TryInto;
 
 use proptest::{arbitrary::any, prop_assert_eq, prop_compose, proptest};
 
-use super::{HFInfo, HFVotes, HardFork, HardForkConfig, HardForkState, NUMB_OF_HARD_FORKS};
-use crate::test_utils::mock_db::*;
+use crate::hard_forks::{HFVotes, HardFork, NUMB_OF_HARD_FORKS};
 
 const TEST_WINDOW_SIZE: u64 = 25;
-
-const TEST_HFS: [HFInfo; NUMB_OF_HARD_FORKS] = [
-    HFInfo::new(0, 0),
-    HFInfo::new(10, 0),
-    HFInfo::new(20, 0),
-    HFInfo::new(30, 0),
-    HFInfo::new(40, 0),
-    HFInfo::new(50, 0),
-    HFInfo::new(60, 0),
-    HFInfo::new(70, 0),
-    HFInfo::new(80, 0),
-    HFInfo::new(90, 0),
-    HFInfo::new(100, 0),
-    HFInfo::new(110, 0),
-    HFInfo::new(120, 0),
-    HFInfo::new(130, 0),
-    HFInfo::new(140, 0),
-    HFInfo::new(150, 0),
-];
-
-pub const TEST_HARD_FORK_CONFIG: HardForkConfig = HardForkConfig {
-    window: TEST_WINDOW_SIZE,
-    forks: TEST_HFS,
-};
 
 #[test]
 fn next_hard_forks() {
@@ -45,32 +20,8 @@ fn next_hard_forks() {
 #[test]
 fn hard_forks_defined() {
     for fork in 1..=NUMB_OF_HARD_FORKS {
-        HardFork::from_version(&fork.try_into().unwrap()).unwrap();
+        HardFork::from_version(fork.try_into().unwrap()).unwrap();
     }
-}
-
-#[tokio::test]
-async fn hard_fork_set_depends_on_top_block() {
-    let mut db_builder = DummyDatabaseBuilder::default();
-
-    for _ in 0..TEST_WINDOW_SIZE {
-        db_builder.add_block(
-            DummyBlockExtendedHeader::default().with_hard_fork_info(HardFork::V13, HardFork::V16),
-        );
-    }
-    db_builder.add_block(
-        DummyBlockExtendedHeader::default().with_hard_fork_info(HardFork::V14, HardFork::V16),
-    );
-
-    let state = HardForkState::init_from_chain_height(
-        TEST_WINDOW_SIZE + 1,
-        TEST_HARD_FORK_CONFIG,
-        db_builder.finish(),
-    )
-    .await
-    .unwrap();
-
-    assert_eq!(state.current_hardfork, HardFork::V14);
 }
 
 prop_compose! {
@@ -82,7 +33,7 @@ prop_compose! {
                    ) -> HFVotes {
         let mut vote_count = HFVotes::new(TEST_WINDOW_SIZE as usize);
         for vote in votes {
-            vote_count.add_vote_for_hf(&HardFork::from_vote(&(vote % 17)));
+            vote_count.add_vote_for_hf(&HardFork::from_vote(vote % 17));
         }
         vote_count
     }
@@ -112,7 +63,7 @@ proptest! {
 
     #[test]
     fn votes_out_of_range(high_vote in (NUMB_OF_HARD_FORKS+ 1).try_into().unwrap()..u8::MAX) {
-        prop_assert_eq!(HardFork::from_vote(&0), HardFork::V1);
-        prop_assert_eq!(HardFork::from_vote(&NUMB_OF_HARD_FORKS.try_into().unwrap()), HardFork::from_vote(&high_vote));
+        prop_assert_eq!(HardFork::from_vote(0), HardFork::V1);
+        prop_assert_eq!(HardFork::from_vote(u8::try_from(NUMB_OF_HARD_FORKS).unwrap() + 1_u8), HardFork::from_vote(high_vote));
     }
 }

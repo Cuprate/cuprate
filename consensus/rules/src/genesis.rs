@@ -8,7 +8,7 @@ use monero_serai::{
 
 use cuprate_common::Network;
 
-fn genesis_nonce(network: &Network) -> u32 {
+const fn genesis_nonce(network: &Network) -> u32 {
     match network {
         Network::Mainnet => 10000,
         Network::Testnet => 10001,
@@ -25,7 +25,7 @@ fn genesis_miner_tx(network: &Network) -> Transaction {
 
 /// Generates the Monero genesis block.
 ///
-/// ref: https://cuprate.github.io/monero-docs/consensus_rules/genesis_block.html
+/// ref: https://monero-book.cuprate.org/consensus_rules/genesis_block.html
 pub fn generate_genesis_block(network: &Network) -> Block {
     Block {
         header: BlockHeader {
