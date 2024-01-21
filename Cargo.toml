@@ -8,6 +8,7 @@ members = [
 	"cryptonight",
 	# "cuprate",
 	# "database",
+	"helper",
 	"net/levin",
 	"net/monero-wire",
 	"p2p/monero-p2p",
