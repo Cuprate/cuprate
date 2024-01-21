@@ -13,21 +13,21 @@ borsh = ["dep:borsh"]
 monero-wire = {path= "../../net/monero-wire"}
 cuprate-common = {path = "../../common", features = ["borsh"]}
 
-tokio = {version= "1.34.0", default-features = false, features = ["net", "sync"]}
-tokio-util = { version = "0.7.10", default-features = false, features = ["codec"] }
-tokio-stream = {version = "0.1.14", default-features = false, features = ["sync"]}
-futures = "0.3.29"
-async-trait = "0.1.74"
-tower = { version= "0.4.13", features = ["util"] }
+tokio = { workspace = true, features = ["net", "sync", "macros"]}
+tokio-util = { workspace = true, features = ["codec"] }
+tokio-stream = { workspace = true, features = ["sync"]}
+futures = { workspace = true, features = ["std"] }
+async-trait = { workspace = true }
+tower = { workspace = true, features = ["util"] }
 
-thiserror = "1.0.50"
-tracing = "0.1.40"
+thiserror = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
 
-borsh = {version = "1.2.1", default-features = false, features = ["derive", "std"], optional = true }
+borsh = { workspace = true, default-features = false, features = ["derive", "std"], optional = true }
 
 [dev-dependencies]
 cuprate-test-utils = {path = "../../test-utils"}
 
-hex = "0.4.3"
-tokio = {version= "1.34.0", default-features = false, features = ["net", "rt-multi-thread", "rt", "macros"]}
-tracing-subscriber = "0.3"
+hex = { workspace = true }
+tokio = { workspace = true, features = ["net", "rt-multi-thread", "rt", "macros"]}
+tracing-subscriber = { workspace = true }

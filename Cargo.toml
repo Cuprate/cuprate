@@ -35,32 +35,36 @@ opt-level     = 1
 opt-level = 3
 
 [workspace.dependencies]
-async-trait           = { version = "0.1.74" }
-borsh                 = { version = "1.2.1", features = ["derive"]  }
-bytes                 = { version = "1.5.0" }
-clap                  = { version = "4.4.7" }
-chrono                = { version = "0.4.31" }
-crypto-bigint         = { version = "0.5.3" }
-curve25519-dalek      = { version = "4.1.1" }
-dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b" }
-dirs                  = { version = "5.0.1" }
-futures               = { version = "0.3.29" }
-hex                   = { version = "0.4.3" }
-monero-epee-bin-serde = { git = "https://github.com/monero-rs/monero-epee-bin-serde.git", rev = "e4a585a" }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b" }
-multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b" }
-randomx-rs            = { version = "1.2.1" }
-rand                  = { version = "0.8.5" }
-rayon                 = { version = "1.8.0" }
-serde_bytes           = { version = "0.11.12" }
-serde_json            = { version = "1.0.108" }
-serde                 = { version = "1.0.190", features = ["derive"] }
-thiserror             = { version = "1.0.50" }
-tokio-util            = { version = "0.7.10", features = ["codec"]}
-tokio                 = { version = "1.33.0", features = ["full"] }
-tower                 = { version = "0.4.13", features = ["util", "steer"] }
-tracing-subscriber    = { version = "0.3.17" }
-tracing               = { version = "0.1.40" }
+async-trait           = { version = "0.1.74", default-features = false }
+borsh                 = { version = "1.2.1", default-features = false }
+bytes                 = { version = "1.5.0", default-features = false }
+clap                  = { version = "4.4.7", default-features = false }
+chrono                = { version = "0.4.31", default-features = false }
+primitive-types       = { version = "0.12.2", default-features = false }
+curve25519-dalek      = { version = "4.1.1", default-features = false }
+dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b", default-features = false }
+dirs                  = { version = "5.0.1", default-features = false }
+futures               = { version = "0.3.29", default-features = false }
+hex                   = { version = "0.4.3", default-features = false }
+hex-literal           = { version = "0.4", default-features = false }
+monero-epee-bin-serde = { git = "https://github.com/monero-rs/monero-epee-bin-serde.git", rev = "e4a585a", default-features = false }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b", default-features = false }
+multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "a59966b", default-features = false }
+pin-project           = { version = "1.1.3", default-features = false }
+randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "6496a61", default-features = false }
+rand                  = { version = "0.8.5", default-features = false }
+rayon                 = { version = "1.8.0", default-features = false }
+serde_bytes           = { version = "0.11.12", default-features = false }
+serde_json            = { version = "1.0.108", default-features = false }
+serde                 = { version = "1.0.190", default-features = false }
+thiserror             = { version = "1.0.50", default-features = false }
+thread_local 		  = { version = "1.1.7", default-features = false }
+tokio-util            = { version = "0.7.10", default-features = false }
+tokio-stream          = { version = "0.1.14", default-features = false }
+tokio                 = { version = "1.33.0", default-features = false }
+tower                 = { version = "0.4.13", default-features = false }
+tracing-subscriber    = { version = "0.3.17", default-features = false }
+tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
 proptest = { version = "1" }

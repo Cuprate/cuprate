@@ -10,10 +10,10 @@ default = []
 borsh = ["dep:borsh"]
 
 [dependencies]
-chrono = "0.4.24"
-thiserror = "1"
-hex = "0.4"
+chrono = { workspace = true }
+thiserror = { workspace = true }
+hex = { workspace = true, features = ["std"] }
 
-futures = "0.3.29"
+futures = { workspace = true, features = ["std"] }
 
-borsh = {version = "1.2.1", default-features = false, features = ["derive",], optional = true }
+borsh = { workspace = true, features = ["derive", "std"], optional = true }

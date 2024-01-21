@@ -7,7 +7,7 @@ edition = "2021"
 monero-wire = {path = "../net/monero-wire"}
 monero-p2p = {path = "../p2p/monero-p2p" }
 
-futures = "0.3.29"
-async-trait = "0.1.74"
+futures = { workspace = true, features = ["std"] }
+async-trait = { workspace = true }
 
-borsh = {version = "1.2.1", features = ["derive"]}
+borsh = { workspace = true, features = ["derive"]}

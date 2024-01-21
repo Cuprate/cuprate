@@ -11,20 +11,21 @@ cuprate-common = {path = "../../common"}
 monero-wire = {path= "../../net/monero-wire"}
 monero-p2p = {path = "../monero-p2p" }
 
-tower = { version= "0.4.13", features = ["util", "buffer"] }
-tokio = {version = "1.34.0", default-features = false, features = ["time", "fs", "rt"]}
+tower = { workspace = true, features = ["util", "buffer"] }
+tokio = { workspace = true, features = ["time", "fs", "rt"]}
 
-futures = "0.3.29"
-pin-project = "1.1.3"
-async-trait = "0.1.74"
+futures = { workspace = true, features = ["std"] }
+pin-project = { workspace = true }
+async-trait = { workspace = true }
 
-thiserror = "1.0.50"
-tracing = "0.1.40"
+thiserror = { workspace = true }
+tracing = { workspace = true, features = ["std", "attributes"] }
 
-rand = "0.8.5"
+rand = { workspace = true, features = ["std", "std_rng"] }
 
-borsh = {version = "1.2.1", features = ["derive"]}
+borsh = { workspace = true, features = ["derive", "std"]}
 
 [dev-dependencies]
-tokio = {version = "1.34.0", features = ["rt-multi-thread", "macros"]}
 cuprate-test-utils = {path = "../../test-utils"}
+
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
