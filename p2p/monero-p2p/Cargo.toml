@@ -16,7 +16,7 @@ cuprate-common = {path = "../../common", features = ["borsh"]}
 tokio = { workspace = true, features = ["net", "sync", "macros"]}
 tokio-util = { workspace = true, features = ["codec"] }
 tokio-stream = { workspace = true, features = ["sync"]}
-futures = { workspace = true, features = ["std"] }
+futures = { workspace = true, features = ["std", "async-await"] }
 async-trait = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 

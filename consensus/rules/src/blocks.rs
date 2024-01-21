@@ -1,5 +1,5 @@
+use crypto_bigint::{CheckedMul, U256};
 use monero_serai::block::Block;
-use primitive_types::U256;
 
 use cryptonight_cuprate::*;
 
@@ -100,11 +100,11 @@ pub fn calculate_pow_hash<R: RandomX>(
 ///
 /// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#checking-pow-hash
 pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> Result<(), BlockError> {
-    let int_hash = U256::from_little_endian(hash);
+    let int_hash = U256::from_le_slice(hash);
 
     let difficulty = U256::from(difficulty);
 
-    if int_hash.checked_mul(difficulty).is_none() {
+    if int_hash.checked_mul(&difficulty).is_none().unwrap_u8() == 1 {
         tracing::debug!(
             "Invalid POW: {}, difficulty: {}",
             hex::encode(hash),

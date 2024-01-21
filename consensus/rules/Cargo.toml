@@ -21,7 +21,7 @@ rand = { workspace = true, features = ["std"] }
 
 hex = { workspace = true, features = ["std"] }
 hex-literal = { workspace = true }
-primitive-types = { workspace = true } # enabiling std pulls in 9 extra crates!
+crypto-bigint = { workspace = true }
 
 tracing = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
