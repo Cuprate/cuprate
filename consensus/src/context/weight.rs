@@ -16,12 +16,10 @@ use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
 
+use cuprate_helper::{asynch::rayon_spawn_async, num::median};
 use monero_consensus::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 
-use crate::{
-    helper::{median, rayon_spawn_async},
-    Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork,
-};
+use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork};
 
 const SHORT_TERM_WINDOW: u64 = 100;
 const LONG_TERM_WINDOW: u64 = 100000;

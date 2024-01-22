@@ -52,7 +52,7 @@ impl_float!(f32, f64);
 /// Returns the average of two numbers; works with at least all integral and floating point types
 ///
 /// ```rust
-/// # use helper::num::*;
+/// # use cuprate_helper::num::*;
 /// assert_eq!(get_mid(0,        10),       5);
 /// assert_eq!(get_mid(0.0,      10.0),     5.0);
 /// assert_eq!(get_mid(-10.0,    10.0),     0.0);
@@ -76,7 +76,7 @@ where
 /// Gets the median from a sorted slice.
 ///
 /// ```rust
-/// # use helper::num::*;
+/// # use cuprate_helper::num::*;
 /// let mut vec = vec![10, 5, 1, 4, 2, 8, 9, 7, 3, 6];
 /// vec.sort();
 ///
@@ -109,7 +109,7 @@ where
 /// Compare 2 non-`NaN` floats.
 ///
 /// ```rust
-/// # use helper::num::*;
+/// # use cuprate_helper::num::*;
 /// # use core::cmp::Ordering;
 /// assert_eq!(cmp_float(0.0, 1.0), Ordering::Less);
 /// assert_eq!(cmp_float(1.0, 1.0), Ordering::Equal);
@@ -128,7 +128,7 @@ where
 /// This function panics if either floats are NaNs.
 ///
 /// ```rust,should_panic
-/// # use helper::num::*;
+/// # use cuprate_helper::num::*;
 /// cmp_float(0.0, f32::NAN);
 /// ```
 pub fn cmp_float<F: Float>(a: F, b: F) -> Ordering {
@@ -144,7 +144,7 @@ pub fn cmp_float<F: Float>(a: F, b: F) -> Ordering {
 /// Compare 2 floats, `NaN`'s will always return [`Ordering::Equal`].
 ///
 /// ```rust
-/// # use helper::num::*;
+/// # use cuprate_helper::num::*;
 /// # use core::cmp::Ordering;
 /// assert_eq!(cmp_float_nan(0.0, 1.0), Ordering::Less);
 /// assert_eq!(cmp_float_nan(1.0, 1.0), Ordering::Equal);

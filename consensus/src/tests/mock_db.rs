@@ -15,8 +15,6 @@ use proptest::{
 use proptest_derive::Arbitrary;
 use tower::{BoxError, Service};
 
-use cuprate_common::BlockID;
-
 use crate::{DatabaseRequest, DatabaseResponse, ExtendedBlockHeader, HardFork};
 
 prop_compose! {
@@ -140,7 +138,7 @@ impl Service<DatabaseRequest> for DummyDatabase {
 
         async move {
             Ok(match req {
-                DatabaseRequest::BlockExtendedHeader(BlockID::Height(id)) => {
+                DatabaseRequest::BlockExtendedHeader(id) => {
                     let mut id = usize::try_from(id).unwrap();
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();

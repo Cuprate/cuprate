@@ -9,11 +9,11 @@ repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/monero-wi
 
 [dependencies]
 levin-cuprate = {path="../levin"}
-monero-epee-bin-serde = {git = "https://github.com/monero-rs/monero-epee-bin-serde.git", rev="aafe4ba"}
-serde = {version = "1", features = ["derive"]}
-serde_bytes = "0.11"
-thiserror = "1"
+monero-epee-bin-serde = { workspace = true, features = ["container_as_blob"] }
+serde = { workspace = true, features = ["derive", "std"]}
+serde_bytes = { workspace = true, features = ["std"]}
+thiserror = { workspace = true }
 
 [dev-dependencies]
-hex = "0.4.3"
+hex = { workspace = true, features = ["std"]}
 

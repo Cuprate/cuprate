@@ -429,30 +429,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "cuprate-common"
-version = "0.1.0"
-dependencies = [
- "borsh",
- "chrono",
- "futures",
- "hex",
- "thiserror",
-]
-
-[[package]]
 name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
  "borsh",
  "clap",
- "cuprate-common",
+ "cuprate-helper",
  "curve25519-dalek",
  "dalek-ff-group",
  "dirs",
  "futures",
  "hex",
  "monero-consensus",
- "monero-epee-bin-serde 1.0.1 (git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=e4a585a)",
+ "monero-epee-bin-serde",
  "monero-serai",
  "monero-wire",
  "multiexp",
@@ -470,6 +459,18 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "cuprate-helper"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "futures",
+ "libc",
+ "rayon",
+ "tokio",
+ "windows",
 ]
 
 [[package]]
@@ -817,18 +818,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
-name = "helper"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "futures",
- "libc",
- "rayon",
- "tokio",
- "windows",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1098,10 +1087,10 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "borsh",
- "cuprate-common",
  "cuprate-test-utils",
  "futures",
  "monero-p2p",
+ "monero-pruning",
  "monero-wire",
  "pin-project",
  "rand",
@@ -1117,7 +1106,7 @@ version = "0.1.0"
 dependencies = [
  "crypto-bigint",
  "cryptonight-cuprate",
- "cuprate-common",
+ "cuprate-helper",
  "curve25519-dalek",
  "dalek-ff-group",
  "hex",
@@ -1136,20 +1125,11 @@ dependencies = [
 [[package]]
 name = "monero-epee-bin-serde"
 version = "1.0.1"
-source = "git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=aafe4ba#aafe4ba1b9912b03cf616db7403628fc2bd82eb1"
+source = "git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=fae7a23#fae7a23f8e57f19553c341c0878b4f0fa5a6994d"
 dependencies = [
  "byteorder",
  "serde",
  "serde_bytes",
-]
-
-[[package]]
-name = "monero-epee-bin-serde"
-version = "1.0.1"
-source = "git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=e4a585a#e4a585a9deda5f888ebca766d5e61a2bb987147c"
-dependencies = [
- "byteorder",
- "serde",
 ]
 
 [[package]]
@@ -1171,10 +1151,11 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "borsh",
- "cuprate-common",
+ "cuprate-helper",
  "cuprate-test-utils",
  "futures",
  "hex",
+ "monero-pruning",
  "monero-wire",
  "thiserror",
  "tokio",
@@ -1183,6 +1164,14 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "monero-pruning"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "thiserror",
 ]
 
 [[package]]
@@ -1225,7 +1214,7 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "levin-cuprate",
- "monero-epee-bin-serde 1.0.1 (git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=aafe4ba)",
+ "monero-epee-bin-serde",
  "serde",
  "serde_bytes",
  "thiserror",

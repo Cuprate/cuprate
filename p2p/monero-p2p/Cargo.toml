@@ -7,11 +7,12 @@ authors = ["Boog900"]
 
 [features]
 default = ["borsh"]
-borsh = ["dep:borsh"]
+borsh = ["dep:borsh", "monero-pruning/borsh"]
 
 [dependencies]
-monero-wire = {path= "../../net/monero-wire"}
-cuprate-common = {path = "../../common", features = ["borsh"]}
+cuprate-helper = { path = "../../helper" }
+monero-wire = { path = "../../net/monero-wire" }
+monero-pruning = { path = "../../pruning" }
 
 tokio = { workspace = true, features = ["net", "sync", "macros"]}
 tokio-util = { workspace = true, features = ["codec"] }

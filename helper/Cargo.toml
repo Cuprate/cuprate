@@ -1,7 +1,12 @@
 [package]
-name = "helper"
+name = "cuprate-helper"
 version = "0.1.0"
 edition = "2021"
+description = "Helper functions used around Cuprate."
+license = "MIT"
+authors = ["hinto-janai <hinto.janai@protonmail.com>", "Boog900"]
+repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
+
 
 [features]
 # All features on by default.

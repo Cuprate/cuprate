@@ -2,11 +2,14 @@ use proptest::strategy::ValueTree;
 use proptest::{strategy::Strategy, test_runner::TestRunner};
 use tower::ServiceExt;
 
-use crate::context::{
-    initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
-    ContextConfig, UpdateBlockchainCacheData,
+use crate::{
+    context::{
+        initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
+        ContextConfig, UpdateBlockchainCacheData,
+    },
+    tests::mock_db::*,
+    HardFork,
 };
-use crate::{tests::mock_db::*, HardFork};
 
 pub(crate) mod data;
 mod difficulty;

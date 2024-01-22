@@ -1,4 +1,4 @@
-use cuprate_common::{PruningError, PruningSeed};
+use monero_pruning::{PruningError, PruningSeed};
 use monero_wire::{NetZone, NetworkAddress, PeerListEntryBase};
 
 use crate::{

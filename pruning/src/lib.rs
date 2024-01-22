@@ -1,6 +1,6 @@
 //! # Pruning Mechanism for Monero
 //!
-//! This module provides an implementation of the pruning mechanism used in Monero.
+//! This crate provides an implementation of the pruning mechanism used in Monero.
 //! The main data structure, `PruningSeed`, encapsulates the logic for creating and manipulating pruning seeds,
 //! which determine the set of blocks to be pruned from the blockchain.
 //!
@@ -8,9 +8,9 @@
 //! split into 8 parts):
 //!
 //! ```rust
-//! use cuprate_common::pruning::PruningSeed;
+//! use monero_pruning::PruningSeed;
 //!
-//! let seed: u32 = 386; // the seed you wan't to check is valid
+//! let seed: u32 = 386; // the seed you want to check is valid
 //! match PruningSeed::try_from(seed) {
 //!     Ok(seed) => seed, // seed is valid
 //!     Err(e) => panic!("seed is invalid")
@@ -22,10 +22,11 @@ use std::cmp::Ordering;
 
 use thiserror::Error;
 
-use super::{
-    CRYPTONOTE_MAX_BLOCK_NUMBER, CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_STRIPE_SIZE,
-    CRYPTONOTE_PRUNING_TIP_BLOCKS,
-};
+pub const CRYPTONOTE_MAX_BLOCK_NUMBER: u64 = 500000000;
+
+pub const CRYPTONOTE_PRUNING_LOG_STRIPES: u32 = 3;
+pub const CRYPTONOTE_PRUNING_STRIPE_SIZE: u64 = 4096;
+pub const CRYPTONOTE_PRUNING_TIP_BLOCKS: u64 = 5500;
 
 const PRUNING_SEED_LOG_STRIPES_SHIFT: u32 = 7;
 const PRUNING_SEED_STRIPE_SHIFT: u32 = 0;
@@ -185,7 +186,7 @@ impl PruningSeed {
                     1
                 };
 
-            //                         amt_of_cycles  *         blocks in a cycle                            +   how many blocks through a cycles until the seed starts storing blocks
+            // amt_of_cycles * blocks in a cycle + how many blocks through a cycles until the seed starts storing blocks
             let calculated_height = cycles_start
                 * (CRYPTONOTE_PRUNING_STRIPE_SIZE << seed_log_stripes)
                 + (seed_stripe as u64 - 1) * CRYPTONOTE_PRUNING_STRIPE_SIZE;
@@ -289,9 +290,7 @@ fn get_block_pruning_stripe(
 
 #[cfg(test)]
 mod tests {
-    use crate::pruning::{get_block_pruning_stripe, PruningSeed};
-
-    use super::CRYPTONOTE_PRUNING_LOG_STRIPES;
+    use super::*;
 
     fn make_all_pruning_seeds() -> Vec<PruningSeed> {
         let possible_stripes = 1..(1 << CRYPTONOTE_PRUNING_LOG_STRIPES);

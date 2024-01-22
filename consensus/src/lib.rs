@@ -6,11 +6,9 @@ use std::{
 
 use monero_consensus::{transactions::OutputOnChain, ConsensusError, HardFork};
 
-//mod batch_verifier;
 mod batch_verifier;
 pub mod block;
 pub mod context;
-mod helper;
 pub mod randomx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
@@ -115,7 +113,7 @@ pub struct ExtendedBlockHeader {
 
 #[derive(Debug, Clone)]
 pub enum DatabaseRequest {
-    BlockExtendedHeader(cuprate_common::BlockID),
+    BlockExtendedHeader(u64),
     BlockHash(u64),
 
     BlockExtendedHeaderInRange(std::ops::Range<u64>),

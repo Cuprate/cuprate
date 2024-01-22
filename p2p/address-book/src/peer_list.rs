@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use rand::{seq::SliceRandom, Rng};
 
-use cuprate_common::{PruningSeed, CRYPTONOTE_MAX_BLOCK_NUMBER};
 use monero_p2p::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
+use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_NUMBER};
 
 #[cfg(test)]
 pub mod tests;

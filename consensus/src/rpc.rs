@@ -15,7 +15,9 @@ use futures::{
 use tokio::sync::RwLock;
 use tower::{balance::p2c::Balance, ServiceExt};
 
-use crate::{helper::rayon_spawn_async, DatabaseRequest, DatabaseResponse};
+use cuprate_helper::asynch::rayon_spawn_async;
+
+use crate::{DatabaseRequest, DatabaseResponse};
 
 pub mod cache;
 mod connection;

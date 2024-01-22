@@ -5,7 +5,7 @@ use futures::{channel::mpsc, StreamExt};
 use tokio::sync::{broadcast, Semaphore};
 use tower::{Service, ServiceExt};
 
-use cuprate_common::Network;
+use cuprate_helper::network::Network;
 use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 
 use monero_p2p::{

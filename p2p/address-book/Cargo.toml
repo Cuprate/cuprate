@@ -7,9 +7,9 @@ authors = ["Boog900"]
 
 
 [dependencies]
-cuprate-common = {path = "../../common"}
-monero-wire = {path= "../../net/monero-wire"}
-monero-p2p = {path = "../monero-p2p" }
+monero-pruning = { path = "../../pruning" }
+monero-wire = { path= "../../net/monero-wire" }
+monero-p2p = { path = "../monero-p2p" }
 
 tower = { workspace = true, features = ["util", "buffer"] }
 tokio = { workspace = true, features = ["time", "fs", "rt"]}

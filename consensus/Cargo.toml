@@ -29,7 +29,7 @@ binaries = [
 ]
 
 [dependencies]
-cuprate-common = {path = "../common"}
+cuprate-helper = { path = "../helper", default-features = false, features = ["std", "asynch", "num"] }
 monero-consensus = {path = "./rules", features = ["rayon"]}
 
 thiserror = { workspace = true }

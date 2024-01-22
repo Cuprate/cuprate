@@ -13,7 +13,7 @@ mod bin {
     use monero_serai::transaction::Transaction;
     use tower::{Service, ServiceExt};
 
-    use cuprate_common::tower_utils::InfallibleOneshotReceiver;
+    use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
     use cuprate_consensus::{
         context::{

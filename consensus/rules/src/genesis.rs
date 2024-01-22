@@ -6,7 +6,7 @@ use monero_serai::{
     transaction::Transaction,
 };
 
-use cuprate_common::Network;
+use cuprate_helper::network::Network;
 
 const fn genesis_nonce(network: &Network) -> u32 {
     match network {
@@ -42,9 +42,7 @@ pub fn generate_genesis_block(network: &Network) -> Block {
 
 #[cfg(test)]
 mod tests {
-    use cuprate_common::Network;
-
-    use super::generate_genesis_block;
+    use super::*;
 
     #[test]
     fn generate_genesis_blocks() {

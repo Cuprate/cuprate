@@ -14,6 +14,7 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
+use cuprate_helper::asynch::rayon_spawn_async;
 use monero_consensus::{
     transactions::{
         check_transaction_contextual, check_transaction_semantic, RingCTError, TransactionError,
@@ -23,8 +24,8 @@ use monero_consensus::{
 };
 
 use crate::{
-    batch_verifier::MultiThreadedBatchVerifier, context::ReOrgToken, helper::rayon_spawn_async,
-    Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError,
+    batch_verifier::MultiThreadedBatchVerifier, context::ReOrgToken, Database, DatabaseRequest,
+    DatabaseResponse, ExtendedConsensusError,
 };
 
 mod contextual_data;

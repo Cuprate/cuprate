@@ -38,6 +38,7 @@
 pub mod asynch; // async collides
 #[cfg(feature = "atomic")]
 pub mod atomic;
+pub mod network;
 #[cfg(feature = "num")]
 pub mod num;
 #[cfg(feature = "thread")]

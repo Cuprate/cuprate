@@ -79,9 +79,7 @@ impl HardForkState {
         let DatabaseResponse::BlockExtendedHeader(ext_header) = database
             .ready()
             .await?
-            .call(DatabaseRequest::BlockExtendedHeader(
-                (chain_height - 1).into(),
-            ))
+            .call(DatabaseRequest::BlockExtendedHeader(chain_height - 1))
             .await?
         else {
             panic!("Database sent incorrect response!");

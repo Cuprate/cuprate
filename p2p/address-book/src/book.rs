@@ -19,13 +19,13 @@ use tokio::{
 };
 use tower::Service;
 
-use cuprate_common::PruningSeed;
 use monero_p2p::{
     client::InternalPeerID,
     handles::ConnectionHandle,
     services::{AddressBookRequest, AddressBookResponse, ZoneSpecificPeerListEntryBase},
     NetZoneAddress, NetworkZone,
 };
+use monero_pruning::PruningSeed;
 
 use crate::{peer_list::PeerList, store::save_peers_to_disk, AddressBookError, Config};
 

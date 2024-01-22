@@ -4,8 +4,8 @@ use futures::StreamExt;
 use tokio::sync::Semaphore;
 use tokio::time::interval;
 
-use cuprate_common::PruningSeed;
 use monero_p2p::handles::HandleBuilder;
+use monero_pruning::PruningSeed;
 
 use super::{AddressBook, ConnectionPeerEntry, InternalPeerID};
 use crate::{peer_list::tests::make_fake_peer_list, AddressBookError, Config};

@@ -9,8 +9,8 @@ proptest = ["dep:proptest", "dep:proptest-derive"]
 rayon = ["dep:rayon"]
 
 [dependencies]
+cuprate-helper = { path = "../../helper", default-features = false, features = ["std"] }
 cryptonight-cuprate = {path = "../../cryptonight"}
-cuprate-common = {path = "../../common"}
 
 monero-serai = { workspace = true, features = ["std"] }
 multiexp = { workspace = true, features = ["std", "batch"] }

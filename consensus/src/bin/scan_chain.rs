@@ -19,7 +19,7 @@ mod bin {
     use tower::{Service, ServiceExt};
     use tracing::level_filters::LevelFilter;
 
-    use cuprate_common::Network;
+    use cuprate_helper::network::Network;
 
     use cuprate_consensus::{
         block::PrePreparedBlockExPOW,

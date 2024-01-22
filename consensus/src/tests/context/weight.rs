@@ -4,8 +4,8 @@ use crate::{
         BlockWeightsCacheConfig,
     },
     tests::{context::data::BW_2850000_3050000, mock_db::*},
+    HardFork,
 };
-use monero_consensus::HardFork;
 
 pub const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig = BlockWeightsCacheConfig::new(100, 5000);
 

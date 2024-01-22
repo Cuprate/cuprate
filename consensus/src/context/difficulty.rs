@@ -3,9 +3,9 @@ use std::{collections::VecDeque, ops::Range};
 use tower::ServiceExt;
 use tracing::instrument;
 
-use crate::{
-    helper::median, Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork,
-};
+use cuprate_helper::num::median;
+
+use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork};
 
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;

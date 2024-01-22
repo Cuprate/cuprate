@@ -27,13 +27,10 @@ use tokio::{
 use tower::Service;
 use tracing::{instrument, Instrument};
 
-use cuprate_common::{tower_utils::InfallibleOneshotReceiver, BlockID};
+use cuprate_helper::asynch::{rayon_spawn_async, InfallibleOneshotReceiver};
 
 use super::ScanningCache;
-use crate::{
-    helper::rayon_spawn_async, DatabaseRequest, DatabaseResponse, ExtendedBlockHeader, HardFork,
-    OutputOnChain,
-};
+use crate::{DatabaseRequest, DatabaseResponse, ExtendedBlockHeader, HardFork, OutputOnChain};
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(300);
 const OUTPUTS_TIMEOUT: Duration = Duration::from_secs(50);
 
@@ -98,36 +95,24 @@ impl RpcConnection {
 
     async fn get_extended_block_header(
         &self,
-        id: BlockID,
+        height: u64,
     ) -> Result<ExtendedBlockHeader, tower::BoxError> {
-        tracing::info!("Retrieving block info with id: {}", id);
+        tracing::info!("Retrieving block info with height: {}", height);
 
         #[derive(Deserialize, Debug)]
         struct Response {
             block_header: BlockInfo,
         }
 
-        let info = match id {
-            BlockID::Height(height) => {
-                let res = self
-                    .con
-                    .json_rpc_call::<Response>(
-                        "get_block_header_by_height",
-                        Some(json!({"height": height})),
-                    )
-                    .await?;
-                res.block_header
-            }
-            BlockID::Hash(hash) => {
-                let res = self
-                    .con
-                    .json_rpc_call::<Response>(
-                        "get_block_header_by_hash",
-                        Some(json!({"hash": hash})),
-                    )
-                    .await?;
-                res.block_header
-            }
+        let info = {
+            let res = self
+                .con
+                .json_rpc_call::<Response>(
+                    "get_block_header_by_height",
+                    Some(json!({"height": height})),
+                )
+                .await?;
+            res.block_header
         };
 
         Ok(ExtendedBlockHeader {

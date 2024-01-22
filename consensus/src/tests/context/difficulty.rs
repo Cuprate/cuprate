@@ -2,7 +2,9 @@ use std::collections::VecDeque;
 
 use proptest::{arbitrary::any, prop_assert_eq, prop_compose, proptest};
 
-use crate::{context::difficulty::*, helper::median, tests::mock_db::*, HardFork};
+use cuprate_helper::num::median;
+
+use crate::{context::difficulty::*, tests::mock_db::*, HardFork};
 
 const TEST_WINDOW: usize = 72;
 const TEST_CUT: usize = 6;

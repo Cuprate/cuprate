@@ -9,7 +9,7 @@ use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_util::sync::PollSender;
 use tower::Service;
 
-use cuprate_common::tower_utils::InfallibleOneshotReceiver;
+use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
     handles::ConnectionHandle, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
