@@ -19,7 +19,7 @@ mod bin {
     use tower::{Service, ServiceExt};
     use tracing::level_filters::LevelFilter;
 
-    use cuprate_helper::network::Network;
+    use cuprate_helper::{asynch::rayon_spawn_async, network::Network};
 
     use cuprate_consensus::{
         block::PrePreparedBlockExPOW,
@@ -336,18 +336,6 @@ mod bin {
         Ok(())
     }
 
-    async fn rayon_spawn_async<F, R>(f: F) -> R
-    where
-        F: FnOnce() -> R + Send + 'static,
-        R: Send + 'static,
-    {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        rayon::spawn(|| {
-            let _ = tx.send(f());
-        });
-        rx.await.expect("The sender must not be dropped")
-    }
-
     #[derive(Parser)]
     struct Args {
         /// The log level, valid values:
@@ -515,4 +503,6 @@ async fn main() {
 }
 
 #[cfg(not(feature = "binaries"))]
-fn main() {}
+fn main() {
+    panic!("must run with feature `binaries`")
+}

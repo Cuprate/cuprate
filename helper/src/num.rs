@@ -87,10 +87,26 @@ where
 /// If not sorted the output will be invalid.
 pub fn median<T>(array: impl AsRef<[T]>) -> T
 where
-    T: Add<Output = T> + Sub<Output = T> + Div<Output = T> + Mul<Output = T> + Copy + From<u8>,
+    T: Add<Output = T>
+        + Sub<Output = T>
+        + Div<Output = T>
+        + Mul<Output = T>
+        + PartialOrd
+        + Copy
+        + From<u8>,
 {
     let array = array.as_ref();
     let len = array.len();
+
+    // TODO: use `is_sorted` when stable.
+    debug_assert!(array
+        .windows(2)
+        .try_for_each(|window| if window[0] <= window[1] {
+            Ok(())
+        } else {
+            Err(())
+        })
+        .is_ok());
 
     let mid = len / 2;
 

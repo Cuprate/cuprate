@@ -4,7 +4,11 @@ use proptest::{arbitrary::any, prop_assert_eq, prop_compose, proptest};
 
 use cuprate_helper::num::median;
 
-use crate::{context::difficulty::*, tests::mock_db::*, HardFork};
+use crate::{
+    context::difficulty::*,
+    tests::{context::data::DIF_3000000_3002000, mock_db::*},
+    HardFork,
+};
 
 const TEST_WINDOW: usize = 72;
 const TEST_CUT: usize = 6;
@@ -42,6 +46,42 @@ async fn genesis_block_skipped() -> Result<(), tower::BoxError> {
             .await?;
     assert!(diff_cache.cumulative_difficulties.is_empty());
     assert!(diff_cache.timestamps.is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
+    let cfg = DifficultyCacheConfig::main_net();
+
+    let mut db_builder = DummyDatabaseBuilder::default();
+    for (cum_dif, timestamp) in DIF_3000000_3002000
+        .iter()
+        .take(cfg.total_block_count() as usize)
+    {
+        db_builder.add_block(
+            DummyBlockExtendedHeader::default().with_difficulty_info(*timestamp, *cum_dif),
+        )
+    }
+
+    let mut diff_cache = DifficultyCache::init_from_chain_height(
+        3_000_720,
+        cfg.clone(),
+        db_builder.finish(Some(3_000_720)),
+    )
+    .await?;
+
+    for (i, diff_info) in DIF_3000000_3002000
+        .windows(2)
+        .skip(cfg.total_block_count() as usize - 1)
+        .enumerate()
+    {
+        let diff = diff_info[1].0 - diff_info[0].0;
+
+        assert_eq!(diff_cache.next_difficulty(&HardFork::V16), diff);
+
+        diff_cache.new_block(3_000_720 + i as u64, diff_info[1].1, diff_info[1].0);
+    }
+
     Ok(())
 }
 

@@ -44,7 +44,7 @@ dalek-ff-group = { workspace = true }
 
 rayon = { workspace = true }
 thread_local = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
 tokio-util = { workspace = true }
 
 hex = "0.4"
