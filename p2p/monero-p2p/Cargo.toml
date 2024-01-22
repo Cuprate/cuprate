@@ -14,7 +14,7 @@ cuprate-helper = { path = "../../helper" }
 monero-wire = { path = "../../net/monero-wire" }
 monero-pruning = { path = "../../pruning" }
 
-tokio = { workspace = true, features = ["net", "sync", "macros"]}
+tokio = { workspace = true, features = ["net", "sync", "macros", "time"]}
 tokio-util = { workspace = true, features = ["codec"] }
 tokio-stream = { workspace = true, features = ["sync"]}
 futures = { workspace = true, features = ["std", "async-await"] }

@@ -4,10 +4,14 @@ use std::{
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
+    time::Duration,
 };
 
 use futures::{FutureExt, SinkExt, StreamExt};
-use tokio::sync::{broadcast, mpsc, OwnedSemaphorePermit};
+use tokio::{
+    sync::{broadcast, mpsc, OwnedSemaphorePermit},
+    time::{error::Elapsed, timeout},
+};
 use tower::{Service, ServiceExt};
 use tracing::Instrument;
 
@@ -30,22 +34,25 @@ use crate::{
 };
 
 const MAX_EAGER_PROTOCOL_MESSAGES: usize = 2;
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Debug, thiserror::Error)]
 pub enum HandshakeError {
-    #[error("peer has the same node ID as us")]
+    #[error("The handshake timed out")]
+    TimedOut(#[from] Elapsed),
+    #[error("Peer has the same node ID as us")]
     PeerHasSameNodeID,
-    #[error("peer is on a different network")]
+    #[error("Peer is on a different network")]
     IncorrectNetwork,
-    #[error("peer sent a peer list with peers from different zones")]
+    #[error("Peer sent a peer list with peers from different zones")]
     PeerSentIncorrectPeerList(#[from] crate::services::PeerListConversionError),
-    #[error("peer sent invalid message: {0}")]
+    #[error("Peer sent invalid message: {0}")]
     PeerSentInvalidMessage(&'static str),
     #[error("Levin bucket error: {0}")]
     LevinBucketError(#[from] BucketError),
     #[error("Internal service error: {0}")]
     InternalSvcErr(#[from] tower::BoxError),
-    #[error("i/o error: {0}")]
+    #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),
 }
 
@@ -108,14 +115,6 @@ where
     }
 
     fn call(&mut self, req: DoHandshakeRequest<Z>) -> Self::Future {
-        let DoHandshakeRequest {
-            addr,
-            peer_stream,
-            peer_sink,
-            direction,
-            permit,
-        } = req;
-
         let broadcast_rx = self.broadcast_tx.subscribe();
 
         let address_book = self.address_book.clone();
@@ -123,37 +122,31 @@ where
         let core_sync_svc = self.core_sync_svc.clone();
         let our_basic_node_data = self.our_basic_node_data.clone();
 
-        let span = tracing::info_span!(parent: &tracing::Span::current(), "handshaker", %addr);
+        let span = tracing::info_span!(parent: &tracing::Span::current(), "handshaker", %req.addr);
 
         async move {
-            // TODO: timeouts
-            handshake(
-                addr,
-                peer_stream,
-                peer_sink,
-                direction,
-                permit,
-                broadcast_rx,
-                address_book,
-                core_sync_svc,
-                peer_request_svc,
-                our_basic_node_data,
+            timeout(
+                HANDSHAKE_TIMEOUT,
+                handshake(
+                    req,
+                    broadcast_rx,
+                    address_book,
+                    core_sync_svc,
+                    peer_request_svc,
+                    our_basic_node_data,
+                ),
             )
-            .await
+            .await?
         }
         .instrument(span)
         .boxed()
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+/// This function completes a handshake with the requested peer.
 async fn handshake<Z: NetworkZone, AdrBook, CSync, ReqHdlr>(
-    addr: InternalPeerID<Z::Addr>,
-    mut peer_stream: Z::Stream,
-    mut peer_sink: Z::Sink,
-    direction: ConnectionDirection,
+    req: DoHandshakeRequest<Z>,
 
-    permit: OwnedSemaphorePermit,
     broadcast_rx: broadcast::Receiver<Arc<PeerBroadcast>>,
 
     mut address_book: AdrBook,
@@ -166,6 +159,14 @@ where
     CSync: CoreSyncSvc,
     ReqHdlr: PeerRequestHandler,
 {
+    let DoHandshakeRequest {
+        addr,
+        mut peer_stream,
+        mut peer_sink,
+        direction,
+        permit,
+    } = req;
+
     let mut eager_protocol_messages = Vec::new();
     let mut allow_support_flag_req = true;
 
@@ -443,7 +444,7 @@ async fn wait_for_message<Z: NetworkZone>(
                 }
 
                 return Err(HandshakeError::PeerSentInvalidMessage(
-                    "Peer sent a admin request before responding to the handshake",
+                    "Peer sent an admin request before responding to the handshake",
                 ));
             }
             Message::Response(res_message) if !request => {

@@ -1,10 +1,13 @@
 use std::net::{IpAddr, SocketAddr};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use monero_wire::MoneroWireCodec;
 
+use futures::Stream;
 use tokio::net::{
     tcp::{OwnedReadHalf, OwnedWriteHalf},
-    TcpStream,
+    TcpListener, TcpStream,
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
 
@@ -22,10 +25,12 @@ impl NetZoneAddress for SocketAddr {
     }
 }
 
+pub struct ClearNetServerCfg {
+    addr: SocketAddr,
+}
+
 #[derive(Clone, Copy)]
 pub struct ClearNet;
-
-pub struct ClearNetServerCfg {}
 
 #[async_trait::async_trait]
 impl NetworkZone for ClearNet {
@@ -37,8 +42,9 @@ impl NetworkZone for ClearNet {
     type Addr = SocketAddr;
     type Stream = FramedRead<OwnedReadHalf, MoneroWireCodec>;
     type Sink = FramedWrite<OwnedWriteHalf, MoneroWireCodec>;
+    type Listener = InBoundStream;
 
-    type ServerCfg = ();
+    type ServerCfg = ClearNetServerCfg;
 
     async fn connect_to_peer(
         addr: Self::Addr,
@@ -50,7 +56,39 @@ impl NetworkZone for ClearNet {
         ))
     }
 
-    async fn incoming_connection_listener(config: Self::ServerCfg) -> () {
-        todo!()
+    async fn incoming_connection_listener(
+        config: Self::ServerCfg,
+    ) -> Result<Self::Listener, std::io::Error> {
+        let listener = TcpListener::bind(config.addr).await?;
+        Ok(InBoundStream { listener })
+    }
+}
+
+pub struct InBoundStream {
+    listener: TcpListener,
+}
+
+impl Stream for InBoundStream {
+    type Item = Result<
+        (
+            Option<SocketAddr>,
+            FramedRead<OwnedReadHalf, MoneroWireCodec>,
+            FramedWrite<OwnedWriteHalf, MoneroWireCodec>,
+        ),
+        std::io::Error,
+    >;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.listener
+            .poll_accept(cx)
+            .map_ok(|(stream, addr)| {
+                let (read, write) = stream.into_split();
+                (
+                    Some(addr),
+                    FramedRead::new(read, MoneroWireCodec::default()),
+                    FramedWrite::new(write, MoneroWireCodec::default()),
+                )
+            })
+            .map(Some)
     }
 }

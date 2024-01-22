@@ -61,7 +61,6 @@ pub trait NetZoneAddress:
     + borsh::BorshDeserialize
     + Hash
     + Eq
-    + Clone
     + Copy
     + Send
     + Unpin
@@ -105,6 +104,10 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     type Stream: Stream<Item = Result<Message, BucketError>> + Unpin + Send + 'static;
     /// The sink (outgoing data) type for this network.
     type Sink: Sink<Message, Error = BucketError> + Unpin + Send + 'static;
+    /// The inbound connection listener for this network.
+    type Listener: Stream<
+        Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>,
+    >;
     /// Config used to start a server which listens for incoming connections.
     type ServerCfg;
 
@@ -112,7 +115,9 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
         addr: Self::Addr,
     ) -> Result<(Self::Stream, Self::Sink), std::io::Error>;
 
-    async fn incoming_connection_listener(config: Self::ServerCfg) -> ();
+    async fn incoming_connection_listener(
+        config: Self::ServerCfg,
+    ) -> Result<Self::Listener, std::io::Error>;
 }
 
 pub(crate) trait AddressBook<Z: NetworkZone>:

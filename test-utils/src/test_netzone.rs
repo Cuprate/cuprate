@@ -7,7 +7,7 @@ use std::{
 };
 
 use borsh::{BorshDeserialize, BorshSerialize};
-use futures::{channel::mpsc::Sender as InnerSender, stream::BoxStream, Sink};
+use futures::{channel::mpsc::Sender as InnerSender, stream::BoxStream, Sink, Stream};
 
 use monero_wire::{
     network_address::{NetworkAddress, NetworkAddressIncorrectZone},
@@ -111,13 +111,20 @@ impl<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool
     type Addr = TestNetZoneAddr;
     type Stream = BoxStream<'static, Result<Message, BucketError>>;
     type Sink = Sender;
+    type Listener = Pin<
+        Box<
+            dyn Stream<
+                Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>,
+            >,
+        >,
+    >;
     type ServerCfg = ();
 
     async fn connect_to_peer(_: Self::Addr) -> Result<(Self::Stream, Self::Sink), Error> {
         unimplemented!()
     }
 
-    async fn incoming_connection_listener(_: Self::ServerCfg) -> () {
+    async fn incoming_connection_listener(_: Self::ServerCfg) -> Result<Self::Listener, Error> {
         unimplemented!()
     }
 }
