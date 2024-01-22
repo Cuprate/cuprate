@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Returns the current system time as a UNIX timestamp.
 ///
 /// ```rust
-/// # use helper::time::*;
+/// # use cuprate_helper::time::*;
 /// assert!(current_unix_timestamp() > 0);
 /// ```
 ///
@@ -34,7 +34,7 @@ pub fn current_unix_timestamp() -> u64 {
 /// The output is guaranteed to be in the range of `0..=86399`.
 ///
 /// ```rust
-/// # use helper::time::*;
+/// # use cuprate_helper::time::*;
 /// // October 20th 2023 - 10:18:30 PM
 /// const TIME: u64 = 1697840310;
 ///
@@ -58,7 +58,7 @@ pub const fn unix_clock(seconds_after_unix_epoch: u64) -> u32 {
 /// see [`secs_to_clock`] for clock-like behavior that wraps around on `24`
 ///
 /// ```rust
-/// # use helper::time::*;
+/// # use cuprate_helper::time::*;
 /// // 59 seconds.
 /// assert_eq!(secs_to_hms(59), (0, 0, 59));
 ///
@@ -99,7 +99,7 @@ pub const fn secs_to_hms(seconds: u64) -> (u64, u8, u8) {
 /// - The hours returned is guaranteed to be `0..=23`
 ///
 /// ```rust
-/// # use helper::time::*;
+/// # use cuprate_helper::time::*;
 /// // 59 seconds.
 /// assert_eq!(secs_to_clock(59), (0, 0, 59));
 ///

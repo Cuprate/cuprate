@@ -17,7 +17,7 @@ const NON_ZERO_USIZE_1: NonZeroUsize = match NonZeroUsize::new(1) {
 /// Get the total amount of system threads.
 ///
 /// ```rust
-/// # use helper::thread::*;
+/// # use cuprate_helper::thread::*;
 /// assert!(threads().get() >= 1);
 /// ```
 pub fn threads() -> NonZeroUsize {
