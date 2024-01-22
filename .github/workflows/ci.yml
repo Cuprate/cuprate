@@ -29,23 +29,23 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/cache/restore@v3
-        id: cache-restore
+      - uses: actions/cache@v3
+        id: cache
         with:
           path: target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cache
 
       - name: Install dependencies
         run: sudo apt install -y libboost-dev
 
       - name: Build
-        run: cargo build --all-features
+        run: cargo build --all-features --all-targets --workspace
 
       - uses: actions/cache/save@v3
-        id: cache-save
+        id: cache-save-short-term
         with:
           path: target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cache-${{ github.sha }}
 
   clippy:
     runs-on: ubuntu-latest
@@ -58,7 +58,10 @@ jobs:
         id: cache
         with:
           path: target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cache-${{ github.sha }}
+
+      - name: Install dependencies
+        run: sudo apt install -y libboost-dev
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -74,7 +77,13 @@ jobs:
         id: cache
         with:
           path: target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cache-${{ github.sha }}
+
+      - name: Spawn monerod
+        uses: ./.github/actions/monerod-regtest
+
+      - name: Install dependencies
+        run: sudo apt install -y libboost-dev
 
       - name: Test
         run: cargo test --all-features --workspace --all-targets && cargo test --all-features --workspace --doc
