@@ -1,0 +1,12 @@
+[package]
+name = "fixed-bytes"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["std"]
+std = ["bytes/std", "dep:thiserror"]
+
+[dependencies]
+thiserror = { workspace = true, optional = true }
+bytes = { workspace = true }

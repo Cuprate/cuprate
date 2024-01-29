@@ -6,6 +6,8 @@ members = [
 	"consensus/rules",
 	"cryptonight",
 	"helper",
+	"net/epee-encoding",
+	"net/fixed-bytes",
 	"net/levin",
 	"net/monero-wire",
 	"p2p/monero-p2p",

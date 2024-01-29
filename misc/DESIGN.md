@@ -20,16 +20,16 @@
 
 ### Introduction
 
-This document outlines the initial plan for Cuprate, a Rust Monero node. Currently, Monero only 
+This document outlines the initial plan for Cuprate, a Rust Monero node. Currently, Monero only
 has one node implementation, which many would class as an issue.
 
-This document isn't supposed to outline everything, but it is meant to give a good overview of the 
+This document isn't supposed to outline everything, but it is meant to give a good overview of the
 plan.
 
 Cuprate won't build everything from scratch and aims to use crates already in existence
-when they're a good fit, an example is monero-serai for our transactions and blocks. 
+when they're a good fit, an example is monero-serai for our transactions and blocks.
 
-Cuprate makes heavy use of [tower](https://docs.rs/tower/latest/tower/index.html) to modularize its 
+Cuprate makes heavy use of [tower](https://docs.rs/tower/latest/tower/index.html) to modularize its
 parts. Using tower across the node will provide us with a consistent API and will allow us to use towers
 extensive middleware, for tasks such as routing requests and timeouts.
 
@@ -38,49 +38,57 @@ extensive middleware, for tasks such as routing requests and timeouts.
 ### P2P
 
 Cuprates P2P takes heavy inspiration from Zebra. The P2P crate will abstract the network into one endpoint,  
-meaning other parts of the node will have no P2P code except from sending requests to this one endpoint. 
-This endpoint will be made of a few different tower::Services for the different routing methods, the most 
+meaning other parts of the node will have no P2P code except from sending requests to this one endpoint.
+This endpoint will be made of a few different tower::Services for the different routing methods, the most
 simple method is to use a load balancing algorithm to send a request to one peer.
 
-The peer to peer part of Cuprate will be split into 3 crates:
+The peer to peer part of Cuprate will be split into multiple crates:
 
-| Name          | Short Description                                                                             |
-|---------------|-----------------------------------------------------------------------------------------------|
-| levin-cuprate | A library containing the levin header format.                                                 |
-| monero-wire   | A library containing all Monero P2P messages built on-top of `levin-cuprate`.                 |
-| cuprate-p2p   | A library abstracting the P2P network away, with logic for handshakes, the address book, etc. |
+| Name                | Short Description                                                                                              |
+|---------------------|----------------------------------------------------------------------------------------------------------------|
+| levin-cuprate       | A library containing the levin header format.                                                                  |
+| monero-wire         | A library containing all Monero P2P messages built on-top of `levin-cuprate`.                                  |
+| monero-p2p          | A library defining the network zone abstraction and individual peer logic (handshakes etc).                    |
+| monero-address-book | Contains the P2P address book, handles storing peers, getting peers etc.                                       |
+| cuprate-p2p         | Defines the PeerSet and the different routing methods (excluding d++), has the logic for starting the network. |
+| dandelion-pp        | Defines the D++ routing method.                                                                                |
 
 #### levin-cuprate
 
 This library will have the [levin header format](https://github.com/monero-project/monero/blob/master/docs/LEVIN_PROTOCOL.md#header),
-with a [tokio-codec](https://docs.rs/tokio-util/0.7.8/tokio_util/codec/index.html) for encoding and 
-decoding p2p messages. To do this a trait `LevinMessage` will be used so users can define their own 
+with a [tokio-codec](https://docs.rs/tokio-util/0.7.8/tokio_util/codec/index.html) for encoding and
+decoding p2p messages. To do this a trait `LevinMessage` will be used so users can define their own
 P2P messages. This will allow other Rust projects to use the levin header format with different messages.
 
 #### monero-wire
 
-This will be a library built on top of [levin-cuprate](#levin-cuprate), It will contain every P2P 
+This will be a library built on top of [levin-cuprate](#levin-cuprate), It will contain every P2P
 message with decoding/ encoding capability. This library will implement the `LevinMessage` trait.
 
-The serialization format used for P2P messages has already been implemented in Rust, multiple times :). I have decided to 
-implement it yet again in the crate: `epee-encoding`. This crate was created specifically for use in Cuprate.
+The serialization format used for P2P messages has already been implemented in Rust, multiple times :). I have decided to
+use monero-epee-bin-serde.
 
-The monero-wire crate will be able to be used in other Rust projects who want to interact with Monero's P2P network. 
+The monero-wire crate can be used in other Rust projects which need Monero's p2p network messages.
 
-#### cuprate-p2p
+#### monero-p2p
 
-This library will abstract the P2P network away into one endpoint. Sadly, this endpoint will have to be made 
-up of different tower::Services for the different routing methods. For example, new blocks need to be sent to every 
-peer but a request may only need to go to a single peer.
+This library will contain the network zone abstraction, which abstracts over clear-net, Tor, I2P and any future network.
 
-The library will be split into many modules:
+This will also contain a `Client` and `Connection`. The `Connection` will be an async task that gives requests from
+the peer to the inbound request handler and sends requests from Cuprate to the peer. The `Client` will implement
+tower::Service and will simply pass requests from our node to the `Connection` task.
 
-##### protocol
+This will also contain a `Handshaker` which is responsible for taking a peer connection doing a handshake with it
+and creating a `Client` and `Connection`.
+
+This library is intended to be a more flexible monero p2p library than what cuprate-p2p is, allowing wider use in applications that need to
+interact with Monero's p2p network but don't want/ or need Cuprates whole p2p stack.
 
 To be compatible with tower::Service the Monero P2P protocol needs to be split into requests and responses.
-Levin admin messages are already in the request/ response format, but notifications are not. For some 
+Levin admin messages are already in the request/ response format, but notifications are not. For some
 notifications it's easy: `GetObjectsRequest` but for others it's harder.
 Here is a table of the Monero P2P messages put in either requests or responses:
+
 ```
 /// Admin (These are already in request/ response format):
 ///     Handshake,
@@ -100,41 +108,32 @@ Here is a table of the Monero P2P messages put in either requests or responses:
 To split messages that can be requests or responses we will need to keep track of sent
 requests.
 
-##### peer
+#### monero-address-book
 
-This will contain a `Client` and `Connection`. The `Connection` will be an async task that gives requests from
-the peer to the inbound request handler and sends requests from Cuprate to the peer. The `Client` will implement
-tower::Service and will simply pass requests from our node to the `Connection` task.
+This implements Monero's p2p address book, this is a separate crate to monero-p2p to allow developers to create their own address book implementation
+if `monero-address-book` is not suitable for them. `monero-address-book` will implement an `AddressBook` trait defined in `monero-p2p`.
 
-This module will also contain a `Handshaker` which is responsible for taking a peer connection doing a handshake with it 
-and creating a `Client` and `Connection`.
+#### cuprate-p2p
 
-##### address book
+This library will abstract the P2P network away into one endpoint. Sadly, this endpoint will have to be made
+up of different tower::Services for the different routing methods. For example, new blocks need to be sent to every
+peer but a request for a block may only need to go to a single peer.
 
-The address book will use the same overall idea as monerod's address book. It will contain a White, Grey and Anchor
-list. Under the hood we will have 3 separate address books for each network (clear, i2p, Tor) and will route requests 
-using a tower::Steer. 
+To allow splitting the endpoint into multiple tower::Services a `PeerSet` will be defined that will be shared between the services and is the structure
+that holds on the currently connected peer on a certain network. The tower::Services will use this `PeerSet` to get peers to route requests to.
 
-White: Peers we have connected to at some point.
+`cuprate-p2p` will also have a block downloader which will be a `futures::Stream`, it will use the `PeerSet` to find the chain with the highest cumulative 
+difficulty and download that chain, when it gets a block it will pass it back through the `Stream`. 
 
-Gray: Peers we have heard about but haven't attempted to connect to.
+#### dandelion-pp
 
-Anchor: A list of currently connected peers so, if we were to re-start, we can choose a couple peers from this list to 
-reduce our chance of being isolated.
+This crate is separate from the other routing methods to allow wider usage, to do this it will be generic over the requests/ responses allowing users
+to define them.
 
-The address book will be an async task which we will be able to interact with through a tower::Service.
+This crate won't be able to handle all of dandelion++ as that requires knowledge of the tx-pool but it will handle all of the routing side, deciding the current
+state, getting the peers to route to etc.
 
-##### peer set
-
-This is the part of the P2P crate that holds all currently connected peers. The rest of Cuprate will interact with this 
-structure to send requests to the network. There will be multiple tower::Service interfaces to interact with the network
-for the different routing methods:
-
-- broadcast: send a message to all ready `Clients`
-- single: use a load balancing algorithm to route a message to a single `Client`
-- multiple: sends a request to an amount of peers chosen by the requester, this might be joined with broadcast.
-
-*There may be more routing methods in the future*
+Each request will have to include an origin, e.g self, fluff, so the d++ can route it correctly.
 
 ---
 
@@ -142,7 +141,7 @@ for the different routing methods:
 
 The verifier will be split into 2 different tower::Services: block and transaction. All checks will
 be explicit and won't be scattered around the codebase, if for some reason we do have to scatter checks
-(some are preformed at de-serialisation for example) they will be referred to in to in the non-scattered 
+(some are preformed at de-serialisation for example) they will be referred to in to in the non-scattered
 location.
 
 The verifiers tower::Services will be optional and behind a feature flags so projects that need Monero's consensus
@@ -158,50 +157,22 @@ old CryptoNight POW(s).
 
 #### Transaction
 
-Responsible for validating transactions. This is able to handle one or more transactions at a time to 
-benefit from batching verification where we can, currently only bulletproofs(+) is able to be batched. 
-monero-serai already has the API to allow batch verification of bulletproofs(+). Also accepting multiple 
-transactions will also allow us to use a thread-pool like `rayon` to parallelize verification that can't 
+Responsible for validating transactions. This is able to handle one or more transactions at a time to
+benefit from batching verification where we can, currently only bulletproofs(+) is able to be batched.
+monero-serai already has the API to allow batch verification of bulletproofs(+). Also accepting multiple
+transactions will also allow us to use a thread-pool like `rayon` to parallelize verification that can't
 be batched.
-
-Transaction verification will be split into 2 sections: hard and soft.
-
-##### Hard: 
-If a transaction fails this, the node will reject the transaction completely including in blocks. 
-
-##### Soft:
-If a transaction fails this, the node won't broadcast the transaction but will allow it in blocks.
-
-This is to make it easy to do things like stopping transaction with too large extra fields and making transactions
-follow a standard decoy selection algorithm (this isn't planned) without the need for a hard fork.
-
----
-
-### Syncer
-
-The syncer will be responsible for syncing the blockchain after falling behind. It will utilize many of the components 
-we have discussed, a new tower::Service is needed though `The block downloader`.
-
-#### The block downloader
-
-This will be responsible for finding the chain tip and getting blocks from peers, it does no verification* and simply gets 
-the next block.
-
-(*) some verification may be done here just to see if the block we got is the one we asked for but TBD.
-
-The syncer will call the block downloader to get the chain-tip then it will call for the next batch of blocks, when it has this batch 
-it will send it to the block verifier, which will return if the blocks are valid, if they are we add them to our blockchain.
 
 ---
 
 ### Database
 
 The database interface will abstract away the underlying database to allow us to easily swap out the database for a different one,
-this makes it possible to performance test different databases for our workload, which we plan to do. Initially we plan to go with 
+this makes it possible to performance test different databases for our workload, which we plan to do. Initially we plan to go with
 MDBX, a database similar to LMDB which is used in monerod.
 
-We plan to investigate the database schema for optimisations as well, so our schema will more than likely be different than monerods. 
+We plan to investigate the database schema for optimisations as well, so our schema will more than likely be different than monerods.
 
-Cuprate will interact with the database though a tower::Service providing another layer of abstraction, the service will make use of 
-the database interface abstraction. This allows us to make use of towers middleware for the database and makes the database conform to 
+Cuprate will interact with the database though a tower::Service providing another layer of abstraction, the service will make use of
+the database interface abstraction. This allows us to make use of towers middleware for the database and makes the database conform to
 the API of the rest of the node.
