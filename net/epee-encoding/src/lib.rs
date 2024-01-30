@@ -51,7 +51,7 @@
 //!
 //!
 //! let data = [1, 17, 1, 1, 1, 1, 2, 1, 1, 4, 3, 118, 97, 108, 5, 4, 0, 0, 0, 0, 0, 0, 0]; // the data to decode;
-//! let val: Test = from_bytes(&mut &data).unwrap();
+//! let val: Test = from_bytes(&mut data.as_slice()).unwrap();
 //! let data = to_bytes(val).unwrap();
 //!
 //!
@@ -79,7 +79,7 @@
 //!
 //!
 //! let data = [1, 17, 1, 1, 1, 1, 2, 1, 1, 4, 3, 118, 97, 108, 5, 4, 0, 0, 0, 0, 0, 0, 0]; // the data to decode;
-//! let val: Test2 = from_bytes(&mut &data).unwrap();
+//! let val: Test2 = from_bytes(&mut data.as_slice()).unwrap();
 //! let data = to_bytes(val).unwrap();
 //!
 //! ```
@@ -279,7 +279,7 @@ fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
     if let Some(size) = marker.inner_marker.size() {
         let bytes_to_skip = size
             .checked_mul(len.try_into()?)
-            .ok_or(Error::Value("List is too big"))?;
+            .ok_or(Error::Value("List is too big".to_string()))?;
         return advance(bytes_to_skip, r);
     };
 

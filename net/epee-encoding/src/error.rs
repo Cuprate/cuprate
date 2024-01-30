@@ -10,7 +10,7 @@ pub enum Error {
     #[cfg_attr(feature = "std", error("Format error: {0}"))]
     Format(&'static str),
     #[cfg_attr(feature = "std", error("Value error: {0}"))]
-    Value(&'static str),
+    Value(String),
 }
 
 impl Error {
@@ -22,7 +22,7 @@ impl Error {
         }
     }
 
-    fn field_data(&self) -> &'static str {
+    fn field_data(&self) -> &str {
         match self {
             Error::IO(data) => data,
             Error::Format(data) => data,
@@ -41,12 +41,12 @@ impl Debug for Error {
 
 impl From<TryFromIntError> for Error {
     fn from(_: TryFromIntError) -> Self {
-        Error::Value("Int is too large")
+        Error::Value("Int is too large".to_string())
     }
 }
 
 impl From<Utf8Error> for Error {
     fn from(_: Utf8Error) -> Self {
-        Error::Value("Invalid utf8 str")
+        Error::Value("Invalid utf8 str".to_string())
     }
 }

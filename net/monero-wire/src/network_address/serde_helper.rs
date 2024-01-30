@@ -14,7 +14,7 @@ pub struct TaggedNetworkAddress {
 
 epee_object!(
     TaggedNetworkAddress,
-    ty: Option<u8>,
+    ty("type"): Option<u8>,
     addr: Option<AllFieldsNetworkAddress>,
 );
 
@@ -27,21 +27,21 @@ impl EpeeObjectBuilder<NetworkAddress> for TaggedNetworkAddress {
                 {
                     return Err(epee_encoding::Error::Format("Duplicate field in data."));
                 }
+                Ok(true)
             }
             "addr" => {
                 if std::mem::replace(&mut self.addr, epee_encoding::read_epee_value(b)?).is_some() {
                     return Err(epee_encoding::Error::Format("Duplicate field in data."));
                 }
+                Ok(true)
             }
-            _ => return Ok(false),
+            _ => Ok(false),
         }
-
-        Ok(true)
     }
 
     fn finish(self) -> epee_encoding::Result<NetworkAddress> {
         self.try_into()
-            .map_err(|_| epee_encoding::Error::Value("Invalid network address"))
+            .map_err(|_| epee_encoding::Error::Value("Invalid network address".to_string()))
     }
 }
 
@@ -70,7 +70,7 @@ impl From<NetworkAddress> for TaggedNetworkAddress {
                     addr: Some(AllFieldsNetworkAddress {
                         m_ip: Some(u32::from_be_bytes(addr.ip().octets())),
                         m_port: Some(addr.port()),
-                        ..Default::default()
+                        addr: None,
                     }),
                 },
                 SocketAddr::V6(addr) => TaggedNetworkAddress {
@@ -78,7 +78,7 @@ impl From<NetworkAddress> for TaggedNetworkAddress {
                     addr: Some(AllFieldsNetworkAddress {
                         addr: Some(addr.ip().octets()),
                         m_port: Some(addr.port()),
-                        ..Default::default()
+                        m_ip: None,
                     }),
                 },
             },

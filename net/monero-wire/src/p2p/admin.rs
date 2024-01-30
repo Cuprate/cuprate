@@ -115,7 +115,6 @@ epee_object!(
 
 #[cfg(test)]
 mod tests {
-
     use super::{BasicNodeData, CoreSyncData, HandshakeRequest, HandshakeResponse};
     use crate::p2p::common::PeerSupportFlags;
 
@@ -971,6 +970,7 @@ mod tests {
         assert_eq!(250, handshake.local_peerlist_new.len());
 
         let mut encoded_bytes = epee_encoding::to_bytes(handshake.clone()).unwrap();
+
         let handshake_2: HandshakeResponse = epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);

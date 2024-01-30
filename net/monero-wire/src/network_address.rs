@@ -18,7 +18,7 @@
 //! I2p. Currently this module only has IPv(4/6).
 //!
 use bytes::BufMut;
-use epee_encoding::{EpeeObject, EpeeValue};
+use epee_encoding::EpeeObject;
 use std::{hash::Hash, net, net::SocketAddr};
 
 mod serde_helper;
@@ -46,7 +46,7 @@ impl EpeeObject for NetworkAddress {
     }
 
     fn write_fields<B: BufMut>(self, w: &mut B) -> epee_encoding::Result<()> {
-        TaggedNetworkAddress::from(self).write(w)
+        TaggedNetworkAddress::from(self).write_fields(w)
     }
 }
 

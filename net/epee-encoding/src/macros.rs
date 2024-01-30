@@ -57,7 +57,7 @@ macro_rules! epee_object {
                                 if core::mem::replace(&mut self.$field, Some(
                                     epee_encoding::try_right_then_left!(epee_encoding::read_epee_value(b)?, $($read_fn(b)?)?)
                                 )).is_some() {
-                                    Err(epee_encoding::error::Error::Value("Duplicate field in data"))?;
+                                    Err(epee_encoding::error::Error::Value(format!("Duplicate field in data: {}", epee_encoding::field_name!($field, $($alt_name)?))))?;
                                 }
                                 Ok(true)
                             },)+
@@ -87,7 +87,7 @@ macro_rules! epee_object {
                                             $(.or(Some($default)))?
                                             .or(epee_default_value)
                                             $(.map(<$ty_as>::into))?
-                                              .ok_or(epee_encoding::error::Error::Value("Missing field in data"))?
+                                              .ok_or(epee_encoding::error::Error::Value(format!("Missing field in data: {}", epee_encoding::field_name!($field, $($alt_name)?))))?
                                   },
                                 )+
 

@@ -171,13 +171,6 @@ epee_object! {
     rpc_credits_per_hash: u32 = 0_u32,
 }
 
-impl std::hash::Hash for PeerListEntryBase {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // We only hash the adr so we can look this up in a HashSet.
-        self.adr.hash(state)
-    }
-}
-
 /// A pruned tx with the hash of the missing prunable data
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PrunedTxBlobEntry {
@@ -256,7 +249,9 @@ fn tx_blob_read<B: Buf>(b: &mut B) -> epee_encoding::Result<TransactionBlobs> {
     match marker.inner_marker {
         InnerMarker::Object => Ok(TransactionBlobs::Pruned(Vec::read(b, &marker)?)),
         InnerMarker::String => Ok(TransactionBlobs::Normal(Vec::read(b, &marker)?)),
-        _ => Err(epee_encoding::Error::Value("Invalid marker for tx blobs")),
+        _ => Err(epee_encoding::Error::Value(
+            "Invalid marker for tx blobs".to_string(),
+        )),
     }
 }
 

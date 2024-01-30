@@ -189,6 +189,14 @@ impl EpeeValue for Vec<u8> {
         Ok(res)
     }
 
+    fn epee_default_value() -> Option<Self> {
+        Some(Vec::new())
+    }
+
+    fn should_write(&self) -> bool {
+        !self.is_empty()
+    }
+
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
         write_varint(self.len().try_into()?, w)?;
 
@@ -220,6 +228,14 @@ impl EpeeValue for Bytes {
         }
 
         Ok(r.copy_to_bytes(len.try_into()?))
+    }
+
+    fn epee_default_value() -> Option<Self> {
+        Some(Bytes::new())
+    }
+
+    fn should_write(&self) -> bool {
+        !self.is_empty()
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
@@ -258,6 +274,14 @@ impl EpeeValue for BytesMut {
         Ok(bytes)
     }
 
+    fn epee_default_value() -> Option<Self> {
+        Some(BytesMut::new())
+    }
+
+    fn should_write(&self) -> bool {
+        !self.is_empty()
+    }
+
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
         write_varint(self.len().try_into()?, w)?;
 
@@ -287,13 +311,21 @@ impl<const N: usize> EpeeValue for ByteArrayVec<N> {
         if r.remaining()
             < usize::try_from(len)?
                 .checked_mul(N)
-                .ok_or(Error::Value("Length of field is too long"))?
+                .ok_or(Error::Value("Length of field is too long".to_string()))?
         {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 
         ByteArrayVec::try_from(r.copy_to_bytes(usize::try_from(len)?))
             .map_err(|_| Error::Format("Field has invalid length"))
+    }
+
+    fn epee_default_value() -> Option<Self> {
+        Some(ByteArrayVec::try_from(Bytes::new()).unwrap())
+    }
+
+    fn should_write(&self) -> bool {
+        !self.is_empty()
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {

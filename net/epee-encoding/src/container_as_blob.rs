@@ -33,7 +33,9 @@ impl<T: Containerable + EpeeValue> EpeeValue for ContainerAsBlob<T> {
     fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
         let bytes = Bytes::read(r, marker)?;
         if bytes.len() % T::SIZE != 0 {
-            return Err(Error::Value("Can't convert blob container to Vec type."));
+            return Err(Error::Value(
+                "Can't convert blob container to Vec type.".to_string(),
+            ));
         }
 
         Ok(ContainerAsBlob(
