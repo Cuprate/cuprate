@@ -17,7 +17,7 @@
 
 use std::marker::PhantomData;
 
-use bytes::{Buf, BufMut, BytesMut};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
@@ -111,7 +111,7 @@ impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
 
                     return Ok(Some(Bucket {
                         header,
-                        body: src.copy_to_bytes(body_len).into(),
+                        body: src.copy_to_bytes(body_len),
                     }));
                 }
             }
@@ -138,7 +138,7 @@ impl<C: LevinCommand> Encoder<Bucket<C>> for LevinBucketCodec<C> {
 enum MessageState<C> {
     #[default]
     WaitingForBucket,
-    WaitingForRestOfFragment(Vec<u8>, MessageType, C),
+    WaitingForRestOfFragment(Vec<Bytes>, MessageType, C),
 }
 
 /// A tokio-codec for levin messages or in other words the decoded body
@@ -167,7 +167,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
         loop {
             match &mut self.state {
                 MessageState::WaitingForBucket => {
-                    let Some(bucket) = self.bucket_codec.decode(src)? else {
+                    let Some(mut bucket) = self.bucket_codec.decode(src)? else {
                         return Ok(None);
                     };
 
@@ -199,7 +199,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         let _ = std::mem::replace(
                             &mut self.state,
                             MessageState::WaitingForRestOfFragment(
-                                bucket.body.to_vec(),
+                                vec![bucket.body],
                                 message_type,
                                 bucket.header.command,
                             ),
@@ -209,7 +209,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                     }
 
                     return Ok(Some(T::decode_message(
-                        &bucket.body,
+                        &mut bucket.body,
                         message_type,
                         bucket.header.command,
                     )?));
@@ -257,16 +257,23 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         ));
                     }
 
-                    bytes.append(&mut bucket.body.to_vec());
+                    bytes.push(bucket.body);
 
                     if flags.is_end_fragment() {
-                        let MessageState::WaitingForRestOfFragment(bytes, ty, command) =
+                        let MessageState::WaitingForRestOfFragment(mut bytes, ty, command) =
                             std::mem::replace(&mut self.state, MessageState::WaitingForBucket)
                         else {
                             unreachable!();
                         };
 
-                        return Ok(Some(T::decode_message(&bytes, ty, command)?));
+                        // TODO: this doesn't seem very efficient but I can't think of a better way.
+                        bytes.reverse();
+                        let mut byte_vec: Box<dyn Buf> = Box::new(bytes.pop().unwrap());
+                        for bytes in bytes {
+                            byte_vec = Box::new(byte_vec.chain(bytes));
+                        }
+
+                        return Ok(Some(T::decode_message(&mut byte_vec, ty, command)?));
                     }
                 }
             }

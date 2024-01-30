@@ -51,7 +51,7 @@
 //!
 //!
 //! let data = [1, 17, 1, 1, 1, 1, 2, 1, 1, 4, 3, 118, 97, 108, 5, 4, 0, 0, 0, 0, 0, 0, 0]; // the data to decode;
-//! let val: Test = from_bytes(&data).unwrap();
+//! let val: Test = from_bytes(&mut &data).unwrap();
 //! let data = to_bytes(val).unwrap();
 //!
 //!
@@ -79,18 +79,18 @@
 //!
 //!
 //! let data = [1, 17, 1, 1, 1, 1, 2, 1, 1, 4, 3, 118, 97, 108, 5, 4, 0, 0, 0, 0, 0, 0, 0]; // the data to decode;
-//! let val: Test2 = from_bytes(&data).unwrap();
+//! let val: Test2 = from_bytes(&mut &data).unwrap();
 //! let data = to_bytes(val).unwrap();
 //!
 //! ```
 
 extern crate alloc;
 
-use alloc::vec::Vec;
 use core::{ops::Deref, str::from_utf8 as str_from_utf8};
 
-use bytes::{Buf, BufMut, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 
+pub mod container_as_blob;
 pub mod error;
 mod io;
 pub mod macros;
@@ -139,13 +139,13 @@ pub trait EpeeObject: Sized {
 }
 
 /// Read the object `T` from a byte array.
-pub fn from_bytes<T: EpeeObject>(mut buf: &[u8]) -> Result<T> {
-    read_head_object(&mut buf)
+pub fn from_bytes<T: EpeeObject, B: Buf>(buf: &mut B) -> Result<T> {
+    read_head_object(buf)
 }
 
 /// Turn the object into epee bytes.
-pub fn to_bytes<T: EpeeObject>(val: T) -> Result<Vec<u8>> {
-    let mut buf = Vec::<u8>::new();
+pub fn to_bytes<T: EpeeObject>(val: T) -> Result<BytesMut> {
+    let mut buf = BytesMut::new();
     write_head_object(val, &mut buf)?;
     Ok(buf)
 }

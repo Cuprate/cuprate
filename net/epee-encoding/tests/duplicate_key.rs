@@ -25,7 +25,7 @@ fn duplicate_key() {
         b'a', 0x0B, 0x00,
     ];
 
-    assert!(from_bytes::<T>(&data).is_err());
+    assert!(from_bytes::<T, _>(&mut &data[..]).is_err());
 }
 
 #[test]
@@ -35,5 +35,5 @@ fn duplicate_key_with_default() {
         b'a', 0x0B, 0x00,
     ];
 
-    assert!(from_bytes::<TT>(&data).is_err());
+    assert!(from_bytes::<TT, _>(&mut &data[..]).is_err());
 }

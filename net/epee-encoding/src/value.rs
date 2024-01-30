@@ -3,7 +3,7 @@ use alloc::{string::String, vec::Vec};
 /// the different possible base epee values.
 use core::fmt::Debug;
 
-use bytes::{Buf, BufMut, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use sealed::sealed;
 
 use fixed_bytes::{ByteArray, ByteArrayVec};
@@ -15,7 +15,7 @@ use crate::{
 /// A trait for epee values, this trait is sealed as all possible epee values are
 /// defined in the lib, to make an [`EpeeValue`] outside the lib you will need to
 /// use the trait [`EpeeObject`].
-#[sealed]
+#[sealed(pub(crate))]
 pub trait EpeeValue: Sized {
     const MARKER: Marker;
 
@@ -220,6 +220,42 @@ impl EpeeValue for Bytes {
         }
 
         Ok(r.copy_to_bytes(len.try_into()?))
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
+        write_varint(self.len().try_into()?, w)?;
+
+        if w.remaining_mut() < self.len() {
+            return Err(Error::IO("Not enough capacity to write bytes"));
+        }
+
+        w.put(self);
+        Ok(())
+    }
+}
+
+#[sealed::sealed]
+impl EpeeValue for BytesMut {
+    const MARKER: Marker = Marker::new(InnerMarker::String);
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> Result<Self> {
+        if marker != &Self::MARKER {
+            return Err(Error::Format("Marker does not match expected Marker"));
+        }
+
+        let len = read_varint(r)?;
+        if len > MAX_STRING_LEN_POSSIBLE {
+            return Err(Error::Format("Byte array exceeded max length"));
+        }
+
+        if r.remaining() < len.try_into()? {
+            return Err(Error::IO("Not enough bytes to fill object"));
+        }
+
+        let mut bytes = BytesMut::zeroed(len.try_into()?);
+        r.copy_to_slice(&mut bytes);
+
+        Ok(bytes)
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
@@ -481,6 +517,8 @@ epee_seq!(f64);
 epee_seq!(bool);
 epee_seq!(Vec<u8>);
 epee_seq!(String);
+epee_seq!(Bytes);
+epee_seq!(BytesMut);
 
 #[sealed]
 impl<T: EpeeValue> EpeeValue for Option<T> {

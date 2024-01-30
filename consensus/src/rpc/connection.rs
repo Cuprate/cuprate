@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
@@ -15,9 +16,9 @@ use monero_serai::{
     rpc::{HttpRpc, Rpc},
     transaction::Transaction,
 };
-use monero_wire::common::{BlockCompleteEntry, TransactionBlobs};
+use monero_wire::common::TransactionBlobs;
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use tokio::{
     sync::RwLock,
@@ -174,41 +175,56 @@ impl RpcConnection {
     ) -> Result<Vec<(Block, Vec<Transaction>)>, tower::BoxError> {
         tracing::info!("Getting blocks in range: {:?}", range);
 
-        #[derive(Serialize)]
-        pub struct Request {
-            pub heights: Vec<u64>,
-        }
+        mod items {
+            use monero_wire::common::BlockCompleteEntry;
 
-        #[derive(Deserialize)]
-        pub struct Response {
-            pub blocks: Vec<BlockCompleteEntry>,
+            pub struct Request {
+                pub heights: Vec<u64>,
+            }
+
+            epee_encoding::epee_object!(
+                Request,
+                heights: Vec<u64>,
+            );
+
+            pub struct Response {
+                pub blocks: Vec<BlockCompleteEntry>,
+            }
+
+            epee_encoding::epee_object!(
+                Response,
+                blocks: Vec<BlockCompleteEntry>,
+            );
         }
+        use items::*;
 
         let res = self
             .con
             .bin_call(
                 "get_blocks_by_height.bin",
-                monero_epee_bin_serde::to_bytes(&Request {
+                epee_encoding::to_bytes(Request {
                     heights: range.collect(),
-                })?,
+                })?
+                .to_vec(),
             )
             .await?;
 
         let address = self.address.clone();
         rayon_spawn_async(move || {
-            let blocks: Response = monero_epee_bin_serde::from_bytes(res)?;
+            let blocks: Response =
+                epee_encoding::from_bytes(&mut epee_encoding::macros::bytes::Bytes::from(res))?;
 
             blocks
                 .blocks
                 .into_par_iter()
                 .map(|b| {
-                    let block = Block::read(&mut b.block.as_slice())?;
+                    let block = Block::read(&mut b.block.deref())?;
 
                     let txs = match b.txs {
                         TransactionBlobs::Pruned(_) => return Err("node sent pruned txs!".into()),
                         TransactionBlobs::Normal(txs) => txs
                             .into_par_iter()
-                            .map(|tx| Transaction::read(&mut tx.as_slice()))
+                            .map(|tx| Transaction::read(&mut tx.deref()))
                             .collect::<Result<_, _>>()?,
                         TransactionBlobs::None => vec![],
                     };
@@ -237,29 +253,56 @@ impl RpcConnection {
             out_ids.values().map(|amt_map| amt_map.len()).sum::<usize>()
         );
 
-        #[derive(Serialize, Copy, Clone)]
-        struct OutputID {
-            amount: u64,
-            index: u64,
+        mod items {
+
+            #[derive(Copy, Clone)]
+            pub struct OutputID {
+                pub amount: u64,
+                pub index: u64,
+            }
+
+            epee_encoding::epee_object!(
+                OutputID,
+                amount: u64,
+                index: u64,
+            );
+
+            #[derive(Clone)]
+            pub struct Request {
+                pub outputs: Vec<OutputID>,
+            }
+
+            epee_encoding::epee_object!(
+                Request,
+                outputs: Vec<OutputID>,
+            );
+
+            pub struct OutputRes {
+                pub height: u64,
+                pub key: [u8; 32],
+                pub mask: [u8; 32],
+                pub txid: [u8; 32],
+            }
+
+            epee_encoding::epee_object!(
+                OutputRes,
+                height: u64,
+                key: [u8; 32],
+                mask: [u8; 32],
+                txid: [u8; 32],
+            );
+
+            pub struct Response {
+                pub outs: Vec<OutputRes>,
+            }
+
+            epee_encoding::epee_object!(
+                Response,
+                outs: Vec<OutputRes>,
+            );
         }
 
-        #[derive(Serialize, Clone)]
-        struct Request<'a> {
-            outputs: &'a [OutputID],
-        }
-
-        #[derive(Deserialize)]
-        struct OutputRes {
-            height: u64,
-            key: [u8; 32],
-            mask: [u8; 32],
-            txid: [u8; 32],
-        }
-
-        #[derive(Deserialize)]
-        struct Response {
-            outs: Vec<OutputRes>,
-        }
+        use items::*;
 
         let outputs = rayon_spawn_async(|| {
             out_ids
@@ -281,7 +324,10 @@ impl RpcConnection {
             .con
             .bin_call(
                 "get_outs.bin",
-                monero_epee_bin_serde::to_bytes(&Request { outputs: &outputs })?,
+                epee_encoding::to_bytes(Request {
+                    outputs: outputs.clone(),
+                })?
+                .to_vec(),
             )
             .await?;
 
@@ -289,7 +335,8 @@ impl RpcConnection {
 
         let span = tracing::Span::current();
         rayon_spawn_async(move || {
-            let outs: Response = monero_epee_bin_serde::from_bytes(&res)?;
+            let outs: Response =
+                epee_encoding::from_bytes(&mut epee_encoding::macros::bytes::Bytes::from(res))?;
 
             tracing::info!(parent: &span, "Got outputs len: {}", outs.outs.len());
 

@@ -9,9 +9,10 @@ repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/monero-wi
 
 [dependencies]
 levin-cuprate = {path="../levin"}
-monero-epee-bin-serde = { workspace = true, features = ["container_as_blob"] }
-serde = { workspace = true, features = ["derive", "std"]}
-serde_bytes = { workspace = true, features = ["std"]}
+epee-encoding = { path = "../epee-encoding" }
+fixed-bytes = { path = "../fixed-bytes" }
+
+bytes = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

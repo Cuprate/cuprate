@@ -17,9 +17,9 @@
 //! Monero network. Core Monero has 4 main addresses: IPv4, IPv6, Tor,
 //! I2p. Currently this module only has IPv(4/6).
 //!
+use bytes::BufMut;
+use epee_encoding::{EpeeObject, EpeeValue};
 use std::{hash::Hash, net, net::SocketAddr};
-
-use serde::{Deserialize, Serialize};
 
 mod serde_helper;
 use serde_helper::*;
@@ -33,11 +33,21 @@ pub enum NetZone {
 
 /// A network address which can be encoded into the format required
 /// to send to other Monero peers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(try_from = "TaggedNetworkAddress")]
-#[serde(into = "TaggedNetworkAddress")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum NetworkAddress {
     Clear(SocketAddr),
+}
+
+impl EpeeObject for NetworkAddress {
+    type Builder = TaggedNetworkAddress;
+
+    fn number_of_fields(&self) -> u64 {
+        2
+    }
+
+    fn write_fields<B: BufMut>(self, w: &mut B) -> epee_encoding::Result<()> {
+        TaggedNetworkAddress::from(self).write(w)
+    }
 }
 
 impl NetworkAddress {

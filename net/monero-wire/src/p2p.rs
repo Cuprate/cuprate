@@ -16,6 +16,7 @@
 //! This module defines a Monero `Message` enum which contains
 //! every possible Monero network message (levin body)
 
+use bytes::{Buf, Bytes, BytesMut};
 use levin_cuprate::{
     BucketBuilder, BucketError, LevinBody, LevinCommand as LevinCommandTrait, MessageType,
 };
@@ -150,23 +151,23 @@ impl From<LevinCommand> for u32 {
     }
 }
 
-fn decode_message<T: serde::de::DeserializeOwned, Ret>(
+fn decode_message<B: Buf, T: epee_encoding::EpeeObject, Ret>(
     ret: impl FnOnce(T) -> Ret,
-    buf: &[u8],
+    buf: &mut B,
 ) -> Result<Ret, BucketError> {
-    let t = monero_epee_bin_serde::from_bytes(buf)
-        .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
+    let t = epee_encoding::from_bytes(buf).map_err(|e| BucketError::BodyDecodingError(e.into()))?;
     Ok(ret(t))
 }
 
-fn build_message<T: serde::Serialize>(
+fn build_message<T: epee_encoding::EpeeObject>(
     id: LevinCommand,
-    val: &T,
+    val: T,
     builder: &mut BucketBuilder<LevinCommand>,
 ) -> Result<(), BucketError> {
     builder.set_command(id);
     builder.set_body(
-        monero_epee_bin_serde::to_bytes(val)
+        epee_encoding::to_bytes(val)
+            .map(BytesMut::freeze)
             .map_err(|e| BucketError::BodyDecodingError(e.into()))?,
     );
     Ok(())
@@ -201,7 +202,7 @@ impl ProtocolMessage {
         }
     }
 
-    fn decode(buf: &[u8], command: LevinCommand) -> Result<Self, BucketError> {
+    fn decode<B: Buf>(buf: &mut B, command: LevinCommand) -> Result<Self, BucketError> {
         use LevinCommand as C;
 
         Ok(match command {
@@ -220,7 +221,7 @@ impl ProtocolMessage {
         })
     }
 
-    fn build(&self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
+    fn build(self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
         use LevinCommand as C;
 
         match self {
@@ -236,7 +237,7 @@ impl ProtocolMessage {
             }
             ProtocolMessage::ChainRequest(val) => build_message(C::ChainRequest, val, builder)?,
             ProtocolMessage::ChainEntryResponse(val) => {
-                build_message(C::ChainResponse, &val, builder)?
+                build_message(C::ChainResponse, val, builder)?
             }
             ProtocolMessage::NewFluffyBlock(val) => build_message(C::NewFluffyBlock, val, builder)?,
             ProtocolMessage::FluffyMissingTransactionsRequest(val) => {
@@ -269,7 +270,7 @@ impl RequestMessage {
         }
     }
 
-    fn decode(buf: &[u8], command: LevinCommand) -> Result<Self, BucketError> {
+    fn decode<B: Buf>(buf: &mut B, command: LevinCommand) -> Result<Self, BucketError> {
         use LevinCommand as C;
 
         Ok(match command {
@@ -281,7 +282,7 @@ impl RequestMessage {
         })
     }
 
-    fn build(&self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
+    fn build(self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
         use LevinCommand as C;
 
         match self {
@@ -289,11 +290,11 @@ impl RequestMessage {
             RequestMessage::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
             RequestMessage::Ping => {
                 builder.set_command(C::Ping);
-                builder.set_body(Vec::new());
+                builder.set_body(Bytes::new());
             }
             RequestMessage::SupportFlags => {
                 builder.set_command(C::SupportFlags);
-                builder.set_body(Vec::new());
+                builder.set_body(Bytes::new());
             }
         }
         Ok(())
@@ -319,7 +320,7 @@ impl ResponseMessage {
         }
     }
 
-    fn decode(buf: &[u8], command: LevinCommand) -> Result<Self, BucketError> {
+    fn decode<B: Buf>(buf: &mut B, command: LevinCommand) -> Result<Self, BucketError> {
         use LevinCommand as C;
 
         Ok(match command {
@@ -331,7 +332,7 @@ impl ResponseMessage {
         })
     }
 
-    fn build(&self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
+    fn build(self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
         use LevinCommand as C;
 
         match self {
@@ -375,8 +376,8 @@ impl Message {
 impl LevinBody for Message {
     type Command = LevinCommand;
 
-    fn decode_message(
-        body: &[u8],
+    fn decode_message<B: Buf>(
+        body: &mut B,
         typ: MessageType,
         command: LevinCommand,
     ) -> Result<Self, BucketError> {
@@ -387,7 +388,7 @@ impl LevinBody for Message {
         })
     }
 
-    fn encode(&self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
+    fn encode(self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
         match self {
             Message::Protocol(pro) => {
                 builder.set_message_type(MessageType::Notification);

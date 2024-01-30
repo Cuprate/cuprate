@@ -438,10 +438,10 @@ dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
  "dirs",
+ "epee-encoding",
  "futures",
  "hex",
  "monero-consensus",
- "monero-epee-bin-serde",
  "monero-serai",
  "monero-wire",
  "multiexp",
@@ -604,6 +604,7 @@ dependencies = [
  "fixed-bytes",
  "hex",
  "paste",
+ "ref-cast",
  "sealed",
  "thiserror",
 ]
@@ -1143,16 +1144,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "monero-epee-bin-serde"
-version = "1.0.1"
-source = "git+https://github.com/monero-rs/monero-epee-bin-serde.git?rev=fae7a23#fae7a23f8e57f19553c341c0878b4f0fa5a6994d"
-dependencies = [
- "byteorder",
- "serde",
- "serde_bytes",
-]
-
-[[package]]
 name = "monero-generators"
 version = "0.4.0"
 source = "git+https://github.com/Cuprate/serai.git?rev=a59966b#a59966b736ca988c13bd6eb33a9f2204bdf747fb"
@@ -1232,11 +1223,11 @@ dependencies = [
 name = "monero-wire"
 version = "0.1.0"
 dependencies = [
+ "bytes",
+ "epee-encoding",
+ "fixed-bytes",
  "hex",
  "levin-cuprate",
- "monero-epee-bin-serde",
- "serde",
- "serde_bytes",
  "thiserror",
 ]
 
@@ -1588,6 +1579,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ref-cast"
+version = "1.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c4846d4c50d1721b1a3bef8af76924eef20d5e723647333798c1b519b3a9473f"
+dependencies = [
+ "ref-cast-impl",
+]
+
+[[package]]
+name = "ref-cast-impl"
+version = "1.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fddb4f8d99b0a2ebafc65a87a69a7b9875e4b1ae1f00db265d300ef7f28bccc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "regex-syntax"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1768,15 +1779,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "63261df402c67811e9ac6def069e4786148c4563f4b50fd4bf30aa370d626b02"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde_bytes"
-version = "0.11.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b8497c313fd43ab992087548117643f6fcd935cbf36f176ffda0aacf9591734"
-dependencies = [
- "serde",
 ]
 
 [[package]]

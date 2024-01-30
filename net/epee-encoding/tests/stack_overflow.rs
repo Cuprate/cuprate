@@ -735,7 +735,7 @@ fn stack_overlfow() {
         8, 7, 1, 100, 12, 8, 3, 118, 97, 108, 8, 7,
     ];
 
-    let obj: Result<Q, _> = from_bytes(&bytes);
+    let obj: Result<Q, _> = from_bytes(&mut bytes.as_slice());
 
     assert!(obj.is_err())
 }

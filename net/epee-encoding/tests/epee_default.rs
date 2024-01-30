@@ -8,7 +8,7 @@ pub struct Optional {
 epee_object!(
     Optional,
     val: u8,
-    optional_val: i32 = -4,
+    optional_val: i32 = -4_i32,
 );
 pub struct NotOptional {
     val: u8,
@@ -37,11 +37,11 @@ fn epee_default_does_not_encode() {
         val: 1,
         optional_val: -4,
     };
-    let bytes = to_bytes(val).unwrap();
+    let mut bytes = to_bytes(val).unwrap().freeze();
 
-    assert!(from_bytes::<NotOptional>(&bytes).is_err());
+    assert!(from_bytes::<NotOptional, _>(&mut bytes.clone()).is_err());
 
-    let val: Optional = from_bytes(&bytes).unwrap();
+    let val: Optional = from_bytes(&mut bytes).unwrap();
     assert_eq!(val.optional_val, -4);
     assert_eq!(val.val, 1);
 }
@@ -52,11 +52,11 @@ fn epee_non_default_does_encode() {
         val: 8,
         optional_val: -3,
     };
-    let bytes = to_bytes(val).unwrap();
+    let mut bytes = to_bytes(val).unwrap().freeze();
 
-    assert!(from_bytes::<NotOptional>(&bytes).is_ok());
+    assert!(from_bytes::<NotOptional, _>(&mut bytes.clone()).is_ok());
 
-    let val: Optional = from_bytes(&bytes).unwrap();
+    let val: Optional = from_bytes(&mut bytes).unwrap();
     assert_eq!(val.optional_val, -3);
     assert_eq!(val.val, 8)
 }
@@ -64,11 +64,11 @@ fn epee_non_default_does_encode() {
 #[test]
 fn epee_value_not_present_with_default() {
     let val = NotPresent { val: 76 };
-    let bytes = to_bytes(val).unwrap();
+    let mut bytes = to_bytes(val).unwrap().freeze();
 
-    assert!(from_bytes::<NotOptional>(&bytes).is_err());
+    assert!(from_bytes::<NotOptional, _>(&mut bytes.clone()).is_err());
 
-    let val: Optional = from_bytes(&bytes).unwrap();
+    let val: Optional = from_bytes(&mut bytes).unwrap();
     assert_eq!(val.optional_val, -4);
     assert_eq!(val.val, 76)
 }

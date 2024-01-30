@@ -28,9 +28,9 @@ fn seq_with_zero_len_can_have_any_marker() {
         data.push(0x80 | marker);
         data.push(0);
 
-        assert!(from_bytes::<ObjSeq>(&data).is_ok());
+        assert!(from_bytes::<ObjSeq, _>(&mut data.as_slice()).is_ok());
 
-        assert!(from_bytes::<ValSeq>(&data).is_ok());
+        assert!(from_bytes::<ValSeq, _>(&mut data.as_slice()).is_ok());
 
         data.drain(14..);
     }
@@ -48,7 +48,7 @@ fn seq_with_non_zero_len_must_have_correct_marker() {
         data.push(0x04); // varint length of 1
         data.extend_from_slice(&1_i64.to_le_bytes());
 
-        assert!(from_bytes::<ValSeq>(&data).is_err());
+        assert!(from_bytes::<ValSeq, _>(&mut data.as_slice()).is_err());
 
         data.drain(14..);
     }
@@ -56,5 +56,5 @@ fn seq_with_non_zero_len_must_have_correct_marker() {
     data.push(0x80 + 1);
     data.push(0x04); // varint length
     data.extend_from_slice(&1_i64.to_le_bytes());
-    (from_bytes::<ValSeq>(&data).unwrap());
+    (from_bytes::<ValSeq, _>(&mut data.as_slice()).unwrap());
 }

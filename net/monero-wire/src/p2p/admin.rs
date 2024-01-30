@@ -18,12 +18,13 @@
 //! Admin message requests must be responded to in order unlike
 //! protocol messages.   
 
-use serde::{Deserialize, Serialize};
+use bytes::Bytes;
+use epee_encoding::epee_object;
 
 use super::common::{BasicNodeData, CoreSyncData, PeerListEntryBase, PeerSupportFlags};
 
 /// A Handshake Request
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HandshakeRequest {
     /// Basic Node Data
     pub node_data: BasicNodeData,
@@ -31,53 +32,86 @@ pub struct HandshakeRequest {
     pub payload_data: CoreSyncData,
 }
 
+epee_object!(
+    HandshakeRequest,
+    node_data: BasicNodeData,
+    payload_data: CoreSyncData,
+);
+
 /// A Handshake Response
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HandshakeResponse {
     /// Basic Node Data
     pub node_data: BasicNodeData,
     /// Core Sync Data
     pub payload_data: CoreSyncData,
     /// PeerList
-    #[serde(default = "Vec::new")]
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
+epee_object!(
+    HandshakeResponse,
+    node_data: BasicNodeData,
+    payload_data: CoreSyncData,
+    local_peerlist_new: Vec<PeerListEntryBase>,
+);
+
 /// A TimedSync Request
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TimedSyncRequest {
     /// Core Sync Data
     pub payload_data: CoreSyncData,
 }
 
+epee_object!(
+    TimedSyncRequest,
+    payload_data: CoreSyncData,
+);
+
 /// A TimedSync Response
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TimedSyncResponse {
     /// Core Sync Data
     pub payload_data: CoreSyncData,
     /// PeerList
-    #[serde(default = "Vec::new")]
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
+epee_object!(
+    TimedSyncResponse,
+    payload_data: CoreSyncData,
+    local_peerlist_new: Vec<PeerListEntryBase>,
+);
+
 /// The status field of an okay ping response
-pub const PING_OK_RESPONSE_STATUS_TEXT: &str = "OK";
+pub const PING_OK_RESPONSE_STATUS_TEXT: Bytes = Bytes::from_static("OK".as_bytes());
 
 /// A Ping Response
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PingResponse {
     /// Status: should be `PING_OK_RESPONSE_STATUS_TEXT`
-    pub status: String,
+    pub status: Bytes,
     /// Peer ID
     pub peer_id: u64,
 }
 
+epee_object!(
+    PingResponse,
+    status: Bytes,
+    peer_id: u64,
+);
+
 /// A Support Flags Response
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SupportFlagsResponse {
     /// Support Flags
     pub support_flags: PeerSupportFlags,
 }
+
+epee_object!(
+    SupportFlagsResponse,
+    support_flags: PeerSupportFlags as u32,
+);
 
 #[cfg(test)]
 mod tests {
@@ -101,12 +135,13 @@ mod tests {
             186, 15, 178, 70, 173, 170, 187, 31, 70, 50, 227, 11, 116, 111, 112, 95, 118, 101, 114,
             115, 105, 111, 110, 8, 1,
         ];
-        let handshake: HandshakeRequest = monero_epee_bin_serde::from_bytes(bytes).unwrap();
+        let handshake: HandshakeRequest = epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
         let basic_node_data = BasicNodeData {
             my_port: 0,
             network_id: [
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
-            ],
+            ]
+            .into(),
             peer_id: 9671405426614699871,
             support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 0,
@@ -128,9 +163,8 @@ mod tests {
         assert_eq!(basic_node_data, handshake.node_data);
         assert_eq!(core_sync_data, handshake.payload_data);
 
-        let encoded_bytes = monero_epee_bin_serde::to_bytes(&handshake).unwrap();
-        let handshake_2: HandshakeRequest =
-            monero_epee_bin_serde::from_bytes(encoded_bytes).unwrap();
+        let mut encoded_bytes = epee_encoding::to_bytes(handshake.clone()).unwrap();
+        let handshake_2: HandshakeRequest = epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);
     }
@@ -906,13 +940,14 @@ mod tests {
             181, 216, 193, 135, 23, 186, 168, 207, 119, 86, 235, 11, 116, 111, 112, 95, 118, 101,
             114, 115, 105, 111, 110, 8, 16,
         ];
-        let handshake: HandshakeResponse = monero_epee_bin_serde::from_bytes(bytes).unwrap();
+        let handshake: HandshakeResponse = epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
 
         let basic_node_data = BasicNodeData {
             my_port: 18080,
             network_id: [
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
-            ],
+            ]
+            .into(),
             peer_id: 6037804360359455404,
             support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 18089,
@@ -935,9 +970,8 @@ mod tests {
         assert_eq!(core_sync_data, handshake.payload_data);
         assert_eq!(250, handshake.local_peerlist_new.len());
 
-        let encoded_bytes = monero_epee_bin_serde::to_bytes(&handshake).unwrap();
-        let handshake_2: HandshakeResponse =
-            monero_epee_bin_serde::from_bytes(encoded_bytes).unwrap();
+        let mut encoded_bytes = epee_encoding::to_bytes(handshake.clone()).unwrap();
+        let handshake_2: HandshakeResponse = epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);
     }

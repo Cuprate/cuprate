@@ -3,7 +3,7 @@ pub use paste::paste;
 
 #[macro_export]
 macro_rules! field_name {
-    ($field: ident, $alt_name: literal) => {
+    ($field: tt, $alt_name: tt) => {
         $alt_name
     };
     ($field: ident,) => {
@@ -22,10 +22,20 @@ macro_rules! field_ty {
 }
 
 #[macro_export]
+macro_rules! try_right_then_left {
+    ($a:expr, $b:expr) => {
+        $b
+    };
+    ($a:expr,) => {
+        $a
+    };
+}
+
+#[macro_export]
 macro_rules! epee_object {
     (
         $obj:ident,
-        $($field: ident $(($alt_name: literal))?: $ty:ty $(= $default:literal)? $(as $ty_as:ty)?, )+
+        $($field: ident $(($alt_name: literal))?: $ty:ty $(as $ty_as:ty )? $(= $default:expr)?  $(=> $read_fn:expr, $write_fn:expr, $should_write_fn:expr)?, )+
         $(!flatten: $($flat_field: ident: $flat_ty:ty ,)+)?
 
     ) => {
@@ -44,7 +54,9 @@ macro_rules! epee_object {
                     fn add_field<B: epee_encoding::macros::bytes::Buf>(&mut self, name: &str, b: &mut B) -> epee_encoding::error::Result<bool> {
                         match name {
                             $(epee_encoding::field_name!($field, $($alt_name)?) => {
-                                if core::mem::replace(&mut self.$field, Some(epee_encoding::read_epee_value(b)?)).is_some() {
+                                if core::mem::replace(&mut self.$field, Some(
+                                    epee_encoding::try_right_then_left!(epee_encoding::read_epee_value(b)?, $($read_fn(b)?)?)
+                                )).is_some() {
                                     Err(epee_encoding::error::Error::Value("Duplicate field in data"))?;
                                 }
                                 Ok(true)
@@ -65,11 +77,18 @@ macro_rules! epee_object {
                         Ok(
                             $obj {
                                 $(
-                                  $field: self.$field
+                                  $field: {
+                                      let epee_default_value = epee_encoding::try_right_then_left!(epee_encoding::EpeeValue::epee_default_value(), $({
+                                            let _ = $should_write_fn;
+                                            None
+                                      })?);
+
+                                      self.$field
                                             $(.or(Some($default)))?
-                                              .or(epee_encoding::EpeeValue::epee_default_value())
+                                            .or(epee_default_value)
                                             $(.map(<$ty_as>::into))?
-                                              .ok_or(epee_encoding::error::Error::Value("Missing field in data"))?,
+                                              .ok_or(epee_encoding::error::Error::Value("Missing field in data"))?
+                                  },
                                 )+
 
                                 $(
@@ -90,7 +109,10 @@ macro_rules! epee_object {
                     let mut fields = 0;
 
                     $(
-                      if $(&self.$field != &$default &&)? epee_encoding::EpeeValue::should_write($(<&$ty_as>::from)?( &self.$field) ) {
+                    let field = epee_encoding::try_right_then_left!(&self.$field, $(<&$ty_as>::from(&self.$field))? );
+
+                      if $((field) != &$default &&)? epee_encoding::try_right_then_left!(epee_encoding::EpeeValue::should_write, $($should_write_fn)?)(field )
+                      {
                           fields += 1;
                       }
                     )+
@@ -106,8 +128,11 @@ macro_rules! epee_object {
 
                 fn write_fields<B: epee_encoding::macros::bytes::BufMut>(self, w: &mut B) -> epee_encoding::error::Result<()> {
                     $(
-                      if $(&self.$field != &$default &&)? epee_encoding::EpeeValue::should_write($(<&$ty_as>::from)?( &self.$field) ) {
-                         epee_encoding::write_field($(<$ty_as>::from)?(self.$field), epee_encoding::field_name!($field, $($alt_name)?), w)?;
+                    let field = epee_encoding::try_right_then_left!(self.$field, $(<$ty_as>::from(self.$field))? );
+
+                      if $(field != $default &&)? epee_encoding::try_right_then_left!(epee_encoding::EpeeValue::should_write, $($should_write_fn)?)(&field )
+                        {
+                         epee_encoding::try_right_then_left!(epee_encoding::write_field, $($write_fn)?)((field), epee_encoding::field_name!($field, $($alt_name)?), w)?;
                       }
                     )+
 

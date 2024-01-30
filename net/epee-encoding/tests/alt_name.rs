@@ -27,7 +27,7 @@ fn epee_alt_name() {
     let val2 = AltName2 { val2: 40, d: 30 };
     let bytes = to_bytes(val2).unwrap();
 
-    let val: AltName = from_bytes(&bytes).unwrap();
+    let val: AltName = from_bytes(&mut bytes.clone()).unwrap();
 
     let bytes2 = to_bytes(val).unwrap();
 

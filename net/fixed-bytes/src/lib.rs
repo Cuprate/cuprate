@@ -41,11 +41,18 @@ impl Debug for FixedByteError {
 ///
 /// Internally this is just a wrapper around [`Bytes`], with the constructors checking that the length is equal to [`N`].
 /// This implements [`Deref`] with the target being `[u8; N]`.
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ByteArray<const N: usize>(Bytes);
 
 impl<const N: usize> ByteArray<N> {
     pub fn take_bytes(self) -> Bytes {
         self.0
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for ByteArray<N> {
+    fn from(value: [u8; N]) -> Self {
+        ByteArray(Bytes::copy_from_slice(&value))
     }
 }
 
@@ -68,6 +75,18 @@ impl<const N: usize> TryFrom<Bytes> for ByteArray<N> {
     }
 }
 
+impl<const N: usize> TryFrom<Vec<u8>> for ByteArray<N> {
+    type Error = FixedByteError;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        if value.len() != N {
+            return Err(FixedByteError::InvalidLength);
+        }
+        Ok(ByteArray(Bytes::from(value)))
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ByteArrayVec<const N: usize>(Bytes);
 
 impl<const N: usize> ByteArrayVec<N> {

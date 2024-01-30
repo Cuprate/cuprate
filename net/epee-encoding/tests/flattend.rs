@@ -43,9 +43,9 @@ fn epee_flatten() {
         val: 94,
         val2: vec![4, 5],
     };
-    let bytes = to_bytes(val2.clone()).unwrap();
+    let mut bytes = to_bytes(val2.clone()).unwrap();
 
-    let val: Parent = from_bytes(&bytes).unwrap();
+    let val: Parent = from_bytes(&mut bytes).unwrap();
 
     assert_eq!(val.child.val2, val2.val2);
     assert_eq!(val.child.val, val2.val);
@@ -95,8 +95,8 @@ epee_object!(
 fn epee_double_flatten() {
     let val = Parent12::default();
 
-    let bytes = to_bytes(val.clone()).unwrap();
-    let val1: Parent12 = from_bytes(&bytes).unwrap();
+    let mut bytes = to_bytes(val.clone()).unwrap();
+    let val1: Parent12 = from_bytes(&mut bytes).unwrap();
 
     assert_eq!(val, val1);
 }

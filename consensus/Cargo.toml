@@ -21,7 +21,7 @@ binaries = [
     "dep:tracing-subscriber",
     "dep:serde_json",
     "dep:serde",
-    "dep:monero-epee-bin-serde",
+    "dep:epee-encoding",
     "dep:monero-wire",
     "dep:borsh",
     "dep:dirs",
@@ -51,7 +51,7 @@ hex = "0.4"
 
 # used in binaries
 monero-wire = {path="../net/monero-wire", optional = true}
-monero-epee-bin-serde = { workspace = true , optional = true}
+epee-encoding = { path="../net/epee-encoding" , optional = true}
 serde_json = {version = "1", optional = true}
 serde = {version = "1", optional = true, features = ["derive"]}
 tracing-subscriber = {version = "0.3", optional = true}

@@ -41,6 +41,7 @@ pub use header::BucketHead;
 
 use std::fmt::Debug;
 
+use bytes::{Buf, Bytes};
 use thiserror::Error;
 
 const MONERO_PROTOCOL_VERSION: u32 = 1;
@@ -102,7 +103,7 @@ pub struct Bucket<C> {
     /// The bucket header
     pub header: BucketHead<C>,
     /// The bucket body
-    pub body: Vec<u8>,
+    pub body: Bytes,
 }
 
 /// An enum representing if the message is a request, response or notification.
@@ -158,7 +159,7 @@ pub struct BucketBuilder<C> {
     command: Option<C>,
     return_code: Option<i32>,
     protocol_version: Option<u32>,
-    body: Option<Vec<u8>>,
+    body: Option<Bytes>,
 }
 
 impl<C> Default for BucketBuilder<C> {
@@ -195,7 +196,7 @@ impl<C: LevinCommand> BucketBuilder<C> {
         self.protocol_version = Some(version)
     }
 
-    pub fn set_body(&mut self, body: Vec<u8>) {
+    pub fn set_body(&mut self, body: Bytes) {
         self.body = Some(body)
     }
 
@@ -222,14 +223,14 @@ pub trait LevinBody: Sized {
     type Command: LevinCommand;
 
     /// Decodes the message from the data in the header
-    fn decode_message(
-        body: &[u8],
+    fn decode_message<B: Buf>(
+        body: &mut B,
         typ: MessageType,
         command: Self::Command,
     ) -> Result<Self, BucketError>;
 
     /// Encodes the message
-    fn encode(&self, builder: &mut BucketBuilder<Self::Command>) -> Result<(), BucketError>;
+    fn encode(self, builder: &mut BucketBuilder<Self::Command>) -> Result<(), BucketError>;
 }
 
 /// The levin commands.

@@ -15,15 +15,13 @@
 
 //! Common types that are used across multiple messages.
 
-use serde::{Deserialize, Serialize};
+use bytes::{Buf, BufMut, Bytes};
+use epee_encoding::{epee_object, EpeeValue, InnerMarker};
+use fixed_bytes::ByteArray;
 
-use crate::{
-    serde_helpers::{default_false, default_zero, serde_vec_bytes},
-    NetworkAddress,
-};
+use crate::NetworkAddress;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PeerSupportFlags(u32);
 
 impl From<u32> for PeerSupportFlags {
@@ -35,6 +33,12 @@ impl From<u32> for PeerSupportFlags {
 impl From<PeerSupportFlags> for u32 {
     fn from(value: PeerSupportFlags) -> Self {
         value.0
+    }
+}
+
+impl<'a> From<&'a PeerSupportFlags> for &'a u32 {
+    fn from(value: &'a PeerSupportFlags) -> Self {
+        &value.0
     }
 }
 
@@ -53,49 +57,63 @@ impl From<u8> for PeerSupportFlags {
 }
 
 /// Basic Node Data, information on the connected peer
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BasicNodeData {
     /// Port
     pub my_port: u32,
     /// The Network Id
-    pub network_id: [u8; 16],
+    pub network_id: ByteArray<16>,
     /// Peer ID
     pub peer_id: u64,
     /// The Peers Support Flags
     /// (If this is not in the message the default is 0)
-    #[serde(default = "default_zero")]
     pub support_flags: PeerSupportFlags,
     /// RPC Port
     /// (If this is not in the message the default is 0)
-    #[serde(default = "default_zero")]
     pub rpc_port: u16,
     /// RPC Credits Per Hash
     /// (If this is not in the message the default is 0)
-    #[serde(default = "default_zero")]
     pub rpc_credits_per_hash: u32,
 }
 
+epee_object! {
+    BasicNodeData,
+    my_port: u32,
+    network_id: ByteArray<16>,
+    peer_id: u64,
+    support_flags: PeerSupportFlags as u32 = 0_u32,
+    rpc_port: u16 = 0_u16,
+    rpc_credits_per_hash: u32 = 0_u32,
+}
+
 /// Core Sync Data, information on the sync state of a peer
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CoreSyncData {
     /// Cumulative Difficulty Low
     /// The lower 64 bits of the 128 bit cumulative difficulty
     pub cumulative_difficulty: u64,
     /// Cumulative Difficulty High
     /// The upper 64 bits of the 128 bit cumulative difficulty
-    #[serde(default = "default_zero")]
     pub cumulative_difficulty_top64: u64,
     /// Current Height of the peer
     pub current_height: u64,
     /// Pruning Seed of the peer
     /// (If this is not in the message the default is 0)
-    #[serde(default = "default_zero")]
     pub pruning_seed: u32,
     /// Hash of the top block
-    pub top_id: [u8; 32],
+    pub top_id: ByteArray<32>,
     /// Version of the top block
-    #[serde(default = "default_zero")]
     pub top_version: u8,
+}
+
+epee_object! {
+    CoreSyncData,
+    cumulative_difficulty: u64,
+    cumulative_difficulty_top64: u64 = 0_u64,
+    current_height: u64,
+    pruning_seed: u32 = 0_u32,
+    top_id: ByteArray<32>,
+    top_version: u8 = 0_u8,
 }
 
 impl CoreSyncData {
@@ -113,7 +131,7 @@ impl CoreSyncData {
             cumulative_difficulty_top64,
             current_height,
             pruning_seed,
-            top_id,
+            top_id: top_id.into(),
             top_version,
         }
     }
@@ -127,24 +145,30 @@ impl CoreSyncData {
 
 /// PeerListEntryBase, information kept on a peer which will be entered
 /// in a peer list/store.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PeerListEntryBase {
     /// The Peer Address
     pub adr: NetworkAddress,
     /// The Peer ID
     pub id: u64,
     /// The last Time The Peer Was Seen
-    #[serde(default = "default_zero")]
     pub last_seen: i64,
     /// The Pruning Seed
-    #[serde(default = "default_zero")]
     pub pruning_seed: u32,
     /// The RPC port
-    #[serde(default = "default_zero")]
     pub rpc_port: u16,
     /// The RPC credits per hash
-    #[serde(default = "default_zero")]
     pub rpc_credits_per_hash: u32,
+}
+
+epee_object! {
+    PeerListEntryBase,
+    adr: NetworkAddress,
+    id: u64,
+    last_seen: i64 = 0_i64,
+    pruning_seed: u32 = 0_u32,
+    rpc_port: u16 = 0_u16,
+    rpc_credits_per_hash: u32 = 0_u32,
 }
 
 impl std::hash::Hash for PeerListEntryBase {
@@ -155,22 +179,24 @@ impl std::hash::Hash for PeerListEntryBase {
 }
 
 /// A pruned tx with the hash of the missing prunable data
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PrunedTxBlobEntry {
     /// The Tx
-    #[serde(with = "serde_bytes")]
-    pub tx: Vec<u8>,
+    pub tx: Bytes,
     /// The Prunable Tx Hash
-    pub prunable_hash: [u8; 32],
+    pub prunable_hash: ByteArray<32>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
-#[serde(untagged)]
+epee_object!(
+    PrunedTxBlobEntry,
+    tx: Bytes,
+    prunable_hash: ByteArray<32>,
+);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TransactionBlobs {
     Pruned(Vec<PrunedTxBlobEntry>),
-    #[serde(with = "serde_vec_bytes")]
-    Normal(Vec<Vec<u8>>),
-    #[serde(skip_serializing)]
+    Normal(Vec<Bytes>),
     None,
 }
 
@@ -183,7 +209,7 @@ impl TransactionBlobs {
         }
     }
 
-    pub fn take_normal(self) -> Option<Vec<Vec<u8>>> {
+    pub fn take_normal(self) -> Option<Vec<Bytes>> {
         match self {
             TransactionBlobs::Normal(txs) => Some(txs),
             TransactionBlobs::Pruned(_) => None,
@@ -202,28 +228,55 @@ impl TransactionBlobs {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
-    fn none() -> TransactionBlobs {
-        TransactionBlobs::None
-    }
 }
 
 /// A Block that can contain transactions
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockCompleteEntry {
     /// True if tx data is pruned
-    #[serde(default = "default_false")]
     pub pruned: bool,
     /// The Block
-    #[serde(with = "serde_bytes")]
-    pub block: Vec<u8>,
+    pub block: Bytes,
     /// The Block Weight/Size
-    #[serde(default = "default_zero")]
     pub block_weight: u64,
     /// The blocks txs
-    #[serde(skip_serializing_if = "TransactionBlobs::is_empty")]
-    #[serde(default = "TransactionBlobs::none")]
     pub txs: TransactionBlobs,
+}
+
+epee_object!(
+    BlockCompleteEntry,
+    pruned: bool = false,
+    block: Bytes,
+    block_weight: u64 = 0_u64,
+    txs: TransactionBlobs = TransactionBlobs::None => tx_blob_read, tx_blob_write, should_write_tx_blobs,
+);
+
+fn tx_blob_read<B: Buf>(b: &mut B) -> epee_encoding::Result<TransactionBlobs> {
+    let marker = epee_encoding::read_marker(b)?;
+    match marker.inner_marker {
+        InnerMarker::Object => Ok(TransactionBlobs::Pruned(Vec::read(b, &marker)?)),
+        InnerMarker::String => Ok(TransactionBlobs::Normal(Vec::read(b, &marker)?)),
+        _ => Err(epee_encoding::Error::Value("Invalid marker for tx blobs")),
+    }
+}
+
+fn tx_blob_write<B: BufMut>(
+    val: TransactionBlobs,
+    field_name: &str,
+    w: &mut B,
+) -> epee_encoding::Result<()> {
+    if should_write_tx_blobs(&val) {
+        match val {
+            TransactionBlobs::Normal(bytes) => epee_encoding::write_field(bytes, field_name, w)?,
+            TransactionBlobs::Pruned(obj) => epee_encoding::write_field(obj, field_name, w)?,
+            TransactionBlobs::None => (),
+        }
+    }
+    Ok(())
+}
+
+fn should_write_tx_blobs(val: &TransactionBlobs) -> bool {
+    !val.is_empty()
 }
 
 #[cfg(test)]

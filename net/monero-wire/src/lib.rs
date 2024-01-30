@@ -24,7 +24,6 @@
 
 pub mod network_address;
 pub mod p2p;
-mod serde_helpers;
 
 pub use levin_cuprate::BucketError;
 pub use network_address::{NetZone, NetworkAddress};
