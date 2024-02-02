@@ -12,5 +12,5 @@ authors = [
 [features]
 
 [dependencies]
-tokio = { version = "1.33.0", features = ["full"] }
-tower = { version = "0.4.13", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
+tower = { workspace = true, features = ["full"] }
