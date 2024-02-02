@@ -32,10 +32,6 @@ Here are following suggested configurations from Polkadot-SDK's documentation:
     "async-recursion": ["async_recursion"],
     "async-std": ["async_std"]
   },
-  // Use nightly formatting.
-  // See the polkadot-sdk CI job that checks formatting for the current version used in
-  // polkadot-sdk.
-  "rust-analyzer.rustfmt.extraArgs": ["+nightly-2024-01-22"],
 }
 ```
 
@@ -71,12 +67,6 @@ Here are following suggested configurations from Polkadot-SDK's documentation:
       ["async-recursion"] = { "async_recursion" },
       ["async-std"] = { "async_std" },
     },
-  },
-  rustfmt = {
-    # Use nightly formatting.
-    # See the polkadot-sdk CI job that checks formatting for the current version used in
-    # polkadot-sdk.
-    extraArgs = { "+nightly-2024-01-22" },
   },
 },
 ```
