@@ -1,0 +1,13 @@
+[package]
+name = "cuprate-test-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+monero-wire = {path = "../net/monero-wire"}
+monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
+
+futures = { workspace = true, features = ["std"] }
+async-trait = { workspace = true }
+
+borsh = { workspace = true, features = ["derive"]}

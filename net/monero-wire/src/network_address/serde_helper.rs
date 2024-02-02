@@ -1,20 +1,53 @@
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddrV4, SocketAddrV6};
+use bytes::Buf;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-use serde::{Deserialize, Serialize};
+use epee_encoding::{epee_object, EpeeObjectBuilder};
 use thiserror::Error;
 
 use crate::NetworkAddress;
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct TaggedNetworkAddress {
-    #[serde(rename = "type")]
-    ty: u8,
-    addr: AllFieldsNetworkAddress,
+#[derive(Default)]
+pub struct TaggedNetworkAddress {
+    ty: Option<u8>,
+    addr: Option<AllFieldsNetworkAddress>,
+}
+
+epee_object!(
+    TaggedNetworkAddress,
+    ty("type"): Option<u8>,
+    addr: Option<AllFieldsNetworkAddress>,
+);
+
+impl EpeeObjectBuilder<NetworkAddress> for TaggedNetworkAddress {
+    fn add_field<B: Buf>(&mut self, name: &str, b: &mut B) -> epee_encoding::Result<bool> {
+        match name {
+            "type" => {
+                if std::mem::replace(&mut self.ty, Some(epee_encoding::read_epee_value(b)?))
+                    .is_some()
+                {
+                    return Err(epee_encoding::Error::Format("Duplicate field in data."));
+                }
+                Ok(true)
+            }
+            "addr" => {
+                if std::mem::replace(&mut self.addr, epee_encoding::read_epee_value(b)?).is_some() {
+                    return Err(epee_encoding::Error::Format("Duplicate field in data."));
+                }
+                Ok(true)
+            }
+            _ => Ok(false),
+        }
+    }
+
+    fn finish(self) -> epee_encoding::Result<NetworkAddress> {
+        self.try_into()
+            .map_err(|_| epee_encoding::Error::Value("Invalid network address".to_string()))
+    }
 }
 
 #[derive(Error, Debug)]
 #[error("Invalid network address")]
-pub(crate) struct InvalidNetworkAddress;
+pub struct InvalidNetworkAddress;
 
 impl TryFrom<TaggedNetworkAddress> for NetworkAddress {
     type Error = InvalidNetworkAddress;
@@ -22,7 +55,8 @@ impl TryFrom<TaggedNetworkAddress> for NetworkAddress {
     fn try_from(value: TaggedNetworkAddress) -> Result<Self, Self::Error> {
         value
             .addr
-            .try_into_network_address(value.ty)
+            .ok_or(InvalidNetworkAddress)?
+            .try_into_network_address(value.ty.ok_or(InvalidNetworkAddress)?)
             .ok_or(InvalidNetworkAddress)
     }
 }
@@ -30,41 +64,47 @@ impl TryFrom<TaggedNetworkAddress> for NetworkAddress {
 impl From<NetworkAddress> for TaggedNetworkAddress {
     fn from(value: NetworkAddress) -> Self {
         match value {
-            NetworkAddress::IPv4(addr) => TaggedNetworkAddress {
-                ty: 1,
-                addr: AllFieldsNetworkAddress {
-                    m_ip: Some(u32::from_be_bytes(addr.ip().octets())),
-                    m_port: Some(addr.port()),
-                    ..Default::default()
+            NetworkAddress::Clear(addr) => match addr {
+                SocketAddr::V4(addr) => TaggedNetworkAddress {
+                    ty: Some(1),
+                    addr: Some(AllFieldsNetworkAddress {
+                        m_ip: Some(u32::from_be_bytes(addr.ip().octets())),
+                        m_port: Some(addr.port()),
+                        addr: None,
+                    }),
                 },
-            },
-            NetworkAddress::IPv6(addr) => TaggedNetworkAddress {
-                ty: 2,
-                addr: AllFieldsNetworkAddress {
-                    addr: Some(addr.ip().octets()),
-                    m_port: Some(addr.port()),
-                    ..Default::default()
+                SocketAddr::V6(addr) => TaggedNetworkAddress {
+                    ty: Some(2),
+                    addr: Some(AllFieldsNetworkAddress {
+                        addr: Some(addr.ip().octets()),
+                        m_port: Some(addr.port()),
+                        m_ip: None,
+                    }),
                 },
             },
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Default)]
 struct AllFieldsNetworkAddress {
-    #[serde(skip_serializing_if = "Option::is_none")]
     m_ip: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     m_port: Option<u16>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     addr: Option<[u8; 16]>,
 }
+
+epee_object!(
+    AllFieldsNetworkAddress,
+    m_ip: Option<u32>,
+    m_port: Option<u16>,
+    addr: Option<[u8; 16]>,
+);
 
 impl AllFieldsNetworkAddress {
     fn try_into_network_address(self, ty: u8) -> Option<NetworkAddress> {
         Some(match ty {
-            1 => NetworkAddress::IPv4(SocketAddrV4::new(Ipv4Addr::from(self.m_ip?), self.m_port?)),
-            2 => NetworkAddress::IPv6(SocketAddrV6::new(
+            1 => NetworkAddress::from(SocketAddrV4::new(Ipv4Addr::from(self.m_ip?), self.m_port?)),
+            2 => NetworkAddress::from(SocketAddrV6::new(
                 Ipv6Addr::from(self.addr?),
                 self.m_port?,
                 0,

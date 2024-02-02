@@ -1,78 +1,92 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    future::Future,
+    sync::Arc,
+};
 
+use monero_consensus::{transactions::OutputOnChain, ConsensusError, HardFork};
+
+mod batch_verifier;
 pub mod block;
 pub mod context;
-pub mod genesis;
-mod helper;
+pub mod randomx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
 #[cfg(test)]
-mod test_utils;
+mod tests;
 pub mod transactions;
 
-pub use block::{VerifiedBlockInformation, VerifyBlockRequest};
-pub use context::{ContextConfig, HardFork, UpdateBlockchainCacheRequest};
+pub use block::{
+    PrePreparedBlock, VerifiedBlockInformation, VerifyBlockRequest, VerifyBlockResponse,
+};
+pub use context::{
+    initialize_blockchain_context, BlockChainContext, BlockChainContextRequest,
+    BlockChainContextResponse, ContextConfig,
+};
 pub use transactions::{VerifyTxRequest, VerifyTxResponse};
 
-pub async fn initialize_verifier<D>(
+#[derive(Debug, thiserror::Error)]
+pub enum ExtendedConsensusError {
+    #[error("{0}")]
+    ConErr(#[from] monero_consensus::ConsensusError),
+    #[error("Database error: {0}")]
+    DBErr(#[from] tower::BoxError),
+    #[error("Needed transaction is not in pool")]
+    TxPErr(#[from] TxNotInPool),
+}
+
+// TODO: instead of (ab)using generic returns return the acc type
+pub async fn initialize_verifier<D, TxP, Ctx>(
     database: D,
-    cfg: ContextConfig,
+    tx_pool: TxP,
+    ctx_svc: Ctx,
 ) -> Result<
     (
         impl tower::Service<
-            VerifyBlockRequest,
-            Response = VerifiedBlockInformation,
-            Error = ConsensusError,
-        >,
-        impl tower::Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ConsensusError>,
-        impl tower::Service<UpdateBlockchainCacheRequest, Response = (), Error = tower::BoxError>,
+                VerifyBlockRequest,
+                Response = VerifyBlockResponse,
+                Error = ExtendedConsensusError,
+                Future = impl Future<Output = Result<VerifyBlockResponse, ExtendedConsensusError>>
+                             + Send
+                             + 'static,
+            > + Clone
+            + Send
+            + 'static,
+        impl tower::Service<
+                VerifyTxRequest,
+                Response = VerifyTxResponse,
+                Error = ExtendedConsensusError,
+                Future = impl Future<Output = Result<VerifyTxResponse, ExtendedConsensusError>>
+                             + Send
+                             + 'static,
+            > + Clone
+            + Send
+            + 'static,
     ),
     ConsensusError,
 >
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
+    TxP: tower::Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+    TxP::Future: Send + 'static,
+    Ctx: tower::Service<
+            BlockChainContextRequest,
+            Response = BlockChainContextResponse,
+            Error = tower::BoxError,
+        > + Clone
+        + Send
+        + Sync
+        + 'static,
+    Ctx::Future: Send + 'static,
 {
-    let (context_svc, context_svc_updater) =
-        context::initialize_blockchain_context(cfg, database.clone()).await?;
     let tx_svc = transactions::TxVerifierService::new(database);
-    let block_svc = block::BlockVerifierService::new(context_svc.clone(), tx_svc.clone());
-    Ok((block_svc, tx_svc, context_svc_updater))
-}
-
-// TODO: split this enum up.
-#[derive(Debug, thiserror::Error)]
-pub enum ConsensusError {
-    #[error("Miner transaction invalid: {0}")]
-    MinerTransaction(&'static str),
-    #[error("Transaction sig invalid: {0}")]
-    TransactionSignatureInvalid(&'static str),
-    #[error("Transaction has too high output amount")]
-    TransactionOutputsTooMuch,
-    #[error("Transaction inputs overflow")]
-    TransactionInputsOverflow,
-    #[error("Transaction outputs overflow")]
-    TransactionOutputsOverflow,
-    #[error("Transaction has an invalid output: {0}")]
-    TransactionInvalidOutput(&'static str),
-    #[error("Transaction has an invalid version")]
-    TransactionVersionInvalid,
-    #[error("Transaction an invalid input: {0}")]
-    TransactionHasInvalidInput(&'static str),
-    #[error("Transaction has invalid ring: {0}")]
-    TransactionHasInvalidRing(&'static str),
-    #[error("Block has an invalid proof of work")]
-    BlockPOWInvalid,
-    #[error("Block has a timestamp outside of the valid range")]
-    BlockTimestampInvalid,
-    #[error("Block is too large")]
-    BlockIsTooLarge,
-    #[error("Invalid hard fork version: {0}")]
-    InvalidHardForkVersion(&'static str),
-    #[error("The block has a different previous hash than expected")]
-    BlockIsNotApartOfChain,
-    #[error("Database error: {0}")]
-    Database(#[from] tower::BoxError),
+    let block_svc = block::BlockVerifierService::new(ctx_svc, tx_svc.clone(), tx_pool);
+    Ok((block_svc, tx_svc))
 }
 
 pub trait Database:
@@ -83,14 +97,6 @@ pub trait Database:
 impl<T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tower::BoxError>>
     Database for T
 {
-}
-
-#[derive(Debug)]
-pub struct OutputOnChain {
-    height: u64,
-    time_lock: monero_serai::transaction::Timelock,
-    key: curve25519_dalek::EdwardsPoint,
-    //mask: curve25519_dalek::EdwardsPoint,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -107,7 +113,7 @@ pub struct ExtendedBlockHeader {
 
 #[derive(Debug, Clone)]
 pub enum DatabaseRequest {
-    BlockExtendedHeader(cuprate_common::BlockID),
+    BlockExtendedHeader(u64),
     BlockHash(u64),
 
     BlockExtendedHeaderInRange(std::ops::Range<u64>),
@@ -116,7 +122,7 @@ pub enum DatabaseRequest {
     GeneratedCoins,
 
     Outputs(HashMap<u64, HashSet<u64>>),
-    NumberOutputsWithAmount(u64),
+    NumberOutputsWithAmount(Vec<u64>),
 
     CheckKIsNotSpent(HashSet<[u8; 32]>),
 
@@ -135,8 +141,9 @@ pub enum DatabaseResponse {
     GeneratedCoins(u64),
 
     Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
-    NumberOutputsWithAmount(usize),
+    NumberOutputsWithAmount(HashMap<u64, usize>),
 
+    /// returns true if key images are spent
     CheckKIsNotSpent(bool),
 
     #[cfg(feature = "binaries")]
@@ -146,4 +153,16 @@ pub enum DatabaseResponse {
             Vec<monero_serai::transaction::Transaction>,
         )>,
     ),
+}
+
+#[derive(Debug, Copy, Clone, thiserror::Error)]
+#[error("The transaction requested was not in the transaction pool")]
+pub struct TxNotInPool;
+
+pub enum TxPoolRequest {
+    Transactions(Vec<[u8; 32]>),
+}
+
+pub enum TxPoolResponse {
+    Transactions(Vec<Arc<transactions::TransactionVerificationData>>),
 }

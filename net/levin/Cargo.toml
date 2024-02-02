@@ -8,7 +8,7 @@ authors = ["Boog900"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/net/levin"
 
 [dependencies]
-thiserror = "1"
-bytes = "1"
-tokio-util = {version = "0.7", features = ["codec"]}
+thiserror = { workspace = true }
+bytes = { workspace = true }
+tokio-util = { workspace = true, features = ["codec"]}
 

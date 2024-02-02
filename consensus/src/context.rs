@@ -8,32 +8,40 @@
 use std::{
     cmp::min,
     future::Future,
-    ops::{Deref, DerefMut},
-    pin::Pin,
+    ops::DerefMut,
     sync::Arc,
     task::{Context, Poll},
 };
 
-use futures::FutureExt;
-use tokio::sync::RwLock;
+use futures::{
+    future::{ready, Ready},
+    lock::{Mutex, OwnedMutexGuard, OwnedMutexLockFuture},
+    FutureExt,
+};
 use tower::{Service, ServiceExt};
 
-use crate::{helper::current_time, ConsensusError, Database, DatabaseRequest, DatabaseResponse};
+use monero_consensus::{blocks::ContextToVerifyBlock, current_unix_timestamp, HardFork};
 
-pub mod difficulty;
-pub mod hardforks;
-pub mod weight;
+use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
+
+pub(crate) mod difficulty;
+pub(crate) mod hardforks;
+pub(crate) mod rx_seed;
+pub(crate) mod weight;
+
+mod tokens;
 
 pub use difficulty::DifficultyCacheConfig;
-pub use hardforks::{HardFork, HardForkConfig};
+pub use hardforks::HardForkConfig;
+pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
 const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
 
 pub struct ContextConfig {
-    hard_fork_cfg: HardForkConfig,
-    difficulty_cfg: DifficultyCacheConfig,
-    weights_config: BlockWeightsCacheConfig,
+    pub hard_fork_cfg: HardForkConfig,
+    pub difficulty_cfg: DifficultyCacheConfig,
+    pub weights_config: BlockWeightsCacheConfig,
 }
 
 impl ContextConfig {
@@ -44,27 +52,40 @@ impl ContextConfig {
             weights_config: BlockWeightsCacheConfig::main_net(),
         }
     }
+
+    pub fn stage_net() -> ContextConfig {
+        ContextConfig {
+            hard_fork_cfg: HardForkConfig::stage_net(),
+            difficulty_cfg: DifficultyCacheConfig::main_net(),
+            weights_config: BlockWeightsCacheConfig::main_net(),
+        }
+    }
+
+    pub fn test_net() -> ContextConfig {
+        ContextConfig {
+            hard_fork_cfg: HardForkConfig::test_net(),
+            difficulty_cfg: DifficultyCacheConfig::main_net(),
+            weights_config: BlockWeightsCacheConfig::main_net(),
+        }
+    }
 }
 
 pub async fn initialize_blockchain_context<D>(
     cfg: ContextConfig,
     mut database: D,
 ) -> Result<
-    (
-        impl Service<
-                BlockChainContextRequest,
-                Response = BlockChainContext,
-                Error = tower::BoxError,
-                Future = impl Future<Output = Result<BlockChainContext, tower::BoxError>>
-                             + Send
-                             + 'static,
-            > + Clone
-            + Send
-            + Sync
-            + 'static,
-        impl Service<UpdateBlockchainCacheRequest, Response = (), Error = tower::BoxError>,
-    ),
-    ConsensusError,
+    impl Service<
+            BlockChainContextRequest,
+            Response = BlockChainContextResponse,
+            Error = tower::BoxError,
+            Future = impl Future<Output = Result<BlockChainContextResponse, tower::BoxError>>
+                         + Send
+                         + 'static,
+        > + Clone
+        + Send
+        + Sync
+        + 'static,
+    ExtendedConsensusError,
 >
 where
     D: Database + Clone + Send + Sync + 'static,
@@ -111,11 +132,19 @@ where
         hardforks::HardForkState::init_from_chain_height(chain_height, hard_fork_cfg, db).await
     });
 
+    let db = database.clone();
+    let rx_seed_handle = tokio::spawn(async move {
+        rx_seed::RandomXSeed::init_from_chain_height(chain_height, db).await
+    });
+
     let context_svc = BlockChainContextService {
         internal_blockchain_context: Arc::new(
             InternalBlockChainContext {
+                current_validity_token: ValidityToken::new(),
+                current_reorg_token: ReOrgToken::new(),
                 difficulty_cache: difficulty_cache_handle.await.unwrap()?,
                 weight_cache: weight_cache_handle.await.unwrap()?,
+                rx_seed_cache: rx_seed_handle.await.unwrap()?,
                 hardfork_state: hardfork_state_handle.await.unwrap()?,
                 chain_height,
                 already_generated_coins,
@@ -123,58 +152,52 @@ where
             }
             .into(),
         ),
+        lock_state: MutexLockState::Locked,
     };
 
-    let context_svc_update = context_svc.clone();
-
-    Ok((context_svc_update.clone(), context_svc_update))
+    Ok(context_svc)
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct BlockChainContext {
-    /// The next blocks difficulty.
-    pub next_difficulty: u128,
+/// Raw blockchain context, gotten from [`BlockChainContext`]. This data may turn invalid so is not ok to keep
+/// around. You should keep around [`BlockChainContext`] instead.
+#[derive(Debug, Clone)]
+pub struct RawBlockChainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
-    /// The current effective median block weight.
-    pub effective_median_weight: usize,
+    /// A token which is used to signal if a reorg has happened since creating the token.
+    pub re_org_token: ReOrgToken,
+    pub rx_seed_cache: rx_seed::RandomXSeed,
+    pub context_to_verify_block: ContextToVerifyBlock,
     /// The median long term block weight.
     median_long_term_weight: usize,
-    /// Median weight to use for block reward calculations.
-    pub median_weight_for_block_reward: usize,
-    /// The amount of coins minted already.
-    pub already_generated_coins: u64,
-    /// The median timestamp over the last [`BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW`] blocks, will be None if there aren't
-    /// [`BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW`] blocks.
-    pub median_block_timestamp: Option<u64>,
     top_block_timestamp: Option<u64>,
-    /// The height of the chain.
-    pub chain_height: u64,
-    /// The top blocks hash
-    pub top_hash: [u8; 32],
-    /// The current hard fork.
-    pub current_hard_fork: HardFork,
 }
 
-impl BlockChainContext {
+impl std::ops::Deref for RawBlockChainContext {
+    type Target = ContextToVerifyBlock;
+    fn deref(&self) -> &Self::Target {
+        &self.context_to_verify_block
+    }
+}
+
+impl RawBlockChainContext {
     /// Returns the timestamp the should be used when checking locked outputs.
     ///
     /// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
     pub fn current_adjusted_timestamp_for_time_lock(&self) -> u64 {
-        if self.current_hard_fork < HardFork::V13 || self.median_block_timestamp.is_none() {
-            current_time()
+        if self.current_hf < HardFork::V13 || self.median_block_timestamp.is_none() {
+            current_unix_timestamp()
         } else {
             // This is safe as we just checked if this was None.
             let median = self.median_block_timestamp.unwrap();
 
             let adjusted_median = median
-                + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1)
-                    * self.current_hard_fork.block_time().as_secs()
+                + (BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW + 1) * self.current_hf.block_time().as_secs()
                     / 2;
 
             // This is safe as we just checked if the median was None and this will only be none for genesis and the first block.
             let adjusted_top_block =
-                self.top_block_timestamp.unwrap() + self.current_hard_fork.block_time().as_secs();
+                self.top_block_timestamp.unwrap() + self.current_hf.block_time().as_secs();
 
             min(adjusted_median, adjusted_top_block)
         }
@@ -190,80 +213,49 @@ impl BlockChainContext {
 
     pub fn next_block_long_term_weight(&self, block_weight: usize) -> usize {
         weight::calculate_block_long_term_weight(
-            &self.current_hard_fork,
+            &self.current_hf,
             block_weight,
             self.median_long_term_weight,
         )
     }
 }
 
+/// Blockchain context which keeps a token of validity so users will know when the data is no longer valid.
 #[derive(Debug, Clone)]
-pub struct BlockChainContextRequest;
-
-#[derive(Clone)]
-struct InternalBlockChainContext {
-    difficulty_cache: difficulty::DifficultyCache,
-    weight_cache: weight::BlockWeightsCache,
-    hardfork_state: hardforks::HardForkState,
-
-    chain_height: u64,
-    top_block_hash: [u8; 32],
-    already_generated_coins: u64,
+pub struct BlockChainContext {
+    /// A token representing this data's validity.
+    validity_token: ValidityToken,
+    /// The actual block chain context.
+    raw: RawBlockChainContext,
 }
 
-#[derive(Clone)]
-pub struct BlockChainContextService {
-    internal_blockchain_context: Arc<RwLock<InternalBlockChainContext>>,
-}
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("data is no longer valid")]
+pub struct DataNoLongerValid;
 
-impl Service<BlockChainContextRequest> for BlockChainContextService {
-    type Response = BlockChainContext;
-    type Error = tower::BoxError;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
+impl BlockChainContext {
+    /// Checks if the data is still valid.
+    pub fn is_still_valid(&self) -> bool {
+        self.validity_token.is_data_valid()
     }
 
-    fn call(&mut self, _: BlockChainContextRequest) -> Self::Future {
-        let internal_blockchain_context = self.internal_blockchain_context.clone();
-
-        async move {
-            let internal_blockchain_context_lock = internal_blockchain_context.read().await;
-
-            let InternalBlockChainContext {
-                difficulty_cache,
-                weight_cache,
-                hardfork_state,
-                chain_height,
-                top_block_hash,
-                already_generated_coins,
-            } = internal_blockchain_context_lock.deref();
-
-            let current_hf = hardfork_state.current_hardfork();
-
-            Ok(BlockChainContext {
-                next_difficulty: difficulty_cache.next_difficulty(&current_hf),
-                cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
-                effective_median_weight: weight_cache.effective_median_block_weight(&current_hf),
-                median_long_term_weight: weight_cache.median_long_term_weight(),
-                median_weight_for_block_reward: weight_cache.median_for_block_reward(&current_hf),
-                already_generated_coins: *already_generated_coins,
-                top_block_timestamp: difficulty_cache.top_block_timestamp(),
-                median_block_timestamp: difficulty_cache
-                    .median_timestamp(usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap()),
-                chain_height: *chain_height,
-                top_hash: *top_block_hash,
-                current_hard_fork: current_hf,
-            })
+    /// Checks if the data is valid returning an Err if not and a reference to the blockchain context if
+    /// it is.
+    pub fn blockchain_context(&self) -> Result<&RawBlockChainContext, DataNoLongerValid> {
+        if !self.is_still_valid() {
+            return Err(DataNoLongerValid);
         }
-        .boxed()
+        Ok(&self.raw)
+    }
+
+    /// Returns the blockchain context without checking the validity token.
+    pub fn unchecked_blockchain_context(&self) -> &RawBlockChainContext {
+        &self.raw
     }
 }
 
-// TODO: join these services, there is no need for 2.
-pub struct UpdateBlockchainCacheRequest {
+#[derive(Debug, Clone)]
+pub struct UpdateBlockchainCacheData {
     pub new_top_hash: [u8; 32],
     pub height: u64,
     pub timestamp: u64,
@@ -274,43 +266,142 @@ pub struct UpdateBlockchainCacheRequest {
     pub cumulative_difficulty: u128,
 }
 
-impl tower::Service<UpdateBlockchainCacheRequest> for BlockChainContextService {
-    type Response = ();
-    type Error = tower::BoxError;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+#[derive(Debug, Clone)]
+pub enum BlockChainContextRequest {
+    Get,
+    Update(UpdateBlockchainCacheData),
+}
 
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
+pub enum BlockChainContextResponse {
+    Context(BlockChainContext),
+    Ok,
+}
+struct InternalBlockChainContext {
+    /// A token used to invalidate previous contexts when a new
+    /// block is added to the chain.
+    current_validity_token: ValidityToken,
+    /// A token which is used to signal a reorg has happened.
+    current_reorg_token: ReOrgToken,
+
+    difficulty_cache: difficulty::DifficultyCache,
+    weight_cache: weight::BlockWeightsCache,
+    rx_seed_cache: rx_seed::RandomXSeed,
+    hardfork_state: hardforks::HardForkState,
+
+    chain_height: u64,
+    top_block_hash: [u8; 32],
+    already_generated_coins: u64,
+}
+
+enum MutexLockState {
+    Locked,
+    Acquiring(OwnedMutexLockFuture<InternalBlockChainContext>),
+    Acquired(OwnedMutexGuard<InternalBlockChainContext>),
+}
+pub struct BlockChainContextService {
+    internal_blockchain_context: Arc<Mutex<InternalBlockChainContext>>,
+    lock_state: MutexLockState,
+}
+
+impl Clone for BlockChainContextService {
+    fn clone(&self) -> Self {
+        BlockChainContextService {
+            internal_blockchain_context: self.internal_blockchain_context.clone(),
+            lock_state: MutexLockState::Locked,
+        }
+    }
+}
+
+impl Service<BlockChainContextRequest> for BlockChainContextService {
+    type Response = BlockChainContextResponse;
+    type Error = tower::BoxError;
+    type Future = Ready<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        loop {
+            match &mut self.lock_state {
+                MutexLockState::Locked => {
+                    self.lock_state = MutexLockState::Acquiring(
+                        Arc::clone(&self.internal_blockchain_context).lock_owned(),
+                    )
+                }
+                MutexLockState::Acquiring(rpc) => {
+                    self.lock_state = MutexLockState::Acquired(futures::ready!(rpc.poll_unpin(cx)))
+                }
+                MutexLockState::Acquired(_) => return Poll::Ready(Ok(())),
+            }
+        }
     }
 
-    fn call(&mut self, new: UpdateBlockchainCacheRequest) -> Self::Future {
-        let internal_blockchain_context = self.internal_blockchain_context.clone();
+    fn call(&mut self, req: BlockChainContextRequest) -> Self::Future {
+        let MutexLockState::Acquired(mut internal_blockchain_context) =
+            std::mem::replace(&mut self.lock_state, MutexLockState::Locked)
+        else {
+            panic!("poll_ready() was not called first!")
+        };
 
-        async move {
-            let mut internal_blockchain_context_lock = internal_blockchain_context.write().await;
+        let InternalBlockChainContext {
+            current_validity_token,
+            current_reorg_token,
+            difficulty_cache,
+            weight_cache,
+            rx_seed_cache,
+            hardfork_state,
+            chain_height,
+            top_block_hash,
+            already_generated_coins,
+        } = internal_blockchain_context.deref_mut();
 
-            let InternalBlockChainContext {
-                difficulty_cache,
-                weight_cache,
-                hardfork_state,
-                chain_height,
-                top_block_hash,
-                already_generated_coins,
-            } = internal_blockchain_context_lock.deref_mut();
+        let res = match req {
+            BlockChainContextRequest::Get => {
+                let current_hf = hardfork_state.current_hardfork();
 
-            difficulty_cache.new_block(new.height, new.timestamp, new.cumulative_difficulty);
+                BlockChainContextResponse::Context(BlockChainContext {
+                    validity_token: current_validity_token.clone(),
+                    raw: RawBlockChainContext {
+                        context_to_verify_block: ContextToVerifyBlock {
+                            median_weight_for_block_reward: weight_cache
+                                .median_for_block_reward(&current_hf),
+                            effective_median_weight: weight_cache
+                                .effective_median_block_weight(&current_hf),
+                            top_hash: *top_block_hash,
+                            median_block_timestamp: difficulty_cache.median_timestamp(
+                                usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap(),
+                            ),
+                            chain_height: *chain_height,
+                            current_hf,
+                            next_difficulty: difficulty_cache.next_difficulty(&current_hf),
+                            already_generated_coins: *already_generated_coins,
+                        },
+                        rx_seed_cache: rx_seed_cache.clone(),
+                        cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
+                        median_long_term_weight: weight_cache.median_long_term_weight(),
+                        top_block_timestamp: difficulty_cache.top_block_timestamp(),
+                        re_org_token: current_reorg_token.clone(),
+                    },
+                })
+            }
+            BlockChainContextRequest::Update(new) => {
+                // Cancel the validity token and replace it with a new one.
+                std::mem::replace(current_validity_token, ValidityToken::new()).set_data_invalid();
 
-            weight_cache.new_block(new.height, new.weight, new.long_term_weight);
+                difficulty_cache.new_block(new.height, new.timestamp, new.cumulative_difficulty);
 
-            hardfork_state.new_block(new.vote, new.height).await?;
+                weight_cache.new_block(new.height, new.weight, new.long_term_weight);
 
-            *chain_height = new.height + 1;
-            *top_block_hash = new.new_top_hash;
-            *already_generated_coins = already_generated_coins.saturating_add(new.generated_coins);
+                hardfork_state.new_block(new.vote, new.height);
 
-            Ok(())
-        }
-        .boxed()
+                rx_seed_cache.new_block(new.height, &new.new_top_hash);
+
+                *chain_height = new.height + 1;
+                *top_block_hash = new.new_top_hash;
+                *already_generated_coins =
+                    already_generated_coins.saturating_add(new.generated_coins);
+
+                BlockChainContextResponse::Ok
+            }
+        };
+
+        ready(Ok(res))
     }
 }

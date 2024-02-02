@@ -1,116 +1,78 @@
-use std::collections::HashSet;
-
 use futures::channel::{mpsc, oneshot};
-use futures::stream::Fuse;
-use futures::{AsyncRead, AsyncWrite, SinkExt, StreamExt};
+use futures::stream::FusedStream;
+use futures::{Sink, SinkExt, Stream, StreamExt};
 
-use levin::{MessageSink, MessageStream};
-use monero_wire::messages::CoreSyncData;
-use monero_wire::{levin, Message, NetworkAddress};
-use tower::{Service, ServiceExt};
+use monero_wire::{Message, BucketError};
+use tower::{BoxError, Service};
 
-use crate::protocol::{
-    InternalMessageRequest, InternalMessageResponse, BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT,
-    P2P_MAX_PEERS_IN_HANDSHAKE,
-};
-
-use super::PeerError;
-
-pub enum PeerSyncChange {
-    CoreSyncData(NetworkAddress, CoreSyncData),
-    ObjectsResponse(NetworkAddress, Vec<[u8; 32]>, u64),
-    PeerDisconnected(NetworkAddress),
-}
+use crate::connection_handle::DisconnectSignal;
+use crate::peer::error::{ErrorSlot, PeerError, SharedPeerError};
+use crate::peer::handshaker::ConnectionAddr;
+use crate::protocol::internal_network::{MessageID, Request, Response};
 
 pub struct ClientRequest {
-    pub req: InternalMessageRequest,
-    pub tx: oneshot::Sender<Result<InternalMessageResponse, PeerError>>,
+    pub req: Request,
+    pub tx: oneshot::Sender<Result<Response, SharedPeerError>>,
 }
 
 pub enum State {
     WaitingForRequest,
     WaitingForResponse {
-        request: InternalMessageRequest,
-        tx: oneshot::Sender<Result<InternalMessageResponse, PeerError>>,
+        request_id: MessageID,
+        tx: oneshot::Sender<Result<Response, SharedPeerError>>,
     },
 }
 
-impl State {
-    pub fn expected_response_id(&self) -> Option<u32> {
-        match self {
-            Self::WaitingForRequest => None,
-            Self::WaitingForResponse { request, tx: _ } => request.expected_id(),
-        }
-    }
-}
-
-pub struct Connection<Svc, Aw, Ar> {
-    address: NetworkAddress,
+pub struct Connection<Svc, Snk> {
+    address: ConnectionAddr,
     state: State,
-    sink: MessageSink<Aw, Message>,
-    stream: Fuse<MessageStream<Ar, Message>>,
+    sink: Snk,
     client_rx: mpsc::Receiver<ClientRequest>,
-    sync_state_tx: mpsc::Sender<PeerSyncChange>,
+
+    error_slot: ErrorSlot,
+
+    /// # Security
+    ///
+    /// If this connection tracker or `Connection`s are leaked,
+    /// the number of active connections will appear higher than it actually is.
+    /// If enough connections leak, Cuprate will stop making new connections.
+    connection_tracker: DisconnectSignal,
+
     svc: Svc,
 }
 
-impl<Svc, Aw, Ar> Connection<Svc, Aw, Ar>
+impl<Svc, Snk> Connection<Svc, Snk>
 where
-    Svc: Service<InternalMessageRequest, Response = InternalMessageResponse, Error = PeerError>,
-    Aw: AsyncWrite + std::marker::Unpin,
-    Ar: AsyncRead + std::marker::Unpin,
+    Svc: Service<Request, Response = Response, Error = BoxError>,
+    Snk: Sink<Message, Error = BucketError> + Unpin,
 {
     pub fn new(
-        address: NetworkAddress,
-        sink: MessageSink<Aw, Message>,
-        stream: MessageStream<Ar, Message>,
+        address: ConnectionAddr,
+        sink: Snk,
         client_rx: mpsc::Receiver<ClientRequest>,
-        sync_state_tx: mpsc::Sender<PeerSyncChange>,
+        error_slot: ErrorSlot,
+        connection_tracker: DisconnectSignal,
         svc: Svc,
-    ) -> Connection<Svc, Aw, Ar> {
+    ) -> Connection<Svc, Snk> {
         Connection {
             address,
             state: State::WaitingForRequest,
             sink,
-            stream: stream.fuse(),
             client_rx,
-            sync_state_tx,
+            error_slot,
+            connection_tracker,
             svc,
         }
     }
-    async fn handle_response(&mut self, res: InternalMessageResponse) -> Result<(), PeerError> {
+    async fn handle_response(&mut self, res: Response) -> Result<(), PeerError> {
         let state = std::mem::replace(&mut self.state, State::WaitingForRequest);
-        if let State::WaitingForResponse { request, tx } = state {
-            match (request, &res) {
-                (InternalMessageRequest::Handshake(_), InternalMessageResponse::Handshake(_)) => {}
-                (
-                    InternalMessageRequest::SupportFlags(_),
-                    InternalMessageResponse::SupportFlags(_),
-                ) => {}
-                (InternalMessageRequest::TimedSync(_), InternalMessageResponse::TimedSync(res)) => {
-                }
-                (
-                    InternalMessageRequest::GetObjectsRequest(req),
-                    InternalMessageResponse::GetObjectsResponse(res),
-                ) => {}
-                (
-                    InternalMessageRequest::ChainRequest(_),
-                    InternalMessageResponse::ChainResponse(res),
-                ) => {}
-                (
-                    InternalMessageRequest::FluffyMissingTransactionsRequest(req),
-                    InternalMessageResponse::NewFluffyBlock(blk),
-                ) => {}
-                (
-                    InternalMessageRequest::GetTxPoolCompliment(_),
-                    InternalMessageResponse::NewTransactions(_),
-                ) => {
-                    // we could check we received no transactions that we said we knew about but thats going to happen later anyway when they get added to our
-                    // mempool
-                }
-                _ => return Err(PeerError::ResponseError("Peer sent incorrect response")),
+        if let State::WaitingForResponse { request_id, tx } = state {
+            if request_id != res.id() {
+                // TODO: Fail here
+                return Err(PeerError::PeerSentIncorrectResponse);
             }
-            // response passed our tests we can send it to the requestor
+
+            // response passed our tests we can send it to the requester
             let _ = tx.send(Ok(res));
             Ok(())
         } else {
@@ -122,30 +84,36 @@ where
         Ok(self.sink.send(mes.into()).await?)
     }
 
-    async fn handle_peer_request(&mut self, req: InternalMessageRequest) -> Result<(), PeerError> {
+    async fn handle_peer_request(&mut self, req: Request) -> Result<(), PeerError> {
         // we should check contents of peer requests for obvious errors like we do with responses
+        todo!()
+        /*
         let ready_svc = self.svc.ready().await?;
         let res = ready_svc.call(req).await?;
         self.send_message_to_peer(res).await
+        */
     }
 
     async fn handle_client_request(&mut self, req: ClientRequest) -> Result<(), PeerError> {
-        // check we need a response
-        if let Some(_) = req.req.expected_id() {
+        if req.req.needs_response() {
             self.state = State::WaitingForResponse {
-                request: req.req.clone(),
+                request_id: req.req.id(),
                 tx: req.tx,
             };
         }
+        // TODO: send NA response to requester
         self.send_message_to_peer(req.req).await
     }
 
-    async fn state_waiting_for_request(&mut self) -> Result<(), PeerError> {
+    async fn state_waiting_for_request<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
+    where
+        Str: FusedStream<Item = Result<Message, BucketError>> + Unpin,
+    {
         futures::select! {
-            peer_message = self.stream.next() => {
+            peer_message = stream.next() => {
                 match peer_message.expect("MessageStream will never return None") {
                     Ok(message) => {
-                        self.handle_peer_request(message.try_into().map_err(|_| PeerError::PeerSentUnexpectedResponse)?).await
+                        self.handle_peer_request(message.try_into().map_err(|_| PeerError::ResponseError(""))?).await
                     },
                     Err(e) => Err(e.into()),
                 }
@@ -156,10 +124,12 @@ where
         }
     }
 
-    async fn state_waiting_for_response(&mut self) -> Result<(), PeerError> {
+    async fn state_waiting_for_response<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
+    where
+        Str: FusedStream<Item = Result<Message, BucketError>> + Unpin,
+    {
         // put a timeout on this
-        let peer_message = self
-            .stream
+        let peer_message = stream
             .next()
             .await
             .expect("MessageStream will never return None")?;
@@ -183,12 +153,15 @@ where
         }
     }
 
-    pub async fn run(mut self) {
+    pub async fn run<Str>(mut self, mut stream: Str)
+    where
+        Str: FusedStream<Item = Result<Message, BucketError>> + Unpin,
+    {
         loop {
             let _res = match self.state {
-                State::WaitingForRequest => self.state_waiting_for_request().await,
-                State::WaitingForResponse { request: _, tx: _ } => {
-                    self.state_waiting_for_response().await
+                State::WaitingForRequest => self.state_waiting_for_request(&mut stream).await,
+                State::WaitingForResponse { .. } => {
+                    self.state_waiting_for_response(&mut stream).await
                 }
             };
         }

@@ -1,5 +1,3 @@
-# This [clippys, tests, builds] on [windows, macos, linux]
-
 name: CI
 
 on:
@@ -16,33 +14,76 @@ env:
   RUST_MIN_STACK: 8000000
 
 jobs:
-  ci:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+  fmt:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - uses: actions/checkout@v3
 
-    - name: Cache
-      uses: actions/cache@v3
-      with:
-        path: target
-        key: ${{ matrix.os }}
+      - name: Fmt
+        run: cargo fmt --all --check
 
-    - name: Install dependencies
-      run: sudo apt install -y libboost-dev
+  build:
+    runs-on: ubuntu-latest
 
-    - name: Clippy
-      run: cargo clippy
+    steps:
+      - uses: actions/checkout@v3
 
-    - name: Test
-      run: cargo test
+      - uses: actions/cache@v3
+        id: cache
+        with:
+          path: target
+          key: ${{ runner.os }}-cache
 
-    - name: Build
-      run: cargo build
+      - name: Install dependencies
+        run: sudo apt install -y libboost-dev
+
+      - name: Build
+        run: cargo build --all-features --all-targets --workspace
+
+      - uses: actions/cache/save@v3
+        id: cache-save-short-term
+        with:
+          path: target
+          key: ${{ runner.os }}-cache-${{ github.sha }}
+
+  clippy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache/restore@v3
+        id: cache
+        with:
+          path: target
+          key: ${{ runner.os }}-cache-${{ github.sha }}
+
+      - name: Install dependencies
+        run: sudo apt install -y libboost-dev
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  tests:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/cache/restore@v3
+        id: cache
+        with:
+          path: target
+          key: ${{ runner.os }}-cache-${{ github.sha }}
+
+      - name: Spawn monerod
+        uses: ./.github/actions/monerod-regtest
+
+      - name: Install dependencies
+        run: sudo apt install -y libboost-dev
+
+      - name: Test
+        run: cargo test --all-features --workspace --all-targets && cargo test --all-features --workspace --doc
