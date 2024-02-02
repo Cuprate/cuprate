@@ -5,6 +5,7 @@ members = [
 	"consensus",
 	"consensus/rules",
 	"cryptonight",
+	"database",
 	"helper",
 	"net/epee-encoding",
 	"net/fixed-bytes",
