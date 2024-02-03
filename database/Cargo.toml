@@ -1,15 +1,14 @@
 [package]
-name    = "cuprate-database"
-version = "0.0.0"
-edition = "2021"
-license = "AGPL-3.0-only"
-
-# All Contributors on github
-authors = [
-	"hinto-janai",
-]
+name        = "cuprate-database"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's database abstraction"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
 
 [features]
+default = []
 
 [dependencies]
 tokio = { workspace = true, features = ["full"] }
