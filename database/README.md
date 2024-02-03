@@ -1,7 +1,7 @@
 # Database
 This is the main design document and implementation of the database used by Cuprate.
 
-The code within `database/src` is also littered with comments. Some `grep`-able keywords:
+The code within `/database/src` is also littered with comments. Some `grep`-able keywords:
 
 | Word        | Meaning |
 |-------------|---------|
@@ -25,8 +25,11 @@ A quick reference of the structure of the folders & files located in `database/s
 
 | File/Folder    | Purpose |
 |----------------|---------|
+| TODO           | TODO    |
 
 ## Layers
+TODO: update to more accurate information, update image.
+
 The database is abstracted into 5 layers internally.
 
 Starting from the lowest layer:
