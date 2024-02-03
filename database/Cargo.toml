@@ -8,8 +8,9 @@ authors     = ["hinto-janai"]
 repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
 
 [features]
-default = []
+default = ["heed"]
 
 [dependencies]
+heed  = { git = "https://github.com/Cuprate/heed", rev = "5aa75b7", optional = true }
 tokio = { workspace = true, features = ["full"] }
 tower = { workspace = true, features = ["full"] }
