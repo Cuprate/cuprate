@@ -492,7 +492,9 @@ dependencies = [
 name = "cuprate-database"
 version = "0.0.0"
 dependencies = [
+ "cfg-if",
  "heed",
+ "thiserror",
  "tokio",
  "tower",
 ]
