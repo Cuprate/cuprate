@@ -17,10 +17,13 @@ The code within `/database/src` is also littered with comments. Some `grep`-able
 
 1. [File Structure](#file-structure)
 2. [Layers](#Layers)
+3. [Backends](#Backends)
+    - [`heed`](#heed)
+    - [`sanakirja`](#sanakirja)
 
 ---
 
-## File Structure
+# File Structure
 A quick reference of the structure of the folders & files located in `database/src/`
 
 | File/Folder    | Purpose |
@@ -42,3 +45,21 @@ Starting from the lowest layer:
 <div align="center">
     <img src="https://github.com/hinto-janai/cuprate/assets/101352116/b7d7cbe3-ce55-44ea-92cc-ecde10cf519a" width="50%"/>
 </div>
+
+# Backends
+`cuprate-database`'s `trait Database` abstracts over various actual databases.
+
+Each database's implementation is located in its respective file in `src/backend/${DATABASE_NAME}.rs`.
+
+## `heed`
+The default database used is a modified fork of [`heed`](https://github.com/meilisearch/heed), located at [`Cuprate/heed`](https://github.com/Cuprate/heed).
+
+To generate documentation of the fork for local use:
+```bash
+git clone --recursive https://github.com/Cuprate/heed
+cargo doc
+```
+`LMDB` should not need to be installed as the `heed` has a build script that pulls it in automatically.
+
+## `sanakirja`
+TODO
