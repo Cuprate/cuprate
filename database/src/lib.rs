@@ -59,6 +59,11 @@
 	// `database/` for some reason, allow for now.
 	clippy::cargo_common_metadata,
 
+	// FIXME: adding `#[must_use]` onto everything
+	// might just be more annoying than useful...
+	// although it is sometimes nice.
+	clippy::must_use_candidate,
+
 	// FIXME:
 	// If #[deny(clippy::restriction)] is used, it
 	// enables a whole bunch of very subjective lints.
@@ -141,6 +146,8 @@
 	// // This lint is actually good but
 	// // it sometimes hits false positive.
 	// clippy::self_named_module_files
+
+	clippy::module_name_repetitions,
 )]
 // Allow some lints when running in debug mode.
 #![cfg_attr(
@@ -156,11 +163,30 @@
 compile_error!("Cuprate is only compatible with 64-bit CPUs");
 
 //---------------------------------------------------------------------------------------------------- Public API
+// Import private modules, export public types.
+//
+// Documentation for each module is
+// located in the respective file.
+
 mod backend;
+pub use backend::{ConcreteDatabase, DATABASE_BACKEND};
+
 mod constants;
+
 mod database;
+pub use database::Database;
+
 mod error;
+pub use error::{InitError, RuntimeError};
+
 mod free;
+
 mod macros;
+
+mod table;
+pub use table::Table;
+
+mod transaction;
+pub use transaction::{RoTx, RwTx};
 
 //---------------------------------------------------------------------------------------------------- Private
