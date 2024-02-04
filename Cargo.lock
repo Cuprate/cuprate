@@ -492,6 +492,7 @@ dependencies = [
 name = "cuprate-database"
 version = "0.0.0"
 dependencies = [
+ "borsh",
  "cfg-if",
  "heed",
  "thiserror",
