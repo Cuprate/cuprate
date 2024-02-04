@@ -1,7 +1,7 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::error::Error;
+use crate::error::RuntimeError;
 
 use std::path::Path;
 
@@ -23,22 +23,22 @@ pub trait Database<'env>: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, Error>;
+    fn open<P: AsRef<Path>>(path: P) -> Result<Self, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn sync(&self) -> Result<(), Error>;
+    fn sync(&self) -> Result<(), RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_ro(&self) -> Result<Self::RoTx, Error>;
+    fn tx_ro(&self) -> Result<Self::RoTx, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_rw(&self) -> Result<Self::RwTx, Error>;
+    fn tx_rw(&self) -> Result<Self::RwTx, RuntimeError>;
 
     //------------------------------------------------ Provided
 }
