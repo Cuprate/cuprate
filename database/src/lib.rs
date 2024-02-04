@@ -183,6 +183,9 @@ mod free;
 
 mod macros;
 
+mod pod;
+pub use pod::{Pod, PodError};
+
 mod table;
 pub use table::Table;
 
