@@ -6,6 +6,7 @@ description = "Cuprate's database abstraction"
 license     = "MIT"
 authors     = ["hinto-janai"]
 repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
+keywords    = ["cuprate", "database"]
 
 [features]
 default = ["heed"]
