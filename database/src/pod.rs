@@ -4,8 +4,6 @@
 //! to be (de)serialized into/from raw bytes ([u8]).
 
 //---------------------------------------------------------------------------------------------------- Import
-// use crate::error::Error;
-
 use std::io::{Read, Write};
 
 //---------------------------------------------------------------------------------------------------- Pod
@@ -31,7 +29,16 @@ use std::io::{Read, Write};
 /// It cannot be implemented outside this crate,
 /// and is only implemented on specific types.
 pub trait Pod: Sized + private::Sealed {
-    /// TODO
+    /// Return `self` in byte form.
+    ///
+    /// The returned bytes can be any form of array,
+    /// - [u8; N]
+    /// - Vec<u8>
+    /// - &[u8]
+    ///
+    /// ..etc.
+    ///
+    /// This is used on `Vec<u8>` for cheap slice conversions.
     fn as_bytes(&self) -> impl AsRef<[u8]>;
 
     /// TODO: custom error?
@@ -76,6 +83,7 @@ mod private {
 
     impl_sealed! {
         Vec<u8>,
+        Box<[u8]>,
         f32,
         f64,
         u8,
@@ -136,6 +144,39 @@ impl<const N: usize> Pod for [u8; N] {
         let mut bytes = [0_u8; N];
         reader.read_exact(&mut bytes)?;
         Ok(bytes)
+    }
+
+    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
+        writer.write_all(&self)?;
+        Ok(self.len())
+    }
+}
+
+// Implement for any sized boxed array.
+//
+// In-case `[u8; N]` is too big and would
+// overflow the stack, this can be used.
+//
+// The benefit over `Vec<u8>` is that the capacity & length are static.
+//
+// The weird constructions of `Box` below are on purpose to avoid this:
+// <https://github.com/rust-lang/rust/issues/53827>
+impl Pod for Box<[u8]> {
+    fn as_bytes(&self) -> impl AsRef<[u8]> {
+        self
+    }
+
+    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        let mut array = Self::from(bytes);
+        // TODO: handle error.
+        array.copy_from_slice(bytes);
+        Ok(array)
+    }
+
+    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut bytes = vec![];
+        reader.read_exact(bytes.as_mut())?;
+        Ok(bytes.into_boxed_slice())
     }
 
     fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
