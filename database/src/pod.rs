@@ -5,6 +5,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::io::{Read, Write};
+use std::sync::Arc;
 
 //---------------------------------------------------------------------------------------------------- Pod
 /// Plain Old Data.
@@ -103,6 +104,7 @@ mod private {
     impl_sealed! {
         Vec<u8>,
         Box<[u8]>,
+        std::sync::Arc<[u8]>,
         f32,
         f64,
         u8,
@@ -200,8 +202,31 @@ impl Pod for Box<[u8]> {
 
     fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         let mut bytes = vec![];
-        reader.read_exact(bytes.as_mut())?;
+        reader.read_to_end(bytes.as_mut())?;
         Ok(bytes.into_boxed_slice())
+    }
+
+    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
+        writer.write_all(&self)?;
+        Ok(self.len())
+    }
+}
+
+// Implement for any Arc bytes.
+impl Pod for Arc<[u8]> {
+    fn as_bytes(&self) -> impl AsRef<[u8]> {
+        self
+    }
+
+    /// This function will always return [`Ok`].
+    fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
+        Ok(Self::from(bytes))
+    }
+
+    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut bytes = vec![];
+        reader.read_to_end(bytes.as_mut())?;
+        Ok(Self::from(bytes))
     }
 
     fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
