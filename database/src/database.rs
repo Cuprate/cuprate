@@ -50,7 +50,6 @@ pub trait Database: Sized {
     fn create_table<T: Table>(
         &self,
         tx_rw: &mut Self::RwTx<'_>,
-        table_metadata: T,
     ) -> Result<impl RwTx<'_, T::Key, T::Value>, RuntimeError>;
 
     /// TODO
@@ -59,7 +58,6 @@ pub trait Database: Sized {
     fn get_table<T: Table>(
         &self,
         to_rw: &mut Self::RoTx<'_>,
-        table_metadata: T,
     ) -> Result<Option<impl RoTx<'_, T::Key, T::Value>>, RuntimeError>;
 
     //------------------------------------------------ Provided
