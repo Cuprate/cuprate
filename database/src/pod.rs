@@ -23,6 +23,8 @@ use std::io::{Read, Write};
 /// This also means an `INVARIANT` of this trait is that
 /// implementors must use little endian bytes when applicable.
 ///
+/// Slice types (just raw `[u8]` bytes) are (de)serialized as-is.
+///
 /// ## Sealed
 /// This trait is [`Sealed`](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed).
 ///
@@ -43,7 +45,7 @@ pub trait Pod: Sized + private::Sealed {
     /// Integer types ([`u8`], [`f32`], [`i8`], etc) return a fixed-sized array.
     fn as_bytes(&self) -> impl AsRef<[u8]>;
 
-    /// TODO
+    /// Create [`Self`] from bytes.
     ///
     /// # Errors
     /// If:
@@ -57,14 +59,20 @@ pub trait Pod: Sized + private::Sealed {
     /// will never fail, and always return [`Ok`].
     fn from_bytes(bytes: &[u8]) -> Result<Self, usize>;
 
-    /// TODO
+    /// Convert [`Self`] into bytes, and write those bytes into a [`Write`]r.
+    ///
     /// # Errors
-    /// TODO
+    /// This only returns an error if the `writer` itself errors for some reason.
+    ///
+    /// That error is forwarded, else, the amount of bytes written is returned in [`Ok`].
     fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize>;
 
-    /// TODO
+    /// Create [`Self`] by reading bytes from a [`Read`]er.
+    ///
     /// # Errors
-    /// TODO
+    /// This only returns an error if the `reader` itself errors for some reason.
+    ///
+    /// That error is forwarded, else, [`Self`] is returned in [`Ok`].
     fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self>;
 }
 
@@ -89,6 +97,7 @@ mod private {
         };
     }
 
+    // Special case cause of generic.
     impl<const N: usize> Sealed for [u8; N] {}
 
     impl_sealed! {
