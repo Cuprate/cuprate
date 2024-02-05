@@ -9,17 +9,28 @@
 use std::io::{Read, Write};
 
 //---------------------------------------------------------------------------------------------------- Pod
-/// TODO
-///
-/// [P]lain [O]ld [D]ata.
+/// Plain Old Data.
 ///
 /// Trait representing very simple types that can be
 /// (de)serialized into/from bytes.
 ///
-/// INVARIANT: little endian representations only?
+/// Reference: <https://docs.rs/bytemuck/latest/bytemuck/trait.Pod.html>
 ///
-/// reference: <https://docs.rs/bytemuck/latest/bytemuck/trait.Pod.html>
-pub trait Pod: Sized {
+/// ## Endianess
+/// As `bytemuck` provides everything needed here + more, it could be used,
+/// _but_, its `Pod` is endian dependant. We need to ensure bytes are the
+/// exact same such that the database stores the same bytes on different machines;
+/// so we use little endian functions instead, e.g. [`u8::to_le_bytes`].
+///
+/// This also means an `INVARIANT` of this trait is that
+/// implementors must use little endian bytes when applicable.
+///
+/// ## Sealed
+/// This trait is [`Sealed`](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed).
+///
+/// It cannot be implemented outside this crate,
+/// and is only implemented on specific types.
+pub trait Pod: Sized + private::Sealed {
     /// TODO
     /// # Errors
     /// TODO
@@ -29,6 +40,48 @@ pub trait Pod: Sized {
     /// # Errors
     /// TODO
     fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self>;
+}
+
+/// Private module, should not be accessible outside this crate.
+///
+/// Used to block outsiders implementing [`Pod`].
+/// All [`Pod`] types must also implement [`Sealed`].
+mod private {
+    /// Private sealed trait.
+    ///
+    /// Cannot be implemented outside this crate.
+    pub trait Sealed {}
+
+    /// Implement `Sealed`.
+    macro_rules! impl_sealed {
+        ($(
+            $t:ty // The type to implement for.
+        ),* $(,)?) => {
+            $(
+                impl Sealed for $t {}
+            )*
+        };
+    }
+
+    impl<const N: usize> Sealed for [u8; N] {}
+
+    impl_sealed! {
+        Vec<u8>,
+        f32,
+        f64,
+        u8,
+        u16,
+        u32,
+        u64,
+        u128,
+        usize,
+        i8,
+        i16,
+        i32,
+        i64,
+        i128,
+        isize,
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Pod Impl (bytes)
