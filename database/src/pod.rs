@@ -32,20 +32,30 @@ pub trait Pod: Sized + private::Sealed {
     /// Return `self` in byte form.
     ///
     /// The returned bytes can be any form of array,
-    /// - [u8; N]
-    /// - Vec<u8>
-    /// - &[u8]
+    /// - [`[u8; N]`]
+    /// - [`Vec<u8>`]
+    /// - [`&[u8]`]
     ///
     /// ..etc.
     ///
-    /// This is used on `Vec<u8>` for cheap slice conversions.
+    /// This is used on slice types (`Vec<u8>`, `[u8; N]`, etc) for cheap conversions.
+    ///
+    /// Integer types ([`u8`], [`f32`], [`i8`], etc) return a fixed-sized array.
     fn as_bytes(&self) -> impl AsRef<[u8]>;
 
-    /// TODO: custom error?
+    /// TODO
     ///
     /// # Errors
-    /// TODO
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self>;
+    /// If:
+    /// 1. `Self` is an exact sized array, e.g `[u8; 4]` AND
+    /// 2. `bytes`'s length is not exactly that length then
+    ///
+    /// this function will return `Err(usize)`,
+    /// returning the length of `bytes`
+    ///
+    /// In the case of `Vec<u8>` and `Box<[u8]>`, this function
+    /// will never fail, and always return [`Ok`].
+    fn from_bytes(bytes: &[u8]) -> Result<Self, usize>;
 
     /// TODO
     /// # Errors
@@ -108,7 +118,8 @@ impl Pod for Vec<u8> {
         self
     }
 
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+    /// This function will always return [`Ok`].
+    fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
         Ok(bytes.to_vec())
     }
 
@@ -133,10 +144,17 @@ impl<const N: usize> Pod for [u8; N] {
         self
     }
 
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let mut array = [0; N];
-        // TODO: handle error.
+    fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
+        // Return if the bytes are too short/long.
+        let bytes_len = bytes.len();
+        if bytes_len != N {
+            return Err(bytes_len);
+        }
+
+        let mut array = [0_u8; N];
+        // INVARIANT: we checked the length is valid above.
         array.copy_from_slice(bytes);
+
         Ok(array)
     }
 
@@ -166,11 +184,9 @@ impl Pod for Box<[u8]> {
         self
     }
 
-    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let mut array = Self::from(bytes);
-        // TODO: handle error.
-        array.copy_from_slice(bytes);
-        Ok(array)
+    /// This function will always return [`Ok`].
+    fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
+        Ok(Self::from(bytes))
     }
 
     fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
@@ -200,10 +216,17 @@ macro_rules! impl_pod_le_bytes {
                     $number::to_le_bytes(*self)
                 }
 
-                fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-                    let mut array = [0_u8; $length];
+                /// This function returns [`Err`] if `bytes`'s length is not
+                #[doc = concat!(" ", stringify!($length), ".")]
+                fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
+                    // Return if the bytes are too short/long.
+                    let bytes_len = bytes.len();
+                    if bytes_len != $length {
+                        return Err(bytes_len);
+                    }
 
-                    // TODO: handle error.
+                    let mut array = [0_u8; $length];
+                    // INVARIANT: we checked the length is valid above.
                     array.copy_from_slice(bytes);
 
                     Ok($number::from_le_bytes(array))
