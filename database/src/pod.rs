@@ -4,8 +4,11 @@
 //! to be (de)serialized into/from raw bytes ([u8]).
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::io::{Read, Write};
-use std::sync::Arc;
+use std::{
+    borrow::Cow,
+    io::{Read, Write},
+    sync::Arc,
+};
 
 //---------------------------------------------------------------------------------------------------- Pod
 /// Plain Old Data.
@@ -45,6 +48,9 @@ pub trait Pod: Sized + private::Sealed {
     ///
     /// Integer types ([`u8`], [`f32`], [`i8`], etc) return a fixed-sized array.
     fn as_bytes(&self) -> impl AsRef<[u8]>;
+
+    /// TODO
+    fn into_bytes(self) -> Cow<'static, [u8]>;
 
     /// Create [`Self`] from bytes.
     ///
@@ -129,6 +135,10 @@ impl Pod for Vec<u8> {
         self
     }
 
+    fn into_bytes(self) -> Cow<'static, [u8]> {
+        Cow::Owned(self)
+    }
+
     /// This function will always return [`Ok`].
     fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
         Ok(bytes.to_vec())
@@ -153,6 +163,10 @@ impl Pod for Vec<u8> {
 impl<const N: usize> Pod for [u8; N] {
     fn as_bytes(&self) -> impl AsRef<[u8]> {
         self
+    }
+
+    fn into_bytes(self) -> Cow<'static, [u8]> {
+        Cow::Owned(self.to_vec())
     }
 
     fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
@@ -195,6 +209,10 @@ impl Pod for Box<[u8]> {
         self
     }
 
+    fn into_bytes(self) -> Cow<'static, [u8]> {
+        Cow::Owned(self.into())
+    }
+
     /// This function will always return [`Ok`].
     fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
         Ok(Self::from(bytes))
@@ -216,6 +234,10 @@ impl Pod for Box<[u8]> {
 impl Pod for Arc<[u8]> {
     fn as_bytes(&self) -> impl AsRef<[u8]> {
         self
+    }
+
+    fn into_bytes(self) -> Cow<'static, [u8]> {
+        Cow::Owned(self.to_vec())
     }
 
     /// This function will always return [`Ok`].
@@ -248,6 +270,10 @@ macro_rules! impl_pod_le_bytes {
             impl Pod for $number {
                 fn as_bytes(&self) -> impl AsRef<[u8]> {
                     $number::to_le_bytes(*self)
+                }
+
+                fn into_bytes(self) -> Cow<'static, [u8]> {
+                    Cow::Owned(self.as_bytes().as_ref().to_vec())
                 }
 
                 /// This function returns [`Err`] if `bytes`'s length is not
