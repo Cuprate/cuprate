@@ -6,7 +6,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 // use crate::error::Error;
 
-use std::borrow::Cow;
+use std::io::{Read, Write};
 
 //---------------------------------------------------------------------------------------------------- Constants
 
@@ -20,19 +20,17 @@ use std::borrow::Cow;
 ///
 /// INVARIANT: little endian representations only?
 ///
-/// reference: <https://docs.rs/bytemuck>
-pub trait Pod<const LEN: usize>: Sized {
+/// reference: <https://docs.rs/bytemuck/latest/bytemuck/trait.Pod.html>
+pub trait Pod: Sized {
     /// TODO
-    ///
-    /// FIXME: if we're only used a fixed-sized type
-    /// we can get rid of `&` and just return something
-    /// like [u8; 8].
-    fn to_bytes(self) -> [u8; LEN];
+    /// # Errors
+    /// TODO
+    fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn from_bytes(bytes: &[u8]) -> Result<Self, PodError>;
+    fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self>;
 }
 
 //---------------------------------------------------------------------------------------------------- Pod Impl
@@ -45,26 +43,23 @@ macro_rules! impl_pod_le_bytes {
         $length:literal  // The length of `u8`'s this type takes up.
     ),* $(,)?) => {
         $(
-            impl Pod<$length> for $number {
+            impl Pod for $number {
                 /// TODO
-                fn to_bytes(self) -> [u8; $length] {
-                    $number::to_le_bytes(self)
+                fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
+                    let bytes = $number::to_le_bytes(self);
+                    writer.write(&bytes)
                 }
 
                 /// TODO
                 /// # Errors
                 /// TODO
-                fn from_bytes(bytes: &[u8]) -> Result<Self, PodError> {
-                    // Check for invalid length.
-                    if bytes.len() != $length {
-                        return Err(PodError::Length {
-                            expected: $length,
-                            found: bytes.len(),
-                        });
-                    }
+                fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+                    let mut bytes = [0_u8; $length];
+
+                    // Read exactly the bytes required.
+                    reader.read_exact(&mut bytes)?;
 
                     // INVARIANT: we checked the length is valid above.
-                    let bytes: [u8; $length] = bytes.try_into().unwrap();
                     Ok($number::from_le_bytes(bytes))
                 }
             }
@@ -91,24 +86,6 @@ impl_pod_le_bytes! {
     i128  => 16,
 }
 
-//---------------------------------------------------------------------------------------------------- PodError
-/// TODO
-#[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PodError {
-    #[error("wrong length: expected `{expected}`, found `{found}`")]
-    /// The byte length was incorrect.
-    Length {
-        /// The expected length of the `u8` representation.
-        expected: usize,
-        /// The incorrect found length.
-        found: usize,
-    },
-
-    #[error("unknown error: {0}")]
-    /// An unknown error occured.
-    Unknown(Cow<'static, str>),
-}
-
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
@@ -116,27 +93,87 @@ mod test {
 
     /// Serialize, deserialize, and compare that
     /// the intermediate/end results are correct.
-    fn test_serde<T: Pod<LEN>>(t: T, expected_bytes: &[u8]) {
-        let se = t.to_bytes();
-        let de = T::from_bytes(&se).unwrap();
-        assert_eq!(se, expected_bytes);
-        assert_eq!(de, t);
+    fn test_serde<const LEN: usize, T: Pod + Copy + PartialEq + std::fmt::Debug>(
+        to_le_bytes: fn(T) -> [u8; LEN],
+        t: Vec<T>,
+    ) {
+        for t in t {
+            let expected_bytes = to_le_bytes(t);
+
+            println!("testing: {t:?}, expected_bytes: {expected_bytes:?}");
+
+            let mut bytes = vec![];
+
+            // (De)serialize.
+            let se: usize = t.to_bytes::<Vec<u8>>(bytes.as_mut()).unwrap();
+            let de: T = T::from_bytes::<&[u8]>(&mut bytes.as_slice()).unwrap();
+
+            println!("written: {se}, deserialize_t: {de:?}, bytes: {bytes:?}\n");
+
+            // Assert we wrote correct amount of bytes
+            // and deserialized correctly.
+            assert_eq!(se, expected_bytes.len());
+            assert_eq!(de, t);
+        }
     }
 
-    /// Test floats (de)serialize correctly.
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn floats() {
-        let f = 0.0_f32;
-        let ser = f.to_bytes();
-        let de = f32::from_bytes(&ser).unwrap();
-        assert_eq!(ser, [0, 0, 0, 0]);
-        assert_eq!(de, 0.0);
+    /// Create all the float tests.
+    macro_rules! test_float {
+        ($(
+            $float:ident // The float type.
+        ),* $(,)?) => {
+            $(
+                #[test]
+                fn $float() {
+                    test_serde(
+                        $float::to_le_bytes,
+                        vec![
+                            -1.0,
+                            0.0,
+                            1.0,
+                            $float::MIN,
+                            $float::MAX,
+                            $float::INFINITY,
+                            $float::NEG_INFINITY,
+                        ],
+                    );
+                }
+            )*
+        };
+    }
 
-        let f = 1.0_f32;
-        let ser = f.to_bytes();
-        let de = f32::from_bytes(&ser).unwrap();
-        assert_eq!(ser, [0, 0, 128, 63]);
-        assert_eq!(de, 0.0);
+    test_float! {
+        f32,
+        f64,
+    }
+
+    /// Create all the unsigned number tests.
+    /// u8 -> u128, i8 -> i128.
+    macro_rules! test_unsigned {
+        ($(
+            $number:ident // The integer type.
+        ),* $(,)?) => {
+            $(
+                #[test]
+                fn $number() {
+                    test_serde($number::to_le_bytes, vec![$number::MIN, 0, 1, $number::MAX]);
+                }
+            )*
+        };
+    }
+
+    test_unsigned! {
+        u8,
+        u16,
+        u32,
+        u64,
+        u128,
+        usize,
+        i8,
+        i16,
+        i32,
+        i64,
+        i128,
+        isize,
     }
 }

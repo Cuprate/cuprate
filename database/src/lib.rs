@@ -184,7 +184,7 @@ mod free;
 mod macros;
 
 mod pod;
-pub use pod::{Pod, PodError};
+pub use pod::Pod;
 
 mod table;
 pub use table::Table;
