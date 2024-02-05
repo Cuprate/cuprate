@@ -1,7 +1,11 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::error::RuntimeError;
+use crate::{
+    error::RuntimeError,
+    table::Table,
+    transaction::{RoTx, RwTx},
+};
 
 use std::path::Path;
 
@@ -11,13 +15,13 @@ use std::path::Path;
 /// TODO
 ///
 /// Database trait abstraction.
-pub trait Database<'env>: Sized {
+pub trait Database: Sized {
     //------------------------------------------------ Types
-    /// Read-only transaction.
-    type RoTx: 'env;
+    /// TODO
+    type RoTx<'db>;
 
-    /// Read/write transaction.
-    type RwTx: 'env;
+    /// TODO
+    type RwTx<'db>;
 
     //------------------------------------------------ Required
     /// TODO
@@ -33,12 +37,30 @@ pub trait Database<'env>: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_ro(&self) -> Result<Self::RoTx, RuntimeError>;
+    fn tx_ro(&self) -> Result<Self::RoTx<'_>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_rw(&self) -> Result<Self::RwTx, RuntimeError>;
+    fn tx_rw(&self) -> Result<Self::RwTx<'_>, RuntimeError>;
+
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn create_table<T: Table>(
+        &self,
+        tx_rw: &mut Self::RwTx<'_>,
+        table_metadata: T,
+    ) -> Result<impl RwTx<'_, T::Key, T::Value>, RuntimeError>;
+
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn get_table<T: Table>(
+        &self,
+        to_rw: &mut Self::RoTx<'_>,
+        table_metadata: T,
+    ) -> Result<Option<impl RoTx<'_, T::Key, T::Value>>, RuntimeError>;
 
     //------------------------------------------------ Provided
 }

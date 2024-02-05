@@ -1,7 +1,7 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-// use crate::error::Error;
+use crate::error::RuntimeError;
 
 // use std::{marker::PhantomData, path::Path};
 
@@ -10,13 +10,12 @@
 //---------------------------------------------------------------------------------------------------- Table
 /// TODO
 ///
-/// Database table.
+/// Database table metadata.
+///
+/// Purely compile time information for database tables.
 pub trait Table {
     /// Name of the database table.
     const NAME: &'static str;
-
-    /// QUESTION:
-    /// Should the (de)serialize trait just be `borsh`?
 
     /// TODO: must be (de)serializable into bytes.
     type Key;
