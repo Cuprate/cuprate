@@ -22,7 +22,16 @@ fn main() {
         .file("c/slow-hash.c")
         .file("c/CryptonightR_JIT.c")
         .flag("-O3")
-        .flag("-fexceptions");
+        .flag("-fexceptions")
+        // c/oaes_lib.c: In function ‘oaes_get_seed’:
+        // c/oaes_lib.c:515:9: warning: ‘ftime’ is deprecated: Use gettimeofday or clock_gettime instead [-Wdeprecated-declarations]
+        //   515 |         ftime (&timer);
+        //       |         ^~~~~
+        // In file included from c/oaes_lib.c:45:
+        // /usr/include/sys/timeb.h:29:12: note: declared here
+        //    29 | extern int ftime (struct timeb *__timebuf)
+        //       |            ^~~~~
+        .flag("-Wno-deprecated-declarations");
 
     let target = env::var("TARGET").unwrap();
     if target.contains("x86_64") {
