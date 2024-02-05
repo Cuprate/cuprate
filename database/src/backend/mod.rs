@@ -3,12 +3,12 @@
 cfg_if::cfg_if! {
     if #[cfg(feature = "sanakirja")] {
         mod sanakirja;
-        pub use sanakirja::Sanakirja as ConcreteDatabase;
+        pub use sanakirja::ConcreteDatabase;
         /// Static string of the `crate` being used as the database backend.
         pub const DATABASE_BACKEND: &str = "sanakirja";
     } else {
         mod heed;
-        pub use heed::Heed as ConcreteDatabase;
+        pub use heed::ConcreteDatabase;
         /// Static string of the `crate` being used as the database backend.
         pub const DATABASE_BACKEND: &str = "heed";
     }
