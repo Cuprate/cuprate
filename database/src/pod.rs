@@ -8,8 +8,6 @@
 
 use std::io::{Read, Write};
 
-//---------------------------------------------------------------------------------------------------- Constants
-
 //---------------------------------------------------------------------------------------------------- Pod
 /// TODO
 ///
@@ -33,7 +31,39 @@ pub trait Pod: Sized {
     fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self>;
 }
 
-//---------------------------------------------------------------------------------------------------- Pod Impl
+//---------------------------------------------------------------------------------------------------- Pod Impl (bytes)
+// Implement for owned `Vec` bytes.
+impl Pod for Vec<u8> {
+    fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        // FIXME: Could be `Vec::with_capacity(likely_size)`?
+        let mut vec = vec![];
+
+        reader.read_to_end(&mut vec)?;
+
+        Ok(vec)
+    }
+
+    fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
+        writer.write_all(&self)?;
+        Ok(self.len())
+    }
+}
+
+// Implement for any sized stack array.
+impl<const N: usize> Pod for [u8; N] {
+    fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut bytes = [0_u8; N];
+        reader.read_exact(&mut bytes)?;
+        Ok(bytes)
+    }
+
+    fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
+        writer.write_all(&self)?;
+        Ok(self.len())
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Pod Impl (numbers)
 /// Implement `Pod` on primitive numbers.
 ///
 /// This will always use little endian representations.
@@ -44,15 +74,11 @@ macro_rules! impl_pod_le_bytes {
     ),* $(,)?) => {
         $(
             impl Pod for $number {
-                /// TODO
                 fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
                     let bytes = $number::to_le_bytes(self);
                     writer.write(&bytes)
                 }
 
-                /// TODO
-                /// # Errors
-                /// TODO
                 fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self> {
                     let mut bytes = [0_u8; $length];
 
@@ -94,7 +120,11 @@ mod test {
     /// Serialize, deserialize, and compare that
     /// the intermediate/end results are correct.
     fn test_serde<const LEN: usize, T: Pod + Copy + PartialEq + std::fmt::Debug>(
+        // The primitive number function that
+        // converts the number into little endian bytes,
+        // e.g `u8::to_le_bytes`.
         to_le_bytes: fn(T) -> [u8; LEN],
+        // A `Vec` of the numbers to test.
         t: Vec<T>,
     ) {
         for t in t {
@@ -147,7 +177,7 @@ mod test {
         f64,
     }
 
-    /// Create all the unsigned number tests.
+    /// Create all the (un)signed number tests.
     /// u8 -> u128, i8 -> i128.
     macro_rules! test_unsigned {
         ($(
