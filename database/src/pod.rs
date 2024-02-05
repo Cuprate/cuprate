@@ -32,14 +32,23 @@ use std::io::{Read, Write};
 /// and is only implemented on specific types.
 pub trait Pod: Sized + private::Sealed {
     /// TODO
+    fn as_bytes(&self) -> impl AsRef<[u8]>;
+
+    /// TODO: custom error?
+    ///
     /// # Errors
     /// TODO
-    fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize>;
+    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self>;
+    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize>;
+
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self>;
 }
 
 /// Private module, should not be accessible outside this crate.
@@ -87,7 +96,15 @@ mod private {
 //---------------------------------------------------------------------------------------------------- Pod Impl (bytes)
 // Implement for owned `Vec` bytes.
 impl Pod for Vec<u8> {
-    fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+    fn as_bytes(&self) -> impl AsRef<[u8]> {
+        self
+    }
+
+    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        Ok(bytes.to_vec())
+    }
+
+    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         // FIXME: Could be `Vec::with_capacity(likely_size)`?
         let mut vec = vec![];
 
@@ -96,7 +113,7 @@ impl Pod for Vec<u8> {
         Ok(vec)
     }
 
-    fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
+    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
         writer.write_all(&self)?;
         Ok(self.len())
     }
@@ -104,13 +121,24 @@ impl Pod for Vec<u8> {
 
 // Implement for any sized stack array.
 impl<const N: usize> Pod for [u8; N] {
-    fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+    fn as_bytes(&self) -> impl AsRef<[u8]> {
+        self
+    }
+
+    fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        let mut array = [0; N];
+        // TODO: handle error.
+        array.copy_from_slice(bytes);
+        Ok(array)
+    }
+
+    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         let mut bytes = [0_u8; N];
         reader.read_exact(&mut bytes)?;
         Ok(bytes)
     }
 
-    fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
+    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
         writer.write_all(&self)?;
         Ok(self.len())
     }
@@ -127,12 +155,24 @@ macro_rules! impl_pod_le_bytes {
     ),* $(,)?) => {
         $(
             impl Pod for $number {
-                fn to_bytes<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
-                    let bytes = $number::to_le_bytes(self);
-                    writer.write(&bytes)
+                fn as_bytes(&self) -> impl AsRef<[u8]> {
+                    $number::to_le_bytes(*self)
                 }
 
-                fn from_bytes<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+                fn from_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+                    let mut array = [0_u8; $length];
+
+                    // TODO: handle error.
+                    array.copy_from_slice(bytes);
+
+                    Ok($number::from_le_bytes(array))
+                }
+
+                fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
+                    writer.write(self.as_bytes().as_ref())
+                }
+
+                fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
                     let mut bytes = [0_u8; $length];
 
                     // Read exactly the bytes required.
@@ -188,8 +228,8 @@ mod test {
             let mut bytes = vec![];
 
             // (De)serialize.
-            let se: usize = t.to_bytes::<Vec<u8>>(bytes.as_mut()).unwrap();
-            let de: T = T::from_bytes::<&[u8]>(&mut bytes.as_slice()).unwrap();
+            let se: usize = t.to_writer::<Vec<u8>>(bytes.as_mut()).unwrap();
+            let de: T = T::from_reader::<&[u8]>(&mut bytes.as_slice()).unwrap();
 
             println!("written: {se}, deserialize_t: {de:?}, bytes: {bytes:?}\n");
 
