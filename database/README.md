@@ -15,13 +15,25 @@ The code within `/database/src` is also littered with comments. Some `grep`-able
 
 ---
 
-1. [File Structure](#file-structure)
-2. [Layers](#Layers)
-3. [Backends](#Backends)
+1. [Documentation](#documentation)
+2. [File Structure](#file-structure)
+3. [Layers](#layers)
+4. [Backends](#backends)
     - [`heed`](#heed)
     - [`sanakirja`](#sanakirja)
 
 ---
+
+# Documentation
+This README serves as the overview/design document.
+
+For actual usage, `cuprate-database`'s types and general usage are documented via standard Rust tooling.
+
+Run:
+```bash
+cargo doc --package cuprate-database --open
+```
+at the root of the repo to open/read the documentation.
 
 # File Structure
 A quick reference of the structure of the folders & files located in `database/src/`
@@ -30,14 +42,14 @@ A quick reference of the structure of the folders & files located in `database/s
 |----------------|---------|
 | TODO           | TODO    |
 
-## Layers
+# Layers
 TODO: update to more accurate information, update image.
 
 The database is abstracted into 5 layers internally.
 
 Starting from the lowest layer:
 1. **The database** - this is the actual database, or a thin Rust shim on-top of the database that calls database operations directly, e.g `get()`, `commit()`, `delete()`, etc
-2. **The trait** - this is the `trait` that abstracts over _all_ databases and allows keeping the function signatures and behavior the same but allows for swapping out databases; each database will have this implementated located in `src/backend/`, with each database (`LMDB`, `MDBX`, `sled`, etc) having its own file defining the mappings. This `trait` is meant to cover all features across databases, and will have provided methods that may not necessarily be the most efficient - if a database can implement a method in a better way, it is re-implemented and will shadow the provided version
+2. **The trait** - this is the `trait` that abstracts over _all_ databases and allows keeping the function signatures and behavior the same but allows for swapping out databases; each database will have this implemented located in `src/backend/`, with each database (`LMDB`, `MDBX`, `sled`, etc) having its own file defining the mappings. This `trait` is meant to cover all features across databases, and will have provided methods that may not necessarily be the most efficient - if a database can implement a method in a better way, it is re-implemented and will shadow the provided version
 3. **The abstract database** - this is a concrete object and handle to _some_ database that implements the generic `trait`
 4. **The thread** - this is the dedicated thread that is the logical _owner_ of the abstract database. It acts as a kernel between the async public interface and the internal database calls. This thread is responsible for converting the high-level "requests" from other Cuprate crates (`add_block()`, `get_block()`, etc) via channel messages and is responsible for doing the underlying work with the database to eventually return a "response" to the calling code, again, via a channel
 5. **The `tower::Service`** - this is the public API that other Cuprate crates will interface with; the abstract database will have `tower::Service<R>` implemented for each `R`, where `R` is a specific high-level request other Cuprate crates need, e.g. `add_block()`,  `get_block()`, etc - this request is executed by "the thread" which eventually returns the result of the function
@@ -59,7 +71,7 @@ To generate documentation of the fork for local use:
 git clone --recursive https://github.com/Cuprate/heed
 cargo doc
 ```
-`LMDB` should not need to be installed as the `heed` has a build script that pulls it in automatically.
+`LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
 ## `sanakirja`
 TODO

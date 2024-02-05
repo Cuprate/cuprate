@@ -68,11 +68,11 @@
 	// If #[deny(clippy::restriction)] is used, it
 	// enables a whole bunch of very subjective lints.
 	// The below disables most of the ones that are
-	// a bit too unwieldly.
+	// a bit too unwieldy.
 	//
 	// Figure out if if `clippy::restriction` should be
 	// used (it enables a bunch of good lints but has
-	// many false postives).
+	// many false positives).
 
 	// clippy::single_char_lifetime_names,
 	// clippy::implicit_return,

@@ -29,7 +29,7 @@ pub enum InitError<BackendError: Debug> {
 
     /// TODO
     ///
-    /// An unknown error occured.
+    /// An unknown error occurred.
     #[error("unknown error: {0}")]
     Unknown(Cow<'static, str>),
 }
@@ -42,14 +42,14 @@ pub enum InitError<BackendError: Debug> {
 pub enum RuntimeError {
     // TODO: borsh::io::Error?
     ///
-    /// An error occured when attempting to
+    /// An error occurred when attempting to
     /// serialize the key data into bytes.
     #[error("serialize error: {0}")]
     Serialize(borsh::io::Error),
 
     // TODO: borsh::io::Error?
     ///
-    /// An error occured when attempting to
+    /// An error occurred when attempting to
     /// deserialize the response value from
     /// the database.
     #[error("deserialize error: {0}")]
@@ -57,7 +57,7 @@ pub enum RuntimeError {
 
     /// TODO
     ///
-    /// An unknown error occured.
+    /// An unknown error occurred.
     #[error("unknown error: {0}")]
     Unknown(Cow<'static, str>),
 }

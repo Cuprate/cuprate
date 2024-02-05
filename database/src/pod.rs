@@ -15,7 +15,7 @@ use std::sync::Arc;
 ///
 /// Reference: <https://docs.rs/bytemuck/latest/bytemuck/trait.Pod.html>
 ///
-/// ## Endianess
+/// ## Endianness
 /// As `bytemuck` provides everything needed here + more, it could be used,
 /// _but_, its `Pod` is endian dependant. We need to ensure bytes are the
 /// exact same such that the database stores the same bytes on different machines;
