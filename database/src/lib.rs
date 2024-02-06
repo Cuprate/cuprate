@@ -83,6 +83,9 @@
 	// although it is sometimes nice.
 	clippy::must_use_candidate,
 
+	// TODO: should be removed after all `todo!()`'s are gone.
+	clippy::diverging_sub_expression,
+
 	// FIXME:
 	// If #[deny(clippy::restriction)] is used, it
 	// enables a whole bunch of very subjective lints.
