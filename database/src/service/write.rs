@@ -125,14 +125,33 @@ impl DatabaseWriter {
             // 2. Map request to some database function
             // 3. Execute that function, get the result
             // 4. Return the result via channel
-            self.request_to_db_function();
+            let request = match self.receiver.recv() {
+                Ok(r) => r,
+                Err(e) => {
+                    // TODO: what to do with this channel error?
+                    todo!();
+                }
+            };
+
+            self.request_to_db_function(request);
         }
     }
 
     /// Map [`Request`]'s to specific database functions.
-    fn request_to_db_function(&mut self) {
-        todo!();
+    fn request_to_db_function(&mut self, request: WriteRequest) {
+        match request {
+            WriteRequest::Example1 => self.example_handler_1(),
+            WriteRequest::Example2 => self.example_handler_2(),
+            WriteRequest::Example3 => self.example_handler_3(),
+        }
     }
+
+    /// TODO
+    fn example_handler_1(&mut self) {}
+    /// TODO
+    fn example_handler_2(&mut self) {}
+    /// TODO
+    fn example_handler_3(&mut self) {}
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
