@@ -46,34 +46,8 @@ impl DatabaseService {
 }
 
 //---------------------------------------------------------------------------------------------------- `tower::Service` Readers
-impl tower::Service<ReadRequest> for DatabaseService {
-    type Response = ReadResponse;
-    type Error = RuntimeError; // TODO: This could be a more specific error?
-    type Future = std::future::Ready<Result<ReadResponse, RuntimeError>>;
-
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
-    }
-
-    fn call(&mut self, _req: ReadRequest) -> Self::Future {
-        todo!()
-    }
-}
 
 //---------------------------------------------------------------------------------------------------- `tower::Service` Writers
-impl tower::Service<WriteRequest> for DatabaseService {
-    type Response = WriteResponse;
-    type Error = RuntimeError; // TODO: This could be a more specific error?
-    type Future = std::future::Ready<Result<WriteResponse, RuntimeError>>;
-
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
-    }
-
-    fn call(&mut self, _req: WriteRequest) -> Self::Future {
-        todo!()
-    }
-}
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]

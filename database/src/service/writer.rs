@@ -1,10 +1,21 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
+use crate::{
+    error::RuntimeError,
+    service::{request::WriteRequest, response::WriteResponse},
+};
+
+use std::{
+    future::{Future, IntoFuture},
+    pin::Pin,
+    task::{Context, Poll},
+};
+use tokio::sync::oneshot;
 
 //---------------------------------------------------------------------------------------------------- Constants
 
-//---------------------------------------------------------------------------------------------------- Writers
+//---------------------------------------------------------------------------------------------------- DatabaseWriters
 /// TODO
 ///
 /// A struct representing the thread-pool (maybe just 2 threads).
@@ -46,25 +57,22 @@
 ///
 /// The database backends themselves will hang on write transactions if
 /// there are other existing ones, so we ourselves don't need locks.
-pub(crate) struct Writers;
+pub struct DatabaseWriter {
+    /// TODO
+    to_writers: crossbeam::channel::Sender<WriteRequest>,
+}
 
-//---------------------------------------------------------------------------------------------------- Writers Impl
-impl Writers {
+//---------------------------------------------------------------------------------------------------- DatabaseWriter Impl
+impl DatabaseWriter {
     /// TODO
     pub(super) fn init() -> Self {
-        /* create channels, initialize data, etc */
+        /* create channels, initialize data, spawn threads, etc */
 
-        let this = Self;
-
-        std::thread::spawn(move || {
-            Self::main(this);
-        });
-
-        // TODO: return some handle, not `Writers` itself
-        Self
+        // TODO: return some handle, not `DatabaseWriter` itself
+        todo!()
     }
 
-    /// The `Writers`'s main function.
+    /// The `DatabaseWriter`'s main function.
     fn main(mut self) {
         loop {
             // 1. Hang on request channel
@@ -78,6 +86,21 @@ impl Writers {
     /// Map [`Request`]'s to specific database functions.
     fn request_to_db_function(&mut self) {
         todo!();
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- `tower::Service`
+impl tower::Service<WriteRequest> for DatabaseWriter {
+    type Response = Result<WriteResponse, RuntimeError>; // TODO: This could be a more specific error?
+    type Error = oneshot::error::RecvError; // TODO: always unwrap on channel failure?
+    type Future = oneshot::Receiver<Result<WriteResponse, RuntimeError>>;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        todo!()
+    }
+
+    fn call(&mut self, _req: WriteRequest) -> Self::Future {
+        todo!()
     }
 }
 
