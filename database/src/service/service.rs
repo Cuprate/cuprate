@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     error::RuntimeError,
-    service::{Readers, Request, Response, Writers},
+    service::{ReadRequest, ReadResponse, Readers, WriteRequest, WriteResponse, Writers},
     ConcreteDatabase,
 };
 
@@ -45,17 +45,32 @@ impl DatabaseService {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- `tower::Service` Impl
-impl tower::Service<Request> for DatabaseService {
-    type Response = Response;
-    type Error = RuntimeError;
-    type Future = std::future::Ready<Result<Response, RuntimeError>>;
+//---------------------------------------------------------------------------------------------------- `tower::Service` Readers
+impl tower::Service<ReadRequest> for DatabaseService {
+    type Response = ReadResponse;
+    type Error = RuntimeError; // TODO: This could be a more specific error?
+    type Future = std::future::Ready<Result<ReadResponse, RuntimeError>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         todo!()
     }
 
-    fn call(&mut self, _req: Request) -> Self::Future {
+    fn call(&mut self, _req: ReadRequest) -> Self::Future {
+        todo!()
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- `tower::Service` Writers
+impl tower::Service<WriteRequest> for DatabaseService {
+    type Response = WriteResponse;
+    type Error = RuntimeError; // TODO: This could be a more specific error?
+    type Future = std::future::Ready<Result<WriteResponse, RuntimeError>>;
+
+    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        todo!()
+    }
+
+    fn call(&mut self, _req: WriteRequest) -> Self::Future {
         todo!()
     }
 }
