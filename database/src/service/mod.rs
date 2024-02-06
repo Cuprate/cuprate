@@ -3,8 +3,8 @@
 mod readers;
 pub(crate) use readers::Readers;
 
-mod writer;
-pub(crate) use writer::Writer;
+mod writers;
+pub(crate) use writers::Writers;
 
 mod service;
 pub use service::DatabaseService;

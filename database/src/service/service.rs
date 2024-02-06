@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     error::RuntimeError,
-    service::{Readers, Request, Response, Writer},
+    service::{Readers, Request, Response, Writers},
     ConcreteDatabase,
 };
 
@@ -27,18 +27,18 @@ pub struct DatabaseService {
     readers: Readers,
 
     /// TODO
-    writer: Writer,
+    writers: Writers,
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseService Impl
 impl DatabaseService {
     /// TODO
-    pub fn new(db: ConcreteDatabase) -> Self {
+    pub fn init(db: ConcreteDatabase) -> Self {
         #[allow(unused_variables)] // TODO
         let this = Self {
             db,
-            readers: Readers,
-            writer: Writer,
+            readers: Readers::init(),
+            writers: Writers::init(),
         };
 
         todo!()
