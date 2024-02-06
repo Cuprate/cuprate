@@ -9,13 +9,17 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-default = ["heed"]
+default   = ["heed", "actor", "service"]
+heed      = ["dep:heed"]
 sanakirja = [] # TODO: import sanakirja.
+service   = ["dep:tokio", "dep:tower"] # `tower::Service` impl.
+actor     = [] # Enables an actor system that handles the database.
 
 [dependencies]
-borsh     = { workspace = true }
 cfg-if    = { workspace = true }
 heed      = { git = "https://github.com/Cuprate/heed", rev = "5aa75b7", optional = true }
-tokio     = { workspace = true, features = ["full"] }
-tower     = { workspace = true, features = ["full"] }
 thiserror = { workspace = true }
+
+# `service` feature.
+tokio = { workspace = true, features = ["full"], optional = true }
+tower = { workspace = true, features = ["full"], optional = true }

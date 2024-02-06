@@ -192,4 +192,11 @@ pub use table::Table;
 mod transaction;
 pub use transaction::{RoTx, RwTx};
 
+//---------------------------------------------------------------------------------------------------- Feature-gated
+#[cfg(feature = "actor")]
+mod actor;
+
+#[cfg(feature = "service")]
+mod service;
+
 //---------------------------------------------------------------------------------------------------- Private

@@ -38,22 +38,22 @@ pub enum InitError<BackendError: Debug> {
 /// TODO: `InitError/RuntimeError` are maybe bad names.
 ///
 /// Database errors that occur _after_ successful initialization.
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum RuntimeError {
-    // TODO: borsh::io::Error?
+    // TODO: replace string with actual error type.
     ///
     /// An error occurred when attempting to
     /// serialize the key data into bytes.
     #[error("serialize error: {0}")]
-    Serialize(borsh::io::Error),
+    Serialize(String),
 
-    // TODO: borsh::io::Error?
+    // TODO: replace string with actual error type.
     ///
     /// An error occurred when attempting to
     /// deserialize the response value from
     /// the database.
     #[error("deserialize error: {0}")]
-    Deserialize(borsh::io::Error),
+    Deserialize(String),
 
     /// TODO
     ///
