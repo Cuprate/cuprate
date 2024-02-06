@@ -15,11 +15,25 @@ pub enum Request {
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// TODO
-pub enum ReadRequest {}
+pub enum ReadRequest {
+    /// TODO
+    Example1,
+    /// TODO
+    Example2,
+    /// TODO
+    Example3,
+}
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
 /// TODO
-pub enum WriteRequest {}
+pub enum WriteRequest {
+    /// TODO
+    Example1,
+    /// TODO
+    Example2,
+    /// TODO
+    Example3,
+}
 
 //---------------------------------------------------------------------------------------------------- IMPL
 
