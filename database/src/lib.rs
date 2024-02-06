@@ -167,6 +167,8 @@
 	// clippy::self_named_module_files
 
 	clippy::module_name_repetitions,
+	clippy::module_inception,
+	clippy::redundant_pub_crate,
 )]
 // Allow some lints when running in debug mode.
 #![cfg_attr(
