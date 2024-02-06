@@ -2,7 +2,8 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
-    service::{Readers, Writer},
+    error::RuntimeError,
+    service::{Readers, Request, Response, Writer},
     ConcreteDatabase,
 };
 
@@ -19,8 +20,8 @@ use std::task::{Context, Poll};
 /// crates will send and receive requests & responses from.
 #[allow(dead_code)] // TODO
 pub struct DatabaseService {
-    /// TODO
-    db: ConcreteDatabase, // TODO: either `Arc` or `&'static` after `Box::leak`
+    /// TODO: either `Arc` or `&'static` after `Box::leak`
+    db: ConcreteDatabase,
 
     /// TODO
     readers: Readers,
@@ -33,7 +34,7 @@ pub struct DatabaseService {
 impl DatabaseService {
     /// TODO
     pub fn new(db: ConcreteDatabase) -> Self {
-        #[allow(unused_variables)]
+        #[allow(unused_variables)] // TODO
         let this = Self {
             db,
             readers: Readers,
@@ -44,18 +45,11 @@ impl DatabaseService {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- Trait Impl
-/// TODO - temporary struct for gist.
-pub struct Request;
-/// TODO - temporary struct for gist.
-pub struct Response;
-/// TODO - temporary struct for gist.
-pub struct Error;
-
+//---------------------------------------------------------------------------------------------------- `tower::Service` Impl
 impl tower::Service<Request> for DatabaseService {
     type Response = Response;
-    type Error = Error;
-    type Future = std::future::Ready<Result<Response, Error>>;
+    type Error = RuntimeError;
+    type Future = std::future::Ready<Result<Response, RuntimeError>>;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         todo!()

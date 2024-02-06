@@ -10,7 +10,7 @@ mod service;
 pub use service::DatabaseService;
 
 mod request;
-pub use request::{ReadRequest, WriteRequest};
+pub use request::{ReadRequest, Request, WriteRequest};
 
 mod response;
-pub use response::{ReadResponse, WriteResponse};
+pub use response::{ReadResponse, Response, WriteResponse};
