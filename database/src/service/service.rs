@@ -13,7 +13,10 @@ use std::task::{Context, Poll};
 //---------------------------------------------------------------------------------------------------- DatabaseService
 /// TODO: maybe `CuprateDatabase`?
 ///
-/// Manager
+/// This struct represents the "owner" of the underlying database.
+///
+/// It handles all threads and is the 1 object other Cuprate
+/// crates will send and receive requests & responses from.
 #[allow(dead_code)] // TODO
 pub struct DatabaseService {
     /// TODO

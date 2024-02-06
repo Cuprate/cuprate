@@ -8,3 +8,9 @@ pub(crate) use writer::Writer;
 
 mod service;
 pub use service::DatabaseService;
+
+mod request;
+pub use request::{ReadRequest, WriteRequest};
+
+mod response;
+pub use response::{ReadResponse, WriteResponse};
