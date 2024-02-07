@@ -13,8 +13,8 @@ use crate::{transactions::TransactionError, HardFork, TxVersion};
 pub struct OutputOnChain {
     pub height: u64,
     pub time_lock: Timelock,
-    pub key: EdwardsPoint,
-    pub mask: EdwardsPoint,
+    pub key: Option<EdwardsPoint>,
+    pub commitment: EdwardsPoint,
 }
 
 /// Gets the absolute offsets from the relative offsets.
@@ -68,7 +68,7 @@ pub fn insert_ring_member_ids(
 ///
 /// Will error if `outputs` does not contain the outputs needed.
 pub fn get_ring_members_for_inputs<'a>(
-    outputs: &'a HashMap<u64, HashMap<u64, OutputOnChain>>,
+    get_outputs: impl Fn(u64, u64) -> Option<&'a OutputOnChain>,
     inputs: &[Input],
 ) -> Result<Vec<Vec<&'a OutputOnChain>>, TransactionError> {
     inputs
@@ -83,12 +83,8 @@ pub fn get_ring_members_for_inputs<'a>(
                 Ok(offsets
                     .iter()
                     .map(|offset| {
-                        // get the hashmap for this amount.
-                        outputs
-                            .get(&amount.unwrap_or(0))
-                            // get output at the index from the amount hashmap.
-                            .and_then(|amount_map| amount_map.get(offset))
-                            .ok_or(TransactionError::RingMemberNotFound)
+                        get_outputs(amount.unwrap_or(0), *offset)
+                            .ok_or(TransactionError::RingMemberNotFoundOrInvalid)
                     })
                     .collect::<Result<_, TransactionError>>()?)
             }
@@ -108,13 +104,21 @@ pub enum Rings {
 
 impl Rings {
     /// Builds the rings for the transaction inputs, from the given outputs.
-    fn new(outputs: Vec<Vec<&OutputOnChain>>, tx_version: TxVersion) -> Rings {
-        match tx_version {
+    fn new(
+        outputs: Vec<Vec<&OutputOnChain>>,
+        tx_version: TxVersion,
+    ) -> Result<Rings, TransactionError> {
+        Ok(match tx_version {
             TxVersion::RingSignatures => Rings::Legacy(
                 outputs
                     .into_iter()
-                    .map(|inp_outs| inp_outs.into_iter().map(|out| out.key).collect())
-                    .collect(),
+                    .map(|inp_outs| {
+                        inp_outs
+                            .into_iter()
+                            .map(|out| out.key.ok_or(TransactionError::RingMemberNotFoundOrInvalid))
+                            .collect::<Result<Vec<_>, TransactionError>>()
+                    })
+                    .collect::<Result<Vec<_>, TransactionError>>()?,
             ),
             TxVersion::RingCT => Rings::RingCT(
                 outputs
@@ -122,12 +126,18 @@ impl Rings {
                     .map(|inp_outs| {
                         inp_outs
                             .into_iter()
-                            .map(|out| [out.key, out.mask])
-                            .collect()
+                            .map(|out| {
+                                Ok([
+                                    out.key
+                                        .ok_or(TransactionError::RingMemberNotFoundOrInvalid)?,
+                                    out.commitment,
+                                ])
+                            })
+                            .collect::<Result<_, TransactionError>>()
                     })
-                    .collect(),
+                    .collect::<Result<_, _>>()?,
             ),
-        }
+        })
     }
 }
 
@@ -151,8 +161,8 @@ impl TxRingMembersInfo {
         decoy_info: Option<DecoyInfo>,
         tx_version: TxVersion,
         hf: HardFork,
-    ) -> TxRingMembersInfo {
-        TxRingMembersInfo {
+    ) -> Result<TxRingMembersInfo, TransactionError> {
+        Ok(TxRingMembersInfo {
             youngest_used_out_height: used_outs
                 .iter()
                 .map(|inp_outs| {
@@ -178,9 +188,9 @@ impl TxRingMembersInfo {
                 })
                 .collect(),
             hf,
-            rings: Rings::new(used_outs, tx_version),
+            rings: Rings::new(used_outs, tx_version)?,
             decoy_info,
-        }
+        })
     }
 }
 
@@ -213,7 +223,7 @@ impl DecoyInfo {
     ///
     /// So:
     ///
-    /// amount_outs_on_chain(inputs[X]) == outputs_with_amount[X]
+    /// amount_outs_on_chain(inputs`[X]`) == outputs_with_amount`[X]`
     ///
     /// Do not rely on this function to do consensus checks!
     ///

@@ -19,8 +19,8 @@ pub const PENALTY_FREE_ZONE_1: usize = 20000;
 pub const PENALTY_FREE_ZONE_2: usize = 60000;
 pub const PENALTY_FREE_ZONE_5: usize = 300000;
 
-const RX_SEEDHASH_EPOCH_BLOCKS: u64 = 2048;
-const RX_SEEDHASH_EPOCH_LAG: u64 = 64;
+pub const RX_SEEDHASH_EPOCH_BLOCKS: u64 = 2048;
+pub const RX_SEEDHASH_EPOCH_LAG: u64 = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum BlockError {

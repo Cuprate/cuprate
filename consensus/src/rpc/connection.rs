@@ -354,7 +354,7 @@ impl RpcConnection {
                             .unwrap()
                             .decompress()
                             .unwrap(),
-                        mask: CompressedEdwardsY::from_slice(&out.mask)
+                        commitment: CompressedEdwardsY::from_slice(&out.mask)
                             .unwrap()
                             .decompress()
                             .unwrap(),

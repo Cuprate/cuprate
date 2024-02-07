@@ -62,8 +62,8 @@ pub enum TransactionError {
     InputsOverflow,
     #[error("The transaction has no inputs.")]
     NoInputs,
-    #[error("Ring member not in database")]
-    RingMemberNotFound,
+    #[error("Ring member not in database or is not valid.")]
+    RingMemberNotFoundOrInvalid,
     //-------------------------------------------------------- Ring Signatures
     #[error("Ring signature incorrect.")]
     RingSignatureIncorrect,

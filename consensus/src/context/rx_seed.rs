@@ -1,20 +1,62 @@
-use std::collections::VecDeque;
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
 
 use futures::{stream::FuturesOrdered, StreamExt};
+use randomx_rs::{RandomXCache, RandomXError, RandomXFlag, RandomXVM as VMInner};
+use rayon::prelude::*;
+use thread_local::ThreadLocal;
 use tower::ServiceExt;
 
-use monero_consensus::blocks::{is_randomx_seed_height, randomx_seed_height};
+use cuprate_helper::asynch::rayon_spawn_async;
+use monero_consensus::blocks::{is_randomx_seed_height, RandomX, RX_SEEDHASH_EPOCH_BLOCKS};
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 
-const RX_SEEDS_CACHED: usize = 3;
+const RX_SEEDS_CACHED: usize = 2;
 
-#[derive(Clone, Debug)]
-pub struct RandomXSeed {
-    seeds: VecDeque<(u64, [u8; 32])>,
+#[derive(Debug)]
+pub struct RandomXVM {
+    vms: ThreadLocal<VMInner>,
+    cache: RandomXCache,
+    flags: RandomXFlag,
 }
 
-impl RandomXSeed {
+impl RandomXVM {
+    pub fn new(seed: &[u8; 32]) -> Result<Self, RandomXError> {
+        let flags = RandomXFlag::get_recommended_flags();
+
+        let cache = RandomXCache::new(flags, seed.as_slice())?;
+
+        Ok(RandomXVM {
+            vms: ThreadLocal::new(),
+            cache,
+            flags,
+        })
+    }
+}
+
+impl RandomX for RandomXVM {
+    type Error = RandomXError;
+
+    fn calculate_hash(&self, buf: &[u8]) -> Result<[u8; 32], Self::Error> {
+        self.vms
+            .get_or_try(|| VMInner::new(self.flags, Some(self.cache.clone()), None))?
+            .calculate_hash(buf)
+            .map(|out| out.try_into().unwrap())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct RandomXVMCache {
+    seeds: VecDeque<(u64, [u8; 32])>,
+    vms: HashMap<u64, Arc<RandomXVM>>,
+
+    cached_vm: Option<([u8; 32], Arc<RandomXVM>)>,
+}
+
+impl RandomXVMCache {
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
         database: D,
@@ -22,49 +64,63 @@ impl RandomXSeed {
         let seed_heights = get_last_rx_seed_heights(chain_height - 1, RX_SEEDS_CACHED);
         let seed_hashes = get_block_hashes(seed_heights.clone(), database).await?;
 
-        Ok(RandomXSeed {
-            seeds: seed_heights.into_iter().zip(seed_hashes).collect(),
+        let seeds: VecDeque<(u64, [u8; 32])> = seed_heights.into_iter().zip(seed_hashes).collect();
+
+        let seeds_clone = seeds.clone();
+        let vms = rayon_spawn_async(move || {
+            seeds_clone
+                .par_iter()
+                .map(|(height, seed)| {
+                    (
+                        *height,
+                        Arc::new(RandomXVM::new(seed).expect("Failed to create RandomX VM!")),
+                    )
+                })
+                .collect()
+        })
+        .await;
+
+        Ok(RandomXVMCache {
+            seeds,
+            vms,
+            cached_vm: None,
         })
     }
 
-    pub fn get_seeds_hash(&self, seed_height: u64) -> [u8; 32] {
-        for (height, seed) in self.seeds.iter() {
-            if seed_height == *height {
-                return *seed;
-            }
-        }
-
-        tracing::error!(
-            "Current seeds: {:?}, asked for: {}",
-            self.seeds,
-            seed_height
-        );
-        panic!("RX seed cache was not updated or was asked for a block too old.")
+    pub fn add_vm(&mut self, vm: ([u8; 32], Arc<RandomXVM>)) {
+        self.cached_vm.replace(vm);
     }
 
-    pub fn get_rx_seed(&self, height: u64) -> [u8; 32] {
-        let seed_height = randomx_seed_height(height);
-        tracing::warn!(
-            "Current seeds: {:?}, asked for: {}",
-            self.seeds,
-            seed_height
-        );
-
-        self.get_seeds_hash(seed_height)
+    pub fn get_vms(&self) -> HashMap<u64, Arc<RandomXVM>> {
+        self.vms.clone()
     }
 
-    pub fn new_block(&mut self, height: u64, hash: &[u8; 32]) {
+    pub async fn new_block(&mut self, height: u64, hash: &[u8; 32]) {
         if is_randomx_seed_height(height) {
-            for (got_height, _) in self.seeds.iter() {
-                if *got_height == height {
-                    return;
-                }
-            }
+            let new_vm = 'new_vm_block: {
+                if let Some((cached_hash, cached_vm)) = self.cached_vm.take() {
+                    if &cached_hash == hash {
+                        break 'new_vm_block cached_vm;
+                    }
+                };
+
+                let hash_clone = hash.clone();
+                rayon_spawn_async(move || Arc::new(RandomXVM::new(&hash_clone).unwrap())).await
+            };
+
+            self.vms.insert(height, new_vm);
 
             self.seeds.push_front((height, *hash));
 
             if self.seeds.len() > RX_SEEDS_CACHED {
                 self.seeds.pop_back();
+                // TODO: This is really not efficient but the amount of VMs cached is not a lot.
+                self.vms.retain(|height, _| {
+                    self.seeds
+                        .iter()
+                        .find(|(cached_height, _)| height == cached_height)
+                        .is_some()
+                })
             }
         }
     }
@@ -82,7 +138,8 @@ fn get_last_rx_seed_heights(mut last_height: u64, mut amount: usize) -> Vec<u64>
             return seeds;
         }
 
-        let seed_height = randomx_seed_height(last_height);
+        // We don't include the lag as we only want seeds not the specific seed fo this height.
+        let seed_height = (last_height - 1) & !(RX_SEEDHASH_EPOCH_BLOCKS - 1);
         seeds.push(seed_height);
         last_height = seed_height
     }

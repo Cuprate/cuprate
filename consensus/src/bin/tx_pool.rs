@@ -99,7 +99,7 @@ mod bin {
             let BlockChainContextResponse::Context(current_ctx) = ctx_svc
                 .ready()
                 .await?
-                .call(BlockChainContextRequest::Get)
+                .call(BlockChainContextRequest::GetContext)
                 .await?
             else {
                 panic!("Context service service returned wrong response!")
@@ -135,7 +135,7 @@ mod bin {
                     .ctx_svc
                     .ready()
                     .await?
-                    .call(BlockChainContextRequest::Get)
+                    .call(BlockChainContextRequest::GetContext)
                     .await?
                 else {
                     panic!("Context service service returned wrong response!")

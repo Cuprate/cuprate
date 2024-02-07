@@ -84,8 +84,8 @@ where
         + 'static,
     Ctx::Future: Send + 'static,
 {
-    let tx_svc = transactions::TxVerifierService::new(database);
-    let block_svc = block::BlockVerifierService::new(ctx_svc, tx_svc.clone(), tx_pool);
+    let tx_svc = transactions::TxVerifierService::new(database.clone());
+    let block_svc = block::BlockVerifierService::new(ctx_svc, tx_svc.clone(), tx_pool, database);
     Ok((block_svc, tx_svc))
 }
 

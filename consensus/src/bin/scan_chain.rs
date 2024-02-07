@@ -218,7 +218,7 @@ mod bin {
         let BlockChainContextResponse::Context(ctx) = ctx_svc
             .ready()
             .await?
-            .call(BlockChainContextRequest::Get)
+            .call(BlockChainContextRequest::GetContext)
             .await?
         else {
             panic!("ctx svc sent wrong response!");
@@ -237,7 +237,7 @@ mod bin {
                             .ready()
                             .await
                             .unwrap()
-                            .call(BlockChainContextRequest::Get)
+                            .call(BlockChainContextRequest::GetContext)
                             .await
                             .unwrap()
                         else {

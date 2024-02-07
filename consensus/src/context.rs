@@ -7,14 +7,15 @@
 
 use std::{
     cmp::min,
+    collections::HashMap,
     future::Future,
     ops::DerefMut,
+    pin::Pin,
     sync::Arc,
     task::{Context, Poll},
 };
 
 use futures::{
-    future::{ready, Ready},
     lock::{Mutex, OwnedMutexGuard, OwnedMutexLockFuture},
     FutureExt,
 };
@@ -33,6 +34,7 @@ mod tokens;
 
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
+use rx_seed::RandomXVM;
 pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
@@ -134,7 +136,7 @@ where
 
     let db = database.clone();
     let rx_seed_handle = tokio::spawn(async move {
-        rx_seed::RandomXSeed::init_from_chain_height(chain_height, db).await
+        rx_seed::RandomXVMCache::init_from_chain_height(chain_height, db).await
     });
 
     let context_svc = BlockChainContextService {
@@ -166,7 +168,7 @@ pub struct RawBlockChainContext {
     pub cumulative_difficulty: u128,
     /// A token which is used to signal if a reorg has happened since creating the token.
     pub re_org_token: ReOrgToken,
-    pub rx_seed_cache: rx_seed::RandomXSeed,
+    pub rx_vms: HashMap<u64, Arc<RandomXVM>>,
     pub context_to_verify_block: ContextToVerifyBlock,
     /// The median long term block weight.
     median_long_term_weight: usize,
@@ -268,12 +270,20 @@ pub struct UpdateBlockchainCacheData {
 
 #[derive(Debug, Clone)]
 pub enum BlockChainContextRequest {
-    Get,
+    GetContext,
+    /// Get the next difficulties for these blocks.
+    ///
+    /// Inputs: a list of block timestamps and hfs
+    ///
+    /// The number of difficulties returned will be one more than the number of timestamps/ hfs.
+    BatchGetDifficulties(Vec<(u64, HardFork)>),
+    NewRXVM(([u8; 32], Arc<RandomXVM>)),
     Update(UpdateBlockchainCacheData),
 }
 
 pub enum BlockChainContextResponse {
     Context(BlockChainContext),
+    BatchDifficulties(Vec<u128>),
     Ok,
 }
 struct InternalBlockChainContext {
@@ -285,7 +295,7 @@ struct InternalBlockChainContext {
 
     difficulty_cache: difficulty::DifficultyCache,
     weight_cache: weight::BlockWeightsCache,
-    rx_seed_cache: rx_seed::RandomXSeed,
+    rx_seed_cache: rx_seed::RandomXVMCache,
     hardfork_state: hardforks::HardForkState,
 
     chain_height: u64,
@@ -315,7 +325,8 @@ impl Clone for BlockChainContextService {
 impl Service<BlockChainContextRequest> for BlockChainContextService {
     type Response = BlockChainContextResponse;
     type Error = tower::BoxError;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         loop {
@@ -325,8 +336,8 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
                         Arc::clone(&self.internal_blockchain_context).lock_owned(),
                     )
                 }
-                MutexLockState::Acquiring(rpc) => {
-                    self.lock_state = MutexLockState::Acquired(futures::ready!(rpc.poll_unpin(cx)))
+                MutexLockState::Acquiring(lock) => {
+                    self.lock_state = MutexLockState::Acquired(futures::ready!(lock.poll_unpin(cx)))
                 }
                 MutexLockState::Acquired(_) => return Poll::Ready(Ok(())),
             }
@@ -339,69 +350,85 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
         else {
             panic!("poll_ready() was not called first!")
         };
+        async move {
+            let InternalBlockChainContext {
+                current_validity_token,
+                current_reorg_token,
+                difficulty_cache,
+                weight_cache,
+                rx_seed_cache,
+                hardfork_state,
+                chain_height,
+                top_block_hash,
+                already_generated_coins,
+            } = internal_blockchain_context.deref_mut();
 
-        let InternalBlockChainContext {
-            current_validity_token,
-            current_reorg_token,
-            difficulty_cache,
-            weight_cache,
-            rx_seed_cache,
-            hardfork_state,
-            chain_height,
-            top_block_hash,
-            already_generated_coins,
-        } = internal_blockchain_context.deref_mut();
+            let res = match req {
+                BlockChainContextRequest::GetContext => {
+                    let current_hf = hardfork_state.current_hardfork();
 
-        let res = match req {
-            BlockChainContextRequest::Get => {
-                let current_hf = hardfork_state.current_hardfork();
-
-                BlockChainContextResponse::Context(BlockChainContext {
-                    validity_token: current_validity_token.clone(),
-                    raw: RawBlockChainContext {
-                        context_to_verify_block: ContextToVerifyBlock {
-                            median_weight_for_block_reward: weight_cache
-                                .median_for_block_reward(&current_hf),
-                            effective_median_weight: weight_cache
-                                .effective_median_block_weight(&current_hf),
-                            top_hash: *top_block_hash,
-                            median_block_timestamp: difficulty_cache.median_timestamp(
-                                usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap(),
-                            ),
-                            chain_height: *chain_height,
-                            current_hf,
-                            next_difficulty: difficulty_cache.next_difficulty(&current_hf),
-                            already_generated_coins: *already_generated_coins,
+                    BlockChainContextResponse::Context(BlockChainContext {
+                        validity_token: current_validity_token.clone(),
+                        raw: RawBlockChainContext {
+                            context_to_verify_block: ContextToVerifyBlock {
+                                median_weight_for_block_reward: weight_cache
+                                    .median_for_block_reward(&current_hf),
+                                effective_median_weight: weight_cache
+                                    .effective_median_block_weight(&current_hf),
+                                top_hash: *top_block_hash,
+                                median_block_timestamp: difficulty_cache.median_timestamp(
+                                    usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap(),
+                                ),
+                                chain_height: *chain_height,
+                                current_hf,
+                                next_difficulty: difficulty_cache.next_difficulty(&current_hf),
+                                already_generated_coins: *already_generated_coins,
+                            },
+                            rx_vms: rx_seed_cache.get_vms(),
+                            cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
+                            median_long_term_weight: weight_cache.median_long_term_weight(),
+                            top_block_timestamp: difficulty_cache.top_block_timestamp(),
+                            re_org_token: current_reorg_token.clone(),
                         },
-                        rx_seed_cache: rx_seed_cache.clone(),
-                        cumulative_difficulty: difficulty_cache.cumulative_difficulty(),
-                        median_long_term_weight: weight_cache.median_long_term_weight(),
-                        top_block_timestamp: difficulty_cache.top_block_timestamp(),
-                        re_org_token: current_reorg_token.clone(),
-                    },
-                })
-            }
-            BlockChainContextRequest::Update(new) => {
-                // Cancel the validity token and replace it with a new one.
-                std::mem::replace(current_validity_token, ValidityToken::new()).set_data_invalid();
+                    })
+                }
+                BlockChainContextRequest::BatchGetDifficulties(blocks) => {
+                    let next_diffs = difficulty_cache
+                        .next_difficulties(blocks, &hardfork_state.current_hardfork());
+                    BlockChainContextResponse::BatchDifficulties(next_diffs)
+                }
+                BlockChainContextRequest::NewRXVM(vm) => {
+                    rx_seed_cache.add_vm(vm);
+                    BlockChainContextResponse::Ok
+                }
+                BlockChainContextRequest::Update(new) => {
+                    // Cancel the validity token and replace it with a new one.
+                    std::mem::replace(current_validity_token, ValidityToken::new())
+                        .set_data_invalid();
 
-                difficulty_cache.new_block(new.height, new.timestamp, new.cumulative_difficulty);
+                    difficulty_cache.new_block(
+                        new.height,
+                        new.timestamp,
+                        new.cumulative_difficulty,
+                    );
 
-                weight_cache.new_block(new.height, new.weight, new.long_term_weight);
+                    weight_cache.new_block(new.height, new.weight, new.long_term_weight);
 
-                hardfork_state.new_block(new.vote, new.height);
+                    hardfork_state.new_block(new.vote, new.height);
 
-                rx_seed_cache.new_block(new.height, &new.new_top_hash);
+                    rx_seed_cache.new_block(new.height, &new.new_top_hash).await;
 
-                *chain_height = new.height + 1;
-                *top_block_hash = new.new_top_hash;
-                *already_generated_coins =
-                    already_generated_coins.saturating_add(new.generated_coins);
+                    *chain_height = new.height + 1;
+                    *top_block_hash = new.new_top_hash;
+                    *already_generated_coins =
+                        already_generated_coins.saturating_add(new.generated_coins);
 
-                BlockChainContextResponse::Ok
-            }
-        };
+                    BlockChainContextResponse::Ok
+                }
+            };
 
-        ready(Ok(res))
+            Ok(res)
+        }
+        .boxed()
     }
 }
