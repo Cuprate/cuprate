@@ -3,21 +3,10 @@
 //! This crate does 3 things:
 //! 1. Abstract various databases as the [`Database`] trait
 //! 2. Implements various `Monero` related functions/tables
-//! 3. Exposes a [`tower::Service`] with threading
+//! 3. Exposes a [`tower::Service`] + thread-pool
 //!
-//! ## `service`
-//! The `service` module implements the `tower` and `tokio` integration,
-//! along with the actor (threading) system.
-//!
-//! The actor system is essentially a thread-pool that outside crates
-//! can communicate easily with, sending database requests and receiving
-//! responses `async`hronously - without having to actually worry and
-//! handle the database themselves.
-//!
-//! The system is managed by this crate, and only
-//! requires init and shutdown by the user.
-//!
-//! This module must be enabled with the `service` feature.
+//! The `service` module requires the `service` feature to be enabled.
+//! See the module for more documentation.
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
