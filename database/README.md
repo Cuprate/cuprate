@@ -17,6 +17,9 @@ The code within `/database/src` is also littered with comments. Some `grep`-able
 
 1. [Documentation](#documentation)
 2. [File Structure](#file-structure)
+    - [`src/`](#src)
+    - [`src/service/`](#src-service)
+    - [`src/backend/`](#src-backend)
 3. [Layers](#layers)
 4. [Backends](#backends)
     - [`heed`](#heed)
@@ -36,11 +39,57 @@ cargo doc --package cuprate-database --open
 at the root of the repo to open/read the documentation.
 
 # File Structure
-A quick reference of the structure of the folders & files located in `database/src/`
+A quick reference of the structure of the folders & files in `cuprate-database`.
+
+## `src/`
+The top-level `src/` files.
+
+| File/Folder      | Purpose |
+|------------------|---------|
+| `constants.rs`   | TODO
+| `database.rs`    | TODO
+| `error.rs`       | TODO
+| `free.rs`        | TODO
+| `lib.rs`         | TODO
+| `macros.rs`      | TODO
+| `pod.rs`         | TODO
+| `table.rs`       | TODO
+| `transaction.rs` | TODO
+
+## `src/service/`
+This folder contains the `cupate_database::service` module.
+
+This module provides the:
+- public `tower::Service` abstractions for the database
+- thread-pool system for database readers/writers
 
 | File/Folder    | Purpose |
 |----------------|---------|
-| TODO           | TODO    |
+| `init.rs`      | TODO
+| `read.rs`      | TODO
+| `request.rs`   | TODO
+| `response.rs`  | TODO
+| `write.rs`     | TODO
+
+## `src/backend/`
+This folder contains the actual database crates used as the backend for the `trait Database` that `cuprate-database` exposes.
+
+Each backend has its respective folder.
+
+| File/Folder  | Purpose |
+|--------------|---------|
+| `heed/`      | Backend `trait Database` using using forked [`heed`](https://github.com/Cuprate/heed)
+| `sanakirja/` | Backend `trait Database` impl using `sanakirja`
+
+### `src/backend/heed/`
+| File/Folder  | Purpose |
+|--------------|---------|
+| TODO         | TODO
+
+### `src/backend/sanakirja/`
+| File/Folder  | Purpose |
+|--------------|---------|
+| TODO         | TODO
 
 # Layers
 TODO: update to more accurate information, update image.
