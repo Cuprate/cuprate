@@ -5,8 +5,37 @@
 //! 2. Implements various `Monero` related functions/tables
 //! 3. Exposes a [`tower::Service`] + thread-pool
 //!
+//! # Feature flags
 //! The `service` module requires the `service` feature to be enabled.
 //! See the module for more documentation.
+//!
+//! Different database backends are enabled by feature flags:
+//! - `heed`
+//! - `sanakirja`
+//!
+//! The default is `heed`.
+//!
+//! # `ConcreteDatabase`
+//! This crate exposes [`ConcreteDatabase`], which is a non-generic/non-dynamic, concrete object.
+//!
+//! The actual backend for this type is determined via feature flags.
+//!
+//! While this means `D: Database` doesn't need to be spread all through the codebase,
+//! it also means some very small things should be kept in mind.
+//!
+//! As `ConcreteDatabase` is just a re-exposed type which has varying inner types,
+//! it means somes properties will change depending on the backend used.
+//!
+//! For example:
+//! - `std::mem::size_of::<ConcreteDatabase>`
+//! - `std::mem::align_of::<ConcreteDatabase>`
+//! - `ConcreteDatabase::drop`
+//!
+//! Things like these functions are affected by the backend and inner data,
+//! and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteDatabase`.
+//!
+//! The only thing about `ConcreteDatabase` that should
+//! be relied upon is that it implements [`Database`].
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.

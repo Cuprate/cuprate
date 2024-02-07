@@ -8,9 +8,9 @@ use crate::error::RuntimeError;
 //---------------------------------------------------------------------------------------------------- Constants
 
 //---------------------------------------------------------------------------------------------------- RoTx
-/// TODO
+/// Read-only database transaction.
 ///
-/// Read-only transaction.
+/// TODO
 pub trait RoTx<'db, K, V> {
     /// TODO
     /// # Errors
@@ -29,9 +29,9 @@ pub trait RoTx<'db, K, V> {
 }
 
 //---------------------------------------------------------------------------------------------------- RwTx
-/// TODO
+/// Read/write database transaction.
 ///
-/// Read/Write transaction.
+/// TODO
 pub trait RwTx<'db, K, V> {
     /// TODO
     /// # Errors

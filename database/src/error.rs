@@ -1,4 +1,4 @@
-//! TODO
+//! TODO: `InitError/RuntimeError` are maybe bad names.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::backend::DATABASE_BACKEND;
@@ -9,8 +9,6 @@ use std::fmt::Debug;
 //---------------------------------------------------------------------------------------------------- Constants
 
 //---------------------------------------------------------------------------------------------------- InitError
-/// TODO
-///
 /// Database errors that occur during initialization.
 ///
 /// `BackendError` is an error specifically from the
@@ -35,8 +33,6 @@ pub enum InitError<BackendError: Debug> {
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
-/// TODO: `InitError/RuntimeError` are maybe bad names.
-///
 /// Database errors that occur _after_ successful initialization.
 #[derive(thiserror::Error, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum RuntimeError {

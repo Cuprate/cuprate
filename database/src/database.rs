@@ -12,9 +12,7 @@ use std::path::Path;
 //---------------------------------------------------------------------------------------------------- Constants
 
 //---------------------------------------------------------------------------------------------------- TYPE
-/// TODO
-///
-/// Database trait abstraction.
+/// Database abstraction.
 ///
 /// TODO: i'm pretty sure these lifetimes are unneeded/wrong.
 pub trait Database: Sized {
