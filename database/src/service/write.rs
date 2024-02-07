@@ -8,14 +8,20 @@ use crate::{
 };
 
 use std::{
-    future::{Future, IntoFuture},
-    pin::Pin,
     sync::Arc,
     task::{Context, Poll},
 };
 use tokio::sync::oneshot;
 
-//---------------------------------------------------------------------------------------------------- Constants
+//---------------------------------------------------------------------------------------------------- Types
+/// TODO
+type Response = Result<WriteResponse, RuntimeError>;
+
+/// TODO
+type ResponseRecv = tokio::sync::oneshot::Receiver<Response>;
+
+/// TODO
+type ResponseSend = tokio::sync::oneshot::Sender<Response>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriteHandle
 /// TODO
@@ -27,13 +33,13 @@ use tokio::sync::oneshot;
 #[derive(Clone, Debug)]
 pub struct DatabaseWriteHandle {
     /// TODO
-    pub(super) sender: crossbeam::channel::Sender<WriteRequest>,
+    pub(super) sender: crossbeam::channel::Sender<(WriteRequest, ResponseSend)>,
 }
 
 impl tower::Service<WriteRequest> for DatabaseWriteHandle {
     type Response = Result<WriteResponse, RuntimeError>; // TODO: This could be a more specific error?
     type Error = oneshot::error::RecvError; // TODO: always unwrap on channel failure?
-    type Future = oneshot::Receiver<Result<WriteResponse, RuntimeError>>;
+    type Future = ResponseRecv;
 
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         todo!()
@@ -88,7 +94,7 @@ impl tower::Service<WriteRequest> for DatabaseWriteHandle {
 /// there are other existing ones, so we ourselves don't need locks.
 pub(super) struct DatabaseWriter {
     /// TODO
-    receiver: crossbeam::channel::Receiver<WriteRequest>,
+    receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSend)>,
 
     /// TODO: either `Arc` or `&'static` after `Box::leak`
     db: Arc<ConcreteDatabase>,
@@ -125,33 +131,44 @@ impl DatabaseWriter {
             // 2. Map request to some database function
             // 3. Execute that function, get the result
             // 4. Return the result via channel
-            let request = match self.receiver.recv() {
-                Ok(r) => r,
+            let (request, response_send) = match self.receiver.recv() {
+                Ok(tuple) => tuple,
                 Err(e) => {
                     // TODO: what to do with this channel error?
                     todo!();
                 }
             };
 
-            self.request_to_db_function(request);
+            self.request_to_db_function(request, response_send);
         }
     }
 
     /// Map [`Request`]'s to specific database functions.
-    fn request_to_db_function(&mut self, request: WriteRequest) {
+    fn request_to_db_function(&mut self, request: WriteRequest, response_send: ResponseSend) {
         match request {
-            WriteRequest::Example1 => self.example_handler_1(),
-            WriteRequest::Example2 => self.example_handler_2(),
-            WriteRequest::Example3 => self.example_handler_3(),
+            WriteRequest::Example1 => self.example_handler_1(response_send),
+            WriteRequest::Example2(_x) => self.example_handler_2(response_send),
+            WriteRequest::Example3(_x) => self.example_handler_3(response_send),
         }
     }
 
     /// TODO
-    fn example_handler_1(&mut self) {}
+    fn example_handler_1(&mut self, response_send: ResponseSend) {
+        let db_result = todo!();
+        response_send.send(db_result).unwrap();
+    }
+
     /// TODO
-    fn example_handler_2(&mut self) {}
+    fn example_handler_2(&mut self, response_send: ResponseSend) {
+        let db_result = todo!();
+        response_send.send(db_result).unwrap();
+    }
+
     /// TODO
-    fn example_handler_3(&mut self) {}
+    fn example_handler_3(&mut self, response_send: ResponseSend) {
+        let db_result = todo!();
+        response_send.send(db_result).unwrap();
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

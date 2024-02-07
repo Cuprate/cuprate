@@ -8,8 +8,6 @@ use crate::{
 };
 
 use std::{
-    future::{Future, IntoFuture},
-    pin::Pin,
     sync::Arc,
     task::{Context, Poll},
 };
@@ -107,27 +105,27 @@ impl DatabaseReader {
     fn request_to_db_function(&mut self, request: ReadRequest, response_send: ResponseSend) {
         match request {
             ReadRequest::Example1 => self.example_handler_1(response_send),
-            ReadRequest::Example2 => self.example_handler_2(response_send),
-            ReadRequest::Example3 => self.example_handler_3(response_send),
+            ReadRequest::Example2(_x) => self.example_handler_2(response_send),
+            ReadRequest::Example3(_x) => self.example_handler_3(response_send),
         }
     }
 
     /// TODO
     fn example_handler_1(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
-        response_send.send(db_result);
+        response_send.send(db_result).unwrap();
     }
 
     /// TODO
     fn example_handler_2(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
-        response_send.send(db_result);
+        response_send.send(db_result).unwrap();
     }
 
     /// TODO
     fn example_handler_3(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
-        response_send.send(db_result);
+        response_send.send(db_result).unwrap();
     }
 }
 

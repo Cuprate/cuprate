@@ -5,6 +5,7 @@
 //---------------------------------------------------------------------------------------------------- Constants
 
 //---------------------------------------------------------------------------------------------------- Request
+#[derive(Debug)]
 /// TODO
 pub enum Request {
     /// TODO
@@ -14,25 +15,27 @@ pub enum Request {
 }
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
+#[derive(Debug)]
 /// TODO
 pub enum ReadRequest {
     /// TODO
     Example1,
     /// TODO
-    Example2,
+    Example2(usize),
     /// TODO
-    Example3,
+    Example3(String),
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
+#[derive(Debug)]
 /// TODO
 pub enum WriteRequest {
     /// TODO
     Example1,
     /// TODO
-    Example2,
+    Example2(usize),
     /// TODO
-    Example3,
+    Example3(String),
 }
 
 //---------------------------------------------------------------------------------------------------- IMPL
