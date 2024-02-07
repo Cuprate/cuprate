@@ -20,6 +20,11 @@ pub trait RoTx<'db, K, V> {
     /// TODO
     /// # Errors
     /// TODO
+    fn get_range(&self, key: &K, amount: usize) -> Result<impl Iterator<Item = V>, RuntimeError>;
+
+    /// TODO
+    /// # Errors
+    /// TODO
     fn commit(self) -> Result<(), RuntimeError>;
 }
 
