@@ -15,9 +15,10 @@ sanakirja = [] # TODO: import sanakirja.
 service   = ["dep:tokio", "dep:tower", "dep:crossbeam"] # `tower::Service` impl.
 
 [dependencies]
-cfg-if    = { workspace = true }
-heed      = { git = "https://github.com/Cuprate/heed", rev = "5aa75b7", optional = true }
-thiserror = { workspace = true }
+cuprate-helper = { path = "../helper", features = ["thread"] }
+cfg-if         = { workspace = true }
+heed           = { git = "https://github.com/Cuprate/heed", rev = "5aa75b7", optional = true }
+thiserror      = { workspace = true }
 
 # `service` feature.
 crossbeam = { workspace = true, features = ["std"], optional = true }
