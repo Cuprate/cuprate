@@ -106,10 +106,20 @@ impl DatabaseWriter {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
+        // TODO: should we scale writers up as we have more threads?
+        //
+        // The below function causes this [thread-count <-> writer] mapping:
+        // <=16t -> 2
+        //   32t -> 3
+        //   64t -> 6
+        //  128t -> 12
+        //
+        // 3+ writers might harm more than help.
+        // Anyone have a 64c/128t CPU to test on...?
+        let writers = std::cmp::min(2, cuprate_helper::thread::threads_10().get());
+
         // Spawn pool of writers.
-        for _ in 0..2
-        /* TODO: how many writers? */
-        {
+        for _ in 0..writers {
             let receiver = receiver.clone();
             let db = Arc::clone(db);
 

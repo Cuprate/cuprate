@@ -64,10 +64,13 @@ impl DatabaseReader {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
+        // TODO: slightly _less_ readers per thread may be more ideal.
+        // We could account for the writer count as well such that
+        // readers + writers == total_thread_count
+        let readers = cuprate_helper::thread::threads().get();
+
         // Spawn pool of readers.
-        for _ in 0..2
-        /* TODO: how many readers? */
-        {
+        for _ in 0..readers {
             let receiver = receiver.clone();
             let db = Arc::clone(db);
 
