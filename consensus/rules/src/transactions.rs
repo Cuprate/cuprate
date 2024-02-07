@@ -302,6 +302,7 @@ fn check_all_time_locks(
             current_time_lock_timestamp,
             hf,
         ) {
+            tracing::debug!("Transaction invalid: one or more inputs locked, lock: {time_lock:?}.");
             Err(TransactionError::OneOrMoreDecoysLocked)
         } else {
             Ok(())
@@ -451,6 +452,9 @@ fn check_10_block_lock(
 ) -> Result<(), TransactionError> {
     if hf >= &HardFork::V12 {
         if youngest_used_out_height + 10 > current_chain_height {
+            tracing::debug!(
+                "Transaction invalid: One or more ring members younger than 10 blocks."
+            );
             Err(TransactionError::OneOrMoreDecoysLocked)
         } else {
             Ok(())

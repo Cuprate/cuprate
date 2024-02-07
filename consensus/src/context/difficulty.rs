@@ -137,7 +137,7 @@ impl DifficultyCache {
         // We don't sort the whole timestamp list
         let mut time_span = u128::from(
             *timestamps_slice.select_nth_unstable(window_end - 1).1
-                - *timestamps_slice.select_nth_unstable(window_start - 1).1,
+                - *timestamps_slice.select_nth_unstable(window_start).1,
         );
 
         let windowed_work = self.cumulative_difficulties[window_end - 1]
@@ -157,6 +157,7 @@ impl DifficultyCache {
         current_hf: &HardFork,
     ) -> Vec<u128> {
         let new_timestamps_len = blocks.len();
+        let initial_len = self.timestamps.len();
 
         let mut difficulties = Vec::with_capacity(blocks.len() + 1);
 
@@ -178,12 +179,15 @@ impl DifficultyCache {
             difficulties.push(self.next_difficulty(&hf));
         }
 
-        self.cumulative_difficulties
-            .drain(self.cumulative_difficulties.len() - new_timestamps_len..);
+        self.cumulative_difficulties.drain(
+            self.cumulative_difficulties
+                .len()
+                .saturating_sub(new_timestamps_len)..,
+        );
         self.timestamps
-            .drain(self.timestamps.len() - new_timestamps_len..);
+            .drain(self.timestamps.len().saturating_sub(new_timestamps_len)..);
 
-        for (timestamp, cum_dif) in diff_info_popped.into_iter().rev() {
+        for (timestamp, cum_dif) in diff_info_popped.into_iter().take(initial_len).rev() {
             self.timestamps.push_front(timestamp);
             self.cumulative_difficulties.push_front(cum_dif);
         }

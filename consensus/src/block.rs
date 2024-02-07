@@ -24,7 +24,7 @@ use crate::transactions::{batch_setup_txs, contextual_data, OutputCache};
 use crate::{
     context::{BlockChainContextRequest, BlockChainContextResponse},
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
-    Database, ExtendedConsensusError, TxNotInPool, TxPoolRequest, TxPoolResponse,
+    Database, ExtendedConsensusError,
 };
 
 #[derive(Debug)]
@@ -164,7 +164,7 @@ pub struct VerifiedBlockInformation {
 pub enum VerifyBlockRequest {
     MainChainBatchPrep(Vec<(Block, Vec<Transaction>)>),
     MainChain(Block),
-    MainChainPrepared(PrePreparedBlock),
+    MainChainPrepared(PrePreparedBlock, Vec<Arc<TransactionVerificationData>>),
 }
 
 pub enum VerifyBlockResponse {
@@ -178,14 +178,13 @@ pub enum VerifyBlockResponse {
 // TODO: it is probably a bad idea for this to derive clone, if 2 places (RPC, P2P) receive valid but different blocks
 // then they will both get approved but only one should go to main chain.
 #[derive(Clone)]
-pub struct BlockVerifierService<C: Clone, TxV: Clone, TxP: Clone, D> {
+pub struct BlockVerifierService<C: Clone, TxV: Clone, D> {
     context_svc: C,
     tx_verifier_svc: TxV,
-    tx_pool: TxP,
     database: D,
 }
 
-impl<C, TxV, TxP, D> BlockVerifierService<C, TxV, TxP, D>
+impl<C, TxV, D> BlockVerifierService<C, TxV, D>
 where
     C: Service<BlockChainContextRequest, Response = BlockChainContextResponse>
         + Clone
@@ -195,29 +194,23 @@ where
         + Clone
         + Send
         + 'static,
-    TxP: Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
-        + Clone
-        + Send
-        + 'static,
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
 {
     pub fn new(
         context_svc: C,
         tx_verifier_svc: TxV,
-        tx_pool: TxP,
         database: D,
-    ) -> BlockVerifierService<C, TxV, TxP, D> {
+    ) -> BlockVerifierService<C, TxV, D> {
         BlockVerifierService {
             context_svc,
             tx_verifier_svc,
-            tx_pool,
             database,
         }
     }
 }
 
-impl<C, TxV, TxP, D> Service<VerifyBlockRequest> for BlockVerifierService<C, TxV, TxP, D>
+impl<C, TxV, D> Service<VerifyBlockRequest> for BlockVerifierService<C, TxV, D>
 where
     C: Service<
             BlockChainContextRequest,
@@ -234,12 +227,6 @@ where
         + 'static,
     TxV::Future: Send + 'static,
 
-    TxP: Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
-        + Clone
-        + Send
-        + 'static,
-    TxP::Future: Send + 'static,
-
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
 {
@@ -255,20 +242,19 @@ where
     fn call(&mut self, req: VerifyBlockRequest) -> Self::Future {
         let context_svc = self.context_svc.clone();
         let tx_verifier_svc = self.tx_verifier_svc.clone();
-        let tx_pool = self.tx_pool.clone();
         let database = self.database.clone();
 
         async move {
             match req {
                 VerifyBlockRequest::MainChain(block) => {
-                    verify_main_chain_block(block, context_svc, tx_verifier_svc, tx_pool).await
+                    verify_main_chain_block(block, context_svc, tx_verifier_svc).await
                 }
-                VerifyBlockRequest::MainChainPrepared(prepped_block) => {
+                VerifyBlockRequest::MainChainPrepared(prepped_block, txs) => {
                     verify_main_chain_block_prepared(
                         prepped_block,
+                        txs,
                         context_svc,
                         tx_verifier_svc,
-                        tx_pool,
                     )
                     .await
                 }
@@ -313,7 +299,7 @@ where
 
     for window in blocks.windows(2) {
         if window[0].block_hash != window[1].block.header.previous
-            || window[0].height != window[1].height + 1
+            || window[0].height != window[1].height - 1
         {
             Err(ConsensusError::Block(BlockError::PreviousIDIncorrect))?;
         }
@@ -322,7 +308,7 @@ where
             new_rx_vm = Some((window[0].height, window[0].block_hash));
         }
 
-        timestamps_hfs.push((window[0].height, window[0].hf_version))
+        timestamps_hfs.push((window[0].block.header.timestamp, window[0].hf_version))
     }
 
     tracing::debug!("getting blockchain context");
@@ -363,9 +349,8 @@ where
     let mut rx_vms = context.rx_vms;
 
     if let Some((new_vm_height, new_vm_seed)) = new_rx_vm {
-        let seed_clone = new_vm_seed.clone();
         let new_vm = rayon_spawn_async(move || {
-            Arc::new(RandomXVM::new(&seed_clone).expect("RandomX VM gave an error on set up!"))
+            Arc::new(RandomXVM::new(&new_vm_seed).expect("RandomX VM gave an error on set up!"))
         })
         .await;
 
@@ -458,11 +443,11 @@ where
     Ok(VerifyBlockResponse::MainChainBatchPrep(blocks, txs))
 }
 
-async fn verify_main_chain_block_prepared<C, TxV, TxP>(
+async fn verify_main_chain_block_prepared<C, TxV>(
     prepped_block: PrePreparedBlock,
+    txs: Vec<Arc<TransactionVerificationData>>,
     context_svc: C,
     tx_verifier_svc: TxV,
-    tx_pool: TxP,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
     C: Service<
@@ -473,10 +458,6 @@ where
         + 'static,
     C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
-    TxP: Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
-        + Clone
-        + Send
-        + 'static,
 {
     tracing::debug!("getting blockchain context");
     let BlockChainContextResponse::Context(checked_context) = context_svc
@@ -490,10 +471,6 @@ where
     let context = checked_context.unchecked_blockchain_context().clone();
 
     tracing::debug!("got blockchain context: {:?}", context);
-
-    let TxPoolResponse::Transactions(txs) = tx_pool
-        .oneshot(TxPoolRequest::Transactions(prepped_block.block.txs.clone()))
-        .await?;
 
     tx_verifier_svc
         .oneshot(VerifyTxRequest::Block {
@@ -535,11 +512,10 @@ where
     }))
 }
 
-async fn verify_main_chain_block<C, TxV, TxP>(
+async fn verify_main_chain_block<C, TxV>(
     _block: Block,
     _context_svc: C,
     _tx_verifier_svc: TxV,
-    _tx_pool: TxP,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
     C: Service<
@@ -550,10 +526,6 @@ where
         + 'static,
     C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
-    TxP: Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
-        + Clone
-        + Send
-        + 'static,
 {
     todo!("Single main chain block.");
 

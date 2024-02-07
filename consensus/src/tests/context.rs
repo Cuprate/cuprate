@@ -82,8 +82,9 @@ async fn context_height_correct() -> Result<(), tower::BoxError> {
 
     let ctx_svc = initialize_blockchain_context(TEST_CONTEXT_CONFIG, db).await?;
 
-    let BlockChainContextResponse::Context(context) =
-        ctx_svc.oneshot(BlockChainContextRequest::GetContext).await?
+    let BlockChainContextResponse::Context(context) = ctx_svc
+        .oneshot(BlockChainContextRequest::GetContext)
+        .await?
     else {
         panic!("context service returned incorrect response!")
     };

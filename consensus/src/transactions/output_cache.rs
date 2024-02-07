@@ -20,6 +20,7 @@ use monero_consensus::transactions::{OutputOnChain, TransactionError};
 use crate::transactions::TransactionVerificationData;
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 
+#[derive(Debug)]
 enum CachedAmount<'a> {
     Clear(u64),
     Commitment(&'a EdwardsPoint),
@@ -35,6 +36,7 @@ impl<'a> CachedAmount<'a> {
     }
 }
 
+#[derive(Debug)]
 struct CachedOutput<'a> {
     height: u64,
     time_lock: &'a Timelock,
@@ -44,6 +46,7 @@ struct CachedOutput<'a> {
     cached_created: OnceLock<OutputOnChain>,
 }
 
+#[derive(Debug)]
 pub struct OutputCache<'a>(HashMap<u64, BTreeMap<u64, CachedOutput<'a>>>);
 
 impl<'a> OutputCache<'a> {
@@ -135,7 +138,7 @@ impl<'a> OutputCache<'a> {
             self.0.entry(amt_table_key).or_default().extend(
                 out.into_iter()
                     .enumerate()
-                    .map(|(i, out)| (u64::try_from(i + numb_outs).unwrap(), out.into())),
+                    .map(|(i, out)| (u64::try_from(i + numb_outs).unwrap(), out)),
             )
         }
 
