@@ -15,13 +15,19 @@ use std::path::Path;
 /// TODO
 ///
 /// Database trait abstraction.
+///
+/// TODO: i'm pretty sure these lifetimes are unneeded/wrong.
 pub trait Database: Sized {
     //------------------------------------------------ Types
     /// TODO
-    type RoTx<'db>;
+    type RoTx<'db>
+    where
+        Self: 'db;
 
     /// TODO
-    type RwTx<'db>;
+    type RwTx<'db>
+    where
+        Self: 'db;
 
     //------------------------------------------------ Required
     /// TODO
@@ -47,18 +53,18 @@ pub trait Database: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn create_table<T: Table>(
-        &self,
-        tx_rw: &mut Self::RwTx<'_>,
-    ) -> Result<impl RwTx<'_, T::Key, T::Value>, RuntimeError>;
+    fn create_table<'db, T: Table + 'db>(
+        &'db self,
+        // tx_rw: &mut Self::RwTx<'_>,
+    ) -> Result<impl RwTx<'db, T::Key, T::Value>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn get_table<T: Table>(
-        &self,
-        to_rw: &mut Self::RoTx<'_>,
-    ) -> Result<Option<impl RoTx<'_, T::Key, T::Value>>, RuntimeError>;
+    fn get_table<'db, T: Table + 'db>(
+        &'db self,
+        // to_rw: &mut Self::RoTx<'_>,
+    ) -> Result<Option<impl RoTx<'db, T::Key, T::Value>>, RuntimeError>;
 
     //------------------------------------------------ Provided
 }
