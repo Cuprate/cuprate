@@ -14,8 +14,6 @@
 #
 #  Initially taken from Serai Dex: https://github.com/serai-dex/serai/blob/b823413c9b7ae6747b9af99e18379cfc49f4271a/.github/actions/monero/action.yml.
 
-
-
 name: monero-regtest
 description: Spawns a regtest Monero daemon
 
@@ -23,40 +21,54 @@ inputs:
   version:
     description: "Version to download and run"
     required: false
-    default: v0.18.2.0
+    default: v0.18.3.1
 
 runs:
   using: "composite"
   steps:
     - name: Monero Daemon Cache
       id: cache-monerod
-      uses: actions/cache@704facf57e6136b1bc63b828d79edcd491f0ee84
+      uses: actions/cache@v3
       with:
-        path: monerod
+        path: |
+          monerod
+          monerod.exe
         key: monerod-${{ runner.os }}-${{ runner.arch }}-${{ inputs.version }}
 
     - name: Download the Monero Daemon
       if: steps.cache-monerod.outputs.cache-hit != 'true'
-      # Calculates OS/ARCH to demonstrate it, yet then locks to linux-x64 due
-      # to the contained folder not following the same naming scheme and
-      # requiring further expansion not worth doing right now
       shell: bash
       run: |
-        RUNNER_OS=${{ runner.os }}
-        RUNNER_ARCH=${{ runner.arch }}
+        OS=${{ runner.os }}
+        ARCH=${{ runner.arch }}
 
-        RUNNER_OS=${RUNNER_OS,,}
-        RUNNER_ARCH=${RUNNER_ARCH,,}
+        # - Monero doesn't have macOS x86
+        # - GitHub CI doesn't have BSDs, or ARM Linux/macOS
+        case "$OS $ARCH" in
+          "Windows X64") FILE=monero-win-x64-${{ inputs.version }}.zip ;;
+          "Windows X86") FILE=monero-win-x86-${{ inputs.version }}.zip ;;
+          "Linux X64") FILE=monero-linux-x64-${{ inputs.version }}.tar.bz2 ;;
+          "Linux X86") FILE=monero-linux-x86-${{ inputs.version }}.tar.bz2 ;;
+          "macOS X64") FILE=monero-mac-x64-${{ inputs.version }}.tar.bz2 ;;
+          *) exit 1 ;;
+        esac
 
-        RUNNER_OS=linux
-        RUNNER_ARCH=x64
+        curl -O -L https://downloads.getmonero.org/cli/$FILE
 
-        FILE=monero-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.version }}.tar.bz2
-        wget https://downloads.getmonero.org/cli/$FILE
-        tar -xvf $FILE
-
-        mv monero-x86_64-linux-gnu-${{ inputs.version }}/monerod monerod
+        if [[ ${{ runner.os }} == Windows ]]; then
+          unzip $FILE
+          mv */monerod.exe monerod.exe
+        else
+          tar -xvf $FILE
+          mv */monerod monerod
+        fi
 
     - name: Monero Regtest Daemon
       shell: bash
-      run: ./monerod --regtest  --fixed-difficulty=1 --detach --out-peers 0
+      run: |
+        if [[ ${{ runner.os }} == Windows ]]; then
+          # `--detach` doesn't exist on Windows...?
+          cmd.exe start /B ./monerod.exe --regtest --fixed-difficulty=1 --out-peers 0
+        else
+          ./monerod --regtest --fixed-difficulty=1 --detach --out-peers 0
+        fi
