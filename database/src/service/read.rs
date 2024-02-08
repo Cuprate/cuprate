@@ -4,7 +4,7 @@
 use crate::{
     error::RuntimeError,
     service::{request::ReadRequest, response::ReadResponse},
-    ConcreteDatabase,
+    ConcreteEnv,
 };
 
 use std::task::{Context, Poll};
@@ -81,7 +81,7 @@ pub(super) struct DatabaseReader {
 
     /// TODO: either `Arc` or `&'static` after `Box::leak`
     /// Access to the database.
-    db: &'static ConcreteDatabase,
+    db: &'static ConcreteEnv,
 }
 
 impl DatabaseReader {
@@ -93,7 +93,7 @@ impl DatabaseReader {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &'static ConcreteDatabase) -> DatabaseReadHandle {
+    pub(super) fn init(db: &'static ConcreteEnv) -> DatabaseReadHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 

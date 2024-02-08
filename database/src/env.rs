@@ -12,10 +12,10 @@ use std::path::Path;
 //---------------------------------------------------------------------------------------------------- Constants
 
 //---------------------------------------------------------------------------------------------------- TYPE
-/// Database abstraction.
+/// Database environment abstraction.
 ///
 /// TODO: i'm pretty sure these lifetimes are unneeded/wrong.
-pub trait Database: Sized {
+pub trait Env: Sized {
     //------------------------------------------------ Types
     /// TODO
     type RoTx<'db>
@@ -51,17 +51,17 @@ pub trait Database: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn create_table<'db, T: Table + 'db>(
+    fn create_database<'db, T: Table + 'db>(
         &'db self,
-        // tx_rw: &mut Self::RwTx<'_>,
+        tx_rw: &'db mut Self::RwTx<'_>,
     ) -> Result<impl RwTx<'db, T::Key, T::Value>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn get_table<'db, T: Table + 'db>(
+    fn open_database<'db, T: Table + 'db>(
         &'db self,
-        // to_rw: &mut Self::RoTx<'_>,
+        to_rw: &'db Self::RoTx<'_>,
     ) -> Result<Option<impl RoTx<'db, T::Key, T::Value>>, RuntimeError>;
 
     //------------------------------------------------ Provided

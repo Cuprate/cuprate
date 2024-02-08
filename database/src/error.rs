@@ -1,7 +1,7 @@
 //! TODO: `InitError/RuntimeError` are maybe bad names.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::backend::DATABASE_BACKEND;
+use crate::backend::BACKEND;
 
 use std::borrow::Cow;
 use std::fmt::Debug;
@@ -22,7 +22,7 @@ pub enum InitError<BackendError: Debug> {
     Path(std::io::Error),
 
     /// TODO
-    #[error("{DATABASE_BACKEND} error: {0}")]
+    #[error("{BACKEND} error: {0}")]
     Backend(BackendError),
 
     /// TODO

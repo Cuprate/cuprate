@@ -5,7 +5,7 @@ use crate::{
     service::read::DatabaseReader,
     service::write::DatabaseWriter,
     service::{DatabaseReadHandle, DatabaseWriteHandle},
-    ConcreteDatabase,
+    ConcreteEnv,
 };
 
 use std::sync::OnceLock;
@@ -27,20 +27,20 @@ static DATABASE_HANDLES: OnceLock<(DatabaseReadHandle, DatabaseWriteHandle)> = O
 #[inline(never)] // Only called once.
 /// Initialize the database, the thread-pool, and return a read/write handle to it.
 ///
-/// This initializes a [`OnceLock`] containing the [`ConcreteDatabase`],
+/// This initializes a [`OnceLock`] containing the [`ConcreteEnv`],
 /// meaning there is only 1 database per program.
 ///
 /// Calling this function again will return handles to the same database.
 pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
     DATABASE_HANDLES.get_or_init(|| {
         // Initialize the database itself.
-        let db: ConcreteDatabase = todo!();
+        let db: ConcreteEnv = todo!();
         // Leak it, the database lives forever.
         //
         // TODO: there's probably shutdown code we have to run.
         // Leaking may not be viable, or atleast, we need to
         // be able to run destructors.
-        let db: &'static ConcreteDatabase = Box::leak(Box::new(db));
+        let db: &'static ConcreteEnv = Box::leak(Box::new(db));
 
         // Spawn the `Reader/Writer` thread pools.
         let readers = DatabaseReader::init(db);
@@ -77,7 +77,7 @@ pub fn shutdown() {
     // 2. Wait on barrier until all threads are "ready" (all tx's are done)
     // 3. Writer thread will flush all data to disk
     // 4. All threads exit, 1 of them sends us back an OK
-    // 5. We don't need to reclaim ownership of `&'static ConcreteDatabase` because...
+    // 5. We don't need to reclaim ownership of `&'static ConcreteEnv` because...
     //   5a) a bunch of threads have a `&` to it, so this is hard (impossible?)
     //   5b) as along as data is flushed, we can just `std::process::exit`
     //       and there's no need to (manually) drop the actual database

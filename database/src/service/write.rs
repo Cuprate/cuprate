@@ -4,7 +4,7 @@
 use crate::{
     error::RuntimeError,
     service::{request::WriteRequest, response::WriteResponse},
-    ConcreteDatabase,
+    ConcreteEnv,
 };
 
 use std::task::{Context, Poll};
@@ -70,7 +70,7 @@ pub(super) struct DatabaseWriter {
 
     /// TODO: either `Arc` or `&'static` after `Box::leak`
     /// Access to the database.
-    db: &'static ConcreteDatabase,
+    db: &'static ConcreteEnv,
 }
 
 impl DatabaseWriter {
@@ -117,7 +117,7 @@ impl DatabaseWriter {
     /// there are other existing ones, so we ourselves don't need locks.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &'static ConcreteDatabase) -> DatabaseWriteHandle {
+    pub(super) fn init(db: &'static ConcreteEnv) -> DatabaseWriteHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 

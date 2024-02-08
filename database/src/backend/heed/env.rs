@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     backend::heed::transaction::{ConcreteRoTx, ConcreteRwTx},
-    database::Database,
+    env::Env,
     error::{InitError, RuntimeError},
     table::Table,
     transaction::{RoTx, RwTx},
@@ -14,13 +14,14 @@ use std::path::Path;
 //---------------------------------------------------------------------------------------------------- Constants
 
 //---------------------------------------------------------------------------------------------------- Heed
-/// A strongly typed, concrete database, backed by `heed`.
-pub struct ConcreteDatabase(heed::Env);
+/// A strongly typed, concrete database environment, backed by `heed`.
+///
+pub struct ConcreteEnv(heed::Env);
 
 //---------------------------------------------------------------------------------------------------- Heed Impl
 
-//---------------------------------------------------------------------------------------------------- Database Impl
-impl Database for ConcreteDatabase {
+//---------------------------------------------------------------------------------------------------- Env Impl
+impl Env for ConcreteEnv {
     /// TODO
     type RoTx<'db> = heed::RoTxn<'db>;
 
@@ -65,9 +66,9 @@ impl Database for ConcreteDatabase {
     /// TODO
     /// # Errors
     /// TODO
-    fn create_table<'db, T: Table + 'db>(
+    fn create_database<'db, T: Table + 'db>(
         &'db self,
-        // tx_rw: &mut Self::RwTx<'_>,
+        tx_rw: &'db mut Self::RwTx<'_>,
     ) -> Result<impl RwTx<'db, T::Key, T::Value>, RuntimeError> {
         let tx: ConcreteRwTx<T::Key, T::Value> = todo!();
         Ok(tx)
@@ -77,9 +78,9 @@ impl Database for ConcreteDatabase {
     /// TODO
     /// # Errors
     /// TODO
-    fn get_table<'db, T: Table + 'db>(
+    fn open_database<'db, T: Table + 'db>(
         &'db self,
-        // to_rw: &mut Self::RoTx<'_>,
+        to_rw: &'db Self::RoTx<'_>,
     ) -> Result<Option<impl RoTx<'db, T::Key, T::Value>>, RuntimeError> {
         let tx: ConcreteRoTx<T::Key, T::Value> = todo!();
         Ok(Some(tx))
