@@ -518,6 +518,7 @@ dependencies = [
  "crossbeam",
  "cuprate-helper",
  "heed",
+ "paste",
  "thiserror",
  "tokio",
  "tower",
