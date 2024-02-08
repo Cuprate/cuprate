@@ -47,8 +47,8 @@ pub use read::DatabaseReadHandle;
 mod write;
 pub use write::DatabaseWriteHandle;
 
-mod init;
-pub use init::init;
+mod free;
+pub use free::{init, db_read, db_write};
 
 mod request;
 pub use request::{ReadRequest, Request, WriteRequest};
