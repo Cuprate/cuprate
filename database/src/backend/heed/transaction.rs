@@ -14,7 +14,7 @@ use std::path::Path;
 
 //---------------------------------------------------------------------------------------------------- RoTx
 /// TODO
-pub struct ConcreteRoTx<'db, K, V> {
+pub(super) struct ConcreteRoTx<'db, K, V> {
     /// TODO
     tx: heed::RoTxn<'db>,
     /// TODO
@@ -38,7 +38,7 @@ impl<K, V> RoTx<'_, K, V> for ConcreteRoTx<'_, K, V> {
 
 //---------------------------------------------------------------------------------------------------- RwTx
 /// TODO
-pub struct ConcreteRwTx<'db, K, V> {
+pub(super) struct ConcreteRwTx<'db, K, V> {
     /// TODO
     tx: heed::RwTxn<'db>,
     /// TODO

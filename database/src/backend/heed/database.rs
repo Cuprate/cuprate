@@ -68,8 +68,9 @@ impl Database for ConcreteDatabase {
     fn create_table<'db, T: Table + 'db>(
         &'db self,
         // tx_rw: &mut Self::RwTx<'_>,
-    ) -> Result<ConcreteRwTx<'db, T::Key, T::Value>, RuntimeError> {
-        todo!()
+    ) -> Result<impl RwTx<'db, T::Key, T::Value>, RuntimeError> {
+        let tx: ConcreteRwTx<T::Key, T::Value> = todo!();
+        Ok(tx)
     }
 
     #[inline]
@@ -79,8 +80,9 @@ impl Database for ConcreteDatabase {
     fn get_table<'db, T: Table + 'db>(
         &'db self,
         // to_rw: &mut Self::RoTx<'_>,
-    ) -> Result<Option<ConcreteRoTx<'db, T::Key, T::Value>>, RuntimeError> {
-        todo!()
+    ) -> Result<Option<impl RoTx<'db, T::Key, T::Value>>, RuntimeError> {
+        let tx: ConcreteRoTx<T::Key, T::Value> = todo!();
+        Ok(Some(tx))
     }
 }
 
