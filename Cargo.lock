@@ -514,11 +514,13 @@ dependencies = [
 name = "cuprate-database"
 version = "0.0.0"
 dependencies = [
+ "borsh",
  "cfg-if",
  "crossbeam",
  "cuprate-helper",
  "heed",
  "paste",
+ "serde",
  "thiserror",
  "tokio",
  "tower",

@@ -16,7 +16,8 @@ macro_rules! table {
     ) => {
         paste::paste! {
             // Table struct.
-            // TODO: add serde?
+            #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+            #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
             #[derive(Copy,Clone,Debug,PartialEq,PartialOrd,Eq,Ord,Hash)]
             $(#[$attr])*
             pub struct [<$table:camel>];

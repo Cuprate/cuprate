@@ -34,6 +34,11 @@ pub enum InitError<BackendError: Debug> {
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
 /// Database errors that occur _after_ successful initialization.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "borsh",
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
+)]
 #[derive(thiserror::Error, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum RuntimeError {
     // TODO: replace string with actual error type.

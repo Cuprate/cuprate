@@ -25,3 +25,7 @@ thiserror      = { workspace = true }
 crossbeam = { workspace = true, features = ["std"], optional = true }
 tokio     = { workspace = true, features = ["full"], optional = true }
 tower     = { workspace = true, features = ["full"], optional = true }
+
+# Optional features.
+borsh = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
