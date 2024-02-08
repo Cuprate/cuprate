@@ -14,23 +14,38 @@ use std::{
 use tokio::sync::oneshot;
 
 //---------------------------------------------------------------------------------------------------- Types
-/// TODO
+/// The read response from the database reader thread.
+///
+/// This is an `Err` when the database itself errors
+/// (e.g, get() object doesn't exist).
 type Response = Result<ReadResponse, RuntimeError>;
 
-/// TODO
+/// The `Receiver` channel that receives the read response.
+///
+/// This is owned by the caller (the reader)
+/// who `.await`'s for the response.
 type ResponseRecv = tokio::sync::oneshot::Receiver<Response>;
 
-/// TODO
+/// The `Sender` channel for the response.
+///
+/// The database reader thread uses this to send
+/// the database result to the caller.
 type ResponseSend = tokio::sync::oneshot::Sender<Response>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
-/// TODO
+/// Read handle to the database.
 ///
-/// A struct representing a thread-pool of database
-/// readers that handle `tower::Service` requests.
+/// This is cheaply [`Clone`]able handle that
+/// allows `async`hronously reading from the database.
+///
+/// Calling [`DatabaseReadHandle::call`] with a [`ReadRequest`]
+/// will return an `async`hronous channel that can be `.await`ed upon
+/// to receive the corresponding [`ReadResponse`].
 #[derive(Clone, Debug)]
 pub struct DatabaseReadHandle {
-    /// TODO
+    /// Sender channel to the database read thread-pool.
+    ///
+    /// We provide the response channel for the thread-pool.
     pub(super) sender: crossbeam::channel::Sender<(ReadRequest, ResponseSend)>,
 }
 
@@ -49,17 +64,33 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseReader Impl
-/// TODO
+/// Database reader thread.
+///
+/// This struct essentially represents a thread.
+///
+/// Each reader thread is spawned with access to this struct (self).
 pub(super) struct DatabaseReader {
-    /// TODO
+    /// Receiver side of the database request channel.
+    ///
+    /// Any caller can send some requests to this channel.
+    /// They send them alongside another `Response` channel,
+    /// which we will eventually send to.
+    ///
+    /// We (the database reader thread) are not responsible
+    /// for creating this channel, the caller provides it.
     receiver: crossbeam::channel::Receiver<(ReadRequest, ResponseSend)>,
 
-    /// TODO: either `Arc` or `&'static` after `Box::leak`
+    /// Access to the database.
     db: Arc<ConcreteDatabase>,
 }
 
 impl DatabaseReader {
-    /// TODO
+    /// Initialize the `DatabaseReader` thread-pool.
+    ///
+    /// This spawns `N` amount of readers attached to `db`
+    /// and returns a handle to the pool.
+    ///
+    /// Should be called _once_ per actual database.
     pub(super) fn init(db: &Arc<ConcreteDatabase>) -> DatabaseReadHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
@@ -86,6 +117,8 @@ impl DatabaseReader {
     }
 
     /// The `DatabaseReader`'s main function.
+    ///
+    /// Each thread in the reader thread-pool just loops in this function.
     fn main(mut self) {
         loop {
             // 1. Hang on request channel
