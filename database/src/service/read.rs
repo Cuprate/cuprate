@@ -38,7 +38,7 @@ type ResponseSend = tokio::sync::oneshot::Sender<Response>;
 /// This is cheaply [`Clone`]able handle that
 /// allows `async`hronously reading from the database.
 ///
-/// Calling [`DatabaseReadHandle::call`] with a [`ReadRequest`]
+/// Calling [`tower::Service::call`] with a [`DatabaseReadHandle`] & [`ReadRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding [`ReadResponse`].
 #[derive(Clone, Debug)]
@@ -172,4 +172,6 @@ impl DatabaseReader {
 #[cfg(test)]
 mod test {
     // use super::*;
+
+    // TODO: add thread request/response tests.
 }

@@ -5,16 +5,6 @@
 //! 2. Implements various `Monero` related functions/tables
 //! 3. Exposes a [`tower::Service`] + thread-pool
 //!
-//! # Feature flags
-//! The `service` module requires the `service` feature to be enabled.
-//! See the module for more documentation.
-//!
-//! Different database backends are enabled by feature flags:
-//! - `heed`
-//! - `sanakirja`
-//!
-//! The default is `heed`.
-//!
 //! # `ConcreteDatabase`
 //! This crate exposes [`ConcreteDatabase`], which is a non-generic/non-dynamic, concrete object.
 //!
@@ -36,6 +26,16 @@
 //!
 //! The only thing about `ConcreteDatabase` that should
 //! be relied upon is that it implements [`Database`].
+//!
+//! # Feature flags
+//! The `service` module requires the `service` feature to be enabled.
+//! See the module for more documentation.
+//!
+//! Different database backends are enabled by feature flags:
+//! - `heed`
+//! - `sanakirja`
+//!
+//! The default is `heed`.
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.

@@ -1,7 +1,7 @@
 //! [`tower::Service`] integeration + thread-pool
 //!
 //! ## `service`
-//! The `service` module implements the `tower` and `tokio` integration,
+//! The `service` module implements the `tower` integration,
 //! along with the actor (threading) system.
 //!
 //! The actor system is essentially a thread-pool that outside crates

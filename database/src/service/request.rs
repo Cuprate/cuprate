@@ -6,7 +6,9 @@
 
 //---------------------------------------------------------------------------------------------------- Request
 #[derive(Debug)]
-/// TODO
+/// TODO: not sure if we actually need this.
+///
+/// Either a read or write request.
 pub enum Request {
     /// TODO
     Read(ReadRequest),
@@ -16,7 +18,7 @@ pub enum Request {
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 #[derive(Debug)]
-/// TODO
+/// A read request to the database.
 pub enum ReadRequest {
     /// TODO
     Example1,
@@ -28,7 +30,7 @@ pub enum ReadRequest {
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
 #[derive(Debug)]
-/// TODO
+/// A write request to the database.
 pub enum WriteRequest {
     /// TODO
     Example1,

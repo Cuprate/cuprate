@@ -11,8 +11,6 @@ use crate::{
 use std::sync::Arc;
 
 //---------------------------------------------------------------------------------------------------- Init
-/// TODO
-///
 /// Initialize the database thread pool, and return read/write handles to it.
 pub fn init() -> (DatabaseReadHandle, DatabaseWriteHandle) {
     // Initialize the database itself.

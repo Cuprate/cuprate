@@ -31,7 +31,7 @@ type ResponseSend = tokio::sync::oneshot::Sender<Response>;
 /// This is cheaply [`Clone`]able handle that
 /// allows `async`hronously writing to the database.
 ///
-/// Calling [`DatabaseWriteHandle::call`] with a [`WriteRequest`]
+/// Calling [`tower::Service::call`] with a [`DatabaseWriteHandle`] & [`WriteRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding [`WriteResponse`].
 #[derive(Clone, Debug)]
@@ -202,4 +202,6 @@ impl DatabaseWriter {
 #[cfg(test)]
 mod test {
     // use super::*;
+
+    // TODO: add thread request/response tests.
 }
