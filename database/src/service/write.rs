@@ -71,7 +71,7 @@ pub(super) struct DatabaseWriter {
 
     /// TODO: either `Arc` or `&'static` after `Box::leak`
     /// Access to the database.
-    db: Arc<ConcreteDatabase>,
+    db: &'static ConcreteDatabase,
 }
 
 impl DatabaseWriter {
@@ -116,7 +116,7 @@ impl DatabaseWriter {
     ///
     /// The database backends themselves will hang on write transactions if
     /// there are other existing ones, so we ourselves don't need locks.
-    pub(super) fn init(db: &Arc<ConcreteDatabase>) -> DatabaseWriteHandle {
+    pub(super) fn init(db: &'static ConcreteDatabase) -> DatabaseWriteHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -135,7 +135,6 @@ impl DatabaseWriter {
         // Spawn pool of writers.
         for _ in 0..writers {
             let receiver = receiver.clone();
-            let db = Arc::clone(db);
 
             std::thread::spawn(move || {
                 let this = Self { receiver, db };

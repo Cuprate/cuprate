@@ -82,7 +82,7 @@ pub(super) struct DatabaseReader {
 
     /// TODO: either `Arc` or `&'static` after `Box::leak`
     /// Access to the database.
-    db: Arc<ConcreteDatabase>,
+    db: &'static ConcreteDatabase,
 }
 
 impl DatabaseReader {
@@ -92,7 +92,7 @@ impl DatabaseReader {
     /// attached to `db` and returns a handle to the pool.
     ///
     /// Should be called _once_ per actual database.
-    pub(super) fn init(db: &Arc<ConcreteDatabase>) -> DatabaseReadHandle {
+    pub(super) fn init(db: &'static ConcreteDatabase) -> DatabaseReadHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -104,7 +104,6 @@ impl DatabaseReader {
         // Spawn pool of readers.
         for _ in 0..readers {
             let receiver = receiver.clone();
-            let db = Arc::clone(db);
 
             std::thread::spawn(move || {
                 let this = Self { receiver, db };

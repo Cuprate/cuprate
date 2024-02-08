@@ -20,11 +20,16 @@ pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
     DATABASE_HANDLES.get_or_init(||{
         // Initialize the database itself.
         let db: ConcreteDatabase = todo!();
-        let db = Arc::new(db); // TODO: should be &'static ?
+        // Leak it, the database lives forever.
+        //
+        // TODO: there's probably shutdown code we have to run.
+        // Leaking may not be viable, or atleast, we need to
+        // be able to run destructors.
+        let db: &'static ConcreteDatabase = Box::leak(Box::new(db));
 
         // Spawn the `Reader/Writer` thread pools.
-        let readers = DatabaseReader::init(&db);
-        let writers = DatabaseWriter::init(&db);
+        let readers = DatabaseReader::init(db);
+        let writers = DatabaseWriter::init(db);
 
         // Return the handles to those pools.
         (readers, writers)

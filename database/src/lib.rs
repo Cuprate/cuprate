@@ -215,7 +215,6 @@ mod backend;
 pub use backend::{ConcreteDatabase, DATABASE_BACKEND};
 
 mod constants;
-pub use constants::DatabasePtr;
 
 mod database;
 pub use database::Database;
