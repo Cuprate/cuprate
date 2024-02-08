@@ -20,31 +20,28 @@ fn main() {
         .file("c/oaes_lib.c")
         .file("c/skein.c")
         .file("c/slow-hash.c")
-        .file("c/CryptonightR_JIT.c");
+        .file("c/CryptonightR_JIT.c")
+        .flag_if_supported("-fexceptions")
+        // c/oaes_lib.c: In function ‘oaes_get_seed’:
+        // c/oaes_lib.c:515:9: warning: ‘ftime’ is deprecated: Use gettimeofday or clock_gettime instead [-Wdeprecated-declarations]
+        //   515 |         ftime (&timer);
+        //       |         ^~~~~
+        // In file included from c/oaes_lib.c:45:
+        // /usr/include/sys/timeb.h:29:12: note: declared here
+        //    29 | extern int ftime (struct timeb *__timebuf)
+        //       |            ^~~~~
+        // This flag doesn't work on MSVC and breaks CI.
+        .flag_if_supported("-Wno-deprecated-declarations");
 
-    if cfg!(windows) {
-        cfg.flag("/O2");
-    } else {
-        cfg.flag("-fexceptions")
-            .flag("-O3")
-            // c/oaes_lib.c: In function ‘oaes_get_seed’:
-            // c/oaes_lib.c:515:9: warning: ‘ftime’ is deprecated: Use gettimeofday or clock_gettime instead [-Wdeprecated-declarations]
-            //   515 |         ftime (&timer);
-            //       |         ^~~~~
-            // In file included from c/oaes_lib.c:45:
-            // /usr/include/sys/timeb.h:29:12: note: declared here
-            //    29 | extern int ftime (struct timeb *__timebuf)
-            //       |            ^~~~~
-            // This flag doesn't work on MSVC and breaks CI.
-            .flag("-Wno-deprecated-declarations");
-    }
+    // Optimization flags are automatically added.
+    // https://docs.rs/cc/latest/cc/struct.Build.html#method.opt_level
 
     let target = env::var("TARGET").unwrap();
-    // FIXME: what are the equivalent flags for MSVC?
-    if target.contains("x86_64") && !cfg!(windows) {
+    if target.contains("x86_64") {
+        // FIXME: what are the equivalent flags for MSVC?
         cfg.file("c/CryptonightR_template.S")
-            .flag("-maes")
-            .flag("-msse2");
+            .flag_if_supported("-maes")
+            .flag_if_supported("-msse2");
     }
 
     cfg.compile("cryptonight")
