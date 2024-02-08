@@ -1,24 +1,15 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{
-    backend::heed::transaction::{ConcreteRoTx, ConcreteRwTx},
-    env::Env,
-    error::{InitError, RuntimeError},
-    table::Table,
-    transaction::{RoTx, RwTx},
-};
+use crate::{database::Database, env::Env, error::RuntimeError, table::Table};
 
 use std::path::Path;
 
 //---------------------------------------------------------------------------------------------------- Constants
 
-//---------------------------------------------------------------------------------------------------- Heed
+//---------------------------------------------------------------------------------------------------- Env
 /// A strongly typed, concrete database environment, backed by `heed`.
-///
 pub struct ConcreteEnv(heed::Env);
-
-//---------------------------------------------------------------------------------------------------- Heed Impl
 
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
@@ -49,7 +40,7 @@ impl Env for ConcreteEnv {
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_ro(&self) -> Result<Self::RoTx<'_>, RuntimeError> {
+    fn ro_tx(&self) -> Result<Self::RoTx<'_>, RuntimeError> {
         todo!()
     }
 
@@ -57,7 +48,7 @@ impl Env for ConcreteEnv {
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_rw(&self) -> Result<Self::RwTx<'_>, RuntimeError> {
+    fn rw_tx(&self) -> Result<Self::RwTx<'_>, RuntimeError> {
         todo!()
     }
 
@@ -66,11 +57,11 @@ impl Env for ConcreteEnv {
     /// TODO
     /// # Errors
     /// TODO
-    fn create_database<'db, T: Table + 'db>(
-        &'db self,
-        tx_rw: &'db mut Self::RwTx<'_>,
-    ) -> Result<impl RwTx<'db, T::Key, T::Value>, RuntimeError> {
-        let tx: ConcreteRwTx<T::Key, T::Value> = todo!();
+    fn create_database<T: Table>(
+        &self,
+        tx_rw: &mut Self::RwTx<'_>,
+    ) -> Result<impl Database<T>, RuntimeError> {
+        let tx: heed::Database<T::Key, T::Value> = todo!();
         Ok(tx)
     }
 
@@ -78,11 +69,11 @@ impl Env for ConcreteEnv {
     /// TODO
     /// # Errors
     /// TODO
-    fn open_database<'db, T: Table + 'db>(
-        &'db self,
-        to_rw: &'db Self::RoTx<'_>,
-    ) -> Result<Option<impl RoTx<'db, T::Key, T::Value>>, RuntimeError> {
-        let tx: ConcreteRoTx<T::Key, T::Value> = todo!();
+    fn open_database<T: Table>(
+        &self,
+        to_rw: &Self::RoTx<'_>,
+    ) -> Result<Option<impl Database<T>>, RuntimeError> {
+        let tx: heed::Database<T::Key, T::Value> = todo!();
         Ok(Some(tx))
     }
 }

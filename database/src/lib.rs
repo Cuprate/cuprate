@@ -6,11 +6,12 @@
 //! 3. Exposes a [`tower::Service`] + thread-pool
 //!
 //! # `ConcreteEnv`
-//! This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic, concrete object.
+//! This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic,
+//! concrete object representing a database [`Env`]ironment.
 //!
 //! The actual backend for this type is determined via feature flags.
 //!
-//! While this means `D: Database` doesn't need to be spread all through the codebase,
+//! While this means `E: Env` doesn't need to be spread all through the codebase,
 //! it also means some very small things should be kept in mind.
 //!
 //! As `ConcreteEnv` is just a re-exposed type which has varying inner types,
@@ -25,7 +26,7 @@
 //! and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteEnv`.
 //!
 //! The only thing about `ConcreteEnv` that should
-//! be relied upon is that it implements [`Database`].
+//! be relied upon is that it implements [`Env`].
 //!
 //! # Terms
 //! To be more clear on some terms used in this crate:
@@ -234,6 +235,9 @@ mod backend;
 pub use backend::{ConcreteEnv, BACKEND};
 
 mod constants;
+
+mod database;
+pub use database::Database;
 
 mod env;
 pub use env::Env;

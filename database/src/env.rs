@@ -2,6 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
+    database::Database,
     error::RuntimeError,
     table::Table,
     transaction::{RoTx, RwTx},
@@ -18,14 +19,10 @@ use std::path::Path;
 pub trait Env: Sized {
     //------------------------------------------------ Types
     /// TODO
-    type RoTx<'db>
-    where
-        Self: 'db;
+    type RoTx<'db>: RoTx<'db>;
 
     /// TODO
-    type RwTx<'db>
-    where
-        Self: 'db;
+    type RwTx<'db>: RwTx<'db>;
 
     //------------------------------------------------ Required
     /// TODO
@@ -41,28 +38,28 @@ pub trait Env: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_ro(&self) -> Result<Self::RoTx<'_>, RuntimeError>;
+    fn ro_tx(&self) -> Result<Self::RoTx<'_>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_rw(&self) -> Result<Self::RwTx<'_>, RuntimeError>;
+    fn rw_tx(&self) -> Result<Self::RwTx<'_>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn create_database<'db, T: Table + 'db>(
-        &'db self,
-        tx_rw: &'db mut Self::RwTx<'_>,
-    ) -> Result<impl RwTx<'db, T::Key, T::Value>, RuntimeError>;
+    fn create_database<T: Table>(
+        &self,
+        tx_rw: &mut Self::RwTx<'_>,
+    ) -> Result<impl Database<T>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn open_database<'db, T: Table + 'db>(
-        &'db self,
-        to_rw: &'db Self::RoTx<'_>,
-    ) -> Result<Option<impl RoTx<'db, T::Key, T::Value>>, RuntimeError>;
+    fn open_database<T: Table>(
+        &self,
+        to_rw: &Self::RoTx<'_>,
+    ) -> Result<Option<impl Database<T>>, RuntimeError>;
 
     //------------------------------------------------ Provided
 }

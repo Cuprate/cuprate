@@ -11,17 +11,7 @@ use crate::error::RuntimeError;
 /// Read-only database transaction.
 ///
 /// TODO
-pub trait RoTx<'db, K, V> {
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn get(&self, key: &K) -> Result<Option<V>, RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn get_range(&self, key: &K, amount: usize) -> Result<impl Iterator<Item = V>, RuntimeError>;
-
+pub trait RoTx<'db> {
     /// TODO
     /// # Errors
     /// TODO
@@ -32,22 +22,7 @@ pub trait RoTx<'db, K, V> {
 /// Read/write database transaction.
 ///
 /// TODO
-pub trait RwTx<'db, K, V> {
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn put(&mut self, key: &K, value: &V) -> Result<(), RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn clear(&mut self) -> Result<(), RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn delete(&mut self, key: &K) -> Result<bool, RuntimeError>;
-
+pub trait RwTx<'db> {
     /// TODO
     /// # Errors
     /// TODO
