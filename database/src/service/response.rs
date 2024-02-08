@@ -6,9 +6,9 @@
 
 //---------------------------------------------------------------------------------------------------- Response
 #[derive(Debug)]
-/// TODO: not sure if we actually need this.
-///
 /// Either a read or write response.
+///
+/// TODO: not sure if we actually need this.
 pub enum Response {
     /// TODO
     Read(ReadResponse),

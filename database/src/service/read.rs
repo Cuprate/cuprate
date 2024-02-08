@@ -136,17 +136,19 @@ impl DatabaseReader {
                 }
             };
 
-            self.request_to_db_function(request, response_send);
-        }
-    }
+            // Map [`Request`]'s to specific database functions.
+            match request {
+                ReadRequest::Example1 => self.example_handler_1(response_send),
+                ReadRequest::Example2(_x) => self.example_handler_2(response_send),
+                ReadRequest::Example3(_x) => self.example_handler_3(response_send),
+                ReadRequest::Shutdown => {
+                    /* TODO: run shutdown code */
+                    Self::shutdown(self);
 
-    #[inline]
-    /// Map [`Request`]'s to specific database functions.
-    fn request_to_db_function(&mut self, request: ReadRequest, response_send: ResponseSend) {
-        match request {
-            ReadRequest::Example1 => self.example_handler_1(response_send),
-            ReadRequest::Example2(_x) => self.example_handler_2(response_send),
-            ReadRequest::Example3(_x) => self.example_handler_3(response_send),
+                    // Return, exiting the thread.
+                    return;
+                }
+            }
         }
     }
 
@@ -166,6 +168,11 @@ impl DatabaseReader {
     fn example_handler_3(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
+    }
+
+    /// TODO
+    fn shutdown(self) {
+        todo!()
     }
 }
 

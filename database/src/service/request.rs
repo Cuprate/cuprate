@@ -6,9 +6,9 @@
 
 //---------------------------------------------------------------------------------------------------- Request
 #[derive(Debug)]
-/// TODO: not sure if we actually need this.
-///
 /// Either a read or write request.
+///
+/// TODO: not sure if we actually need this.
 pub enum Request {
     /// TODO
     Read(ReadRequest),
@@ -26,6 +26,8 @@ pub enum ReadRequest {
     Example2(usize),
     /// TODO
     Example3(String),
+    /// TODO
+    Shutdown,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -38,6 +40,8 @@ pub enum WriteRequest {
     Example2(usize),
     /// TODO
     Example3(String),
+    ///
+    Shutdown,
 }
 
 //---------------------------------------------------------------------------------------------------- IMPL
