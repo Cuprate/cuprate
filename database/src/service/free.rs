@@ -51,6 +51,31 @@ pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
     })
 }
 
+/// TODO
+///
+/// Maybe the visibility/access of this function should somehow be
+/// limited such that only certain parts of `cuprate` can actually
+/// call this function.
+///
+/// Anyone/everyone being able to shutdown the database seems dangerous.
+///
+/// Counter-argument: we can just CTRL+F to see who calls this i guess.
+pub fn shutdown() {
+    // Not sure how this function is going
+    // to work on a `&'static` database, but:
+
+    // 1. Send a shutdown message to all database threads, maybe `Request::Shutdown`
+    // 2. Wait on barrier until all threads are "ready" (all tx's are done)
+    // 3. Writer thread will flush all data to disk
+    // 4. All threads exit, 1 of them sends us back an OK
+    // 5. We don't need to reclaim ownership of `&'static ConcreteDatabase` because...
+    //   5a) a bunch of threads have a `&` to it, so this is hard (impossible?)
+    //   5b) as along as data is flushed, we can just `std::process::exit`
+    //       and there's no need to (manually) drop the actual database
+
+    todo!();
+}
+
 #[inline]
 /// Acquire a read handle to the single global database.
 ///

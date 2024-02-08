@@ -48,7 +48,7 @@ mod write;
 pub use write::DatabaseWriteHandle;
 
 mod free;
-pub use free::{db_read, db_write, init};
+pub use free::{db_read, db_write, init, shutdown};
 
 mod request;
 pub use request::{ReadRequest, Request, WriteRequest};
