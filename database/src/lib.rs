@@ -28,6 +28,10 @@
 //! The only thing about `ConcreteEnv` that should
 //! be relied upon is that it implements [`Env`].
 //!
+//! TODO: we could also expose `ConcreteDatabase` if we're
+//! going to be storing any databases in structs, to lessen
+//! the generic `<D: Database>` pain.
+//!
 //! # Terms
 //! To be more clear on some terms used in this crate:
 //!
@@ -254,6 +258,8 @@ pub use pod::Pod;
 
 mod table;
 pub use table::Table;
+
+pub mod tables;
 
 mod transaction;
 pub use transaction::{RoTx, RwTx};

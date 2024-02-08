@@ -14,6 +14,14 @@ use crate::pod::Pod;
 /// Not really an accurate name for `K/V` database but
 /// this represents the metadata of a `K/V` storing object.
 pub trait Table {
+    // TODO:
+    //
+    // Add K/V comparison `type`s that define
+    // how this table will be stored.
+    //
+    // type KeyComparator: fn(&Self::Key, &Self::Key) -> Ordering;
+    // type ValueComparator: fn(&Self::Value, &Self::Value) -> Ordering;
+
     /// Name of the database table.
     const NAME: &'static str;
 
@@ -25,8 +33,6 @@ pub trait Table {
 }
 
 // TODO: subkey support. pending on `heed` changes.
-
-//---------------------------------------------------------------------------------------------------- Trait Impl
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]

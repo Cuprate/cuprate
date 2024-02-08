@@ -18,6 +18,7 @@ service   = ["dep:tokio", "dep:tower", "dep:crossbeam"] # `tower::Service` impl.
 cuprate-helper = { path = "../helper", features = ["thread"] }
 cfg-if         = { workspace = true }
 heed           = { git = "https://github.com/Cuprate/heed", rev = "5aa75b7", optional = true }
+paste          = { workspace = true }
 thiserror      = { workspace = true }
 
 # `service` feature.
