@@ -22,6 +22,7 @@ macro_rules! impl_heed {
             impl<'a> heed::BytesEncode<'a> for $name {
                 type EItem = $t;
 
+                #[inline]
                 fn bytes_encode(item: &'a Self::EItem) -> Result<Cow<'a, [u8]>, heed::BoxedError> {
                     Ok(item.into_bytes())
                 }
@@ -31,6 +32,7 @@ macro_rules! impl_heed {
             impl<'a> heed::BytesDecode<'a> for $name {
                 type DItem = $t;
 
+                #[inline]
                 fn bytes_decode(bytes: &'a [u8]) -> Result<Self::DItem, heed::BoxedError> {
                     match Pod::from_bytes(bytes) {
                         Ok(o) => Ok(o),

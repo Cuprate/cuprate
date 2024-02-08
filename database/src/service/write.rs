@@ -47,10 +47,12 @@ impl tower::Service<WriteRequest> for DatabaseWriteHandle {
     type Error = oneshot::error::RecvError; // TODO: always unwrap on channel failure?
     type Future = ResponseRecv;
 
+    #[inline]
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         todo!()
     }
 
+    #[inline]
     fn call(&mut self, _req: WriteRequest) -> Self::Future {
         todo!()
     }
@@ -116,6 +118,7 @@ impl DatabaseWriter {
     ///
     /// The database backends themselves will hang on write transactions if
     /// there are other existing ones, so we ourselves don't need locks.
+    #[cold] #[inline(never)] // Only called once.
     pub(super) fn init(db: &'static ConcreteDatabase) -> DatabaseWriteHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
@@ -151,6 +154,7 @@ impl DatabaseWriter {
     /// The `DatabaseReader`'s main function.
     ///
     /// Each thread just loops in this function.
+    #[cold] #[inline(never)] // Only called once.
     fn main(mut self) {
         loop {
             // 1. Hang on request channel
@@ -169,6 +173,7 @@ impl DatabaseWriter {
         }
     }
 
+    #[inline]
     /// Map [`Request`]'s to specific database functions.
     fn request_to_db_function(&mut self, request: WriteRequest, response_send: ResponseSend) {
         match request {

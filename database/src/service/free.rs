@@ -15,6 +15,7 @@ use std::sync::{Arc, OnceLock};
 static DATABASE_HANDLES: OnceLock<(DatabaseReadHandle, DatabaseWriteHandle)> = OnceLock::new();
 
 //---------------------------------------------------------------------------------------------------- Init
+#[cold] #[inline(never)] // Only called once.
 /// Initialize the database thread pool, and return read/write handles to it.
 pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
     DATABASE_HANDLES.get_or_init(||{
@@ -36,11 +37,13 @@ pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
     })
 }
 
+#[inline]
 ///
 pub fn db_read() -> &'static DatabaseReadHandle {
     &init().0
 }
 
+#[inline]
 ///
 pub fn db_write() -> &'static DatabaseWriteHandle {
     &init().1

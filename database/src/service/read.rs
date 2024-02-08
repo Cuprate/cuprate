@@ -54,10 +54,12 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
     type Error = oneshot::error::RecvError; // TODO: always unwrap on channel failure?
     type Future = ResponseRecv;
 
+    #[inline]
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         todo!()
     }
 
+    #[inline]
     fn call(&mut self, _req: ReadRequest) -> Self::Future {
         todo!()
     }
@@ -92,6 +94,7 @@ impl DatabaseReader {
     /// attached to `db` and returns a handle to the pool.
     ///
     /// Should be called _once_ per actual database.
+    #[cold] #[inline(never)] // Only called once.
     pub(super) fn init(db: &'static ConcreteDatabase) -> DatabaseReadHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
@@ -119,6 +122,7 @@ impl DatabaseReader {
     /// The `DatabaseReader`'s main function.
     ///
     /// Each thread just loops in this function.
+    #[cold] #[inline(never)] // Only called once.
     fn main(mut self) {
         loop {
             // 1. Hang on request channel
@@ -137,6 +141,7 @@ impl DatabaseReader {
         }
     }
 
+    #[inline]
     /// Map [`Request`]'s to specific database functions.
     fn request_to_db_function(&mut self, request: ReadRequest, response_send: ResponseSend) {
         match request {

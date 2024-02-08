@@ -131,19 +131,23 @@ mod private {
 //---------------------------------------------------------------------------------------------------- Pod Impl (bytes)
 // Implement for owned `Vec` bytes.
 impl Pod for Vec<u8> {
+    #[inline]
     fn as_bytes(&self) -> impl AsRef<[u8]> {
         self
     }
 
+    #[inline]
     fn into_bytes(self) -> Cow<'static, [u8]> {
         Cow::Owned(self)
     }
 
+    #[inline]
     /// This function will always return [`Ok`].
     fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
         Ok(bytes.to_vec())
     }
 
+    #[inline]
     fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         // FIXME: Could be `Vec::with_capacity(likely_size)`?
         let mut vec = vec![];
@@ -153,6 +157,7 @@ impl Pod for Vec<u8> {
         Ok(vec)
     }
 
+    #[inline]
     fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
         writer.write_all(&self)?;
         Ok(self.len())
@@ -161,14 +166,17 @@ impl Pod for Vec<u8> {
 
 // Implement for any sized stack array.
 impl<const N: usize> Pod for [u8; N] {
+    #[inline]
     fn as_bytes(&self) -> impl AsRef<[u8]> {
         self
     }
 
+    #[inline]
     fn into_bytes(self) -> Cow<'static, [u8]> {
         Cow::Owned(self.to_vec())
     }
 
+    #[inline]
     fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
         // Return if the bytes are too short/long.
         let bytes_len = bytes.len();
@@ -183,12 +191,14 @@ impl<const N: usize> Pod for [u8; N] {
         Ok(array)
     }
 
+    #[inline]
     fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         let mut bytes = [0_u8; N];
         reader.read_exact(&mut bytes)?;
         Ok(bytes)
     }
 
+    #[inline]
     fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
         writer.write_all(&self)?;
         Ok(self.len())
@@ -205,25 +215,30 @@ impl<const N: usize> Pod for [u8; N] {
 // The weird constructions of `Box` below are on purpose to avoid this:
 // <https://github.com/rust-lang/rust/issues/53827>
 impl Pod for Box<[u8]> {
+    #[inline]
     fn as_bytes(&self) -> impl AsRef<[u8]> {
         self
     }
 
+    #[inline]
     fn into_bytes(self) -> Cow<'static, [u8]> {
         Cow::Owned(self.into())
     }
 
+    #[inline]
     /// This function will always return [`Ok`].
     fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
         Ok(Self::from(bytes))
     }
 
+    #[inline]
     fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         let mut bytes = vec![];
         reader.read_to_end(bytes.as_mut())?;
         Ok(bytes.into_boxed_slice())
     }
 
+    #[inline]
     fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
         writer.write_all(&self)?;
         Ok(self.len())
@@ -232,25 +247,30 @@ impl Pod for Box<[u8]> {
 
 // Implement for any Arc bytes.
 impl Pod for Arc<[u8]> {
+    #[inline]
     fn as_bytes(&self) -> impl AsRef<[u8]> {
         self
     }
 
+    #[inline]
     fn into_bytes(self) -> Cow<'static, [u8]> {
         Cow::Owned(self.to_vec())
     }
 
     /// This function will always return [`Ok`].
+    #[inline]
     fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
         Ok(Self::from(bytes))
     }
 
+    #[inline]
     fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
         let mut bytes = vec![];
         reader.read_to_end(bytes.as_mut())?;
         Ok(Self::from(bytes))
     }
 
+    #[inline]
     fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
         writer.write_all(&self)?;
         Ok(self.len())
@@ -268,14 +288,17 @@ macro_rules! impl_pod_le_bytes {
     ),* $(,)?) => {
         $(
             impl Pod for $number {
+                #[inline]
                 fn as_bytes(&self) -> impl AsRef<[u8]> {
                     $number::to_le_bytes(*self)
                 }
 
+                #[inline]
                 fn into_bytes(self) -> Cow<'static, [u8]> {
                     Cow::Owned(self.as_bytes().as_ref().to_vec())
                 }
 
+                #[inline]
                 /// This function returns [`Err`] if `bytes`'s length is not
                 #[doc = concat!(" ", stringify!($length), ".")]
                 fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
@@ -292,10 +315,12 @@ macro_rules! impl_pod_le_bytes {
                     Ok($number::from_le_bytes(array))
                 }
 
+                #[inline]
                 fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
                     writer.write(self.as_bytes().as_ref())
                 }
 
+                #[inline]
                 fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
                     let mut bytes = [0_u8; $length];
 
