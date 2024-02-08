@@ -80,6 +80,7 @@ pub(super) struct DatabaseReader {
     /// for creating this channel, the caller provides it.
     receiver: crossbeam::channel::Receiver<(ReadRequest, ResponseSend)>,
 
+    /// TODO: either `Arc` or `&'static` after `Box::leak`
     /// Access to the database.
     db: Arc<ConcreteDatabase>,
 }
@@ -87,8 +88,8 @@ pub(super) struct DatabaseReader {
 impl DatabaseReader {
     /// Initialize the `DatabaseReader` thread-pool.
     ///
-    /// This spawns `N` amount of readers attached to `db`
-    /// and returns a handle to the pool.
+    /// This spawns `N` amount of `DatabaseReader`'s
+    /// attached to `db` and returns a handle to the pool.
     ///
     /// Should be called _once_ per actual database.
     pub(super) fn init(db: &Arc<ConcreteDatabase>) -> DatabaseReadHandle {
@@ -118,7 +119,7 @@ impl DatabaseReader {
 
     /// The `DatabaseReader`'s main function.
     ///
-    /// Each thread in the reader thread-pool just loops in this function.
+    /// Each thread just loops in this function.
     fn main(mut self) {
         loop {
             // 1. Hang on request channel

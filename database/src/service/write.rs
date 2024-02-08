@@ -14,25 +14,31 @@ use std::{
 use tokio::sync::oneshot;
 
 //---------------------------------------------------------------------------------------------------- Types
-/// TODO
+/// The write response from the database writer thread.
+///
+/// This is an `Err` when the database itself errors
 type Response = Result<WriteResponse, RuntimeError>;
 
-/// TODO
+/// The `Receiver` channel that receives the write response.
 type ResponseRecv = tokio::sync::oneshot::Receiver<Response>;
 
-/// TODO
+/// The `Sender` channel for the response.
 type ResponseSend = tokio::sync::oneshot::Sender<Response>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriteHandle
-/// TODO
+/// Write handle to the database.
 ///
-/// A handle to the `DatabaseWriterPool`.
+/// This is cheaply [`Clone`]able handle that
+/// allows `async`hronously writing to the database.
 ///
-/// Crates outside `cuprate-database` will be interacting with
-/// this opaque struct to send/receive write requests/responses.
+/// Calling [`DatabaseWriteHandle::call`] with a [`WriteRequest`]
+/// will return an `async`hronous channel that can be `.await`ed upon
+/// to receive the corresponding [`WriteResponse`].
 #[derive(Clone, Debug)]
 pub struct DatabaseWriteHandle {
-    /// TODO
+    /// Sender channel to the database write thread-pool.
+    ///
+    /// We provide the response channel for the thread-pool.
     pub(super) sender: crossbeam::channel::Sender<(WriteRequest, ResponseSend)>,
 }
 
@@ -51,57 +57,65 @@ impl tower::Service<WriteRequest> for DatabaseWriteHandle {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriter
-/// TODO
+/// Database writer thread.
 ///
-/// A struct representing the thread-pool (maybe just 2 threads).
-/// that handles `tower::Service` write requests.
+/// Each reader thread is spawned with access to this struct (self).
 ///
-/// The reason this isn't a single thread is to allow a little
-/// more work to be done during the leeway in-between DB operations, e.g:
-///
-/// ```text
-///  Request1
-///     |                                      Request2
-///     v                                         |
-///  Writer1                                      v
-///     |                                      Writer2
-/// doing work                                    |
-///     |                               waiting on other writer
-/// sending response  --|                         |
-///     |               |- leeway            doing work
-///     v             --|                         |
-///    done                                       |
-///                                        sending response
-///                                               |
-///                                               v
-///                                              done
-/// ```
-///
-/// During `leeway`, `Writer1` is:
-/// - busy preparing the message
-/// - creating the response channel
-/// - sending it back to the channel
-/// - ...etc
-///
-/// During this time, it would be wasteful if `Request2`'s was
-/// just being waited on, so instead, `Writer2` handles that
-/// work while `Writer1` is in-between tasks.
-///
-/// This leeway is pretty tiny (doesn't take long to allocate a channel
-/// and send a response) so there's only 2 Writers for now (needs testing).
-///
-/// The database backends themselves will hang on write transactions if
-/// there are other existing ones, so we ourselves don't need locks.
 pub(super) struct DatabaseWriter {
-    /// TODO
+    /// Receiver side of the database request channel.
+    ///
+    /// Any caller can send some requests to this channel.
+    /// They send them alongside another `Response` channel,
+    /// which we will eventually send to.
     receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSend)>,
 
     /// TODO: either `Arc` or `&'static` after `Box::leak`
+    /// Access to the database.
     db: Arc<ConcreteDatabase>,
 }
 
 impl DatabaseWriter {
-    /// TODO
+    /// Initialize the `DatabaseWriter` thread-pool.
+    ///
+    /// This spawns `N` amount of `DatabaseWriter`'s
+    /// attached to `db` and returns a handle to the pool.
+    ///
+    /// The reason this isn't a single thread is to allow a little
+    /// more work to be done during the leeway in-between DB operations, e.g:
+    ///
+    /// ```text
+    ///  Request1
+    ///     |                                      Request2
+    ///     v                                         |
+    ///  Writer1                                      v
+    ///     |                                      Writer2
+    /// doing work                                    |
+    ///     |                               waiting on other writer
+    /// sending response  --|                         |
+    ///     |               |- leeway            doing work
+    ///     v             --|                         |
+    ///    done                                       |
+    ///                                        sending response
+    ///                                               |
+    ///                                               v
+    ///                                              done
+    /// ```
+    ///
+    /// During `leeway`, `Writer1` is:
+    /// - busy preparing the message
+    /// - creating the response channel
+    /// - sending it back to the channel
+    /// - ...etc
+    ///
+    /// During this time, it would be wasteful if `Request2`'s was
+    /// just being waited on, so instead, `Writer2` handles that
+    /// work while `Writer1` is in-between tasks.
+    ///
+    /// This leeway is pretty tiny (doesn't take long to allocate a channel
+    /// and send a response) so there's only 2 Writers for now (needs testing).
+    ///
+    /// The database backends themselves will hang on write transactions if
+    /// there are other existing ones, so we ourselves don't need locks.
     pub(super) fn init(db: &Arc<ConcreteDatabase>) -> DatabaseWriteHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
@@ -135,6 +149,9 @@ impl DatabaseWriter {
     }
 
     /// The `DatabaseWriter`'s main function.
+    /// The `DatabaseReader`'s main function.
+    ///
+    /// Each thread just loops in this function.
     fn main(mut self) {
         loop {
             // 1. Hang on request channel
