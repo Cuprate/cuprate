@@ -11,13 +11,9 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
-    env::Env,
-    error::{InitError, RuntimeError},
-    table::Table,
+    error::RuntimeError,
     transaction::{RoTx, RwTx},
 };
-
-use std::path::Path;
 
 //---------------------------------------------------------------------------------------------------- Constants
 

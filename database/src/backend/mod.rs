@@ -10,7 +10,9 @@
 //! Not sure how duplicate keys will work.
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "sanakirja")] {
+    // If both backends are enabled, fallback to `heed`.
+    // This is useful when using `--all-features`.
+    if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
         mod sanakirja;
         pub use sanakirja::ConcreteEnv;
         /// Static string of the `crate` being used as the database backend.

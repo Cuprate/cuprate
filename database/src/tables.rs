@@ -54,9 +54,9 @@ macro_rules! table {
             #[doc = concat!(
                 "assert_eq!(",
                 stringify!([<$table:camel>]),
-                "::NAME, ",
+                "::NAME, \"",
                 stringify!([<$table:snake>]),
-                ");",
+                "\");",
             )]
             /// ```
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
