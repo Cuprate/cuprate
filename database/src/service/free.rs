@@ -51,8 +51,17 @@ pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
     })
 }
 
-/// TODO
+/// Sync/flush all data, and shutdown the database thread-pool.
 ///
+/// This function **blocks**, waiting until:
+/// 1. All database transactions are complete
+/// 2. All data has been flushed to disk
+/// 3. All database threads have exited
+///
+/// The database being shutdown is the one started in [`init()`],
+/// aka, the single program global database.
+///
+/// # TODO
 /// Maybe the visibility/access of this function should somehow be
 /// limited such that only certain parts of `cuprate` can actually
 /// call this function.
