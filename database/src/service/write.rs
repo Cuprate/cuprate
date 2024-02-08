@@ -7,10 +7,7 @@ use crate::{
     ConcreteDatabase,
 };
 
-use std::{
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 use tokio::sync::oneshot;
 
 //---------------------------------------------------------------------------------------------------- Types
@@ -118,7 +115,8 @@ impl DatabaseWriter {
     ///
     /// The database backends themselves will hang on write transactions if
     /// there are other existing ones, so we ourselves don't need locks.
-    #[cold] #[inline(never)] // Only called once.
+    #[cold]
+    #[inline(never)] // Only called once.
     pub(super) fn init(db: &'static ConcreteDatabase) -> DatabaseWriteHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
@@ -154,7 +152,8 @@ impl DatabaseWriter {
     /// The `DatabaseReader`'s main function.
     ///
     /// Each thread just loops in this function.
-    #[cold] #[inline(never)] // Only called once.
+    #[cold]
+    #[inline(never)] // Only called once.
     fn main(mut self) {
         loop {
             // 1. Hang on request channel

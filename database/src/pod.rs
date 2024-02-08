@@ -34,6 +34,11 @@ use std::{
 ///
 /// It cannot be implemented outside this crate,
 /// and is only implemented on specific types.
+///
+/// # TODO
+/// This could be implemented on `bytes::Bytes` if needed.
+///
+/// Maybe under a `bytes` feature flag.
 pub trait Pod: Sized + private::Sealed {
     /// Return `self` in byte form.
     ///

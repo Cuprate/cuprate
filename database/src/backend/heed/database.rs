@@ -28,7 +28,8 @@ impl Database for ConcreteDatabase {
     type RwTx<'db> = heed::RwTxn<'db>;
 
     //------------------------------------------------ Required
-    #[cold] #[inline(never)] // called once.
+    #[cold]
+    #[inline(never)] // called once.
     /// TODO
     /// # Errors
     /// TODO
@@ -59,7 +60,8 @@ impl Database for ConcreteDatabase {
         todo!()
     }
 
-    #[cold] #[inline(never)] // called infrequently?.
+    #[cold]
+    #[inline(never)] // called infrequently?.
     /// TODO
     /// # Errors
     /// TODO

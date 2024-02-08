@@ -7,10 +7,7 @@ use crate::{
     ConcreteDatabase,
 };
 
-use std::{
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 use tokio::sync::oneshot;
 
 //---------------------------------------------------------------------------------------------------- Types
@@ -94,7 +91,8 @@ impl DatabaseReader {
     /// attached to `db` and returns a handle to the pool.
     ///
     /// Should be called _once_ per actual database.
-    #[cold] #[inline(never)] // Only called once.
+    #[cold]
+    #[inline(never)] // Only called once.
     pub(super) fn init(db: &'static ConcreteDatabase) -> DatabaseReadHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
@@ -122,7 +120,8 @@ impl DatabaseReader {
     /// The `DatabaseReader`'s main function.
     ///
     /// Each thread just loops in this function.
-    #[cold] #[inline(never)] // Only called once.
+    #[cold]
+    #[inline(never)] // Only called once.
     fn main(mut self) {
         loop {
             // 1. Hang on request channel

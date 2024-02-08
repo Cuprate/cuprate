@@ -8,17 +8,31 @@ use crate::{
     ConcreteDatabase,
 };
 
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 //---------------------------------------------------------------------------------------------------- const/static
-/// TODO
+/// Read/write handles to the single, global program database.
+///
+/// [`init()`] will initialize this [`OnceLock`], and store
+/// the initialized database's handles inside it.
+///
+/// Not accessible publically, outside crates use one of:
+/// - [`init()`]
+/// - [`db_read()`]
+/// - [`db_write()`]
 static DATABASE_HANDLES: OnceLock<(DatabaseReadHandle, DatabaseWriteHandle)> = OnceLock::new();
 
 //---------------------------------------------------------------------------------------------------- Init
-#[cold] #[inline(never)] // Only called once.
-/// Initialize the database thread pool, and return read/write handles to it.
+#[cold]
+#[inline(never)] // Only called once.
+/// Initialize the database, the thread-pool, and return a read/write handle to it.
+///
+/// This initializes a [`OnceLock`] containing the [`ConcreteDatabase`],
+/// meaning there is only 1 database per program.
+///
+/// Calling this function again will return handles to the same database.
 pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
-    DATABASE_HANDLES.get_or_init(||{
+    DATABASE_HANDLES.get_or_init(|| {
         // Initialize the database itself.
         let db: ConcreteDatabase = todo!();
         // Leak it, the database lives forever.
@@ -38,13 +52,23 @@ pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
 }
 
 #[inline]
+/// Acquire a read handle to the single global database.
 ///
+/// This returns a `static` read handle to
+/// the database initialized in [`init()`].
+///
+/// This function will initialize the database if not already initialized.
 pub fn db_read() -> &'static DatabaseReadHandle {
     &init().0
 }
 
 #[inline]
+/// Acquire a write handle to the single global database.
 ///
+/// This returns a `static` write handle to
+/// the database initialized in [`init()`].
+///
+/// This function will initialize the database if not already initialized.
 pub fn db_write() -> &'static DatabaseWriteHandle {
     &init().1
 }
