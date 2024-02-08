@@ -104,7 +104,7 @@ impl RandomXVMCache {
                     }
                 };
 
-                let hash_clone = hash.clone();
+                let hash_clone = *hash;
                 rayon_spawn_async(move || Arc::new(RandomXVM::new(&hash_clone).unwrap())).await
             };
 
@@ -118,8 +118,7 @@ impl RandomXVMCache {
                 self.vms.retain(|height, _| {
                     self.seeds
                         .iter()
-                        .find(|(cached_height, _)| height == cached_height)
-                        .is_some()
+                        .any(|(cached_height, _)| height == cached_height)
                 })
             }
         }

@@ -50,6 +50,7 @@ struct CachedOutput<'a> {
 pub struct OutputCache<'a>(HashMap<u64, BTreeMap<u64, CachedOutput<'a>>>);
 
 impl<'a> OutputCache<'a> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         OutputCache(HashMap::new())
     }
