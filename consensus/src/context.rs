@@ -27,14 +27,14 @@ use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError}
 
 pub(crate) mod difficulty;
 pub(crate) mod hardforks;
-pub(crate) mod rx_seed;
+pub(crate) mod rx_vms;
 pub(crate) mod weight;
 
 mod tokens;
 
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
-use rx_seed::RandomXVM;
+use rx_vms::RandomXVM;
 pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
@@ -136,7 +136,7 @@ where
 
     let db = database.clone();
     let rx_seed_handle = tokio::spawn(async move {
-        rx_seed::RandomXVMCache::init_from_chain_height(chain_height, db).await
+        rx_vms::RandomXVMCache::init_from_chain_height(chain_height, db).await
     });
 
     let context_svc = BlockChainContextService {
@@ -295,7 +295,7 @@ struct InternalBlockChainContext {
 
     difficulty_cache: difficulty::DifficultyCache,
     weight_cache: weight::BlockWeightsCache,
-    rx_seed_cache: rx_seed::RandomXVMCache,
+    rx_seed_cache: rx_vms::RandomXVMCache,
     hardfork_state: hardforks::HardForkState,
 
     chain_height: u64,

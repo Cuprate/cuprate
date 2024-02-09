@@ -19,11 +19,9 @@ use monero_consensus::{
     ConsensusError, HardFork,
 };
 
-use crate::context::rx_seed::RandomXVM;
-use crate::transactions::{batch_setup_txs, contextual_data, OutputCache};
 use crate::{
-    context::{BlockChainContextRequest, BlockChainContextResponse},
-    transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
+    context::{BlockChainContextRequest, BlockChainContextResponse, rx_vms::RandomXVM},
+    transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse, batch_setup_txs, contextual_data, OutputCache},
     Database, ExtendedConsensusError,
 };
 
