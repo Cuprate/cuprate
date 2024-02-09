@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
-use proptest::{prelude::*, prop_assert_eq, prop_compose, proptest};
 use proptest::collection::size_range;
+use proptest::{prelude::*, prop_assert_eq, prop_compose, proptest};
 
 use cuprate_helper::num::median;
 
