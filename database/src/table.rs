@@ -25,21 +25,23 @@ pub trait Table {
     /// Name of the database table.
     const NAME: &'static str;
 
-    /// Concrete key type.
-    #[cfg(feature = "heed")]
-    type Key: Pod;
+    cfg_if::cfg_if! {
+        if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
+            // TODO: fix this sanakirja bound.
 
-    /// Concrete key type.
-    #[cfg(feature = "sanakirja")] // TODO: fix this bound.
-    type Key: Pod + sanakirja::Storable;
+            /// Concrete key type.
+            type Key: Pod + sanakirja::Storable;
 
-    /// Concrete value type.
-    #[cfg(feature = "heed")]
-    type Value: Pod;
+            /// Concrete key type.
+            type Value: Pod + sanakirja::Storable;
+        } else {
+            /// Concrete key type.
+            type Key: Pod;
 
-    /// Concrete key type.
-    #[cfg(feature = "sanakirja")] // TODO: fix this bound.
-    type Value: Pod + sanakirja::Storable;
+            /// Concrete value type.
+            type Value: Pod;
+        }
+    }
 }
 
 // TODO: subkey support. pending on `heed` changes.
