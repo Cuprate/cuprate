@@ -26,10 +26,20 @@ pub trait Table {
     const NAME: &'static str;
 
     /// Concrete key type.
+    #[cfg(feature = "heed")]
     type Key: Pod;
 
+    /// Concrete key type.
+    #[cfg(feature = "sanakirja")] // TODO: fix this bound.
+    type Key: Pod + sanakirja::Storable;
+
     /// Concrete value type.
+    #[cfg(feature = "heed")]
     type Value: Pod;
+
+    /// Concrete key type.
+    #[cfg(feature = "sanakirja")] // TODO: fix this bound.
+    type Value: Pod + sanakirja::Storable;
 }
 
 // TODO: subkey support. pending on `heed` changes.

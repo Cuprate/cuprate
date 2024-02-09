@@ -94,11 +94,11 @@ macro_rules! tables {
 tables! {
     /// Test documentation.
     TestTable,
-    usize => u64,
+    i64 => u64,
 
     /// Test documentation 2.
     TestTable2,
-    u8 => isize,
+    u8 => i8,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
