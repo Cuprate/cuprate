@@ -1,9 +1,9 @@
 //! Version 1 ring signature verification.
 //!
 //! Some checks have to be done at deserialization or with data we don't have so we can't do them here, those checks are:
-//! https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#signatures-must-be-canonical
+//! <https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#signatures-must-be-canonical>
 //! this happens at deserialization in monero-serai.
-//! https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#amount-of-signatures-in-a-ring
+//! <https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#amount-of-signatures-in-a-ring>
 //! and this happens during ring signature verification in monero-serai.
 //!
 use monero_serai::{ring_signatures::RingSignature, transaction::Input};
@@ -16,7 +16,7 @@ use crate::try_par_iter;
 
 /// Verifies the ring signature.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html
+/// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html>
 pub fn check_input_signatures(
     inputs: &[Input],
     signatures: &[RingSignature],
@@ -25,7 +25,7 @@ pub fn check_input_signatures(
 ) -> Result<(), TransactionError> {
     match rings {
         Rings::Legacy(rings) => {
-            // https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#amount-of-ring-signatures
+            // <https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#amount-of-ring-signatures>
             // rings.len() != inputs.len() can't happen but check any way.
             if signatures.len() != inputs.len() || rings.len() != inputs.len() {
                 return Err(TransactionError::RingSignatureIncorrect);
