@@ -521,6 +521,17 @@ fn check_inputs_contextual(
     hf: &HardFork,
     spent_kis: Arc<std::sync::Mutex<HashSet<[u8; 32]>>>,
 ) -> Result<(), TransactionError> {
+    // This rule is not contained in monero-core explicitly, but it is enforced by how Monero picks ring members.
+    // When picking ring members monerod will only look in the DB at past blocks so an output has to be younger
+    // than this transaction to be used in this tx.
+    if tx_ring_members_info.youngest_used_out_height >= current_chain_height {
+        tracing::debug!(
+                "Transaction invalid: One or more ring members too young."
+            );
+        Err(TransactionError::OneOrMoreDecoysLocked)?;
+    }
+
+
     check_10_block_lock(
         tx_ring_members_info.youngest_used_out_height,
         current_chain_height,
