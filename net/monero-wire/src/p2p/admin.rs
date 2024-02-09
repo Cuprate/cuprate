@@ -84,6 +84,7 @@ epee_object!(
 );
 
 /// The status field of an okay ping response
+#[allow(clippy::declare_interior_mutable_const)] // TODO: Remove me
 pub const PING_OK_RESPONSE_STATUS_TEXT: Bytes = Bytes::from_static("OK".as_bytes());
 
 /// A Ping Response

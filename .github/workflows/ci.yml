@@ -38,6 +38,17 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            shell: msys2 {0}
+          - os: macos-latest
+            shell: bash
+          - os: ubuntu-latest
+            shell: bash
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
 
     steps:
     - name: Checkout
@@ -72,8 +83,13 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: msys2/setup-msys2@v2
       with:
+        path-type: inherit
         update: true
-        install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost
+        install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake
+
+    - name: Switch target (Windows)
+      if: matrix.os == 'windows-latest'
+      run: rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy && rustup set default-host x86_64-pc-windows-gnu && rustup default stable-x86_64-pc-windows-gnu
 
     - name: Clippy (fail on warnings)
       run: cargo clippy --workspace --all-targets --all-features -- -D warnings
