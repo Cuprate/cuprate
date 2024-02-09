@@ -19,7 +19,7 @@ const DIFFICULTY_LAG: usize = 15;
 
 /// Configuration for the difficulty cache.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DifficultyCacheConfig {
     pub(crate) window: usize,
     pub(crate) cut: usize,
@@ -52,7 +52,7 @@ impl DifficultyCacheConfig {
 
 /// This struct is able to calculate difficulties from blockchain information.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
