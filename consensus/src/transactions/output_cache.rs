@@ -7,7 +7,12 @@ use std::{
 use curve25519_dalek::{
     constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, EdwardsPoint, Scalar,
 };
-use monero_consensus::{blocks::BlockError, miner_tx::MinerTxError, ConsensusError};
+use monero_consensus::{
+    blocks::BlockError,
+    miner_tx::MinerTxError,
+    transactions::{OutputOnChain, TransactionError},
+    ConsensusError,
+};
 use monero_serai::{
     block::Block,
     transaction::{Input, Timelock},
@@ -15,10 +20,10 @@ use monero_serai::{
 };
 use tower::ServiceExt;
 
-use monero_consensus::transactions::{OutputOnChain, TransactionError};
-
-use crate::transactions::TransactionVerificationData;
-use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
+use crate::{
+    transactions::TransactionVerificationData, Database, DatabaseRequest, DatabaseResponse,
+    ExtendedConsensusError,
+};
 
 #[derive(Debug)]
 enum CachedAmount<'a> {

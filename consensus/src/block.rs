@@ -20,8 +20,11 @@ use monero_consensus::{
 };
 
 use crate::{
-    context::{BlockChainContextRequest, BlockChainContextResponse, rx_vms::RandomXVM},
-    transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse, batch_setup_txs, contextual_data, OutputCache},
+    context::{rx_vms::RandomXVM, BlockChainContextRequest, BlockChainContextResponse},
+    transactions::{
+        batch_setup_txs, contextual_data, OutputCache, TransactionVerificationData,
+        VerifyTxRequest, VerifyTxResponse,
+    },
     Database, ExtendedConsensusError,
 };
 
@@ -118,7 +121,7 @@ impl PrePreparedBlock {
 
     pub fn new_rx<R: RandomX>(
         block: PrePreparedBlockExPOW,
-        randomx_vm: &R,
+        randomx_vm: Option<&R>,
     ) -> Result<PrePreparedBlock, ConsensusError> {
         let Some(Input::Gen(height)) = block.block.miner_tx.prefix.inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
@@ -133,7 +136,7 @@ impl PrePreparedBlock {
 
             block_hash: block.block_hash,
             pow_hash: calculate_pow_hash(
-                Some(randomx_vm),
+                randomx_vm,
                 &block.block.serialize_hashable(),
                 *height,
                 &block.hf_version,
@@ -373,7 +376,7 @@ where
                 let height = block.height;
                 let block = PrePreparedBlock::new_rx(
                     block,
-                    rx_vms.get(&randomx_seed_height(height)).unwrap().as_ref(),
+                    rx_vms.get(&randomx_seed_height(height)).map(AsRef::as_ref),
                 )?;
 
                 check_block_pow(&block.pow_hash, difficultly)?;

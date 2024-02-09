@@ -120,6 +120,11 @@ where
     };
 
     let db = database.clone();
+    let hardfork_state_handle = tokio::spawn(async move {
+        hardforks::HardForkState::init_from_chain_height(chain_height, hard_fork_cfg, db).await
+    });
+
+    let db = database.clone();
     let difficulty_cache_handle = tokio::spawn(async move {
         difficulty::DifficultyCache::init_from_chain_height(chain_height, difficulty_cfg, db).await
     });
@@ -129,14 +134,12 @@ where
         weight::BlockWeightsCache::init_from_chain_height(chain_height, weights_config, db).await
     });
 
-    let db = database.clone();
-    let hardfork_state_handle = tokio::spawn(async move {
-        hardforks::HardForkState::init_from_chain_height(chain_height, hard_fork_cfg, db).await
-    });
+    let hardfork_state = hardfork_state_handle.await.unwrap()?;
+    let current_hf = hardfork_state.current_hardfork();
 
     let db = database.clone();
     let rx_seed_handle = tokio::spawn(async move {
-        rx_vms::RandomXVMCache::init_from_chain_height(chain_height, db).await
+        rx_vms::RandomXVMCache::init_from_chain_height(chain_height, &current_hf, db).await
     });
 
     let context_svc = BlockChainContextService {
@@ -147,7 +150,7 @@ where
                 difficulty_cache: difficulty_cache_handle.await.unwrap()?,
                 weight_cache: weight_cache_handle.await.unwrap()?,
                 rx_seed_cache: rx_seed_handle.await.unwrap()?,
-                hardfork_state: hardfork_state_handle.await.unwrap()?,
+                hardfork_state,
                 chain_height,
                 already_generated_coins,
                 top_block_hash,
@@ -416,7 +419,13 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
 
                     hardfork_state.new_block(new.vote, new.height);
 
-                    rx_seed_cache.new_block(new.height, &new.new_top_hash).await;
+                    rx_seed_cache
+                        .new_block(
+                            new.height,
+                            &new.new_top_hash,
+                            &hardfork_state.current_hardfork(),
+                        )
+                        .await;
 
                     *chain_height = new.height + 1;
                     *top_block_hash = new.new_top_hash;

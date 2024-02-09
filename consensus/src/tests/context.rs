@@ -14,6 +14,7 @@ use crate::{
 pub(crate) mod data;
 mod difficulty;
 mod hardforks;
+mod rx_vms;
 mod weight;
 
 use difficulty::*;

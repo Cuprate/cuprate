@@ -525,12 +525,9 @@ fn check_inputs_contextual(
     // When picking ring members monerod will only look in the DB at past blocks so an output has to be younger
     // than this transaction to be used in this tx.
     if tx_ring_members_info.youngest_used_out_height >= current_chain_height {
-        tracing::debug!(
-                "Transaction invalid: One or more ring members too young."
-            );
+        tracing::debug!("Transaction invalid: One or more ring members too young.");
         Err(TransactionError::OneOrMoreDecoysLocked)?;
     }
-
 
     check_10_block_lock(
         tx_ring_members_info.youngest_used_out_height,

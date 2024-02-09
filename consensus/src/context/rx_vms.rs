@@ -10,7 +10,10 @@ use thread_local::ThreadLocal;
 use tower::ServiceExt;
 
 use cuprate_helper::asynch::rayon_spawn_async;
-use monero_consensus::blocks::{is_randomx_seed_height, RandomX, RX_SEEDHASH_EPOCH_BLOCKS};
+use monero_consensus::{
+    blocks::{is_randomx_seed_height, RandomX, RX_SEEDHASH_EPOCH_BLOCKS},
+    HardFork,
+};
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 
@@ -50,15 +53,16 @@ impl RandomX for RandomXVM {
 
 #[derive(Clone, Debug)]
 pub struct RandomXVMCache {
-    seeds: VecDeque<(u64, [u8; 32])>,
-    vms: HashMap<u64, Arc<RandomXVM>>,
+    pub(crate) seeds: VecDeque<(u64, [u8; 32])>,
+    pub(crate) vms: HashMap<u64, Arc<RandomXVM>>,
 
-    cached_vm: Option<([u8; 32], Arc<RandomXVM>)>,
+    pub(crate) cached_vm: Option<([u8; 32], Arc<RandomXVM>)>,
 }
 
 impl RandomXVMCache {
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
+        hf: &HardFork,
         database: D,
     ) -> Result<Self, ExtendedConsensusError> {
         let seed_heights = get_last_rx_seed_heights(chain_height - 1, RX_SEEDS_CACHED);
@@ -66,19 +70,23 @@ impl RandomXVMCache {
 
         let seeds: VecDeque<(u64, [u8; 32])> = seed_heights.into_iter().zip(seed_hashes).collect();
 
-        let seeds_clone = seeds.clone();
-        let vms = rayon_spawn_async(move || {
-            seeds_clone
-                .par_iter()
-                .map(|(height, seed)| {
-                    (
-                        *height,
-                        Arc::new(RandomXVM::new(seed).expect("Failed to create RandomX VM!")),
-                    )
-                })
-                .collect()
-        })
-        .await;
+        let vms = if hf >= &HardFork::V12 {
+            let seeds_clone = seeds.clone();
+            rayon_spawn_async(move || {
+                seeds_clone
+                    .par_iter()
+                    .map(|(height, seed)| {
+                        (
+                            *height,
+                            Arc::new(RandomXVM::new(seed).expect("Failed to create RandomX VM!")),
+                        )
+                    })
+                    .collect()
+            })
+            .await
+        } else {
+            HashMap::new()
+        };
 
         Ok(RandomXVMCache {
             seeds,
@@ -95,8 +103,27 @@ impl RandomXVMCache {
         self.vms.clone()
     }
 
-    pub async fn new_block(&mut self, height: u64, hash: &[u8; 32]) {
-        if is_randomx_seed_height(height) {
+    pub async fn new_block(&mut self, height: u64, hash: &[u8; 32], hf: &HardFork) {
+        if hf >= &HardFork::V12 && is_randomx_seed_height(height) {
+            if self.vms.len() != self.seeds.len() {
+                // this will only happen when syncing and rx activates.
+                let seeds_clone = self.seeds.clone();
+                self.vms = rayon_spawn_async(move || {
+                    seeds_clone
+                        .par_iter()
+                        .map(|(height, seed)| {
+                            (
+                                *height,
+                                Arc::new(
+                                    RandomXVM::new(seed).expect("Failed to create RandomX VM!"),
+                                ),
+                            )
+                        })
+                        .collect()
+                })
+                .await
+            }
+
             let new_vm = 'new_vm_block: {
                 if let Some((cached_hash, cached_vm)) = self.cached_vm.take() {
                     if &cached_hash == hash {
@@ -125,7 +152,7 @@ impl RandomXVMCache {
     }
 }
 
-fn get_last_rx_seed_heights(mut last_height: u64, mut amount: usize) -> Vec<u64> {
+pub(crate) fn get_last_rx_seed_heights(mut last_height: u64, mut amount: usize) -> Vec<u64> {
     let mut seeds = Vec::with_capacity(amount);
     if is_randomx_seed_height(last_height) {
         seeds.push(last_height);
