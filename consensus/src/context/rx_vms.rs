@@ -104,40 +104,41 @@ impl RandomXVMCache {
     }
 
     pub async fn new_block(&mut self, height: u64, hash: &[u8; 32], hf: &HardFork) {
-        if hf >= &HardFork::V12 && is_randomx_seed_height(height) {
-            if self.vms.len() != self.seeds.len() {
-                // this will only happen when syncing and rx activates.
-                let seeds_clone = self.seeds.clone();
-                self.vms = rayon_spawn_async(move || {
-                    seeds_clone
-                        .par_iter()
-                        .map(|(height, seed)| {
-                            (
-                                *height,
-                                Arc::new(
-                                    RandomXVM::new(seed).expect("Failed to create RandomX VM!"),
-                                ),
-                            )
-                        })
-                        .collect()
-                })
-                .await
-            }
+        let should_make_vms = hf >= &HardFork::V12;
+        if should_make_vms && self.vms.len() != self.seeds.len() {
+            // this will only happen when syncing and rx activates.
+            let seeds_clone = self.seeds.clone();
+            self.vms = rayon_spawn_async(move || {
+                seeds_clone
+                    .par_iter()
+                    .map(|(height, seed)| {
+                        (
+                            *height,
+                            Arc::new(RandomXVM::new(seed).expect("Failed to create RandomX VM!")),
+                        )
+                    })
+                    .collect()
+            })
+            .await
+        }
 
-            let new_vm = 'new_vm_block: {
-                if let Some((cached_hash, cached_vm)) = self.cached_vm.take() {
-                    if &cached_hash == hash {
-                        break 'new_vm_block cached_vm;
-                    }
+        if is_randomx_seed_height(height) {
+            self.seeds.push_front((height, *hash));
+
+            if should_make_vms {
+                let new_vm = 'new_vm_block: {
+                    if let Some((cached_hash, cached_vm)) = self.cached_vm.take() {
+                        if &cached_hash == hash {
+                            break 'new_vm_block cached_vm;
+                        }
+                    };
+
+                    let hash_clone = *hash;
+                    rayon_spawn_async(move || Arc::new(RandomXVM::new(&hash_clone).unwrap())).await
                 };
 
-                let hash_clone = *hash;
-                rayon_spawn_async(move || Arc::new(RandomXVM::new(&hash_clone).unwrap())).await
-            };
-
-            self.vms.insert(height, new_vm);
-
-            self.seeds.push_front((height, *hash));
+                self.vms.insert(height, new_vm);
+            }
 
             if self.seeds.len() > RX_SEEDS_CACHED {
                 self.seeds.pop_back();

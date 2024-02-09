@@ -38,8 +38,21 @@ fn rx_heights_consistent() {
     }
 }
 
+#[tokio::test]
+async fn rx_vm_created_on_hf_12() {
+    let db = DummyDatabaseBuilder::default().finish(Some(10));
+
+    let mut cache = RandomXVMCache::init_from_chain_height(10, &HardFork::V11, db)
+        .await
+        .unwrap();
+
+    assert!(cache.vms.is_empty());
+    cache.new_block(11, &[30; 32], &HardFork::V12).await;
+    assert!(!cache.vms.is_empty());
+}
+
 proptest! {
-    // This test is expensive, so limit cases.
+    // these tests are expensive, so limit cases.
     #![proptest_config(ProptestConfig {
         cases: 3, .. ProptestConfig::default()
     })]
