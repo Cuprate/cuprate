@@ -13,9 +13,10 @@ use crate::table::Table;
     derive(borsh::BorshSerialize, borsh::BorshDeserialize)
 )]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[allow(missing_docs)]
 pub enum Tables {
-    /// TODO
     TestTable(TestTable),
+    TestTable2(TestTable2),
 }
 
 impl Tables {
@@ -28,29 +29,37 @@ impl Tables {
 
         match self {
             Self::TestTable(t) => get(t),
+            Self::TestTable2(t) => get(t),
         }
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Table macro
-/// Create a zero-sized table struct, and implement the `Table` trait on it.
+/// Create all tables, should be used _once_.
 ///
-/// Table struct are automatically `CamelCase`,
+/// Generating this macro once and using `$()*` is probably
+/// faster for compile times than calling the macro _per_ table.
+///
+/// All tables are zero-sized table structs, and implement the `Table` trait.
+///
+/// Table structs are automatically `CamelCase`,
 /// and their static string names are automatically `snake_case`.
-macro_rules! table {
+macro_rules! tables {
     (
-        $(#[$attr:meta])*  // Documentation and any `derive`'s.
-        $table:ident,      // The table name + doubles as the table struct name.
-        $key:ty,           // Key type.
-        $value:ty,         // Value type.
+        $(
+            $(#[$attr:meta])* // Documentation and any `derive`'s.
+            $table:ident,     // The table name + doubles as the table struct name.
+            $key:ty =>        // Key type.
+            $value:ty         // Value type.
+        ),* $(,)?
     ) => {
-        paste::paste! {
+        paste::paste! { $(
             // Table struct.
             $(#[$attr])*
             // The below test show the `snake_case` table name in cargo docs.
             /// ## Table Name
             /// ```rust
-            /// # use cuprate_database::tables::*;
+            /// # use cuprate_database::{*,tables::*};
             #[doc = concat!(
                 "assert_eq!(",
                 stringify!([<$table:camel>]),
@@ -77,27 +86,19 @@ macro_rules! table {
                     Self::[<$table:camel>](table)
                 }
             }
-        }
+        )* }
     };
 }
 
 //---------------------------------------------------------------------------------------------------- Tables
-// This should create:
-// ```rust
-// /// Test documentation.
-// pub struct TestTable;
-//
-// impl Table for TestTable {
-//     const NAME = testtable;
-//     type Key = usize;
-//     type Value = String;
-// }
-// ```
-table! {
+tables! {
     /// Test documentation.
     TestTable,
-    usize,
-    u64,
+    usize => u64,
+
+    /// Test documentation 2.
+    TestTable2,
+    u8 => isize,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

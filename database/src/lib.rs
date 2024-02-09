@@ -73,7 +73,6 @@
 	coherence_leak_check,
 	single_use_lifetimes,
 	while_true,
-	missing_docs,
 	clippy::missing_docs_in_private_items,
 
 	// Maybe can be put into `#[deny]`.
@@ -111,6 +110,7 @@
     clippy::pedantic,
     clippy::nursery,
     clippy::cargo,
+    missing_docs,
     deprecated,
     unused_comparisons,
     nonstandard_style
