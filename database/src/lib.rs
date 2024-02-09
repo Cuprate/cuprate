@@ -1,38 +1,11 @@
 //! Database abstraction and utilities.
 //!
 //! This crate does 3 things:
-//! 1. Abstract various databases as the [`Database`] trait
-//! 2. Implements various `Monero` related functions/tables
-//! 3. Exposes a [`tower::Service`] + thread-pool
+//! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`RoTx`], and [`RwTx`] trait
+//! 2. Implements various `Monero` related tables & functions
+//! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
-//! # `ConcreteEnv`
-//! This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic,
-//! concrete object representing a database [`Env`]ironment.
-//!
-//! The actual backend for this type is determined via feature flags.
-//!
-//! While this means `E: Env` doesn't need to be spread all through the codebase,
-//! it also means some very small things should be kept in mind.
-//!
-//! As `ConcreteEnv` is just a re-exposed type which has varying inner types,
-//! it means somes properties will change depending on the backend used.
-//!
-//! For example:
-//! - `std::mem::size_of::<ConcreteEnv>`
-//! - `std::mem::align_of::<ConcreteEnv>`
-//! - `ConcreteEnv::drop`
-//!
-//! Things like these functions are affected by the backend and inner data,
-//! and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteEnv`.
-//!
-//! The only thing about `ConcreteEnv` that should
-//! be relied upon is that it implements [`Env`].
-//!
-//! TODO: we could also expose `ConcreteDatabase` if we're
-//! going to be storing any databases in structs, to lessen
-//! the generic `<D: Database>` pain.
-//!
-//! # Terms
+//! # Terminology
 //! To be more clear on some terms used in this crate:
 //!
 //! | Term       | Meaning                              |
@@ -49,13 +22,40 @@
 //! 1. You have a database `Environment`
 //! 2. You open up a `Transaction`
 //! 2. You get a particular `Database` from that `Environment`
-//! 3. You can now read/write data to/from that `Database`
+//! 3. You can now read/write data from/to that `Database`
+//!
+//! # `ConcreteEnv`
+//! This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic,
+//! concrete object representing a database [`Env`]ironment.
+//!
+//! The actual backend for this type is determined via feature flags.
+//!
+//! This object existing means `E: Env` doesn't need to be spread all through the codebase,
+//! however, it also means some small invariants should be kept in mind.
+//!
+//! As `ConcreteEnv` is just a re-exposed type which has varying inner types,
+//! it means somes properties will change depending on the backend used.
+//!
+//! For example:
+//! - [`std::mem::size_of::<ConcreteEnv>`]
+//! - [`std::mem::align_of::<ConcreteEnv>`]
+//! - [`Drop::<ConcreteEnv>::drop`]
+//!
+//! Things like these functions are affected by the backend and inner data,
+//! and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteEnv`.
+//!
+//! The only thing about `ConcreteEnv` that should
+//! be relied upon is that it implements [`Env`].
+//!
+//! TODO: we could also expose `ConcreteDatabase` if we're
+//! going to be storing any databases in structs, to lessen
+//! the generic `<D: Database>` pain.
 //!
 //! # Feature flags
 //! The `service` module requires the `service` feature to be enabled.
 //! See the module for more documentation.
 //!
-//! Different database backends are enabled by feature flags:
+//! Different database backends are enabled by the feature flags:
 //! - `heed`
 //! - `sanakirja`
 //!
