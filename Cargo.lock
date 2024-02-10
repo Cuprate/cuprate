@@ -370,6 +370,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1137cd7e7fc0fb5d3c5a8678be38ec56e819125d8d7907411fe24ccb943faca8"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.8.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -466,6 +475,7 @@ name = "cuprate-helper"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "crossbeam",
  "futures",
  "libc",
  "rayon",
