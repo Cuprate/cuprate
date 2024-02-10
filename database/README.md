@@ -97,17 +97,17 @@ Each backend has its own folder.
 ### `src/backend/heed/`
 | File/Folder      | Purpose |
 |------------------|---------|
-| `database.rs`    | TODO
-| `env.rs`         | TODO
-| `serde.rs`       | TODO
-| `transaction.rs` | TODO
+| `database.rs`    | Implementation of `trait Database`
+| `env.rs`         | Implementation of `trait Env`
+| `serde.rs`       | Data (de)serialization implementations
+| `transaction.rs` | Implementation of `trait RoTx/RwTx`
 
 ### `src/backend/sanakirja/`
 | File/Folder      | Purpose |
 |------------------|---------|
-| `database.rs`    | TODO
-| `env.rs`         | TODO
-| `transaction.rs` | TODO
+| `database.rs`    | Implementation of `trait Database`
+| `env.rs`         | Implementation of `trait Env`
+| `transaction.rs` | Implementation of `trait RoTx/RwTx`
 
 # Backends
 `cuprate-database`'s `trait`s abstract over various actual databases.
