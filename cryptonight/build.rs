@@ -19,6 +19,7 @@ fn main() {
         .file("c/keccak.c")
         .file("c/oaes_lib.c")
         .file("c/skein.c")
+        .file("c/memwipe.c")
         .file("c/slow-hash.c")
         .file("c/CryptonightR_JIT.c")
         .flag_if_supported("-fexceptions")
