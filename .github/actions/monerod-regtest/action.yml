@@ -68,7 +68,7 @@ runs:
       run: |
         if [[ ${{ runner.os }} == Windows ]]; then
           # `--detach` doesn't exist on Windows...?
-          cmd.exe start /B msys2 ./monerod.exe --regtest --fixed-difficulty=1 --out-peers 0
+          cmd.exe start /B /I msys2 ./monerod.exe --regtest --fixed-difficulty=1 --out-peers 0
         else
           ./monerod --regtest --fixed-difficulty=1 --detach --out-peers 0
         fi
