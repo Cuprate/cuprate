@@ -56,7 +56,7 @@ pub fn is_randomx_seed_height(height: u64) -> bool {
 
 /// Returns the RandomX seed height for this block.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#randomx-seed
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#randomx-seed>
 pub fn randomx_seed_height(height: u64) -> u64 {
     if height <= RX_SEEDHASH_EPOCH_BLOCKS + RX_SEEDHASH_EPOCH_LAG {
         0
@@ -69,7 +69,7 @@ pub fn randomx_seed_height(height: u64) -> u64 {
 ///
 /// `randomx_vm` must be [`Some`] after hf 12.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#pow-function
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#pow-function>
 pub fn calculate_pow_hash<R: RandomX>(
     randomx_vm: Option<&R>,
     buf: &[u8],
@@ -98,7 +98,7 @@ pub fn calculate_pow_hash<R: RandomX>(
 
 /// Returns if the blocks POW hash is valid for the current difficulty.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#checking-pow-hash
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#checking-pow-hash>
 pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> Result<(), BlockError> {
     let int_hash = U256::from_le_slice(hash);
 
@@ -118,7 +118,7 @@ pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> Result<(), BlockErr
 
 /// Returns the penalty free zone
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#penalty-free-zone
+/// <https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#penalty-free-zone>
 pub fn penalty_free_zone(hf: &HardFork) -> usize {
     if hf == &HardFork::V1 {
         PENALTY_FREE_ZONE_1
@@ -131,7 +131,7 @@ pub fn penalty_free_zone(hf: &HardFork) -> usize {
 
 /// Sanity check on the block blob size.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size>
 fn block_size_sanity_check(
     block_blob_len: usize,
     effective_median: usize,
@@ -145,7 +145,7 @@ fn block_size_sanity_check(
 
 /// Sanity check on the block weight.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size>
 fn check_block_weight(
     block_weight: usize,
     median_for_block_reward: usize,
@@ -159,7 +159,7 @@ fn check_block_weight(
 
 /// Sanity check on number of txs in the block.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#amount-of-transactions
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#amount-of-transactions>
 fn check_amount_txs(number_none_miner_txs: usize) -> Result<(), BlockError> {
     if number_none_miner_txs + 1 > 0x10000000 {
         Err(BlockError::TooManyTxs)
@@ -170,7 +170,7 @@ fn check_amount_txs(number_none_miner_txs: usize) -> Result<(), BlockError> {
 
 /// Verifies the previous id is the last blocks hash
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#previous-id
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#previous-id>
 fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
     if &block.header.previous != top_hash {
         Err(BlockError::PreviousIDIncorrect)
@@ -181,7 +181,7 @@ fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
 
 /// Checks the blocks timestamp is in the valid range.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#timestamp
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#timestamp>
 fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockError> {
     if block.header.timestamp < median_timestamp
         || block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT
@@ -194,7 +194,7 @@ fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockErro
 
 /// Checks that all txs in the block have a unique hash.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks.html#no-duplicate-transactions
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#no-duplicate-transactions>
 fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
     txs.windows(2).try_for_each(|window| {
         if window[0] == window[1] {
@@ -208,9 +208,9 @@ fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
 /// the data in this struct is calculated correctly.
 #[derive(Debug, Clone)]
 pub struct ContextToVerifyBlock {
-    /// ref: https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#median-weight-for-coinbase-checks
+    /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#median-weight-for-coinbase-checks>
     pub median_weight_for_block_reward: usize,
-    /// ref: https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#effective-median-weight
+    /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#effective-median-weight>
     pub effective_median_weight: usize,
     /// The top hash of the blockchain, aka the block hash of the previous block to the one we are verifying.
     pub top_hash: [u8; 32],
@@ -220,7 +220,7 @@ pub struct ContextToVerifyBlock {
     pub chain_height: u64,
     /// The current hard-fork.
     pub current_hf: HardFork,
-    /// ref: https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#calculating-difficulty
+    /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#calculating-difficulty>
     pub next_difficulty: u128,
     /// The amount of coins already minted.
     pub already_generated_coins: u64,
@@ -234,8 +234,8 @@ pub struct ContextToVerifyBlock {
 ///
 /// Missed block checks in this function:
 ///
-/// https://monero-book.cuprate.org/consensus_rules/blocks.html#key-images
-/// https://monero-book.cuprate.org/consensus_rules/blocks.html#checking-pow-hash
+/// <https://monero-book.cuprate.org/consensus_rules/blocks.html#key-images>
+/// <https://monero-book.cuprate.org/consensus_rules/blocks.html#checking-pow-hash>
 ///
 ///
 pub fn check_block(
