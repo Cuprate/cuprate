@@ -63,12 +63,13 @@ runs:
           mv */monerod monerod
         fi
 
-    - name: Monero Regtest Daemon
+    - name: Monero Regtest Daemon (Linux & macOS)
+      if: runner.os != 'Windows'
       shell: bash
-      run: |
-        if [[ ${{ runner.os }} == Windows ]]; then
-          # `--detach` doesn't exist on Windows...?
-          cmd.exe start /B ./monerod.exe --regtest --fixed-difficulty=1 --out-peers 0
-        else
-          ./monerod --regtest --fixed-difficulty=1 --detach --out-peers 0
-        fi
+      run: ./monerod --regtest --fixed-difficulty=1 --detach --out-peers 0
+
+    - name: Monero Regtest Daemon (Windows)
+      if: runner.os != 'Windows'
+      shell: msys2 {0}
+      run: ./monerod.exe --regtest --fixed-difficulty=1 --detach --out-peers 0
+      
