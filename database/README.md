@@ -66,7 +66,7 @@ The top-level `src/` files.
 | `database.rs`    | Abstracted database; `trait Database`
 | `env.rs`         | Abstracted database environment; `trait Env`
 | `error.rs`       | Database error types
-| `free.rs`        | Free functions (related to the database)
+| `free.rs`        | General free functions (related to the database)
 | `macros.rs`      | General macros used throughout `cuprate-database`
 | `pod.rs`         | Data (de)serialization; `trait Pod`
 | `table.rs`       | Database table abstraction; `trait Table`
@@ -78,11 +78,11 @@ This folder contains the `cupate_database::service` module.
 
 | File/Folder    | Purpose |
 |----------------|---------|
-| `free.rs`      | TODO
-| `read.rs`      | TODO
-| `request.rs`   | TODO
-| `response.rs`  | TODO
-| `write.rs`     | TODO
+| `free.rs`      | General free functions used (related to `cuprate_database::service`)
+| `read.rs`      | Read thread-pool definitions and logic
+| `request.rs`   | Read/write `Request`s to the database
+| `response.rs`  | Read/write `Response`'s from the database
+| `write.rs`     | Write thread-pool definitions and logic
 
 ## `src/backend/`
 This folder contains the actual database crates used as the backend for `cuprate-database`.
