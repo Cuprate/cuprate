@@ -69,7 +69,7 @@ runs:
       run: ./monerod --regtest --fixed-difficulty=1 --detach --out-peers 0
 
     - name: Monero Regtest Daemon (Windows)
-      if: runner.os != 'Windows'
+      if: runner.os == 'Windows'
       shell: msys2 {0}
       run: ./monerod.exe --regtest --fixed-difficulty=1 --detach --out-peers 0
       
