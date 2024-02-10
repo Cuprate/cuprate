@@ -65,9 +65,6 @@ jobs:
           ~/.rustup
         key: ${{ matrix.os }}
 
-    - name: Spawn monerod
-      uses: ./.github/actions/monerod-regtest
-
     # Packages other than `Boost` used by `Monero` are listed here.
     # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
 
@@ -86,6 +83,9 @@ jobs:
         path-type: inherit
         update: true
         install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+
+    - name: Spawn monerod
+      uses: ./.github/actions/monerod-regtest
 
     - name: Switch target (Windows)
       if: matrix.os == 'windows-latest'
