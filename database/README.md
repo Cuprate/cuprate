@@ -62,17 +62,16 @@ The top-level `src/` files.
 
 | File/Folder      | Purpose |
 |------------------|---------|
-| `constants.rs`   | TODO
-| `database.rs`    | TODO
-| `env.rs`         | TODO
-| `error.rs`       | TODO
-| `free.rs`        | TODO
-| `lib.rs`         | TODO
-| `macros.rs`      | TODO
-| `pod.rs`         | TODO
-| `table.rs`       | TODO
-| `tables.rs`      | TODO
-| `transaction.rs` | TODO
+| `constants.rs`   | General constants used throughout `cuprate-database`
+| `database.rs`    | Abstracted database; `trait Database`
+| `env.rs`         | Abstracted database environment; `trait Env`
+| `error.rs`       | Database error types
+| `free.rs`        | Free functions (related to the database)
+| `macros.rs`      | General macros used throughout `cuprate-database`
+| `pod.rs`         | Data (de)serialization; `trait Pod`
+| `table.rs`       | Database table abstraction; `trait Table`
+| `tables.rs`      | All the table definitions used by `cuprate-database`
+| `transaction.rs` | Database transaction abstraction; `trait RoTx`, `trait RwTx`
 
 ## `src/service/`
 This folder contains the `cupate_database::service` module.
