@@ -15,12 +15,8 @@ cfg_if::cfg_if! {
     if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
         mod sanakirja;
         pub use sanakirja::ConcreteEnv;
-        /// Static string of the `crate` being used as the database backend.
-        pub const BACKEND: &str = "sanakirja";
     } else {
         mod heed;
         pub use heed::ConcreteEnv;
-        /// Static string of the `crate` being used as the database backend.
-        pub const BACKEND: &str = "heed";
     }
 }
