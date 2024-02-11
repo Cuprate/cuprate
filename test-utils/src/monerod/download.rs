@@ -87,8 +87,3 @@ pub async fn check_download_monerod() -> Result<PathBuf, ReqError> {
 
     Ok(path_to_monerod.join("monerod"))
 }
-
-#[tokio::test]
-async fn tt() {
-    check_download_monerod().await.unwrap();
-}
