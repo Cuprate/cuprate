@@ -26,9 +26,9 @@ fn file_name(version: &str) -> (String, String) {
 
     let extracted_dir = match (OS, ARCH) {
         ("windows", "x64") | ("windows", "x86_64") => {
-            format!("monero-x86_64-w64-mingw32-{}.zip", version)
+            format!("monero-x86_64-w64-mingw32-{}", version)
         }
-        ("windows", "x86") => format!("monero-i686-w64-mingw32-{}.zip", version),
+        ("windows", "x86") => format!("monero-i686-w64-mingw32-{}", version),
         ("linux", "x64") | ("linux", "x86_64") => format!("monero-x86_64-linux-gnu-{}", version),
         ("linux", "x86") => format!("monero-i686-linux-gnu-{}", version),
         ("macos", "x64") | ("macos", "x86_64") => {
