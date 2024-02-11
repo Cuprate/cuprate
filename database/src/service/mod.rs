@@ -58,3 +58,6 @@ pub use request::{ReadRequest, Request, WriteRequest};
 
 mod response;
 pub use response::{ReadResponse, Response, WriteResponse};
+
+#[cfg(test)]
+mod tests;
