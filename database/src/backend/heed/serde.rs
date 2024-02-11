@@ -1,4 +1,4 @@
-//! TODO
+//! (De)serialization trait implementations for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::pod::Pod;

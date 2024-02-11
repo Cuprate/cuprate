@@ -1,4 +1,4 @@
-//! `sanakirja` backend implementation.
+//! Database backend implemention backed by `sanakirja`.
 
 mod env;
 pub use env::ConcreteEnv;

@@ -1,4 +1,4 @@
-//! TODO
+//! Database read thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{

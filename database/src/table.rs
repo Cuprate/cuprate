@@ -1,4 +1,4 @@
-//! TODO
+//! Database table abstraction; `trait Table`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::pod::Pod;

@@ -1,4 +1,4 @@
-//! TODO
+//! Implementation of `trait Env` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{database::Database, env::Env, error::RuntimeError, table::Table};

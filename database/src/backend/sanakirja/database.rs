@@ -1,4 +1,4 @@
-//! TODO
+//! Implementation of `trait Database` for `sanakirja`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{database::Database, error::RuntimeError, table::Table};

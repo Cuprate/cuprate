@@ -1,13 +1,4 @@
-//! Concrete transaction types.
-//!
-//! These transactions are a combination of typical
-//! "transaction" objects alongside an actual `K/V` table.
-//!
-//! This is done so callers don't need to
-//! juggle around tables/transactions, they just:
-//!
-//! 1. Get a K/V table from the `Database` (1 single database)
-//! 2. Do whatever they need to do (`get()`, `put()`, etc)
+//! Implementation of `trait RoTx/RwTx` for `sanakirja`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{

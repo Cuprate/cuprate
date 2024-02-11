@@ -1,4 +1,4 @@
-//! TODO
+//! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{database::Database, error::RuntimeError, table::Table};

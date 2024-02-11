@@ -1,4 +1,4 @@
-//! TODO
+//! Database transaction abstraction; `trait RoTx`, `trait RwTx`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::error::RuntimeError;

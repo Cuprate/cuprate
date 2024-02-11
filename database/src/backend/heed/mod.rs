@@ -1,4 +1,4 @@
-//! `heed` backend implementation.
+//! Database backend implemention backed by `heed`.
 
 mod env;
 pub use env::ConcreteEnv;

@@ -1,4 +1,4 @@
-//! TODO
+//! General free functions used (related to `cuprate_database::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{

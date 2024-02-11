@@ -1,3 +1,4 @@
+//! Database error types.
 //! TODO: `InitError/RuntimeError` are maybe bad names.
 
 //---------------------------------------------------------------------------------------------------- Import

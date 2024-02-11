@@ -1,4 +1,6 @@
 //! Database tables.
+//!
+//! This module contains all the table definitions used by `cuprate-database`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::table::Table;

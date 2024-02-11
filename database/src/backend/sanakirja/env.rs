@@ -1,4 +1,4 @@
-//! TODO
+//! Implementation of `trait Env` for `sanakirja`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{database::Database, env::Env, error::RuntimeError, table::Table};

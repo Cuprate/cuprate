@@ -1,4 +1,4 @@
-//! TODO
+//! Abstracted database; `trait Database`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{error::RuntimeError, table::Table};
