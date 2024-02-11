@@ -62,7 +62,7 @@ impl_thread_percent! {
 ///
 /// Sets the calling thread’s priority to the lowest platform-specific value possible.
 ///
-/// https://docs.rs/lpt
+/// Originally from <https://docs.rs/lpt>.
 ///
 /// # Windows
 /// Uses SetThreadPriority() with THREAD_PRIORITY_IDLE (-15).

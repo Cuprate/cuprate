@@ -41,6 +41,7 @@ bytes                 = { version = "1.5.0", default-features = false }
 clap                  = { version = "4.4.7", default-features = false }
 chrono                = { version = "0.4.31", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
+crossbeam             = { version = "0.8.4", default-features = false }
 curve25519-dalek      = { version = "4.1.1", default-features = false }
 dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "f3429ec1ef386da1458f4ed244402f38e3e12930", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
@@ -74,7 +75,6 @@ proptest-derive       = { version = "0.4.0" }
 ## TODO:
 ## Potential dependencies.
 # arc-swap  = { version = "1.6.0" }  # Atomically swappable Arc<T>          | https://github.com/vorner/arc-swap
-# crossbeam = { version = "0.8.2" }  # Channels, concurrent primitives      | https://github.com/crossbeam-rs/crossbeam
 # itoa      = { version = "1.0.9" }  # Fast integer to string formatting    | https://github.com/dtolnay/itoa
 # notify    = { version = "6.1.1" }  # Filesystem watching                  | https://github.com/notify-rs/notify
 # once_cell = { version = "1.18.0" } # Lazy/one-time initialization         | https://github.com/matklad/once_cell
