@@ -110,5 +110,26 @@ pub fn db_write() -> &'static DatabaseWriteHandle {
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use super::*;
+
+    // TODO: add #[test] when `init()` actually works.
+    /// Assert that the static references returned
+    /// from `db_read()` & `db_write()` are the same
+    /// as `init()` and from the [`OnceLock`].
+    ///
+    /// This is to assert there is only _one_ database.
+    fn only_one_database() {
+        let (init_r, init_w) = init();
+
+        let db_r = db_read();
+        let db_w = db_write();
+
+        let (once_r, once_w) = DATABASE_HANDLES.get().unwrap();
+
+        assert!(std::ptr::eq(init_r, db_r));
+        assert!(std::ptr::eq(init_r, once_r));
+
+        assert!(std::ptr::eq(init_w, db_w));
+        assert!(std::ptr::eq(init_w, once_w));
+    }
 }
