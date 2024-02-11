@@ -183,7 +183,7 @@ impl std::ops::Deref for RawBlockChainContext {
 impl RawBlockChainContext {
     /// Returns the timestamp the should be used when checking locked outputs.
     ///
-    /// https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time
+    /// <https://cuprate.github.io/monero-book/consensus_rules/transactions/unlock_time.html#getting-the-current-time>
     pub fn current_adjusted_timestamp_for_time_lock(&self) -> u64 {
         if self.current_hf < HardFork::V13 || self.median_block_timestamp.is_none() {
             current_unix_timestamp()
