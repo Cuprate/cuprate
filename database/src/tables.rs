@@ -1,6 +1,7 @@
 //! Database tables.
 //!
-//! This module contains all the table definitions used by `cuprate-database`.
+//! This module contains all the table definitions used by `cuprate-database`
+//! and [`Tables`], an `enum` containing all [`Table`]s.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::table::Table;
@@ -9,6 +10,8 @@ use crate::table::Table;
 
 //---------------------------------------------------------------------------------------------------- Tables
 /// An enumeration of _all_ database tables.
+///
+/// TODO: I don't think we need this.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "borsh",

@@ -40,5 +40,12 @@ cfg_if::cfg_if! {
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use super::*;
+
+    #[test]
+    /// Sanity check that our PATHs aren't empty... (will cause disaster).
+    fn non_empty_path() {
+        assert!(!CUPRATE_DATABASE_DIR.is_empty());
+        assert!(!CUPRATE_DATABASE_FILE.is_empty());
+    }
 }

@@ -15,7 +15,7 @@ use std::path::Path;
 //---------------------------------------------------------------------------------------------------- TYPE
 /// Database environment abstraction.
 ///
-/// TODO: i'm pretty sure these lifetimes are unneeded/wrong.
+/// TODO
 pub trait Env: Sized {
     //------------------------------------------------ Types
     /// TODO
