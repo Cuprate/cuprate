@@ -7,6 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[cfg(unix)]
 use bytes::Buf;
 use reqwest::{get, Error as ReqError};
 
