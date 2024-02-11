@@ -9,8 +9,8 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-# default   = ["heed", "service"]
-default   = ["sanakirja", "service"]
+default   = ["heed", "service"]
+# default   = ["sanakirja", "service"] # For testing `sanakirja`.
 heed      = ["dep:heed"]
 sanakirja = ["dep:sanakirja"]
 service   = ["dep:cuprate-helper", "dep:crossbeam", "dep:tokio", "dep:tower"]
