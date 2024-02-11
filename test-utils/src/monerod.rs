@@ -48,8 +48,6 @@ pub async fn monerod(flags: Vec<String>, mutable: bool) -> (SocketAddr, SocketAd
         .await
         .unwrap();
 
-    // Give monerod some time to start
-    tokio::time::sleep(Duration::from_secs(5)).await;
     rx.await.unwrap()
 }
 
@@ -90,7 +88,8 @@ impl MoneroDManager {
     ) {
         while let Some((req, tx)) = rx.recv().await {
             let (p2p_port, rpc_port) = self.get_monerod_with_flags(req.flags, req.mutable);
-
+            // Give monerod some time to start
+            tokio::time::sleep(Duration::from_secs(5)).await;
             let _ = tx.send((
                 SocketAddr::new(LOCAL_HOST, p2p_port),
                 SocketAddr::new(LOCAL_HOST, rpc_port),
@@ -116,7 +115,7 @@ impl MoneroDManager {
 
         // TODO: set a different DB location per node
         let monerod = Command::new(&self.path_to_monerod)
-            .stdout(Stdio::null())
+            //.stdout(Stdio::null())
             .args(&flags)
             .arg("--regtest")
             .arg(format!("--p2p-bind-port={}", p2p_port))
