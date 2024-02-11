@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
+    process::Stdio,
     sync::OnceLock,
     time::Duration,
 };
@@ -114,7 +115,8 @@ impl MoneroDManager {
 
         // TODO: set a different DB location per node
         let monerod = Command::new(&self.path_to_monerod)
-            //.stdout(Stdio::null())
+            .stdout(Stdio::null())
+            .stdin(Stdio::piped())
             .args(&flags)
             .arg("--regtest")
             .arg(format!("--p2p-bind-port={}", p2p_port))
