@@ -1,4 +1,6 @@
 //! Read/write `Response`'s from the database.
+//!
+//! TODO: could add `strum` derives.
 
 //---------------------------------------------------------------------------------------------------- Import
 

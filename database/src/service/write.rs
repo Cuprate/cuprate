@@ -207,11 +207,3 @@ impl DatabaseWriter {
         todo!()
     }
 }
-
-//---------------------------------------------------------------------------------------------------- Tests
-#[cfg(test)]
-mod test {
-    // use super::*;
-
-    // TODO: add thread request/response tests.
-}

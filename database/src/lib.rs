@@ -217,10 +217,7 @@
 	clippy::redundant_pub_crate,
 )]
 // Allow some lints when running in debug mode.
-#![cfg_attr(
-    debug_assertions,
-    allow(clippy::todo, clippy::multiple_crate_versions,)
-)]
+#![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
 
 // Only allow building 64-bit targets.
 //

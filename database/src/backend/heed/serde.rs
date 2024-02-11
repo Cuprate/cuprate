@@ -5,8 +5,6 @@ use crate::pod::Pod;
 
 use std::borrow::Cow;
 
-//---------------------------------------------------------------------------------------------------- Constants
-
 //---------------------------------------------------------------------------------------------------- Serde
 /// Implement `heed` (de)serialization traits
 /// for anything that implements [`crate::pod::Pod`].

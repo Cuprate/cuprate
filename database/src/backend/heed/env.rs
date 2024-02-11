@@ -5,8 +5,6 @@ use crate::{database::Database, env::Env, error::RuntimeError, table::Table};
 
 use std::path::Path;
 
-//---------------------------------------------------------------------------------------------------- Constants
-
 //---------------------------------------------------------------------------------------------------- Env
 /// A strongly typed, concrete database environment, backed by `heed`.
 pub struct ConcreteEnv(heed::Env);
@@ -77,8 +75,6 @@ impl Env for ConcreteEnv {
         Ok(Some(tx))
     }
 }
-
-//---------------------------------------------------------------------------------------------------- Transaction Impl
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]

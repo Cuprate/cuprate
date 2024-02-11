@@ -3,8 +3,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{database::Database, error::RuntimeError, table::Table};
 
-//---------------------------------------------------------------------------------------------------- Constants
-
 //---------------------------------------------------------------------------------------------------- Database Impls
 impl<T: Table> Database<T> for sanakirja::btree::Db<T::Key, T::Value> {
     fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
