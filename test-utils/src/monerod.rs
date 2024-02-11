@@ -49,7 +49,7 @@ pub async fn monerod(flags: Vec<String>, mutable: bool) -> (SocketAddr, SocketAd
         .unwrap();
 
     // Give monerod some time to start
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_secs(5)).await;
     rx.await.unwrap()
 }
 
