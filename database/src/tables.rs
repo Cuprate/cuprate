@@ -35,6 +35,19 @@ impl Tables {
             Self::TestTable2(t) => get(t),
         }
     }
+
+    /// Get the [`Table::CONSTANT_SIZE`].
+    pub const fn constant_size(&self) -> bool {
+        /// Hack to access associated trait constant via a variable.
+        const fn get<T: Table>(t: &T) -> bool {
+            T::CONSTANT_SIZE
+        }
+
+        match self {
+            Self::TestTable(t) => get(t),
+            Self::TestTable2(t) => get(t),
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Table macro
@@ -52,6 +65,7 @@ macro_rules! tables {
         $(
             $(#[$attr:meta])* // Documentation and any `derive`'s.
             $table:ident,     // The table name + doubles as the table struct name.
+            $size:literal,    // Are the table's values all the same size?
             $key:ty =>        // Key type.
             $value:ty         // Value type.
         ),* $(,)?
@@ -79,6 +93,7 @@ macro_rules! tables {
             // Table trait impl.
             impl Table for [<$table:camel>] {
                 const NAME: &'static str = stringify!([<$table:snake>]);
+                const CONSTANT_SIZE: bool = $size;
                 type Key = $key;
                 type Value = $value;
             }
@@ -97,10 +112,12 @@ macro_rules! tables {
 tables! {
     /// Test documentation.
     TestTable,
+    true,
     i64 => u64,
 
     /// Test documentation 2.
     TestTable2,
+    true,
     u8 => i8,
 }
 

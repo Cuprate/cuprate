@@ -21,6 +21,9 @@ pub trait Table {
     /// Name of the database table.
     const NAME: &'static str;
 
+    /// Whether the table's values are all the same size or not.
+    const CONSTANT_SIZE: bool;
+
     cfg_if::cfg_if! {
         if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
             // TODO: fix this sanakirja bound.
