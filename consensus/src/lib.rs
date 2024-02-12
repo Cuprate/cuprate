@@ -30,6 +30,8 @@ pub enum ExtendedConsensusError {
     ConErr(#[from] monero_consensus::ConsensusError),
     #[error("Database error: {0}")]
     DBErr(#[from] tower::BoxError),
+    #[error("The transactions passed in with the block are incorrect.")]
+    TxsIncludedWithBlockIncorrect,
 }
 
 // TODO: instead of (ab)using generic returns return the acc type

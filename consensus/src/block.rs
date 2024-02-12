@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     future::Future,
     pin::Pin,
     sync::Arc,
@@ -7,20 +8,27 @@ use std::{
 
 use cuprate_helper::asynch::rayon_spawn_async;
 use futures::FutureExt;
-use monero_serai::block::Block;
-use monero_serai::transaction::{Input, Transaction};
+use monero_serai::{
+    block::Block,
+    transaction::{Input, Transaction},
+};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 
-use monero_consensus::blocks::{is_randomx_seed_height, randomx_seed_height};
 use monero_consensus::{
-    blocks::{calculate_pow_hash, check_block, check_block_pow, BlockError, RandomX},
+    blocks::{
+        calculate_pow_hash, check_block, check_block_pow, is_randomx_seed_height,
+        randomx_seed_height, BlockError, RandomX,
+    },
     miner_tx::MinerTxError,
     ConsensusError, HardFork,
 };
 
 use crate::{
-    context::{rx_vms::RandomXVM, BlockChainContextRequest, BlockChainContextResponse},
+    context::{
+        rx_vms::RandomXVM, BlockChainContextRequest, BlockChainContextResponse,
+        RawBlockChainContext,
+    },
     transactions::{
         batch_setup_txs, contextual_data, OutputCache, TransactionVerificationData,
         VerifyTxRequest, VerifyTxResponse,
@@ -164,7 +172,11 @@ pub struct VerifiedBlockInformation {
 
 pub enum VerifyBlockRequest {
     MainChainBatchPrep(Vec<(Block, Vec<Transaction>)>),
-    MainChain(Block),
+    MainChain {
+        block: Block,
+        prepared_txs: Vec<Arc<TransactionVerificationData>>,
+        txs: Vec<Transaction>,
+    },
     MainChainPrepared(PrePreparedBlock, Vec<Arc<TransactionVerificationData>>),
 }
 
@@ -247,8 +259,13 @@ where
 
         async move {
             match req {
-                VerifyBlockRequest::MainChain(block) => {
-                    verify_main_chain_block(block, context_svc, tx_verifier_svc).await
+                VerifyBlockRequest::MainChain {
+                    block,
+                    prepared_txs,
+                    txs,
+                } => {
+                    verify_main_chain_block(block, txs, prepared_txs, context_svc, tx_verifier_svc)
+                        .await
                 }
                 VerifyBlockRequest::MainChainPrepared(prepped_block, txs) => {
                     verify_main_chain_block_prepared(
@@ -256,6 +273,7 @@ where
                         txs,
                         context_svc,
                         tx_verifier_svc,
+                        None,
                     )
                     .await
                 }
@@ -449,6 +467,7 @@ async fn verify_main_chain_block_prepared<C, TxV>(
     txs: Vec<Arc<TransactionVerificationData>>,
     context_svc: C,
     tx_verifier_svc: TxV,
+    context: Option<RawBlockChainContext>,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
     C: Service<
@@ -460,18 +479,40 @@ where
     C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
 {
-    tracing::debug!("getting blockchain context");
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .oneshot(BlockChainContextRequest::GetContext)
-        .await
-        .map_err(Into::<ExtendedConsensusError>::into)?
-    else {
-        panic!("Context service returned wrong response!");
+    let context = match context {
+        Some(context) => context,
+        None => {
+            tracing::debug!("getting blockchain context");
+            let BlockChainContextResponse::Context(checked_context) = context_svc
+                .oneshot(BlockChainContextRequest::GetContext)
+                .await
+                .map_err(Into::<ExtendedConsensusError>::into)?
+            else {
+                panic!("Context service returned wrong response!");
+            };
+
+            let context = checked_context.unchecked_blockchain_context().clone();
+
+            tracing::debug!("got blockchain context: {:?}", context);
+            context
+        }
     };
 
-    let context = checked_context.unchecked_blockchain_context().clone();
+    check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
+        .map_err(ConsensusError::Block)?;
 
-    tracing::debug!("got blockchain context: {:?}", context);
+    // Check that the txs included are what we need and that there are not any extra.
+    // Collecting into a HashSet could hide duplicates but we check Key Images are unique so someone would have to find
+    // a hash collision to include duplicate txs here.
+    let mut tx_hashes = txs.iter().map(|tx| &tx.tx_hash).collect::<HashSet<_>>();
+    for tx_hash in &prepped_block.block.txs {
+        if !tx_hashes.remove(tx_hash) {
+            return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+        }
+    }
+    if !tx_hashes.is_empty() {
+        return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
+    }
 
     tx_verifier_svc
         .oneshot(VerifyTxRequest::Block {
@@ -496,9 +537,6 @@ where
     )
     .map_err(ConsensusError::Block)?;
 
-    check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
-        .map_err(ConsensusError::Block)?;
-
     Ok(VerifyBlockResponse::MainChain(VerifiedBlockInformation {
         block_hash: prepped_block.block_hash,
         block: prepped_block.block,
@@ -514,9 +552,11 @@ where
 }
 
 async fn verify_main_chain_block<C, TxV>(
-    _block: Block,
-    _context_svc: C,
-    _tx_verifier_svc: TxV,
+    block: Block,
+    txs: Vec<Transaction>,
+    mut prepared_txs: Vec<Arc<TransactionVerificationData>>,
+    mut context_svc: C,
+    tx_verifier_svc: TxV,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
     C: Service<
@@ -528,12 +568,11 @@ where
     C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
 {
-    todo!("Single main chain block.");
-
-    /*
     tracing::debug!("getting blockchain context");
     let BlockChainContextResponse::Context(checked_context) = context_svc
-        .oneshot(BlockChainContextRequest::Get)
+        .ready()
+        .await?
+        .call(BlockChainContextRequest::GetContext)
         .await
         .map_err(Into::<ExtendedConsensusError>::into)?
     else {
@@ -541,61 +580,28 @@ where
     };
 
     let context = checked_context.unchecked_blockchain_context().clone();
-
     tracing::debug!("got blockchain context: {:?}", context);
 
-    let TxPoolResponse::Transactions(txs) = tx_pool
-        .oneshot(TxPoolRequest::Transactions(block.txs.clone()))
-        .await?;
+    let rx_vms = context.rx_vms.clone();
+    let prepped_block = rayon_spawn_async(move || {
+        let prepped_block_ex_pow = PrePreparedBlockExPOW::new(block)?;
+        let height = prepped_block_ex_pow.height;
 
-    tx_verifier_svc
-        .oneshot(VerifyTxRequest::Block {
-            txs: txs.clone(),
-            current_chain_height: context.chain_height,
-            time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
-            hf: context.current_hf,
-            re_org_token: context.re_org_token.clone(),
-        })
-        .await?;
+        PrePreparedBlock::new_rx(prepped_block_ex_pow, rx_vms.get(&height).map(AsRef::as_ref))
+    })
+    .await?;
 
-    let block_weight = block.miner_tx.weight() + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
-    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
+    check_block_pow(&prepped_block.pow_hash, context.cumulative_difficulty)
+        .map_err(ConsensusError::Block)?;
 
-    let (hf_vote, generated_coins) = check_block(
-        &block,
-        total_fees,
-        block_weight,
-        block.serialize().len(),
-        &context.context_to_verify_block,
+    prepared_txs.append(&mut batch_setup_txs(vec![(txs, context.current_hf)]).await?[0]);
+
+    verify_main_chain_block_prepared(
+        prepped_block,
+        prepared_txs,
+        context_svc,
+        tx_verifier_svc,
+        Some(context),
     )
-    .map_err(ConsensusError::Block)?;
-
-    let hashing_blob = block.serialize_hashable();
-
-    // do POW test last
-    let chain_height = context.chain_height;
-    let current_hf = context.current_hf;
-    let pow_hash = todo!();
-    /*
-       rayon_spawn_async(move || calculate_pow_hash(, &hashing_blob, chain_height, &current_hf))
-           .await
-           .map_err(ConsensusError::Block)?;
-
-    */
-
-    check_block_pow(&pow_hash, context.next_difficulty).map_err(ConsensusError::Block)?;
-
-    Ok(VerifyBlockResponse::MainChain(VerifiedBlockInformation {
-        block_hash: block.hash(),
-        block,
-        txs,
-        pow_hash,
-        generated_coins,
-        weight: block_weight,
-        height: context.chain_height,
-        long_term_weight: context.next_block_long_term_weight(block_weight),
-        hf_vote,
-        cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
-    }))
-     */
+    .await
 }
