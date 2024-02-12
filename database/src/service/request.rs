@@ -6,18 +6,6 @@
 
 //---------------------------------------------------------------------------------------------------- Constants
 
-//---------------------------------------------------------------------------------------------------- Request
-#[derive(Debug)]
-/// Either a read or write request.
-///
-/// TODO: not sure if we actually need this.
-pub enum Request {
-    /// TODO
-    Read(ReadRequest),
-    /// TODO
-    Write(WriteRequest),
-}
-
 //---------------------------------------------------------------------------------------------------- ReadRequest
 #[derive(Debug)]
 /// A read request to the database.

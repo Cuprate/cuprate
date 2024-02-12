@@ -5,7 +5,7 @@
 //! along with the reader/writer thread-pool system.
 //!
 //! The thread-pool allows outside crates to communicate with it by
-//! sending database [`Request`]s and receiving [`Response`]s `async`hronously -
+//! sending database [`Request`](ReadRequest)s and receiving [`Response`]s `async`hronously -
 //! without having to actually worry and handle the database themselves.
 //!
 //! The system is managed by this crate, and only
@@ -51,7 +51,7 @@ mod free;
 pub use free::{init, shutdown};
 
 mod request;
-pub use request::{ReadRequest, Request, WriteRequest};
+pub use request::{ReadRequest, WriteRequest};
 
 mod response;
 pub use response::{ReadResponse, Response, WriteResponse};
