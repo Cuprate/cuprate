@@ -48,7 +48,7 @@ pub trait Env: Sized {
     /// TODO
     fn create_tables_if_needed<T: Table>(
         &self,
-        tx_rw: &mut Self::RwTx<'_>,
+        rw_tx: &mut Self::RwTx<'_>,
     ) -> Result<(), RuntimeError>;
 
     /// TODO
@@ -64,7 +64,7 @@ pub trait Env: Sized {
     /// TODO
     fn open_database<T: Table>(
         &self,
-        to_rw: &Self::RoTx<'_>,
+        ro_tx: &Self::RoTx<'_>,
     ) -> Result<impl Database<T>, RuntimeError>;
 
     //------------------------------------------------ Provided
