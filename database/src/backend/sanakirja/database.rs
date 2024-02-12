@@ -9,13 +9,13 @@ impl<T: Table> Database<T> for sanakirja::btree::Db<T::Key, T::Value> {
         todo!()
     }
 
-    #[allow(refining_impl_trait)] // TODO: add back `impl Iterator`
     fn get_range(
         &self,
         key: &T::Key,
         amount: usize,
-    ) -> Result<std::vec::Drain<'_, T::Value>, RuntimeError> {
-        todo!()
+    ) -> Result<impl Iterator<Item = T::Value>, RuntimeError> {
+        let iter: std::vec::Drain<'_, T::Value> = todo!();
+        Ok(iter)
     }
 
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {

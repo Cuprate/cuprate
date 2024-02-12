@@ -51,6 +51,8 @@ pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
     })
 }
 
+#[cold]
+#[inline(never)] // Only called once.
 /// Sync/flush all data, and shutdown the database thread-pool.
 ///
 /// This function **blocks**, waiting until:

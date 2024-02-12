@@ -43,9 +43,9 @@ pub trait Pod: Sized + private::Sealed {
     /// Return `self` in byte form.
     ///
     /// The returned bytes can be any form of array,
-    /// - [`[u8; N]`]
+    /// - `[u8]`
+    /// - `[u8; N]`
     /// - [`Vec<u8>`]
-    /// - [`&[u8]`]
     ///
     /// ..etc.
     ///
