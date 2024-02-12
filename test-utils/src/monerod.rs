@@ -30,10 +30,10 @@ static MONEROD_HANDLER_CHANNEL: OnceLock<
 
 /// Spawns monerod and returns the p2p address and rpc address.
 ///
-/// When spawning monerod, this module will try tp use an already spawned instance to reduce the amount
+/// When spawning monerod, this module will try to use an already spawned instance to reduce the amount
 /// of instances that need to be spawned.
 ///
-/// This function will set `regest` and the P2P/ RPC ports so these can't be included in the flags.
+/// This function will set `regtest` and the P2P/ RPC ports so these can't be included in the flags.
 pub async fn monerod(flags: Vec<String>, mutable: bool) -> (SocketAddr, SocketAddr) {
     // TODO: sort flags so the same flags in a different order will give the same monerod?
 
