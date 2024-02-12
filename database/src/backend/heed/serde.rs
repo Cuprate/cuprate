@@ -32,10 +32,7 @@ macro_rules! impl_heed {
 
                 #[inline]
                 fn bytes_decode(bytes: &'a [u8]) -> Result<Self::DItem, heed::BoxedError> {
-                    match Pod::from_bytes(bytes) {
-                        Ok(o) => Ok(o),
-                        Err(e) => todo!(),
-                    }
+                    Ok(Pod::from_bytes(bytes))
                 }
             }
         )*

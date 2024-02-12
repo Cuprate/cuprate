@@ -59,33 +59,31 @@ pub trait Pod: Sized + private::Sealed {
 
     /// Create [`Self`] from bytes.
     ///
-    /// # Errors
-    /// If:
-    /// 1. `Self` is an exact sized array, e.g `[u8; 4]` AND
-    /// 2. `bytes`'s length is not exactly that length then
+    /// # Panics
+    /// This function should be infallible.
     ///
-    /// this function will return `Err(usize)`,
-    /// returning the length of `bytes`
-    ///
-    /// In the case of `Vec<u8>` and `Box<[u8]>`, this function
-    /// will never fail, and always return [`Ok`].
-    fn from_bytes(bytes: &[u8]) -> Result<Self, usize>;
+    /// If `bytes` is invalid, this should panic.
+    fn from_bytes(bytes: &[u8]) -> Self;
 
     /// Convert [`Self`] into bytes, and write those bytes into a [`Write`]r.
     ///
-    /// # Errors
-    /// This only returns an error if the `writer` itself errors for some reason.
+    /// The `usize` returned should be how many bytes were written.
     ///
-    /// That error is forwarded, else, the amount of bytes written is returned in [`Ok`].
-    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize>;
+    /// TODO: do we ever actually need how many bytes were written?
+    ///
+    /// # Panics
+    /// This function should be infallible.
+    ///
+    /// If the `writer` errors, this should panic.
+    fn to_writer<W: Write>(self, writer: &mut W) -> usize;
 
     /// Create [`Self`] by reading bytes from a [`Read`]er.
     ///
-    /// # Errors
-    /// This only returns an error if the `reader` itself errors for some reason.
+    /// # Panics
+    /// This function should be infallible.
     ///
-    /// That error is forwarded, else, [`Self`] is returned in [`Ok`].
-    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self>;
+    /// If the `reader` errors, this should panic.
+    fn from_reader<R: Read>(reader: &mut R) -> Self;
 }
 
 /// Private module, should not be accessible outside this crate.
@@ -147,25 +145,29 @@ impl Pod for Vec<u8> {
     }
 
     #[inline]
-    /// This function will always return [`Ok`].
-    fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
-        Ok(bytes.to_vec())
+    fn from_bytes(bytes: &[u8]) -> Self {
+        bytes.to_vec()
     }
 
     #[inline]
-    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+    fn from_reader<R: Read>(reader: &mut R) -> Self {
         // FIXME: Could be `Vec::with_capacity(likely_size)`?
         let mut vec = vec![];
 
-        reader.read_to_end(&mut vec)?;
+        reader
+            .read_to_end(&mut vec)
+            .expect("Pod::<Vec<u8>>::read_to_end() failed");
 
-        Ok(vec)
+        vec
     }
 
     #[inline]
-    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
-        writer.write_all(&self)?;
-        Ok(self.len())
+    fn to_writer<W: Write>(self, writer: &mut W) -> usize {
+        writer
+            .write_all(&self)
+            .expect("Pod::<Vec<u8>>::write_all() failed");
+
+        self.len()
     }
 }
 
@@ -182,31 +184,37 @@ impl<const N: usize> Pod for [u8; N] {
     }
 
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
+    fn from_bytes(bytes: &[u8]) -> Self {
         // Return if the bytes are too short/long.
         let bytes_len = bytes.len();
-        if bytes_len != N {
-            return Err(bytes_len);
-        }
+        assert_eq!(
+            bytes_len, N,
+            "Pod::<[u8; {N}]>::from_bytes() failed, expected_len: {N}, found_len: {bytes_len}",
+        );
 
         let mut array = [0_u8; N];
         // INVARIANT: we checked the length is valid above.
         array.copy_from_slice(bytes);
 
-        Ok(array)
+        array
     }
 
     #[inline]
-    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+    fn from_reader<R: Read>(reader: &mut R) -> Self {
         let mut bytes = [0_u8; N];
-        reader.read_exact(&mut bytes)?;
-        Ok(bytes)
+        reader
+            .read_exact(&mut bytes)
+            .expect("Pod::<[u8; {N}]>::read_exact() failed");
+
+        bytes
     }
 
     #[inline]
-    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
-        writer.write_all(&self)?;
-        Ok(self.len())
+    fn to_writer<W: Write>(self, writer: &mut W) -> usize {
+        writer
+            .write_all(&self)
+            .expect("Pod::<[u8; {N}]>::write_all() failed");
+        self.len()
     }
 }
 
@@ -231,22 +239,25 @@ impl Pod for Box<[u8]> {
     }
 
     #[inline]
-    /// This function will always return [`Ok`].
-    fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
-        Ok(Self::from(bytes))
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self::from(bytes)
     }
 
     #[inline]
-    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+    fn from_reader<R: Read>(reader: &mut R) -> Self {
         let mut bytes = vec![];
-        reader.read_to_end(bytes.as_mut())?;
-        Ok(bytes.into_boxed_slice())
+        reader
+            .read_to_end(bytes.as_mut())
+            .expect("Pod::<Box<[u8]>>::read_to_end() failed");
+        bytes.into_boxed_slice()
     }
 
     #[inline]
-    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
-        writer.write_all(&self)?;
-        Ok(self.len())
+    fn to_writer<W: Write>(self, writer: &mut W) -> usize {
+        writer
+            .write_all(&self)
+            .expect("Pod::<Box<[u8]>>::write_all() failed");
+        self.len()
     }
 }
 
@@ -262,23 +273,26 @@ impl Pod for Arc<[u8]> {
         Cow::Owned(self.to_vec())
     }
 
-    /// This function will always return [`Ok`].
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
-        Ok(Self::from(bytes))
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self::from(bytes)
     }
 
     #[inline]
-    fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+    fn from_reader<R: Read>(reader: &mut R) -> Self {
         let mut bytes = vec![];
-        reader.read_to_end(bytes.as_mut())?;
-        Ok(Self::from(bytes))
+        reader
+            .read_to_end(bytes.as_mut())
+            .expect("Pod::<Arc<[u8]>>::read_to_end() failed");
+        Self::from(bytes)
     }
 
     #[inline]
-    fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
-        writer.write_all(&self)?;
-        Ok(self.len())
+    fn to_writer<W: Write>(self, writer: &mut W) -> usize {
+        writer
+            .write_all(&self)
+            .expect("Pod::<Arc<[u8]>>::write_all() failed");
+        self.len()
     }
 }
 
@@ -306,34 +320,45 @@ macro_rules! impl_pod_le_bytes {
                 #[inline]
                 /// This function returns [`Err`] if `bytes`'s length is not
                 #[doc = concat!(" ", stringify!($length), ".")]
-                fn from_bytes(bytes: &[u8]) -> Result<Self, usize> {
+                fn from_bytes(bytes: &[u8]) -> Self {
                     // Return if the bytes are too short/long.
                     let bytes_len = bytes.len();
-                    if bytes_len != $length {
-                        return Err(bytes_len);
-                    }
+                    assert_eq!(
+                        bytes_len, $length,
+                        "Pod::<[u8; {0}]>::from_bytes() failed, expected_len: {0}, found_len: {bytes_len}",
+                        $length,
+                    );
 
                     let mut array = [0_u8; $length];
                     // INVARIANT: we checked the length is valid above.
                     array.copy_from_slice(bytes);
 
-                    Ok($number::from_le_bytes(array))
+                    $number::from_le_bytes(array)
                 }
 
                 #[inline]
-                fn to_writer<W: Write>(self, writer: &mut W) -> std::io::Result<usize> {
-                    writer.write(self.as_bytes().as_ref())
+                fn to_writer<W: Write>(self, writer: &mut W) -> usize {
+                    writer.write_all(self.as_bytes().as_ref()).expect(concat!(
+                        "Pod::<",
+                        stringify!($number),
+                        ">::write_all() failed",
+                    ));
+                    $length
                 }
 
                 #[inline]
-                fn from_reader<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+                fn from_reader<R: Read>(reader: &mut R) -> Self {
                     let mut bytes = [0_u8; $length];
 
                     // Read exactly the bytes required.
-                    reader.read_exact(&mut bytes)?;
+                    reader.read_exact(&mut bytes).expect(concat!(
+                        "Pod::<",
+                        stringify!($number),
+                        ">::react_exact() failed",
+                    ));
 
                     // INVARIANT: we checked the length is valid above.
-                    Ok($number::from_le_bytes(bytes))
+                    $number::from_le_bytes(bytes)
                 }
             }
         )*
@@ -382,8 +407,8 @@ mod test {
             let mut bytes = vec![];
 
             // (De)serialize.
-            let se: usize = t.to_writer::<Vec<u8>>(bytes.as_mut()).unwrap();
-            let de: T = T::from_reader::<&[u8]>(&mut bytes.as_slice()).unwrap();
+            let se: usize = t.to_writer::<Vec<u8>>(bytes.as_mut());
+            let de: T = T::from_reader::<&[u8]>(&mut bytes.as_slice());
 
             println!("written: {se}, deserialize_t: {de:?}, bytes: {bytes:?}\n");
 
