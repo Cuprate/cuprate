@@ -9,5 +9,17 @@ monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
 
 futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+reqwest = { workspace = true }
+bytes = { workspace = true, features = ["std"] }
 
 borsh = { workspace = true, features = ["derive"]}
+
+rand = { workspace = true, features = ["std", "std_rng"] }
+
+[target.'cfg(unix)'.dependencies]
+tar = "0.4.40"
+bzip2 = "0.4.4"
+
+[target.'cfg(windows)'.dependencies]
+zip = "0.6"

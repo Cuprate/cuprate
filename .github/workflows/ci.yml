@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,76 +15,85 @@ env:
   RUST_MIN_STACK: 8000000
 
 jobs:
+  # Run format separately.
   fmt:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Format
+      run: cargo fmt --all --check
 
-      - name: Fmt
-        run: cargo fmt --all --check
+  # All other CI.
+  ci:
+    runs-on: ${{ matrix.os }}
 
-  build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            shell: msys2 {0}
+          - os: macos-latest
+            shell: bash
+          - os: ubuntu-latest
+            shell: bash
 
-    steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions/cache@v3
-        id: cache
-        with:
-          path: target
-          key: ${{ runner.os }}-cache
-
-      - name: Install dependencies
-        run: sudo apt install -y libboost-dev
-
-      - name: Build
-        run: cargo build --all-features --all-targets --workspace
-
-      - uses: actions/cache/save@v3
-        id: cache-save-short-term
-        with:
-          path: target
-          key: ${{ runner.os }}-cache-${{ github.sha }}
-
-  clippy:
-    runs-on: ubuntu-latest
-    needs: build
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
 
     steps:
-      - uses: actions/checkout@v3
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
-      - uses: actions/cache/restore@v3
-        id: cache
-        with:
-          path: target
-          key: ${{ runner.os }}-cache-${{ github.sha }}
+    - name: Cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          target
+          ~/.cargo
+          ~/.rustup
+        key: ${{ matrix.os }}
 
-      - name: Install dependencies
-        run: sudo apt install -y libboost-dev
+    # Packages other than `Boost` used by `Monero` are listed here.
+    # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
 
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+    - name: Install dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt install -y libboost-dev
 
-  tests:
-    runs-on: ubuntu-latest
-    needs: build
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost
 
-    steps:
-      - uses: actions/checkout@v3
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: msys2/setup-msys2@v2
+      with:
+        path-type: inherit
+        update: true
+        install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 
-      - uses: actions/cache/restore@v3
-        id: cache
-        with:
-          path: target
-          key: ${{ runner.os }}-cache-${{ github.sha }}
+    - name: Switch target (Windows)
+      if: matrix.os == 'windows-latest'
+      run: rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy && rustup set default-host x86_64-pc-windows-gnu && rustup default stable-x86_64-pc-windows-gnu
 
-      - name: Spawn monerod
-        uses: ./.github/actions/monerod-regtest
+    - name: Clippy (fail on warnings)
+      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-      - name: Install dependencies
-        run: sudo apt install -y libboost-dev
+    - name: Test
+      run: cargo test --all-features --workspace --all-targets
 
-      - name: Test
-        run: cargo test --all-features --workspace --all-targets && cargo test --all-features --workspace --doc
+    # TODO: upload binaries with `actions/upload-artifact@v3`
+    - name: Build
+      run: cargo build --all-features --all-targets --workspace

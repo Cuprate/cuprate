@@ -84,7 +84,7 @@ epee_object!(
 );
 
 /// The status field of an okay ping response
-pub const PING_OK_RESPONSE_STATUS_TEXT: Bytes = Bytes::from_static("OK".as_bytes());
+pub static PING_OK_RESPONSE_STATUS_TEXT: Bytes = Bytes::from_static("OK".as_bytes());
 
 /// A Ping Response
 #[derive(Debug, Clone, PartialEq, Eq)]
