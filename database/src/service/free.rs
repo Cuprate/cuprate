@@ -1,7 +1,7 @@
 //! General free functions used (related to `cuprate_database::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::OnceLock;
+use std::sync::Arc;
 
 use crate::{
     service::read::DatabaseReader,
@@ -10,45 +10,29 @@ use crate::{
     ConcreteEnv,
 };
 
-//---------------------------------------------------------------------------------------------------- const/static
-/// Read/write handles to the single, global program database.
-///
-/// [`init()`] will initialize this [`OnceLock`], and store
-/// the initialized database's handles inside it.
-///
-/// Not accessible publically, outside crates use one of:
-/// - [`init()`]
-/// - [`db_read()`]
-/// - [`db_write()`]
-static DATABASE_HANDLES: OnceLock<(DatabaseReadHandle, DatabaseWriteHandle)> = OnceLock::new();
-
 //---------------------------------------------------------------------------------------------------- Init
 #[cold]
 #[inline(never)] // Only called once.
-/// Initialize the database, the thread-pool, and return a read/write handle to it.
+/// Initialize a database & thread-pool, and return a read/write handle to it.
 ///
-/// This initializes a [`OnceLock`] containing the [`ConcreteEnv`],
-/// meaning there is only 1 database per program.
+/// The returned handles are cheaply [`Clone`]able.
 ///
-/// Calling this function again will return handles to the same database.
-pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
-    DATABASE_HANDLES.get_or_init(|| {
-        // Initialize the database itself.
-        let db: ConcreteEnv = todo!();
-        // Leak it, the database lives forever.
-        //
-        // TODO: there's probably shutdown code we have to run.
-        // Leaking may not be viable, or atleast, we need to
-        // be able to run destructors.
-        let db: &'static ConcreteEnv = Box::leak(Box::new(db));
+/// TODO: add blocking behavior docs.
+pub fn init() -> (DatabaseReadHandle, DatabaseWriteHandle) {
+    // TODO:
+    // This should only ever be called once?
+    // We could `panic!()` if called twice.
 
-        // Spawn the `Reader/Writer` thread pools.
-        let readers = DatabaseReader::init(db);
-        let writers = DatabaseWriter::init(db);
+    // Initialize the database itself.
+    // TODO: there's probably shutdown code we have to run.
+    let db: Arc<ConcreteEnv> = Arc::new(todo!());
 
-        // Return the handles to those pools.
-        (readers, writers)
-    })
+    // Spawn the `Reader/Writer` thread pools.
+    let readers = DatabaseReader::init(&db);
+    let writers = DatabaseWriter::init(&db);
+
+    // Return the handles to those pools.
+    (readers, writers)
 }
 
 #[cold]
@@ -71,7 +55,7 @@ pub fn init() -> &'static (DatabaseReadHandle, DatabaseWriteHandle) {
 /// Anyone/everyone being able to shutdown the database seems dangerous.
 ///
 /// Counter-argument: we can just CTRL+F to see who calls this i guess.
-pub fn shutdown() {
+pub fn shutdown(db: Arc<ConcreteEnv>) {
     // Not sure how this function is going
     // to work on a `&'static` database, but:
 
@@ -84,54 +68,12 @@ pub fn shutdown() {
     //   5b) as along as data is flushed, we can just `std::process::exit`
     //       and there's no need to (manually) drop the actual database
 
+    drop(db);
     todo!();
-}
-
-#[inline]
-/// Acquire a read handle to the single global database.
-///
-/// This returns a `static` read handle to
-/// the database initialized in [`init()`].
-///
-/// This function will initialize the database if not already initialized.
-pub fn db_read() -> &'static DatabaseReadHandle {
-    &init().0
-}
-
-#[inline]
-/// Acquire a write handle to the single global database.
-///
-/// This returns a `static` write handle to
-/// the database initialized in [`init()`].
-///
-/// This function will initialize the database if not already initialized.
-pub fn db_write() -> &'static DatabaseWriteHandle {
-    &init().1
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    use super::*;
-
-    // TODO: add #[test] when `init()` actually works.
-    /// Assert that the static references returned
-    /// from `db_read()` & `db_write()` are the same
-    /// as `init()` and from the [`OnceLock`].
-    ///
-    /// This is to assert there is only _one_ database.
-    fn only_one_database() {
-        let (init_r, init_w) = init();
-
-        let db_r = db_read();
-        let db_w = db_write();
-
-        let (once_r, once_w) = DATABASE_HANDLES.get().unwrap();
-
-        assert!(std::ptr::eq(init_r, db_r));
-        assert!(std::ptr::eq(init_r, once_r));
-
-        assert!(std::ptr::eq(init_w, db_w));
-        assert!(std::ptr::eq(init_w, once_w));
-    }
+    // use super::*;
 }

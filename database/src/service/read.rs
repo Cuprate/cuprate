@@ -1,7 +1,10 @@
 //! Database read thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::task::{Context, Poll};
+use std::{
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 use tokio::sync::oneshot;
 
@@ -15,7 +18,7 @@ use crate::{
 /// The read response from the database reader thread.
 ///
 /// This is an `Err` when the database itself errors
-/// (e.g, get() object doesn't exist).
+/// (e.g, `get()` object doesn't exist).
 type Response = Result<ReadResponse, RuntimeError>;
 
 /// The `Receiver` channel that receives the read response.
@@ -80,9 +83,8 @@ pub(super) struct DatabaseReader {
     /// for creating this channel, the caller provides it.
     receiver: crossbeam::channel::Receiver<(ReadRequest, ResponseSend)>,
 
-    /// TODO: either `Arc` or `&'static` after `Box::leak`
     /// Access to the database.
-    db: &'static ConcreteEnv,
+    db: Arc<ConcreteEnv>,
 }
 
 impl DatabaseReader {
@@ -94,7 +96,7 @@ impl DatabaseReader {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &'static ConcreteEnv) -> DatabaseReadHandle {
+    pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseReadHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -106,6 +108,7 @@ impl DatabaseReader {
         // Spawn pool of readers.
         for _ in 0..readers {
             let receiver = receiver.clone();
+            let db = db.clone();
 
             std::thread::spawn(move || {
                 let this = Self { receiver, db };

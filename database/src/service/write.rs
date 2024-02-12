@@ -1,7 +1,10 @@
 //! Database write thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::task::{Context, Poll};
+use std::{
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 use tokio::sync::oneshot;
 
@@ -71,7 +74,7 @@ pub(super) struct DatabaseWriter {
 
     /// TODO: either `Arc` or `&'static` after `Box::leak`
     /// Access to the database.
-    db: &'static ConcreteEnv,
+    db: Arc<ConcreteEnv>,
 }
 
 impl DatabaseWriter {
@@ -118,7 +121,7 @@ impl DatabaseWriter {
     /// there are other existing ones, so we ourselves don't need locks.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &'static ConcreteEnv) -> DatabaseWriteHandle {
+    pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseWriteHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -137,6 +140,7 @@ impl DatabaseWriter {
         // Spawn pool of writers.
         for _ in 0..writers {
             let receiver = receiver.clone();
+            let db = db.clone();
 
             std::thread::spawn(move || {
                 let this = Self { receiver, db };

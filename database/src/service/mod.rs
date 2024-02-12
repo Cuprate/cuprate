@@ -19,9 +19,6 @@
 //! This causes the underlying database/threads to be setup
 //! and returns a read/write handle to that database.
 //!
-//! Note that after 1st initialization, the handles returned are to the same
-//! database + thread-pool, i.e. there is only 1 database system per program.
-//!
 //! ## Handles
 //! The 2 handles to the database are:
 //! - [`DatabaseReadHandle`]
@@ -51,7 +48,7 @@ mod write;
 pub use write::DatabaseWriteHandle;
 
 mod free;
-pub use free::{db_read, db_write, init, shutdown};
+pub use free::{init, shutdown};
 
 mod request;
 pub use request::{ReadRequest, Request, WriteRequest};
