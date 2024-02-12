@@ -10,11 +10,16 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
     error::RuntimeError,
-    service::{request::ReadRequest, response::ReadResponse},
+    service::{request::ReadRequest, response::Response},
     ConcreteEnv,
 };
 
 //---------------------------------------------------------------------------------------------------- Types
+/// The actual type of the response.
+///
+/// Either our [Response], or a database error occured.
+type ResponseResult = Result<Response, RuntimeError>;
+
 /// The `Receiver` channel that receives the read response.
 ///
 /// This is owned by the caller (the reader)
@@ -22,13 +27,13 @@ use crate::{
 ///
 /// The channel itself should never fail,
 /// but the actual database operation might.
-type ResponseRecv = InfallibleOneshotReceiver<Result<ReadResponse, RuntimeError>>;
+type ResponseRecv = InfallibleOneshotReceiver<ResponseResult>;
 
 /// The `Sender` channel for the response.
 ///
 /// The database reader thread uses this to send
 /// the database result to the caller.
-type ResponseSend = tokio::sync::oneshot::Sender<Result<ReadResponse, RuntimeError>>;
+type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
@@ -48,7 +53,7 @@ pub struct DatabaseReadHandle {
 }
 
 impl tower::Service<ReadRequest> for DatabaseReadHandle {
-    type Response = ReadResponse;
+    type Response = Response;
     type Error = RuntimeError;
     type Future = ResponseRecv;
 
