@@ -1,3 +1,8 @@
+//! Test NetZone
+//!
+//! This module contains a test network zone, this network zone use channels as the network layer to simulate p2p
+//! communication.
+//!
 use std::{
     fmt::Formatter,
     io::Error,
@@ -16,6 +21,7 @@ use monero_wire::{
 
 use monero_p2p::{NetZoneAddress, NetworkZone};
 
+/// An address on the test network
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct TestNetZoneAddr(pub u32);
 
@@ -56,6 +62,7 @@ impl TryFrom<NetworkAddress> for TestNetZoneAddr {
     }
 }
 
+/// A wrapper around [`futures::channel::mpsc::Sender`] that changes the error to [`BucketError`].
 pub struct Sender {
     inner: InnerSender<Message>,
 }
