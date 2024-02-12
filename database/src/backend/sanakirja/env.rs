@@ -58,12 +58,11 @@ impl Env for ConcreteEnv {
     /// TODO
     /// # Errors
     /// TODO
-    fn create_database<T: Table>(
+    fn create_tables_if_needed<T: Table>(
         &self,
         tx_rw: &mut Self::RwTx<'_>,
-    ) -> Result<impl Database<T>, RuntimeError> {
-        let tx: sanakirja::btree::Db<T::Key, T::Value> = todo!();
-        Ok(tx)
+    ) -> Result<(), RuntimeError> {
+        todo!()
     }
 
     #[inline]

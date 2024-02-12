@@ -46,18 +46,26 @@ pub trait Env: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn create_database<T: Table>(
+    fn create_tables_if_needed<T: Table>(
         &self,
         tx_rw: &mut Self::RwTx<'_>,
-    ) -> Result<impl Database<T>, RuntimeError>;
+    ) -> Result<(), RuntimeError>;
 
     /// TODO
+    ///
+    /// # TODO: Invariant
+    /// This should never panic the database because the table doesn't exist.
+    ///
+    /// Opening/using the database env should have an invariant
+    /// that it creates all the tables we need, such that this
+    /// never returns `None`.
+    ///
     /// # Errors
     /// TODO
     fn open_database<T: Table>(
         &self,
         to_rw: &Self::RoTx<'_>,
-    ) -> Result<Option<impl Database<T>>, RuntimeError>;
+    ) -> Result<impl Database<T>, RuntimeError>;
 
     //------------------------------------------------ Provided
 }
