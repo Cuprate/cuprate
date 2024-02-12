@@ -1,14 +1,30 @@
 //! Abstracted Monero database operations; `trait Monero`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{env::Env, ConcreteEnv};
+#[allow(unused_imports)] // FIXME: these traits will be eventually in the function impls.
+use crate::{
+    database::Database,
+    env::Env,
+    table::Table,
+    transaction::{RoTx, RwTx},
+    ConcreteEnv,
+};
 
 //---------------------------------------------------------------------------------------------------- Monero
 /// Monero database operations.
 ///
+/// This trait builds on top of:
+/// - [`Env`]
+/// - [`Table`]
+/// - [`Database`]
+/// - [`RoTx`], [`RwTx`]
+///
+/// to provide higher-level `Monero`-specific database operations.
+///
+/// # Notes
 /// Things to note about this trait:
 /// 1. All methods are already implemented
-/// 2. [`ConcreteEnv`] automatically implement [`Monero`]
+/// 2. [`ConcreteEnv`] automatically implements [`Monero`]
 ///
 /// This means that these methods can be
 /// called directly on `ConcreteEnv`.
@@ -29,9 +45,12 @@ use crate::{env::Env, ConcreteEnv};
 /// The actual underlying functions (e.g `get()`) aren't implemented.
 #[allow(missing_docs)]
 pub trait Monero: Env {
+    //-------------------------------------------------------- Blockchain
     fn height() {
         todo!()
     }
+
+    //-------------------------------------------------------- Blocks
     fn add_block() {
         todo!()
     }
@@ -83,6 +102,8 @@ pub trait Monero: Env {
     fn get_top_block_hash() {
         todo!()
     }
+
+    //-------------------------------------------------------- Transactions
     fn add_transaction() {
         todo!()
     }
@@ -119,6 +140,8 @@ pub trait Monero: Env {
     fn get_tx_block_height() {
         todo!()
     }
+
+    //-------------------------------------------------------- Outputs
     fn add_output() {
         todo!()
     }
@@ -137,6 +160,8 @@ pub trait Monero: Env {
     fn get_pre_rct_num_outputs() {
         todo!()
     }
+
+    //-------------------------------------------------------- Spent Keys
     fn add_spent_key() {
         todo!()
     }
@@ -146,6 +171,8 @@ pub trait Monero: Env {
     fn is_spent_key_recorded() {
         todo!()
     }
+
+    //-------------------------------------------------------- Alt Blocks
     fn add_alt_block() {
         todo!()
     }
@@ -161,6 +188,8 @@ pub trait Monero: Env {
     fn drop_alt_blocks() {
         todo!()
     }
+
+    //-------------------------------------------------------- Properties
     fn get_blockchain_pruning_seed() {
         todo!()
     }
