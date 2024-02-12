@@ -32,13 +32,14 @@ type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
 //---------------------------------------------------------------------------------------------------- DatabaseWriteHandle
 /// Write handle to the database.
 ///
-/// This is cheaply [`Clone`]able handle that
-/// allows `async`hronously writing to the database.
+/// This is handle that allows `async`hronously writing to the database,
+/// it is not [`Clone`]able as there is only ever 1 place within Cuprate
+/// that writes.
 ///
 /// Calling [`tower::Service::call`] with a [`DatabaseWriteHandle`] & [`WriteRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding [`WriteResponse`].
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct DatabaseWriteHandle {
     /// Sender channel to the database write thread-pool.
     ///
@@ -63,10 +64,7 @@ impl tower::Service<WriteRequest> for DatabaseWriteHandle {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriter
-/// Database writer thread.
-///
-/// Each reader thread is spawned with access to this struct (self).
-///
+/// The single database writer thread.
 pub(super) struct DatabaseWriter {
     /// Receiver side of the database request channel.
     ///
@@ -75,91 +73,33 @@ pub(super) struct DatabaseWriter {
     /// which we will eventually send to.
     receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSend)>,
 
-    /// TODO: either `Arc` or `&'static` after `Box::leak`
     /// Access to the database.
     db: Arc<ConcreteEnv>,
 }
 
 impl DatabaseWriter {
-    /// Initialize the `DatabaseWriter` thread-pool.
-    ///
-    /// This spawns `N` amount of `DatabaseWriter`'s
-    /// attached to `db` and returns a handle to the pool.
-    ///
-    /// The reason this isn't a single thread is to allow a little
-    /// more work to be done during the leeway in-between DB operations, e.g:
-    ///
-    /// ```text
-    ///  Request1
-    ///     |                                      Request2
-    ///     v                                         |
-    ///  Writer1                                      v
-    ///     |                                      Writer2
-    /// doing work                                    |
-    ///     |                               waiting on other writer
-    /// sending response  --|                         |
-    ///     |               |- leeway            doing work
-    ///     v             --|                         |
-    ///    done                                       |
-    ///                                        sending response
-    ///                                               |
-    ///                                               v
-    ///                                              done
-    /// ```
-    ///
-    /// During `leeway`, `Writer1` is:
-    /// - busy preparing the message
-    /// - creating the response channel
-    /// - sending it back to the channel
-    /// - ...etc
-    ///
-    /// During this time, it would be wasteful if `Request2`'s was
-    /// just being waited on, so instead, `Writer2` handles that
-    /// work while `Writer1` is in-between tasks.
-    ///
-    /// This leeway is pretty tiny (doesn't take long to allocate a channel
-    /// and send a response) so there's only 2 Writers for now (needs testing).
-    ///
-    /// The database backends themselves will hang on write transactions if
-    /// there are other existing ones, so we ourselves don't need locks.
+    /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
     pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseWriteHandle {
         // Initalize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
-        // TODO: should we scale writers up as we have more threads?
-        //
-        // The below function causes this [thread-count <-> writer] mapping:
-        // <=16t -> 2
-        //   32t -> 3
-        //   64t -> 6
-        //  128t -> 12
-        //
-        // 3+ writers might harm more than help.
-        // Anyone have a 64c/128t CPU to test on...?
-        let writers = std::cmp::min(2, cuprate_helper::thread::threads_10().get());
+        // Spawn the writer.
+        let db = Arc::clone(db);
+        std::thread::spawn(move || {
+            let this = Self { receiver, db };
 
-        // Spawn pool of writers.
-        for _ in 0..writers {
-            let receiver = receiver.clone();
-            let db = db.clone();
-
-            std::thread::spawn(move || {
-                let this = Self { receiver, db };
-
-                Self::main(this);
-            });
-        }
+            Self::main(this);
+        });
 
         // Return a handle to the pool.
         DatabaseWriteHandle { sender }
     }
 
     /// The `DatabaseWriter`'s main function.
-    /// The `DatabaseReader`'s main function.
     ///
-    /// Each thread just loops in this function.
+    /// The writer just loops in this function.
     #[cold]
     #[inline(never)] // Only called once.
     fn main(mut self) {

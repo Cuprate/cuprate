@@ -24,12 +24,13 @@
 //! - [`DatabaseReadHandle`]
 //! - [`DatabaseWriteHandle`]
 //!
-//! The 1st allows any caller to send/receive [`ReadRequest`] & [`ReadResponse`].
+//! The 1st allows any caller to send [`ReadRequest`]s.
 //!
-//! The 2nd allows any caller to send/receive [`WriteRequest`] & [`WriteResponse`].
+//! The 2nd allows any caller to send [`WriteRequest`]s.
 //!
-//! Both of these handles are cheaply [`Clone`]able and can be
-//! passed around to whomever needs access to the database.
+//! The `DatabaseReadHandle` can be shared as it is cheaply [`Clone`]able, however,
+//! the `DatabaseWriteHandle` cannot be cloned. There is only 1 place in Cuprate that
+//! writes, so it is passed there and used.
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),
