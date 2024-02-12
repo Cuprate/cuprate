@@ -8,38 +8,23 @@
 
 //---------------------------------------------------------------------------------------------------- Response
 #[derive(Debug)]
-/// Either a read or write response.
+/// A response from the database.
 ///
-/// TODO: not sure if we actually need this.
+/// TODO
 pub enum Response {
-    /// TODO
-    Read(ReadResponse),
-    /// TODO
-    Write(WriteResponse),
-}
-
-//---------------------------------------------------------------------------------------------------- ReadResponse
-#[derive(Debug)]
-/// A read response from the database.
-pub enum ReadResponse {
+    //-------------------------------------------------------- Read responses
     /// TODO
     Example1,
     /// TODO
     Example2(usize),
     /// TODO
     Example3(String),
-}
 
-//---------------------------------------------------------------------------------------------------- WriteResponse
-#[derive(Debug)]
-/// A write response from the database.
-pub enum WriteResponse {
+    //-------------------------------------------------------- Write responses
+    /// The response
+    ///
     /// TODO
-    Example1,
-    /// TODO
-    Example2(usize),
-    /// TODO
-    Example3(String),
+    ExampleWriteResponse, // Probably will be just `Ok`
 }
 
 //---------------------------------------------------------------------------------------------------- IMPL

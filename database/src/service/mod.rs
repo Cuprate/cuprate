@@ -54,7 +54,7 @@ mod request;
 pub use request::{ReadRequest, WriteRequest};
 
 mod response;
-pub use response::{ReadResponse, Response, WriteResponse};
+pub use response::Response;
 
 #[cfg(test)]
 mod tests;
