@@ -78,6 +78,9 @@ pub(super) struct DatabaseReader {
     ///
     /// We (the database reader thread) are not responsible
     /// for creating this channel, the caller provides it.
+    ///
+    /// SOMEDAY: this struct itself could cache a return channel
+    /// instead of creating a new `oneshot` each request.
     receiver: crossbeam::channel::Receiver<(ReadRequest, ResponseSend)>,
 
     /// Access to the database.
@@ -100,6 +103,9 @@ impl DatabaseReader {
         // TODO: slightly _less_ readers per thread may be more ideal.
         // We could account for the writer count as well such that
         // readers + writers == total_thread_count
+        //
+        // TODO: take in a config option that allows
+        // manually adjusting this thread-count.
         let readers = cuprate_helper::thread::threads().get();
 
         // Spawn pool of readers.
@@ -131,9 +137,11 @@ impl DatabaseReader {
             // 4. Return the result via channel
             let (request, response_send) = match self.receiver.recv() {
                 Ok((r, c)) => (r, c),
+
+                // Shutdown on error.
                 Err(e) => {
-                    // TODO: what to do with this channel error?
-                    todo!();
+                    Self::shutdown(self);
+                    return;
                 }
             };
 
