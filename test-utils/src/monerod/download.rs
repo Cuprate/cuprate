@@ -1,3 +1,7 @@
+//! Downloading Monerod Module
+//!
+//! This module handles finding the right monerod file to download, downloading it and extracting it.
+//!
 use std::{
     env::{
         consts::{ARCH, OS},
@@ -40,6 +44,7 @@ fn file_name(version: &str) -> (String, String) {
     (download_file, extracted_dir)
 }
 
+/// Downloads the monerod file provided, extracts it and puts the extracted folder into `path_to_store`.
 async fn download_monerod(file_name: &str, path_to_store: &Path) -> Result<(), ReqError> {
     let res = get(format!("https://downloads.getmonero.org/cli/{}", file_name)).await?;
     let monerod_archive = res.bytes().await.unwrap();
@@ -59,6 +64,8 @@ async fn download_monerod(file_name: &str, path_to_store: &Path) -> Result<(), R
     Ok(())
 }
 
+/// Finds the `target` directory, this will work up from the current directory until
+/// it finds a `target` directory.
 fn find_target() -> PathBuf {
     let mut current_dir = current_dir().unwrap();
     loop {
@@ -71,6 +78,7 @@ fn find_target() -> PathBuf {
     }
 }
 
+/// Checks if we have monerod or downloads it if we don't and then returns the path to it.
 pub async fn check_download_monerod() -> Result<PathBuf, ReqError> {
     let path_to_store = find_target();
 
