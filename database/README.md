@@ -68,6 +68,7 @@ The top-level `src/` files.
 | `error.rs`       | Database error types
 | `free.rs`        | General free functions (related to the database)
 | `macros.rs`      | General macros used throughout `cuprate-database`
+| `monero.rs`      | Abstracted Monero database operations; `trait Monero`
 | `pod.rs`         | Data (de)serialization; `trait Pod`
 | `table.rs`       | Database table abstraction; `trait Table`
 | `tables.rs`      | All the table definitions used by `cuprate-database`

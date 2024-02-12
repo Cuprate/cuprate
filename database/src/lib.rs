@@ -2,7 +2,7 @@
 //!
 //! This crate does 3 things:
 //! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`RoTx`], and [`RwTx`] trait
-//! 2. Implements various `Monero` related tables & functions
+//! 2. Implements various [`Monero`] related functions & [`tables`]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
 //! # Terminology
@@ -250,6 +250,9 @@ pub use error::{InitError, RuntimeError};
 mod free;
 
 mod macros;
+
+mod monero;
+pub use monero::Monero;
 
 mod pod;
 pub use pod::Pod;
