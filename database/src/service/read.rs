@@ -6,7 +6,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use tokio::sync::oneshot;
+use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
     error::RuntimeError,
@@ -15,23 +15,20 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Types
-/// The read response from the database reader thread.
-///
-/// This is an `Err` when the database itself errors
-/// (e.g, `get()` object doesn't exist).
-type Response = Result<ReadResponse, RuntimeError>;
-
 /// The `Receiver` channel that receives the read response.
 ///
 /// This is owned by the caller (the reader)
 /// who `.await`'s for the response.
-type ResponseRecv = tokio::sync::oneshot::Receiver<Response>;
+///
+/// The channel itself should never fail,
+/// but the actual database operation might.
+type ResponseRecv = InfallibleOneshotReceiver<Result<ReadResponse, RuntimeError>>;
 
 /// The `Sender` channel for the response.
 ///
 /// The database reader thread uses this to send
 /// the database result to the caller.
-type ResponseSend = tokio::sync::oneshot::Sender<Response>;
+type ResponseSend = tokio::sync::oneshot::Sender<Result<ReadResponse, RuntimeError>>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
@@ -51,8 +48,8 @@ pub struct DatabaseReadHandle {
 }
 
 impl tower::Service<ReadRequest> for DatabaseReadHandle {
-    type Response = Response; // TODO: This could be a more specific error?
-    type Error = oneshot::error::RecvError; // TODO: always unwrap on channel failure?
+    type Response = ReadResponse;
+    type Error = RuntimeError;
     type Future = ResponseRecv;
 
     #[inline]
