@@ -1,14 +1,14 @@
 //! General free functions used (related to `cuprate_database::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::sync::OnceLock;
+
 use crate::{
     service::read::DatabaseReader,
     service::write::DatabaseWriter,
     service::{DatabaseReadHandle, DatabaseWriteHandle},
     ConcreteEnv,
 };
-
-use std::sync::OnceLock;
 
 //---------------------------------------------------------------------------------------------------- const/static
 /// Read/write handles to the single, global program database.

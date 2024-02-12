@@ -2,10 +2,9 @@
 //! TODO: `InitError/RuntimeError` are maybe bad names.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::constants::DATABASE_BACKEND;
+use std::{borrow::Cow, fmt::Debug};
 
-use std::borrow::Cow;
-use std::fmt::Debug;
+use crate::constants::DATABASE_BACKEND;
 
 //---------------------------------------------------------------------------------------------------- InitError
 /// Database errors that occur during initialization.

@@ -1,14 +1,15 @@
 //! Database write thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::task::{Context, Poll};
+
+use tokio::sync::oneshot;
+
 use crate::{
     error::RuntimeError,
     service::{request::WriteRequest, response::WriteResponse},
     ConcreteEnv,
 };
-
-use std::task::{Context, Poll};
-use tokio::sync::oneshot;
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The write response from the database writer thread.

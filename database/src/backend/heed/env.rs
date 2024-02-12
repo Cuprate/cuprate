@@ -1,9 +1,9 @@
 //! Implementation of `trait Env` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{database::Database, env::Env, error::RuntimeError, table::Table};
-
 use std::path::Path;
+
+use crate::{database::Database, env::Env, error::RuntimeError, table::Table};
 
 //---------------------------------------------------------------------------------------------------- Env
 /// A strongly typed, concrete database environment, backed by `heed`.

@@ -1,14 +1,14 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::path::Path;
+
 use crate::{
     database::Database,
     error::RuntimeError,
     table::Table,
     transaction::{RoTx, RwTx},
 };
-
-use std::path::Path;
 
 //---------------------------------------------------------------------------------------------------- Env
 /// Database environment abstraction.

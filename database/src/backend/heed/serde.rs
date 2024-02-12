@@ -1,9 +1,9 @@
 //! (De)serialization trait implementations for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::pod::Pod;
-
 use std::borrow::Cow;
+
+use crate::pod::Pod;
 
 //---------------------------------------------------------------------------------------------------- Serde
 /// Implement `heed` (de)serialization traits

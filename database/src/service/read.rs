@@ -1,14 +1,15 @@
 //! Database read thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::task::{Context, Poll};
+
+use tokio::sync::oneshot;
+
 use crate::{
     error::RuntimeError,
     service::{request::ReadRequest, response::ReadResponse},
     ConcreteEnv,
 };
-
-use std::task::{Context, Poll};
-use tokio::sync::oneshot;
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The read response from the database reader thread.
