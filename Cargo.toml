@@ -41,17 +41,17 @@ bytes                 = { version = "1.5.0", default-features = false }
 clap                  = { version = "4.4.7", default-features = false }
 chrono                = { version = "0.4.31", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
+crossbeam             = { version = "0.8.4", default-features = false }
 curve25519-dalek      = { version = "4.1.1", default-features = false }
-dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "89788be", default-features = false }
+dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "f3429ec1ef386da1458f4ed244402f38e3e12930", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
 futures               = { version = "0.3.29", default-features = false }
 hex                   = { version = "0.4.3", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
-monero-epee-bin-serde = { git = "https://github.com/monero-rs/monero-epee-bin-serde.git", rev = "fae7a23", default-features = false }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "89788be", default-features = false }
-multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "89788be", default-features = false }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "f3429ec1ef386da1458f4ed244402f38e3e12930", default-features = false }
+multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "f3429ec1ef386da1458f4ed244402f38e3e12930", default-features = false }
 pin-project           = { version = "1.1.3", default-features = false }
-randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "6496a61", default-features = false }
+randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
 rand                  = { version = "0.8.5", default-features = false }
 rayon                 = { version = "1.8.0", default-features = false }
 serde_bytes           = { version = "0.11.12", default-features = false }
@@ -67,14 +67,14 @@ tracing-subscriber    = { version = "0.3.17", default-features = false }
 tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
-proptest = { version = "1" }
-proptest-derive = { version = "0.4.0" }
+reqwest               = { version = "0.11.24" }
+proptest              = { version = "1" }
+proptest-derive       = { version = "0.4.0" }
 
 
 ## TODO:
 ## Potential dependencies.
 # arc-swap  = { version = "1.6.0" }  # Atomically swappable Arc<T>          | https://github.com/vorner/arc-swap
-# crossbeam = { version = "0.8.2" }  # Channels, concurrent primitives      | https://github.com/crossbeam-rs/crossbeam
 # itoa      = { version = "1.0.9" }  # Fast integer to string formatting    | https://github.com/dtolnay/itoa
 # notify    = { version = "6.1.1" }  # Filesystem watching                  | https://github.com/notify-rs/notify
 # once_cell = { version = "1.18.0" } # Lazy/one-time initialization         | https://github.com/matklad/once_cell

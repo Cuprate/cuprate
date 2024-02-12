@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::{net::SocketAddr, str::FromStr};
 
 use futures::{channel::mpsc, StreamExt};
 use tokio::sync::{broadcast, Semaphore};
@@ -14,7 +13,10 @@ use monero_p2p::{
     ConnectionDirection,
 };
 
-use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
+use cuprate_test_utils::{
+    monerod::monerod,
+    test_netzone::{TestNetZone, TestNetZoneAddr},
+};
 use monero_p2p::client::InternalPeerID;
 
 mod utils;
@@ -104,12 +106,16 @@ async fn handshake_cuprate_to_cuprate() {
 }
 
 #[tokio::test]
-async fn handshake() {
+async fn handshake_cuprate_to_monerod() {
     let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
-    let addr = "127.0.0.1:18080";
+    let (monerod, _) = monerod(
+        vec!["--fixed-difficulty=1".into(), "--out-peers=0".into()],
+        false,
+    )
+    .await;
 
     let our_basic_node_data = BasicNodeData {
         my_port: 0,
@@ -135,7 +141,7 @@ async fn handshake() {
         .await
         .unwrap()
         .call(ConnectRequest {
-            addr: SocketAddr::from_str(addr).unwrap(),
+            addr: monerod,
             permit,
         })
         .await

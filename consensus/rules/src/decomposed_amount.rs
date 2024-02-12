@@ -36,8 +36,8 @@ pub fn decomposed_amounts() -> &'static [u64; 172] {
 ///
 /// This is also used during miner tx verification.
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#output-amount
-/// ref: https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#output-amounts
+/// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#output-amount>
+/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#output-amounts>
 #[inline]
 pub fn is_decomposed_amount(amount: &u64) -> bool {
     decomposed_amounts().binary_search(amount).is_ok()

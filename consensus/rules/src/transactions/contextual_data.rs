@@ -20,7 +20,7 @@ pub struct OutputOnChain {
 /// Gets the absolute offsets from the relative offsets.
 ///
 /// This function will return an error if the relative offsets are empty.
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#inputs-must-have-decoys
+/// <https://cuprate.github.io/monero-book/consensus_rules/transactions.html#inputs-must-have-decoys>
 fn get_absolute_offsets(relative_offsets: &[u64]) -> Result<Vec<u64>, TransactionError> {
     if relative_offsets.is_empty() {
         return Err(TransactionError::InputDoesNotHaveExpectedNumbDecoys);
@@ -38,7 +38,7 @@ fn get_absolute_offsets(relative_offsets: &[u64]) -> Result<Vec<u64>, Transactio
 /// Inserts the output IDs that are needed to verify the transaction inputs into the provided HashMap.
 ///
 /// This will error if the inputs are empty
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions.html#no-empty-inputs
+/// <https://cuprate.github.io/monero-book/consensus_rules/transactions.html#no-empty-inputs>
 ///
 pub fn insert_ring_member_ids(
     inputs: &[Input],
@@ -201,7 +201,7 @@ impl TxRingMembersInfo {
 /// - The input amounts are *ALL* 0 (RCT)
 /// - The top block hash is the same as when this data was retrieved (the blockchain state is unchanged).
 ///
-/// https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html
+/// <https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html>
 #[derive(Debug)]
 pub struct DecoyInfo {
     /// The number of inputs that have enough outputs on the chain to mix with.
@@ -251,7 +251,7 @@ impl DecoyInfo {
                             .get(amount)
                             .expect("outputs_with_amount does not include needed amount.");
 
-                        // https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#mixable-and-unmixable-inputs
+                        // <https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#mixable-and-unmixable-inputs>
                         if outs_with_amt <= minimum_decoys {
                             not_mixable += 1;
                         } else {
@@ -267,7 +267,7 @@ impl DecoyInfo {
                         .checked_sub(1)
                         .ok_or(TransactionError::InputDoesNotHaveExpectedNumbDecoys)?;
 
-                    // https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#minimum-and-maximum-decoys-used
+                    // <https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#minimum-and-maximum-decoys-used>
                     min_decoys = min(min_decoys, numb_decoys);
                     max_decoys = max(max_decoys, numb_decoys);
                 }
@@ -287,7 +287,7 @@ impl DecoyInfo {
 /// Returns the default minimum amount of decoys for a hard-fork.
 /// **There are exceptions to this always being the minimum decoys**
 ///
-/// ref: https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#default-minimum-decoys
+/// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#default-minimum-decoys>
 pub(crate) fn minimum_decoys(hf: &HardFork) -> usize {
     use HardFork as HF;
     match hf {

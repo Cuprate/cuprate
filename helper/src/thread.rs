@@ -62,7 +62,7 @@ impl_thread_percent! {
 ///
 /// Sets the calling thread’s priority to the lowest platform-specific value possible.
 ///
-/// https://docs.rs/lpt
+/// Originally from <https://docs.rs/lpt>.
 ///
 /// # Windows
 /// Uses SetThreadPriority() with THREAD_PRIORITY_IDLE (-15).
@@ -80,7 +80,9 @@ pub fn low_priority_thread() {
 
         // SAFETY: calling C.
         // We are _lowering_ our priority, not increasing, so this function should never fail.
-        unsafe { SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE) };
+        unsafe {
+            let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
+        }
     }
 
     #[cfg(target_family = "unix")]
@@ -91,7 +93,9 @@ pub fn low_priority_thread() {
 
         // SAFETY: calling C.
         // We are _lowering_ our priority, not increasing, so this function should never fail.
-        unsafe { libc::nice(NICE_MAX) };
+        unsafe {
+            let _ = libc::nice(NICE_MAX);
+        }
     }
 }
 

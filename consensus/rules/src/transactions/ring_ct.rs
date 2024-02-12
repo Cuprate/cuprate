@@ -43,7 +43,7 @@ pub enum RingCTError {
 
 /// Checks the RingCT type is allowed for the current hard fork.
 ///
-/// https://monero-book.cuprate.org/consensus_rules/ring_ct.html#type
+/// <https://monero-book.cuprate.org/consensus_rules/ring_ct.html#type>
 fn check_rct_type(ty: &RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), RingCTError> {
     use HardFork as F;
     use RctType as T;
@@ -61,7 +61,7 @@ fn check_rct_type(ty: &RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), 
 
 /// Checks that the pseudo-outs sum to the same point as the output commitments.
 ///
-/// https://monero-book.cuprate.org/consensus_rules/ring_ct.html#pseudo-outs-outpks-balance
+/// <https://monero-book.cuprate.org/consensus_rules/ring_ct.html#pseudo-outs-outpks-balance>
 fn simple_type_balances(rct_sig: &RctSignatures) -> Result<(), RingCTError> {
     let pseudo_outs = if rct_sig.rct_type() == RctType::MlsagIndividual {
         &rct_sig.base.pseudo_outs
@@ -86,9 +86,9 @@ fn simple_type_balances(rct_sig: &RctSignatures) -> Result<(), RingCTError> {
 
 /// Checks the outputs range proof(s)
 ///
-/// https://monero-book.cuprate.org/consensus_rules/ring_ct/borromean.html
-/// https://monero-book.cuprate.org/consensus_rules/ring_ct/bulletproofs.html
-/// https://monero-book.cuprate.org/consensus_rules/ring_ct/bulletproofs+.html
+/// <https://monero-book.cuprate.org/consensus_rules/ring_ct/borromean.html>
+/// <https://monero-book.cuprate.org/consensus_rules/ring_ct/bulletproofs.html>
+/// <https://monero-book.cuprate.org/consensus_rules/ring_ct/bulletproofs+.html>
 fn check_output_range_proofs(
     rct_sig: &RctSignatures,
     verifier: &mut BatchVerifier<(), dalek_ff_group::EdwardsPoint>,
@@ -138,8 +138,8 @@ pub(crate) fn ring_ct_semantic_checks(
 
 /// Check the input signatures: MLSAG, CLSAG.
 ///
-/// https://monero-book.cuprate.org/consensus_rules/ring_ct/mlsag.html
-/// https://monero-book.cuprate.org/consensus_rules/ring_ct/clsag.html
+/// <https://monero-book.cuprate.org/consensus_rules/ring_ct/mlsag.html>
+/// <https://monero-book.cuprate.org/consensus_rules/ring_ct/clsag.html>
 pub(crate) fn check_input_signatures(
     msg: &[u8; 32],
     inputs: &[Input],
