@@ -4,6 +4,8 @@
 #[allow(unused_imports)] // docs
 use crate::table::Table;
 
+use crate::pod::Pod;
+
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`] key metadata.
 ///
@@ -18,14 +20,28 @@ pub trait Key {
     /// will just be the same type as [`Key::Primary`].
     const DUPLICATE: bool;
 
-    /// The primary key type.
-    type Primary;
+    // TODO: fix this sanakirja bound.
+    cfg_if::cfg_if! {
+        if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
+            /// The primary key type.
+            type Primary: Pod + sanakirja::Storable;
 
-    /// The secondary key type.
-    ///
-    /// Only needs to be different than [`Key::Primary`]
-    /// if [`Key::DUPLICATE`] is `true`.
-    type Secondary;
+            /// The secondary key type.
+            ///
+            /// Only needs to be different than [`Key::Primary`]
+            /// if [`Key::DUPLICATE`] is `true`.
+            type Secondary: Pod + sanakirja::Storable;
+        } else {
+            /// The primary key type.
+            type Primary: Pod;
+
+            /// The secondary key type.
+            ///
+            /// Only needs to be different than [`Key::Primary`]
+            /// if [`Key::DUPLICATE`] is `true`.
+            type Secondary: Pod;
+        }
+    }
 
     /// Acquire [`Key::Primary`].
     fn primary(self) -> Self::Primary;
@@ -100,8 +116,9 @@ impl_key! {
 // Implement `Key` for any [`DupKey`] using [`Copy`] types.
 impl<P, S> Key for DupKey<P, S>
 where
-    P: Key + Copy,
-    S: Key + Copy,
+    // TODO: fix sanakirja serde bound.
+    P: Key + Pod + Copy,
+    S: Key + Pod + Copy,
 {
     const DUPLICATE: bool = true;
 
