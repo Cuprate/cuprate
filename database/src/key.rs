@@ -117,23 +117,23 @@ impl_key! {
 impl<P, S> Key for DupKey<P, S>
 where
     // TODO: fix sanakirja serde bound.
-    P: Key + Pod + Copy,
-    S: Key + Pod + Copy,
+    P: Pod + Copy,
+    S: Pod + Copy,
 {
     const DUPLICATE: bool = true;
 
-    type Primary = Self;
+    type Primary = P;
 
     type Secondary = S;
 
     #[inline]
     fn primary(self) -> Self::Primary {
-        self
+        self.primary
     }
 
     #[inline]
     fn primary_secondary(self) -> (Self::Primary, Self::Secondary) {
-        (self, self.secondary)
+        (self.primary, self.secondary)
     }
 }
 
