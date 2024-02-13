@@ -298,63 +298,6 @@ impl Pod for Arc<[u8]> {
     }
 }
 
-// Implement for any `DupKey` that has types that implement `Pod`.
-//
-// TODO: how to serialize this?
-impl<P, S> Pod for crate::key::DupKey<P, S>
-where
-    P: Pod,
-    S: Pod,
-{
-    #[inline]
-    fn as_bytes(&self) -> impl AsRef<[u8]> {
-        let primary: &[u8] = self.primary.as_bytes().as_ref();
-        let secondary: &[u8] = self.secondary.as_bytes().as_ref();
-
-        // TODO: trait bound fails?
-        // primary.concat(secondary)
-
-        let bytes: &[u8] = todo!();
-        bytes
-    }
-
-    #[inline]
-    fn into_bytes(self) -> Cow<'static, [u8]> {
-        Cow::Owned(self.as_bytes().as_ref().to_vec())
-    }
-
-    #[inline]
-    fn from_bytes(bytes: &[u8]) -> Self {
-        let primary = P::from_bytes(bytes);
-
-        // TODO: split `bytes` by size of `P, S`'s
-        // byte lengths and deserialize...?
-
-        todo!();
-    }
-
-    #[inline]
-    fn from_reader<R: Read>(reader: &mut R) -> Self {
-        let mut bytes = vec![];
-        reader
-            .read_to_end(bytes.as_mut())
-            .expect("Pod::<Arc<[u8]>>::read_to_end() failed");
-
-        Self::from_bytes(&bytes)
-    }
-
-    #[inline]
-    fn to_writer<W: Write>(self, writer: &mut W) -> usize {
-        // TODO: serialize both primary and secondary?
-
-        self.primary.to_writer(writer);
-        self.secondary.to_writer(writer);
-
-        // TODO: Return length?
-        todo!()
-    }
-}
-
 //---------------------------------------------------------------------------------------------------- Pod Impl (numbers)
 /// Implement `Pod` on primitive numbers.
 ///
