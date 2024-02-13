@@ -4,8 +4,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, fmt::Debug};
 
-use crate::constants::DATABASE_BACKEND;
-
 //---------------------------------------------------------------------------------------------------- InitError
 /// Database errors that occur during initialization.
 ///
@@ -45,18 +43,12 @@ pub enum InitError {
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
     /// The given key already existed in the database.
-    ///
-    /// The string inside is the output of
-    /// [`std::any::type_name`] on the key type.
-    #[error("key of type `{0}` already existed")]
-    KeyExists(&'static str),
+    #[error("key already existed")]
+    KeyExists,
 
     /// The given key did not exist in the database.
-    ///
-    /// The string inside is the output of
-    /// [`std::any::type_name`] on the key type.
-    #[error("key/value pair was not found: {0}")]
-    KeyNotFound(&'static str),
+    #[error("key/value pair was not found")]
+    KeyNotFound,
 
     /// The database environment has reached
     /// maximum memory map size, it must be
@@ -76,21 +68,21 @@ pub enum RuntimeError {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// The database is currently in the process
+    /// of shutting down and cannot respond.
+    #[error("database is shutting down")]
+    ShuttingDown,
+
     /// The expected database version was not the version found.
-    #[error("database version mismatch: expected {expected}, found {found}")]
-    VersionMismatch {
-        /// The expected database version.
-        expected: &'static str,
-        /// The database version found.
-        found: &'static str,
-    },
+    #[error("database version mismatch")]
+    VersionMismatch,
 
     /// The database has reached maximum parallel readers.
     ///
     /// TODO: this can be used for retry logic in reader threads,
     /// although, does this error ever actually occur in practice?
     #[error("database maximum parallel readers reached")]
-    MaxReaders,
+    ReadersFull,
 
     // TODO: this could be removed once we have all errors figured out.
     /// An unknown error occurred.
