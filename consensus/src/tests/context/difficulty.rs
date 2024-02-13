@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
-use proptest::{arbitrary::any, prop_assert_eq, prop_compose, proptest};
+use proptest::collection::size_range;
+use proptest::{prelude::*, prop_assert_eq, prop_compose, proptest};
 
 use cuprate_helper::num::median;
 
@@ -87,9 +88,9 @@ async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
 
 prop_compose! {
     /// Generates an arbitrary full difficulty cache.
-    fn arb_full_difficulty_cache()
+    fn arb_difficulty_cache(blocks: usize)
                            (
-                               blocks in any::<[(u64, u64); TEST_TOTAL_ACCOUNTED_BLOCKS]>()
+                               blocks in any_with::<Vec<(u64, u64)>>(size_range(blocks).lift()),
                            ) -> DifficultyCache {
         let (timestamps, mut cumulative_difficulties): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
         cumulative_difficulties.sort_unstable();
@@ -104,10 +105,20 @@ prop_compose! {
     }
 }
 
+prop_compose! {
+    fn random_difficulty_cache()(
+        blocks in 0..TEST_TOTAL_ACCOUNTED_BLOCKS,
+    )(
+        diff_cache in arb_difficulty_cache(blocks)
+    ) -> DifficultyCache {
+        diff_cache
+    }
+}
+
 proptest! {
     #[test]
     fn check_calculations_lag(
-        mut diff_cache in arb_full_difficulty_cache(),
+        mut diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS),
         timestamp in any::<u64>(),
         cumulative_difficulty in any::<u128>(),
         hf in any::<HardFork>()
@@ -133,7 +144,7 @@ proptest! {
     }
 
     #[test]
-    fn next_difficulty_consistant(diff_cache in arb_full_difficulty_cache(), hf in any::<HardFork>()) {
+    fn next_difficulty_consistant(diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS), hf in any::<HardFork>()) {
         let first_call = diff_cache.next_difficulty(&hf);
         prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
         prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
@@ -160,11 +171,41 @@ proptest! {
     }
 
     #[test]
-    fn window_size_kept_constant(mut diff_cache in arb_full_difficulty_cache(), new_blocks in any::<Vec<(u64, u128)>>()) {
+    fn window_size_kept_constant(mut diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS), new_blocks in any::<Vec<(u64, u128)>>()) {
         for (timestamp, cumulative_difficulty) in new_blocks.into_iter() {
             diff_cache.new_block(diff_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             prop_assert_eq!(diff_cache.timestamps.len(), TEST_TOTAL_ACCOUNTED_BLOCKS);
             prop_assert_eq!(diff_cache.cumulative_difficulties.len(), TEST_TOTAL_ACCOUNTED_BLOCKS);
         }
+    }
+
+    #[test]
+    fn claculating_multiple_diffs_does_not_change_state(
+        mut diff_cache in random_difficulty_cache(),
+        timestamps in any_with::<Vec<u64>>(size_range(0..1000).lift()),
+        hf in any::<HardFork>(),
+    ) {
+        let cache = diff_cache.clone();
+
+        diff_cache.next_difficulties(timestamps.into_iter().zip([hf].into_iter().cycle()).collect(), &hf);
+
+        assert_eq!(diff_cache, cache);
+    }
+
+    #[test]
+    fn calculate_diff_in_advance(
+        mut diff_cache in random_difficulty_cache(),
+        timestamps in any_with::<Vec<u64>>(size_range(0..1000).lift()),
+        hf in any::<HardFork>(),
+    ) {
+        let timestamps: Vec<_> = timestamps.into_iter().zip([hf].into_iter().cycle()).collect();
+
+        let diffs = diff_cache.next_difficulties(timestamps.clone(), &hf);
+
+        for (timestamp, diff) in timestamps.into_iter().zip(diffs.into_iter()) {
+            assert_eq!(diff_cache.next_difficulty(&timestamp.1), diff);
+            diff_cache.new_block(diff_cache.last_accounted_height +1, timestamp.0, diff +  diff_cache.cumulative_difficulty());
+        }
+
     }
 }
