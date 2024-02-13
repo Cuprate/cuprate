@@ -3,7 +3,7 @@ use std::ops::Range;
 use tower::ServiceExt;
 use tracing::instrument;
 
-use monero_consensus::{HFVotes, HFsInfo, HardFork};
+use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 

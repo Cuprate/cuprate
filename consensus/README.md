@@ -1,12 +1,12 @@
 # Consensus Rules
 
-This folder contains 2 crates: `monero-consensus` (rules) and `cuprate-consensus`. `monero-consensus` contains the raw-rules
+This folder contains 2 crates: `cuprate-consensus-rules` (rules) and `cuprate-consensus`. `cuprate-consensus-rules` contains the raw-rules
 and is built to be a more flexible library which requires the user to give the correct data and do minimal calculations, `cuprate-consensus`
 on the other hand contains multiple tower::Services that handle tx/ block verification as a whole with a `context` service that
-keeps track of blockchain state. `cuprate-consensus` uses `monero-consensus` internally.
+keeps track of blockchain state. `cuprate-consensus` uses `cuprate-consensus-rules` internally.
 
 If you are looking to use monero consensus rules it's recommended you try to integrate `cuprate-consensus` and fall back to
-`monero-consensus` if you need more flexibility.
+`cuprate-consensus-rules` if you need more flexibility.
 
 ## scan_chain
 
@@ -27,11 +27,11 @@ First you will need to install Rust/Cargo: https://www.rust-lang.org/tools/insta
 Next you need to clone Cuprates git repo, enter the root of Cuprate, then run:
 
 ```
-cargo run --bin scan_chain -r 
+cargo run --features binaries --bin scan_chain -r 
 ```
 
 If you want to pass in options you need to add `--` then the option(s), so to list the options do:
 
 ```
-cargo run --bin scan_chain -r -- --help
+cargo run --features binaries --bin scan_chain -r -- --help
 ```

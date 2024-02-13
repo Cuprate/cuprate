@@ -3,7 +3,7 @@ use std::{
     future::Future,
 };
 
-use monero_consensus::{transactions::OutputOnChain, ConsensusError, HardFork};
+use cuprate_consensus_rules::{transactions::OutputOnChain, ConsensusError, HardFork};
 
 mod batch_verifier;
 pub mod block;
@@ -27,7 +27,7 @@ pub use transactions::{VerifyTxRequest, VerifyTxResponse};
 #[derive(Debug, thiserror::Error)]
 pub enum ExtendedConsensusError {
     #[error("{0}")]
-    ConErr(#[from] monero_consensus::ConsensusError),
+    ConErr(#[from] cuprate_consensus_rules::ConsensusError),
     #[error("Database error: {0}")]
     DBErr(#[from] tower::BoxError),
     #[error("The transactions passed in with the block are incorrect.")]

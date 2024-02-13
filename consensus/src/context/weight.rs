@@ -16,8 +16,8 @@ use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
 
+use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 use cuprate_helper::{asynch::rayon_spawn_async, num::median};
-use monero_consensus::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork};
 

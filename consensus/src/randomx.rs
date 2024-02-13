@@ -1,7 +1,7 @@
 use randomx_rs::{RandomXCache, RandomXError, RandomXFlag, RandomXVM as VMInner};
 use thread_local::ThreadLocal;
 
-use monero_consensus::blocks::RandomX;
+use cuprate_consensus_rules::blocks::RandomX;
 
 pub struct RandomXVM {
     vms: ThreadLocal<VMInner>,

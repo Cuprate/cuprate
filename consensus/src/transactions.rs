@@ -14,14 +14,14 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_helper::asynch::rayon_spawn_async;
-use monero_consensus::{
+use cuprate_consensus_rules::{
     transactions::{
         check_transaction_contextual, check_transaction_semantic, RingCTError, TransactionError,
         TxRingMembersInfo,
     },
     ConsensusError, HardFork, TxVersion,
 };
+use cuprate_helper::asynch::rayon_spawn_async;
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier, context::ReOrgToken, Database, DatabaseRequest,

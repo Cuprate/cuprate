@@ -501,6 +501,7 @@ version = "0.1.0"
 dependencies = [
  "borsh",
  "clap",
+ "cuprate-consensus-rules",
  "cuprate-helper",
  "curve25519-dalek",
  "dalek-ff-group",
@@ -508,7 +509,6 @@ dependencies = [
  "epee-encoding",
  "futures",
  "hex",
- "monero-consensus",
  "monero-serai",
  "monero-wire",
  "multiexp",
@@ -518,7 +518,6 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
- "syn 2.0.48",
  "thiserror",
  "thread_local",
  "tokio",
@@ -526,6 +525,28 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "cuprate-consensus-rules"
+version = "0.1.0"
+dependencies = [
+ "crypto-bigint",
+ "cryptonight-cuprate",
+ "cuprate-helper",
+ "curve25519-dalek",
+ "dalek-ff-group",
+ "hex",
+ "hex-literal",
+ "monero-serai",
+ "multiexp",
+ "proptest",
+ "proptest-derive",
+ "rand",
+ "rayon",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1415,28 +1436,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tower",
- "tracing",
-]
-
-[[package]]
-name = "monero-consensus"
-version = "0.1.0"
-dependencies = [
- "crypto-bigint",
- "cryptonight-cuprate",
- "cuprate-helper",
- "curve25519-dalek",
- "dalek-ff-group",
- "hex",
- "hex-literal",
- "monero-serai",
- "multiexp",
- "proptest",
- "proptest-derive",
- "rand",
- "rayon",
- "thiserror",
- "tokio",
  "tracing",
 ]
 

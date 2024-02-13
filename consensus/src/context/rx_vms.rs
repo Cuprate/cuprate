@@ -9,11 +9,11 @@ use rayon::prelude::*;
 use thread_local::ThreadLocal;
 use tower::ServiceExt;
 
-use cuprate_helper::asynch::rayon_spawn_async;
-use monero_consensus::{
+use cuprate_consensus_rules::{
     blocks::{is_randomx_seed_height, RandomX, RX_SEEDHASH_EPOCH_BLOCKS},
     HardFork,
 };
+use cuprate_helper::asynch::rayon_spawn_async;
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 

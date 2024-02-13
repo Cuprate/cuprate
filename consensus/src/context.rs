@@ -21,7 +21,7 @@ use futures::{
 };
 use tower::{Service, ServiceExt};
 
-use monero_consensus::{blocks::ContextToVerifyBlock, current_unix_timestamp, HardFork};
+use cuprate_consensus_rules::{blocks::ContextToVerifyBlock, current_unix_timestamp, HardFork};
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 

@@ -29,7 +29,7 @@ binaries = [
 
 [dependencies]
 cuprate-helper = { path = "../helper", default-features = false, features = ["std", "asynch", "num"] }
-monero-consensus = {path = "./rules", features = ["rayon"]}
+cuprate-consensus-rules = {path = "./rules", features = ["rayon"]}
 
 thiserror = { workspace = true }
 tower = { workspace = true, features = ["util"] }
@@ -55,15 +55,12 @@ epee-encoding = { path="../net/epee-encoding" , optional = true}
 serde_json = {version = "1", optional = true}
 serde = {version = "1", optional = true, features = ["derive"]}
 tracing-subscriber = {version = "0.3", optional = true}
-borsh = { workspace = true, optional = true}
+borsh = { workspace = true, features = ["derive", "std"], optional = true}
 dirs = {version="5.0", optional = true}
 clap = { version = "4.4.8", optional = true, features = ["derive"] }
-# here to help cargo to pick a version - remove me
-syn = "2.0.37"
-
 
 [dev-dependencies]
-monero-consensus =  {path = "./rules", features = ["proptest"]}
+cuprate-consensus-rules =  {path = "./rules", features = ["proptest"]}
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
 proptest = { workspace = true }

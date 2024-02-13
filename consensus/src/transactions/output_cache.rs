@@ -4,14 +4,14 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
-use curve25519_dalek::{
-    constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, EdwardsPoint, Scalar,
-};
-use monero_consensus::{
+use cuprate_consensus_rules::{
     blocks::BlockError,
     miner_tx::MinerTxError,
     transactions::{OutputOnChain, TransactionError},
     ConsensusError,
+};
+use curve25519_dalek::{
+    constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, EdwardsPoint, Scalar,
 };
 use monero_serai::{
     block::Block,

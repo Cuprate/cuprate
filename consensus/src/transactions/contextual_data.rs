@@ -20,7 +20,7 @@ use std::{
 use monero_serai::transaction::Input;
 use tower::ServiceExt;
 
-use monero_consensus::{
+use cuprate_consensus_rules::{
     transactions::{
         get_ring_members_for_inputs, insert_ring_member_ids, DecoyInfo, TxRingMembersInfo,
     },

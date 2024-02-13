@@ -15,7 +15,7 @@ use monero_serai::{
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 
-use monero_consensus::{
+use cuprate_consensus_rules::{
     blocks::{
         calculate_pow_hash, check_block, check_block_pow, is_randomx_seed_height,
         randomx_seed_height, BlockError, RandomX,

@@ -339,7 +339,7 @@ mod bin {
             Err(_) => {
                 tracing::warn!("Couldn't load from cache starting from scratch");
                 let mut cache = ScanningCache::default();
-                let genesis = monero_consensus::genesis::generate_genesis_block(&network);
+                let genesis = cuprate_consensus_rules::genesis::generate_genesis_block(&network);
 
                 let total_outs = genesis
                     .miner_tx
