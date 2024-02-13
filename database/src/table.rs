@@ -24,18 +24,15 @@ pub trait Table {
     /// Whether the table's values are all the same size or not.
     const CONSTANT_SIZE: bool;
 
+    /// Primary key type.
+    type Key: Key;
+
     // TODO: fix this sanakirja bound.
     cfg_if::cfg_if! {
         if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
-            /// Primary key type.
-            type Key: Key + Pod + sanakirja::Storable;
-
             /// Value type.
             type Value: Pod + sanakirja::Storable;
         } else {
-            /// Primary key type.
-            type Key: Key + Pod;
-
             /// Value type.
             type Value: Pod;
         }
