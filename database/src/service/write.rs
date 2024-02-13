@@ -17,7 +17,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
 ///
-/// Either our [Response], or a database error occured.
+/// Either our [Response], or a database error occurred.
 type ResponseResult = Result<Response, RuntimeError>;
 
 /// The `Receiver` channel that receives the write response.
@@ -82,7 +82,7 @@ impl DatabaseWriter {
     #[cold]
     #[inline(never)] // Only called once.
     pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseWriteHandle {
-        // Initalize `Request/Response` channels.
+        // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         // Spawn the writer.

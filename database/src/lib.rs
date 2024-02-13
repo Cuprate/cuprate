@@ -34,7 +34,7 @@
 //! however, it also means some small invariants should be kept in mind.
 //!
 //! As `ConcreteEnv` is just a re-exposed type which has varying inner types,
-//! it means somes properties will change depending on the backend used.
+//! it means some properties will change depending on the backend used.
 //!
 //! For example:
 //! - [`std::mem::size_of::<ConcreteEnv>`]

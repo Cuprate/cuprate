@@ -17,7 +17,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
 ///
-/// Either our [Response], or a database error occured.
+/// Either our [Response], or a database error occurred.
 type ResponseResult = Result<Response, RuntimeError>;
 
 /// The `Receiver` channel that receives the read response.
@@ -102,7 +102,7 @@ impl DatabaseReader {
     #[cold]
     #[inline(never)] // Only called once.
     pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseReadHandle {
-        // Initalize `Request/Response` channels.
+        // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         // TODO: slightly _less_ readers per thread may be more ideal.
