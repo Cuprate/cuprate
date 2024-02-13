@@ -1,7 +1,7 @@
 //! Database table abstraction; `trait Table`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::pod::Pod;
+use crate::{key::Key, pod::Pod};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database table metadata.
@@ -24,26 +24,23 @@ pub trait Table {
     /// Whether the table's values are all the same size or not.
     const CONSTANT_SIZE: bool;
 
+    // TODO: fix this sanakirja bound.
     cfg_if::cfg_if! {
         if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
-            // TODO: fix this sanakirja bound.
+            /// Primary key type.
+            type Key: Key + Pod + sanakirja::Storable;
 
-            /// Concrete key type.
-            type Key: Pod + sanakirja::Storable;
-
-            /// Concrete key type.
+            /// Value type.
             type Value: Pod + sanakirja::Storable;
         } else {
-            /// Concrete key type.
-            type Key: Pod;
+            /// Primary key type.
+            type Key: Key + Pod;
 
-            /// Concrete value type.
+            /// Value type.
             type Value: Pod;
         }
     }
 }
-
-// TODO: subkey support. pending on `heed` changes.
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]

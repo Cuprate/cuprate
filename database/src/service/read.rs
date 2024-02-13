@@ -43,7 +43,7 @@ type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
 ///
 /// Calling [`tower::Service::call`] with a [`DatabaseReadHandle`] & [`ReadRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
-/// to receive the corresponding [`ReadResponse`].
+/// to receive the corresponding [`Response`].
 #[derive(Clone, Debug)]
 pub struct DatabaseReadHandle {
     /// Sender channel to the database read thread-pool.

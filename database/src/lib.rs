@@ -1,7 +1,7 @@
 //! Database abstraction and utilities.
 //!
 //! This crate does 3 things:
-//! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`RoTx`], and [`RwTx`] trait
+//! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`Key`], [`RoTx`], and [`RwTx`] traits
 //! 2. Implements various `Monero` related [functions](ops) & [`tables`]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
@@ -248,6 +248,9 @@ mod error;
 pub use error::{InitError, RuntimeError};
 
 mod free;
+
+mod key;
+pub use key::{DupKey, Key};
 
 mod macros;
 

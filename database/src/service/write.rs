@@ -38,7 +38,7 @@ type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
 ///
 /// Calling [`tower::Service::call`] with a [`DatabaseWriteHandle`] & [`WriteRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
-/// to receive the corresponding [`WriteResponse`].
+/// to receive the corresponding [`Response`].
 #[derive(Debug)]
 pub struct DatabaseWriteHandle {
     /// Sender channel to the database write thread-pool.
