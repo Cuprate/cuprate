@@ -13,8 +13,7 @@ mod bin {
 
     use cuprate_consensus::{
         context::{
-            BlockChainContextRequest, BlockChainContextResponse, ContextConfig,
-            UpdateBlockchainCacheData,
+            BlockChainContextRequest, BlockChainContextResponse, ContextConfig, NewBlockData,
         },
         initialize_blockchain_context, initialize_verifier,
         rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig},
@@ -58,18 +57,16 @@ mod bin {
         context_updater
             .ready()
             .await?
-            .call(BlockChainContextRequest::Update(
-                UpdateBlockchainCacheData {
-                    new_top_hash: verified_block_info.block_hash,
-                    height: verified_block_info.height,
-                    timestamp: verified_block_info.block.header.timestamp,
-                    weight: verified_block_info.weight,
-                    long_term_weight: verified_block_info.long_term_weight,
-                    vote: verified_block_info.hf_vote,
-                    generated_coins: verified_block_info.generated_coins,
-                    cumulative_difficulty: verified_block_info.cumulative_difficulty,
-                },
-            ))
+            .call(BlockChainContextRequest::Update(NewBlockData {
+                block_hash: verified_block_info.block_hash,
+                height: verified_block_info.height,
+                timestamp: verified_block_info.block.header.timestamp,
+                weight: verified_block_info.weight,
+                long_term_weight: verified_block_info.long_term_weight,
+                vote: verified_block_info.hf_vote,
+                generated_coins: verified_block_info.generated_coins,
+                cumulative_difficulty: verified_block_info.cumulative_difficulty,
+            }))
             .await?;
 
         Ok(())

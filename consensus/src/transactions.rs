@@ -233,7 +233,7 @@ where
     .await?;
 
     let DatabaseResponse::CheckKIsNotSpent(kis_spent) = database
-        .oneshot(DatabaseRequest::CheckKIsNotSpent(
+        .oneshot(DatabaseRequest::KeyImagesSpent(
             Arc::into_inner(spent_kis).unwrap().into_inner().unwrap(),
         ))
         .await?

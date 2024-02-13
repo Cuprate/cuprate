@@ -137,7 +137,7 @@ where
         let cache = self.cache.clone();
 
         match req {
-            DatabaseRequest::CheckKIsNotSpent(kis) => async move {
+            DatabaseRequest::KeyImagesSpent(kis) => async move {
                 Ok(DatabaseResponse::CheckKIsNotSpent(
                     cache.read().await.are_kis_spent(kis),
                 ))
