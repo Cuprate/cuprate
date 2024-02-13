@@ -109,8 +109,6 @@ mod private {
 
     // Special case cause of generic.
     impl<const N: usize> Sealed for [u8; N] {}
-    // [`crate::key::DupKey`]
-    impl<P: Sealed, S: Sealed> Sealed for crate::key::DupKey<P, S> {}
 
     impl_sealed! {
         Vec<u8>,
