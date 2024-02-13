@@ -14,14 +14,10 @@ use crate::constants::DATABASE_BACKEND;
 /// be needed if we can convert all error types into
 /// "generic" database errors.
 #[derive(thiserror::Error, Debug)]
-pub enum InitError<BackendError: Debug> {
+pub enum InitError {
     /// TODO
     #[error("database PATH is inaccessible: {0}")]
     Path(std::io::Error),
-
-    /// TODO
-    #[error("{DATABASE_BACKEND} error: {0}")]
-    Backend(BackendError),
 
     /// TODO
     ///
@@ -46,8 +42,8 @@ pub enum InitError<BackendError: Debug> {
     feature = "borsh",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize)
 )]
-#[derive(thiserror::Error, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-pub enum RuntimeError<BackendError: Debug> {
+#[derive(thiserror::Error, Debug)]
+pub enum RuntimeError {
     /// The given key already existed in the database.
     ///
     /// The string inside is the output of
@@ -83,7 +79,9 @@ pub enum RuntimeError<BackendError: Debug> {
     /// The expected database version was not the version found.
     #[error("database version mismatch: expected {expected}, found {found}")]
     VersionMismatch {
+        /// The expected database version.
         expected: &'static str,
+        /// The database version found.
         found: &'static str,
     },
 
@@ -93,10 +91,6 @@ pub enum RuntimeError<BackendError: Debug> {
     /// although, does this error ever actually occur in practice?
     #[error("database maximum parallel readers reached")]
     MaxReaders,
-
-    /// An unknown backend-specific error occured.
-    #[error("{DATABASE_BACKEND} error: {0}")]
-    Backend(BackendError),
 
     // TODO: this could be removed once we have all errors figured out.
     /// An unknown error occurred.
