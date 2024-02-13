@@ -21,8 +21,8 @@ use bytes::BufMut;
 use epee_encoding::EpeeObject;
 use std::{hash::Hash, net, net::SocketAddr};
 
-mod serde_helper;
-use serde_helper::*;
+mod epee_builder;
+use epee_builder::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NetZone {

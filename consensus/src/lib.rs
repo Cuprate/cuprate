@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
-    sync::Arc,
 };
 
 use monero_consensus::{transactions::OutputOnChain, ConsensusError, HardFork};
@@ -31,14 +30,13 @@ pub enum ExtendedConsensusError {
     ConErr(#[from] monero_consensus::ConsensusError),
     #[error("Database error: {0}")]
     DBErr(#[from] tower::BoxError),
-    #[error("Needed transaction is not in pool")]
-    TxPErr(#[from] TxNotInPool),
+    #[error("The transactions passed in with the block are incorrect.")]
+    TxsIncludedWithBlockIncorrect,
 }
 
 // TODO: instead of (ab)using generic returns return the acc type
-pub async fn initialize_verifier<D, TxP, Ctx>(
+pub async fn initialize_verifier<D, Ctx>(
     database: D,
-    tx_pool: TxP,
     ctx_svc: Ctx,
 ) -> Result<
     (
@@ -68,12 +66,6 @@ pub async fn initialize_verifier<D, TxP, Ctx>(
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
-    TxP: tower::Service<TxPoolRequest, Response = TxPoolResponse, Error = TxNotInPool>
-        + Clone
-        + Send
-        + Sync
-        + 'static,
-    TxP::Future: Send + 'static,
     Ctx: tower::Service<
             BlockChainContextRequest,
             Response = BlockChainContextResponse,
@@ -84,8 +76,8 @@ where
         + 'static,
     Ctx::Future: Send + 'static,
 {
-    let tx_svc = transactions::TxVerifierService::new(database);
-    let block_svc = block::BlockVerifierService::new(ctx_svc, tx_svc.clone(), tx_pool);
+    let tx_svc = transactions::TxVerifierService::new(database.clone());
+    let block_svc = block::BlockVerifierService::new(ctx_svc, tx_svc.clone(), database);
     Ok((block_svc, tx_svc))
 }
 
@@ -153,16 +145,4 @@ pub enum DatabaseResponse {
             Vec<monero_serai::transaction::Transaction>,
         )>,
     ),
-}
-
-#[derive(Debug, Copy, Clone, thiserror::Error)]
-#[error("The transaction requested was not in the transaction pool")]
-pub struct TxNotInPool;
-
-pub enum TxPoolRequest {
-    Transactions(Vec<[u8; 32]>),
-}
-
-pub enum TxPoolResponse {
-    Transactions(Vec<Arc<transactions::TransactionVerificationData>>),
 }

@@ -58,19 +58,15 @@ impl ScanningCache {
         txs: &[Arc<TransactionVerificationData>],
     ) {
         self.add_tx_time_lock(miner_tx.hash(), miner_tx.prefix.timelock);
-        miner_tx
-            .prefix
-            .outputs
-            .iter()
-            .for_each(|out| self.add_outs(out.amount.unwrap_or(0), 1));
+        miner_tx.prefix.outputs.iter().for_each(|out| {
+            self.add_outs(miner_tx.prefix.version == 2, out.amount.unwrap_or(0), 1)
+        });
 
         txs.iter().for_each(|tx| {
             self.add_tx_time_lock(tx.tx_hash, tx.tx.prefix.timelock);
-            tx.tx
-                .prefix
-                .outputs
-                .iter()
-                .for_each(|out| self.add_outs(out.amount.unwrap_or(0), 1));
+            tx.tx.prefix.outputs.iter().for_each(|out| {
+                self.add_outs(tx.tx.prefix.version == 2, out.amount.unwrap_or(0), 1)
+            });
 
             tx.tx.prefix.inputs.iter().for_each(|inp| match inp {
                 Input::ToKey { key_image, .. } => {
@@ -125,7 +121,9 @@ impl ScanningCache {
             .collect()
     }
 
-    pub fn add_outs(&mut self, amount: u64, count: usize) {
+    pub fn add_outs(&mut self, is_v2: bool, amount: u64, count: usize) {
+        let amount = if is_v2 { 0 } else { amount };
+
         if let Some(numb_outs) = self.numb_outs.get_mut(&amount) {
             *numb_outs += count;
         } else {
