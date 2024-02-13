@@ -111,6 +111,7 @@ mod private {
     impl<const N: usize> Sealed for [u8; N] {}
 
     impl_sealed! {
+        std::convert::Infallible,
         Vec<u8>,
         Box<[u8]>,
         std::sync::Arc<[u8]>,
@@ -132,6 +133,42 @@ mod private {
 }
 
 //---------------------------------------------------------------------------------------------------- Pod Impl (bytes)
+// Implement for `Infallible`.
+// This type is `!` and should never be constructable,
+// so all these functions will just panic.
+impl Pod for std::convert::Infallible {
+    #[cold]
+    #[inline(never)]
+    fn as_bytes(&self) -> impl AsRef<[u8]> {
+        let bytes: &[u8] = unreachable!();
+        bytes
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn into_bytes(self) -> Cow<'static, [u8]> {
+        unreachable!()
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn from_bytes(bytes: &[u8]) -> Self {
+        unreachable!()
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn from_reader<R: Read>(reader: &mut R) -> Self {
+        unreachable!()
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn to_writer<W: Write>(self, writer: &mut W) -> usize {
+        unreachable!()
+    }
+}
+
 // Implement for owned `Vec` bytes.
 impl Pod for Vec<u8> {
     #[inline]
