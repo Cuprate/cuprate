@@ -254,6 +254,9 @@ pub use key::{DupKey, Key};
 
 mod macros;
 
+mod never;
+pub(crate) use never::Never;
+
 pub mod ops;
 
 mod pod;

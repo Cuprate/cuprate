@@ -111,7 +111,7 @@ mod private {
     impl<const N: usize> Sealed for [u8; N] {}
 
     impl_sealed! {
-        std::convert::Infallible,
+        crate::never::Never,
         Vec<u8>,
         Box<[u8]>,
         std::sync::Arc<[u8]>,
@@ -133,10 +133,10 @@ mod private {
 }
 
 //---------------------------------------------------------------------------------------------------- Pod Impl (bytes)
-// Implement for `Infallible`.
-// This type is `!` and should never be constructable,
+// Implement for `Never`.
+// This type is never be constructable,
 // so all these functions will just panic.
-impl Pod for std::convert::Infallible {
+impl Pod for crate::never::Never {
     #[cold]
     #[inline(never)]
     fn as_bytes(&self) -> impl AsRef<[u8]> {

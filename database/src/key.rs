@@ -71,7 +71,6 @@ pub struct DupKey<P, S> {
     pub secondary: S,
 }
 
-//---------------------------------------------------------------------------------------------------- Impl
 /// Implement `Key` on most primitive types.
 ///
 /// `Key::DUPLICATE` is always `false`.
@@ -85,12 +84,7 @@ macro_rules! impl_key {
             impl Key for $t {
                 const DUPLICATE: bool = false;
                 type Primary = $t;
-                // This 0 variant enum is unconstructable,
-                // and "has the same role as the ! “never” type":
-                // <https://doc.rust-lang.org/std/convert/enum.Infallible.html#future-compatibility>.
-                //
-                // FIXME: Use the `!` type when stable.
-                type Secondary = std::convert::Infallible;
+                type Secondary = crate::never::Never;
 
                 #[inline(always)]
                 fn primary(self) -> Self::Primary {
