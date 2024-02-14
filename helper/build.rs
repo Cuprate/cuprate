@@ -20,7 +20,10 @@ fn set_commit_env() {
         .output()
         .unwrap();
 
-    let commit = String::from_utf8(output.stdout).unwrap();
+    let commit = std::str::from_utf8(&output.stdout)
+        .unwrap()
+        .trim()
+        .to_lowercase();
 
     // Commit hash should always be 40 bytes long.
     assert_eq!(commit.as_bytes().len(), 40);
