@@ -35,11 +35,6 @@ pub enum InitError {
 ///
 /// 1. All tables exist
 /// 2. (De)serialization never fails
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
     /// The given key already existed in the database.
