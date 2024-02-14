@@ -1,5 +1,5 @@
 fn main() {
-	#[cfg(feature = "constants")]
+    #[cfg(feature = "constants")]
     set_commit_env();
 }
 
@@ -10,7 +10,7 @@ fn set_commit_env() {
 
     println!("cargo:rerun-if-changed={PATH}");
 
-    // FIXME: This could also just `std::fs::read({PATH}/{branch})`
+    // FIXME: This could also be `std::fs::read({PATH}/{branch})`
     // so the machine building doesn't need `git`, although:
     // 1. Having `git` as a build dependency is probably ok
     // 2. It causes issues on PRs that aren't the `main` branch
@@ -22,8 +22,8 @@ fn set_commit_env() {
 
     let commit = String::from_utf8(output.stdout).unwrap();
 
-	// Commit hash should always be 40 characters long.
-	assert_eq!(commit.len(), 40);
+    // Commit hash should always be 40 characters long.
+    assert_eq!(commit.len(), 40);
 
     println!("cargo:rustc-env=COMMIT={commit}");
 }
