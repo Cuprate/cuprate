@@ -94,7 +94,8 @@ jobs:
         update: true
         install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 
-    - name: Update Rust
+    - name: Update Rust (UNIX)
+      if: matrix.os != 'windows-latest'
       run: rustup update
 
     - name: Switch target (Windows)
