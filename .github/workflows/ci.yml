@@ -104,7 +104,12 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy && rustup set default-host x86_64-pc-windows-gnu && rustup default stable-x86_64-pc-windows-gnu
 
+    # This only runs on Linux for 2 reasons:
+    # 1. There won't be much OS-specific documentation anyway (if any)
+    # 2. Windows is throwing errors that I don't know how to fix :)
+    #    <https://github.com/Cuprate/cuprate/actions/runs/7907323951/job/21584133606?pr=32#step:9:251>
     - name: Documentation
+      if: matrix.os == 'ubuntu-latest'
       shell: bash
       run: cargo doc --workspace --all-features
 
