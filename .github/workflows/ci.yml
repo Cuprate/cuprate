@@ -31,6 +31,16 @@ jobs:
     - name: Format
       run: cargo fmt --all --check
 
+  # Run typo checker separately.
+  # This will fast-cancel other CI early if this fails.
+  typo:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Spell Check
+      uses: crate-ci/typos@master
+
   # All other CI.
   ci:
     runs-on: ${{ matrix.os }}
