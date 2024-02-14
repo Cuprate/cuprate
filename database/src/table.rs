@@ -27,16 +27,8 @@ pub trait Table {
     /// Primary key type.
     type Key: Key;
 
-    // TODO: fix this sanakirja bound.
-    cfg_if::cfg_if! {
-        if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
-            /// Value type.
-            type Value: Pod + sanakirja::Storable;
-        } else {
-            /// Value type.
-            type Value: Pod;
-        }
-    }
+    /// Value type.
+    type Value: Pod;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
