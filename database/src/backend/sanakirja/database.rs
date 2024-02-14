@@ -1,12 +1,19 @@
 //! Implementation of `trait Database` for `sanakirja`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{database::Database, error::RuntimeError, table::Table};
+use std::marker::PhantomData;
+
+use sanakirja::btree::{page_unsized::Page, Db_};
+
+use crate::{
+    backend::sanakirja::types::SanakirjaDb, database::Database, error::RuntimeError, key::Key,
+    pod::Pod, table::Table,
+};
 
 //---------------------------------------------------------------------------------------------------- Database Impls
-impl<T: Table> Database<T> for sanakirja::btree::Db<T::Key, T::Value> {
-    type RoTx<'db> = sanakirja::Txn<&'_ sanakirja::Env>;
-    type RwTx<'db> = sanakirja::MutTxn<&'_ sanakirja::Env, ()>;
+impl<T: Table> Database<T> for SanakirjaDb {
+    type RoTx<'db> = sanakirja::Txn<&'db sanakirja::Env>;
+    type RwTx<'db> = sanakirja::MutTxn<&'db sanakirja::Env, ()>;
 
     fn get(&self, ro_tx: &Self::RoTx<'_>, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
         todo!()
