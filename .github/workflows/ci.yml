@@ -41,6 +41,17 @@ jobs:
     - name: Spell Check
       uses: crate-ci/typos@master
 
+  # Run documentation checker separately.
+  # This will fast-cancel other CI early if this fails.
+  doc:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Documentation
+      shell: bash
+      run: RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features
+
   # All other CI.
   ci:
     runs-on: ${{ matrix.os }}
