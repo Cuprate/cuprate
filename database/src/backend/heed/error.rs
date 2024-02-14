@@ -24,21 +24,23 @@ impl From<heed::Error> for crate::RuntimeError {
                 E2::Other(c_int) => {
                     Self::Unknown(Cow::Owned(format!("heed::Error::Other({c_int})")))
                 }
-                E2::DbsFull
-                | E2::PageNotFound
-                | E2::Corrupted
-                | E2::Panic
-                | E2::Invalid
-                | E2::TlsFull
-                | E2::TxnFull
-                | E2::CursorFull
-                | E2::MapResized
-                | E2::Incompatible
-                | E2::BadRslot
-                | E2::BadTxn
-                | E2::BadValSize
-                | E2::BadDbi
-                | E2::Problem => Self::Unknown(Cow::from(std::any::type_name_of_val(&mdb_error))),
+
+                // TODO: what to do with these errors?
+                E2::DbsFull => todo!(),
+                E2::PageNotFound => todo!(),
+                E2::Corrupted => todo!(),
+                E2::Panic => todo!(),
+                E2::Invalid => todo!(),
+                E2::TlsFull => todo!(),
+                E2::TxnFull => todo!(),
+                E2::CursorFull => todo!(),
+                E2::MapResized => todo!(),
+                E2::Incompatible => todo!(),
+                E2::BadRslot => todo!(),
+                E2::BadTxn => todo!(),
+                E2::BadValSize => todo!(),
+                E2::BadDbi => todo!(),
+                E2::Problem => todo!(),
             },
 
             // Database is shutting down.
