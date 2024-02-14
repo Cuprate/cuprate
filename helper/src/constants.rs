@@ -7,8 +7,9 @@
 ///
 /// ```rust
 /// # use cuprate_helper::constants::*;
-/// // Commit hash is always 40 characters long.
-/// assert_eq!(COMMIT.len(), 40);
+/// // Commit hash is always 40 bytes long
+/// // (but not necessarily 40 ASCII characters).
+/// assert_eq!(COMMIT.as_bytes().len(), 40);
 /// ```
 pub const COMMIT: &str = core::env!("COMMIT"); // Set in `helper/build.rs`.
 
