@@ -1,13 +1,8 @@
 //! Implementation of `trait Database` for `sanakirja`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::marker::PhantomData;
-
-use sanakirja::btree::{page_unsized::Page, Db_};
-
 use crate::{
-    backend::sanakirja::types::SanakirjaDb, database::Database, error::RuntimeError, key::Key,
-    pod::Pod, table::Table,
+    backend::sanakirja::types::SanakirjaDb, database::Database, error::RuntimeError, table::Table,
 };
 
 //---------------------------------------------------------------------------------------------------- Database Impls
