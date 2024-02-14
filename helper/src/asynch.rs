@@ -5,11 +5,15 @@
 //---------------------------------------------------------------------------------------------------- Use
 use core::{
     future::Future,
+    marker::PhantomData,
     pin::Pin,
     task::{Context, Poll},
 };
+use std::sync::Arc;
 
-use futures::{channel::oneshot, FutureExt};
+use futures::{channel::oneshot, ready, FutureExt};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::PollSemaphore;
 
 //---------------------------------------------------------------------------------------------------- InfallibleOneshotReceiver
 /// A oneshot receiver channel that doesn't return an Error.
@@ -46,6 +50,106 @@ where
         let _ = tx.send(f());
     });
     rx.await.expect("The sender must not be dropped")
+}
+
+//---------------------------------------------------------------------------------------------------- Poll Sender
+mod hidden {
+
+    pub trait UnboundedChannel<T>: Clone {
+        fn send(&mut self, message: T);
+    }
+
+    impl<T> UnboundedChannel<T> for tokio::sync::mpsc::UnboundedSender<T> {
+        fn send(&mut self, message: T) {
+            tokio::sync::mpsc::UnboundedSender::send(self, message)
+                .expect("Unable to send message receivers dropped!")
+        }
+    }
+}
+
+/// Create a new channel with the sender wrapped in [`PollSender`].
+///
+/// ```rust
+/// use tokio::sync::mpsc;
+///
+/// use cuprate_helper::asynch::poll_sender_channel;
+/// // although the inner channel is unbounded the `PollSender` will apply a limit.
+/// let (tx, rx) = poll_sender_channel(mpsc::unbounded_channel, 3);
+///
+/// ```
+pub fn poll_sender_channel<C: hidden::UnboundedChannel<T>, R, T>(
+    new_inner: impl FnOnce() -> (C, R),
+    buffer: usize,
+) -> (PollSender<C, T>, R) {
+    let (inner_tx, inner_rx) = new_inner();
+
+    let semaphore = Arc::new(Semaphore::new(buffer));
+    let poll_semaphore = PollSemaphore::new(semaphore);
+
+    (
+        PollSender {
+            channel: inner_tx,
+            semaphore: poll_semaphore,
+            permit: None,
+            ty: PhantomData,
+        },
+        inner_rx,
+    )
+}
+
+/// The channel was closed.
+#[derive(Debug, Copy, Clone, thiserror::Error)]
+#[error("The channel was closed.")]
+pub struct ChannelClosedError;
+
+/// This is a wrapper around a channel's send half, that adds a method [`PollSender::poll_ready`] to asses is the channel
+/// has enough capacity to receive a message.
+#[derive(Debug)]
+pub struct PollSender<C: hidden::UnboundedChannel<T>, T> {
+    channel: C,
+    semaphore: PollSemaphore,
+    permit: Option<OwnedSemaphorePermit>,
+
+    ty: PhantomData<T>,
+}
+
+impl<C: hidden::UnboundedChannel<T>, T> Clone for PollSender<C, T> {
+    fn clone(&self) -> Self {
+        Self {
+            channel: self.channel.clone(),
+            semaphore: self.semaphore.clone(),
+            permit: None,
+            ty: PhantomData,
+        }
+    }
+}
+
+impl<C: hidden::UnboundedChannel<T>, T> PollSender<C, T> {
+    /// Polls the channel to check if it has enough capacity to receive a message. When this function returns [`Poll::Ready`]
+    /// a spot in the channel has been reserved for a message, this means the channel will lose a spot until [`PollSender::send`]
+    /// is called or the [`PollSender`] is dropped.
+    pub fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), ChannelClosedError>> {
+        if self.permit.is_some() {
+            return Poll::Ready(Ok(()));
+        }
+
+        let Some(permit) = ready!(self.semaphore.poll_acquire(cx)) else {
+            return Poll::Ready(Err(ChannelClosedError));
+        };
+        self.permit = Some(permit);
+
+        Poll::Ready(Ok(()))
+    }
+
+    /// Sends a message on the channel, will panic if [`PollSender::poll_ready`] has not returned [`Poll::Ready`].
+    pub fn send(&mut self, mes: T) {
+        let _permit = self
+            .permit
+            .take()
+            .expect("`poll_ready must be called first!`");
+
+        self.channel.send(mes)
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

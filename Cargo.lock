@@ -558,7 +558,9 @@ dependencies = [
  "futures",
  "libc",
  "rayon",
+ "thiserror",
  "tokio",
+ "tokio-util",
  "windows",
 ]
 

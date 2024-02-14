@@ -138,7 +138,7 @@ where
 
         match req {
             DatabaseRequest::KeyImagesSpent(kis) => async move {
-                Ok(DatabaseResponse::CheckKIsNotSpent(
+                Ok(DatabaseResponse::KeyImagesSpent(
                     cache.read().await.are_kis_spent(kis),
                 ))
             }
