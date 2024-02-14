@@ -194,7 +194,7 @@ impl<'service, D: Database<'service>> Interface<'service, D> {
 
         cursor_blockmetadata.del()?;
 
-        // Then we delete all its revelent txs
+        // Then we delete all its relevant txs
         for tx_hash in blk.tx_hashes.iter() {
             // 1 more condition in monerod TODO:
             self.remove_transaction(*tx_hash)?;
@@ -684,9 +684,9 @@ impl<'service, D: Database<'service>> Interface<'service, D> {
     /// `get_tx_list` fetches the transactions with given hashes.
     ///
     /// Should return a vector with the requested transactions. In case of failures, a DB_FAILURES will be return.
-    /// Precisly, a HASH_DNE error will be returned with the correspondig hash of transaction that is not found in the DB.
+    /// Precisely, a HASH_DNE error will be returned with the corresponding hash of transaction that is not found in the DB.
     ///
-    /// `hlist`: is the given collection of hashes correspondig to the transactions to fetch.
+    /// `hlist`: is the given collection of hashes corresponding to the transactions to fetch.
     fn get_tx_list(
         &'service self,
         hash_list: Vec<Hash>,

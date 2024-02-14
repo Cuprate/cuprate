@@ -137,7 +137,7 @@ impl_duptable!(
 );
 
 impl_duptable!(
-    /// `txsidentifier` is a table defining a relation between the hash of a transaction and its transaction Indexes. Its primarly used to quickly find tx's ID by its hash.
+    /// `txsidentifier` is a table defining a relation between the hash of a transaction and its transaction Indexes. Its primarily used to quickly find tx's ID by its hash.
     txsidentifier,
     Compat<Hash>,
     (),
