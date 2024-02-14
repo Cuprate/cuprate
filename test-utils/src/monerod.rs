@@ -39,14 +39,14 @@ pub async fn monerod(flags: Vec<String>, mutable: bool) -> (SocketAddr, SocketAd
 
     // We only actually need these channels on first run so this might be wasteful
     let (tx, rx) = mpsc::channel(3);
-    let mut should_spwan = false;
+    let mut should_spawn = false;
 
     let monero_handler_tx = MONEROD_HANDLER_CHANNEL.get_or_init(|| {
-        should_spwan = true;
+        should_spawn = true;
         tx
     });
 
-    if should_spwan {
+    if should_spawn {
         // If this call was the first call to start a monerod instance then start the handler.
         let manager = MoneroDManager::new().await;
         tokio::task::spawn(manager.run(rx));

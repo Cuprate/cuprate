@@ -12,4 +12,5 @@ extend-ignore-identifiers-re = [
 # False positive files.
 extend-exclude = [
 	"/misc/gpg_keys/",
+	"cryptonight/",
 ]
