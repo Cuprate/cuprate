@@ -13,6 +13,8 @@ env:
   RUST_BACKTRACE: "full"
   # Increase thread stack size to 8 megabytes.
   RUST_MIN_STACK: 8000000
+  # Fail on documentation warnings.
+  RUSTDOCFLAGS: '-D warnings'
 
 jobs:
   # Run format separately.
@@ -104,7 +106,7 @@ jobs:
 
     - name: Documentation
       shell: bash
-      run: RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features
+      run: cargo doc --workspace --all-features
 
     - name: Clippy (fail on warnings)
       run: cargo clippy --workspace --all-targets --all-features -- -D warnings
