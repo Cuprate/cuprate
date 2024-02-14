@@ -16,8 +16,8 @@ Once your PR is at the stage where you feel it's ready to go, open it for review
 ## Passing CI
 The first 3 steps to CI are formatting, typo, and documentation checking.
 
-Ensure your changes are formatted, typo-free, and documented correctly by running:
-- `cargo fmt --all`
+Check if your changes are formatted, typo-free, and documented correctly by running:
+- `cargo fmt --all --check`
 - `typos`
 - `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features`
 
@@ -25,7 +25,7 @@ Ensure your changes are formatted, typo-free, and documented correctly by runnin
 
 After that, ensure all lints, tests, and builds are successful by running:
 
-- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `cargo clippy --workspace --all-features -- -D warnings`
 - `cargo fmt --all`
 - `cargo test`
 - `cargo build`
