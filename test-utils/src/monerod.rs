@@ -147,7 +147,7 @@ impl MoneroDManager {
             .spawn()
             .unwrap();
 
-        let spawned_monerd = SpawnedMoneroD {
+        let spawned_monerod = SpawnedMoneroD {
             mutable,
             process: monerod,
             rpc_port,
@@ -157,7 +157,7 @@ impl MoneroDManager {
         self.monerods
             .entry(flags.clone())
             .or_default()
-            .push(spawned_monerd);
+            .push(spawned_monerod);
         let Some(monerods) = self.monerods.get(&flags) else {
             unreachable!()
         };
