@@ -25,10 +25,10 @@ Check if your changes are formatted, typo-free, and documented correctly by runn
 
 After that, ensure all lints, tests, and builds are successful by running:
 
-- `cargo clippy --workspace --all-features -- -D warnings`
+- `cargo clippy --workspace --all-features --all-targets -- -D warnings`
 - `cargo fmt --all`
-- `cargo test`
-- `cargo build`
+- `cargo test --all-features --workspace`
+- `cargo build --all-features --all-targets --workspace`
 
 ## Coding guidelines
 
