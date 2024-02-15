@@ -62,11 +62,13 @@ impl From<heed::Error> for crate::RuntimeError {
         use heed::Error as E1;
         use heed::MdbError as E2;
 
+        #[allow(clippy::match_same_arms)] // TODO: remove me.
         match error {
             // I/O errors.
             E1::Io(io_error) => Self::Io(io_error),
 
             // LMDB errors.
+            #[allow(clippy::match_same_arms)] // TODO: remove me.
             E1::Mdb(mdb_error) => match mdb_error {
                 E2::KeyExist => Self::KeyExists,
                 E2::NotFound => Self::KeyNotFound,
@@ -83,7 +85,6 @@ impl From<heed::Error> for crate::RuntimeError {
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
                 E2::Corrupted | E2::PageNotFound => Self::Corrupt,
 
-                #[allow(clippy::match_same_arms)]
                 // "Update of meta page failed or environment had fatal error."
                 // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Poison>
                 //
