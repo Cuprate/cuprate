@@ -10,7 +10,7 @@ impl From<heed::Error> for crate::RuntimeError {
         use heed::Error as E1;
         use heed::MdbError as E2;
 
-        #[allow(clippy::match_same_arms)] // TOOD: remove after fixing arms
+        #[allow(clippy::match_same_arms)] // TODO: remove after fixing arms
         match error {
             // I/O errors.
             E1::Io(io_error) => Self::Io(io_error),

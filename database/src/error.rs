@@ -58,9 +58,7 @@ pub enum RuntimeError {
 
     /// Unknown error, the transaction should abort.
     ///
-    /// TODO: this is for
-    /// <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.BadTxn>
-    ///
+    /// TODO: this is for: <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.BadTxn>
     /// Can we even recover here? Should we panic?
     #[error("transaction error, must abort")]
     TxMustAbort,
@@ -89,6 +87,7 @@ pub enum RuntimeError {
     ///
     /// TODO: who knows what this means - is it safe to say
     /// the database is unusable if this error surfaces?
+    /// Should we tell the user they have to resync from scratch?
     /// <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.Corrupted>
     /// <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Corrupt>
     #[error("database is corrupt")]

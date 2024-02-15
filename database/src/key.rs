@@ -57,6 +57,7 @@ pub struct DupKey<P, S> {
     pub secondary: S,
 }
 
+//---------------------------------------------------------------------------------------------------- Impl
 /// Implement `Key` on most primitive types.
 ///
 /// `Key::DUPLICATE` is always `false`.
