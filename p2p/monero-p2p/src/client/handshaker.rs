@@ -418,7 +418,7 @@ async fn wait_for_message<Z: NetworkZone>(
                 eager_protocol_messages.push(protocol_message);
                 if eager_protocol_messages.len() > MAX_EAGER_PROTOCOL_MESSAGES {
                     tracing::debug!(
-                        "Peer sent too many protocl messages before a handshake response."
+                        "Peer sent too many protocol messages before a handshake response."
                     );
                     return Err(HandshakeError::PeerSentInvalidMessage(
                         "Peer sent too many protocol messages",

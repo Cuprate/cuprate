@@ -39,7 +39,7 @@ impl Debug for FixedByteError {
 
 /// A fixed size byte slice.
 ///
-/// Internally this is just a wrapper around [`Bytes`], with the constructors checking that the length is equal to [`N`].
+/// Internally this is just a wrapper around [`Bytes`], with the constructors checking that the length is equal to `N`.
 /// This implements [`Deref`] with the target being `[u8; N]`.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ByteArray<const N: usize>(Bytes);

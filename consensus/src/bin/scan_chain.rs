@@ -213,7 +213,7 @@ mod bin {
         #[arg(short, long, default_value = "mainnet")]
         network: String,
         /// A list of RPC nodes we should use.
-        /// Example: http://xmr-node.cakewallet.com:18081
+        /// Example: <http://xmr-node.cakewallet.com:18081>
         #[arg(long)]
         rpc_nodes: Vec<String>,
         /// Stops the scanner from including the default list of nodes, this is not

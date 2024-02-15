@@ -15,11 +15,11 @@ use crate::{
     handles::ConnectionHandle, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
 };
 
-mod conector;
 mod connection;
+mod connector;
 pub mod handshaker;
 
-pub use conector::{ConnectRequest, Connector};
+pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
 
 /// An internal identifier for a given peer, will be their address if known
