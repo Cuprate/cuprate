@@ -1,13 +1,6 @@
 //! Conversion from `heed::Error` -> `cuprate_database::RuntimeError`.
-//!
-//! TODO: should callers decide to panic? or should we
-//! panic in `From` on definitely unreachable code?
-
-//---------------------------------------------------------------------------------------------------- Import
-use std::borrow::Cow;
 
 //---------------------------------------------------------------------------------------------------- InitError
-#[allow(clippy::fallible_impl_from)] // We need to panic sometimes
 impl From<heed::Error> for crate::InitError {
     fn from(error: heed::Error) -> Self {
         use heed::Error as E1;
@@ -24,7 +17,7 @@ impl From<heed::Error> for crate::InitError {
             E1::Mdb(mdb_error) => match mdb_error {
                 E2::Invalid => Self::Invalid,
                 E2::VersionMismatch => Self::InvalidVersion,
-                E2::Other(c_int) => Self::Unknown(Cow::Owned(format!("{mdb_error:?}"))),
+                E2::Other(c_int) => Self::Unknown(Box::new(mdb_error)),
 
                 // "Located page was wrong type".
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.Corrupted>
@@ -32,11 +25,6 @@ impl From<heed::Error> for crate::InitError {
                 // "Requested page not found - this usually indicates corruption."
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
                 E2::Corrupted | E2::PageNotFound => Self::Corrupt,
-
-                // TODO: LMDB itself had a fatal error,
-                // should we have a special error message
-                // or panic as normal?
-                E2::Panic => panic!("TODO: special error message?"),
 
                 // These errors shouldn't be returned on database init.
                 E2::Incompatible
@@ -54,7 +42,8 @@ impl From<heed::Error> for crate::InitError {
                 | E2::MapResized
                 | E2::BadRslot
                 | E2::BadValSize
-                | E2::BadDbi => panic!("{mdb_error:?}"),
+                | E2::BadDbi
+                | E2::Panic => Self::Fatal(Box::new(mdb_error)),
             },
 
             // TODO: these will never occur once correct?
@@ -62,13 +51,12 @@ impl From<heed::Error> for crate::InitError {
             E1::InvalidDatabaseTyping
             | E1::BadOpenOptions { .. }
             | E1::Encoding(_)
-            | E1::Decoding(_) => panic!("{error:?}"),
+            | E1::Decoding(_) => Self::Fatal(Box::new(error)),
         }
     }
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
-#[allow(clippy::fallible_impl_from)] // We need to panic sometimes
 impl From<heed::Error> for crate::RuntimeError {
     fn from(error: heed::Error) -> Self {
         use heed::Error as E1;
@@ -86,7 +74,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 E2::MapFull => Self::MapFull,
                 E2::ReadersFull => Self::ReadersFull,
                 E2::PageFull => Self::PageFull,
-                E2::Other(c_int) => Self::Unknown(Cow::Owned(format!("{mdb_error:?}"))),
+                E2::Other(c_int) => Self::Unknown(Box::new(mdb_error)),
 
                 // "Located page was wrong type".
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.Corrupted>
@@ -95,11 +83,12 @@ impl From<heed::Error> for crate::RuntimeError {
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
                 E2::Corrupted | E2::PageNotFound => Self::Corrupt,
 
+                #[allow(clippy::match_same_arms)]
                 // "Update of meta page failed or environment had fatal error."
                 // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Poison>
                 //
                 // If LMDB itself fails, should we even try to recover?
-                E2::Panic => panic!("TODO: special error message?"),
+                E2::Panic => Self::Fatal(Box::new(mdb_error)),
 
                 // TODO: are these are recoverable?
                 E2::BadTxn | E2::Problem => Self::TxMustAbort,
@@ -114,7 +103,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 | E2::Incompatible // Should never happen
                 | E2::BadRslot   // ???
                 | E2::BadValSize // Should never happen
-                | E2::BadDbi => panic!("{mdb_error:?}"), // ???
+                | E2::BadDbi => Self::Fatal(Box::new(mdb_error)), // ???
             },
 
             // Database is shutting down.
@@ -125,7 +114,7 @@ impl From<heed::Error> for crate::RuntimeError {
             E1::InvalidDatabaseTyping
             | E1::BadOpenOptions { .. }
             | E1::Encoding(_)
-            | E1::Decoding(_) => panic!("{error:?}"),
+            | E1::Decoding(_) => Self::Fatal(Box::new(error)),
         }
     }
 }
