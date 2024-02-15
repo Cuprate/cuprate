@@ -108,11 +108,11 @@ jobs:
       run: cargo doc --workspace --all-features
 
     - name: Clippy (fail on warnings)
-      run: cargo clippy --workspace --all-features -- -D warnings
+      run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
     - name: Test
       run: cargo test --all-features --workspace
 
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
-      run: cargo build --all-features --workspace
+      run: cargo build --all-features --all-targets --workspace
