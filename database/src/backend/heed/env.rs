@@ -4,6 +4,7 @@
 use std::path::Path;
 
 use crate::{
+    backend::heed::types::HeedDb,
     database::Database,
     env::Env,
     error::{InitError, RuntimeError},
@@ -75,7 +76,7 @@ impl Env for ConcreteEnv {
         &self,
         to_rw: &Self::RoTx<'_>,
     ) -> Result<impl Database<T>, RuntimeError> {
-        let tx: heed::Database<T::Key, T::Value> = todo!();
+        let tx: HeedDb = todo!();
         Ok(tx)
     }
 }
