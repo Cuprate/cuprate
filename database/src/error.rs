@@ -79,6 +79,15 @@ pub enum RuntimeError {
     #[error("database maximum parallel readers reached")]
     ReadersFull,
 
+    /// The database is corrupt.
+    ///
+    /// TODO: who knows what this means - is it safe to say
+    /// the database is unusable if this error surfaces?
+    /// <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.Corrupted>
+    /// <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Corrupt>
+    #[error("database is corrupt")]
+    Corrupt,
+
     // TODO: this could be removed once we have all errors figured out.
     /// An unknown error occurred.
     #[error("unknown error: {0}")]
