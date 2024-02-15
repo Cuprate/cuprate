@@ -3,6 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 
 //---------------------------------------------------------------------------------------------------- Error
+#[allow(clippy::fallible_impl_from)] // sometimes we need to panic
 impl From<sanakirja::Error> for crate::RuntimeError {
     fn from(error: sanakirja::Error) -> Self {
         use sanakirja::Error as E;
@@ -11,10 +12,15 @@ impl From<sanakirja::Error> for crate::RuntimeError {
             E::IO(io_error) => Self::Io(io_error),
             E::VersionMismatch => Self::VersionMismatch,
 
-            // TODO: what to do with these errors?
-            E::Poison => todo!(),
-            E::CRC(error) => todo!(),
-            E::Corrupt(u) => todo!(),
+            // A CRC failure essentially  means a `sanakirja` page was corrupt.
+            // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.CRC>
+            E::Corrupt(_) | E::CRC(_) => Self::Corrupt,
+
+            // A database lock was poisoned.
+            // If 1 thread panics, everything should panic, so panic here.
+            //
+            // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Poison>
+            E::Poison => panic!("sanakirja database lock poison"),
         }
     }
 }

@@ -21,26 +21,35 @@ impl From<heed::Error> for crate::RuntimeError {
                 E2::MapFull => Self::MapFull,
                 E2::ReadersFull => Self::ReadersFull,
                 E2::PageFull => Self::PageFull,
-                E2::Other(c_int) => {
-                    Self::Unknown(Cow::Owned(format!("heed::Error::Other({c_int})")))
-                }
+                E2::Other(c_int) => Self::Unknown(Cow::Owned(format!("{mdb_error:?}"))),
 
-                // TODO: what to do with these errors?
-                E2::DbsFull => todo!(),
-                E2::PageNotFound => todo!(),
-                E2::Corrupted => todo!(),
-                E2::Panic => todo!(),
-                E2::Invalid => todo!(),
-                E2::TlsFull => todo!(),
-                E2::TxnFull => todo!(),
-                E2::CursorFull => todo!(),
-                E2::MapResized => todo!(),
-                E2::Incompatible => todo!(),
-                E2::BadRslot => todo!(),
-                E2::BadTxn => todo!(),
-                E2::BadValSize => todo!(),
-                E2::BadDbi => todo!(),
-                E2::Problem => todo!(),
+                // "Located page was wrong type".
+                // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.Corrupted>
+                //
+                // "Requested page not found - this usually indicates corruption."
+                // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
+                E2::Corrupted | E2::PageNotFound => Self::Corrupt,
+
+                // "Update of meta page failed or environment had fatal error."
+                // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Poison>
+                //
+                // If LMDB itself fails, should we even try to recover?
+                E2::Panic => unreachable!(),
+
+                // TODO: these are recoverable?
+                E2::BadTxn | E2::Problem => Self::Other(Cow::from(format!("{mdb_error:?}"))),
+
+                // TODO: are these all unrecoverable/unreachable errors?
+                E2::DbsFull => panic!(mdb_error), // We know the DB count at compile time.
+                E2::Invalid => panic!(mdb_error), // This is an `InitError`, it cannot occur here
+                E2::TlsFull => panic!(mdb_error), // ???
+                E2::TxnFull => panic!(mdb_error), // ???
+                E2::CursorFull => panic!(mdb_error), // Shouldn't happen unless we do crazy cursor stuff (we don't)
+                E2::MapResized => panic!(mdb_error), // We should be properly handling resizes, so this should panic indicating a bug
+                E2::Incompatible => panic!(mdb_error), // Should never happen
+                E2::BadRslot => panic!(mdb_error),   // ???
+                E2::BadValSize => panic!(mdb_error), // Should never happen
+                E2::BadDbi => panic!(mdb_error),     // ???
             },
 
             // Database is shutting down.
@@ -51,7 +60,7 @@ impl From<heed::Error> for crate::RuntimeError {
             E1::InvalidDatabaseTyping
             | E1::BadOpenOptions { .. }
             | E1::Encoding(_)
-            | E1::Decoding(_) => unreachable!(),
+            | E1::Decoding(_) => panic!(mdb_error),
         }
     }
 }
