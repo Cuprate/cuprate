@@ -2,7 +2,7 @@
 name = "cuprate-consensus"
 version = "0.1.0"
 edition = "2021"
-description = "A crate implimenting all Moneros consensus rules."
+description = "A crate implementing all Moneros consensus rules."
 license = "MIT"
 authors = ["Boog900"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"

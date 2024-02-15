@@ -13,16 +13,18 @@ env:
   RUST_BACKTRACE: "full"
   # Increase thread stack size to 8 megabytes.
   RUST_MIN_STACK: 8000000
+  # Fail on documentation warnings.
+  RUSTDOCFLAGS: '-D warnings'
 
 jobs:
   # Run format separately.
+  #
+  # This will fast-cancel other CI early if this fails.
+  #
+  # `cargo fmt` checks _all_ code, regardless of the OS
+  # or any `#[cfg]`'s, so this only needs to run on Linux.
   fmt:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
-
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -30,6 +32,16 @@ jobs:
         submodules: recursive
     - name: Format
       run: cargo fmt --all --check
+
+  # Run typo checker separately.
+  # This will fast-cancel other CI early if this fails.
+  typo:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Spell Check
+      uses: crate-ci/typos@master
 
   # All other CI.
   ci:
@@ -84,18 +96,22 @@ jobs:
         update: true
         install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 
+    - name: Update Rust (UNIX)
+      if: matrix.os != 'windows-latest'
+      run: rustup update
+
     - name: Switch target (Windows)
       if: matrix.os == 'windows-latest'
       run: rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy && rustup set default-host x86_64-pc-windows-gnu && rustup default stable-x86_64-pc-windows-gnu
 
-    - name: Update Rust
-      run: rustup update
+    - name: Documentation
+      run: cargo doc --workspace --all-features
 
     - name: Clippy (fail on warnings)
-      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
     - name: Test
-      run: cargo test --all-features --workspace --all-targets
+      run: cargo test --all-features --workspace
 
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build

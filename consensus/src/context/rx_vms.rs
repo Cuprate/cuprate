@@ -165,7 +165,7 @@ pub(crate) fn get_last_rx_seed_heights(mut last_height: u64, mut amount: usize) 
             return seeds;
         }
 
-        // We don't include the lag as we only want seeds not the specific seed fo this height.
+        // We don't include the lag as we only want seeds not the specific seed for this height.
         let seed_height = (last_height - 1) & !(RX_SEEDHASH_EPOCH_BLOCKS - 1);
         seeds.push(seed_height);
         last_height = seed_height

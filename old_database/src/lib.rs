@@ -20,7 +20,7 @@
 //! At the moment, the only storage engine available is MDBX.
 //! The next storage engine planned is HSE (Heteregeonous Storage Engine) from Micron.
 //!
-//! For more informations, please consult this docs:
+//! For more information, please consult this docs:
 
 #![deny(unused_attributes)]
 #![forbid(unsafe_code)]
@@ -54,7 +54,7 @@ const BINCODE_CONFIG: bincode::config::Configuration<
 
 pub mod database {
     //! This module contains the Database abstraction trait. Any key/value storage engine implemented need
-    //! to fullfil these associated types and functions, in order to be usable. This module also contains the
+    //! to fulfil these associated types and functions, in order to be usable. This module also contains the
     //! Interface struct which is used by the DB Reactor to interact with the database.
 
     use crate::{
