@@ -3,7 +3,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 
 //---------------------------------------------------------------------------------------------------- InitError
-#[allow(clippy::fallible_impl_from)] // We need to panic sometimes
 impl From<sanakirja::Error> for crate::InitError {
     fn from(error: sanakirja::Error) -> Self {
         use sanakirja::Error as E;
@@ -17,10 +16,8 @@ impl From<sanakirja::Error> for crate::InitError {
             E::Corrupt(_) | E::CRC(_) => Self::Corrupt,
 
             // A database lock was poisoned.
-            // If 1 thread panics, everything should panic, so panic here.
-            //
             // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Poison>
-            E::Poison => panic!("sanakirja database lock poison"),
+            E::Poison => Self::Fatal(Box::new(error)),
         }
     }
 }
@@ -40,10 +37,8 @@ impl From<sanakirja::Error> for crate::RuntimeError {
             E::Corrupt(_) | E::CRC(_) => Self::Corrupt,
 
             // A database lock was poisoned.
-            // If 1 thread panics, everything should panic, so panic here.
-            //
             // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Poison>
-            E::Poison => panic!("sanakirja database lock poison"),
+            E::Poison => Self::Fatal(Box::new(error)),
         }
     }
 }
