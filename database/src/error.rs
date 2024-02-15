@@ -2,10 +2,14 @@
 //! TODO: `InitError/RuntimeError` are maybe bad names.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, fmt::Debug};
+use std::fmt::Debug;
 
 #[allow(unused_imports)] // docs
 use crate::env::Env;
+
+//---------------------------------------------------------------------------------------------------- Types
+/// Alias for a thread-safe boxed error.
+type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 //---------------------------------------------------------------------------------------------------- InitError
 /// Errors that occur during ([`Env::open`]).
@@ -38,10 +42,21 @@ pub enum InitError {
     #[error("database is shutting down")]
     ShuttingDown,
 
-    // TODO: this could be removed once we have all errors figured out.
+    /// A fatal error occurred.
+    ///
+    /// This is for errors that _should_ be unreachable
+    /// but we'd still like to panic gracefully.
+    ///
+    /// # Invariant
+    /// If this error is received, all(?) of Cuprate should shutdown.
+    #[error("fatal error: {0}")]
+    Fatal(BoxError),
+
     /// An unknown error occurred.
+    ///
+    /// This is a catch-all for all non-fatal errors.
     #[error("unknown error: {0}")]
-    Unknown(Cow<'static, str>),
+    Unknown(BoxError),
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
@@ -116,8 +131,19 @@ pub enum RuntimeError {
     #[error("database is corrupt")]
     Corrupt,
 
-    // TODO: this could be removed once we have all errors figured out.
+    /// A fatal error occurred.
+    ///
+    /// This is for errors that _should_ be unreachable
+    /// but we'd still like to panic gracefully.
+    ///
+    /// # Invariant
+    /// If this error is received, all(?) of Cuprate should shutdown.
+    #[error("fatal error: {0}")]
+    Fatal(BoxError),
+
     /// An unknown error occurred.
+    ///
+    /// This is a catch-all for all non-fatal errors.
     #[error("unknown error: {0}")]
-    Unknown(Cow<'static, str>),
+    Unknown(BoxError),
 }
