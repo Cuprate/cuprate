@@ -19,6 +19,29 @@ pub enum InitError {
     /// but was not a valid database file.
     #[error("database file exists but is not valid")]
     Invalid,
+
+    /// The given [`Path`]/[`File`]` existed, was a valid
+    /// database, but the version is incorrect.
+    #[error("database file is valid, but version is incorrect")]
+    InvalidVersion,
+
+    /// The given [`Path`]/[`File`]` existed,
+    /// was a valid database, but it is corrupt.
+    #[error("database file is corrupt")]
+    Corrupt,
+
+    /// The database is currently in the process
+    /// of shutting down and cannot respond.
+    ///
+    /// TODO: This might happen if we try to open
+    /// while we are shutting down, `unreachable!()`?
+    #[error("database is shutting down")]
+    ShuttingDown,
+
+    // TODO: this could be removed once we have all errors figured out.
+    /// An unknown error occurred.
+    #[error("unknown error: {0}")]
+    Unknown(Cow<'static, str>),
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
@@ -74,7 +97,7 @@ pub enum RuntimeError {
 
     /// The expected database version was not the version found.
     #[error("database version mismatch")]
-    VersionMismatch,
+    InvalidVersion,
 
     /// The database has reached maximum parallel readers.
     ///
