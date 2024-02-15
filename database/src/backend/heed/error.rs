@@ -36,8 +36,8 @@ impl From<heed::Error> for crate::RuntimeError {
                 // If LMDB itself fails, should we even try to recover?
                 E2::Panic => unreachable!(),
 
-                // TODO: these are recoverable?
-                E2::BadTxn | E2::Problem => Self::Other(Cow::from(format!("{mdb_error:?}"))),
+                // TODO: are these are recoverable?
+                E2::BadTxn | E2::Problem => Self::TxMustAbort,
 
                 // TODO: are these all unrecoverable/unreachable errors?
                 E2::DbsFull => panic!(mdb_error), // We know the DB count at compile time.
