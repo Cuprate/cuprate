@@ -4,11 +4,13 @@
 use std::borrow::Cow;
 
 //---------------------------------------------------------------------------------------------------- Error
+#[allow(clippy::fallible_impl_from)] // We need to panic sometimes
 impl From<heed::Error> for crate::RuntimeError {
     fn from(error: heed::Error) -> Self {
         use heed::Error as E1;
         use heed::MdbError as E2;
 
+        #[allow(clippy::match_same_arms)] // TOOD: remove after fixing arms
         match error {
             // I/O errors.
             E1::Io(io_error) => Self::Io(io_error),
@@ -40,16 +42,16 @@ impl From<heed::Error> for crate::RuntimeError {
                 E2::BadTxn | E2::Problem => Self::TxMustAbort,
 
                 // TODO: are these all unrecoverable/unreachable errors?
-                E2::DbsFull => panic!(mdb_error), // We know the DB count at compile time.
-                E2::Invalid => panic!(mdb_error), // This is an `InitError`, it cannot occur here
-                E2::TlsFull => panic!(mdb_error), // ???
-                E2::TxnFull => panic!(mdb_error), // ???
-                E2::CursorFull => panic!(mdb_error), // Shouldn't happen unless we do crazy cursor stuff (we don't)
-                E2::MapResized => panic!(mdb_error), // We should be properly handling resizes, so this should panic indicating a bug
-                E2::Incompatible => panic!(mdb_error), // Should never happen
-                E2::BadRslot => panic!(mdb_error),   // ???
-                E2::BadValSize => panic!(mdb_error), // Should never happen
-                E2::BadDbi => panic!(mdb_error),     // ???
+                E2::DbsFull => panic!("{mdb_error:?}"), // We know the DB count at compile time.
+                E2::Invalid => panic!("{mdb_error:?}"), // This is an `InitError`, it cannot occur here
+                E2::TlsFull => panic!("{mdb_error:?}"), // ???
+                E2::TxnFull => panic!("{mdb_error:?}"), // ???
+                E2::CursorFull => panic!("{mdb_error:?}"), // Shouldn't happen unless we do crazy cursor stuff (we don't)
+                E2::MapResized => panic!("{mdb_error:?}"), // We should be properly handling resizes, so this should panic indicating a bug
+                E2::Incompatible => panic!("{mdb_error:?}"), // Should never happen
+                E2::BadRslot => panic!("{mdb_error:?}"),   // ???
+                E2::BadValSize => panic!("{mdb_error:?}"), // Should never happen
+                E2::BadDbi => panic!("{mdb_error:?}"),     // ???
             },
 
             // Database is shutting down.
@@ -60,7 +62,7 @@ impl From<heed::Error> for crate::RuntimeError {
             E1::InvalidDatabaseTyping
             | E1::BadOpenOptions { .. }
             | E1::Encoding(_)
-            | E1::Decoding(_) => panic!(mdb_error),
+            | E1::Decoding(_) => panic!("{error:?}"),
         }
     }
 }

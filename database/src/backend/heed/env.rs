@@ -3,7 +3,12 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::path::Path;
 
-use crate::{database::Database, env::Env, error::RuntimeError, table::Table};
+use crate::{
+    database::Database,
+    env::Env,
+    error::{InitError, RuntimeError},
+    table::Table,
+};
 
 //---------------------------------------------------------------------------------------------------- Env
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -23,7 +28,7 @@ impl Env for ConcreteEnv {
     /// TODO
     /// # Errors
     /// TODO
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, RuntimeError> {
+    fn open<P: AsRef<Path>>(path: P) -> Result<Self, InitError> {
         todo!()
     }
 

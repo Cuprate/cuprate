@@ -4,7 +4,10 @@
 use std::path::Path;
 
 use crate::{
-    backend::sanakirja::types::SanakirjaDb, database::Database, env::Env, error::RuntimeError,
+    backend::sanakirja::types::SanakirjaDb,
+    database::Database,
+    env::Env,
+    error::{InitError, RuntimeError},
     table::Table,
 };
 
@@ -29,7 +32,7 @@ impl Env for ConcreteEnv {
     /// TODO
     /// # Errors
     /// TODO
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, RuntimeError> {
+    fn open<P: AsRef<Path>>(path: P) -> Result<Self, InitError> {
         todo!()
     }
 

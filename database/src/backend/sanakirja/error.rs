@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 
 //---------------------------------------------------------------------------------------------------- Error
-#[allow(clippy::fallible_impl_from)] // sometimes we need to panic
+#[allow(clippy::fallible_impl_from)] // We need to panic sometimes
 impl From<sanakirja::Error> for crate::RuntimeError {
     fn from(error: sanakirja::Error) -> Self {
         use sanakirja::Error as E;

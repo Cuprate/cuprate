@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::{
     database::Database,
-    error::RuntimeError,
+    error::{InitError, RuntimeError},
     table::Table,
     transaction::{RoTx, RwTx},
 };
@@ -26,7 +26,7 @@ pub trait Env: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, RuntimeError>;
+    fn open<P: AsRef<Path>>(path: P) -> Result<Self, InitError>;
 
     /// TODO
     /// # Errors
