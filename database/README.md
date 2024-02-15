@@ -1,6 +1,8 @@
 # Database
 Cuprate's database implementation.
 
+TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.
+
 <!-- Did you know markdown automatically increments number lists, even if they are all 1...? -->
 1. [Documentation](#documentation)
 1. [File Structure](#file-structure)
