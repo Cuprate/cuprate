@@ -15,17 +15,17 @@ pub enum InitError {
     #[error("database I/O error: {0}")]
     Io(#[from] std::io::Error),
 
-    /// The given [`Path`]/[`File`]` existed and was accessible,
+    /// The given `Path/File` existed and was accessible,
     /// but was not a valid database file.
     #[error("database file exists but is not valid")]
     Invalid,
 
-    /// The given [`Path`]/[`File`]` existed, was a valid
+    /// The given `Path/File` existed, was a valid
     /// database, but the version is incorrect.
     #[error("database file is valid, but version is incorrect")]
     InvalidVersion,
 
-    /// The given [`Path`]/[`File`]` existed,
+    /// The given `Path/File` existed,
     /// was a valid database, but it is corrupt.
     #[error("database file is corrupt")]
     Corrupt,
