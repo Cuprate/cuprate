@@ -234,7 +234,7 @@ impl RpcConnection {
                         txs.len(),
                         "node: {}, height: {}, node is pruned, which is not supported!",
                         address,
-                        block.number(),
+                        block.number().unwrap(),
                     );
 
                     Ok((block, txs))
@@ -352,9 +352,8 @@ impl RpcConnection {
                         // then a bad proof has been approved.
                         key: CompressedEdwardsY::from_slice(&out.key)
                             .unwrap()
-                            .decompress()
-                            .unwrap(),
-                        mask: CompressedEdwardsY::from_slice(&out.mask)
+                            .decompress(),
+                        commitment: CompressedEdwardsY::from_slice(&out.mask)
                             .unwrap()
                             .decompress()
                             .unwrap(),

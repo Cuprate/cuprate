@@ -14,13 +14,21 @@ When you are at a stage where you would like feedback you can open a draft PR, k
 Once your PR is at the stage where you feel it's ready to go, open it for review.
 
 ## Passing CI
+The first 3 steps to CI are formatting, typo, and documentation checking.
 
-To pass CI make sure all these successfully run:
+Check if your changes are formatted, typo-free, and documented correctly by running:
+- `cargo fmt --all --check`
+- `typos`
+- `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features`
 
-- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+`typos` can be installed with `cargo` from: https://github.com/crate-ci/typos.
+
+After that, ensure all lints, tests, and builds are successful by running:
+
+- `cargo clippy --workspace --all-features --all-targets -- -D warnings`
 - `cargo fmt --all`
-- `cargo test`
-- `cargo build`
+- `cargo test --all-features --workspace`
+- `cargo build --all-features --all-targets --workspace`
 
 ## Coding guidelines
 

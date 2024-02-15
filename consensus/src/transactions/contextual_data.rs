@@ -11,8 +11,11 @@
 //! Because this data is unique for *every* transaction and the context service is just for blockchain state data.
 //!
 
-use std::collections::HashSet;
-use std::{collections::HashMap, ops::Deref, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Deref,
+    sync::Arc,
+};
 
 use monero_serai::transaction::Input;
 use tower::ServiceExt;
@@ -25,25 +28,28 @@ use monero_consensus::{
 };
 
 use crate::{
-    context::ReOrgToken, transactions::TransactionVerificationData, Database, DatabaseRequest,
-    DatabaseResponse, ExtendedConsensusError,
+    context::ReOrgToken,
+    transactions::{output_cache::OutputCache, TransactionVerificationData},
+    Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError,
 };
 
-pub async fn batch_refresh_ring_member_info<D: Database + Clone + Send + Sync + 'static>(
-    txs_verification_data: &[Arc<TransactionVerificationData>],
+pub async fn batch_refresh_ring_member_info<'a, D: Database + Clone + Send + Sync + 'static>(
+    txs_verification_data: &'a [Arc<TransactionVerificationData>],
     hf: &HardFork,
     re_org_token: ReOrgToken,
     mut database: D,
+    out_cache: Option<&OutputCache<'a>>,
 ) -> Result<(), ExtendedConsensusError> {
     let (txs_needing_full_refresh, txs_needing_partial_refresh) =
         ring_member_info_needing_refresh(txs_verification_data, hf);
 
     if !txs_needing_full_refresh.is_empty() {
         batch_fill_ring_member_info(
-            &txs_needing_full_refresh,
+            txs_needing_full_refresh.iter(),
             hf,
             re_org_token,
             database.clone(),
+            out_cache,
         )
         .await?;
     }
@@ -101,7 +107,7 @@ pub async fn batch_refresh_ring_member_info<D: Database + Clone + Send + Sync + 
     Ok(())
 }
 
-/// This function returns the transaction verification datas that need refreshing.
+/// This function returns the transaction verification data that need refreshing.
 ///
 /// The first returned vec needs a full refresh.
 /// The second returned vec only needs a partial refresh.
@@ -157,15 +163,16 @@ fn ring_member_info_needing_refresh(
 ///
 /// This function batch gets all the ring members for the inputted transactions and fills in data about
 /// them.
-pub async fn batch_fill_ring_member_info<D: Database + Clone + Send + Sync + 'static>(
-    txs_verification_data: &[Arc<TransactionVerificationData>],
+pub async fn batch_fill_ring_member_info<'a, D: Database + Clone + Send + Sync + 'static>(
+    txs_verification_data: impl Iterator<Item = &Arc<TransactionVerificationData>> + Clone,
     hf: &HardFork,
     re_org_token: ReOrgToken,
     mut database: D,
+    out_cache: Option<&OutputCache<'a>>,
 ) -> Result<(), ExtendedConsensusError> {
     let mut output_ids = HashMap::new();
 
-    for tx_v_data in txs_verification_data.iter() {
+    for tx_v_data in txs_verification_data.clone() {
         insert_ring_member_ids(&tx_v_data.tx.prefix.inputs, &mut output_ids)
             .map_err(ConsensusError::Transaction)?;
     }
@@ -191,9 +198,19 @@ pub async fn batch_fill_ring_member_info<D: Database + Clone + Send + Sync + 'st
     };
 
     for tx_v_data in txs_verification_data {
-        let ring_members_for_tx =
-            get_ring_members_for_inputs(&outputs, &tx_v_data.tx.prefix.inputs)
-                .map_err(ConsensusError::Transaction)?;
+        let ring_members_for_tx = get_ring_members_for_inputs(
+            |amt, idx| {
+                if let Some(cached_outs) = out_cache {
+                    if let Some(out) = cached_outs.get_out(amt, idx) {
+                        return Some(out);
+                    }
+                }
+
+                outputs.get(&amt)?.get(&idx)
+            },
+            &tx_v_data.tx.prefix.inputs,
+        )
+        .map_err(ConsensusError::Transaction)?;
 
         let decoy_info = if hf != &HardFork::V1 {
             // this data is only needed after hard-fork 1.
@@ -207,7 +224,8 @@ pub async fn batch_fill_ring_member_info<D: Database + Clone + Send + Sync + 'st
 
         // Temporarily acquirer the mutex lock to add the ring member info.
         let _ = tx_v_data.rings_member_info.lock().unwrap().insert((
-            TxRingMembersInfo::new(ring_members_for_tx, decoy_info, tx_v_data.version, *hf),
+            TxRingMembersInfo::new(ring_members_for_tx, decoy_info, tx_v_data.version, *hf)
+                .map_err(ConsensusError::Transaction)?,
             re_org_token.clone(),
         ));
     }

@@ -19,7 +19,7 @@ const DIFFICULTY_LAG: usize = 15;
 
 /// Configuration for the difficulty cache.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DifficultyCacheConfig {
     pub(crate) window: usize,
     pub(crate) cut: usize,
@@ -52,7 +52,7 @@ impl DifficultyCacheConfig {
 
 /// This struct is able to calculate difficulties from blockchain information.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub(crate) struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
@@ -121,20 +121,24 @@ impl DifficultyCache {
             return 1;
         }
 
-        let mut sorted_timestamps = self.timestamps.clone();
-        if sorted_timestamps.len() > self.config.window {
-            sorted_timestamps.drain(self.config.window..);
+        let mut timestamps = self.timestamps.clone();
+        if timestamps.len() > self.config.window {
+            // remove the lag.
+            timestamps.drain(self.config.window..);
         };
-        sorted_timestamps.make_contiguous().sort_unstable();
+        let timestamps_slice = timestamps.make_contiguous();
 
         let (window_start, window_end) = get_window_start_and_end(
-            sorted_timestamps.len(),
+            timestamps_slice.len(),
             self.config.accounted_window_len(),
             self.config.window,
         );
 
-        let mut time_span =
-            u128::from(sorted_timestamps[window_end - 1] - sorted_timestamps[window_start]);
+        // We don't sort the whole timestamp list
+        let mut time_span = u128::from(
+            *timestamps_slice.select_nth_unstable(window_end - 1).1
+                - *timestamps_slice.select_nth_unstable(window_start).1,
+        );
 
         let windowed_work = self.cumulative_difficulties[window_end - 1]
             - self.cumulative_difficulties[window_start];
@@ -145,6 +149,50 @@ impl DifficultyCache {
 
         // TODO: do checked operations here and unwrap so we don't silently overflow?
         (windowed_work * hf.block_time().as_secs() as u128 + time_span - 1) / time_span
+    }
+
+    pub fn next_difficulties(
+        &mut self,
+        blocks: Vec<(u64, HardFork)>,
+        current_hf: &HardFork,
+    ) -> Vec<u128> {
+        let new_timestamps_len = blocks.len();
+        let initial_len = self.timestamps.len();
+
+        let mut difficulties = Vec::with_capacity(blocks.len() + 1);
+
+        difficulties.push(self.next_difficulty(current_hf));
+
+        let mut diff_info_popped = Vec::new();
+
+        for (new_timestamp, hf) in blocks {
+            self.timestamps.push_back(new_timestamp);
+            self.cumulative_difficulties
+                .push_back(self.cumulative_difficulty() + *difficulties.last().unwrap());
+            if u64::try_from(self.timestamps.len()).unwrap() > self.config.total_block_count() {
+                diff_info_popped.push((
+                    self.timestamps.pop_front().unwrap(),
+                    self.cumulative_difficulties.pop_front().unwrap(),
+                ));
+            }
+
+            difficulties.push(self.next_difficulty(&hf));
+        }
+
+        self.cumulative_difficulties.drain(
+            self.cumulative_difficulties
+                .len()
+                .saturating_sub(new_timestamps_len)..,
+        );
+        self.timestamps
+            .drain(self.timestamps.len().saturating_sub(new_timestamps_len)..);
+
+        for (timestamp, cum_dif) in diff_info_popped.into_iter().take(initial_len).rev() {
+            self.timestamps.push_front(timestamp);
+            self.cumulative_difficulties.push_front(cum_dif);
+        }
+
+        difficulties
     }
 
     /// Returns the median timestamp over the last `numb_blocks`, including the genesis block if the block height is low enough.

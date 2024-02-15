@@ -62,8 +62,8 @@ pub enum TransactionError {
     InputsOverflow,
     #[error("The transaction has no inputs.")]
     NoInputs,
-    #[error("Ring member not in database")]
-    RingMemberNotFound,
+    #[error("Ring member not in database or is not valid.")]
+    RingMemberNotFoundOrInvalid,
     //-------------------------------------------------------- Ring Signatures
     #[error("Ring signature incorrect.")]
     RingSignatureIncorrect,
@@ -302,6 +302,7 @@ fn check_all_time_locks(
             current_time_lock_timestamp,
             hf,
         ) {
+            tracing::debug!("Transaction invalid: one or more inputs locked, lock: {time_lock:?}.");
             Err(TransactionError::OneOrMoreDecoysLocked)
         } else {
             Ok(())
@@ -451,6 +452,9 @@ fn check_10_block_lock(
 ) -> Result<(), TransactionError> {
     if hf >= &HardFork::V12 {
         if youngest_used_out_height + 10 > current_chain_height {
+            tracing::debug!(
+                "Transaction invalid: One or more ring members younger than 10 blocks."
+            );
             Err(TransactionError::OneOrMoreDecoysLocked)
         } else {
             Ok(())
@@ -517,6 +521,14 @@ fn check_inputs_contextual(
     hf: &HardFork,
     spent_kis: Arc<std::sync::Mutex<HashSet<[u8; 32]>>>,
 ) -> Result<(), TransactionError> {
+    // This rule is not contained in monero-core explicitly, but it is enforced by how Monero picks ring members.
+    // When picking ring members monerod will only look in the DB at past blocks so an output has to be younger
+    // than this transaction to be used in this tx.
+    if tx_ring_members_info.youngest_used_out_height >= current_chain_height {
+        tracing::debug!("Transaction invalid: One or more ring members too young.");
+        Err(TransactionError::OneOrMoreDecoysLocked)?;
+    }
+
     check_10_block_lock(
         tx_ring_members_info.youngest_used_out_height,
         current_chain_height,

@@ -146,7 +146,7 @@ example:
 #[derive(EpeeObject)]
 pub struct HandshakeR {
     #[epee_alt_name("node_data")]
-    pub node_daa: BasicNodeData,
+    pub node_data: BasicNodeData,
 }
 ```
 

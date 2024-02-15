@@ -39,14 +39,14 @@ pub async fn monerod(flags: Vec<String>, mutable: bool) -> (SocketAddr, SocketAd
 
     // We only actually need these channels on first run so this might be wasteful
     let (tx, rx) = mpsc::channel(3);
-    let mut should_spwan = false;
+    let mut should_spawn = false;
 
     let monero_handler_tx = MONEROD_HANDLER_CHANNEL.get_or_init(|| {
-        should_spwan = true;
+        should_spawn = true;
         tx
     });
 
-    if should_spwan {
+    if should_spawn {
         // If this call was the first call to start a monerod instance then start the handler.
         let manager = MoneroDManager::new().await;
         tokio::task::spawn(manager.run(rx));
@@ -73,7 +73,7 @@ struct MoneroDRequest {
 }
 
 /// A struct representing a spawned monerod.
-struct SpwanedMoneroD {
+struct SpawnedMoneroD {
     /// A marker for if the test that spawned this monerod is going to mutate it.
     mutable: bool,
     /// A handle to the monerod process, monerod will be stopped when this is dropped.
@@ -88,7 +88,7 @@ struct SpwanedMoneroD {
 /// A manger of spawned monerods.
 struct MoneroDManager {
     /// A map of start flags to monerods.
-    monerods: HashMap<Vec<String>, Vec<SpwanedMoneroD>>,
+    monerods: HashMap<Vec<String>, Vec<SpawnedMoneroD>>,
     /// The path to the monerod binary.
     path_to_monerod: PathBuf,
 }
@@ -116,7 +116,7 @@ impl MoneroDManager {
         }
     }
 
-    /// Trys to get a current monerod instance or spans one if there is not an appropriate one to use.
+    /// Tries to get a current monerod instance or spans one if there is not an appropriate one to use.
     /// Returns the p2p port and then the RPC port of the spawned monerd.
     fn get_monerod_with_flags(&mut self, flags: Vec<String>, mutable: bool) -> (u16, u16) {
         // If we need to mutate monerod's blockchain then we can't reuse one.
@@ -147,7 +147,7 @@ impl MoneroDManager {
             .spawn()
             .unwrap();
 
-        let spawned_monerd = SpwanedMoneroD {
+        let spawned_monerod = SpawnedMoneroD {
             mutable,
             process: monerod,
             rpc_port,
@@ -157,7 +157,7 @@ impl MoneroDManager {
         self.monerods
             .entry(flags.clone())
             .or_default()
-            .push(spawned_monerd);
+            .push(spawned_monerod);
         let Some(monerods) = self.monerods.get(&flags) else {
             unreachable!()
         };

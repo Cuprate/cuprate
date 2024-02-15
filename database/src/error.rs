@@ -1,53 +1,62 @@
-//! ### Error module
-//! This module contains all errors abstraction used by the database crate. By implementing [`From<E>`] to the specific errors of storage engine crates, it let us
-//! handle more easily any type of error that can happen. This module does **NOT** contain interpretation of these errors, as these are defined for Blockchain abstraction. This is another difference
-//! from monerod which interpret these errors directly in its database functions:
-//! ```cpp
-//! /**
-//! * @brief A base class for BlockchainDB exceptions
-//! */
-//! class DB_EXCEPTION : public std::exception
-//! ```
-//! see `blockchain_db/blockchain_db.h` in monerod `src/` folder for more details.
+//! Database error types.
+//! TODO: `InitError/RuntimeError` are maybe bad names.
 
+//---------------------------------------------------------------------------------------------------- Import
+use std::{borrow::Cow, fmt::Debug};
+
+use crate::constants::DATABASE_BACKEND;
+
+//---------------------------------------------------------------------------------------------------- InitError
+/// Database errors that occur during initialization.
+///
+/// `BackendError` is an error specifically from the
+/// database backend being used. TODO: this may not
+/// be needed if we can convert all error types into
+/// "generic" database errors.
 #[derive(thiserror::Error, Debug)]
-/// `DB_FAILURES` is an enum for backend-agnostic, internal database errors. The `From` Trait must be implemented to the specific backend errors to match DB_FAILURES.
-pub enum DB_FAILURES {
-    #[error("MDBX returned an error {0}")]
-    MDBX_Error(#[from] libmdbx::Error),
+pub enum InitError<BackendError: Debug> {
+    /// TODO
+    #[error("database PATH is inaccessible: {0}")]
+    Path(std::io::Error),
 
-    #[error("\n<DB_FAILURES::EncodingError> Failed to encode some data : `{0}`")]
-    SerializeIssue(DB_SERIAL),
+    /// TODO
+    #[error("{DATABASE_BACKEND} error: {0}")]
+    Backend(BackendError),
 
-    #[error("\nObject already exist in the database : {0}")]
-    AlreadyExist(&'static str),
-
-    #[error("NotFound? {0}")]
-    NotFound(&'static str),
-
-    #[error("\n<DB_FAILURES::Other> `{0}`")]
-    Other(&'static str),
-
-    #[error(
-        "\n<DB_FAILURES::FailedToCommit> A transaction tried to commit to the db, but failed."
-    )]
-    FailedToCommit,
+    /// TODO
+    ///
+    /// An unknown error occurred.
+    #[error("unknown error: {0}")]
+    Unknown(Cow<'static, str>),
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum DB_SERIAL {
-    #[error("An object failed to be serialized into bytes. It is likely an issue from monero-rs library. Please report this error on cuprate's github : https://github.com/Cuprate/cuprate/issues")]
-    ConsensusEncode,
+//---------------------------------------------------------------------------------------------------- RuntimeError
+/// Database errors that occur _after_ successful initialization.
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "borsh",
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
+)]
+#[derive(thiserror::Error, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub enum RuntimeError {
+    // TODO: replace string with actual error type.
+    ///
+    /// An error occurred when attempting to
+    /// serialize the key data into bytes.
+    #[error("serialize error: {0}")]
+    Serialize(String),
 
-    #[error("Bytes failed to be deserialized into the requested object. It is likely an issue from monero-rs library. Please report this error on cuprate's github : https://github.com/Cuprate/cuprate/issues")]
-    ConsensusDecode(Vec<u8>),
+    // TODO: replace string with actual error type.
+    ///
+    /// An error occurred when attempting to
+    /// deserialize the response value from
+    /// the database.
+    #[error("deserialize error: {0}")]
+    Deserialize(String),
 
-    #[error("monero-rs encoding|decoding logic failed : {0}")]
-    MoneroEncode(#[from] monero::consensus::encode::Error),
-
-    #[error("Bincode failed to decode a type from the database : {0}")]
-    BincodeDecode(#[from] bincode::error::DecodeError),
-
-    #[error("Bincode failed to encode a type for the database : {0}")]
-    BincodeEncode(#[from] bincode::error::EncodeError),
+    /// TODO
+    ///
+    /// An unknown error occurred.
+    #[error("unknown error: {0}")]
+    Unknown(Cow<'static, str>),
 }

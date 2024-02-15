@@ -1,42 +1,26 @@
-mod tx_pool;
-
 #[cfg(feature = "binaries")]
 mod bin {
-    use std::{
-        collections::{HashMap, HashSet},
-        ops::Range,
-        path::PathBuf,
-        sync::Arc,
-    };
+    use std::{ops::Range, path::PathBuf, sync::Arc};
 
     use clap::Parser;
-    use futures::{
-        channel::{mpsc, oneshot},
-        SinkExt, StreamExt,
-    };
+    use futures::{channel::mpsc, SinkExt, StreamExt};
     use monero_serai::{block::Block, transaction::Transaction};
     use tokio::sync::RwLock;
     use tower::{Service, ServiceExt};
     use tracing::level_filters::LevelFilter;
 
-    use cuprate_helper::{asynch::rayon_spawn_async, network::Network};
+    use cuprate_helper::network::Network;
 
     use cuprate_consensus::{
-        block::PrePreparedBlockExPOW,
         context::{
             BlockChainContextRequest, BlockChainContextResponse, ContextConfig,
             UpdateBlockchainCacheData,
         },
         initialize_blockchain_context, initialize_verifier,
-        randomx::RandomXVM,
         rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig},
-        Database, DatabaseRequest, DatabaseResponse, PrePreparedBlock, VerifiedBlockInformation,
-        VerifyBlockRequest, VerifyBlockResponse,
+        Database, DatabaseRequest, DatabaseResponse, VerifiedBlockInformation, VerifyBlockRequest,
+        VerifyBlockResponse,
     };
-
-    use monero_consensus::{blocks::randomx_seed_height, HardFork};
-
-    use super::tx_pool;
 
     const MAX_BLOCKS_IN_RANGE: u64 = 500;
     const BATCHES_IN_REQUEST: u64 = 3;
@@ -92,8 +76,7 @@ mod bin {
     }
 
     async fn call_blocks<D>(
-        mut new_tx_chan: tx_pool::NewTxChanSen,
-        mut block_chan: mpsc::Sender<Vec<Block>>,
+        mut block_chan: mpsc::Sender<Vec<(Block, Vec<Transaction>)>>,
         start_height: u64,
         chain_height: u64,
         database: D,
@@ -133,37 +116,6 @@ mod bin {
                 chain_height
             );
 
-            let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
-
-            let hf = |block: &Block| HardFork::from_version(block.header.major_version).unwrap();
-
-            let txs_hf = if blocks.first().map(hf) == blocks.last().map(hf) {
-                vec![(
-                    txs.into_iter().flatten().collect::<Vec<_>>(),
-                    blocks.first().map(hf).unwrap(),
-                )]
-            } else {
-                let mut txs_hfs: Vec<(Vec<Transaction>, HardFork)> = Vec::new();
-                let mut last_hf = blocks.first().map(hf).unwrap();
-
-                txs_hfs.push((vec![], last_hf));
-
-                for (mut txs, current_hf) in txs.into_iter().zip(blocks.iter().map(hf)) {
-                    if current_hf == last_hf {
-                        assert_eq!(txs_hfs.last_mut().unwrap().1, current_hf);
-                        txs_hfs.last_mut().unwrap().0.append(&mut txs);
-                    } else {
-                        txs_hfs.push((txs, current_hf));
-                        last_hf = current_hf;
-                    }
-                }
-                txs_hfs
-            };
-
-            let (tx, rx) = oneshot::channel();
-            new_tx_chan.send((txs_hf, tx)).await?;
-            rx.await.unwrap().unwrap();
-
             block_chan.send(blocks).await?;
         }
 
@@ -196,123 +148,37 @@ mod bin {
 
         let mut ctx_svc = initialize_blockchain_context(config, database.clone()).await?;
 
-        let (tx, rx) = oneshot::channel();
-
-        let (tx_pool_svc, new_tx_chan) = tx_pool::TxPool::spawn(rx, ctx_svc.clone()).await?;
-
-        let (mut block_verifier, transaction_verifier) =
-            initialize_verifier(database.clone(), tx_pool_svc, ctx_svc.clone()).await?;
-
-        tx.send(transaction_verifier).map_err(|_| "").unwrap();
+        let (mut block_verifier, _) =
+            initialize_verifier(database.clone(), ctx_svc.clone()).await?;
 
         let start_height = cache.read().await.height;
 
         let (block_tx, mut incoming_blocks) = mpsc::channel(3);
 
-        let (mut prepped_blocks_tx, mut prepped_blocks_rx) = mpsc::channel(3);
+        tokio::spawn(
+            async move { call_blocks(block_tx, start_height, chain_height, database).await },
+        );
 
-        tokio::spawn(async move {
-            call_blocks(new_tx_chan, block_tx, start_height, chain_height, database).await
-        });
+        while let Some(incoming_blocks) = incoming_blocks.next().await {
+            let VerifyBlockResponse::MainChainBatchPrep(blocks, txs) = block_verifier
+                .ready()
+                .await?
+                .call(VerifyBlockRequest::MainChainBatchPrep(incoming_blocks))
+                .await?
+            else {
+                panic!()
+            };
 
-        let BlockChainContextResponse::Context(ctx) = ctx_svc
-            .ready()
-            .await?
-            .call(BlockChainContextRequest::Get)
-            .await?
-        else {
-            panic!("ctx svc sent wrong response!");
-        };
-        let mut rx_seed_cache = ctx.unchecked_blockchain_context().rx_seed_cache.clone();
-        let mut rx_seed_cache_initiated = false;
-
-        let mut randomx_vms: Option<HashMap<u64, RandomXVM>> = Some(HashMap::new());
-
-        let mut cloned_ctx_svc = ctx_svc.clone();
-        tokio::spawn(async move {
-            while let Some(blocks) = incoming_blocks.next().await {
-                if blocks.last().unwrap().header.major_version >= 12 {
-                    if !rx_seed_cache_initiated {
-                        let BlockChainContextResponse::Context(ctx) = cloned_ctx_svc
-                            .ready()
-                            .await
-                            .unwrap()
-                            .call(BlockChainContextRequest::Get)
-                            .await
-                            .unwrap()
-                        else {
-                            panic!("ctx svc sent wrong response!");
-                        };
-                        rx_seed_cache = ctx.unchecked_blockchain_context().rx_seed_cache.clone();
-                        rx_seed_cache_initiated = true;
-                    }
-
-                    let unwrapped_rx_vms = randomx_vms.as_mut().unwrap();
-
-                    let blocks = rayon_spawn_async(move || {
-                        blocks
-                            .into_iter()
-                            .map(move |block| PrePreparedBlockExPOW::new(block).unwrap())
-                            .collect::<Vec<_>>()
-                    })
-                    .await;
-
-                    let seeds_needed = blocks
-                        .iter()
-                        .map(|block| {
-                            rx_seed_cache.new_block(block.block.number() as u64, &block.block_hash);
-                            randomx_seed_height(block.block.number() as u64)
-                        })
-                        .collect::<HashSet<_>>();
-
-                    unwrapped_rx_vms.retain(|seed_height, _| seeds_needed.contains(seed_height));
-
-                    for seed_height in seeds_needed {
-                        unwrapped_rx_vms.entry(seed_height).or_insert_with(|| {
-                            RandomXVM::new(rx_seed_cache.get_seeds_hash(seed_height)).unwrap()
-                        });
-                    }
-
-                    let arc_rx_vms = Arc::new(randomx_vms.take().unwrap());
-                    let cloned_arc_rx_vms = arc_rx_vms.clone();
-                    let blocks = rayon_spawn_async(move || {
-                        blocks
-                            .into_iter()
-                            .map(move |block| {
-                                let rx_vm = arc_rx_vms
-                                    .get(&randomx_seed_height(block.block.number() as u64))
-                                    .unwrap();
-                                PrePreparedBlock::new_rx(block, rx_vm).unwrap()
-                            })
-                            .collect::<Vec<_>>()
-                    })
-                    .await;
-
-                    randomx_vms = Some(Arc::into_inner(cloned_arc_rx_vms).unwrap());
-
-                    prepped_blocks_tx.send(blocks).await.unwrap();
-                } else {
-                    let blocks = rayon_spawn_async(move || {
-                        blocks
-                            .into_iter()
-                            .map(move |block| PrePreparedBlock::new(block).unwrap())
-                            .collect::<Vec<_>>()
-                    })
-                    .await;
-
-                    prepped_blocks_tx.send(blocks).await.unwrap();
-                }
-            }
-        });
-
-        while let Some(incoming_blocks) = prepped_blocks_rx.next().await {
             let mut height;
-            for block in incoming_blocks {
+            for (block, txs) in blocks.into_iter().zip(txs) {
                 let VerifyBlockResponse::MainChain(verified_block_info) = block_verifier
                     .ready()
                     .await?
-                    .call(VerifyBlockRequest::MainChainPrepared(block))
-                    .await?;
+                    .call(VerifyBlockRequest::MainChainPrepared(block, txs))
+                    .await?
+                else {
+                    panic!()
+                };
 
                 height = verified_block_info.height;
 
@@ -347,7 +213,7 @@ mod bin {
         #[arg(short, long, default_value = "mainnet")]
         network: String,
         /// A list of RPC nodes we should use.
-        /// Example: http://xmr-node.cakewallet.com:18081
+        /// Example: <http://xmr-node.cakewallet.com:18081>
         #[arg(long)]
         rpc_nodes: Vec<String>,
         /// Stops the scanner from including the default list of nodes, this is not

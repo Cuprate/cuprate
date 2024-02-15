@@ -41,7 +41,7 @@ impl MultiThreadedBatchVerifier {
             .into_iter()
             .map(UnsafeCell::into_inner)
             .par_bridge()
-            .find_any(|batch_verifer| !batch_verifer.verify_vartime())
+            .find_any(|batch_verifier| !batch_verifier.verify_vartime())
             .is_none()
     }
 }

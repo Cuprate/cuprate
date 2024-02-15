@@ -28,7 +28,45 @@ use crate::{
     DatabaseResponse, ExtendedConsensusError,
 };
 
-mod contextual_data;
+pub mod contextual_data;
+mod output_cache;
+
+pub use output_cache::OutputCache;
+
+pub async fn batch_setup_txs(
+    txs: Vec<(Vec<Transaction>, HardFork)>,
+) -> Result<Vec<Vec<Arc<TransactionVerificationData>>>, ExtendedConsensusError> {
+    let batch_verifier = Arc::new(MultiThreadedBatchVerifier::new(rayon::current_num_threads()));
+
+    // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
+    let txs = rayon_spawn_async(move || {
+        let txs = txs
+            .into_par_iter()
+            .map(|(txs, hf)| {
+                txs.into_par_iter()
+                    .map(|tx| {
+                        Ok(Arc::new(TransactionVerificationData::new(
+                            tx,
+                            &hf,
+                            batch_verifier.clone(),
+                        )?))
+                    })
+                    .collect::<Result<Vec<_>, ConsensusError>>()
+            })
+            .collect::<Result<Vec<_>, ConsensusError>>()?;
+
+        if !Arc::into_inner(batch_verifier).unwrap().verify() {
+            Err(ConsensusError::Transaction(TransactionError::RingCTError(
+                RingCTError::BulletproofsRangeInvalid,
+            )))?
+        }
+
+        Ok::<_, ConsensusError>(txs)
+    })
+    .await?;
+
+    Ok(txs)
+}
 
 /// Data needed to verify a transaction.
 ///
@@ -90,13 +128,6 @@ pub enum VerifyTxRequest {
         hf: HardFork,
         re_org_token: ReOrgToken,
     },
-    /// Batches the setup of [`TransactionVerificationData`], does *some* verification, you need to call [`VerifyTxRequest::Block`]
-    /// with the returned data.
-    BatchSetup {
-        txs: Vec<Transaction>,
-        hf: HardFork,
-        re_org_token: ReOrgToken,
-    },
 }
 
 pub enum VerifyTxResponse {
@@ -136,66 +167,29 @@ where
     fn call(&mut self, req: VerifyTxRequest) -> Self::Future {
         let database = self.database.clone();
 
-        match req {
-            VerifyTxRequest::Block {
-                txs,
-                current_chain_height,
-                time_for_time_lock,
-                hf,
-                re_org_token,
-            } => verify_transactions_for_block(
-                database,
-                txs,
-                current_chain_height,
-                time_for_time_lock,
-                hf,
-                re_org_token,
-            )
-            .boxed(),
-            VerifyTxRequest::BatchSetup {
-                txs,
-                hf,
-                re_org_token,
-            } => batch_setup_transactions(database, txs, hf, re_org_token).boxed(),
+        async move {
+            match req {
+                VerifyTxRequest::Block {
+                    txs,
+                    current_chain_height,
+                    time_for_time_lock,
+                    hf,
+                    re_org_token,
+                } => {
+                    verify_transactions_for_block(
+                        database,
+                        txs,
+                        current_chain_height,
+                        time_for_time_lock,
+                        hf,
+                        re_org_token,
+                    )
+                    .await
+                }
+            }
         }
+        .boxed()
     }
-}
-
-async fn batch_setup_transactions<D>(
-    database: D,
-    txs: Vec<Transaction>,
-    hf: HardFork,
-    re_org_token: ReOrgToken,
-) -> Result<VerifyTxResponse, ExtendedConsensusError>
-where
-    D: Database + Clone + Sync + Send + 'static,
-{
-    let batch_verifier = Arc::new(MultiThreadedBatchVerifier::new(rayon::current_num_threads()));
-
-    let cloned_verifier = batch_verifier.clone();
-    // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
-    let txs = rayon_spawn_async(move || {
-        txs.into_par_iter()
-            .map(|tx| {
-                Ok(Arc::new(TransactionVerificationData::new(
-                    tx,
-                    &hf,
-                    cloned_verifier.clone(),
-                )?))
-            })
-            .collect::<Result<Vec<_>, ConsensusError>>()
-    })
-    .await?;
-
-    if !Arc::into_inner(batch_verifier).unwrap().verify() {
-        Err(ConsensusError::Transaction(TransactionError::RingCTError(
-            RingCTError::BulletproofsRangeInvalid,
-        )))?
-    }
-
-    contextual_data::batch_fill_ring_member_info(&txs, &hf, re_org_token, database).await?;
-
-    Ok(VerifyTxResponse::BatchSetupOk(txs))
 }
 
 #[instrument(name = "verify_txs", skip_all, level = "info")]
@@ -212,8 +206,14 @@ where
 {
     tracing::debug!("Verifying transactions for block, amount: {}", txs.len());
 
-    contextual_data::batch_refresh_ring_member_info(&txs, &hf, re_org_token, database.clone())
-        .await?;
+    contextual_data::batch_refresh_ring_member_info(
+        &txs,
+        &hf,
+        re_org_token,
+        database.clone(),
+        None,
+    )
+    .await?;
 
     let spent_kis = Arc::new(std::sync::Mutex::new(HashSet::new()));
 

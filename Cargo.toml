@@ -5,6 +5,7 @@ members = [
 	"consensus",
 	"consensus/rules",
 	"cryptonight",
+	"database",
 	"helper",
 	"net/epee-encoding",
 	"net/fixed-bytes",
@@ -38,18 +39,20 @@ opt-level = 3
 async-trait           = { version = "0.1.74", default-features = false }
 borsh                 = { version = "1.2.1", default-features = false }
 bytes                 = { version = "1.5.0", default-features = false }
+cfg-if                = { version = "1.0.0", default-features = false }
 clap                  = { version = "4.4.7", default-features = false }
 chrono                = { version = "0.4.31", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
 crossbeam             = { version = "0.8.4", default-features = false }
 curve25519-dalek      = { version = "4.1.1", default-features = false }
-dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "f3429ec1ef386da1458f4ed244402f38e3e12930", default-features = false }
+dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
 futures               = { version = "0.3.29", default-features = false }
 hex                   = { version = "0.4.3", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "f3429ec1ef386da1458f4ed244402f38e3e12930", default-features = false }
-multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "f3429ec1ef386da1458f4ed244402f38e3e12930", default-features = false }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
+multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
+paste                 = { version = "1.0.14", default-features = false }
 pin-project           = { version = "1.1.3", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
 rand                  = { version = "0.8.5", default-features = false }
@@ -58,7 +61,7 @@ serde_bytes           = { version = "0.11.12", default-features = false }
 serde_json            = { version = "1.0.108", default-features = false }
 serde                 = { version = "1.0.190", default-features = false }
 thiserror             = { version = "1.0.50", default-features = false }
-thread_local 		  = { version = "1.1.7", default-features = false }
+thread_local		  = { version = "1.1.7", default-features = false }
 tokio-util            = { version = "0.7.10", default-features = false }
 tokio-stream          = { version = "0.1.14", default-features = false }
 tokio                 = { version = "1.33.0", default-features = false }
@@ -79,7 +82,6 @@ proptest-derive       = { version = "0.4.0" }
 # notify    = { version = "6.1.1" }  # Filesystem watching                  | https://github.com/notify-rs/notify
 # once_cell = { version = "1.18.0" } # Lazy/one-time initialization         | https://github.com/matklad/once_cell
 # open      = { version = "5.0.0" }  # Open PATH/URL, probably for binaries | https://github.com/byron/open-rs
-# paste     = { version = "1.0.14" } # Macro `ident` pasting                | https://github.com/dtolnay/paste
 # regex     = { version = "1.10.2" } # Regular expressions                  | https://github.com/rust-lang/regex
 # ryu       = { version = "1.0.15" } # Fast float to string formatting      | https://github.com/dtolnay/ryu
 # strum     = { version = "0.25.0" } # Enum macros/traits                   | https://github.com/Peternator7/strum
