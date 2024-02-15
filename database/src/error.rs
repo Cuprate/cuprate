@@ -4,11 +4,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, fmt::Debug};
 
+#[allow(unused_imports)] // docs
+use crate::env::Env;
+
 //---------------------------------------------------------------------------------------------------- InitError
-/// Database errors that occur during initialization.
-///
-/// Many of these are the more common [`std::io::ErrorKind`]
-/// errors we'll run into, with better error messages.
+/// Errors that occur during ([`Env::open`]).
 #[derive(thiserror::Error, Debug)]
 pub enum InitError {
     /// I/O error.
@@ -22,7 +22,7 @@ pub enum InitError {
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
-/// Database errors that occur _after_ successful initialization.
+/// Errors that occur _after_ successful ([`Env::open`]).
 ///
 /// There are no errors for:
 /// 1. Missing tables
