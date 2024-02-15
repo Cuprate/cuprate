@@ -16,14 +16,13 @@ impl From<heed::Error> for crate::InitError {
         // Reference of all possible errors `heed` will return
         // upon using [`heed::EnvOpenOptions::open`]:
         // <https://docs.rs/heed/latest/src/heed/env.rs.html#149-219>
-        #[allow(clippy::match_same_arms)] // TODO: remove after fixing arms
         match error {
             E1::Io(io_error) => Self::Io(io_error),
             E1::DatabaseClosing => Self::ShuttingDown,
 
             // LMDB errors.
             E1::Mdb(mdb_error) => match mdb_error {
-                E2::Incompatible => Self::Invalid,
+                E2::Invalid => Self::Invalid,
                 E2::VersionMismatch => Self::InvalidVersion,
                 E2::Other(c_int) => Self::Unknown(Cow::Owned(format!("{mdb_error:?}"))),
 
@@ -34,24 +33,28 @@ impl From<heed::Error> for crate::InitError {
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
                 E2::Corrupted | E2::PageNotFound => Self::Corrupt,
 
-                E2::Panic => panic!("{mdb_error:?}"),
-                E2::BadTxn | E2::Problem => panic!("{mdb_error:?}"),
-                E2::KeyExist => panic!("{mdb_error:?}"),
-                E2::NotFound => panic!("{mdb_error:?}"),
-                E2::MapFull => panic!("{mdb_error:?}"),
-                E2::ReadersFull => panic!("{mdb_error:?}"),
-                E2::PageFull => panic!("{mdb_error:?}"),
+                // TODO: LMDB itself had a fatal error,
+                // should we have a special error message
+                // or panic as normal?
+                E2::Panic => panic!("TODO: special error message?"),
 
-                // TODO: are these all unrecoverable/unreachable errors?
-                E2::DbsFull => panic!("{mdb_error:?}"), // We know the DB count at compile time.
-                E2::Invalid => panic!("{mdb_error:?}"), // This is an `InitError`, it cannot occur here
-                E2::TlsFull => panic!("{mdb_error:?}"), // ???
-                E2::TxnFull => panic!("{mdb_error:?}"), // ???
-                E2::CursorFull => panic!("{mdb_error:?}"), // Shouldn't happen unless we do crazy cursor stuff (we don't)
-                E2::MapResized => panic!("{mdb_error:?}"), // We should be properly handling resizes, so this should panic indicating a bug
-                E2::BadRslot => panic!("{mdb_error:?}"),   // ???
-                E2::BadValSize => panic!("{mdb_error:?}"), // Should never happen
-                E2::BadDbi => panic!("{mdb_error:?}"),     // ???
+                // These errors shouldn't be returned on database init.
+                E2::Incompatible
+                | E2::BadTxn
+                | E2::Problem
+                | E2::KeyExist
+                | E2::NotFound
+                | E2::MapFull
+                | E2::ReadersFull
+                | E2::PageFull
+                | E2::DbsFull
+                | E2::TlsFull
+                | E2::TxnFull
+                | E2::CursorFull
+                | E2::MapResized
+                | E2::BadRslot
+                | E2::BadValSize
+                | E2::BadDbi => panic!("{mdb_error:?}"),
             },
 
             // TODO: these will never occur once correct?
@@ -71,7 +74,6 @@ impl From<heed::Error> for crate::RuntimeError {
         use heed::Error as E1;
         use heed::MdbError as E2;
 
-        #[allow(clippy::match_same_arms)] // TODO: remove after fixing arms
         match error {
             // I/O errors.
             E1::Io(io_error) => Self::Io(io_error),
@@ -97,22 +99,22 @@ impl From<heed::Error> for crate::RuntimeError {
                 // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Poison>
                 //
                 // If LMDB itself fails, should we even try to recover?
-                E2::Panic => unreachable!(),
+                E2::Panic => panic!("TODO: special error message?"),
 
                 // TODO: are these are recoverable?
                 E2::BadTxn | E2::Problem => Self::TxMustAbort,
 
                 // TODO: are these all unrecoverable/unreachable errors?
-                E2::DbsFull => panic!("{mdb_error:?}"), // We know the DB count at compile time.
-                E2::Invalid => panic!("{mdb_error:?}"), // This is an `InitError`, it cannot occur here
-                E2::TlsFull => panic!("{mdb_error:?}"), // ???
-                E2::TxnFull => panic!("{mdb_error:?}"), // ???
-                E2::CursorFull => panic!("{mdb_error:?}"), // Shouldn't happen unless we do crazy cursor stuff (we don't)
-                E2::MapResized => panic!("{mdb_error:?}"), // We should be properly handling resizes, so this should panic indicating a bug
-                E2::Incompatible => panic!("{mdb_error:?}"), // Should never happen
-                E2::BadRslot => panic!("{mdb_error:?}"),   // ???
-                E2::BadValSize => panic!("{mdb_error:?}"), // Should never happen
-                E2::BadDbi => panic!("{mdb_error:?}"),     // ???
+                E2::DbsFull // We know the DB count at compile time.
+                | E2::Invalid // This is an `InitError`, it cannot occur here
+                | E2::TlsFull // ???
+                | E2::TxnFull // ???
+                | E2::CursorFull // Shouldn't happen unless we do crazy cursor stuff (we don't)
+                | E2::MapResized // We should be properly handling resizes, so this should panic indicating a bug
+                | E2::Incompatible // Should never happen
+                | E2::BadRslot   // ???
+                | E2::BadValSize // Should never happen
+                | E2::BadDbi => panic!("{mdb_error:?}"), // ???
             },
 
             // Database is shutting down.
