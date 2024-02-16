@@ -5,18 +5,17 @@
 //!
 use std::{
     collections::HashMap,
+    io::Read,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     path::PathBuf,
-    process::Stdio,
+    process::{Child, Command, Stdio},
     sync::OnceLock,
+    thread::panicking,
     time::Duration,
 };
 
 use rand::Rng;
-use tokio::{
-    process::{Child, Command},
-    sync::{mpsc, oneshot},
-};
+use tokio::sync::{mpsc, oneshot};
 
 mod download;
 
@@ -85,6 +84,35 @@ struct SpawnedMoneroD {
     p2p_port: u16,
 }
 
+impl Drop for SpawnedMoneroD {
+    fn drop(&mut self) {
+        if self.process.kill().is_err() {
+            println!("Failed to kill monerod, process id: {}", self.process.id())
+        }
+
+        if panicking() {
+            // If we are panicking then a test failed so print monerod's logs.
+
+            let mut out = String::new();
+
+            if self
+                .process
+                .stdout
+                .as_mut()
+                .unwrap()
+                .read_to_string(&mut out)
+                .is_err()
+            {
+                println!("Failed to get monerod's logs.");
+            }
+
+            println!("-----START-MONEROD-LOGS-----");
+            println!("{out}",);
+            println!("------END-MONEROD-LOGS------");
+        }
+    }
+}
+
 /// A manger of spawned monerods.
 struct MoneroDManager {
     /// A map of start flags to monerods.
@@ -137,13 +165,13 @@ impl MoneroDManager {
 
         // TODO: set a different DB location per node
         let monerod = Command::new(&self.path_to_monerod)
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stdin(Stdio::piped())
             .args(&flags)
             .arg("--regtest")
+            .arg("--log-level=2")
             .arg(format!("--p2p-bind-port={}", p2p_port))
             .arg(format!("--rpc-bind-port={}", rpc_port))
-            .kill_on_drop(true)
             .spawn()
             .unwrap();
 
