@@ -15,8 +15,6 @@ bytes = { workspace = true, features = ["std"] }
 
 borsh = { workspace = true, features = ["derive"]}
 
-rand = { workspace = true, features = ["std", "std_rng"] }
-
 [target.'cfg(unix)'.dependencies]
 tar = "0.4.40"
 bzip2 = "0.4.4"

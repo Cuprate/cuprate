@@ -14,8 +14,12 @@ use std::{
 #[cfg(unix)]
 use bytes::Buf;
 use reqwest::{get, Error as ReqError};
+use tokio::sync::Mutex;
 
 use super::MONEROD_VERSION;
+
+/// A mutex to make sure only one thread at a time downloads monerod.
+static DOWNLOAD_MONEROD_MUTEX: Mutex<()> = Mutex::const_new(());
 
 /// Returns the file name to download and the expected extracted folder name.
 fn file_name(version: &str) -> (String, String) {
@@ -80,6 +84,9 @@ fn find_target() -> PathBuf {
 
 /// Checks if we have monerod or downloads it if we don't and then returns the path to it.
 pub async fn check_download_monerod() -> Result<PathBuf, ReqError> {
+    // make sure no other threads are downloading monerod at the same time.
+    let _guard = DOWNLOAD_MONEROD_MUTEX.lock().await;
+
     let path_to_store = find_target();
 
     let (file_name, dir_name) = file_name(MONEROD_VERSION);
