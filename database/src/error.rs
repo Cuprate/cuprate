@@ -16,7 +16,7 @@ type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 ///
 /// # Handling
 /// As this is a database initialization error, the correct
-/// way to handle any of these occuring is probably just to
+/// way to handle any of these occurring is probably just to
 /// exit the program.
 ///
 /// There is not much we as Cuprate can do
