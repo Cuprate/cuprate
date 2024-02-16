@@ -13,6 +13,14 @@ type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 //---------------------------------------------------------------------------------------------------- InitError
 /// Errors that occur during ([`Env::open`]).
+///
+/// # Handling
+/// As this is a database initialization error, the correct
+/// way to handle any of these occuring is probably just to
+/// exit the program.
+///
+/// There is not much we as Cuprate can do
+/// to recover on any of these errors.
 #[derive(thiserror::Error, Debug)]
 pub enum InitError {
     /// The given `Path/File` existed and was accessible,
@@ -42,19 +50,10 @@ pub enum InitError {
     #[error("database is shutting down")]
     ShuttingDown,
 
-    /// A fatal error occurred.
-    ///
-    /// This is for errors that _should_ be unreachable
-    /// but we'd still like to panic gracefully.
-    ///
-    /// # Invariant
-    /// If this error is received, all(?) of Cuprate should shutdown.
-    #[error("fatal error: {0}")]
-    Fatal(BoxError),
-
     /// An unknown error occurred.
     ///
-    /// This is a catch-all for all non-fatal errors.
+    /// This is for errors that cannot be recovered from,
+    /// but we'd still like to panic gracefully.
     #[error("unknown error: {0}")]
     Unknown(BoxError),
 }
