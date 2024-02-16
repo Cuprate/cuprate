@@ -142,4 +142,5 @@ async fn handshake_cuprate_to_monerod() {
         })
         .await
         .unwrap();
+    panic!()
 }
