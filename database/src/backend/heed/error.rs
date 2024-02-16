@@ -1,13 +1,7 @@
 //! Conversion from `heed::Error` -> `cuprate_database::RuntimeError`.
 
-//---------------------------------------------------------------------------------------------------- Constants
-/// The error message shown to end-users in panic
-/// messages if we think database is corrupted.
-///
-/// This is meant to be user-friendly.
-const CORRUPTION_ERROR_MSG: &str = r"Cuprate has encountered a fatal error. The database may be corrupted.
-
-TODO: instructions on what to do to fix, general advice, etc";
+//---------------------------------------------------------------------------------------------------- Use
+use crate::constants::CUPRATE_DATABASE_CORRUPT_MSG;
 
 //---------------------------------------------------------------------------------------------------- InitError
 impl From<heed::Error> for crate::InitError {
