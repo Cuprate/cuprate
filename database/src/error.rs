@@ -15,10 +15,6 @@ type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 /// Errors that occur during ([`Env::open`]).
 #[derive(thiserror::Error, Debug)]
 pub enum InitError {
-    /// I/O error.
-    #[error("database I/O error: {0}")]
-    Io(#[from] std::io::Error),
-
     /// The given `Path/File` existed and was accessible,
     /// but was not a valid database file.
     #[error("database file exists but is not valid")]
@@ -28,6 +24,10 @@ pub enum InitError {
     /// database, but the version is incorrect.
     #[error("database file is valid, but version is incorrect")]
     InvalidVersion,
+
+    /// I/O error.
+    #[error("database I/O error: {0}")]
+    Io(#[from] std::io::Error),
 
     /// The given `Path/File` existed,
     /// was a valid database, but it is corrupt.
@@ -80,27 +80,6 @@ pub enum RuntimeError {
     #[error("key/value pair was not found")]
     KeyNotFound,
 
-    /// The database environment has reached
-    /// maximum memory map size, it must be
-    /// increased.
-    //
-    // TODO: `sanakirja` automatically resizes, `heed` does not.
-    // I guess this should be `unreachable!()` for `sanakirja`?
-    #[error("not enough space in database environment memory map")]
-    MapFull,
-
-    /// A database page does not have enough
-    /// space for more key/values.
-    #[error("not enough space in database page")]
-    PageFull,
-
-    /// Unknown error, the transaction should abort.
-    ///
-    /// TODO: this is for: <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.BadTxn>
-    /// Can we even recover here? Should we panic?
-    #[error("transaction error, must abort")]
-    TxMustAbort,
-
     /// A [`std::io::Error`].
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
@@ -109,37 +88,4 @@ pub enum RuntimeError {
     /// of shutting down and cannot respond.
     #[error("database is shutting down")]
     ShuttingDown,
-
-    /// The database has reached maximum parallel readers.
-    ///
-    /// TODO: this can be used for retry logic in reader threads,
-    /// although, does this error ever actually occur in practice?
-    #[error("database maximum parallel readers reached")]
-    ReadersFull,
-
-    /// The database is corrupt.
-    ///
-    /// TODO: who knows what this means - is it safe to say
-    /// the database is unusable if this error surfaces?
-    /// Should we tell the user they have to resync from scratch?
-    /// <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.Corrupted>
-    /// <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Corrupt>
-    #[error("database is corrupt")]
-    Corrupt,
-
-    /// A fatal error occurred.
-    ///
-    /// This is for errors that _should_ be unreachable
-    /// but we'd still like to panic gracefully.
-    ///
-    /// # Invariant
-    /// If this error is received, all(?) of Cuprate should shutdown.
-    #[error("fatal error: {0}")]
-    Fatal(BoxError),
-
-    /// An unknown error occurred.
-    ///
-    /// This is a catch-all for all non-fatal errors.
-    #[error("unknown error: {0}")]
-    Unknown(BoxError),
 }
