@@ -6,19 +6,18 @@
 use std::{
     ffi::OsStr,
     io::Read,
-    net::{IpAddr, Ipv4Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener},
     process::{Child, Command, Stdio},
     str::from_utf8,
     thread::panicking,
     time::Duration,
 };
 
-use rand::Rng;
 use tokio::{task::yield_now, time::timeout};
 
 mod download;
 
-const LOCAL_HOST: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+const LOCALHOST: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 const MONEROD_VERSION: &str = "v0.18.3.1";
 const MONEROD_STARTUP_TEXT: &str =
     "The daemon will start synchronizing with the network. This may take a long time to complete.";
@@ -30,12 +29,10 @@ const MONEROD_SHUTDOWN_TEXT: &str = "Stopping cryptonote protocol";
 /// This function will set `regtest` and the P2P/ RPC ports so these can't be included in the flags.
 pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> SpawnedMoneroD {
     let path_to_monerod = download::check_download_monerod().await.unwrap();
-    let mut rng = rand::thread_rng();
 
-    // Use random ports and *hope* we don't get a collision (TODO: just keep an atomic counter and increment?)
-    let rpc_port: u16 = rng.gen_range(1500..u16::MAX);
-    let p2p_port: u16 = rng.gen_range(1500..u16::MAX);
-    let zmq_port: u16 = rng.gen_range(1500..u16::MAX);
+    let rpc_port = get_available_port(&[]);
+    let p2p_port = get_available_port(&[rpc_port]);
+    let zmq_port = get_available_port(&[rpc_port, p2p_port]);
 
     // TODO: set a random DB location
     let mut monerod = Command::new(path_to_monerod)
@@ -88,6 +85,21 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
     }
 }
 
+fn get_available_port(already_taken: &[u16]) -> u16 {
+    loop {
+        // Using `0` makes the OS return a random available port.
+        let port = TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+
+        if !already_taken.contains(&port) {
+            return port;
+        }
+    }
+}
+
 /// A struct representing a spawned monerod.
 pub struct SpawnedMoneroD {
     /// A handle to the monerod process, monerod will be stopped when this is dropped.
@@ -103,12 +115,12 @@ pub struct SpawnedMoneroD {
 impl SpawnedMoneroD {
     /// Returns the p2p port of the spawned monerod
     pub fn p2p_addr(&self) -> SocketAddr {
-        SocketAddr::new(LOCAL_HOST, self.p2p_port)
+        SocketAddr::new(LOCALHOST, self.p2p_port)
     }
 
     /// Returns the RPC port of the spawned monerod
     pub fn rpc_port(&self) -> SocketAddr {
-        SocketAddr::new(LOCAL_HOST, self.rpc_port)
+        SocketAddr::new(LOCALHOST, self.rpc_port)
     }
 }
 
