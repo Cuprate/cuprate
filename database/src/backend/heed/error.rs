@@ -82,7 +82,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 //
                 // "Requested page not found - this usually indicates corruption."
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
-                E2::Corrupted | E2::PageNotFound => panic!("{mdb_error:?}\n{CORRUPTION_ERROR_MSG}"),
+                E2::Corrupted | E2::PageNotFound => panic!("{mdb_error:?}\n{CUPRATE_DATABASE_CORRUPT_MSG}"),
 
                 // These errors should not occur, and if they do,
                 // the best thing `cuprate_database` can to for
