@@ -110,10 +110,6 @@ pub enum RuntimeError {
     #[error("database is shutting down")]
     ShuttingDown,
 
-    /// The expected database version was not the version found.
-    #[error("database version mismatch")]
-    InvalidVersion,
-
     /// The database has reached maximum parallel readers.
     ///
     /// TODO: this can be used for retry logic in reader threads,

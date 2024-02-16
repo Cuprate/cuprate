@@ -72,7 +72,6 @@ impl From<heed::Error> for crate::RuntimeError {
             E1::Mdb(mdb_error) => match mdb_error {
                 E2::KeyExist => Self::KeyExists,
                 E2::NotFound => Self::KeyNotFound,
-                E2::VersionMismatch => Self::InvalidVersion,
                 E2::MapFull => Self::MapFull,
                 E2::ReadersFull => Self::ReadersFull,
                 E2::PageFull => Self::PageFull,
@@ -104,6 +103,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 | E2::Incompatible // Should never happen
                 | E2::BadRslot   // ???
                 | E2::BadValSize // Should never happen
+                | E2::VersionMismatch // This is an `InitError`
                 | E2::BadDbi => Self::Fatal(Box::new(mdb_error)), // ???
             },
 

@@ -29,7 +29,6 @@ impl From<sanakirja::Error> for crate::RuntimeError {
 
         match error {
             E::IO(io_error) => Self::Io(io_error),
-            E::VersionMismatch => Self::InvalidVersion,
 
             // A CRC failure essentially  means a `sanakirja` page was corrupt.
             // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.CRC>
@@ -38,6 +37,8 @@ impl From<sanakirja::Error> for crate::RuntimeError {
             // A database lock was poisoned.
             // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.Poison>
             E::Poison => Self::Fatal(Box::new(error)),
+
+            E::VersionMismatch => panic!("{error:?}"), // Unreachable, this is an `InitError`
         }
     }
 }
