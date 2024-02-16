@@ -30,16 +30,18 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
     // Use random ports and *hope* we don't get a collision (TODO: just keep an atomic counter and increment?)
     let rpc_port: u16 = rng.gen_range(1500..u16::MAX);
     let p2p_port: u16 = rng.gen_range(1500..u16::MAX);
+    let zmq_port: u16 = rng.gen_range(1500..u16::MAX);
 
     // TODO: set a random DB location &   zMQ port
     let monerod = Command::new(path_to_monerod)
         .stdout(Stdio::piped())
-        .stdin(Stdio::piped())
         .args(flags)
         .arg("--regtest")
         .arg("--log-level=2")
         .arg(format!("--p2p-bind-port={}", p2p_port))
         .arg(format!("--rpc-bind-port={}", rpc_port))
+        .arg(format!("--zmq-rpc-bind-port={}", zmq_port))
+        .arg("--non-interactive")
         .spawn()
         .unwrap();
 
