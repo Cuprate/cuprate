@@ -37,7 +37,7 @@ pub struct BlockMetadata {
 }
 
 #[derive(Clone, Debug, Encode, Decode)]
-/// [`AltBlock`] is a struct contaning an alternative `block` (defining an alternative mainchain) and its metadata (`block_height`, `cumulative_weight`,
+/// [`AltBlock`] is a struct containing an alternative `block` (defining an alternative mainchain) and its metadata (`block_height`, `cumulative_weight`,
 /// `cumulative_difficulty_low`, `cumulative_difficulty_high`, `already_generated_coins`).
 /// This struct is used in [`crate::table::altblock`] table.
 pub struct AltBlock {
@@ -317,7 +317,7 @@ pub struct OutputMetadata {
 //#[derive(Clone, Debug, Encode, Decode)]
 //// [`OutAmountIdx`] is a struct tuple used to contain the two keys used in [`crate::table::outputamounts`] table.
 //// In monerod, the database key is the amount while the *cursor key* (the amount index) is the prefix of the actual data being returned.
-//// As we prefere to note use cursor with partial data, we prefer to concat these two into a unique key
+//// As we prefer to note use cursor with partial data, we prefer to concat these two into a unique key
 //pub struct OutAmountIdx(u64,u64);
 // MAYBE NOT FINALLY
 

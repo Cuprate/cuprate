@@ -161,7 +161,7 @@ where
         tracing::debug!("waiting for peer/client request.");
         tokio::select! {
             biased;
-            bradcast_req = self.broadcast_rx.next() => {
+            broadcast_req = self.broadcast_rx.next() => {
                 todo!()
             }
             client_req = self.client_rx.next() => {
@@ -188,7 +188,7 @@ where
         tracing::debug!("waiting for peer response..");
         tokio::select! {
             biased;
-            bradcast_req = self.broadcast_rx.next() => {
+            broadcast_req = self.broadcast_rx.next() => {
                 todo!()
             }
             peer_message = stream.next() => {

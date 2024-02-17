@@ -1,0 +1,33 @@
+[package]
+name = "cuprate-database"
+version = "0.0.1"
+edition = "2021"
+license = "AGPL-3.0-only"
+
+# All Contributors on github
+authors=[
+        "SyntheticBird45 <@someoneelse495495:matrix.org>",
+	"Boog900"
+        ]
+
+[features]
+mdbx = ["dep:libmdbx"]
+hse = []
+
+[dependencies]
+monero = {workspace = true, features = ["serde"]}
+tiny-keccak = { version = "2.0", features = ["sha3"] }
+serde = { workspace = true}
+thiserror = {workspace = true }
+bincode = { workspace = true }
+libmdbx = { version = "0.3.1", optional = true }
+
+[build]
+linker="clang"
+rustflags=[
+	"-Clink-arg=-fuse-ld=mold",
+	"-Zcf-protection=full", 
+	"-Zsanitizer=cfi", 
+	"-Crelocation-model=pie", 
+	"-Cstack-protector=all",
+]

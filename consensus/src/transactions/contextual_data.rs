@@ -107,7 +107,7 @@ pub async fn batch_refresh_ring_member_info<'a, D: Database + Clone + Send + Syn
     Ok(())
 }
 
-/// This function returns the transaction verification datas that need refreshing.
+/// This function returns the transaction verification data that need refreshing.
 ///
 /// The first returned vec needs a full refresh.
 /// The second returned vec only needs a partial refresh.

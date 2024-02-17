@@ -1,0 +1,16 @@
+[default]
+# False positive patterns.
+extend-ignore-identifiers-re = [
+	"ND",
+	"DNE",
+	# in file: `/cryptonight/c/oaes_lib.c:1213`
+	# not sure if false-positive or not.
+	"InvMixColums",
+]
+
+[files]
+# False positive files.
+extend-exclude = [
+	"/misc/gpg_keys/",
+	"cryptonight/",
+]

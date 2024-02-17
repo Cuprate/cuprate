@@ -217,7 +217,7 @@ fn read_object<T: EpeeObject, B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Re
     object_builder.finish()
 }
 
-/// Read a marker from the [`Read`], this function should only be used for
+/// Read a marker from the [`Buf`], this function should only be used for
 /// custom serialisation based on the marker otherwise just use [`read_epee_value`].
 pub fn read_marker<B: Buf>(r: &mut B) -> Result<Marker> {
     Marker::try_from(checked_read_primitive(r, Buf::get_u8)?)

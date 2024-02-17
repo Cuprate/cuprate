@@ -144,7 +144,7 @@ proptest! {
     }
 
     #[test]
-    fn next_difficulty_consistant(diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS), hf in any::<HardFork>()) {
+    fn next_difficulty_consistent(diff_cache in arb_difficulty_cache(TEST_TOTAL_ACCOUNTED_BLOCKS), hf in any::<HardFork>()) {
         let first_call = diff_cache.next_difficulty(&hf);
         prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
         prop_assert_eq!(first_call, diff_cache.next_difficulty(&hf));
