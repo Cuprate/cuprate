@@ -9,7 +9,7 @@ use std::{
 //---------------------------------------------------------------------------------------------------- Const
 /// Cuprate's main directory.
 ///
-/// This is the PATH used for any top-level Cuprate directories, e.g:
+/// This is the PATH used for any top-level Cuprate directories.
 ///
 /// | OS      | PATH                                                |
 /// |---------|-----------------------------------------------------|
@@ -43,7 +43,7 @@ pub const CUPRATE_DIR: &str = {
 ///
 /// # Errors
 /// This will return early if any of the above functions error.
-pub fn create_cuprate_dir_all() -> std::io::Result<()> {
+pub fn cuprate_create_dir_all() -> std::io::Result<()> {
     for path in [
         cuprate_cache_dir(),
         cuprate_config_dir(),
@@ -58,10 +58,7 @@ pub fn create_cuprate_dir_all() -> std::io::Result<()> {
 //---------------------------------------------------------------------------------------------------- Directories
 /// Create a (private) `OnceLock` and accessor function for common PATHs used by Cuprate.
 ///
-/// This currently creates the public functions:
-/// - [`cuprate_cache_dir()`]
-/// - [`cuprate_config_dir()`]
-/// - [`cuprate_data_dir()`]
+/// This creates all the functions used in [`cuprate_create_dir_all`].
 macro_rules! impl_dir_oncelock_and_fn {
     ($(
         $(#[$attr:meta])* // Documentation and any `derive`'s.
@@ -78,8 +75,10 @@ macro_rules! impl_dir_oncelock_and_fn {
         $(#[$attr])*
         pub fn $fn() -> &'static Path {
             $once_lock.get_or_init(|| {
+                // This should never panic.
                 let mut path = dirs::$dirs_fn().expect($expect);
 
+                // TODO:
                 // Consider a user who does `HOME=/ ./cuprated`
                 //
                 // Should we say "that's stupid" and panic here?
@@ -98,19 +97,43 @@ macro_rules! impl_dir_oncelock_and_fn {
 }
 
 impl_dir_oncelock_and_fn! {
-    /// TODO
+    /// Cuprate's cache directory.
+    ///
+    /// This is the PATH used for any Cuprate cache files.
+    ///
+    /// | OS      | PATH                                    |
+    /// |---------|-----------------------------------------|
+    /// | Windows | `C:\Users\Alice\AppData\Local\Cuprate\` |
+    /// | macOS   | `/Users/Alice/Library/Caches/Cuprate/`  |
+    /// | Linux   | `/home/alice/.cache/cuprate/`           |
     cuprate_cache_dir,
     cache_dir,
     CUPRATE_CACHE_DIR,
     "Cache directory was not found",
 
-    /// TODO
+    /// Cuprate's cache directory.
+    ///
+    /// This is the PATH used for any Cuprate configuration files.
+    ///
+    /// | OS      | PATH                                                |
+    /// |---------|-----------------------------------------------------|
+    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\`           |
+    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/` |
+    /// | Linux   | `/home/alice/.config/cuprate/`                      |
     cuprate_config_dir,
     config_dir,
     CUPRATE_CONFIG_DIR,
     "Configuration directory was not found",
 
-    /// TODO
+    /// Cuprate's cache directory.
+    ///
+    /// This is the PATH used for any Cuprate data files.
+    ///
+    /// | OS      | PATH                                                |
+    /// |---------|-----------------------------------------------------|
+    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\`           |
+    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/` |
+    /// | Linux   | `/home/alice/.local/share/cuprate/`                 |
     cuprate_data_dir,
     data_dir,
     CUPRATE_DATA_DIR,
