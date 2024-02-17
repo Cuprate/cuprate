@@ -61,6 +61,7 @@ impl ContextConfig {
     pub fn stage_net() -> ContextConfig {
         ContextConfig {
             hard_fork_cfg: HardForkConfig::stage_net(),
+            // These 2 have the same config as main-net.
             difficulty_cfg: DifficultyCacheConfig::main_net(),
             weights_config: BlockWeightsCacheConfig::main_net(),
         }
@@ -70,6 +71,7 @@ impl ContextConfig {
     pub fn test_net() -> ContextConfig {
         ContextConfig {
             hard_fork_cfg: HardForkConfig::test_net(),
+            // These 2 have the same config as main-net.
             difficulty_cfg: DifficultyCacheConfig::main_net(),
             weights_config: BlockWeightsCacheConfig::main_net(),
         }

@@ -17,7 +17,6 @@ use cuprate_consensus_rules::{transactions::OutputOnChain, ConsensusError, HardF
 mod batch_verifier;
 pub mod block;
 pub mod context;
-pub mod randomx;
 #[cfg(feature = "binaries")]
 pub mod rpc;
 #[cfg(test)]

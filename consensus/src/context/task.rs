@@ -1,3 +1,8 @@
+//! Context Task
+//!
+//! This module contains the async task that handles keeping track of blockchain context.
+//! It holds all the context caches and handles [`tower::Service`] requests.
+//!
 use futures::channel::oneshot;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tower::ServiceExt;
@@ -12,12 +17,17 @@ use super::{
 };
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
 
+/// A request from the context service to the context task.
 pub(super) struct ContextTaskRequest {
+    /// The request.
     pub req: BlockChainContextRequest,
+    /// The response channel.
     pub tx: oneshot::Sender<Result<BlockChainContextResponse, tower::BoxError>>,
+    /// The tracing span of the requester.
     pub span: tracing::Span,
 }
 
+/// The Context task that keeps the blockchain context and handles requests.
 pub struct ContextTask {
     /// A token used to invalidate previous contexts when a new
     /// block is added to the chain.
@@ -43,6 +53,8 @@ pub struct ContextTask {
 }
 
 impl ContextTask {
+    /// Initialize the [`ContextTask`], this will need to pull a lot of data from the database so may take a
+    /// while to complete.
     pub async fn init_context<D: Database>(
         cfg: ContextConfig,
         mut database: D,
@@ -118,12 +130,15 @@ impl ContextTask {
         Ok(context_svc)
     }
 
+    /// Handles a [`BlockChainContextRequest`] and returns a [`BlockChainContextResponse`].
     pub async fn handle_req(
         &mut self,
         req: BlockChainContextRequest,
     ) -> Result<BlockChainContextResponse, tower::BoxError> {
         Ok(match req {
             BlockChainContextRequest::GetContext => {
+                tracing::debug!("Getting blockchain context");
+
                 let current_hf = self.hardfork_state.current_hardfork();
 
                 BlockChainContextResponse::Context(BlockChainContext {
@@ -154,16 +169,24 @@ impl ContextTask {
                 })
             }
             BlockChainContextRequest::BatchGetDifficulties(blocks) => {
+                tracing::debug!("Getting batch difficulties len: {}", blocks.len() + 1);
+
                 let next_diffs = self
                     .difficulty_cache
                     .next_difficulties(blocks, &self.hardfork_state.current_hardfork());
                 BlockChainContextResponse::BatchDifficulties(next_diffs)
             }
             BlockChainContextRequest::NewRXVM(vm) => {
+                tracing::debug!("Adding randomX VM to cache.");
+
                 self.rx_vm_cache.add_vm(vm);
                 BlockChainContextResponse::Ok
             }
             BlockChainContextRequest::Update(new) => {
+                tracing::debug!(
+                    "Updating blockchain cache with new block, height: {}",
+                    new.height
+                );
                 // Cancel the validity token and replace it with a new one.
                 std::mem::replace(&mut self.current_validity_token, ValidityToken::new())
                     .set_data_invalid();
@@ -200,10 +223,14 @@ impl ContextTask {
         })
     }
 
+    /// Run the [`ContextTask`], the task will listen for requests on the passed in channel. When the channel closes the
+    /// task will finish.
     pub async fn run(mut self, mut rx: UnboundedReceiver<ContextTaskRequest>) {
         while let Some(req) = rx.recv().await {
             let res = self.handle_req(req.req).instrument(req.span).await;
             let _ = req.tx.send(res);
         }
+
+        tracing::info!("Shutting down blockchain context task.");
     }
 }

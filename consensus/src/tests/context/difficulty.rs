@@ -181,7 +181,7 @@ proptest! {
 
     #[test]
     fn claculating_multiple_diffs_does_not_change_state(
-        mut diff_cache in random_difficulty_cache(),
+        diff_cache in random_difficulty_cache(),
         timestamps in any_with::<Vec<u64>>(size_range(0..1000).lift()),
         hf in any::<HardFork>(),
     ) {
@@ -189,7 +189,7 @@ proptest! {
 
         diff_cache.next_difficulties(timestamps.into_iter().zip([hf].into_iter().cycle()).collect(), &hf);
 
-        assert_eq!(diff_cache, cache);
+        prop_assert_eq!(diff_cache, cache);
     }
 
     #[test]
@@ -203,7 +203,7 @@ proptest! {
         let diffs = diff_cache.next_difficulties(timestamps.clone(), &hf);
 
         for (timestamp, diff) in timestamps.into_iter().zip(diffs.into_iter()) {
-            assert_eq!(diff_cache.next_difficulty(&timestamp.1), diff);
+            prop_assert_eq!(diff_cache.next_difficulty(&timestamp.1), diff);
             diff_cache.new_block(diff_cache.last_accounted_height +1, timestamp.0, diff +  diff_cache.cumulative_difficulty());
         }
 

@@ -74,7 +74,7 @@ mod hidden {
 ///
 /// use cuprate_helper::asynch::poll_sender_channel;
 /// // although the inner channel is unbounded the `PollSender` will apply a limit.
-/// let (tx, rx) = poll_sender_channel(mpsc::unbounded_channel, 3);
+/// let (tx, rx) = poll_sender_channel::<_, _, u8>(mpsc::unbounded_channel, 3);
 ///
 /// ```
 pub fn poll_sender_channel<C: hidden::UnboundedChannel<T>, R, T>(
