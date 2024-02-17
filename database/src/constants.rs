@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 
-//---------------------------------------------------------------------------------------------------- Constants
+//---------------------------------------------------------------------------------------------------- Directory/Files
 /// The directory that contains database-related files.
 ///
 /// This is a sub-directory within the Cuprate folder, e.g:
@@ -25,6 +25,22 @@ pub const CUPRATE_DATABASE_DIR: &str = "database";
 /// ```
 pub const CUPRATE_DATABASE_FILE: &str = "data";
 
+//---------------------------------------------------------------------------------------------------- Error Messages
+/// Corrupt database error message.
+///
+/// The error message shown to end-users in panic
+/// messages if we think the database is corrupted.
+///
+/// This is meant to be user-friendly.
+pub const CUPRATE_DATABASE_CORRUPT_MSG: &str = r"Cuprate has encountered a fatal error. The database may be corrupted.
+
+TODO: instructions on:
+1. What to do
+2. How to fix (re-sync, recover, etc)
+3. General advice for preventing corruption
+4. etc";
+
+//---------------------------------------------------------------------------------------------------- Misc
 cfg_if::cfg_if! {
     // If both backends are enabled, fallback to `heed`.
     // This is useful when using `--all-features`.

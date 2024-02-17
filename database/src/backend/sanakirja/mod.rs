@@ -3,6 +3,10 @@
 mod env;
 pub use env::ConcreteEnv;
 
+mod error;
+
 mod database;
 
 mod transaction;
+
+mod types;

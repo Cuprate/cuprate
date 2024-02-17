@@ -1,10 +1,10 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{database::Database, error::RuntimeError, table::Table};
+use crate::{backend::heed::types::HeedDb, database::Database, error::RuntimeError, table::Table};
 
 //---------------------------------------------------------------------------------------------------- Database Impls
-impl<T: Table> Database<T> for heed::Database<T::Key, T::Value> {
+impl<T: Table> Database<T> for HeedDb {
     type RoTx<'db> = heed::RoTxn<'db>;
     type RwTx<'db> = heed::RwTxn<'db>;
 

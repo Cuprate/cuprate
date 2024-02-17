@@ -1,10 +1,13 @@
 # Database
 Cuprate's database implementation.
 
+TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.
+
 <!-- Did you know markdown automatically increments number lists, even if they are all 1...? -->
 1. [Documentation](#documentation)
 1. [File Structure](#file-structure)
     - [`src/`](#src)
+    - [`src/ops`](#src-ops)
     - [`src/service/`](#src-service)
     - [`src/backend/`](#src-backend)
 1. [Backends](#backends)
@@ -60,7 +63,7 @@ Note that `lib.rs/mod.rs` files are purely for re-exporting/visibility/lints, an
 ## `src/`
 The top-level `src/` files.
 
-| File/Folder      | Purpose |
+| File             | Purpose |
 |------------------|---------|
 | `constants.rs`   | General constants used throughout `cuprate-database`
 | `database.rs`    | Abstracted database; `trait Database`
@@ -73,15 +76,31 @@ The top-level `src/` files.
 | `tables.rs`      | All the table definitions used by `cuprate-database`
 | `transaction.rs` | Database transaction abstraction; `trait RoTx`, `trait RwTx`
 
+## `src/ops/`
+This folder contains the `cupate_database::ops` module.
+
+TODO: more detailed descriptions.
+
+| File            | Purpose |
+|-----------------|---------|
+| `alt_block.rs`  | Alternative blocks
+| `block.rs`      | Blocks
+| `blockchain.rs` | Blockchain-related
+| `output.rs`     | Outputs
+| `property.rs`   | Properties
+| `spent_key.rs`  | Spent keys
+| `tx.rs`         | Transactions
+
 ## `src/service/`
 This folder contains the `cupate_database::service` module.
 
-| File/Folder    | Purpose |
+| File           | Purpose |
 |----------------|---------|
 | `free.rs`      | General free functions used (related to `cuprate_database::service`)
 | `read.rs`      | Read thread-pool definitions and logic
 | `request.rs`   | Read/write `Request`s to the database
 | `response.rs`  | Read/write `Response`'s from the database
+| `tests.rs`     | Thread-pool tests and test helper functions
 | `write.rs`     | Write thread-pool definitions and logic
 
 ## `src/backend/`
@@ -89,25 +108,20 @@ This folder contains the actual database crates used as the backend for `cuprate
 
 Each backend has its own folder.
 
-| File/Folder  | Purpose |
+| Folder       | Purpose |
 |--------------|---------|
 | `heed/`      | Backend using using forked [`heed`](https://github.com/Cuprate/heed)
 | `sanakirja/` | Backend using [`sanakirja`](https://docs.rs/sanakirja)
 
-### `src/backend/heed/`
-| File/Folder      | Purpose |
-|------------------|---------|
-| `database.rs`    | Implementation of `trait Database`
-| `env.rs`         | Implementation of `trait Env`
-| `serde.rs`       | Data (de)serialization implementations
-| `transaction.rs` | Implementation of `trait RoTx/RwTx`
+All backends follow the same file structure:
 
-### `src/backend/sanakirja/`
-| File/Folder      | Purpose |
+| File             | Purpose |
 |------------------|---------|
 | `database.rs`    | Implementation of `trait Database`
 | `env.rs`         | Implementation of `trait Env`
+| `error.rs`       | Implementation of backend's errors to `cuprate_database`'s error types
 | `transaction.rs` | Implementation of `trait RoTx/RwTx`
+| `types.rs`       | Type aliases for long backend-specific types
 
 # Backends
 `cuprate-database`'s `trait`s abstract over various actual databases.

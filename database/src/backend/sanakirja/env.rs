@@ -3,7 +3,13 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::path::Path;
 
-use crate::{database::Database, env::Env, error::RuntimeError, table::Table};
+use crate::{
+    backend::sanakirja::types::SanakirjaDb,
+    database::Database,
+    env::Env,
+    error::{InitError, RuntimeError},
+    table::Table,
+};
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `sanakirja`.
@@ -26,7 +32,7 @@ impl Env for ConcreteEnv {
     /// TODO
     /// # Errors
     /// TODO
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, RuntimeError> {
+    fn open<P: AsRef<Path>>(path: P) -> Result<Self, InitError> {
         todo!()
     }
 
@@ -72,9 +78,9 @@ impl Env for ConcreteEnv {
     fn open_database<T: Table>(
         &self,
         to_rw: &Self::RoTx<'_>,
-    ) -> Result<Option<impl Database<T>>, RuntimeError> {
-        let tx: sanakirja::btree::Db<T::Key, T::Value> = todo!();
-        Ok(Some(tx))
+    ) -> Result<impl Database<T>, RuntimeError> {
+        let tx: SanakirjaDb = todo!();
+        Ok(tx)
     }
 }
 
