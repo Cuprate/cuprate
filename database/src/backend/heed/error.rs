@@ -85,7 +85,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 E2::Corrupted | E2::PageNotFound => panic!("{mdb_error:?}\n{CUPRATE_DATABASE_CORRUPT_MSG}"),
 
                 // These errors should not occur, and if they do,
-                // the best thing `cuprate_database` can to for
+                // the best thing `cuprate_database` can do for
                 // safety is to panic right here.
                 E2::Panic
                 | E2::PageFull

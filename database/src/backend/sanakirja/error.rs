@@ -37,7 +37,7 @@ impl From<sanakirja::Error> for crate::RuntimeError {
             E::Corrupt(_) | E::CRC(_) => panic!("{error:?}\n{CUPRATE_DATABASE_CORRUPT_MSG}"),
 
             // These errors should not occur, and if they do,
-            // the best thing `cuprate_database` can to for
+            // the best thing `cuprate_database` can do for
             // safety is to panic right here.
             E::Poison | E::VersionMismatch => panic!("{error:?}"),
         }

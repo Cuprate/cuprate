@@ -20,7 +20,7 @@ type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 /// exit the program.
 ///
 /// There is not much we as Cuprate can do
-/// to recover on any of these errors.
+/// to recover from any of these errors.
 #[derive(thiserror::Error, Debug)]
 pub enum InitError {
     /// The given `Path/File` existed and was accessible,
