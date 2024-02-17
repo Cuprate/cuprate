@@ -10,13 +10,14 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [features]
 # All features on by default.
-default = ["std", "atomic", "asynch", "num", "time", "thread"]
-std     = []
-atomic  = ["dep:crossbeam"]
-asynch  = ["dep:futures", "dep:rayon"]
-num     = []
-time    = ["dep:chrono", "std"]
-thread  = ["std", "dep:target_os_lib"]
+default   = ["std", "atomic", "asynch", "num", "time", "thread", "constants"]
+std       = []
+atomic    = ["dep:crossbeam"]
+asynch    = ["dep:futures", "dep:rayon"]
+constants = []
+num       = []
+time      = ["dep:chrono", "std"]
+thread    = ["std", "dep:target_os_lib"]
 
 [dependencies]
 crossbeam = { workspace = true, optional = true }
