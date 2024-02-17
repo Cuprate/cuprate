@@ -13,17 +13,21 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 default   = ["std", "atomic", "asynch", "num", "time", "thread", "constants"]
 std       = []
 atomic    = ["dep:crossbeam"]
-asynch    = ["dep:futures", "dep:rayon"]
+asynch    = ["dep:futures", "dep:rayon", "dep:tokio-util", "dep:tokio", "dep:thiserror"]
 constants = []
 num       = []
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
 
 [dependencies]
+thiserror = { workspace = true, optional = true }
 crossbeam = { workspace = true, optional = true }
 chrono    = { workspace = true, optional = true, features = ["std", "clock"] }
 futures   = { workspace = true, optional = true, features = ["std"] }
+tokio = { workspace = true, optional = true, features = ["sync"]}
+tokio-util = { workspace = true, optional = true }
 rayon     = { workspace = true, optional = true }
+
 
 # This is kinda a stupid work around.
 # [thread] needs to activate one of these libs (windows|libc)
