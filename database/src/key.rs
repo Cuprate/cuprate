@@ -16,17 +16,14 @@ pub trait Key {
     /// If [`Key::DUPLICATE`] is `true`, [`Key::Secondary`] will contain
     /// the "subkey", or secondary key needed to access the actual value.
     ///
-    /// If [`Key::DUPLICATE`] is `false`, [`Key::Secondary`]
-    /// will just be the same type as [`Key::Primary`].
+    /// If [`Key::DUPLICATE`] is `false`, [`Key::Secondary`] is ignored.
+    /// Consider using [`std::convert::Infallible`] as the type.
     const DUPLICATE: bool;
 
     /// The primary key type.
     type Primary: Pod;
 
     /// The secondary key type.
-    ///
-    /// Only needs to be different than [`Key::Primary`]
-    /// if [`Key::DUPLICATE`] is `true`.
     type Secondary: Pod;
 
     /// Acquire [`Key::Primary`].
@@ -36,7 +33,7 @@ pub trait Key {
     ///
     /// This only needs to be implemented on types that are [`Self::DUPLICATE`].
     ///
-    /// It is `unreachable!()` on non-duplicate key tables.
+    /// Consider using [`unreachable!()`] on non-duplicate key tables.
     fn primary_secondary(self) -> (Self::Primary, Self::Secondary);
 }
 
@@ -70,7 +67,9 @@ macro_rules! impl_key {
         $(
             impl Key for $t {
                 const DUPLICATE: bool = false;
+
                 type Primary = $t;
+
                 // This 0 variant enum is unconstructable,
                 // and "has the same role as the ! “never” type":
                 // <https://doc.rust-lang.org/std/convert/enum.Infallible.html#future-compatibility>.
@@ -107,14 +106,11 @@ impl_key! {
 // Implement `Key` for any [`DupKey`] using [`Copy`] types.
 impl<P, S> Key for DupKey<P, S>
 where
-    // TODO: fix sanakirja serde bound.
     P: Pod + Copy,
     S: Pod + Copy,
 {
     const DUPLICATE: bool = true;
-
     type Primary = P;
-
     type Secondary = S;
 
     #[inline]
