@@ -25,7 +25,7 @@ pub fn init() -> (DatabaseReadHandle, DatabaseWriteHandle) {
 
     // Initialize the database itself.
     // TODO: there's probably shutdown code we have to run.
-    let db: Arc<ConcreteEnv> = Arc::new(todo!());
+    let db: ConcreteEnv = todo!();
 
     // Spawn the `Reader/Writer` thread pools.
     let readers = DatabaseReader::init(&db);

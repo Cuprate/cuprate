@@ -1,10 +1,7 @@
 //! Database write thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
@@ -74,19 +71,19 @@ pub(super) struct DatabaseWriter {
     receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSend)>,
 
     /// Access to the database.
-    db: Arc<ConcreteEnv>,
+    db: ConcreteEnv,
 }
 
 impl DatabaseWriter {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseWriteHandle {
+    pub(super) fn init(db: &ConcreteEnv) -> DatabaseWriteHandle {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         // Spawn the writer.
-        let db = Arc::clone(db);
+        let db = ConcreteEnv::clone(db);
         std::thread::spawn(move || {
             let this = Self { receiver, db };
 

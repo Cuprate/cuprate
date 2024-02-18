@@ -1,10 +1,7 @@
 //! Database read thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
@@ -89,7 +86,7 @@ pub(super) struct DatabaseReader {
     receiver: crossbeam::channel::Receiver<(ReadRequest, ResponseSend)>,
 
     /// Access to the database.
-    db: Arc<ConcreteEnv>,
+    db: ConcreteEnv,
 }
 
 impl DatabaseReader {
@@ -101,7 +98,7 @@ impl DatabaseReader {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseReadHandle {
+    pub(super) fn init(db: &ConcreteEnv) -> DatabaseReadHandle {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -122,7 +119,7 @@ impl DatabaseReader {
         // Spawn pool of readers.
         for _ in 0..readers {
             let receiver = receiver.clone();
-            let db = db.clone();
+            let db = ConcreteEnv::clone(db);
 
             std::thread::spawn(move || {
                 let this = Self { receiver, db };
