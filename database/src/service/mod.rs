@@ -57,5 +57,7 @@ pub use request::{ReadRequest, WriteRequest};
 mod response;
 pub use response::Response;
 
+mod state;
+
 #[cfg(test)]
 mod tests;

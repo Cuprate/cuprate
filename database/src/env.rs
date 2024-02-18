@@ -70,6 +70,7 @@ pub trait Env: Sized + Clone + Send + Sync + 'static {
     /// TODO
     fn sync(&self) -> Result<(), RuntimeError>;
 
+    /// TODO
     fn shutdown(self) {
         self.sync();
 
