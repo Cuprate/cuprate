@@ -31,7 +31,11 @@ impl Env for ConcreteEnv {
         todo!()
     }
 
-    fn resize(new_size: usize) -> Result<(), RuntimeError> {
+    fn resize_map(new_size: usize) -> Result<(), RuntimeError> {
+        todo!()
+    }
+
+    fn current_map_size() -> usize {
         todo!()
     }
 

@@ -9,7 +9,7 @@
 /// This is only used by [`ConcreteEnv`]'s if [`Env::MANUAL_RESIZE`] is `true`.
 ///
 /// # TODO
-/// Create some algorithmn for increasing the memory map size.
+/// Create some algorithm for increasing the memory map size.
 ///
 /// Possible candidates:
 /// - x2 the current (`Vec`-style)?

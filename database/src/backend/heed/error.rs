@@ -106,7 +106,7 @@ impl From<heed::Error> for crate::RuntimeError {
 
                 // "Database contents grew beyond environment mapsize."
                 // We should be resizing the map when needed, this error
-                // occuring indicates we did _not_ do that, which is a bug
+                // occurring indicates we did _not_ do that, which is a bug
                 // and we should panic.
                 | E2::MapResized
                 // Don't spawn more than `126` reader threads.

@@ -23,8 +23,8 @@ pub trait Env: Sized {
     /// If this is `false`, that means this [`Env`]
     /// can _never_ return a [`RuntimeError::ResizeNeeded`].
     ///
-    /// If this is `true`, [`Env::resize`] _must_ be
-    /// re-implemented, as it just panics by default.
+    /// If this is `true`, [`Env::resize_map`] & [`Env::current_map_size`]
+    /// _must_ be re-implemented, as it just panics by default.
     const MANUAL_RESIZE: bool;
 
     //------------------------------------------------ Types
@@ -45,14 +45,25 @@ pub trait Env: Sized {
     /// TODO
     fn sync(&self) -> Result<(), RuntimeError>;
 
-    /// TODO
+    /// Resize the database's memory map to a new size in bytes.
+    ///
     /// # Errors
-    /// TODO
+    /// TODO: should we panic or special case this?
+    ///
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
-    fn resize(new_size: usize) -> Result<(), RuntimeError> {
+    fn resize_map(new_size_bytes: usize) -> Result<(), RuntimeError> {
+        unreachable!()
+    }
+
+    /// What is the _current_ size of the database's memory map in bytes?
+    ///
+    /// # Invariant
+    /// 1. This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
+    /// 2. This function must be accurate, as [`Env::resize()`] may depend on it.
+    fn current_map_size() -> usize {
         unreachable!()
     }
 
