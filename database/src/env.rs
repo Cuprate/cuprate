@@ -34,6 +34,12 @@ pub trait Env: Sized + Clone + Send + Sync + 'static {
     /// _must_ be re-implemented, as it just panics by default.
     const MANUAL_RESIZE: bool;
 
+    /// Does the database backend forcefully sync/flush
+    /// to disk on every transaction commit?
+    ///
+    /// This is used as an optimization.
+    const SYNCS_PER_TX: bool;
+
     //------------------------------------------------ Types
     /// TODO
     type RoTx<'db>: RoTx<'db>;
@@ -45,12 +51,30 @@ pub trait Env: Sized + Clone + Send + Sync + 'static {
     /// TODO
     /// # Errors
     /// TODO
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, InitError>;
+    fn open<P: AsRef<Path>>(
+        path: P,
+        sync_per_tx: bool,
+        // TODO: make `EnvOpenOptions` or something
+        // similar for all the options we could open with.
+        //
+        // - safe/fastest sync/async
+        // - DB thread count
+        // - ...
+    ) -> Result<Self, InitError>;
+
+    /// Return the [`Path`] that this database was [`Env::open`]ed with.
+    fn path(&self) -> &Path;
 
     /// TODO
     /// # Errors
     /// TODO
     fn sync(&self) -> Result<(), RuntimeError>;
+
+    fn shutdown(self) {
+        self.sync();
+
+        todo!();
+    }
 
     /// Resize the database's memory map to a new size in bytes.
     ///

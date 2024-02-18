@@ -55,7 +55,7 @@ pub fn init() -> (DatabaseReadHandle, DatabaseWriteHandle) {
 /// Anyone/everyone being able to shutdown the database seems dangerous.
 ///
 /// Counter-argument: we can just CTRL+F to see who calls this i guess.
-pub fn shutdown(db: Arc<ConcreteEnv>) {
+pub fn shutdown(db: ConcreteEnv) {
     // Not sure how this function is going
     // to work on a `&'static` database, but:
 

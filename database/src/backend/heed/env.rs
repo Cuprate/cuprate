@@ -20,12 +20,17 @@ pub struct ConcreteEnv(heed::Env);
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = true;
+    const SYNCS_PER_TX: bool = false;
     type RoTx<'db> = heed::RoTxn<'db>;
     type RwTx<'db> = heed::RwTxn<'db>;
 
     #[cold]
     #[inline(never)] // called once.
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, InitError> {
+    fn open<P: AsRef<Path>>(path: P, sync_per_tx: bool) -> Result<Self, InitError> {
+        todo!()
+    }
+
+    fn path(&self) -> &Path {
         todo!()
     }
 

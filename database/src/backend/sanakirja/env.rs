@@ -20,6 +20,7 @@ pub struct ConcreteEnv(Arc<sanakirja::Env>);
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = false;
+    const SYNCS_PER_TX: bool = true;
     /// FIXME:
     /// We could also implement `Borrow<sanakirja::Env> for ConcreteEnv`
     /// instead of this reference.
@@ -28,7 +29,11 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, InitError> {
+    fn open<P: AsRef<Path>>(path: P, sync_per_tx: bool) -> Result<Self, InitError> {
+        todo!()
+    }
+
+    fn path(&self) -> &Path {
         todo!()
     }
 
