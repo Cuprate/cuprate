@@ -31,11 +31,11 @@ impl Env for ConcreteEnv {
         todo!()
     }
 
-    fn resize_map(new_size: usize) -> Result<(), RuntimeError> {
+    fn resize_map(&self, new_size: usize) {
         todo!()
     }
 
-    fn current_map_size() -> usize {
+    fn current_map_size(&self) -> usize {
         todo!()
     }
 

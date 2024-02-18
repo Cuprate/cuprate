@@ -11,7 +11,7 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use crate::{
     error::RuntimeError,
     service::{request::WriteRequest, response::Response},
-    ConcreteEnv,
+    ConcreteEnv, Env,
 };
 
 //---------------------------------------------------------------------------------------------------- Types
@@ -148,6 +148,28 @@ impl DatabaseWriter {
     fn example_handler_3(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
+    }
+
+    /// Resize the database's memory map.
+    fn resize_map(&self) {
+        // The compiler most likely optimizes out this
+        // entire function call if this returns here.
+        if !ConcreteEnv::MANUAL_RESIZE {
+            return;
+        }
+
+        let current_map_size = self.db.current_map_size();
+        let new_size_bytes = crate::free::resize_memory_map(current_map_size);
+
+        // TODO: Obtain some mutual exclusive lock that ensures
+        // we are the _only_ entity beyond this point.
+        //
+        // No readers, no other writers, just us because we have to resize.
+        //
+        // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
+        let db_lock: std::sync::RwLockWriteGuard<'_, ()> = todo!();
+
+        self.db.resize_map(new_size_bytes);
     }
 
     /// TODO

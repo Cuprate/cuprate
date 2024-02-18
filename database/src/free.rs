@@ -14,10 +14,10 @@
 /// Possible candidates:
 /// - x2 the current (`Vec`-style)?
 /// - Do whatever Monero does
-pub const fn resize_memory_map(old_size_bytes: usize) -> usize {
+pub const fn resize_memory_map(current_size_bytes: usize) -> usize {
     // SAFETY: If this overflows, we should definitely panic.
-    // `usize::MAX` bytes is... ~18,446,744 terabytes.
-    old_size_bytes * 2
+    // `u64::MAX` bytes is... ~18,446,744 terabytes.
+    current_size_bytes * 2
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

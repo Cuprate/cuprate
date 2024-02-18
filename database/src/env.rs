@@ -47,14 +47,19 @@ pub trait Env: Sized {
 
     /// Resize the database's memory map to a new size in bytes.
     ///
-    /// # Errors
-    /// TODO: should we panic or special case this?
-    ///
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
-    fn resize_map(new_size_bytes: usize) -> Result<(), RuntimeError> {
+    ///
+    /// Database backend-specific invariants must also be upheld
+    /// as this function will immediately resize.
+    ///
+    /// In particular for LMDB, this function should only be called
+    /// if you have _mutual exclusive_ access to the database, i.e.
+    /// there are no other readers or writers.
+    /// <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
+    fn resize_map(&self, new_size_bytes: usize) {
         unreachable!()
     }
 
@@ -63,7 +68,7 @@ pub trait Env: Sized {
     /// # Invariant
     /// 1. This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     /// 2. This function must be accurate, as [`Env::resize()`] may depend on it.
-    fn current_map_size() -> usize {
+    fn current_map_size(&self) -> usize {
         unreachable!()
     }
 
