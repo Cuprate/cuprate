@@ -21,7 +21,7 @@ pub trait Env: Sized {
     ///
     /// # Invariant
     /// If this is `false`, that means this [`Env`]
-    /// can _never_ return a [`RuntimeError::NeedsResize`].
+    /// can _never_ return a [`RuntimeError::ResizeNeeded`].
     ///
     /// If this is `true`, [`Env::resize`] _must_ be
     /// re-implemented, as it just panics by default.

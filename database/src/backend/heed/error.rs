@@ -74,6 +74,7 @@ impl From<heed::Error> for crate::RuntimeError {
             E1::Mdb(mdb_error) => match mdb_error {
                 E2::KeyExist => Self::KeyExists,
                 E2::NotFound => Self::KeyNotFound,
+                E2::MapFull => Self::ResizeNeeded,
 
                 // Corruption errors, these have special panic messages.
                 //
@@ -102,13 +103,29 @@ impl From<heed::Error> for crate::RuntimeError {
                 // These errors are the same as above, but instead
                 // of being errors we can't control, these are errors
                 // that only happen if we write incorrect code.
-                E2::MapFull        // Resize the map when needed.
-                | E2::ReadersFull  // Don't spawn too many reader threads.
-                | E2::DbsFull      // Don't create too many database tables.
-                | E2::CursorFull   // Don't do crazy multi-nested LMDB cursor stuff.
-                | E2::MapResized   // Resize the map when needed.
-                | E2::Incompatible // <https://docs.rs/heed/0.20.0-alpha.9/heed/enum.MdbError.html#variant.Incompatible>
-                | E2::BadValSize   // Unsupported size of key/DB name/data, or wrong DUP_FIXED size.
+
+                // "Database contents grew beyond environment mapsize."
+                // We should be resizing the map when needed, this error
+                // occuring indicates we did _not_ do that, which is a bug
+                // and we should panic.
+                | E2::MapResized
+                // Don't spawn more than `126` reader threads.
+                // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
+                | E2::ReadersFull
+                // Do not open more database tables than we initially started with.
+                // We know this number at compile time (amount of `Table`'s) so this
+                // should never happen.
+                // <https://docs.rs/heed/0.20.0-alpha.9/heed/struct.EnvOpenOptions.html#method.max_dbs>
+                // <https://docs.rs/heed/0.20.0-alpha.9/src/heed/env.rs.html#251>
+                | E2::DbsFull
+                // Don't do crazy multi-nested LMDB cursor stuff.
+                | E2::CursorFull
+                // <https://docs.rs/heed/0.20.0-alpha.9/heed/enum.MdbError.html#variant.Incompatible>
+                | E2::Incompatible
+                // Unsupported size of key/DB name/data, or wrong DUP_FIXED size.
+                // Don't use a key that is `>511` bytes.
+                // <http://www.lmdb.tech/doc/group__mdb.html#gaaf0be004f33828bf2fb09d77eb3cef94>
+                | E2::BadValSize
                     => panic!("fix the database code! {mdb_error:?}"),
             },
 

@@ -111,7 +111,13 @@ impl DatabaseReader {
         //
         // TODO: take in a config option that allows
         // manually adjusting this thread-count.
-        let readers = cuprate_helper::thread::threads().get();
+        //
+        // INVARIANT:
+        // We open LMDB with default settings, which means it
+        // allows for a maximum of `126` reader threads,
+        // do _not_ spawn more than that.
+        // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
+        let readers = std::cmp::min(126, cuprate_helper::thread::threads().get());
 
         // Spawn pool of readers.
         for _ in 0..readers {

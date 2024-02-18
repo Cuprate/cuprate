@@ -84,7 +84,7 @@ pub enum RuntimeError {
     /// # Invariant
     /// This error can only occur if [`Env::MANUAL_RESIZE`] is `true`.
     #[error("database memory map must be resized")]
-    NeedsResize,
+    ResizeNeeded,
 
     /// A [`std::io::Error`].
     #[error("I/O error: {0}")]
