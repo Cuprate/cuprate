@@ -79,6 +79,13 @@ pub enum RuntimeError {
     #[error("key/value pair was not found")]
     KeyNotFound,
 
+    /// The database memory map is full and needs a resize.
+    ///
+    /// # Invariant
+    /// This error can only occur if [`Env::MANUAL_RESIZE`] is `true`.
+    #[error("database memory map must be resized")]
+    NeedsResize,
+
     /// A [`std::io::Error`].
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
