@@ -15,6 +15,18 @@ use crate::{
 ///
 /// TODO
 pub trait Env: Sized {
+    //------------------------------------------------ Constants
+    /// Does the database backend need to be manually
+    /// resized when the memory-map is full?
+    ///
+    /// # Invariant
+    /// If this is `false`, that means this [`Env`]
+    /// can _never_ return a [`RuntimeError::NeedsResize`].
+    ///
+    /// If this is `true`, [`Env::resize`] _must_ be
+    /// re-implemented, as it just panics by default.
+    const MANUAL_RESIZE: bool;
+
     //------------------------------------------------ Types
     /// TODO
     type RoTx<'db>: RoTx<'db>;
@@ -32,6 +44,17 @@ pub trait Env: Sized {
     /// # Errors
     /// TODO
     fn sync(&self) -> Result<(), RuntimeError>;
+
+    /// TODO
+    /// # Errors
+    /// TODO
+    /// # Invariant
+    /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
+    ///
+    /// Otherwise, this function will panic with `unreachable!()`.
+    fn resize(new_size: usize) -> Result<(), RuntimeError> {
+        unreachable!()
+    }
 
     /// TODO
     /// # Errors
