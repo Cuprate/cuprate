@@ -3,6 +3,9 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::path::Path;
 
+#[allow(unused_imports)] // docs
+use crate::ConcreteEnv;
+
 use crate::{
     database::Database,
     error::{InitError, RuntimeError},
@@ -13,8 +16,12 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Env
 /// Database environment abstraction.
 ///
-/// TODO
-pub trait Env: Sized {
+/// Essentially, the functions that can be called on [`ConcreteEnv`].
+///
+/// Objects that implement [`Env`] must be:
+/// 1. Cheap to clone
+/// 2. Thread safe
+pub trait Env: Sized + Clone + Send + Sync + 'static {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
     /// resized when the memory-map is full?
@@ -67,7 +74,7 @@ pub trait Env: Sized {
     ///
     /// # Invariant
     /// 1. This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
-    /// 2. This function must be accurate, as [`Env::resize()`] may depend on it.
+    /// 2. This function must be accurate, as [`Env::resize_map()`] may depend on it.
     fn current_map_size(&self) -> usize {
         unreachable!()
     }

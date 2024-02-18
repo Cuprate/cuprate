@@ -13,6 +13,8 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- Env
 /// A strongly typed, concrete database environment, backed by `heed`.
+#[derive(Clone)]
+// No need for `Arc`, `heed::Env` already uses it internally and implements `Clone`.
 pub struct ConcreteEnv(heed::Env);
 
 //---------------------------------------------------------------------------------------------------- Env Impl

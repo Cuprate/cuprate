@@ -47,6 +47,9 @@
 //! The only thing about `ConcreteEnv` that should
 //! be relied upon is that it implements [`Env`].
 //!
+//! Note that `ConcreteEnv` itself is a cheaply clonable thread-safe type,
+//! as is all things that implement [`Env`]. It should _not_ be wrapped in [`std::sync::Arc`].
+//!
 //! TODO: we could also expose `ConcreteDatabase` if we're
 //! going to be storing any databases in structs, to lessen
 //! the generic `<D: Database>` pain.

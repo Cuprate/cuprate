@@ -1,6 +1,8 @@
 //! General free functions (related to the database).
 
 //---------------------------------------------------------------------------------------------------- Import
+#[allow(unused_imports)] // docs
+use crate::{env::Env, ConcreteEnv};
 
 //---------------------------------------------------------------------------------------------------- Free functions
 /// The function/algorithm used the

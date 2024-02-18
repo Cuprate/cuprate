@@ -1,7 +1,7 @@
 //! Implementation of `trait Env` for `sanakirja`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use crate::{
     backend::sanakirja::types::SanakirjaDb,
@@ -13,7 +13,9 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `sanakirja`.
-pub struct ConcreteEnv(sanakirja::Env);
+#[derive(Clone)]
+// Wrapped in `Arc`, as `sanakirja::Env` itself is `!Clone` and does not use Arc.
+pub struct ConcreteEnv(Arc<sanakirja::Env>);
 
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
