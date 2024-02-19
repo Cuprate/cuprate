@@ -65,6 +65,7 @@ The top-level `src/` files.
 
 | File             | Purpose |
 |------------------|---------|
+| `config.rs`      | Database `Env` configuration
 | `constants.rs`   | General constants used throughout `cuprate-database`
 | `database.rs`    | Abstracted database; `trait Database`
 | `env.rs`         | Abstracted database environment; `trait Env`
@@ -100,7 +101,6 @@ This folder contains the `cupate_database::service` module.
 | `read.rs`      | Read thread-pool definitions and logic
 | `request.rs`   | Read/write `Request`s to the database
 | `response.rs`  | Read/write `Response`'s from the database
-| `state.rs`     | State/signals shared between reader thread-pool and writer
 | `tests.rs`     | Thread-pool tests and test helper functions
 | `write.rs`     | Write thread-pool definitions and logic
 

@@ -237,6 +237,8 @@ compile_error!("Cuprate is only compatible with 64-bit CPUs");
 mod backend;
 pub use backend::ConcreteEnv;
 
+pub mod config;
+
 mod constants;
 pub use constants::{
     CUPRATE_DATABASE_CORRUPT_MSG, CUPRATE_DATABASE_DIR, CUPRATE_DATABASE_FILE, DATABASE_BACKEND,

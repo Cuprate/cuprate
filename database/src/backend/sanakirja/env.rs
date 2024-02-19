@@ -5,6 +5,7 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     backend::sanakirja::types::SanakirjaDb,
+    config::Config,
     database::Database,
     env::Env,
     error::{InitError, RuntimeError},
@@ -29,7 +30,7 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
-    fn open<P: AsRef<Path>>(path: P, sync_per_tx: bool) -> Result<Self, InitError> {
+    fn open<P: AsRef<Path>>(path: P, config: Config) -> Result<Self, InitError> {
         todo!()
     }
 

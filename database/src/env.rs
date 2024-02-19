@@ -7,6 +7,7 @@ use std::path::Path;
 use crate::ConcreteEnv;
 
 use crate::{
+    config::Config,
     database::Database,
     error::{InitError, RuntimeError},
     table::Table,
@@ -51,16 +52,7 @@ pub trait Env: Sized + Clone + Send + Sync + 'static {
     /// TODO
     /// # Errors
     /// TODO
-    fn open<P: AsRef<Path>>(
-        path: P,
-        sync_per_tx: bool,
-        // TODO: make `EnvOpenOptions` or something
-        // similar for all the options we could open with.
-        //
-        // - safe/fastest sync/async
-        // - DB thread count
-        // - ...
-    ) -> Result<Self, InitError>;
+    fn open<P: AsRef<Path>>(path: P, config: Config) -> Result<Self, InitError>;
 
     /// Return the [`Path`] that this database was [`Env::open`]ed with.
     fn path(&self) -> &Path;
@@ -88,6 +80,7 @@ pub trait Env: Sized + Clone + Send + Sync + 'static {
     /// In particular for LMDB, this function should only be called
     /// if you have _mutual exclusive_ access to the database, i.e.
     /// there are no other readers or writers.
+    ///
     /// <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
     fn resize_map(&self, new_size_bytes: usize) {
         unreachable!()

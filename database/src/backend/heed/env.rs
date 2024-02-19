@@ -8,6 +8,7 @@ use std::{
 
 use crate::{
     backend::heed::types::HeedDb,
+    config::Config,
     database::Database,
     env::Env,
     error::{InitError, RuntimeError},
@@ -38,7 +39,7 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
-    fn open<P: AsRef<Path>>(path: P, sync_per_tx: bool) -> Result<Self, InitError> {
+    fn open<P: AsRef<Path>>(path: P, config: Config) -> Result<Self, InitError> {
         todo!()
     }
 
