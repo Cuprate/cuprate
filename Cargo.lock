@@ -576,7 +576,6 @@ dependencies = [
  "crossbeam",
  "cuprate-helper",
  "heed",
- "parking_lot 0.12.1",
  "paste",
  "sanakirja",
  "serde",

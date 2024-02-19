@@ -1,7 +1,10 @@
 //! Implementation of `trait Env` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 use crate::{
     backend::heed::types::HeedDb,
@@ -13,9 +16,18 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- Env
 /// A strongly typed, concrete database environment, backed by `heed`.
+///
+/// # Why `Arc<RwLock>`?
+/// TLDR: We need mutual exclusive access to the environment for resizing.
+///
+/// Initially, I though to separate the lock and `heed::Env` as it already
+/// uses `Arc` internally, and wrapping it again in `Arc` seemed... wrong,
+/// but the other field would be `Arc<RwLock<()>>` since this structure
+/// needs to be cheaply clonable.
+///
+/// In the end, we have to deref 2 `Arc`s anyway, so it's the same.
 #[derive(Clone)]
-// No need for `Arc`, `heed::Env` already uses it internally and implements `Clone`.
-pub struct ConcreteEnv(heed::Env);
+pub struct ConcreteEnv(Arc<RwLock<heed::Env>>);
 
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
@@ -39,6 +51,11 @@ impl Env for ConcreteEnv {
     }
 
     fn resize_map(&self, new_size: usize) {
+        // INVARIANT: Resizing requires that we have
+        // exclusive access to the database environment.
+        // hang until all readers have exited.
+        let _env_lock_guard = self.0.write().unwrap();
+
         todo!()
     }
 
