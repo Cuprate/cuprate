@@ -16,8 +16,6 @@ pub enum ReadRequest {
     Example2(usize),
     /// TODO
     Example3(String),
-    /// TODO
-    Shutdown,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest

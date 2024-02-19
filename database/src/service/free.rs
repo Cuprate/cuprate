@@ -25,13 +25,9 @@ pub fn init() -> (DatabaseReadHandle, DatabaseWriteHandle) {
     // TODO: there's probably shutdown code we have to run.
     let db: ConcreteEnv = todo!();
 
-    // Create the shared state between
-    // the Reader thread pool and Writer.
-    let (reader_state, writer_state) = crate::service::state::DatabaseState::new();
-
     // Spawn the Reader thread pool and Writer.
-    let readers = DatabaseReader::init(&db, &reader_state);
-    let writers = DatabaseWriter::init(&db, writer_state);
+    let (readers, reader_shutdown) = DatabaseReader::init(&db);
+    let writers = DatabaseWriter::init(&db, reader_shutdown);
 
     // Return the handles to those pools.
     (readers, writers)

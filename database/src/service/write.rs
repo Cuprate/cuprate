@@ -1,16 +1,13 @@
 //! Database write thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::task::{Context, Poll};
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
     error::RuntimeError,
-    service::{request::WriteRequest, response::Response, state::DatabaseState},
+    service::{read::DatabaseReaderShutdown, request::WriteRequest, response::Response},
     ConcreteEnv, Env,
 };
 
@@ -73,18 +70,18 @@ pub(super) struct DatabaseWriter {
     /// which we will eventually send to.
     receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSend)>,
 
+    /// TODO
+    readers: DatabaseReaderShutdown,
+
     /// Access to the database.
     db: ConcreteEnv,
-
-    /// Access to shared reader/writer state.
-    state: Arc<DatabaseState>,
 }
 
 impl DatabaseWriter {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &ConcreteEnv, state: Arc<DatabaseState>) -> DatabaseWriteHandle {
+    pub(super) fn init(db: &ConcreteEnv, readers: DatabaseReaderShutdown) -> DatabaseWriteHandle {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -93,8 +90,8 @@ impl DatabaseWriter {
         std::thread::spawn(move || {
             let this = Self {
                 receiver,
+                readers,
                 db,
-                state,
             };
 
             Self::main(this);
@@ -128,33 +125,9 @@ impl DatabaseWriter {
                 WriteRequest::Example1 => self.example_handler_1(response_send),
                 WriteRequest::Example2(_x) => self.example_handler_2(response_send),
                 WriteRequest::Example3(_x) => self.example_handler_3(response_send),
-                WriteRequest::Shutdown => {
-                    /* TODO: run shutdown code */
-                    Self::shutdown(self);
-
-                    // Return, exiting the thread.
-                    return;
-                }
+                WriteRequest::Shutdown => Self::shutdown(self),
             }
         }
-    }
-
-    /// TODO
-    fn example_handler_1(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
-    }
-
-    /// TODO
-    fn example_handler_2(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
-    }
-
-    /// TODO
-    fn example_handler_3(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
     }
 
     /// Resize the database's memory map.
@@ -168,19 +141,47 @@ impl DatabaseWriter {
         let current_map_size = self.db.current_map_size();
         let new_size_bytes = crate::free::resize_memory_map(current_map_size);
 
-        // TODO: Obtain some mutual exclusive lock that ensures
-        // we are the _only_ entity beyond this point.
+        // INVARIANT:
+        // [`Env`]'s that are `MANUAL_RESIZE` are expected to implement
+        // their internals such that we have exclusive access when calling
+        // this function. _We_ do not handle the exclusion part, `resize_map()`
+        // itself does. The `heed` backend does this with `RwLock`.
         //
-        // No readers, no other writers, just us because we have to resize.
-        //
+        // We need mutual exclusion due to:
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-        let db_lock: std::sync::RwLockWriteGuard<'_, ()> = todo!();
-
         self.db.resize_map(new_size_bytes);
     }
 
     /// TODO
-    fn shutdown(self) {
+    #[cold]
+    #[inline(never)]
+    fn shutdown(self) -> ! {
+        // TODO
+        self.readers.shutdown();
+
+        // sync()
+
         todo!()
+    }
+
+    /// TODO
+    #[inline]
+    fn example_handler_1(&mut self, response_send: ResponseSend) {
+        let db_result = todo!();
+        response_send.send(db_result).unwrap();
+    }
+
+    /// TODO
+    #[inline]
+    fn example_handler_2(&mut self, response_send: ResponseSend) {
+        let db_result = todo!();
+        response_send.send(db_result).unwrap();
+    }
+
+    /// TODO
+    #[inline]
+    fn example_handler_3(&mut self, response_send: ResponseSend) {
+        let db_result = todo!();
+        response_send.send(db_result).unwrap();
     }
 }

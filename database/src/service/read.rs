@@ -7,7 +7,7 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
     error::RuntimeError,
-    service::{request::ReadRequest, response::Response, state::DatabaseStateReader},
+    service::{request::ReadRequest, response::Response},
     ConcreteEnv,
 };
 
@@ -70,6 +70,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 /// and permission to make them all "shutdown"
 /// (see [`DatabaseReader`] docs for why these
 /// threads don't actually exit).
+#[derive(Debug)]
 pub(super) struct DatabaseReaderShutdown {
     /// TODO
     shutdown_channels: Vec<crossbeam::channel::Sender<()>>,
@@ -170,7 +171,7 @@ impl DatabaseReader {
     /// Each thread just loops in this function.
     #[cold]
     #[inline(never)] // Only called once.
-    fn main(mut self) {
+    fn main(self) {
         let mut select = crossbeam::channel::Select::new();
         assert_eq!(0, select.recv(&self.receiver));
         assert_eq!(1, select.recv(&self.shutdown));
@@ -216,21 +217,21 @@ impl DatabaseReader {
 
     /// TODO
     #[inline]
-    fn example_handler_1(&mut self, response_send: ResponseSend) {
+    fn example_handler_1(&self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
     #[inline]
-    fn example_handler_2(&mut self, response_send: ResponseSend) {
+    fn example_handler_2(&self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
     #[inline]
-    fn example_handler_3(&mut self, response_send: ResponseSend) {
+    fn example_handler_3(&self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
@@ -238,7 +239,7 @@ impl DatabaseReader {
     /// TODO
     #[cold]
     #[inline(never)]
-    fn shutdown(self) {
+    fn shutdown(self) -> ! {
         todo!()
     }
 }
