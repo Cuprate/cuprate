@@ -1,8 +1,6 @@
 //! General free functions used (related to `cuprate_database::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::Arc;
-
 use crate::{
     service::read::DatabaseReader,
     service::write::DatabaseWriter,
@@ -27,9 +25,13 @@ pub fn init() -> (DatabaseReadHandle, DatabaseWriteHandle) {
     // TODO: there's probably shutdown code we have to run.
     let db: ConcreteEnv = todo!();
 
-    // Spawn the `Reader/Writer` thread pools.
-    let readers = DatabaseReader::init(&db);
-    let writers = DatabaseWriter::init(&db);
+    // Create the shared state between
+    // the Reader thread pool and Writer.
+    let (reader_state, writer_state) = crate::service::state::DatabaseState::new();
+
+    // Spawn the Reader thread pool and Writer.
+    let readers = DatabaseReader::init(&db, &reader_state);
+    let writers = DatabaseWriter::init(&db, writer_state);
 
     // Return the handles to those pools.
     (readers, writers)

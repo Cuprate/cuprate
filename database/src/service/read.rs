@@ -7,7 +7,7 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
     error::RuntimeError,
-    service::{request::ReadRequest, response::Response},
+    service::{request::ReadRequest, response::Response, state::DatabaseStateReader},
     ConcreteEnv,
 };
 
@@ -87,6 +87,9 @@ pub(super) struct DatabaseReader {
 
     /// Access to the database.
     db: ConcreteEnv,
+
+    /// Access to shared reader/writer state.
+    state: DatabaseStateReader,
 }
 
 impl DatabaseReader {
@@ -98,7 +101,7 @@ impl DatabaseReader {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &ConcreteEnv) -> DatabaseReadHandle {
+    pub(super) fn init(db: &ConcreteEnv, state: &DatabaseStateReader) -> DatabaseReadHandle {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -120,9 +123,14 @@ impl DatabaseReader {
         for _ in 0..readers {
             let receiver = receiver.clone();
             let db = ConcreteEnv::clone(db);
+            let state = DatabaseStateReader::clone(state);
 
             std::thread::spawn(move || {
-                let this = Self { receiver, db };
+                let this = Self {
+                    receiver,
+                    db,
+                    state,
+                };
 
                 Self::main(this);
             });

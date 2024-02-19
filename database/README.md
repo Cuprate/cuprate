@@ -100,6 +100,7 @@ This folder contains the `cupate_database::service` module.
 | `read.rs`      | Read thread-pool definitions and logic
 | `request.rs`   | Read/write `Request`s to the database
 | `response.rs`  | Read/write `Response`'s from the database
+| `state.rs`     | State/signals shared between reader thread-pool and writer
 | `tests.rs`     | Thread-pool tests and test helper functions
 | `write.rs`     | Write thread-pool definitions and logic
 

@@ -72,8 +72,6 @@ pub trait Env: Sized + Clone + Send + Sync + 'static {
 
     /// TODO
     fn shutdown(self) {
-        self.sync();
-
         todo!();
     }
 
