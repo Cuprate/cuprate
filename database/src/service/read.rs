@@ -65,7 +65,26 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseReader Impl
+//---------------------------------------------------------------------------------------------------- DatabaseReaderShutdown
+/// A handle to _all_ database reader threads,
+/// and permission to make them all "shutdown"
+/// (see [`DatabaseReader`] docs for why these
+/// threads don't actually exit).
+pub(super) struct DatabaseReaderShutdown {
+    /// TODO
+    shutdown_channels: Vec<crossbeam::channel::Sender<()>>,
+}
+
+impl DatabaseReaderShutdown {
+    /// TODO
+    pub(super) fn shutdown(self) {
+        for shutdown_channel in self.shutdown_channels {
+            shutdown_channel.try_send(()).unwrap();
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseReader
 /// Database reader thread.
 ///
 /// This struct essentially represents a thread.
@@ -85,11 +104,11 @@ pub(super) struct DatabaseReader {
     /// instead of creating a new `oneshot` each request.
     receiver: crossbeam::channel::Receiver<(ReadRequest, ResponseSend)>,
 
+    /// TODO
+    shutdown: crossbeam::channel::Receiver<()>,
+
     /// Access to the database.
     db: ConcreteEnv,
-
-    /// Access to shared reader/writer state.
-    state: DatabaseStateReader,
 }
 
 impl DatabaseReader {
@@ -101,7 +120,7 @@ impl DatabaseReader {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &ConcreteEnv, state: &DatabaseStateReader) -> DatabaseReadHandle {
+    pub(super) fn init(db: &ConcreteEnv) -> (DatabaseReadHandle, DatabaseReaderShutdown) {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -118,26 +137,32 @@ impl DatabaseReader {
         // do _not_ spawn more than that.
         // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
         let readers = std::cmp::min(126, cuprate_helper::thread::threads().get());
+        let mut shutdown_channels = Vec::with_capacity(readers);
 
         // Spawn pool of readers.
         for _ in 0..readers {
             let receiver = receiver.clone();
             let db = ConcreteEnv::clone(db);
-            let state = DatabaseStateReader::clone(state);
+            let (shutdown_send, shutdown) = crossbeam::channel::bounded(1);
+            shutdown_channels.push(shutdown_send);
 
             std::thread::spawn(move || {
                 let this = Self {
                     receiver,
+                    shutdown,
                     db,
-                    state,
                 };
 
                 Self::main(this);
             });
         }
 
-        // Return a handle to the pool.
-        DatabaseReadHandle { sender }
+        // Return a handle to the pool and channels to
+        // allow clean shutdown of all reader threads.
+        (
+            DatabaseReadHandle { sender },
+            DatabaseReaderShutdown { shutdown_channels },
+        )
     }
 
     /// The `DatabaseReader`'s main function.
@@ -146,56 +171,73 @@ impl DatabaseReader {
     #[cold]
     #[inline(never)] // Only called once.
     fn main(mut self) {
+        let mut select = crossbeam::channel::Select::new();
+        assert_eq!(0, select.recv(&self.receiver));
+        assert_eq!(1, select.recv(&self.shutdown));
+
+        // 1. Hang on request channel
+        // 2. Map request to some database function
+        // 3. Execute that function, get the result
+        // 4. Return the result via channel
         loop {
-            // 1. Hang on request channel
-            // 2. Map request to some database function
-            // 3. Execute that function, get the result
-            // 4. Return the result via channel
-            let (request, response_send) = match self.receiver.recv() {
-                Ok((r, c)) => (r, c),
+            // Q: Why are we checking and `continue`ing if
+            // the channel returned an error?
+            //
+            // A: Because `select` can return spuriously, so
+            // we must double check a channel actually has a message:
+            // <https://docs.rs/crossbeam/latest/crossbeam/channel/struct.Select.html#method.ready>
+            match select.ready() {
+                // Database requests.
+                0 => {
+                    let Ok((request, response_send)) = self.receiver.try_recv() else {
+                        continue;
+                    };
 
-                // Shutdown on error.
-                Err(e) => {
-                    Self::shutdown(self);
-                    return;
+                    // Map [`Request`]'s to specific database functions.
+                    match request {
+                        ReadRequest::Example1 => self.example_handler_1(response_send),
+                        ReadRequest::Example2(_x) => self.example_handler_2(response_send),
+                        ReadRequest::Example3(_x) => self.example_handler_3(response_send),
+                    }
                 }
-            };
 
-            // Map [`Request`]'s to specific database functions.
-            match request {
-                ReadRequest::Example1 => self.example_handler_1(response_send),
-                ReadRequest::Example2(_x) => self.example_handler_2(response_send),
-                ReadRequest::Example3(_x) => self.example_handler_3(response_send),
-                ReadRequest::Shutdown => {
-                    /* TODO: run shutdown code */
-                    Self::shutdown(self);
-
-                    // Return, exiting the thread.
-                    return;
+                // Shutdown signal.
+                1 => {
+                    if self.receiver.try_recv().is_ok() {
+                        Self::shutdown(self);
+                    };
                 }
+
+                // Message from a ghost ooo very spooky.
+                _ => unreachable!(),
             }
         }
     }
 
     /// TODO
+    #[inline]
     fn example_handler_1(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
+    #[inline]
     fn example_handler_2(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
+    #[inline]
     fn example_handler_3(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
+    #[cold]
+    #[inline(never)]
     fn shutdown(self) {
         todo!()
     }
