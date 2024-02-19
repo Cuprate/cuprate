@@ -16,20 +16,16 @@ use std::{
 
 //---------------------------------------------------------------------------------------------------- DatabaseState
 /// All of the state and machinery needed for the reader thread-pool
-/// and writer thread to be able to communicate to each what they need to.
-///
-/// This is shared information/signals between
-/// the reader thread-pool and writer.
+/// and writer thread to be able to communicate to each other what they need to.
 ///
 /// This is the "raw" version of the data, to be wrapped in an `Arc`.
 /// Any owner of this struct has write access, so readers get a special
-/// `DatabaseStateReader` type.
+/// `DatabaseStateReader` type instead.
 ///
-/// # Invariant
-/// The fields of this struct are private on purpose.
-///
-/// We must maintain the invariant:
-/// - `signal` is a valid `u8` representation of `DatabaseSignal`
+/// # Private
+/// The fields of this struct don't necessarily need to
+/// be private to this file, but it's nicer for helper functions
+/// to be created/used by the readers/writer instead.
 #[derive(Debug)]
 pub(super) struct DatabaseState {
     /// Atomic representation of a `DatabaseSignal`.
@@ -51,14 +47,13 @@ pub(super) struct DatabaseState {
     /// # Reader
     /// Why are there 2 semaphores here though? Can't we just have the lock?
     ///
-    /// 1. `DatabaseSignal` does a whole bunch of stuff and signals the _why_
-    /// 2. Atomically loading `DatabaseSignal::Ok` allows the reader to enter
-    ///    the happy path and continue execution much cheaper than acquiring a lock
+    /// 1. Atomically loading `DatabaseSignal::Ok` allows the reader to enter
+    ///    the fast path and continue execution much faster than acquiring a lock
     ///    (the difference must be absolutely tiny, but this is happening
     ///    on _every_ read operation so it adds up)
-    /// 3. We need a cheap way to sleep the readers, and wait for them to
-    ///    "re-enter" once the writer is done with whatever they needed the
-    ///    mutual exclusion for. This lock provide that.
+    /// 2. We need a cheap way to sleep the readers, and make them wait
+    ///    until the writer is done with the mutual exclusion.
+    /// 3. We need more than just a lock anyway, we need "signals".
     ///
     /// Reader's on _every_ transaction will do the following:
     /// 1. Atomically access `signal`
@@ -66,6 +61,7 @@ pub(super) struct DatabaseState {
     /// 3a. If `Resizing`, call `db_lock.read()`. This allows us
     ///    (the reader thread) to sleep until the writer is done
     /// 3b. Continue the transaction as normal
+    /// 4. If `Shutdown`, run shutdown code and exit.
     ///
     /// Note how Reader's don't touch `db_lock` on the `Ok` path,
     /// they just need to do 1 atomic fetch.
