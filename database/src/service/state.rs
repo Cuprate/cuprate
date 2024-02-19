@@ -9,10 +9,7 @@
 //! pretty much an "implementation detail".
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    sync::atomic::{AtomicU8, Ordering},
-    sync::{Arc, RwLock, RwLockWriteGuard},
-};
+use std::sync::{Arc, RwLock, RwLockWriteGuard};
 
 //---------------------------------------------------------------------------------------------------- DatabaseState
 /// All of the state and machinery needed for the reader thread-pool
@@ -78,7 +75,7 @@ impl DatabaseState {
     #[inline(never)] // Called once per [`crate::service::init()`]
     pub(super) fn new() -> (DatabaseStateReader, Arc<Self>) {
         let writer = Arc::new(Self {
-            signal: AtomicDatabaseSignal::new(),
+            signal: AtomicDatabaseSignal::new(DatabaseSignal::Ok),
             db_lock: RwLock::new(()),
         });
 
@@ -140,9 +137,10 @@ impl DatabaseStateReader {
 /// non-`Ok` states laid out below, and the reader
 /// thread must react accordingly.
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(super) enum DatabaseSignal {
     /// All is OK - proceed with whatever database operations you want.
+    #[default]
     Ok = 0,
 
     /// The database is in the process of resizing,
@@ -155,44 +153,9 @@ pub(super) enum DatabaseSignal {
 }
 
 /// An atomic [`DatabaseSignal`].
-///
-/// This type upholds the invariant that the internal [`AtomicU8`]
-/// is within the valid [`u8`] range of `DatabaseSignal`.
-///
-/// Private, purely used in this file.
-#[repr(transparent)]
-#[derive(Debug)]
-struct AtomicDatabaseSignal(AtomicU8);
-
-impl AtomicDatabaseSignal {
-    /// Create a new [`AtomicDatabaseSignal`] set with [`DatabaseSignal::Ok`].
-    const fn new() -> Self {
-        Self(AtomicU8::new(0))
-    }
-
-    /// Get the inner [`DatabaseSignal`].
-    ///
-    /// Uses [`Ordering::Acquire`].
-    fn load(&self) -> DatabaseSignal {
-        match self.0.load(Ordering::Acquire) {
-            0 => DatabaseSignal::Ok,
-            1 => DatabaseSignal::Resizing,
-            2 => DatabaseSignal::ShuttingDown,
-            _ => unreachable!(),
-        }
-    }
-
-    /// Atomicall store a [`DatabaseSignal`].
-    ///
-    /// Uses [`Ordering::Release`].
-    fn store(&self, signal: DatabaseSignal) {
-        self.0.store(
-            match signal {
-                DatabaseSignal::Ok => 0,
-                DatabaseSignal::Resizing => 1,
-                DatabaseSignal::ShuttingDown => 2,
-            },
-            Ordering::Release,
-        );
-    }
-}
+type AtomicDatabaseSignal = crossbeam::atomic::AtomicCell<DatabaseSignal>;
+/// Compile time assertion [`AtomicDatabaseSignal`] is lock free.
+const _: () = assert!(
+    AtomicDatabaseSignal::is_lock_free(),
+    "AtomicDatabaseSignal is not lock free!",
+);
