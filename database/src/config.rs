@@ -3,7 +3,7 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{num::NonZeroUsize, path::PathBuf};
+use std::{borrow::Cow, num::NonZeroUsize, path::Path};
 
 #[allow(unused_imports)] // docs
 use crate::env::Env;
@@ -23,7 +23,7 @@ use crate::env::Env;
 )]
 pub struct Config {
     /// TODO
-    pub path: PathBuf,
+    pub db_directory: Cow<'static, Path>,
 
     /// TODO
     pub sync_mode: SyncMode,
@@ -34,27 +34,27 @@ pub struct Config {
 
 impl Config {
     /// TODO
-    pub fn new(path: Option<PathBuf>) -> Self {
+    pub fn new<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
         Self {
-            path: path.unwrap_or_else(|| todo!()),
+            db_directory: db_directory.map_or(todo!(), |p| Cow::Owned(p.as_ref().to_path_buf())),
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::OnePerThread,
         }
     }
 
     /// TODO
-    pub fn fast(path: Option<PathBuf>) -> Self {
+    pub fn fast<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
         Self {
-            path: path.unwrap_or_else(|| todo!()),
+            db_directory: db_directory.map_or(todo!(), |p| Cow::Owned(p.as_ref().to_path_buf())),
             sync_mode: SyncMode::Fastest,
             reader_threads: ReaderThreads::OnePerThread,
         }
     }
 
     /// TODO
-    pub fn low_power(path: Option<PathBuf>) -> Self {
+    pub fn low_power<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
         Self {
-            path: path.unwrap_or_else(|| todo!()),
+            db_directory: db_directory.map_or(todo!(), |p| Cow::Owned(p.as_ref().to_path_buf())),
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::One,
         }
@@ -63,7 +63,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self::new(None)
+        Self::new(Some("TODO: default cuprate database dir"))
     }
 }
 
