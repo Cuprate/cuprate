@@ -28,7 +28,7 @@ pub struct Config {
     /// TODO
     pub sync_mode: SyncMode,
 
-    /// TODO
+    /// Database reader thread count.
     pub reader_threads: ReaderThreads,
 }
 
@@ -112,6 +112,9 @@ pub enum ReaderThreads {
 
 impl ReaderThreads {
     /// TODO
+    // # Invariant
+    // LMDB will error if we input zero, so don't allow that.
+    // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/mdb.c#L4687>
     pub fn as_threads(&self) -> NonZeroUsize {
         let total_threads = cuprate_helper::thread::threads();
 

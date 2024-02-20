@@ -14,11 +14,11 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- Env
 /// A strongly typed, concrete database environment, backed by `heed`.
-///
-/// # Why `RwLock`?
-/// We need mutual exclusive access to the environment for resizing.
 pub struct ConcreteEnv {
     /// The actual database environment.
+    ///
+    /// # Why `RwLock`?
+    /// We need mutual exclusive access to the environment for resizing.
     env: RwLock<heed::Env>,
 
     /// The configuration we were opened with

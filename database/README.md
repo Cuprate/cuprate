@@ -52,7 +52,8 @@ The code within `src/` is also littered with some `grep`-able comments containin
 | `FIXME`     | This code works but isn't ideal
 | `HACK`      | This code is a brittle workaround
 | `PERF`      | This code is weird for performance reasons
-| `TODO`      | This has to be implemented
+| `TODO`      | This must be implemented; There should be 0 of these in production code
+| `DOC`       | This must be documented; a `TODO` for documentation
 | `SOMEDAY`   | This should be implemented... someday
 
 # File Structure

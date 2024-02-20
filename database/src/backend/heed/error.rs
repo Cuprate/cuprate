@@ -109,7 +109,9 @@ impl From<heed::Error> for crate::RuntimeError {
                 // occurring indicates we did _not_ do that, which is a bug
                 // and we should panic.
                 | E2::MapResized
-                // Don't spawn more than `126` reader threads.
+                // We should be setting `heed::EnvOpenOptions::max_readers()`
+                // with our reader thread value in [`crate::config::Config`],
+                // thus this error should never occur.
                 // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
                 | E2::ReadersFull
                 // Do not open more database tables than we initially started with.

@@ -14,6 +14,10 @@ use crate::{
     ConcreteEnv, Env,
 };
 
+//---------------------------------------------------------------------------------------------------- Constants
+/// Name of the writer thread.
+const WRITER_THREAD_NAME: &str = "cuprate_helper::service::read::DatabaseWriter";
+
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
 ///
@@ -87,17 +91,18 @@ impl DatabaseWriter {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseWriteHandle {
+    pub(super) fn init(db: Arc<ConcreteEnv>) -> DatabaseWriteHandle {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         // Spawn the writer.
-        let db = Arc::clone(db);
-        std::thread::spawn(move || {
-            let this = Self { receiver, db };
-
-            Self::main(this);
-        });
+        std::thread::Builder::new()
+            .name(WRITER_THREAD_NAME.into())
+            .spawn(move || {
+                let this = Self { receiver, db };
+                Self::main(this);
+            })
+            .unwrap();
 
         // Return a handle to the pool.
         DatabaseWriteHandle { sender }

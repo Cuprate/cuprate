@@ -97,6 +97,9 @@ pub(super) struct DatabaseReader {
 
 impl Drop for DatabaseReader {
     fn drop(&mut self) {
+        // INVARIANT: we set the thread name when spawning it.
+        let thread_name = std::thread::current().name().unwrap();
+
         // TODO: log that this thread has exited?
     }
 }
@@ -118,15 +121,17 @@ impl DatabaseReader {
         let reader_count = reader_threads.as_threads();
 
         // Spawn pool of readers.
-        for _ in 0..reader_count.get() {
+        for i in 0..reader_count.get() {
             let receiver = receiver.clone();
             let db = Arc::clone(db);
 
-            std::thread::spawn(move || {
-                let this = Self { receiver, db };
-
-                Self::main(this);
-            });
+            std::thread::Builder::new()
+                .name(format!("cuprate_helper::service::read::DatabaseReader{i}"))
+                .spawn(move || {
+                    let this = Self { receiver, db };
+                    Self::main(this);
+                })
+                .unwrap();
         }
 
         // Return a handle to the pool and channels to
