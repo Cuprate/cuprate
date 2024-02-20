@@ -132,10 +132,10 @@ impl From<heed::Error> for crate::RuntimeError {
             },
 
             // Database is shutting down.
-            E1::DatabaseClosing => Self::ShuttingDown,
 
             // Only if we write incorrect code.
             E1::InvalidDatabaseTyping
+            | E1::DatabaseClosing
             | E1::BadOpenOptions { .. }
             | E1::Encoding(_)
             | E1::Decoding(_) => panic!("fix the database code! {error:?}"),

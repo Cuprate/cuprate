@@ -83,7 +83,7 @@ pub(super) struct DatabaseWriter {
 
 impl Drop for DatabaseWriter {
     fn drop(&mut self) {
-        // TODO: log this thread has exited?
+        // TODO: log the writer thread has exited?
     }
 }
 
@@ -114,14 +114,16 @@ impl DatabaseWriter {
     #[cold]
     #[inline(never)] // Only called once.
     fn main(mut self) {
+        // 1. Hang on request channel
+        // 2. Map request to some database function
+        // 3. Execute that function, get the result
+        // 4. Return the result via channel
         loop {
-            // 1. Hang on request channel
-            // 2. Map request to some database function
-            // 3. Execute that function, get the result
-            // 4. Return the result via channel
             let Ok((request, response_send)) = self.receiver.recv() else {
-                // TODO: document the whole shutdown system.
-                // The channel is empty and disconnected, return & shutdown.
+                // If this receive errors, it means that the channel is empty
+                // and disconnected, meaning the other side (all senders) have
+                // been dropped. This means "shutdown", and we return here to
+                // exit the thread.
                 return;
             };
 

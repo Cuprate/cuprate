@@ -8,16 +8,9 @@
 //! sending database [`Request`](ReadRequest)s and receiving [`Response`]s `async`hronously -
 //! without having to actually worry and handle the database themselves.
 //!
-//! The system is managed by this crate, and only
-//! requires [`init`] and [`shutdown`] by the user.
+//! The system is managed by this crate, and only requires [`init`] by the user.
 //!
 //! This module must be enabled with the `service` feature.
-//!
-//! ## Initialization
-//! The database & thread-pool system can be initialized with [`init()`].
-//!
-//! This causes the underlying database/threads to be setup
-//! and returns a read/write handle to that database.
 //!
 //! ## Handles
 //! The 2 handles to the database are:
@@ -31,6 +24,17 @@
 //! The `DatabaseReadHandle` can be shared as it is cheaply [`Clone`]able, however,
 //! the `DatabaseWriteHandle` cannot be cloned. There is only 1 place in Cuprate that
 //! writes, so it is passed there and used.
+//!
+//! ## Initialization
+//! The database & thread-pool system can be initialized with [`init()`].
+//!
+//! This causes the underlying database/threads to be setup
+//! and returns a read/write handle to that database.
+//!
+//! ## Shutdown
+//! Upon the above handles being dropped, the corresponding thread(s) will automatically exit, i.e:
+//! - The last [`DatabaseReadHandle`] is dropped => reader thread-pool exits
+//! - The last [`DatabaseWriteHandle`] is dropped => writer thread exits
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),

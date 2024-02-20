@@ -17,10 +17,6 @@ use crate::env::Env;
 /// TODO: there's probably more options to add.
 #[derive(Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
 pub struct Config {
     /// TODO
     pub db_directory: Cow<'static, Path>,

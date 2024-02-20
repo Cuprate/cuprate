@@ -25,6 +25,8 @@ pub const CUPRATE_DATABASE_DIR: &str = "database";
 /// ```
 pub const CUPRATE_DATABASE_FILE: &str = "data";
 
+// TODO: use `cuprate_helper` and crate OnceLock+fn for CUPRATE_DATABASE_DIR.
+
 //---------------------------------------------------------------------------------------------------- Error Messages
 /// Corrupt database error message.
 ///

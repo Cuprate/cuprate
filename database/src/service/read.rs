@@ -152,8 +152,10 @@ impl DatabaseReader {
         loop {
             // Database requests.
             let Ok((request, response_send)) = self.receiver.recv() else {
-                // TODO: document the whole shutdown system.
-                // The channel is empty and disconnected, return & shutdown.
+                // If this receive errors, it means that the channel is empty
+                // and disconnected, meaning the other side (all senders) have
+                // been dropped. This means "shutdown", and we return here to
+                // exit the thread.
                 return;
             };
 
