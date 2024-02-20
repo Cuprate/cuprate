@@ -19,10 +19,11 @@ use crate::{
 ///
 /// Essentially, the functions that can be called on [`ConcreteEnv`].
 ///
-/// Objects that implement [`Env`] must be:
-/// 1. Cheap to clone
-/// 2. Thread safe
-pub trait Env: Sized + Clone + Send + Sync + 'static {
+/// # `Drop`
+/// Objects that implement [`Env`] should [`Env::sync`] in their drop implementations.
+///
+/// No invariant relies on this (yet) but it should be done.
+pub trait Env: Sized + Drop {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
     /// resized when the memory-map is full?
@@ -52,20 +53,15 @@ pub trait Env: Sized + Clone + Send + Sync + 'static {
     /// TODO
     /// # Errors
     /// TODO
-    fn open<P: AsRef<Path>>(path: P, config: Config) -> Result<Self, InitError>;
+    fn open(config: Config) -> Result<Self, InitError>;
 
-    /// Return the [`Path`] that this database was [`Env::open`]ed with.
-    fn path(&self) -> &Path;
+    /// Return the [`Config`] that this database was [`Env::open`]ed with.
+    fn config(&self) -> &Config;
 
     /// TODO
     /// # Errors
     /// TODO
     fn sync(&self) -> Result<(), RuntimeError>;
-
-    /// TODO
-    fn shutdown(self) {
-        todo!();
-    }
 
     /// Resize the database's memory map to a new size in bytes.
     ///

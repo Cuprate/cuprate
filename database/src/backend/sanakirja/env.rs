@@ -14,9 +14,15 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `sanakirja`.
-#[derive(Clone)]
-// Wrapped in `Arc`, as `sanakirja::Env` itself is `!Clone` and does not use Arc.
-pub struct ConcreteEnv(Arc<sanakirja::Env>);
+pub struct ConcreteEnv(sanakirja::Env);
+
+impl Drop for ConcreteEnv {
+    fn drop(&mut self) {
+        if let Err(e) = self.sync() {
+            // TODO: log error?
+        }
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
@@ -30,11 +36,11 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
-    fn open<P: AsRef<Path>>(path: P, config: Config) -> Result<Self, InitError> {
+    fn open(config: Config) -> Result<Self, InitError> {
         todo!()
     }
 
-    fn path(&self) -> &Path {
+    fn config(&self) -> &Config {
         todo!()
     }
 

@@ -18,17 +18,17 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Env
 /// A strongly typed, concrete database environment, backed by `heed`.
 ///
-/// # Why `Arc<RwLock>`?
-/// TLDR: We need mutual exclusive access to the environment for resizing.
-///
-/// Initially, I though to separate the lock and `heed::Env` as it already
-/// uses `Arc` internally, and wrapping it again in `Arc` seemed... wrong,
-/// but the other field would be `Arc<RwLock<()>>` since this structure
-/// needs to be cheaply clonable.
-///
-/// In the end, we have to deref 2 `Arc`s anyway, so it's the same.
-#[derive(Clone)]
-pub struct ConcreteEnv(Arc<RwLock<heed::Env>>);
+/// # Why `RwLock`?
+/// We need mutual exclusive access to the environment for resizing.
+pub struct ConcreteEnv(RwLock<heed::Env>);
+
+impl Drop for ConcreteEnv {
+    fn drop(&mut self) {
+        if let Err(e) = self.sync() {
+            // TODO: log error?
+        }
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
@@ -39,7 +39,7 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
-    fn open<P: AsRef<Path>>(path: P, config: Config) -> Result<Self, InitError> {
+    fn open(config: Config) -> Result<Self, InitError> {
         // INVARIANT:
         // We must open LMDB using `heed::EnvOpenOptions::max_readers`
         // and input whatever is in `config.reader_threads` or else
@@ -49,7 +49,7 @@ impl Env for ConcreteEnv {
         todo!()
     }
 
-    fn path(&self) -> &Path {
+    fn config(&self) -> &Config {
         todo!()
     }
 
