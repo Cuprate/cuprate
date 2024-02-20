@@ -125,7 +125,39 @@ impl DatabaseWriter {
                 WriteRequest::Example1 => self.example_handler_1(response_send),
                 WriteRequest::Example2(_x) => self.example_handler_2(response_send),
                 WriteRequest::Example3(_x) => self.example_handler_3(response_send),
-                WriteRequest::Shutdown => Self::shutdown(self),
+                WriteRequest::Shutdown => {
+                    // Run shutdown code and exit thread.
+                    Self::shutdown(self, response_send);
+                    return;
+                }
+            }
+        }
+    }
+
+    /// TODO
+    #[cold]
+    #[inline(never)]
+    #[allow(clippy::unused_self)] // `self` must not be dropped.
+    fn shutdown(self, response_send: ResponseSend) {
+        // Shutdown all the reader threads.
+        self.readers.shutdown();
+
+        // Flush the database to disk.
+        match self.db.sync() {
+            Ok(()) => {
+                // Tell the shutdown request that we're done shutting down.
+                response_send
+                    .send(Ok(Response::ExampleWriteResponse))
+                    .unwrap();
+            }
+            Err(e) => {
+                // TODO: what to do if this final sync fails?
+                // We might be `SyncMode::Fastest` so this erroring
+                // is bad news, it means (potentially) some of our
+                // data isn't synced and we might corrupt if we exit here.
+                //
+                // We could try a few times before failing.
+                response_send.send(Err(e)).unwrap();
             }
         }
     }
@@ -150,18 +182,6 @@ impl DatabaseWriter {
         // We need mutual exclusion due to:
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
         self.db.resize_map(new_size_bytes);
-    }
-
-    /// TODO
-    #[cold]
-    #[inline(never)]
-    fn shutdown(self) -> ! {
-        // TODO
-        self.readers.shutdown();
-
-        // sync()
-
-        todo!()
     }
 
     /// TODO

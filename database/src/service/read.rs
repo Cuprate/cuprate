@@ -129,19 +129,10 @@ impl DatabaseReader {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
-        // TODO: slightly _less_ readers per thread may be more ideal.
-        // We could account for the writer count as well such that
-        // readers + writers == total_thread_count
-        //
-        // TODO: take in a config option that allows
-        // manually adjusting this thread-count.
-        //
-        // INVARIANT:
-        // We open LMDB with default settings, which means it
-        // allows for a maximum of `126` reader threads,
-        // do _not_ spawn more than that.
-        // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
+        // How many reader threads to spawn?
         let readers = reader_threads.as_threads().get();
+
+        // Collect shutdown channels for each reader thread.
         let mut shutdown_channels = Vec::with_capacity(readers);
 
         // Spawn pool of readers.
@@ -244,6 +235,13 @@ impl DatabaseReader {
     #[cold]
     #[inline(never)]
     fn shutdown(self) -> ! {
-        todo!()
+        // Drop our strong reference to the database environment.
+        // (but not the other stuff in `self`).
+        drop(self.db);
+
+        // TODO: (so the channel doesn't get dropped, so mid-requests don't panic)
+        loop {
+            std::thread::park();
+        }
     }
 }

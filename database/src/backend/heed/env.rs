@@ -40,6 +40,12 @@ impl Env for ConcreteEnv {
     #[cold]
     #[inline(never)] // called once.
     fn open<P: AsRef<Path>>(path: P, config: Config) -> Result<Self, InitError> {
+        // INVARIANT:
+        // We must open LMDB using `heed::EnvOpenOptions::max_readers`
+        // and input whatever is in `config.reader_threads` or else
+        // LMDB will start throwing errors if there are >126 readers.
+        // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
+
         todo!()
     }
 

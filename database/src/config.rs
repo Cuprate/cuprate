@@ -13,6 +13,8 @@ use crate::env::Env;
 ///
 /// This is the struct passed to [`Env::open`] that
 /// allows the database to be configured in various ways.
+///
+/// TODO: there's probably more options to add.
 #[derive(Copy, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
