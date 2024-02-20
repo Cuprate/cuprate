@@ -3,10 +3,7 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-};
+use std::{num::NonZeroUsize, path::PathBuf};
 
 #[allow(unused_imports)] // docs
 use crate::env::Env;

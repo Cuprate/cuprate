@@ -1,41 +1,50 @@
 //! General free functions used (related to `cuprate_database::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::sync::Arc;
+
 use crate::{
     config::Config,
+    error::InitError,
     service::{
         read::DatabaseReader, write::DatabaseWriter, DatabaseReadHandle, DatabaseWriteHandle,
     },
-    ConcreteEnv,
+    ConcreteEnv, Env,
 };
 
 //---------------------------------------------------------------------------------------------------- Init
 #[cold]
-#[inline(never)] // Only called once.
+#[inline(never)] // Only called once (?)
 /// Initialize a database & thread-pool, and return a read/write handle to it.
 ///
 /// The returned handles are cheaply [`Clone`]able.
 ///
 /// TODO: add blocking behavior docs.
-pub fn init(config: Config) -> (DatabaseReadHandle, DatabaseWriteHandle) {
-    // TODO:
-    // This should only ever be called once?
-    // We could `panic!()` if called twice.
+///
+/// # Errors
+/// TODO
+pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle), InitError> {
+    let reader_threads = config.reader_threads;
 
     // Initialize the database itself.
-    // TODO: there's probably shutdown code we have to run.
-    let db: ConcreteEnv = todo!();
+    let db: Arc<ConcreteEnv> = Arc::new(ConcreteEnv::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
-    let (readers, reader_shutdown) = DatabaseReader::init(&db, config.reader_threads);
-    let writers = DatabaseWriter::init(&db, reader_shutdown);
+    let readers = DatabaseReader::init(&db, reader_threads);
+    let writers = DatabaseWriter::init(&db);
 
     // Return the handles to those pools.
-    (readers, writers)
+    Ok((readers, writers))
 }
 
 #[cold]
 #[inline(never)] // Only called once.
+/// # TODO
+/// This is pretty much happens, but this function can be deleted.
+/// Document how shutdown works, maybe in `service` module docs.
+///
+/// //------------------------------------------------------------
+///
 /// Sync/flush all data, and shutdown the database thread-pool.
 ///
 /// This function **blocks**, waiting until:

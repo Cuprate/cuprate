@@ -1,8 +1,6 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::path::Path;
-
 #[allow(unused_imports)] // docs
 use crate::ConcreteEnv;
 
@@ -19,11 +17,16 @@ use crate::{
 ///
 /// Essentially, the functions that can be called on [`ConcreteEnv`].
 ///
-/// # `Drop`
-/// Objects that implement [`Env`] should [`Env::sync`] in their drop implementations.
+/// # `Clone`
+/// The `ConcreteEnv` itself is not [`Clone`]able.
 ///
-/// No invariant relies on this (yet) but it should be done.
-pub trait Env: Sized + Drop {
+/// Use `Arc<ConcreteEnv>` to make it a cheaply clonable thread-safe value.
+///
+/// # `Drop`
+/// Objects that implement [`Env`] _should_ probably
+/// [`Env::sync`] in their drop implementations,
+/// although, no invariant relies on this (yet).
+pub trait Env: Sized {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
     /// resized when the memory-map is full?

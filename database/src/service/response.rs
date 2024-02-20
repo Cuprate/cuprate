@@ -3,7 +3,6 @@
 //! TODO: could add `strum` derives.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::service::read::DatabaseReaderReceivers;
 
 //---------------------------------------------------------------------------------------------------- Constants
 
@@ -26,9 +25,6 @@ pub enum Response {
     ///
     /// TODO
     ExampleWriteResponse, // Probably will be just `Ok`
-
-    /// TODO
-    Shutdown(DatabaseReaderReceivers),
 }
 
 //---------------------------------------------------------------------------------------------------- IMPL

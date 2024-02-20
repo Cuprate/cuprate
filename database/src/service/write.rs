@@ -1,13 +1,16 @@
 //! Database write thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::task::{Context, Poll};
+use std::{
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
     error::RuntimeError,
-    service::{read::DatabaseReaderShutdown, request::WriteRequest, response::Response},
+    service::{request::WriteRequest, response::Response},
     ConcreteEnv, Env,
 };
 
@@ -70,29 +73,28 @@ pub(super) struct DatabaseWriter {
     /// which we will eventually send to.
     receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSend)>,
 
-    /// TODO
-    readers: DatabaseReaderShutdown,
-
     /// Access to the database.
-    db: ConcreteEnv,
+    db: Arc<ConcreteEnv>,
+}
+
+impl Drop for DatabaseWriter {
+    fn drop(&mut self) {
+        // TODO: log this thread has exited?
+    }
 }
 
 impl DatabaseWriter {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &ConcreteEnv, readers: DatabaseReaderShutdown) -> DatabaseWriteHandle {
+    pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseWriteHandle {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         // Spawn the writer.
-        let db = ConcreteEnv::clone(db);
+        let db = Arc::clone(db);
         std::thread::spawn(move || {
-            let this = Self {
-                receiver,
-                readers,
-                db,
-            };
+            let this = Self { receiver, db };
 
             Self::main(this);
         });
@@ -112,12 +114,10 @@ impl DatabaseWriter {
             // 2. Map request to some database function
             // 3. Execute that function, get the result
             // 4. Return the result via channel
-            let (request, response_send) = match self.receiver.recv() {
-                Ok(tuple) => tuple,
-                Err(e) => {
-                    // TODO: what to do with this channel error?
-                    todo!();
-                }
+            let Ok((request, response_send)) = self.receiver.recv() else {
+                // TODO: document the whole shutdown system.
+                // The channel is empty and disconnected, return & shutdown.
+                return;
             };
 
             // Map [`Request`]'s to specific database functions.
@@ -125,39 +125,6 @@ impl DatabaseWriter {
                 WriteRequest::Example1 => self.example_handler_1(response_send),
                 WriteRequest::Example2(_x) => self.example_handler_2(response_send),
                 WriteRequest::Example3(_x) => self.example_handler_3(response_send),
-                WriteRequest::Shutdown => {
-                    // Run shutdown code and exit thread.
-                    Self::shutdown(self, response_send);
-                    return;
-                }
-            }
-        }
-    }
-
-    /// TODO
-    #[cold]
-    #[inline(never)]
-    #[allow(clippy::unused_self)] // `self` must not be dropped.
-    fn shutdown(self, response_send: ResponseSend) {
-        // Shutdown all the reader threads.
-        let database_reader_receivers = self.readers.shutdown();
-
-        // Flush the database to disk.
-        match self.db.sync() {
-            Ok(()) => {
-                // Tell the shutdown request that we're done shutting down.
-                response_send
-                    .send(Ok(Response::Shutdown(database_reader_receivers)))
-                    .unwrap();
-            }
-            Err(e) => {
-                // TODO: what to do if this final sync fails?
-                // We might be `SyncMode::Fastest` so this erroring
-                // is bad news, it means (potentially) some of our
-                // data isn't synced and we might corrupt if we exit here.
-                //
-                // We could try a few times before failing.
-                response_send.send(Err(e)).unwrap();
             }
         }
     }

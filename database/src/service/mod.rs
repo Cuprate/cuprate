@@ -43,7 +43,7 @@
 //! corresponding `Response` to your `Request`.
 
 mod read;
-pub use read::{DatabaseReadHandle, DatabaseReaderReceivers};
+pub use read::DatabaseReadHandle;
 
 mod write;
 pub use write::DatabaseWriteHandle;

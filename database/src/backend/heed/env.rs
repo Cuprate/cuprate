@@ -1,10 +1,7 @@
 //! Implementation of `trait Env` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    path::Path,
-    sync::{Arc, RwLock},
-};
+use std::sync::RwLock;
 
 use crate::{
     backend::heed::types::HeedDb,
@@ -61,6 +58,7 @@ impl Env for ConcreteEnv {
         // INVARIANT: Resizing requires that we have
         // exclusive access to the database environment.
         // hang until all readers have exited.
+        #[allow(clippy::readonly_write_lock)]
         let _env_lock_guard = self.0.write().unwrap();
 
         todo!()
