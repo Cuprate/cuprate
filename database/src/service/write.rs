@@ -140,14 +140,14 @@ impl DatabaseWriter {
     #[allow(clippy::unused_self)] // `self` must not be dropped.
     fn shutdown(self, response_send: ResponseSend) {
         // Shutdown all the reader threads.
-        self.readers.shutdown();
+        let database_reader_receivers = self.readers.shutdown();
 
         // Flush the database to disk.
         match self.db.sync() {
             Ok(()) => {
                 // Tell the shutdown request that we're done shutting down.
                 response_send
-                    .send(Ok(Response::ExampleWriteResponse))
+                    .send(Ok(Response::Shutdown(database_reader_receivers)))
                     .unwrap();
             }
             Err(e) => {

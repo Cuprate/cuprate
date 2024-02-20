@@ -1,7 +1,12 @@
 //! Database read thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::task::{Context, Poll};
+use std::{
+    task::{Context, Poll},
+    thread::JoinHandle,
+};
+
+use crossbeam::channel::{Receiver, Sender};
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
@@ -69,20 +74,36 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 //---------------------------------------------------------------------------------------------------- DatabaseReaderShutdown
 /// A handle to _all_ database reader threads,
 /// and permission to make them all "shutdown"
-/// (see [`DatabaseReader`] docs for why these
-/// threads don't actually exit).
+///
+/// TODO: explain why we return the receivers in the join handle
+/// and continue to pass it around when Cuprate shuts down.
 #[derive(Debug)]
 pub(super) struct DatabaseReaderShutdown {
     /// TODO
-    shutdown_channels: Vec<crossbeam::channel::Sender<()>>,
+    shutdown_signal: Vec<Sender<()>>,
+
+    /// TODO
+    reader_join_handles: Vec<JoinHandle<Receiver<(ReadRequest, ResponseSend)>>>,
 }
+
+/// TODO
+#[derive(Debug)]
+pub struct DatabaseReaderReceivers(Vec<Receiver<(ReadRequest, ResponseSend)>>);
 
 impl DatabaseReaderShutdown {
     /// TODO
-    pub(super) fn shutdown(self) {
-        for shutdown_channel in self.shutdown_channels {
+    pub(super) fn shutdown(self) -> DatabaseReaderReceivers {
+        for shutdown_channel in self.shutdown_signal {
             shutdown_channel.try_send(()).unwrap();
         }
+
+        DatabaseReaderReceivers(
+            self.reader_join_handles
+                .into_iter()
+                .map(JoinHandle::join)
+                .map(Result::unwrap)
+                .collect(),
+        )
     }
 }
 
@@ -104,10 +125,10 @@ pub(super) struct DatabaseReader {
     ///
     /// SOMEDAY: this struct itself could cache a return channel
     /// instead of creating a new `oneshot` each request.
-    receiver: crossbeam::channel::Receiver<(ReadRequest, ResponseSend)>,
+    receiver: Receiver<(ReadRequest, ResponseSend)>,
 
     /// TODO
-    shutdown: crossbeam::channel::Receiver<()>,
+    shutdown_signal: Receiver<()>,
 
     /// Access to the database.
     db: ConcreteEnv,
@@ -130,35 +151,40 @@ impl DatabaseReader {
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         // How many reader threads to spawn?
-        let readers = reader_threads.as_threads().get();
+        let reader_count = reader_threads.as_threads();
 
         // Collect shutdown channels for each reader thread.
-        let mut shutdown_channels = Vec::with_capacity(readers);
+        let shutdown_signal = Vec::with_capacity(reader_count.get());
+        let reader_join_handles = Vec::with_capacity(reader_count.get());
+        let mut db_shutdown = DatabaseReaderShutdown {
+            shutdown_signal,
+            reader_join_handles,
+        };
 
         // Spawn pool of readers.
-        for _ in 0..readers {
+        for _ in 0..reader_count.get() {
             let receiver = receiver.clone();
             let db = ConcreteEnv::clone(db);
-            let (shutdown_send, shutdown) = crossbeam::channel::bounded(1);
-            shutdown_channels.push(shutdown_send);
 
-            std::thread::spawn(move || {
+            let (shutdown_send, shutdown_signal) = crossbeam::channel::bounded(1);
+            db_shutdown.shutdown_signal.push(shutdown_send);
+
+            let join_handle = std::thread::spawn(move || {
                 let this = Self {
                     receiver,
-                    shutdown,
+                    shutdown_signal,
                     db,
                 };
 
-                Self::main(this);
+                Self::main(this)
             });
+
+            db_shutdown.reader_join_handles.push(join_handle);
         }
 
         // Return a handle to the pool and channels to
         // allow clean shutdown of all reader threads.
-        (
-            DatabaseReadHandle { sender },
-            DatabaseReaderShutdown { shutdown_channels },
-        )
+        (DatabaseReadHandle { sender }, db_shutdown)
     }
 
     /// The `DatabaseReader`'s main function.
@@ -166,10 +192,11 @@ impl DatabaseReader {
     /// Each thread just loops in this function.
     #[cold]
     #[inline(never)] // Only called once.
-    fn main(self) {
+    fn main(self) -> Receiver<(ReadRequest, ResponseSend)> {
+        // TODO
         let mut select = crossbeam::channel::Select::new();
         assert_eq!(0, select.recv(&self.receiver));
-        assert_eq!(1, select.recv(&self.shutdown));
+        assert_eq!(1, select.recv(&self.shutdown_signal));
 
         // 1. Hang on request channel
         // 2. Map request to some database function
@@ -200,7 +227,10 @@ impl DatabaseReader {
                 // Shutdown signal.
                 1 => {
                     if self.receiver.try_recv().is_ok() {
-                        Self::shutdown(self);
+                        // Return out main request receiver channel.
+                        // This drops `self`, so we don't need to explicitly
+                        // drop our database strong reference.
+                        return self.receiver;
                     };
                 }
 
@@ -229,19 +259,5 @@ impl DatabaseReader {
     fn example_handler_3(&self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
-    }
-
-    /// TODO
-    #[cold]
-    #[inline(never)]
-    fn shutdown(self) -> ! {
-        // Drop our strong reference to the database environment.
-        // (but not the other stuff in `self`).
-        drop(self.db);
-
-        // TODO: (so the channel doesn't get dropped, so mid-requests don't panic)
-        loop {
-            std::thread::park();
-        }
     }
 }
