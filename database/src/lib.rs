@@ -39,16 +39,16 @@
 //! For example:
 //! - [`std::mem::size_of::<ConcreteEnv>`]
 //! - [`std::mem::align_of::<ConcreteEnv>`]
-//! - [`Drop::<ConcreteEnv>::drop`]
 //!
 //! Things like these functions are affected by the backend and inner data,
 //! and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteEnv`.
 //!
-//! The only thing about `ConcreteEnv` that should
-//! be relied upon is that it implements [`Env`].
+//! `ConcreteEnv` invariants you can rely on:
+//! - It implements [`Env`]
+//! - Upon [`Drop::drop`], it will sync to disk
 //!
-//! Note that `ConcreteEnv` itself is a cheaply clonable thread-safe type,
-//! as is all things that implement [`Env`]. It should _not_ be wrapped in [`std::sync::Arc`].
+//! Note that `ConcreteEnv` itself is not a clonable type,
+//! it should be wrapped in [`std::sync::Arc`].
 //!
 //! TODO: we could also expose `ConcreteDatabase` if we're
 //! going to be storing any databases in structs, to lessen

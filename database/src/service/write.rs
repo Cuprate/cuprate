@@ -124,6 +124,10 @@ impl DatabaseWriter {
                 // and disconnected, meaning the other side (all senders) have
                 // been dropped. This means "shutdown", and we return here to
                 // exit the thread.
+                //
+                // Since the channel is empty, it means we've also processed
+                // all requests. Since it is disconnected, it means future
+                // ones cannot come in.
                 return;
             };
 
