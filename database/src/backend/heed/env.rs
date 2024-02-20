@@ -17,13 +17,22 @@ use crate::{
 ///
 /// # Why `RwLock`?
 /// We need mutual exclusive access to the environment for resizing.
-pub struct ConcreteEnv(RwLock<heed::Env>);
+pub struct ConcreteEnv {
+    /// The actual database environment.
+    env: RwLock<heed::Env>,
+
+    /// The configuration we were opened with
+    /// (and in current use).
+    config: Config,
+}
 
 impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         if let Err(e) = self.sync() {
             // TODO: log error?
         }
+
+        // TODO: log that we are dropping the database.
     }
 }
 
@@ -47,7 +56,7 @@ impl Env for ConcreteEnv {
     }
 
     fn config(&self) -> &Config {
-        todo!()
+        &self.config
     }
 
     fn sync(&self) -> Result<(), RuntimeError> {
@@ -59,7 +68,7 @@ impl Env for ConcreteEnv {
         // exclusive access to the database environment.
         // hang until all readers have exited.
         #[allow(clippy::readonly_write_lock)]
-        let _env_lock_guard = self.0.write().unwrap();
+        let _env_lock_guard = self.env.write().unwrap();
 
         todo!()
     }

@@ -14,13 +14,22 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `sanakirja`.
-pub struct ConcreteEnv(sanakirja::Env);
+pub struct ConcreteEnv {
+    /// The actual database environment.
+    env: sanakirja::Env,
+
+    /// The configuration we were opened with
+    /// (and in current use).
+    config: Config,
+}
 
 impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         if let Err(e) = self.sync() {
             // TODO: log error?
         }
+
+        // TODO: log that we are dropping the database.
     }
 }
 
@@ -41,7 +50,7 @@ impl Env for ConcreteEnv {
     }
 
     fn config(&self) -> &Config {
-        todo!()
+        &self.config
     }
 
     fn sync(&self) -> Result<(), RuntimeError> {
