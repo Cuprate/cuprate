@@ -3,7 +3,10 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::num::NonZeroUsize;
+use std::{
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+};
 
 #[allow(unused_imports)] // docs
 use crate::env::Env;
@@ -15,13 +18,16 @@ use crate::env::Env;
 /// allows the database to be configured in various ways.
 ///
 /// TODO: there's probably more options to add.
-#[derive(Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "borsh",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize)
 )]
 pub struct Config {
+    /// TODO
+    pub path: PathBuf,
+
     /// TODO
     pub sync_mode: SyncMode,
 
@@ -31,24 +37,27 @@ pub struct Config {
 
 impl Config {
     /// TODO
-    pub const fn new() -> Self {
+    pub fn new(path: Option<PathBuf>) -> Self {
         Self {
+            path: path.unwrap_or_else(|| todo!()),
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::OnePerThread,
         }
     }
 
     /// TODO
-    pub const fn fast() -> Self {
+    pub fn fast(path: Option<PathBuf>) -> Self {
         Self {
+            path: path.unwrap_or_else(|| todo!()),
             sync_mode: SyncMode::Fastest,
             reader_threads: ReaderThreads::OnePerThread,
         }
     }
 
     /// TODO
-    pub const fn low_power() -> Self {
+    pub fn low_power(path: Option<PathBuf>) -> Self {
         Self {
+            path: path.unwrap_or_else(|| todo!()),
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::One,
         }
@@ -57,7 +66,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }
 
@@ -73,6 +82,7 @@ pub enum SyncMode {
     /// Fully sync to disk per transaction.
     #[default]
     Safe,
+
     /// Asynchronously sync, only flush at database shutdown.
     Fastest,
 }
