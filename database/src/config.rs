@@ -21,10 +21,10 @@ use crate::env::Env;
 )]
 pub struct Config {
     /// TODO
-    sync_mode: SyncMode,
+    pub sync_mode: SyncMode,
 
     /// TODO
-    reader_threads: ReaderThreads,
+    pub reader_threads: ReaderThreads,
 }
 
 impl Config {
@@ -87,10 +87,48 @@ pub enum ReaderThreads {
     #[default]
     /// TODO
     OnePerThread,
+
     /// TODO
     One,
+
     /// TODO
     Number(NonZeroUsize),
+
     /// TODO
+    ///
+    /// # Invariant
+    /// Must be `0.0..=1.0`.
     Percent(f32),
+}
+
+impl ReaderThreads {
+    /// TODO
+    pub fn as_threads(&self) -> NonZeroUsize {
+        let total_threads = cuprate_helper::thread::threads();
+
+        match self {
+            Self::OnePerThread => total_threads,
+            Self::One => NonZeroUsize::MIN,
+            Self::Number(n) => std::cmp::min(*n, total_threads),
+
+            // We handle the casting loss.
+            #[allow(
+                clippy::cast_precision_loss,
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss
+            )]
+            Self::Percent(f) => {
+                if !f.is_normal() || !(0.0..=1.0).contains(f) {
+                    return total_threads;
+                }
+
+                let thread_percent = (total_threads.get() as f32) * f;
+                let Some(threads) = NonZeroUsize::new(thread_percent as usize) else {
+                    return total_threads;
+                };
+
+                std::cmp::min(threads, total_threads)
+            }
+        }
+    }
 }

@@ -6,6 +6,7 @@ use std::task::{Context, Poll};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
+    config::ReaderThreads,
     error::RuntimeError,
     service::{request::ReadRequest, response::Response},
     ConcreteEnv,
@@ -121,7 +122,10 @@ impl DatabaseReader {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &ConcreteEnv) -> (DatabaseReadHandle, DatabaseReaderShutdown) {
+    pub(super) fn init(
+        db: &ConcreteEnv,
+        reader_threads: ReaderThreads,
+    ) -> (DatabaseReadHandle, DatabaseReaderShutdown) {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -137,7 +141,7 @@ impl DatabaseReader {
         // allows for a maximum of `126` reader threads,
         // do _not_ spawn more than that.
         // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
-        let readers = std::cmp::min(126, cuprate_helper::thread::threads().get());
+        let readers = reader_threads.as_threads().get();
         let mut shutdown_channels = Vec::with_capacity(readers);
 
         // Spawn pool of readers.

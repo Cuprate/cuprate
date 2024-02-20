@@ -2,9 +2,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
-    service::read::DatabaseReader,
-    service::write::DatabaseWriter,
-    service::{DatabaseReadHandle, DatabaseWriteHandle},
+    config::Config,
+    service::{
+        read::DatabaseReader, write::DatabaseWriter, DatabaseReadHandle, DatabaseWriteHandle,
+    },
     ConcreteEnv,
 };
 
@@ -16,7 +17,7 @@ use crate::{
 /// The returned handles are cheaply [`Clone`]able.
 ///
 /// TODO: add blocking behavior docs.
-pub fn init() -> (DatabaseReadHandle, DatabaseWriteHandle) {
+pub fn init(config: Config) -> (DatabaseReadHandle, DatabaseWriteHandle) {
     // TODO:
     // This should only ever be called once?
     // We could `panic!()` if called twice.
@@ -26,7 +27,7 @@ pub fn init() -> (DatabaseReadHandle, DatabaseWriteHandle) {
     let db: ConcreteEnv = todo!();
 
     // Spawn the Reader thread pool and Writer.
-    let (readers, reader_shutdown) = DatabaseReader::init(&db);
+    let (readers, reader_shutdown) = DatabaseReader::init(&db, config.reader_threads);
     let writers = DatabaseWriter::init(&db, reader_shutdown);
 
     // Return the handles to those pools.
