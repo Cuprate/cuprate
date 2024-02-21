@@ -9,7 +9,7 @@ use std::{
 //---------------------------------------------------------------------------------------------------- Const
 /// Cuprate's main directory.
 ///
-/// This is the PATH used for any top-level Cuprate directories.
+/// This is the head PATH node used for any top-level Cuprate directories.
 ///
 /// | OS      | PATH                                                |
 /// |---------|-----------------------------------------------------|
@@ -46,8 +46,7 @@ macro_rules! impl_dir_oncelock_and_fn {
         $(#[$attr:meta])* // Documentation and any `derive`'s.
         $fn:ident,        // Name of the corresponding access function.
         $dirs_fn:ident,   // Name of the `dirs` function to use, the PATH prefix.
-        $once_lock:ident, // Name of the `OnceLock`.
-        $expect:literal   // Panic message if directory get fails.
+        $once_lock:ident  // Name of the `OnceLock`.
     ),* $(,)?) => {$(
         /// Local `OnceLock` containing the Path.
         static $once_lock: OnceLock<PathBuf> = OnceLock::new();
@@ -57,10 +56,14 @@ macro_rules! impl_dir_oncelock_and_fn {
         $(#[$attr])*
         pub fn $fn() -> &'static Path {
             $once_lock.get_or_init(|| {
-                // This should never panic.
-                let mut path = dirs::$dirs_fn().expect($expect);
+                // There's nothing we can do but panic if
+                // we cannot acquire critical system directories.
+                //
+                // Although, this realistically won't panic on
+                // normal systems for all OS's supported by `dirs`.
+                let mut path = dirs::$dirs_fn().unwrap();
 
-                // TODO:
+                // FIXME:
                 // Consider a user who does `HOME=/ ./cuprated`
                 //
                 // Should we say "that's stupid" and panic here?
@@ -91,7 +94,6 @@ impl_dir_oncelock_and_fn! {
     cuprate_cache_dir,
     cache_dir,
     CUPRATE_CACHE_DIR,
-    "Cache directory was not found",
 
     /// Cuprate's cache directory.
     ///
@@ -105,7 +107,6 @@ impl_dir_oncelock_and_fn! {
     cuprate_config_dir,
     config_dir,
     CUPRATE_CONFIG_DIR,
-    "Configuration directory was not found",
 
     /// Cuprate's cache directory.
     ///
@@ -119,7 +120,6 @@ impl_dir_oncelock_and_fn! {
     cuprate_data_dir,
     data_dir,
     CUPRATE_DATA_DIR,
-    "Data directory was not found",
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
