@@ -10,18 +10,20 @@ use crate::{env::Env, ConcreteEnv};
 ///
 /// This is only used by [`ConcreteEnv`] if [`Env::MANUAL_RESIZE`] is `true`.
 ///
-/// # Method
-/// This function mostly matches `monerod`'s current resize implementation,
-/// and will increase `current_size_bytes` by a fixed `1_073_745_920` exactly
-/// then rounded to the nearest multiple of the OS page size.
-///
-/// <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L549>
-///
 /// TODO:
 /// We could test around with different algorithms.
 /// Calling [`heed::Env::resize`] is surprisingly fast,
 /// around `0.0000082s` on my machine. We could probably
 /// get away with smaller and more frequent resizes.
+///
+/// # Method
+/// This function mostly matches `monerod`'s current resize implementation[^1],
+/// and will increase `current_size_bytes` by `1 << 30`[^2] exactly then
+/// rounded to the nearest multiple of the OS page size.
+///
+/// [^1]: <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L549>
+///
+/// [^2]: `1_073_745_920`
 ///
 /// ```rust
 /// # use cuprate_database::*;
@@ -58,10 +60,6 @@ pub fn resize_memory_map(current_size_bytes: usize) -> usize {
 
     // Round up the new size to the
     // nearest multiple of the OS page size.
-    //
-    // Note that on `resize_memory_map(0)`, the page size
-    // will be added to the base `ADD_SIZE`, so actually
-    // the minimum value we can return is `ADD_SIZE + os_page_size`.
     let remainder = new_size_bytes % os_page_size;
     if remainder == 0 {
         new_size_bytes
