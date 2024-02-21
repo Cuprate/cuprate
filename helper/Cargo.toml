@@ -36,4 +36,4 @@ target_os_lib = { package = "windows", version = ">=0.51", features = ["Win32_Sy
 target_os_lib = { package = "libc", version = "0.2.151", optional = true }
 
 [dev-dependencies]
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
