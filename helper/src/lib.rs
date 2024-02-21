@@ -33,6 +33,8 @@
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 //---------------------------------------------------------------------------------------------------- Public API
 #[cfg(feature = "asynch")]
 pub mod asynch; // async collides
