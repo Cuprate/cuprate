@@ -1,4 +1,8 @@
 //! Cuprate directories and filenames.
+//!
+//! # Reference
+//! <https://github.com/Cuprate/cuprate/issues/46>
+//! <https://docs.rs/dirs>
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{
@@ -70,7 +74,7 @@ macro_rules! impl_dir_oncelock_and_fn {
                 // Or should it be respected?
                 // We really don't want a `rm -rf /` type of situation...
                 assert!(
-                    !path.parent().is_some(),
+                    path.parent().is_some(),
                     "SAFETY: returned OS directory was either root or empty, aborting"
                 );
 
@@ -124,4 +128,48 @@ impl_dir_oncelock_and_fn! {
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {}
+mod test {
+    use super::*;
+
+    #[test]
+    fn dir_sanity_check() {
+        if cfg!(target_os = "windows") {
+            let dir = cuprate_cache_dir();
+            println!("cuprate_cache_dir: {dir:?}");
+            assert!(dir.ends_with(r"AppData\Local\Cuprate"));
+
+            let dir = cuprate_config_dir();
+            println!("cuprate_config_dir: {dir:?}");
+            assert!(dir.ends_with(r"AppData\Roaming\Cuprate"));
+
+            let dir = cuprate_data_dir();
+            println!("cuprate_data_dir: {dir:?}");
+            assert!(dir.ends_with(r"AppData\Roaming\Cuprate"));
+        } else if cfg!(target_os = "macos") {
+            let dir = cuprate_cache_dir();
+            println!("cuprate_cache_dir: {dir:?}");
+            assert!(dir.ends_with("Library/Caches/Cuprate"));
+
+            let dir = cuprate_config_dir();
+            println!("cuprate_config_dir: {dir:?}");
+            assert!(dir.ends_with("Library/Application Support/Cuprate"));
+
+            let dir = cuprate_data_dir();
+            println!("cuprate_data_dir: {dir:?}");
+            assert!(dir.ends_with("Library/Application Support/Cuprate"));
+        } else {
+            // Assumes Linux.
+            let dir = cuprate_cache_dir();
+            println!("cuprate_cache_dir: {dir:?}");
+            assert!(dir.ends_with(".cache/cuprate"));
+
+            let dir = cuprate_config_dir();
+            println!("cuprate_config_dir: {dir:?}");
+            assert!(dir.ends_with(".config/cuprate"));
+
+            let dir = cuprate_data_dir();
+            println!("cuprate_data_dir: {dir:?}");
+            assert!(dir.ends_with(".local/share/cuprate"));
+        }
+    }
+}
