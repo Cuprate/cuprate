@@ -34,31 +34,13 @@ pub const CUPRATE_DIR: &str = {
     }
 };
 
-/// Attempt to create all Cuprate directories.
+//---------------------------------------------------------------------------------------------------- Directories
+/// Create a (private) `OnceLock` and accessor function for common PATHs used by Cuprate.
 ///
 /// This currently creates these directories:
 /// - [`cuprate_cache_dir()`]
 /// - [`cuprate_config_dir()`]
 /// - [`cuprate_data_dir()`]
-///
-/// # Errors
-/// This will return early if any of the above functions error.
-pub fn cuprate_create_dir_all() -> std::io::Result<()> {
-    for path in [
-        cuprate_cache_dir(),
-        cuprate_config_dir(),
-        cuprate_data_dir(),
-    ] {
-        std::fs::create_dir_all(path)?;
-    }
-
-    Ok(())
-}
-
-//---------------------------------------------------------------------------------------------------- Directories
-/// Create a (private) `OnceLock` and accessor function for common PATHs used by Cuprate.
-///
-/// This creates all the functions used in [`cuprate_create_dir_all`].
 macro_rules! impl_dir_oncelock_and_fn {
     ($(
         $(#[$attr:meta])* // Documentation and any `derive`'s.
