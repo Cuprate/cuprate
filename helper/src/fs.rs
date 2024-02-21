@@ -109,7 +109,7 @@ impl_dir_oncelock_and_fn! {
     cache_dir,
     CUPRATE_CACHE_DIR,
 
-    /// Cuprate's cache directory.
+    /// Cuprate's config directory.
     ///
     /// This is the PATH used for any Cuprate configuration files.
     ///
