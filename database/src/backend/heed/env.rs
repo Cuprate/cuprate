@@ -64,13 +64,17 @@ impl Env for ConcreteEnv {
     }
 
     fn resize_map(&self, new_size: usize) {
-        // INVARIANT: Resizing requires that we have
-        // exclusive access to the database environment.
-        // hang until all readers have exited.
-        #[allow(clippy::readonly_write_lock)]
-        let _env_lock_guard = self.env.write().unwrap();
+        let current_size = self.current_map_size();
+        let new_size = crate::resize_memory_map(current_size);
 
-        todo!()
+        // SAFETY:
+        // Resizing requires that we have
+        // exclusive access to the database environment.
+        // Our `heed::Env` is wrapped within a `RwLock`,
+        // and we have a WriteGuard to it, so we're safe.
+        unsafe {
+            self.env.write().unwrap().resize(new_size).unwrap();
+        }
     }
 
     fn current_map_size(&self) -> usize {

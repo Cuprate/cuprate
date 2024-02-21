@@ -45,7 +45,7 @@
 //!
 //! `ConcreteEnv` invariants you can rely on:
 //! - It implements [`Env`]
-//! - Upon [`Drop::drop`], it will sync to disk
+//! - Upon [`Drop::drop`], all database data will sync to disk
 //!
 //! Note that `ConcreteEnv` itself is not a clonable type,
 //! it should be wrapped in [`std::sync::Arc`].
@@ -63,13 +63,40 @@
 //! - `sanakirja`
 //!
 //! The default is `heed`.
+//!
+//! # Example
+//! Simple usage of this crate.
+//!
+//! ```rust
+//! use cuprate_database::{
+//!     config::Config,
+//!     ConcreteEnv,
+//!     Env, Key, RoTx, RwTx
+//!     service::{ReadRequest, WriteRequest, Response},
+//! };
+//!
+//! // Create a configuration for the database environment.
+//! let db_dir = tempfile::tempdir().unwrap();
+//! let config = Config::new(Some(db_dir));
+//!
+//! // Initialize the database thread-pool.
+//! let (read_handle, write_handle) = cuprate_database::service::init(config);
+//!
+//! // TODO:
+//! // 1. Send write/read requests
+//! // 2. Use some other `Env` functions
+//! // 3. Shutdown
+//! ```
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
 // Our code, and code generated (e.g macros) cannot overrule these.
 #![forbid(
+	// `unsafe` is allowed but it _must_ be
+	// commented with `SAFETY: reason`.
+	clippy::undocumented_unsafe_blocks,
+
 	// Never.
-	unsafe_code,
 	unused_unsafe,
 	redundant_semicolons,
 	unused_allocation,
