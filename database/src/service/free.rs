@@ -17,8 +17,6 @@ use crate::{
 #[inline(never)] // Only called once (?)
 /// Initialize a database & thread-pool, and return a read/write handle to it.
 ///
-/// The returned handles are cheaply [`Clone`]able.
-///
 /// Once the returned handles are [`Drop::drop`]ed, the reader
 /// thread-pool and writer thread will exit automatically.
 ///

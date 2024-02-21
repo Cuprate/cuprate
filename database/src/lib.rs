@@ -71,7 +71,7 @@
 //! use cuprate_database::{
 //!     config::Config,
 //!     ConcreteEnv,
-//!     Env, Key, RoTx, RwTx
+//!     Env, Key, RoTx, RwTx,
 //!     service::{ReadRequest, WriteRequest, Response},
 //! };
 //!
@@ -80,7 +80,7 @@
 //! let config = Config::new(Some(db_dir));
 //!
 //! // Initialize the database thread-pool.
-//! let (read_handle, write_handle) = cuprate_database::service::init(config);
+//! let (read_handle, write_handle) = cuprate_database::service::init(config).unwrap();
 //!
 //! // TODO:
 //! // 1. Send write/read requests

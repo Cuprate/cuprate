@@ -17,11 +17,6 @@ use crate::{
 ///
 /// Essentially, the functions that can be called on [`ConcreteEnv`].
 ///
-/// # `Clone`
-/// The `ConcreteEnv` itself is not [`Clone`]able.
-///
-/// Use `Arc<ConcreteEnv>` to make it a cheaply clonable thread-safe value.
-///
 /// # `Drop`
 /// Objects that implement [`Env`] _should_ probably
 /// [`Env::sync`] in their drop implementations,

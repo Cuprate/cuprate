@@ -48,7 +48,7 @@
 //!
 //! An `async`hronous channel will be returned from the call.
 //! This channel can be `.await`ed upon to (eventually) receive
-//! corresponding `Response` to your `Request`.
+//! the corresponding `Response` to your `Request`.
 
 mod read;
 pub use read::DatabaseReadHandle;
