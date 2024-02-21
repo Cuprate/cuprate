@@ -19,6 +19,24 @@ pub struct ConcreteEnv {
     ///
     /// # Why `RwLock`?
     /// We need mutual exclusive access to the environment for resizing.
+    ///
+    /// Using 2 atomics for mutual exclusion was considered:
+    /// - `currently_resizing: AtomicBool`
+    /// - `reader_count: AtomicUsize`
+    ///
+    /// This is how `monerod` does it:
+    /// <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L354-L355>
+    ///
+    /// `currently_resizing` would be set to `true` on resizes and
+    /// `reader_count` would be spinned on until 0, at which point
+    /// we are safe to resize.
+    ///
+    /// 3 atomic operations (check atomic bool, reader_count++, reader_count--)
+    /// turns out to be roughly as expensive as acquiring a non-contended read lock,
+    /// and also, we'd have to fix the ABA problem described here:
+    /// <https://github.com/monero-project/monero/issues/9193>
+    /// <https://en.wikipedia.org/wiki/ABA_problem>
+    /// so, going with `RwLock` is simpler.
     env: RwLock<heed::Env>,
 
     /// The configuration we were opened with
