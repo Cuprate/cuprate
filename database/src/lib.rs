@@ -80,12 +80,12 @@
 //! let config = Config::new(Some(db_dir));
 //!
 //! // Initialize the database thread-pool.
-//! let (read_handle, write_handle) = cuprate_database::service::init(config).unwrap();
 //!
 //! // TODO:
-//! // 1. Send write/read requests
-//! // 2. Use some other `Env` functions
-//! // 3. Shutdown
+//! // 1. let (read_handle, write_handle) = cuprate_database::service::init(config).unwrap();
+//! // 2. Send write/read requests
+//! // 3. Use some other `Env` functions
+//! // 4. Shutdown
 //! ```
 
 //---------------------------------------------------------------------------------------------------- Lints
