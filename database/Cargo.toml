@@ -13,15 +13,18 @@ default   = ["heed", "service"]
 # default   = ["sanakirja", "service"] # For testing `sanakirja`.
 heed      = ["dep:heed"]
 sanakirja = ["dep:sanakirja"]
-service   = ["dep:cuprate-helper", "dep:crossbeam", "dep:tokio", "dep:tower"]
+service   = ["dep:crossbeam", "dep:tokio", "dep:tower"]
 
 [dependencies]
-cfg-if    = { workspace = true }
-paste     = { workspace = true }
-thiserror = { workspace = true }
+cfg-if         = { workspace = true }
+# FIXME:
+# We only need the `thread` feature if `service` is enabled.
+# Figure out how to enable features of an already pulled in dependency conditionally.
+cuprate-helper = { path = "../helper", features = ["fs", "thread"] }
+paste          = { workspace = true }
+thiserror      = { workspace = true }
 
 # `service` feature.
-cuprate-helper = { path = "../helper", features = ["thread"], optional = true }
 crossbeam      = { workspace = true, features = ["std"], optional = true }
 tokio          = { workspace = true, features = ["full"], optional = true }
 tower          = { workspace = true, features = ["full"], optional = true }

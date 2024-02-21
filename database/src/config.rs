@@ -5,6 +5,8 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, num::NonZeroUsize, path::Path};
 
+use cuprate_helper::fs::cuprate_database_dir;
+
 #[allow(unused_imports)] // docs
 use crate::env::Env;
 
@@ -18,7 +20,10 @@ use crate::env::Env;
 #[derive(Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Config {
-    /// TODO
+    /// The directory used to store all database files.
+    ///
+    /// By default, if no value is provided in the [`Config`]
+    /// constructor functions, this will be [`cuprate_database_dir`].
     pub db_directory: Cow<'static, Path>,
 
     /// TODO
@@ -32,7 +37,10 @@ impl Config {
     /// TODO
     pub fn new<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
         Self {
-            db_directory: db_directory.map_or(todo!(), |p| Cow::Owned(p.as_ref().to_path_buf())),
+            db_directory: db_directory.map_or_else(
+                || Cow::Borrowed(cuprate_database_dir()),
+                |p| Cow::Owned(p.as_ref().to_path_buf()),
+            ),
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::OnePerThread,
         }
@@ -41,7 +49,10 @@ impl Config {
     /// TODO
     pub fn fast<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
         Self {
-            db_directory: db_directory.map_or(todo!(), |p| Cow::Owned(p.as_ref().to_path_buf())),
+            db_directory: db_directory.map_or_else(
+                || Cow::Borrowed(cuprate_database_dir()),
+                |p| Cow::Owned(p.as_ref().to_path_buf()),
+            ),
             sync_mode: SyncMode::Fastest,
             reader_threads: ReaderThreads::OnePerThread,
         }
@@ -50,7 +61,10 @@ impl Config {
     /// TODO
     pub fn low_power<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
         Self {
-            db_directory: db_directory.map_or(todo!(), |p| Cow::Owned(p.as_ref().to_path_buf())),
+            db_directory: db_directory.map_or_else(
+                || Cow::Borrowed(cuprate_database_dir()),
+                |p| Cow::Owned(p.as_ref().to_path_buf()),
+            ),
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::One,
         }
@@ -59,7 +73,7 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        Self::new(Some("TODO: default cuprate database dir"))
+        Self::new(None::<&'static Path>)
     }
 }
 
