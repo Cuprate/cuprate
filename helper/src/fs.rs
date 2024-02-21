@@ -45,6 +45,10 @@ pub const CUPRATE_DIR: &str = {
 /// - [`cuprate_cache_dir()`]
 /// - [`cuprate_config_dir()`]
 /// - [`cuprate_data_dir()`]
+///
+/// FIXME: Use `LazyLock` when stabilized.
+/// <https://github.com/rust-lang/rust/issues/109736>.
+/// <https://doc.rust-lang.org/std/sync/struct.LazyLock.html>.
 macro_rules! impl_dir_oncelock_and_fn {
     ($(
         $(#[$attr:meta])* // Documentation and any `derive`'s.
@@ -133,6 +137,10 @@ mod test {
 
     #[test]
     fn dir_sanity_check() {
+        assert!(cuprate_cache_dir().is_absolute());
+        assert!(cuprate_config_dir().is_absolute());
+        assert!(cuprate_data_dir().is_absolute());
+
         if cfg!(target_os = "windows") {
             let dir = cuprate_cache_dir();
             println!("cuprate_cache_dir: {dir:?}");
