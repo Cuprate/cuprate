@@ -56,6 +56,25 @@ pub trait Env: Sized {
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
 
+    /// Return the amount of actual of bytes the database is taking up on disk.
+    ///
+    /// This is the current _disk_ value in bytes, not the memory map.
+    ///
+    /// # Errors
+    /// This will error if either:
+    ///
+    /// - [`std::fs::File::open`]
+    /// - [`std::fs::File::metadata`]
+    ///
+    /// failed on the database file on disk.
+    fn disk_size_bytes(&self) -> std::io::Result<u64> {
+        // We have the direct PATH to the file,
+        // no need to use backend-specific functions.
+        Ok(std::fs::File::open(&self.config().db_file)?
+            .metadata()?
+            .len())
+    }
+
     /// TODO
     /// # Errors
     /// TODO

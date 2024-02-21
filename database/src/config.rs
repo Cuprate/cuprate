@@ -26,6 +26,11 @@ pub struct Config {
     /// constructor functions, this will be [`cuprate_database_dir`].
     pub db_directory: Cow<'static, Path>,
 
+    /// The actual database data file.
+    ///
+    /// This is private, and created from the above `db_directory`.
+    pub(crate) db_file: Cow<'static, Path>,
+
     /// TODO
     pub sync_mode: SyncMode,
 
@@ -35,12 +40,26 @@ pub struct Config {
 
 impl Config {
     /// TODO
+    fn return_db_dir_and_file<P: AsRef<Path>>(
+        db_directory: Option<P>,
+    ) -> (Cow<'static, Path>, Cow<'static, Path>) {
+        let db_directory = db_directory.map_or_else(
+            || Cow::Borrowed(cuprate_database_dir()),
+            |p| Cow::Owned(p.as_ref().to_path_buf()),
+        );
+
+        let mut db_file = db_directory.to_path_buf();
+        db_file.push(crate::constants::CUPRATE_DATABASE_FILE);
+
+        (db_directory, Cow::Owned(db_file))
+    }
+
+    /// TODO
     pub fn new<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
+        let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
         Self {
-            db_directory: db_directory.map_or_else(
-                || Cow::Borrowed(cuprate_database_dir()),
-                |p| Cow::Owned(p.as_ref().to_path_buf()),
-            ),
+            db_directory,
+            db_file,
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::OnePerThread,
         }
@@ -48,11 +67,10 @@ impl Config {
 
     /// TODO
     pub fn fast<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
+        let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
         Self {
-            db_directory: db_directory.map_or_else(
-                || Cow::Borrowed(cuprate_database_dir()),
-                |p| Cow::Owned(p.as_ref().to_path_buf()),
-            ),
+            db_directory,
+            db_file,
             sync_mode: SyncMode::Fastest,
             reader_threads: ReaderThreads::OnePerThread,
         }
@@ -60,11 +78,10 @@ impl Config {
 
     /// TODO
     pub fn low_power<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
+        let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
         Self {
-            db_directory: db_directory.map_or_else(
-                || Cow::Borrowed(cuprate_database_dir()),
-                |p| Cow::Owned(p.as_ref().to_path_buf()),
-            ),
+            db_directory,
+            db_file,
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::One,
         }
