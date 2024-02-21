@@ -1,5 +1,8 @@
 //! Cuprate directories and filenames.
 //!
+//! # TODO
+//! Document how environment variables can change these.
+//!
 //! # Reference
 //! <https://github.com/Cuprate/cuprate/issues/46>
 //! <https://docs.rs/dirs>
@@ -79,8 +82,11 @@ macro_rules! impl_dir_oncelock_and_fn {
                 // We really don't want a `rm -rf /` type of situation...
                 assert!(
                     path.parent().is_some(),
-                    "SAFETY: returned OS directory was either root or empty, aborting"
+                    "SAFETY: returned OS PATH was either root or empty, aborting"
                 );
+
+                // Returned OS PATH should be absolute, not relative.
+                assert!(path.is_absolute(), "SAFETY: returned OS PATH was not absolute");
 
                 path.push(CUPRATE_DIR);
                 path
