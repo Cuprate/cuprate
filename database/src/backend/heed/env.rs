@@ -78,7 +78,7 @@ impl Env for ConcreteEnv {
     }
 
     fn current_map_size(&self) -> usize {
-        todo!()
+        self.env.read().unwrap().info().map_size
     }
 
     #[inline]
