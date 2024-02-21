@@ -5,13 +5,6 @@
 //---------------------------------------------------------------------------------------------------- Use
 use std::{cmp::max, num::NonZeroUsize};
 
-//---------------------------------------------------------------------------------------------------- Constants
-// FIXME: switch to `.unwrap()` when const stablized
-const NON_ZERO_USIZE_1: NonZeroUsize = match NonZeroUsize::new(1) {
-    Some(t) => t,
-    _ => panic!(),
-};
-
 //---------------------------------------------------------------------------------------------------- Thread Count & Percent
 #[allow(non_snake_case)]
 /// Get the total amount of system threads.
@@ -21,7 +14,7 @@ const NON_ZERO_USIZE_1: NonZeroUsize = match NonZeroUsize::new(1) {
 /// assert!(threads().get() >= 1);
 /// ```
 pub fn threads() -> NonZeroUsize {
-    std::thread::available_parallelism().unwrap_or(NON_ZERO_USIZE_1)
+    std::thread::available_parallelism().unwrap_or(NonZeroUsize::MIN)
 }
 
 // Implement a function for the various
