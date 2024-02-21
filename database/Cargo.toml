@@ -22,6 +22,9 @@ cfg-if         = { workspace = true }
 # Figure out how to enable features of an already pulled in dependency conditionally.
 cuprate-helper = { path = "../helper", features = ["fs", "thread"] }
 paste          = { workspace = true }
+# Needed for database resizes.
+# They must be a multiple of the OS page size.
+page_size      = { version = "0.6.0" }
 thiserror      = { workspace = true }
 
 # `service` feature.
