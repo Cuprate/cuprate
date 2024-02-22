@@ -15,6 +15,7 @@ use crate::{env::Env, ConcreteEnv};
 /// Calling [`heed::Env::resize`] is surprisingly fast,
 /// around `0.0000082s` on my machine. We could probably
 /// get away with smaller and more frequent resizes.
+/// **With the caveat being we are taking a `WriteGuard` to a `RwLock`.**
 ///
 /// # Method
 /// This function mostly matches `monerod`'s current resize implementation[^1],

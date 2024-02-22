@@ -1,8 +1,6 @@
 # Database
 Cuprate's database implementation.
 
-TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.
-
 <!-- Did you know markdown automatically increments number lists, even if they are all 1...? -->
 1. [Documentation](#documentation)
 1. [File Structure](#file-structure)
@@ -19,6 +17,9 @@ TODO: document `Pod` and how databases use (de)serialize objects when storing/fe
     - [ConcreteEnv](#concreteenvConcreteEnv
     - [Thread-pool](#thread-pool)
     - [Service](#service)
+1. [Resizing](#resizing)
+1. [Flushing](#flushing)
+1. [(De)serialization](#deserialization)
 
 ---
 
@@ -53,7 +54,6 @@ The code within `src/` is also littered with some `grep`-able comments containin
 | `HACK`      | This code is a brittle workaround
 | `PERF`      | This code is weird for performance reasons
 | `TODO`      | This must be implemented; There should be 0 of these in production code
-| `DOC`       | This must be documented; a `TODO` for documentation
 | `SOMEDAY`   | This should be implemented... someday
 
 # File Structure
@@ -151,3 +151,18 @@ TODO: update with accurate information when ready, update image.
 ## ConcreteEnv
 ## Thread
 ## Service
+
+# Resizing
+TODO: document resize algorithm:
+- Exactly when it occurs
+- How much bytes are added
+
+All backends follow the same algorithm.
+
+# Flushing
+TODO: document disk flushing behavior.
+- Config options
+- Backend-specific behavior
+
+# (De)serialization
+TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.

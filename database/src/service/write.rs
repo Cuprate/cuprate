@@ -154,7 +154,7 @@ impl DatabaseWriter {
         // INVARIANT:
         // [`Env`]'s that are `MANUAL_RESIZE` are expected to implement
         // their internals such that we have exclusive access when calling
-        // this function. _We_ do not handle the exclusion part, `resize_map()`
+        // this function. We do not handle the exclusion part, `resize_map()`
         // itself does. The `heed` backend does this with `RwLock`.
         //
         // We need mutual exclusion due to:

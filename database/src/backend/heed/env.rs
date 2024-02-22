@@ -31,12 +31,14 @@ pub struct ConcreteEnv {
     /// `reader_count` would be spinned on until 0, at which point
     /// we are safe to resize.
     ///
-    /// 3 atomic operations (check atomic bool, reader_count++, reader_count--)
-    /// turns out to be roughly as expensive as acquiring a non-contended read lock,
-    /// and also, we'd have to fix the ABA problem described here:
-    /// <https://github.com/monero-project/monero/issues/9193>
-    /// <https://en.wikipedia.org/wiki/ABA_problem>
-    /// so, going with `RwLock` is simpler.
+    /// Although, 3 atomic operations (check atomic bool, reader_count++, reader_count--)
+    /// turns out to be roughly as expensive as acquiring a non-contended `RwLock`,
+    /// the CPU sleeping instead of spinning is much better too.
+    ///
+    /// # `unwrap()`
+    /// This will be [`unwrap()`]ed everywhere.
+    ///
+    /// If lock is poisoned, we want all of Cuprate to panic.
     env: RwLock<heed::Env>,
 
     /// The configuration we were opened with

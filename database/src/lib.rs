@@ -1,5 +1,11 @@
 //! Database abstraction and utilities.
 //!
+//! This documentation is mostly for practical usage of `cuprate_database`.
+//!
+//! For a high-level overview,
+//! see [`database/README.md`](https://github.com/Cuprate/cuprate/blob/main/database/README.md).
+//!
+//! # Purpose
 //! This crate does 3 things:
 //! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`Key`], [`RoTx`], and [`RwTx`] traits
 //! 2. Implements various `Monero` related [functions](ops) & [`tables`]
