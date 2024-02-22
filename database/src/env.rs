@@ -70,6 +70,11 @@ pub trait Env: Sized {
     fn disk_size_bytes(&self) -> std::io::Result<u64> {
         // We have the direct PATH to the file,
         // no need to use backend-specific functions.
+        //
+        // SAFETY: as we are only accessing the metadata of
+        // the file and not reading the bytes, it should be
+        // fine even with a memory mapped file being actively
+        // written to.
         Ok(std::fs::File::open(&self.config().db_file)?
             .metadata()?
             .len())
