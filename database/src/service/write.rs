@@ -149,7 +149,9 @@ impl DatabaseWriter {
         }
 
         let current_map_size = self.db.current_map_size();
-        let new_size_bytes = crate::free::resize_memory_map(current_map_size);
+
+        // TODO: use the `Config`'s resize option.
+        let new_size_bytes = crate::resize::monero(current_map_size).get();
 
         // INVARIANT:
         // [`Env`]'s that are `MANUAL_RESIZE` are expected to implement

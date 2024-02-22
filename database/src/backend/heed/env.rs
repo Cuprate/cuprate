@@ -84,9 +84,6 @@ impl Env for ConcreteEnv {
     }
 
     fn resize_map(&self, new_size: usize) {
-        let current_size = self.current_map_size();
-        let new_size = crate::resize_memory_map(current_size);
-
         // SAFETY:
         // Resizing requires that we have
         // exclusive access to the database environment.

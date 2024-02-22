@@ -285,7 +285,8 @@ mod error;
 pub use error::{InitError, RuntimeError};
 
 mod free;
-pub use free::resize_memory_map;
+
+pub mod resize;
 
 mod key;
 pub use key::{DupKey, Key};

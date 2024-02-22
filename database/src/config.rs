@@ -10,6 +10,8 @@ use cuprate_helper::fs::{cuprate_database_dir, CUPRATE_DATABASE_FILE};
 #[allow(unused_imports)] // docs
 use crate::env::Env;
 
+use crate::resize::ResizeAlgorithm;
+
 //---------------------------------------------------------------------------------------------------- Config
 /// Database [`Env`] configuration.
 ///
@@ -36,6 +38,9 @@ pub struct Config {
 
     /// Database reader thread count.
     pub reader_threads: ReaderThreads,
+
+    /// TODO
+    pub resize_algorithm: ResizeAlgorithm,
 }
 
 impl Config {
@@ -62,6 +67,7 @@ impl Config {
             db_file,
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::OnePerThread,
+            resize_algorithm: ResizeAlgorithm::new(),
         }
     }
 
@@ -73,6 +79,7 @@ impl Config {
             db_file,
             sync_mode: SyncMode::Fastest,
             reader_threads: ReaderThreads::OnePerThread,
+            resize_algorithm: ResizeAlgorithm::new(),
         }
     }
 
@@ -84,6 +91,7 @@ impl Config {
             db_file,
             sync_mode: SyncMode::Safe,
             reader_threads: ReaderThreads::One,
+            resize_algorithm: ResizeAlgorithm::new(),
         }
     }
 }

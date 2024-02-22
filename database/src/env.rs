@@ -100,6 +100,12 @@ pub trait Env: Sized {
     /// there are no other readers or writers.
     ///
     /// <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
+    ///
+    /// # Panics
+    /// This function should panic if `new_size_bytes < self.disk_size_bytes()`
+    /// or if `new_size_bytes` is not a multiple of the OS page size.
+    ///
+    /// Use the items in [`crate::resize`] for this.
     fn resize_map(&self, new_size_bytes: usize) {
         unreachable!()
     }
