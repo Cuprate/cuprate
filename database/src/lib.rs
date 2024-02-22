@@ -267,9 +267,7 @@ pub use backend::ConcreteEnv;
 pub mod config;
 
 mod constants;
-pub use constants::{
-    CUPRATE_DATABASE_CORRUPT_MSG, CUPRATE_DATABASE_DIR, CUPRATE_DATABASE_FILE, DATABASE_BACKEND,
-};
+pub use constants::{CUPRATE_DATABASE_CORRUPT_MSG, DATABASE_BACKEND};
 
 mod database;
 pub use database::Database;

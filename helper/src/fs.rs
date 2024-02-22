@@ -41,6 +41,20 @@ pub const CUPRATE_DIR: &str = {
     }
 };
 
+/// Cuprate's database filename.
+///
+/// This is the filename for Cuprate's database, used in [`cuprate_database_file`].
+///
+/// | OS      | PATH                                                                 |
+/// |---------|----------------------------------------------------------------------|
+/// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\database\data.mdb`           |
+/// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/database/data.mdb` |
+/// | Linux   | `/home/alice/.local/share/cuprate/database/data.mdb`                 |
+///
+/// # Monero Equivalent
+/// `data.mdb`
+pub const CUPRATE_DATABASE_FILE: &str = "data.mdb"; // INVARIANT: must be changed in `impl_path_oncelock_and_fn` as well
+
 //---------------------------------------------------------------------------------------------------- Directories
 /// Create a (private) `OnceLock` and accessor function for common PATHs used by Cuprate.
 ///
@@ -104,6 +118,9 @@ macro_rules! impl_path_oncelock_and_fn {
     )*};
 }
 
+// Note that the `OnceLock`'s are prefixed with `__` to indicate:
+// 1. They're not really to be used directly
+// 2. To avoid name conflicts
 impl_path_oncelock_and_fn! {
     /// Cuprate's cache directory.
     ///
@@ -116,7 +133,7 @@ impl_path_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.cache/cuprate/`           |
     cuprate_cache_dir,
     cache_dir,
-    CUPRATE_CACHE_DIR,
+    __CUPRATE_CACHE_DIR,
     "",
 
     /// Cuprate's config directory.
@@ -130,7 +147,7 @@ impl_path_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.config/cuprate/`                      |
     cuprate_config_dir,
     config_dir,
-    CUPRATE_CONFIG_DIR,
+    __CUPRATE_CONFIG_DIR,
     "",
 
     /// Cuprate's data directory.
@@ -144,7 +161,7 @@ impl_path_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.local/share/cuprate/`                 |
     cuprate_data_dir,
     data_dir,
-    CUPRATE_DATA_DIR,
+    __CUPRATE_DATA_DIR,
     "",
 
     /// Cuprate's database directory.
@@ -158,8 +175,22 @@ impl_path_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.local/share/cuprate/database/`                 |
     cuprate_database_dir,
     data_dir,
-    CUPRATE_DATABASE_DIR,
+    __CUPRATE_DATABASE_DIR,
     "database",
+
+    /// Cuprate's database file.
+    ///
+    /// This is the PATH used for the actual Cuprate database file.
+    ///
+    /// | OS      | PATH                                                                 |
+    /// |---------|----------------------------------------------------------------------|
+    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\database\data.mdb`           |
+    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/database/data.mdb` |
+    /// | Linux   | `/home/alice/.local/share/cuprate/database/data.mdb`                 |
+    cuprate_database_file,
+    data_dir,
+    __CUPRATE_DATABASE_FILE,
+    "database/data.mdb",
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -178,6 +209,7 @@ mod test {
         assert!(cuprate_config_dir().is_absolute());
         assert!(cuprate_data_dir().is_absolute());
         assert!(cuprate_database_dir().is_absolute());
+        assert!(cuprate_database_file().is_absolute());
 
         if cfg!(target_os = "windows") {
             let dir = cuprate_cache_dir();
@@ -195,6 +227,10 @@ mod test {
             let dir = cuprate_database_dir();
             println!("cuprate_database_dir: {dir:?}");
             assert!(dir.ends_with(r"AppData\Roaming\Cuprate\database"));
+
+            let dir = cuprate_database_file();
+            println!("cuprate_database_file: {dir:?}");
+            assert!(dir.ends_with(r"AppData\Roaming\Cuprate\database\data.mdb"));
         } else if cfg!(target_os = "macos") {
             let dir = cuprate_cache_dir();
             println!("cuprate_cache_dir: {dir:?}");
@@ -211,6 +247,10 @@ mod test {
             let dir = cuprate_database_dir();
             println!("cuprate_database_dir: {dir:?}");
             assert!(dir.ends_with("Library/Application Support/Cuprate/database"));
+
+            let dir = cuprate_database_file();
+            println!("cuprate_database_file: {dir:?}");
+            assert!(dir.ends_with("Library/Application Support/Cuprate/database/data.mdb"));
         } else {
             // Assumes Linux.
             let dir = cuprate_cache_dir();
@@ -228,6 +268,10 @@ mod test {
             let dir = cuprate_database_dir();
             println!("cuprate_database_dir: {dir:?}");
             assert!(dir.ends_with(".local/share/cuprate/database"));
+
+            let dir = cuprate_database_file();
+            println!("cuprate_database_file: {dir:?}");
+            assert!(dir.ends_with(".local/share/cuprate/database/data.mdb"));
         }
     }
 }

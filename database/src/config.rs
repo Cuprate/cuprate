@@ -5,7 +5,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, num::NonZeroUsize, path::Path};
 
-use cuprate_helper::fs::cuprate_database_dir;
+use cuprate_helper::fs::{cuprate_database_dir, CUPRATE_DATABASE_FILE};
 
 #[allow(unused_imports)] // docs
 use crate::env::Env;
@@ -49,7 +49,7 @@ impl Config {
         );
 
         let mut db_file = db_directory.to_path_buf();
-        db_file.push(crate::constants::CUPRATE_DATABASE_FILE);
+        db_file.push(CUPRATE_DATABASE_FILE);
 
         (db_directory, Cow::Owned(db_file))
     }
