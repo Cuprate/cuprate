@@ -9,7 +9,7 @@
 /// messages if we think the database is corrupted.
 ///
 /// This is meant to be user-friendly.
-pub const CUPRATE_DATABASE_CORRUPT_MSG: &str = r"Cuprate has encountered a fatal error. The database may be corrupted.
+pub const DATABASE_CORRUPT_MSG: &str = r"Cuprate has encountered a fatal error. The database may be corrupted.
 
 TODO: instructions on:
 1. What to do

@@ -4,16 +4,15 @@
 //! [`ConcreteEnv`] resizes it's memory map when needing more space.
 //! This value is in [`Config`] and can be selected at runtime.
 //!
-//! Although, it is only used by [`ConcreteEnv`] if [`Env::MANUAL_RESIZE`] is `true`.
+//! Although, it is only used by `ConcreteEnv` if [`Env::MANUAL_RESIZE`] is `true`.
 //!
 //! The algorithms are available as free functions in this module as well.
 //!
 //! # Page size
 //! All free functions in this module will
 //! return a multiple of the OS page size ([`page_size()`]),
-//! as LMDB will error[^1] if this is not the case.
-//!
-//! [^1]: <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
+//! [LMDB will error](http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5)
+//! if this is not the case.
 //!
 //! # Invariants
 //! All returned [`NonZeroUsize`] values of the free functions in this module
@@ -37,29 +36,36 @@ use crate::{config::Config, env::Env, ConcreteEnv};
 /// around `0.0000082s` on my machine. We could probably
 /// get away with smaller and more frequent resizes.
 /// **With the caveat being we are taking a `WriteGuard` to a `RwLock`.**
-#[derive(Copy, Clone, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "borsh",
     derive(borsh::BorshSerialize, borsh::BorshDeserialize)
 )]
 pub enum ResizeAlgorithm {
-    /// TODO
+    /// Uses [`monero`].
     Monero,
-    /// TODO
+
+    /// Uses [`fixed_bytes`].
     FixedBytes(NonZeroUsize),
-    /// TODO
+
+    /// Uses [`percent`].
     Percent(f32),
 }
 
 impl ResizeAlgorithm {
-    /// TODO
+    /// Returns [`Self::Monero`].
+    ///
+    /// ```rust
+    /// # use cuprate_database::resize::*;
+    /// assert!(matches!(ResizeAlgorithm::new(), ResizeAlgorithm::Monero));
+    /// ```
     #[inline]
     pub const fn new() -> Self {
         Self::Monero
     }
 
-    /// TODO
+    /// Maps the `self` variant to the free functions in [`crate::resize`].
     #[inline]
     pub fn resize(&self, current_size_bytes: usize) -> NonZeroUsize {
         match self {
@@ -71,6 +77,12 @@ impl ResizeAlgorithm {
 }
 
 impl Default for ResizeAlgorithm {
+    /// Calls [`Self::new`].
+    ///
+    /// ```rust
+    /// # use cuprate_database::resize::*;
+    /// assert_eq!(ResizeAlgorithm::new(), ResizeAlgorithm::default());
+    /// ```
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -180,7 +192,7 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
 /// ```rust,should_panic
 /// # use cuprate_database::resize::*;
 /// // Ridiculous large numbers panic.
-/// fixed_bytes(usize::MAX, 1);
+/// fixed_bytes(1, usize::MAX);
 /// ```
 pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize {
     let page_size = page_size();

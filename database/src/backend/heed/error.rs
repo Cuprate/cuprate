@@ -1,7 +1,7 @@
 //! Conversion from `heed::Error` -> `cuprate_database::RuntimeError`.
 
 //---------------------------------------------------------------------------------------------------- Use
-use crate::constants::CUPRATE_DATABASE_CORRUPT_MSG;
+use crate::constants::DATABASE_CORRUPT_MSG;
 
 //---------------------------------------------------------------------------------------------------- InitError
 impl From<heed::Error> for crate::InitError {
@@ -83,7 +83,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 //
                 // "Requested page not found - this usually indicates corruption."
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.PageNotFound>
-                E2::Corrupted | E2::PageNotFound => panic!("{mdb_error:?}\n{CUPRATE_DATABASE_CORRUPT_MSG}"),
+                E2::Corrupted | E2::PageNotFound => panic!("{mdb_error:?}\n{DATABASE_CORRUPT_MSG}"),
 
                 // These errors should not occur, and if they do,
                 // the best thing `cuprate_database` can do for
