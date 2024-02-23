@@ -9,6 +9,7 @@ use crate::{
     database::Database,
     env::Env,
     error::{InitError, RuntimeError},
+    resize::ResizeAlgorithm,
     table::Table,
 };
 
@@ -83,14 +84,24 @@ impl Env for ConcreteEnv {
         todo!()
     }
 
-    fn resize_map(&self, new_size: usize) {
+    fn resize_map(&self, resize_algorithm: Option<&ResizeAlgorithm>) {
+        let resize_algorithm = resize_algorithm.unwrap_or_else(|| &self.config().resize_algorithm);
+
+        let current_size_bytes = self.current_map_size();
+        let new_size_bytes = resize_algorithm.resize(current_size_bytes);
+
         // SAFETY:
         // Resizing requires that we have
         // exclusive access to the database environment.
         // Our `heed::Env` is wrapped within a `RwLock`,
         // and we have a WriteGuard to it, so we're safe.
         unsafe {
-            self.env.write().unwrap().resize(new_size).unwrap();
+            // INVARIANT: `resize()` returns a valid `usize` to resize to.
+            self.env
+                .write()
+                .unwrap()
+                .resize(new_size_bytes.get())
+                .unwrap();
         }
     }
 

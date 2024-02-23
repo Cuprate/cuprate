@@ -8,6 +8,7 @@ use crate::{
     config::Config,
     database::Database,
     error::{InitError, RuntimeError},
+    resize::ResizeAlgorithm,
     table::Table,
     transaction::{RoTx, RwTx},
 };
@@ -85,7 +86,12 @@ pub trait Env: Sized {
     /// TODO
     fn sync(&self) -> Result<(), RuntimeError>;
 
-    /// Resize the database's memory map to a new size in bytes.
+    /// Resize the database's memory map to a
+    /// new (bigger) size using a [`ResizeAlgorithm`].
+    ///
+    /// By default, this function will use the `ResizeAlgorithm` in [`Env::config`].
+    ///
+    /// If `resize_algorithm` is `Some`, that will be used instead.
     ///
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
@@ -100,13 +106,7 @@ pub trait Env: Sized {
     /// there are no other readers or writers.
     ///
     /// <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-    ///
-    /// # Panics
-    /// This function should panic if `new_size_bytes < self.disk_size_bytes()`
-    /// or if `new_size_bytes` is not a multiple of the OS page size.
-    ///
-    /// Use the items in [`crate::resize`] for this.
-    fn resize_map(&self, new_size_bytes: usize) {
+    fn resize_map(&self, resize_algorithm: Option<&ResizeAlgorithm>) {
         unreachable!()
     }
 

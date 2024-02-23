@@ -148,11 +148,6 @@ impl DatabaseWriter {
             return;
         }
 
-        let current_map_size = self.db.current_map_size();
-
-        // TODO: use the `Config`'s resize option.
-        let new_size_bytes = crate::resize::monero(current_map_size).get();
-
         // INVARIANT:
         // [`Env`]'s that are `MANUAL_RESIZE` are expected to implement
         // their internals such that we have exclusive access when calling
@@ -161,7 +156,12 @@ impl DatabaseWriter {
         //
         // We need mutual exclusion due to:
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-        self.db.resize_map(new_size_bytes);
+        self.db.resize_map(None);
+        // TODO:
+        // We could pass in custom resizes to account for
+        // batch transactions, i.e., we're about to add ~5GB
+        // of data, add that much instead of the default 1GB.
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
     }
 
     /// TODO
