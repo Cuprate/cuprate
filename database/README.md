@@ -140,6 +140,8 @@ cargo doc
 ```
 `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
+TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
+
 ## `sanakirja`
 TODO
 

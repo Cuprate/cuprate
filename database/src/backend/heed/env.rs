@@ -72,7 +72,11 @@ impl Env for ConcreteEnv {
         // and input whatever is in `config.reader_threads` or else
         // LMDB will start throwing errors if there are >126 readers.
         // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
+        //
+        // We should also leave reader slots for other processes, e.g. `xmrblocks`.
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372>
 
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         todo!()
     }
 
