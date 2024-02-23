@@ -1,18 +1,35 @@
 //! Database memory map resizing algorithms.
 //!
-//! TODO.
+//! This modules contains [`ResizeAlgorithm`] which determines how the
+//! [`ConcreteEnv`] resizes it's memory map when needing more space.
+//! This value is in [`Config`] and can be selected at runtime.
+//!
+//! Although, it is only used by [`ConcreteEnv`] if [`Env::MANUAL_RESIZE`] is `true`.
+//!
+//! The algorithms are available as free functions in this module as well.
+//!
+//! # Page size
+//! All free functions in this module will
+//! return a multiple of the OS page size ([`page_size()`]),
+//! as LMDB will error[^1] if this is not the case.
+//!
+//! [^1]: <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
+//!
+//! # Invariants
+//! All returned [`NonZeroUsize`] values of the free functions in this module
+//! (including [`ResizeAlgorithm::resize`]) uphold the following invariants:
+//! 1. It will always be `>=` the input `current_size_bytes`
+//! 2. It will always be a multiple of [`page_size()`]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, sync::OnceLock};
 
 #[allow(unused_imports)] // docs
-use crate::{env::Env, ConcreteEnv};
+use crate::{config::Config, env::Env, ConcreteEnv};
 
 //---------------------------------------------------------------------------------------------------- ResizeAlgorithm
 /// The function/algorithm used by the
 /// database when resizing the memory map.
-///
-/// This is only used by [`ConcreteEnv`] if [`Env::MANUAL_RESIZE`] is `true`.
 ///
 /// # TODO
 /// We could test around with different algorithms.
@@ -37,11 +54,13 @@ pub enum ResizeAlgorithm {
 
 impl ResizeAlgorithm {
     /// TODO
+    #[inline]
     pub const fn new() -> Self {
         Self::Monero
     }
 
     /// TODO
+    #[inline]
     pub fn resize(&self, current_size_bytes: usize) -> NonZeroUsize {
         match self {
             Self::Monero => monero(current_size_bytes),
@@ -52,15 +71,28 @@ impl ResizeAlgorithm {
 }
 
 impl Default for ResizeAlgorithm {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Free functions
-// `page_size` itself caches the result, so we don't need to,
-// this function is cheap after 1st call: <https://docs.rs/page_size>.
-pub use page_size::get as page_size;
+/// Cached result of [`page_size()`].
+static PAGE_SIZE: OnceLock<NonZeroUsize> = OnceLock::new();
+/// This function retrieves the system’s memory page size.
+///
+/// It is just [`page_size::get`](https://docs.rs/page_size) internally.
+///
+/// This caches the result, so this function is cheap after the 1st call.
+///
+/// # Panics
+/// This function will panic if the OS returns of page size of `0` (impossible?).
+#[inline]
+pub fn page_size() -> NonZeroUsize {
+    *PAGE_SIZE
+        .get_or_init(|| NonZeroUsize::new(page_size::get()).expect("page_size::get() returned 0"))
+}
 
 /// Memory map resize closely matching `monerod`.
 ///
@@ -81,10 +113,19 @@ pub use page_size::get as page_size;
 ///
 /// // 0 returns the minimum value.
 /// assert_eq!(monero(0).get(), N);
+///
 /// // Rounds up to nearest OS page size.
-/// assert_eq!(monero(1).get(), N + page_size());
+/// assert_eq!(monero(1).get(), N + page_size().get());
 /// ```
-#[allow(clippy::missing_panics_doc)] // Can't panic.
+///
+/// # Panics
+/// This function will panic if adding onto `current_size_bytes` overflows [`usize::MAX`].
+///
+/// ```rust,should_panic
+/// # use cuprate_database::resize::*;
+/// // Ridiculous large numbers panic.
+/// monero(usize::MAX);
+/// ```
 pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
     /// The exact expression used by `monerod`
     /// when calculating how many bytes to add.
@@ -95,20 +136,14 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
     /// <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L553>
     const ADD_SIZE: usize = 1_usize << 30;
 
-    // SAFETY: If this overflows, we should definitely panic.
-    // `u64::MAX` bytes is... ~18,446,744 terabytes.
+    let page_size = page_size().get();
     let new_size_bytes = current_size_bytes + ADD_SIZE;
-
-    // INVARIANT: Round up to the nearest OS page size multiple.
-    // LMDB/heed will error if this is not the case:
-    // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-    let page_size = page_size();
 
     // Round up the new size to the
     // nearest multiple of the OS page size.
     let remainder = new_size_bytes % page_size;
 
-    // SAFETY: minimum is always at least `ADD_SIZE`.
+    // INVARIANT: minimum is always at least `ADD_SIZE`.
     NonZeroUsize::new(if remainder == 0 {
         new_size_bytes
     } else {
@@ -117,12 +152,63 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
     .unwrap()
 }
 
-/// TODO
-pub fn fixed_bytes(current_size_bytes: usize, bytes: usize) -> NonZeroUsize {
-    todo!()
+/// Memory map resize by a fixed amount of bytes.
+///
+/// # Method
+/// This function will `current_size_bytes + add_bytes`
+/// and then round up to nearest OS page size.
+///
+/// ```rust
+/// # use cuprate_database::resize::*;
+/// let page_size: usize = page_size().get();
+///
+/// // Anything below the page size will round up to the page size.
+/// for i in 0..=page_size {
+///     assert_eq!(fixed_bytes(0, i).get(), page_size);
+/// }
+///
+/// // (page_size + 1) will round up to (page_size * 2).
+/// assert_eq!(fixed_bytes(page_size, 1).get(), page_size * 2);
+///
+/// // (page_size + page_size) doesn't require any rounding.
+/// assert_eq!(fixed_bytes(page_size, page_size).get(), page_size * 2);
+/// ```
+///
+/// # Panics
+/// This function will panic if adding onto `current_size_bytes` overflows [`usize::MAX`].
+///
+/// ```rust,should_panic
+/// # use cuprate_database::resize::*;
+/// // Ridiculous large numbers panic.
+/// fixed_bytes(usize::MAX, 1);
+/// ```
+pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize {
+    let page_size = page_size();
+    let new_size_bytes = current_size_bytes + add_bytes;
+
+    // Guard against < page_size.
+    if new_size_bytes <= page_size.get() {
+        return page_size;
+    }
+
+    // Round up the new size to the
+    // nearest multiple of the OS page size.
+    let remainder = new_size_bytes % page_size;
+
+    // INVARIANT: we guarded against < page_size above.
+    NonZeroUsize::new(if remainder == 0 {
+        new_size_bytes
+    } else {
+        (new_size_bytes + page_size.get()) - remainder
+    })
+    .unwrap()
 }
 
-/// TODO
+/// The function/algorithm used by the
+/// database when resizing the memory map.
+///
+/// This is only used by [`ConcreteEnv`] if [`Env::MANUAL_RESIZE`] is `true`.
+#[allow(clippy::missing_panics_doc)] // Can't panic on `NewZeroUsize::new`
 pub fn percent(current_size_bytes: usize, percent: f32) -> NonZeroUsize {
     todo!()
 }
