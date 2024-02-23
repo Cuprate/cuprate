@@ -204,13 +204,93 @@ pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize 
     .unwrap()
 }
 
-/// The function/algorithm used by the
-/// database when resizing the memory map.
+/// Memory map resize by a percentage.
 ///
-/// This is only used by [`ConcreteEnv`] if [`Env::MANUAL_RESIZE`] is `true`.
-#[allow(clippy::missing_panics_doc)] // Can't panic on `NewZeroUsize::new`
+/// # Method
+/// This function will multiply `current_size_bytes` by `percent`.
+///
+/// Any input `<= 1.0` or non-normal float ([`f32::NAN`], [`f32::INFINITY`])
+/// will make the returning `NonZeroUsize` the same as `current_size_bytes`
+/// (rounded up to the OS page size).
+///
+/// ```rust
+/// # use cuprate_database::resize::*;
+/// let page_size: usize = page_size().get();
+///
+/// // Anything below the page size will round up to the page size.
+/// for i in 0..=page_size {
+///     assert_eq!(percent(i, 1.0).get(), page_size);
+/// }
+///
+/// // Same for 2 page sizes.
+/// for i in (page_size + 1)..=(page_size * 2) {
+///     assert_eq!(percent(i, 1.0).get(), page_size * 2);
+/// }
+///
+/// // Weird floats do nothing.
+/// assert_eq!(percent(page_size, f32::NAN).get(), page_size);
+/// assert_eq!(percent(page_size, f32::INFINITY).get(), page_size);
+/// assert_eq!(percent(page_size, f32::NEG_INFINITY).get(), page_size);
+/// assert_eq!(percent(page_size, -1.0).get(), page_size);
+/// assert_eq!(percent(page_size, 0.999).get(), page_size);
+/// ```
+///
+/// # Panics
+/// This function will panic if `current_size_bytes * percent`
+/// is closer to [`usize::MAX`] than the OS page size.
+///
+/// ```rust,should_panic
+/// # use cuprate_database::resize::*;
+/// // Ridiculous large numbers panic.
+/// percent(usize::MAX, 1.001);
+/// ```
 pub fn percent(current_size_bytes: usize, percent: f32) -> NonZeroUsize {
-    todo!()
+    // Guard against bad floats.
+    use std::num::FpCategory;
+    let percent = match percent.classify() {
+        FpCategory::Normal => {
+            if percent <= 1.0 {
+                1.0
+            } else {
+                percent
+            }
+        }
+        _ => 1.0,
+    };
+
+    let page_size = page_size();
+
+    // INVARIANT: Allow `f32` <-> `usize` casting, we handle all cases.
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_precision_loss
+    )]
+    let new_size_bytes = ((current_size_bytes as f32) * percent) as usize;
+
+    // Panic if rounding up to the nearest page size would overflow.
+    let new_size_bytes = if new_size_bytes > (usize::MAX - page_size.get()) {
+        panic!("new_size_bytes is percent() near usize::MAX");
+    } else {
+        new_size_bytes
+    };
+
+    // Guard against < page_size.
+    if new_size_bytes <= page_size.get() {
+        return page_size;
+    }
+
+    // Round up the new size to the
+    // nearest multiple of the OS page size.
+    let remainder = new_size_bytes % page_size;
+
+    // INVARIANT: we guarded against < page_size above.
+    NonZeroUsize::new(if remainder == 0 {
+        new_size_bytes
+    } else {
+        (new_size_bytes + page_size.get()) - remainder
+    })
+    .unwrap()
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
