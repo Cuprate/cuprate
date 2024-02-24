@@ -1,4 +1,4 @@
-//! Database resizing algorithms.
+//! General free functions (related to the database).
 //!
 //! TODO.
 

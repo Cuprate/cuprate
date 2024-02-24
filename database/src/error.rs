@@ -74,7 +74,7 @@ pub enum InitError {
 ///
 /// TODO: Our errors + thread-pool are heavily tied in with
 /// the rest of `cuprate_database`. Using `cuprate_database` without
-/// the `service` module is basically doesn't work since valid errors
+/// the `service` module basically doesn't work since valid errors
 /// (like database shutting down) will panic.
 ///
 /// Should `cuprate_database` be attached to `service`?
