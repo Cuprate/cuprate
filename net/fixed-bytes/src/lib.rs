@@ -1,6 +1,7 @@
-use core::ops::Deref;
-use std::fmt::{Debug, Formatter};
-use std::ops::Index;
+use core::{
+    fmt::{Debug, Formatter},
+    ops::{Deref, Index},
+};
 
 use bytes::Bytes;
 

@@ -1,6 +1,5 @@
-use std::fmt::Formatter;
 use std::{
-    fmt::{Debug, Display},
+    fmt::{Debug, Display, Formatter},
     task::{Context, Poll},
 };
 
@@ -11,9 +10,7 @@ use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
-use crate::{
-    handles::ConnectionHandle, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
-};
+use crate::{ConnectionDirection, handles::ConnectionHandle, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError};
 
 mod connection;
 mod connector;
@@ -42,6 +39,8 @@ impl<A: Display> Display for InternalPeerID<A> {
 pub struct Client<Z: NetworkZone> {
     id: InternalPeerID<Z::Addr>,
     handle: ConnectionHandle,
+    
+    direction: ConnectionDirection,
 
     connection_tx: PollSender<connection::ConnectionTaskRequest>,
     connection_handle: JoinHandle<()>,
@@ -53,6 +52,7 @@ impl<Z: NetworkZone> Client<Z> {
     pub fn new(
         id: InternalPeerID<Z::Addr>,
         handle: ConnectionHandle,
+        direction: ConnectionDirection,
         connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
         connection_handle: JoinHandle<()>,
         error: SharedError<PeerError>,
@@ -60,6 +60,7 @@ impl<Z: NetworkZone> Client<Z> {
         Self {
             id,
             handle,
+            direction,
             connection_tx: PollSender::new(connection_tx),
             connection_handle,
             error,

@@ -12,6 +12,7 @@ members = [
 	"net/levin",
 	"net/monero-wire",
 	"p2p/monero-p2p",
+	"p2p/cuprate-p2p",
 	"p2p/address-book",
 	"pruning",
 	"test-utils",
@@ -50,6 +51,7 @@ dirs                  = { version = "5.0.1", default-features = false }
 futures               = { version = "0.3.29", default-features = false }
 hex                   = { version = "0.4.3", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
+indexmap              = { version = "2.2", default-features = false }
 monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
 multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
 paste                 = { version = "1.0.14", default-features = false }

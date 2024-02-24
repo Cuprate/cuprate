@@ -113,7 +113,7 @@ async fn handshake_cuprate_to_monerod() {
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
-    let monerod = monerod(["--fixed-difficulty=1", "--out-peers=0"]).await;
+    let monerod = monerod(["--out-peers=0"]).await;
 
     let our_basic_node_data = BasicNodeData {
         my_port: 0,

@@ -315,7 +315,7 @@ where
     let connection_handle =
         tokio::spawn(connection.run(peer_stream.fuse(), eager_protocol_messages));
 
-    let client = Client::<Z>::new(addr, handle, connection_tx, connection_handle, error_slot);
+    let client = Client::<Z>::new(addr, handle, direction, connection_tx, connection_handle, error_slot);
 
     Ok(client)
 }

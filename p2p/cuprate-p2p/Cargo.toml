@@ -1,0 +1,18 @@
+[package]
+name = "cuprate-p2p"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+
+[dependencies]
+monero-wire = { path = "../../net/monero-wire" }
+monero-p2p = { path = "../monero-p2p", features = ["borsh"] }
+
+tower = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
+futures = { workspace = true, features = ["std"] }
+
+bytes = { worspace = true, features = ["std"] }
+indexmap = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std", "attributes"] }
