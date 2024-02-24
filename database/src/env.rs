@@ -106,7 +106,7 @@ pub trait Env: Sized {
     /// there are no other readers or writers.
     ///
     /// <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-    fn resize_map(&self, resize_algorithm: Option<&ResizeAlgorithm>) {
+    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
         unreachable!()
     }
 

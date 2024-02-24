@@ -88,8 +88,8 @@ impl Env for ConcreteEnv {
         todo!()
     }
 
-    fn resize_map(&self, resize_algorithm: Option<&ResizeAlgorithm>) {
-        let resize_algorithm = resize_algorithm.unwrap_or_else(|| &self.config().resize_algorithm);
+    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
+        let resize_algorithm = resize_algorithm.unwrap_or_else(|| self.config().resize_algorithm);
 
         let current_size_bytes = self.current_map_size();
         let new_size_bytes = resize_algorithm.resize(current_size_bytes);
