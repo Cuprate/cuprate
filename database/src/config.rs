@@ -185,10 +185,24 @@ impl ReaderThreads {
 }
 
 impl<T: Into<usize>> From<T> for ReaderThreads {
+    /// Will convert anything that can be a `usize` into a [`ReaderThreads`]
+    ///
+    /// # `0` as input
+    /// As `ReaderThreads` has an invariant that it is non-zero,
+    /// this function has the behavior of assuming `0` means
+    /// `maximum value`.
+    ///
+    /// As such, `ReaderThreads::from(0)` will select the maximum amount of threads.
+    ///
+    /// ```rust
+    /// # use cuprate_database::config::*;
+    /// let reader_threads = ReaderThreads::from(0);
+    /// assert!(matches!(reader_threads, ReaderThreads::OnePerThread));
+    /// ```
     fn from(value: T) -> Self {
         match NonZeroUsize::new(value.into()) {
             Some(n) => Self::Number(n),
-            None => Self::One,
+            None => Self::OnePerThread,
         }
     }
 }
