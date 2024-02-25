@@ -609,9 +609,9 @@ dependencies = [
  "futures",
  "monero-p2p",
  "monero-wire",
- "rand",
  "reqwest",
  "tar",
+ "tempfile",
  "tokio",
  "zip",
 ]

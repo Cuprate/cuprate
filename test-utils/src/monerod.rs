@@ -4,12 +4,9 @@
 //! this to test compatibility with monerod.
 //!
 use std::{
-    env::temp_dir,
     ffi::OsStr,
-    fs::remove_dir_all,
     io::Read,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener},
-    path::PathBuf,
     process::{Child, Command, Stdio},
     str::from_utf8,
     thread::panicking,
@@ -37,7 +34,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
     let p2p_port = get_available_port(&[rpc_port]);
     let zmq_port = get_available_port(&[rpc_port, p2p_port]);
 
-    let db_location = temp_dir().join(format!("monerod_data_{}", rand::random::<u64>()));
+    let data_dir = tempfile::tempdir().unwrap();
 
     let mut monerod = Command::new(path_to_monerod)
         .stdout(Stdio::piped())
@@ -48,7 +45,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
         .arg(format!("--p2p-bind-port={p2p_port}"))
         .arg(format!("--rpc-bind-port={rpc_port}"))
         .arg(format!("--zmq-rpc-bind-port={zmq_port}"))
-        .arg(format!("--data-dir={}", db_location.display()))
+        .arg(format!("--data-dir={}", data_dir.path().display()))
         .arg("--non-interactive")
         .spawn()
         .unwrap();
@@ -86,7 +83,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
         process: monerod,
         rpc_port,
         p2p_port,
-        data_dir: db_location,
+        _data_dir: data_dir,
         start_up_logs: logs,
     }
 }
@@ -114,8 +111,8 @@ pub struct SpawnedMoneroD {
     rpc_port: u16,
     /// The P2P port of the monerod instance.
     p2p_port: u16,
-    /// The Path to the monerod data-dir
-    data_dir: PathBuf,
+    /// The data dir for monerod - when this is dropped the dir will be deleted.
+    _data_dir: tempfile::TempDir,
     /// The logs upto [`MONEROD_STARTUP_TEXT`].
     start_up_logs: String,
 }
@@ -160,20 +157,6 @@ impl Drop for SpawnedMoneroD {
             println!("-----START-MONEROD-LOGS-----");
             println!("{}{out}", self.start_up_logs);
             println!("------END-MONEROD-LOGS------");
-        }
-
-        if let Err(e) = remove_dir_all(&self.data_dir) {
-            // TODO: This fails on windows, this *shouldn't* matter too much as CI will not cache this dir
-            // and we *probably* won't have a lot of devs running tests on windows but it is something
-            // that will probably need to be looked at.
-            #[cfg(not(windows))]
-            {
-                error = true;
-            }
-            println!(
-                "Could not remove monerod data-dir at: {:?}, error: {}",
-                self.data_dir, e
-            )
         }
 
         if error && !panicking() {
