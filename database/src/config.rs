@@ -96,6 +96,11 @@ impl Config {
             resize_algorithm: ResizeAlgorithm::new(),
         }
     }
+
+    /// Return the absolute [`Path`] to the database data file.
+    pub fn db_file_path(&self) -> &Path {
+        &self.db_file
+    }
 }
 
 impl Default for Config {
