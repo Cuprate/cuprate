@@ -36,7 +36,7 @@
 //! - The last [`DatabaseReadHandle`] is dropped => reader thread-pool exits
 //! - The last [`DatabaseWriteHandle`] is dropped => writer thread exits
 //!
-//! Upon dropping the writer handle:
+//! Upon dropping the [`crate::ConcreteEnv`]:
 //! - All un-processed database transactions are completed
 //! - All data gets flushed to disk (caused by [`Drop::drop`] impl of [`crate::ConcreteEnv`])
 //!
