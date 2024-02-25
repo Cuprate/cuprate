@@ -48,16 +48,18 @@ pub const CUPRATE_DIR: &str = {
 /// - [`cuprate_cache_dir()`]
 /// - [`cuprate_config_dir()`]
 /// - [`cuprate_data_dir()`]
+/// - [`cuprate_database_dir()`]
 ///
 /// FIXME: Use `LazyLock` when stabilized.
 /// <https://github.com/rust-lang/rust/issues/109736>.
 /// <https://doc.rust-lang.org/std/sync/struct.LazyLock.html>.
-macro_rules! impl_dir_oncelock_and_fn {
+macro_rules! impl_path_oncelock_and_fn {
     ($(
         $(#[$attr:meta])* // Documentation and any `derive`'s.
         $fn:ident,        // Name of the corresponding access function.
         $dirs_fn:ident,   // Name of the `dirs` function to use, the PATH prefix.
-        $once_lock:ident  // Name of the `OnceLock`.
+        $once_lock:ident, // Name of the `OnceLock`.
+        $sub_dirs:literal // Any sub-directories to add onto the PATH.
     ),* $(,)?) => {$(
         /// Local `OnceLock` containing the Path.
         static $once_lock: OnceLock<PathBuf> = OnceLock::new();
@@ -88,14 +90,24 @@ macro_rules! impl_dir_oncelock_and_fn {
                 // Returned OS PATH should be absolute, not relative.
                 assert!(path.is_absolute(), "SAFETY: returned OS PATH was not absolute");
 
+                // Unconditionally prefix with the top-level Cuprate directory.
                 path.push(CUPRATE_DIR);
+
+                // Add any sub directories if specified in the macro.
+                if !$sub_dirs.is_empty() {
+                    path.push($sub_dirs);
+                }
+
                 path
             })
         }
     )*};
 }
 
-impl_dir_oncelock_and_fn! {
+// Note that the `OnceLock`'s are prefixed with `__` to indicate:
+// 1. They're not really to be used directly
+// 2. To avoid name conflicts
+impl_path_oncelock_and_fn! {
     /// Cuprate's cache directory.
     ///
     /// This is the PATH used for any Cuprate cache files.
@@ -107,7 +119,8 @@ impl_dir_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.cache/cuprate/`           |
     cuprate_cache_dir,
     cache_dir,
-    CUPRATE_CACHE_DIR,
+    __CUPRATE_CACHE_DIR,
+    "",
 
     /// Cuprate's config directory.
     ///
@@ -120,7 +133,8 @@ impl_dir_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.config/cuprate/`                      |
     cuprate_config_dir,
     config_dir,
-    CUPRATE_CONFIG_DIR,
+    __CUPRATE_CONFIG_DIR,
+    "",
 
     /// Cuprate's data directory.
     ///
@@ -133,7 +147,22 @@ impl_dir_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.local/share/cuprate/`                 |
     cuprate_data_dir,
     data_dir,
-    CUPRATE_DATA_DIR,
+    __CUPRATE_DATA_DIR,
+    "",
+
+    /// Cuprate's database directory.
+    ///
+    /// This is the PATH used for any Cuprate database files.
+    ///
+    /// | OS      | PATH                                                         |
+    /// |---------|--------------------------------------------------------------|
+    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\database\`           |
+    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/database/` |
+    /// | Linux   | `/home/alice/.local/share/cuprate/database/`                 |
+    cuprate_database_dir,
+    data_dir,
+    __CUPRATE_DATABASE_DIR,
+    "database",
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -141,11 +170,17 @@ impl_dir_oncelock_and_fn! {
 mod test {
     use super::*;
 
+    // Sanity check every PATH defined in this file.
+    //
+    // Each new PATH should be added to this test:
+    // - It must be `is_absolute()`
+    // - It must `ends_with()` the expected end PATH for the OS
     #[test]
-    fn dir_sanity_check() {
+    fn path_sanity_check() {
         assert!(cuprate_cache_dir().is_absolute());
         assert!(cuprate_config_dir().is_absolute());
         assert!(cuprate_data_dir().is_absolute());
+        assert!(cuprate_database_dir().is_absolute());
 
         if cfg!(target_os = "windows") {
             let dir = cuprate_cache_dir();
@@ -159,6 +194,10 @@ mod test {
             let dir = cuprate_data_dir();
             println!("cuprate_data_dir: {dir:?}");
             assert!(dir.ends_with(r"AppData\Roaming\Cuprate"));
+
+            let dir = cuprate_database_dir();
+            println!("cuprate_database_dir: {dir:?}");
+            assert!(dir.ends_with(r"AppData\Roaming\Cuprate\database"));
         } else if cfg!(target_os = "macos") {
             let dir = cuprate_cache_dir();
             println!("cuprate_cache_dir: {dir:?}");
@@ -171,6 +210,10 @@ mod test {
             let dir = cuprate_data_dir();
             println!("cuprate_data_dir: {dir:?}");
             assert!(dir.ends_with("Library/Application Support/Cuprate"));
+
+            let dir = cuprate_database_dir();
+            println!("cuprate_database_dir: {dir:?}");
+            assert!(dir.ends_with("Library/Application Support/Cuprate/database"));
         } else {
             // Assumes Linux.
             let dir = cuprate_cache_dir();
@@ -184,6 +227,10 @@ mod test {
             let dir = cuprate_data_dir();
             println!("cuprate_data_dir: {dir:?}");
             assert!(dir.ends_with(".local/share/cuprate"));
+
+            let dir = cuprate_database_dir();
+            println!("cuprate_database_dir: {dir:?}");
+            assert!(dir.ends_with(".local/share/cuprate/database"));
         }
     }
 }

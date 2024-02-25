@@ -1,8 +1,6 @@
 # Database
 Cuprate's database implementation.
 
-TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.
-
 <!-- Did you know markdown automatically increments number lists, even if they are all 1...? -->
 1. [Documentation](#documentation)
 1. [File Structure](#file-structure)
@@ -16,9 +14,12 @@ TODO: document `Pod` and how databases use (de)serialize objects when storing/fe
 1. [Layers](#layers)
     - [Database](#database)
     - [Trait](#trait)
-    - [ConcreteDatabase](#concretedatabase)
+    - [ConcreteEnv](#concreteenvConcreteEnv
     - [Thread-pool](#thread-pool)
     - [Service](#service)
+1. [Resizing](#resizing)
+1. [Flushing](#flushing)
+1. [(De)serialization](#deserialization)
 
 ---
 
@@ -52,7 +53,7 @@ The code within `src/` is also littered with some `grep`-able comments containin
 | `FIXME`     | This code works but isn't ideal
 | `HACK`      | This code is a brittle workaround
 | `PERF`      | This code is weird for performance reasons
-| `TODO`      | This has to be implemented
+| `TODO`      | This must be implemented; There should be 0 of these in production code
 | `SOMEDAY`   | This should be implemented... someday
 
 # File Structure
@@ -65,6 +66,7 @@ The top-level `src/` files.
 
 | File             | Purpose |
 |------------------|---------|
+| `config.rs`      | Database `Env` configuration
 | `constants.rs`   | General constants used throughout `cuprate-database`
 | `database.rs`    | Abstracted database; `trait Database`
 | `env.rs`         | Abstracted database environment; `trait Env`
@@ -138,6 +140,8 @@ cargo doc
 ```
 `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
+TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
+
 ## `sanakirja`
 TODO
 
@@ -146,6 +150,21 @@ TODO: update with accurate information when ready, update image.
 
 ## Database
 ## Trait
-## ConcreteDatabase
+## ConcreteEnv
 ## Thread
 ## Service
+
+# Resizing
+TODO: document resize algorithm:
+- Exactly when it occurs
+- How much bytes are added
+
+All backends follow the same algorithm.
+
+# Flushing
+TODO: document disk flushing behavior.
+- Config options
+- Backend-specific behavior
+
+# (De)serialization
+TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.

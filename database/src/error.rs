@@ -4,15 +4,12 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::fmt::Debug;
 
-#[allow(unused_imports)] // docs
-use crate::env::Env;
-
 //---------------------------------------------------------------------------------------------------- Types
 /// Alias for a thread-safe boxed error.
 type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 //---------------------------------------------------------------------------------------------------- InitError
-/// Errors that occur during ([`Env::open`]).
+/// Errors that occur during ([`Env::open`](crate::env::Env::open)).
 ///
 /// # Handling
 /// As this is a database initialization error, the correct
@@ -59,16 +56,18 @@ pub enum InitError {
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
-/// Errors that occur _after_ successful ([`Env::open`]).
+/// Errors that occur _after_ successful ([`Env::open`](crate::env::Env::open)).
 ///
 /// There are no errors for:
 /// 1. Missing tables
 /// 2. (De)serialization
+/// 3. Shutdown errors
 ///
 /// as `cuprate_database` upholds the invariant that:
 ///
 /// 1. All tables exist
 /// 2. (De)serialization never fails
+/// 3. The database (thread-pool) only shuts down when all channels are dropped
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
     /// The given key already existed in the database.
@@ -79,12 +78,14 @@ pub enum RuntimeError {
     #[error("key/value pair was not found")]
     KeyNotFound,
 
+    /// The database memory map is full and needs a resize.
+    ///
+    /// # Invariant
+    /// This error can only occur if [`Env::MANUAL_RESIZE`](crate::Env::MANUAL_RESIZE) is `true`.
+    #[error("database memory map must be resized")]
+    ResizeNeeded,
+
     /// A [`std::io::Error`].
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-
-    /// The database is currently in the process
-    /// of shutting down and cannot respond.
-    #[error("database is shutting down")]
-    ShuttingDown,
 }

@@ -6,9 +6,12 @@ use std::{
     task::{Context, Poll},
 };
 
+use crossbeam::channel::Receiver;
+
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
+    config::ReaderThreads,
     error::RuntimeError,
     service::{request::ReadRequest, response::Response},
     ConcreteEnv,
@@ -68,7 +71,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseReader Impl
+//---------------------------------------------------------------------------------------------------- DatabaseReader
 /// Database reader thread.
 ///
 /// This struct essentially represents a thread.
@@ -86,10 +89,19 @@ pub(super) struct DatabaseReader {
     ///
     /// SOMEDAY: this struct itself could cache a return channel
     /// instead of creating a new `oneshot` each request.
-    receiver: crossbeam::channel::Receiver<(ReadRequest, ResponseSend)>,
+    receiver: Receiver<(ReadRequest, ResponseSend)>,
 
     /// Access to the database.
     db: Arc<ConcreteEnv>,
+}
+
+impl Drop for DatabaseReader {
+    fn drop(&mut self) {
+        // INVARIANT: we set the thread name when spawning it.
+        let thread_name = std::thread::current().name().unwrap();
+
+        // TODO: log that this thread has exited?
+    }
 }
 
 impl DatabaseReader {
@@ -101,31 +113,29 @@ impl DatabaseReader {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseReadHandle {
+    pub(super) fn init(db: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> DatabaseReadHandle {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
-        // TODO: slightly _less_ readers per thread may be more ideal.
-        // We could account for the writer count as well such that
-        // readers + writers == total_thread_count
-        //
-        // TODO: take in a config option that allows
-        // manually adjusting this thread-count.
-        let readers = cuprate_helper::thread::threads().get();
+        // How many reader threads to spawn?
+        let reader_count = reader_threads.as_threads();
 
         // Spawn pool of readers.
-        for _ in 0..readers {
+        for i in 0..reader_count.get() {
             let receiver = receiver.clone();
-            let db = db.clone();
+            let db = Arc::clone(db);
 
-            std::thread::spawn(move || {
-                let this = Self { receiver, db };
-
-                Self::main(this);
-            });
+            std::thread::Builder::new()
+                .name(format!("cuprate_helper::service::read::DatabaseReader{i}"))
+                .spawn(move || {
+                    let this = Self { receiver, db };
+                    Self::main(this);
+                })
+                .unwrap();
         }
 
-        // Return a handle to the pool.
+        // Return a handle to the pool and channels to
+        // allow clean shutdown of all reader threads.
         DatabaseReadHandle { sender }
     }
 
@@ -134,20 +144,19 @@ impl DatabaseReader {
     /// Each thread just loops in this function.
     #[cold]
     #[inline(never)] // Only called once.
-    fn main(mut self) {
+    fn main(self) {
+        // 1. Hang on request channel
+        // 2. Map request to some database function
+        // 3. Execute that function, get the result
+        // 4. Return the result via channel
         loop {
-            // 1. Hang on request channel
-            // 2. Map request to some database function
-            // 3. Execute that function, get the result
-            // 4. Return the result via channel
-            let (request, response_send) = match self.receiver.recv() {
-                Ok((r, c)) => (r, c),
-
-                // Shutdown on error.
-                Err(e) => {
-                    Self::shutdown(self);
-                    return;
-                }
+            // Database requests.
+            let Ok((request, response_send)) = self.receiver.recv() else {
+                // If this receive errors, it means that the channel is empty
+                // and disconnected, meaning the other side (all senders) have
+                // been dropped. This means "shutdown", and we return here to
+                // exit the thread.
+                return;
             };
 
             // Map [`Request`]'s to specific database functions.
@@ -155,37 +164,28 @@ impl DatabaseReader {
                 ReadRequest::Example1 => self.example_handler_1(response_send),
                 ReadRequest::Example2(_x) => self.example_handler_2(response_send),
                 ReadRequest::Example3(_x) => self.example_handler_3(response_send),
-                ReadRequest::Shutdown => {
-                    /* TODO: run shutdown code */
-                    Self::shutdown(self);
-
-                    // Return, exiting the thread.
-                    return;
-                }
             }
         }
     }
 
     /// TODO
-    fn example_handler_1(&mut self, response_send: ResponseSend) {
+    #[inline]
+    fn example_handler_1(&self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
-    fn example_handler_2(&mut self, response_send: ResponseSend) {
+    #[inline]
+    fn example_handler_2(&self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
-    fn example_handler_3(&mut self, response_send: ResponseSend) {
+    #[inline]
+    fn example_handler_3(&self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
-    }
-
-    /// TODO
-    fn shutdown(self) {
-        todo!()
     }
 }

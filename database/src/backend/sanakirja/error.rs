@@ -1,7 +1,7 @@
 //! Conversion from `sanakirja::Error` -> `cuprate_database::RuntimeError`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::constants::CUPRATE_DATABASE_CORRUPT_MSG;
+use crate::constants::DATABASE_CORRUPT_MSG;
 
 //---------------------------------------------------------------------------------------------------- InitError
 impl From<sanakirja::Error> for crate::InitError {
@@ -34,7 +34,7 @@ impl From<sanakirja::Error> for crate::RuntimeError {
 
             // A CRC failure essentially  means a `sanakirja` page was corrupt.
             // <https://docs.rs/sanakirja/latest/sanakirja/enum.Error.html#variant.CRC>
-            E::Corrupt(_) | E::CRC(_) => panic!("{error:?}\n{CUPRATE_DATABASE_CORRUPT_MSG}"),
+            E::Corrupt(_) | E::CRC(_) => panic!("{error:?}\n{DATABASE_CORRUPT_MSG}"),
 
             // These errors should not occur, and if they do,
             // the best thing `cuprate_database` can do for

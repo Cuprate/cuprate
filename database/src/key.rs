@@ -1,13 +1,10 @@
 //! Database key abstraction; `trait Key`.
 
 //---------------------------------------------------------------------------------------------------- Import
-#[allow(unused_imports)] // docs
-use crate::table::Table;
-
 use crate::pod::Pod;
 
 //---------------------------------------------------------------------------------------------------- Table
-/// Database [`Table`] key metadata.
+/// Database [`Table`](crate::table::Table) key metadata.
 ///
 /// Purely compile time information for database table keys, supporting duplicate keys.
 pub trait Key {

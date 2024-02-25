@@ -8,16 +8,9 @@
 //! sending database [`Request`](ReadRequest)s and receiving [`Response`]s `async`hronously -
 //! without having to actually worry and handle the database themselves.
 //!
-//! The system is managed by this crate, and only
-//! requires [`init`] and [`shutdown`] by the user.
+//! The system is managed by this crate, and only requires [`init`] by the user.
 //!
 //! This module must be enabled with the `service` feature.
-//!
-//! ## Initialization
-//! The database & thread-pool system can be initialized with [`init()`].
-//!
-//! This causes the underlying database/threads to be setup
-//! and returns a read/write handle to that database.
 //!
 //! ## Handles
 //! The 2 handles to the database are:
@@ -32,6 +25,21 @@
 //! the `DatabaseWriteHandle` cannot be cloned. There is only 1 place in Cuprate that
 //! writes, so it is passed there and used.
 //!
+//! ## Initialization
+//! The database & thread-pool system can be initialized with [`init()`].
+//!
+//! This causes the underlying database/threads to be setup
+//! and returns a read/write handle to that database.
+//!
+//! ## Shutdown
+//! Upon the above handles being dropped, the corresponding thread(s) will automatically exit, i.e:
+//! - The last [`DatabaseReadHandle`] is dropped => reader thread-pool exits
+//! - The last [`DatabaseWriteHandle`] is dropped => writer thread exits
+//!
+//! Upon dropping the [`crate::ConcreteEnv`]:
+//! - All un-processed database transactions are completed
+//! - All data gets flushed to disk (caused by [`Drop::drop`] impl of [`crate::ConcreteEnv`])
+//!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),
 //! a `Request` can be sent using one of the above handles.
@@ -40,7 +48,7 @@
 //!
 //! An `async`hronous channel will be returned from the call.
 //! This channel can be `.await`ed upon to (eventually) receive
-//! corresponding `Response` to your `Request`.
+//! the corresponding `Response` to your `Request`.
 
 mod read;
 pub use read::DatabaseReadHandle;
@@ -49,7 +57,7 @@ mod write;
 pub use write::DatabaseWriteHandle;
 
 mod free;
-pub use free::{init, shutdown};
+pub use free::init;
 
 mod request;
 pub use request::{ReadRequest, WriteRequest};

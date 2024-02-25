@@ -1,5 +1,11 @@
 //! Database abstraction and utilities.
 //!
+//! This documentation is mostly for practical usage of `cuprate_database`.
+//!
+//! For a high-level overview,
+//! see [`database/README.md`](https://github.com/Cuprate/cuprate/blob/main/database/README.md).
+//!
+//! # Purpose
 //! This crate does 3 things:
 //! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`Key`], [`RoTx`], and [`RwTx`] traits
 //! 2. Implements various `Monero` related [functions](ops) & [`tables`]
@@ -39,13 +45,16 @@
 //! For example:
 //! - [`std::mem::size_of::<ConcreteEnv>`]
 //! - [`std::mem::align_of::<ConcreteEnv>`]
-//! - [`Drop::<ConcreteEnv>::drop`]
 //!
 //! Things like these functions are affected by the backend and inner data,
 //! and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteEnv`.
 //!
-//! The only thing about `ConcreteEnv` that should
-//! be relied upon is that it implements [`Env`].
+//! `ConcreteEnv` invariants you can rely on:
+//! - It implements [`Env`]
+//! - Upon [`Drop::drop`], all database data will sync to disk
+//!
+//! Note that `ConcreteEnv` itself is not a clonable type,
+//! it should be wrapped in [`std::sync::Arc`].
 //!
 //! TODO: we could also expose `ConcreteDatabase` if we're
 //! going to be storing any databases in structs, to lessen
@@ -60,13 +69,55 @@
 //! - `sanakirja`
 //!
 //! The default is `heed`.
+//!
+//! # Invariants when not using `service`
+//! `cuprate_database` can be used without the `service` feature enabled but
+//! there are some things that must be kept in mind when doing so:
+//!
+//! TODO: make pretty. these will need to be updated
+//! as things change and as more backends are added.
+//!
+//! 1. Memory map resizing (must resize as needed)
+//! 1. Must not exceed `Config`'s maximum reader count
+//! 1. Avoid many nested transactions
+//! 1. `heed::MdbError::BadValSize`
+//! 1. `heed::Error::InvalidDatabaseTyping`
+//! 1. `heed::Error::BadOpenOptions`
+//! 1. Encoding/decoding into `[u8]`
+//!
+//! # Example
+//! Simple usage of this crate.
+//!
+//! ```rust
+//! use cuprate_database::{
+//!     config::Config,
+//!     ConcreteEnv,
+//!     Env, Key, RoTx, RwTx,
+//!     service::{ReadRequest, WriteRequest, Response},
+//! };
+//!
+//! // Create a configuration for the database environment.
+//! let db_dir = tempfile::tempdir().unwrap();
+//! let config = Config::new(Some(db_dir));
+//!
+//! // Initialize the database thread-pool.
+//!
+//! // TODO:
+//! // 1. let (read_handle, write_handle) = cuprate_database::service::init(config).unwrap();
+//! // 2. Send write/read requests
+//! // 3. Use some other `Env` functions
+//! // 4. Shutdown
+//! ```
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
 // Our code, and code generated (e.g macros) cannot overrule these.
 #![forbid(
+	// `unsafe` is allowed but it _must_ be
+	// commented with `SAFETY: reason`.
+	clippy::undocumented_unsafe_blocks,
+
 	// Never.
-	unsafe_code,
 	unused_unsafe,
 	redundant_semicolons,
 	unused_allocation,
@@ -215,6 +266,7 @@
 	clippy::module_name_repetitions,
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
+	clippy::option_if_let_else,
 )]
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
@@ -234,10 +286,10 @@ compile_error!("Cuprate is only compatible with 64-bit CPUs");
 mod backend;
 pub use backend::ConcreteEnv;
 
+pub mod config;
+
 mod constants;
-pub use constants::{
-    CUPRATE_DATABASE_CORRUPT_MSG, CUPRATE_DATABASE_DIR, CUPRATE_DATABASE_FILE, DATABASE_BACKEND,
-};
+pub use constants::{DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_FILENAME};
 
 mod database;
 pub use database::Database;
@@ -249,6 +301,8 @@ mod error;
 pub use error::{InitError, RuntimeError};
 
 mod free;
+
+pub mod resize;
 
 mod key;
 pub use key::{DupKey, Key};

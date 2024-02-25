@@ -1,10 +1,11 @@
 //! Implementation of `trait Env` for `sanakirja`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use crate::{
     backend::sanakirja::types::SanakirjaDb,
+    config::Config,
     database::Database,
     env::Env,
     error::{InitError, RuntimeError},
@@ -13,57 +14,61 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `sanakirja`.
-pub struct ConcreteEnv(sanakirja::Env);
+pub struct ConcreteEnv {
+    /// The actual database environment.
+    env: sanakirja::Env,
+
+    /// The configuration we were opened with
+    /// (and in current use).
+    config: Config,
+}
+
+impl Drop for ConcreteEnv {
+    fn drop(&mut self) {
+        if let Err(e) = self.sync() {
+            // TODO: log error?
+        }
+
+        // TODO: log that we are dropping the database.
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
-    /// TODO
-    ///
+    const MANUAL_RESIZE: bool = false;
+    const SYNCS_PER_TX: bool = true;
+    /// FIXME:
     /// We could also implement `Borrow<sanakirja::Env> for ConcreteEnv`
     /// instead of this reference.
     type RoTx<'db> = sanakirja::Txn<&'db sanakirja::Env>;
-
-    /// TODO
     type RwTx<'db> = sanakirja::MutTxn<&'db sanakirja::Env, ()>;
 
-    //------------------------------------------------ Required
     #[cold]
     #[inline(never)] // called once.
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn open<P: AsRef<Path>>(path: P) -> Result<Self, InitError> {
+    fn open(config: Config) -> Result<Self, InitError> {
         todo!()
     }
 
-    /// TODO
-    /// # Errors
-    /// TODO
+    fn config(&self) -> &Config {
+        &self.config
+    }
+
     fn sync(&self) -> Result<(), RuntimeError> {
         todo!()
     }
 
     #[inline]
-    /// TODO
-    /// # Errors
-    /// TODO
     fn ro_tx(&self) -> Result<Self::RoTx<'_>, RuntimeError> {
         todo!()
     }
 
     #[inline]
-    /// TODO
-    /// # Errors
-    /// TODO
     fn rw_tx(&self) -> Result<Self::RwTx<'_>, RuntimeError> {
         todo!()
     }
 
     #[cold]
     #[inline(never)] // called infrequently?.
-    /// TODO
-    /// # Errors
-    /// TODO
     fn create_tables_if_needed<T: Table>(
         &self,
         tx_rw: &mut Self::RwTx<'_>,
@@ -72,9 +77,6 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    /// TODO
-    /// # Errors
-    /// TODO
     fn open_database<T: Table>(
         &self,
         to_rw: &Self::RoTx<'_>,
