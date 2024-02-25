@@ -7,9 +7,12 @@ use crate::{key::Key, pod::Pod};
 /// Database table metadata.
 ///
 /// Purely compile time information for database tables.
-/// Not really an accurate name for `K/V` database but
-/// this represents the metadata of a `K/V` storing object.
-pub trait Table {
+///
+/// ## Sealed
+/// This trait is [`Sealed`](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed).
+///
+/// It is, and can only be implemented on the types inside [`tables`][crate::tables].
+pub trait Table: crate::tables::private::Sealed {
     // TODO:
     //
     // Add K/V comparison `type`s that define

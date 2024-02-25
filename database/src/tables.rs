@@ -7,6 +7,18 @@
 use crate::table::Table;
 
 //---------------------------------------------------------------------------------------------------- Tables
+/// Private module, should not be accessible outside this crate.
+///
+/// Used to block outsiders implementing [`Table`].
+/// All [`Table`] types must also implement [`Sealed`].
+pub(super) mod private {
+    /// Private sealed trait.
+    ///
+    /// Cannot be implemented outside this crate.
+    pub trait Sealed {}
+}
+
+//---------------------------------------------------------------------------------------------------- Tables
 /// An enumeration of _all_ database tables.
 ///
 /// TODO: I don't think we need this.
@@ -89,6 +101,10 @@ macro_rules! tables {
             #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
             #[derive(Copy,Clone,Debug,PartialEq,PartialOrd,Eq,Ord,Hash)]
             pub struct [<$table:camel>];
+
+            // Implement the `Sealed` in this file.
+            // Required by `Table`.
+            impl private::Sealed for [<$table:camel>] {}
 
             // Table trait impl.
             impl Table for [<$table:camel>] {

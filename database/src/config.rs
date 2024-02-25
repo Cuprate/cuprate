@@ -1,4 +1,4 @@
-//! Database [`Env`] configuration.
+//! Database [`Env`](crate::env::Env) configuration.
 //!
 //! TODO
 
