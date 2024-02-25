@@ -1,9 +1,6 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
-#[allow(unused_imports)] // docs
-use crate::ConcreteEnv;
-
 use crate::{
     config::Config,
     database::Database,
@@ -16,7 +13,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Env
 /// Database environment abstraction.
 ///
-/// Essentially, the functions that can be called on [`ConcreteEnv`].
+/// Essentially, the functions that can be called on [`ConcreteEnv`](crate::ConcreteEnv).
 ///
 /// # `Drop`
 /// Objects that implement [`Env`] _should_ probably

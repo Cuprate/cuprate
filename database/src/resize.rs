@@ -1,10 +1,10 @@
 //! Database memory map resizing algorithms.
 //!
 //! This modules contains [`ResizeAlgorithm`] which determines how the
-//! [`ConcreteEnv`] resizes it's memory map when needing more space.
-//! This value is in [`Config`] and can be selected at runtime.
+//! [`ConcreteEnv`](crate::ConcreteEnv) resizes it's memory map when needing more space.
+//! This value is in [`Config`](crate::config::Config) and can be selected at runtime.
 //!
-//! Although, it is only used by `ConcreteEnv` if [`Env::MANUAL_RESIZE`] is `true`.
+//! Although, it is only used by `ConcreteEnv` if [`Env::MANUAL_RESIZE`](crate::env::Env::MANUAL_RESIZE) is `true`.
 //!
 //! The algorithms are available as free functions in this module as well.
 //!
@@ -22,9 +22,6 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{num::NonZeroUsize, sync::OnceLock};
-
-#[allow(unused_imports)] // docs
-use crate::{config::Config, env::Env, ConcreteEnv};
 
 //---------------------------------------------------------------------------------------------------- ResizeAlgorithm
 /// The function/algorithm used by the

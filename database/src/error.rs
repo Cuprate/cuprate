@@ -4,15 +4,12 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::fmt::Debug;
 
-#[allow(unused_imports)] // docs
-use crate::env::Env;
-
 //---------------------------------------------------------------------------------------------------- Types
 /// Alias for a thread-safe boxed error.
 type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 //---------------------------------------------------------------------------------------------------- InitError
-/// Errors that occur during ([`Env::open`]).
+/// Errors that occur during ([`Env::open`](crate::env::Env::open)).
 ///
 /// # Handling
 /// As this is a database initialization error, the correct
@@ -59,7 +56,7 @@ pub enum InitError {
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
-/// Errors that occur _after_ successful ([`Env::open`]).
+/// Errors that occur _after_ successful ([`Env::open`](crate::env::Env::open)).
 ///
 /// There are no errors for:
 /// 1. Missing tables

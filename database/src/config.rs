@@ -7,13 +7,10 @@ use std::{borrow::Cow, num::NonZeroUsize, path::Path};
 
 use cuprate_helper::fs::{cuprate_database_dir, CUPRATE_DATABASE_FILE};
 
-#[allow(unused_imports)] // docs
-use crate::env::Env;
-
 use crate::resize::ResizeAlgorithm;
 
 //---------------------------------------------------------------------------------------------------- Config
-/// Database [`Env`] configuration.
+/// Database [`Env`](crate::env::Env) configuration.
 ///
 /// This is the struct passed to [`Env::open`] that
 /// allows the database to be configured in various ways.
