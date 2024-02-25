@@ -99,6 +99,8 @@ impl Env for ConcreteEnv {
         // exclusive access to the database environment.
         // Our `heed::Env` is wrapped within a `RwLock`,
         // and we have a WriteGuard to it, so we're safe.
+        //
+        // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
         unsafe {
             // INVARIANT: `resize()` returns a valid `usize` to resize to.
             self.env

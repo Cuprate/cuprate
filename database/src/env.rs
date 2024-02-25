@@ -97,15 +97,6 @@ pub trait Env: Sized {
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
-    ///
-    /// Database backend-specific invariants must also be upheld
-    /// as this function will immediately resize.
-    ///
-    /// In particular for LMDB, this function should only be called
-    /// if you have _mutual exclusive_ access to the database, i.e.
-    /// there are no other readers or writers.
-    ///
-    /// <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
     fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
         unreachable!()
     }
