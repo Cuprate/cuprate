@@ -172,7 +172,7 @@ impl Default for Config {
 )]
 pub enum SyncMode {
     /// Use [`SyncMode::Fast`] until fully synced,
-    /// then use [`SyncMode::Sync`].
+    /// then use [`SyncMode::Safe`].
     ///
     /// TODO: We could not bother with this and just implement
     /// batching, which was the solution to slow syncs with `Safe`.
