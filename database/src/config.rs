@@ -180,21 +180,11 @@ impl ReaderThreads {
     }
 }
 
-/// TODO
-macro_rules! impl_from_reader_threads {
-    ($(
-        $from:ty // Type to convert into `ReaderThreads`
-    ),*) => {
-        $(
-            impl From<$from> for ReaderThreads {
-                fn from(value: $from) -> Self {
-                    match NonZeroUsize::new(value as usize) {
-                        Some(n) => Self::Number(n),
-                        None => Self::One,
-                    }
-                }
-            }
-        )*
-    };
+impl<T: Into<usize>> From<T> for ReaderThreads {
+    fn from(value: T) -> Self {
+        match NonZeroUsize::new(value.into()) {
+            Some(n) => Self::Number(n),
+            None => Self::One,
+        }
+    }
 }
-impl_from_reader_threads!(u8, u16, u32, u64, usize, i8, i16, i32, i64, isize);
