@@ -4,6 +4,7 @@
 //! this to test compatibility with monerod.
 //!
 use std::{
+    env::current_dir,
     ffi::OsStr,
     fs::remove_dir_all,
     io::Read,
@@ -36,10 +37,10 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
     let p2p_port = get_available_port(&[rpc_port]);
     let zmq_port = get_available_port(&[rpc_port, p2p_port]);
 
-    let db_location =
-        download::find_target().join(format!("monerod_data_{}", rand::random::<u64>()));
+    let db_location = current_dir()
+        .unwrap()
+        .join(format!("monerod_data_{}", rand::random::<u64>()));
 
-    // TODO: set a random DB location
     let mut monerod = Command::new(path_to_monerod)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -164,7 +165,13 @@ impl Drop for SpawnedMoneroD {
         }
 
         if let Err(e) = remove_dir_all(&self.data_dir) {
-            error = true;
+            // TODO: This fails on windows, this *shouldn't* matter too much as CI will not cache this dir
+            // and we *probably* won't have a lot of devs running tests on windows but it is something
+            // that will probably need to be looked at.
+            #[cfg(not(windows))]
+            {
+                error = true;
+            }
             println!(
                 "Could not remove monerod data-dir at: {:?}, error: {}",
                 self.data_dir, e

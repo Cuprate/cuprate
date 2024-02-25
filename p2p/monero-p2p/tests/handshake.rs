@@ -1,16 +1,17 @@
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use futures::{channel::mpsc, StreamExt};
-use tokio::sync::{broadcast, Semaphore};
-use tokio::time::timeout;
+use tokio::{
+    sync::{broadcast, Semaphore},
+    time::timeout,
+};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
 use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 
 use monero_p2p::{
-    client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker},
+    client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
     network_zones::{ClearNet, ClearNetServerCfg},
     ConnectionDirection, NetworkZone,
 };
@@ -19,7 +20,6 @@ use cuprate_test_utils::{
     monerod::monerod,
     test_netzone::{TestNetZone, TestNetZoneAddr},
 };
-use monero_p2p::client::InternalPeerID;
 
 mod utils;
 use utils::*;

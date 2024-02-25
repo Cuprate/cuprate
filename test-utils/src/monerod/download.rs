@@ -70,7 +70,7 @@ async fn download_monerod(file_name: &str, path_to_store: &Path) -> Result<(), R
 
 /// Finds the `target` directory, this will work up from the current directory until
 /// it finds a `target` directory.
-pub fn find_target() -> PathBuf {
+fn find_target() -> PathBuf {
     let mut current_dir = current_dir().unwrap();
     loop {
         let potential_target = current_dir.join("target");
