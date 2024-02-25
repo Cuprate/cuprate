@@ -34,16 +34,18 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
     let p2p_port = get_available_port(&[rpc_port]);
     let zmq_port = get_available_port(&[rpc_port, p2p_port]);
 
-    // TODO: set a random DB location
+    let data_dir = tempfile::tempdir().unwrap();
+
     let mut monerod = Command::new(path_to_monerod)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .args(flags)
         .arg("--regtest")
         .arg("--log-level=2")
-        .arg(format!("--p2p-bind-port={}", p2p_port))
-        .arg(format!("--rpc-bind-port={}", rpc_port))
-        .arg(format!("--zmq-rpc-bind-port={}", zmq_port))
+        .arg(format!("--p2p-bind-port={p2p_port}"))
+        .arg(format!("--rpc-bind-port={rpc_port}"))
+        .arg(format!("--zmq-rpc-bind-port={zmq_port}"))
+        .arg(format!("--data-dir={}", data_dir.path().display()))
         .arg("--non-interactive")
         .spawn()
         .unwrap();
@@ -81,6 +83,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
         process: monerod,
         rpc_port,
         p2p_port,
+        _data_dir: data_dir,
         start_up_logs: logs,
     }
 }
@@ -108,7 +111,9 @@ pub struct SpawnedMoneroD {
     rpc_port: u16,
     /// The P2P port of the monerod instance.
     p2p_port: u16,
-
+    /// The data dir for monerod - when this is dropped the dir will be deleted.
+    _data_dir: tempfile::TempDir,
+    /// The logs upto [`MONEROD_STARTUP_TEXT`].
     start_up_logs: String,
 }
 
@@ -126,7 +131,10 @@ impl SpawnedMoneroD {
 
 impl Drop for SpawnedMoneroD {
     fn drop(&mut self) {
+        let mut error = false;
+
         if self.process.kill().is_err() {
+            error = true;
             println!("Failed to kill monerod, process id: {}", self.process.id())
         }
 
@@ -149,6 +157,13 @@ impl Drop for SpawnedMoneroD {
             println!("-----START-MONEROD-LOGS-----");
             println!("{}{out}", self.start_up_logs);
             println!("------END-MONEROD-LOGS------");
+        }
+
+        if error && !panicking() {
+            // `println` only outputs in a test when panicking so if there is an error while
+            // dropping monerod but not an error in the test then we need to panic to make sure
+            // the println!s are output.
+            panic!("Error while dropping monerod");
         }
     }
 }
