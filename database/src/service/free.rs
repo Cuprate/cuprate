@@ -26,11 +26,12 @@ use crate::{
 // INVARIANT:
 // `cuprate_database` depends on the fact that this is the only
 // function that hands out the handles. After that, they can be
-// cloned, however they must not be "revivable".
+// cloned, however they must eventually be dropped and shouldn't
+// be leaked.
 //
 // As the reader thread-pool and writer thread both rely on the
 // disconnection (drop) of these channels for shutdown behavior,
-// they must not be able accessible after the last handle is dropped.
+// leaking these handles could cause data to not get flushed to disk.
 pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle), InitError> {
     let reader_threads = config.reader_threads;
 
