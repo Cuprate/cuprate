@@ -70,6 +70,21 @@
 //!
 //! The default is `heed`.
 //!
+//! # Invariants when not using `service`
+//! `cuprate_database` can be used without the `service` feature enabled but
+//! there are some things that must be kept in mind when doing so:
+//!
+//! TODO: make pretty. these will need to be updated
+//! as things change and as more backends are added.
+//!
+//! 1. Memory map resizing (must resize as needed)
+//! 1. Must not exceed `Config`'s maximum reader count
+//! 1. Avoid many nested transactions
+//! 1. `heed::MdbError::BadValSize`
+//! 1. `heed::Error::InvalidDatabaseTyping`
+//! 1. `heed::Error::BadOpenOptions`
+//! 1. Encoding/decoding into `[u8]`
+//!
 //! # Example
 //! Simple usage of this crate.
 //!

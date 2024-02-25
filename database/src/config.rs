@@ -7,10 +7,7 @@ use std::{borrow::Cow, num::NonZeroUsize, path::Path};
 
 use cuprate_helper::fs::cuprate_database_dir;
 
-use crate::{
-    constants::DATABASE_FILENAME,
-    resize::ResizeAlgorithm,
-};
+use crate::{constants::DATABASE_FILENAME, resize::ResizeAlgorithm};
 
 //---------------------------------------------------------------------------------------------------- Config
 /// Database [`Env`](crate::env::Env) configuration.

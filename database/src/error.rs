@@ -68,15 +68,6 @@ pub enum InitError {
 /// 1. All tables exist
 /// 2. (De)serialization never fails
 /// 3. The database (thread-pool) only shuts down when all channels are dropped
-///
-/// TODO: Our errors + thread-pool are heavily tied in with
-/// the rest of `cuprate_database`. Using `cuprate_database` without
-/// the `service` module basically doesn't work since valid errors
-/// (like database shutting down) will panic.
-///
-/// Should `cuprate_database` be attached to `service`?
-/// If yes, it shouldn't be a feature module.
-/// If no, we must account for non-`service` usage in `cuprate_database`
 #[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
     /// The given key already existed in the database.
