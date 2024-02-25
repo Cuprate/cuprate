@@ -28,6 +28,6 @@ jobs:
       with:
         submodules: recursive
     - name: Install dependencies
-      run: cargo install cargo-audit
+      run: cargo install cargo-audit --locked
     - name: Audit
       run: cargo audit
