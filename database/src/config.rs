@@ -1,4 +1,4 @@
-//! Database [`Env`](crate::env::Env) configuration.
+//! Database [`Env`](crate::Env) configuration.
 //!
 //! TODO
 
@@ -10,9 +10,9 @@ use cuprate_helper::fs::cuprate_database_dir;
 use crate::{constants::DATABASE_FILENAME, resize::ResizeAlgorithm};
 
 //---------------------------------------------------------------------------------------------------- Config
-/// Database [`Env`](crate::env::Env) configuration.
+/// Database [`Env`](crate::Env) configuration.
 ///
-/// This is the struct passed to [`Env::open`] that
+/// This is the struct passed to [`Env::open`](crate::Env::open) that
 /// allows the database to be configured in various ways.
 ///
 /// TODO: there's probably more options to add.
