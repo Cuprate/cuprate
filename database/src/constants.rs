@@ -24,9 +24,19 @@ cfg_if::cfg_if! {
     if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
         /// Static string of the `crate` being used as the database backend.
         pub const DATABASE_BACKEND: &str = "sanakirja";
+
+        /// Cuprate's database filename.
+        ///
+        /// This is the filename for Cuprate's database, used in [`Env::file_path`].
+        pub const DATABASE_FILENAME: &str = "data.san"; // TODO: pick a name + extension.
     } else {
         /// Static string of the `crate` being used as the database backend.
         pub const DATABASE_BACKEND: &str = "heed";
+
+        /// Cuprate's database filename.
+        ///
+        /// This is the filename for Cuprate's database, used in [`Env::file_path`].
+        pub const DATABASE_FILENAME: &str = "data.mdb";
     }
 }
 
