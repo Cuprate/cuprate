@@ -274,7 +274,7 @@ pub use backend::ConcreteEnv;
 pub mod config;
 
 mod constants;
-pub use constants::{DATABASE_BACKEND, DATABASE_CORRUPT_MSG};
+pub use constants::{DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_FILENAME};
 
 mod database;
 pub use database::Database;

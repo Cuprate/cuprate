@@ -5,9 +5,12 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, num::NonZeroUsize, path::Path};
 
-use cuprate_helper::fs::{cuprate_database_dir, CUPRATE_DATABASE_FILE};
+use cuprate_helper::fs::cuprate_database_dir;
 
-use crate::resize::ResizeAlgorithm;
+use crate::{
+    constants::DATABASE_FILENAME,
+    resize::ResizeAlgorithm,
+};
 
 //---------------------------------------------------------------------------------------------------- Config
 /// Database [`Env`](crate::env::Env) configuration.
@@ -45,13 +48,15 @@ impl Config {
     fn return_db_dir_and_file<P: AsRef<Path>>(
         db_directory: Option<P>,
     ) -> (Cow<'static, Path>, Cow<'static, Path>) {
+        // INVARIANT: all PATH safety checks are done
+        // in `helper::fs`. No need to do them here.
         let db_directory = db_directory.map_or_else(
             || Cow::Borrowed(cuprate_database_dir()),
             |p| Cow::Owned(p.as_ref().to_path_buf()),
         );
 
         let mut db_file = db_directory.to_path_buf();
-        db_file.push(CUPRATE_DATABASE_FILE);
+        db_file.push(DATABASE_FILENAME);
 
         (db_directory, Cow::Owned(db_file))
     }
