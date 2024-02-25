@@ -1,7 +1,9 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures::{channel::mpsc, StreamExt};
 use tokio::sync::{broadcast, Semaphore};
+use tokio::time::timeout;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
@@ -9,8 +11,8 @@ use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 
 use monero_p2p::{
     client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker},
-    network_zones::ClearNet,
-    ConnectionDirection,
+    network_zones::{ClearNet, ClearNetServerCfg},
+    ConnectionDirection, NetworkZone,
 };
 
 use cuprate_test_utils::{
@@ -142,4 +144,57 @@ async fn handshake_cuprate_to_monerod() {
         })
         .await
         .unwrap();
+}
+
+#[tokio::test]
+async fn handshake_monerod_to_cuprate() {
+    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
+    let semaphore = Arc::new(Semaphore::new(10));
+    let permit = semaphore.acquire_owned().await.unwrap();
+
+    let our_basic_node_data = BasicNodeData {
+        my_port: 18081,
+        network_id: Network::Mainnet.network_id().into(),
+        peer_id: 87980,
+        support_flags: PeerSupportFlags::from(1_u32),
+        rpc_port: 0,
+        rpc_credits_per_hash: 0,
+    };
+
+    let mut handshaker = HandShaker::<ClearNet, _, _, _>::new(
+        DummyAddressBook,
+        DummyCoreSyncSvc,
+        DummyPeerRequestHandlerSvc,
+        broadcast_tx,
+        our_basic_node_data,
+    );
+
+    let addr = "127.0.0.1:18081".parse().unwrap();
+
+    let mut listener = ClearNet::incoming_connection_listener(ClearNetServerCfg { addr })
+        .await
+        .unwrap();
+
+    let _monerod = monerod(["--add-exclusive-node=127.0.0.1:18081"]).await;
+
+    // Put a timeout on this just in case monerod doesn't make the connection to us.
+    let next_connection_fut = timeout(Duration::from_secs(30), listener.next());
+
+    if let Some(Ok((addr, stream, sink))) = next_connection_fut.await.unwrap() {
+        let _ = handshaker
+            .ready()
+            .await
+            .unwrap()
+            .call(DoHandshakeRequest {
+                addr: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
+                peer_stream: stream,
+                peer_sink: sink,
+                direction: ConnectionDirection::InBound,
+                permit,
+            })
+            .await
+            .unwrap();
+    } else {
+        panic!("Failed to receive connection from monerod.");
+    };
 }
