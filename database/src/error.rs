@@ -81,7 +81,7 @@ pub enum RuntimeError {
     /// The database memory map is full and needs a resize.
     ///
     /// # Invariant
-    /// This error can only occur if [`Env::MANUAL_RESIZE`] is `true`.
+    /// This error can only occur if [`Env::MANUAL_RESIZE`](crate::Env::MANUAL_RESIZE) is `true`.
     #[error("database memory map must be resized")]
     ResizeNeeded,
 
