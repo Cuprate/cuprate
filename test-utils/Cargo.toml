@@ -12,6 +12,7 @@ async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 reqwest = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
+rand = { workspace = true, features = ["std", "std_rng"] }
 
 borsh = { workspace = true, features = ["derive"]}
 

@@ -5,8 +5,10 @@
 //!
 use std::{
     ffi::OsStr,
+    fs::remove_dir_all,
     io::Read,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener},
+    path::PathBuf,
     process::{Child, Command, Stdio},
     str::from_utf8,
     thread::panicking,
@@ -34,6 +36,9 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
     let p2p_port = get_available_port(&[rpc_port]);
     let zmq_port = get_available_port(&[rpc_port, p2p_port]);
 
+    let db_location =
+        download::find_target().join(format!("monerod_data_{}", rand::random::<u64>()));
+
     // TODO: set a random DB location
     let mut monerod = Command::new(path_to_monerod)
         .stdout(Stdio::piped())
@@ -44,6 +49,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
         .arg(format!("--p2p-bind-port={}", p2p_port))
         .arg(format!("--rpc-bind-port={}", rpc_port))
         .arg(format!("--zmq-rpc-bind-port={}", zmq_port))
+        .arg(format!("--data-dir={}", db_location.display()))
         .arg("--non-interactive")
         .spawn()
         .unwrap();
@@ -81,6 +87,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
         process: monerod,
         rpc_port,
         p2p_port,
+        data_dir: db_location,
         start_up_logs: logs,
     }
 }
@@ -108,7 +115,9 @@ pub struct SpawnedMoneroD {
     rpc_port: u16,
     /// The P2P port of the monerod instance.
     p2p_port: u16,
-
+    /// The Path to the monerod data-dir
+    data_dir: PathBuf,
+    /// The logs upto [`MONEROD_STARTUP_TEXT`].
     start_up_logs: String,
 }
 
@@ -126,7 +135,10 @@ impl SpawnedMoneroD {
 
 impl Drop for SpawnedMoneroD {
     fn drop(&mut self) {
+        let mut error = false;
+
         if self.process.kill().is_err() {
+            error = true;
             println!("Failed to kill monerod, process id: {}", self.process.id())
         }
 
@@ -149,6 +161,21 @@ impl Drop for SpawnedMoneroD {
             println!("-----START-MONEROD-LOGS-----");
             println!("{}{out}", self.start_up_logs);
             println!("------END-MONEROD-LOGS------");
+        }
+
+        if let Err(e) = remove_dir_all(&self.data_dir) {
+            error = true;
+            println!(
+                "Could not remove monerod data-dir at: {:?}, error: {}",
+                self.data_dir, e
+            )
+        }
+
+        if error && !panicking() {
+            // `println` only outputs in a test when panicking so if there is an error while
+            // dropping monerod but not an error in the test then we need to panic to make sure
+            // the println!s are output.
+            panic!("Error while dropping monerod");
         }
     }
 }
