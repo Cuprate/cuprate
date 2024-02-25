@@ -4,7 +4,7 @@
 //! this to test compatibility with monerod.
 //!
 use std::{
-    env::current_dir,
+    env::temp_dir,
     ffi::OsStr,
     fs::remove_dir_all,
     io::Read,
@@ -37,9 +37,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
     let p2p_port = get_available_port(&[rpc_port]);
     let zmq_port = get_available_port(&[rpc_port, p2p_port]);
 
-    let db_location = current_dir()
-        .unwrap()
-        .join(format!("monerod_data_{}", rand::random::<u64>()));
+    let db_location = temp_dir().join(format!("monerod_data_{}", rand::random::<u64>()));
 
     let mut monerod = Command::new(path_to_monerod)
         .stdout(Stdio::piped())
