@@ -1,3 +1,10 @@
+//! Connector
+//!
+//! This module handles connecting to peers and giving the sink/stream to the handshaker which will then
+//! perform a handshake and create a [`Client`].
+//!
+//! This is where outbound connections are crated.
+//!
 use std::{
     future::Future,
     pin::Pin,
@@ -13,16 +20,22 @@ use crate::{
     AddressBook, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerRequestHandler,
 };
 
+/// A request to connect to a peer.
 pub struct ConnectRequest<Z: NetworkZone> {
+    /// The peers address
     pub addr: Z::Addr,
+    /// A permit which will be held be the connection allowing you to set limits on the number of
+    /// connections.
     pub permit: OwnedSemaphorePermit,
 }
 
+/// The connector service, this service connects to peer and returns the [`Client`].
 pub struct Connector<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
     handshaker: HandShaker<Z, AdrBook, CSync, ReqHdlr>,
 }
 
 impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> Connector<Z, AdrBook, CSync, ReqHdlr> {
+    /// Create a new connector from a handshaker.
     pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, ReqHdlr>) -> Self {
         Self { handshaker }
     }
@@ -51,7 +64,7 @@ where
         async move {
             let (peer_stream, peer_sink) = Z::connect_to_peer(req.addr).await?;
             let req = DoHandshakeRequest {
-                addr: InternalPeerID::KnownAddr(req.addr),
+                peer_id: InternalPeerID::KnownAddr(req.addr),
                 permit: req.permit,
                 peer_stream,
                 peer_sink,

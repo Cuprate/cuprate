@@ -10,7 +10,10 @@ use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
-use crate::{ConnectionDirection, handles::ConnectionHandle, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError};
+use crate::{
+    handles::ConnectionHandle, ConnectionDirection, NetworkZone, PeerError, PeerRequest,
+    PeerResponse, SharedError,
+};
 
 mod connection;
 mod connector;
@@ -39,7 +42,7 @@ impl<A: Display> Display for InternalPeerID<A> {
 pub struct Client<Z: NetworkZone> {
     id: InternalPeerID<Z::Addr>,
     handle: ConnectionHandle,
-    
+
     direction: ConnectionDirection,
 
     connection_tx: PollSender<connection::ConnectionTaskRequest>,

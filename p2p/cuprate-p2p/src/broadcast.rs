@@ -57,19 +57,19 @@ impl<N: NetworkZone> BroadcastSvc<N> {
     pub fn broadcast_fluffy_block(&self, block: NewFluffyBlock) {
         let message = PeerBroadcast::NewFluffyBlock(block);
 
-        let mut recivers = 0;
+        let mut receivers = 0;
         match self.outbound_broadcast.send(message.clone()) {
-            Ok(peers) => recivers += peers,
+            Ok(peers) => receivers += peers,
             Err(_) => tracing::info!("No outbound connections to broadcast new block to!"),
         };
 
         match self.inbound_broadcast.send(message.clone()) {
-            Ok(peers) => recivers += peers,
+            Ok(peers) => receivers += peers,
             // A lot of nodes won't have ports open so this is only a debug log to prevent log spam.
             Err(_) => tracing::debug!("No inbound connection to broadcast new block to!"),
         };
 
-        tracing::debug!("Attempting to broadcast new block to {} peers.", recivers);
+        tracing::debug!("Attempting to broadcast new block to {} peers.", receivers);
     }
 
     /// Broadcast transactions to multiple peers: [`BroadcastRequest::Transactions`]

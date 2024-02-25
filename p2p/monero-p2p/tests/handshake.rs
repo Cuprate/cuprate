@@ -67,7 +67,7 @@ async fn handshake_cuprate_to_cuprate() {
     let (p2_sender, p1_receiver) = mpsc::channel(5);
 
     let p1_handshake_req = DoHandshakeRequest {
-        addr: InternalPeerID::KnownAddr(TestNetZoneAddr(888)),
+        peer_id: InternalPeerID::KnownAddr(TestNetZoneAddr(888)),
         peer_stream: p2_receiver.map(Ok).boxed(),
         peer_sink: p2_sender.into(),
         direction: ConnectionDirection::OutBound,
@@ -75,7 +75,7 @@ async fn handshake_cuprate_to_cuprate() {
     };
 
     let p2_handshake_req = DoHandshakeRequest {
-        addr: InternalPeerID::KnownAddr(TestNetZoneAddr(444)),
+        peer_id: InternalPeerID::KnownAddr(TestNetZoneAddr(444)),
         peer_stream: p1_receiver.boxed().map(Ok).boxed(),
         peer_sink: p1_sender.into(),
         direction: ConnectionDirection::InBound,

@@ -8,6 +8,8 @@
 //! or send to a single peer.
 //!
 
+#![allow(dead_code)]
+
 mod block_downloader;
 mod broadcast;
 mod network;

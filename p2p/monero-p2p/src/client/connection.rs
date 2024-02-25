@@ -1,12 +1,20 @@
-use std::sync::Arc;
+//! The Connection Task
+//!
+//! This module handles routing requests from a [`Client`](crate::client::Client) or a broadcast channel to
+//! a peer. This module also handles routing requests from the connected peer to a request handler.
+//!
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use futures::{
     channel::oneshot,
     stream::{Fuse, FusedStream},
-    SinkExt, StreamExt,
+    FutureExt, SinkExt, StreamExt, TryStreamExt,
 };
-use tokio::sync::{broadcast, mpsc};
-use tokio_stream::wrappers::{BroadcastStream, ReceiverStream};
+use tokio::{
+    sync::{broadcast, mpsc},
+    time::{sleep, timeout, Sleep, Timeout},
+};
+use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream, ReceiverStream};
 use tower::ServiceExt;
 
 use monero_wire::{LevinCommand, Message, ProtocolMessage};
@@ -16,22 +24,49 @@ use crate::{
     PeerRequestHandler, PeerResponse, SharedError,
 };
 
+/// The timeout used when sending messages to a peer.
+///
+/// TODO: Make this configurable?
+/// TODO: Is this a good default.
+const SENDING_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// The maximum interval between messages from the peer before we send a ping message
+/// to check it is still alive.
+///
+/// TODO: Make this configurable?
+/// TODO: Is this a good default.
+const TIMEOUT_INTERVAL: Duration = Duration::from_secs(120);
+
+/// The time we give a peer before our request timesout.
+///
+/// TODO: Make this configurable?
+/// TODO: Is this a good default.
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// A request to the connection task from a [`Client`](crate::client::Client).
 pub struct ConnectionTaskRequest {
+    /// The request.
     pub request: PeerRequest,
+    /// The response channel.
     pub response_channel: oneshot::Sender<Result<PeerResponse, tower::BoxError>>,
 }
 
+/// The connection state.
 pub enum State {
+    /// Waiting for a request from Cuprate or the connected peer.
     WaitingForRequest,
+    /// Waiting for a response from the peer.
     WaitingForResponse {
+        /// The requests ID.
         request_id: MessageID,
+        /// The channel to send the response down.
         tx: oneshot::Sender<Result<PeerResponse, tower::BoxError>>,
     },
 }
 
 /// Returns if the [`LevinCommand`] is the correct response message for our request.
 ///
-/// e.g that we didn't get a block for a txs request.
+/// e.g. that we didn't get a block for a txs request.
 fn levin_command_response(message_id: &MessageID, command: LevinCommand) -> bool {
     matches!(
         (message_id, command),
@@ -49,16 +84,27 @@ fn levin_command_response(message_id: &MessageID, command: LevinCommand) -> bool
     )
 }
 
+/// This represents a connection to a peer.
 pub struct Connection<Z: NetworkZone, ReqHndlr> {
+    /// The peer sink - where we send messages to the peer.
     peer_sink: Z::Sink,
 
+    /// The connections current state.
     state: State,
-    client_rx: Fuse<ReceiverStream<ConnectionTaskRequest>>,
-    broadcast_rx: Fuse<BroadcastStream<Arc<PeerBroadcast>>>,
+    /// Will be [`Some`] if we are expecting a response from the peer.
+    response_timeout: Option<Pin<Box<Sleep>>>,
 
+    /// The client channel where requests from Cuprate to this peer will come from for us to route.
+    client_rx: Fuse<ReceiverStream<ConnectionTaskRequest>>,
+    /// The broadcast channel where requests being broadcast from our node will come from for us to route.
+    broadcast_rx: Fuse<BroadcastStream<PeerBroadcast>>,
+
+    /// The inner handler for any requests that come from the requested peer.
     peer_request_handler: ReqHndlr,
 
+    /// The connection guard which will send signals to other parts of Cuprate when this connection is dropped.
     connection_guard: ConnectionGuard,
+    /// An error slot which is shared with the client.
     error: SharedError<PeerError>,
 }
 
@@ -66,10 +112,11 @@ impl<Z: NetworkZone, ReqHndlr> Connection<Z, ReqHndlr>
 where
     ReqHndlr: PeerRequestHandler,
 {
+    /// Create a new connection struct.
     pub fn new(
         peer_sink: Z::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
-        broadcast_rx: broadcast::Receiver<Arc<PeerBroadcast>>,
+        broadcast_rx: broadcast::Receiver<PeerBroadcast>,
         peer_request_handler: ReqHndlr,
         connection_guard: ConnectionGuard,
         error: SharedError<PeerError>,
@@ -77,6 +124,7 @@ where
         Connection {
             peer_sink,
             state: State::WaitingForRequest,
+            response_timeout: None,
             client_rx: ReceiverStream::new(client_rx).fuse(),
             broadcast_rx: BroadcastStream::new(broadcast_rx).fuse(),
             peer_request_handler,
@@ -85,10 +133,56 @@ where
         }
     }
 
+    /// Sends a message to the peer, this function implements a timeout, so we don't get stuck sending a message to the
+    /// peer.
     async fn send_message_to_peer(&mut self, mes: Message) -> Result<(), PeerError> {
-        Ok(self.peer_sink.send(mes).await?)
+        tracing::debug!("Sending message: [{}] to peer", mes.command());
+
+        timeout(SENDING_TIMEOUT, self.peer_sink.send(mes))
+            .await
+            .map_err(|_| PeerError::TimedOut)
+            .and_then(|res| res.map_err(PeerError::BucketError))
     }
 
+    /// Checks if the connection is still alive, by sending a [`PeerRequest::Ping`] and setting the state
+    /// to [`State::WaitingForResponse`]. This prevents this connection from handling an internal request
+    /// from Cuprate until it returns the ping response.
+    async fn check_alive(&mut self) -> Result<(), PeerError> {
+        // We hijack the client request handling function with a dummy request
+        // to prevent duplicating code.
+        let (tx, _) = oneshot::channel();
+
+        let req = ConnectionTaskRequest {
+            request: PeerRequest::Ping,
+            response_channel: tx,
+        };
+
+        self.handle_client_request(req).await
+    }
+
+    /// Handles a broadcast request from Cuprate, will error if any broadcast messages have been missed.
+    async fn handle_client_broadcast(
+        &mut self,
+        mes: Result<PeerBroadcast, BroadcastStreamRecvError>,
+    ) -> Result<(), PeerError> {
+        match mes {
+            Ok(mes) => {
+                self.send_message_to_peer(Message::Protocol(mes.into()))
+                    .await
+            }
+            Err(_) => {
+                // We close the connection if we miss a broadcast because monerod expects to receive every new block from each peer and
+                // will disconnect from peers which miss more than one block. If this connection is slow enough that we miss broadcasts
+                // our best option is just to disconnect.
+                tracing::debug!(
+                    "Connection task missed some broadcast messages, closing connection."
+                );
+                Err(PeerError::ClientChannelClosed)
+            }
+        }
+    }
+
+    /// Handles a request from Cuprate, unlike a broadcast this request will be directed specifically at this peer.
     async fn handle_client_request(&mut self, req: ConnectionTaskRequest) -> Result<(), PeerError> {
         tracing::debug!("handling client request, id: {:?}", req.request.id());
 
@@ -97,7 +191,10 @@ where
                 request_id: req.request.id(),
                 tx: req.response_channel,
             };
+
             self.send_message_to_peer(req.request.into()).await?;
+            // Set the timeout after sending the message, TODO: Is this a good idea.
+            self.response_timeout = Some(Box::pin(sleep(RESPONSE_TIMEOUT)));
         } else {
             let res = self.send_message_to_peer(req.request.into()).await;
             if let Err(e) = res {
@@ -105,12 +202,14 @@ where
                 let _ = req.response_channel.send(Err(err_str.clone().into()));
                 Err(e)?
             } else {
+                // We still need to respond even if the response is this.
                 req.response_channel.send(Ok(PeerResponse::NA));
             }
         }
         Ok(())
     }
 
+    /// Handles a request from the connected peer to this node.
     async fn handle_peer_request(&mut self, req: PeerRequest) -> Result<(), PeerError> {
         tracing::debug!("Received peer request: {:?}", req.id());
 
@@ -123,9 +222,12 @@ where
         self.send_message_to_peer(res.try_into().unwrap()).await
     }
 
+    /// Handles a message from a peer when we are in [`State::WaitingForResponse`].
     async fn handle_potential_response(&mut self, mes: Message) -> Result<(), PeerError> {
         tracing::debug!("Received peer message, command: {:?}", mes.command());
 
+        // If the message is defiantly a request then there is no way it can be a response to
+        // our request.
         if mes.is_request() {
             return self.handle_peer_request(mes.try_into().unwrap()).await;
         }
@@ -143,7 +245,12 @@ where
                 panic!("Not in correct state, can't receive response!")
             };
 
-            let _ = tx.send(Ok(mes.try_into().unwrap()));
+            let _ = tx.send(Ok(mes
+                .try_into()
+                .map_err(|_| PeerError::PeerSentInvalidMessage)?));
+
+            self.response_timeout = None;
+
             Ok(())
         } else {
             self.handle_peer_request(
@@ -154,15 +261,26 @@ where
         }
     }
 
+    /// The main-loop for when we are in [`State::WaitingForRequest`].
     async fn state_waiting_for_request<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
     where
         Str: FusedStream<Item = Result<Message, monero_wire::BucketError>> + Unpin,
     {
         tracing::debug!("waiting for peer/client request.");
+
+        let timeout = sleep(TIMEOUT_INTERVAL);
+
         tokio::select! {
             biased;
+            _ = timeout => {
+                self.check_alive().await
+            }
             broadcast_req = self.broadcast_rx.next() => {
-                todo!()
+                if let Some(broadcast_req) = broadcast_req {
+                    self.handle_client_broadcast(broadcast_req).await
+                } else {
+                    Err(PeerError::ClientChannelClosed)
+                }
             }
             client_req = self.client_rx.next() => {
                 if let Some(client_req) = client_req {
@@ -181,15 +299,25 @@ where
         }
     }
 
+    /// The main-loop for when we are in [`State::WaitingForResponse`].
     async fn state_waiting_for_response<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
     where
         Str: FusedStream<Item = Result<Message, monero_wire::BucketError>> + Unpin,
     {
-        tracing::debug!("waiting for peer response..");
+        tracing::debug!("waiting for peer response.");
+
         tokio::select! {
             biased;
+            _ = self.response_timeout.as_mut().unwrap() => {
+                // TODO: Is disconnecting over the top?
+                Err(PeerError::ClientChannelClosed)
+            }
             broadcast_req = self.broadcast_rx.next() => {
-                todo!()
+                if let Some(broadcast_req) = broadcast_req {
+                    self.handle_client_broadcast(broadcast_req).await
+                } else {
+                    Err(PeerError::ClientChannelClosed)
+                }
             }
             peer_message = stream.next() => {
                 if let Some(peer_message) = peer_message {
@@ -201,6 +329,9 @@ where
         }
     }
 
+    /// Runs the Connection handler logic, this should be put in a separate task.
+    ///
+    /// `eager_protocol_messages` are protocol messages that we received during a handshake.
     pub async fn run<Str>(mut self, mut stream: Str, eager_protocol_messages: Vec<ProtocolMessage>)
     where
         Str: FusedStream<Item = Result<Message, monero_wire::BucketError>> + Unpin,
@@ -241,6 +372,8 @@ where
         }
     }
 
+    /// Shutdowns the connection, flushing pending requests and setting the error slot, if it hasn't been
+    /// set already.
     fn shutdown(mut self, err: PeerError) {
         tracing::debug!("Connection task shutting down: {}", err);
         let mut client_rx = self.client_rx.into_inner().into_inner();
@@ -249,6 +382,12 @@ where
         let err_str = err.to_string();
         if let Err(err) = self.error.try_insert_err(err) {
             tracing::debug!("Shared error already contains an error: {}", err);
+        }
+
+        if let State::WaitingForResponse { tx, .. } =
+            std::mem::replace(&mut self.state, State::WaitingForRequest)
+        {
+            let _ = tx.send(Err(err_str.clone().into()));
         }
 
         while let Ok(req) = client_rx.try_recv() {
