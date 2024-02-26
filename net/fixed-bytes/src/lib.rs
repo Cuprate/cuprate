@@ -3,7 +3,7 @@ use core::{
     ops::{Deref, Index},
 };
 
-use bytes::Bytes;
+use bytes::{BufMut, Bytes, BytesMut};
 
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 pub enum FixedByteError {
@@ -113,6 +113,24 @@ impl<const N: usize> TryFrom<Bytes> for ByteArrayVec<N> {
         }
 
         Ok(ByteArrayVec(value))
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for ByteArrayVec<N> {
+    fn from(value: [u8; N]) -> Self {
+        ByteArrayVec(Bytes::copy_from_slice(value.as_slice()))
+    }
+}
+
+impl<const N: usize, const LEN: usize> From<[[u8; N]; LEN]> for ByteArrayVec<N> {
+    fn from(value: [[u8; N]; LEN]) -> Self {
+        let mut bytes = BytesMut::with_capacity(N * LEN);
+
+        for val in value.into_iter() {
+            bytes.put_slice(val.as_slice());
+        }
+
+        ByteArrayVec(bytes.freeze())
     }
 }
 

@@ -13,13 +13,14 @@ use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 use monero_p2p::{
     client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
     network_zones::{ClearNet, ClearNetServerCfg},
-    ConnectionDirection, NetworkZone,
+    ConnectionDirection, NetworkZone, PeerRequest,
 };
 
 use cuprate_test_utils::{
     monerod::monerod,
     test_netzone::{TestNetZone, TestNetZoneAddr},
 };
+use monero_wire::protocol::{FluffyMissingTransactionsRequest, GetObjectsRequest};
 
 mod utils;
 use utils::*;
@@ -119,7 +120,7 @@ async fn handshake_cuprate_to_monerod() {
         my_port: 0,
         network_id: Network::Mainnet.network_id().into(),
         peer_id: 87980,
-        support_flags: PeerSupportFlags::from(1_u32),
+        support_flags: PeerSupportFlags::FLUFFY_BLOCKS,
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     };
@@ -156,7 +157,7 @@ async fn handshake_monerod_to_cuprate() {
         my_port: 18081,
         network_id: Network::Mainnet.network_id().into(),
         peer_id: 87980,
-        support_flags: PeerSupportFlags::from(1_u32),
+        support_flags: PeerSupportFlags::FLUFFY_BLOCKS,
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     };

@@ -63,6 +63,7 @@ pub enum PeerBroadcast {
     NewFluffyBlock(NewFluffyBlock),
 }
 
+#[derive(Debug, Clone)]
 pub enum PeerRequest {
     Handshake(HandshakeRequest),
     TimedSync(TimedSyncRequest),
@@ -106,6 +107,7 @@ impl PeerRequest {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum PeerResponse {
     Handshake(HandshakeResponse),
     TimedSync(TimedSyncResponse),
