@@ -176,11 +176,21 @@ impl Default for Config {
 ///
 /// # Sync vs Async
 /// All invariants except [`SyncMode::Fast`] are `synchronous`,
-/// as in the database will wait until the sync is finished before continuing.
+/// as in the database will wait until the OS has finished syncing
+/// all the data to disk before continuing.
 ///
-/// `SyncMode::Fast` is `asynchronous`, meaning it will _NOT_
-/// wait until the sync is done before continuing. It will immediately
-/// move onto the next operation even if the database/OS has not responded.
+/// `SyncMode::Fast` is `asynchronous`, meaning the database will _NOT_
+/// wait until the data is fully synced to disk before continuing.
+/// Note that this doesn't mean the database itself won't be synchronized
+/// between readers/writers, but rather that the data _on disk_ may not
+/// be immediately synchronized after a write.
+///
+/// Something like:
+/// ```rust,ignore
+/// db.get("key", value);
+/// db.get("key");
+/// ```
+/// will be fine, most likely pulling from memory instead of disk.
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -191,12 +201,12 @@ pub enum SyncMode {
     /// Use [`SyncMode::Fast`] until fully synced,
     /// then use [`SyncMode::Safe`].
     ///
-    /// TODO: We could not bother with this and just implement
-    /// batching, which was the solution to slow syncs with `Safe`.
+    /// # TODO: how to implement this?
     /// ref: <https://github.com/monero-project/monero/issues/1463>
-    /// solution: <https://github.com/monero-project/monero/pull/1506>
+    /// monerod-solution: <https://github.com/monero-project/monero/pull/1506>
+    /// cuprate-issue: <https://github.com/Cuprate/cuprate/issues/78>
     ///
-    /// TODO: this could be implemented as:
+    /// We could:
     /// ```rust,ignore
     /// if current_db_block <= top_block.saturating_sub(N) {
     ///     // don't sync()
