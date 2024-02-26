@@ -10,6 +10,7 @@ Cuprate's database implementation.
     - [`src/backend/`](#src-backend)
 1. [Backends](#backends)
     - [`heed`](#heed)
+    - [`MDBX`](#mdbx)
     - [`sanakirja`](#sanakirja)
 1. [Layers](#layers)
     - [Database](#database)
@@ -113,7 +114,7 @@ Each backend has its own folder.
 | Folder       | Purpose |
 |--------------|---------|
 | `heed/`      | Backend using using forked [`heed`](https://github.com/Cuprate/heed)
-| `sanakirja/` | Backend using [`sanakirja`](https://docs.rs/sanakirja)
+| `mdbx/`      | Backend using [`libmdbx`](https://docs.rs/libmdbx)
 
 All backends follow the same file structure:
 
@@ -142,8 +143,11 @@ cargo doc
 
 TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
 
-## `sanakirja`
+## `MDBX`
 TODO
+
+## `sanakirja`
+TODO: document why we aren't using this.
 
 # Layers
 TODO: update with accurate information when ready, update image.
