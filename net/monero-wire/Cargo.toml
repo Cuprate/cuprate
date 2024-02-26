@@ -12,7 +12,8 @@ levin-cuprate = {path="../levin"}
 epee-encoding = { path = "../epee-encoding" }
 fixed-bytes = { path = "../fixed-bytes" }
 
-bytes = { workspace = true }
+bitflags = { workspace = true, features = ["std"] }
+bytes = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
 
 [dev-dependencies]

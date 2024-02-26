@@ -41,6 +41,7 @@ pub use header::BucketHead;
 
 use std::fmt::Debug;
 
+use crate::header::Flags;
 use bytes::{Buf, Bytes};
 use thiserror::Error;
 
@@ -128,14 +129,14 @@ impl MessageType {
 
     /// Returns the `MessageType` given the flags and have_to_return_data fields
     pub fn from_flags_and_have_to_return(
-        flags: header::Flags,
+        flags: Flags,
         have_to_return: bool,
     ) -> Result<Self, BucketError> {
-        if flags.is_request() && have_to_return {
+        if flags.contains(Flags::REQUEST) && have_to_return {
             Ok(MessageType::Request)
-        } else if flags.is_request() {
+        } else if flags.contains(Flags::REQUEST) {
             Ok(MessageType::Notification)
-        } else if flags.is_response() && !have_to_return {
+        } else if flags.contains(Flags::RESPONSE) && !have_to_return {
             Ok(MessageType::Response)
         } else {
             Err(BucketError::InvalidHeaderFlags(

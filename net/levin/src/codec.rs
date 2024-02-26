@@ -21,7 +21,8 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
-    Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand, MessageType, Protocol,
+    header::Flags, Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand,
+    MessageType, Protocol,
 };
 
 #[derive(Debug, Clone)]
@@ -173,18 +174,18 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     let flags = &bucket.header.flags;
 
-                    if flags.is_start_fragment() && flags.is_end_fragment() {
+                    if flags.contains(Flags::DUMMY) {
                         // Dummy message
                         return Ok(None);
                     };
 
-                    if flags.is_end_fragment() {
+                    if flags.contains(Flags::END_FRAGMENT) {
                         return Err(BucketError::InvalidHeaderFlags(
                             "Flag end fragment received before a start fragment",
                         ));
                     };
 
-                    if !flags.is_request() && !flags.is_response() {
+                    if !flags.intersects(Flags::REQUEST | Flags::RESPONSE) {
                         return Err(BucketError::InvalidHeaderFlags(
                             "Request and response flags both not set",
                         ));
@@ -195,7 +196,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         bucket.header.have_to_return_data,
                     )?;
 
-                    if flags.is_start_fragment() {
+                    if flags.contains(Flags::START_FRAGMENT) {
                         let _ = std::mem::replace(
                             &mut self.state,
                             MessageState::WaitingForRestOfFragment(
@@ -221,12 +222,12 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     let flags = &bucket.header.flags;
 
-                    if flags.is_start_fragment() && flags.is_end_fragment() {
+                    if flags.contains(Flags::DUMMY) {
                         // Dummy message
                         return Ok(None);
                     };
 
-                    if !flags.is_request() && !flags.is_response() {
+                    if !flags.intersects(Flags::REQUEST | Flags::RESPONSE) {
                         return Err(BucketError::InvalidHeaderFlags(
                             "Request and response flags both not set",
                         ));
@@ -259,7 +260,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     bytes.push(bucket.body);
 
-                    if flags.is_end_fragment() {
+                    if flags.contains(Flags::END_FRAGMENT) {
                         let MessageState::WaitingForRestOfFragment(mut bytes, ty, command) =
                             std::mem::replace(&mut self.state, MessageState::WaitingForBucket)
                         else {

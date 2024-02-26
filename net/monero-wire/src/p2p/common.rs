@@ -15,7 +15,9 @@
 
 //! Common types that are used across multiple messages.
 
+use bitflags::bitflags;
 use bytes::{Buf, BufMut, Bytes};
+
 use epee_encoding::{epee_object, EpeeValue, InnerMarker};
 use fixed_bytes::ByteArray;
 
@@ -23,6 +25,14 @@ use crate::NetworkAddress;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PeerSupportFlags(u32);
+
+bitflags! {
+    impl PeerSupportFlags: u32 {
+        const FLUFFY_BLOCKS = 0b0000_0001;
+        const _ = !0;
+
+    }
+}
 
 impl From<u32> for PeerSupportFlags {
     fn from(value: u32) -> Self {
@@ -39,20 +49,6 @@ impl From<PeerSupportFlags> for u32 {
 impl<'a> From<&'a PeerSupportFlags> for &'a u32 {
     fn from(value: &'a PeerSupportFlags) -> Self {
         &value.0
-    }
-}
-
-impl PeerSupportFlags {
-    //const FLUFFY_BLOCKS: u32 = 0b0000_0001;
-
-    pub fn is_empty(&self) -> bool {
-        self.0 == 0
-    }
-}
-
-impl From<u8> for PeerSupportFlags {
-    fn from(value: u8) -> Self {
-        PeerSupportFlags(value.into())
     }
 }
 

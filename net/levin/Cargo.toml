@@ -10,5 +10,6 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/net/levin"
 [dependencies]
 thiserror = { workspace = true }
 bytes = { workspace = true }
+bitflags = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"]}
 

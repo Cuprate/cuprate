@@ -186,7 +186,7 @@ async fn handshake_monerod_to_cuprate() {
             .await
             .unwrap()
             .call(DoHandshakeRequest {
-                addr: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
+                peer_id: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
                 peer_stream: stream,
                 peer_sink: sink,
                 direction: ConnectionDirection::InBound,
