@@ -187,7 +187,7 @@ impl Default for Config {
 ///
 /// Something like:
 /// ```rust,ignore
-/// db.get("key", value);
+/// db.put("key", value);
 /// db.get("key");
 /// ```
 /// will be fine, most likely pulling from memory instead of disk.
