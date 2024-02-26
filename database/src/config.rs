@@ -413,7 +413,7 @@ impl ReaderThreads {
 impl<T: Into<usize>> From<T> for ReaderThreads {
     /// Create a [`ReaderThreads::Number`].
     ///
-    /// If `value` is `0`, this will return [`ReturnThreads::OnePerThread`].
+    /// If `value` is `0`, this will return [`ReaderThreads::OnePerThread`].
     fn from(value: T) -> Self {
         let u: usize = value.into();
         if u == 0 {

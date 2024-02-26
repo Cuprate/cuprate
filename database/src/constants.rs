@@ -27,7 +27,7 @@ cfg_if::cfg_if! {
 
         /// Cuprate's database filename.
         ///
-        /// This is the filename for Cuprate's database, used in [`Config::db_file_path`](crate::config::Config::db_file_path).
+        /// This is the filename for Cuprate's database, used in [`Config::db_file`](crate::config::Config::db_file).
         pub const DATABASE_FILENAME: &str = "data.san"; // TODO: pick a name + extension.
     } else {
         /// Static string of the `crate` being used as the database backend.
@@ -35,7 +35,7 @@ cfg_if::cfg_if! {
 
         /// Cuprate's database filename.
         ///
-        /// This is the filename for Cuprate's database, used in [`Config::db_file_path`](crate::config::Config::db_file_path).
+        /// This is the filename for Cuprate's database, used in [`Config::db_file`](crate::config::Config::db_file).
         pub const DATABASE_FILENAME: &str = "data.mdb";
     }
 }
