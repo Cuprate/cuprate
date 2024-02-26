@@ -1,14 +1,12 @@
-//! Implementation of `trait Database` for `sanakirja`.
+//! Implementation of `trait Database` for `mdbx`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{
-    backend::sanakirja::types::SanakirjaDb, database::Database, error::RuntimeError, table::Table,
-};
+use crate::{backend::mdbx::types::MdbxDb, database::Database, error::RuntimeError, table::Table};
 
 //---------------------------------------------------------------------------------------------------- Database Impls
-impl<T: Table> Database<T> for SanakirjaDb {
-    type RoTx<'db> = sanakirja::Txn<&'db sanakirja::Env>;
-    type RwTx<'db> = sanakirja::MutTxn<&'db sanakirja::Env, ()>;
+impl<T: Table> Database<T> for MdbxDb<'_> {
+    type RoTx<'db> = libmdbx::Transaction<'db, libmdbx::RO, libmdbx::WriteMap>;
+    type RwTx<'db> = libmdbx::Transaction<'db, libmdbx::RW, libmdbx::WriteMap>;
 
     fn get(&self, ro_tx: &Self::RoTx<'_>, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
         todo!()

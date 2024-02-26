@@ -12,9 +12,9 @@
 cfg_if::cfg_if! {
     // If both backends are enabled, fallback to `heed`.
     // This is useful when using `--all-features`.
-    if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
-        mod sanakirja;
-        pub use sanakirja::ConcreteEnv;
+    if #[cfg(all(feature = "mdbx", not(feature = "heed")))] {
+        mod mdbx;
+        pub use mdbx::ConcreteEnv;
     } else {
         mod heed;
         pub use heed::ConcreteEnv;

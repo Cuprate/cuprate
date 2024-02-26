@@ -1,10 +1,10 @@
-//! Implementation of `trait Env` for `sanakirja`.
+//! Implementation of `trait Env` for `mdbx`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    backend::sanakirja::types::SanakirjaDb,
+    backend::mdbx::types::MdbxDb,
     config::Config,
     database::Database,
     env::Env,
@@ -13,10 +13,13 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
-/// A strongly typed, concrete database environment, backed by `sanakirja`.
+/// A strongly typed, concrete database environment, backed by `libmdbx`.
 pub struct ConcreteEnv {
     /// The actual database environment.
-    env: sanakirja::Env,
+    ///
+    /// # `WriteMap` usage
+    /// Reference: <https://erthink.github.io/libmdbx/intro.html>.
+    env: libmdbx::Database<libmdbx::WriteMap>,
 
     /// The configuration we were opened with
     /// (and in current use).
@@ -35,13 +38,12 @@ impl Drop for ConcreteEnv {
 
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
+    // MDBX resizes automatically, with customizable settings:
+    /// <https://erthink.github.io/libmdbx/group__c__settings.html#ga79065e4f3c5fb2ad37a52b59224d583e>.
     const MANUAL_RESIZE: bool = false;
-    const SYNCS_PER_TX: bool = true;
-    /// FIXME:
-    /// We could also implement `Borrow<sanakirja::Env> for ConcreteEnv`
-    /// instead of this reference.
-    type RoTx<'db> = sanakirja::Txn<&'db sanakirja::Env>;
-    type RwTx<'db> = sanakirja::MutTxn<&'db sanakirja::Env, ()>;
+    const SYNCS_PER_TX: bool = false;
+    type RoTx<'db> = libmdbx::Transaction<'db, libmdbx::RO, libmdbx::WriteMap>;
+    type RwTx<'db> = libmdbx::Transaction<'db, libmdbx::RW, libmdbx::WriteMap>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -81,7 +83,7 @@ impl Env for ConcreteEnv {
         &self,
         to_rw: &Self::RoTx<'_>,
     ) -> Result<impl Database<T>, RuntimeError> {
-        let tx: SanakirjaDb = todo!();
+        let tx: MdbxDb = todo!();
         Ok(tx)
     }
 }

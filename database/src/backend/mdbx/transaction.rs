@@ -7,14 +7,14 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- RoTx
-impl RoTx<'_> for sanakirja::Txn<&'_ sanakirja::Env> {
+impl RoTx<'_> for libmdbx::Transaction<'_, libmdbx::RO, libmdbx::WriteMap> {
     fn commit(self) -> Result<(), RuntimeError> {
         todo!()
     }
 }
 
 //---------------------------------------------------------------------------------------------------- RwTx
-impl RwTx<'_> for sanakirja::MutTxn<&'_ sanakirja::Env, ()> {
+impl RwTx<'_> for libmdbx::Transaction<'_, libmdbx::RW, libmdbx::WriteMap> {
     /// TODO
     /// # Errors
     /// TODO
