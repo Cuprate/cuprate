@@ -65,6 +65,9 @@ pub enum HandshakeError {
     /// The peer is on a different network to us.
     #[error("Peer is on a different network")]
     IncorrectNetwork,
+    /// The peer does not support a feature we require.
+    #[error("The peer does not meet one or more of the required features")]
+    PeerDoesNotHaveRequiredFeature,
     /// The peer sent a peer list of nodes which contain peers on a different
     /// network zone.
     #[error("Peer sent a peer list with peers from different zones")]
@@ -107,6 +110,9 @@ pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
     /// The peer request handler service.
     peer_request_svc: ReqHdlr,
 
+    /// The support flags that must be set by the peer for a handshake to succeed.
+    minimum_support_flags: PeerSupportFlags,
+
     /// Our basic node data, for this network.
     our_basic_node_data: BasicNodeData,
 
@@ -125,6 +131,8 @@ impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqH
         core_sync_svc: CSync,
         peer_request_svc: ReqHdlr,
 
+        minimum_support_flags: Option<PeerSupportFlags>,
+
         broadcast_tx: broadcast::Sender<PeerBroadcast>,
 
         our_basic_node_data: BasicNodeData,
@@ -133,6 +141,7 @@ impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqH
             address_book,
             core_sync_svc,
             peer_request_svc,
+            minimum_support_flags: minimum_support_flags.unwrap_or(PeerSupportFlags::empty()),
             broadcast_tx,
             our_basic_node_data,
             _zone: PhantomData,
@@ -159,6 +168,8 @@ where
     fn call(&mut self, req: DoHandshakeRequest<Z>) -> Self::Future {
         let broadcast_rx = self.broadcast_tx.subscribe();
 
+        let minimum_support_flags = self.minimum_support_flags.clone();
+
         let address_book = self.address_book.clone();
         let peer_request_svc = self.peer_request_svc.clone();
         let core_sync_svc = self.core_sync_svc.clone();
@@ -172,6 +183,7 @@ where
                 HANDSHAKE_TIMEOUT,
                 handshake(
                     req,
+                    minimum_support_flags,
                     broadcast_rx,
                     address_book,
                     core_sync_svc,
@@ -189,6 +201,8 @@ where
 /// This function completes a handshake with the requested peer.
 async fn handshake<Z: NetworkZone, AdrBook, CSync, ReqHdlr>(
     req: DoHandshakeRequest<Z>,
+
+    minimum_support_flags: PeerSupportFlags,
 
     broadcast_rx: broadcast::Receiver<PeerBroadcast>,
 
@@ -210,7 +224,7 @@ where
         permit,
     } = req;
 
-    // See:
+    // See [`MAX_EAGER_PROTOCOL_MESSAGES`]
     let mut eager_protocol_messages = Vec::new();
     let mut allow_support_flag_req = true;
 
@@ -321,6 +335,11 @@ where
 
         tracing::debug!("Received support flag response.");
         peer_node_data.support_flags = support_flags_res.support_flags;
+    }
+
+    if !peer_node_data.support_flags.contains(minimum_support_flags) {
+        tracing::debug!("Peer does not meet the minimum support features, dropping connection.");
+        return Err(HandshakeError::PeerDoesNotHaveRequiredFeature);
     }
 
     if direction == ConnectionDirection::InBound {

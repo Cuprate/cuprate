@@ -13,14 +13,13 @@ use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 use monero_p2p::{
     client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
     network_zones::{ClearNet, ClearNetServerCfg},
-    ConnectionDirection, NetworkZone, PeerRequest,
+    ConnectionDirection, NetworkZone,
 };
 
 use cuprate_test_utils::{
     monerod::monerod,
     test_netzone::{TestNetZone, TestNetZoneAddr},
 };
-use monero_wire::protocol::{FluffyMissingTransactionsRequest, GetObjectsRequest};
 
 mod utils;
 use utils::*;
@@ -52,6 +51,7 @@ async fn handshake_cuprate_to_cuprate() {
         DummyAddressBook,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
+        None,
         broadcast_tx.clone(),
         our_basic_node_data_1,
     );
@@ -60,6 +60,7 @@ async fn handshake_cuprate_to_cuprate() {
         DummyAddressBook,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
+        None,
         broadcast_tx.clone(),
         our_basic_node_data_2,
     );
@@ -129,6 +130,7 @@ async fn handshake_cuprate_to_monerod() {
         DummyAddressBook,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
+        None,
         broadcast_tx,
         our_basic_node_data,
     );
@@ -166,6 +168,7 @@ async fn handshake_monerod_to_cuprate() {
         DummyAddressBook,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
+        None,
         broadcast_tx,
         our_basic_node_data,
     );
