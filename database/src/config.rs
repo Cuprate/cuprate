@@ -25,12 +25,14 @@ use crate::{constants::DATABASE_FILENAME, resize::ResizeAlgorithm};
 #[derive(Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Config {
+    //------------------------ Database PATHs
+    // These are private since we don't want
+    // users messing with them after construction.
     /// The directory used to store all database files.
     ///
     /// By default, if no value is provided in the [`Config`]
     /// constructor functions, this will be [`cuprate_database_dir`].
-    pub db_directory: Cow<'static, Path>,
-
+    pub(crate) db_directory: Cow<'static, Path>,
     /// The actual database data file.
     ///
     /// This is private, and created from the above `db_directory`.
@@ -45,16 +47,16 @@ pub struct Config {
     /// Database memory map resizing algorithm.
     ///
     /// This is used as the default fallback, but
-    /// custom algorithm can be used as well with
+    /// custom algorithms can be used as well with
     /// [`Env::resize_map`](crate::Env::resize_map).
     pub resize_algorithm: ResizeAlgorithm,
 }
 
 impl Config {
-    /// Private function to acquires [`Config::db_file`]
+    /// Private function to acquire [`Config::db_file`]
     /// from the user provided (or default) [`Config::db_directory`].
     ///
-    /// As the database data file is just the directory + the filename,
+    /// As the database data file PATH is just the directory + the filename,
     /// we only need the directory from the user/Config, and can add it here.
     fn return_db_dir_and_file<P: AsRef<Path>>(
         db_directory: Option<P>,
@@ -133,11 +135,19 @@ impl Config {
         }
     }
 
+    /// Return the absolute [`Path`] to the database directory.
+    ///
+    /// This will be the `db_directory` given
+    /// (or default) during [`Config`] construction.
+    pub const fn db_directory(&self) -> &Cow<'_, Path> {
+        &self.db_directory
+    }
+
     /// Return the absolute [`Path`] to the database data file.
     ///
     /// This will be based off the `db_directory` given
     /// (or default) during [`Config`] construction.
-    pub fn db_file_path(&self) -> &Path {
+    pub const fn db_file(&self) -> &Cow<'_, Path> {
         &self.db_file
     }
 }
