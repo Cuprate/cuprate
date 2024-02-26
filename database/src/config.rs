@@ -9,7 +9,11 @@
 //! based on these values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, num::NonZeroUsize, path::Path};
+use std::{
+    borrow::Cow,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+};
 
 use cuprate_helper::fs::cuprate_database_dir;
 
@@ -58,15 +62,13 @@ impl Config {
     ///
     /// As the database data file PATH is just the directory + the filename,
     /// we only need the directory from the user/Config, and can add it here.
-    fn return_db_dir_and_file<P: AsRef<Path>>(
-        db_directory: Option<P>,
+    fn return_db_dir_and_file(
+        db_directory: Option<PathBuf>,
     ) -> (Cow<'static, Path>, Cow<'static, Path>) {
         // INVARIANT: all PATH safety checks are done
         // in `helper::fs`. No need to do them here.
-        let db_directory = db_directory.map_or_else(
-            || Cow::Borrowed(cuprate_database_dir()),
-            |p| Cow::Owned(p.as_ref().to_path_buf()),
-        );
+        let db_directory =
+            db_directory.map_or_else(|| Cow::Borrowed(cuprate_database_dir()), Cow::Owned);
 
         // Add the database filename to the directory.
         let mut db_file = db_directory.to_path_buf();
@@ -82,7 +84,7 @@ impl Config {
     /// directory that contains all database files.
     ///
     /// If `None`, it will use the default directory [`cuprate_database_dir`].
-    pub fn new<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
+    pub fn new(db_directory: Option<PathBuf>) -> Self {
         let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
         Self {
             db_directory,
@@ -103,7 +105,7 @@ impl Config {
     /// directory that contains all database files.
     ///
     /// If `None`, it will use the default directory [`cuprate_database_dir`].
-    pub fn fast<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
+    pub fn fast(db_directory: Option<PathBuf>) -> Self {
         let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
         Self {
             db_directory,
@@ -124,7 +126,7 @@ impl Config {
     /// directory that contains all database files.
     ///
     /// If `None`, it will use the default directory [`cuprate_database_dir`].
-    pub fn low_power<P: AsRef<Path>>(db_directory: Option<P>) -> Self {
+    pub fn low_power(db_directory: Option<PathBuf>) -> Self {
         let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
         Self {
             db_directory,
@@ -155,7 +157,7 @@ impl Config {
 impl Default for Config {
     /// Same as `Self::new(None)`.
     fn default() -> Self {
-        Self::new(None::<&'static Path>)
+        Self::new(None)
     }
 }
 
