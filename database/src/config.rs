@@ -308,9 +308,18 @@ pub enum ReaderThreads {
     /// | `ReaderThreads::Percent(2.0)`      | 32 (saturating)
     /// | `ReaderThreads::Percent(f32::NAN)` | 32 (non-normal default)
     ///
-    /// # `0`
+    /// # `0.0`
     /// `ReaderThreads::Percent(0.0)` represents "use maximum value",
     /// as such, it is equal to [`ReaderThreads::OnePerThread`].
+    ///
+    /// # Not quite `0.0`
+    /// If the thread count multiplied by the percentage ends up being
+    /// non-zero, but not 1 thread, the minimum value 1 will be returned.
+    ///
+    /// ```rust
+    /// # use cuprate_database::config::*;
+    /// assert_eq!(ReaderThreads::Percent(0.000000001).as_threads().get(), 1);
+    /// ```
     Percent(f32),
 }
 
@@ -403,6 +412,8 @@ impl ReaderThreads {
 
 impl<T: Into<usize>> From<T> for ReaderThreads {
     /// Create a [`ReaderThreads::Number`].
+    ///
+    /// If `value` is `0`, this will return [`ReturnThreads::OnePerThread`].
     fn from(value: T) -> Self {
         let u: usize = value.into();
         if u == 0 {
