@@ -26,7 +26,7 @@ use crate::{constants::DATABASE_FILENAME, resize::ResizeAlgorithm};
 /// allows the database to be configured in various ways.
 ///
 /// TODO: there's probably more options to add.
-#[derive(Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Config {
     //------------------------ Database PATHs
@@ -156,6 +156,11 @@ impl Config {
 
 impl Default for Config {
     /// Same as `Self::new(None)`.
+    ///
+    /// ```rust
+    /// # use cuprate_database::config::*;
+    /// assert_eq!(Config::default(), Config::new(None));
+    /// ```
     fn default() -> Self {
         Self::new(None)
     }
@@ -176,7 +181,7 @@ impl Default for Config {
 /// `SyncMode::Fast` is `asynchronous`, meaning it will _NOT_
 /// wait until the sync is done before continuing. It will immediately
 /// move onto the next operation even if the database/OS has not responded.
-#[derive(Copy, Clone, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "borsh",
@@ -253,7 +258,7 @@ pub enum SyncMode {
 ///
 /// The main function used to extract an actual
 /// usable thread count out of this is [`ReaderThreads::as_threads`].
-#[derive(Copy, Clone, Default, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "borsh",
