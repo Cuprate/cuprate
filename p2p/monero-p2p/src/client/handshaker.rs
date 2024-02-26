@@ -168,7 +168,7 @@ where
     fn call(&mut self, req: DoHandshakeRequest<Z>) -> Self::Future {
         let broadcast_rx = self.broadcast_tx.subscribe();
 
-        let minimum_support_flags = self.minimum_support_flags.clone();
+        let minimum_support_flags = self.minimum_support_flags;
 
         let address_book = self.address_book.clone();
         let peer_request_svc = self.peer_request_svc.clone();
@@ -338,7 +338,7 @@ where
     }
 
     if !peer_node_data.support_flags.contains(minimum_support_flags) {
-        tracing::debug!("Peer does not meet the minimum support features, dropping connection.");
+        tracing::debug!("Peer does not meet the minimum supported features, dropping connection.");
         return Err(HandshakeError::PeerDoesNotHaveRequiredFeature);
     }
 
