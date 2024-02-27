@@ -110,19 +110,19 @@ pub trait Env: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn ro_tx(&self) -> Result<Self::TxRo<'_>, RuntimeError>;
+    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn rw_tx(&self) -> Result<Self::TxRw<'_>, RuntimeError>;
+    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
     fn create_tables_if_needed<T: Table>(
         &self,
-        rw_tx: &mut Self::TxRw<'_>,
+        tx_rw: &mut Self::TxRw<'_>,
     ) -> Result<(), RuntimeError>;
 
     /// TODO
@@ -138,7 +138,7 @@ pub trait Env: Sized {
     /// TODO
     fn open_db_read<T: Table>(
         &self,
-        ro_tx: &Self::TxRo<'_>,
+        tx_ro: &Self::TxRo<'_>,
     ) -> Result<impl DatabaseRead<T>, RuntimeError>;
 
     /// TODO
@@ -154,7 +154,7 @@ pub trait Env: Sized {
     /// TODO
     fn open_db_write<T: Table>(
         &self,
-        rw_tx: &mut Self::TxRw<'_>,
+        tx_rw: &mut Self::TxRw<'_>,
     ) -> Result<impl DatabaseWrite<T>, RuntimeError>;
 
     //------------------------------------------------ Provided

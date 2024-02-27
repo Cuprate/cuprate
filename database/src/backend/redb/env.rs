@@ -1,22 +1,22 @@
-//! Implementation of `trait Env` for `sanakirja`.
+//! Implementation of `trait Env` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    backend::sanakirja::types::SanakirjaDb,
+    backend::redb::types::{RedbTableRo, RedbTableRw},
     config::Config,
-    database::Database,
+    database::{DatabaseRead, DatabaseWrite},
     env::Env,
     error::{InitError, RuntimeError},
     table::Table,
 };
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
-/// A strongly typed, concrete database environment, backed by `sanakirja`.
+/// A strongly typed, concrete database environment, backed by `redb`.
 pub struct ConcreteEnv {
     /// The actual database environment.
-    env: sanakirja::Env,
+    env: redb::Database,
 
     /// The configuration we were opened with
     /// (and in current use).
@@ -36,12 +36,10 @@ impl Drop for ConcreteEnv {
 //---------------------------------------------------------------------------------------------------- Env Impl
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = false;
-    const SYNCS_PER_TX: bool = true;
-    /// FIXME:
-    /// We could also implement `Borrow<sanakirja::Env> for ConcreteEnv`
-    /// instead of this reference.
-    type RoTx<'db> = sanakirja::Txn<&'db sanakirja::Env>;
-    type RwTx<'db> = sanakirja::MutTxn<&'db sanakirja::Env, ()>;
+    const SYNCS_PER_TX: bool = false;
+
+    type TxRo<'db> = redb::ReadTransaction<'db>;
+    type TxRw<'db> = redb::WriteTransaction<'db>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -58,12 +56,12 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn ro_tx(&self) -> Result<Self::RoTx<'_>, RuntimeError> {
+    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn rw_tx(&self) -> Result<Self::RwTx<'_>, RuntimeError> {
+    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
         todo!()
     }
 
@@ -71,17 +69,26 @@ impl Env for ConcreteEnv {
     #[inline(never)] // called infrequently?.
     fn create_tables_if_needed<T: Table>(
         &self,
-        tx_rw: &mut Self::RwTx<'_>,
+        tx_rw: &mut Self::TxRw<'_>,
     ) -> Result<(), RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn open_database<T: Table>(
+    fn open_db_read<T: Table>(
         &self,
-        to_rw: &Self::RoTx<'_>,
-    ) -> Result<impl Database<T>, RuntimeError> {
-        let tx: SanakirjaDb = todo!();
+        tx_ro: &Self::TxRo<'_>,
+    ) -> Result<impl DatabaseRead<T>, RuntimeError> {
+        let tx: RedbTableRo = todo!();
+        Ok(tx)
+    }
+
+    #[inline]
+    fn open_db_write<T: Table>(
+        &self,
+        tx_rw: &mut Self::TxRw<'_>,
+    ) -> Result<impl DatabaseWrite<T>, RuntimeError> {
+        let tx: RedbTableRw = todo!();
         Ok(tx)
     }
 }
