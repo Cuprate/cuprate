@@ -4,9 +4,10 @@
 use std::sync::RwLock;
 
 use crate::{
-    backend::heed::types::HeedDb,
+    backend::heed::database::{HeedTableRo, HeedTableRw},
+    // backend::heed::types::HeedDb,
     config::Config,
-    database::Database,
+    database::{DatabaseRead, DatabaseWrite},
     env::Env,
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
@@ -61,8 +62,8 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = true;
     const SYNCS_PER_TX: bool = false;
-    type RoTx<'db> = heed::RoTxn<'db>;
-    type RwTx<'db> = heed::RwTxn<'db>;
+    type TxRo<'db> = heed::RoTxn<'db>;
+    type TxRw<'db> = heed::RwTxn<'db>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -116,12 +117,12 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn ro_tx(&self) -> Result<Self::RoTx<'_>, RuntimeError> {
+    fn ro_tx(&self) -> Result<Self::TxRo<'_>, RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn rw_tx(&self) -> Result<Self::RwTx<'_>, RuntimeError> {
+    fn rw_tx(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
         todo!()
     }
 
@@ -129,17 +130,26 @@ impl Env for ConcreteEnv {
     #[inline(never)] // called infrequently?.
     fn create_tables_if_needed<T: Table>(
         &self,
-        tx_rw: &mut Self::RwTx<'_>,
+        tx_write: &mut Self::TxRw<'_>,
     ) -> Result<(), RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn open_database<T: Table>(
+    fn open_db_read<T: Table>(
         &self,
-        to_rw: &Self::RoTx<'_>,
-    ) -> Result<impl Database<T>, RuntimeError> {
-        let tx: HeedDb = todo!();
+        tx_read: &Self::TxRo<'_>,
+    ) -> Result<impl DatabaseRead<T>, RuntimeError> {
+        let tx: HeedTableRo<T> = todo!();
+        Ok(tx)
+    }
+
+    #[inline]
+    fn open_db_write<T: Table>(
+        &self,
+        tx_write: &Self::TxRw<'_>,
+    ) -> Result<impl DatabaseWrite<T>, RuntimeError> {
+        let tx: HeedTableRw<T> = todo!();
         Ok(tx)
     }
 }

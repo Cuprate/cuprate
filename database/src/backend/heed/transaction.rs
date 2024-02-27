@@ -1,20 +1,29 @@
-//! Implementation of `trait RoTx/RwTx` for `heed`.
+//! Implementation of `trait TxRo/TxRw` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     error::RuntimeError,
-    transaction::{RoTx, RwTx},
+    transaction::{TxRo, TxRw},
 };
 
-//---------------------------------------------------------------------------------------------------- RoTx
-impl RoTx<'_> for heed::RoTxn<'_> {
+//---------------------------------------------------------------------------------------------------- TxRo
+impl TxRo<'_> for heed::RoTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
         todo!()
     }
 }
 
-//---------------------------------------------------------------------------------------------------- RwTx
-impl RwTx<'_> for heed::RwTxn<'_> {
+//---------------------------------------------------------------------------------------------------- TxRw
+impl TxRo<'_> for heed::RwTxn<'_> {
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn commit(self) -> Result<(), RuntimeError> {
+        todo!()
+    }
+}
+
+impl TxRw<'_> for heed::RwTxn<'_> {
     /// TODO
     /// # Errors
     /// TODO

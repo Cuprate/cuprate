@@ -1,41 +1,86 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{backend::heed::types::HeedDb, database::Database, error::RuntimeError, table::Table};
+use std::marker::PhantomData;
 
-//---------------------------------------------------------------------------------------------------- Database Impls
-impl<T: Table> Database<T> for HeedDb {
-    type RoTx<'db> = heed::RoTxn<'db>;
-    type RwTx<'db> = heed::RwTxn<'db>;
+use crate::{
+    backend::heed::types::HeedDb,
+    database::{DatabaseRead, DatabaseWrite},
+    error::RuntimeError,
+    table::Table,
+};
 
-    fn get(&self, ro_tx: &Self::RoTx<'_>, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
+//---------------------------------------------------------------------------------------------------- Heed Database Wrappers
+// TODO: document that this exists to match
+// `redb`'s behavior of tying the lifetime of
+// `tx`'s and the opened table.
+//
+// TODO: do we need this `T: Table` phantom bound?
+
+/// TODO
+/// Matches `redb::ReadOnlyTable`.
+pub(super) struct HeedTableRo<'env, T: Table> {
+    /// TODO
+    db: HeedDb,
+    /// TODO
+    tx: &'env heed::RoTxn<'env>,
+    /// TODO
+    _table: PhantomData<T>,
+}
+
+/// TODO
+/// Matches `redb::Table` (read & write).
+pub(super) struct HeedTableRw<'env, T: Table> {
+    /// TODO
+    db: HeedDb,
+    /// TODO
+    tx: &'env mut heed::RwTxn<'env>,
+    /// TODO
+    _table: PhantomData<T>,
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseRead Impl
+impl<T: Table> DatabaseRead<T> for HeedTableRo<'_, T> {
+    fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
         todo!()
     }
 
     fn get_range(
         &self,
-        ro_tx: &Self::RoTx<'_>,
         key: &T::Key,
         amount: usize,
     ) -> Result<impl Iterator<Item = T::Value>, RuntimeError> {
         let iter: std::vec::Drain<'_, T::Value> = todo!();
         Ok(iter)
     }
+}
 
-    fn put(
-        &mut self,
-        rw_tx: &mut Self::RwTx<'_>,
+//---------------------------------------------------------------------------------------------------- DatabaseWrite Impl
+impl<T: Table> DatabaseRead<T> for HeedTableRw<'_, T> {
+    fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
+        todo!()
+    }
+
+    fn get_range(
+        &self,
         key: &T::Key,
-        value: &T::Value,
-    ) -> Result<(), RuntimeError> {
+        amount: usize,
+    ) -> Result<impl Iterator<Item = T::Value>, RuntimeError> {
+        let iter: std::vec::Drain<'_, T::Value> = todo!();
+        Ok(iter)
+    }
+}
+
+impl<T: Table> DatabaseWrite<T> for HeedTableRw<'_, T> {
+    fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         todo!()
     }
 
-    fn clear(&mut self, rw_tx: &mut Self::RwTx<'_>) -> Result<(), RuntimeError> {
+    fn clear(&mut self) -> Result<(), RuntimeError> {
         todo!()
     }
 
-    fn delete(&mut self, rw_tx: &mut Self::RwTx<'_>, key: &T::Key) -> Result<bool, RuntimeError> {
+    fn delete(&mut self, key: &T::Key) -> Result<bool, RuntimeError> {
         todo!()
     }
 }
