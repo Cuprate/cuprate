@@ -56,9 +56,14 @@
 //! Note that `ConcreteEnv` itself is not a clonable type,
 //! it should be wrapped in [`std::sync::Arc`].
 //!
-//! TODO: we could also expose `ConcreteDatabase` if we're
+//! TODO: we could also expose `ConcreteEnv` if we're
 //! going to be storing any databases in structs, to lessen
 //! the generic `<D: Database>` pain.
+//!
+//! TODO: we could replace `ConcreteEnv` with `fn Env::open() -> impl Env`/
+//! and use `<E: Env>` everywhere it is stored instead. This would allow
+//! generic-backed dynamic runtime selection of the database backend, i.e.
+//! the user can select which database backend they use.
 //!
 //! # Feature flags
 //! The `service` module requires the `service` feature to be enabled.
