@@ -351,7 +351,7 @@ Stores info about blocks from HF 10 onwards
 | Block Height (u64) | BlockInfoV3 (see below) |
 
 ```rust
-struct BlockInfoV2 {
+struct BlockInfoV3 {
     timestamp: u64,
     total_generated_coins: u64,
     weight: u64,
@@ -366,3 +366,40 @@ struct BlockInfoV2 {
 
 > When getting a blocks info start on table V1 and if a block isn't there move to the next or keep a cache of numb blocks in each table
 > so we know what table to look in by the blocks height.
+
+# MultiMap Tables
+
+When referencing outputs Monero will use the amount and the amount index. This means 2 keys are needed to reach an output.
+
+With LMDB you can set `DUP_SORT` on a table and then set the key/ value to:
+
+```
+KEY: KEY_PART_1
+```
+
+```
+VALUE: {
+  KEY_PART_2,
+  VALUE // The acctual value we are storing.
+}
+```
+
+Then you can set a custom value sort that only take into account `KEY_PART_2`. This is how monerod does it. 
+
+This requires that the underlying DB supports multimap tables, custom sort functions on values and setting a cursor on a specific
+key/value.
+
+Another way to implement this is as follows:
+
+```
+KEY: KEY_PART_1 | KEY_PART_2
+```
+
+```
+VALUE: VALUE
+```
+
+We also need to get the amount of outputs with a certain amount so the database will need to allow getting keys less than a key
+i.e. to get the number of outputs with amount `10` we would get the first key below `(10 | MAX)` and add one to `KEY_PART_2`.
+
+We also have to make sure the DB is storing these values in the correct order for this to work.
