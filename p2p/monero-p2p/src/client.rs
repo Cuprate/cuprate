@@ -1,11 +1,15 @@
 use std::{
     fmt::{Debug, Display, Formatter},
-    task::{Context, Poll},
+    sync::Arc,
+    task::{ready, Context, Poll},
 };
 
-use futures::channel::oneshot;
+use futures::{
+    channel::oneshot,
+    lock::{Mutex, OwnedMutexGuard, OwnedMutexLockFuture},
+    FutureExt,
+};
 use tokio::{sync::mpsc, task::JoinHandle};
-use tokio_util::sync::PollSender;
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
@@ -26,7 +30,9 @@ pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
 /// or a random u64 if not.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum InternalPeerID<A> {
+    /// A known address
     KnownAddr(A),
+    /// An unknown address (probably an inbound anonymity network connection).
     Unknown(u64),
 }
 
@@ -39,37 +45,76 @@ impl<A: Display> Display for InternalPeerID<A> {
     }
 }
 
+/// This represents a connection to a peer.
+///
+/// It allows sending requests to the peer, but does only does minimal checks that the data returned
+/// is the data asked for, i.e. for a certain request the only thing checked will be that the response
+/// is the correct response for that request.
+///
+/// When a call to [`Client::poll_ready`] is made a slot is reserved that prevents others from sending
+/// requests to this peer, so if you don't call [`Client::call`] after you must call [`Client::disarm`],
+/// otherwise you prevent all requests to the peer. Even though [`Client`] does not impl [`Clone`] this
+/// is still required as internal peer management code will take the mutex when it needs to send requests
+/// to the peer.
 pub struct Client<Z: NetworkZone> {
+    /// The internal peer ID of this peer.
     id: InternalPeerID<Z::Addr>,
+    /// The [`ConnectionHandle`] for this peer, allows banning this peer and checking if it is still
+    /// alive.
     handle: ConnectionHandle,
 
+    /// The direction of this connection (inbound|outbound).
     direction: ConnectionDirection,
 
-    connection_tx: PollSender<connection::ConnectionTaskRequest>,
+    /// The channel to the [`Connection`](connection::Connection) task.
+    connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
+    /// The [`JoinHandle`] of the spawned connection task.
     connection_handle: JoinHandle<()>,
 
+    /// A [`Mutex`] which represents if this connection is handling a request.
+    request_mutex: Arc<Mutex<()>>,
+    /// A future that resolves when it is our turn to hand a request to the connection task.
+    mutex_lock_fut: Option<OwnedMutexLockFuture<()>>,
+    /// A guard that means we can send a request to the peer.
+    mutex_lock: Option<OwnedMutexGuard<()>>,
+
+    /// The error slot shared between the [`Client`] and [`Connection`](connection::Connection).
     error: SharedError<PeerError>,
 }
 
 impl<Z: NetworkZone> Client<Z> {
-    pub fn new(
+    /// Creates a new [`Client`].
+    pub(crate) fn new(
         id: InternalPeerID<Z::Addr>,
         handle: ConnectionHandle,
         direction: ConnectionDirection,
         connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
         connection_handle: JoinHandle<()>,
+        request_mutex: Arc<Mutex<()>>,
         error: SharedError<PeerError>,
     ) -> Self {
         Self {
             id,
             handle,
             direction,
-            connection_tx: PollSender::new(connection_tx),
+            connection_tx,
             connection_handle,
+            request_mutex,
+            mutex_lock_fut: None,
+            mutex_lock: None,
             error,
         }
     }
 
+    /// Disarms the connection, allowing other requests to be sent to the peer if we no longer need to.
+    ///
+    /// This *MUST* be called after a call to [`Client::poll_ready`] if you don't call [`Client::call`].
+    pub fn disarm(&mut self) {
+        self.mutex_lock_fut.take();
+        self.mutex_lock.take();
+    }
+
+    /// Internal function to set an error on the [`SharedError`].
     fn set_err(&self, err: PeerError) -> tower::BoxError {
         let err_str = err.to_string();
         match self.error.try_insert_err(err) {
@@ -95,20 +140,37 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             return Poll::Ready(Err(err));
         }
 
-        self.connection_tx
-            .poll_reserve(cx)
-            .map_err(|_| PeerError::ClientChannelClosed.into())
+        if self.mutex_lock.is_some() {
+            return Poll::Ready(Ok(()));
+        }
+
+        loop {
+            if let Some(fut) = &mut self.mutex_lock_fut {
+                let _guard = ready!(fut.poll_unpin(cx));
+                self.mutex_lock_fut.take();
+                self.mutex_lock = Some(_guard);
+
+                return Poll::Ready(Ok(()));
+            } else {
+                self.mutex_lock_fut = Some(self.request_mutex.clone().lock_owned());
+            }
+        }
     }
 
     fn call(&mut self, request: PeerRequest) -> Self::Future {
+        let Some(_guard) = self.mutex_lock.take() else {
+            panic!("poll_ready did not return ready");
+        };
+
         let (tx, rx) = oneshot::channel();
         let req = connection::ConnectionTaskRequest {
             response_channel: tx,
             request,
+            _guard,
         };
 
         self.connection_tx
-            .send_item(req)
+            .try_send(req)
             .map_err(|_| ())
             .expect("poll_ready should have been called");
 

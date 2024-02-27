@@ -14,6 +14,7 @@ use std::{
     time::Duration,
 };
 
+use futures::lock::Mutex;
 use futures::{FutureExt, SinkExt, StreamExt};
 use tokio::{
     sync::{broadcast, mpsc, OwnedSemaphorePermit},
@@ -364,10 +365,13 @@ where
 
     let (connection_guard, handle, _) = HandleBuilder::new().with_permit(permit).build();
 
-    let (connection_tx, client_rx) = mpsc::channel(3);
+    let (connection_tx, client_rx) = mpsc::channel(1);
+
+    let request_mutex = Arc::new(Mutex::new(()));
 
     let connection = Connection::<Z, _>::new(
         peer_sink,
+        request_mutex.clone(),
         client_rx,
         broadcast_rx,
         peer_request_svc,
@@ -384,6 +388,7 @@ where
         direction,
         connection_tx,
         connection_handle,
+        request_mutex,
         error_slot,
     );
 

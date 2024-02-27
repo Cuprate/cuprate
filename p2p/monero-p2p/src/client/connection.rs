@@ -7,6 +7,7 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 
 use futures::{
     channel::oneshot,
+    lock::{Mutex, OwnedMutexGuard},
     stream::{Fuse, FusedStream},
     FutureExt, SinkExt, StreamExt, TryStreamExt,
 };
@@ -49,6 +50,8 @@ pub struct ConnectionTaskRequest {
     pub request: PeerRequest,
     /// The response channel.
     pub response_channel: oneshot::Sender<Result<PeerResponse, tower::BoxError>>,
+    /// The guard representing this request.
+    pub _guard: OwnedMutexGuard<()>,
 }
 
 /// The connection state.
@@ -61,6 +64,8 @@ pub enum State {
         request_id: MessageID,
         /// The channel to send the response down.
         tx: oneshot::Sender<Result<PeerResponse, tower::BoxError>>,
+        /// The guard representing this request.
+        _guard: OwnedMutexGuard<()>,
     },
 }
 
@@ -93,6 +98,15 @@ pub struct Connection<Z: NetworkZone, ReqHndlr> {
     state: State,
     /// Will be [`Some`] if we are expecting a response from the peer.
     response_timeout: Option<Pin<Box<Sleep>>>,
+    /// A mutex representing a request to a peer.
+    ///
+    /// To properly assess readiness we need to know if a connection is able to handle our request now.
+    /// When just using a channel between the client and connection, the client could send a request down
+    /// the channel which would then got popped by the connection then the client would then think we are
+    /// ready again even though we are handling a request.
+    ///
+    /// Using a [`Mutex`] and holding the guard during the request prevents this.
+    request_mutex: Arc<Mutex<()>>,
 
     /// The client channel where requests from Cuprate to this peer will come from for us to route.
     client_rx: Fuse<ReceiverStream<ConnectionTaskRequest>>,
@@ -115,6 +129,7 @@ where
     /// Create a new connection struct.
     pub fn new(
         peer_sink: Z::Sink,
+        request_mutex: Arc<Mutex<()>>,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
         broadcast_rx: broadcast::Receiver<PeerBroadcast>,
         peer_request_handler: ReqHndlr,
@@ -125,6 +140,7 @@ where
             peer_sink,
             state: State::WaitingForRequest,
             response_timeout: None,
+            request_mutex,
             client_rx: ReceiverStream::new(client_rx).fuse(),
             broadcast_rx: BroadcastStream::new(broadcast_rx).fuse(),
             peer_request_handler,
@@ -148,6 +164,13 @@ where
     /// to [`State::WaitingForResponse`]. This prevents this connection from handling an internal request
     /// from Cuprate until it returns the ping response.
     async fn check_alive(&mut self) -> Result<(), PeerError> {
+        let Some(guard) = self.request_mutex.try_lock_owned() else {
+            // TODO: is this a good idea? I think it's ok as we document that a client should
+            // either disarm or call ready after Poll::Ready is returned from poll_ready.
+            tracing::debug!("Could not ping peer, the client is holding the mutex lock.");
+            return Ok(());
+        };
+
         // We hijack the client request handling function with a dummy request
         // to prevent duplicating code.
         let (tx, _) = oneshot::channel();
@@ -155,6 +178,7 @@ where
         let req = ConnectionTaskRequest {
             request: PeerRequest::Ping,
             response_channel: tx,
+            _guard: guard,
         };
 
         self.handle_client_request(req).await
@@ -190,6 +214,7 @@ where
             self.state = State::WaitingForResponse {
                 request_id: req.request.id(),
                 tx: req.response_channel,
+                _guard: req._guard,
             };
 
             self.send_message_to_peer(req.request.into()).await?;
