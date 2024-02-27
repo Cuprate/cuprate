@@ -7,7 +7,7 @@ use crate::{
     backend::heed::database::{HeedTableRo, HeedTableRw},
     // backend::heed::types::HeedDb,
     config::Config,
-    database::{DatabaseRead, DatabaseWrite},
+    database::{DatabaseRo, DatabaseRw},
     env::Env,
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
@@ -117,12 +117,12 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn ro_tx(&self) -> Result<Self::TxRo<'_>, RuntimeError> {
+    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn rw_tx(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
+    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
         todo!()
     }
 
@@ -136,19 +136,19 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn open_db_read<T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        tx_read: &Self::TxRo<'_>,
-    ) -> Result<impl DatabaseRead<T>, RuntimeError> {
+        tx_ro: &Self::TxRo<'_>,
+    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
         let tx: HeedTableRo<T> = todo!();
         Ok(tx)
     }
 
     #[inline]
-    fn open_db_write<T: Table>(
+    fn open_db_rw<T: Table>(
         &self,
-        tx_write: &mut Self::TxRw<'_>,
-    ) -> Result<impl DatabaseWrite<T>, RuntimeError> {
+        tx_rw: &mut Self::TxRw<'_>,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         let tx: HeedTableRw<T> = todo!();
         Ok(tx)
     }

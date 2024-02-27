@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use crate::{
     backend::heed::types::HeedDb,
-    database::{DatabaseRead, DatabaseWrite},
+    database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
 };
@@ -39,8 +39,8 @@ pub(super) struct HeedTableRw<'env, T: Table> {
     _table: PhantomData<T>,
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseRead Impl
-impl<T: Table> DatabaseRead<T> for HeedTableRo<'_, T> {
+//---------------------------------------------------------------------------------------------------- DatabaseRo Impl
+impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
         todo!()
     }
@@ -55,8 +55,8 @@ impl<T: Table> DatabaseRead<T> for HeedTableRo<'_, T> {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseWrite Impl
-impl<T: Table> DatabaseRead<T> for HeedTableRw<'_, T> {
+//---------------------------------------------------------------------------------------------------- DatabaseRw Impl
+impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, T> {
     fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
         todo!()
     }
@@ -71,7 +71,7 @@ impl<T: Table> DatabaseRead<T> for HeedTableRw<'_, T> {
     }
 }
 
-impl<T: Table> DatabaseWrite<T> for HeedTableRw<'_, T> {
+impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, T> {
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         todo!()
     }

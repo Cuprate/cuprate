@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     config::Config,
-    database::{DatabaseRead, DatabaseWrite},
+    database::{DatabaseRo, DatabaseRw},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
@@ -136,10 +136,10 @@ pub trait Env: Sized {
     ///
     /// # Errors
     /// TODO
-    fn open_db_read<T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Self::TxRo<'_>,
-    ) -> Result<impl DatabaseRead<T>, RuntimeError>;
+    ) -> Result<impl DatabaseRo<T>, RuntimeError>;
 
     /// TODO
     ///
@@ -152,10 +152,10 @@ pub trait Env: Sized {
     ///
     /// # Errors
     /// TODO
-    fn open_db_write<T: Table>(
+    fn open_db_rw<T: Table>(
         &self,
         tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<impl DatabaseWrite<T>, RuntimeError>;
+    ) -> Result<impl DatabaseRw<T>, RuntimeError>;
 
     //------------------------------------------------ Provided
 }

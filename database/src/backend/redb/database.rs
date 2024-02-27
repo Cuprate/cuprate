@@ -3,13 +3,13 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     backend::redb::types::{RedbTableRo, RedbTableRw},
-    database::{DatabaseRead, DatabaseWrite},
+    database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
 };
 
-//---------------------------------------------------------------------------------------------------- DatabaseRead
-impl<T: Table> DatabaseRead<T> for RedbTableRo<'_> {
+//---------------------------------------------------------------------------------------------------- DatabaseRo
+impl<T: Table> DatabaseRo<T> for RedbTableRo<'_> {
     fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
         todo!()
     }
@@ -24,8 +24,8 @@ impl<T: Table> DatabaseRead<T> for RedbTableRo<'_> {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseWrite
-impl<T: Table> DatabaseRead<T> for RedbTableRw<'_, '_> {
+//---------------------------------------------------------------------------------------------------- DatabaseRw
+impl<T: Table> DatabaseRo<T> for RedbTableRw<'_, '_> {
     fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
         todo!()
     }
@@ -40,7 +40,7 @@ impl<T: Table> DatabaseRead<T> for RedbTableRw<'_, '_> {
     }
 }
 
-impl<T: Table> DatabaseWrite<T> for RedbTableRw<'_, '_> {
+impl<T: Table> DatabaseRw<T> for RedbTableRw<'_, '_> {
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         todo!()
     }

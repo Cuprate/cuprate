@@ -14,15 +14,16 @@
 //! # Terminology
 //! To be more clear on some terms used in this crate:
 //!
-//! | Term       | Meaning                              |
-//! |------------|--------------------------------------|
-//! | `Env`      | The 1 database environment, the "whole" thing
-//! | `Database` | A `key/value` store
-//! | `Table`    | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
-//! | `TxRo`   | Read only transaction
-//! | `TxRw`  | Write only transaction
+//! | Term          | Meaning                              |
+//! |---------------|--------------------------------------|
+//! | `Env`         | The 1 database environment, the "whole" thing
+//! | `DatabaseRo`  | A read-only `key/value` store
+//! | `DatabaseRw`  | A readable/writable `key/value` store
+//! | `Table`       | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
+//! | `TxRo`        | Read only transaction
+//! | `TxRw`        | Read/write transaction
 //!
-//! The dataflow is `Env` -> `Tx` -> `Database`
+//! The dataflow is `Env` -> `Tx` -> `Database{Ro,Rw}`
 //!
 //! Which reads as:
 //! 1. You have a database `Environment`
@@ -297,7 +298,7 @@ mod constants;
 pub use constants::{DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_FILENAME};
 
 mod database;
-pub use database::{DatabaseRead, DatabaseWrite};
+pub use database::{DatabaseRo, DatabaseRw};
 
 mod env;
 pub use env::Env;

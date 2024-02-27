@@ -6,7 +6,7 @@ use std::{path::Path, sync::Arc};
 use crate::{
     backend::redb::types::{RedbTableRo, RedbTableRw},
     config::Config,
-    database::{DatabaseRead, DatabaseWrite},
+    database::{DatabaseRo, DatabaseRw},
     env::Env,
     error::{InitError, RuntimeError},
     table::Table,
@@ -75,19 +75,19 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn open_db_read<T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Self::TxRo<'_>,
-    ) -> Result<impl DatabaseRead<T>, RuntimeError> {
+    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
         let tx: RedbTableRo = todo!();
         Ok(tx)
     }
 
     #[inline]
-    fn open_db_write<T: Table>(
+    fn open_db_rw<T: Table>(
         &self,
         tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<impl DatabaseWrite<T>, RuntimeError> {
+    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         let tx: RedbTableRw = todo!();
         Ok(tx)
     }

@@ -1,13 +1,13 @@
-//! Abstracted database; `trait DatabaseRead` & `trait DatabaseWrite`.
+//! Abstracted database; `trait DatabaseRo` & `trait DatabaseRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{error::RuntimeError, table::Table};
 
-//---------------------------------------------------------------------------------------------------- DatabaseRead
+//---------------------------------------------------------------------------------------------------- DatabaseRo
 /// Database (key-value store) read abstraction.
 ///
-/// TODO
-pub trait DatabaseRead<T: Table> {
+/// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
+pub trait DatabaseRo<T: Table> {
     /// TODO
     /// # Errors
     /// TODO
@@ -23,11 +23,11 @@ pub trait DatabaseRead<T: Table> {
     ) -> Result<impl Iterator<Item = T::Value>, RuntimeError>;
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseWrite
-/// Database (key-value store) write abstraction.
+//---------------------------------------------------------------------------------------------------- DatabaseRw
+/// Database (key-value store) read/write abstraction.
 ///
-/// TODO
-pub trait DatabaseWrite<T: Table>: DatabaseRead<T> {
+/// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
+pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// TODO
     /// # Errors
     /// TODO
