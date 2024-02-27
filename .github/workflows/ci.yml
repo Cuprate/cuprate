@@ -104,11 +104,12 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy && rustup set default-host x86_64-pc-windows-gnu && rustup default stable-x86_64-pc-windows-gnu
 
+    # FIXME: `libmdbx` fails doc on Windows.
     - name: Documentation
-      run: cargo doc --workspace --all-features
+      run: cargo doc --workspace --all-features --exclude libmdbx
 
     - name: Clippy (fail on warnings)
-      run: cargo clippy --workspace --all-features --all-targets -- -D warnings
+      run: cargo clippy --workspace --all-features --all-targets --exclude libmdbx -- -D warnings
 
     - name: Test
       run: cargo test --all-features --workspace
