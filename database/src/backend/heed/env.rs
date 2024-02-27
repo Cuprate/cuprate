@@ -147,7 +147,7 @@ impl Env for ConcreteEnv {
     #[inline]
     fn open_db_write<T: Table>(
         &self,
-        tx_write: &Self::TxRw<'_>,
+        tx_write: &mut Self::TxRw<'_>,
     ) -> Result<impl DatabaseWrite<T>, RuntimeError> {
         let tx: HeedTableRw<T> = todo!();
         Ok(tx)

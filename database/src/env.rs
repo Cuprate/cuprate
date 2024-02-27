@@ -154,7 +154,7 @@ pub trait Env: Sized {
     /// TODO
     fn open_db_write<T: Table>(
         &self,
-        rw_tx: &Self::TxRw<'_>,
+        rw_tx: &mut Self::TxRw<'_>,
     ) -> Result<impl DatabaseWrite<T>, RuntimeError>;
 
     //------------------------------------------------ Provided
