@@ -65,8 +65,8 @@
 //! See the module for more documentation.
 //!
 //! Different database backends are enabled by the feature flags:
-//! - `heed`
-//! - `sanakirja`
+//! - `heed` (LMDB)
+//! - `redb`
 //!
 //! The default is `heed`.
 //!

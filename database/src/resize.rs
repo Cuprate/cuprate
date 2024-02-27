@@ -29,7 +29,7 @@ use std::{num::NonZeroUsize, sync::OnceLock};
 ///
 /// # TODO
 /// We could test around with different algorithms.
-/// Calling [`heed::Env::resize`] is surprisingly fast,
+/// Calling `heed::Env::resize` is surprisingly fast,
 /// around `0.0000082s` on my machine. We could probably
 /// get away with smaller and more frequent resizes.
 /// **With the caveat being we are taking a `WriteGuard` to a `RwLock`.**

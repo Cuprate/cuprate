@@ -10,7 +10,9 @@ Cuprate's database implementation.
     - [`src/backend/`](#src-backend)
 1. [Backends](#backends)
     - [`heed`](#heed)
+    - [`redb`](#redb)
     - [`sanakirja`](#sanakirja)
+    - [`MDBX`](#mdbx)
 1. [Layers](#layers)
     - [Database](#database)
     - [Trait](#trait)
@@ -131,7 +133,7 @@ All backends follow the same file structure:
 Each database's implementation is located in its respective file in `src/backend/${DATABASE_NAME}.rs`.
 
 ## `heed`
-The default database used is a modified fork of [`heed`](https://github.com/meilisearch/heed), located at [`Cuprate/heed`](https://github.com/Cuprate/heed).
+The default database used is a modified fork of [`heed`](https://github.com/meilisearch/heed) (LMDB), located at [`Cuprate/heed`](https://github.com/Cuprate/heed).
 
 To generate documentation of the fork for local use:
 ```bash
@@ -142,8 +144,14 @@ cargo doc
 
 TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
 
-## `sanakirja`
+## `redb`
 TODO
+
+## `sanakirja`
+TODO: document why we aren't using this.
+
+## `MDBX`
+TODO: document why we aren't using this.
 
 # Layers
 TODO: update with accurate information when ready, update image.
