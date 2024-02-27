@@ -1,24 +1,24 @@
-//! Database transaction abstraction; `trait RoTx`, `trait RwTx`.
+//! Database transaction abstraction; `trait TxRo`, `trait TxRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::error::RuntimeError;
 
-//---------------------------------------------------------------------------------------------------- RoTx
+//---------------------------------------------------------------------------------------------------- TxRo
 /// Read-only database transaction.
 ///
 /// TODO
-pub trait RoTx<'db> {
+pub trait TxRo<'db> {
     /// TODO
     /// # Errors
     /// TODO
     fn commit(self) -> Result<(), RuntimeError>;
 }
 
-//---------------------------------------------------------------------------------------------------- RwTx
+//---------------------------------------------------------------------------------------------------- TxRw
 /// Read/write database transaction.
 ///
 /// TODO
-pub trait RwTx<'db> {
+pub trait TxRw<'db> {
     /// TODO
     /// # Errors
     /// TODO

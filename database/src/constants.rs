@@ -21,14 +21,14 @@ TODO: instructions on:
 cfg_if::cfg_if! {
     // If both backends are enabled, fallback to `heed`.
     // This is useful when using `--all-features`.
-    if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
+    if #[cfg(all(feature = "redb", not(feature = "heed")))] {
         /// Static string of the `crate` being used as the database backend.
-        pub const DATABASE_BACKEND: &str = "sanakirja";
+        pub const DATABASE_BACKEND: &str = "redb";
 
         /// Cuprate's database filename.
         ///
         /// This is the filename for Cuprate's database, used in [`Config::db_file`](crate::config::Config::db_file).
-        pub const DATABASE_FILENAME: &str = "data.san"; // TODO: pick a name + extension.
+        pub const DATABASE_FILENAME: &str = "data.redb";
     } else {
         /// Static string of the `crate` being used as the database backend.
         pub const DATABASE_BACKEND: &str = "heed";

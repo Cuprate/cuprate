@@ -3,11 +3,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     config::Config,
-    database::Database,
+    database::{DatabaseRead, DatabaseWrite},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    transaction::{RoTx, RwTx},
+    transaction::{TxRo, TxRw},
 };
 
 //---------------------------------------------------------------------------------------------------- Env
@@ -40,10 +40,10 @@ pub trait Env: Sized {
 
     //------------------------------------------------ Types
     /// TODO
-    type RoTx<'db>: RoTx<'db>;
+    type TxRo<'db>: TxRo<'db>;
 
     /// TODO
-    type RwTx<'db>: RwTx<'db>;
+    type TxRw<'db>: TxRw<'db>;
 
     //------------------------------------------------ Required
     /// TODO
@@ -110,19 +110,19 @@ pub trait Env: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn ro_tx(&self) -> Result<Self::RoTx<'_>, RuntimeError>;
+    fn ro_tx(&self) -> Result<Self::TxRo<'_>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn rw_tx(&self) -> Result<Self::RwTx<'_>, RuntimeError>;
+    fn rw_tx(&self) -> Result<Self::TxRw<'_>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
     fn create_tables_if_needed<T: Table>(
         &self,
-        rw_tx: &mut Self::RwTx<'_>,
+        rw_tx: &mut Self::TxRw<'_>,
     ) -> Result<(), RuntimeError>;
 
     /// TODO
@@ -136,10 +136,26 @@ pub trait Env: Sized {
     ///
     /// # Errors
     /// TODO
-    fn open_database<T: Table>(
+    fn open_db_read<T: Table>(
         &self,
-        ro_tx: &Self::RoTx<'_>,
-    ) -> Result<impl Database<T>, RuntimeError>;
+        ro_tx: &Self::TxRo<'_>,
+    ) -> Result<impl DatabaseRead<T>, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # TODO: Invariant
+    /// This should never panic the database because the table doesn't exist.
+    ///
+    /// Opening/using the database env should have an invariant
+    /// that it creates all the tables we need, such that this
+    /// never returns `None`.
+    ///
+    /// # Errors
+    /// TODO
+    fn open_db_write<T: Table>(
+        &self,
+        rw_tx: &Self::TxRw<'_>,
+    ) -> Result<impl DatabaseWrite<T>, RuntimeError>;
 
     //------------------------------------------------ Provided
 }

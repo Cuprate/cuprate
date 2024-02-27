@@ -7,7 +7,7 @@
 //!
 //! # Purpose
 //! This crate does 3 things:
-//! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`Key`], [`RoTx`], and [`RwTx`] traits
+//! 1. Abstracts various databases with traits
 //! 2. Implements various `Monero` related [functions](ops) & [`tables`]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
@@ -19,8 +19,8 @@
 //! | `Env`      | The 1 database environment, the "whole" thing
 //! | `Database` | A `key/value` store
 //! | `Table`    | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
-//! | `RoTx`     | Read only transaction
-//! | `RwTx`     | Read/write transaction
+//! | `TxRo`   | Read only transaction
+//! | `TxRw`  | Write only transaction
 //!
 //! The dataflow is `Env` -> `Tx` -> `Database`
 //!
@@ -97,7 +97,7 @@
 //! use cuprate_database::{
 //!     config::Config,
 //!     ConcreteEnv,
-//!     Env, Key, RoTx, RwTx,
+//!     Env, Key, TxRo, TxRw,
 //!     service::{ReadRequest, WriteRequest, Response},
 //! };
 //!
@@ -297,7 +297,7 @@ mod constants;
 pub use constants::{DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_FILENAME};
 
 mod database;
-pub use database::Database;
+pub use database::{DatabaseRead, DatabaseWrite};
 
 mod env;
 pub use env::Env;
@@ -325,7 +325,7 @@ pub use table::Table;
 pub mod tables;
 
 mod transaction;
-pub use transaction::{RoTx, RwTx};
+pub use transaction::{TxRo, TxRw};
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]
