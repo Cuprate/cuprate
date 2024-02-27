@@ -98,7 +98,7 @@
 //!
 //! // Create a configuration for the database environment.
 //! let db_dir = tempfile::tempdir().unwrap();
-//! let config = Config::new(Some(db_dir));
+//! let config = Config::new(Some(db_dir.path().to_path_buf()));
 //!
 //! // Initialize the database thread-pool.
 //!

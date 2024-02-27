@@ -27,7 +27,7 @@ cfg_if::cfg_if! {
 
         /// Cuprate's database filename.
         ///
-        /// This is the filename for Cuprate's database, used in [`Config::db_file_path`](crate::config::Config::db_file_path).
+        /// This is the filename for Cuprate's database, used in [`Config::db_file`](crate::config::Config::db_file).
         ///
         /// Reference: <https://libmdbx.dqdkfa.ru/group__c__api.html#gaea0edfb8c722071d05f8553598f13568>
         pub const DATABASE_FILENAME: &str = "mdbx.dat";
@@ -37,9 +37,7 @@ cfg_if::cfg_if! {
 
         /// Cuprate's database filename.
         ///
-        /// This is the filename for Cuprate's database, used in [`Config::db_file_path`](crate::config::Config::db_file_path).
-        ///
-        /// Reference: <http://www.lmdb.tech/doc/group__internal.html#gad5a54432b85530e3f2cf9b88488e0eee>
+        /// This is the filename for Cuprate's database, used in [`Config::db_file`](crate::config::Config::db_file).
         pub const DATABASE_FILENAME: &str = "data.mdb";
     }
 }
