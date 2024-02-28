@@ -22,12 +22,9 @@ pub struct ConcreteEnv {
     /// (and in current use).
     config: Config,
 
-    /// A cached, redb version of `cuprate_database::SyncMode`.
+    /// A cached, redb version of `cuprate_database::config::SyncMode`.
     /// `redb` needs the sync mode to be set _per_ TX, so we
     /// will continue to use this value every `Env::tx_rw`.
-    ///
-    /// TODO: dynamic syncs are not implemented, these
-    /// are just `SyncMode::Safe` and `SyncMode::Fast`.
     durability: redb::Durability,
 }
 
@@ -60,9 +57,16 @@ impl Env for ConcreteEnv {
             SyncMode::Safe => redb::Durability::Immediate,
             SyncMode::Async => redb::Durability::Eventual,
             SyncMode::Fast => redb::Durability::None,
+            // TODO: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
 
+        todo!()
+    }
+
+    #[cold]
+    #[inline(never)] // called once in [`Env::open`]?`
+    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
         todo!()
     }
 
@@ -85,21 +89,9 @@ impl Env for ConcreteEnv {
         // which sets it at the Environment level.
         //
         // So, set the durability here before returning the TX.
-        //
-        // TODO: dynamic syncs are not implemented, these
-        // are just `SyncMode::Safe` and `SyncMode::Fast`.
         let mut tx_rw = self.env.begin_write()?;
         tx_rw.set_durability(self.durability);
         Ok(tx_rw)
-    }
-
-    #[cold]
-    #[inline(never)] // called infrequently?.
-    fn create_tables_if_needed<T: Table>(
-        &self,
-        tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<(), RuntimeError> {
-        todo!()
     }
 
     #[inline]

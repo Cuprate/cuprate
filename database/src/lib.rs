@@ -7,7 +7,7 @@
 //!
 //! # Purpose
 //! This crate does 3 things:
-//! 1. Abstracts various databases with traits
+//! 1. Abstracts various database backends with traits
 //! 2. Implements various `Monero` related [functions](ops) & [`tables`]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
@@ -23,13 +23,13 @@
 //! | `TxRo`        | Read only transaction
 //! | `TxRw`        | Read/write transaction
 //!
-//! The dataflow is `Env` -> `Tx` -> `Database{Ro,Rw}`
+//! The dataflow is `Env` -> `Tx` -> `Database`
 //!
 //! Which reads as:
 //! 1. You have a database `Environment`
-//! 2. You open up a `Transaction`
-//! 2. You get a particular `Database` from that `Environment`
-//! 3. You can now read/write data from/to that `Database`
+//! 1. You open up a `Transaction`
+//! 1. You get a particular `Database` from that `Environment`
+//! 1. You can now read/write data from/to that `Database`
 //!
 //! # `ConcreteEnv`
 //! This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic,
@@ -57,7 +57,7 @@
 //! Note that `ConcreteEnv` itself is not a clonable type,
 //! it should be wrapped in [`std::sync::Arc`].
 //!
-//! TODO: we could also expose `ConcreteEnv` if we're
+//! TODO: we could also expose `ConcreteDatabase` if we're
 //! going to be storing any databases in structs, to lessen
 //! the generic `<D: Database>` pain.
 //!

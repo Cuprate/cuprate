@@ -33,7 +33,7 @@ pub(super) struct HeedTableRo<'env, T: Table> {
     /// An already opened database table.
     db: HeedDb,
     /// The associated read-only transaction that opened this table.
-    tx: &'env heed::RoTxn<'env>,
+    tx_ro: &'env heed::RoTxn<'env>,
     /// TODO: do we need this?
     _table: PhantomData<T>,
 }
@@ -45,7 +45,7 @@ pub(super) struct HeedTableRw<'env, T: Table> {
     /// TODO
     db: HeedDb,
     /// The associated read/write transaction that opened this table.
-    tx: &'env mut heed::RwTxn<'env>,
+    tx_rw: &'env mut heed::RwTxn<'env>,
     /// TODO: do we need this?
     _table: PhantomData<T>,
 }

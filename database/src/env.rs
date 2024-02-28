@@ -51,6 +51,11 @@ pub trait Env: Sized {
     /// TODO
     fn open(config: Config) -> Result<Self, InitError>;
 
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError>;
+
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
 
@@ -85,6 +90,9 @@ pub trait Env: Sized {
     ///
     /// I.e., after this function returns, there must be no doubts
     /// that the data isn't synced yet, it _must_ be synced.
+    ///
+    /// TODO: either this invariant or `sync()` itself will most
+    /// likely be removed/changed after `SyncMode` is finalized.
     ///
     /// # Errors
     /// TODO
@@ -125,19 +133,11 @@ pub trait Env: Sized {
     fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError>;
 
     /// TODO
-    /// # Errors
-    /// TODO
-    fn create_tables_if_needed<T: Table>(
-        &self,
-        tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<(), RuntimeError>;
-
-    /// TODO
     ///
     /// # TODO: Invariant
     /// This should never panic the database because the table doesn't exist.
     ///
-    /// Opening/using the database env should have an invariant
+    /// Opening/using the database [`Env`] should have an invariant
     /// that it creates all the tables we need, such that this
     /// never returns `None`.
     ///
@@ -153,7 +153,7 @@ pub trait Env: Sized {
     /// # TODO: Invariant
     /// This should never panic the database because the table doesn't exist.
     ///
-    /// Opening/using the database env should have an invariant
+    /// Opening/using the database [`Env`] should have an invariant
     /// that it creates all the tables we need, such that this
     /// never returns `None`.
     ///

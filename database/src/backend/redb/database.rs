@@ -1,4 +1,4 @@
-//! Implementation of `trait Database` for `redb`.
+//! Implementation of `trait DatabaseR{o,w}` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{

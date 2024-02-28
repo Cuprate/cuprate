@@ -165,12 +165,12 @@ The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used
 ## `sanakirja`
 [`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.
 
-The default maximum value size is [1012 bytes](https://docs.rs/sanakirja/latest/sanakirja/trait.Storable.html) which was too small for our requirements. Using [`sanakirja::Slice`](https://docs.rs/sanakirja/latest/sanakirja/union.Slice.html) and [sanakirja::UnsizedStorage](https://docs.rs/sanakirja/latest/sanakirja/trait.UnsizedStorable.html) was attempted, but there were bugs found when inserting a value in-between `512..=4096` bytes.
+The default maximum value size is [1012 bytes](https://docs.rs/sanakirja/1.4.1/sanakirja/trait.Storable.html) which was too small for our requirements. Using [`sanakirja::Slice`](https://docs.rs/sanakirja/1.4.1/sanakirja/union.Slice.html) and [sanakirja::UnsizedStorage](https://docs.rs/sanakirja/1.4.1/sanakirja/trait.UnsizedStorable.html) was attempted, but there were bugs found when inserting a value in-between `512..=4096` bytes.
 
 As such, it is not implemented.
 
 ## `MDBX`
-[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value compare functions needed for `cuprate_database`'s duplicate table requirements. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
+[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions needed for `cuprate_database`'s duplicate table requirements. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
 
 As such, it is not implemented.
 
