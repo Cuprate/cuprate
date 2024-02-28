@@ -11,31 +11,42 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Heed Database Wrappers
-// TODO: document that this exists to match
-// `redb`'s behavior of tying the lifetime of
-// `tx`'s and the opened table.
+// Q. Why does `HeedTableR{o,w}` exist?
+// A. These wrapper types combine `heed`'s database/table
+// types with its transaction types. It exists to match
+// `redb`, which has this behavior built-in.
 //
-// TODO: do we need this `T: Table` phantom bound?
+// `redb` forces us to abstract read/write semantics
+// at the _opened table_ level, so, we must match that in `heed`,
+// which abstracts it at the transaction level.
+//
+// We must also maintain the ability for
+// write operations to also read, aka, `Rw`.
+//
+// TODO: do we need the `T: Table` phantom bound?
+// It allows us to reference the `Table` info.
 
-/// TODO
+/// An opened read-only database associated with a transaction.
+///
 /// Matches `redb::ReadOnlyTable`.
 pub(super) struct HeedTableRo<'env, T: Table> {
-    /// TODO
+    /// An already opened database table.
     db: HeedDb,
-    /// TODO
+    /// The associated read-only transaction that opened this table.
     tx: &'env heed::RoTxn<'env>,
-    /// TODO
+    /// TODO: do we need this?
     _table: PhantomData<T>,
 }
 
-/// TODO
+/// An opened read/write database associated with a transaction.
+///
 /// Matches `redb::Table` (read & write).
 pub(super) struct HeedTableRw<'env, T: Table> {
     /// TODO
     db: HeedDb,
-    /// TODO
+    /// The associated read/write transaction that opened this table.
     tx: &'env mut heed::RwTxn<'env>,
-    /// TODO
+    /// TODO: do we need this?
     _table: PhantomData<T>,
 }
 
