@@ -5,7 +5,7 @@ use std::{path::Path, sync::Arc};
 
 use crate::{
     backend::redb::types::{RedbTableRo, RedbTableRw},
-    config::Config,
+    config::{Config, SyncMode},
     database::{DatabaseRo, DatabaseRw},
     env::Env,
     error::{InitError, RuntimeError},
@@ -52,14 +52,15 @@ impl Env for ConcreteEnv {
     #[cold]
     #[inline(never)] // called once.
     fn open(config: Config) -> Result<Self, InitError> {
-        /// TODO: dynamic syncs are not implemented.
-        let durability = match self.config.sync_mode {
+        // TODO: dynamic syncs are not implemented.
+        let durability = match config.sync_mode {
             // TODO: There's also `redb::Durability::Paranoid`:
             // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
             // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
             SyncMode::Async => redb::Durability::Eventual,
             SyncMode::Fast => redb::Durability::None,
+            SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
 
         todo!()
