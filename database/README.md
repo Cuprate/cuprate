@@ -142,16 +142,25 @@ cargo doc
 ```
 `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
-TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
+`heed`'s filenames inside Cuprate's database folder (`~/.local/share/cuprate/database/`) are:
 
-TODO: document db filename + lock.
+| Filename   | Purpose |
+|------------|---------|
+| `data.mdb` | Main data file
+| `lock.mdb` | Database lock file
+
+TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
 
 ## `redb`
 The 2nd database backend is the 100% Rust [`redb`](https://github.com/cberner/redb).
 
 The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used.
 
-TODO: document db filename + lock.
+`redb`'s filenames inside Cuprate's database folder (`~/.local/share/cuprate/database/`) are:
+
+| Filename    | Purpose |
+|-------------|---------|
+| `data.redb` | Main data file
 
 ## `sanakirja`
 [`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.

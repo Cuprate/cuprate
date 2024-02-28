@@ -17,7 +17,7 @@ use std::{
 
 use cuprate_helper::fs::cuprate_database_dir;
 
-use crate::{constants::DATABASE_FILENAME, resize::ResizeAlgorithm};
+use crate::{constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
 
 //---------------------------------------------------------------------------------------------------- Config
 /// Database [`Env`](crate::Env) configuration.
@@ -72,7 +72,7 @@ impl Config {
 
         // Add the database filename to the directory.
         let mut db_file = db_directory.to_path_buf();
-        db_file.push(DATABASE_FILENAME);
+        db_file.push(DATABASE_DATA_FILENAME);
 
         (db_directory, Cow::Owned(db_file))
     }
