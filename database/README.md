@@ -70,7 +70,7 @@ The top-level `src/` files.
 |------------------|---------|
 | `config.rs`      | Database `Env` configuration
 | `constants.rs`   | General constants used throughout `cuprate-database`
-| `database.rs`    | Abstracted database; `trait Database`
+| `database.rs`    | Abstracted database; `trait DatabaseR{o,w}`
 | `env.rs`         | Abstracted database environment; `trait Env`
 | `error.rs`       | Database error types
 | `free.rs`        | General free functions (related to the database)
@@ -78,7 +78,7 @@ The top-level `src/` files.
 | `pod.rs`         | Data (de)serialization; `trait Pod`
 | `table.rs`       | Database table abstraction; `trait Table`
 | `tables.rs`      | All the table definitions used by `cuprate-database`
-| `transaction.rs` | Database transaction abstraction; `trait RoTx`, `trait RwTx`
+| `transaction.rs` | Database transaction abstraction; `trait TxR{o,w}`
 
 ## `src/ops/`
 This folder contains the `cupate_database::ops` module.
@@ -121,10 +121,10 @@ All backends follow the same file structure:
 
 | File             | Purpose |
 |------------------|---------|
-| `database.rs`    | Implementation of `trait Database`
+| `database.rs`    | Implementation of `trait DatabaseR{o,w}`
 | `env.rs`         | Implementation of `trait Env`
 | `error.rs`       | Implementation of backend's errors to `cuprate_database`'s error types
-| `transaction.rs` | Implementation of `trait RoTx/RwTx`
+| `transaction.rs` | Implementation of `trait TxR{o,w}`
 | `types.rs`       | Type aliases for long backend-specific types
 
 # Backends
@@ -144,14 +144,26 @@ cargo doc
 
 TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
 
+TODO: document db filename + lock.
+
 ## `redb`
-TODO
+The 2nd database backend is the 100% Rust [`redb`](https://github.com/cberner/redb).
+
+The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used.
+
+TODO: document db filename + lock.
 
 ## `sanakirja`
-TODO: document why we aren't using this.
+[`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.
+
+The default maximum value size is [1012 bytes](https://docs.rs/sanakirja/latest/sanakirja/trait.Storable.html) which was too small for our requirements. Using [`sanakirja::Slice`](https://docs.rs/sanakirja/latest/sanakirja/union.Slice.html) and [sanakirja::UnsizedStorage](https://docs.rs/sanakirja/latest/sanakirja/trait.UnsizedStorable.html) was attempted, but there were bugs found when inserting a value in-between `512..=4096` bytes.
+
+As such, it is not implemented.
 
 ## `MDBX`
-TODO: document why we aren't using this.
+[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value compare functions needed for `cuprate_database`'s duplicate table requirements. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
+
+As such, it is not implemented.
 
 # Layers
 TODO: update with accurate information when ready, update image.
