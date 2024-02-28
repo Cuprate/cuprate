@@ -5,7 +5,6 @@ use std::sync::RwLock;
 
 use crate::{
     backend::heed::database::{HeedTableRo, HeedTableRw},
-    // backend::heed::types::HeedDb,
     config::Config,
     database::{DatabaseRo, DatabaseRw},
     env::Env,
@@ -62,8 +61,8 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = true;
     const SYNCS_PER_TX: bool = false;
-    type TxRo<'db> = heed::RoTxn<'db>;
-    type TxRw<'db> = heed::RwTxn<'db>;
+    type TxRo<'env> = heed::RoTxn<'env>;
+    type TxRw<'env> = heed::RwTxn<'env>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -130,7 +129,7 @@ impl Env for ConcreteEnv {
     #[inline(never)] // called infrequently?.
     fn create_tables_if_needed<T: Table>(
         &self,
-        tx_write: &mut Self::TxRw<'_>,
+        tx_rw: &mut Self::TxRw<'_>,
     ) -> Result<(), RuntimeError> {
         todo!()
     }

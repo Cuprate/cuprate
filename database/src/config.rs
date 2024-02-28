@@ -175,15 +175,15 @@ impl Default for Config {
 /// will always cause it to fully sync to disk.
 ///
 /// # Sync vs Async
-/// All invariants except [`SyncMode::Fast`] are `synchronous`,
-/// as in the database will wait until the OS has finished syncing
-/// all the data to disk before continuing.
+/// All invariants except [`SyncMode::Async`] & [`SyncMode::Fast`]
+/// are `synchronous`, as in the database will wait until the OS has
+/// finished syncing all the data to disk before continuing.
 ///
-/// `SyncMode::Fast` is `asynchronous`, meaning the database will _NOT_
-/// wait until the data is fully synced to disk before continuing.
-/// Note that this doesn't mean the database itself won't be synchronized
-/// between readers/writers, but rather that the data _on disk_ may not
-/// be immediately synchronized after a write.
+/// `SyncMode::Async` & `SyncMode::Fast` are `asynchronous`, meaning
+/// the database will _NOT_ wait until the data is fully synced to disk
+/// before continuing. Note that this doesn't mean the database itself
+/// won't be synchronized between readers/writers, but rather that the
+/// data _on disk_ may not be immediately synchronized after a write.
 ///
 /// Something like:
 /// ```rust,ignore
@@ -191,6 +191,17 @@ impl Default for Config {
 /// db.get("key");
 /// ```
 /// will be fine, most likely pulling from memory instead of disk.
+///
+/// # TODO
+/// Dynamic sync's are not yet supported.
+///
+/// Only:
+///
+/// - [`SyncMode::Safe`]
+/// - [`SyncMode::Async`]
+/// - [`SyncMode::Fast`]
+///
+/// are supported, all other variants will panic on [`crate::Env::open`].
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -226,10 +237,26 @@ pub enum SyncMode {
     ///
     /// Every database transaction commit will
     /// fully sync all data to disk, _synchronously_,
-    /// so the database halts until synced.
+    /// so the database (writer) halts until synced.
     ///
     /// This is expected to be very slow.
+    ///
+    /// This matches:
+    /// - LMDB without any special sync flags
+    /// - [`redb::Durability::Immediate`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Immediate)
     Safe,
+
+    /// Asynchrously sync to disk per transaction.
+    ///
+    /// This is the same as [`SyncMode::Safe`],
+    /// but the syncs will be asynchronous, i.e.
+    /// each transaction commit will sync to disk,
+    /// but only eventually, not necessarily immediately.
+    ///
+    /// This matches:
+    /// - [`MDB_MAPASYNC`](http://www.lmdb.tech/doc/group__mdb__env.html#gab034ed0d8e5938090aef5ee0997f7e94)
+    /// - [`redb::Durability::Eventual`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Eventual)
+    Async,
 
     /// Fully sync to disk after we cross this transaction threshold.
     ///
@@ -246,6 +273,12 @@ pub enum SyncMode {
     ///
     /// It will cause the database to never _actively_ sync,
     /// letting the OS decide when to flush data to disk.
+    ///
+    /// This matches:
+    /// - [`MDB_NOSYNC`](http://www.lmdb.tech/doc/group__mdb__env.html#ga5791dd1adb09123f82dd1f331209e12e) + [`MDB_MAPASYNC`](http://www.lmdb.tech/doc/group__mdb__env.html#gab034ed0d8e5938090aef5ee0997f7e94)
+    /// - [`redb::Durability::None`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.None)
+    ///
+    /// `monerod` reference: <https://github.com/monero-project/monero/blob/7b7958bbd9d76375c47dc418b4adabba0f0b1785/src/blockchain_db/lmdb/db_lmdb.cpp#L1380-L1381>
     ///
     /// # Corruption
     /// In the case of a system crash, the database

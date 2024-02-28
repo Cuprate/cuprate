@@ -28,7 +28,7 @@ TODO: instructions on:
 pub const DATABASE_BACKEND: &str = {
     cfg_if! {
         if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-            "redb";
+            "redb"
         } else {
             "heed"
         }
@@ -46,7 +46,7 @@ pub const DATABASE_BACKEND: &str = {
 pub const DATABASE_DATA_FILENAME: &str = {
     cfg_if! {
         if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-            "data.redb";
+            "data.redb"
         } else {
             "data.mdb"
         }

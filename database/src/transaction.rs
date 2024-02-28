@@ -1,13 +1,13 @@
 //! Database transaction abstraction; `trait TxRo`, `trait TxRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::error::RuntimeError;
+use crate::{config::SyncMode, env::Env, error::RuntimeError};
 
 //---------------------------------------------------------------------------------------------------- TxRo
 /// Read-only database transaction.
 ///
 /// TODO
-pub trait TxRo<'db> {
+pub trait TxRo<'env> {
     /// TODO
     /// # Errors
     /// TODO
@@ -18,7 +18,7 @@ pub trait TxRo<'db> {
 /// Read/write database transaction.
 ///
 /// TODO
-pub trait TxRw<'db> {
+pub trait TxRw<'env> {
     /// TODO
     /// # Errors
     /// TODO

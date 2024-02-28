@@ -21,6 +21,14 @@ pub struct ConcreteEnv {
     /// The configuration we were opened with
     /// (and in current use).
     config: Config,
+
+    /// A cached, redb version of `cuprate_database::SyncMode`.
+    /// `redb` needs the sync mode to be set _per_ TX, so we
+    /// will continue to use this value every `Env::tx_rw`.
+    ///
+    /// TODO: dynamic syncs are not implemented, these
+    /// are just `SyncMode::Safe` and `SyncMode::Fast`.
+    durability: redb::Durability,
 }
 
 impl Drop for ConcreteEnv {
@@ -38,12 +46,22 @@ impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = false;
     const SYNCS_PER_TX: bool = false;
 
-    type TxRo<'db> = redb::ReadTransaction<'db>;
-    type TxRw<'db> = redb::WriteTransaction<'db>;
+    type TxRo<'env> = redb::ReadTransaction<'env>;
+    type TxRw<'env> = redb::WriteTransaction<'env>;
 
     #[cold]
     #[inline(never)] // called once.
     fn open(config: Config) -> Result<Self, InitError> {
+        /// TODO: dynamic syncs are not implemented.
+        let durability = match self.config.sync_mode {
+            // TODO: There's also `redb::Durability::Paranoid`:
+            // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
+            // should we use that instead of Immediate?
+            SyncMode::Safe => redb::Durability::Immediate,
+            SyncMode::Async => redb::Durability::Eventual,
+            SyncMode::Fast => redb::Durability::None,
+        };
+
         todo!()
     }
 
@@ -62,7 +80,16 @@ impl Env for ConcreteEnv {
 
     #[inline]
     fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
-        todo!()
+        // `redb` has sync modes on the TX level, unlike heed,
+        // which sets it at the Environment level.
+        //
+        // So, set the durability here before returning the TX.
+        //
+        // TODO: dynamic syncs are not implemented, these
+        // are just `SyncMode::Safe` and `SyncMode::Fast`.
+        let mut tx_rw = self.env.begin_write()?;
+        tx_rw.set_durability(self.durability);
+        Ok(tx_rw)
     }
 
     #[cold]

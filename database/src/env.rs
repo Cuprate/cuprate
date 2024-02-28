@@ -40,10 +40,10 @@ pub trait Env: Sized {
 
     //------------------------------------------------ Types
     /// TODO
-    type TxRo<'db>: TxRo<'db>;
+    type TxRo<'env>: TxRo<'env>;
 
     /// TODO
-    type TxRw<'db>: TxRw<'db>;
+    type TxRw<'env>: TxRw<'env>;
 
     //------------------------------------------------ Required
     /// TODO
