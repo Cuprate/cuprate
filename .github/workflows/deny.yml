@@ -28,6 +28,6 @@ jobs:
       with:
         submodules: recursive
     - name: Install dependencies
-      run: cargo install cargo-deny
+      run: cargo install cargo-deny --locked
     - name: Deny
       run: cargo deny check

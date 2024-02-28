@@ -46,7 +46,7 @@ targets = [
 # If true, metadata will be collected with `--all-features`. Note that this can't
 # be toggled off if true, if you want to conditionally enable `--all-features` it
 # is recommended to pass `--all-features` on the cmd line instead
-all-features = false
+all-features = true
 # If true, metadata will be collected with `--no-default-features`. The same
 # caveat with `all-features` applies
 no-default-features = false
@@ -110,13 +110,13 @@ unlicensed = "deny"
 # [possible values: any SPDX 3.11 short identifier (+ optional exception)].
 allow = [
 	# Nothing required - free to use without permission.
-	"CC0-1.0",                        # https://creativecommons.org/publicdomain/zero/1.0/
+	"CC0-1.0", # https://creativecommons.org/publicdomain/zero/1.0/
 
 	# Must include copyright notice.
-	"BSD-2-Clause",                   # https://tldrlegal.com/license/bsd-2-clause-license-(freebsd)
-	"BSD-3-Clause",                   # https://tldrlegal.com/license/bsd-3-clause-license-(revised)
-	"ISC",                            # https://tldrlegal.com/license/isc-license
-	"MIT",                            # https://tldrlegal.com/license/mit-license
+	"BSD-2-Clause", # https://tldrlegal.com/license/bsd-2-clause-license-(freebsd)
+	"BSD-3-Clause", # https://tldrlegal.com/license/bsd-3-clause-license-(revised)
+	"ISC",          # https://tldrlegal.com/license/isc-license
+	"MIT",          # https://tldrlegal.com/license/mit-license
 
 	# Must include copyright notice/attribution/changes/etc
 	"Apache-2.0 WITH LLVM-exception", # https://spdx.org/licenses/LLVM-exception.html
@@ -126,15 +126,15 @@ allow = [
 
 	# OpenSSL 3.0+ uses Apache-2.0
 	# OpenSSL 1.x.x uses https://www.openssl.org/source/license-openssl-ssleay.txt
-	"OpenSSL",                        # https://www.openssl.org/source/license.html
+	"OpenSSL", # https://www.openssl.org/source/license.html
 
 	# Copyleft.
-	# "AGPL-3.0",                     # https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0
+	# "AGPL-3.0", # https://www.tldrlegal.com/license/gnu-affero-general-public-license-v3-agpl-3-0
 
 	# Font licenses.
-	"Unicode-DFS-2016",               # https://spdx.org/licenses/Unicode-DFS-2016.html
-	# "LicenseRef-UFL-1.0",           # https://tldrlegal.com/license/ubuntu-font-license,-1.0
-	# "OFL-1.1",                      # https://spdx.org/licenses/OFL-1.1.html
+	"Unicode-DFS-2016",     # https://spdx.org/licenses/Unicode-DFS-2016.html
+	# "LicenseRef-UFL-1.0", # https://tldrlegal.com/license/ubuntu-font-license,-1.0
+	# "OFL-1.1",            # https://spdx.org/licenses/OFL-1.1.html
 ]
 # List of explicitly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
@@ -167,7 +167,7 @@ confidence-threshold = 0.8
 # aren't accepted for every possible crate as with the normal allow list
 exceptions = [
 	# Cuprate (AGPL-3.0)
-	{ allow = ["AGPL-3.0"], name = "cuprate-common", version = "*" }
+	# { allow = ["AGPL-3.0"], name = "cuprated", version = "*" }
 
 	# Each entry is the crate and version constraint, and its specific allow
 	# list
