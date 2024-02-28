@@ -18,14 +18,15 @@
 //! Protocol message requests don't have to be responded to in order unlike
 //! admin messages.   
 
-use serde::{Deserialize, Serialize};
-use serde_bytes::ByteBuf;
+use bytes::Bytes;
+
+use epee_encoding::{container_as_blob::ContainerAsBlob, epee_object};
+use fixed_bytes::{ByteArray, ByteArrayVec};
 
 use super::common::BlockCompleteEntry;
-use crate::serde_helpers::*;
 
 /// A block that SHOULD have transactions
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewBlock {
     /// Block with txs
     pub b: BlockCompleteEntry,
@@ -33,101 +34,110 @@ pub struct NewBlock {
     pub current_blockchain_height: u64,
 }
 
+epee_object!(
+    NewBlock,
+    b: BlockCompleteEntry,
+    current_blockchain_height: u64,
+);
+
 /// New Tx Pool Transactions
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewTransactions {
     /// Tx Blobs
-    pub txs: Vec<ByteBuf>,
+    pub txs: Vec<Bytes>,
     /// Dandelionpp true if fluff - backwards compatible mode is fluff
-    #[serde(default = "default_true")]
     pub dandelionpp_fluff: bool,
     /// Padding
-    #[serde(rename = "_")]
-    pub padding: ByteBuf,
+    pub padding: Bytes,
 }
 
+epee_object!(
+    NewTransactions,
+    txs: Vec<Bytes>,
+    dandelionpp_fluff: bool = true,
+    padding("_"): Bytes,
+);
+
 /// A Request For Blocks
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetObjectsRequest {
     /// Block hashes we want
-    pub blocks: Vec<[u8; 32]>,
+    pub blocks: ByteArrayVec<32>,
     /// Pruned
-    #[serde(default = "default_false")]
     pub pruned: bool,
 }
 
+epee_object!(
+    GetObjectsRequest,
+    blocks: ByteArrayVec<32>,
+    pruned: bool = false,
+);
+
 /// A Blocks Response
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetObjectsResponse {
     /// Blocks
-    // We dont need to give this a default value as there always is at least 1 block
     pub blocks: Vec<BlockCompleteEntry>,
     /// Missed IDs
-    #[serde(default = "Vec::new")]
-    pub missed_ids: Vec<[u8; 32]>,
+    pub missed_ids: ByteArrayVec<32>,
     /// The height of the peers blockchain
     pub current_blockchain_height: u64,
 }
 
+epee_object!(
+    GetObjectsResponse,
+    blocks: Vec<BlockCompleteEntry>,
+    missed_ids: ByteArrayVec<32>,
+    current_blockchain_height: u64,
+);
+
 /// A Chain Request
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChainRequest {
     /// Block IDs
-    pub block_ids: Vec<[u8; 32]>,
+    pub block_ids: ByteArrayVec<32>,
     /// Prune
-    #[serde(default = "default_false")]
     pub prune: bool,
 }
 
+epee_object!(
+    ChainRequest,
+    block_ids: ByteArrayVec<32>,
+    prune: bool = false,
+);
+
 /// A Chain Response
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChainResponse {
     /// Start Height
     pub start_height: u64,
     /// Total Height
     pub total_height: u64,
     /// Cumulative Difficulty Low
-    pub cumulative_difficulty_low: u64,
+    pub cumulative_difficulty: u64,
     /// Cumulative Difficulty High
-    pub cumulative_difficulty_high: u64,
+    pub cumulative_difficulty_top64: u64,
     /// Block IDs
-    pub m_block_ids: Vec<[u8; 32]>,
+    pub m_block_ids: ByteArrayVec<32>,
     /// Block Weights
     pub m_block_weights: Vec<u64>,
     /// The first Block in the response
-    pub first_block: Vec<u8>,
+    pub first_block: Bytes,
 }
 
-impl ChainResponse {
-    pub fn new(
-        start_height: u64,
-        total_height: u64,
-        cumulative_difficulty_128: u128,
-        m_block_ids: Vec<[u8; 32]>,
-        m_block_weights: Vec<u64>,
-        first_block: Vec<u8>,
-    ) -> Self {
-        let cumulative_difficulty_low = cumulative_difficulty_128 as u64;
-        let cumulative_difficulty_high = (cumulative_difficulty_128 >> 64) as u64;
-        Self {
-            start_height,
-            total_height,
-            cumulative_difficulty_low,
-            cumulative_difficulty_high,
-            m_block_ids,
-            m_block_weights,
-            first_block,
-        }
-    }
-    pub fn cumulative_difficulty(&self) -> u128 {
-        let mut ret: u128 = self.cumulative_difficulty_high as u128;
-        ret <<= 64;
-        ret | self.cumulative_difficulty_low as u128
-    }
-}
+epee_object!(
+    ChainResponse,
+    start_height: u64,
+    total_height: u64,
+    cumulative_difficulty: u64,
+    cumulative_difficulty_top64: u64 = 0_u64,
+    m_block_ids: ByteArrayVec<32>,
+    m_block_weights: Vec<u64> as ContainerAsBlob<u64>,
+    first_block: Bytes,
+);
 
 /// A Block that doesn't have transactions unless requested
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewFluffyBlock {
     /// Block which might have transactions
     pub b: BlockCompleteEntry,
@@ -135,24 +145,41 @@ pub struct NewFluffyBlock {
     pub current_blockchain_height: u64,
 }
 
+epee_object!(
+    NewFluffyBlock,
+    b: BlockCompleteEntry,
+    current_blockchain_height: u64,
+);
+
 /// A request for Txs we are missing from our TxPool
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FluffyMissingTransactionsRequest {
     /// The Block we are missing the Txs in
-    pub block_hash: [u8; 32],
+    pub block_hash: ByteArray<32>,
     /// The current blockchain height
     pub current_blockchain_height: u64,
     /// The Tx Indices
     pub missing_tx_indices: Vec<u64>,
 }
 
+epee_object!(
+    FluffyMissingTransactionsRequest,
+    block_hash: ByteArray<32>,
+    current_blockchain_height: u64,
+    missing_tx_indices: Vec<u64> as ContainerAsBlob<u64>,
+);
+
 /// TxPoolCompliment
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetTxPoolCompliment {
     /// Tx Hashes
-    #[serde(default = "Vec::new")]
-    pub hashes: Vec<[u8; 32]>,
+    pub hashes: ByteArrayVec<32>,
 }
+
+epee_object!(
+    GetTxPoolCompliment,
+    hashes: ByteArrayVec<32>,
+);
 
 #[cfg(test)]
 mod tests {
@@ -670,13 +697,13 @@ mod tests {
             248, 248, 91, 110, 107, 144, 12, 175, 253, 21, 121, 28,
         ];
 
-        let new_transactions: NewTransactions = monero_epee_bin_serde::from_bytes(bytes).unwrap();
+        let new_transactions: NewTransactions = epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
 
         assert_eq!(4, new_transactions.txs.len());
 
-        let encoded_bytes = monero_epee_bin_serde::to_bytes(&new_transactions).unwrap();
+        let mut encoded_bytes = epee_encoding::to_bytes(new_transactions.clone()).unwrap();
         let new_transactions_2: NewTransactions =
-            monero_epee_bin_serde::from_bytes(encoded_bytes).unwrap();
+            epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(new_transactions, new_transactions_2);
     }
@@ -1022,11 +1049,10 @@ mod tests {
             101, 110, 116, 95, 98, 108, 111, 99, 107, 99, 104, 97, 105, 110, 95, 104, 101, 105,
             103, 104, 116, 5, 209, 45, 42, 0, 0, 0, 0, 0,
         ];
-        let fluffy_block: NewFluffyBlock = monero_epee_bin_serde::from_bytes(bytes).unwrap();
+        let fluffy_block: NewFluffyBlock = epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
 
-        let encoded_bytes = monero_epee_bin_serde::to_bytes(&fluffy_block).unwrap();
-        let fluffy_block_2: NewFluffyBlock =
-            monero_epee_bin_serde::from_bytes(encoded_bytes).unwrap();
+        let mut encoded_bytes = epee_encoding::to_bytes(fluffy_block.clone()).unwrap();
+        let fluffy_block_2: NewFluffyBlock = epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(fluffy_block, fluffy_block_2);
     }

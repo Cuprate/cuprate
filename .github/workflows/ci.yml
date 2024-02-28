@@ -1,5 +1,3 @@
-# This [clippys, tests, builds] on [windows, macos, linux]
-
 name: CI
 
 on:
@@ -7,6 +5,7 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -14,14 +13,54 @@ env:
   RUST_BACKTRACE: "full"
   # Increase thread stack size to 8 megabytes.
   RUST_MIN_STACK: 8000000
+  # Fail on documentation warnings.
+  RUSTDOCFLAGS: '-D warnings'
 
 jobs:
+  # Run format separately.
+  #
+  # This will fast-cancel other CI early if this fails.
+  #
+  # `cargo fmt` checks _all_ code, regardless of the OS
+  # or any `#[cfg]`'s, so this only needs to run on Linux.
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    - name: Format
+      run: cargo fmt --all --check
+
+  # Run typo checker separately.
+  # This will fast-cancel other CI early if this fails.
+  typo:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Spell Check
+      uses: crate-ci/typos@master
+
+  # All other CI.
   ci:
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            shell: msys2 {0}
+          - os: macos-latest
+            shell: bash
+          - os: ubuntu-latest
+            shell: bash
+
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
 
     steps:
     - name: Checkout
@@ -32,17 +71,48 @@ jobs:
     - name: Cache
       uses: actions/cache@v3
       with:
-        path: target
+        path: |
+          target
+          ~/.cargo
+          ~/.rustup
         key: ${{ matrix.os }}
 
-    - name: Install dependencies
+    # Packages other than `Boost` used by `Monero` are listed here.
+    # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
+
+    - name: Install dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
       run: sudo apt install -y libboost-dev
 
-    - name: Clippy
-      run: cargo clippy
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install boost
+
+    - name: Install dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: msys2/setup-msys2@v2
+      with:
+        path-type: inherit
+        update: true
+        install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+
+    - name: Update Rust (UNIX)
+      if: matrix.os != 'windows-latest'
+      run: rustup update
+
+    - name: Switch target (Windows)
+      if: matrix.os == 'windows-latest'
+      run: rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy && rustup set default-host x86_64-pc-windows-gnu && rustup default stable-x86_64-pc-windows-gnu
+
+    - name: Documentation
+      run: cargo doc --workspace --all-features
+
+    - name: Clippy (fail on warnings)
+      run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
     - name: Test
-      run: cargo test
+      run: cargo test --all-features --workspace
 
+    # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
-      run: cargo build
+      run: cargo build --all-features --all-targets --workspace

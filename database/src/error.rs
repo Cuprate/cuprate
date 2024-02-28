@@ -1,53 +1,91 @@
-//! ### Error module
-//! This module contains all errors abstraction used by the database crate. By implementing [`From<E>`] to the specific errors of storage engine crates, it let us
-//! handle more easily any type of error that can happen. This module does **NOT** contain interpretation of these errors, as these are defined for Blockchain abstraction. This is another difference
-//! from monerod which interpret these errors directly in its database functions:
-//! ```cpp
-//! /**
-//! * @brief A base class for BlockchainDB exceptions
-//! */
-//! class DB_EXCEPTION : public std::exception
-//! ```
-//! see `blockchain_db/blockchain_db.h` in monerod `src/` folder for more details.
+//! Database error types.
+//! TODO: `InitError/RuntimeError` are maybe bad names.
 
+//---------------------------------------------------------------------------------------------------- Import
+use std::fmt::Debug;
+
+//---------------------------------------------------------------------------------------------------- Types
+/// Alias for a thread-safe boxed error.
+type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
+
+//---------------------------------------------------------------------------------------------------- InitError
+/// Errors that occur during ([`Env::open`](crate::env::Env::open)).
+///
+/// # Handling
+/// As this is a database initialization error, the correct
+/// way to handle any of these occurring is probably just to
+/// exit the program.
+///
+/// There is not much we as Cuprate can do
+/// to recover from any of these errors.
 #[derive(thiserror::Error, Debug)]
-/// `DB_FAILURES` is an enum for backend-agnostic, internal database errors. The `From` Trait must be implemented to the specific backend errors to match DB_FAILURES.
-pub enum DB_FAILURES {
-    #[error("MDBX returned an error {0}")]
-    MDBX_Error(#[from] libmdbx::Error),
+pub enum InitError {
+    /// The given `Path/File` existed and was accessible,
+    /// but was not a valid database file.
+    #[error("database file exists but is not valid")]
+    Invalid,
 
-    #[error("\n<DB_FAILURES::EncodingError> Failed to encode some data : `{0}`")]
-    SerializeIssue(DB_SERIAL),
+    /// The given `Path/File` existed, was a valid
+    /// database, but the version is incorrect.
+    #[error("database file is valid, but version is incorrect")]
+    InvalidVersion,
 
-    #[error("\nObject already exist in the database : {0}")]
-    AlreadyExist(&'static str),
+    /// I/O error.
+    #[error("database I/O error: {0}")]
+    Io(#[from] std::io::Error),
 
-    #[error("NotFound? {0}")]
-    NotFound(&'static str),
+    /// The given `Path/File` existed,
+    /// was a valid database, but it is corrupt.
+    #[error("database file is corrupt")]
+    Corrupt,
 
-    #[error("\n<DB_FAILURES::Other> `{0}`")]
-    Other(&'static str),
+    /// The database is currently in the process
+    /// of shutting down and cannot respond.
+    ///
+    /// TODO: This might happen if we try to open
+    /// while we are shutting down, `unreachable!()`?
+    #[error("database is shutting down")]
+    ShuttingDown,
 
-    #[error(
-        "\n<DB_FAILURES::FailedToCommit> A transaction tried to commit to the db, but failed."
-    )]
-    FailedToCommit,
+    /// An unknown error occurred.
+    ///
+    /// This is for errors that cannot be recovered from,
+    /// but we'd still like to panic gracefully.
+    #[error("unknown error: {0}")]
+    Unknown(BoxError),
 }
 
+//---------------------------------------------------------------------------------------------------- RuntimeError
+/// Errors that occur _after_ successful ([`Env::open`](crate::env::Env::open)).
+///
+/// There are no errors for:
+/// 1. Missing tables
+/// 2. (De)serialization
+/// 3. Shutdown errors
+///
+/// as `cuprate_database` upholds the invariant that:
+///
+/// 1. All tables exist
+/// 2. (De)serialization never fails
+/// 3. The database (thread-pool) only shuts down when all channels are dropped
 #[derive(thiserror::Error, Debug)]
-pub enum DB_SERIAL {
-    #[error("An object failed to be serialized into bytes. It is likely an issue from monero-rs library. Please report this error on cuprate's github : https://github.com/Cuprate/cuprate/issues")]
-    ConsensusEncode,
+pub enum RuntimeError {
+    /// The given key already existed in the database.
+    #[error("key already existed")]
+    KeyExists,
 
-    #[error("Bytes failed to be deserialized into the requested object. It is likely an issue from monero-rs library. Please report this error on cuprate's github : https://github.com/Cuprate/cuprate/issues")]
-    ConsensusDecode(Vec<u8>),
+    /// The given key did not exist in the database.
+    #[error("key/value pair was not found")]
+    KeyNotFound,
 
-    #[error("monero-rs encoding|decoding logic failed : {0}")]
-    MoneroEncode(#[from] monero::consensus::encode::Error),
+    /// The database memory map is full and needs a resize.
+    ///
+    /// # Invariant
+    /// This error can only occur if [`Env::MANUAL_RESIZE`](crate::Env::MANUAL_RESIZE) is `true`.
+    #[error("database memory map must be resized")]
+    ResizeNeeded,
 
-    #[error("Bincode failed to decode a type from the database : {0}")]
-    BincodeDecode(#[from] bincode::error::DecodeError),
-
-    #[error("Bincode failed to encode a type for the database : {0}")]
-    BincodeEncode(#[from] bincode::error::EncodeError),
+    /// A [`std::io::Error`].
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
 }

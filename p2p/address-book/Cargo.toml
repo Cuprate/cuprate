@@ -1,0 +1,31 @@
+[package]
+name = "monero-address-book"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+
+
+[dependencies]
+monero-pruning = { path = "../../pruning" }
+monero-wire = { path= "../../net/monero-wire" }
+monero-p2p = { path = "../monero-p2p" }
+
+tower = { workspace = true, features = ["util", "buffer"] }
+tokio = { workspace = true, features = ["time", "fs", "rt"]}
+
+futures = { workspace = true, features = ["std"] }
+pin-project = { workspace = true }
+async-trait = { workspace = true }
+
+thiserror = { workspace = true }
+tracing = { workspace = true, features = ["std", "attributes"] }
+
+rand = { workspace = true, features = ["std", "std_rng"] }
+
+borsh = { workspace = true, features = ["derive", "std"]}
+
+[dev-dependencies]
+cuprate-test-utils = {path = "../../test-utils"}
+
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}

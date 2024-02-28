@@ -1,0 +1,27 @@
+[package]
+name = "epee-encoding"
+version = "0.5.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+readme = "README.md"
+keywords = ["monero", "epee", "no-std"]
+description = "Epee binary format library."
+repository = "https://github.com/Boog900/epee-encoding"
+rust-version = "1.60"
+
+[features]
+default = ["std"]
+std = ["dep:thiserror", "bytes/std", "fixed-bytes/std"]
+
+[dependencies]
+fixed-bytes = { path = "../fixed-bytes", default-features = false }
+
+sealed = "0.5.0"
+paste = "1.0.14"
+ref-cast = "1.0.22"
+bytes = { workspace = true }
+thiserror = { workspace = true, optional = true}
+
+[dev-dependencies]
+hex = { workspace = true, features = ["default"] }

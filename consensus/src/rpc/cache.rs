@@ -1,14 +1,15 @@
-use std::io::Write;
+#![cfg(feature = "binaries")]
+
 use std::{
     collections::HashMap,
     collections::HashSet,
     fmt::{Display, Formatter},
-    io::BufWriter,
+    io::{BufWriter, Write},
     path::Path,
     sync::Arc,
 };
 
-use bincode::{Decode, Encode};
+use borsh::{BorshDeserialize, BorshSerialize};
 use monero_serai::transaction::{Input, Timelock, Transaction};
 use tracing_subscriber::fmt::MakeWriter;
 
@@ -19,10 +20,10 @@ use crate::transactions::TransactionVerificationData;
 /// Because we are using a RPC interface with a node we need to keep track
 /// of certain data that the node doesn't hold or give us like the number
 /// of outputs at a certain time.
-#[derive(Debug, Default, Clone, Encode, Decode)]
+#[derive(Debug, Default, Clone, BorshSerialize, BorshDeserialize)]
 pub struct ScanningCache {
     //    network: u8,
-    numb_outs: HashMap<u64, u64>,
+    numb_outs: HashMap<u64, usize>,
     time_locked_out: HashMap<[u8; 32], u64>,
     kis: HashSet<[u8; 32]>,
     pub already_generated_coins: u64,
@@ -38,7 +39,7 @@ impl ScanningCache {
             .create(true)
             .open(file)?;
         let mut writer = BufWriter::new(file.make_writer());
-        bincode::encode_into_std_write(self, &mut writer, bincode::config::standard())?;
+        borsh::to_writer(&mut writer, &self)?;
         writer.flush()?;
         Ok(())
     }
@@ -46,7 +47,8 @@ impl ScanningCache {
     pub fn load(file: &Path) -> Result<ScanningCache, tower::BoxError> {
         let mut file = std::fs::OpenOptions::new().read(true).open(file)?;
 
-        bincode::decode_from_std_read(&mut file, bincode::config::standard()).map_err(Into::into)
+        let data: ScanningCache = borsh::from_reader(&mut file)?;
+        Ok(data)
     }
 
     pub fn add_new_block_data(
@@ -56,19 +58,15 @@ impl ScanningCache {
         txs: &[Arc<TransactionVerificationData>],
     ) {
         self.add_tx_time_lock(miner_tx.hash(), miner_tx.prefix.timelock);
-        miner_tx
-            .prefix
-            .outputs
-            .iter()
-            .for_each(|out| self.add_outs(out.amount.unwrap_or(0), 1));
+        miner_tx.prefix.outputs.iter().for_each(|out| {
+            self.add_outs(miner_tx.prefix.version == 2, out.amount.unwrap_or(0), 1)
+        });
 
         txs.iter().for_each(|tx| {
             self.add_tx_time_lock(tx.tx_hash, tx.tx.prefix.timelock);
-            tx.tx
-                .prefix
-                .outputs
-                .iter()
-                .for_each(|out| self.add_outs(out.amount.unwrap_or(0), 1));
+            tx.tx.prefix.outputs.iter().for_each(|out| {
+                self.add_outs(tx.tx.prefix.version == 2, out.amount.unwrap_or(0), 1)
+            });
 
             tx.tx.prefix.inputs.iter().for_each(|inp| match inp {
                 Input::ToKey { key_image, .. } => {
@@ -82,8 +80,9 @@ impl ScanningCache {
         self.height += 1;
     }
 
+    /// Returns true if any kis are included in our spent set.
     pub fn are_kis_spent(&self, kis: HashSet<[u8; 32]>) -> bool {
-        self.kis.is_disjoint(&kis)
+        !self.kis.is_disjoint(&kis)
     }
 
     pub fn outputs_time_lock(&self, tx: &[u8; 32]) -> Timelock {
@@ -111,15 +110,20 @@ impl ScanningCache {
         }
     }
 
-    pub fn total_outs(&self) -> u64 {
+    pub fn total_outs(&self) -> usize {
         self.numb_outs.values().sum()
     }
 
-    pub fn numb_outs(&self, amount: u64) -> u64 {
-        *self.numb_outs.get(&amount).unwrap_or(&0)
+    pub fn numb_outs(&self, amounts: &[u64]) -> HashMap<u64, usize> {
+        amounts
+            .iter()
+            .map(|amount| (*amount, *self.numb_outs.get(amount).unwrap_or(&0)))
+            .collect()
     }
 
-    pub fn add_outs(&mut self, amount: u64, count: u64) {
+    pub fn add_outs(&mut self, is_v2: bool, amount: u64, count: usize) {
+        let amount = if is_v2 { 0 } else { amount };
+
         if let Some(numb_outs) = self.numb_outs.get_mut(&amount) {
             *numb_outs += count;
         } else {
@@ -130,7 +134,7 @@ impl ScanningCache {
 
 impl Display for ScanningCache {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let rct_outs = self.numb_outs(0);
+        let rct_outs = *self.numb_outs(&[0]).get(&0).unwrap();
         let total_outs = self.total_outs();
 
         f.debug_struct("Cache")

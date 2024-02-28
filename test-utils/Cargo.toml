@@ -1,0 +1,24 @@
+[package]
+name = "cuprate-test-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+monero-wire = {path = "../net/monero-wire"}
+monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
+
+futures = { workspace = true, features = ["std"] }
+async-trait = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+reqwest = { workspace = true }
+bytes = { workspace = true, features = ["std"] }
+tempfile = { workspace = true }
+
+borsh = { workspace = true, features = ["derive"]}
+
+[target.'cfg(unix)'.dependencies]
+tar = "0.4.40"
+bzip2 = "0.4.4"
+
+[target.'cfg(windows)'.dependencies]
+zip = "0.6"

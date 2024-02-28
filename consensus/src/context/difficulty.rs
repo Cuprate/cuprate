@@ -3,12 +3,9 @@ use std::{collections::VecDeque, ops::Range};
 use tower::ServiceExt;
 use tracing::instrument;
 
-use crate::{
-    helper::median, ConsensusError, Database, DatabaseRequest, DatabaseResponse, HardFork,
-};
+use cuprate_helper::num::median;
 
-#[cfg(test)]
-mod tests;
+use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork};
 
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
@@ -22,11 +19,11 @@ const DIFFICULTY_LAG: usize = 15;
 
 /// Configuration for the difficulty cache.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DifficultyCacheConfig {
-    window: usize,
-    cut: usize,
-    lag: usize,
+    pub(crate) window: usize,
+    pub(crate) cut: usize,
+    pub(crate) lag: usize,
 }
 
 impl DifficultyCacheConfig {
@@ -55,42 +52,26 @@ impl DifficultyCacheConfig {
 
 /// This struct is able to calculate difficulties from blockchain information.
 ///
-#[derive(Debug, Clone)]
-pub struct DifficultyCache {
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub(crate) struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
-    timestamps: VecDeque<u64>,
+    pub(crate) timestamps: VecDeque<u64>,
     /// The current cumulative difficulty of the chain.
-    cumulative_difficulties: VecDeque<u128>,
+    pub(crate) cumulative_difficulties: VecDeque<u128>,
     /// The last height we accounted for.
-    last_accounted_height: u64,
+    pub(crate) last_accounted_height: u64,
     /// The config
-    config: DifficultyCacheConfig,
+    pub(crate) config: DifficultyCacheConfig,
 }
 
 impl DifficultyCache {
-    pub async fn init<D: Database + Clone>(
-        config: DifficultyCacheConfig,
-        mut database: D,
-    ) -> Result<Self, ConsensusError> {
-        let DatabaseResponse::ChainHeight(chain_height, _) = database
-            .ready()
-            .await?
-            .call(DatabaseRequest::ChainHeight)
-            .await?
-        else {
-            panic!("Database sent incorrect response")
-        };
-
-        DifficultyCache::init_from_chain_height(chain_height, config, database).await
-    }
-
     #[instrument(name = "init_difficulty_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
         config: DifficultyCacheConfig,
         database: D,
-    ) -> Result<Self, ConsensusError> {
+    ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
         let mut block_start = chain_height.saturating_sub(config.total_block_count());
@@ -140,20 +121,24 @@ impl DifficultyCache {
             return 1;
         }
 
-        let mut sorted_timestamps = self.timestamps.clone();
-        if sorted_timestamps.len() > self.config.window {
-            sorted_timestamps.drain(self.config.window..);
+        let mut timestamps = self.timestamps.clone();
+        if timestamps.len() > self.config.window {
+            // remove the lag.
+            timestamps.drain(self.config.window..);
         };
-        sorted_timestamps.make_contiguous().sort_unstable();
+        let timestamps_slice = timestamps.make_contiguous();
 
         let (window_start, window_end) = get_window_start_and_end(
-            sorted_timestamps.len(),
+            timestamps_slice.len(),
             self.config.accounted_window_len(),
             self.config.window,
         );
 
-        let mut time_span =
-            u128::from(sorted_timestamps[window_end - 1] - sorted_timestamps[window_start]);
+        // We don't sort the whole timestamp list
+        let mut time_span = u128::from(
+            *timestamps_slice.select_nth_unstable(window_end - 1).1
+                - *timestamps_slice.select_nth_unstable(window_start).1,
+        );
 
         let windowed_work = self.cumulative_difficulties[window_end - 1]
             - self.cumulative_difficulties[window_start];
@@ -164,6 +149,50 @@ impl DifficultyCache {
 
         // TODO: do checked operations here and unwrap so we don't silently overflow?
         (windowed_work * hf.block_time().as_secs() as u128 + time_span - 1) / time_span
+    }
+
+    pub fn next_difficulties(
+        &mut self,
+        blocks: Vec<(u64, HardFork)>,
+        current_hf: &HardFork,
+    ) -> Vec<u128> {
+        let new_timestamps_len = blocks.len();
+        let initial_len = self.timestamps.len();
+
+        let mut difficulties = Vec::with_capacity(blocks.len() + 1);
+
+        difficulties.push(self.next_difficulty(current_hf));
+
+        let mut diff_info_popped = Vec::new();
+
+        for (new_timestamp, hf) in blocks {
+            self.timestamps.push_back(new_timestamp);
+            self.cumulative_difficulties
+                .push_back(self.cumulative_difficulty() + *difficulties.last().unwrap());
+            if u64::try_from(self.timestamps.len()).unwrap() > self.config.total_block_count() {
+                diff_info_popped.push((
+                    self.timestamps.pop_front().unwrap(),
+                    self.cumulative_difficulties.pop_front().unwrap(),
+                ));
+            }
+
+            difficulties.push(self.next_difficulty(&hf));
+        }
+
+        self.cumulative_difficulties.drain(
+            self.cumulative_difficulties
+                .len()
+                .saturating_sub(new_timestamps_len)..,
+        );
+        self.timestamps
+            .drain(self.timestamps.len().saturating_sub(new_timestamps_len)..);
+
+        for (timestamp, cum_dif) in diff_info_popped.into_iter().take(initial_len).rev() {
+            self.timestamps.push_front(timestamp);
+            self.cumulative_difficulties.push_front(cum_dif);
+        }
+
+        difficulties
     }
 
     /// Returns the median timestamp over the last `numb_blocks`, including the genesis block if the block height is low enough.
@@ -228,7 +257,7 @@ fn get_window_start_and_end(
 async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
-) -> Result<(VecDeque<u64>, VecDeque<u128>), ConsensusError> {
+) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
     let DatabaseResponse::BlockExtendedHeaderInRange(ext_header) = database

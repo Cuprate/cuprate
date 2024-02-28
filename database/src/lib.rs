@@ -1,221 +1,329 @@
-// Copyright (C) 2023 Cuprate Contributors
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-//! The cuprate-db crate implement (as its name suggests) the relations between the blockchain/txpool objects and their databases.
-//! `lib.rs` contains all the generics, trait and specification for interfaces between blockchain and a backend-agnostic database
-//! Every other files in this folder are implementation of these traits/methods to real storage engine.
+//! Database abstraction and utilities.
 //!
-//! At the moment, the only storage engine available is MDBX.
-//! The next storage engine planned is HSE (Heteregeonous Storage Engine) from Micron.
+//! This documentation is mostly for practical usage of `cuprate_database`.
 //!
-//! For more informations, please consult this docs:
+//! For a high-level overview,
+//! see [`database/README.md`](https://github.com/Cuprate/cuprate/blob/main/database/README.md).
+//!
+//! # Purpose
+//! This crate does 3 things:
+//! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`Key`], [`RoTx`], and [`RwTx`] traits
+//! 2. Implements various `Monero` related [functions](ops) & [`tables`]
+//! 3. Exposes a [`tower::Service`] backed by a thread-pool
+//!
+//! # Terminology
+//! To be more clear on some terms used in this crate:
+//!
+//! | Term       | Meaning                              |
+//! |------------|--------------------------------------|
+//! | `Env`      | The 1 database environment, the "whole" thing
+//! | `Database` | A `key/value` store
+//! | `Table`    | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
+//! | `RoTx`     | Read only transaction
+//! | `RwTx`     | Read/write transaction
+//!
+//! The dataflow is `Env` -> `Tx` -> `Database`
+//!
+//! Which reads as:
+//! 1. You have a database `Environment`
+//! 2. You open up a `Transaction`
+//! 2. You get a particular `Database` from that `Environment`
+//! 3. You can now read/write data from/to that `Database`
+//!
+//! # `ConcreteEnv`
+//! This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic,
+//! concrete object representing a database [`Env`]ironment.
+//!
+//! The actual backend for this type is determined via feature flags.
+//!
+//! This object existing means `E: Env` doesn't need to be spread all through the codebase,
+//! however, it also means some small invariants should be kept in mind.
+//!
+//! As `ConcreteEnv` is just a re-exposed type which has varying inner types,
+//! it means some properties will change depending on the backend used.
+//!
+//! For example:
+//! - [`std::mem::size_of::<ConcreteEnv>`]
+//! - [`std::mem::align_of::<ConcreteEnv>`]
+//!
+//! Things like these functions are affected by the backend and inner data,
+//! and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteEnv`.
+//!
+//! `ConcreteEnv` invariants you can rely on:
+//! - It implements [`Env`]
+//! - Upon [`Drop::drop`], all database data will sync to disk
+//!
+//! Note that `ConcreteEnv` itself is not a clonable type,
+//! it should be wrapped in [`std::sync::Arc`].
+//!
+//! TODO: we could also expose `ConcreteDatabase` if we're
+//! going to be storing any databases in structs, to lessen
+//! the generic `<D: Database>` pain.
+//!
+//! # Feature flags
+//! The `service` module requires the `service` feature to be enabled.
+//! See the module for more documentation.
+//!
+//! Different database backends are enabled by the feature flags:
+//! - `heed`
+//! - `sanakirja`
+//!
+//! The default is `heed`.
+//!
+//! # Invariants when not using `service`
+//! `cuprate_database` can be used without the `service` feature enabled but
+//! there are some things that must be kept in mind when doing so:
+//!
+//! TODO: make pretty. these will need to be updated
+//! as things change and as more backends are added.
+//!
+//! 1. Memory map resizing (must resize as needed)
+//! 1. Must not exceed `Config`'s maximum reader count
+//! 1. Avoid many nested transactions
+//! 1. `heed::MdbError::BadValSize`
+//! 1. `heed::Error::InvalidDatabaseTyping`
+//! 1. `heed::Error::BadOpenOptions`
+//! 1. Encoding/decoding into `[u8]`
+//!
+//! # Example
+//! Simple usage of this crate.
+//!
+//! ```rust
+//! use cuprate_database::{
+//!     config::Config,
+//!     ConcreteEnv,
+//!     Env, Key, RoTx, RwTx,
+//!     service::{ReadRequest, WriteRequest, Response},
+//! };
+//!
+//! // Create a configuration for the database environment.
+//! let db_dir = tempfile::tempdir().unwrap();
+//! let config = Config::new(Some(db_dir.path().to_path_buf()));
+//!
+//! // Initialize the database thread-pool.
+//!
+//! // TODO:
+//! // 1. let (read_handle, write_handle) = cuprate_database::service::init(config).unwrap();
+//! // 2. Send write/read requests
+//! // 3. Use some other `Env` functions
+//! // 4. Shutdown
+//! ```
 
-#![deny(unused_attributes)]
-#![forbid(unsafe_code)]
-#![allow(non_camel_case_types)]
-#![deny(clippy::expect_used, clippy::panic)]
-#![allow(dead_code, unused_macros)] // temporary
+//---------------------------------------------------------------------------------------------------- Lints
+// Forbid lints.
+// Our code, and code generated (e.g macros) cannot overrule these.
+#![forbid(
+	// `unsafe` is allowed but it _must_ be
+	// commented with `SAFETY: reason`.
+	clippy::undocumented_unsafe_blocks,
 
-use monero::{util::ringct::RctSig, Block, BlockHeader, Hash};
-use std::ops::Range;
-use thiserror::Error;
+	// Never.
+	unused_unsafe,
+	redundant_semicolons,
+	unused_allocation,
+	coherence_leak_check,
+	single_use_lifetimes,
+	while_true,
+	clippy::missing_docs_in_private_items,
 
-#[cfg(feature = "mdbx")]
-pub mod mdbx;
-//#[cfg(feature = "hse")]
-//pub mod hse;
+	// Maybe can be put into `#[deny]`.
+	unconditional_recursion,
+	for_loops_over_fallibles,
+	unused_braces,
+	unused_doc_comments,
+	unused_labels,
+	keyword_idents,
+	non_ascii_idents,
+	variant_size_differences,
+	unused_mut, // Annoying when debugging, maybe put in allow.
 
-pub mod encoding;
-pub mod error;
-pub mod interface;
-pub mod table;
-pub mod types;
+	// Probably can be put into `#[deny]`.
+	future_incompatible,
+	let_underscore,
+	break_with_label_and_loop,
+	duplicate_macro_attributes,
+	exported_private_dependencies,
+	large_assignments,
+	overlapping_range_endpoints,
+	semicolon_in_expressions_from_macros,
+	noop_method_call,
+	unreachable_pub,
+)]
+// Deny lints.
+// Some of these are `#[allow]`'ed on a per-case basis.
+#![deny(
+    clippy::all,
+    clippy::correctness,
+    clippy::suspicious,
+    clippy::style,
+    clippy::complexity,
+    clippy::perf,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::cargo,
+    missing_docs,
+    deprecated,
+    unused_comparisons,
+    nonstandard_style
+)]
+#![allow(unreachable_code, unused_variables, dead_code)] // TODO: remove
+#![allow(
+	// FIXME: this lint affects crates outside of
+	// `database/` for some reason, allow for now.
+	clippy::cargo_common_metadata,
 
-const DEFAULT_BLOCKCHAIN_DATABASE_DIRECTORY: &str = "blockchain";
-const DEFAULT_TXPOOL_DATABASE_DIRECTORY: &str = "txpool_mem";
-const BINCODE_CONFIG: bincode::config::Configuration<
-    bincode::config::LittleEndian,
-    bincode::config::Fixint,
-> = bincode::config::standard().with_fixed_int_encoding();
+	// FIXME: adding `#[must_use]` onto everything
+	// might just be more annoying than useful...
+	// although it is sometimes nice.
+	clippy::must_use_candidate,
 
-// ------------------------------------------|      Database      |------------------------------------------
+	// TODO: should be removed after all `todo!()`'s are gone.
+	clippy::diverging_sub_expression,
 
-pub mod database {
-    //! This module contains the Database abstraction trait. Any key/value storage engine implemented need
-    //! to fullfil these associated types and functions, in order to be usable. This module also contains the
-    //! Interface struct which is used by the DB Reactor to interact with the database.
+	// FIXME:
+	// If #[deny(clippy::restriction)] is used, it
+	// enables a whole bunch of very subjective lints.
+	// The below disables most of the ones that are
+	// a bit too unwieldy.
+	//
+	// Figure out if if `clippy::restriction` should be
+	// used (it enables a bunch of good lints but has
+	// many false positives).
 
-    use crate::{
-        error::DB_FAILURES,
-        transaction::{Transaction, WriteTransaction},
-    };
-    use std::{ops::Deref, path::PathBuf, sync::Arc};
+	// clippy::single_char_lifetime_names,
+	// clippy::implicit_return,
+	// clippy::std_instead_of_alloc,
+	// clippy::std_instead_of_core,
+	// clippy::unwrap_used,
+	// clippy::min_ident_chars,
+	// clippy::absolute_paths,
+	// clippy::missing_inline_in_public_items,
+	// clippy::shadow_reuse,
+	// clippy::shadow_unrelated,
+	// clippy::missing_trait_methods,
+	// clippy::pub_use,
+	// clippy::pub_with_shorthand,
+	// clippy::blanket_clippy_restriction_lints,
+	// clippy::exhaustive_structs,
+	// clippy::exhaustive_enums,
+	// clippy::unsafe_derive_deserialize,
+	// clippy::multiple_inherent_impl,
+	// clippy::unreadable_literal,
+	// clippy::indexing_slicing,
+	// clippy::float_arithmetic,
+	// clippy::cast_possible_truncation,
+	// clippy::as_conversions,
+	// clippy::cast_precision_loss,
+	// clippy::cast_sign_loss,
+	// clippy::missing_asserts_for_indexing,
+	// clippy::default_numeric_fallback,
+	// clippy::module_inception,
+	// clippy::mod_module_files,
+	// clippy::multiple_unsafe_ops_per_block,
+	// clippy::too_many_lines,
+	// clippy::missing_assert_message,
+	// clippy::len_zero,
+	// clippy::separated_literal_suffix,
+	// clippy::single_call_fn,
+	// clippy::unreachable,
+	// clippy::many_single_char_names,
+	// clippy::redundant_pub_crate,
+	// clippy::decimal_literal_representation,
+	// clippy::option_if_let_else,
+	// clippy::lossy_float_literal,
+	// clippy::modulo_arithmetic,
+	// clippy::print_stdout,
+	// clippy::module_name_repetitions,
+	// clippy::no_effect,
+	// clippy::semicolon_outside_block,
+	// clippy::panic,
+	// clippy::question_mark_used,
+	// clippy::expect_used,
+	// clippy::integer_division,
+	// clippy::type_complexity,
+	// clippy::pattern_type_mismatch,
+	// clippy::arithmetic_side_effects,
+	// clippy::default_trait_access,
+	// clippy::similar_names,
+	// clippy::needless_pass_by_value,
+	// clippy::inline_always,
+	// clippy::if_then_some_else_none,
+	// clippy::arithmetic_side_effects,
+	// clippy::float_cmp,
+	// clippy::items_after_statements,
+	// clippy::use_debug,
+	// clippy::mem_forget,
+	// clippy::else_if_without_else,
+	// clippy::str_to_string,
+	// clippy::branches_sharing_code,
+	// clippy::impl_trait_in_params,
+	// clippy::struct_excessive_bools,
+	// clippy::exit,
+	// // This lint is actually good but
+	// // it sometimes hits false positive.
+	// clippy::self_named_module_files
 
-    /// `Database` Trait implement all the methods necessary to generate transactions as well as execute specific functions. It also implement generic associated types to identify the
-    /// different transaction modes (read & write) and it's native errors.
-    pub trait Database<'a> {
-        type TX: Transaction<'a>;
-        type TXMut: WriteTransaction<'a>;
-        type Error: Into<DB_FAILURES>;
+	clippy::module_name_repetitions,
+	clippy::module_inception,
+	clippy::redundant_pub_crate,
+	clippy::option_if_let_else,
+)]
+// Allow some lints when running in debug mode.
+#![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
 
-        // Create a transaction from the database
-        fn tx(&'a self) -> Result<Self::TX, Self::Error>;
+// Only allow building 64-bit targets.
+//
+// This allows us to assume 64-bit
+// invariants in code, e.g. `usize as u64`.
+#[cfg(not(target_pointer_width = "64"))]
+compile_error!("Cuprate is only compatible with 64-bit CPUs");
 
-        // Create a mutable transaction from the database
-        fn tx_mut(&'a self) -> Result<Self::TXMut, Self::Error>;
+//---------------------------------------------------------------------------------------------------- Public API
+// Import private modules, export public types.
+//
+// Documentation for each module is located in the respective file.
 
-        // Open a database from the specified path
-        fn open(path: PathBuf) -> Result<Self, Self::Error>
-        where
-            Self: std::marker::Sized;
+mod backend;
+pub use backend::ConcreteEnv;
 
-        // Check if the database is built.
-        fn check_all_tables_exist(&'a self) -> Result<(), Self::Error>;
+pub mod config;
 
-        // Build the database
-        fn build(&'a self) -> Result<(), Self::Error>;
-    }
+mod constants;
+pub use constants::{DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_FILENAME};
 
-    /// `Interface` is a struct containing a shared pointer to the database and transaction's to be used for the implemented method of Interface.
-    pub struct Interface<'a, D: Database<'a>> {
-        pub db: Arc<D>,
-        pub tx: Option<<D as Database<'a>>::TXMut>,
-    }
+mod database;
+pub use database::Database;
 
-    // Convenient implementations for database
-    impl<'service, D: Database<'service>> Interface<'service, D> {
-        fn from(db: Arc<D>) -> Result<Self, DB_FAILURES> {
-            Ok(Self { db, tx: None })
-        }
+mod env;
+pub use env::Env;
 
-        fn open(&'service mut self) -> Result<(), DB_FAILURES> {
-            let tx = self.db.tx_mut().map_err(Into::into)?;
-            self.tx = Some(tx);
-            Ok(())
-        }
-    }
+mod error;
+pub use error::{InitError, RuntimeError};
 
-    impl<'service, D: Database<'service>> Deref for Interface<'service, D> {
-        type Target = <D as Database<'service>>::TXMut;
+mod free;
 
-        fn deref(&self) -> &Self::Target {
-            return self.tx.as_ref().unwrap();
-        }
-    }
-}
+pub mod resize;
 
-// ------------------------------------------|      DatabaseTx     |------------------------------------------
+mod key;
+pub use key::{DupKey, Key};
 
-pub mod transaction {
-    //! This module contains the abstractions of Transactional Key/Value database functions.
-    //! Any key/value database/storage engine can be implemented easily for Cuprate as long as
-    //! these functions or equivalent logic exist for it.
+mod macros;
 
-    use crate::{
-        error::DB_FAILURES,
-        table::{DupTable, Table},
-    };
+pub mod ops;
 
-    // Abstraction of a read-only cursor, for simple tables
-    #[allow(clippy::type_complexity)]
-    pub trait Cursor<'t, T: Table> {
-        fn first(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+mod pod;
+pub use pod::Pod;
 
-        fn get_cursor(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+mod table;
+pub use table::Table;
 
-        fn last(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+pub mod tables;
 
-        fn next(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+mod transaction;
+pub use transaction::{RoTx, RwTx};
 
-        fn prev(&mut self) -> Result<Option<(T::Key, T::Value)>, DB_FAILURES>;
+//---------------------------------------------------------------------------------------------------- Feature-gated
+#[cfg(feature = "service")]
+pub mod service;
 
-        fn set(&mut self, key: &T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
-    }
-
-    // Abstraction of a read-only cursor with support for duplicated tables. DupCursor inherit Cursor methods as
-    // a duplicated table can be treated as a simple table.
-    #[allow(clippy::type_complexity)]
-    pub trait DupCursor<'t, T: DupTable>: Cursor<'t, T> {
-        fn first_dup(&mut self) -> Result<Option<(T::SubKey, T::Value)>, DB_FAILURES>;
-
-        fn get_dup(
-            &mut self,
-            key: &T::Key,
-            subkey: &T::SubKey,
-        ) -> Result<Option<T::Value>, DB_FAILURES>;
-
-        fn last_dup(&mut self) -> Result<Option<(T::SubKey, T::Value)>, DB_FAILURES>;
-
-        fn next_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES>;
-
-        fn prev_dup(&mut self) -> Result<Option<(T::Key, (T::SubKey, T::Value))>, DB_FAILURES>;
-    }
-
-    // Abstraction of a read-write cursor, for simple tables. WriteCursor inherit Cursor methods.
-    pub trait WriteCursor<'t, T: Table>: Cursor<'t, T> {
-        fn put_cursor(&mut self, key: &T::Key, value: &T::Value) -> Result<(), DB_FAILURES>;
-
-        fn del(&mut self) -> Result<(), DB_FAILURES>;
-    }
-
-    // Abstraction of a read-write cursor with support for duplicated tables. DupWriteCursor inherit DupCursor and WriteCursor methods.
-    pub trait DupWriteCursor<'t, T: DupTable>: WriteCursor<'t, T> {
-        fn put_cursor_dup(
-            &mut self,
-            key: &T::Key,
-            subkey: &T::SubKey,
-            value: &T::Value,
-        ) -> Result<(), DB_FAILURES>;
-
-        /// Delete all data under associated to its key
-        fn del_nodup(&mut self) -> Result<(), DB_FAILURES>;
-    }
-
-    // Abstraction of a read-only transaction.
-    pub trait Transaction<'a>: Send + Sync {
-        type Cursor<T: Table>: Cursor<'a, T>;
-        type DupCursor<T: DupTable>: DupCursor<'a, T> + Cursor<'a, T>;
-
-        fn get<T: Table>(&self, key: &T::Key) -> Result<Option<T::Value>, DB_FAILURES>;
-
-        fn commit(self) -> Result<(), DB_FAILURES>;
-
-        fn cursor<T: Table>(&self) -> Result<Self::Cursor<T>, DB_FAILURES>;
-
-        fn cursor_dup<T: DupTable>(&self) -> Result<Self::DupCursor<T>, DB_FAILURES>;
-
-        fn num_entries<T: Table>(&self) -> Result<usize, DB_FAILURES>;
-    }
-
-    // Abstraction of a read-write transaction. WriteTransaction inherits Transaction methods.
-    pub trait WriteTransaction<'a>: Transaction<'a> {
-        type WriteCursor<T: Table>: WriteCursor<'a, T>;
-        type DupWriteCursor<T: DupTable>: DupWriteCursor<'a, T> + DupCursor<'a, T>;
-
-        fn put<T: Table>(&self, key: &T::Key, value: &T::Value) -> Result<(), DB_FAILURES>;
-
-        fn delete<T: Table>(
-            &self,
-            key: &T::Key,
-            value: &Option<T::Value>,
-        ) -> Result<(), DB_FAILURES>;
-
-        fn clear<T: Table>(&self) -> Result<(), DB_FAILURES>;
-
-        fn write_cursor<T: Table>(&self) -> Result<Self::WriteCursor<T>, DB_FAILURES>;
-
-        fn write_cursor_dup<T: DupTable>(&self) -> Result<Self::DupWriteCursor<T>, DB_FAILURES>;
-    }
-}
+//---------------------------------------------------------------------------------------------------- Private

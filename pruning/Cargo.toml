@@ -1,0 +1,13 @@
+[package]
+name = "monero-pruning"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = []
+borsh = ["dep:borsh"]
+
+[dependencies]
+thiserror = { workspace = true }
+
+borsh = { workspace = true, features = ["derive", "std"], optional = true }
