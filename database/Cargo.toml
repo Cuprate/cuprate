@@ -16,6 +16,7 @@ sanakirja = ["dep:sanakirja"]
 service   = ["dep:crossbeam", "dep:tokio", "dep:tower"]
 
 [dependencies]
+bytemuck = { version = "1.14.3", features = ["must_cast"] }
 cfg-if         = { workspace = true }
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.

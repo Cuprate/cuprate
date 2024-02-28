@@ -572,6 +572,7 @@ name = "cuprate-database"
 version = "0.0.0"
 dependencies = [
  "borsh",
+ "bytemuck",
  "cfg-if",
  "crossbeam",
  "cuprate-helper",
