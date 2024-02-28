@@ -79,6 +79,13 @@ pub trait Env: Sized {
     }
 
     /// TODO
+    ///
+    /// # Invariant
+    /// This must **fully** and **synchronously** flush the database data to disk.
+    ///
+    /// I.e., after this function returns, there must be no doubts
+    /// that the data isn't synced yet, it _must_ be synced.
+    ///
     /// # Errors
     /// TODO
     fn sync(&self) -> Result<(), RuntimeError>;
