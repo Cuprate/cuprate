@@ -1,7 +1,9 @@
 //! Database table abstraction; `trait Table`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{key::Key, pod::Pod};
+use crate::key::Key;
+
+use bytemuck::{CheckedBitPattern, NoUninit};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database table metadata.
@@ -31,7 +33,7 @@ pub trait Table: crate::tables::private::Sealed {
     type Key: Key;
 
     /// Value type.
-    type Value: Pod;
+    type Value: CheckedBitPattern + NoUninit;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -311,13 +311,16 @@ mod macros;
 
 pub mod ops;
 
-mod pod;
-pub use pod::Pod;
+// SOMEDAY: Serde as a backend?
+// mod pod;
+// pub use pod::Pod;
 
 mod table;
 pub use table::Table;
 
 pub mod tables;
+
+pub mod types;
 
 mod transaction;
 pub use transaction::{RoTx, RwTx};

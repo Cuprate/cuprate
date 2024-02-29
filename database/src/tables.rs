@@ -1,10 +1,12 @@
 //! Database tables.
 //!
-//! This module contains all the table definitions used by `cuprate-database`
-//! and [`Tables`], an `enum` containing all [`Table`]s.
+//! This module contains all the table definitions used by `cuprate-database`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::table::Table;
+use crate::{
+    table::Table,
+    types::{TestType, TestType2},
+};
 
 //---------------------------------------------------------------------------------------------------- Tables
 /// Private module, should not be accessible outside this crate.
@@ -16,50 +18,6 @@ pub(super) mod private {
     ///
     /// Cannot be implemented outside this crate.
     pub trait Sealed {}
-}
-
-//---------------------------------------------------------------------------------------------------- Tables
-/// An enumeration of _all_ database tables.
-///
-/// TODO: I don't think we need this.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
-#[allow(missing_docs)]
-pub enum Tables {
-    TestTable(TestTable),
-    TestTable2(TestTable2),
-}
-
-impl Tables {
-    /// Get the [`Table::NAME`].
-    pub const fn name(&self) -> &'static str {
-        /// Hack to access associated trait constant via a variable.
-        const fn get<T: Table>(t: &T) -> &'static str {
-            T::NAME
-        }
-
-        match self {
-            Self::TestTable(t) => get(t),
-            Self::TestTable2(t) => get(t),
-        }
-    }
-
-    /// Get the [`Table::CONSTANT_SIZE`].
-    pub const fn constant_size(&self) -> bool {
-        /// Hack to access associated trait constant via a variable.
-        const fn get<T: Table>(t: &T) -> bool {
-            T::CONSTANT_SIZE
-        }
-
-        match self {
-            Self::TestTable(t) => get(t),
-            Self::TestTable2(t) => get(t),
-        }
-    }
 }
 
 //---------------------------------------------------------------------------------------------------- Table macro
@@ -113,13 +71,6 @@ macro_rules! tables {
                 type Key = $key;
                 type Value = $value;
             }
-
-            // Table enum.
-            impl From<[<$table:camel>]> for Tables {
-                fn from(table: [<$table:camel>]) -> Self {
-                    Self::[<$table:camel>](table)
-                }
-            }
         )* }
     };
 }
@@ -129,12 +80,12 @@ tables! {
     /// Test documentation.
     TestTable,
     true,
-    i64 => u64,
+    i64 => TestType,
 
     /// Test documentation 2.
     TestTable2,
     true,
-    u8 => i8,
+    u8 => TestType2,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

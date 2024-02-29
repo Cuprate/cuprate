@@ -1,7 +1,7 @@
 //! Database key abstraction; `trait Key`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::pod::Pod;
+use bytemuck::{CheckedBitPattern, NoUninit};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`](crate::table::Table) key metadata.
@@ -18,10 +18,10 @@ pub trait Key {
     const DUPLICATE: bool;
 
     /// The primary key type.
-    type Primary: Pod;
+    type Primary: Key;
 
     /// The secondary key type.
-    type Secondary: Pod;
+    type Secondary: CheckedBitPattern + NoUninit;
 
     /// Acquire [`Key::Primary`].
     fn primary(self) -> Self::Primary;
@@ -72,7 +72,12 @@ macro_rules! impl_key {
                 // <https://doc.rust-lang.org/std/convert/enum.Infallible.html#future-compatibility>.
                 //
                 // FIXME: Use the `!` type when stable.
-                type Secondary = std::convert::Infallible;
+                //
+                // FIXME:
+                // `bytemuck::Pod` cannot be implemented on `std::convert::Infallible`:
+                // <https://docs.rs/bytemuck/1.14.3/bytemuck/trait.Pod.html>
+                // so this invariant is pushed to runtime panics in `primary_secondary()`.
+                type Secondary = ();
 
                 #[inline(always)]
                 fn primary(self) -> Self::Primary {
@@ -103,8 +108,8 @@ impl_key! {
 // Implement `Key` for any [`DupKey`] using [`Copy`] types.
 impl<P, S> Key for DupKey<P, S>
 where
-    P: Pod + Copy,
-    S: Pod + Copy,
+    P: Key,
+    S: CheckedBitPattern + NoUninit,
 {
     const DUPLICATE: bool = true;
     type Primary = P;
