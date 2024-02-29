@@ -317,6 +317,12 @@ pub use key::{DupKey, Key};
 
 mod macros;
 
+mod slice;
+pub use slice::Slice;
+
+mod storable;
+pub use storable::Storable;
+
 pub mod ops;
 
 // SOMEDAY: Serde as a backend?
