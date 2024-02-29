@@ -7,28 +7,29 @@
 //!
 //! # Purpose
 //! This crate does 3 things:
-//! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`Key`], [`RoTx`], and [`RwTx`] traits
+//! 1. Abstracts various database backends with traits
 //! 2. Implements various `Monero` related [functions](ops) & [`tables`]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
 //! # Terminology
 //! To be more clear on some terms used in this crate:
 //!
-//! | Term       | Meaning                              |
-//! |------------|--------------------------------------|
-//! | `Env`      | The 1 database environment, the "whole" thing
-//! | `Database` | A `key/value` store
-//! | `Table`    | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
-//! | `RoTx`     | Read only transaction
-//! | `RwTx`     | Read/write transaction
+//! | Term          | Meaning                              |
+//! |---------------|--------------------------------------|
+//! | `Env`         | The 1 database environment, the "whole" thing
+//! | `DatabaseRo`  | A read-only `key/value` store
+//! | `DatabaseRw`  | A readable/writable `key/value` store
+//! | `Table`       | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
+//! | `TxRo`        | Read only transaction
+//! | `TxRw`        | Read/write transaction
 //!
 //! The dataflow is `Env` -> `Tx` -> `Database`
 //!
 //! Which reads as:
 //! 1. You have a database `Environment`
-//! 2. You open up a `Transaction`
-//! 2. You get a particular `Database` from that `Environment`
-//! 3. You can now read/write data from/to that `Database`
+//! 1. You open up a `Transaction`
+//! 1. You get a particular `Database` from that `Environment`
+//! 1. You can now read/write data from/to that `Database`
 //!
 //! # `ConcreteEnv`
 //! This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic,
@@ -60,13 +61,18 @@
 //! going to be storing any databases in structs, to lessen
 //! the generic `<D: Database>` pain.
 //!
+//! TODO: we could replace `ConcreteEnv` with `fn Env::open() -> impl Env`/
+//! and use `<E: Env>` everywhere it is stored instead. This would allow
+//! generic-backed dynamic runtime selection of the database backend, i.e.
+//! the user can select which database backend they use.
+//!
 //! # Feature flags
 //! The `service` module requires the `service` feature to be enabled.
 //! See the module for more documentation.
 //!
 //! Different database backends are enabled by the feature flags:
-//! - `heed`
-//! - `sanakirja`
+//! - `heed` (LMDB)
+//! - `redb`
 //!
 //! The default is `heed`.
 //!
@@ -92,7 +98,7 @@
 //! use cuprate_database::{
 //!     config::Config,
 //!     ConcreteEnv,
-//!     Env, Key, RoTx, RwTx,
+//!     Env, Key, TxRo, TxRw,
 //!     service::{ReadRequest, WriteRequest, Response},
 //! };
 //!
@@ -166,7 +172,7 @@
     unused_comparisons,
     nonstandard_style
 )]
-#![allow(unreachable_code, unused_variables, dead_code)] // TODO: remove
+#![allow(unreachable_code, unused_variables, dead_code, unused_imports)] // TODO: remove
 #![allow(
 	// FIXME: this lint affects crates outside of
 	// `database/` for some reason, allow for now.
@@ -289,10 +295,12 @@ pub use backend::ConcreteEnv;
 pub mod config;
 
 mod constants;
-pub use constants::{DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_FILENAME};
+pub use constants::{
+    DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_DATA_FILENAME, DATABASE_LOCK_FILENAME,
+};
 
 mod database;
-pub use database::Database;
+pub use database::{DatabaseRo, DatabaseRw};
 
 mod env;
 pub use env::Env;
@@ -323,7 +331,7 @@ pub mod tables;
 pub mod types;
 
 mod transaction;
-pub use transaction::{RoTx, RwTx};
+pub use transaction::{TxRo, TxRw};
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]

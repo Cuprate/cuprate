@@ -3,11 +3,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     config::Config,
-    database::Database,
+    database::{DatabaseRo, DatabaseRw},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    transaction::{RoTx, RwTx},
+    transaction::{TxRo, TxRw},
 };
 
 //---------------------------------------------------------------------------------------------------- Env
@@ -40,16 +40,21 @@ pub trait Env: Sized {
 
     //------------------------------------------------ Types
     /// TODO
-    type RoTx<'db>: RoTx<'db>;
+    type TxRo<'env>: TxRo<'env>;
 
     /// TODO
-    type RwTx<'db>: RwTx<'db>;
+    type TxRw<'env>: TxRw<'env>;
 
     //------------------------------------------------ Required
     /// TODO
     /// # Errors
     /// TODO
     fn open(config: Config) -> Result<Self, InitError>;
+
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError>;
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
@@ -79,6 +84,16 @@ pub trait Env: Sized {
     }
 
     /// TODO
+    ///
+    /// # Invariant
+    /// This must **fully** and **synchronously** flush the database data to disk.
+    ///
+    /// I.e., after this function returns, there must be no doubts
+    /// that the data isn't synced yet, it _must_ be synced.
+    ///
+    /// TODO: either this invariant or `sync()` itself will most
+    /// likely be removed/changed after `SyncMode` is finalized.
+    ///
     /// # Errors
     /// TODO
     fn sync(&self) -> Result<(), RuntimeError>;
@@ -110,36 +125,44 @@ pub trait Env: Sized {
     /// TODO
     /// # Errors
     /// TODO
-    fn ro_tx(&self) -> Result<Self::RoTx<'_>, RuntimeError>;
+    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn rw_tx(&self) -> Result<Self::RwTx<'_>, RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn create_tables_if_needed<T: Table>(
-        &self,
-        rw_tx: &mut Self::RwTx<'_>,
-    ) -> Result<(), RuntimeError>;
+    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError>;
 
     /// TODO
     ///
     /// # TODO: Invariant
     /// This should never panic the database because the table doesn't exist.
     ///
-    /// Opening/using the database env should have an invariant
+    /// Opening/using the database [`Env`] should have an invariant
     /// that it creates all the tables we need, such that this
     /// never returns `None`.
     ///
     /// # Errors
     /// TODO
-    fn open_database<T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        ro_tx: &Self::RoTx<'_>,
-    ) -> Result<impl Database<T>, RuntimeError>;
+        tx_ro: &Self::TxRo<'_>,
+    ) -> Result<impl DatabaseRo<T>, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # TODO: Invariant
+    /// This should never panic the database because the table doesn't exist.
+    ///
+    /// Opening/using the database [`Env`] should have an invariant
+    /// that it creates all the tables we need, such that this
+    /// never returns `None`.
+    ///
+    /// # Errors
+    /// TODO
+    fn open_db_rw<T: Table>(
+        &self,
+        tx_rw: &mut Self::TxRw<'_>,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError>;
 
     //------------------------------------------------ Provided
 }
