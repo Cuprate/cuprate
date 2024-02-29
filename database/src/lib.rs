@@ -313,7 +313,7 @@ mod free;
 pub mod resize;
 
 mod key;
-pub use key::{DupKey, Key};
+pub use key::Key;
 
 mod macros;
 

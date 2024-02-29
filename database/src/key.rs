@@ -1,7 +1,11 @@
 //! Database key abstraction; `trait Key`.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::cmp::Ordering;
+
 use bytemuck::{CheckedBitPattern, NoUninit};
+
+use crate::storable::Storable;
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`](crate::table::Table) key metadata.
@@ -9,52 +13,48 @@ use bytemuck::{CheckedBitPattern, NoUninit};
 /// Purely compile time information for database table keys, supporting duplicate keys.
 pub trait Key {
     /// Does this [`Key`] require multiple keys to reach a value?
-    ///
-    /// If [`Key::DUPLICATE`] is `true`, [`Key::Secondary`] will contain
-    /// the "subkey", or secondary key needed to access the actual value.
-    ///
-    /// If [`Key::DUPLICATE`] is `false`, [`Key::Secondary`] is ignored.
-    /// Consider using [`std::convert::Infallible`] as the type.
     const DUPLICATE: bool;
 
-    /// The primary key type.
-    type Primary: Key;
+    /// If this is `true`, it means this key MUST
+    /// re-implement and use [`Key::compare`].
+    const CUSTOM_COMPARE: bool;
 
-    /// The secondary key type.
-    type Secondary: CheckedBitPattern + NoUninit;
+    /// The primary key type.
+    type Primary: Storable;
 
     /// Acquire [`Key::Primary`].
     fn primary(self) -> Self::Primary;
 
-    /// Acquire [`Self::Primary`] & [`Self::Secondary`].
+    /// Acquire [`Self::Primary`] & the secondary key.
     ///
     /// This only needs to be implemented on types that are [`Self::DUPLICATE`].
     ///
     /// Consider using [`unreachable!()`] on non-duplicate key tables.
-    fn primary_secondary(self) -> (Self::Primary, Self::Secondary);
-}
+    fn primary_secondary(self) -> (Self::Primary, u64);
 
-/// Duplicate key container.
-///
-/// This is a generic container to use alongside [`Key`] to support
-/// tables that require more than 1 key to access the value.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
-pub struct DupKey<P, S> {
-    /// Primary key type.
-    pub primary: P,
-    /// Secondary key type.
-    pub secondary: S,
+    /// Compare 2 [`Key`]'s against each other.
+    ///
+    /// By default, this does a straight byte comparison.
+    ///
+    /// # Invariant
+    /// If [`Key::CUSTOM_COMPARE`] is `true`, this MUST be re-implemented.
+    fn compare(left: &[u8], right: &[u8]) -> Ordering {
+        left.cmp(right)
+    }
+
+    // TODO
+    // fn compare_u64(left: &[u8], right: &[u8]) -> Ordering {
+    //     let left: u64 = cast(left);
+    //     let right: u64 = cast(right);
+    //     left.cmp(&right)
+    // }
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
 /// Implement `Key` on most primitive types.
 ///
-/// `Key::DUPLICATE` is always `false`.
+/// - `Key::DUPLICATE` is always `false`.
+/// - `Key::CUSTOM_COMPARE` is always `false`.
 macro_rules! impl_key {
     (
         $(
@@ -64,20 +64,9 @@ macro_rules! impl_key {
         $(
             impl Key for $t {
                 const DUPLICATE: bool = false;
+                const CUSTOM_COMPARE: bool = false;
 
                 type Primary = $t;
-
-                // This 0 variant enum is unconstructable,
-                // and "has the same role as the ! “never” type":
-                // <https://doc.rust-lang.org/std/convert/enum.Infallible.html#future-compatibility>.
-                //
-                // FIXME: Use the `!` type when stable.
-                //
-                // FIXME:
-                // `bytemuck::Pod` cannot be implemented on `std::convert::Infallible`:
-                // <https://docs.rs/bytemuck/1.14.3/bytemuck/trait.Pod.html>
-                // so this invariant is pushed to runtime panics in `primary_secondary()`.
-                type Secondary = ();
 
                 #[inline(always)]
                 fn primary(self) -> Self::Primary {
@@ -85,7 +74,7 @@ macro_rules! impl_key {
                 }
 
                 #[cold] #[inline(never)]
-                fn primary_secondary(self) -> (Self::Primary, Self::Secondary) {
+                fn primary_secondary(self) -> (Self::Primary, u64) {
                     unreachable!();
                 }
             }
@@ -103,27 +92,6 @@ impl_key! {
     i16,
     i32,
     i64,
-}
-
-// Implement `Key` for any [`DupKey`] using [`Copy`] types.
-impl<P, S> Key for DupKey<P, S>
-where
-    P: Key,
-    S: CheckedBitPattern + NoUninit,
-{
-    const DUPLICATE: bool = true;
-    type Primary = P;
-    type Secondary = S;
-
-    #[inline]
-    fn primary(self) -> Self::Primary {
-        self.primary
-    }
-
-    #[inline]
-    fn primary_secondary(self) -> (Self::Primary, Self::Secondary) {
-        (self.primary, self.secondary)
-    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -1,9 +1,7 @@
 //! Database table abstraction; `trait Table`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::key::Key;
-
-use bytemuck::{CheckedBitPattern, NoUninit};
+use crate::{key::Key, storable::Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database table metadata.
@@ -15,14 +13,6 @@ use bytemuck::{CheckedBitPattern, NoUninit};
 ///
 /// It is, and can only be implemented on the types inside [`tables`][crate::tables].
 pub trait Table: crate::tables::private::Sealed {
-    // TODO:
-    //
-    // Add K/V comparison `type`s that define
-    // how this table will be stored.
-    //
-    // type KeyComparator: fn(&Self::Key, &Self::Key) -> Ordering;
-    // type ValueComparator: fn(&Self::Value, &Self::Value) -> Ordering;
-
     /// Name of the database table.
     const NAME: &'static str;
 
@@ -33,7 +23,7 @@ pub trait Table: crate::tables::private::Sealed {
     type Key: Key;
 
     /// Value type.
-    type Value: CheckedBitPattern + NoUninit;
+    type Value: Storable + ?Sized;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
