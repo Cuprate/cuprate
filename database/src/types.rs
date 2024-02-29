@@ -19,15 +19,15 @@
  *
  *
  *
- *                            We use `bytemuck` to (de)serialize data types in the database.
- *                        We are UNSAFELY casting bytes, and as such, we must uphold some invariants.
- *                        When editing this file, there is only 1 commandment that MUST be followed:
+ *                                We use `bytemuck` to (de)serialize data types in the database.
+ *                          We are SAFELY casting bytes, but to do so, we must uphold some invariants.
+ *                          When editing this file, there is only 1 commandment that MUST be followed:
  *
- *                         1. Thou shall only implement `bytemuck` traits using the derive macros
+ *                                   1. Thou shall only utilize `bytemuck`'s derive macros
  *
- *                           The derive macros will fail at COMPILE time if something is incorrect.
- *                              <https://docs.rs/bytemuck/latest/bytemuck/derive.Pod.html>
- *                             If you submit a PR that breaks this I will come and find you.
+ *                             The derive macros will fail at COMPILE time if something is incorrect.
+ *                                  <https://docs.rs/bytemuck/latest/bytemuck/derive.Pod.html>
+ *                                 If you submit a PR that breaks this I will come and find you.
  *
  *
  *
@@ -65,6 +65,14 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(c.b, true);
 /// assert_eq!(c._pad, [0; 7]);
 /// ```
+///
+/// # Size & Alignment
+/// ```rust
+/// # use cuprate_database::types::*;
+/// # use std::mem::*;
+/// assert_eq!(size_of::<TestType>(), 16);
+/// assert_eq!(align_of::<TestType>(), 8);
+/// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, NoUninit, CheckedBitPattern)]
@@ -75,6 +83,13 @@ pub struct TestType {
     /// TEST
     pub b: bool,
     /// TEST
+    ///
+    /// FIXME: is there a cheaper way (CPU instruction wise)
+    /// to add padding to structs over 0 filled arrays?
+    ///
+    /// FIXME: this is basically leeway to
+    /// add more things to our structs too,
+    /// because otherwise this space is wasted.
     pub _pad: [u8; 7],
 }
 
@@ -90,6 +105,14 @@ pub struct TestType {
 /// assert_eq!(a, c);
 /// assert_eq!(c.u, 1);
 /// assert_eq!(c.b, [1; 32]);
+/// ```
+///
+/// # Size & Alignment
+/// ```rust
+/// # use cuprate_database::types::*;
+/// # use std::mem::*;
+/// assert_eq!(size_of::<TestType2>(), 40);
+/// assert_eq!(align_of::<TestType2>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
