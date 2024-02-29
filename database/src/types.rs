@@ -19,15 +19,15 @@
  *
  *
  *
- * We use `bytemuck` to (de)serialize data types in the database.
- * We are UNSAFELY casting bytes, and as such, we must uphold some invariants.
- * When editing this file, there is only 1 commandment that MUST be followed:
+ *                            We use `bytemuck` to (de)serialize data types in the database.
+ *                        We are UNSAFELY casting bytes, and as such, we must uphold some invariants.
+ *                        When editing this file, there is only 1 commandment that MUST be followed:
  *
- *   1. Thou shall only implement `bytemuck` traits using the derive macros
+ *                         1. Thou shall only implement `bytemuck` traits using the derive macros
  *
- * The derive macros will fail at COMPILE time if something is incorrect.
- * <https://docs.rs/bytemuck/latest/bytemuck/derive.Pod.html>
- * If you submit a PR that breaks this I will come and find you.
+ *                           The derive macros will fail at COMPILE time if something is incorrect.
+ *                              <https://docs.rs/bytemuck/latest/bytemuck/derive.Pod.html>
+ *                             If you submit a PR that breaks this I will come and find you.
  *
  *
  *
