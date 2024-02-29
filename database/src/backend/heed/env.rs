@@ -4,9 +4,9 @@
 use std::sync::RwLock;
 
 use crate::{
-    backend::heed::types::HeedDb,
+    backend::heed::database::{HeedTableRo, HeedTableRw},
     config::Config,
-    database::Database,
+    database::{DatabaseRo, DatabaseRw},
     env::Env,
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
@@ -49,6 +49,14 @@ pub struct ConcreteEnv {
 
 impl Drop for ConcreteEnv {
     fn drop(&mut self) {
+        // TODO:
+        // "if the environment has the MDB_NOSYNC flag set the flushes will be omitted,
+        // and with MDB_MAPASYNC they will be asynchronous."
+        // <http://www.lmdb.tech/doc/group__mdb.html#ga85e61f05aa68b520cc6c3b981dba5037>
+        //
+        // We need to do `mdb_env_set_flags(&env, MDB_NOSYNC|MDB_ASYNCMAP, 0)`
+        // to clear the no sync and async flags such that the below `self.sync()`
+        // _actually_ synchronously syncs.
         if let Err(e) = self.sync() {
             // TODO: log error?
         }
@@ -61,8 +69,8 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = true;
     const SYNCS_PER_TX: bool = false;
-    type RoTx<'db> = heed::RoTxn<'db>;
-    type RwTx<'db> = heed::RwTxn<'db>;
+    type TxRo<'env> = heed::RoTxn<'env>;
+    type TxRw<'env> = heed::RwTxn<'env>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -77,6 +85,12 @@ impl Env for ConcreteEnv {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372>
 
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        todo!()
+    }
+
+    #[cold]
+    #[inline(never)] // called once in [`Env::open`]?
+    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
         todo!()
     }
 
@@ -116,30 +130,30 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn ro_tx(&self) -> Result<Self::RoTx<'_>, RuntimeError> {
+    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn rw_tx(&self) -> Result<Self::RwTx<'_>, RuntimeError> {
-        todo!()
-    }
-
-    #[cold]
-    #[inline(never)] // called infrequently?.
-    fn create_tables_if_needed<T: Table>(
-        &self,
-        tx_rw: &mut Self::RwTx<'_>,
-    ) -> Result<(), RuntimeError> {
+    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn open_database<T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        to_rw: &Self::RoTx<'_>,
-    ) -> Result<impl Database<T>, RuntimeError> {
-        let tx: HeedDb = todo!();
+        tx_ro: &Self::TxRo<'_>,
+    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
+        let tx: HeedTableRo<T> = todo!();
+        Ok(tx)
+    }
+
+    #[inline]
+    fn open_db_rw<T: Table>(
+        &self,
+        tx_rw: &mut Self::TxRw<'_>,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
+        let tx: HeedTableRw<T> = todo!();
         Ok(tx)
     }
 }
