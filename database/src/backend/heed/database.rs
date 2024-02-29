@@ -52,32 +52,38 @@ pub(super) struct HeedTableRw<'env, T: Table> {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
 impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
-    fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
+    fn get(&self, key: &T::Key) -> Result<Option<&T::Value>, RuntimeError> {
         todo!()
     }
 
-    fn get_range(
-        &self,
-        key: &T::Key,
+    fn get_range<'a>(
+        &'a self,
+        key: &'a T::Key,
         amount: usize,
-    ) -> Result<impl Iterator<Item = T::Value>, RuntimeError> {
-        let iter: std::vec::Drain<'_, T::Value> = todo!();
+    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
+    where
+        <T as Table>::Value: 'a,
+    {
+        let iter: std::vec::Drain<'_, &T::Value> = todo!();
         Ok(iter)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
 impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, T> {
-    fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
+    fn get(&self, key: &T::Key) -> Result<Option<&T::Value>, RuntimeError> {
         todo!()
     }
 
-    fn get_range(
-        &self,
-        key: &T::Key,
+    fn get_range<'a>(
+        &'a self,
+        key: &'a T::Key,
         amount: usize,
-    ) -> Result<impl Iterator<Item = T::Value>, RuntimeError> {
-        let iter: std::vec::Drain<'_, T::Value> = todo!();
+    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
+    where
+        <T as Table>::Value: 'a,
+    {
+        let iter: std::vec::Drain<'_, &T::Value> = todo!();
         Ok(iter)
     }
 }

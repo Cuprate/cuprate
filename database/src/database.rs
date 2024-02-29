@@ -11,16 +11,21 @@ pub trait DatabaseRo<T: Table> {
     /// TODO
     /// # Errors
     /// TODO
-    fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError>;
+    fn get(&self, key: &T::Key) -> Result<Option<&T::Value>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn get_range(
-        &self,
-        key: &T::Key,
+    //
+    // TODO: (Iterators + ?Sized + lifetimes) == bad time
+    // fix this later.
+    fn get_range<'a>(
+        &'a self,
+        key: &'a T::Key,
         amount: usize,
-    ) -> Result<impl Iterator<Item = T::Value>, RuntimeError>;
+    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
+    where
+        <T as Table>::Value: 'a;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
