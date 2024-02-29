@@ -8,7 +8,7 @@
 //! # Purpose
 //! This crate does 3 things:
 //! 1. Abstracts various database backends with traits
-//! 2. Implements various `Monero` related [functions](ops) & [`tables`]
+//! 2. Implements various `Monero` related [functions](ops) & [tables] & [types]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
 //! # Terminology

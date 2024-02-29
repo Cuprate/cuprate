@@ -151,6 +151,8 @@ cargo doc
 
 TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
 
+TODO: document DB on remote filesystem: https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L129.
+
 ## `redb`
 The 2nd database backend is the 100% Rust [`redb`](https://github.com/cberner/redb).
 
@@ -161,6 +163,8 @@ The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used
 | Filename    | Purpose |
 |-------------|---------|
 | `data.redb` | Main data file
+
+TODO: document DB on remote filesystem (does redb allow this?)
 
 ## `sanakirja`
 [`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.
