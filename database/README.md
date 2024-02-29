@@ -170,9 +170,9 @@ The default maximum value size is [1012 bytes](https://docs.rs/sanakirja/1.4.1/s
 As such, it is not implemented.
 
 ## `MDBX`
-[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions needed for `cuprate_database`'s duplicate table requirements. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
+[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions, this makes it a bit trickier to implement dup tables. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
 
-As such, it is not implemented.
+As such, it is not implemented (yet).
 
 # Layers
 TODO: update with accurate information when ready, update image.
