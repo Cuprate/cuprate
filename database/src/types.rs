@@ -44,9 +44,9 @@ use serde::{Deserialize, Serialize};
 //---------------------------------------------------------------------------------------------------- TestType
 /// ```rust
 /// # use cuprate_database::types::*;
-/// let a = TestType { u: 1, b: true, _pad: [0; 7] };
-/// let b = bytemuck::must_cast::<TestType, [u8; 16]>(a);
-/// let c = bytemuck::checked::cast::<[u8; 16], TestType>(b);
+/// let a = TestType { u: 1, b: true, _pad: [0; 7] }; // original struct
+/// let b = bytemuck::must_cast::<TestType, [u8; 16]>(a); // cast into bytes
+/// let c = bytemuck::checked::cast::<[u8; 16], TestType>(b); // cast back into struct
 ///
 /// assert_eq!(a, c);
 /// assert_eq!(c.u, 1);
@@ -69,9 +69,9 @@ pub struct TestType {
 //---------------------------------------------------------------------------------------------------- TestType2
 /// ```rust
 /// # use cuprate_database::types::*;
-/// let a = TestType2 { u: 1, b: [1; 32] };
-/// let b = bytemuck::must_cast::<TestType2, [u8; 40]>(a);
-/// let c = bytemuck::must_cast::<[u8; 40], TestType2>(b);
+/// let a = TestType2 { u: 1, b: [1; 32] }; // original struct
+/// let b = bytemuck::must_cast::<TestType2, [u8; 40]>(a); // cast into bytes
+/// let c = bytemuck::must_cast::<[u8; 40], TestType2>(b); // cast back into struct
 ///
 /// assert_eq!(a, c);
 /// assert_eq!(c.u, 1);
