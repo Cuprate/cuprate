@@ -46,8 +46,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
 
-#[cfg(feature = "borsh")]
-use borsh::{BorshDeserialize, BorshSerialize};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +72,6 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(align_of::<TestType>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, NoUninit, AnyBitPattern)]
 #[repr(C)]
 pub struct TestType {
@@ -115,7 +112,6 @@ pub struct TestType {
 /// assert_eq!(align_of::<TestType2>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct TestType2 {

@@ -15,8 +15,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[cfg(feature = "borsh")]
-use borsh::{BorshDeserialize, BorshSerialize};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -209,7 +207,6 @@ impl Default for Config {
 /// are supported, all other variants will panic on [`crate::Env::open`].
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum SyncMode {
     /// Use [`SyncMode::Fast`] until fully synced,
     /// then use [`SyncMode::Safe`].
@@ -305,7 +302,6 @@ pub enum SyncMode {
 /// usable thread count out of this is [`ReaderThreads::as_threads`].
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum ReaderThreads {
     #[default]
     /// Spawn 1 reader thread per available thread on the machine.

@@ -56,7 +56,6 @@ macro_rules! tables {
             )]
             /// ```
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-            #[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize, borsh::BorshDeserialize))]
             #[derive(Copy,Clone,Debug,PartialEq,PartialOrd,Eq,Ord,Hash)]
             pub struct [<$table:camel>];
 
