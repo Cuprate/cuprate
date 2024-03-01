@@ -12,6 +12,12 @@ use crate::storable::Storable;
 /// traits on any type that implements `cuprate_database::Storable`.
 pub(super) struct StorableHeed<T: Storable + ?Sized>(PhantomData<T>);
 
+impl<T: Storable + ?Sized> StorableHeed<T> {
+    pub(super) fn new() -> Self {
+        Self(PhantomData::<T>)
+    }
+}
+
 impl<'a, T: Storable + ?Sized + 'a> BytesDecode<'a> for StorableHeed<T> {
     type DItem = &'a T;
 
