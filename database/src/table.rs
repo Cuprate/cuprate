@@ -19,11 +19,25 @@ pub trait Table: crate::tables::private::Sealed {
     /// Whether the table's values are all the same size or not.
     const CONSTANT_SIZE: bool;
 
+    // TODO:
+    //
+    // `redb` requires `K/V` is `'static`:
+    // - <https://docs.rs/redb/1.5.0/redb/struct.ReadOnlyTable.html>
+    // - <https://docs.rs/redb/1.5.0/redb/struct.Table.html>
+    //
+    // ...but kinda not really?
+    //   "Note that the lifetime of the K and V type parameters does not impact
+    //   the lifetimes of the data that is stored or retrieved from the table"
+    //   <https://docs.rs/redb/1.5.0/redb/struct.TableDefinition.html>
+    //
+    // This might be incompatible with `heed`. We'll see
+    // after function bodies are actually implemented...
+
     /// Primary key type.
-    type Key: Key;
+    type Key: Key + 'static;
 
     /// Value type.
-    type Value: Storable + ?Sized;
+    type Value: Storable + ?Sized + 'static;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -20,21 +20,21 @@ impl<T: Key + ?Sized> RedbKey for StorableRedbKey<T> {
 }
 
 impl<T: Key + ?Sized> RedbValue for StorableRedbKey<T> {
-    type SelfType<'a> = &'a T where T: 'a;
-    type AsBytes<'a> = &'a [u8] where T: 'a;
+    type SelfType<'a> = &'a T where Self: 'a;
+    type AsBytes<'a> = &'a [u8] where Self: 'a;
 
     fn fixed_width() -> Option<usize> {
         <T as Storable>::fixed_width()
     }
 
-    fn from_bytes<'a>(data: &'a [u8]) -> Self::SelfType<'a>
+    fn from_bytes<'a>(data: &'a [u8]) -> &'a T
     where
         Self: 'a,
     {
         <T as Storable>::from_bytes(data)
     }
 
-    fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Self::AsBytes<'a>
+    fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> &'a [u8]
     where
         Self: 'a + 'b,
     {
@@ -53,21 +53,21 @@ impl<T: Key + ?Sized> RedbValue for StorableRedbKey<T> {
 pub(super) struct StorableRedbValue<T: Storable + ?Sized>(PhantomData<T>);
 
 impl<T: Storable + ?Sized> RedbValue for StorableRedbValue<T> {
-    type SelfType<'a> = &'a T where T: 'a;
-    type AsBytes<'a> = &'a [u8] where T: 'a;
+    type SelfType<'a> = &'a T where Self: 'a;
+    type AsBytes<'a> = &'a [u8] where Self: 'a;
 
     fn fixed_width() -> Option<usize> {
         <T as Storable>::fixed_width()
     }
 
-    fn from_bytes<'a>(data: &'a [u8]) -> Self::SelfType<'a>
+    fn from_bytes<'a>(data: &'a [u8]) -> &'a T
     where
         Self: 'a,
     {
         <T as Storable>::from_bytes(data)
     }
 
-    fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> Self::AsBytes<'a>
+    fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> &'a [u8]
     where
         Self: 'a + 'b,
     {
@@ -78,5 +78,3 @@ impl<T: Storable + ?Sized> RedbValue for StorableRedbValue<T> {
         TypeName::new(std::any::type_name::<T>())
     }
 }
-
-//---------------------------------------------------------------------------------------------------- Types
