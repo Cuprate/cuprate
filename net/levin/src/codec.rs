@@ -17,7 +17,7 @@
 
 use std::marker::PhantomData;
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{Buf, BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
@@ -136,10 +136,15 @@ impl<C: LevinCommand> Encoder<Bucket<C>> for LevinBucketCodec<C> {
 }
 
 #[derive(Default, Debug, Clone)]
-enum MessageState<C> {
+enum MessageState {
     #[default]
     WaitingForBucket,
-    WaitingForRestOfFragment(Vec<Bytes>, MessageType, C),
+    /// Waiting for the rest of a fragmented message.
+    ///
+    /// We keep the fragmented message as a Vec<u8> instead of [`Bytes`](bytes::Bytes) as [`Bytes`](bytes::Bytes) could point to a
+    /// large allocation even if the [`Bytes`](bytes::Bytes) itself is small, so is not safe to keep around for long.
+    /// To prevent this attack vector completely we just use Vec<u8> for fragmented messages.
+    WaitingForRestOfFragment(Vec<u8>),
 }
 
 /// A tokio-codec for levin messages or in other words the decoded body
@@ -148,7 +153,7 @@ enum MessageState<C> {
 pub struct LevinMessageCodec<T: LevinBody> {
     message_ty: PhantomData<T>,
     bucket_codec: LevinBucketCodec<T::Command>,
-    state: MessageState<T::Command>,
+    state: MessageState,
 }
 
 impl<T: LevinBody> Default for LevinMessageCodec<T> {
@@ -185,29 +190,20 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         ));
                     };
 
-                    if !flags.intersects(Flags::REQUEST | Flags::RESPONSE) {
-                        return Err(BucketError::InvalidHeaderFlags(
-                            "Request and response flags both not set",
-                        ));
-                    };
+                    if flags.contains(Flags::START_FRAGMENT) {
+                        // monerod does not require a start flag before starting a fragmented message,
+                        // but will always produce one, so it is ok for us to require one.
+                        self.state = MessageState::WaitingForRestOfFragment(bucket.body.to_vec());
+
+                        continue;
+                    }
+
+                    // Normal, non fragmented bucket
 
                     let message_type = MessageType::from_flags_and_have_to_return(
                         bucket.header.flags,
                         bucket.header.have_to_return_data,
                     )?;
-
-                    if flags.contains(Flags::START_FRAGMENT) {
-                        let _ = std::mem::replace(
-                            &mut self.state,
-                            MessageState::WaitingForRestOfFragment(
-                                vec![bucket.body],
-                                message_type,
-                                bucket.header.command,
-                            ),
-                        );
-
-                        continue;
-                    }
 
                     return Ok(Some(T::decode_message(
                         &mut bucket.body,
@@ -215,7 +211,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         bucket.header.command,
                     )?));
                 }
-                MessageState::WaitingForRestOfFragment(bytes, ty, command) => {
+                MessageState::WaitingForRestOfFragment(bytes) => {
                     let Some(bucket) = self.bucket_codec.decode(src)? else {
                         return Ok(None);
                     };
@@ -227,54 +223,67 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         return Ok(None);
                     };
 
-                    if !flags.intersects(Flags::REQUEST | Flags::RESPONSE) {
-                        return Err(BucketError::InvalidHeaderFlags(
-                            "Request and response flags both not set",
-                        ));
-                    };
-
-                    let message_type = MessageType::from_flags_and_have_to_return(
-                        bucket.header.flags,
-                        bucket.header.have_to_return_data,
-                    )?;
-
-                    if message_type != *ty {
-                        return Err(BucketError::InvalidFragmentedMessage(
-                            "Message type was inconsistent across fragments",
-                        ));
+                    let max_size = if self.bucket_codec.handshake_message_seen {
+                        self.bucket_codec.protocol.max_packet_size
+                    } else {
+                        self.bucket_codec.protocol.max_packet_size_before_handshake
                     }
+                    .try_into()
+                    .expect("Levin max message size is too large, does not fit into a usize.");
 
-                    if bucket.header.command != *command {
-                        return Err(BucketError::InvalidFragmentedMessage(
-                            "Command not consistent across fragments",
-                        ));
-                    }
-
-                    if bytes.len().saturating_add(bucket.body.len())
-                        > command.bucket_size_limit().try_into().unwrap()
-                    {
+                    if bytes.len().saturating_add(bucket.body.len()) > max_size {
                         return Err(BucketError::InvalidFragmentedMessage(
                             "Fragmented message exceeded maximum size",
                         ));
                     }
 
-                    bytes.push(bucket.body);
+                    bytes.extend_from_slice(bucket.body.as_ref());
 
                     if flags.contains(Flags::END_FRAGMENT) {
-                        let MessageState::WaitingForRestOfFragment(mut bytes, ty, command) =
+                        let MessageState::WaitingForRestOfFragment(bytes) =
                             std::mem::replace(&mut self.state, MessageState::WaitingForBucket)
                         else {
                             unreachable!();
                         };
 
-                        // TODO: this doesn't seem very efficient but I can't think of a better way.
-                        bytes.reverse();
-                        let mut byte_vec: Box<dyn Buf> = Box::new(bytes.pop().unwrap());
-                        for bytes in bytes {
-                            byte_vec = Box::new(byte_vec.chain(bytes));
+                        // Check there are enough bytes in the fragment to build a header.
+                        if bytes.len() < BucketHead::<T::Command>::SIZE {
+                            return Err(BucketError::InvalidFragmentedMessage(
+                                "Fragmented message is not large enough to build a bucket.",
+                            ));
                         }
 
-                        return Ok(Some(T::decode_message(&mut byte_vec, ty, command)?));
+                        let mut header_bytes =
+                            BytesMut::from(&bytes[0..BucketHead::<T::Command>::SIZE]);
+
+                        let header = BucketHead::<T::Command>::from_bytes(&mut header_bytes);
+
+                        if header.size > header.command.bucket_size_limit() {
+                            return Err(BucketError::BucketExceededMaxSize);
+                        }
+
+                        // Check the fragmented message contains enough bytes to build the message.
+                        if bytes.len().saturating_sub(BucketHead::<T::Command>::SIZE)
+                            < header
+                                .size
+                                .try_into()
+                                .map_err(|_| BucketError::BucketExceededMaxSize)?
+                        {
+                            return Err(BucketError::InvalidFragmentedMessage(
+                                "Fragmented message does not have enough bytes to fill bucket body",
+                            ));
+                        }
+
+                        let message_type = MessageType::from_flags_and_have_to_return(
+                            bucket.header.flags,
+                            bucket.header.have_to_return_data,
+                        )?;
+
+                        return Ok(Some(T::decode_message(
+                            &mut &bytes[BucketHead::<T::Command>::SIZE..],
+                            message_type,
+                            header.command,
+                        )?));
                     }
                 }
             }
