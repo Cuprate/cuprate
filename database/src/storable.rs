@@ -19,7 +19,7 @@ use bytemuck::{AnyBitPattern, NoUninit};
 /// This trait represents types that can be **perfectly**
 /// casted/represented as raw bytes.
 ///
-/// # `bytemuck`
+/// ## `bytemuck`
 /// Any type that implements `bytemuck`'s [`NoUninit`] + [`AnyBitPattern`]
 /// (and [Debug]) will automatically implement [`Storable`].
 ///
@@ -41,10 +41,19 @@ use bytemuck::{AnyBitPattern, NoUninit};
 /// assert_eq!(from, &number);
 /// ```
 ///
-/// # Invariants
+/// ## Invariants
 /// No function in this trait is expected to panic.
 ///
 /// The byte conversions must execute flawlessly.
+///
+/// ## Endianness
+/// This trait doesn't currently care about endianness.
+///
+/// Bytes are (de)serialized as-is, and `bytemuck`
+/// types are architecture-dependant.
+///
+/// Most likely, the bytes are little-endian, however
+/// that cannot be relied upon when using this trait.
 pub trait Storable: Debug {
     /// Is this type fixed width in byte length?
     ///
@@ -105,7 +114,95 @@ impl<T: NoUninit + AnyBitPattern + Debug> Storable for [T] {
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use super::*;
 
-    // TODO: copy all `pod.rs` tests here.
+    /// Serialize, deserialize, and compare that
+    /// the intermediate/end results are correct.
+    fn test_storable<const LEN: usize, T: Storable + Copy + PartialEq>(
+        // The primitive number function that
+        // converts the number into little endian bytes,
+        // e.g `u8::to_le_bytes`.
+        to_le_bytes: fn(T) -> [u8; LEN],
+        // A `Vec` of the numbers to test.
+        t: Vec<T>,
+    ) {
+        for t in t {
+            let expected_bytes = to_le_bytes(t);
+
+            println!("testing: {t:?}, expected_bytes: {expected_bytes:?}");
+
+            // (De)serialize.
+            let se: &[u8] = Storable::as_bytes(&t);
+            let de: &T = Storable::from_bytes(se);
+
+            println!("serialized: {se:?}, deserialized: {de:?}\n");
+
+            // Assert we wrote correct amount of bytes.
+            if let Some(len) = T::BYTE_LENGTH {
+                assert_eq!(se.len(), expected_bytes.len());
+            }
+            // Assert the data is the same.
+            assert_eq!(de, &t);
+        }
+    }
+
+    /// Create all the float tests.
+    macro_rules! test_float {
+        ($(
+            $float:ident // The float type.
+        ),* $(,)?) => {
+            $(
+                #[test]
+                fn $float() {
+                    test_storable(
+                        $float::to_le_bytes,
+                        vec![
+                            -1.0,
+                            0.0,
+                            1.0,
+                            $float::MIN,
+                            $float::MAX,
+                            $float::INFINITY,
+                            $float::NEG_INFINITY,
+                        ],
+                    );
+                }
+            )*
+        };
+    }
+
+    test_float! {
+        f32,
+        f64,
+    }
+
+    /// Create all the (un)signed number tests.
+    /// u8 -> u128, i8 -> i128.
+    macro_rules! test_unsigned {
+        ($(
+            $number:ident // The integer type.
+        ),* $(,)?) => {
+            $(
+                #[test]
+                fn $number() {
+                    test_storable($number::to_le_bytes, vec![$number::MIN, 0, 1, $number::MAX]);
+                }
+            )*
+        };
+    }
+
+    test_unsigned! {
+        u8,
+        u16,
+        u32,
+        u64,
+        u128,
+        usize,
+        i8,
+        i16,
+        i32,
+        i64,
+        i128,
+        isize,
+    }
 }

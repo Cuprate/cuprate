@@ -322,10 +322,6 @@ pub use storable::Storable;
 
 pub mod ops;
 
-// SOMEDAY: Serde as a backend?
-// mod pod;
-// pub use pod::Pod;
-
 mod table;
 pub use table::Table;
 
