@@ -46,24 +46,37 @@ use bytemuck::{AnyBitPattern, NoUninit};
 ///
 /// The byte conversions must execute flawlessly.
 pub trait Storable: Debug {
-    /// Return `self` in byte form.
+    /// Is this type fixed width in byte length?
     ///
-    /// The returned bytes can be any form of array,
+    /// I.e., when converting `Self` to bytes, is it
+    /// represented with a fixed length array of bytes?
+    ///
+    /// # `Some`
+    /// This should be `Some(usize)` on types like:
+    /// - `u8`
+    /// - `u64`
+    /// - `i32`
+    ///
+    /// where the byte length is known.
+    ///
+    /// # `None`
+    /// This should be `None` on any variable-length type like:
+    /// - `str`
     /// - `[u8]`
-    /// - `[u8; N]`
     /// - `Vec<u8>`
-    /// - etc.
+    const BYTE_LENGTH: Option<usize>;
+
+    /// Return `self` in byte form.
     fn as_bytes(&self) -> &[u8];
 
     /// Create [`Self`] from bytes.
     fn from_bytes(bytes: &[u8]) -> &Self;
-
-    /// TODO
-    fn fixed_width() -> Option<usize>;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
 impl<T: NoUninit + AnyBitPattern + Debug> Storable for T {
+    const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
+
     #[inline]
     fn as_bytes(&self) -> &[u8] {
         bytemuck::bytes_of(self)
@@ -73,14 +86,11 @@ impl<T: NoUninit + AnyBitPattern + Debug> Storable for T {
     fn from_bytes(bytes: &[u8]) -> &Self {
         bytemuck::from_bytes(bytes)
     }
-
-    #[inline]
-    fn fixed_width() -> Option<usize> {
-        Some(std::mem::size_of::<T>())
-    }
 }
 
 impl<T: NoUninit + AnyBitPattern + Debug> Storable for [T] {
+    const BYTE_LENGTH: Option<usize> = None;
+
     #[inline]
     fn as_bytes(&self) -> &[u8] {
         bytemuck::must_cast_slice(self)
@@ -89,11 +99,6 @@ impl<T: NoUninit + AnyBitPattern + Debug> Storable for [T] {
     #[inline]
     fn from_bytes(bytes: &[u8]) -> &Self {
         bytemuck::must_cast_slice(bytes)
-    }
-
-    #[inline]
-    fn fixed_width() -> Option<usize> {
-        None
     }
 }
 
