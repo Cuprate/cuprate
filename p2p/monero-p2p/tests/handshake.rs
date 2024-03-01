@@ -157,7 +157,7 @@ async fn handshake_monerod_to_cuprate() {
 
     let our_basic_node_data = BasicNodeData {
         my_port: 18081,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         support_flags: PeerSupportFlags::FLUFFY_BLOCKS,
         rpc_port: 0,

@@ -139,8 +139,7 @@ mod tests {
             my_port: 0,
             network_id: [
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
-            ]
-            .into(),
+            ],
             peer_id: 9671405426614699871,
             support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 0,
@@ -945,8 +944,7 @@ mod tests {
             my_port: 18080,
             network_id: [
                 18, 48, 241, 113, 97, 4, 65, 97, 23, 49, 0, 130, 22, 161, 161, 16,
-            ]
-            .into(),
+            ],
             peer_id: 6037804360359455404,
             support_flags: PeerSupportFlags::from(1_u32),
             rpc_port: 18089,
