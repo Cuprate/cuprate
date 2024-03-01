@@ -11,7 +11,7 @@ use crate::storable::Storable;
 /// Database [`Table`](crate::table::Table) key metadata.
 ///
 /// Purely compile time information for database table keys, supporting duplicate keys.
-pub trait Key {
+pub trait Key: Storable {
     /// Does this [`Key`] require multiple keys to reach a value?
     const DUPLICATE: bool;
 
@@ -21,9 +21,6 @@ pub trait Key {
 
     /// The primary key type.
     type Primary: Storable;
-
-    /// Acquire [`Key::Primary`].
-    fn primary(self) -> Self::Primary;
 
     /// Acquire [`Self::Primary`] & the secondary key.
     ///
@@ -41,13 +38,6 @@ pub trait Key {
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
         left.cmp(right)
     }
-
-    // TODO
-    // fn compare_u64(left: &[u8], right: &[u8]) -> Ordering {
-    //     let left: u64 = cast(left);
-    //     let right: u64 = cast(right);
-    //     left.cmp(&right)
-    // }
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
@@ -67,11 +57,6 @@ macro_rules! impl_key {
                 const CUSTOM_COMPARE: bool = false;
 
                 type Primary = $t;
-
-                #[inline(always)]
-                fn primary(self) -> Self::Primary {
-                    self
-                }
 
                 #[cold] #[inline(never)]
                 fn primary_secondary(self) -> (Self::Primary, u64) {

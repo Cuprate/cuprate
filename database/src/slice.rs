@@ -3,19 +3,13 @@
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::{AnyBitPattern, NoUninit, TransparentWrapper};
 
-#[cfg(feature = "borsh")]
-use borsh::{BorshDeserialize, BorshSerialize};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 use crate::storable::Storable;
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Generic slice of `T` that is [`Storable`].
 ///
 /// TODO
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+/// # TODO: add some doc tests.
 #[derive(Debug, PartialEq, PartialOrd, Eq, Ord, Hash, TransparentWrapper)]
 #[repr(transparent)]
 pub struct Slice<T>(

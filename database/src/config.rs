@@ -15,6 +15,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+#[cfg(feature = "borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use cuprate_helper::fs::cuprate_database_dir;
 
 use crate::{constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
@@ -27,7 +32,7 @@ use crate::{constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
 ///
 /// TODO: there's probably more options to add.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
     //------------------------ Database PATHs
     // These are private since we don't want
@@ -203,11 +208,8 @@ impl Default for Config {
 ///
 /// are supported, all other variants will panic on [`crate::Env::open`].
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd, Eq, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum SyncMode {
     /// Use [`SyncMode::Fast`] until fully synced,
     /// then use [`SyncMode::Safe`].
@@ -302,11 +304,8 @@ pub enum SyncMode {
 /// The main function used to extract an actual
 /// usable thread count out of this is [`ReaderThreads::as_threads`].
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum ReaderThreads {
     #[default]
     /// Spawn 1 reader thread per available thread on the machine.

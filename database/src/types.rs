@@ -44,7 +44,7 @@
 #![allow(missing_docs)] // bytemuck auto-generates some non-documented structs
 
 //---------------------------------------------------------------------------------------------------- Import
-use bytemuck::{CheckedBitPattern, NoUninit, Pod, Zeroable};
+use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
 
 #[cfg(feature = "borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -56,13 +56,13 @@ use serde::{Deserialize, Serialize};
 ///
 /// ```rust
 /// # use cuprate_database::types::*;
-/// let a = TestType { u: 1, b: true, _pad: [0; 7] }; // original struct
+/// let a = TestType { u: 1, b: 255, _pad: [0; 7] }; // original struct
 /// let b = bytemuck::must_cast::<TestType, [u8; 16]>(a); // cast into bytes
 /// let c = bytemuck::checked::cast::<[u8; 16], TestType>(b); // cast back into struct
 ///
 /// assert_eq!(a, c);
 /// assert_eq!(c.u, 1);
-/// assert_eq!(c.b, true);
+/// assert_eq!(c.b, 255);
 /// assert_eq!(c._pad, [0; 7]);
 /// ```
 ///
@@ -75,13 +75,13 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, NoUninit, CheckedBitPattern)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, NoUninit, AnyBitPattern)]
 #[repr(C)]
 pub struct TestType {
     /// TEST
     pub u: usize,
     /// TEST
-    pub b: bool,
+    pub b: u8,
     /// TEST
     ///
     /// FIXME: is there a cheaper way (CPU instruction wise)
