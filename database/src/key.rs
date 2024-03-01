@@ -11,7 +11,7 @@ use crate::storable::Storable;
 /// Database [`Table`](crate::table::Table) key metadata.
 ///
 /// Purely compile time information for database table keys, supporting duplicate keys.
-pub trait Key: Storable {
+pub trait Key: Storable + Sized {
     /// Does this [`Key`] require multiple keys to reach a value?
     const DUPLICATE: bool;
 
@@ -27,7 +27,9 @@ pub trait Key: Storable {
     /// This only needs to be implemented on types that are [`Self::DUPLICATE`].
     ///
     /// Consider using [`unreachable!()`] on non-duplicate key tables.
-    fn primary_secondary(self) -> (Self::Primary, u64);
+    fn primary_secondary(self) -> (Self::Primary, u64) {
+        unreachable!()
+    }
 
     /// Compare 2 [`Key`]'s against each other.
     ///
@@ -45,7 +47,9 @@ pub trait Key: Storable {
     /// Secondary key must be the max value.
     ///
     /// TODO: more details.
-    fn new_with_max_secondary(primary: Self::Primary) -> Self;
+    fn new_with_max_secondary(primary: Self::Primary) -> Self {
+        unreachable!()
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
@@ -65,11 +69,6 @@ macro_rules! impl_key {
                 const CUSTOM_COMPARE: bool = false;
 
                 type Primary = $t;
-
-                #[cold] #[inline(never)]
-                fn primary_secondary(self) -> (Self::Primary, u64) {
-                    unreachable!();
-                }
             }
         )*
     };
