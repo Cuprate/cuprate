@@ -317,9 +317,6 @@ pub use key::Key;
 
 mod macros;
 
-mod slice;
-pub use slice::Slice;
-
 mod storable;
 pub use storable::Storable;
 

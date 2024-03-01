@@ -1,11 +1,9 @@
 //! (De)serialization for table keys & values.
-//!
-//! All keys and values in database tables must be able
-//! to be (de)serialized into/from raw bytes ([u8]).
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     borrow::Cow,
+    fmt::Debug,
     io::{Read, Write},
     sync::Arc,
 };
@@ -13,13 +11,41 @@ use std::{
 use bytemuck::{AnyBitPattern, NoUninit};
 
 //---------------------------------------------------------------------------------------------------- Storable
-/// TODO
+/// Storable types in the database.
 ///
-/// Trait representing very simple types that can be
-/// (de)serialized into/from bytes.
+/// All keys and values in the database must be able
+/// to be (de)serialized into/from raw bytes (`[u8]`).
 ///
-/// # TODO: add some doc tests.
-pub trait Storable {
+/// This trait represents types that can be **perfectly**
+/// casted/represented as raw bytes.
+///
+/// # `bytemuck`
+/// Any type that implements `bytemuck`'s [`NoUninit`] + [`AnyBitPattern`]
+/// (and [Debug]) will automatically implement [`Storable`].
+///
+/// This includes:
+/// - Most primitive types
+/// - All types in [`tables`](crate::tables)
+/// - Slices, e.g, `[T] where T: Storable`
+///
+/// ```rust
+/// # use cuprate_database::*;
+/// let number: u64 = 0;
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&number);
+/// assert_eq!(into, &[0; 8]);
+///
+/// // From bytes.
+/// let from: &u64 = Storable::from_bytes(&into);
+/// assert_eq!(from, &number);
+/// ```
+///
+/// # Invariants
+/// No function in this trait is expected to panic.
+///
+/// The byte conversions must execute flawlessly.
+pub trait Storable: Debug {
     /// Return `self` in byte form.
     ///
     /// The returned bytes can be any form of array,
@@ -27,23 +53,47 @@ pub trait Storable {
     /// - `[u8; N]`
     /// - `Vec<u8>`
     /// - etc.
-    fn as_bytes(&self) -> impl AsRef<[u8]>;
+    fn as_bytes(&self) -> &[u8];
 
     /// Create [`Self`] from bytes.
-    ///
-    /// # Panics
-    /// In the case `bytes` is invalid, this should panic.
     fn from_bytes(bytes: &[u8]) -> &Self;
+
+    /// TODO
+    fn fixed_width() -> Option<usize>;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
-impl<T: NoUninit + AnyBitPattern> Storable for T {
-    fn as_bytes(&self) -> impl AsRef<[u8]> {
+impl<T: NoUninit + AnyBitPattern + Debug> Storable for T {
+    #[inline]
+    fn as_bytes(&self) -> &[u8] {
         bytemuck::bytes_of(self)
     }
 
+    #[inline]
     fn from_bytes(bytes: &[u8]) -> &Self {
         bytemuck::from_bytes(bytes)
+    }
+
+    #[inline]
+    fn fixed_width() -> Option<usize> {
+        Some(std::mem::size_of::<T>())
+    }
+}
+
+impl<T: NoUninit + AnyBitPattern + Debug> Storable for [T] {
+    #[inline]
+    fn as_bytes(&self) -> &[u8] {
+        bytemuck::must_cast_slice(self)
+    }
+
+    #[inline]
+    fn from_bytes(bytes: &[u8]) -> &Self {
+        bytemuck::must_cast_slice(bytes)
+    }
+
+    #[inline]
+    fn fixed_width() -> Option<usize> {
+        None
     }
 }
 

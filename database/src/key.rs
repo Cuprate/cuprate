@@ -13,20 +13,22 @@ use crate::storable::Storable;
 /// Purely compile time information for database table keys, supporting duplicate keys.
 pub trait Key: Storable + Sized {
     /// Does this [`Key`] require multiple keys to reach a value?
+    ///
+    /// # Invariant
+    /// - If [`Key::DUPLICATE`] is `true`, [`Key::primary_secondary`] MUST be re-implemented.
+    /// - If [`Key::DUPLICATE`] is `true`, [`Key::new_with_max_secondary`] MUST be re-implemented.
     const DUPLICATE: bool;
 
-    /// If this is `true`, it means this key MUST
-    /// re-implement and use [`Key::compare`].
+    /// Does this [`Key`] have a custom comparison function?
+    ///
+    /// # Invariant
+    /// If [`Key::CUSTOM_COMPARE`] is `true`, [`Key::compare`] MUST be re-implemented.
     const CUSTOM_COMPARE: bool;
 
     /// The primary key type.
     type Primary: Storable;
 
     /// Acquire [`Self::Primary`] & the secondary key.
-    ///
-    /// This only needs to be implemented on types that are [`Self::DUPLICATE`].
-    ///
-    /// Consider using [`unreachable!()`] on non-duplicate key tables.
     fn primary_secondary(self) -> (Self::Primary, u64) {
         unreachable!()
     }
@@ -34,19 +36,15 @@ pub trait Key: Storable + Sized {
     /// Compare 2 [`Key`]'s against each other.
     ///
     /// By default, this does a straight byte comparison.
-    ///
-    /// # Invariant
-    /// If [`Key::CUSTOM_COMPARE`] is `true`, this MUST be re-implemented.
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
         left.cmp(right)
     }
 
-    /// TODO
+    /// Create a new [`Key`] from the [`Key::Primary`] type,
+    /// with the secondary key type set to the maximum value.
     ///
     /// # Invariant
-    /// Secondary key must be the max value.
-    ///
-    /// TODO: more details.
+    /// Secondary key must be the max value of the type.
     fn new_with_max_secondary(primary: Self::Primary) -> Self {
         unreachable!()
     }
