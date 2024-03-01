@@ -70,7 +70,7 @@ async fn get_single_block_from_monerod() {
         .await
         .unwrap()
     else {
-        panic!("Cleint returned wrong response");
+        panic!("Client returned wrong response");
     };
 
     assert_eq!(obj.blocks.len(), 1);
