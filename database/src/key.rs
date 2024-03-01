@@ -38,6 +38,14 @@ pub trait Key: Storable {
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
         left.cmp(right)
     }
+
+    /// TODO
+    ///
+    /// # Invariant
+    /// Secondary key must be the max value.
+    ///
+    /// TODO: more details.
+    fn new_with_max_secondary(primary: Self::Primary) -> Self;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
