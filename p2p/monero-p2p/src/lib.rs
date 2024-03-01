@@ -9,6 +9,7 @@ use monero_wire::{
 };
 
 pub mod client;
+mod constants;
 pub mod error;
 pub mod handles;
 pub mod network_zones;

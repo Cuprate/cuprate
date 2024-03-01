@@ -27,7 +27,7 @@ use monero_p2p::{
 };
 use monero_pruning::PruningSeed;
 
-use crate::{peer_list::PeerList, store::save_peers_to_disk, AddressBookError, Config};
+use crate::{peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError};
 
 #[cfg(test)]
 mod tests;
@@ -79,12 +79,12 @@ pub struct AddressBook<Z: NetworkZone> {
     peer_save_task_handle: Option<JoinHandle<std::io::Result<()>>>,
     peer_save_interval: Interval,
 
-    cfg: Config,
+    cfg: AddressBookConfig,
 }
 
 impl<Z: NetworkZone> AddressBook<Z> {
     pub fn new(
-        cfg: Config,
+        cfg: AddressBookConfig,
         white_peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         gray_peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         anchor_peers: Vec<Z::Addr>,
@@ -341,7 +341,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
             if self.is_peer_banned(addr) {
                 return Err(AddressBookError::PeerIsBanned);
             }
-            // although the peer may not be readable still add it to the connected peers with ban ID.
+            // although the peer may not be reachable still add it to the connected peers with ban ID.
             self.connected_peers_ban_id
                 .entry(addr.ban_id())
                 .or_default()

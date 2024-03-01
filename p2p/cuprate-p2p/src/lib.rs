@@ -12,5 +12,7 @@
 
 mod block_downloader;
 mod broadcast;
+mod config;
 mod network;
+mod outbound_connector;
 mod peer_set;

@@ -10,20 +10,33 @@ use futures::{
     ready, FutureExt,
 };
 use indexmap::{IndexMap, IndexSet};
+use tower::ServiceExt;
+use tracing::instrument;
 
 use monero_p2p::{
     client::{Client, InternalPeerID},
     NetworkZone,
 };
-use tower::ServiceExt;
-use tracing::instrument;
 
+/// A locked peer set that can be shared to different tasks.
 pub struct LockedPeerSet<N: NetworkZone> {
+    /// The peer set wrapped in an arc mutex.
     set: Arc<AsyncMutex<InnerPeerSet<N>>>,
+    /// The state of an attempt to acquire the lock on the peer set.
     state: PeerSetLockState<N>,
 }
 
+impl<N: NetworkZone> Clone for LockedPeerSet<N> {
+    fn clone(&self) -> Self {
+        Self {
+            set: self.set.clone(),
+            state: PeerSetLockState::Locked,
+        }
+    }
+}
+
 impl<N: NetworkZone> LockedPeerSet<N> {
+    /// Acquires the [`InnerPeerSet`] using a poll interface.
     pub fn poll_acquire(&mut self, cx: &mut Context<'_>) -> Poll<OwnedMutexGuard<InnerPeerSet<N>>> {
         loop {
             match &mut self.state {
@@ -40,8 +53,11 @@ impl<N: NetworkZone> LockedPeerSet<N> {
     }
 }
 
+/// The state of the peer set lock
 enum PeerSetLockState<N: NetworkZone> {
+    /// Locked
     Locked,
+    /// Waiting our turn to access the peer set.
     Pending(OwnedMutexLockFuture<InnerPeerSet<N>>),
 }
 

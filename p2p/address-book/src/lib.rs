@@ -23,11 +23,20 @@ mod book;
 mod peer_list;
 mod store;
 
+/// The address book config.
 #[derive(Debug, Clone)]
-pub struct Config {
+pub struct AddressBookConfig {
+    /// The maximum number of white peers in the peer list.
+    ///
+    /// White peers are peers we have connected to before.
     max_white_list_length: usize,
+    /// The maximum number of gray peers in the peer list.
+    ///
+    /// Gray peers are peers we are yet to make a connection to.
     max_gray_list_length: usize,
+    /// The location to store the address book.
     peer_store_file: PathBuf,
+    /// The amount of time between saving the address book to disk.
     peer_save_period: Duration,
 }
 
@@ -59,7 +68,7 @@ pub enum AddressBookError {
 }
 
 pub async fn init_address_book<Z: NetworkZone>(
-    cfg: Config,
+    cfg: AddressBookConfig,
 ) -> Result<
     impl tower::Service<
         AddressBookRequest<Z>,

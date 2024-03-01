@@ -1,8 +1,8 @@
-use std::net::{IpAddr, SocketAddr};
-use std::pin::Pin;
-use std::task::{Context, Poll};
-
-use monero_wire::MoneroWireCodec;
+use std::{
+    net::{IpAddr, SocketAddr},
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use futures::Stream;
 use tokio::net::{
@@ -10,6 +10,8 @@ use tokio::net::{
     TcpListener, TcpStream,
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
+
+use monero_wire::MoneroWireCodec;
 
 use crate::{NetZoneAddress, NetworkZone};
 
@@ -30,7 +32,7 @@ pub struct ClearNetServerCfg {
 }
 
 #[derive(Clone, Copy)]
-pub struct ClearNet;
+pub enum ClearNet {}
 
 #[async_trait::async_trait]
 impl NetworkZone for ClearNet {

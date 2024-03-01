@@ -134,6 +134,18 @@ impl<const N: usize, const LEN: usize> From<[[u8; N]; LEN]> for ByteArrayVec<N> 
     }
 }
 
+impl<const N: usize> TryFrom<Vec<u8>> for ByteArrayVec<N> {
+    type Error = FixedByteError;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        if value.len() % N != 0 {
+            return Err(FixedByteError::InvalidLength);
+        }
+
+        Ok(ByteArrayVec(Bytes::from(value)))
+    }
+}
+
 impl<const N: usize> Index<usize> for ByteArrayVec<N> {
     type Output = [u8; 32];
 

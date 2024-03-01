@@ -607,6 +607,7 @@ dependencies = [
  "bytes",
  "futures",
  "indexmap 2.2.3",
+ "monero-address-book",
  "monero-p2p",
  "monero-wire",
  "tokio",

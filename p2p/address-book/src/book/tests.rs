@@ -8,12 +8,12 @@ use monero_p2p::handles::HandleBuilder;
 use monero_pruning::PruningSeed;
 
 use super::{AddressBook, ConnectionPeerEntry, InternalPeerID};
-use crate::{peer_list::tests::make_fake_peer_list, AddressBookError, Config};
+use crate::{peer_list::tests::make_fake_peer_list, AddressBookConfig, AddressBookError};
 
 use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
 
-fn test_cfg() -> Config {
-    Config {
+fn test_cfg() -> AddressBookConfig {
+    AddressBookConfig {
         max_white_list_length: 100,
         max_gray_list_length: 500,
         peer_store_file: PathBuf::new(),

@@ -14,8 +14,7 @@ use std::{
     time::Duration,
 };
 
-use futures::lock::Mutex;
-use futures::{FutureExt, SinkExt, StreamExt};
+use futures::{lock::Mutex, FutureExt, SinkExt, StreamExt};
 use tokio::{
     sync::{broadcast, mpsc, OwnedSemaphorePermit},
     time::{error::Elapsed, timeout},
@@ -34,7 +33,7 @@ use monero_wire::{
 };
 
 use crate::{
-    client::{connection::Connection, Client, InternalPeerID},
+    client::{connection::Connection, Client, InternalPeerID, PeerInformation},
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, ConnectionDirection, CoreSyncDataRequest,
     CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerBroadcast, PeerRequestHandler,
@@ -356,7 +355,7 @@ where
     core_sync_svc
         .ready()
         .await?
-        .call(CoreSyncDataRequest::HandleIncoming(peer_core_sync))
+        .call(CoreSyncDataRequest::HandleIncoming(peer_core_sync.clone()))
         .await?;
 
     tracing::debug!("Handshake complete.");
@@ -367,11 +366,8 @@ where
 
     let (connection_tx, client_rx) = mpsc::channel(1);
 
-    let request_mutex = Arc::new(Mutex::new(()));
-
     let connection = Connection::<Z, _>::new(
         peer_sink,
-        request_mutex.clone(),
         client_rx,
         broadcast_rx,
         peer_request_svc,
@@ -382,15 +378,14 @@ where
     let connection_handle =
         tokio::spawn(connection.run(peer_stream.fuse(), eager_protocol_messages));
 
-    let client = Client::<Z>::new(
-        addr,
+    let peer_info = Arc::new(PeerInformation {
+        id: addr,
         handle,
         direction,
-        connection_tx,
-        connection_handle,
-        request_mutex,
-        error_slot,
-    );
+        core_sync_data: std::sync::Mutex::new(peer_core_sync),
+    });
+
+    let client = Client::<Z>::new(peer_info, connection_tx, connection_handle, error_slot);
 
     Ok(client)
 }

@@ -8,6 +8,7 @@ authors = ["Boog900"]
 [dependencies]
 monero-wire = { path = "../../net/monero-wire" }
 monero-p2p = { path = "../monero-p2p", features = ["borsh"] }
+monero-address-book = { path = "../address-book" }
 
 tower = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
