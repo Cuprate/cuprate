@@ -21,6 +21,9 @@ use bytes::{Buf, BufMut, BytesMut};
 
 use crate::LevinCommand;
 
+/// The size of the header (in bytes)
+pub const HEADER_SIZE: usize = 33;
+
 /// Levin header flags
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub struct Flags(u32);
@@ -73,9 +76,6 @@ pub struct BucketHead<C> {
 }
 
 impl<C: LevinCommand> BucketHead<C> {
-    /// The size of the header (in bytes)
-    pub const SIZE: usize = 33;
-
     /// Builds the header from bytes, this function does not check any fields should
     /// match the expected ones.
     ///
@@ -95,8 +95,8 @@ impl<C: LevinCommand> BucketHead<C> {
     }
 
     /// Serializes the header
-    pub fn write_bytes(&self, dst: &mut BytesMut) {
-        dst.reserve(Self::SIZE);
+    pub fn write_bytes_into(&self, dst: &mut BytesMut) {
+        dst.reserve(HEADER_SIZE);
 
         dst.put_u64_le(self.signature);
         dst.put_u64_le(self.size);

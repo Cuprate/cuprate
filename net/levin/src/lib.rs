@@ -34,6 +34,7 @@
 //#![deny(missing_docs)]
 
 pub mod codec;
+pub mod fragmented_message;
 pub mod header;
 
 pub use codec::*;
@@ -161,6 +162,8 @@ pub struct BucketBuilder<C> {
     return_code: Option<i32>,
     protocol_version: Option<u32>,
     body: Option<Bytes>,
+
+    already_built: Option<Bucket<C>>,
 }
 
 impl<C> Default for BucketBuilder<C> {
@@ -172,11 +175,17 @@ impl<C> Default for BucketBuilder<C> {
             return_code: None,
             protocol_version: Some(MONERO_PROTOCOL_VERSION),
             body: None,
+
+            already_built: None,
         }
     }
 }
 
 impl<C: LevinCommand> BucketBuilder<C> {
+    pub fn set_already_built(&mut self, bucket: Bucket<C>) {
+        self.already_built = Some(bucket);
+    }
+
     pub fn set_signature(&mut self, sig: u64) {
         self.signature = Some(sig)
     }
@@ -202,6 +211,10 @@ impl<C: LevinCommand> BucketBuilder<C> {
     }
 
     pub fn finish(self) -> Bucket<C> {
+        if let Some(already_built) = self.already_built {
+            return already_built;
+        }
+
         let body = self.body.unwrap();
         let ty = self.ty.unwrap();
         Bucket {

@@ -21,8 +21,8 @@ use bytes::{Buf, BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
-    header::Flags, Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand,
-    MessageType, Protocol,
+    header::{Flags, HEADER_SIZE},
+    Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand, MessageType, Protocol,
 };
 
 #[derive(Debug, Clone)]
@@ -69,7 +69,7 @@ impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
         loop {
             match &self.state {
                 LevinBucketState::WaitingForHeader => {
-                    if src.len() < BucketHead::<C>::SIZE {
+                    if src.len() < HEADER_SIZE {
                         return Ok(None);
                     };
 
@@ -123,13 +123,11 @@ impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
 impl<C: LevinCommand> Encoder<Bucket<C>> for LevinBucketCodec<C> {
     type Error = BucketError;
     fn encode(&mut self, item: Bucket<C>, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        if let Some(additional) =
-            (BucketHead::<C>::SIZE + item.body.len()).checked_sub(dst.capacity())
-        {
+        if let Some(additional) = (HEADER_SIZE + item.body.len()).checked_sub(dst.capacity()) {
             dst.reserve(additional)
         }
 
-        item.header.write_bytes(dst);
+        item.header.write_bytes_into(dst);
         dst.put_slice(&item.body);
         Ok(())
     }
@@ -247,14 +245,13 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         };
 
                         // Check there are enough bytes in the fragment to build a header.
-                        if bytes.len() < BucketHead::<T::Command>::SIZE {
+                        if bytes.len() < HEADER_SIZE {
                             return Err(BucketError::InvalidFragmentedMessage(
                                 "Fragmented message is not large enough to build a bucket.",
                             ));
                         }
 
-                        let mut header_bytes =
-                            BytesMut::from(&bytes[0..BucketHead::<T::Command>::SIZE]);
+                        let mut header_bytes = BytesMut::from(&bytes[0..HEADER_SIZE]);
 
                         let header = BucketHead::<T::Command>::from_bytes(&mut header_bytes);
 
@@ -263,7 +260,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         }
 
                         // Check the fragmented message contains enough bytes to build the message.
-                        if bytes.len().saturating_sub(BucketHead::<T::Command>::SIZE)
+                        if bytes.len().saturating_sub(HEADER_SIZE)
                             < header
                                 .size
                                 .try_into()
@@ -280,7 +277,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         )?;
 
                         return Ok(Some(T::decode_message(
-                            &mut &bytes[BucketHead::<T::Command>::SIZE..],
+                            &mut &bytes[HEADER_SIZE..],
                             message_type,
                             header.command,
                         )?));
