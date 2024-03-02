@@ -81,7 +81,7 @@ impl<C: LevinCommand> BucketHead<C> {
     ///
     /// # Panics
     /// This function will panic if there aren't enough bytes to fill the header.
-    /// Currently ['SIZE'](BucketHead::SIZE)
+    /// Currently [HEADER_SIZE]
     pub fn from_bytes(buf: &mut BytesMut) -> BucketHead<C> {
         BucketHead {
             signature: buf.get_u64_le(),
