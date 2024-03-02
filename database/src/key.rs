@@ -3,9 +3,9 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::cmp::Ordering;
 
-use bytemuck::{CheckedBitPattern, NoUninit};
+use bytemuck::Pod;
 
-use crate::storable::Storable;
+use crate::storable::{self, Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`](crate::table::Table) key metadata.
@@ -71,7 +71,6 @@ macro_rules! impl_key {
         )*
     };
 }
-
 // Implement `Key` for primitives.
 impl_key! {
     u8,
@@ -82,6 +81,13 @@ impl_key! {
     i16,
     i32,
     i64,
+}
+
+impl<const N: usize, T: Key + Pod> Key for [T; N] {
+    const DUPLICATE: bool = false;
+    const CUSTOM_COMPARE: bool = false;
+
+    type Primary = [T; N];
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

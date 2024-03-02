@@ -73,6 +73,25 @@ pub trait Storable: Debug {
     /// - `str`
     /// - `[u8]`
     /// - `Vec<u8>`
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use cuprate_database::Storable;
+    /// assert_eq!(<()>::BYTE_LENGTH, Some(0));
+    /// assert_eq!(u8::BYTE_LENGTH, Some(1));
+    /// assert_eq!(u16::BYTE_LENGTH, Some(2));
+    /// assert_eq!(u32::BYTE_LENGTH, Some(4));
+    /// assert_eq!(u64::BYTE_LENGTH, Some(8));
+    /// assert_eq!(i8::BYTE_LENGTH, Some(1));
+    /// assert_eq!(i16::BYTE_LENGTH, Some(2));
+    /// assert_eq!(i32::BYTE_LENGTH, Some(4));
+    /// assert_eq!(i64::BYTE_LENGTH, Some(8));
+    /// assert_eq!(<[u8]>::BYTE_LENGTH, None);
+    /// assert_eq!(<[u8; 0]>::BYTE_LENGTH, Some(0));
+    /// assert_eq!(<[u8; 1]>::BYTE_LENGTH, Some(1));
+    /// assert_eq!(<[u8; 2]>::BYTE_LENGTH, Some(2));
+    /// assert_eq!(<[u8; 3]>::BYTE_LENGTH, Some(3));
+    /// ```
     const BYTE_LENGTH: Option<usize>;
 
     /// Return `self` in byte form.
