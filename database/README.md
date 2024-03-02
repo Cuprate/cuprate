@@ -136,7 +136,7 @@ All backends follow the same file structure:
 Each database's implementation is located in its respective file in `src/backend/${DATABASE_NAME}.rs`.
 
 ## `heed`
-The default database used [`heed`](https://github.com/meilisearch/heed) (LMDB).
+The default database used is [`heed`](https://github.com/meilisearch/heed) (LMDB).
 
 `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 

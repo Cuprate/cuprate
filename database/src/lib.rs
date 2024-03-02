@@ -22,6 +22,7 @@
 //! | `Table`       | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
 //! | `TxRo`        | Read only transaction
 //! | `TxRw`        | Read/write transaction
+//! | `Storable`    | A data that type can be stored in the database
 //!
 //! The dataflow is `Env` -> `Tx` -> `Database`
 //!

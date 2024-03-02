@@ -11,7 +11,7 @@ use std::{
 use bytemuck::{AnyBitPattern, NoUninit};
 
 //---------------------------------------------------------------------------------------------------- Storable
-/// Storable types in the database.
+/// A type that can be stored in the database.
 ///
 /// All keys and values in the database must be able
 /// to be (de)serialized into/from raw bytes (`[u8]`).
