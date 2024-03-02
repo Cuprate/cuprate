@@ -18,6 +18,7 @@ pub(super) struct StorableRedb<T: Storable + ?Sized>(PhantomData<T>);
 //---------------------------------------------------------------------------------------------------- RedbKey
 // If `Key` is also implemented, this can act as a `RedbKey`.
 impl<T: Key + ?Sized> RedbKey for StorableRedb<T> {
+    #[inline]
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
         <T as Key>::compare(left, right)
     }

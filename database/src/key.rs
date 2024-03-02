@@ -28,14 +28,33 @@ pub trait Key: Storable + Sized {
     /// The primary key type.
     type Primary: Storable;
 
-    /// Acquire [`Self::Primary`] & the secondary key.
+    /// Acquire [`Self::Primary`] and the secondary key.
+    ///
+    /// # TODO: doc test
     fn primary_secondary(self) -> (Self::Primary, u64) {
         unreachable!()
     }
 
     /// Compare 2 [`Key`]'s against each other.
     ///
-    /// By default, this does a straight byte comparison.
+    /// By default, this does a straight _byte_ comparison,
+    /// not a comparison of the key's value.
+    ///
+    /// ```rust
+    /// # use cuprate_database::*;
+    /// assert_eq!(
+    ///     <u64 as Key>::compare([0].as_slice(), [1].as_slice()),
+    ///     std::cmp::Ordering::Less,
+    /// );
+    /// assert_eq!(
+    ///     <u64 as Key>::compare([1].as_slice(), [1].as_slice()),
+    ///     std::cmp::Ordering::Equal,
+    /// );
+    /// assert_eq!(
+    ///     <u64 as Key>::compare([2].as_slice(), [1].as_slice()),
+    ///     std::cmp::Ordering::Greater,
+    /// );
+    /// ```
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
         left.cmp(right)
     }
@@ -45,12 +64,16 @@ pub trait Key: Storable + Sized {
     ///
     /// # Invariant
     /// Secondary key must be the max value of the type.
+    ///
+    /// # TODO: doc test
     fn new_with_max_secondary(primary: Self::Primary) -> Self {
         unreachable!()
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
+/// TODO: remove after we finalize tables.
+///
 /// Implement `Key` on most primitive types.
 ///
 /// - `Key::DUPLICATE` is always `false`.

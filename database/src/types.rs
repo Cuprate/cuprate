@@ -72,7 +72,7 @@ use serde::{Deserialize, Serialize};
 /// assert_eq!(align_of::<TestType>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, NoUninit, AnyBitPattern)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct TestType {
     /// TEST
@@ -81,10 +81,10 @@ pub struct TestType {
     pub b: u8,
     /// TEST
     ///
-    /// FIXME: is there a cheaper way (CPU instruction wise)
+    /// TODO: is there a cheaper way (CPU instruction wise)
     /// to add padding to structs over 0 filled arrays?
     ///
-    /// FIXME: this is basically leeway to
+    /// TODO: this is basically leeway to
     /// add more things to our structs too,
     /// because otherwise this space is wasted.
     pub _pad: [u8; 7],

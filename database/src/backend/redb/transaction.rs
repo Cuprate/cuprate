@@ -17,14 +17,10 @@ impl TxRo<'_> for redb::ReadTransaction<'_> {
 
 //---------------------------------------------------------------------------------------------------- TxRw
 impl TxRw<'_> for redb::WriteTransaction<'_> {
-    /// TODO
-    /// # Errors
-    /// TODO
     fn commit(self) -> Result<(), RuntimeError> {
         todo!()
     }
 
-    /// TODO
     fn abort(self) {
         todo!()
     }
