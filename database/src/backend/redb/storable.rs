@@ -57,119 +57,107 @@ impl<T: Storable + ?Sized> RedbValue for StorableRedb<T> {
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
+#[allow(clippy::needless_pass_by_value)]
 mod test {
     use super::*;
+
+    // Each `#[test]` function has a `test()` to:
+    // - log
+    // - simplify trait bounds
+    // - make sure the right function is being called
 
     #[test]
     /// Assert `RedbKey::compare` works for `StorableRedb`.
     fn compare() {
-        let left = 0;
-        let right = 1;
-        assert_eq!(
-            <StorableRedb::<u64> as RedbKey>::compare(
-                Storable::as_bytes(&left),
-                Storable::as_bytes(&right)
-            ),
-            Ordering::Less
-        );
+        fn test<T: Key>(left: T, right: T, expected: Ordering) {
+            println!("left: {left:?}, right: {right:?}, expected: {expected:?}");
+            assert_eq!(
+                <StorableRedb::<T> as RedbKey>::compare(
+                    <StorableRedb::<T> as RedbValue>::as_bytes(&&left),
+                    <StorableRedb::<T> as RedbValue>::as_bytes(&&right)
+                ),
+                expected
+            );
+        }
 
-        let left = [1, 1];
-        let right = [1, 0];
-        assert_eq!(
-            <StorableRedb::<[u8; 2]> as RedbKey>::compare(
-                Storable::as_bytes(&left),
-                Storable::as_bytes(&right)
-            ),
-            Ordering::Greater
-        );
-
-        let left = [1, 2, 3];
-        let right = [1, 2, 3];
-        assert_eq!(
-            <StorableRedb::<[i32; 2]> as RedbKey>::compare(
-                Storable::as_bytes(&left),
-                Storable::as_bytes(&right)
-            ),
-            Ordering::Equal
-        );
+        test::<i64>(-1, 2, Ordering::Greater); // bytes are greater, not the value
+        test::<u64>(0, 1, Ordering::Less);
+        test::<[u8; 2]>([1, 1], [1, 0], Ordering::Greater);
+        test::<[u8; 3]>([1, 2, 3], [1, 2, 3], Ordering::Equal);
     }
 
     #[test]
     /// Assert `RedbKey::fixed_width` is accurate.
     fn fixed_width() {
-        assert_eq!(StorableRedb::<()>::fixed_width(), Some(0));
-        assert_eq!(StorableRedb::<u8>::fixed_width(), Some(1));
-        assert_eq!(StorableRedb::<u16>::fixed_width(), Some(2));
-        assert_eq!(StorableRedb::<u32>::fixed_width(), Some(4));
-        assert_eq!(StorableRedb::<u64>::fixed_width(), Some(8));
-        assert_eq!(StorableRedb::<i8>::fixed_width(), Some(1));
-        assert_eq!(StorableRedb::<i16>::fixed_width(), Some(2));
-        assert_eq!(StorableRedb::<i32>::fixed_width(), Some(4));
-        assert_eq!(StorableRedb::<i64>::fixed_width(), Some(8));
-        assert_eq!(StorableRedb::<[u8]>::fixed_width(), None);
-        assert_eq!(StorableRedb::<[u8; 0]>::fixed_width(), Some(0));
-        assert_eq!(StorableRedb::<[u8; 1]>::fixed_width(), Some(1));
-        assert_eq!(StorableRedb::<[u8; 2]>::fixed_width(), Some(2));
-        assert_eq!(StorableRedb::<[u8; 3]>::fixed_width(), Some(3));
+        fn test<T: Storable + ?Sized>(expected: Option<usize>) {
+            assert_eq!(<StorableRedb::<T> as RedbValue>::fixed_width(), expected);
+        }
+
+        test::<()>(Some(0));
+        test::<u8>(Some(1));
+        test::<u16>(Some(2));
+        test::<u32>(Some(4));
+        test::<u64>(Some(8));
+        test::<i8>(Some(1));
+        test::<i16>(Some(2));
+        test::<i32>(Some(4));
+        test::<i64>(Some(8));
+        test::<[u8]>(None);
+        test::<[u8; 0]>(Some(0));
+        test::<[u8; 1]>(Some(1));
+        test::<[u8; 2]>(Some(2));
+        test::<[u8; 3]>(Some(3));
     }
 
     #[test]
     /// Assert `RedbKey::as_bytes` is accurate.
     fn as_bytes() {
-        assert_eq!(StorableRedb::<()>::as_bytes(&&()), []);
-        assert_eq!(StorableRedb::<u8>::as_bytes(&&0), [0]);
-        assert_eq!(StorableRedb::<u16>::as_bytes(&&1), [1, 0]);
-        assert_eq!(StorableRedb::<u32>::as_bytes(&&2), [2, 0, 0, 0]);
-        assert_eq!(StorableRedb::<u64>::as_bytes(&&3), [3, 0, 0, 0, 0, 0, 0, 0]);
-        assert_eq!(StorableRedb::<i8>::as_bytes(&&-1), [255]);
-        assert_eq!(StorableRedb::<i16>::as_bytes(&&-2), [254, 255]);
-        assert_eq!(StorableRedb::<i32>::as_bytes(&&-3), [253, 255, 255, 255]);
-        assert_eq!(
-            StorableRedb::<i64>::as_bytes(&&-4),
-            [252, 255, 255, 255, 255, 255, 255, 255]
-        );
-        assert_eq!(StorableRedb::<[u8]>::as_bytes(&[1, 2].as_slice()), [1, 2]);
-        assert_eq!(StorableRedb::<[u8; 0]>::as_bytes(&&[]), []);
-        assert_eq!(StorableRedb::<[u8; 1]>::as_bytes(&&[255]), [255]);
-        assert_eq!(StorableRedb::<[u8; 2]>::as_bytes(&&[111, 0]), [111, 0]);
-        assert_eq!(StorableRedb::<[u8; 3]>::as_bytes(&&[1, 0, 1]), [1, 0, 1]);
+        fn test<T: Storable + ?Sized>(t: &T, expected: &[u8]) {
+            println!("t: {t:?}, expected: {expected:?}");
+            assert_eq!(<StorableRedb::<T> as RedbValue>::as_bytes(&t), expected);
+        }
+
+        test::<()>(&(), &[]);
+        test::<u8>(&0, &[0]);
+        test::<u16>(&1, &[1, 0]);
+        test::<u32>(&2, &[2, 0, 0, 0]);
+        test::<u64>(&3, &[3, 0, 0, 0, 0, 0, 0, 0]);
+        test::<i8>(&-1, &[255]);
+        test::<i16>(&-2, &[254, 255]);
+        test::<i32>(&-3, &[253, 255, 255, 255]);
+        test::<i64>(&-4, &[252, 255, 255, 255, 255, 255, 255, 255]);
+        test::<[u8]>(&[1, 2], &[1, 2]);
+        test::<[u8; 0]>(&[], &[]);
+        test::<[u8; 1]>(&[255], &[255]);
+        test::<[u8; 2]>(&[111, 0], &[111, 0]);
+        test::<[u8; 3]>(&[1, 0, 1], &[1, 0, 1]);
     }
 
     #[test]
     /// Assert `RedbKey::from_bytes` is accurate.
     fn from_bytes() {
-        assert_eq!(StorableRedb::<()>::from_bytes([].as_slice()), &());
-        assert_eq!(StorableRedb::<u8>::from_bytes([0].as_slice()), &0);
-        assert_eq!(StorableRedb::<u16>::from_bytes([1, 0].as_slice()), &1);
-        assert_eq!(StorableRedb::<u32>::from_bytes([2, 0, 0, 0].as_slice()), &2);
-        assert_eq!(
-            StorableRedb::<u64>::from_bytes([3, 0, 0, 0, 0, 0, 0, 0].as_slice()),
-            &3
-        );
-        assert_eq!(StorableRedb::<i8>::from_bytes([255].as_slice()), &-1);
-        assert_eq!(StorableRedb::<i16>::from_bytes([254, 255].as_slice()), &-2);
-        assert_eq!(
-            StorableRedb::<i32>::from_bytes([253, 255, 255, 255].as_slice()),
-            &-3
-        );
-        assert_eq!(
-            StorableRedb::<i64>::from_bytes([252, 255, 255, 255, 255, 255, 255, 255].as_slice()),
-            &-4
-        );
-        assert_eq!(StorableRedb::<[u8]>::from_bytes([1, 2].as_slice()), [1, 2]);
-        assert_eq!(StorableRedb::<[u8; 0]>::from_bytes([].as_slice()), &[]);
-        assert_eq!(
-            StorableRedb::<[u8; 1]>::from_bytes([255].as_slice()),
-            &[255]
-        );
-        assert_eq!(
-            StorableRedb::<[u8; 2]>::from_bytes([111, 0].as_slice()),
-            &[111, 0]
-        );
-        assert_eq!(
-            StorableRedb::<[u8; 3]>::from_bytes([1, 0, 1].as_slice()),
-            &[1, 0, 1]
-        );
+        fn test<T: Storable + ?Sized + PartialEq>(bytes: &[u8], expected: &T) {
+            println!("bytes: {bytes:?}, expected: {expected:?}");
+            assert_eq!(
+                <StorableRedb::<T> as RedbValue>::from_bytes(bytes),
+                expected
+            );
+        }
+
+        test::<()>([].as_slice(), &());
+        test::<u8>([0].as_slice(), &0);
+        test::<u16>([1, 0].as_slice(), &1);
+        test::<u32>([2, 0, 0, 0].as_slice(), &2);
+        test::<u64>([3, 0, 0, 0, 0, 0, 0, 0].as_slice(), &3);
+        test::<i8>([255].as_slice(), &-1);
+        test::<i16>([254, 255].as_slice(), &-2);
+        test::<i32>([253, 255, 255, 255].as_slice(), &-3);
+        test::<i64>([252, 255, 255, 255, 255, 255, 255, 255].as_slice(), &-4);
+        test::<[u8]>([1, 2].as_slice(), &[1, 2]);
+        test::<[u8; 0]>([].as_slice(), &[]);
+        test::<[u8; 1]>([255].as_slice(), &[255]);
+        test::<[u8; 2]>([111, 0].as_slice(), &[111, 0]);
+        test::<[u8; 3]>([1, 0, 1].as_slice(), &[1, 0, 1]);
     }
 
     #[test]
@@ -179,20 +167,20 @@ mod test {
     fn type_name() {
         // Can't use a proper set because `redb::TypeName: !Ord`.
         let set = [
-            StorableRedb::<()>::type_name(),
-            StorableRedb::<u8>::type_name(),
-            StorableRedb::<u16>::type_name(),
-            StorableRedb::<u32>::type_name(),
-            StorableRedb::<u64>::type_name(),
-            StorableRedb::<i8>::type_name(),
-            StorableRedb::<i16>::type_name(),
-            StorableRedb::<i32>::type_name(),
-            StorableRedb::<i64>::type_name(),
-            StorableRedb::<[u8]>::type_name(),
-            StorableRedb::<[u8; 0]>::type_name(),
-            StorableRedb::<[u8; 1]>::type_name(),
-            StorableRedb::<[u8; 2]>::type_name(),
-            StorableRedb::<[u8; 3]>::type_name(),
+            <StorableRedb<()> as RedbValue>::type_name(),
+            <StorableRedb<u8> as RedbValue>::type_name(),
+            <StorableRedb<u16> as RedbValue>::type_name(),
+            <StorableRedb<u32> as RedbValue>::type_name(),
+            <StorableRedb<u64> as RedbValue>::type_name(),
+            <StorableRedb<i8> as RedbValue>::type_name(),
+            <StorableRedb<i16> as RedbValue>::type_name(),
+            <StorableRedb<i32> as RedbValue>::type_name(),
+            <StorableRedb<i64> as RedbValue>::type_name(),
+            <StorableRedb<[u8]> as RedbValue>::type_name(),
+            <StorableRedb<[u8; 0]> as RedbValue>::type_name(),
+            <StorableRedb<[u8; 1]> as RedbValue>::type_name(),
+            <StorableRedb<[u8; 2]> as RedbValue>::type_name(),
+            <StorableRedb<[u8; 3]> as RedbValue>::type_name(),
         ];
 
         // Check every permutation is unique.
