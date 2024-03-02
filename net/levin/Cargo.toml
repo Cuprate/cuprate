@@ -13,3 +13,9 @@ bytes = { workspace = true, features = ["std"] }
 bitflags = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"]}
 
+[dev-dependencies]
+proptest = { workspace = true }
+rand = { workspace = true, features = ["std", "std_rng"] }
+tokio-util = { workspace = true, features = ["io-util"]}
+tokio = { workspace = true, features = ["full"] }
+futures = { workspace = true, features = ["std"] }

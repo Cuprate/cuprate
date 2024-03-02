@@ -13,6 +13,17 @@ pub fn make_fragmented_messages<T: LevinBody>(
     message.encode(&mut builder)?;
     let mut bucket = builder.finish();
 
+    if !bucket
+        .header
+        .flags
+        .intersects(Flags::REQUEST | Flags::RESPONSE)
+    {
+        // If a bucket does not have the request or response bits set it is a fragment.
+        return Err(BucketError::InvalidFragmentedMessage(
+            "Can't make a fragmented message out of a message which is already fragmented",
+        ));
+    }
+
     // Check if the bucket can fit in one fragment.
     if bucket.body.len() + HEADER_SIZE <= fragment_size {
         // If it can pad the bucket upto the fragment size and just return this bucket.
@@ -34,7 +45,7 @@ pub fn make_fragmented_messages<T: LevinBody>(
     // The first fragment will set the START flag, the last will set the END flag.
     let fragment_head = BucketHead {
         signature: protocol.signature,
-        size: fragment_size
+        size: (fragment_size - HEADER_SIZE)
             .try_into()
             .expect("Bucket size does not fit into u64"),
         have_to_return_data: false,
@@ -56,7 +67,7 @@ pub fn make_fragmented_messages<T: LevinBody>(
     first_bucket_body.extend_from_slice(
         bucket
             .body
-            .split_off(fragment_size - (HEADER_SIZE * 2))
+            .split_to(fragment_size - (HEADER_SIZE * 2))
             .as_ref(),
     );
 
@@ -69,7 +80,7 @@ pub fn make_fragmented_messages<T: LevinBody>(
     for mut bytes in (1..amount_of_fragments).map(|_| {
         bucket
             .body
-            .split_off((fragment_size - HEADER_SIZE).min(bucket.body.len()))
+            .split_to((fragment_size - HEADER_SIZE).min(bucket.body.len()))
     }) {
         // make sure this fragment has the correct size - the last one might not, so pad it.
         if bytes.len() + HEADER_SIZE < fragment_size {

@@ -272,8 +272,8 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         }
 
                         let message_type = MessageType::from_flags_and_have_to_return(
-                            bucket.header.flags,
-                            bucket.header.have_to_return_data,
+                            header.flags,
+                            header.have_to_return_data,
                         )?;
 
                         return Ok(Some(T::decode_message(

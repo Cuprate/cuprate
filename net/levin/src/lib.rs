@@ -100,7 +100,7 @@ impl Default for Protocol {
 }
 
 /// A levin Bucket
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bucket<C> {
     /// The bucket header
     pub header: BucketHead<C>,
