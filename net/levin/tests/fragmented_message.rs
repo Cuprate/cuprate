@@ -125,8 +125,8 @@ proptest! {
 
         let mut message2 = Vec::with_capacity(message.len());
 
-        // remove the header.
-        message2.extend_from_slice(&fragments[0].body[33..]);
+        // remove the header and the bytes length.
+        message2.extend_from_slice(&fragments[0].body[(33 + 8)..]);
 
         for frag in fragments.iter().skip(1) {
             message2.extend_from_slice(frag.body.as_ref())
