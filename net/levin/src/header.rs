@@ -16,34 +16,26 @@
 //! This module provides a struct BucketHead for the header of a levin protocol
 //! message.
 
+use bitflags::bitflags;
 use bytes::{Buf, BufMut, BytesMut};
 
 use crate::LevinCommand;
-
-const REQUEST: u32 = 0b0000_0001;
-const RESPONSE: u32 = 0b0000_0010;
-const START_FRAGMENT: u32 = 0b0000_0100;
-const END_FRAGMENT: u32 = 0b0000_1000;
 
 /// Levin header flags
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub struct Flags(u32);
 
-impl Flags {
-    pub const REQUEST: Flags = Flags(REQUEST);
-    pub const RESPONSE: Flags = Flags(RESPONSE);
+bitflags! {
+    impl Flags: u32 {
+        const REQUEST = 0b0000_0001;
+        const RESPONSE = 0b0000_0010;
 
-    pub fn is_request(&self) -> bool {
-        self.0 & REQUEST != 0
-    }
-    pub fn is_response(&self) -> bool {
-        self.0 & RESPONSE != 0
-    }
-    pub fn is_start_fragment(&self) -> bool {
-        self.0 & START_FRAGMENT != 0
-    }
-    pub fn is_end_fragment(&self) -> bool {
-        self.0 & END_FRAGMENT != 0
+        const START_FRAGMENT = 0b0000_0100;
+        const END_FRAGMENT = 0b0000_1000;
+
+        const DUMMY = Self::START_FRAGMENT.bits() | Self::END_FRAGMENT.bits();
+
+        const _ = !0;
     }
 }
 
