@@ -16,7 +16,7 @@ Cuprate's database implementation.
 1. [Layers](#layers)
     - [Database](#database)
     - [Trait](#trait)
-    - [ConcreteEnv](#concreteenvConcreteEnv
+    - [ConcreteEnv](#concreteenv)
     - [Thread-pool](#thread-pool)
     - [Service](#service)
 1. [Resizing](#resizing)
@@ -75,10 +75,12 @@ The top-level `src/` files.
 | `error.rs`       | Database error types
 | `free.rs`        | General free functions (related to the database)
 | `key.rs`         | Abstracted database keys; `trait Key`
-| `pod.rs`         | Data (de)serialization; `trait Pod`
+| `resize.rs`      | Database resizing algorithms
+| `pod.rs`         | Data (de)serialization; `trait Storable`
 | `table.rs`       | Database table abstraction; `trait Table`
 | `tables.rs`      | All the table definitions used by `cuprate-database`
 | `transaction.rs` | Database transaction abstraction; `trait TxR{o,w}`
+| `types.rs`       | Database table schema types
 
 ## `src/ops/`
 This folder contains the `cupate_database::ops` module.
@@ -134,13 +136,8 @@ All backends follow the same file structure:
 Each database's implementation is located in its respective file in `src/backend/${DATABASE_NAME}.rs`.
 
 ## `heed`
-The default database used is a modified fork of [`heed`](https://github.com/meilisearch/heed) (LMDB), located at [`Cuprate/heed`](https://github.com/Cuprate/heed).
+The default database used [`heed`](https://github.com/meilisearch/heed) (LMDB).
 
-To generate documentation of the fork for local use:
-```bash
-git clone --recursive https://github.com/Cuprate/heed
-cargo doc
-```
 `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
 `heed`'s filenames inside Cuprate's database folder (`~/.local/share/cuprate/database/`) are:
