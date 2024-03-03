@@ -52,9 +52,11 @@ pub trait Env: Sized {
     fn open(config: Config) -> Result<Self, InitError>;
 
     /// TODO
+    ///
+    /// Create all the tables in [`crate::tables`].
     /// # Errors
     /// TODO
-    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError>;
+    fn create_tables(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError>;
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
