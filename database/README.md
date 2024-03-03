@@ -76,7 +76,7 @@ The top-level `src/` files.
 | `free.rs`        | General free functions (related to the database)
 | `key.rs`         | Abstracted database keys; `trait Key`
 | `resize.rs`      | Database resizing algorithms
-| `pod.rs`         | Data (de)serialization; `trait Storable`
+| `storable.rs`    | Data (de)serialization; `trait Storable`
 | `table.rs`       | Database table abstraction; `trait Table`
 | `tables.rs`      | All the table definitions used by `cuprate-database`
 | `transaction.rs` | Database transaction abstraction; `trait TxR{o,w}`
