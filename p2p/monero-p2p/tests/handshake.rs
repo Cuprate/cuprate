@@ -1,14 +1,16 @@
 use std::{sync::Arc, time::Duration};
 
-use futures::{channel::mpsc, StreamExt};
+use futures::StreamExt;
 use tokio::{
+    io::{duplex, split},
     sync::{broadcast, Semaphore},
     time::timeout,
 };
+use tokio_util::codec::{FramedRead, FramedWrite};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
-use monero_wire::{common::PeerSupportFlags, BasicNodeData};
+use monero_wire::{common::PeerSupportFlags, BasicNodeData, MoneroWireCodec};
 
 use monero_p2p::{
     client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
@@ -63,21 +65,23 @@ async fn handshake_cuprate_to_cuprate() {
         our_basic_node_data_2,
     );
 
-    let (p1_sender, p2_receiver) = mpsc::channel(5);
-    let (p2_sender, p1_receiver) = mpsc::channel(5);
+    let (p1, p2) = duplex(50_000);
+
+    let (p1_receiver, p1_sender) = split(p1);
+    let (p2_receiver, p2_sender) = split(p2);
 
     let p1_handshake_req = DoHandshakeRequest {
         addr: InternalPeerID::KnownAddr(TestNetZoneAddr(888)),
-        peer_stream: p2_receiver.map(Ok).boxed(),
-        peer_sink: p2_sender.into(),
+        peer_stream: FramedRead::new(p2_receiver, MoneroWireCodec::default()),
+        peer_sink: FramedWrite::new(p2_sender, MoneroWireCodec::default()),
         direction: ConnectionDirection::OutBound,
         permit: permit_1,
     };
 
     let p2_handshake_req = DoHandshakeRequest {
         addr: InternalPeerID::KnownAddr(TestNetZoneAddr(444)),
-        peer_stream: p1_receiver.boxed().map(Ok).boxed(),
-        peer_sink: p1_sender.into(),
+        peer_stream: FramedRead::new(p1_receiver, MoneroWireCodec::default()),
+        peer_sink: FramedWrite::new(p1_sender, MoneroWireCodec::default()),
         direction: ConnectionDirection::InBound,
         permit: permit_2,
     };

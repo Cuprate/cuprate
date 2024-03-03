@@ -33,18 +33,20 @@
 #![deny(unused_mut)]
 //#![deny(missing_docs)]
 
+use std::fmt::Debug;
+
+use bytes::{Buf, Bytes};
+use thiserror::Error;
+
 pub mod codec;
-pub mod fragmented_message;
 pub mod header;
+pub mod message;
 
 pub use codec::*;
 pub use header::BucketHead;
+pub use message::LevinMessage;
 
-use std::fmt::Debug;
-
-use crate::header::Flags;
-use bytes::{Buf, Bytes};
-use thiserror::Error;
+use header::Flags;
 
 const MONERO_PROTOCOL_VERSION: u32 = 1;
 const MONERO_LEVIN_SIGNATURE: u64 = 0x0101010101012101;

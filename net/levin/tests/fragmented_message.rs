@@ -6,8 +6,8 @@ use tokio::io::duplex;
 use tokio_util::codec::{FramedRead, FramedWrite};
 
 use levin_cuprate::{
-    fragmented_message::make_fragmented_messages, Bucket, BucketBuilder, BucketError, LevinBody,
-    LevinCommand, LevinMessageCodec, MessageType, Protocol,
+    message::make_fragmented_messages, Bucket, BucketBuilder, BucketError, LevinBody, LevinCommand,
+    LevinMessageCodec, MessageType, Protocol,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -93,7 +93,7 @@ async fn codec_fragmented_messages() {
 
     for frag in fragments {
         // Send each fragment
-        write.send(TestBody::Bucket(frag)).await.unwrap();
+        write.send(TestBody::Bucket(frag).into()).await.unwrap();
     }
 
     // only one message should be received.

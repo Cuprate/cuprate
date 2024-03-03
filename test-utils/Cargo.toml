@@ -12,6 +12,7 @@ monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
 futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true }
 reqwest = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 tempfile = { workspace = true }

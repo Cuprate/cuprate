@@ -22,6 +22,7 @@ use tokio_util::codec::{Decoder, Encoder};
 
 use crate::{
     header::{Flags, HEADER_SIZE},
+    message::{make_dummy_message, LevinMessage},
     Bucket, BucketBuilder, BucketError, BucketHead, LevinBody, LevinCommand, MessageType, Protocol,
 };
 
@@ -288,12 +289,21 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
     }
 }
 
-impl<T: LevinBody> Encoder<T> for LevinMessageCodec<T> {
+impl<T: LevinBody> Encoder<LevinMessage<T>> for LevinMessageCodec<T> {
     type Error = BucketError;
-    fn encode(&mut self, item: T, dst: &mut BytesMut) -> Result<(), Self::Error> {
-        let mut bucket_builder = BucketBuilder::default();
-        item.encode(&mut bucket_builder)?;
-        let bucket = bucket_builder.finish();
-        self.bucket_codec.encode(bucket, dst)
+    fn encode(&mut self, item: LevinMessage<T>, dst: &mut BytesMut) -> Result<(), Self::Error> {
+        match item {
+            LevinMessage::Body(body) => {
+                let mut bucket_builder = BucketBuilder::default();
+                body.encode(&mut bucket_builder)?;
+                let bucket = bucket_builder.finish();
+                self.bucket_codec.encode(bucket, dst)
+            }
+            LevinMessage::Bucket(bucket) => self.bucket_codec.encode(bucket, dst),
+            LevinMessage::Dummy(size) => {
+                let bucket = make_dummy_message(&self.bucket_codec.protocol, size);
+                self.bucket_codec.encode(bucket, dst)
+            }
+        }
     }
 }
