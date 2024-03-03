@@ -16,9 +16,6 @@ pub trait Table: crate::tables::private::Sealed {
     /// Name of the database table.
     const NAME: &'static str;
 
-    /// Whether the table's values are all the same size or not.
-    const CONSTANT_SIZE: bool;
-
     // TODO:
     //
     // `redb` requires `K/V` is `'static`:

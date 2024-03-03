@@ -66,7 +66,6 @@ macro_rules! tables {
             // Table trait impl.
             impl Table for [<$table:camel>] {
                 const NAME: &'static str = stringify!([<$table:snake>]);
-                const CONSTANT_SIZE: bool = $size;
                 type Key = $key;
                 type Value = $value;
             }
