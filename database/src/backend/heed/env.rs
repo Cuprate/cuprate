@@ -3,9 +3,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::RwLock;
 
+use heed::{EnvFlags, EnvOpenOptions};
+
 use crate::{
     backend::heed::database::{HeedTableRo, HeedTableRw},
-    config::Config,
+    config::{Config, SyncMode},
     database::{DatabaseRo, DatabaseRw},
     env::Env,
     error::{InitError, RuntimeError},
@@ -75,22 +77,71 @@ impl Env for ConcreteEnv {
     #[cold]
     #[inline(never)] // called once.
     fn open(config: Config) -> Result<Self, InitError> {
-        // INVARIANT:
-        // We must open LMDB using `heed::EnvOpenOptions::max_readers`
-        // and input whatever is in `config.reader_threads` or else
-        // LMDB will start throwing errors if there are >126 readers.
-        // <http://www.lmdb.tech/doc/group__mdb.html#gae687966c24b790630be2a41573fe40e2>
-        //
-        // We should also leave reader slots for other processes, e.g. `xmrblocks`.
-        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372>
-
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+
+        // Map our `Config` sync mode to the LMDB environment flags.
+        //
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        let flags = match config.sync_mode {
+            SyncMode::Safe => EnvFlags::empty(),
+            SyncMode::Async => EnvFlags::MAP_ASYNC,
+            SyncMode::Fast => EnvFlags::NO_SYNC | EnvFlags::WRITE_MAP | EnvFlags::MAP_ASYNC,
+            // TODO: dynamic syncs are not implemented.
+            SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
+        };
+
+        let mut env_open_options = EnvOpenOptions::new();
+
+        // Set the memory map size to at least the current disk size.
+        let disk_size_bytes = std::fs::File::open(&config.db_file)?.metadata()?.len();
+        #[allow(clippy::cast_possible_truncation)] // only 64-bit targets
+        env_open_options.map_size(disk_size_bytes as usize);
+
+        // Set the max amount of database tables.
+        // We know at compile time how many tables there are.
+        // TODO: ...how many?
+        env_open_options.max_dbs(todo!());
+
+        // LMDB documentation:
+        // ```
+        // Number of slots in the reader table.
+        // This value was chosen somewhat arbitrarily. 126 readers plus a
+        // couple mutexes fit exactly into 8KB on my development machine.
+        // ```
+        // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/mdb.c#L794-L799>
+        //
+        // So, we're going to be following these rules:
+        // - Use at least 126 reader threads
+        // - Add 16 extra reader threads if <126
+        //
+        // FIXME: This behavior is from `monerod`:
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        // I believe this could be adjusted percentage-wise so very high
+        // thread PCs can benefit from something like (cuprated + anything that uses the DB in the future).
+        // For now:
+        // - No other program using our DB exists
+        // - Almost no-one has a 126+ thread CPU
+        #[allow(clippy::cast_possible_truncation)] // no-one has `u32::MAX`+ threads
+        let reader_threads = config.reader_threads.as_threads().get() as u32;
+        env_open_options.max_readers(if reader_threads < 110 {
+            126
+        } else {
+            reader_threads + 16
+        });
+
+        // TODO: Open/create tables with certain flags
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        // `heed` creates the database if it didn't exist.
+        // <https://docs.rs/heed/0.20.0-alpha.9/src/heed/env.rs.html#223-229>
+
+        // TODO: Set dupsort and comparison functions for certain tables
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+
         todo!()
     }
 
-    #[cold]
-    #[inline(never)] // called once in [`Env::open`]?
-    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
+    // called once in [`Env::open`]?
+    fn create_tables(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
         todo!()
     }
 
