@@ -16,7 +16,8 @@ redb    = ["dep:redb"]
 service = ["dep:crossbeam", "dep:tokio", "dep:tower"]
 
 [dependencies]
-cfg-if = { workspace = true }
+bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+cfg-if   = { workspace = true }
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.
 # Figure out how to enable features of an already pulled in dependency conditionally.
@@ -40,12 +41,12 @@ tower     = { workspace = true, features = ["full"], optional = true }
 # parking_lot = { workspace = true, optional = true }
 
 # Optional features.
-borsh = { workspace = true, optional = true }
-heed  = { git = "https://github.com/Cuprate/heed", rev = "5aa75b7", optional = true }
+heed  = { version = "0.20.0-alpha.9", optional = true }
 redb  = { version = "1.5.0", optional = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
+bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 cuprate-helper = { path = "../helper", features = ["thread"] }
 page_size = { version = "0.6.0" }
 tempfile = { version = "3.10.0" }

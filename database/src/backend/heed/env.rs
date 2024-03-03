@@ -62,6 +62,14 @@ impl Drop for ConcreteEnv {
         }
 
         // TODO: log that we are dropping the database.
+
+        // TODO: use tracing.
+        // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L49-L61>
+        let result = self.env.read().unwrap().clear_stale_readers();
+        match result {
+            Ok(n) => println!("LMDB stale readers cleared: {n}"),
+            Err(e) => println!("LMDB stale reader clear error: {e:?}"),
+        }
     }
 }
 
@@ -85,6 +93,7 @@ impl Env for ConcreteEnv {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372>
 
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+
         todo!()
     }
 

@@ -1,7 +1,7 @@
 //! Database table abstraction; `trait Table`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{key::Key, pod::Pod};
+use crate::{key::Key, storable::Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database table metadata.
@@ -13,25 +13,28 @@ use crate::{key::Key, pod::Pod};
 ///
 /// It is, and can only be implemented on the types inside [`tables`][crate::tables].
 pub trait Table: crate::tables::private::Sealed {
-    // TODO:
-    //
-    // Add K/V comparison `type`s that define
-    // how this table will be stored.
-    //
-    // type KeyComparator: fn(&Self::Key, &Self::Key) -> Ordering;
-    // type ValueComparator: fn(&Self::Value, &Self::Value) -> Ordering;
-
     /// Name of the database table.
     const NAME: &'static str;
 
-    /// Whether the table's values are all the same size or not.
-    const CONSTANT_SIZE: bool;
+    // TODO:
+    //
+    // `redb` requires `K/V` is `'static`:
+    // - <https://docs.rs/redb/1.5.0/redb/struct.ReadOnlyTable.html>
+    // - <https://docs.rs/redb/1.5.0/redb/struct.Table.html>
+    //
+    // ...but kinda not really?
+    //   "Note that the lifetime of the K and V type parameters does not impact
+    //   the lifetimes of the data that is stored or retrieved from the table"
+    //   <https://docs.rs/redb/1.5.0/redb/struct.TableDefinition.html>
+    //
+    // This might be incompatible with `heed`. We'll see
+    // after function bodies are actually implemented...
 
     /// Primary key type.
-    type Key: Key;
+    type Key: Key + 'static;
 
     /// Value type.
-    type Value: Pod;
+    type Value: Storable + ?Sized + 'static;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

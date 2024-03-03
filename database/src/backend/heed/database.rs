@@ -22,20 +22,15 @@ use crate::{
 //
 // We must also maintain the ability for
 // write operations to also read, aka, `Rw`.
-//
-// TODO: do we need the `T: Table` phantom bound?
-// It allows us to reference the `Table` info.
 
 /// An opened read-only database associated with a transaction.
 ///
 /// Matches `redb::ReadOnlyTable`.
 pub(super) struct HeedTableRo<'env, T: Table> {
     /// An already opened database table.
-    db: HeedDb,
+    db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
     tx_ro: &'env heed::RoTxn<'env>,
-    /// TODO: do we need this?
-    _table: PhantomData<T>,
 }
 
 /// An opened read/write database associated with a transaction.
@@ -43,41 +38,45 @@ pub(super) struct HeedTableRo<'env, T: Table> {
 /// Matches `redb::Table` (read & write).
 pub(super) struct HeedTableRw<'env, T: Table> {
     /// TODO
-    db: HeedDb,
+    db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
     tx_rw: &'env mut heed::RwTxn<'env>,
-    /// TODO: do we need this?
-    _table: PhantomData<T>,
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
 impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
-    fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
+    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
         todo!()
     }
 
-    fn get_range(
-        &self,
-        key: &T::Key,
+    fn get_range<'a>(
+        &'a self,
+        key: &'a T::Key,
         amount: usize,
-    ) -> Result<impl Iterator<Item = T::Value>, RuntimeError> {
-        let iter: std::vec::Drain<'_, T::Value> = todo!();
+    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
+    where
+        <T as Table>::Value: 'a,
+    {
+        let iter: std::vec::Drain<'_, &T::Value> = todo!();
         Ok(iter)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
 impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, T> {
-    fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError> {
+    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
         todo!()
     }
 
-    fn get_range(
-        &self,
-        key: &T::Key,
+    fn get_range<'a>(
+        &'a self,
+        key: &'a T::Key,
         amount: usize,
-    ) -> Result<impl Iterator<Item = T::Value>, RuntimeError> {
-        let iter: std::vec::Drain<'_, T::Value> = todo!();
+    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
+    where
+        <T as Table>::Value: 'a,
+    {
+        let iter: std::vec::Drain<'_, &T::Value> = todo!();
         Ok(iter)
     }
 }
@@ -91,7 +90,7 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, T> {
         todo!()
     }
 
-    fn delete(&mut self, key: &T::Key) -> Result<bool, RuntimeError> {
+    fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
         todo!()
     }
 }
