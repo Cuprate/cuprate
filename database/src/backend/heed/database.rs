@@ -45,7 +45,7 @@ pub(super) struct HeedTableRw<'env, T: Table> {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
 impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
-    fn get(&self, key: &T::Key) -> Result<Option<&T::Value>, RuntimeError> {
+    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
         todo!()
     }
 
@@ -64,7 +64,7 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
 impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, T> {
-    fn get(&self, key: &T::Key) -> Result<Option<&T::Value>, RuntimeError> {
+    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
         todo!()
     }
 
@@ -90,7 +90,7 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, T> {
         todo!()
     }
 
-    fn delete(&mut self, key: &T::Key) -> Result<bool, RuntimeError> {
+    fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
         todo!()
     }
 }

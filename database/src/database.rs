@@ -11,7 +11,9 @@ pub trait DatabaseRo<T: Table> {
     /// TODO
     /// # Errors
     /// TODO
-    fn get(&self, key: &T::Key) -> Result<Option<&T::Value>, RuntimeError>;
+    ///
+    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError>;
 
     /// TODO
     /// # Errors
@@ -46,5 +48,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// TODO
     /// # Errors
     /// TODO
-    fn delete(&mut self, key: &T::Key) -> Result<bool, RuntimeError>;
+    ///
+    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
 }

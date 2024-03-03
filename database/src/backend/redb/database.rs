@@ -10,7 +10,7 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 impl<T: Table> DatabaseRo<T> for RedbTableRo<'_, T::Key, T::Value> {
-    fn get(&self, key: &T::Key) -> Result<Option<&T::Value>, RuntimeError> {
+    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
         todo!()
     }
 
@@ -29,7 +29,7 @@ impl<T: Table> DatabaseRo<T> for RedbTableRo<'_, T::Key, T::Value> {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 impl<T: Table> DatabaseRo<T> for RedbTableRw<'_, '_, T::Key, T::Value> {
-    fn get(&self, key: &T::Key) -> Result<Option<&T::Value>, RuntimeError> {
+    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
         todo!()
     }
 
@@ -55,7 +55,7 @@ impl<T: Table> DatabaseRw<T> for RedbTableRw<'_, '_, T::Key, T::Value> {
         todo!()
     }
 
-    fn delete(&mut self, key: &T::Key) -> Result<bool, RuntimeError> {
+    fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
         todo!()
     }
 }
