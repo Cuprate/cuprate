@@ -99,7 +99,7 @@ impl Env for ConcreteEnv {
         &self,
         tx_ro: &Self::TxRo<'_>,
     ) -> Result<impl DatabaseRo<T>, RuntimeError> {
-        let tx: RedbTableRo = todo!();
+        let tx: RedbTableRo<'_, T::Key, T::Value> = todo!();
         Ok(tx)
     }
 
@@ -108,7 +108,7 @@ impl Env for ConcreteEnv {
         &self,
         tx_rw: &mut Self::TxRw<'_>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
-        let tx: RedbTableRw = todo!();
+        let tx: RedbTableRw<'_, '_, T::Key, T::Value> = todo!();
         Ok(tx)
     }
 }
