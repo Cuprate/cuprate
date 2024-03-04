@@ -38,8 +38,6 @@ impl LevinCommand for TestCommands {
 #[derive(Clone)]
 enum TestBody {
     Bytes(usize, Bytes),
-    // Will never be received, only sent.
-    Bucket(Bucket<TestCommands>),
 }
 
 impl LevinBody for TestBody {
@@ -67,7 +65,6 @@ impl LevinBody for TestBody {
                 builder.set_return_code(0);
                 builder.set_body(buf.freeze());
             }
-            TestBody::Bucket(bucket) => builder.set_already_built(bucket),
         }
 
         Ok(())
@@ -93,7 +90,7 @@ async fn codec_fragmented_messages() {
 
     for frag in fragments {
         // Send each fragment
-        write.send(TestBody::Bucket(frag).into()).await.unwrap();
+        write.send(frag.into()).await.unwrap();
     }
 
     // only one message should be received.
