@@ -6,7 +6,7 @@ use tokio::io::duplex;
 use tokio_util::codec::{FramedRead, FramedWrite};
 
 use levin_cuprate::{
-    message::make_fragmented_messages, Bucket, BucketBuilder, BucketError, LevinBody, LevinCommand,
+    message::make_fragmented_messages, BucketBuilder, BucketError, LevinBody, LevinCommand,
     LevinMessageCodec, MessageType, Protocol,
 };
 
