@@ -1,9 +1,12 @@
 //! Implementation of `trait Env` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::RwLock;
+use std::{
+    ops::Deref,
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
-use heed::{EnvFlags, EnvOpenOptions};
+use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
 
 use crate::{
     backend::heed::database::{HeedTableRo, HeedTableRw},
@@ -15,7 +18,7 @@ use crate::{
     table::Table,
 };
 
-//---------------------------------------------------------------------------------------------------- Env
+//---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
 pub struct ConcreteEnv {
     /// The actual database environment.
@@ -46,7 +49,7 @@ pub struct ConcreteEnv {
 
     /// The configuration we were opened with
     /// (and in current use).
-    config: Config,
+    pub(super) config: Config,
 }
 
 impl Drop for ConcreteEnv {
@@ -59,7 +62,7 @@ impl Drop for ConcreteEnv {
         // We need to do `mdb_env_set_flags(&env, MDB_NOSYNC|MDB_ASYNCMAP, 0)`
         // to clear the no sync and async flags such that the below `self.sync()`
         // _actually_ synchronously syncs.
-        if let Err(e) = self.sync() {
+        if let Err(e) = crate::Env::sync(self) {
             // TODO: log error?
         }
 
@@ -79,6 +82,9 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = true;
     const SYNCS_PER_TX: bool = false;
+    type EnvInner = heed::Env;
+    type TxRoInput = heed::Env;
+    type TxRwInput = heed::Env;
     type TxRo<'env> = heed::RoTxn<'env>;
     type TxRw<'env> = heed::RwTxn<'env>;
 
@@ -122,7 +128,7 @@ impl Env for ConcreteEnv {
         // - Use at least 126 reader threads
         // - Add 16 extra reader threads if <126
         //
-        // FIXME: This behavior is from `monerod`:
+        // TODO: This behavior is from `monerod`:
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         // I believe this could be adjusted percentage-wise so very high
         // thread PCs can benefit from something like (cuprated + anything that uses the DB in the future).
@@ -148,8 +154,24 @@ impl Env for ConcreteEnv {
         todo!()
     }
 
-    // called once in [`Env::open`]?
     fn create_tables(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
+        use crate::tables::{TestTable, TestTable2};
+
+        // let HeedTxRw { env, tx_rw } = tx_rw;
+
+        // These wonderful fully qualified types are
+        // brought to you by trait collisions.
+
+        // DatabaseOpenOptions::new(env)
+        //     .name(TestTable::NAME)
+        //     .types::<<TestTable as Table>::Key, <TestTable as Table>::Value>()
+        //     .create(tx_rw)?;
+
+        // DatabaseOpenOptions::new(env)
+        //     .name(TestTable::NAME)
+        //     .types::<<TestTable2 as Table>::Key, <TestTable2 as Table>::Value>()
+        //     .create(tx_rw)?;
+
         todo!()
     }
 
@@ -158,7 +180,7 @@ impl Env for ConcreteEnv {
     }
 
     fn sync(&self) -> Result<(), RuntimeError> {
-        todo!()
+        Ok(self.env.read().unwrap().force_sync()?)
     }
 
     fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
@@ -184,23 +206,39 @@ impl Env for ConcreteEnv {
         }
     }
 
+    #[inline]
     fn current_map_size(&self) -> usize {
         self.env.read().unwrap().info().map_size
     }
 
     #[inline]
-    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError> {
-        todo!()
+    fn env_inner(&self) -> impl Deref<Target = Self::EnvInner> {
+        self.env.read().unwrap()
     }
 
     #[inline]
-    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
-        todo!()
+    fn tx_ro_input(&self) -> impl Deref<Target = Self::TxRoInput> {
+        self.env.read().unwrap()
+    }
+
+    #[inline]
+    fn tx_rw_input(&self) -> impl Deref<Target = Self::TxRwInput> {
+        self.env.read().unwrap()
+    }
+
+    #[inline]
+    fn tx_ro(env: &Self::TxRoInput) -> Result<Self::TxRo<'_>, RuntimeError> {
+        Ok(env.read_txn()?)
+    }
+
+    #[inline]
+    fn tx_rw(env: &Self::TxRwInput) -> Result<Self::TxRw<'_>, RuntimeError> {
+        Ok(env.write_txn()?)
     }
 
     #[inline]
     fn open_db_ro<T: Table>(
-        &self,
+        env: &Self::EnvInner,
         tx_ro: &Self::TxRo<'_>,
     ) -> Result<impl DatabaseRo<T>, RuntimeError> {
         let tx: HeedTableRo<T> = todo!();
@@ -209,7 +247,7 @@ impl Env for ConcreteEnv {
 
     #[inline]
     fn open_db_rw<T: Table>(
-        &self,
+        env: &Self::EnvInner,
         tx_rw: &mut Self::TxRw<'_>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         let tx: HeedTableRw<T> = todo!();

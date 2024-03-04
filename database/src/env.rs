@@ -1,6 +1,8 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::ops::Deref;
+
 use crate::{
     config::Config,
     database::{DatabaseRo, DatabaseRw},
@@ -39,6 +41,22 @@ pub trait Env: Sized {
     const SYNCS_PER_TX: bool;
 
     //------------------------------------------------ Types
+    /// TODO
+    type EnvInner;
+
+    /// TODO
+    ///
+    /// TODO: document that this is needed to smooth out differences in:
+    /// - `heed` needing to return Guard + Tx
+    type TxRoInput;
+
+    /// TODO
+    ///
+    /// TODO: document that this is needed to smooth out differences in:
+    /// - `heed` needing to return Guard + Tx
+    /// - `redb` needing a `redb::Durability` each Tx
+    type TxRwInput;
+
     /// TODO
     type TxRo<'env>: TxRo<'env>;
 
@@ -125,14 +143,23 @@ pub trait Env: Sized {
     }
 
     /// TODO
-    /// # Errors
+    fn env_inner(&self) -> impl Deref<Target = Self::EnvInner>;
+
     /// TODO
-    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError>;
+    fn tx_ro_input(&self) -> impl Deref<Target = Self::TxRoInput>;
+
+    /// TODO
+    fn tx_rw_input(&self) -> impl Deref<Target = Self::TxRwInput>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError>;
+    fn tx_ro(input: &Self::TxRoInput) -> Result<Self::TxRo<'_>, RuntimeError>;
+
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn tx_rw(input: &Self::TxRwInput) -> Result<Self::TxRw<'_>, RuntimeError>;
 
     /// TODO
     ///
@@ -146,7 +173,7 @@ pub trait Env: Sized {
     /// # Errors
     /// TODO
     fn open_db_ro<T: Table>(
-        &self,
+        env: &Self::EnvInner,
         tx_ro: &Self::TxRo<'_>,
     ) -> Result<impl DatabaseRo<T>, RuntimeError>;
 
@@ -162,7 +189,7 @@ pub trait Env: Sized {
     /// # Errors
     /// TODO
     fn open_db_rw<T: Table>(
-        &self,
+        env: &Self::EnvInner,
         tx_rw: &mut Self::TxRw<'_>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError>;
 

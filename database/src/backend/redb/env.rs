@@ -1,7 +1,7 @@
 //! Implementation of `trait Env` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{path::Path, sync::Arc};
+use std::{ops::Deref, path::Path, sync::Arc};
 
 use crate::{
     backend::redb::types::{RedbTableRo, RedbTableRw},
@@ -42,9 +42,15 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = false;
     const SYNCS_PER_TX: bool = false;
-
+    type EnvInner = redb::Database;
+    type TxRoInput = redb::Database;
+    type TxRwInput = (redb::Database, redb::Durability);
     type TxRo<'env> = redb::ReadTransaction<'env>;
     type TxRw<'env> = redb::WriteTransaction<'env>;
+
+    fn env_inner(&self) -> impl Deref<Target = Self::EnvInner> {
+        &self.env
+    }
 
     #[cold]
     #[inline(never)] // called once.
@@ -66,7 +72,7 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once in [`Env::open`]?`
-    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
+    fn create_tables(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
         todo!()
     }
 
@@ -79,24 +85,39 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError> {
-        todo!()
+    fn env_inner(&self) -> impl Deref<Target = Self::EnvInner> {
+        &self.env
     }
 
     #[inline]
-    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
+    fn tx_ro_input(&self) -> impl Deref<Target = Self::TxRoInput> {
+        &self.env
+    }
+
+    #[inline]
+    fn tx_rw_input(&self) -> impl Deref<Target = Self::TxRwInput> {
+        &(self.env, self.durability)
+    }
+
+    #[inline]
+    fn tx_ro(env: &Self::TxRoInput) -> Result<Self::TxRo<'_>, RuntimeError> {
+        Ok(env.begin_read()?)
+    }
+
+    #[inline]
+    fn tx_rw(tuple: &Self::TxRwInput) -> Result<Self::TxRw<'_>, RuntimeError> {
         // `redb` has sync modes on the TX level, unlike heed,
         // which sets it at the Environment level.
         //
         // So, set the durability here before returning the TX.
-        let mut tx_rw = self.env.begin_write()?;
-        tx_rw.set_durability(self.durability);
+        let mut tx_rw = tuple.0.begin_write()?;
+        tx_rw.set_durability(tuple.1);
         Ok(tx_rw)
     }
 
     #[inline]
     fn open_db_ro<T: Table>(
-        &self,
+        env: &Self::EnvInner,
         tx_ro: &Self::TxRo<'_>,
     ) -> Result<impl DatabaseRo<T>, RuntimeError> {
         let tx: RedbTableRo<'_, T::Key, T::Value> = todo!();
@@ -105,7 +126,7 @@ impl Env for ConcreteEnv {
 
     #[inline]
     fn open_db_rw<T: Table>(
-        &self,
+        env: &Self::EnvInner,
         tx_rw: &mut Self::TxRw<'_>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         let tx: RedbTableRw<'_, '_, T::Key, T::Value> = todo!();
