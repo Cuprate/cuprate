@@ -9,7 +9,10 @@ use std::{
 use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
 
 use crate::{
-    backend::heed::database::{HeedTableRo, HeedTableRw},
+    backend::heed::{
+        database::{HeedTableRo, HeedTableRw},
+        types::HeedDb,
+    },
     config::{Config, SyncMode},
     database::{DatabaseRo, DatabaseRw},
     env::Env,
@@ -17,6 +20,11 @@ use crate::{
     resize::ResizeAlgorithm,
     table::Table,
 };
+
+//---------------------------------------------------------------------------------------------------- Consts
+/// TODO
+const PANIC_MSG_MISSING_TABLE: &str =
+    "cuprate_database::Env should uphold the invariant that all tables are already created";
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -154,23 +162,25 @@ impl Env for ConcreteEnv {
         todo!()
     }
 
-    fn create_tables(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
+    fn create_tables(
+        &self,
+        env: &Self::EnvInner,
+        tx_rw: &mut Self::TxRw<'_>,
+    ) -> Result<(), RuntimeError> {
         use crate::tables::{TestTable, TestTable2};
-
-        // let HeedTxRw { env, tx_rw } = tx_rw;
 
         // These wonderful fully qualified types are
         // brought to you by trait collisions.
 
-        // DatabaseOpenOptions::new(env)
-        //     .name(TestTable::NAME)
-        //     .types::<<TestTable as Table>::Key, <TestTable as Table>::Value>()
-        //     .create(tx_rw)?;
+        DatabaseOpenOptions::new(env)
+            .name(TestTable::NAME)
+            .types::<<TestTable as Table>::Key, <TestTable as Table>::Value>()
+            .create(tx_rw)?;
 
-        // DatabaseOpenOptions::new(env)
-        //     .name(TestTable::NAME)
-        //     .types::<<TestTable2 as Table>::Key, <TestTable2 as Table>::Value>()
-        //     .create(tx_rw)?;
+        DatabaseOpenOptions::new(env)
+            .name(TestTable::NAME)
+            .types::<<TestTable2 as Table>::Key, <TestTable2 as Table>::Value>()
+            .create(tx_rw)?;
 
         todo!()
     }
@@ -237,21 +247,35 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn open_db_ro<T: Table>(
+    fn open_db_ro<'tx, T: Table>(
         env: &Self::EnvInner,
-        tx_ro: &Self::TxRo<'_>,
-    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
-        let tx: HeedTableRo<T> = todo!();
-        Ok(tx)
+        tx_ro: &'tx Self::TxRo<'tx>,
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        #[allow(clippy::type_complexity)]
+        let result: Result<std::option::Option<HeedDb<T::Key, T::Value>>, heed::Error> =
+            env.open_database(tx_ro, Some(T::NAME));
+
+        match result {
+            Ok(Some(db)) => Ok(HeedTableRo { db, tx_ro }),
+            Err(e) => Err(e.into()),
+            Ok(None) => panic!("{PANIC_MSG_MISSING_TABLE}"),
+        }
     }
 
     #[inline]
-    fn open_db_rw<T: Table>(
+    fn open_db_rw<'tx, T: Table>(
         env: &Self::EnvInner,
-        tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
-        let tx: HeedTableRw<T> = todo!();
-        Ok(tx)
+        tx_rw: &'tx mut Self::TxRw<'tx>,
+    ) -> Result<impl DatabaseRw<'tx, T>, RuntimeError> {
+        #[allow(clippy::type_complexity)]
+        let result: Result<std::option::Option<HeedDb<T::Key, T::Value>>, heed::Error> =
+            env.open_database(tx_rw, Some(T::NAME));
+
+        match result {
+            Ok(Some(db)) => Ok(HeedTableRw { db, tx_rw }),
+            Err(e) => Err(e.into()),
+            Ok(None) => panic!("{PANIC_MSG_MISSING_TABLE}"),
+        }
     }
 }
 

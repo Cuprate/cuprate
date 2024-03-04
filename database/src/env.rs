@@ -21,6 +21,10 @@ use crate::{
 /// Objects that implement [`Env`] _should_ probably
 /// [`Env::sync`] in their drop implementations,
 /// although, no invariant relies on this (yet).
+///
+/// # Lifetimes
+/// TODO: Explain the very sequential lifetime pipeline:
+/// - `ConcreteEnv` -> `'env` -> `'tx` -> `impl DatabaseR{o,w}`
 pub trait Env: Sized {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
@@ -74,7 +78,11 @@ pub trait Env: Sized {
     /// Create all the tables in [`crate::tables`].
     /// # Errors
     /// TODO
-    fn create_tables(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError>;
+    fn create_tables(
+        &self,
+        env: &Self::EnvInner,
+        tx_rw: &mut Self::TxRw<'_>,
+    ) -> Result<(), RuntimeError>;
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
@@ -172,10 +180,10 @@ pub trait Env: Sized {
     ///
     /// # Errors
     /// TODO
-    fn open_db_ro<T: Table>(
+    fn open_db_ro<'tx, T: Table>(
         env: &Self::EnvInner,
-        tx_ro: &Self::TxRo<'_>,
-    ) -> Result<impl DatabaseRo<T>, RuntimeError>;
+        tx_ro: &'tx Self::TxRo<'tx>,
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
 
     /// TODO
     ///
@@ -188,10 +196,10 @@ pub trait Env: Sized {
     ///
     /// # Errors
     /// TODO
-    fn open_db_rw<T: Table>(
+    fn open_db_rw<'tx, T: Table>(
         env: &Self::EnvInner,
-        tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError>;
+        tx_rw: &'tx mut Self::TxRw<'tx>,
+    ) -> Result<impl DatabaseRw<'tx, T>, RuntimeError>;
 
     //------------------------------------------------ Provided
 }

@@ -7,7 +7,7 @@ use crate::{error::RuntimeError, table::Table};
 /// Database (key-value store) read abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRo<T: Table> {
+pub trait DatabaseRo<'env, T: Table> {
     /// TODO
     /// # Errors
     /// TODO
@@ -34,7 +34,7 @@ pub trait DatabaseRo<T: Table> {
 /// Database (key-value store) read/write abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
+pub trait DatabaseRw<'env, T: Table>: DatabaseRo<'env, T> {
     /// TODO
     /// # Errors
     /// TODO

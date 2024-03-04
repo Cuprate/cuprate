@@ -28,9 +28,9 @@ use crate::{
 /// Matches `redb::ReadOnlyTable`.
 pub(super) struct HeedTableRo<'env, T: Table> {
     /// An already opened database table.
-    db: HeedDb<T::Key, T::Value>,
+    pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
-    tx_ro: &'env heed::RoTxn<'env>,
+    pub(super) tx_ro: &'env heed::RoTxn<'env>,
 }
 
 /// An opened read/write database associated with a transaction.
@@ -38,13 +38,13 @@ pub(super) struct HeedTableRo<'env, T: Table> {
 /// Matches `redb::Table` (read & write).
 pub(super) struct HeedTableRw<'env, T: Table> {
     /// TODO
-    db: HeedDb<T::Key, T::Value>,
+    pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
-    tx_rw: &'env mut heed::RwTxn<'env>,
+    pub(super) tx_rw: &'env mut heed::RwTxn<'env>,
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
+impl<T: Table> DatabaseRo<'_, T> for HeedTableRo<'_, T> {
     fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
         todo!()
     }
@@ -63,7 +63,7 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, T> {
+impl<T: Table> DatabaseRo<'_, T> for HeedTableRw<'_, T> {
     fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
         todo!()
     }
@@ -81,7 +81,7 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, T> {
     }
 }
 
-impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, T> {
+impl<T: Table> DatabaseRw<'_, T> for HeedTableRw<'_, T> {
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         todo!()
     }
