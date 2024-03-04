@@ -1,51 +1,74 @@
 //! General constants used throughout `cuprate-database`.
 
 //---------------------------------------------------------------------------------------------------- Import
+use cfg_if::cfg_if;
 
-//---------------------------------------------------------------------------------------------------- Constants
-/// The directory that contains database-related files.
+//---------------------------------------------------------------------------------------------------- Error Messages
+/// Corrupt database error message.
 ///
-/// This is a sub-directory within the Cuprate folder, e.g:
-/// ```txt
-/// ~/.local/share/cuprate/
-/// ├─ database/ # <-
-///    ├─ data.mdb
-///    ├─ lock.mdb
-/// ```
-pub const CUPRATE_DATABASE_DIR: &str = "database";
-
-/// The actual database file name.
+/// The error message shown to end-users in panic
+/// messages if we think the database is corrupted.
 ///
-/// This is a _file_ within [`CUPRATE_DATABASE_DIR`], e.g:
-/// ```txt
-/// ~/.local/share/cuprate/
-/// ├─ database/
-///    ├─ data.mdb # <-
-///    ├─ lock.mdb
-/// ```
-pub const CUPRATE_DATABASE_FILE: &str = "data";
+/// This is meant to be user-friendly.
+pub const DATABASE_CORRUPT_MSG: &str = r"Cuprate has encountered a fatal error. The database may be corrupted.
 
-cfg_if::cfg_if! {
-    // If both backends are enabled, fallback to `heed`.
-    // This is useful when using `--all-features`.
-    if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
-        /// Static string of the `crate` being used as the database backend.
-        pub const DATABASE_BACKEND: &str = "sanakirja";
-    } else {
-        /// Static string of the `crate` being used as the database backend.
-        pub const DATABASE_BACKEND: &str = "heed";
+TODO: instructions on:
+1. What to do
+2. How to fix (re-sync, recover, etc)
+3. General advice for preventing corruption
+4. etc";
+
+//---------------------------------------------------------------------------------------------------- Misc
+/// Static string of the `crate` being used as the database backend.
+///
+/// | Backend | Value |
+/// |---------|-------|
+/// | `heed`  | "heed"
+/// | `redb`  | "redb"
+pub const DATABASE_BACKEND: &str = {
+    cfg_if! {
+        if #[cfg(all(feature = "redb", not(feature = "heed")))] {
+            "redb"
+        } else {
+            "heed"
+        }
     }
-}
+};
+
+/// Cuprate's database filename.
+///
+/// Used in [`Config::db_file`](crate::config::Config::db_file).
+///
+/// | Backend | Value |
+/// |---------|-------|
+/// | `heed`  | "data.mdb"
+/// | `redb`  | "data.redb"
+pub const DATABASE_DATA_FILENAME: &str = {
+    cfg_if! {
+        if #[cfg(all(feature = "redb", not(feature = "heed")))] {
+            "data.redb"
+        } else {
+            "data.mdb"
+        }
+    }
+};
+
+/// Cuprate's database lock filename.
+///
+/// | Backend | Value |
+/// |---------|-------|
+/// | `heed`  | Some("lock.mdb")
+/// | `redb`  | None (redb doesn't use a file lock)
+pub const DATABASE_LOCK_FILENAME: Option<&str> = {
+    cfg_if! {
+        if #[cfg(all(feature = "redb", not(feature = "heed")))] {
+            None
+        } else {
+            Some("lock.mdb")
+        }
+    }
+};
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    /// Sanity check that our PATHs aren't empty... (will cause disaster).
-    fn non_empty_path() {
-        assert!(!CUPRATE_DATABASE_DIR.is_empty());
-        assert!(!CUPRATE_DATABASE_FILE.is_empty());
-    }
-}
+mod test {}

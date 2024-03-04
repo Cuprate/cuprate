@@ -43,6 +43,9 @@ pub mod atomic;
 #[cfg(feature = "constants")]
 pub mod constants;
 
+#[cfg(feature = "fs")]
+pub mod fs;
+
 pub mod network;
 
 #[cfg(feature = "num")]

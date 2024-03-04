@@ -1,80 +1,83 @@
 //! Database key abstraction; `trait Key`.
 
 //---------------------------------------------------------------------------------------------------- Import
-#[allow(unused_imports)] // docs
-use crate::table::Table;
+use std::cmp::Ordering;
 
-use crate::pod::Pod;
+use bytemuck::Pod;
+
+use crate::storable::{self, Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
-/// Database [`Table`] key metadata.
+/// Database [`Table`](crate::table::Table) key metadata.
 ///
 /// Purely compile time information for database table keys, supporting duplicate keys.
-pub trait Key {
+pub trait Key: Storable + Sized {
     /// Does this [`Key`] require multiple keys to reach a value?
     ///
-    /// If [`Key::DUPLICATE`] is `true`, [`Key::Secondary`] will contain
-    /// the "subkey", or secondary key needed to access the actual value.
-    ///
-    /// If [`Key::DUPLICATE`] is `false`, [`Key::Secondary`]
-    /// will just be the same type as [`Key::Primary`].
+    /// # Invariant
+    /// - If [`Key::DUPLICATE`] is `true`, [`Key::primary_secondary`] MUST be re-implemented.
+    /// - If [`Key::DUPLICATE`] is `true`, [`Key::new_with_max_secondary`] MUST be re-implemented.
     const DUPLICATE: bool;
 
-    // TODO: fix this sanakirja bound.
-    cfg_if::cfg_if! {
-        if #[cfg(all(feature = "sanakirja", not(feature = "heed")))] {
-            /// The primary key type.
-            type Primary: Pod + sanakirja::Storable;
+    /// Does this [`Key`] have a custom comparison function?
+    ///
+    /// # Invariant
+    /// If [`Key::CUSTOM_COMPARE`] is `true`, [`Key::compare`] MUST be re-implemented.
+    const CUSTOM_COMPARE: bool;
 
-            /// The secondary key type.
-            ///
-            /// Only needs to be different than [`Key::Primary`]
-            /// if [`Key::DUPLICATE`] is `true`.
-            type Secondary: Pod + sanakirja::Storable;
-        } else {
-            /// The primary key type.
-            type Primary: Pod;
+    /// The primary key type.
+    type Primary: Storable;
 
-            /// The secondary key type.
-            ///
-            /// Only needs to be different than [`Key::Primary`]
-            /// if [`Key::DUPLICATE`] is `true`.
-            type Secondary: Pod;
-        }
+    /// Acquire [`Self::Primary`] and the secondary key.
+    ///
+    /// # TODO: doc test
+    fn primary_secondary(self) -> (Self::Primary, u64) {
+        unreachable!()
     }
 
-    /// Acquire [`Key::Primary`].
-    fn primary(self) -> Self::Primary;
-
-    /// Acquire [`Self::Primary`] & [`Self::Secondary`].
+    /// Compare 2 [`Key`]'s against each other.
     ///
-    /// This only needs to be implemented on types that are [`Self::DUPLICATE`].
+    /// By default, this does a straight _byte_ comparison,
+    /// not a comparison of the key's value.
     ///
-    /// It is `unreachable!()` on non-duplicate key tables.
-    fn primary_secondary(self) -> (Self::Primary, Self::Secondary);
-}
+    /// ```rust
+    /// # use cuprate_database::*;
+    /// assert_eq!(
+    ///     <u64 as Key>::compare([0].as_slice(), [1].as_slice()),
+    ///     std::cmp::Ordering::Less,
+    /// );
+    /// assert_eq!(
+    ///     <u64 as Key>::compare([1].as_slice(), [1].as_slice()),
+    ///     std::cmp::Ordering::Equal,
+    /// );
+    /// assert_eq!(
+    ///     <u64 as Key>::compare([2].as_slice(), [1].as_slice()),
+    ///     std::cmp::Ordering::Greater,
+    /// );
+    /// ```
+    fn compare(left: &[u8], right: &[u8]) -> Ordering {
+        left.cmp(right)
+    }
 
-/// Duplicate key container.
-///
-/// This is a generic container to use alongside [`Key`] to support
-/// tables that require more than 1 key to access the value.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
-pub struct DupKey<P, S> {
-    /// Primary key type.
-    pub primary: P,
-    /// Secondary key type.
-    pub secondary: S,
+    /// Create a new [`Key`] from the [`Key::Primary`] type,
+    /// with the secondary key type set to the maximum value.
+    ///
+    /// # Invariant
+    /// Secondary key must be the max value of the type.
+    ///
+    /// # TODO: doc test
+    fn new_with_max_secondary(primary: Self::Primary) -> Self {
+        unreachable!()
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
+/// TODO: remove after we finalize tables.
+///
 /// Implement `Key` on most primitive types.
 ///
-/// `Key::DUPLICATE` is always `false`.
+/// - `Key::DUPLICATE` is always `false`.
+/// - `Key::CUSTOM_COMPARE` is always `false`.
 macro_rules! impl_key {
     (
         $(
@@ -84,28 +87,13 @@ macro_rules! impl_key {
         $(
             impl Key for $t {
                 const DUPLICATE: bool = false;
+                const CUSTOM_COMPARE: bool = false;
+
                 type Primary = $t;
-                // This 0 variant enum is unconstructable,
-                // and "has the same role as the ! “never” type":
-                // <https://doc.rust-lang.org/std/convert/enum.Infallible.html#future-compatibility>.
-                //
-                // FIXME: Use the `!` type when stable.
-                type Secondary = std::convert::Infallible;
-
-                #[inline(always)]
-                fn primary(self) -> Self::Primary {
-                    self
-                }
-
-                #[cold] #[inline(never)]
-                fn primary_secondary(self) -> (Self::Primary, Self::Secondary) {
-                    unreachable!();
-                }
             }
         )*
     };
 }
-
 // Implement `Key` for primitives.
 impl_key! {
     u8,
@@ -118,28 +106,11 @@ impl_key! {
     i64,
 }
 
-// Implement `Key` for any [`DupKey`] using [`Copy`] types.
-impl<P, S> Key for DupKey<P, S>
-where
-    // TODO: fix sanakirja serde bound.
-    P: Pod + Copy,
-    S: Pod + Copy,
-{
-    const DUPLICATE: bool = true;
+impl<const N: usize, T: Key + Pod> Key for [T; N] {
+    const DUPLICATE: bool = false;
+    const CUSTOM_COMPARE: bool = false;
 
-    type Primary = P;
-
-    type Secondary = S;
-
-    #[inline]
-    fn primary(self) -> Self::Primary {
-        self.primary
-    }
-
-    #[inline]
-    fn primary_secondary(self) -> (Self::Primary, Self::Secondary) {
-        (self.primary, self.secondary)
-    }
+    type Primary = [T; N];
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -1,28 +1,36 @@
 //! Database abstraction and utilities.
 //!
+//! This documentation is mostly for practical usage of `cuprate_database`.
+//!
+//! For a high-level overview,
+//! see [`database/README.md`](https://github.com/Cuprate/cuprate/blob/main/database/README.md).
+//!
+//! # Purpose
 //! This crate does 3 things:
-//! 1. Abstracts various databases with the [`Env`], [`Database`], [`Table`], [`Key`], [`RoTx`], and [`RwTx`] traits
-//! 2. Implements various `Monero` related [functions](ops) & [`tables`]
+//! 1. Abstracts various database backends with traits
+//! 2. Implements various `Monero` related [functions](ops) & [tables] & [types]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
 //! # Terminology
 //! To be more clear on some terms used in this crate:
 //!
-//! | Term       | Meaning                              |
-//! |------------|--------------------------------------|
-//! | `Env`      | The 1 database environment, the "whole" thing
-//! | `Database` | A `key/value` store
-//! | `Table`    | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
-//! | `RoTx`     | Read only transaction
-//! | `RwTx`     | Read/write transaction
+//! | Term          | Meaning                              |
+//! |---------------|--------------------------------------|
+//! | `Env`         | The 1 database environment, the "whole" thing
+//! | `DatabaseRo`  | A read-only `key/value` store
+//! | `DatabaseRw`  | A readable/writable `key/value` store
+//! | `Table`       | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
+//! | `TxRo`        | Read only transaction
+//! | `TxRw`        | Read/write transaction
+//! | `Storable`    | A data that type can be stored in the database
 //!
 //! The dataflow is `Env` -> `Tx` -> `Database`
 //!
 //! Which reads as:
 //! 1. You have a database `Environment`
-//! 2. You open up a `Transaction`
-//! 2. You get a particular `Database` from that `Environment`
-//! 3. You can now read/write data from/to that `Database`
+//! 1. You open up a `Transaction`
+//! 1. You get a particular `Database` from that `Environment`
+//! 1. You can now read/write data from/to that `Database`
 //!
 //! # `ConcreteEnv`
 //! This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic,
@@ -39,34 +47,84 @@
 //! For example:
 //! - [`std::mem::size_of::<ConcreteEnv>`]
 //! - [`std::mem::align_of::<ConcreteEnv>`]
-//! - [`Drop::<ConcreteEnv>::drop`]
 //!
 //! Things like these functions are affected by the backend and inner data,
 //! and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteEnv`.
 //!
-//! The only thing about `ConcreteEnv` that should
-//! be relied upon is that it implements [`Env`].
+//! `ConcreteEnv` invariants you can rely on:
+//! - It implements [`Env`]
+//! - Upon [`Drop::drop`], all database data will sync to disk
+//!
+//! Note that `ConcreteEnv` itself is not a clonable type,
+//! it should be wrapped in [`std::sync::Arc`].
 //!
 //! TODO: we could also expose `ConcreteDatabase` if we're
 //! going to be storing any databases in structs, to lessen
 //! the generic `<D: Database>` pain.
+//!
+//! TODO: we could replace `ConcreteEnv` with `fn Env::open() -> impl Env`/
+//! and use `<E: Env>` everywhere it is stored instead. This would allow
+//! generic-backed dynamic runtime selection of the database backend, i.e.
+//! the user can select which database backend they use.
 //!
 //! # Feature flags
 //! The `service` module requires the `service` feature to be enabled.
 //! See the module for more documentation.
 //!
 //! Different database backends are enabled by the feature flags:
-//! - `heed`
-//! - `sanakirja`
+//! - `heed` (LMDB)
+//! - `redb`
 //!
 //! The default is `heed`.
+//!
+//! # Invariants when not using `service`
+//! `cuprate_database` can be used without the `service` feature enabled but
+//! there are some things that must be kept in mind when doing so:
+//!
+//! TODO: make pretty. these will need to be updated
+//! as things change and as more backends are added.
+//!
+//! 1. Memory map resizing (must resize as needed)
+//! 1. Must not exceed `Config`'s maximum reader count
+//! 1. Avoid many nested transactions
+//! 1. `heed::MdbError::BadValSize`
+//! 1. `heed::Error::InvalidDatabaseTyping`
+//! 1. `heed::Error::BadOpenOptions`
+//! 1. Encoding/decoding into `[u8]`
+//!
+//! # Example
+//! Simple usage of this crate.
+//!
+//! ```rust
+//! use cuprate_database::{
+//!     config::Config,
+//!     ConcreteEnv,
+//!     Env, Key, TxRo, TxRw,
+//!     service::{ReadRequest, WriteRequest, Response},
+//! };
+//!
+//! // Create a configuration for the database environment.
+//! let db_dir = tempfile::tempdir().unwrap();
+//! let config = Config::new(Some(db_dir.path().to_path_buf()));
+//!
+//! // Initialize the database thread-pool.
+//!
+//! // TODO:
+//! // 1. let (read_handle, write_handle) = cuprate_database::service::init(config).unwrap();
+//! // 2. Send write/read requests
+//! // 3. Use some other `Env` functions
+//! // 4. Shutdown
+//! ```
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
 // Our code, and code generated (e.g macros) cannot overrule these.
 #![forbid(
+	// `unsafe` is allowed but it _must_ be
+	// commented with `SAFETY: reason`.
+	clippy::undocumented_unsafe_blocks,
+
 	// Never.
-	unsafe_code,
 	unused_unsafe,
 	redundant_semicolons,
 	unused_allocation,
@@ -115,7 +173,7 @@
     unused_comparisons,
     nonstandard_style
 )]
-#![allow(unreachable_code, unused_variables, dead_code)] // TODO: remove
+#![allow(unreachable_code, unused_variables, dead_code, unused_imports)] // TODO: remove
 #![allow(
 	// FIXME: this lint affects crates outside of
 	// `database/` for some reason, allow for now.
@@ -215,6 +273,7 @@
 	clippy::module_name_repetitions,
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
+	clippy::option_if_let_else,
 )]
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
@@ -229,17 +288,20 @@ compile_error!("Cuprate is only compatible with 64-bit CPUs");
 //---------------------------------------------------------------------------------------------------- Public API
 // Import private modules, export public types.
 //
-// Documentation for each module is
-// located in the respective file.
+// Documentation for each module is located in the respective file.
 
 mod backend;
 pub use backend::ConcreteEnv;
 
+pub mod config;
+
 mod constants;
-pub use constants::{CUPRATE_DATABASE_DIR, CUPRATE_DATABASE_FILE, DATABASE_BACKEND};
+pub use constants::{
+    DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_DATA_FILENAME, DATABASE_LOCK_FILENAME,
+};
 
 mod database;
-pub use database::Database;
+pub use database::{DatabaseRo, DatabaseRw};
 
 mod env;
 pub use env::Env;
@@ -249,23 +311,27 @@ pub use error::{InitError, RuntimeError};
 
 mod free;
 
+pub mod resize;
+
 mod key;
-pub use key::{DupKey, Key};
+pub use key::Key;
 
 mod macros;
 
-pub mod ops;
+mod storable;
+pub use storable::Storable;
 
-mod pod;
-pub use pod::Pod;
+pub mod ops;
 
 mod table;
 pub use table::Table;
 
 pub mod tables;
 
+pub mod types;
+
 mod transaction;
-pub use transaction::{RoTx, RwTx};
+pub use transaction::{TxRo, TxRw};
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]

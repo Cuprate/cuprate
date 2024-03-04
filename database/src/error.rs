@@ -2,61 +2,90 @@
 //! TODO: `InitError/RuntimeError` are maybe bad names.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, fmt::Debug};
+use std::fmt::Debug;
 
-use crate::constants::DATABASE_BACKEND;
+//---------------------------------------------------------------------------------------------------- Types
+/// Alias for a thread-safe boxed error.
+type BoxError = Box<dyn std::error::Error + Send + Sync + 'static>;
 
 //---------------------------------------------------------------------------------------------------- InitError
-/// Database errors that occur during initialization.
+/// Errors that occur during ([`Env::open`](crate::env::Env::open)).
 ///
-/// `BackendError` is an error specifically from the
-/// database backend being used. TODO: this may not
-/// be needed if we can convert all error types into
-/// "generic" database errors.
+/// # Handling
+/// As this is a database initialization error, the correct
+/// way to handle any of these occurring is probably just to
+/// exit the program.
+///
+/// There is not much we as Cuprate can do
+/// to recover from any of these errors.
 #[derive(thiserror::Error, Debug)]
-pub enum InitError<BackendError: Debug> {
-    /// TODO
-    #[error("database PATH is inaccessible: {0}")]
-    Path(std::io::Error),
+pub enum InitError {
+    /// The given `Path/File` existed and was accessible,
+    /// but was not a valid database file.
+    #[error("database file exists but is not valid")]
+    Invalid,
 
-    /// TODO
-    #[error("{DATABASE_BACKEND} error: {0}")]
-    Backend(BackendError),
+    /// The given `Path/File` existed, was a valid
+    /// database, but the version is incorrect.
+    #[error("database file is valid, but version is incorrect")]
+    InvalidVersion,
 
-    /// TODO
+    /// I/O error.
+    #[error("database I/O error: {0}")]
+    Io(#[from] std::io::Error),
+
+    /// The given `Path/File` existed,
+    /// was a valid database, but it is corrupt.
+    #[error("database file is corrupt")]
+    Corrupt,
+
+    /// The database is currently in the process
+    /// of shutting down and cannot respond.
     ///
+    /// TODO: This might happen if we try to open
+    /// while we are shutting down, `unreachable!()`?
+    #[error("database is shutting down")]
+    ShuttingDown,
+
     /// An unknown error occurred.
+    ///
+    /// This is for errors that cannot be recovered from,
+    /// but we'd still like to panic gracefully.
     #[error("unknown error: {0}")]
-    Unknown(Cow<'static, str>),
+    Unknown(BoxError),
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
-/// Database errors that occur _after_ successful initialization.
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
-#[derive(thiserror::Error, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+/// Errors that occur _after_ successful ([`Env::open`](crate::env::Env::open)).
+///
+/// There are no errors for:
+/// 1. Missing tables
+/// 2. (De)serialization
+/// 3. Shutdown errors
+///
+/// as `cuprate_database` upholds the invariant that:
+///
+/// 1. All tables exist
+/// 2. (De)serialization never fails
+/// 3. The database (thread-pool) only shuts down when all channels are dropped
+#[derive(thiserror::Error, Debug)]
 pub enum RuntimeError {
-    // TODO: replace string with actual error type.
-    ///
-    /// An error occurred when attempting to
-    /// serialize the key data into bytes.
-    #[error("serialize error: {0}")]
-    Serialize(String),
+    /// The given key already existed in the database.
+    #[error("key already existed")]
+    KeyExists,
 
-    // TODO: replace string with actual error type.
-    ///
-    /// An error occurred when attempting to
-    /// deserialize the response value from
-    /// the database.
-    #[error("deserialize error: {0}")]
-    Deserialize(String),
+    /// The given key did not exist in the database.
+    #[error("key/value pair was not found")]
+    KeyNotFound,
 
-    /// TODO
+    /// The database memory map is full and needs a resize.
     ///
-    /// An unknown error occurred.
-    #[error("unknown error: {0}")]
-    Unknown(Cow<'static, str>),
+    /// # Invariant
+    /// This error can only occur if [`Env::MANUAL_RESIZE`](crate::Env::MANUAL_RESIZE) is `true`.
+    #[error("database memory map must be resized")]
+    ResizeNeeded,
+
+    /// A [`std::io::Error`].
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
 }

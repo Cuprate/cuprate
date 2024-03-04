@@ -11,8 +11,12 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use crate::{
     error::RuntimeError,
     service::{request::WriteRequest, response::Response},
-    ConcreteEnv,
+    ConcreteEnv, Env,
 };
+
+//---------------------------------------------------------------------------------------------------- Constants
+/// Name of the writer thread.
+const WRITER_THREAD_NAME: &str = "cuprate_helper::service::read::DatabaseWriter";
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
@@ -77,21 +81,28 @@ pub(super) struct DatabaseWriter {
     db: Arc<ConcreteEnv>,
 }
 
+impl Drop for DatabaseWriter {
+    fn drop(&mut self) {
+        // TODO: log the writer thread has exited?
+    }
+}
+
 impl DatabaseWriter {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &Arc<ConcreteEnv>) -> DatabaseWriteHandle {
+    pub(super) fn init(db: Arc<ConcreteEnv>) -> DatabaseWriteHandle {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
         // Spawn the writer.
-        let db = Arc::clone(db);
-        std::thread::spawn(move || {
-            let this = Self { receiver, db };
-
-            Self::main(this);
-        });
+        std::thread::Builder::new()
+            .name(WRITER_THREAD_NAME.into())
+            .spawn(move || {
+                let this = Self { receiver, db };
+                Self::main(this);
+            })
+            .unwrap();
 
         // Return a handle to the pool.
         DatabaseWriteHandle { sender }
@@ -103,17 +114,21 @@ impl DatabaseWriter {
     #[cold]
     #[inline(never)] // Only called once.
     fn main(mut self) {
+        // 1. Hang on request channel
+        // 2. Map request to some database function
+        // 3. Execute that function, get the result
+        // 4. Return the result via channel
         loop {
-            // 1. Hang on request channel
-            // 2. Map request to some database function
-            // 3. Execute that function, get the result
-            // 4. Return the result via channel
-            let (request, response_send) = match self.receiver.recv() {
-                Ok(tuple) => tuple,
-                Err(e) => {
-                    // TODO: what to do with this channel error?
-                    todo!();
-                }
+            let Ok((request, response_send)) = self.receiver.recv() else {
+                // If this receive errors, it means that the channel is empty
+                // and disconnected, meaning the other side (all senders) have
+                // been dropped. This means "shutdown", and we return here to
+                // exit the thread.
+                //
+                // Since the channel is empty, it means we've also processed
+                // all requests. Since it is disconnected, it means future
+                // ones cannot come in.
+                return;
             };
 
             // Map [`Request`]'s to specific database functions.
@@ -121,37 +136,52 @@ impl DatabaseWriter {
                 WriteRequest::Example1 => self.example_handler_1(response_send),
                 WriteRequest::Example2(_x) => self.example_handler_2(response_send),
                 WriteRequest::Example3(_x) => self.example_handler_3(response_send),
-                WriteRequest::Shutdown => {
-                    /* TODO: run shutdown code */
-                    Self::shutdown(self);
-
-                    // Return, exiting the thread.
-                    return;
-                }
             }
         }
     }
 
+    /// Resize the database's memory map.
+    fn resize_map(&self) {
+        // The compiler most likely optimizes out this
+        // entire function call if this returns here.
+        if !ConcreteEnv::MANUAL_RESIZE {
+            return;
+        }
+
+        // INVARIANT:
+        // [`Env`]'s that are `MANUAL_RESIZE` are expected to implement
+        // their internals such that we have exclusive access when calling
+        // this function. We do not handle the exclusion part, `resize_map()`
+        // itself does. The `heed` backend does this with `RwLock`.
+        //
+        // We need mutual exclusion due to:
+        // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
+        self.db.resize_map(None);
+        // TODO:
+        // We could pass in custom resizes to account for
+        // batch transactions, i.e., we're about to add ~5GB
+        // of data, add that much instead of the default 1GB.
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
+    }
+
     /// TODO
+    #[inline]
     fn example_handler_1(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
+    #[inline]
     fn example_handler_2(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
+    #[inline]
     fn example_handler_3(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
-    }
-
-    /// TODO
-    fn shutdown(self) {
-        todo!()
     }
 }

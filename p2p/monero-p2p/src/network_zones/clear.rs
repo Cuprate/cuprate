@@ -26,7 +26,7 @@ impl NetZoneAddress for SocketAddr {
 }
 
 pub struct ClearNetServerCfg {
-    addr: SocketAddr,
+    pub addr: SocketAddr,
 }
 
 #[derive(Clone, Copy)]

@@ -2,6 +2,8 @@
 name = "cuprate-test-utils"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
 
 [dependencies]
 monero-wire = {path = "../net/monero-wire"}
@@ -12,6 +14,7 @@ async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 reqwest = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
+tempfile = { workspace = true }
 
 borsh = { workspace = true, features = ["derive"]}
 

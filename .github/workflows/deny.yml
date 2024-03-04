@@ -1,6 +1,6 @@
-# This runs `cargo audit` on all dependencies (only if Cargo deps changed)
+# This runs `cargo deny check` on all dependencies (only if Cargo deps changed)
 
-name: Audit
+name: Deny
 
 on:
   push:
@@ -23,11 +23,11 @@ jobs:
         path: |
           ~/.cargo
           target
-        key: audit
+        key: deny
     - uses: actions/checkout@v4
       with:
         submodules: recursive
     - name: Install dependencies
-      run: cargo install cargo-audit --locked
-    - name: Audit
-      run: cargo audit
+      run: cargo install cargo-deny --locked
+    - name: Deny
+      run: cargo deny check

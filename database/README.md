@@ -5,17 +5,23 @@ Cuprate's database implementation.
 1. [Documentation](#documentation)
 1. [File Structure](#file-structure)
     - [`src/`](#src)
+    - [`src/ops`](#src-ops)
     - [`src/service/`](#src-service)
     - [`src/backend/`](#src-backend)
 1. [Backends](#backends)
     - [`heed`](#heed)
+    - [`redb`](#redb)
     - [`sanakirja`](#sanakirja)
+    - [`MDBX`](#mdbx)
 1. [Layers](#layers)
     - [Database](#database)
     - [Trait](#trait)
-    - [ConcreteDatabase](#concretedatabase)
+    - [ConcreteEnv](#concreteenv)
     - [Thread-pool](#thread-pool)
     - [Service](#service)
+1. [Resizing](#resizing)
+1. [Flushing](#flushing)
+1. [(De)serialization](#deserialization)
 
 ---
 
@@ -49,7 +55,7 @@ The code within `src/` is also littered with some `grep`-able comments containin
 | `FIXME`     | This code works but isn't ideal
 | `HACK`      | This code is a brittle workaround
 | `PERF`      | This code is weird for performance reasons
-| `TODO`      | This has to be implemented
+| `TODO`      | This must be implemented; There should be 0 of these in production code
 | `SOMEDAY`   | This should be implemented... someday
 
 # File Structure
@@ -60,28 +66,47 @@ Note that `lib.rs/mod.rs` files are purely for re-exporting/visibility/lints, an
 ## `src/`
 The top-level `src/` files.
 
-| File/Folder      | Purpose |
+| File             | Purpose |
 |------------------|---------|
+| `config.rs`      | Database `Env` configuration
 | `constants.rs`   | General constants used throughout `cuprate-database`
-| `database.rs`    | Abstracted database; `trait Database`
+| `database.rs`    | Abstracted database; `trait DatabaseR{o,w}`
 | `env.rs`         | Abstracted database environment; `trait Env`
 | `error.rs`       | Database error types
 | `free.rs`        | General free functions (related to the database)
 | `key.rs`         | Abstracted database keys; `trait Key`
-| `pod.rs`         | Data (de)serialization; `trait Pod`
+| `resize.rs`      | Database resizing algorithms
+| `storable.rs`    | Data (de)serialization; `trait Storable`
 | `table.rs`       | Database table abstraction; `trait Table`
 | `tables.rs`      | All the table definitions used by `cuprate-database`
-| `transaction.rs` | Database transaction abstraction; `trait RoTx`, `trait RwTx`
+| `transaction.rs` | Database transaction abstraction; `trait TxR{o,w}`
+| `types.rs`       | Database table schema types
+
+## `src/ops/`
+This folder contains the `cupate_database::ops` module.
+
+TODO: more detailed descriptions.
+
+| File            | Purpose |
+|-----------------|---------|
+| `alt_block.rs`  | Alternative blocks
+| `block.rs`      | Blocks
+| `blockchain.rs` | Blockchain-related
+| `output.rs`     | Outputs
+| `property.rs`   | Properties
+| `spent_key.rs`  | Spent keys
+| `tx.rs`         | Transactions
 
 ## `src/service/`
 This folder contains the `cupate_database::service` module.
 
-| File/Folder    | Purpose |
+| File           | Purpose |
 |----------------|---------|
 | `free.rs`      | General free functions used (related to `cuprate_database::service`)
 | `read.rs`      | Read thread-pool definitions and logic
 | `request.rs`   | Read/write `Request`s to the database
 | `response.rs`  | Read/write `Response`'s from the database
+| `tests.rs`     | Thread-pool tests and test helper functions
 | `write.rs`     | Write thread-pool definitions and logic
 
 ## `src/backend/`
@@ -89,25 +114,21 @@ This folder contains the actual database crates used as the backend for `cuprate
 
 Each backend has its own folder.
 
-| File/Folder  | Purpose |
+| Folder       | Purpose |
 |--------------|---------|
 | `heed/`      | Backend using using forked [`heed`](https://github.com/Cuprate/heed)
 | `sanakirja/` | Backend using [`sanakirja`](https://docs.rs/sanakirja)
 
-### `src/backend/heed/`
-| File/Folder      | Purpose |
-|------------------|---------|
-| `database.rs`    | Implementation of `trait Database`
-| `env.rs`         | Implementation of `trait Env`
-| `serde.rs`       | Data (de)serialization implementations
-| `transaction.rs` | Implementation of `trait RoTx/RwTx`
+All backends follow the same file structure:
 
-### `src/backend/sanakirja/`
-| File/Folder      | Purpose |
+| File             | Purpose |
 |------------------|---------|
-| `database.rs`    | Implementation of `trait Database`
+| `database.rs`    | Implementation of `trait DatabaseR{o,w}`
 | `env.rs`         | Implementation of `trait Env`
-| `transaction.rs` | Implementation of `trait RoTx/RwTx`
+| `error.rs`       | Implementation of backend's errors to `cuprate_database`'s error types
+| `transaction.rs` | Implementation of `trait TxR{o,w}`
+| `types.rs`       | Type aliases for long backend-specific types
+| `storable.rs`    | Compatibility layer between `cuprate_database::Storable` and backend-specific (de)serialization
 
 # Backends
 `cuprate-database`'s `trait`s abstract over various actual databases.
@@ -115,23 +136,66 @@ Each backend has its own folder.
 Each database's implementation is located in its respective file in `src/backend/${DATABASE_NAME}.rs`.
 
 ## `heed`
-The default database used is a modified fork of [`heed`](https://github.com/meilisearch/heed), located at [`Cuprate/heed`](https://github.com/Cuprate/heed).
+The default database used is [`heed`](https://github.com/meilisearch/heed) (LMDB).
 
-To generate documentation of the fork for local use:
-```bash
-git clone --recursive https://github.com/Cuprate/heed
-cargo doc
-```
 `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
+`heed`'s filenames inside Cuprate's database folder (`~/.local/share/cuprate/database/`) are:
+
+| Filename   | Purpose |
+|------------|---------|
+| `data.mdb` | Main data file
+| `lock.mdb` | Database lock file
+
+TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
+
+TODO: document DB on remote filesystem: https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L129.
+
+## `redb`
+The 2nd database backend is the 100% Rust [`redb`](https://github.com/cberner/redb).
+
+The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used.
+
+`redb`'s filenames inside Cuprate's database folder (`~/.local/share/cuprate/database/`) are:
+
+| Filename    | Purpose |
+|-------------|---------|
+| `data.redb` | Main data file
+
+TODO: document DB on remote filesystem (does redb allow this?)
+
 ## `sanakirja`
-TODO
+[`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.
+
+The default maximum value size is [1012 bytes](https://docs.rs/sanakirja/1.4.1/sanakirja/trait.Storable.html) which was too small for our requirements. Using [`sanakirja::Slice`](https://docs.rs/sanakirja/1.4.1/sanakirja/union.Slice.html) and [sanakirja::UnsizedStorage](https://docs.rs/sanakirja/1.4.1/sanakirja/trait.UnsizedStorable.html) was attempted, but there were bugs found when inserting a value in-between `512..=4096` bytes.
+
+As such, it is not implemented.
+
+## `MDBX`
+[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions, this makes it a bit trickier to implement dup tables. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
+
+As such, it is not implemented (yet).
 
 # Layers
 TODO: update with accurate information when ready, update image.
 
 ## Database
 ## Trait
-## ConcreteDatabase
+## ConcreteEnv
 ## Thread
 ## Service
+
+# Resizing
+TODO: document resize algorithm:
+- Exactly when it occurs
+- How much bytes are added
+
+All backends follow the same algorithm.
+
+# Flushing
+TODO: document disk flushing behavior.
+- Config options
+- Backend-specific behavior
+
+# (De)serialization
+TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.

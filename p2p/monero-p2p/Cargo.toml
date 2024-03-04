@@ -29,6 +29,6 @@ borsh = { workspace = true, default-features = false, features = ["derive", "std
 [dev-dependencies]
 cuprate-test-utils = {path = "../../test-utils"}
 
-hex = { workspace = true }
+hex = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "rt", "macros"]}
 tracing-subscriber = { workspace = true }
