@@ -591,7 +591,6 @@ dependencies = [
  "cuprate-helper",
  "heed",
  "page_size",
- "parking_lot",
  "paste",
  "redb",
  "serde",
