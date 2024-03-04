@@ -98,7 +98,6 @@ async fn codec_fragmented_messages() {
 
     match (message, message2) {
         (TestBody::Bytes(_, buf), TestBody::Bytes(_, buf2)) => assert_eq!(buf, buf2),
-        _ => unreachable!(),
     }
 }
 
