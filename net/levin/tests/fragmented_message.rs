@@ -10,7 +10,7 @@ use levin_cuprate::{
     LevinMessageCodec, MessageType, Protocol,
 };
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TestCommands(u32);
 
 impl From<u32> for TestCommands {

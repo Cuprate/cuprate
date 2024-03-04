@@ -15,7 +15,7 @@
 
 //! A tokio-codec for levin buckets
 
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 use bytes::{Buf, BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
@@ -63,7 +63,7 @@ impl<C> LevinBucketCodec<C> {
     }
 }
 
-impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
+impl<C: LevinCommand + Debug> Decoder for LevinBucketCodec<C> {
     type Item = Bucket<C>;
     type Error = BucketError;
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
@@ -76,18 +76,36 @@ impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
 
                     let head = BucketHead::<C>::from_bytes(src);
 
+                    #[cfg(feature = "tracing")]
+                    tracing::trace!(
+                        "Received new bucket header, command: {:?}, waiting for body, body len: {}",
+                        head.command,
+                        head.size
+                    );
+
                     if head.size > self.protocol.max_packet_size
                         || head.size > head.command.bucket_size_limit()
                     {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("Peer sent message which is too large.");
+
                         return Err(BucketError::BucketExceededMaxSize);
                     }
 
                     if !self.handshake_message_seen {
                         if head.size > self.protocol.max_packet_size_before_handshake {
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!("Peer sent message which is too large.");
+
                             return Err(BucketError::BucketExceededMaxSize);
                         }
 
                         if head.command.is_handshake() {
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!(
+                                "Peer handshake message seen, increasing bucket size limit."
+                            );
+
                             self.handshake_message_seen = true;
                         }
                     }
@@ -110,6 +128,9 @@ impl<C: LevinCommand> Decoder for LevinBucketCodec<C> {
                     else {
                         unreachable!()
                     };
+
+                    #[cfg(feature = "tracing")]
+                    tracing::trace!("Received full bucket for command: {:?}", header.command);
 
                     return Ok(Some(Bucket {
                         header,
@@ -180,7 +201,11 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     if flags.contains(Flags::DUMMY) {
                         // Dummy message
-                        return Ok(None);
+
+                        #[cfg(feature = "tracing")]
+                        tracing::trace!("Received DUMMY bucket from peer, ignoring.");
+                        // We may have another bucket in `src`.
+                        continue;
                     };
 
                     if flags.contains(Flags::END_FRAGMENT) {
@@ -192,6 +217,10 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                     if flags.contains(Flags::START_FRAGMENT) {
                         // monerod does not require a start flag before starting a fragmented message,
                         // but will always produce one, so it is ok for us to require one.
+
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!("Bucket is a fragment, waiting for rest of message.");
+
                         self.state = MessageState::WaitingForRestOfFragment(bucket.body.to_vec());
 
                         continue;
@@ -219,7 +248,11 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
 
                     if flags.contains(Flags::DUMMY) {
                         // Dummy message
-                        return Ok(None);
+
+                        #[cfg(feature = "tracing")]
+                        tracing::trace!("Received DUMMY bucket from peer, ignoring.");
+                        // We may have another bucket in `src`.
+                        continue;
                     };
 
                     let max_size = if self.bucket_codec.handshake_message_seen {
@@ -235,6 +268,9 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                             "Fragmented message exceeded maximum size",
                         ));
                     }
+
+                    #[cfg(feature = "tracing")]
+                    tracing::trace!("Received another bucket fragment.");
 
                     bytes.extend_from_slice(bucket.body.as_ref());
 
@@ -275,12 +311,23 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                             ));
                         }
 
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!(
+                            "Received final fragment, combined message command: {:?}.",
+                            header.command
+                        );
+
                         let message_type = MessageType::from_flags_and_have_to_return(
                             header.flags,
                             header.have_to_return_data,
                         )?;
 
                         if header.command.is_handshake() {
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!(
+                                "Peer handshake message seen, increasing bucket size limit."
+                            );
+
                             self.bucket_codec.handshake_message_seen = true;
                         }
 

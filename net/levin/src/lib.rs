@@ -234,7 +234,7 @@ impl<C: LevinCommand> BucketBuilder<C> {
 
 /// A levin body
 pub trait LevinBody: Sized {
-    type Command: LevinCommand;
+    type Command: LevinCommand + Debug;
 
     /// Decodes the message from the data in the header
     fn decode_message<B: Buf>(

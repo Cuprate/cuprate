@@ -11,7 +11,7 @@ borsh = ["dep:borsh", "monero-pruning/borsh"]
 
 [dependencies]
 cuprate-helper = { path = "../../helper" }
-monero-wire = { path = "../../net/monero-wire" }
+monero-wire = { path = "../../net/monero-wire", features = ["tracing"] }
 monero-pruning = { path = "../../pruning" }
 
 tokio = { workspace = true, features = ["net", "sync", "macros", "time"]}
