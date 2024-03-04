@@ -16,7 +16,7 @@ Cuprate's database implementation.
 1. [Layers](#layers)
     - [Database](#database)
     - [Trait](#trait)
-    - [ConcreteEnv](#concreteenvConcreteEnv
+    - [ConcreteEnv](#concreteenv)
     - [Thread-pool](#thread-pool)
     - [Service](#service)
 1. [Resizing](#resizing)
@@ -75,10 +75,12 @@ The top-level `src/` files.
 | `error.rs`       | Database error types
 | `free.rs`        | General free functions (related to the database)
 | `key.rs`         | Abstracted database keys; `trait Key`
-| `pod.rs`         | Data (de)serialization; `trait Pod`
+| `resize.rs`      | Database resizing algorithms
+| `storable.rs`    | Data (de)serialization; `trait Storable`
 | `table.rs`       | Database table abstraction; `trait Table`
 | `tables.rs`      | All the table definitions used by `cuprate-database`
 | `transaction.rs` | Database transaction abstraction; `trait TxR{o,w}`
+| `types.rs`       | Database table schema types
 
 ## `src/ops/`
 This folder contains the `cupate_database::ops` module.
@@ -126,6 +128,7 @@ All backends follow the same file structure:
 | `error.rs`       | Implementation of backend's errors to `cuprate_database`'s error types
 | `transaction.rs` | Implementation of `trait TxR{o,w}`
 | `types.rs`       | Type aliases for long backend-specific types
+| `storable.rs`    | Compatibility layer between `cuprate_database::Storable` and backend-specific (de)serialization
 
 # Backends
 `cuprate-database`'s `trait`s abstract over various actual databases.
@@ -133,13 +136,8 @@ All backends follow the same file structure:
 Each database's implementation is located in its respective file in `src/backend/${DATABASE_NAME}.rs`.
 
 ## `heed`
-The default database used is a modified fork of [`heed`](https://github.com/meilisearch/heed) (LMDB), located at [`Cuprate/heed`](https://github.com/Cuprate/heed).
+The default database used is [`heed`](https://github.com/meilisearch/heed) (LMDB).
 
-To generate documentation of the fork for local use:
-```bash
-git clone --recursive https://github.com/Cuprate/heed
-cargo doc
-```
 `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
 `heed`'s filenames inside Cuprate's database folder (`~/.local/share/cuprate/database/`) are:
@@ -151,6 +149,8 @@ cargo doc
 
 TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
 
+TODO: document DB on remote filesystem: https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L129.
+
 ## `redb`
 The 2nd database backend is the 100% Rust [`redb`](https://github.com/cberner/redb).
 
@@ -161,6 +161,8 @@ The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used
 | Filename    | Purpose |
 |-------------|---------|
 | `data.redb` | Main data file
+
+TODO: document DB on remote filesystem (does redb allow this?)
 
 ## `sanakirja`
 [`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.

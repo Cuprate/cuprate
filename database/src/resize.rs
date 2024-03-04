@@ -35,10 +35,6 @@ use std::{num::NonZeroUsize, sync::OnceLock};
 /// **With the caveat being we are taking a `WriteGuard` to a `RwLock`.**
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
 pub enum ResizeAlgorithm {
     /// Uses [`monero`].
     Monero,

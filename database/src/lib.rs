@@ -8,7 +8,7 @@
 //! # Purpose
 //! This crate does 3 things:
 //! 1. Abstracts various database backends with traits
-//! 2. Implements various `Monero` related [functions](ops) & [`tables`]
+//! 2. Implements various `Monero` related [functions](ops) & [tables] & [types]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
 //! # Terminology
@@ -22,6 +22,7 @@
 //! | `Table`       | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
 //! | `TxRo`        | Read only transaction
 //! | `TxRw`        | Read/write transaction
+//! | `Storable`    | A data that type can be stored in the database
 //!
 //! The dataflow is `Env` -> `Tx` -> `Database`
 //!
@@ -313,19 +314,21 @@ mod free;
 pub mod resize;
 
 mod key;
-pub use key::{DupKey, Key};
+pub use key::Key;
 
 mod macros;
 
-pub mod ops;
+mod storable;
+pub use storable::Storable;
 
-mod pod;
-pub use pod::Pod;
+pub mod ops;
 
 mod table;
 pub use table::Table;
 
 pub mod tables;
+
+pub mod types;
 
 mod transaction;
 pub use transaction::{TxRo, TxRw};

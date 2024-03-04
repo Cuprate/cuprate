@@ -11,16 +11,23 @@ pub trait DatabaseRo<T: Table> {
     /// TODO
     /// # Errors
     /// TODO
-    fn get(&self, key: &T::Key) -> Result<Option<T::Value>, RuntimeError>;
+    ///
+    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn get_range(
-        &self,
-        key: &T::Key,
+    //
+    // TODO: (Iterators + ?Sized + lifetimes) == bad time
+    // fix this later.
+    fn get_range<'a>(
+        &'a self,
+        key: &'a T::Key,
         amount: usize,
-    ) -> Result<impl Iterator<Item = T::Value>, RuntimeError>;
+    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
+    where
+        <T as Table>::Value: 'a;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
@@ -41,5 +48,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// TODO
     /// # Errors
     /// TODO
-    fn delete(&mut self, key: &T::Key) -> Result<bool, RuntimeError>;
+    ///
+    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
 }
