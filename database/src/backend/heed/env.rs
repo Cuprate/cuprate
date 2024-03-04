@@ -251,6 +251,17 @@ impl Env for ConcreteEnv {
         env: &Self::EnvInner,
         tx_ro: &'tx Self::TxRo<'tx>,
     ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        // Open up a read-only database using our table's const metadata.
+        //
+        // The actual underlying type `heed` sees is
+        // something similar to `key: [u8], value: [u8]`.
+        // See: `crate::backend::heed::{types, storable}` for more detail.
+        //
+        // With that said, we are still type safe as we are
+        // passing around and using `<T: Table>`'s metadata
+        // as the types, rather than raw bytes. This gets
+        // extended to the table/database type as well,
+        // as that also has `T: Table`.
         #[allow(clippy::type_complexity)]
         let result: Result<std::option::Option<HeedDb<T::Key, T::Value>>, heed::Error> =
             env.open_database(tx_ro, Some(T::NAME));
@@ -258,6 +269,8 @@ impl Env for ConcreteEnv {
         match result {
             Ok(Some(db)) => Ok(HeedTableRo { db, tx_ro }),
             Err(e) => Err(e.into()),
+
+            // INVARIANT: Every table should be created already.
             Ok(None) => panic!("{PANIC_MSG_MISSING_TABLE}"),
         }
     }
@@ -267,6 +280,9 @@ impl Env for ConcreteEnv {
         env: &Self::EnvInner,
         tx_rw: &'tx mut Self::TxRw<'tx>,
     ) -> Result<impl DatabaseRw<'tx, T>, RuntimeError> {
+        // Open up a read/write database using our table's const metadata.
+        //
+        // Everything said above with `open_db_ro()` applies here as well.
         #[allow(clippy::type_complexity)]
         let result: Result<std::option::Option<HeedDb<T::Key, T::Value>>, heed::Error> =
             env.open_database(tx_rw, Some(T::NAME));
@@ -274,6 +290,8 @@ impl Env for ConcreteEnv {
         match result {
             Ok(Some(db)) => Ok(HeedTableRw { db, tx_rw }),
             Err(e) => Err(e.into()),
+
+            // INVARIANT: Every table should be created already.
             Ok(None) => panic!("{PANIC_MSG_MISSING_TABLE}"),
         }
     }

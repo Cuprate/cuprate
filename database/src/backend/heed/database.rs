@@ -4,7 +4,7 @@
 use std::marker::PhantomData;
 
 use crate::{
-    backend::heed::types::HeedDb,
+    backend::heed::{storable::StorableHeed, types::HeedDb},
     database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
@@ -43,45 +43,83 @@ pub(super) struct HeedTableRw<'env, T: Table> {
     pub(super) tx_rw: &'env mut heed::RwTxn<'env>,
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<T: Table> DatabaseRo<'_, T> for HeedTableRo<'_, T> {
-    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
-        todo!()
+//---------------------------------------------------------------------------------------------------- Shared functions
+// FIXME: we cannot just deref `HeedTableRw -> HeedTableRo` and
+// call the functions since the database is held by value, so
+// just use these generic functions that both can call instead.
+
+/// Shared generic `get()` between `HeedTableR{o,w}`.
+#[inline]
+fn get<'tx, T: Table>(
+    db: &'_ HeedDb<T::Key, T::Value>,
+    tx_ro: &'tx heed::RoTxn<'tx>,
+    key: &'_ T::Key,
+) -> Result<&'tx T::Value, RuntimeError> {
+    match db.get(tx_ro, key) {
+        Ok(Some(value)) => Ok(value),
+        Ok(None) => Err(RuntimeError::KeyNotFound),
+        Err(e) => Err(e.into()),
+    }
+}
+
+/// Shared generic `get_range()` between `HeedTableR{o,w}`.
+fn get_range<'tx, T: Table, R: std::ops::RangeBounds<T::Key>>(
+    db: &'_ HeedDb<T::Key, T::Value>,
+    tx_ro: &'tx heed::RoTxn<'tx>,
+    range: R,
+) -> Result<impl Iterator<Item = Result<&'tx T::Value, RuntimeError>>, RuntimeError> {
+    /// TODO
+    struct Iter<'iter, T: Table> {
+        /// TODO
+        iter: heed::RoRange<'iter, StorableHeed<T::Key>, StorableHeed<T::Value>>,
     }
 
-    fn get_range<'a>(
-        &'a self,
-        key: &'a T::Key,
-        amount: usize,
-    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
-    where
-        <T as Table>::Value: 'a,
-    {
-        let iter: std::vec::Drain<'_, &T::Value> = todo!();
-        Ok(iter)
+    // TODO
+    impl<'iter, T: Table> Iterator for Iter<'iter, T> {
+        type Item = Result<&'iter T::Value, RuntimeError>;
+        fn next(&mut self) -> Option<Self::Item> {
+            // TODO
+            self.iter
+                .next()
+                .map(|result| result.map(|value| value.1).map_err(RuntimeError::from))
+        }
+    }
+
+    Ok(Iter::<'_, T> {
+        iter: db.range(tx_ro, &range)?,
+    })
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseRo Impl
+impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
+    #[inline]
+    fn get(&'tx self, key: &'_ T::Key) -> Result<&'tx T::Value, RuntimeError> {
+        get::<T>(&self.db, self.tx_ro, key)
+    }
+
+    fn get_range<R: std::ops::RangeBounds<T::Key>>(
+        &self,
+        range: R,
+    ) -> Result<impl Iterator<Item = Result<&'_ T::Value, RuntimeError>>, RuntimeError> {
+        get_range::<T, R>(&self.db, self.tx_ro, range)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-impl<T: Table> DatabaseRo<'_, T> for HeedTableRw<'_, T> {
-    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError> {
-        todo!()
+impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'tx, T> {
+    fn get(&'tx self, key: &'_ T::Key) -> Result<&'tx T::Value, RuntimeError> {
+        get::<T>(&self.db, self.tx_rw, key)
     }
 
-    fn get_range<'a>(
-        &'a self,
-        key: &'a T::Key,
-        amount: usize,
-    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
-    where
-        <T as Table>::Value: 'a,
-    {
-        let iter: std::vec::Drain<'_, &T::Value> = todo!();
-        Ok(iter)
+    fn get_range<R: std::ops::RangeBounds<T::Key>>(
+        &self,
+        range: R,
+    ) -> Result<impl Iterator<Item = Result<&'_ T::Value, RuntimeError>>, RuntimeError> {
+        get_range::<T, R>(&self.db, self.tx_rw, range)
     }
 }
 
-impl<T: Table> DatabaseRw<'_, T> for HeedTableRw<'_, T> {
+impl<'tx, T: Table> DatabaseRw<'tx, T> for HeedTableRw<'tx, T> {
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         todo!()
     }

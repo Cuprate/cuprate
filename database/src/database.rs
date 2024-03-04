@@ -7,13 +7,13 @@ use crate::{error::RuntimeError, table::Table};
 /// Database (key-value store) read abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRo<'env, T: Table> {
+pub trait DatabaseRo<'tx, T: Table> {
     /// TODO
     /// # Errors
     /// TODO
     ///
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError>;
+    fn get(&'tx self, key: &'_ T::Key) -> Result<&'tx T::Value, RuntimeError>;
 
     /// TODO
     /// # Errors
@@ -21,20 +21,17 @@ pub trait DatabaseRo<'env, T: Table> {
     //
     // TODO: (Iterators + ?Sized + lifetimes) == bad time
     // fix this later.
-    fn get_range<'a>(
-        &'a self,
-        key: &'a T::Key,
-        amount: usize,
-    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
-    where
-        <T as Table>::Value: 'a;
+    fn get_range<R: std::ops::RangeBounds<T::Key>>(
+        &self,
+        range: R,
+    ) -> Result<impl Iterator<Item = Result<&'_ T::Value, RuntimeError>>, RuntimeError>;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 /// Database (key-value store) read/write abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRw<'env, T: Table>: DatabaseRo<'env, T> {
+pub trait DatabaseRw<'tx, T: Table>: DatabaseRo<'tx, T> {
     /// TODO
     /// # Errors
     /// TODO
