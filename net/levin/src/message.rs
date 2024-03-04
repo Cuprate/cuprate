@@ -73,7 +73,7 @@ pub fn make_fragmented_messages<T: LevinBody>(
         );
     }
 
-    let mut builder = BucketBuilder::default();
+    let mut builder = BucketBuilder::new(protocol);
     message.encode(&mut builder)?;
     let mut bucket = builder.finish();
 

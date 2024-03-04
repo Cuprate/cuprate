@@ -239,6 +239,9 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                     bytes.extend_from_slice(bucket.body.as_ref());
 
                     if flags.contains(Flags::END_FRAGMENT) {
+                        // make sure we only look at the internal bucket and don't use this.
+                        drop(bucket);
+
                         let MessageState::WaitingForRestOfFragment(bytes) =
                             std::mem::replace(&mut self.state, MessageState::WaitingForBucket)
                         else {
@@ -277,6 +280,10 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                             header.have_to_return_data,
                         )?;
 
+                        if header.command.is_handshake() {
+                            self.bucket_codec.handshake_message_seen = true;
+                        }
+
                         return Ok(Some(T::decode_message(
                             &mut &bytes[HEADER_SIZE..],
                             message_type,
@@ -294,7 +301,7 @@ impl<T: LevinBody> Encoder<LevinMessage<T>> for LevinMessageCodec<T> {
     fn encode(&mut self, item: LevinMessage<T>, dst: &mut BytesMut) -> Result<(), Self::Error> {
         match item {
             LevinMessage::Body(body) => {
-                let mut bucket_builder = BucketBuilder::default();
+                let mut bucket_builder = BucketBuilder::new(&self.bucket_codec.protocol);
                 body.encode(&mut bucket_builder)?;
                 let bucket = bucket_builder.finish();
                 self.bucket_codec.encode(bucket, dst)

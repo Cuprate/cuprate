@@ -168,22 +168,20 @@ pub struct BucketBuilder<C> {
     already_built: Option<Bucket<C>>,
 }
 
-impl<C> Default for BucketBuilder<C> {
-    fn default() -> Self {
+impl<C: LevinCommand> BucketBuilder<C> {
+    pub fn new(protocol: &Protocol) -> Self {
         Self {
-            signature: Some(MONERO_LEVIN_SIGNATURE),
+            signature: Some(protocol.signature),
             ty: None,
             command: None,
             return_code: None,
-            protocol_version: Some(MONERO_PROTOCOL_VERSION),
+            protocol_version: Some(protocol.version),
             body: None,
 
             already_built: None,
         }
     }
-}
 
-impl<C: LevinCommand> BucketBuilder<C> {
     pub fn set_already_built(&mut self, bucket: Bucket<C>) {
         self.already_built = Some(bucket);
     }
