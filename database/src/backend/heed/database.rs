@@ -121,15 +121,16 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'tx, T> {
 
 impl<'tx, T: Table> DatabaseRw<'tx, T> for HeedTableRw<'tx, T> {
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
-        todo!()
+        Ok(self.db.put(self.tx_rw, key, value)?)
     }
 
     fn clear(&mut self) -> Result<(), RuntimeError> {
-        todo!()
+        Ok(self.db.clear(self.tx_rw)?)
     }
 
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
-        todo!()
+        self.db.delete(self.tx_rw, key)?;
+        Ok(())
     }
 }
 
