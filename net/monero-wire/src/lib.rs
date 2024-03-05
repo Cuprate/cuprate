@@ -29,4 +29,7 @@ pub use levin_cuprate::BucketError;
 pub use network_address::{NetZone, NetworkAddress};
 pub use p2p::*;
 
+// re-export.
+pub use levin_cuprate as levin;
+
 pub type MoneroWireCodec = levin_cuprate::codec::LevinMessageCodec<Message>;

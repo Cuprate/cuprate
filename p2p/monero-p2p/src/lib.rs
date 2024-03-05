@@ -5,7 +5,8 @@ use std::{fmt::Debug, future::Future, hash::Hash, pin::Pin};
 use futures::{Sink, Stream};
 
 use monero_wire::{
-    network_address::NetworkAddressIncorrectZone, BucketError, Message, NetworkAddress,
+    levin::LevinMessage, network_address::NetworkAddressIncorrectZone, BucketError, Message,
+    NetworkAddress,
 };
 
 pub mod client;
@@ -103,7 +104,7 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     /// The stream (incoming data) type for this network.
     type Stream: Stream<Item = Result<Message, BucketError>> + Unpin + Send + 'static;
     /// The sink (outgoing data) type for this network.
-    type Sink: Sink<Message, Error = BucketError> + Unpin + Send + 'static;
+    type Sink: Sink<LevinMessage<Message>, Error = BucketError> + Unpin + Send + 'static;
     /// The inbound connection listener for this network.
     type Listener: Stream<
         Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>,

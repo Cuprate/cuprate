@@ -86,7 +86,7 @@ where
     }
 
     async fn send_message_to_peer(&mut self, mes: Message) -> Result<(), PeerError> {
-        Ok(self.peer_sink.send(mes).await?)
+        Ok(self.peer_sink.send(mes.into()).await?)
     }
 
     async fn handle_client_request(&mut self, req: ConnectionTaskRequest) -> Result<(), PeerError> {

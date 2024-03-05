@@ -30,7 +30,7 @@ pub struct ClearNetServerCfg {
 }
 
 #[derive(Clone, Copy)]
-pub struct ClearNet;
+pub enum ClearNet {}
 
 #[async_trait::async_trait]
 impl NetworkZone for ClearNet {
