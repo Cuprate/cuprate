@@ -126,6 +126,7 @@ All backends follow the same file structure:
 | `database.rs`    | Implementation of `trait DatabaseR{o,w}`
 | `env.rs`         | Implementation of `trait Env`
 | `error.rs`       | Implementation of backend's errors to `cuprate_database`'s error types
+| `tests.rs`       | Tests for the specific backend
 | `transaction.rs` | Implementation of `trait TxR{o,w}`
 | `types.rs`       | Type aliases for long backend-specific types
 | `storable.rs`    | Compatibility layer between `cuprate_database::Storable` and backend-specific (de)serialization

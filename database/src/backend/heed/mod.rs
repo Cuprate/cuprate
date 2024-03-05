@@ -8,3 +8,6 @@ mod error;
 mod storable;
 mod transaction;
 mod types;
+
+#[cfg(test)]
+mod tests;

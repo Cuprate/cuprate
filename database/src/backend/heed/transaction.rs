@@ -12,7 +12,6 @@ use crate::{
 impl TxRo<'_> for heed::RoTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
         self.commit().map_err(Into::into)
-        // self.tx_ro.commit().map_err(Into::into)
     }
 }
 
@@ -20,19 +19,16 @@ impl TxRo<'_> for heed::RoTxn<'_> {
 impl TxRo<'_> for heed::RwTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
         self.commit().map_err(Into::into)
-        // self.tx_rw.commit().map_err(Into::into)
     }
 }
 
 impl TxRw<'_> for heed::RwTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
         self.commit().map_err(Into::into)
-        // self.tx_rw.commit().map_err(Into::into)
     }
 
     fn abort(self) {
         self.abort();
-        // self.tx_rw.abort();
     }
 }
 
