@@ -40,10 +40,14 @@ impl<T: LevinBody> From<Bucket<T::Command>> for LevinMessage<T> {
 /// This represents a dummy message to send to a peer.
 ///
 /// The message, including the header, will be the exact size of the given `usize`.
-// This exists because it seems weird to do this:
-// peer.send(1_000);
-// This is a lot clearer:
-// peer.send(Dummy(1_000));
+/// This exists because it seems weird to do this:
+/// ```rust,ignore
+/// peer.send(1_000);
+/// ```
+/// This is a lot clearer:
+/// ```rust,ignore
+/// peer.send(Dummy(1_000));
+/// ```
 pub struct Dummy(pub usize);
 
 impl<T: LevinBody> From<Dummy> for LevinMessage<T> {
