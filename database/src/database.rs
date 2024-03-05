@@ -1,9 +1,12 @@
 //! Abstracted database; `trait DatabaseRo` & `trait DatabaseRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::ops::Deref;
+use std::{
+    borrow::Borrow,
+    ops::{Deref, RangeBounds},
+};
 
-use crate::{error::RuntimeError, table::Table, value_guard::ValueGuard};
+use crate::{error::RuntimeError, table::Table};
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 /// Database (key-value store) read abstraction.
@@ -15,15 +18,23 @@ pub trait DatabaseRo<'tx, T: Table> {
     /// TODO
     ///
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    fn get(&'tx self, key: &'_ T::Key) -> Result<impl ValueGuard<'tx, T::Value>, RuntimeError>;
+    fn get(&'tx self, key: &'_ T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn get_range<R: std::ops::RangeBounds<T::Key>>(
-        &self,
-        range: R,
-    ) -> impl Iterator<Item = Result<impl ValueGuard<'tx, T::Value>, RuntimeError>>;
+    fn get_range<Key, Range>(
+        &'tx self,
+        range: Range,
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    where
+        // FIXME:
+        // - `Key` + `RangeBounds<Key>` is to satisfy `redb` bounds
+        // - `RangeBounds<T::Key>` is to satisfy `heed` bounds
+        //
+        // Abstracting over different bounds leads to type soup :)
+        Key: Borrow<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw

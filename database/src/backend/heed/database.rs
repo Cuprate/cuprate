@@ -1,7 +1,7 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::marker::PhantomData;
+use std::{borrow::Borrow, ops::RangeBounds};
 
 use crate::{
     backend::heed::{storable::StorableHeed, types::HeedDb},
@@ -54,7 +54,7 @@ fn get<'tx, T: Table>(
     db: &'_ HeedDb<T::Key, T::Value>,
     tx_ro: &'tx heed::RoTxn<'tx>,
     key: &'_ T::Key,
-) -> Result<&'tx T::Value, RuntimeError> {
+) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
     match db.get(tx_ro, key) {
         Ok(Some(value)) => Ok(value),
         Ok(None) => Err(RuntimeError::KeyNotFound),
@@ -63,20 +63,25 @@ fn get<'tx, T: Table>(
 }
 
 /// Shared generic `get_range()` between `HeedTableR{o,w}`.
-fn get_range<'tx, T: Table, R: std::ops::RangeBounds<T::Key>>(
+#[allow(clippy::needless_pass_by_value)]
+fn get_range<'tx, T: Table, Key, Range>(
     db: &'_ HeedDb<T::Key, T::Value>,
     tx_ro: &'tx heed::RoTxn<'tx>,
-    range: R,
-) -> Result<impl Iterator<Item = Result<&'tx T::Value, RuntimeError>>, RuntimeError> {
+    range: Range,
+) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+where
+    Key: Borrow<&'tx T::Key> + 'tx,
+    Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+{
     /// TODO
-    struct Iter<'iter, T: Table> {
+    struct Iter<'tx, T: Table> {
         /// TODO
-        iter: heed::RoRange<'iter, StorableHeed<T::Key>, StorableHeed<T::Value>>,
+        iter: heed::RoRange<'tx, StorableHeed<T::Key>, StorableHeed<T::Value>>,
     }
 
     // TODO
-    impl<'iter, T: Table> Iterator for Iter<'iter, T> {
-        type Item = Result<&'iter T::Value, RuntimeError>;
+    impl<'tx, T: Table> Iterator for Iter<'tx, T> {
+        type Item = Result<&'tx T::Value, RuntimeError>;
         fn next(&mut self) -> Option<Self::Item> {
             // TODO
             self.iter
@@ -85,47 +90,53 @@ fn get_range<'tx, T: Table, R: std::ops::RangeBounds<T::Key>>(
         }
     }
 
-    Ok(Iter::<'_, T> {
-        iter: db.range(tx_ro, &range)?,
-    })
+    // TODO
+    match db.range(tx_ro, &range) {
+        Ok(iter) => Ok(Iter::<'_, T> { iter }),
+        Err(e) => Err(RuntimeError::from(e)),
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
 impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
     #[inline]
-    fn get(&'tx self, key: &'_ T::Key) -> Result<&'tx T::Value, RuntimeError> {
+    fn get(&'tx self, key: &'_ T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
         get::<T>(&self.db, self.tx_ro, key)
     }
 
-    fn get_range<R: std::ops::RangeBounds<T::Key>>(
-        &self,
-        range: R,
-    ) -> Result<impl Iterator<Item = Result<&'_ T::Value, RuntimeError>>, RuntimeError> {
-        get_range::<T, R>(&self.db, self.tx_ro, range)
+    fn get_range<Key, Range>(
+        &'tx self,
+        range: Range,
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    where
+        Key: Borrow<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+    {
+        get_range::<T, Key, Range>(&self.db, self.tx_ro, range)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
 impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'tx, T> {
-    fn get(&'tx self, key: &'_ T::Key) -> Result<&'tx T::Value, RuntimeError> {
+    fn get(&'tx self, key: &'_ T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
         get::<T>(&self.db, self.tx_rw, key)
     }
 
-    fn get_range<R: std::ops::RangeBounds<T::Key>>(
-        &self,
-        range: R,
-    ) -> Result<impl Iterator<Item = Result<&'_ T::Value, RuntimeError>>, RuntimeError> {
-        get_range::<T, R>(&self.db, self.tx_rw, range)
+    fn get_range<Key, Range>(
+        &'tx self,
+        range: Range,
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    where
+        Key: Borrow<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+    {
+        get_range::<T, Key, Range>(&self.db, self.tx_rw, range)
     }
 }
 
 impl<'tx, T: Table> DatabaseRw<'tx, T> for HeedTableRw<'tx, T> {
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         Ok(self.db.put(self.tx_rw, key, value)?)
-    }
-
-    fn clear(&mut self) -> Result<(), RuntimeError> {
-        Ok(self.db.clear(self.tx_rw)?)
     }
 
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {

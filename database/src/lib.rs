@@ -333,9 +333,6 @@ pub mod types;
 mod transaction;
 pub use transaction::{TxRo, TxRw};
 
-mod value_guard;
-pub use value_guard::ValueGuard;
-
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]
 pub mod service;

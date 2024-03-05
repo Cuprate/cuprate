@@ -14,6 +14,4 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Tests
 /// TODO
 #[test]
-fn test() {
-    let concrete_env: ConcreteEnv = todo!();
-}
+const fn test() {}

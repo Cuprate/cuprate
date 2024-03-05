@@ -1,7 +1,11 @@
 //! Implementation of `trait DatabaseR{o,w}` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::ops::Deref;
+use std::{
+    borrow::Borrow,
+    fmt::Debug,
+    ops::{Deref, RangeBounds},
+};
 
 use crate::{
     backend::redb::{
@@ -10,8 +14,8 @@ use crate::{
     },
     database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
+    storable::Storable,
     table::Table,
-    value_guard::ValueGuard,
 };
 
 //---------------------------------------------------------------------------------------------------- Shared functions
@@ -20,13 +24,21 @@ use crate::{
 // just use these generic functions that both can call instead.
 
 /// TODO
-struct AccessGuard<'tx, T: Table> {
+struct AccessGuard<'tx, Value>
+// This must be done to prevent `Borrow` collisions.
+// If `T: Table` was here instead, it causes weird compile errors.
+where
+    Value: Storable + ?Sized + Debug + 'static,
+{
     /// TODO
-    access_guard: redb::AccessGuard<'tx, StorableRedb<T::Value>>,
+    access_guard: redb::AccessGuard<'tx, StorableRedb<Value>>,
 }
 
-impl<T: Table> ValueGuard<'_, T::Value> for AccessGuard<'_, T> {
-    fn value(&'_ self) -> &'_ T::Value {
+impl<Value> Borrow<Value> for AccessGuard<'_, Value>
+where
+    Value: Storable + ?Sized + Debug + 'static,
+{
+    fn borrow(&self) -> &Value {
         self.access_guard.value()
     }
 }
@@ -36,71 +48,88 @@ impl<T: Table> ValueGuard<'_, T::Value> for AccessGuard<'_, T> {
 fn get<'tx, T: Table + 'static>(
     db: &'tx impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     key: &'_ T::Key,
-) -> Result<impl ValueGuard<'tx, T::Value>, RuntimeError> {
+) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
     match db.get(key) {
-        Ok(Some(access_guard)) => Ok(AccessGuard::<T> { access_guard }),
+        Ok(Some(access_guard)) => Ok(AccessGuard::<T::Value> { access_guard }),
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(RuntimeError::from(e)),
     }
 }
 
 /// Shared generic `get_range()` between `RedbTableR{o,w}`.
-fn get_range<'tx, T: Table, R: std::ops::RangeBounds<T::Key>>(
-    db: &'_ impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-    range: R,
-) -> impl Iterator<Item = Result<impl ValueGuard<'tx, T::Value>, RuntimeError>> {
+#[allow(clippy::unnecessary_wraps)]
+fn get_range<'tx, T: Table, Key, Range>(
+    db: &'tx impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    range: Range,
+) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+where
+    Key: Borrow<&'tx T::Key> + 'tx,
+    Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+{
     /// TODO
-    struct Iter<'iter, T: Table> {
+    struct Iter<'tx, K, V>
+    where
+        K: crate::key::Key + Debug + 'static,
+        V: Storable + ?Sized + Debug + 'static,
+    {
         /// TODO
-        iter: redb::Range<'iter, StorableRedb<T::Key>, StorableRedb<T::Value>>,
+        iter: redb::Range<'tx, StorableRedb<K>, StorableRedb<V>>,
     }
 
     // TODO
-    impl<'iter, T: Table> Iterator for Iter<'iter, T> {
-        type Item = Result<AccessGuard<'iter, T>, RuntimeError>;
+    impl<'tx, K, V> Iterator for Iter<'tx, K, V>
+    where
+        K: crate::key::Key + Debug + 'static,
+        V: Storable + ?Sized + Debug + 'static,
+    {
+        type Item = Result<AccessGuard<'tx, V>, RuntimeError>;
         fn next(&mut self) -> Option<Self::Item> {
             // TODO
-            self.iter.next().map(|result| {
-                result
-                    .map(|value| AccessGuard::<T> {
-                        access_guard: value.1,
-                    })
-                    .map_err(RuntimeError::from)
+            self.iter.next().map(|result| match result {
+                Ok(kv) => Ok(AccessGuard::<V> { access_guard: kv.1 }),
+                Err(e) => Err(RuntimeError::from(e)),
             })
         }
     }
 
-    Iter::<'_, T> {
-        // iter: db.range(range)?,
-        iter: todo!(),
-    }
+    Ok(Iter::<'tx, T::Key, T::Value> {
+        iter: db.range::<Key>(range)?,
+    })
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
-    fn get(&'tx self, key: &T::Key) -> Result<impl ValueGuard<'tx, T::Value>, RuntimeError> {
+    fn get(&'tx self, key: &T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
         get::<T>(self, key)
     }
 
-    fn get_range<R: std::ops::RangeBounds<T::Key>>(
-        &self,
-        range: R,
-    ) -> impl Iterator<Item = Result<impl ValueGuard<'tx, T::Value>, RuntimeError>> {
-        get_range::<T, R>(self, range)
+    fn get_range<Key, Range>(
+        &'tx self,
+        range: Range,
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    where
+        Key: Borrow<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+    {
+        get_range::<T, Key, Range>(self, range)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'tx, 'tx, T::Key, T::Value> {
-    fn get(&'tx self, key: &T::Key) -> Result<impl ValueGuard<'tx, T::Value>, RuntimeError> {
+    fn get(&'tx self, key: &T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
         get::<T>(self, key)
     }
 
-    fn get_range<R: std::ops::RangeBounds<T::Key>>(
-        &self,
-        range: R,
-    ) -> impl Iterator<Item = Result<impl ValueGuard<'tx, T::Value>, RuntimeError>> {
-        get_range::<T, R>(self, range)
+    fn get_range<Key, Range>(
+        &'tx self,
+        range: Range,
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    where
+        Key: Borrow<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+    {
+        get_range::<T, Key, Range>(self, range)
     }
 }
 
