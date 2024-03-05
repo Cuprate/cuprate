@@ -39,7 +39,7 @@ use cuprate_test_utils::monerod::monerod;
 mod utils;
 use utils::*;
 
-/// A network zone equal to clear net where ever message sent is turned into a fragmented message.
+/// A network zone equal to clear net where every message sent is turned into a fragmented message.
 /// Does not support sending fragmented or dummy messages manually.
 #[derive(Clone, Copy)]
 pub enum FragNet {}

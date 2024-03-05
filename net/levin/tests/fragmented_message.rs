@@ -2,13 +2,19 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
 use proptest::{prelude::any_with, prop_assert_eq, proptest, sample::size_range};
 use rand::Fill;
-use tokio::io::duplex;
+use tokio::{
+    io::duplex,
+    time::{timeout, Duration},
+};
 use tokio_util::codec::{FramedRead, FramedWrite};
 
 use levin_cuprate::{
     message::make_fragmented_messages, BucketBuilder, BucketError, LevinBody, LevinCommand,
     LevinMessageCodec, MessageType, Protocol,
 };
+
+/// A timeout put on streams so tests don't stall.
+const TEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct TestCommands(u32);
@@ -90,11 +96,18 @@ async fn codec_fragmented_messages() {
 
     for frag in fragments {
         // Send each fragment
-        write.send(frag.into()).await.unwrap();
+        timeout(TEST_TIMEOUT, write.send(frag.into()))
+            .await
+            .unwrap()
+            .unwrap();
     }
 
     // only one message should be received.
-    let message2 = read.next().await.unwrap().unwrap();
+    let message2 = timeout(TEST_TIMEOUT, read.next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
 
     match (message, message2) {
         (TestBody::Bytes(_, buf), TestBody::Bytes(_, buf2)) => assert_eq!(buf, buf2),
