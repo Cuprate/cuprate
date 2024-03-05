@@ -48,9 +48,14 @@ pub use message::LevinMessage;
 
 use header::Flags;
 
+/// The version field for bucket headers.
 const MONERO_PROTOCOL_VERSION: u32 = 1;
+/// The signature field for bucket headers, will be constant for all peers using the Monero levin
+/// protocol.
 const MONERO_LEVIN_SIGNATURE: u64 = 0x0101010101012101;
+/// Maximum size a bucket can be before a handshake.
 const MONERO_MAX_PACKET_SIZE_BEFORE_HANDSHAKE: u64 = 256 * 1000; // 256 KiB
+/// Maximum size a bucket can be after a handshake.
 const MONERO_MAX_PACKET_SIZE: u64 = 100_000_000; // 100MB
 
 /// Possible Errors when working with levin buckets
@@ -135,17 +140,16 @@ impl MessageType {
         flags: Flags,
         have_to_return: bool,
     ) -> Result<Self, BucketError> {
-        if flags.contains(Flags::REQUEST) && have_to_return {
-            Ok(MessageType::Request)
-        } else if flags.contains(Flags::REQUEST) {
-            Ok(MessageType::Notification)
-        } else if flags.contains(Flags::RESPONSE) && !have_to_return {
-            Ok(MessageType::Response)
-        } else {
-            Err(BucketError::InvalidHeaderFlags(
-                "Unable to assign a message type to this bucket",
-            ))
-        }
+        Ok(match (flags, have_to_return) {
+            (Flags::REQUEST, true) => MessageType::Request,
+            (Flags::REQUEST, false) => MessageType::Notification,
+            (Flags::RESPONSE, false) => MessageType::Response,
+            _ => {
+                return Err(BucketError::InvalidHeaderFlags(
+                    "Unable to assign a message type to this bucket",
+                ))
+            }
+        })
     }
 
     pub fn as_flags(&self) -> header::Flags {

@@ -13,13 +13,17 @@ use crate::{
 /// A levin message that can be sent to a peer.
 pub enum LevinMessage<T: LevinBody> {
     /// A message body.
+    ///
     /// A levin header will be added to this message before it is sent to the peer.
     Body(T),
     /// A full levin bucket.
+    ///
     /// This bucket will be sent to the peer directly with no extra information.
+    ///
     /// This should only be used to send fragmented messages: [`make_fragmented_messages`]
     Bucket(Bucket<T::Command>),
-    /// A Dummy message
+    /// A dummy message.
+    ///
     /// A dummy message which the peer will ignore. The dummy message will be the exact size
     /// (in bytes) of the given `usize` on the wire.
     Dummy(usize),

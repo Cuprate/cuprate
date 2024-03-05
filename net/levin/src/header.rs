@@ -30,12 +30,30 @@ pub struct Flags(u32);
 
 bitflags! {
     impl Flags: u32 {
+        /// The request flag.
+        ///
+        /// Depending on the `have_to_return_data` field in [`BucketHead`], this message is either
+        /// a request or notification.
         const REQUEST = 0b0000_0001;
+        /// The response flags.
+        ///
+        /// Messages with this set are responses to requests.
         const RESPONSE = 0b0000_0010;
 
+        /// The start fragment flag.
+        ///
+        /// Messages with this flag set tell the parser that the next messages util a message
+        /// with [`Flags::END_FRAGMENT`] should be combined into a single bucket.
         const START_FRAGMENT = 0b0000_0100;
+        /// The end fragment flag.
+        ///
+        /// Messages with this flag set tell the parser that all fragments of a fragmented message
+        /// have been sent.
         const END_FRAGMENT = 0b0000_1000;
 
+        /// A dummy message.
+        ///
+        /// Messages with this flag will be completely ignored by the parser.
         const DUMMY = Self::START_FRAGMENT.bits() | Self::END_FRAGMENT.bits();
 
         const _ = !0;
