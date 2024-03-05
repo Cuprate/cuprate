@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
-    backed::redb::ConcreteEnv,
+    backend::redb::ConcreteEnv,
     config::{Config, SyncMode},
     database::{DatabaseRo, DatabaseRw},
     env::Env,
@@ -14,6 +14,4 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Tests
 /// TODO
 #[test]
-fn test() {
-    let concrete_env: ConcreteEnv = todo!();
-}
+const fn test() {}

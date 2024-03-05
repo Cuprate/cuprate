@@ -1,7 +1,9 @@
 //! Abstracted database; `trait DatabaseRo` & `trait DatabaseRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{error::RuntimeError, table::Table};
+use std::ops::Deref;
+
+use crate::{error::RuntimeError, table::Table, value_guard::ValueGuard};
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 /// Database (key-value store) read abstraction.
@@ -13,18 +15,15 @@ pub trait DatabaseRo<'tx, T: Table> {
     /// TODO
     ///
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    fn get(&'tx self, key: &'_ T::Key) -> Result<&'tx T::Value, RuntimeError>;
+    fn get(&'tx self, key: &'_ T::Key) -> Result<impl ValueGuard<'tx, T::Value>, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    //
-    // TODO: (Iterators + ?Sized + lifetimes) == bad time
-    // fix this later.
     fn get_range<R: std::ops::RangeBounds<T::Key>>(
         &self,
         range: R,
-    ) -> Result<impl Iterator<Item = Result<&'_ T::Value, RuntimeError>>, RuntimeError>;
+    ) -> impl Iterator<Item = Result<impl ValueGuard<'tx, T::Value>, RuntimeError>>;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
@@ -36,11 +35,6 @@ pub trait DatabaseRw<'tx, T: Table>: DatabaseRo<'tx, T> {
     /// # Errors
     /// TODO
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn clear(&mut self) -> Result<(), RuntimeError>;
 
     /// TODO
     /// # Errors
