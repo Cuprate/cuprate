@@ -62,6 +62,8 @@ pub struct ConcreteEnv {
 
 impl Drop for ConcreteEnv {
     fn drop(&mut self) {
+        // INVARIANT: drop(ConcreteEnv) must sync.
+        //
         // TODO:
         // "if the environment has the MDB_NOSYNC flag set the flushes will be omitted,
         // and with MDB_MAPASYNC they will be asynchronous."
@@ -98,6 +100,7 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
+    #[allow(clippy::items_after_statements)]
     fn open(config: Config) -> Result<Self, InitError> {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 
@@ -114,15 +117,20 @@ impl Env for ConcreteEnv {
 
         let mut env_open_options = EnvOpenOptions::new();
 
-        // Set the memory map size to at least the current disk size.
-        let disk_size_bytes = std::fs::File::open(&config.db_file)?.metadata()?.len();
+        // Set the memory map size to
+        // (current disk size) + (a bit of leeway)
+        // to account for empty databases where we
+        // need to write same tables.
         #[allow(clippy::cast_possible_truncation)] // only 64-bit targets
-        env_open_options.map_size(disk_size_bytes as usize);
+        let disk_size_bytes = std::fs::File::open(&config.db_file)?.metadata()?.len() as usize;
+        // Add leeway space.
+        let memory_map_size = crate::resize::fixed_bytes(disk_size_bytes, 1_000_000 /* 1MB */);
+        env_open_options.map_size(memory_map_size.get());
 
         // Set the max amount of database tables.
         // We know at compile time how many tables there are.
         // TODO: ...how many?
-        env_open_options.max_dbs(todo!());
+        env_open_options.max_dbs(32);
 
         // LMDB documentation:
         // ```
@@ -151,38 +159,37 @@ impl Env for ConcreteEnv {
             reader_threads + 16
         });
 
+        // Open the environment in the user's PATH.
+        let env = env_open_options.open(config.db_directory())?;
+
         // TODO: Open/create tables with certain flags
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         // `heed` creates the database if it didn't exist.
         // <https://docs.rs/heed/0.20.0-alpha.9/src/heed/env.rs.html#223-229>
+        use crate::tables::{TestTable, TestTable2};
+        let mut tx_rw = env.write_txn()?;
+
+        DatabaseOpenOptions::new(&env)
+            .name(TestTable::NAME)
+            .types::<<TestTable as Table>::Key, <TestTable as Table>::Value>()
+            .create(&mut tx_rw)?;
+
+        DatabaseOpenOptions::new(&env)
+            .name(TestTable::NAME)
+            .types::<<TestTable2 as Table>::Key, <TestTable2 as Table>::Value>()
+            .create(&mut tx_rw)?;
 
         // TODO: Set dupsort and comparison functions for certain tables
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 
-        todo!()
-    }
+        // INVARIANT: this should never return `ResizeNeeded` due to adding
+        // some tables since we added some leeway to the memory map above.
+        tx_rw.commit()?;
 
-    fn create_tables(
-        &self,
-        env: &Self::EnvInner,
-        tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<(), RuntimeError> {
-        use crate::tables::{TestTable, TestTable2};
-
-        // These wonderful fully qualified types are
-        // brought to you by trait collisions.
-
-        DatabaseOpenOptions::new(env)
-            .name(TestTable::NAME)
-            .types::<<TestTable as Table>::Key, <TestTable as Table>::Value>()
-            .create(tx_rw)?;
-
-        DatabaseOpenOptions::new(env)
-            .name(TestTable::NAME)
-            .types::<<TestTable2 as Table>::Key, <TestTable2 as Table>::Value>()
-            .create(tx_rw)?;
-
-        todo!()
+        Ok(Self {
+            env: RwLock::new(env),
+            config,
+        })
     }
 
     fn config(&self) -> &Config {

@@ -39,6 +39,9 @@ pub struct Config {
     ///
     /// By default, if no value is provided in the [`Config`]
     /// constructor functions, this will be [`cuprate_database_dir`].
+    ///
+    /// TODO: we should also support `/etc/cuprated.conf`.
+    /// This could be represented with an `enum DbPath { Default, Custom, Etc, }`
     pub(crate) db_directory: Cow<'static, Path>,
     /// The actual database data file.
     ///

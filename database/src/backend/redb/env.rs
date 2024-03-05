@@ -30,6 +30,7 @@ pub struct ConcreteEnv {
 
 impl Drop for ConcreteEnv {
     fn drop(&mut self) {
+        // INVARIANT: drop(ConcreteEnv) must sync.
         if let Err(e) = self.sync() {
             // TODO: log error?
         }

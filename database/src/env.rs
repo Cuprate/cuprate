@@ -69,20 +69,15 @@ pub trait Env: Sized {
 
     //------------------------------------------------ Required
     /// TODO
+    /// # Invariants
+    /// This function **must** create all tables listed in [`crate::tables`].
+    ///
+    /// The rest of the functions depend on the fact
+    /// they already exist, or else they will panic.
+    ///
     /// # Errors
     /// TODO
     fn open(config: Config) -> Result<Self, InitError>;
-
-    /// TODO
-    ///
-    /// Create all the tables in [`crate::tables`].
-    /// # Errors
-    /// TODO
-    fn create_tables(
-        &self,
-        env: &Self::EnvInner,
-        tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<(), RuntimeError>;
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
