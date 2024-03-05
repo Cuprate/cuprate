@@ -57,14 +57,13 @@ fn get<'tx, T: Table + 'static>(
 }
 
 /// Shared generic `get_range()` between `RedbTableR{o,w}`.
-#[allow(clippy::unnecessary_wraps)]
-fn get_range<'tx, T: Table, Key, Range>(
+#[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
+fn get_range<'tx, T: Table, Range>(
     db: &'tx impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     range: Range,
 ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
 where
-    Key: Borrow<&'tx T::Key> + 'tx,
-    Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+    Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
 {
     /// TODO
     struct Iter<'tx, K, V>
@@ -93,7 +92,7 @@ where
     }
 
     Ok(Iter::<'tx, T::Key, T::Value> {
-        iter: db.range::<Key>(range)?,
+        iter: db.range::<&'_ T::Key>(range)?,
     })
 }
 
@@ -103,15 +102,15 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
         get::<T>(self, key)
     }
 
-    fn get_range<Key, Range>(
+    #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
+    fn get_range<Range>(
         &'tx self,
         range: Range,
     ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
     where
-        Key: Borrow<&'tx T::Key> + 'tx,
-        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
     {
-        get_range::<T, Key, Range>(self, range)
+        get_range::<T, Range>(self, range)
     }
 }
 
@@ -121,15 +120,15 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'tx, 'tx, T::Ke
         get::<T>(self, key)
     }
 
-    fn get_range<Key, Range>(
+    #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
+    fn get_range<Range>(
         &'tx self,
         range: Range,
     ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
     where
-        Key: Borrow<&'tx T::Key> + 'tx,
-        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
     {
-        get_range::<T, Key, Range>(self, range)
+        get_range::<T, Range>(self, range)
     }
 }
 

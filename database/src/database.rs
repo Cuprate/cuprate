@@ -23,18 +23,16 @@ pub trait DatabaseRo<'tx, T: Table> {
     /// TODO
     /// # Errors
     /// TODO
-    fn get_range<Key, Range>(
+    #[allow(clippy::trait_duplication_in_bounds)]
+    fn get_range<Range>(
         &'tx self,
         range: Range,
     ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
     where
         // FIXME:
-        // - `Key` + `RangeBounds<Key>` is to satisfy `redb` bounds
         // - `RangeBounds<T::Key>` is to satisfy `heed` bounds
-        //
-        // Abstracting over different bounds leads to type soup :)
-        Key: Borrow<&'tx T::Key> + 'tx,
-        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx;
+        // - `RangeBounds<&T::Key> + 'tx` is to satisfy `redb` bounds
+        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw

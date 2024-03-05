@@ -63,15 +63,14 @@ fn get<'tx, T: Table>(
 }
 
 /// Shared generic `get_range()` between `HeedTableR{o,w}`.
-#[allow(clippy::needless_pass_by_value)]
-fn get_range<'tx, T: Table, Key, Range>(
+#[allow(clippy::needless_pass_by_value, clippy::trait_duplication_in_bounds)]
+fn get_range<'tx, T: Table, Range>(
     db: &'_ HeedDb<T::Key, T::Value>,
     tx_ro: &'tx heed::RoTxn<'tx>,
     range: Range,
 ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
 where
-    Key: Borrow<&'tx T::Key> + 'tx,
-    Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+    Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
 {
     /// TODO
     struct Iter<'tx, T: Table> {
@@ -104,15 +103,15 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
         get::<T>(&self.db, self.tx_ro, key)
     }
 
-    fn get_range<Key, Range>(
+    #[allow(clippy::trait_duplication_in_bounds)]
+    fn get_range<Range>(
         &'tx self,
         range: Range,
     ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
     where
-        Key: Borrow<&'tx T::Key> + 'tx,
-        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
     {
-        get_range::<T, Key, Range>(&self.db, self.tx_ro, range)
+        get_range::<T, Range>(&self.db, self.tx_ro, range)
     }
 }
 
@@ -122,15 +121,15 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'tx, T> {
         get::<T>(&self.db, self.tx_rw, key)
     }
 
-    fn get_range<Key, Range>(
+    #[allow(clippy::trait_duplication_in_bounds)]
+    fn get_range<Range>(
         &'tx self,
         range: Range,
     ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
     where
-        Key: Borrow<&'tx T::Key> + 'tx,
-        Range: RangeBounds<T::Key> + RangeBounds<Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
     {
-        get_range::<T, Key, Range>(&self.db, self.tx_rw, range)
+        get_range::<T, Range>(&self.db, self.tx_rw, range)
     }
 }
 
