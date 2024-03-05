@@ -42,7 +42,7 @@ bitflags! {
 
         /// The start fragment flag.
         ///
-        /// Messages with this flag set tell the parser that the next messages util a message
+        /// Messages with this flag set tell the parser that the next messages until a message
         /// with [`Flags::END_FRAGMENT`] should be combined into a single bucket.
         const START_FRAGMENT = 0b0000_0100;
         /// The end fragment flag.
