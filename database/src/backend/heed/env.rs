@@ -15,7 +15,7 @@ use crate::{
     },
     config::{Config, SyncMode},
     database::{DatabaseRo, DatabaseRw},
-    env::Env,
+    env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
@@ -92,8 +92,7 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = true;
     const SYNCS_PER_TX: bool = false;
-    type EnvInner = heed::Env;
-    type TxCreator<'env> = RwLockReadGuard<'env, heed::Env>;
+    type EnvInner<'env> = RwLockReadGuard<'env, heed::Env>;
     type TxRo<'tx> = heed::RoTxn<'tx>;
     type TxRw<'tx> = heed::RwTxn<'tx>;
 
@@ -233,20 +232,30 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn env_ref(&self) -> impl Deref<Target = Self::EnvInner> {
+    fn env_inner(&self) -> Self::EnvInner<'_> {
         self.env.read().unwrap()
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseOpener Impl
+impl<'env> EnvInner<'env, heed::RoTxn<'env>, heed::RwTxn<'env>>
+    for RwLockReadGuard<'env, heed::Env>
+{
+    #[inline]
+    fn tx_ro(&'env self) -> Result<heed::RoTxn<'env>, RuntimeError> {
+        Ok(self.read_txn()?)
     }
 
     #[inline]
-    fn tx_creator(&self) -> Self::TxCreator<'_> {
-        self.env.read().unwrap()
+    fn tx_rw(&'env self) -> Result<heed::RwTxn<'env>, RuntimeError> {
+        Ok(self.write_txn()?)
     }
 
     #[inline]
-    fn open_db_ro<'tx, T: Table>(
-        env: &Self::EnvInner,
-        tx_ro: &'tx Self::TxRo<'tx>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+    fn open_db_ro<T: Table>(
+        &self,
+        tx_ro: &'env heed::RoTxn<'env>,
+    ) -> Result<impl DatabaseRo<'env, T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         //
         // The actual underlying type `heed` sees is
@@ -260,7 +269,7 @@ impl Env for ConcreteEnv {
         // as that also has `T: Table`.
         #[allow(clippy::type_complexity)]
         let result: Result<std::option::Option<HeedDb<T::Key, T::Value>>, heed::Error> =
-            env.open_database(tx_ro, Some(T::NAME));
+            self.open_database(tx_ro, Some(T::NAME));
 
         match result {
             Ok(Some(db)) => Ok(HeedTableRo { db, tx_ro }),
@@ -272,16 +281,16 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn open_db_rw<'tx, T: Table>(
-        env: &Self::EnvInner,
-        tx_rw: &'tx mut Self::TxRw<'tx>,
-    ) -> Result<impl DatabaseRw<'tx, T>, RuntimeError> {
+    fn open_db_rw<T: Table>(
+        &self,
+        tx_rw: &'env mut heed::RwTxn<'env>,
+    ) -> Result<impl DatabaseRw<'env, T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
         //
         // Everything said above with `open_db_ro()` applies here as well.
         #[allow(clippy::type_complexity)]
         let result: Result<std::option::Option<HeedDb<T::Key, T::Value>>, heed::Error> =
-            env.open_database(tx_rw, Some(T::NAME));
+            self.open_database(tx_rw, Some(T::NAME));
 
         match result {
             Ok(Some(db)) => Ok(HeedTableRw { db, tx_rw }),

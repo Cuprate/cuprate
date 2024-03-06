@@ -3,26 +3,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{config::SyncMode, env::Env, error::RuntimeError};
 
-//---------------------------------------------------------------------------------------------------- TxCreator
-/// Database transaction creator.
-///
-/// TODO
-pub trait TxCreator<'env, Ro, Rw>
-where
-    Ro: TxRo<'env> + 'env,
-    Rw: TxRw<'env> + 'env,
-{
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn tx_ro(&'env self) -> Result<Ro, RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn tx_rw(&'env self) -> Result<Rw, RuntimeError>;
-}
-
 //---------------------------------------------------------------------------------------------------- TxRo
 /// Read-only database transaction.
 ///

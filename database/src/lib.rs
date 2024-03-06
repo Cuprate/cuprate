@@ -304,7 +304,7 @@ mod database;
 pub use database::{DatabaseRo, DatabaseRw};
 
 mod env;
-pub use env::Env;
+pub use env::{Env, EnvInner};
 
 mod error;
 pub use error::{InitError, RuntimeError};
@@ -331,7 +331,7 @@ pub mod tables;
 pub mod types;
 
 mod transaction;
-pub use transaction::{TxCreator, TxRo, TxRw};
+pub use transaction::{TxRo, TxRw};
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]

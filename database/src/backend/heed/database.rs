@@ -1,7 +1,7 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Borrow, ops::RangeBounds};
+use std::{borrow::Borrow, ops::RangeBounds, sync::RwLockReadGuard};
 
 use crate::{
     backend::heed::{storable::StorableHeed, types::HeedDb},

@@ -9,7 +9,7 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    transaction::{TxCreator, TxRo, TxRw},
+    transaction::{TxRo, TxRw},
 };
 
 //---------------------------------------------------------------------------------------------------- Env
@@ -46,21 +46,23 @@ pub trait Env: Sized {
 
     //------------------------------------------------ Types
     /// TODO
-    type EnvInner;
-
-    /// TODO
-    type TxRo<'tx>: TxRo<'tx>;
-
-    /// TODO
-    type TxRw<'tx>: TxRw<'tx>;
-
-    /// TODO
     ///
     /// TODO: document that this is needed to smooth out differences in:
     /// - `heed` needing to return Guard + Tx
-    type TxCreator<'env>: TxCreator<'env, Self::TxRo<'env>, Self::TxRw<'env>>
+    /// - `redb` needing to return `redb::Durability` per Tx
+    type EnvInner<'env>: EnvInner<'env, Self::TxRo<'env>, Self::TxRw<'env>>
     where
         Self: 'env;
+
+    /// TODO
+    type TxRo<'tx>: TxRo<'tx>
+    where
+        Self: 'tx;
+
+    /// TODO
+    type TxRw<'tx>: TxRw<'tx>
+    where
+        Self: 'tx;
 
     //------------------------------------------------ Required
     /// TODO
@@ -76,30 +78,6 @@ pub trait Env: Sized {
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
-
-    /// Return the amount of actual of bytes the database is taking up on disk.
-    ///
-    /// This is the current _disk_ value in bytes, not the memory map.
-    ///
-    /// # Errors
-    /// This will error if either:
-    ///
-    /// - [`std::fs::File::open`]
-    /// - [`std::fs::File::metadata`]
-    ///
-    /// failed on the database file on disk.
-    fn disk_size_bytes(&self) -> std::io::Result<u64> {
-        // We have the direct PATH to the file,
-        // no need to use backend-specific functions.
-        //
-        // SAFETY: as we are only accessing the metadata of
-        // the file and not reading the bytes, it should be
-        // fine even with a memory mapped file being actively
-        // written to.
-        Ok(std::fs::File::open(&self.config().db_file)?
-            .metadata()?
-            .len())
-    }
 
     /// TODO
     ///
@@ -141,42 +119,82 @@ pub trait Env: Sized {
     }
 
     /// TODO
-    fn env_ref(&self) -> impl Deref<Target = Self::EnvInner>;
-
-    /// TODO
-    fn tx_creator(&self) -> Self::TxCreator<'_>;
-
-    /// TODO
     ///
-    /// # TODO: Invariant
-    /// This should never panic the database because the table doesn't exist.
-    ///
-    /// Opening/using the database [`Env`] should have an invariant
-    /// that it creates all the tables we need, such that this
-    /// never returns `None`.
-    ///
-    /// # Errors
-    /// TODO
-    fn open_db_ro<'tx, T: Table>(
-        env: &Self::EnvInner,
-        tx_ro: &'tx Self::TxRo<'tx>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
-
-    /// TODO
-    ///
-    /// # TODO: Invariant
-    /// This should never panic the database because the table doesn't exist.
-    ///
-    /// Opening/using the database [`Env`] should have an invariant
-    /// that it creates all the tables we need, such that this
-    /// never returns `None`.
-    ///
-    /// # Errors
-    /// TODO
-    fn open_db_rw<'tx, T: Table>(
-        env: &Self::EnvInner,
-        tx_rw: &'tx mut Self::TxRw<'tx>,
-    ) -> Result<impl DatabaseRw<'tx, T>, RuntimeError>;
+    /// TODO: Document that this is a lock guard.
+    fn env_inner(&self) -> Self::EnvInner<'_>;
 
     //------------------------------------------------ Provided
+    /// Return the amount of actual of bytes the database is taking up on disk.
+    ///
+    /// This is the current _disk_ value in bytes, not the memory map.
+    ///
+    /// # Errors
+    /// This will error if either:
+    ///
+    /// - [`std::fs::File::open`]
+    /// - [`std::fs::File::metadata`]
+    ///
+    /// failed on the database file on disk.
+    fn disk_size_bytes(&self) -> std::io::Result<u64> {
+        // We have the direct PATH to the file,
+        // no need to use backend-specific functions.
+        //
+        // SAFETY: as we are only accessing the metadata of
+        // the file and not reading the bytes, it should be
+        // fine even with a memory mapped file being actively
+        // written to.
+        Ok(std::fs::File::open(&self.config().db_file)?
+            .metadata()?
+            .len())
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseRo
+/// TODO
+pub trait EnvInner<'env, Ro, Rw>
+where
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+{
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn tx_ro(&'env self) -> Result<Ro, RuntimeError>;
+
+    /// TODO
+    /// # Errors
+    /// TODO
+    fn tx_rw(&'env self) -> Result<Rw, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # TODO: Invariant
+    /// This should never panic the database because the table doesn't exist.
+    ///
+    /// Opening/using the database [`Env`] should have an invariant
+    /// that it creates all the tables we need, such that this
+    /// never returns `None`.
+    ///
+    /// # Errors
+    /// TODO
+    fn open_db_ro<T: Table>(
+        &self,
+        tx_ro: &'env Ro,
+    ) -> Result<impl DatabaseRo<'env, T>, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # TODO: Invariant
+    /// This should never panic the database because the table doesn't exist.
+    ///
+    /// Opening/using the database [`Env`] should have an invariant
+    /// that it creates all the tables we need, such that this
+    /// never returns `None`.
+    ///
+    /// # Errors
+    /// TODO
+    fn open_db_rw<T: Table>(
+        &self,
+        tx_rw: &'env mut Rw,
+    ) -> Result<impl DatabaseRw<'env, T>, RuntimeError>;
 }

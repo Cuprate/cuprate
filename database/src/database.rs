@@ -6,7 +6,11 @@ use std::{
     ops::{Deref, RangeBounds},
 };
 
-use crate::{error::RuntimeError, table::Table};
+use crate::{
+    error::RuntimeError,
+    table::Table,
+    transaction::{TxRo, TxRw},
+};
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 /// Database (key-value store) read abstraction.
