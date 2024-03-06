@@ -133,7 +133,7 @@ where
     async fn send_message_to_peer(&mut self, mes: Message) -> Result<(), PeerError> {
         tracing::debug!("Sending message: [{}] to peer", mes.command());
 
-        timeout(SENDING_TIMEOUT, self.peer_sink.send(mes))
+        timeout(SENDING_TIMEOUT, self.peer_sink.send(mes.into()))
             .await
             .map_err(|_| PeerError::TimedOut)
             .and_then(|res| res.map_err(PeerError::BucketError))

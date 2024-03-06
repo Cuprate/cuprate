@@ -152,6 +152,7 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         DummyAddressBook,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
+        None,
         broadcast_tx,
         our_basic_node_data,
     );
@@ -189,6 +190,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
         DummyAddressBook,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
+        None,
         broadcast_tx,
         our_basic_node_data,
     );
@@ -210,7 +212,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
             .await
             .unwrap()
             .call(DoHandshakeRequest {
-                addr: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
+                peer_id: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
                 peer_stream: stream,
                 peer_sink: sink,
                 direction: ConnectionDirection::InBound,

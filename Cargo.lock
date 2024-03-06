@@ -615,21 +615,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cuprate-p2p"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "futures",
- "indexmap 2.2.3",
- "monero-address-book",
- "monero-p2p",
- "monero-wire",
- "tokio",
- "tower",
- "tracing",
-]
-
-[[package]]
 name = "cuprate-test-utils"
 version = "0.1.0"
 dependencies = [
