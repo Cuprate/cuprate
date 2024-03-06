@@ -34,23 +34,11 @@ use monero_wire::{
 
 use crate::{
     client::{connection::Connection, Client, InternalPeerID, PeerInformation},
+    constants::{HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE},
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, ConnectionDirection, CoreSyncDataRequest,
-    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerBroadcast, PeerRequestHandler,
-    SharedError, MAX_PEERS_IN_PEER_LIST_MESSAGE,
+    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerRequestHandler, SharedError,
 };
-
-/// This is Cuprate specific - monerod will send protocol messages before a handshake is complete in
-/// certain circumstances i.e. monerod will send a [`ProtocolMessage::GetTxPoolCompliment`] if our node
-/// is its first connection, and we are at the same height.
-///
-/// Cuprate needs to complete a handshake before any protocol messages can be handled though, so we keep
-/// them around to handle when the handshake is done. We don't want this to grow forever though, so we cap
-/// the amount we can receive.
-const MAX_EAGER_PROTOCOL_MESSAGES: usize = 2;
-
-/// A timeout for a handshake - the handshake must complete before this.
-const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// An error that can be returned from a handshake.
 #[derive(Debug, thiserror::Error)]
@@ -116,10 +104,6 @@ pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
     /// Our basic node data, for this network.
     our_basic_node_data: BasicNodeData,
 
-    /// The broadcast channel that messages that need to be sent to every peer will be sent down.
-    /// Although inbound and outbound peers will have different channels
-    broadcast_tx: broadcast::Sender<PeerBroadcast>,
-
     /// The network zone for this handshaker.
     _zone: PhantomData<Z>,
 }
@@ -133,8 +117,6 @@ impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqH
 
         minimum_support_flags: Option<PeerSupportFlags>,
 
-        broadcast_tx: broadcast::Sender<PeerBroadcast>,
-
         our_basic_node_data: BasicNodeData,
     ) -> Self {
         Self {
@@ -142,7 +124,6 @@ impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqH
             core_sync_svc,
             peer_request_svc,
             minimum_support_flags: minimum_support_flags.unwrap_or(PeerSupportFlags::empty()),
-            broadcast_tx,
             our_basic_node_data,
             _zone: PhantomData,
         }
@@ -166,8 +147,6 @@ where
     }
 
     fn call(&mut self, req: DoHandshakeRequest<Z>) -> Self::Future {
-        let broadcast_rx = self.broadcast_tx.subscribe();
-
         let minimum_support_flags = self.minimum_support_flags;
 
         let address_book = self.address_book.clone();
@@ -184,7 +163,6 @@ where
                 handshake(
                     req,
                     minimum_support_flags,
-                    broadcast_rx,
                     address_book,
                     core_sync_svc,
                     peer_request_svc,
@@ -203,8 +181,6 @@ async fn handshake<Z: NetworkZone, AdrBook, CSync, ReqHdlr>(
     req: DoHandshakeRequest<Z>,
 
     minimum_support_flags: PeerSupportFlags,
-
-    broadcast_rx: broadcast::Receiver<PeerBroadcast>,
 
     mut address_book: AdrBook,
     mut core_sync_svc: CSync,
@@ -369,7 +345,6 @@ where
     let connection = Connection::<Z, _>::new(
         peer_sink,
         client_rx,
-        broadcast_rx,
         peer_request_svc,
         connection_guard,
         error_slot.clone(),

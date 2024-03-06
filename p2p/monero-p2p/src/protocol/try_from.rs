@@ -3,7 +3,7 @@
 
 use monero_wire::{Message, ProtocolMessage, RequestMessage, ResponseMessage};
 
-use super::{PeerBroadcast, PeerRequest, PeerResponse};
+use super::{PeerRequest, PeerResponse};
 
 #[derive(Debug)]
 pub struct MessageConversionError;
@@ -63,12 +63,6 @@ macro_rules! try_from_try_from {
         try_from!($right_ty, $left_ty, {$($right $(($val))? = $left $(($val))?,)+});
     };
 }
-
-from!(PeerBroadcast, ProtocolMessage, {
-    Transactions(val) = NewTransactions(val),
-    NewBlock(val) = NewBlock(val),
-    NewFluffyBlock(val) = NewFluffyBlock(val),
-});
 
 from_try_from!(PeerRequest, RequestMessage,{
     Handshake(val) = Handshake(val),

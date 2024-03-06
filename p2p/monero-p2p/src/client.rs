@@ -14,7 +14,7 @@ use tokio_util::sync::PollSender;
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use monero_wire::CoreSyncData;
+use monero_wire::{CoreSyncData, LevinCommand};
 
 use crate::{
     handles::ConnectionHandle, ConnectionDirection, NetworkZone, PeerError, PeerRequest,
@@ -29,6 +29,7 @@ mod load_tracked;
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
 pub use load_tracked::PeakEwmaClient;
+use monero_wire::levin::Bucket;
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u64 if not.

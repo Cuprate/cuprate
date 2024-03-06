@@ -21,8 +21,6 @@ pub use error::*;
 pub use protocol::*;
 use services::*;
 
-const MAX_PEERS_IN_PEER_LIST_MESSAGE: usize = 250;
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ConnectionDirection {
     InBound,

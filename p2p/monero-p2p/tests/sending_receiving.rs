@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use tokio::sync::{broadcast, Semaphore};
+use tokio::sync::Semaphore;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
@@ -19,7 +19,6 @@ use utils::*;
 
 #[tokio::test]
 async fn get_single_block_from_monerod() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
@@ -39,7 +38,6 @@ async fn get_single_block_from_monerod() {
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
-        broadcast_tx,
         our_basic_node_data,
     );
 

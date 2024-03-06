@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use futures::StreamExt;
 use tokio::{
     io::{duplex, split},
-    sync::{broadcast, Semaphore},
+    sync::Semaphore,
     time::timeout,
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
@@ -31,7 +31,6 @@ async fn handshake_cuprate_to_cuprate() {
     // Tests a Cuprate <-> Cuprate handshake by making 2 handshake services and making them talk to
     // each other.
 
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit_1 = semaphore.clone().acquire_owned().await.unwrap();
     let permit_2 = semaphore.acquire_owned().await.unwrap();
@@ -54,7 +53,6 @@ async fn handshake_cuprate_to_cuprate() {
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
-        broadcast_tx.clone(),
         our_basic_node_data_1,
     );
 
@@ -63,7 +61,6 @@ async fn handshake_cuprate_to_cuprate() {
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
-        broadcast_tx.clone(),
         our_basic_node_data_2,
     );
 
@@ -115,7 +112,6 @@ async fn handshake_cuprate_to_cuprate() {
 
 #[tokio::test]
 async fn handshake_cuprate_to_monerod() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
@@ -135,7 +131,6 @@ async fn handshake_cuprate_to_monerod() {
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
-        broadcast_tx,
         our_basic_node_data,
     );
 
@@ -155,7 +150,6 @@ async fn handshake_cuprate_to_monerod() {
 
 #[tokio::test]
 async fn handshake_monerod_to_cuprate() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
@@ -173,7 +167,6 @@ async fn handshake_monerod_to_cuprate() {
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
-        broadcast_tx,
         our_basic_node_data,
     );
 

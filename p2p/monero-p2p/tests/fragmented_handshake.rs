@@ -13,7 +13,7 @@ use tokio::{
         tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpListener, TcpStream,
     },
-    sync::{broadcast, Semaphore},
+    sync::Semaphore,
     time::timeout,
 };
 use tokio_util::{
@@ -133,7 +133,6 @@ impl Encoder<LevinMessage<Message>> for FragmentCodec {
 
 #[tokio::test]
 async fn fragmented_handshake_cuprate_to_monerod() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
@@ -153,7 +152,6 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
-        broadcast_tx,
         our_basic_node_data,
     );
 
@@ -173,7 +171,6 @@ async fn fragmented_handshake_cuprate_to_monerod() {
 
 #[tokio::test]
 async fn fragmented_handshake_monerod_to_cuprate() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
@@ -191,7 +188,6 @@ async fn fragmented_handshake_monerod_to_cuprate() {
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
-        broadcast_tx,
         our_basic_node_data,
     );
 

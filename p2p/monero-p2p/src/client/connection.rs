@@ -21,8 +21,8 @@ use tower::ServiceExt;
 use monero_wire::{LevinCommand, Message, ProtocolMessage};
 
 use crate::{
-    constants::REQUEST_TIMEOUT, handles::ConnectionGuard, MessageID, NetworkZone, PeerBroadcast,
-    PeerError, PeerRequest, PeerRequestHandler, PeerResponse, SharedError,
+    constants::REQUEST_TIMEOUT, handles::ConnectionGuard, MessageID, NetworkZone, PeerError,
+    PeerRequest, PeerRequestHandler, PeerResponse, SharedError,
 };
 
 /// The timeout used when sending messages to a peer.
@@ -91,8 +91,6 @@ pub struct Connection<Z: NetworkZone, ReqHndlr> {
 
     /// The client channel where requests from Cuprate to this peer will come from for us to route.
     client_rx: Fuse<ReceiverStream<ConnectionTaskRequest>>,
-    /// The broadcast channel where requests being broadcast from our node will come from for us to route.
-    broadcast_rx: Fuse<BroadcastStream<PeerBroadcast>>,
 
     /// The inner handler for any requests that come from the requested peer.
     peer_request_handler: ReqHndlr,
@@ -111,7 +109,6 @@ where
     pub fn new(
         peer_sink: Z::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
-        broadcast_rx: broadcast::Receiver<PeerBroadcast>,
         peer_request_handler: ReqHndlr,
         connection_guard: ConnectionGuard,
         error: SharedError<PeerError>,
@@ -121,7 +118,6 @@ where
             state: State::WaitingForRequest,
             request_timeout: None,
             client_rx: ReceiverStream::new(client_rx).fuse(),
-            broadcast_rx: BroadcastStream::new(broadcast_rx).fuse(),
             peer_request_handler,
             connection_guard,
             error,
@@ -153,28 +149,6 @@ where
         };
 
         self.handle_client_request(req).await
-    }
-
-    /// Handles a broadcast request from Cuprate, will error if any broadcast messages have been missed.
-    async fn handle_client_broadcast(
-        &mut self,
-        mes: Result<PeerBroadcast, BroadcastStreamRecvError>,
-    ) -> Result<(), PeerError> {
-        match mes {
-            Ok(mes) => {
-                self.send_message_to_peer(Message::Protocol(mes.into()))
-                    .await
-            }
-            Err(_) => {
-                // We close the connection if we miss a broadcast because monerod expects to receive every new block from each peer and
-                // will disconnect from peers which miss more than one block. If this connection is slow enough that we miss broadcasts
-                // our best option is just to disconnect.
-                tracing::debug!(
-                    "Connection task missed some broadcast messages, closing connection."
-                );
-                Err(PeerError::ClientChannelClosed)
-            }
-        }
     }
 
     /// Handles a request from Cuprate, unlike a broadcast this request will be directed specifically at this peer.
@@ -270,13 +244,6 @@ where
             _ = timeout => {
                 self.check_alive().await
             }
-            broadcast_req = self.broadcast_rx.next() => {
-                if let Some(broadcast_req) = broadcast_req {
-                    self.handle_client_broadcast(broadcast_req).await
-                } else {
-                    Err(PeerError::ClientChannelClosed)
-                }
-            }
             client_req = self.client_rx.next() => {
                 if let Some(client_req) = client_req {
                     self.handle_client_request(client_req).await
@@ -306,13 +273,6 @@ where
             _ = self.request_timeout.as_mut().unwrap() => {
                 // TODO: Is disconnecting over the top?
                 Err(PeerError::ClientChannelClosed)
-            }
-            broadcast_req = self.broadcast_rx.next() => {
-                if let Some(broadcast_req) = broadcast_req {
-                    self.handle_client_broadcast(broadcast_req).await
-                } else {
-                    Err(PeerError::ClientChannelClosed)
-                }
             }
             peer_message = stream.next() => {
                 if let Some(peer_message) = peer_message {
