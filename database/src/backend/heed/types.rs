@@ -1,8 +1,8 @@
 //! `heed` type aliases.
 
 //---------------------------------------------------------------------------------------------------- Use
-use heed::{types::Bytes, Database};
+use crate::backend::heed::storable::StorableHeed;
 
 //---------------------------------------------------------------------------------------------------- Types
-/// The concrete database type for `heed`.
-pub(super) type HeedDb = Database<Bytes, Bytes>;
+/// The concrete database type for `heed`, usable for reads and writes.
+pub(super) type HeedDb<K, V> = heed::Database<StorableHeed<K>, StorableHeed<V>>;

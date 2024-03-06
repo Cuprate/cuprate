@@ -2,6 +2,8 @@
 name = "cuprate-test-utils"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
 
 [dependencies]
 monero-wire = {path = "../net/monero-wire"}
@@ -10,6 +12,7 @@ monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
 futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true }
 reqwest = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 tempfile = { workspace = true }

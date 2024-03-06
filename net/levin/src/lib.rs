@@ -33,21 +33,29 @@
 #![deny(unused_mut)]
 //#![deny(missing_docs)]
 
-pub mod codec;
-pub mod header;
-
-pub use codec::*;
-pub use header::BucketHead;
-
 use std::fmt::Debug;
 
-use crate::header::Flags;
 use bytes::{Buf, Bytes};
 use thiserror::Error;
 
+pub mod codec;
+pub mod header;
+pub mod message;
+
+pub use codec::*;
+pub use header::BucketHead;
+pub use message::LevinMessage;
+
+use header::Flags;
+
+/// The version field for bucket headers.
 const MONERO_PROTOCOL_VERSION: u32 = 1;
+/// The signature field for bucket headers, will be constant for all peers using the Monero levin
+/// protocol.
 const MONERO_LEVIN_SIGNATURE: u64 = 0x0101010101012101;
+/// Maximum size a bucket can be before a handshake.
 const MONERO_MAX_PACKET_SIZE_BEFORE_HANDSHAKE: u64 = 256 * 1000; // 256 KiB
+/// Maximum size a bucket can be after a handshake.
 const MONERO_MAX_PACKET_SIZE: u64 = 100_000_000; // 100MB
 
 /// Possible Errors when working with levin buckets
@@ -99,7 +107,7 @@ impl Default for Protocol {
 }
 
 /// A levin Bucket
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bucket<C> {
     /// The bucket header
     pub header: BucketHead<C>,
@@ -132,17 +140,16 @@ impl MessageType {
         flags: Flags,
         have_to_return: bool,
     ) -> Result<Self, BucketError> {
-        if flags.contains(Flags::REQUEST) && have_to_return {
-            Ok(MessageType::Request)
-        } else if flags.contains(Flags::REQUEST) {
-            Ok(MessageType::Notification)
-        } else if flags.contains(Flags::RESPONSE) && !have_to_return {
-            Ok(MessageType::Response)
-        } else {
-            Err(BucketError::InvalidHeaderFlags(
-                "Unable to assign a message type to this bucket",
-            ))
-        }
+        Ok(match (flags, have_to_return) {
+            (Flags::REQUEST, true) => MessageType::Request,
+            (Flags::REQUEST, false) => MessageType::Notification,
+            (Flags::RESPONSE, false) => MessageType::Response,
+            _ => {
+                return Err(BucketError::InvalidHeaderFlags(
+                    "Unable to assign a message type to this bucket",
+                ))
+            }
+        })
     }
 
     pub fn as_flags(&self) -> header::Flags {
@@ -163,20 +170,18 @@ pub struct BucketBuilder<C> {
     body: Option<Bytes>,
 }
 
-impl<C> Default for BucketBuilder<C> {
-    fn default() -> Self {
+impl<C: LevinCommand> BucketBuilder<C> {
+    pub fn new(protocol: &Protocol) -> Self {
         Self {
-            signature: Some(MONERO_LEVIN_SIGNATURE),
+            signature: Some(protocol.signature),
             ty: None,
             command: None,
             return_code: None,
-            protocol_version: Some(MONERO_PROTOCOL_VERSION),
+            protocol_version: Some(protocol.version),
             body: None,
         }
     }
-}
 
-impl<C: LevinCommand> BucketBuilder<C> {
     pub fn set_signature(&mut self, sig: u64) {
         self.signature = Some(sig)
     }
@@ -221,7 +226,7 @@ impl<C: LevinCommand> BucketBuilder<C> {
 
 /// A levin body
 pub trait LevinBody: Sized {
-    type Command: LevinCommand;
+    type Command: LevinCommand + Debug;
 
     /// Decodes the message from the data in the header
     fn decode_message<B: Buf>(

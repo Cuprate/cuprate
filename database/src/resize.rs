@@ -29,16 +29,12 @@ use std::{num::NonZeroUsize, sync::OnceLock};
 ///
 /// # TODO
 /// We could test around with different algorithms.
-/// Calling [`heed::Env::resize`] is surprisingly fast,
+/// Calling `heed::Env::resize` is surprisingly fast,
 /// around `0.0000082s` on my machine. We could probably
 /// get away with smaller and more frequent resizes.
 /// **With the caveat being we are taking a `WriteGuard` to a `RwLock`.**
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
-)]
 pub enum ResizeAlgorithm {
     /// Uses [`monero`].
     Monero,

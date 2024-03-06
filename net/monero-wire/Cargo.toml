@@ -6,6 +6,9 @@ license = "MIT"
 authors = ["Boog900"]
 repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/monero-wire"
 
+[features]
+default = []
+tracing = ["levin-cuprate/tracing"]
 
 [dependencies]
 levin-cuprate = {path="../levin"}

@@ -1,28 +1,26 @@
-//! Implementation of `trait RoTx/RwTx` for `sanakirja`.
+//! Implementation of `trait TxRo/TxRw` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
+    config::SyncMode,
+    env::Env,
     error::RuntimeError,
-    transaction::{RoTx, RwTx},
+    transaction::{TxRo, TxRw},
 };
 
-//---------------------------------------------------------------------------------------------------- RoTx
-impl RoTx<'_> for sanakirja::Txn<&'_ sanakirja::Env> {
+//---------------------------------------------------------------------------------------------------- TxRo
+impl TxRo<'_> for redb::ReadTransaction<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
         todo!()
     }
 }
 
-//---------------------------------------------------------------------------------------------------- RwTx
-impl RwTx<'_> for sanakirja::MutTxn<&'_ sanakirja::Env, ()> {
-    /// TODO
-    /// # Errors
-    /// TODO
+//---------------------------------------------------------------------------------------------------- TxRw
+impl TxRw<'_> for redb::WriteTransaction<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
         todo!()
     }
 
-    /// TODO
     fn abort(self) {
         todo!()
     }

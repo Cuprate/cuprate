@@ -7,9 +7,21 @@ license = "MIT"
 authors = ["Boog900"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/net/levin"
 
+[features]
+default = []
+tracing = ["dep:tracing", "tokio-util/tracing"]
+
 [dependencies]
 thiserror = { workspace = true }
-bytes = { workspace = true }
+bytes = { workspace = true, features = ["std"] }
 bitflags = { workspace = true }
 tokio-util = { workspace = true, features = ["codec"]}
 
+tracing = { workspace = true, features = ["std"], optional = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+rand = { workspace = true, features = ["std", "std_rng"] }
+tokio-util = { workspace = true, features = ["io-util"]}
+tokio = { workspace = true, features = ["full"] }
+futures = { workspace = true, features = ["std"] }

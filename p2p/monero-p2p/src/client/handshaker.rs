@@ -315,7 +315,7 @@ where
             "Peer didn't send support flags or has no features, sending request to make sure."
         );
         peer_sink
-            .send(Message::Request(RequestMessage::SupportFlags))
+            .send(Message::Request(RequestMessage::SupportFlags).into())
             .await?;
 
         let Message::Response(ResponseMessage::SupportFlags(support_flags_res)) =
@@ -416,7 +416,7 @@ where
     tracing::debug!("Sending handshake request.");
 
     peer_sink
-        .send(Message::Request(RequestMessage::Handshake(req)))
+        .send(Message::Request(RequestMessage::Handshake(req)).into())
         .await?;
 
     Ok(())
@@ -462,7 +462,7 @@ where
     tracing::debug!("Sending handshake response.");
 
     peer_sink
-        .send(Message::Response(ResponseMessage::Handshake(res)))
+        .send(Message::Response(ResponseMessage::Handshake(res)).into())
         .await?;
 
     Ok(())
@@ -553,8 +553,11 @@ async fn send_support_flags<Z: NetworkZone>(
 ) -> Result<(), HandshakeError> {
     tracing::debug!("Sending support flag response.");
     Ok(peer_sink
-        .send(Message::Response(ResponseMessage::SupportFlags(
-            SupportFlagsResponse { support_flags },
-        )))
+        .send(
+            Message::Response(ResponseMessage::SupportFlags(SupportFlagsResponse {
+                support_flags,
+            }))
+            .into(),
+        )
         .await?)
 }
