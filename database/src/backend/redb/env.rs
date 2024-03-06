@@ -44,10 +44,7 @@ impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = false;
     const SYNCS_PER_TX: bool = false;
     type EnvInner = redb::Database;
-    type TxRoInput = redb::Database;
-    type TxRwInput = Self;
-    type TxRo<'env> = redb::ReadTransaction<'env>;
-    type TxRw<'env> = redb::WriteTransaction<'env>;
+    type TxCreator = Self;
 
     #[cold]
     #[inline(never)] // called once.
@@ -76,13 +73,8 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn env_inner(&self) -> impl Deref<Target = Self::EnvInner> {
-        &self.env
-    }
-
-    #[inline]
-    fn tx_ro_input(&self) -> impl Deref<Target = Self::TxRoInput> {
-        &self.env
+    fn tx_creator(&self) -> impl Deref<Target = Self::TxCreator<'_>> {
+        self
     }
 
     #[inline]

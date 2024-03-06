@@ -95,9 +95,9 @@ impl Config {
         Self {
             db_directory,
             db_file,
-            sync_mode: SyncMode::FastThenSafe,
+            sync_mode: SyncMode::default(),
             reader_threads: ReaderThreads::OnePerThread,
-            resize_algorithm: ResizeAlgorithm::new(),
+            resize_algorithm: ResizeAlgorithm::default(),
         }
     }
 
@@ -118,7 +118,7 @@ impl Config {
             db_file,
             sync_mode: SyncMode::Fast,
             reader_threads: ReaderThreads::OnePerThread,
-            resize_algorithm: ResizeAlgorithm::new(),
+            resize_algorithm: ResizeAlgorithm::default(),
         }
     }
 
@@ -137,9 +137,9 @@ impl Config {
         Self {
             db_directory,
             db_file,
-            sync_mode: SyncMode::FastThenSafe,
+            sync_mode: SyncMode::default(),
             reader_threads: ReaderThreads::One,
-            resize_algorithm: ResizeAlgorithm::new(),
+            resize_algorithm: ResizeAlgorithm::default(),
         }
     }
 
@@ -232,9 +232,9 @@ pub enum SyncMode {
     ///
     /// Essentially, when we are in a certain % range of being finished,
     /// switch to safe mode, until then, go fast.
-    #[default]
     FastThenSafe,
 
+    #[default]
     /// Fully sync to disk per transaction.
     ///
     /// Every database transaction commit will

@@ -9,7 +9,7 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    transaction::{TxRo, TxRw},
+    transaction::{TxCreator, TxRo, TxRw},
 };
 
 //---------------------------------------------------------------------------------------------------- Env
@@ -49,23 +49,18 @@ pub trait Env: Sized {
     type EnvInner;
 
     /// TODO
-    ///
-    /// TODO: document that this is needed to smooth out differences in:
-    /// - `heed` needing to return Guard + Tx
-    type TxRoInput;
+    type TxRo<'tx>: TxRo<'tx>;
+
+    /// TODO
+    type TxRw<'tx>: TxRw<'tx>;
 
     /// TODO
     ///
     /// TODO: document that this is needed to smooth out differences in:
     /// - `heed` needing to return Guard + Tx
-    /// - `redb` needing a `redb::Durability` each Tx
-    type TxRwInput;
-
-    /// TODO
-    type TxRo<'env>: TxRo<'env>;
-
-    /// TODO
-    type TxRw<'env>: TxRw<'env>;
+    type TxCreator<'env>: TxCreator<'env, Self::TxRo<'env>, Self::TxRw<'env>>
+    where
+        Self: 'env;
 
     //------------------------------------------------ Required
     /// TODO
@@ -146,23 +141,10 @@ pub trait Env: Sized {
     }
 
     /// TODO
-    fn env_inner(&self) -> impl Deref<Target = Self::EnvInner>;
+    fn env_ref(&self) -> impl Deref<Target = Self::EnvInner>;
 
     /// TODO
-    fn tx_ro_input(&self) -> impl Deref<Target = Self::TxRoInput>;
-
-    /// TODO
-    fn tx_rw_input(&self) -> impl Deref<Target = Self::TxRwInput>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn tx_ro(input: &Self::TxRoInput) -> Result<Self::TxRo<'_>, RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn tx_rw(input: &Self::TxRwInput) -> Result<Self::TxRw<'_>, RuntimeError>;
+    fn tx_creator(&self) -> Self::TxCreator<'_>;
 
     /// TODO
     ///

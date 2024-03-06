@@ -93,10 +93,9 @@ impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = true;
     const SYNCS_PER_TX: bool = false;
     type EnvInner = heed::Env;
-    type TxRoInput = heed::Env;
-    type TxRwInput = heed::Env;
-    type TxRo<'env> = heed::RoTxn<'env>;
-    type TxRw<'env> = heed::RwTxn<'env>;
+    type TxCreator<'env> = RwLockReadGuard<'env, heed::Env>;
+    type TxRo<'tx> = heed::RoTxn<'tx>;
+    type TxRw<'tx> = heed::RwTxn<'tx>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -122,7 +121,12 @@ impl Env for ConcreteEnv {
         // to account for empty databases where we
         // need to write same tables.
         #[allow(clippy::cast_possible_truncation)] // only 64-bit targets
-        let disk_size_bytes = std::fs::File::open(&config.db_file)?.metadata()?.len() as usize;
+        let disk_size_bytes = match std::fs::File::open(&config.db_file) {
+            Ok(file) => file.metadata()?.len() as usize,
+            // The database file doesn't exist, 0 bytes.
+            Err(io_err) if io_err.kind() == std::io::ErrorKind::NotFound => 0,
+            Err(io_err) => return Err(io_err.into()),
+        };
         // Add leeway space.
         let memory_map_size = crate::resize::fixed_bytes(disk_size_bytes, 1_000_000 /* 1MB */);
         env_open_options.map_size(memory_map_size.get());
@@ -175,7 +179,7 @@ impl Env for ConcreteEnv {
             .create(&mut tx_rw)?;
 
         DatabaseOpenOptions::new(&env)
-            .name(TestTable::NAME)
+            .name(TestTable2::NAME)
             .types::<<TestTable2 as Table>::Key, <TestTable2 as Table>::Value>()
             .create(&mut tx_rw)?;
 
@@ -229,28 +233,13 @@ impl Env for ConcreteEnv {
     }
 
     #[inline]
-    fn env_inner(&self) -> impl Deref<Target = Self::EnvInner> {
+    fn env_ref(&self) -> impl Deref<Target = Self::EnvInner> {
         self.env.read().unwrap()
     }
 
     #[inline]
-    fn tx_ro_input(&self) -> impl Deref<Target = Self::TxRoInput> {
+    fn tx_creator(&self) -> Self::TxCreator<'_> {
         self.env.read().unwrap()
-    }
-
-    #[inline]
-    fn tx_rw_input(&self) -> impl Deref<Target = Self::TxRwInput> {
-        self.env.read().unwrap()
-    }
-
-    #[inline]
-    fn tx_ro(env: &Self::TxRoInput) -> Result<Self::TxRo<'_>, RuntimeError> {
-        Ok(env.read_txn()?)
-    }
-
-    #[inline]
-    fn tx_rw(env: &Self::TxRwInput) -> Result<Self::TxRw<'_>, RuntimeError> {
-        Ok(env.write_txn()?)
     }
 
     #[inline]

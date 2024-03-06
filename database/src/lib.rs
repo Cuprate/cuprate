@@ -331,7 +331,7 @@ pub mod tables;
 pub mod types;
 
 mod transaction;
-pub use transaction::{TxRo, TxRw};
+pub use transaction::{TxCreator, TxRo, TxRw};
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]

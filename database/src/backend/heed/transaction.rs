@@ -1,12 +1,27 @@
 //! Implementation of `trait TxRo/TxRw` for `heed`.
 
-use std::ops::Deref;
+use std::{ops::Deref, sync::RwLockReadGuard};
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     error::RuntimeError,
-    transaction::{TxRo, TxRw},
+    transaction::{TxCreator, TxRo, TxRw},
 };
+
+//---------------------------------------------------------------------------------------------------- TxRo
+impl<'env> TxCreator<'env, heed::RoTxn<'env>, heed::RwTxn<'env>>
+    for RwLockReadGuard<'env, heed::Env>
+{
+    #[inline]
+    fn tx_ro(&'env self) -> Result<heed::RoTxn<'env>, RuntimeError> {
+        Ok(self.read_txn()?)
+    }
+
+    #[inline]
+    fn tx_rw(&'env self) -> Result<heed::RwTxn<'env>, RuntimeError> {
+        Ok(self.write_txn()?)
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- TxRo
 impl TxRo<'_> for heed::RoTxn<'_> {
