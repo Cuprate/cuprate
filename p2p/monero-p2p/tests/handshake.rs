@@ -38,7 +38,7 @@ async fn handshake_cuprate_to_cuprate() {
 
     let our_basic_node_data_1 = BasicNodeData {
         my_port: 0,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         // TODO: This fails if the support flags are empty (0)
         support_flags: PeerSupportFlags::from(1_u32),
@@ -123,7 +123,7 @@ async fn handshake_cuprate_to_monerod() {
 
     let our_basic_node_data = BasicNodeData {
         my_port: 0,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         support_flags: PeerSupportFlags::from(1_u32),
         rpc_port: 0,
@@ -161,7 +161,7 @@ async fn handshake_monerod_to_cuprate() {
 
     let our_basic_node_data = BasicNodeData {
         my_port: 18081,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         support_flags: PeerSupportFlags::from(1_u32),
         rpc_port: 0,
