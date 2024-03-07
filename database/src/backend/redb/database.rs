@@ -38,6 +38,7 @@ impl<Value> Borrow<Value> for AccessGuard<'_, Value>
 where
     Value: Storable + ?Sized + Debug + 'static,
 {
+    #[inline]
     fn borrow(&self) -> &Value {
         self.access_guard.value()
     }
@@ -57,6 +58,7 @@ fn get<'tx, T: Table + 'static>(
 }
 
 /// Shared generic `get_range()` between `RedbTableR{o,w}`.
+#[inline]
 #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
 fn get_range<'tx, T: Table, Range>(
     db: &'tx impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
@@ -98,10 +100,12 @@ where
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
+    #[inline]
     fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
         get::<T>(self, key)
     }
 
+    #[inline]
     #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
@@ -116,10 +120,12 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value> {
+    #[inline]
     fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
         get::<T>(self, key)
     }
 
+    #[inline]
     #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
@@ -135,13 +141,19 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key
 impl<'env, 'tx, T: Table + 'static> DatabaseRw<'env, 'tx, T>
     for RedbTableRw<'env, 'tx, T::Key, T::Value>
 {
+    // `redb` returns the value after `insert()/remove()`
+    // we end with Ok(()) instead.
+
+    #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         self.insert(key, value)?;
         Ok(())
     }
 
+    #[inline]
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
-        todo!()
+        self.remove(key)?;
+        Ok(())
     }
 }
 
