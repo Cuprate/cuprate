@@ -241,26 +241,26 @@ impl Env for ConcreteEnv {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseOpener Impl
-impl<'tx> EnvInner<'tx, heed::RoTxn<'tx>, heed::RwTxn<'tx>> for RwLockReadGuard<'tx, heed::Env>
+//---------------------------------------------------------------------------------------------------- EnvInner Impl
+impl<'env> EnvInner<'env, heed::RoTxn<'env>, heed::RwTxn<'env>> for RwLockReadGuard<'env, heed::Env>
 where
-    Self: 'tx,
+    Self: 'env,
 {
     #[inline]
-    fn tx_ro(&'tx self) -> Result<heed::RoTxn<'tx>, RuntimeError> {
+    fn tx_ro(&'env self) -> Result<heed::RoTxn<'env>, RuntimeError> {
         Ok(self.read_txn()?)
     }
 
     #[inline]
-    fn tx_rw(&'tx self) -> Result<heed::RwTxn<'tx>, RuntimeError> {
+    fn tx_rw(&'env self) -> Result<heed::RwTxn<'env>, RuntimeError> {
         Ok(self.write_txn()?)
     }
 
     #[inline]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &'tx heed::RoTxn<'tx>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        tx_ro: &'env heed::RoTxn<'env>,
+    ) -> Result<impl DatabaseRo<'env, T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         //
         // The actual underlying type `heed` sees is
@@ -286,10 +286,10 @@ where
     }
 
     #[inline]
-    fn open_db_rw<'db, T: Table>(
+    fn open_db_rw<'tx, T: Table>(
         &self,
-        tx_rw: &'db mut heed::RwTxn<'tx>,
-    ) -> Result<impl DatabaseRw<'db, 'tx, T>, RuntimeError> {
+        tx_rw: &'tx mut heed::RwTxn<'env>,
+    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
         //
         // Everything said above with `open_db_ro()` applies here as well.
@@ -298,7 +298,7 @@ where
             self.open_database(tx_rw, Some(T::NAME));
 
         match result {
-            Ok(Some(db)) => Ok(HeedTableRw::<'db, 'tx, T> { db, tx_rw }),
+            Ok(Some(db)) => Ok(HeedTableRw::<'env, 'tx, T> { db, tx_rw }),
             Err(e) => Err(e.into()),
 
             // INVARIANT: Every table should be created already.

@@ -26,21 +26,21 @@ use crate::{
 /// An opened read-only database associated with a transaction.
 ///
 /// Matches `redb::ReadOnlyTable`.
-pub(super) struct HeedTableRo<'tx, T: Table> {
+pub(super) struct HeedTableRo<'env, 'tx, T: Table> {
     /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
-    pub(super) tx_ro: &'tx heed::RoTxn<'tx>,
+    pub(super) tx_ro: &'tx heed::RoTxn<'env>,
 }
 
 /// An opened read/write database associated with a transaction.
 ///
 /// Matches `redb::Table` (read & write).
-pub(super) struct HeedTableRw<'db, 'tx, T: Table> {
+pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
     /// TODO
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
-    pub(super) tx_rw: &'db mut heed::RwTxn<'tx>,
+    pub(super) tx_rw: &'tx mut heed::RwTxn<'env>,
 }
 
 //---------------------------------------------------------------------------------------------------- Shared functions
@@ -52,8 +52,8 @@ pub(super) struct HeedTableRw<'db, 'tx, T: Table> {
 #[inline]
 fn get<'tx, T: Table>(
     db: &'_ HeedDb<T::Key, T::Value>,
-    tx_ro: &'tx heed::RoTxn<'tx>,
-    key: &'_ T::Key,
+    tx_ro: &'tx heed::RoTxn<'_>,
+    key: &'tx T::Key,
 ) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
     match db.get(tx_ro, key) {
         Ok(Some(value)) => Ok(value),
@@ -66,7 +66,7 @@ fn get<'tx, T: Table>(
 #[allow(clippy::needless_pass_by_value, clippy::trait_duplication_in_bounds)]
 fn get_range<'tx, T: Table, Range>(
     db: &'_ HeedDb<T::Key, T::Value>,
-    tx_ro: &'tx heed::RoTxn<'tx>,
+    tx_ro: &'tx heed::RoTxn<'_>,
     range: Range,
 ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
 where
@@ -97,9 +97,9 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
+impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'_, 'tx, T> {
     #[inline]
-    fn get(&'tx self, key: &'_ T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
+    fn get(&'tx self, key: &'tx T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
         get::<T>(&self.db, self.tx_ro, key)
     }
 
@@ -117,7 +117,7 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
 impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
-    fn get(&'tx self, key: &'_ T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
+    fn get(&'tx self, key: &'tx T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
         get::<T>(&self.db, self.tx_rw, key)
     }
 
@@ -133,7 +133,7 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
     }
 }
 
-impl<'db, 'tx, T: Table> DatabaseRw<'db, 'tx, T> for HeedTableRw<'db, 'tx, T> {
+impl<'env, 'tx, T: Table> DatabaseRw<'env, 'tx, T> for HeedTableRw<'env, 'tx, T> {
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         Ok(self.db.put(self.tx_rw, key, value)?)
     }

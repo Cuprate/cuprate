@@ -151,35 +151,21 @@ pub trait Env: Sized {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 /// TODO
-pub trait EnvInner<'tx, Ro, Rw>
+pub trait EnvInner<'env, Ro, Rw>
 where
-    Self: 'tx,
-    Ro: TxRo<'tx>,
-    Rw: TxRw<'tx>,
+    Self: 'env,
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
 {
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_ro(&'tx self) -> Result<Ro, RuntimeError>;
+    fn tx_ro(&'env self) -> Result<Ro, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_rw(&'tx self) -> Result<Rw, RuntimeError>;
-
-    /// TODO
-    ///
-    /// # TODO: Invariant
-    /// This should never panic the database because the table doesn't exist.
-    ///
-    /// Opening/using the database [`Env`] should have an invariant
-    /// that it creates all the tables we need, such that this
-    /// never returns `None`.
-    ///
-    /// # Errors
-    /// TODO
-    fn open_db_ro<T: Table>(&self, tx_ro: &'tx Ro)
-        -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
+    fn tx_rw(&'env self) -> Result<Rw, RuntimeError>;
 
     /// TODO
     ///
@@ -192,8 +178,24 @@ where
     ///
     /// # Errors
     /// TODO
-    fn open_db_rw<'db, T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        tx_rw: &'db mut Rw,
-    ) -> Result<impl DatabaseRw<'db, 'tx, T>, RuntimeError>;
+        tx_ro: &'env Ro,
+    ) -> Result<impl DatabaseRo<'env, T>, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # TODO: Invariant
+    /// This should never panic the database because the table doesn't exist.
+    ///
+    /// Opening/using the database [`Env`] should have an invariant
+    /// that it creates all the tables we need, such that this
+    /// never returns `None`.
+    ///
+    /// # Errors
+    /// TODO
+    fn open_db_rw<'tx, T: Table>(
+        &self,
+        tx_rw: &'tx mut Rw,
+    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError>;
 }

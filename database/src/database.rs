@@ -22,7 +22,7 @@ pub trait DatabaseRo<'tx, T: Table> {
     /// TODO
     ///
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    fn get(&'tx self, key: &'_ T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError>;
+    fn get(&'tx self, key: &'tx T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError>;
 
     /// TODO
     /// # Errors
@@ -43,7 +43,7 @@ pub trait DatabaseRo<'tx, T: Table> {
 /// Database (key-value store) read/write abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRw<'db, 'tx, T: Table>: DatabaseRo<'tx, T> {
+pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T> {
     /// TODO
     /// # Errors
     /// TODO
