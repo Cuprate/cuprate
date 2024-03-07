@@ -53,6 +53,7 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
+    #[allow(clippy::items_after_statements)]
     fn open(config: Config) -> Result<Self, InitError> {
         // TODO: dynamic syncs are not implemented.
         let durability = match config.sync_mode {
@@ -72,8 +73,40 @@ impl Env for ConcreteEnv {
         // env_builder.set_cache(bytes);
 
         // Open the database file, create if needed.
-        let db_file = std::fs::File::create(config.db_file())?;
+        let db_file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(config.db_file())?;
         let mut env = env_builder.create_file(db_file)?;
+
+        // Create all database tables.
+        // `redb` creates tables if they don't exist.
+        // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
+        use crate::tables::{TestTable, TestTable2};
+        let tx_rw = env.begin_write()?;
+
+        // FIXME:
+        // These wonderful fully qualified trait types are brought
+        // to you by `tower::discover::Discover>::Key` collisions.
+
+        // TestTable
+        let table: redb::TableDefinition<
+            'static,
+            StorableRedb<<TestTable as Table>::Key>,
+            StorableRedb<<TestTable as Table>::Value>,
+        > = redb::TableDefinition::new(TestTable::NAME);
+        tx_rw.open_table(table)?;
+
+        // TestTable2
+        let table: redb::TableDefinition<
+            'static,
+            StorableRedb<<TestTable2 as Table>::Key>,
+            StorableRedb<<TestTable2 as Table>::Value>,
+        > = redb::TableDefinition::new(TestTable2::NAME);
+        tx_rw.open_table(table)?;
+
+        tx_rw.commit()?;
 
         // Check for file integrity.
         // TODO: should we do this? is it slow?

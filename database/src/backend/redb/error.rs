@@ -37,7 +37,6 @@ impl From<redb::DatabaseError> for InitError {
     }
 }
 
-#[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
 impl From<redb::StorageError> for InitError {
     /// Created by `redb` in:
     /// - [`redb::Database::open`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.check_integrity)
@@ -53,7 +52,50 @@ impl From<redb::StorageError> for InitError {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- TransactionError
+impl From<redb::TransactionError> for InitError {
+    /// Created by `redb` in:
+    /// - [`redb::Database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
+    fn from(error: redb::TransactionError) -> Self {
+        use redb::StorageError as E;
+
+        match error {
+            redb::TransactionError::Storage(error) => error.into(),
+            // HACK: Handle new errors as `redb` adds them.
+            _ => Self::Unknown(Box::new(error)),
+        }
+    }
+}
+
+impl From<redb::TableError> for InitError {
+    /// Created by `redb` in:
+    /// - [`redb::WriteTransaction::open_table`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.open_table)
+    fn from(error: redb::TableError) -> Self {
+        use redb::StorageError as E2;
+        use redb::TableError as E;
+
+        match error {
+            E::Storage(error) => error.into(),
+            // HACK: Handle new errors as `redb` adds them.
+            _ => Self::Unknown(Box::new(error)),
+        }
+    }
+}
+
+impl From<redb::CommitError> for InitError {
+    /// Created by `redb` in:
+    /// - [`redb::WriteTransaction::commit`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.commit)
+    fn from(error: redb::CommitError) -> Self {
+        use redb::StorageError as E;
+
+        match error {
+            redb::CommitError::Storage(error) => error.into(),
+            // HACK: Handle new errors as `redb` adds them.
+            _ => Self::Unknown(Box::new(error)),
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- RuntimeError
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
 impl From<redb::TransactionError> for RuntimeError {
     /// Created by `redb` in:
@@ -71,7 +113,6 @@ impl From<redb::TransactionError> for RuntimeError {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- CommitError
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
 impl From<redb::CommitError> for RuntimeError {
     /// Created by `redb` in:
@@ -88,7 +129,6 @@ impl From<redb::CommitError> for RuntimeError {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- TableError
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
 impl From<redb::TableError> for RuntimeError {
     /// Created by `redb` in:
@@ -115,7 +155,6 @@ impl From<redb::TableError> for RuntimeError {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- StorageError
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
 impl From<redb::StorageError> for RuntimeError {
     /// Created by `redb` in:
