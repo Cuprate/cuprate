@@ -7,7 +7,7 @@ use crate::{
     backend::redb::types::{RedbTableRo, RedbTableRw},
     config::{Config, SyncMode},
     database::{DatabaseRo, DatabaseRw},
-    env::Env,
+    env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     table::Table,
 };
@@ -43,8 +43,9 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = false;
     const SYNCS_PER_TX: bool = false;
-    type EnvInner = redb::Database;
-    type TxCreator = Self;
+    type EnvInner<'env> = (&'env redb::Database, redb::Durability);
+    type TxRo<'tx> = redb::ReadTransaction<'tx>;
+    type TxRw<'tx> = redb::WriteTransaction<'tx>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -72,36 +73,37 @@ impl Env for ConcreteEnv {
         todo!()
     }
 
+    fn env_inner(&self) -> Self::EnvInner<'_> {
+        (&self.env, self.durability)
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- EnvInner Impl
+impl<'env> EnvInner<'env, redb::ReadTransaction<'env>, redb::WriteTransaction<'env>>
+    for (&'env redb::Database, redb::Durability)
+where
+    Self: 'env,
+{
     #[inline]
-    fn tx_creator(&self) -> impl Deref<Target = Self::TxCreator<'_>> {
-        self
+    fn tx_ro(&'env self) -> Result<redb::ReadTransaction<'env>, RuntimeError> {
+        Ok(self.0.begin_read()?)
     }
 
     #[inline]
-    fn tx_rw_input(&self) -> impl Deref<Target = Self::TxRwInput> {
-        self
-    }
-
-    #[inline]
-    fn tx_ro(env: &Self::TxRoInput) -> Result<Self::TxRo<'_>, RuntimeError> {
-        Ok(env.begin_read()?)
-    }
-
-    #[inline]
-    fn tx_rw(this: &Self::TxRwInput) -> Result<Self::TxRw<'_>, RuntimeError> {
+    fn tx_rw(&'env self) -> Result<redb::WriteTransaction<'env>, RuntimeError> {
         // `redb` has sync modes on the TX level, unlike heed,
         // which sets it at the Environment level.
         //
         // So, set the durability here before returning the TX.
-        let mut tx_rw = this.env.begin_write()?;
-        tx_rw.set_durability(this.durability);
+        let mut tx_rw = self.0.begin_write()?;
+        tx_rw.set_durability(self.1);
         Ok(tx_rw)
     }
 
     #[inline]
     fn open_db_ro<'tx, T: Table>(
-        env: &Self::EnvInner,
-        tx_ro: &'tx Self::TxRo<'tx>,
+        &self,
+        tx_ro: &'tx redb::ReadTransaction<'env>,
     ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
         let tx: RedbTableRo<'tx, T::Key, T::Value> = todo!();
         Ok(tx)
@@ -109,10 +111,10 @@ impl Env for ConcreteEnv {
 
     #[inline]
     fn open_db_rw<'tx, T: Table>(
-        env: &Self::EnvInner,
-        tx_rw: &'tx mut Self::TxRw<'tx>,
-    ) -> Result<impl DatabaseRw<'tx, T>, RuntimeError> {
-        let tx: RedbTableRw<'tx, 'tx, T::Key, T::Value> = todo!();
+        &self,
+        tx_ro: &'tx mut redb::WriteTransaction<'env>,
+    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
+        let tx: RedbTableRw<'env, 'tx, T::Key, T::Value> = todo!();
         Ok(tx)
     }
 }

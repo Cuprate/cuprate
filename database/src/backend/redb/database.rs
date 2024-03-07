@@ -98,41 +98,43 @@ where
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
-    fn get(&'tx self, key: &T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
         get::<T>(self, key)
     }
 
     #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
-    fn get_range<Range>(
-        &'tx self,
+    fn get_range<'a, Range>(
+        &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
     where
-        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a,
     {
         get_range::<T, Range>(self, range)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
-impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'tx, 'tx, T::Key, T::Value> {
-    fn get(&'tx self, key: &T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
+impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value> {
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
         get::<T>(self, key)
     }
 
     #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
-    fn get_range<Range>(
-        &'tx self,
+    fn get_range<'a, Range>(
+        &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
     where
-        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a,
     {
         get_range::<T, Range>(self, range)
     }
 }
 
-impl<'tx, T: Table + 'static> DatabaseRw<'tx, T> for RedbTableRw<'tx, 'tx, T::Key, T::Value> {
+impl<'env, 'tx, T: Table + 'static> DatabaseRw<'env, 'tx, T>
+    for RedbTableRw<'env, 'tx, T::Key, T::Value>
+{
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         self.insert(key, value)?;
         Ok(())
