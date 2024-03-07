@@ -53,7 +53,7 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
 fn get<'tx, T: Table>(
     db: &'_ HeedDb<T::Key, T::Value>,
     tx_ro: &'tx heed::RoTxn<'_>,
-    key: &'tx T::Key,
+    key: &T::Key,
 ) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
     match db.get(tx_ro, key) {
         Ok(Some(value)) => Ok(value),
@@ -63,9 +63,10 @@ fn get<'tx, T: Table>(
 }
 
 /// Shared generic `get_range()` between `HeedTableR{o,w}`.
+#[inline]
 #[allow(clippy::needless_pass_by_value, clippy::trait_duplication_in_bounds)]
 fn get_range<'tx, T: Table, Range>(
-    db: &'_ HeedDb<T::Key, T::Value>,
+    db: &'tx HeedDb<T::Key, T::Value>,
     tx_ro: &'tx heed::RoTxn<'_>,
     range: Range,
 ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
@@ -97,47 +98,52 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'_, 'tx, T> {
+impl<'env, 'tx, T: Table> DatabaseRo<'env, 'tx, T> for HeedTableRo<'env, 'tx, T> {
     #[inline]
-    fn get(&'tx self, key: &'tx T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
         get::<T>(&self.db, self.tx_ro, key)
     }
 
+    #[inline]
     #[allow(clippy::trait_duplication_in_bounds)]
-    fn get_range<Range>(
-        &'tx self,
+    fn get_range<'a, Range>(
+        &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
     where
-        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a,
     {
         get_range::<T, Range>(&self.db, self.tx_ro, range)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
-    fn get(&'tx self, key: &'tx T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
+impl<'env, 'tx, T: Table> DatabaseRo<'env, 'tx, T> for HeedTableRw<'env, 'tx, T> {
+    #[inline]
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
         get::<T>(&self.db, self.tx_rw, key)
     }
 
+    #[inline]
     #[allow(clippy::trait_duplication_in_bounds)]
-    fn get_range<Range>(
-        &'tx self,
+    fn get_range<'a, Range>(
+        &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
     where
-        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
+        Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a,
     {
         get_range::<T, Range>(&self.db, self.tx_rw, range)
     }
 }
 
 impl<'env, 'tx, T: Table> DatabaseRw<'env, 'tx, T> for HeedTableRw<'env, 'tx, T> {
+    #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         Ok(self.db.put(self.tx_rw, key, value)?)
     }
 
+    #[inline]
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
         self.db.delete(self.tx_rw, key)?;
         Ok(())

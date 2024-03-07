@@ -178,10 +178,10 @@ where
     ///
     /// # Errors
     /// TODO
-    fn open_db_ro<T: Table>(
+    fn open_db_ro<'tx, T: Table>(
         &self,
-        tx_ro: &'env Ro,
-    ) -> Result<impl DatabaseRo<'env, T>, RuntimeError>;
+        tx_ro: &'tx Ro,
+    ) -> Result<impl DatabaseRo<'env, 'tx, T>, RuntimeError>;
 
     /// TODO
     ///

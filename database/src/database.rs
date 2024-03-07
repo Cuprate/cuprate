@@ -16,34 +16,34 @@ use crate::{
 /// Database (key-value store) read abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRo<'tx, T: Table> {
+pub trait DatabaseRo<'env, 'tx, T: Table> {
     /// TODO
     /// # Errors
     /// TODO
     ///
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    fn get(&'tx self, key: &'tx T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError>;
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
     #[allow(clippy::trait_duplication_in_bounds)]
-    fn get_range<Range>(
-        &'tx self,
+    fn get_range<'a, Range>(
+        &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
     where
         // FIXME:
         // - `RangeBounds<T::Key>` is to satisfy `heed` bounds
-        // - `RangeBounds<&T::Key> + 'tx` is to satisfy `redb` bounds
-        Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx;
+        // - `RangeBounds<&'a T::Key> + 'a` is to satisfy `redb` bounds
+        Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 /// Database (key-value store) read/write abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T> {
+pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'env, 'tx, T> {
     /// TODO
     /// # Errors
     /// TODO

@@ -72,27 +72,39 @@ fn db_read_write() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw().unwrap();
+    let mut table = env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
 
-    let k = -999_i64;
-    let v = TestType {
+    const KEY: i64 = 0_i64;
+    const VALUE: TestType = TestType {
         u: 1,
         b: 255,
         _pad: [0; 7],
     };
 
-    {
-        env_inner
-            .open_db_rw::<TestTable>(&mut tx_rw)
-            .unwrap()
-            .put(&k, &v)
-            .unwrap();
+    // Insert `0..100` keys.
+    for i in 0..100 {
+        table.put(&(KEY + i), &VALUE).unwrap();
     }
 
+    // Assert the 1st key is there.
     {
-        let table = env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
-        let table_value = table.get(&k).unwrap();
-        // assert_eq!(table_value.borrow(), &v);
+        let value = table.get(&KEY).unwrap();
+        assert_eq!(value.borrow(), &VALUE);
     }
 
-    tx_rw.commit().unwrap();
+    // Assert the whole range is there.
+    {
+        let range = table.get_range(..).unwrap();
+        let mut i = 0;
+        for value in range {
+            assert_eq!(value.unwrap().borrow(), &VALUE);
+            i += 1;
+        }
+        assert_eq!(i, 100);
+    }
+
+    table.delete(&KEY).unwrap();
+
+    let value = table.get(&KEY);
+    assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
 }
