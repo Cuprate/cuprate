@@ -273,7 +273,7 @@ where
         // extended to the table/database type as well,
         // as that also has `T: Table`.
         #[allow(clippy::type_complexity)]
-        let result: Result<std::option::Option<HeedDb<T::Key, T::Value>>, heed::Error> =
+        let result: Result<Option<HeedDb<T::Key, T::Value>>, heed::Error> =
             self.open_database(tx_ro, Some(T::NAME));
 
         match result {
@@ -294,7 +294,7 @@ where
         //
         // Everything said above with `open_db_ro()` applies here as well.
         #[allow(clippy::type_complexity)]
-        let result: Result<std::option::Option<HeedDb<T::Key, T::Value>>, heed::Error> =
+        let result: Result<Option<HeedDb<T::Key, T::Value>>, heed::Error> =
             self.open_database(tx_rw, Some(T::NAME));
 
         match result {
