@@ -52,6 +52,23 @@ impl From<redb::TransactionError> for crate::RuntimeError {
     }
 }
 
+//---------------------------------------------------------------------------------------------------- CommitError
+#[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
+impl From<redb::CommitError> for crate::RuntimeError {
+    /// Created by `redb` in:
+    /// - [`redb::WriteTransaction::commit`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.commit)
+    fn from(error: redb::CommitError) -> Self {
+        use redb::StorageError as E;
+
+        match error {
+            redb::CommitError::Storage(error) => error.into(),
+
+            // HACK: Handle new errors as `redb` adds them.
+            _ => unreachable!(),
+        }
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- TableError
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
 impl From<redb::TableError> for crate::RuntimeError {

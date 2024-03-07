@@ -10,7 +10,7 @@ use crate::{config::SyncMode, env::Env, error::RuntimeError};
 pub trait TxRo<'env> {
     /// TODO
     /// # Errors
-    /// TODO
+    /// TODO: this is fallible with `redb`
     fn commit(self) -> Result<(), RuntimeError>;
 }
 
@@ -25,5 +25,7 @@ pub trait TxRw<'env> {
     fn commit(self) -> Result<(), RuntimeError>;
 
     /// TODO
-    fn abort(self);
+    /// # Errors
+    /// TODO: this is fallible with `heed`
+    fn abort(self) -> Result<(), RuntimeError>;
 }

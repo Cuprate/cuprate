@@ -10,19 +10,22 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- TxRo
 impl TxRo<'_> for redb::ReadTransaction<'_> {
+    /// This function is infallible.
     fn commit(self) -> Result<(), RuntimeError> {
-        todo!()
+        // `redb`'s read transactions cleanup in their `drop()`, there is no `commit()`.
+        // https://docs.rs/redb/latest/src/redb/transactions.rs.html#1258-1265
+        Ok(())
     }
 }
 
 //---------------------------------------------------------------------------------------------------- TxRw
 impl TxRw<'_> for redb::WriteTransaction<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
-        todo!()
+        Ok(self.commit()?)
     }
 
-    fn abort(self) {
-        todo!()
+    fn abort(self) -> Result<(), RuntimeError> {
+        Ok(self.abort()?)
     }
 }
 
