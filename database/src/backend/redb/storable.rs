@@ -31,14 +31,18 @@ impl<T: Storable + ?Sized> RedbValue for StorableRedb<T> {
 
     #[inline]
     fn fixed_width() -> Option<usize> {
-        <T as Storable>::BYTE_LENGTH
+        let width = <T as Storable>::BYTE_LENGTH;
+        println!("width: {width:?}");
+        width
     }
 
     #[inline]
+    #[allow(clippy::ptr_as_ptr)]
     fn from_bytes<'a>(data: &'a [u8]) -> &'a T
     where
         Self: 'a,
     {
+        println!("data: {:?}, len: {}", data, data.len());
         <T as Storable>::from_bytes(data)
     }
 
@@ -47,7 +51,9 @@ impl<T: Storable + ?Sized> RedbValue for StorableRedb<T> {
     where
         Self: 'a + 'b,
     {
-        <T as Storable>::as_bytes(value)
+        let t_as_bytes = <T as Storable>::as_bytes(value);
+        println!("t_as_bytes: {:?}, {}", t_as_bytes, t_as_bytes.len());
+        t_as_bytes
     }
 
     #[inline]

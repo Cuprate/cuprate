@@ -24,14 +24,14 @@ use crate::{
 // just use these generic functions that both can call instead.
 
 /// TODO
-struct AccessGuard<'tx, Value>
+struct AccessGuard<'a, Value>
 // This must be done to prevent `Borrow` collisions.
 // If `T: Table` was here instead, it causes weird compile errors.
 where
     Value: Storable + ?Sized + Debug + 'static,
 {
     /// TODO
-    access_guard: redb::AccessGuard<'tx, StorableRedb<Value>>,
+    access_guard: redb::AccessGuard<'a, StorableRedb<Value>>,
 }
 
 impl<Value> Borrow<Value> for AccessGuard<'_, Value>
@@ -46,10 +46,10 @@ where
 
 /// Shared generic `get()` between `RedbTableR{o,w}`.
 #[inline]
-fn get<'tx, T: Table + 'static>(
-    db: &'tx impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-    key: &'_ T::Key,
-) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
+fn get<'a, T: Table + 'static>(
+    db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    key: &'a T::Key,
+) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
     match db.get(key) {
         Ok(Some(access_guard)) => Ok(AccessGuard::<T::Value> { access_guard }),
         Ok(None) => Err(RuntimeError::KeyNotFound),
@@ -60,30 +60,30 @@ fn get<'tx, T: Table + 'static>(
 /// Shared generic `get_range()` between `RedbTableR{o,w}`.
 #[inline]
 #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
-fn get_range<'tx, T: Table, Range>(
-    db: &'tx impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+fn get_range<'a, T: Table, Range>(
+    db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     range: Range,
-) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'tx, RuntimeError>>, RuntimeError>
+) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
 where
-    Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
+    Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a,
 {
     /// TODO
-    struct Iter<'tx, K, V>
+    struct Iter<'a, K, V>
     where
         K: crate::key::Key + Debug + 'static,
         V: Storable + ?Sized + Debug + 'static,
     {
         /// TODO
-        iter: redb::Range<'tx, StorableRedb<K>, StorableRedb<V>>,
+        iter: redb::Range<'a, StorableRedb<K>, StorableRedb<V>>,
     }
 
     // TODO
-    impl<'tx, K, V> Iterator for Iter<'tx, K, V>
+    impl<'a, K, V> Iterator for Iter<'a, K, V>
     where
         K: crate::key::Key + Debug + 'static,
         V: Storable + ?Sized + Debug + 'static,
     {
-        type Item = Result<AccessGuard<'tx, V>, RuntimeError>;
+        type Item = Result<AccessGuard<'a, V>, RuntimeError>;
         fn next(&mut self) -> Option<Self::Item> {
             // TODO
             self.iter.next().map(|result| match result {
@@ -93,7 +93,7 @@ where
         }
     }
 
-    Ok(Iter::<'tx, T::Key, T::Value> {
+    Ok(Iter::<'a, T::Key, T::Value> {
         iter: db.range::<&'_ T::Key>(range)?,
     })
 }
