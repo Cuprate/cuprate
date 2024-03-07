@@ -42,21 +42,22 @@ fn tx() {
 /// Open (and verify) that all database tables
 /// exist already after calling [`Env::open`].
 #[test]
-fn open_tables() {
+#[allow(clippy::items_after_statements, clippy::significant_drop_tightening)]
+fn open_db() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro().unwrap();
+    let mut tx_rw = env_inner.tx_rw().unwrap();
 
-    // Open all tables.
+    // Open all tables in read-only mode.
     // This should be updated when tables are modified.
+    use crate::tables::{TestTable, TestTable2};
+    env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<TestTable2>(&tx_ro).unwrap();
+    tx_ro.commit().unwrap();
 
-    // DatabaseOpenOptions::new(&env)
-    //     .name(TestTable::NAME)
-    //     .types::<<TestTable as Table>::Key, <TestTable as Table>::Value>()
-    //     .create(&mut tx_rw)?;
-
-    // DatabaseOpenOptions::new(&env)
-    //     .name(TestTable2::NAME)
-    //     .types::<<TestTable2 as Table>::Key, <TestTable2 as Table>::Value>()
-    //     .create(&mut tx_rw)?;
+    // Open all tables in read/write mode.
+    env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<TestTable2>(&mut tx_rw).unwrap();
+    tx_rw.commit().unwrap();
 }

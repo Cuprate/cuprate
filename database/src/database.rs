@@ -43,7 +43,7 @@ pub trait DatabaseRo<'tx, T: Table> {
 /// Database (key-value store) read/write abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRw<'tx, T: Table>: DatabaseRo<'tx, T> {
+pub trait DatabaseRw<'db, 'tx, T: Table>: DatabaseRo<'tx, T> {
     /// TODO
     /// # Errors
     /// TODO

@@ -26,21 +26,21 @@ use crate::{
 /// An opened read-only database associated with a transaction.
 ///
 /// Matches `redb::ReadOnlyTable`.
-pub(super) struct HeedTableRo<'env, T: Table> {
+pub(super) struct HeedTableRo<'tx, T: Table> {
     /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
-    pub(super) tx_ro: &'env heed::RoTxn<'env>,
+    pub(super) tx_ro: &'tx heed::RoTxn<'tx>,
 }
 
 /// An opened read/write database associated with a transaction.
 ///
 /// Matches `redb::Table` (read & write).
-pub(super) struct HeedTableRw<'env, T: Table> {
+pub(super) struct HeedTableRw<'db, 'tx, T: Table> {
     /// TODO
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
-    pub(super) tx_rw: &'env mut heed::RwTxn<'env>,
+    pub(super) tx_rw: &'db mut heed::RwTxn<'tx>,
 }
 
 //---------------------------------------------------------------------------------------------------- Shared functions
@@ -116,7 +116,7 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'tx, T> {
+impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
     fn get(&'tx self, key: &'_ T::Key) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
         get::<T>(&self.db, self.tx_rw, key)
     }
@@ -133,7 +133,7 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'tx, T> {
     }
 }
 
-impl<'tx, T: Table> DatabaseRw<'tx, T> for HeedTableRw<'tx, T> {
+impl<'db, 'tx, T: Table> DatabaseRw<'db, 'tx, T> for HeedTableRw<'db, 'tx, T> {
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         Ok(self.db.put(self.tx_rw, key, value)?)
     }

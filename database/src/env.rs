@@ -55,14 +55,14 @@ pub trait Env: Sized {
         Self: 'env;
 
     /// TODO
-    type TxRo<'tx>: TxRo<'tx>
+    type TxRo<'env>: TxRo<'env> + 'env
     where
-        Self: 'tx;
+        Self: 'env;
 
     /// TODO
-    type TxRw<'tx>: TxRw<'tx>
+    type TxRw<'env>: TxRw<'env> + 'env
     where
-        Self: 'tx;
+        Self: 'env;
 
     //------------------------------------------------ Required
     /// TODO
@@ -151,36 +151,21 @@ pub trait Env: Sized {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 /// TODO
-pub trait EnvInner<'env, Ro, Rw>
+pub trait EnvInner<'tx, Ro, Rw>
 where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
+    Self: 'tx,
+    Ro: TxRo<'tx>,
+    Rw: TxRw<'tx>,
 {
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_ro(&'env self) -> Result<Ro, RuntimeError>;
+    fn tx_ro(&'tx self) -> Result<Ro, RuntimeError>;
 
     /// TODO
     /// # Errors
     /// TODO
-    fn tx_rw(&'env self) -> Result<Rw, RuntimeError>;
-
-    /// TODO
-    ///
-    /// # TODO: Invariant
-    /// This should never panic the database because the table doesn't exist.
-    ///
-    /// Opening/using the database [`Env`] should have an invariant
-    /// that it creates all the tables we need, such that this
-    /// never returns `None`.
-    ///
-    /// # Errors
-    /// TODO
-    fn open_db_ro<T: Table>(
-        &self,
-        tx_ro: &'env Ro,
-    ) -> Result<impl DatabaseRo<'env, T>, RuntimeError>;
+    fn tx_rw(&'tx self) -> Result<Rw, RuntimeError>;
 
     /// TODO
     ///
@@ -193,8 +178,22 @@ where
     ///
     /// # Errors
     /// TODO
-    fn open_db_rw<T: Table>(
+    fn open_db_ro<T: Table>(&self, tx_ro: &'tx Ro)
+        -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # TODO: Invariant
+    /// This should never panic the database because the table doesn't exist.
+    ///
+    /// Opening/using the database [`Env`] should have an invariant
+    /// that it creates all the tables we need, such that this
+    /// never returns `None`.
+    ///
+    /// # Errors
+    /// TODO
+    fn open_db_rw<'db, T: Table>(
         &self,
-        tx_rw: &'env mut Rw,
-    ) -> Result<impl DatabaseRw<'env, T>, RuntimeError>;
+        tx_rw: &'db mut Rw,
+    ) -> Result<impl DatabaseRw<'db, 'tx, T>, RuntimeError>;
 }

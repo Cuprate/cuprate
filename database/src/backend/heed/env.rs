@@ -11,6 +11,7 @@ use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
 use crate::{
     backend::heed::{
         database::{HeedTableRo, HeedTableRw},
+        storable::StorableHeed,
         types::HeedDb,
     },
     config::{Config, SyncMode},
@@ -172,14 +173,17 @@ impl Env for ConcreteEnv {
         use crate::tables::{TestTable, TestTable2};
         let mut tx_rw = env.write_txn()?;
 
+        // FIXME:
+        // These wonderful fully qualified trait types are brought
+        // to you by `tower::discover::Discover>::Key` collisions.
         DatabaseOpenOptions::new(&env)
             .name(TestTable::NAME)
-            .types::<<TestTable as Table>::Key, <TestTable as Table>::Value>()
+            .types::<StorableHeed<<TestTable as Table>::Key>, StorableHeed<<TestTable as Table>::Value>>()
             .create(&mut tx_rw)?;
 
         DatabaseOpenOptions::new(&env)
             .name(TestTable2::NAME)
-            .types::<<TestTable2 as Table>::Key, <TestTable2 as Table>::Value>()
+            .types::<StorableHeed<<TestTable2 as Table>::Key>, StorableHeed<<TestTable2 as Table>::Value>>()
             .create(&mut tx_rw)?;
 
         // TODO: Set dupsort and comparison functions for certain tables
@@ -238,24 +242,25 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseOpener Impl
-impl<'env> EnvInner<'env, heed::RoTxn<'env>, heed::RwTxn<'env>>
-    for RwLockReadGuard<'env, heed::Env>
+impl<'tx> EnvInner<'tx, heed::RoTxn<'tx>, heed::RwTxn<'tx>> for RwLockReadGuard<'tx, heed::Env>
+where
+    Self: 'tx,
 {
     #[inline]
-    fn tx_ro(&'env self) -> Result<heed::RoTxn<'env>, RuntimeError> {
+    fn tx_ro(&'tx self) -> Result<heed::RoTxn<'tx>, RuntimeError> {
         Ok(self.read_txn()?)
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<heed::RwTxn<'env>, RuntimeError> {
+    fn tx_rw(&'tx self) -> Result<heed::RwTxn<'tx>, RuntimeError> {
         Ok(self.write_txn()?)
     }
 
     #[inline]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &'env heed::RoTxn<'env>,
-    ) -> Result<impl DatabaseRo<'env, T>, RuntimeError> {
+        tx_ro: &'tx heed::RoTxn<'tx>,
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         //
         // The actual underlying type `heed` sees is
@@ -281,10 +286,10 @@ impl<'env> EnvInner<'env, heed::RoTxn<'env>, heed::RwTxn<'env>>
     }
 
     #[inline]
-    fn open_db_rw<T: Table>(
+    fn open_db_rw<'db, T: Table>(
         &self,
-        tx_rw: &'env mut heed::RwTxn<'env>,
-    ) -> Result<impl DatabaseRw<'env, T>, RuntimeError> {
+        tx_rw: &'db mut heed::RwTxn<'tx>,
+    ) -> Result<impl DatabaseRw<'db, 'tx, T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
         //
         // Everything said above with `open_db_ro()` applies here as well.
@@ -293,7 +298,7 @@ impl<'env> EnvInner<'env, heed::RoTxn<'env>, heed::RwTxn<'env>>
             self.open_database(tx_rw, Some(T::NAME));
 
         match result {
-            Ok(Some(db)) => Ok(HeedTableRw { db, tx_rw }),
+            Ok(Some(db)) => Ok(HeedTableRw::<'db, 'tx, T> { db, tx_rw }),
             Err(e) => Err(e.into()),
 
             // INVARIANT: Every table should be created already.
