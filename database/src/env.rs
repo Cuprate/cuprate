@@ -181,7 +181,7 @@ where
     fn open_db_ro<'tx, T: Table>(
         &self,
         tx_ro: &'tx Ro,
-    ) -> Result<impl DatabaseRo<'env, 'tx, T>, RuntimeError>;
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
 
     /// TODO
     ///

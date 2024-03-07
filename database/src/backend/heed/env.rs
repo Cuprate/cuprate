@@ -260,7 +260,7 @@ where
     fn open_db_ro<'tx, T: Table>(
         &self,
         tx_ro: &'tx heed::RoTxn<'env>,
-    ) -> Result<impl DatabaseRo<'env, 'tx, T>, RuntimeError> {
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         //
         // The actual underlying type `heed` sees is

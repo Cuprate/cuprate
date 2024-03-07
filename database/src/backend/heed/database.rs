@@ -26,11 +26,11 @@ use crate::{
 /// An opened read-only database associated with a transaction.
 ///
 /// Matches `redb::ReadOnlyTable`.
-pub(super) struct HeedTableRo<'env, 'tx, T: Table> {
+pub(super) struct HeedTableRo<'tx, T: Table> {
     /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
-    pub(super) tx_ro: &'tx heed::RoTxn<'env>,
+    pub(super) tx_ro: &'tx heed::RoTxn<'tx>,
 }
 
 /// An opened read/write database associated with a transaction.
@@ -98,7 +98,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<'env, 'tx, T: Table> DatabaseRo<'env, 'tx, T> for HeedTableRo<'env, 'tx, T> {
+impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
     #[inline]
     fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
         get::<T>(&self.db, self.tx_ro, key)
@@ -118,7 +118,7 @@ impl<'env, 'tx, T: Table> DatabaseRo<'env, 'tx, T> for HeedTableRo<'env, 'tx, T>
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-impl<'env, 'tx, T: Table> DatabaseRo<'env, 'tx, T> for HeedTableRw<'env, 'tx, T> {
+impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
     #[inline]
     fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
         get::<T>(&self.db, self.tx_rw, key)
