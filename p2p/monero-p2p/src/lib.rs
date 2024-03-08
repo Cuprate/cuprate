@@ -34,9 +34,9 @@ pub trait NetZoneAddress:
     + std::fmt::Display
     + Hash
     + Eq
-    + Clone
     + Copy
     + Send
+    + Sync
     + Unpin
     + 'static
 {
@@ -63,6 +63,7 @@ pub trait NetZoneAddress:
     + Eq
     + Copy
     + Send
+    + Sync
     + Unpin
     + 'static
 {
@@ -120,7 +121,7 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     ) -> Result<Self::Listener, std::io::Error>;
 }
 
-pub(crate) trait AddressBook<Z: NetworkZone>:
+pub trait AddressBook<Z: NetworkZone>:
     tower::Service<
         AddressBookRequest<Z>,
         Response = AddressBookResponse<Z>,

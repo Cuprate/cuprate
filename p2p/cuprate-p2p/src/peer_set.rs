@@ -10,6 +10,7 @@ use futures::{
     ready, FutureExt,
 };
 use indexmap::{IndexMap, IndexSet};
+use tokio::sync::mpsc;
 use tower::ServiceExt;
 use tracing::instrument;
 
@@ -66,6 +67,10 @@ enum PeerSetLockState<N: NetworkZone> {
 /// This struct holds peers currently connected on a certain [`NetworkZone`].
 /// The peer-set is what the routing methods use to get peers
 pub struct InnerPeerSet<N: NetworkZone> {
+    new_peers_rx: mpsc::Receiver<Client<N>>,
+    /// A channel to the outbound connection maker to make a new connection
+    make_new_connections_tx: mpsc::Sender<MakeConnectionRequest>,
+
     outbound_peers: IndexSet<InternalPeerID<N::Addr>>,
     inbound_peers: IndexSet<InternalPeerID<N::Addr>>,
 

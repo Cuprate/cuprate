@@ -13,6 +13,8 @@
 mod block_downloader;
 mod broadcast;
 mod config;
+mod connection_maker;
+mod crawler;
 mod network;
 mod outbound_connector;
 mod peer_set;

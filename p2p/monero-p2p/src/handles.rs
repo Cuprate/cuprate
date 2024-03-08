@@ -73,10 +73,7 @@ impl ConnectionHandle {
         self.token.is_cancelled()
     }
     pub fn check_should_ban(&mut self) -> Option<BanPeer> {
-        match self.ban.try_next() {
-            Ok(res) => res,
-            Err(_) => None,
-        }
+        self.ban.try_next().unwrap_or(None)
     }
     pub fn send_close_signal(&self) {
         self.token.cancel()
