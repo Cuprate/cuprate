@@ -27,8 +27,10 @@ impl TxRw<'_> for heed::RwTxn<'_> {
         self.commit().map_err(Into::into)
     }
 
-    fn abort(self) {
+    /// This function is infallible.
+    fn abort(self) -> Result<(), RuntimeError> {
         self.abort();
+        Ok(())
     }
 }
 

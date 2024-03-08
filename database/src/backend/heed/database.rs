@@ -73,28 +73,7 @@ fn get_range<'tx, T: Table, Range>(
 where
     Range: RangeBounds<T::Key> + RangeBounds<&'tx T::Key> + 'tx,
 {
-    /// TODO
-    struct Iter<'tx, T: Table> {
-        /// TODO
-        iter: heed::RoRange<'tx, StorableHeed<T::Key>, StorableHeed<T::Value>>,
-    }
-
-    // TODO
-    impl<'tx, T: Table> Iterator for Iter<'tx, T> {
-        type Item = Result<&'tx T::Value, RuntimeError>;
-        fn next(&mut self) -> Option<Self::Item> {
-            // TODO
-            self.iter
-                .next()
-                .map(|result| result.map(|value| value.1).map_err(RuntimeError::from))
-        }
-    }
-
-    // TODO
-    match db.range(tx_ro, &range) {
-        Ok(iter) => Ok(Iter::<'_, T> { iter }),
-        Err(e) => Err(RuntimeError::from(e)),
-    }
+    Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
