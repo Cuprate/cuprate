@@ -32,6 +32,7 @@ use crossbeam::epoch::Owned;
 ///
 /// ```rust
 /// # use cuprate_database::*;
+/// # use std::borrow::*;
 /// let number: u64 = 0;
 ///
 /// // Into bytes.
@@ -39,8 +40,9 @@ use crossbeam::epoch::Owned;
 /// assert_eq!(into, &[0; 8]);
 ///
 /// // From bytes.
-/// let from: &u64 = Storable::from_bytes(&into);
-/// assert_eq!(from, &number);
+/// let from: Cow<'_, u64> = Storable::from_bytes(&into);
+/// let from: u64 = from.into_owned();
+/// assert_eq!(from, number);
 /// ```
 ///
 /// ## Invariants
@@ -56,7 +58,7 @@ use crossbeam::epoch::Owned;
 ///
 /// Most likely, the bytes are little-endian, however
 /// that cannot be relied upon when using this trait.
-pub trait Storable: Debug {
+pub trait Storable: ToOwned {
     /// Is this type fixed width in byte length?
     ///
     /// I.e., when converting `Self` to bytes, is it
@@ -100,19 +102,14 @@ pub trait Storable: Debug {
     fn as_bytes(&self) -> &[u8];
 
     /// Create a borrowed [`Self`] from bytes.
-    fn from_bytes(bytes: &[u8]) -> &Self;
-
-    /// Create a  [`Self`] from unaligned bytes.
     ///
     /// # Invariant
-    /// TODO
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self>
-    where
-        Self: Clone;
+    /// TODO: unaligned is ok.
+    fn from_bytes(bytes: &[u8]) -> Cow<'_, Self>;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
-impl<T: NoUninit + AnyBitPattern + Debug> Storable for T {
+impl<T: NoUninit + AnyBitPattern + ToOwned<Owned = T>> Storable for T {
     const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
 
     #[inline]
@@ -121,17 +118,26 @@ impl<T: NoUninit + AnyBitPattern + Debug> Storable for T {
     }
 
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> &Self {
-        bytemuck::from_bytes(bytes)
-    }
+    fn from_bytes(bytes: &[u8]) -> Cow<'_, T> {
+        match bytemuck::try_from_bytes(bytes) {
+            // Bytes were properly aligned, simply cast.
+            Ok(t) => Cow::Borrowed(t),
 
-    #[inline]
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self> {
-        Cow::Owned(bytemuck::pod_read_unaligned(bytes))
+            // Bytes are misaligned, allocate a new
+            // buffer, copy the bytes, then cast.
+            Err(bytemuck::PodCastError::TargetAlignmentGreaterAndInputNotAligned) => {
+                let t: T = bytemuck::pod_read_unaligned(bytes);
+                Cow::Owned(t)
+            }
+
+            // These errors should never occur,
+            // else, our code is incorrect.
+            Err(e) => panic!("{e:?}"),
+        }
     }
 }
 
-impl<T: NoUninit + AnyBitPattern + Debug> Storable for [T] {
+impl<T: NoUninit + AnyBitPattern + ToOwned> Storable for [T] {
     const BYTE_LENGTH: Option<usize> = None;
 
     #[inline]
@@ -140,13 +146,24 @@ impl<T: NoUninit + AnyBitPattern + Debug> Storable for [T] {
     }
 
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> &Self {
-        bytemuck::must_cast_slice(bytes)
-    }
+    fn from_bytes(bytes: &[u8]) -> Cow<'_, [T]>
+    where
+        T: ToOwned,
+    {
+        match bytemuck::try_cast_slice(bytes) {
+            // Bytes were properly aligned, simply cast.
+            Ok(t) => Cow::Borrowed(t),
 
-    #[inline]
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self> {
-        Cow::Owned(bytemuck::pod_collect_to_vec(bytes))
+            // Bytes are misaligned, allocate a new
+            // buffer, copy the bytes, then cast.
+            Err(bytemuck::PodCastError::TargetAlignmentGreaterAndInputNotAligned) => {
+                Cow::Owned(bytemuck::pod_collect_to_vec(bytes))
+            }
+
+            // These errors should never occur,
+            // else, our code is incorrect.
+            Err(e) => panic!("{e:?}"),
+        }
     }
 }
 
@@ -157,14 +174,17 @@ mod test {
 
     /// Serialize, deserialize, and compare that
     /// the intermediate/end results are correct.
-    fn test_storable<const LEN: usize, T: Storable + Copy + PartialEq>(
+    fn test_storable<const LEN: usize, T>(
         // The primitive number function that
         // converts the number into little endian bytes,
         // e.g `u8::to_le_bytes`.
         to_le_bytes: fn(T) -> [u8; LEN],
         // A `Vec` of the numbers to test.
         t: Vec<T>,
-    ) {
+    ) where
+        T: Storable + Debug + Copy + PartialEq,
+        T::Owned: Debug,
+    {
         for t in t {
             let expected_bytes = to_le_bytes(t);
 
@@ -172,7 +192,8 @@ mod test {
 
             // (De)serialize.
             let se: &[u8] = Storable::as_bytes(&t);
-            let de: &T = Storable::from_bytes(se);
+            let de: Cow<'_, T> = Storable::from_bytes(se);
+            let de: &T = &de;
 
             println!("serialized: {se:?}, deserialized: {de:?}\n");
 
