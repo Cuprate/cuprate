@@ -2,14 +2,14 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
     fmt::Debug,
     ops::{Deref, RangeBounds},
 };
 
 use crate::{
     backend::redb::{
-        storable::StorableRedb,
+        storable::{StorableRedbKey, StorableRedbValue},
         types::{RedbTableRo, RedbTableRw},
     },
     database::{DatabaseRo, DatabaseRw},
@@ -23,35 +23,41 @@ use crate::{
 // call the functions since the database is held by value, so
 // just use these generic functions that both can call instead.
 
-/// TODO
-struct AccessGuard<'a, Value>
-// This must be done to prevent `Borrow` collisions.
-// If `T: Table` was here instead, it causes weird compile errors.
-where
-    Value: Storable + ?Sized + Debug + 'static,
-{
-    /// TODO
-    access_guard: redb::AccessGuard<'a, StorableRedb<Value>>,
-}
+// /// TODO
+// struct AccessGuard<'a, Value>
+// // This must be done to prevent `Borrow` collisions.
+// // If `T: Table` was here instead, it causes weird compile errors.
+// where
+//     Value: Storable + Clone + ?Sized + Debug + 'static,
+// {
+//     /// TODO
+//     access_guard: redb::AccessGuard<'a, StorableRedbValue<Value>>,
+// }
 
-impl<Value> Borrow<Value> for AccessGuard<'_, Value>
-where
-    Value: Storable + ?Sized + Debug + 'static,
-{
-    #[inline]
-    fn borrow(&self) -> &Value {
-        self.access_guard.value()
-    }
-}
+// impl<Value> Borrow<Value> for AccessGuard<'_, Value>
+// where
+//     Value: Storable + Clone + ?Sized + Debug + 'static,
+// {
+//     #[inline]
+//     fn borrow(&self) -> &Value {
+//         self.access_guard.value()
+//     }
+// }
+
+// TODO: document that `Cow` essentially acts as our
+// `AccessGuard` now, and that we know all values are
+// owned to begin with, so `.into_owned()` is cheap.
+//
+// Invariant should be upheld (panic on unowned?).
 
 /// Shared generic `get()` between `RedbTableR{o,w}`.
 #[inline]
 fn get<'a, T: Table + 'static>(
-    db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    db: &'a impl redb::ReadableTable<StorableRedbKey<T::Key>, StorableRedbValue<T::Value>>,
     key: &'a T::Key,
 ) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
     match db.get(key) {
-        Ok(Some(access_guard)) => Ok(AccessGuard::<T::Value> { access_guard }),
+        Ok(Some(access_guard)) => Ok(Cow::Owned(access_guard.value().into_owned())),
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(RuntimeError::from(e)),
     }
@@ -61,7 +67,7 @@ fn get<'a, T: Table + 'static>(
 #[inline]
 #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
 fn get_range<'a, T: Table, Range>(
-    db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    db: &'a impl redb::ReadableTable<StorableRedbKey<T::Key>, StorableRedbValue<T::Value>>,
     range: Range,
 ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
 where
@@ -70,24 +76,24 @@ where
     /// TODO
     struct Iter<'a, K, V>
     where
-        K: crate::key::Key + Debug + 'static,
-        V: Storable + ?Sized + Debug + 'static,
+        K: crate::key::Key + Clone + Debug + 'static,
+        V: Storable + Clone + ?Sized + Debug + 'static,
     {
         /// TODO
-        iter: redb::Range<'a, StorableRedb<K>, StorableRedb<V>>,
+        iter: redb::Range<'a, StorableRedbKey<K>, StorableRedbValue<V>>,
     }
 
     // TODO
     impl<'a, K, V> Iterator for Iter<'a, K, V>
     where
-        K: crate::key::Key + Debug + 'static,
-        V: Storable + ?Sized + Debug + 'static,
+        K: crate::key::Key + Clone + Debug + 'static,
+        V: Storable + Clone + ?Sized + Debug + 'static,
     {
-        type Item = Result<AccessGuard<'a, V>, RuntimeError>;
+        type Item = Result<Cow<'a, V>, RuntimeError>;
         fn next(&mut self) -> Option<Self::Item> {
             // TODO
             self.iter.next().map(|result| match result {
-                Ok(kv) => Ok(AccessGuard::<V> { access_guard: kv.1 }),
+                Ok(kv) => Ok(Cow::Owned(kv.1.value().into_owned())),
                 Err(e) => Err(RuntimeError::from(e)),
             })
         }
@@ -146,7 +152,7 @@ impl<'env, 'tx, T: Table + 'static> DatabaseRw<'env, 'tx, T>
 
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
-        self.insert(key, value)?;
+        self.insert(key, Cow::Borrowed(value))?;
         Ok(())
     }
 

@@ -31,10 +31,10 @@ pub trait Table: crate::tables::private::Sealed + 'static {
     // after function bodies are actually implemented...
 
     /// Primary key type.
-    type Key: Key + 'static;
+    type Key: Key + Clone + 'static;
 
     /// Value type.
-    type Value: Storable + ?Sized + 'static;
+    type Value: Storable + Clone + ?Sized + 'static;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

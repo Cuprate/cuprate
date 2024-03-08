@@ -3,12 +3,14 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     borrow::Cow,
+    char::ToLowercase,
     fmt::Debug,
     io::{Read, Write},
     sync::Arc,
 };
 
 use bytemuck::{AnyBitPattern, NoUninit};
+use crossbeam::epoch::Owned;
 
 //---------------------------------------------------------------------------------------------------- Storable
 /// A type that can be stored in the database.
@@ -97,8 +99,16 @@ pub trait Storable: Debug {
     /// Return `self` in byte form.
     fn as_bytes(&self) -> &[u8];
 
-    /// Create [`Self`] from bytes.
+    /// Create a borrowed [`Self`] from bytes.
     fn from_bytes(bytes: &[u8]) -> &Self;
+
+    /// Create a  [`Self`] from unaligned bytes.
+    ///
+    /// # Invariant
+    /// TODO
+    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self>
+    where
+        Self: Clone;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
@@ -114,6 +124,11 @@ impl<T: NoUninit + AnyBitPattern + Debug> Storable for T {
     fn from_bytes(bytes: &[u8]) -> &Self {
         bytemuck::from_bytes(bytes)
     }
+
+    #[inline]
+    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self> {
+        Cow::Owned(bytemuck::pod_read_unaligned(bytes))
+    }
 }
 
 impl<T: NoUninit + AnyBitPattern + Debug> Storable for [T] {
@@ -127,6 +142,11 @@ impl<T: NoUninit + AnyBitPattern + Debug> Storable for [T] {
     #[inline]
     fn from_bytes(bytes: &[u8]) -> &Self {
         bytemuck::must_cast_slice(bytes)
+    }
+
+    #[inline]
+    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self> {
+        Cow::Owned(bytemuck::pod_collect_to_vec(bytes))
     }
 }
 
