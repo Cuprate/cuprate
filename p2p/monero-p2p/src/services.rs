@@ -97,6 +97,15 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     GetRandomGrayPeer {
         height: Option<u64>,
     },
+    /// Gets a random peer from the peer list. If height is specified
+    /// then the peer list should retrieve a peer that should have a full
+    /// block at that height according to it's pruning seed.
+    ///
+    /// The peer list will look in the white peer list first, then the gray
+    /// one if no peer is found.
+    GetRandomPeer {
+        height: Option<u64>,
+    },
     GetWhitePeers(usize),
 }
 
