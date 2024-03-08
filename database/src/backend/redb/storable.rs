@@ -83,7 +83,14 @@ impl<T: Storable + Clone + ?Sized> RedbValue for StorableRedbValue<T> {
     where
         Self: 'a,
     {
-        <T as Storable>::from_bytes_unaligned(data)
+        // Use the bytes directly if possible...
+        if std::mem::align_of::<T>() == 1 {
+            Cow::Borrowed(<T as Storable>::from_bytes(data))
+        // ...else, make sure the bytes are aligned
+        // when casting by allocating a new buffer.
+        } else {
+            <T as Storable>::from_bytes_unaligned(data)
+        }
     }
 
     #[inline]
