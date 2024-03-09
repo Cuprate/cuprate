@@ -17,12 +17,21 @@ use crate::{
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
 pub trait DatabaseRo<'tx, T: Table> {
+    /// A guard for accessing database data,
+    type AccessGuard<'a>
+    where
+        Self: 'a;
+
     /// TODO
     /// # Errors
     /// TODO
     ///
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError>;
+    fn get<'a, 'b>(
+        &'a self,
+        key: &'a T::Key,
+        access_guard: &'b mut Option<Self::AccessGuard<'a>>,
+    ) -> Result<&'b T::Value, RuntimeError>;
 
     /// TODO
     /// # Errors

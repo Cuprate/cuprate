@@ -92,8 +92,9 @@ fn db_read_write() {
 
     // Assert the 1st key is there.
     {
-        let value = table.get(&KEY).unwrap();
-        let value: &TestType = value.borrow();
+        let mut guard = None;
+
+        let value = table.get(&KEY, &mut guard).unwrap();
         // Make sure all field accesses are aligned.
         assert_eq!(value, &VALUE);
         assert_eq!(value.u, VALUE.u);
@@ -119,6 +120,8 @@ fn db_read_write() {
 
     table.delete(&KEY).unwrap();
 
-    let value = table.get(&KEY);
+    let mut guard = None;
+
+    let value = table.get(&KEY, &mut guard);
     assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
 }

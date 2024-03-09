@@ -52,12 +52,16 @@ use crate::{
 
 /// Shared generic `get()` between `RedbTableR{o,w}`.
 #[inline]
-fn get<'a, T: Table + 'static>(
+fn get<'a, 'b, T: Table + 'static>(
     db: &'a impl redb::ReadableTable<StorableRedbKey<T::Key>, StorableRedbValue<T::Value>>,
     key: &'a T::Key,
-) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
+    access_guard: &'b mut Option<redb::AccessGuard<'a, StorableRedbValue<T::Value>>>,
+) -> Result<&'b T::Value, RuntimeError> {
     match db.get(key) {
-        Ok(Some(access_guard)) => Ok(Cow::Owned(access_guard.value().into_owned())),
+        Ok(Some(new_access_guard)) => {
+            *access_guard = Some(new_access_guard);
+            Ok(access_guard.as_ref().unwrap().value().as_ref())
+        }
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(RuntimeError::from(e)),
     }
@@ -106,9 +110,17 @@ where
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
+    type AccessGuard<'a> = redb::AccessGuard<'a, StorableRedbValue<T::Value>>
+        where
+            Self: 'a;
+
     #[inline]
-    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
-        get::<T>(self, key)
+    fn get<'a, 'b>(
+        &'a self,
+        key: &'a T::Key,
+        access_guard: &'b mut Option<Self::AccessGuard<'a>>,
+    ) -> Result<&'b T::Value, RuntimeError> {
+        get::<T>(self, key, access_guard)
     }
 
     #[inline]
@@ -126,9 +138,17 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value> {
+    type AccessGuard<'a> = redb::AccessGuard<'a, StorableRedbValue<T::Value>>
+        where
+            Self: 'a;
+
     #[inline]
-    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
-        get::<T>(self, key)
+    fn get<'a, 'b>(
+        &'a self,
+        key: &'a T::Key,
+        access_guard: &'b mut Option<Self::AccessGuard<'a>>,
+    ) -> Result<&'b T::Value, RuntimeError> {
+        get::<T>(self, key, access_guard)
     }
 
     #[inline]

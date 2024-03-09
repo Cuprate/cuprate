@@ -1,6 +1,7 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::borrow::Cow;
 use std::{borrow::Borrow, ops::RangeBounds, sync::RwLockReadGuard};
 
 use crate::{
@@ -50,13 +51,17 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
 
 /// Shared generic `get()` between `HeedTableR{o,w}`.
 #[inline]
-fn get<'tx, T: Table>(
+fn get<'a, 'tx, T: Table>(
     db: &'_ HeedDb<T::Key, T::Value>,
     tx_ro: &'tx heed::RoTxn<'_>,
     key: &T::Key,
-) -> Result<impl Borrow<T::Value> + 'tx, RuntimeError> {
+    access_guard: &'a mut Option<Cow<'tx, T::Value>>,
+) -> Result<&'a T::Value, RuntimeError> {
     match db.get(tx_ro, key) {
-        Ok(Some(value)) => Ok(value),
+        Ok(Some(value)) => {
+            *access_guard = Some(value);
+            Ok(access_guard.as_ref().unwrap().as_ref())
+        }
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(e.into()),
     }
@@ -78,9 +83,15 @@ where
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
 impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
+    type AccessGuard<'a> = Cow<'a, T::Value> where Self: 'a;
+
     #[inline]
-    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
-        get::<T>(&self.db, self.tx_ro, key)
+    fn get<'a, 'b>(
+        &'a self,
+        key: &'a T::Key,
+        access_guard: &'b mut Option<Self::AccessGuard<'a>>,
+    ) -> Result<&'b T::Value, RuntimeError> {
+        get::<T>(&self.db, self.tx_ro, key, access_guard)
     }
 
     #[inline]
@@ -98,9 +109,15 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
 impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
+    type AccessGuard<'a> = Cow<'a, T::Value> where Self: 'a;
+
     #[inline]
-    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl Borrow<T::Value> + 'a, RuntimeError> {
-        get::<T>(&self.db, self.tx_rw, key)
+    fn get<'a, 'b>(
+        &'a self,
+        key: &'a T::Key,
+        access_guard: &'b mut Option<Self::AccessGuard<'a>>,
+    ) -> Result<&'b T::Value, RuntimeError> {
+        get::<T>(&self.db, self.tx_rw, key, access_guard)
     }
 
     #[inline]
