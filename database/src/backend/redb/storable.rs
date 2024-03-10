@@ -50,7 +50,8 @@ impl<T: Storable + ?Sized> RedbValue for StorableRedbKey<T> {
     {
         // Safe on low size keys?
         // This doesn't panic... for now.
-        <T as Storable>::from_bytes(data)
+        // <T as Storable>::from_bytes(data)
+        todo!()
     }
 
     #[inline]

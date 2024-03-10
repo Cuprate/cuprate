@@ -110,7 +110,7 @@ where
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
-    type AccessGuard<'a> = redb::AccessGuard<'a, StorableRedbValue<T::Value>>
+    type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedbValue<T::Value>>
         where
             Self: 'a;
 
@@ -118,7 +118,7 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
     fn get<'a, 'b>(
         &'a self,
         key: &'a T::Key,
-        access_guard: &'b mut Option<Self::AccessGuard<'a>>,
+        access_guard: &'b mut Option<Self::ValueGuard<'a>>,
     ) -> Result<&'b T::Value, RuntimeError> {
         get::<T>(self, key, access_guard)
     }
@@ -138,7 +138,7 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value> {
-    type AccessGuard<'a> = redb::AccessGuard<'a, StorableRedbValue<T::Value>>
+    type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedbValue<T::Value>>
         where
             Self: 'a;
 
@@ -146,7 +146,7 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key
     fn get<'a, 'b>(
         &'a self,
         key: &'a T::Key,
-        access_guard: &'b mut Option<Self::AccessGuard<'a>>,
+        access_guard: &'b mut Option<Self::ValueGuard<'a>>,
     ) -> Result<&'b T::Value, RuntimeError> {
         get::<T>(self, key, access_guard)
     }

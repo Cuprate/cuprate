@@ -17,8 +17,10 @@ use crate::{
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
 pub trait DatabaseRo<'tx, T: Table> {
-    /// A guard for accessing database data,
-    type AccessGuard<'a>
+    /// A guard for accessing database values.
+    ///
+    /// TODO: explain this stupid thing
+    type ValueGuard<'a>
     where
         Self: 'a;
 
@@ -30,7 +32,7 @@ pub trait DatabaseRo<'tx, T: Table> {
     fn get<'a, 'b>(
         &'a self,
         key: &'a T::Key,
-        access_guard: &'b mut Option<Self::AccessGuard<'a>>,
+        access_guard: &'b mut Option<Self::ValueGuard<'a>>,
     ) -> Result<&'b T::Value, RuntimeError>;
 
     /// TODO
