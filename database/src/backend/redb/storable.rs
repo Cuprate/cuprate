@@ -1,31 +1,22 @@
 //! `cuprate_database::Storable` <-> `redb` serde trait compatibility layer.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{any::Any, borrow::Cow, cmp::Ordering, marker::PhantomData};
+use std::{any::Any, borrow::Cow, cmp::Ordering, fmt::Debug, marker::PhantomData};
 
 use redb::{RedbKey, RedbValue, TypeName};
 
 use crate::{key::Key, storable::Storable};
 
-//---------------------------------------------------------------------------------------------------- StorableRedbKey
+//---------------------------------------------------------------------------------------------------- StorableRedb
 /// The glue structs that implements `redb`'s (de)serialization
 /// traits on any type that implements `cuprate_database::Key`.
 ///
 /// Never actually get constructed, just used for trait bound translations.
-///
-/// HACK: explain why `StorableRedbKey` also exists
-/// (prevents Cow, and a bunch of trait bounds at the cost of
-/// never being able to retrieve the key, not needed anyway).
 #[derive(Debug)]
-pub(super) struct StorableRedbKey<T: Storable + ?Sized>(PhantomData<T>);
+pub(super) struct StorableRedb<T: Storable + Debug + ?Sized>(PhantomData<T>);
 
-/// TODO
-#[derive(Debug)]
-pub(super) struct StorableRedbValue<T: Storable + ?Sized>(PhantomData<T>);
-
-//---------------------------------------------------------------------------------------------------- RedbKey
 // If `Key` is also implemented, this can act as a `RedbKey`.
-impl<T: Key + ?Sized> RedbKey for StorableRedbKey<T> {
+impl<T: Key + Clone + Debug + ?Sized> RedbKey for StorableRedb<T> {
     #[inline]
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
         <T as Key>::compare(left, right)
@@ -33,43 +24,7 @@ impl<T: Key + ?Sized> RedbKey for StorableRedbKey<T> {
 }
 
 //---------------------------------------------------------------------------------------------------- RedbValue
-impl<T: Storable + ?Sized> RedbValue for StorableRedbKey<T> {
-    type SelfType<'a> = &'a T where Self: 'a;
-    type AsBytes<'a> = &'a [u8] where Self: 'a;
-
-    #[inline]
-    fn fixed_width() -> Option<usize> {
-        <T as Storable>::BYTE_LENGTH
-    }
-
-    #[inline]
-    #[allow(clippy::ptr_as_ptr)]
-    fn from_bytes<'a>(data: &'a [u8]) -> &'a T
-    where
-        Self: 'a,
-    {
-        // Safe on low size keys?
-        // This doesn't panic... for now.
-        // <T as Storable>::from_bytes(data)
-        todo!()
-    }
-
-    #[inline]
-    fn as_bytes<'a, 'b: 'a>(value: &'a Self::SelfType<'b>) -> &'a [u8]
-    where
-        Self: 'a + 'b,
-    {
-        <T as Storable>::as_bytes(value)
-    }
-
-    #[inline]
-    fn type_name() -> TypeName {
-        TypeName::new(std::any::type_name::<T>())
-    }
-}
-
-//---------------------------------------------------------------------------------------------------- RedbValue
-impl<T: Storable + Clone + ?Sized> RedbValue for StorableRedbValue<T> {
+impl<T: Storable + Debug + Clone + ?Sized> RedbValue for StorableRedb<T> {
     type SelfType<'a> = Cow<'a, T> where Self: 'a;
     type AsBytes<'a> = &'a [u8] where Self: 'a;
 
@@ -85,8 +40,8 @@ impl<T: Storable + Clone + ?Sized> RedbValue for StorableRedbValue<T> {
         Self: 'a,
     {
         // Use the bytes directly if possible...
-        if std::mem::align_of::<T>() == 1 {
-            Cow::Borrowed(<T as Storable>::from_bytes(data))
+        if T::ALIGN == 1 {
+            <T as Storable>::from_bytes(data)
         // ...else, make sure the bytes are aligned
         // when casting by allocating a new buffer.
         } else {
@@ -120,14 +75,14 @@ mod test {
     // - make sure the right function is being called
 
     #[test]
-    /// Assert `RedbKey::compare` works for `StorableRedbKey`.
+    /// Assert `RedbKey::compare` works for `StorableRedb`.
     fn compare() {
         fn test<T: Key>(left: T, right: T, expected: Ordering) {
             println!("left: {left:?}, right: {right:?}, expected: {expected:?}");
             assert_eq!(
-                <StorableRedbKey::<T> as RedbKey>::compare(
-                    <StorableRedbKey::<T> as RedbValue>::as_bytes(&&left),
-                    <StorableRedbKey::<T> as RedbValue>::as_bytes(&&right)
+                <StorableRedb::<T> as RedbKey>::compare(
+                    <StorableRedb::<T> as RedbValue>::as_bytes(&&left),
+                    <StorableRedb::<T> as RedbValue>::as_bytes(&&right)
                 ),
                 expected
             );
@@ -143,7 +98,7 @@ mod test {
     /// Assert `RedbKey::fixed_width` is accurate.
     fn fixed_width() {
         fn test<T: Storable + ?Sized>(expected: Option<usize>) {
-            assert_eq!(<StorableRedbKey::<T> as RedbValue>::fixed_width(), expected);
+            assert_eq!(<StorableRedb::<T> as RedbValue>::fixed_width(), expected);
         }
 
         test::<()>(Some(0));
@@ -167,7 +122,7 @@ mod test {
     fn as_bytes() {
         fn test<T: Storable + ?Sized>(t: &T, expected: &[u8]) {
             println!("t: {t:?}, expected: {expected:?}");
-            assert_eq!(<StorableRedbKey::<T> as RedbValue>::as_bytes(&t), expected);
+            assert_eq!(<StorableRedb::<T> as RedbValue>::as_bytes(&t), expected);
         }
 
         test::<()>(&(), &[]);
@@ -192,7 +147,7 @@ mod test {
         fn test<T: Storable + ?Sized + PartialEq>(bytes: &[u8], expected: &T) {
             println!("bytes: {bytes:?}, expected: {expected:?}");
             assert_eq!(
-                <StorableRedbKey::<T> as RedbValue>::from_bytes(bytes),
+                <StorableRedb::<T> as RedbValue>::from_bytes(bytes),
                 expected
             );
         }
@@ -220,20 +175,20 @@ mod test {
     fn type_name() {
         // Can't use a proper set because `redb::TypeName: !Ord`.
         let set = [
-            <StorableRedbKey<()> as RedbValue>::type_name(),
-            <StorableRedbKey<u8> as RedbValue>::type_name(),
-            <StorableRedbKey<u16> as RedbValue>::type_name(),
-            <StorableRedbKey<u32> as RedbValue>::type_name(),
-            <StorableRedbKey<u64> as RedbValue>::type_name(),
-            <StorableRedbKey<i8> as RedbValue>::type_name(),
-            <StorableRedbKey<i16> as RedbValue>::type_name(),
-            <StorableRedbKey<i32> as RedbValue>::type_name(),
-            <StorableRedbKey<i64> as RedbValue>::type_name(),
-            <StorableRedbKey<[u8]> as RedbValue>::type_name(),
-            <StorableRedbKey<[u8; 0]> as RedbValue>::type_name(),
-            <StorableRedbKey<[u8; 1]> as RedbValue>::type_name(),
-            <StorableRedbKey<[u8; 2]> as RedbValue>::type_name(),
-            <StorableRedbKey<[u8; 3]> as RedbValue>::type_name(),
+            <StorableRedb<()> as RedbValue>::type_name(),
+            <StorableRedb<u8> as RedbValue>::type_name(),
+            <StorableRedb<u16> as RedbValue>::type_name(),
+            <StorableRedb<u32> as RedbValue>::type_name(),
+            <StorableRedb<u64> as RedbValue>::type_name(),
+            <StorableRedb<i8> as RedbValue>::type_name(),
+            <StorableRedb<i16> as RedbValue>::type_name(),
+            <StorableRedb<i32> as RedbValue>::type_name(),
+            <StorableRedb<i64> as RedbValue>::type_name(),
+            <StorableRedb<[u8]> as RedbValue>::type_name(),
+            <StorableRedb<[u8; 0]> as RedbValue>::type_name(),
+            <StorableRedb<[u8; 1]> as RedbValue>::type_name(),
+            <StorableRedb<[u8; 2]> as RedbValue>::type_name(),
+            <StorableRedb<[u8; 3]> as RedbValue>::type_name(),
         ];
 
         // Check every permutation is unique.

@@ -23,33 +23,6 @@ use crate::{
 // call the functions since the database is held by value, so
 // just use these generic functions that both can call instead.
 
-// /// TODO
-// struct AccessGuard<'a, Value>
-// // This must be done to prevent `Borrow` collisions.
-// // If `T: Table` was here instead, it causes weird compile errors.
-// where
-//     Value: Storable + Clone + ?Sized + Debug + 'static,
-// {
-//     /// TODO
-//     access_guard: redb::AccessGuard<'a, StorableRedbValue<Value>>,
-// }
-
-// impl<Value> Borrow<Value> for AccessGuard<'_, Value>
-// where
-//     Value: Storable + Clone + ?Sized + Debug + 'static,
-// {
-//     #[inline]
-//     fn borrow(&self) -> &Value {
-//         self.access_guard.value()
-//     }
-// }
-
-// TODO: document that `Cow` essentially acts as our
-// `AccessGuard` now, and that we know all values are
-// owned to begin with, so `.into_owned()` is cheap.
-//
-// Invariant should be upheld (panic on unowned?).
-
 /// Shared generic `get()` between `RedbTableR{o,w}`.
 #[inline]
 fn get<'a, 'b, T: Table + 'static>(

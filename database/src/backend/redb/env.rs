@@ -5,7 +5,7 @@ use std::{ops::Deref, path::Path, sync::Arc};
 
 use crate::{
     backend::redb::{
-        storable::{StorableRedbKey, StorableRedbValue},
+        storable::StorableRedb,
         types::{RedbTableRo, RedbTableRw},
     },
     config::{Config, SyncMode},
@@ -93,16 +93,16 @@ impl Env for ConcreteEnv {
         // TestTable
         let table: redb::TableDefinition<
             'static,
-            StorableRedbKey<<TestTable as Table>::Key>,
-            StorableRedbKey<<TestTable as Table>::Value>,
+            StorableRedb<<TestTable as Table>::Key>,
+            StorableRedb<<TestTable as Table>::Value>,
         > = redb::TableDefinition::new(TestTable::NAME);
         tx_rw.open_table(table)?;
 
         // TestTable2
         let table: redb::TableDefinition<
             'static,
-            StorableRedbKey<<TestTable2 as Table>::Key>,
-            StorableRedbKey<<TestTable2 as Table>::Value>,
+            StorableRedb<<TestTable2 as Table>::Key>,
+            StorableRedb<<TestTable2 as Table>::Value>,
         > = redb::TableDefinition::new(TestTable2::NAME);
         tx_rw.open_table(table)?;
 
@@ -164,11 +164,8 @@ where
         tx_ro: &'tx redb::ReadTransaction<'env>,
     ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
         // Open up a read-only database using our `T: Table`'s const metadata.
-        let table: redb::TableDefinition<
-            'static,
-            StorableRedbKey<T::Key>,
-            StorableRedbValue<T::Value>,
-        > = redb::TableDefinition::new(T::NAME);
+        let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
+            redb::TableDefinition::new(T::NAME);
 
         // INVARIANT: Our `?` error conversion will panic if the table does not exist.
         Ok(tx_ro.open_table(table)?)
@@ -180,11 +177,8 @@ where
         tx_rw: &'tx mut redb::WriteTransaction<'env>,
     ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
         // Open up a read/write database using our `T: Table`'s const metadata.
-        let table: redb::TableDefinition<
-            'static,
-            StorableRedbKey<T::Key>,
-            StorableRedbValue<T::Value>,
-        > = redb::TableDefinition::new(T::NAME);
+        let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
+            redb::TableDefinition::new(T::NAME);
 
         // `redb` creates tables if they don't exist, so this should never panic.
         // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
