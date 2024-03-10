@@ -12,9 +12,9 @@
 
 mod block_downloader;
 mod broadcast;
-mod config;
-mod connection_maker;
-mod crawler;
+pub mod config;
+pub mod connection_maintainer;
+mod constants;
 mod network;
 mod outbound_connector;
 mod peer_set;

@@ -1,3 +1,4 @@
+use std::net::Ipv4Addr;
 use std::{
     net::{IpAddr, SocketAddr},
     pin::Pin,
@@ -23,7 +24,8 @@ impl NetZoneAddress for SocketAddr {
     }
 
     fn should_add_to_peer_list(&self) -> bool {
-        todo!()
+        // TODO
+        true
     }
 }
 
@@ -37,6 +39,12 @@ pub enum ClearNet {}
 #[async_trait::async_trait]
 impl NetworkZone for ClearNet {
     const NAME: &'static str = "ClearNet";
+
+    const SEEDS: &'static [Self::Addr] = &[SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(37, 187, 74, 171)),
+        18080,
+    )];
+
     const ALLOW_SYNC: bool = true;
     const DANDELION_PP: bool = true;
     const CHECK_NODE_ID: bool = true;

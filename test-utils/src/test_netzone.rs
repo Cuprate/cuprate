@@ -71,6 +71,7 @@ impl<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool
     for TestNetZone<ALLOW_SYNC, DANDELION_PP, CHECK_NODE_ID>
 {
     const NAME: &'static str = "Testing";
+    const SEEDS: &'static [Self::Addr] = &[];
     const ALLOW_SYNC: bool = ALLOW_SYNC;
     const DANDELION_PP: bool = DANDELION_PP;
     const CHECK_NODE_ID: bool = CHECK_NODE_ID;

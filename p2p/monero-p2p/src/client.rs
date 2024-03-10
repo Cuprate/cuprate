@@ -53,17 +53,17 @@ impl<A: Display> Display for InternalPeerID<A> {
 /// Information on a connected peer.
 pub struct PeerInformation<A> {
     /// The internal peer ID of this peer.
-    id: InternalPeerID<A>,
+    pub id: InternalPeerID<A>,
     /// The [`ConnectionHandle`] for this peer, allows banning this peer and checking if it is still
     /// alive.
-    handle: ConnectionHandle,
+    pub handle: ConnectionHandle,
     /// The direction of this connection (inbound|outbound).
-    direction: ConnectionDirection,
+    pub direction: ConnectionDirection,
 
     /// The core sync data of the peer.
     ///
     /// This is behind a Mutex because the data is dynamic.
-    core_sync_data: std::sync::Mutex<CoreSyncData>,
+    pub core_sync_data: std::sync::Mutex<CoreSyncData>,
 }
 
 /// This represents a connection to a peer.

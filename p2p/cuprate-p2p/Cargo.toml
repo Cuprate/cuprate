@@ -9,11 +9,21 @@ authors = ["Boog900"]
 monero-wire = { path = "../../net/monero-wire" }
 monero-p2p = { path = "../monero-p2p", features = ["borsh"] }
 monero-address-book = { path = "../address-book" }
+cuprate-helper = { path = "../../helper" }
 
 tower = { workspace = true }
-tokio = { workspace = true, features = ["sync"] }
+tokio = { workspace = true, features = ["full"] }
 futures = { workspace = true, features = ["std"] }
 
 bytes = { workspace = true, features = ["std"] }
 indexmap = { workspace = true, features = ["std"] }
+rand = { workspace = true, features = ["std", "std_rng"] }
+hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
+
+tracing-subscriber = { version = "0.3.18" }
+
+[dev-dependencies]
+cuprate-test-utils = {path = "../../test-utils"}
+tracing-subscriber = { version = "0.3.18" }
+

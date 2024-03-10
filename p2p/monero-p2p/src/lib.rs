@@ -97,6 +97,8 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     /// This has privacy implications on an anonymity network if true so should be set
     /// to false.
     const CHECK_NODE_ID: bool;
+    /// Fixed seed nodes for this network.
+    const SEEDS: &'static [Self::Addr];
 
     /// The address type of this network.
     type Addr: NetZoneAddress;
@@ -148,7 +150,7 @@ where
     type Future2 = T::Future;
 }
 
-pub(crate) trait CoreSyncSvc:
+pub trait CoreSyncSvc:
     tower::Service<
         CoreSyncDataRequest,
         Response = CoreSyncDataResponse,

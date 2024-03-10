@@ -47,6 +47,7 @@ pub enum FragNet {}
 #[async_trait::async_trait]
 impl NetworkZone for FragNet {
     const NAME: &'static str = "FragNet";
+    const SEEDS: &'static [Self::Addr] = &[];
     const ALLOW_SYNC: bool = true;
     const DANDELION_PP: bool = true;
     const CHECK_NODE_ID: bool = true;

@@ -20,7 +20,7 @@ use tokio::{
     time::{error::Elapsed, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::Instrument;
+use tracing::{Instrument, Span};
 
 use monero_wire::{
     admin::{
@@ -350,8 +350,13 @@ where
         error_slot.clone(),
     );
 
-    let connection_handle =
-        tokio::spawn(connection.run(peer_stream.fuse(), eager_protocol_messages));
+    let connection_span = tracing::error_span!(parent: &Span::none(), "connection", %addr);
+
+    let connection_handle = tokio::spawn(
+        connection
+            .run(peer_stream.fuse(), eager_protocol_messages)
+            .instrument(connection_span),
+    );
 
     let peer_info = Arc::new(PeerInformation {
         id: addr,

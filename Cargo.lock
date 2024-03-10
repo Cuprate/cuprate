@@ -619,14 +619,19 @@ name = "cuprate-p2p"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "cuprate-helper",
+ "cuprate-test-utils",
  "futures",
+ "hex",
  "indexmap 2.2.5",
  "monero-address-book",
  "monero-p2p",
  "monero-wire",
+ "rand",
  "tokio",
  "tower",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -1560,17 +1565,16 @@ dependencies = [
 name = "monero-address-book"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "borsh",
  "cuprate-test-utils",
  "futures",
  "monero-p2p",
  "monero-pruning",
  "monero-wire",
- "pin-project",
  "rand",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tower",
  "tracing",
 ]
@@ -2880,6 +2884,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "pin-project-lite",
+ "slab",
  "tokio",
  "tracing",
 ]
