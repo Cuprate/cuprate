@@ -59,6 +59,9 @@ use crossbeam::epoch::Owned;
 /// Most likely, the bytes are little-endian, however
 /// that cannot be relied upon when using this trait.
 pub trait Storable: ToOwned {
+    /// TODO
+    const ALIGN: usize;
+
     /// Is this type fixed width in byte length?
     ///
     /// I.e., when converting `Self` to bytes, is it
@@ -102,14 +105,18 @@ pub trait Storable: ToOwned {
     fn as_bytes(&self) -> &[u8];
 
     /// Create a borrowed [`Self`] from bytes.
+    fn from_bytes(bytes: &[u8]) -> Cow<'_, Self>;
+
+    /// TODO
     ///
     /// # Invariant
-    /// TODO: unaligned is ok.
-    fn from_bytes(bytes: &[u8]) -> Cow<'_, Self>;
+    /// TODO
+    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self>;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
 impl<T: NoUninit + AnyBitPattern + ToOwned<Owned = T>> Storable for T {
+    const ALIGN: usize = std::mem::align_of::<T>();
     const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
 
     #[inline]
@@ -119,25 +126,17 @@ impl<T: NoUninit + AnyBitPattern + ToOwned<Owned = T>> Storable for T {
 
     #[inline]
     fn from_bytes(bytes: &[u8]) -> Cow<'_, T> {
-        match bytemuck::try_from_bytes(bytes) {
-            // Bytes were properly aligned, simply cast.
-            Ok(t) => Cow::Borrowed(t),
+        Cow::Borrowed(bytemuck::from_bytes(bytes))
+    }
 
-            // Bytes are misaligned, allocate a new
-            // buffer, copy the bytes, then cast.
-            Err(bytemuck::PodCastError::TargetAlignmentGreaterAndInputNotAligned) => {
-                let t: T = bytemuck::pod_read_unaligned(bytes);
-                Cow::Owned(t)
-            }
-
-            // These errors should never occur,
-            // else, our code is incorrect.
-            Err(e) => panic!("{e:?}"),
-        }
+    #[inline]
+    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self> {
+        Cow::Owned(bytemuck::pod_read_unaligned(bytes))
     }
 }
 
 impl<T: NoUninit + AnyBitPattern + ToOwned> Storable for [T] {
+    const ALIGN: usize = std::mem::align_of::<T>();
     const BYTE_LENGTH: Option<usize> = None;
 
     #[inline]
@@ -150,20 +149,12 @@ impl<T: NoUninit + AnyBitPattern + ToOwned> Storable for [T] {
     where
         T: ToOwned,
     {
-        match bytemuck::try_cast_slice(bytes) {
-            // Bytes were properly aligned, simply cast.
-            Ok(t) => Cow::Borrowed(t),
+        Cow::Borrowed(bytemuck::cast_slice(bytes))
+    }
 
-            // Bytes are misaligned, allocate a new
-            // buffer, copy the bytes, then cast.
-            Err(bytemuck::PodCastError::TargetAlignmentGreaterAndInputNotAligned) => {
-                Cow::Owned(bytemuck::pod_collect_to_vec(bytes))
-            }
-
-            // These errors should never occur,
-            // else, our code is incorrect.
-            Err(e) => panic!("{e:?}"),
-        }
+    #[inline]
+    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self> {
+        Cow::Owned(bytemuck::pod_read_unaligned(bytes))
     }
 }
 
