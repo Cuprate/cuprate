@@ -29,15 +29,7 @@ fn get<'a, 'b, T: Table + 'static>(
     db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     key: &'a T::Key,
     value_guard: &'b mut Option<redb::AccessGuard<'a, StorableRedb<T::Value>>>,
-) -> Result<Cow<'b, T::Value>, RuntimeError>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+) -> Result<Cow<'b, T::Value>, RuntimeError> {
     match db.get(Cow::Borrowed(key)) {
         Ok(Some(cow)) => {
             *value_guard = Some(cow);
@@ -61,21 +53,12 @@ fn get_range<'a, T: Table, Range>(
 ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
 where
     Range: RangeBounds<Cow<'a, T::Key>> + 'a,
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
 {
     /// TODO
     struct Iter<'a, K, V>
     where
-        K: crate::key::Key + ToOwned + Debug + 'static,
-        V: Storable + ToOwned + ?Sized + Debug + 'static,
-        <<K as crate::key::Key>::Primary as ToOwned>::Owned: Debug,
-        <K as ToOwned>::Owned: Debug,
-        <V as ToOwned>::Owned: Debug,
+        K: crate::key::Key + 'static,
+        V: Storable + ?Sized + 'static,
     {
         /// TODO
         iter: redb::Range<'a, StorableRedb<K>, StorableRedb<V>>,
@@ -84,11 +67,8 @@ where
     // TODO
     impl<'a, K, V> Iterator for Iter<'a, K, V>
     where
-        K: crate::key::Key + ToOwned + Debug + 'static,
-        V: Storable + ToOwned + ?Sized + Debug + 'static,
-        <<K as crate::key::Key>::Primary as ToOwned>::Owned: Debug,
-        <K as ToOwned>::Owned: Debug,
-        <V as ToOwned>::Owned: Debug,
+        K: crate::key::Key + 'static,
+        V: Storable + ?Sized + 'static,
     {
         type Item = Result<Cow<'a, V>, RuntimeError>;
         fn next(&mut self) -> Option<Self::Item> {
@@ -106,15 +86,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
     type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedb<T::Value>>
         where
             Self: 'a;
@@ -142,15 +114,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
-impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value> {
     type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedb<T::Value>>
         where
             Self: 'a;
@@ -179,13 +143,6 @@ where
 
 impl<'env, 'tx, T: Table + 'static> DatabaseRw<'env, 'tx, T>
     for RedbTableRw<'env, 'tx, T::Key, T::Value>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
 {
     // `redb` returns the value after `insert()/remove()`
     // we end with Ok(()) instead.

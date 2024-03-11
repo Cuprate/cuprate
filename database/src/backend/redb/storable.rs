@@ -15,15 +15,13 @@ use crate::{key::Key, storable::Storable};
 #[derive(Debug)]
 pub(super) struct StorableRedb<T>(PhantomData<T>)
 where
-    T: Storable + ToOwned + Debug + ?Sized,
-    <T as ToOwned>::Owned: Debug;
+    T: Storable + ?Sized;
 
+//---------------------------------------------------------------------------------------------------- RedbKey
 // If `Key` is also implemented, this can act as a `RedbKey`.
 impl<T> RedbKey for StorableRedb<T>
 where
-    T: Key + ToOwned + Debug,
-    <T as ToOwned>::Owned: Debug,
-    <<T as Key>::Primary as ToOwned>::Owned: Debug,
+    T: Key,
 {
     #[inline]
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
@@ -34,8 +32,7 @@ where
 //---------------------------------------------------------------------------------------------------- RedbValue
 impl<T> RedbValue for StorableRedb<T>
 where
-    T: Storable + ToOwned + Debug + ?Sized,
-    <T as ToOwned>::Owned: Debug,
+    T: Storable + ?Sized,
 {
     type SelfType<'a> = Cow<'a, T> where Self: 'a;
     type AsBytes<'a> = &'a [u8] where Self: 'a;
@@ -66,7 +63,7 @@ where
     where
         Self: 'a + 'b,
     {
-        <T as Storable>::as_bytes(value)
+        <T as Storable>::as_bytes(value.as_ref())
     }
 
     #[inline]
@@ -91,9 +88,7 @@ mod test {
     fn compare() {
         fn test<T>(left: T, right: T, expected: Ordering)
         where
-            T: Key + ToOwned + Debug,
-            <T as ToOwned>::Owned: Debug,
-            <<T as Key>::Primary as ToOwned>::Owned: Debug,
+            T: Key,
         {
             println!("left: {left:?}, right: {right:?}, expected: {expected:?}");
             assert_eq!(
@@ -116,8 +111,7 @@ mod test {
     fn fixed_width() {
         fn test<T>(expected: Option<usize>)
         where
-            T: Storable + ToOwned + Debug + ?Sized,
-            <T as ToOwned>::Owned: Debug,
+            T: Storable + ?Sized,
         {
             assert_eq!(<StorableRedb::<T> as RedbValue>::fixed_width(), expected);
         }
@@ -143,8 +137,7 @@ mod test {
     fn as_bytes() {
         fn test<T>(t: &T, expected: &[u8])
         where
-            T: Storable + ToOwned + Debug + ?Sized,
-            <T as ToOwned>::Owned: Debug,
+            T: Storable + ?Sized,
         {
             println!("t: {t:?}, expected: {expected:?}");
             assert_eq!(
@@ -174,8 +167,7 @@ mod test {
     fn from_bytes() {
         fn test<T>(bytes: &[u8], expected: &T)
         where
-            T: Storable + ToOwned + Debug + PartialEq + ?Sized,
-            <T as ToOwned>::Owned: Debug,
+            T: Storable + PartialEq + ?Sized,
         {
             println!("bytes: {bytes:?}, expected: {expected:?}");
             assert_eq!(

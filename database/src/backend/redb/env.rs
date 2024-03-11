@@ -162,15 +162,7 @@ where
     fn open_db_ro<'tx, T: Table>(
         &self,
         tx_ro: &'tx redb::ReadTransaction<'env>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>
-    where
-        <T as Table>::Key: ToOwned + Debug,
-        <<T as Table>::Key as ToOwned>::Owned: Debug,
-        <T as Table>::Value: ToOwned + Debug,
-        <<T as Table>::Value as ToOwned>::Owned: Debug,
-        <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-        <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-    {
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
         // Open up a read-only database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
@@ -183,15 +175,7 @@ where
     fn open_db_rw<'tx, T: Table>(
         &self,
         tx_rw: &'tx mut redb::WriteTransaction<'env>,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError>
-    where
-        <T as Table>::Key: ToOwned + Debug,
-        <<T as Table>::Key as ToOwned>::Owned: Debug,
-        <T as Table>::Value: ToOwned + Debug,
-        <<T as Table>::Value as ToOwned>::Owned: Debug,
-        <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-        <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-    {
+    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
         // Open up a read/write database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
