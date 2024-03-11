@@ -22,8 +22,12 @@ use crossbeam::epoch::Owned;
 /// casted/represented as raw bytes.
 ///
 /// ## `bytemuck`
-/// Any type that implements `bytemuck`'s [`NoUninit`] + [`AnyBitPattern`]
-/// (and [Debug]) will automatically implement [`Storable`].
+/// Any type that implements:
+/// - [`bytemuck::Pod`]
+/// - [`Debug`]
+/// - [`ToOwned`]
+///
+/// will automatically implement [`Storable`].
 ///
 /// This includes:
 /// - Most primitive types

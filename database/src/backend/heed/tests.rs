@@ -4,7 +4,6 @@
 use std::borrow::Borrow;
 
 use crate::{
-    backend::heed::ConcreteEnv,
     config::{Config, SyncMode},
     database::{DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
@@ -12,7 +11,9 @@ use crate::{
     resize::ResizeAlgorithm,
     table::Table,
     tables::{TestTable, TestTable2},
+    transaction::{TxRo, TxRw},
     types::TestType,
+    ConcreteEnv,
 };
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -38,9 +39,9 @@ fn tx() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
 
-    env_inner.tx_ro().unwrap().commit().unwrap();
-    env_inner.tx_rw().unwrap().commit().unwrap();
-    env_inner.tx_rw().unwrap().abort().unwrap();
+    TxRo::commit(env_inner.tx_ro().unwrap()).unwrap();
+    TxRw::commit(env_inner.tx_rw().unwrap()).unwrap();
+    TxRw::abort(env_inner.tx_rw().unwrap()).unwrap();
 }
 
 /// Open (and verify) that all database tables
@@ -57,12 +58,12 @@ fn open_db() {
     // This should be updated when tables are modified.
     env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TestTable2>(&tx_ro).unwrap();
-    tx_ro.commit().unwrap();
+    TxRo::commit(tx_ro).unwrap();
 
     // Open all tables in read/write mode.
     env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<TestTable2>(&mut tx_rw).unwrap();
-    tx_rw.commit().unwrap();
+    TxRw::commit(tx_rw).unwrap();
 }
 
 /// Test all `DatabaseR{o,w}` operations.
