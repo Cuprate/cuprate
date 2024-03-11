@@ -21,6 +21,8 @@ use crossbeam::epoch::Owned;
 /// This trait represents types that can be **perfectly**
 /// casted/represented as raw bytes.
 ///
+/// TODO: document these trait bounds...
+///
 /// ## `bytemuck`
 /// Any type that implements:
 /// - [`bytemuck::Pod`]
@@ -68,6 +70,26 @@ where
     <Self as ToOwned>::Owned: Debug,
 {
     /// TODO
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use cuprate_database::Storable;
+    /// assert_eq!(<()>::ALIGN, 1);
+    /// assert_eq!(u8::ALIGN, 1);
+    /// assert_eq!(u16::ALIGN, 2);
+    /// assert_eq!(u32::ALIGN, 4);
+    /// assert_eq!(u64::ALIGN, 8);
+    /// assert_eq!(i8::ALIGN, 1);
+    /// assert_eq!(i16::ALIGN, 2);
+    /// assert_eq!(i32::ALIGN, 4);
+    /// assert_eq!(i64::ALIGN, 8);
+    /// assert_eq!(<[u8]>::ALIGN, 1);
+    /// assert_eq!(<[u64]>::ALIGN, 8);
+    /// assert_eq!(<[u8; 0]>::ALIGN, 1);
+    /// assert_eq!(<[u8; 1]>::ALIGN, 1);
+    /// assert_eq!(<[u8; 2]>::ALIGN, 1);
+    /// assert_eq!(<[u64; 2]>::ALIGN, 8);
+    /// ```
     const ALIGN: usize;
 
     /// Is this type fixed width in byte length?
@@ -147,8 +169,9 @@ where
     }
 }
 
-impl<T: Pod + ToOwned> Storable for [T]
+impl<T> Storable for [T]
 where
+    T: Pod,
     Self: Debug + ToOwned<Owned = Vec<T>>,
     <Self as ToOwned>::Owned: Debug,
 {

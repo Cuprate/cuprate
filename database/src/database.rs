@@ -17,6 +17,8 @@ use crate::{
 /// Database (key-value store) read abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
+///
+/// TODO: document these trait bounds...
 pub trait DatabaseRo<'tx, T: Table>
 where
     <T as Table>::Key: ToOwned + Debug,
@@ -63,6 +65,8 @@ where
 /// Database (key-value store) read/write abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
+///
+/// TODO: document these trait bounds...
 pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T>
 where
     <T as Table>::Key: ToOwned + Debug,

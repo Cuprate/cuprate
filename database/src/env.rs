@@ -169,6 +169,8 @@ where
 
     /// TODO
     ///
+    /// TODO: document these trait bounds...
+    ///
     /// # TODO: Invariant
     /// This should never panic the database because the table doesn't exist.
     ///
@@ -191,6 +193,8 @@ where
         <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug;
 
     /// TODO
+    ///
+    /// TODO: document these trait bounds...
     ///
     /// # TODO: Invariant
     /// This should never panic the database because the table doesn't exist.

@@ -10,6 +10,8 @@ use crate::{key::Key, storable::Storable};
 ///
 /// Purely compile time information for database tables.
 ///
+/// TODO: document these trait bounds...
+///
 /// ## Sealed
 /// This trait is [`Sealed`](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed).
 ///
