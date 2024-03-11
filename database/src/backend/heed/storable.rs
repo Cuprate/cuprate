@@ -14,14 +14,12 @@ use crate::storable::Storable;
 /// Never actually gets constructed, just used for trait bound translations.
 pub(super) struct StorableHeed<T>(PhantomData<T>)
 where
-    T: Storable + ToOwned + ?Sized,
-    <T as ToOwned>::Owned: Debug;
+    T: Storable + ?Sized;
 
 //---------------------------------------------------------------------------------------------------- BytesDecode
 impl<'a, T> BytesDecode<'a> for StorableHeed<T>
 where
-    T: Storable + ToOwned + ?Sized + 'a,
-    <T as ToOwned>::Owned: Debug,
+    T: Storable + ?Sized + 'a,
 {
     type DItem = Cow<'a, T>;
 
@@ -35,8 +33,7 @@ where
 //---------------------------------------------------------------------------------------------------- BytesEncode
 impl<'a, T> BytesEncode<'a> for StorableHeed<T>
 where
-    T: Storable + ToOwned + ?Sized + 'a,
-    <T as ToOwned>::Owned: Debug,
+    T: Storable + ?Sized + 'a,
 {
     type EItem = T;
 
@@ -64,8 +61,7 @@ mod test {
     fn bytes_encode() {
         fn test<T>(t: &T, expected: &[u8])
         where
-            T: Storable + ToOwned + ?Sized + Debug,
-            T::Owned: Debug,
+            T: Storable + ?Sized,
         {
             println!("t: {t:?}, expected: {expected:?}");
             assert_eq!(

@@ -31,15 +31,7 @@ use crate::{
 /// An opened read-only database associated with a transaction.
 ///
 /// Matches `redb::ReadOnlyTable`.
-pub(super) struct HeedTableRo<'tx, T: Table>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+pub(super) struct HeedTableRo<'tx, T: Table> {
     /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
@@ -49,15 +41,7 @@ where
 /// An opened read/write database associated with a transaction.
 ///
 /// Matches `redb::Table` (read & write).
-pub(super) struct HeedTableRw<'env, 'tx, T: Table>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
     /// TODO
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
@@ -77,19 +61,11 @@ fn get<'a, 'tx, T: Table>(
     tx_ro: &'tx heed::RoTxn<'_>,
     key: &T::Key,
     value_guard: &'a mut Option<Cow<'tx, T::Value>>,
-) -> Result<Cow<'a, T::Value>, RuntimeError>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+) -> Result<Cow<'a, T::Value>, RuntimeError> {
     match db.get(tx_ro, key) {
         Ok(Some(cow)) => {
             *value_guard = Some(cow);
-            Ok(Cow::Borrowed(value_guard.as_ref().unwrap()))
+            Ok(Cow::Borrowed(value_guard.as_ref().unwrap().as_ref()))
         }
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(e.into()),
@@ -106,26 +82,12 @@ fn get_range<'a, T: Table, Range>(
 ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
 where
     Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a,
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
 {
     Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
     type ValueGuard<'a> = Cow<'a, T::Value> where Self: 'a;
 
     #[inline]
@@ -151,15 +113,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
     type ValueGuard<'a> = Cow<'a, T::Value> where Self: 'a;
 
     #[inline]
@@ -184,15 +138,7 @@ where
     }
 }
 
-impl<'env, 'tx, T: Table> DatabaseRw<'env, 'tx, T> for HeedTableRw<'env, 'tx, T>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+impl<'env, 'tx, T: Table> DatabaseRw<'env, 'tx, T> for HeedTableRw<'env, 'tx, T> {
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         Ok(self.db.put(self.tx_rw, key, value)?)
