@@ -11,6 +11,7 @@ use crate::{
     error::RuntimeError,
     table::Table,
     transaction::{TxRo, TxRw},
+    value_guard::ValueGuard,
 };
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
@@ -20,23 +21,12 @@ use crate::{
 ///
 /// TODO: document these trait bounds...
 pub trait DatabaseRo<'tx, T: Table> {
-    /// A guard for accessing database values.
-    ///
-    /// TODO: explain this stupid thing
-    type ValueGuard<'a>
-    where
-        Self: 'a;
-
     /// TODO
     /// # Errors
     /// TODO
     ///
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    fn get<'a, 'b>(
-        &'a self,
-        key: &'a T::Key,
-        access_guard: &'b mut Option<Self::ValueGuard<'a>>,
-    ) -> Result<Cow<'b, T::Value>, RuntimeError>;
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError>;
 
     /// TODO
     /// # Errors
@@ -45,7 +35,10 @@ pub trait DatabaseRo<'tx, T: Table> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
+    ) -> Result<
+        impl Iterator<Item = Result<impl ValueGuard<T::Value>, RuntimeError>> + 'a,
+        RuntimeError,
+    >
     where
         // FIXME:
         // - `RangeBounds<T::Key>` is to satisfy `heed` bounds

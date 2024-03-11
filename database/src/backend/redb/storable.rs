@@ -17,6 +17,20 @@ pub(super) struct StorableRedb<T>(PhantomData<T>)
 where
     T: Storable + ?Sized;
 
+impl<T: Storable> crate::value_guard::ValueGuard<T> for redb::AccessGuard<'_, StorableRedb<T>> {
+    #[inline]
+    fn unguard(&self) -> Cow<'_, T> {
+        self.value()
+    }
+}
+
+impl<T: Storable> crate::value_guard::ValueGuard<T> for &redb::AccessGuard<'_, StorableRedb<T>> {
+    #[inline]
+    fn unguard(&self) -> Cow<'_, T> {
+        self.value()
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- RedbKey
 // If `Key` is also implemented, this can act as a `RedbKey`.
 impl<T> RedbKey for StorableRedb<T>

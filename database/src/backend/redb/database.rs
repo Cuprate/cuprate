@@ -16,6 +16,7 @@ use crate::{
     error::RuntimeError,
     storable::Storable,
     table::Table,
+    value_guard::ValueGuard,
 };
 
 //---------------------------------------------------------------------------------------------------- Shared functions
@@ -25,16 +26,12 @@ use crate::{
 
 /// Shared generic `get()` between `RedbTableR{o,w}`.
 #[inline]
-fn get<'a, 'b, T: Table + 'static>(
+fn get<'a, T: Table + 'static>(
     db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     key: &'a T::Key,
-    value_guard: &'b mut Option<redb::AccessGuard<'a, StorableRedb<T::Value>>>,
-) -> Result<Cow<'b, T::Value>, RuntimeError> {
+) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
     match db.get(Cow::Borrowed(key)) {
-        Ok(Some(cow)) => {
-            *value_guard = Some(cow);
-            Ok(value_guard.as_ref().unwrap().value())
-        }
+        Ok(Some(redb_guard)) => Ok(redb_guard),
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(RuntimeError::from(e)),
     }
@@ -50,54 +47,24 @@ fn get<'a, 'b, T: Table + 'static>(
 fn get_range<'a, T: Table, Range>(
     db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     range: Range,
-) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
+) -> Result<
+    impl Iterator<Item = Result<redb::AccessGuard<'a, StorableRedb<T::Value>>, RuntimeError>> + 'a,
+    RuntimeError,
+>
 where
     Range: RangeBounds<Cow<'a, T::Key>> + 'a,
 {
-    /// TODO
-    struct Iter<'a, K, V>
-    where
-        K: crate::key::Key + 'static,
-        V: Storable + ?Sized + 'static,
-    {
-        /// TODO
-        iter: redb::Range<'a, StorableRedb<K>, StorableRedb<V>>,
-    }
-
-    // TODO
-    impl<'a, K, V> Iterator for Iter<'a, K, V>
-    where
-        K: crate::key::Key + 'static,
-        V: Storable + ?Sized + 'static,
-    {
-        type Item = Result<Cow<'a, V>, RuntimeError>;
-        fn next(&mut self) -> Option<Self::Item> {
-            // TODO
-            self.iter.next().map(|result| match result {
-                Ok(kv) => Ok(Cow::Owned(kv.1.value().into_owned())),
-                Err(e) => Err(RuntimeError::from(e)),
-            })
-        }
-    }
-
-    Ok(Iter::<'a, T::Key, T::Value> {
-        iter: db.range::<Cow<'a, T::Key>>(range)?,
-    })
+    Ok(db.range(range)?.map(|result| {
+        let (_key, value_guard) = result?;
+        Ok(value_guard)
+    }))
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
-    type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedb<T::Value>>
-        where
-            Self: 'a;
-
     #[inline]
-    fn get<'a, 'b>(
-        &'a self,
-        key: &'a T::Key,
-        value_guard: &'b mut Option<Self::ValueGuard<'a>>,
-    ) -> Result<Cow<'b, T::Value>, RuntimeError> {
-        get::<T>(self, key, value_guard)
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
+        get::<T>(self, key)
     }
 
     #[inline]
@@ -105,7 +72,12 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
+        // value_guard: &'a mut Option<redb::AccessGuard<'a, StorableRedb<T::Value>>>,
+    ) -> Result<
+        impl Iterator<Item = Result<impl ValueGuard<T::Value>, RuntimeError>> + 'a,
+        RuntimeError,
+    >
+    // ) -> Result<impl Iterator<Item = Result<Self::ValueGuard<'a>, RuntimeError>>, RuntimeError>
     where
         Range: RangeBounds<Cow<'a, T::Key>> + 'a,
     {
@@ -115,17 +87,9 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value> {
-    type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedb<T::Value>>
-        where
-            Self: 'a;
-
     #[inline]
-    fn get<'a, 'b>(
-        &'a self,
-        key: &'a T::Key,
-        value_guard: &'b mut Option<Self::ValueGuard<'a>>,
-    ) -> Result<Cow<'b, T::Value>, RuntimeError> {
-        get::<T>(self, key, value_guard)
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
+        get::<T>(self, key)
     }
 
     #[inline]
@@ -133,7 +97,11 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
+        // value_guard: &'b mut Option<Self::ValueGuard<'a>>,
+    ) -> Result<
+        impl Iterator<Item = Result<impl ValueGuard<T::Value>, RuntimeError>> + 'a,
+        RuntimeError,
+    >
     where
         Range: RangeBounds<Cow<'a, T::Key>> + 'a,
     {
