@@ -28,7 +28,7 @@ use crate::{
 fn get<'a, 'b, T: Table + 'static>(
     db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     key: &'a T::Key,
-    access_guard: &'b mut Option<redb::AccessGuard<'a, StorableRedb<T::Value>>>,
+    value_guard: &'b mut Option<redb::AccessGuard<'a, StorableRedb<T::Value>>>,
 ) -> Result<Cow<'b, T::Value>, RuntimeError>
 where
     <T as Table>::Key: ToOwned + Debug,
@@ -39,9 +39,9 @@ where
     <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
 {
     match db.get(Cow::Borrowed(key)) {
-        Ok(Some(new_access_guard)) => {
-            *access_guard = Some(new_access_guard);
-            Ok(access_guard.as_ref().unwrap().value())
+        Ok(Some(cow)) => {
+            *value_guard = Some(cow);
+            Ok(value_guard.as_ref().unwrap().value())
         }
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(RuntimeError::from(e)),
@@ -123,9 +123,9 @@ where
     fn get<'a, 'b>(
         &'a self,
         key: &'a T::Key,
-        access_guard: &'b mut Option<Self::ValueGuard<'a>>,
+        value_guard: &'b mut Option<Self::ValueGuard<'a>>,
     ) -> Result<Cow<'b, T::Value>, RuntimeError> {
-        get::<T>(self, key, access_guard)
+        get::<T>(self, key, value_guard)
     }
 
     #[inline]
@@ -159,9 +159,9 @@ where
     fn get<'a, 'b>(
         &'a self,
         key: &'a T::Key,
-        access_guard: &'b mut Option<Self::ValueGuard<'a>>,
+        value_guard: &'b mut Option<Self::ValueGuard<'a>>,
     ) -> Result<Cow<'b, T::Value>, RuntimeError> {
-        get::<T>(self, key, access_guard)
+        get::<T>(self, key, value_guard)
     }
 
     #[inline]

@@ -71,11 +71,12 @@ where
 
 /// Shared generic `get()` between `HeedTableR{o,w}`.
 #[inline]
+#[allow(clippy::needless_pass_by_ref_mut)]
 fn get<'a, 'tx, T: Table>(
     db: &'_ HeedDb<T::Key, T::Value>,
     tx_ro: &'tx heed::RoTxn<'_>,
     key: &T::Key,
-    access_guard: &'a mut Option<Cow<'tx, T::Value>>,
+    value_guard: &'a mut Option<Cow<'tx, T::Value>>,
 ) -> Result<Cow<'a, T::Value>, RuntimeError>
 where
     <T as Table>::Key: ToOwned + Debug,
@@ -86,9 +87,9 @@ where
     <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
 {
     match db.get(tx_ro, key) {
-        Ok(Some(value)) => {
-            *access_guard = Some(value);
-            Ok(Cow::Borrowed(access_guard.as_ref().unwrap()))
+        Ok(Some(cow)) => {
+            *value_guard = Some(cow);
+            Ok(Cow::Borrowed(value_guard.as_ref().unwrap()))
         }
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(e.into()),
@@ -131,9 +132,9 @@ where
     fn get<'a, 'b>(
         &'a self,
         key: &'a T::Key,
-        access_guard: &'b mut Option<Self::ValueGuard<'a>>,
+        value_guard: &'b mut Option<Self::ValueGuard<'a>>,
     ) -> Result<Cow<'b, T::Value>, RuntimeError> {
-        get::<T>(&self.db, self.tx_ro, key, access_guard)
+        get::<T>(&self.db, self.tx_ro, key, value_guard)
     }
 
     #[inline]
@@ -165,9 +166,9 @@ where
     fn get<'a, 'b>(
         &'a self,
         key: &'a T::Key,
-        access_guard: &'b mut Option<Self::ValueGuard<'a>>,
+        value_guard: &'b mut Option<Self::ValueGuard<'a>>,
     ) -> Result<Cow<'b, T::Value>, RuntimeError> {
-        get::<T>(&self.db, self.tx_rw, key, access_guard)
+        get::<T>(&self.db, self.tx_rw, key, value_guard)
     }
 
     #[inline]

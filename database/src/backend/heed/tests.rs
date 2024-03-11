@@ -94,14 +94,17 @@ fn db_read_write() {
     // Assert the 1st key is there.
     {
         let mut guard = None;
-
         let value = table.get(&KEY, &mut guard).unwrap();
         let value = value.as_ref();
+
         // Make sure all field accesses are aligned.
         assert_eq!(value, &VALUE);
         assert_eq!(value.u, VALUE.u);
         assert_eq!(value.b, VALUE.b);
         assert_eq!(value._pad, VALUE._pad);
+
+        // Assert the value guard contains the value.
+        assert!(guard.is_some());
     }
 
     // Assert the whole range is there.
