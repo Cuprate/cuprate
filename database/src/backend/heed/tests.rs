@@ -40,7 +40,7 @@ fn tx() {
 
     env_inner.tx_ro().unwrap().commit().unwrap();
     env_inner.tx_rw().unwrap().commit().unwrap();
-    env_inner.tx_rw().unwrap().abort();
+    env_inner.tx_rw().unwrap().abort().unwrap();
 }
 
 /// Open (and verify) that all database tables
@@ -95,6 +95,7 @@ fn db_read_write() {
         let mut guard = None;
 
         let value = table.get(&KEY, &mut guard).unwrap();
+        let value = value.as_ref();
         // Make sure all field accesses are aligned.
         assert_eq!(value, &VALUE);
         assert_eq!(value.u, VALUE.u);
@@ -108,7 +109,7 @@ fn db_read_write() {
         let mut i = 0;
         for value in range {
             let value = value.unwrap();
-            let value: &TestType = value.borrow();
+            let value: &TestType = value.as_ref();
             assert_eq!(value, &VALUE);
             assert_eq!(value.u, VALUE.u);
             assert_eq!(value.b, VALUE.b);

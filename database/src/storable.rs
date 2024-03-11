@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-use bytemuck::{AnyBitPattern, NoUninit};
+use bytemuck::Pod;
 use crossbeam::epoch::Owned;
 
 //---------------------------------------------------------------------------------------------------- Storable
@@ -58,7 +58,11 @@ use crossbeam::epoch::Owned;
 ///
 /// Most likely, the bytes are little-endian, however
 /// that cannot be relied upon when using this trait.
-pub trait Storable: ToOwned {
+pub trait Storable
+where
+    Self: Debug + ToOwned,
+    <Self as ToOwned>::Owned: Debug,
+{
     /// TODO
     const ALIGN: usize;
 
@@ -111,11 +115,15 @@ pub trait Storable: ToOwned {
     ///
     /// # Invariant
     /// TODO
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self>;
+    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self>;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
-impl<T: NoUninit + AnyBitPattern + ToOwned<Owned = T>> Storable for T {
+impl<T> Storable for T
+where
+    Self: Pod + Debug + ToOwned<Owned = T>,
+    <Self as ToOwned>::Owned: Debug,
+{
     const ALIGN: usize = std::mem::align_of::<T>();
     const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
 
@@ -135,7 +143,11 @@ impl<T: NoUninit + AnyBitPattern + ToOwned<Owned = T>> Storable for T {
     }
 }
 
-impl<T: NoUninit + AnyBitPattern + ToOwned> Storable for [T] {
+impl<T: Pod + ToOwned> Storable for [T]
+where
+    Self: Debug + ToOwned<Owned = Vec<T>>,
+    <Self as ToOwned>::Owned: Debug,
+{
     const ALIGN: usize = std::mem::align_of::<T>();
     const BYTE_LENGTH: Option<usize> = None;
 
@@ -154,7 +166,7 @@ impl<T: NoUninit + AnyBitPattern + ToOwned> Storable for [T] {
 
     #[inline]
     fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self> {
-        Cow::Owned(bytemuck::pod_read_unaligned(bytes))
+        Cow::Owned(bytemuck::pod_collect_to_vec(bytes))
     }
 }
 

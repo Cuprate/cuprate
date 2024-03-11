@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     backend::redb::{
-        storable::{StorableRedbKey, StorableRedbValue},
+        storable::StorableRedb,
         types::{RedbTableRo, RedbTableRw},
     },
     database::{DatabaseRo, DatabaseRw},
@@ -26,14 +26,22 @@ use crate::{
 /// Shared generic `get()` between `RedbTableR{o,w}`.
 #[inline]
 fn get<'a, 'b, T: Table + 'static>(
-    db: &'a impl redb::ReadableTable<StorableRedbKey<T::Key>, StorableRedbValue<T::Value>>,
+    db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     key: &'a T::Key,
-    access_guard: &'b mut Option<redb::AccessGuard<'a, StorableRedbValue<T::Value>>>,
-) -> Result<&'b T::Value, RuntimeError> {
-    match db.get(key) {
+    access_guard: &'b mut Option<redb::AccessGuard<'a, StorableRedb<T::Value>>>,
+) -> Result<Cow<'b, T::Value>, RuntimeError>
+where
+    <T as Table>::Key: ToOwned + Debug,
+    <<T as Table>::Key as ToOwned>::Owned: Debug,
+    <T as Table>::Value: ToOwned + Debug,
+    <<T as Table>::Value as ToOwned>::Owned: Debug,
+    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
+{
+    match db.get(Cow::Borrowed(key)) {
         Ok(Some(new_access_guard)) => {
             *access_guard = Some(new_access_guard);
-            Ok(access_guard.as_ref().unwrap().value().as_ref())
+            Ok(access_guard.as_ref().unwrap().value())
         }
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(RuntimeError::from(e)),
@@ -42,29 +50,45 @@ fn get<'a, 'b, T: Table + 'static>(
 
 /// Shared generic `get_range()` between `RedbTableR{o,w}`.
 #[inline]
-#[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
+#[allow(
+    clippy::unnecessary_wraps,
+    clippy::trait_duplication_in_bounds,
+    clippy::needless_pass_by_value
+)]
 fn get_range<'a, T: Table, Range>(
-    db: &'a impl redb::ReadableTable<StorableRedbKey<T::Key>, StorableRedbValue<T::Value>>,
+    db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     range: Range,
-) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
+) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
 where
-    Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a,
+    Range: RangeBounds<Cow<'a, T::Key>> + 'a,
+    <T as Table>::Key: ToOwned + Debug,
+    <<T as Table>::Key as ToOwned>::Owned: Debug,
+    <T as Table>::Value: ToOwned + Debug,
+    <<T as Table>::Value as ToOwned>::Owned: Debug,
+    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
 {
     /// TODO
     struct Iter<'a, K, V>
     where
-        K: crate::key::Key + Clone + Debug + 'static,
-        V: Storable + Clone + ?Sized + Debug + 'static,
+        K: crate::key::Key + ToOwned + Debug + 'static,
+        V: Storable + ToOwned + ?Sized + Debug + 'static,
+        <<K as crate::key::Key>::Primary as ToOwned>::Owned: Debug,
+        <K as ToOwned>::Owned: Debug,
+        <V as ToOwned>::Owned: Debug,
     {
         /// TODO
-        iter: redb::Range<'a, StorableRedbKey<K>, StorableRedbValue<V>>,
+        iter: redb::Range<'a, StorableRedb<K>, StorableRedb<V>>,
     }
 
     // TODO
     impl<'a, K, V> Iterator for Iter<'a, K, V>
     where
-        K: crate::key::Key + Clone + Debug + 'static,
-        V: Storable + Clone + ?Sized + Debug + 'static,
+        K: crate::key::Key + ToOwned + Debug + 'static,
+        V: Storable + ToOwned + ?Sized + Debug + 'static,
+        <<K as crate::key::Key>::Primary as ToOwned>::Owned: Debug,
+        <K as ToOwned>::Owned: Debug,
+        <V as ToOwned>::Owned: Debug,
     {
         type Item = Result<Cow<'a, V>, RuntimeError>;
         fn next(&mut self) -> Option<Self::Item> {
@@ -77,13 +101,21 @@ where
     }
 
     Ok(Iter::<'a, T::Key, T::Value> {
-        iter: db.range::<&'_ T::Key>(range)?,
+        iter: db.range::<Cow<'a, T::Key>>(range)?,
     })
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
-    type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedbValue<T::Value>>
+impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value>
+where
+    <T as Table>::Key: ToOwned + Debug,
+    <<T as Table>::Key as ToOwned>::Owned: Debug,
+    <T as Table>::Value: ToOwned + Debug,
+    <<T as Table>::Value as ToOwned>::Owned: Debug,
+    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
+{
+    type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedb<T::Value>>
         where
             Self: 'a;
 
@@ -92,7 +124,7 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
         &'a self,
         key: &'a T::Key,
         access_guard: &'b mut Option<Self::ValueGuard<'a>>,
-    ) -> Result<&'b T::Value, RuntimeError> {
+    ) -> Result<Cow<'b, T::Value>, RuntimeError> {
         get::<T>(self, key, access_guard)
     }
 
@@ -101,17 +133,25 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
     where
-        Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a,
+        Range: RangeBounds<Cow<'a, T::Key>> + 'a,
     {
         get_range::<T, Range>(self, range)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
-impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value> {
-    type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedbValue<T::Value>>
+impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value>
+where
+    <T as Table>::Key: ToOwned + Debug,
+    <<T as Table>::Key as ToOwned>::Owned: Debug,
+    <T as Table>::Value: ToOwned + Debug,
+    <<T as Table>::Value as ToOwned>::Owned: Debug,
+    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
+{
+    type ValueGuard<'a> = redb::AccessGuard<'a, StorableRedb<T::Value>>
         where
             Self: 'a;
 
@@ -120,7 +160,7 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key
         &'a self,
         key: &'a T::Key,
         access_guard: &'b mut Option<Self::ValueGuard<'a>>,
-    ) -> Result<&'b T::Value, RuntimeError> {
+    ) -> Result<Cow<'b, T::Value>, RuntimeError> {
         get::<T>(self, key, access_guard)
     }
 
@@ -129,9 +169,9 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
     where
-        Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a,
+        Range: RangeBounds<Cow<'a, T::Key>> + 'a,
     {
         get_range::<T, Range>(self, range)
     }
@@ -139,19 +179,26 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key
 
 impl<'env, 'tx, T: Table + 'static> DatabaseRw<'env, 'tx, T>
     for RedbTableRw<'env, 'tx, T::Key, T::Value>
+where
+    <T as Table>::Key: ToOwned + Debug,
+    <<T as Table>::Key as ToOwned>::Owned: Debug,
+    <T as Table>::Value: ToOwned + Debug,
+    <<T as Table>::Value as ToOwned>::Owned: Debug,
+    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
 {
     // `redb` returns the value after `insert()/remove()`
     // we end with Ok(()) instead.
 
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
-        self.insert(key, Cow::Borrowed(value))?;
+        self.insert(Cow::Borrowed(key), Cow::Borrowed(value))?;
         Ok(())
     }
 
     #[inline]
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
-        self.remove(key)?;
+        self.remove(Cow::Borrowed(key))?;
         Ok(())
     }
 }

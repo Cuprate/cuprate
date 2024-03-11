@@ -1,6 +1,8 @@
 //! Database table abstraction; `trait Table`.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::fmt::Debug;
+
 use crate::{key::Key, storable::Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
@@ -12,7 +14,12 @@ use crate::{key::Key, storable::Storable};
 /// This trait is [`Sealed`](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed).
 ///
 /// It is, and can only be implemented on the types inside [`tables`][crate::tables].
-pub trait Table: crate::tables::private::Sealed + 'static {
+pub trait Table: crate::tables::private::Sealed + 'static
+where
+    <<Self as Table>::Key as ToOwned>::Owned: Debug,
+    <<Self as Table>::Value as ToOwned>::Owned: Debug,
+    <<<Self as Table>::Key as Key>::Primary as ToOwned>::Owned: Debug,
+{
     /// Name of the database table.
     const NAME: &'static str;
 
@@ -31,10 +38,10 @@ pub trait Table: crate::tables::private::Sealed + 'static {
     // after function bodies are actually implemented...
 
     /// Primary key type.
-    type Key: Key + Clone + 'static;
+    type Key: Key + 'static;
 
     /// Value type.
-    type Value: Storable + Clone + ?Sized + 'static;
+    type Value: Storable + ?Sized + 'static;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

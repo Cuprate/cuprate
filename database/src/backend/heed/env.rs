@@ -2,6 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
+    fmt::Debug,
     ops::Deref,
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
@@ -260,7 +261,15 @@ where
     fn open_db_ro<'tx, T: Table>(
         &self,
         tx_ro: &'tx heed::RoTxn<'env>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>
+    where
+        <T as Table>::Key: ToOwned + Debug,
+        <<T as Table>::Key as ToOwned>::Owned: Debug,
+        <T as Table>::Value: ToOwned + Debug,
+        <<T as Table>::Value as ToOwned>::Owned: Debug,
+        <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+        <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
+    {
         // Open up a read-only database using our table's const metadata.
         //
         // The actual underlying type `heed` sees is
@@ -289,7 +298,15 @@ where
     fn open_db_rw<'tx, T: Table>(
         &self,
         tx_rw: &'tx mut heed::RwTxn<'env>,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
+    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError>
+    where
+        <T as Table>::Key: ToOwned + Debug,
+        <<T as Table>::Key as ToOwned>::Owned: Debug,
+        <T as Table>::Value: ToOwned + Debug,
+        <<T as Table>::Value as ToOwned>::Owned: Debug,
+        <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+        <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
+    {
         // Open up a read/write database using our table's const metadata.
         //
         // Everything said above with `open_db_ro()` applies here as well.

@@ -24,6 +24,7 @@ use crate::{
 //
 // De-duplicate these somehow.
 
+//---------------------------------------------------------------------------------------------------- Tests
 /// Create a `ConcreteEnv` in a temporarily directory.
 /// The directory is automatically removed after the `TempDir` is dropped.
 fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
@@ -75,7 +76,11 @@ fn open_db() {
 
 /// Test all `DatabaseR{o,w}` operations.
 #[test]
-#[allow(clippy::items_after_statements, clippy::significant_drop_tightening)]
+#[allow(
+    clippy::items_after_statements,
+    clippy::significant_drop_tightening,
+    clippy::used_underscore_binding
+)]
 fn db_read_write() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
@@ -96,8 +101,15 @@ fn db_read_write() {
 
     // Assert the 1st key is there.
     {
-        let value = table.get(&KEY).unwrap();
-        assert_eq!(value.borrow(), &VALUE);
+        let mut guard = None;
+
+        let value = table.get(&KEY, &mut guard).unwrap();
+        let value = value.as_ref();
+        // Make sure all field accesses are aligned.
+        assert_eq!(value, &VALUE);
+        assert_eq!(value.u, VALUE.u);
+        assert_eq!(value.b, VALUE.b);
+        assert_eq!(value._pad, VALUE._pad);
     }
 
     // Assert the whole range is there.
@@ -105,7 +117,12 @@ fn db_read_write() {
         let range = table.get_range(..).unwrap();
         let mut i = 0;
         for value in range {
-            assert_eq!(value.unwrap().borrow(), &VALUE);
+            let value = value.unwrap();
+            let value: &TestType = value.as_ref();
+            assert_eq!(value, &VALUE);
+            assert_eq!(value.u, VALUE.u);
+            assert_eq!(value.b, VALUE.b);
+            assert_eq!(value._pad, VALUE._pad);
             i += 1;
         }
         assert_eq!(i, 100);
@@ -113,6 +130,8 @@ fn db_read_write() {
 
     table.delete(&KEY).unwrap();
 
-    let value = table.get(&KEY);
+    let mut guard = None;
+
+    let value = table.get(&KEY, &mut guard);
     assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
 }

@@ -1,7 +1,7 @@
 //! Database key abstraction; `trait Key`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt::Debug};
 
 use bytemuck::Pod;
 
@@ -11,7 +11,12 @@ use crate::storable::{self, Storable};
 /// Database [`Table`](crate::table::Table) key metadata.
 ///
 /// Purely compile time information for database table keys, supporting duplicate keys.
-pub trait Key: Storable + Sized {
+pub trait Key
+where
+    Self: Storable + ToOwned + Sized + Debug,
+    <Self as ToOwned>::Owned: Debug,
+    <<Self as Key>::Primary as ToOwned>::Owned: Debug,
+{
     /// Does this [`Key`] require multiple keys to reach a value?
     ///
     /// # Invariant
@@ -26,7 +31,7 @@ pub trait Key: Storable + Sized {
     const CUSTOM_COMPARE: bool;
 
     /// The primary key type.
-    type Primary: Storable;
+    type Primary: Storable + ToOwned;
 
     /// Acquire [`Self::Primary`] and the secondary key.
     ///
@@ -104,13 +109,6 @@ impl_key! {
     i16,
     i32,
     i64,
-}
-
-impl<const N: usize, T: Key + Pod> Key for [T; N] {
-    const DUPLICATE: bool = false;
-    const CUSTOM_COMPARE: bool = false;
-
-    type Primary = [T; N];
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

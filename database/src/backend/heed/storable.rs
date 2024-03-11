@@ -14,12 +14,14 @@ use crate::storable::Storable;
 /// Never actually gets constructed, just used for trait bound translations.
 pub(super) struct StorableHeed<T>(PhantomData<T>)
 where
-    T: Storable + ToOwned + ?Sized;
+    T: Storable + ToOwned + ?Sized,
+    <T as ToOwned>::Owned: Debug;
 
 //---------------------------------------------------------------------------------------------------- BytesDecode
 impl<'a, T> BytesDecode<'a> for StorableHeed<T>
 where
     T: Storable + ToOwned + ?Sized + 'a,
+    <T as ToOwned>::Owned: Debug,
 {
     type DItem = Cow<'a, T>;
 
@@ -34,6 +36,7 @@ where
 impl<'a, T> BytesEncode<'a> for StorableHeed<T>
 where
     T: Storable + ToOwned + ?Sized + 'a,
+    <T as ToOwned>::Owned: Debug,
 {
     type EItem = T;
 

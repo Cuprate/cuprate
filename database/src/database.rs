@@ -2,7 +2,8 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    borrow::Borrow,
+    borrow::{Borrow, Cow},
+    fmt::Debug,
     ops::{Deref, RangeBounds},
 };
 
@@ -16,7 +17,15 @@ use crate::{
 /// Database (key-value store) read abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRo<'tx, T: Table> {
+pub trait DatabaseRo<'tx, T: Table>
+where
+    <T as Table>::Key: ToOwned + Debug,
+    <<T as Table>::Key as ToOwned>::Owned: Debug,
+    <T as Table>::Value: ToOwned + Debug,
+    <<T as Table>::Value as ToOwned>::Owned: Debug,
+    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
+{
     /// A guard for accessing database values.
     ///
     /// TODO: explain this stupid thing
@@ -33,7 +42,7 @@ pub trait DatabaseRo<'tx, T: Table> {
         &'a self,
         key: &'a T::Key,
         access_guard: &'b mut Option<Self::ValueGuard<'a>>,
-    ) -> Result<&'b T::Value, RuntimeError>;
+    ) -> Result<Cow<'b, T::Value>, RuntimeError>;
 
     /// TODO
     /// # Errors
@@ -42,19 +51,27 @@ pub trait DatabaseRo<'tx, T: Table> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<impl Borrow<T::Value> + 'a, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
     where
         // FIXME:
         // - `RangeBounds<T::Key>` is to satisfy `heed` bounds
         // - `RangeBounds<&'a T::Key> + 'a` is to satisfy `redb` bounds
-        Range: RangeBounds<T::Key> + RangeBounds<&'a T::Key> + 'a;
+        Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 /// Database (key-value store) read/write abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T> {
+pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T>
+where
+    <T as Table>::Key: ToOwned + Debug,
+    <<T as Table>::Key as ToOwned>::Owned: Debug,
+    <T as Table>::Value: ToOwned + Debug,
+    <<T as Table>::Value as ToOwned>::Owned: Debug,
+    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
+    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
+{
     /// TODO
     /// # Errors
     /// TODO
