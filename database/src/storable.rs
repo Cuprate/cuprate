@@ -12,6 +12,8 @@ use std::{
 use bytemuck::Pod;
 use crossbeam::epoch::Owned;
 
+use crate::ToOwnedDebug;
+
 //---------------------------------------------------------------------------------------------------- Storable
 /// A type that can be stored in the database.
 ///
@@ -64,11 +66,7 @@ use crossbeam::epoch::Owned;
 ///
 /// Most likely, the bytes are little-endian, however
 /// that cannot be relied upon when using this trait.
-pub trait Storable
-where
-    Self: Debug + ToOwned,
-    <Self as ToOwned>::Owned: Debug,
-{
+pub trait Storable: ToOwnedDebug {
     /// TODO
     ///
     /// # Examples
@@ -147,8 +145,7 @@ where
 //---------------------------------------------------------------------------------------------------- Impl
 impl<T> Storable for T
 where
-    Self: Pod + Debug + ToOwned<Owned = T>,
-    <Self as ToOwned>::Owned: Debug,
+    Self: Pod + ToOwnedDebug<OwnedDebug = T>,
 {
     const ALIGN: usize = std::mem::align_of::<T>();
     const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
@@ -171,9 +168,8 @@ where
 
 impl<T> Storable for [T]
 where
-    T: Pod,
-    Self: Debug + ToOwned<Owned = Vec<T>>,
-    <Self as ToOwned>::Owned: Debug,
+    T: Pod + ToOwnedDebug<OwnedDebug = T>,
+    Self: ToOwnedDebug<OwnedDebug = Vec<T>>,
 {
     const ALIGN: usize = std::mem::align_of::<T>();
     const BYTE_LENGTH: Option<usize> = None;
@@ -212,8 +208,7 @@ mod test {
         // A `Vec` of the numbers to test.
         t: Vec<T>,
     ) where
-        T: Storable + Debug + Copy + PartialEq,
-        T::Owned: Debug,
+        T: Storable + Copy + PartialEq,
     {
         for t in t {
             let expected_bytes = to_le_bytes(t);
@@ -223,7 +218,7 @@ mod test {
             // (De)serialize.
             let se: &[u8] = Storable::as_bytes(&t);
             let de: Cow<'_, T> = Storable::from_bytes(se);
-            let de: &T = &de;
+            let de: &T = de.as_ref();
 
             println!("serialized: {se:?}, deserialized: {de:?}\n");
 

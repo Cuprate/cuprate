@@ -19,15 +19,7 @@ use crate::{
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
 ///
 /// TODO: document these trait bounds...
-pub trait DatabaseRo<'tx, T: Table>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+pub trait DatabaseRo<'tx, T: Table> {
     /// A guard for accessing database values.
     ///
     /// TODO: explain this stupid thing
@@ -67,15 +59,7 @@ where
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
 ///
 /// TODO: document these trait bounds...
-pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T>
-where
-    <T as Table>::Key: ToOwned + Debug,
-    <<T as Table>::Key as ToOwned>::Owned: Debug,
-    <T as Table>::Value: ToOwned + Debug,
-    <<T as Table>::Value as ToOwned>::Owned: Debug,
-    <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-    <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug,
-{
+pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T> {
     /// TODO
     /// # Errors
     /// TODO

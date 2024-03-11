@@ -5,18 +5,16 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use bytemuck::Pod;
 
-use crate::storable::{self, Storable};
+use crate::{
+    storable::{self, Storable},
+    ToOwnedDebug,
+};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`](crate::table::Table) key metadata.
 ///
 /// Purely compile time information for database table keys, supporting duplicate keys.
-pub trait Key
-where
-    Self: Storable + ToOwned + Sized + Debug,
-    <Self as ToOwned>::Owned: Debug,
-    <<Self as Key>::Primary as ToOwned>::Owned: Debug,
-{
+pub trait Key: Storable + Sized {
     /// Does this [`Key`] require multiple keys to reach a value?
     ///
     /// # Invariant
@@ -31,7 +29,7 @@ where
     const CUSTOM_COMPARE: bool;
 
     /// The primary key type.
-    type Primary: Storable + ToOwned;
+    type Primary: Storable;
 
     /// Acquire [`Self::Primary`] and the secondary key.
     ///

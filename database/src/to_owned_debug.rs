@@ -13,16 +13,8 @@ pub trait ToOwnedDebug: Debug + ToOwned<Owned = Self::OwnedDebug> {
 }
 
 // TODO
-impl<O: Debug, T: ToOwned<Owned = O> + Debug> ToOwnedDebug for T {
+impl<O: Debug, T: ToOwned<Owned = O> + Debug + ?Sized> ToOwnedDebug for T {
     type OwnedDebug = O;
-}
-
-// TODO
-impl<T: ToOwned + Debug> ToOwnedDebug for [T]
-where
-    Self: ToOwned<Owned = Vec<T>>,
-{
-    type OwnedDebug = Vec<T>;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
