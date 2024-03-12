@@ -23,8 +23,6 @@ use crate::ToOwnedDebug;
 /// This trait represents types that can be **perfectly**
 /// casted/represented as raw bytes.
 ///
-/// TODO: document these trait bounds...
-///
 /// ## `bytemuck`
 /// Any type that implements:
 /// - [`bytemuck::Pod`]
@@ -48,8 +46,7 @@ use crate::ToOwnedDebug;
 /// assert_eq!(into, &[0; 8]);
 ///
 /// // From bytes.
-/// let from: Cow<'_, u64> = Storable::from_bytes(&into);
-/// let from: u64 = from.into_owned();
+/// let from: u64 = *Storable::from_bytes(&into);
 /// assert_eq!(from, number);
 /// ```
 ///
@@ -67,7 +64,13 @@ use crate::ToOwnedDebug;
 /// Most likely, the bytes are little-endian, however
 /// that cannot be relied upon when using this trait.
 pub trait Storable: ToOwnedDebug {
-    /// TODO
+    /// What is the alignment of `Self`?
+    ///
+    /// For `[T]` types, this is set to the alignment of `T`.
+    ///
+    /// This is used to prevent copying when unneeded, e.g.
+    /// `[u8] -> [u8]` does not need to account for unaligned bytes,
+    /// since no cast needs to occur.
     ///
     /// # Examples
     /// ```rust
@@ -133,12 +136,25 @@ pub trait Storable: ToOwnedDebug {
     fn as_bytes(&self) -> &[u8];
 
     /// Create a borrowed [`Self`] from bytes.
-    fn from_bytes(bytes: &[u8]) -> Cow<'_, Self>;
-
-    /// TODO
     ///
     /// # Invariant
-    /// TODO
+    /// `bytes` must be perfectly aligned for `Self`
+    /// or else this function may cause UB.
+    ///
+    /// This function _may_ panic if `bytes` isn't aligned.
+    ///
+    /// # Blanket implementation
+    /// The blanket implementation that covers all types used
+    /// by `cuprate_database` will simply cast `bytes` into `Self`,
+    /// with no copying.
+    fn from_bytes(bytes: &[u8]) -> &Self;
+
+    /// Create a [`Self`] from potentially unaligned bytes.
+    ///
+    /// # Blanket implementation
+    /// The blanket implementation that covers all types used
+    /// by `cuprate_database` will **always** allocate a new buffer
+    /// or create a new `Self`.
     fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self>;
 }
 
@@ -156,8 +172,8 @@ where
     }
 
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> Cow<'_, T> {
-        Cow::Borrowed(bytemuck::from_bytes(bytes))
+    fn from_bytes(bytes: &[u8]) -> &T {
+        bytemuck::from_bytes(bytes)
     }
 
     #[inline]
@@ -180,11 +196,8 @@ where
     }
 
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> Cow<'_, [T]>
-    where
-        T: ToOwned,
-    {
-        Cow::Borrowed(bytemuck::cast_slice(bytes))
+    fn from_bytes(bytes: &[u8]) -> &[T] {
+        bytemuck::cast_slice(bytes)
     }
 
     #[inline]
@@ -217,8 +230,7 @@ mod test {
 
             // (De)serialize.
             let se: &[u8] = Storable::as_bytes(&t);
-            let de: Cow<'_, T> = Storable::from_bytes(se);
-            let de: &T = de.as_ref();
+            let de: &T = Storable::from_bytes(se);
 
             println!("serialized: {se:?}, deserialized: {de:?}\n");
 

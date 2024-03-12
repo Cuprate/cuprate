@@ -169,8 +169,6 @@ where
 
     /// TODO
     ///
-    /// TODO: document these trait bounds...
-    ///
     /// # TODO: Invariant
     /// This should never panic the database because the table doesn't exist.
     ///
@@ -183,18 +181,9 @@ where
     fn open_db_ro<'tx, T: Table>(
         &self,
         tx_ro: &'tx Ro,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>
-    where
-        <T as Table>::Key: ToOwned + Debug,
-        <<T as Table>::Key as ToOwned>::Owned: Debug,
-        <T as Table>::Value: ToOwned + Debug,
-        <<T as Table>::Value as ToOwned>::Owned: Debug,
-        <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-        <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug;
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
 
     /// TODO
-    ///
-    /// TODO: document these trait bounds...
     ///
     /// # TODO: Invariant
     /// This should never panic the database because the table doesn't exist.
@@ -208,12 +197,5 @@ where
     fn open_db_rw<'tx, T: Table>(
         &self,
         tx_rw: &'tx mut Rw,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError>
-    where
-        <T as Table>::Key: ToOwned + Debug,
-        <<T as Table>::Key as ToOwned>::Owned: Debug,
-        <T as Table>::Value: ToOwned + Debug,
-        <<T as Table>::Value as ToOwned>::Owned: Debug,
-        <<T as Table>::Key as crate::Key>::Primary: ToOwned + Debug,
-        <<<T as Table>::Key as crate::Key>::Primary as ToOwned>::Owned: Debug;
+    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError>;
 }

@@ -26,7 +26,7 @@ where
     #[inline]
     /// This function is infallible (will always return `Ok`).
     fn bytes_decode(bytes: &'a [u8]) -> Result<Self::DItem, BoxedError> {
-        Ok(T::from_bytes(bytes))
+        Ok(Cow::Borrowed(T::from_bytes(bytes)))
     }
 }
 

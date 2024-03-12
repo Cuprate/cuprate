@@ -18,8 +18,6 @@ use crate::{
 /// Database (key-value store) read abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-///
-/// TODO: document these trait bounds...
 pub trait DatabaseRo<'tx, T: Table> {
     /// TODO
     /// # Errors
@@ -50,8 +48,6 @@ pub trait DatabaseRo<'tx, T: Table> {
 /// Database (key-value store) read/write abstraction.
 ///
 /// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-///
-/// TODO: document these trait bounds...
 pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T> {
     /// TODO
     /// # Errors
