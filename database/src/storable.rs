@@ -10,7 +10,6 @@ use std::{
 };
 
 use bytemuck::Pod;
-use crossbeam::epoch::Owned;
 
 use crate::ToOwnedDebug;
 

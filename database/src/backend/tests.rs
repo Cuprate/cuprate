@@ -1,4 +1,17 @@
-//! Tests for `cuprate_database`, backed by `redb`.
+//! Tests for `cuprate_database`'s backends.
+//!
+//! These tests are fully trait-based, meaning there
+//! is no reference to `backend/`-specific types.
+//!
+//! As such, which backend is tested is
+//! dependant on the feature flags used.
+//!
+//! | Feature flag  | Tested backend |
+//! |---------------|----------------|
+//! | Only `redb`   | `redb`
+//! | Anything else | `heed`
+//!
+//! `redb`, and it only must be enabled for it to be tested.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::borrow::{Borrow, Cow};
@@ -18,15 +31,10 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Tests
-// FIXME: there is no need to duplicate these tests.
-// They can be re-used word-for-word across backends
-// since we don't reference any backend specific types
-// and only use `cuprate_database`'s traits.
-//
-// De-duplicate these somehow.
-
-/// Create a `ConcreteEnv` in a temporarily directory.
+/// Create an `Env` in a temporarily directory.
 /// The directory is automatically removed after the `TempDir` is dropped.
+///
+/// TODO: changing this to `-> impl Env` causes lifetime errors...
 fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
     let tempdir = tempfile::tempdir().unwrap();
     let config = Config::low_power(Some(tempdir.path().into()));
