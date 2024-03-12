@@ -177,6 +177,9 @@ impl Env for ConcreteEnv {
         // FIXME:
         // These wonderful fully qualified trait types are brought
         // to you by `tower::discover::Discover>::Key` collisions.
+
+        // TODO: Create all tables when schema is done.
+
         DatabaseOpenOptions::new(&env)
             .name(TestTable::NAME)
             .types::<StorableHeed<<TestTable as Table>::Key>, StorableHeed<<TestTable as Table>::Value>>()
@@ -212,7 +215,7 @@ impl Env for ConcreteEnv {
         let resize_algorithm = resize_algorithm.unwrap_or_else(|| self.config().resize_algorithm);
 
         let current_size_bytes = self.current_map_size();
-        let new_size_bytes = resize_algorithm.resize(current_size_bytes);
+        let new_size_bytes = resize_algorithm.resize(current_size_bytes).get();
 
         // SAFETY:
         // Resizing requires that we have
@@ -223,11 +226,7 @@ impl Env for ConcreteEnv {
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
         unsafe {
             // INVARIANT: `resize()` returns a valid `usize` to resize to.
-            self.env
-                .write()
-                .unwrap()
-                .resize(new_size_bytes.get())
-                .unwrap();
+            self.env.write().unwrap().resize(new_size_bytes).unwrap();
         }
     }
 

@@ -90,6 +90,8 @@ impl Env for ConcreteEnv {
         // These wonderful fully qualified trait types are brought
         // to you by `tower::discover::Discover>::Key` collisions.
 
+        // TODO: Create all tables when schema is done.
+
         // TestTable
         let table: redb::TableDefinition<
             'static,

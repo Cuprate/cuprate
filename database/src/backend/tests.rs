@@ -82,6 +82,26 @@ fn open_db() {
     TxRw::commit(tx_rw).unwrap();
 }
 
+/// Test `Env` resizes.
+#[test]
+fn resize() {
+    // This test is only valid for `Env`'s that need to resize manually.
+    if !ConcreteEnv::MANUAL_RESIZE {
+        return;
+    }
+
+    let (env, _tempdir) = tmp_concrete_env();
+
+    // Resize by the OS page size.
+    let page_size = crate::resize::page_size();
+    let old_size = env.current_map_size();
+    env.resize_map(Some(ResizeAlgorithm::FixedBytes(page_size)));
+
+    // Assert it resized exactly by the OS page size.
+    let new_size = env.current_map_size();
+    assert_eq!(new_size, old_size + page_size.get());
+}
+
 /// Test all `DatabaseR{o,w}` operations.
 #[test]
 #[allow(
