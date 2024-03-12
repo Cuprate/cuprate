@@ -63,7 +63,7 @@ fn get<'a, T: Table>(
     key: &T::Key,
 ) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
     match db.get(tx_ro, key) {
-        Ok(Some(cow)) => Ok(cow),
+        Ok(Some(cow)) => Ok(Cow::Borrowed(cow)),
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(e.into()),
     }
@@ -75,12 +75,12 @@ fn get<'a, T: Table>(
 fn get_range<'a, T: Table, Range>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
-    range: Range,
+    range: &'a Range,
 ) -> Result<impl Iterator<Item = Result<impl ValueGuard<T::Value> + 'a, RuntimeError>>, RuntimeError>
 where
-    Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a,
+    Range: RangeBounds<T::Key> + 'a,
 {
-    Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
+    Ok(db.range(tx_ro, range)?.map(|res| Ok(Cow::Borrowed(res?.1))))
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
@@ -94,13 +94,13 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
     #[allow(clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
-        range: Range,
+        range: &'a Range,
     ) -> Result<
         impl Iterator<Item = Result<impl ValueGuard<T::Value> + 'a, RuntimeError>>,
         RuntimeError,
     >
     where
-        Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a,
+        Range: RangeBounds<T::Key> + 'a,
     {
         get_range::<T, Range>(&self.db, self.tx_ro, range)
     }
@@ -117,13 +117,13 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
     #[allow(clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
-        range: Range,
+        range: &'a Range,
     ) -> Result<
         impl Iterator<Item = Result<impl ValueGuard<T::Value> + 'a, RuntimeError>>,
         RuntimeError,
     >
     where
-        Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a,
+        Range: RangeBounds<T::Key> + 'a,
     {
         get_range::<T, Range>(&self.db, self.tx_rw, range)
     }

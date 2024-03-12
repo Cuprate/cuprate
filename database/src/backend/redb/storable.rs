@@ -64,7 +64,7 @@ where
     {
         // Use the bytes directly if possible...
         if T::ALIGN == 1 {
-            <T as Storable>::from_bytes(data)
+            Cow::Borrowed(<T as Storable>::from_bytes(data))
         // ...else, make sure the bytes are aligned
         // when casting by allocating a new buffer.
         } else {

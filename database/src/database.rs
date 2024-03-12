@@ -32,7 +32,7 @@ pub trait DatabaseRo<'tx, T: Table> {
     #[allow(clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
-        range: Range,
+        range: &'a Range,
     ) -> Result<
         impl Iterator<Item = Result<impl ValueGuard<T::Value>, RuntimeError>> + 'a,
         RuntimeError,
@@ -41,7 +41,7 @@ pub trait DatabaseRo<'tx, T: Table> {
         // FIXME:
         // - `RangeBounds<T::Key>` is to satisfy `heed` bounds
         // - `RangeBounds<&'a T::Key> + 'a` is to satisfy `redb` bounds
-        Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a;
+        Range: RangeBounds<T::Key> + 'a;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw

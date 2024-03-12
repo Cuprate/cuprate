@@ -107,7 +107,7 @@ fn db_read_write() {
 
     // Assert the whole range is there.
     {
-        let range = table.get_range(..).unwrap();
+        let range = table.get_range(&..).unwrap();
         let mut i = 0;
         for result in range {
             let guard = result.unwrap();
@@ -124,8 +124,12 @@ fn db_read_write() {
         assert_eq!(i, 100);
     }
 
-    table.delete(&KEY).unwrap();
+    // Assert `get_range()` works.
+    let range = KEY..(KEY + 100);
+    assert_eq!(100, table.get_range(&range).unwrap().count());
 
+    // Assert deleting works.
+    table.delete(&KEY).unwrap();
     let value = table.get(&KEY);
     assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
 }

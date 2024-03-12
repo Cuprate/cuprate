@@ -21,12 +21,12 @@ impl<'a, T> BytesDecode<'a> for StorableHeed<T>
 where
     T: Storable + ?Sized + 'a,
 {
-    type DItem = Cow<'a, T>;
+    type DItem = &'a T;
 
     #[inline]
     /// This function is infallible (will always return `Ok`).
     fn bytes_decode(bytes: &'a [u8]) -> Result<Self::DItem, BoxedError> {
-        Ok(Cow::Borrowed(T::from_bytes(bytes)))
+        Ok(T::from_bytes(bytes))
     }
 }
 
@@ -97,7 +97,7 @@ mod test {
             println!("bytes: {bytes:?}, expected: {expected:?}");
             assert_eq!(
                 <StorableHeed::<T> as BytesDecode>::bytes_decode(bytes).unwrap(),
-                Cow::Borrowed(expected)
+                expected
             );
         }
 
