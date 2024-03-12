@@ -102,6 +102,28 @@ fn resize() {
     assert_eq!(new_size, old_size + page_size.get());
 }
 
+/// Test that `Env`'s that don't manually resize.
+#[test]
+#[should_panic = "unreachable"]
+fn non_manual_resize_1() {
+    if ConcreteEnv::MANUAL_RESIZE {
+        unreachable!();
+    } else {
+        let (env, _tempdir) = tmp_concrete_env();
+        env.resize_map(None);
+    }
+}
+#[test]
+#[should_panic = "unreachable"]
+fn non_manual_resize_2() {
+    if ConcreteEnv::MANUAL_RESIZE {
+        unreachable!();
+    } else {
+        let (env, _tempdir) = tmp_concrete_env();
+        env.current_map_size();
+    }
+}
+
 /// Test all `DatabaseR{o,w}` operations.
 #[test]
 #[allow(

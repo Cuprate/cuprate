@@ -116,8 +116,8 @@ mod test {
 
         test::<i64>(-1, 2, Ordering::Greater); // bytes are greater, not the value
         test::<u64>(0, 1, Ordering::Less);
-        // test::<[u8; 2]>([1, 1], [1, 0], Ordering::Greater);
-        // test::<[u8; 3]>([1, 2, 3], [1, 2, 3], Ordering::Equal);
+        test::<[u8; 2]>([1, 1], [1, 0], Ordering::Greater);
+        test::<[u8; 3]>([1, 2, 3], [1, 2, 3], Ordering::Equal);
     }
 
     #[test]

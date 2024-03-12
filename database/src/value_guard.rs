@@ -22,9 +22,10 @@ use crate::{table::Table, Storable, ToOwnedDebug};
 ///
 /// - `heed` will always be `Cow::Borrowed`
 /// - `redb` will always be `Cow::Borrowed` for `[u8]`
+///   or any type where `Storable::ALIGN == 1`
 /// - `redb` will always be `Cow::Owned` for everything else
 pub trait ValueGuard<T: ToOwnedDebug> {
-    /// TODO
+    /// Retrieve the data from the guard.
     fn unguard(&self) -> Cow<'_, T>;
 }
 
