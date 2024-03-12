@@ -13,6 +13,7 @@ use crate::{
     database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
+    value_guard::ValueGuard,
 };
 
 //---------------------------------------------------------------------------------------------------- Heed Database Wrappers
@@ -56,17 +57,13 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
 /// Shared generic `get()` between `HeedTableR{o,w}`.
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)]
-fn get<'a, 'tx, T: Table>(
+fn get<'a, T: Table>(
     db: &'_ HeedDb<T::Key, T::Value>,
-    tx_ro: &'tx heed::RoTxn<'_>,
+    tx_ro: &'a heed::RoTxn<'_>,
     key: &T::Key,
-    value_guard: &'a mut Option<Cow<'tx, T::Value>>,
-) -> Result<Cow<'a, T::Value>, RuntimeError> {
+) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
     match db.get(tx_ro, key) {
-        Ok(Some(cow)) => {
-            *value_guard = Some(cow);
-            Ok(Cow::Borrowed(value_guard.as_ref().unwrap().as_ref()))
-        }
+        Ok(Some(cow)) => Ok(cow),
         Ok(None) => Err(RuntimeError::KeyNotFound),
         Err(e) => Err(e.into()),
     }
@@ -79,7 +76,7 @@ fn get_range<'a, T: Table, Range>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
     range: Range,
-) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
+) -> Result<impl Iterator<Item = Result<impl ValueGuard<T::Value> + 'a, RuntimeError>>, RuntimeError>
 where
     Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a,
 {
@@ -88,15 +85,9 @@ where
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
 impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
-    type ValueGuard<'a> = Cow<'a, T::Value> where Self: 'a;
-
     #[inline]
-    fn get<'a, 'b>(
-        &'a self,
-        key: &'a T::Key,
-        value_guard: &'b mut Option<Self::ValueGuard<'a>>,
-    ) -> Result<Cow<'b, T::Value>, RuntimeError> {
-        get::<T>(&self.db, self.tx_ro, key, value_guard)
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
+        get::<T>(&self.db, self.tx_ro, key)
     }
 
     #[inline]
@@ -104,7 +95,10 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
+    ) -> Result<
+        impl Iterator<Item = Result<impl ValueGuard<T::Value> + 'a, RuntimeError>>,
+        RuntimeError,
+    >
     where
         Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a,
     {
@@ -114,15 +108,9 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
 impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
-    type ValueGuard<'a> = Cow<'a, T::Value> where Self: 'a;
-
     #[inline]
-    fn get<'a, 'b>(
-        &'a self,
-        key: &'a T::Key,
-        value_guard: &'b mut Option<Self::ValueGuard<'a>>,
-    ) -> Result<Cow<'b, T::Value>, RuntimeError> {
-        get::<T>(&self.db, self.tx_rw, key, value_guard)
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
+        get::<T>(&self.db, self.tx_rw, key)
     }
 
     #[inline]
@@ -130,7 +118,10 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<Cow<'a, T::Value>, RuntimeError>>, RuntimeError>
+    ) -> Result<
+        impl Iterator<Item = Result<impl ValueGuard<T::Value> + 'a, RuntimeError>>,
+        RuntimeError,
+    >
     where
         Range: RangeBounds<T::Key> + RangeBounds<Cow<'a, T::Key>> + 'a,
     {

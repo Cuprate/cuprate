@@ -1,7 +1,7 @@
 //! Tests for `cuprate_database`, backed by `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 
 use crate::{
     config::{Config, SyncMode},
@@ -13,6 +13,7 @@ use crate::{
     tables::{TestTable, TestTable2},
     transaction::{TxRo, TxRw},
     types::TestType,
+    value_guard::ValueGuard,
     ConcreteEnv,
 };
 
@@ -93,31 +94,31 @@ fn db_read_write() {
 
     // Assert the 1st key is there.
     {
-        let mut guard = None;
-        let value = table.get(&KEY, &mut guard).unwrap();
-        let value = value.as_ref();
+        let guard = table.get(&KEY).unwrap();
+        let cow: Cow<'_, TestType> = guard.unguard();
+        let value: &TestType = cow.as_ref();
 
         // Make sure all field accesses are aligned.
         assert_eq!(value, &VALUE);
         assert_eq!(value.u, VALUE.u);
         assert_eq!(value.b, VALUE.b);
         assert_eq!(value._pad, VALUE._pad);
-
-        // Assert the value guard contains the value.
-        assert!(guard.is_some());
     }
 
     // Assert the whole range is there.
     {
         let range = table.get_range(..).unwrap();
         let mut i = 0;
-        for value in range {
-            let value = value.unwrap();
-            let value: &TestType = value.as_ref();
+        for result in range {
+            let guard = result.unwrap();
+            let cow: Cow<'_, TestType> = guard.unguard();
+            let value: &TestType = cow.as_ref();
+
             assert_eq!(value, &VALUE);
             assert_eq!(value.u, VALUE.u);
             assert_eq!(value.b, VALUE.b);
             assert_eq!(value._pad, VALUE._pad);
+
             i += 1;
         }
         assert_eq!(i, 100);
@@ -125,8 +126,6 @@ fn db_read_write() {
 
     table.delete(&KEY).unwrap();
 
-    let mut guard = None;
-
-    let value = table.get(&KEY, &mut guard);
+    let value = table.get(&KEY);
     assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
 }
