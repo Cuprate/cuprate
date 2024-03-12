@@ -102,10 +102,11 @@ jobs:
     - name: Clippy (fail on warnings)
       run: cargo clippy --workspace --all-features --all-targets -- -D warnings
 
+    # HACK: how to test both DB backends that are feature-gated?
     - name: Test
       run: |
         cargo test --all-features --workspace
-        cargo test --package cuprate-database --no-default-features --features redb service
+        cargo test --package cuprate-database --no-default-features --features redb --features service
 
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
