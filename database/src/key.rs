@@ -109,6 +109,12 @@ impl_key! {
     i64,
 }
 
+impl<T: Key + Pod, const N: usize> Key for [T; N] {
+    const DUPLICATE: bool = false;
+    const CUSTOM_COMPARE: bool = false;
+    type Primary = Self;
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

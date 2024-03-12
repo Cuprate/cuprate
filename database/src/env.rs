@@ -45,27 +45,32 @@ pub trait Env: Sized {
     const SYNCS_PER_TX: bool;
 
     //------------------------------------------------ Types
-    /// TODO
+    /// The struct representing the actual backend's database environment.
     ///
-    /// TODO: document that this is needed to smooth out differences in:
-    /// - `heed` needing to return Guard + Tx
-    /// - `redb` needing to return `redb::Durability` per Tx
+    /// This is used as the `self` in [`EnvInner`] functions, so whatever
+    /// this type is, is what will be accessible from those functions.
+    ///
+    /// # Explanation (not needed for practical use)
+    /// For `heed`, this is just `heed::Env`, for `redb` this is
+    /// `(redb::Database, redb::Durability)` as each transaction
+    /// needs the sync mode set during creation.
     type EnvInner<'env>: EnvInner<'env, Self::TxRo<'env>, Self::TxRw<'env>>
     where
         Self: 'env;
 
-    /// TODO
+    /// The read-only transaction type of the backend.
     type TxRo<'env>: TxRo<'env> + 'env
     where
         Self: 'env;
 
-    /// TODO
+    /// The read/write transaction type of the backend.
     type TxRw<'env>: TxRw<'env> + 'env
     where
         Self: 'env;
 
     //------------------------------------------------ Required
-    /// TODO
+    /// Open the database environment, using the passed [`Config`].
+    ///
     /// # Invariants
     /// This function **must** create all tables listed in [`crate::tables`].
     ///
@@ -73,13 +78,16 @@ pub trait Env: Sized {
     /// they already exist, or else they will panic.
     ///
     /// # Errors
-    /// TODO
+    /// This will error if the database could not be opened.
+    ///
+    /// This is the only [`Env`] function that will return
+    /// an [`InitError`] instead of a [`RuntimeError`].
     fn open(config: Config) -> Result<Self, InitError>;
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
 
-    /// TODO
+    /// Fully sync the database caches to disk.
     ///
     /// # Invariant
     /// This must **fully** and **synchronously** flush the database data to disk.
@@ -118,9 +126,15 @@ pub trait Env: Sized {
         unreachable!()
     }
 
-    /// TODO
+    /// Return the [`Env::EnvInner`].
     ///
-    /// TODO: Document that this is a lock guard.
+    /// # Locking behavior
+    /// When using the `heed` backend, [`Env::EnvInner`] is a
+    /// `RwLockReadGuard`, i.e., calling this function takes a
+    /// read lock on the `heed::Env`.
+    ///
+    /// Be aware of this, as other functions (currently only
+    /// [`Env::resize_map`]) will take a _write_ lock.
     fn env_inner(&self) -> Self::EnvInner<'_>;
 
     //------------------------------------------------ Provided
@@ -157,43 +171,51 @@ where
     Ro: TxRo<'env>,
     Rw: TxRw<'env>,
 {
-    /// TODO
+    /// Create a read-only transaction.
+    ///
     /// # Errors
-    /// TODO
+    /// This will only return [`RuntimeError::Io`] if it errors.
     fn tx_ro(&'env self) -> Result<Ro, RuntimeError>;
 
-    /// TODO
+    /// Create a read/write transaction.
+    ///
     /// # Errors
-    /// TODO
+    /// This will only return [`RuntimeError::Io`] if it errors.
     fn tx_rw(&'env self) -> Result<Rw, RuntimeError>;
 
-    /// TODO
+    /// Open a database in read-only mode.
     ///
-    /// # TODO: Invariant
-    /// This should never panic the database because the table doesn't exist.
+    /// This will open the database [`Table`]
+    /// passed as a generic to this function.
     ///
-    /// Opening/using the database [`Env`] should have an invariant
-    /// that it creates all the tables we need, such that this
-    /// never returns `None`.
+    /// ```rust,ignore
+    /// let db = env.open_db_ro::<Table>(&tx_ro);
+    /// //  ^                     ^
+    /// // database table       table metadata
+    /// //                      (name, key/value type)
+    /// ```
     ///
     /// # Errors
-    /// TODO
+    /// As [`Table`] is `Sealed`, and all tables are created
+    /// upon [`Env::open`], this function will never error because
+    /// a table doesn't exist.
     fn open_db_ro<'tx, T: Table>(
         &self,
         tx_ro: &'tx Ro,
     ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
 
-    /// TODO
+    /// Open a database in read/write mode.
     ///
-    /// # TODO: Invariant
-    /// This should never panic the database because the table doesn't exist.
+    /// All [`DatabaseRo`] functions are also callable
+    /// with the returned [`DatabaseRw`] structure.
     ///
-    /// Opening/using the database [`Env`] should have an invariant
-    /// that it creates all the tables we need, such that this
-    /// never returns `None`.
+    /// This will open the database [`Table`]
+    /// passed as a generic to this function.
     ///
     /// # Errors
-    /// TODO
+    /// As [`Table`] is `Sealed`, and all tables are created
+    /// upon [`Env::open`], this function will never error because
+    /// a table doesn't exist.
     fn open_db_rw<'tx, T: Table>(
         &self,
         tx_rw: &'tx mut Rw,

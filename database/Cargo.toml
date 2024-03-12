@@ -9,7 +9,8 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-default   = ["heed", "redb", "service"]
+# default   = ["heed", "service"]
+default   = ["redb", "service"]
 heed    = ["dep:heed"]
 redb    = ["dep:redb"]
 service = ["dep:crossbeam", "dep:tokio", "dep:tower"]
