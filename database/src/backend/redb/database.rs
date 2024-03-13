@@ -90,22 +90,12 @@ where
     where
         K: ToOwnedDebug,
     {
-        // FIXME: we must match and re-wrap since this function wants `&Cow` not `Cow`.
         fn start_bound(&self) -> Bound<&Cow<'a, K>> {
-            match &self.start_bound {
-                Bound::Included(t) => Bound::Included(t),
-                Bound::Excluded(t) => Bound::Excluded(t),
-                Bound::Unbounded => Bound::Unbounded,
-            }
+            self.start_bound.as_ref()
         }
 
-        // FIXME: we must match and re-wrap since this function wants `&Cow` not `Cow`.
         fn end_bound(&self) -> Bound<&Cow<'a, K>> {
-            match &self.end_bound {
-                Bound::Included(t) => Bound::Included(t),
-                Bound::Excluded(t) => Bound::Excluded(t),
-                Bound::Unbounded => Bound::Unbounded,
-            }
+            self.end_bound.as_ref()
         }
     }
 
