@@ -11,7 +11,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- TxRo
 impl TxRo<'_> for heed::RoTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
-        self.commit().map_err(Into::into)
+        Ok(self.commit()?)
     }
 }
 
