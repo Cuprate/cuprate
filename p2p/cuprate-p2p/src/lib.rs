@@ -16,5 +16,5 @@ pub mod config;
 pub mod connection_maintainer;
 mod constants;
 mod network;
-mod outbound_connector;
 mod peer_set;
+mod peer_sync_state;

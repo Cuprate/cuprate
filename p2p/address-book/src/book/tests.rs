@@ -35,7 +35,7 @@ fn make_fake_address_book(
         connected_peers: Default::default(),
         connected_peers_ban_id: Default::default(),
         banned_peers: Default::default(),
-        banned_peers_fut: Default::default(),
+        banned_peers_queue: Default::default(),
         peer_save_task_handle: None,
         peer_save_interval: interval(Duration::from_secs(60)),
         cfg: test_cfg(),
@@ -81,7 +81,7 @@ async fn add_new_peer_already_connected() {
 
     let semaphore = Arc::new(Semaphore::new(10));
 
-    let (_, handle, _) = HandleBuilder::default()
+    let (_, handle) = HandleBuilder::default()
         .with_permit(semaphore.clone().try_acquire_owned().unwrap())
         .build();
 
@@ -99,7 +99,7 @@ async fn add_new_peer_already_connected() {
         )
         .unwrap();
 
-    let (_, handle, _) = HandleBuilder::default()
+    let (_, handle) = HandleBuilder::default()
         .with_permit(semaphore.try_acquire_owned().unwrap())
         .build();
 
@@ -143,7 +143,12 @@ async fn banned_peer_removed_from_peer_lists() {
     assert_eq!(address_book.white_list.len(), 98);
 
     assert_eq!(
-        address_book.banned_peers_fut.next().await.unwrap(),
+        address_book
+            .banned_peers_queue
+            .next()
+            .await
+            .unwrap()
+            .into_inner(),
         TestNetZoneAddr(1)
     )
 }

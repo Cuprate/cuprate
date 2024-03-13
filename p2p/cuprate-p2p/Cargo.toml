@@ -13,7 +13,9 @@ cuprate-helper = { path = "../../helper" }
 
 tower = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true }
 futures = { workspace = true, features = ["std"] }
+pin-project = { workspace = true }
 
 bytes = { workspace = true, features = ["std"] }
 indexmap = { workspace = true, features = ["std"] }
@@ -21,6 +23,7 @@ rand = { workspace = true, features = ["std", "std_rng"] }
 hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 
+# REMOVE ME
 tracing-subscriber = { version = "0.3.18" }
 
 [dev-dependencies]

@@ -17,7 +17,7 @@ use tower::{Service, ServiceExt};
 
 use crate::{
     client::{Client, DoHandshakeRequest, HandShaker, HandshakeError, InternalPeerID},
-    AddressBook, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerRequestHandler,
+    AddressBook, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerRequestHandler, PeerSyncSvc,
 };
 
 /// A request to connect to a peer.
@@ -30,22 +30,23 @@ pub struct ConnectRequest<Z: NetworkZone> {
 }
 
 /// The connector service, this service connects to peer and returns the [`Client`].
-pub struct Connector<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
-    handshaker: HandShaker<Z, AdrBook, CSync, ReqHdlr>,
+pub struct Connector<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> {
+    handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> Connector<Z, AdrBook, CSync, ReqHdlr> {
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> Connector<Z, AdrBook, CSync, PSync, ReqHdlr> {
     /// Create a new connector from a handshaker.
-    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, ReqHdlr>) -> Self {
+    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr>) -> Self {
         Self { handshaker }
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> Service<ConnectRequest<Z>>
-    for Connector<Z, AdrBook, CSync, ReqHdlr>
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> Service<ConnectRequest<Z>>
+    for Connector<Z, AdrBook, CSync, PSync, ReqHdlr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
+    PSync: PeerSyncSvc<Z> + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
 {
     type Response = Client<Z>;

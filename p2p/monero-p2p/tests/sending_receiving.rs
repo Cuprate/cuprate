@@ -33,9 +33,10 @@ async fn get_single_block_from_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<ClearNet, _, _, _>::new(
+    let handshaker = HandShaker::<ClearNet, _, _, _, _>::new(
         DummyAddressBook,
         DummyCoreSyncSvc,
+        DummyPeerSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
         our_basic_node_data,

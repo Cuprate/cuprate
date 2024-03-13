@@ -37,7 +37,8 @@ use crate::{
     constants::{HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE},
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, ConnectionDirection, CoreSyncDataRequest,
-    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerRequestHandler, SharedError,
+    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerRequestHandler, PeerSyncRequest,
+    PeerSyncSvc, SharedError,
 };
 
 /// An error that can be returned from a handshake.
@@ -90,11 +91,13 @@ pub struct DoHandshakeRequest<Z: NetworkZone> {
 
 /// The handshaker service which performs a handshake with a peer returning a [`Client`].
 #[derive(Debug, Clone)]
-pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
+pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> {
     /// The address book service.
     address_book: AdrBook,
     /// The core sync service.
     core_sync_svc: CSync,
+    /// The peers sync service - keeps track of connected peers stated sync states.
+    peer_sync_svc: PSync,
     /// The peer request handler service.
     peer_request_svc: ReqHdlr,
 
@@ -108,11 +111,12 @@ pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
     _zone: PhantomData<Z>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqHdlr> {
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr> {
     /// Create a new [`HandShaker`]
     pub fn new(
         address_book: AdrBook,
         core_sync_svc: CSync,
+        peer_sync_svc: PSync,
         peer_request_svc: ReqHdlr,
 
         minimum_support_flags: Option<PeerSupportFlags>,
@@ -122,6 +126,7 @@ impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqH
         Self {
             address_book,
             core_sync_svc,
+            peer_sync_svc,
             peer_request_svc,
             minimum_support_flags: minimum_support_flags.unwrap_or(PeerSupportFlags::empty()),
             our_basic_node_data,
@@ -130,11 +135,12 @@ impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqH
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> Service<DoHandshakeRequest<Z>>
-    for HandShaker<Z, AdrBook, CSync, ReqHdlr>
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> Service<DoHandshakeRequest<Z>>
+    for HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
+    PSync: PeerSyncSvc<Z> + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
 {
     type Response = Client<Z>;
@@ -152,6 +158,7 @@ where
         let address_book = self.address_book.clone();
         let peer_request_svc = self.peer_request_svc.clone();
         let core_sync_svc = self.core_sync_svc.clone();
+        let peer_sync_svc = self.peer_sync_svc.clone();
         let our_basic_node_data = self.our_basic_node_data.clone();
 
         let span =
@@ -165,6 +172,7 @@ where
                     minimum_support_flags,
                     address_book,
                     core_sync_svc,
+                    peer_sync_svc,
                     peer_request_svc,
                     our_basic_node_data,
                 ),
@@ -177,19 +185,21 @@ where
 }
 
 /// This function completes a handshake with the requested peer.
-async fn handshake<Z: NetworkZone, AdrBook, CSync, ReqHdlr>(
+async fn handshake<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr>(
     req: DoHandshakeRequest<Z>,
 
     minimum_support_flags: PeerSupportFlags,
 
     mut address_book: AdrBook,
     mut core_sync_svc: CSync,
+    mut peer_sync_svc: PSync,
     peer_request_svc: ReqHdlr,
     our_basic_node_data: BasicNodeData,
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z>,
     CSync: CoreSyncSvc,
+    PSync: PeerSyncSvc<Z>,
     ReqHdlr: PeerRequestHandler,
 {
     let DoHandshakeRequest {
@@ -328,17 +338,11 @@ where
         .await?;
     }
 
-    core_sync_svc
-        .ready()
-        .await?
-        .call(CoreSyncDataRequest::HandleIncoming(peer_core_sync.clone()))
-        .await?;
-
     tracing::debug!("Handshake complete.");
 
     let error_slot = SharedError::new();
 
-    let (connection_guard, handle, _) = HandleBuilder::new().with_permit(permit).build();
+    let (connection_guard, handle) = HandleBuilder::new().with_permit(permit).build();
 
     let (connection_tx, client_rx) = mpsc::channel(1);
 
@@ -362,8 +366,19 @@ where
         id: addr,
         handle,
         direction,
-        core_sync_data: std::sync::Mutex::new(peer_core_sync),
+        // TODO: remove this.
+        core_sync_data: std::sync::Mutex::new(peer_core_sync.clone()),
     });
+
+    peer_sync_svc
+        .ready()
+        .await?
+        .call(PeerSyncRequest::IncomingCoreSyncData(
+            peer_info.id,
+            peer_info.handle.clone(),
+            peer_core_sync,
+        ))
+        .await?;
 
     let client = Client::<Z>::new(peer_info, connection_tx, connection_handle, error_slot);
 
@@ -379,14 +394,11 @@ async fn send_hs_request<Z: NetworkZone, CSync>(
 where
     CSync: CoreSyncSvc,
 {
-    let CoreSyncDataResponse::Ours(our_core_sync_data) = core_sync_svc
+    let CoreSyncDataResponse(our_core_sync_data) = core_sync_svc
         .ready()
         .await?
-        .call(CoreSyncDataRequest::Ours)
-        .await?
-    else {
-        panic!("core sync service returned wrong response!");
-    };
+        .call(CoreSyncDataRequest)
+        .await?;
 
     let req = HandshakeRequest {
         node_data: our_basic_node_data,
@@ -413,14 +425,11 @@ where
     AdrBook: AddressBook<Z>,
     CSync: CoreSyncSvc,
 {
-    let CoreSyncDataResponse::Ours(our_core_sync_data) = core_sync_svc
+    let CoreSyncDataResponse(our_core_sync_data) = core_sync_svc
         .ready()
         .await?
-        .call(CoreSyncDataRequest::Ours)
-        .await?
-    else {
-        panic!("core sync service returned wrong response!");
-    };
+        .call(CoreSyncDataRequest)
+        .await?;
 
     let AddressBookResponse::Peers(our_peer_list) = address_book
         .ready()

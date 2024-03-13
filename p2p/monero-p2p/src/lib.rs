@@ -123,6 +123,30 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     ) -> Result<Self::Listener, std::io::Error>;
 }
 
+pub trait PeerSyncSvc<Z: NetworkZone>:
+    tower::Service<
+        PeerSyncRequest<Z>,
+        Response = PeerSyncResponse<Z>,
+        Error = tower::BoxError,
+        Future = Self::Future2,
+    > + Send
+    + 'static
+{
+    // This allows us to put more restrictive bounds on the future without defining the future here
+    // explicitly.
+    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
+}
+
+impl<T, Z: NetworkZone> PeerSyncSvc<Z> for T
+where
+    T: tower::Service<PeerSyncRequest<Z>, Response = PeerSyncResponse<Z>, Error = tower::BoxError>
+        + Send
+        + 'static,
+    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+{
+    type Future2 = T::Future;
+}
+
 pub trait AddressBook<Z: NetworkZone>:
     tower::Service<
         AddressBookRequest<Z>,

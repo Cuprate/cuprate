@@ -148,9 +148,10 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<FragNet, _, _, _>::new(
+    let handshaker = HandShaker::<FragNet, _, _, _, _>::new(
         DummyAddressBook,
         DummyCoreSyncSvc,
+        DummyPeerSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
         our_basic_node_data,
@@ -184,9 +185,10 @@ async fn fragmented_handshake_monerod_to_cuprate() {
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandShaker::<FragNet, _, _, _>::new(
+    let mut handshaker = HandShaker::<FragNet, _, _, _, _>::new(
         DummyAddressBook,
         DummyCoreSyncSvc,
+        DummyPeerSyncSvc,
         DummyPeerRequestHandlerSvc,
         None,
         our_basic_node_data,

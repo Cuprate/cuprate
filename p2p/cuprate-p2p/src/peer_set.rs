@@ -1,15 +1,8 @@
 //! This module contains the peer set and related functionality.
 //!
-use std::{
-    cmp::Ordering,
-    sync::Arc,
-    task::{Context, Poll},
-};
+use std::{cmp::Ordering, collections::HashSet};
 
-use futures::{
-    lock::{Mutex as AsyncMutex, MutexGuard, OwnedMutexGuard, OwnedMutexLockFuture},
-    ready, FutureExt,
-};
+use futures::{stream::FuturesUnordered, FutureExt};
 use indexmap::{IndexMap, IndexSet};
 use rand::prelude::*;
 use tokio::sync::mpsc;
@@ -23,58 +16,28 @@ use monero_p2p::{
 
 use crate::connection_maintainer::MakeConnectionRequest;
 
-/// A locked peer set that can be shared to different tasks.
-pub struct LockedPeerSet<N: NetworkZone> {
-    /// The peer set wrapped in an arc mutex.
-    set: Arc<AsyncMutex<InnerPeerSet<N>>>,
-    /// The state of an attempt to acquire the lock on the peer set.
-    state: PeerSetLockState<N>,
+mod pending_svc;
+use pending_svc::PendingService;
+
+pub enum PeerSetRequest<N: NetworkZone> {
+    /// Returns a ready peer using a load balancing algorithm.
+    LoadBalancedPeer,
+    /// Returns a ready peer using a load balancing algorithm across the given sub-set of peers.
+    /// If a peer in the sub-set is not in the peer list then it is ignored and the peers chosen
+    /// will be between the rest of the sub set until there are no peers to select from.
+    LoadBalancedPeerSubSet(HashSet<InternalPeerID<N::Addr>>),
 }
 
-impl<N: NetworkZone> Clone for LockedPeerSet<N> {
-    fn clone(&self) -> Self {
-        Self {
-            set: self.set.clone(),
-            state: PeerSetLockState::Locked,
-        }
-    }
-}
-
-impl<N: NetworkZone> LockedPeerSet<N> {
-    pub async fn acquire(&mut self) -> MutexGuard<'_, InnerPeerSet<N>> {
-        self.set.lock().await
-    }
-
-    /// Acquires the [`InnerPeerSet`] using a poll interface.
-    pub fn poll_acquire(&mut self, cx: &mut Context<'_>) -> Poll<OwnedMutexGuard<InnerPeerSet<N>>> {
-        loop {
-            match &mut self.state {
-                PeerSetLockState::Locked => {
-                    self.state = PeerSetLockState::Pending(self.set.clone().lock_owned());
-                }
-                PeerSetLockState::Pending(lock_fut) => {
-                    let guard = ready!(lock_fut.poll_unpin(cx));
-                    self.state = PeerSetLockState::Locked;
-                    return Poll::Ready(guard);
-                }
-            }
-        }
-    }
-}
-
-/// The state of the peer set lock
-enum PeerSetLockState<N: NetworkZone> {
-    /// Locked
-    Locked,
-    /// Waiting our turn to access the peer set.
-    Pending(OwnedMutexLockFuture<InnerPeerSet<N>>),
+pub enum PeerSetResponse<N: NetworkZone> {
+    Peer(PeakEwmaClient<N>),
+    None,
 }
 
 /// The peer-set.
 ///
 /// This struct holds peers currently connected on a certain [`NetworkZone`].
-/// The peer-set is what the routing methods use to get peers
-pub struct InnerPeerSet<N: NetworkZone> {
+/// The peer-set is what the routing methods use to get peers.
+pub struct PeerSet<N: NetworkZone> {
     new_peers_rx: mpsc::Receiver<Client<N>>,
     /// A channel to the outbound connection maker to make a new connection
     make_new_connections_tx: mpsc::Sender<MakeConnectionRequest>,
@@ -84,10 +47,10 @@ pub struct InnerPeerSet<N: NetworkZone> {
 
     ready_peers: IndexMap<InternalPeerID<N::Addr>, PeakEwmaClient<N>>,
 
-    pending_peers: IndexMap<InternalPeerID<N::Addr>, PeakEwmaClient<N>>,
+    pending_peers: FuturesUnordered<PendingService<N>>,
 }
 
-impl<N: NetworkZone> InnerPeerSet<N> {
+impl<N: NetworkZone> PeerSet<N> {
     fn remove_peer(&mut self, id: &InternalPeerID<N::Addr>) {
         tracing::debug!("Removing Peer: {} from PeerSet", id);
 
@@ -95,15 +58,17 @@ impl<N: NetworkZone> InnerPeerSet<N> {
         self.inbound_peers.swap_remove(id);
 
         self.ready_peers.swap_remove(id);
-        self.pending_peers.swap_remove(id);
     }
 
     #[instrument(level = "debug", skip(self))]
     fn check_pending_peers(&mut self) {
+        todo!()
+        /*
         let mut new_ready_peers = Vec::new();
         let mut failed_peers = Vec::new();
 
-        for (peer_id, peer) in self.pending_peers.iter_mut() {
+
+        for (peer_id, peer) in self.pending_peers.try_next() {
             match peer.ready().now_or_never() {
                 Some(Ok(_)) => new_ready_peers.push(*peer_id),
                 Some(Err(e)) => {
@@ -126,6 +91,8 @@ impl<N: NetworkZone> InnerPeerSet<N> {
 
             assert!(!already_in_ready_list);
         }
+
+         */
     }
 
     /// Returns a peer address selected from a load balancing algorithm.
