@@ -267,16 +267,6 @@ where
         tx_ro: &'tx heed::RoTxn<'env>,
     ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
-        //
-        // The actual underlying type `heed` sees is
-        // something similar to `key: [u8], value: [u8]`.
-        // See: `crate::backend::heed::{types, storable}` for more detail.
-        //
-        // With that said, we are still type safe as we are
-        // passing around and using `<T: Table>`'s metadata
-        // as the types, rather than raw bytes. This gets
-        // extended to the table/database type as well,
-        // as that also has `T: Table`.
         Ok(HeedTableRo {
             db: self
                 .open_database(tx_ro, Some(T::NAME))?
@@ -291,8 +281,6 @@ where
         tx_rw: &'tx mut heed::RwTxn<'env>,
     ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
-        //
-        // Everything said above with `open_db_ro()` applies here as well.
         Ok(HeedTableRw {
             db: self
                 .open_database(tx_rw, Some(T::NAME))?

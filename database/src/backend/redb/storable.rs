@@ -57,7 +57,6 @@ where
     }
 
     #[inline]
-    #[allow(clippy::ptr_as_ptr)]
     fn from_bytes<'a>(data: &'a [u8]) -> Self::SelfType<'a>
     where
         Self: 'a,

@@ -41,7 +41,6 @@ pub trait DatabaseRo<'tx, T: Table> {
     /// if a particular key in the `range` does not exist,
     /// [`RuntimeError::KeyNotFound`] wrapped in [`Err`] will be returned
     /// from the iterator.
-    #[allow(clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
         range: &'a Range,

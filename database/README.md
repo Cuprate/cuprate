@@ -175,7 +175,7 @@ The default maximum value size is [1012 bytes](https://docs.rs/sanakirja/1.4.1/s
 As such, it is not implemented.
 
 ## `MDBX`
-[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions, this makes it a bit trickier to implement dup tables. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
+[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions, this makes it a bit trickier to implement duplicate tables. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
 
 As such, it is not implemented (yet).
 
@@ -201,4 +201,4 @@ TODO: document disk flushing behavior.
 - Backend-specific behavior
 
 # (De)serialization
-TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.
+TODO: document `Storable` and how databases (de)serialize types when storing/fetching.
