@@ -272,17 +272,12 @@ where
         // as the types, rather than raw bytes. This gets
         // extended to the table/database type as well,
         // as that also has `T: Table`.
-        #[allow(clippy::type_complexity)]
-        let result: Result<Option<HeedDb<T::Key, T::Value>>, heed::Error> =
-            self.open_database(tx_ro, Some(T::NAME));
-
-        match result {
-            Ok(Some(db)) => Ok(HeedTableRo { db, tx_ro }),
-            Err(e) => Err(e.into()),
-
-            // INVARIANT: Every table should be created already.
-            Ok(None) => panic!("{PANIC_MSG_MISSING_TABLE}"),
-        }
+        Ok(HeedTableRo {
+            db: self
+                .open_database(tx_ro, Some(T::NAME))?
+                .expect(PANIC_MSG_MISSING_TABLE),
+            tx_ro,
+        })
     }
 
     #[inline]
