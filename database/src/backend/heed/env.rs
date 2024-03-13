@@ -288,16 +288,12 @@ where
         // Open up a read/write database using our table's const metadata.
         //
         // Everything said above with `open_db_ro()` applies here as well.
-        #[allow(clippy::type_complexity)]
-        let result: Result<Option<HeedDb<T::Key, T::Value>>, heed::Error> =
-            self.open_database(tx_rw, Some(T::NAME));
-
-        match result {
-            Ok(Some(db)) => Ok(HeedTableRw::<'env, 'tx, T> { db, tx_rw }),
-            Err(e) => Err(e.into()),
-
-            // INVARIANT: Every table should be created already.
-            Ok(None) => panic!("{PANIC_MSG_MISSING_TABLE}"),
+        Ok(HeedTableRw {
+            db: self
+                .open_database(tx_rw, Some(T::NAME))?
+                .expect(PANIC_MSG_MISSING_TABLE),
+            tx_rw,
+        })
         }
     }
 }
