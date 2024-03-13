@@ -32,11 +32,7 @@ fn get<'a, T: Table + 'static>(
     db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     key: &'a T::Key,
 ) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
-    match db.get(Cow::Borrowed(key)) {
-        Ok(Some(redb_guard)) => Ok(redb_guard),
-        Ok(None) => Err(RuntimeError::KeyNotFound),
-        Err(e) => Err(RuntimeError::from(e)),
-    }
+    db.get(Cow::Borrowed(key))?.ok_or(RuntimeError::KeyNotFound)
 }
 
 /// Shared generic `get_range()` between `RedbTableR{o,w}`.
