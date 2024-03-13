@@ -1545,17 +1545,16 @@ dependencies = [
 name = "monero-address-book"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "borsh",
  "cuprate-test-utils",
  "futures",
  "monero-p2p",
  "monero-pruning",
  "monero-wire",
- "pin-project",
  "rand",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tower",
  "tracing",
 ]
@@ -2864,6 +2863,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "pin-project-lite",
+ "slab",
  "tokio",
  "tracing",
 ]

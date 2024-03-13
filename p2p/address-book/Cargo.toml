@@ -13,10 +13,9 @@ monero-p2p = { path = "../monero-p2p" }
 
 tower = { workspace = true, features = ["util", "buffer"] }
 tokio = { workspace = true, features = ["time", "fs", "rt"]}
+tokio-util = { workspace = true, features = ["time"] }
 
 futures = { workspace = true, features = ["std"] }
-pin-project = { workspace = true }
-async-trait = { workspace = true }
 
 thiserror = { workspace = true }
 tracing = { workspace = true, features = ["std", "attributes"] }

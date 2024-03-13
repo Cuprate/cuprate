@@ -1,22 +1,19 @@
 use std::{
     collections::{HashMap, HashSet},
-    future::Future,
     panic,
-    pin::Pin,
     task::{Context, Poll},
     time::Duration,
 };
 
 use futures::{
     future::{ready, Ready},
-    stream::FuturesUnordered,
-    FutureExt, StreamExt,
+    FutureExt,
 };
-use pin_project::pin_project;
 use tokio::{
     task::JoinHandle,
-    time::{interval, sleep, Interval, MissedTickBehavior, Sleep},
+    time::{interval, Instant, Interval, MissedTickBehavior},
 };
+use tokio_util::time::DelayQueue;
 use tower::Service;
 
 use monero_p2p::{
@@ -27,7 +24,7 @@ use monero_p2p::{
 };
 use monero_pruning::PruningSeed;
 
-use crate::{peer_list::PeerList, store::save_peers_to_disk, AddressBookError, Config};
+use crate::{peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError};
 
 #[cfg(test)]
 mod tests;
@@ -45,21 +42,6 @@ pub struct ConnectionPeerEntry<Z: NetworkZone> {
     rpc_credits_per_hash: u32,
 }
 
-/// A future that resolves when a peer is unbanned.
-#[pin_project(project = EnumProj)]
-pub struct BanedPeerFut<Addr: NetZoneAddress>(Addr::BanID, #[pin] Sleep);
-
-impl<Addr: NetZoneAddress> Future for BanedPeerFut<Addr> {
-    type Output = Addr::BanID;
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut this = self.project();
-        match this.1.poll_unpin(cx) {
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(_) => Poll::Ready(*this.0),
-        }
-    }
-}
-
 pub struct AddressBook<Z: NetworkZone> {
     /// Our white peers - the peers we have previously connected to.
     white_list: PeerList<Z>,
@@ -71,20 +53,19 @@ pub struct AddressBook<Z: NetworkZone> {
     /// The currently connected peers.
     connected_peers: HashMap<InternalPeerID<Z::Addr>, ConnectionPeerEntry<Z>>,
     connected_peers_ban_id: HashMap<<Z::Addr as NetZoneAddress>::BanID, HashSet<Z::Addr>>,
-    /// The currently banned peers
-    banned_peers: HashSet<<Z::Addr as NetZoneAddress>::BanID>,
 
-    banned_peers_fut: FuturesUnordered<BanedPeerFut<Z::Addr>>,
+    banned_peers: HashMap<<Z::Addr as NetZoneAddress>::BanID, Instant>,
+    banned_peers_queue: DelayQueue<<Z::Addr as NetZoneAddress>::BanID>,
 
     peer_save_task_handle: Option<JoinHandle<std::io::Result<()>>>,
     peer_save_interval: Interval,
 
-    cfg: Config,
+    cfg: AddressBookConfig,
 }
 
 impl<Z: NetworkZone> AddressBook<Z> {
     pub fn new(
-        cfg: Config,
+        cfg: AddressBookConfig,
         white_peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         gray_peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
         anchor_peers: Vec<Z::Addr>,
@@ -94,8 +75,9 @@ impl<Z: NetworkZone> AddressBook<Z> {
         let anchor_list = HashSet::from_iter(anchor_peers);
 
         // TODO: persist banned peers
-        let banned_peers = HashSet::new();
-        let banned_peers_fut = FuturesUnordered::new();
+        let banned_peers = HashMap::new();
+        let banned_peers_queue = DelayQueue::new();
+
         let connected_peers = HashMap::new();
 
         let mut peer_save_interval = interval(cfg.peer_save_period);
@@ -108,7 +90,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
             connected_peers,
             connected_peers_ban_id: HashMap::new(),
             banned_peers,
-            banned_peers_fut,
+            banned_peers_queue,
             peer_save_task_handle: None,
             peer_save_interval,
             cfg,
@@ -146,8 +128,9 @@ impl<Z: NetworkZone> AddressBook<Z> {
     }
 
     fn poll_unban_peers(&mut self, cx: &mut Context<'_>) {
-        while let Poll::Ready(Some(ban_id)) = self.banned_peers_fut.poll_next_unpin(cx) {
-            self.banned_peers.remove(&ban_id);
+        while let Poll::Ready(Some(ban_id)) = self.banned_peers_queue.poll_expired(cx) {
+            tracing::debug!("Host {:?} is unbanned, ban has expired.", ban_id.get_ref(),);
+            self.banned_peers.remove(ban_id.get_ref());
         }
     }
 
@@ -198,8 +181,8 @@ impl<Z: NetworkZone> AddressBook<Z> {
     }
 
     fn ban_peer(&mut self, addr: Z::Addr, time: Duration) {
-        if self.banned_peers.contains(&addr.ban_id()) {
-            return;
+        if self.banned_peers.contains_key(&addr.ban_id()) {
+            tracing::error!("Tried to ban peer twice, this shouldn't happen.")
         }
 
         if let Some(connected_peers_with_ban_id) = self.connected_peers_ban_id.get(&addr.ban_id()) {
@@ -220,17 +203,20 @@ impl<Z: NetworkZone> AddressBook<Z> {
         self.white_list.remove_peers_with_ban_id(&addr.ban_id());
         self.gray_list.remove_peers_with_ban_id(&addr.ban_id());
 
-        self.banned_peers.insert(addr.ban_id());
-        self.banned_peers_fut
-            .push(BanedPeerFut(addr.ban_id(), sleep(time)))
+        let unban_at = Instant::now() + time;
+
+        self.banned_peers_queue.insert_at(addr.ban_id(), unban_at);
+        self.banned_peers.insert(addr.ban_id(), unban_at);
     }
 
     /// adds a peer to the gray list.
     fn add_peer_to_gray_list(&mut self, mut peer: ZoneSpecificPeerListEntryBase<Z::Addr>) {
         if self.white_list.contains_peer(&peer.adr) {
+            tracing::trace!("Peer {} is already in white list skipping.", peer.adr);
             return;
         };
         if !self.gray_list.contains_peer(&peer.adr) {
+            tracing::trace!("Adding peer {} to gray list.", peer.adr);
             peer.last_seen = 0;
             self.gray_list.add_new_peer(peer);
         }
@@ -238,7 +224,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
 
     /// Checks if a peer is banned.
     fn is_peer_banned(&self, peer: &Z::Addr) -> bool {
-        self.banned_peers.contains(&peer.ban_id())
+        self.banned_peers.contains_key(&peer.ban_id())
     }
 
     fn handle_incoming_peer_list(
@@ -341,7 +327,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
             if self.is_peer_banned(addr) {
                 return Err(AddressBookError::PeerIsBanned);
             }
-            // although the peer may not be readable still add it to the connected peers with ban ID.
+            // although the peer may not be reachable still add it to the connected peers with ban ID.
             self.connected_peers_ban_id
                 .entry(addr.ban_id())
                 .or_default()
@@ -416,6 +402,11 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                 .ok_or(AddressBookError::PeerNotFound),
             AddressBookRequest::GetRandomGrayPeer { height } => self
                 .get_random_gray_peer(height)
+                .map(AddressBookResponse::Peer)
+                .ok_or(AddressBookError::PeerNotFound),
+            AddressBookRequest::GetRandomPeer { height } => self
+                .get_random_white_peer(height)
+                .or_else(|| self.get_random_gray_peer(height))
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
             AddressBookRequest::GetWhitePeers(len) => {

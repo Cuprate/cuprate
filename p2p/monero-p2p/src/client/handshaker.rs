@@ -299,7 +299,7 @@ where
 
     let error_slot = SharedError::new();
 
-    let (connection_guard, handle, _) = HandleBuilder::new().with_permit(permit).build();
+    let (connection_guard, handle) = HandleBuilder::new().with_permit(permit).build();
 
     let (connection_tx, client_rx) = mpsc::channel(3);
 

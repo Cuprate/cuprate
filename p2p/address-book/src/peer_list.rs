@@ -96,7 +96,7 @@ impl<Z: NetworkZone> PeerList<Z> {
             let (_, addresses_with_block) = self.pruning_seeds.iter().find(|(seed, _)| {
                 // TODO: factor in peer blockchain height?
                 seed.get_next_unpruned_block(needed_height, CRYPTONOTE_MAX_BLOCK_NUMBER)
-                    .expect("Explain")
+                    .expect("Block needed is higher than max block allowed.")
                     == needed_height
             })?;
             let n = r.gen_range(0..addresses_with_block.len());
