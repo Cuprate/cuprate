@@ -37,11 +37,6 @@ fn get<'a, T: Table + 'static>(
 
 /// Shared generic `get_range()` between `RedbTableR{o,w}`.
 #[inline]
-#[allow(
-    clippy::unnecessary_wraps,
-    clippy::trait_duplication_in_bounds,
-    clippy::needless_pass_by_value
-)]
 fn get_range<'a, T: Table, Range>(
     db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     range: &'a Range,
@@ -128,7 +123,6 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
     }
 
     #[inline]
-    #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
         range: &'a Range,
@@ -151,7 +145,6 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key
     }
 
     #[inline]
-    #[allow(clippy::unnecessary_wraps, clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
         range: &'a Range,
