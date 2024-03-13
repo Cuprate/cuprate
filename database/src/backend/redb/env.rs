@@ -92,22 +92,21 @@ impl Env for ConcreteEnv {
 
         // TODO: Create all tables when schema is done.
 
-        // TestTable
-        let table: redb::TableDefinition<
-            'static,
-            StorableRedb<<TestTable as Table>::Key>,
-            StorableRedb<<TestTable as Table>::Value>,
-        > = redb::TableDefinition::new(TestTable::NAME);
-        tx_rw.open_table(table)?;
+        /// Function that creates the tables based off the passed `T: Table`.
+        fn create_table<T: Table>(tx_rw: &redb::WriteTransaction<'_>) -> Result<(), InitError> {
+            let table: redb::TableDefinition<
+                'static,
+                StorableRedb<<T as Table>::Key>,
+                StorableRedb<<T as Table>::Value>,
+            > = redb::TableDefinition::new(<T as Table>::NAME);
 
-        // TestTable2
-        let table: redb::TableDefinition<
-            'static,
-            StorableRedb<<TestTable2 as Table>::Key>,
-            StorableRedb<<TestTable2 as Table>::Value>,
-        > = redb::TableDefinition::new(TestTable2::NAME);
-        tx_rw.open_table(table)?;
+            // `redb` creates tables on open if not already created.
+            tx_rw.open_table(table)?;
+            Ok(())
+        }
 
+        create_table::<TestTable>(&tx_rw)?;
+        create_table::<TestTable2>(&tx_rw)?;
         tx_rw.commit()?;
 
         // Check for file integrity.
