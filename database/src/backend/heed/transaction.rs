@@ -18,7 +18,7 @@ impl TxRo<'_> for heed::RoTxn<'_> {
 //---------------------------------------------------------------------------------------------------- TxRw
 impl TxRo<'_> for heed::RwTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
-        self.commit().map_err(Into::into)
+        Ok(self.commit()?)
     }
 }
 
