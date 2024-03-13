@@ -294,7 +294,6 @@ where
                 .expect(PANIC_MSG_MISSING_TABLE),
             tx_rw,
         })
-        }
     }
 }
 

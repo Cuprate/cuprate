@@ -56,7 +56,6 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
 
 /// Shared generic `get()` between `HeedTableR{o,w}`.
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)]
 fn get<'a, T: Table>(
     db: &'_ HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
@@ -69,7 +68,6 @@ fn get<'a, T: Table>(
 
 /// Shared generic `get_range()` between `HeedTableR{o,w}`.
 #[inline]
-#[allow(clippy::needless_pass_by_value, clippy::trait_duplication_in_bounds)]
 fn get_range<'a, T: Table, Range>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
@@ -89,7 +87,6 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
     }
 
     #[inline]
-    #[allow(clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
         range: &'a Range,
@@ -112,7 +109,6 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
     }
 
     #[inline]
-    #[allow(clippy::trait_duplication_in_bounds)]
     fn get_range<'a, Range>(
         &'a self,
         range: &'a Range,
