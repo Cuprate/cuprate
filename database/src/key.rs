@@ -1,11 +1,14 @@
 //! Database key abstraction; `trait Key`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::cmp::Ordering;
+use std::{cmp::Ordering, fmt::Debug};
 
 use bytemuck::Pod;
 
-use crate::storable::{self, Storable};
+use crate::{
+    storable::{self, Storable},
+    ToOwnedDebug,
+};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`](crate::table::Table) key metadata.
@@ -106,11 +109,10 @@ impl_key! {
     i64,
 }
 
-impl<const N: usize, T: Key + Pod> Key for [T; N] {
+impl<T: Key + Pod, const N: usize> Key for [T; N] {
     const DUPLICATE: bool = false;
     const CUSTOM_COMPARE: bool = false;
-
-    type Primary = [T; N];
+    type Primary = Self;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -1,5 +1,7 @@
 //! Implementation of `trait TxRo/TxRw` for `heed`.
 
+use std::{ops::Deref, sync::RwLockReadGuard};
+
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     error::RuntimeError,
@@ -9,31 +11,26 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- TxRo
 impl TxRo<'_> for heed::RoTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
-        todo!()
+        Ok(self.commit()?)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- TxRw
 impl TxRo<'_> for heed::RwTxn<'_> {
-    /// TODO
-    /// # Errors
-    /// TODO
     fn commit(self) -> Result<(), RuntimeError> {
-        todo!()
+        Ok(self.commit()?)
     }
 }
 
 impl TxRw<'_> for heed::RwTxn<'_> {
-    /// TODO
-    /// # Errors
-    /// TODO
     fn commit(self) -> Result<(), RuntimeError> {
-        todo!()
+        Ok(self.commit()?)
     }
 
-    /// TODO
-    fn abort(self) {
-        todo!()
+    /// This function is infallible.
+    fn abort(self) -> Result<(), RuntimeError> {
+        self.abort();
+        Ok(())
     }
 }
 
