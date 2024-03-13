@@ -24,7 +24,7 @@ impl TxRo<'_> for heed::RwTxn<'_> {
 
 impl TxRw<'_> for heed::RwTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
-        self.commit().map_err(Into::into)
+        Ok(self.commit()?)
     }
 
     /// This function is infallible.
