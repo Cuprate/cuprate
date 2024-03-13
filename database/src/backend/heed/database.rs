@@ -62,11 +62,9 @@ fn get<'a, T: Table>(
     tx_ro: &'a heed::RoTxn<'_>,
     key: &T::Key,
 ) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError> {
-    match db.get(tx_ro, key) {
-        Ok(Some(cow)) => Ok(Cow::Borrowed(cow)),
-        Ok(None) => Err(RuntimeError::KeyNotFound),
-        Err(e) => Err(e.into()),
-    }
+    db.get(tx_ro, key)?
+        .map(Cow::Borrowed)
+        .ok_or(RuntimeError::KeyNotFound)
 }
 
 /// Shared generic `get_range()` between `HeedTableR{o,w}`.
