@@ -180,15 +180,20 @@ impl Env for ConcreteEnv {
 
         // TODO: Create all tables when schema is done.
 
-        DatabaseOpenOptions::new(&env)
-            .name(TestTable::NAME)
-            .types::<StorableHeed<<TestTable as Table>::Key>, StorableHeed<<TestTable as Table>::Value>>()
-            .create(&mut tx_rw)?;
+        /// Function that creates the tables based off the passed `T: Table`.
+        fn create_table<T: Table>(
+            env: &heed::Env,
+            tx_rw: &mut heed::RwTxn<'_>,
+        ) -> Result<(), InitError> {
+            DatabaseOpenOptions::new(env)
+                .name(<T as Table>::NAME)
+                .types::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>()
+                .create(tx_rw)?;
+            Ok(())
+        }
 
-        DatabaseOpenOptions::new(&env)
-            .name(TestTable2::NAME)
-            .types::<StorableHeed<<TestTable2 as Table>::Key>, StorableHeed<<TestTable2 as Table>::Value>>()
-            .create(&mut tx_rw)?;
+        create_table::<TestTable>(&env, &mut tx_rw)?;
+        create_table::<TestTable2>(&env, &mut tx_rw)?;
 
         // TODO: Set dupsort and comparison functions for certain tables
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
