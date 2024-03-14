@@ -221,22 +221,18 @@ This table will contain legacy CryptoNote outputs which have clear amounts.
 This table will not contain an output with 0 amount.
 
 | Primary Key  | Secondary Key      | Value              |
-| ------------ | ------------------ | ------------------ |
-| Amount (u64) | Amount Index (u32) | Output (See below) |
-
-> This table stores the amount idex as a u32 to save space as the creation of v1 txs is limited, u32::MAX should never be hit.
+| ------------ |--------------------| ------------------ |
+| Amount (u64) | Amount Index (u64) | Output (See below) |
 
 ```rust
 struct Output{
     key: [u8; 32],
     // We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
-    height: u64, 
+    height: u32, 
+    // Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
+    output_flags: u32,
     tx_idx: u64,
-    // For if the tx that created this out has a time-lock - this means we only need to look on Tx Unlock Time if this is true.
-    locked: bool 
 }
-// TODO: local_index?
-
 ```
 
 `Constant Size = true`
@@ -249,12 +245,12 @@ struct Output{
 
 ```rust
 struct RctOutput{
-    key: [u8; 32],
-    // We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
-    height: u64, 
-    tx_idx: u64,
-    // For if the tx that created this out has a time-lock - this means we only need to look on Tx Unlock Time if this is true.
-    locked: bool,
+   key: [u8; 32],
+   // We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
+   height: u32,
+   // Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
+   output_flags: u32,
+   tx_idx: u64,
     // The amount commitment of this output.
     commitment: [u8; 32]
 }
@@ -355,7 +351,9 @@ struct BlockInfoV3 {
     timestamp: u64,
     total_generated_coins: u64,
     weight: u64,
-    cumulative_difficulty: u128,
+    // Maintain 8 byte alignment.
+    cumulative_difficulty_low: u64,
+    cumulative_difficulty_high: u64,
     block_hash: [u8; 32],
     cumulative_rct_outs: u64,
     long_term_weight: u64
