@@ -250,24 +250,22 @@ impl<Z: NetworkZone> AddressBook<Z> {
             .reduce_list(&HashSet::new(), self.cfg.max_gray_list_length);
     }
 
-    fn get_random_white_peer(
-        &self,
+    fn take_random_white_peer(
+        &mut self,
         block_needed: Option<u64>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random white peer");
         self.white_list
-            .get_random_peer(&mut rand::thread_rng(), block_needed)
-            .copied()
+            .take_random_peer(&mut rand::thread_rng(), block_needed)
     }
 
-    fn get_random_gray_peer(
-        &self,
+    fn take_random_gray_peer(
+        &mut self,
         block_needed: Option<u64>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random gray peer");
         self.gray_list
-            .get_random_peer(&mut rand::thread_rng(), block_needed)
-            .copied()
+            .take_random_peer(&mut rand::thread_rng(), block_needed)
     }
 
     fn get_white_peers(&self, len: usize) -> Vec<ZoneSpecificPeerListEntryBase<Z::Addr>> {
@@ -396,17 +394,17 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                 self.handle_incoming_peer_list(peer_list);
                 Ok(AddressBookResponse::Ok)
             }
-            AddressBookRequest::GetRandomWhitePeer { height } => self
-                .get_random_white_peer(height)
+            AddressBookRequest::TakeRandomWhitePeer { height } => self
+                .take_random_white_peer(height)
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
-            AddressBookRequest::GetRandomGrayPeer { height } => self
-                .get_random_gray_peer(height)
+            AddressBookRequest::TakeRandomGrayPeer { height } => self
+                .take_random_gray_peer(height)
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
-            AddressBookRequest::GetRandomPeer { height } => self
-                .get_random_white_peer(height)
-                .or_else(|| self.get_random_gray_peer(height))
+            AddressBookRequest::TakeRandomPeer { height } => self
+                .take_random_white_peer(height)
+                .or_else(|| self.take_random_gray_peer(height))
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
             AddressBookRequest::GetWhitePeers(len) => {

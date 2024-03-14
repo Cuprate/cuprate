@@ -43,15 +43,15 @@ fn make_fake_address_book(
 }
 
 #[tokio::test]
-async fn get_random_peers() {
-    let address_book = make_fake_address_book(50, 250);
-    let peer = address_book.get_random_white_peer(None).unwrap();
-    assert!(address_book.white_list.contains_peer(&peer.adr));
+async fn take_random_peers() {
+    let mut address_book = make_fake_address_book(50, 250);
+    let peer = address_book.take_random_white_peer(None).unwrap();
+    assert!(!address_book.white_list.contains_peer(&peer.adr));
     assert!(!address_book.gray_list.contains_peer(&peer.adr));
 
-    let peer = address_book.get_random_gray_peer(None).unwrap();
+    let peer = address_book.take_random_gray_peer(None).unwrap();
     assert!(!address_book.white_list.contains_peer(&peer.adr));
-    assert!(address_book.gray_list.contains_peer(&peer.adr));
+    assert!(!address_book.gray_list.contains_peer(&peer.adr));
 }
 
 #[tokio::test]

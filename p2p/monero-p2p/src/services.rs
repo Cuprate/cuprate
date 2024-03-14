@@ -85,25 +85,25 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// address.
     BanPeer(Z::Addr, std::time::Duration),
     IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
-    /// Gets a random white peer from the peer list. If height is specified
+    /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    GetRandomWhitePeer {
+    TakeRandomWhitePeer {
         height: Option<u64>,
     },
-    /// Gets a random gray peer from the peer list. If height is specified
+    /// Takes a random gray peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    GetRandomGrayPeer {
+    TakeRandomGrayPeer {
         height: Option<u64>,
     },
-    /// Gets a random peer from the peer list. If height is specified
+    /// Takes a random peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed.
     ///
     /// The address book will look in the white peer list first, then the gray
     /// one if no peer is found.
-    GetRandomPeer {
+    TakeRandomPeer {
         height: Option<u64>,
     },
     GetWhitePeers(usize),

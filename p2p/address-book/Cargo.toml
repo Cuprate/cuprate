@@ -19,6 +19,7 @@ futures = { workspace = true, features = ["std"] }
 
 thiserror = { workspace = true }
 tracing = { workspace = true, features = ["std", "attributes"] }
+indexmap = { workspace = true, features = ["std"] }
 
 rand = { workspace = true, features = ["std", "std_rng"] }
 
