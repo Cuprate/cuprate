@@ -11,7 +11,7 @@
 //! use monero_pruning::PruningSeed;
 //!
 //! let seed: u32 = 386; // the seed you want to check is valid
-//! match PruningSeed::decompress(seed) {
+//! match PruningSeed::decompress_p2p_rules(seed) {
 //!     Ok(seed) => seed, // seed is valid
 //!     Err(e) => panic!("seed is invalid")
 //! };
@@ -84,6 +84,22 @@ impl PruningSeed {
         Ok(DecompressedPruningSeed::decompress(seed)?
             .map(PruningSeed::Pruned)
             .unwrap_or(PruningSeed::NotPruned))
+    }
+
+    /// Decompresses the seed, performing the same checks as [`PruningSeed::decompress`] and some more according to
+    /// Monero's p2p networks rules.
+    ///
+    /// The only added check currently is that `log_stripes` == 3.
+    pub fn decompress_p2p_rules(seed: u32) -> Result<Self, PruningError> {
+        let seed = Self::decompress(seed)?;
+
+        if let Some(log_stripes) = seed.get_log_stripes() {
+            if log_stripes != CRYPTONOTE_PRUNING_LOG_STRIPES {
+                return Err(PruningError::LogStripesOutOfRange);
+            }
+        }
+
+        Ok(seed)
     }
 
     /// Compresses this pruning seed to a u32.
