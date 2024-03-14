@@ -24,12 +24,12 @@ use crate::{table::Table, Storable, ToOwnedDebug};
 /// - `redb` will always be `Cow::Borrowed` for `[u8]`
 ///   or any type where `Storable::ALIGN == 1`
 /// - `redb` will always be `Cow::Owned` for everything else
-pub trait ValueGuard<T: ToOwnedDebug> {
+pub trait ValueGuard<T: ToOwnedDebug + ?Sized> {
     /// Retrieve the data from the guard.
     fn unguard(&self) -> Cow<'_, T>;
 }
 
-impl<T: ToOwnedDebug> ValueGuard<T> for Cow<'_, T> {
+impl<T: ToOwnedDebug + ?Sized> ValueGuard<T> for Cow<'_, T> {
     #[inline]
     fn unguard(&self) -> Cow<'_, T> {
         Cow::Borrowed(self.borrow())
