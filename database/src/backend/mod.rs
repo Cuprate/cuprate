@@ -20,3 +20,6 @@ cfg_if::cfg_if! {
         pub use heed::ConcreteEnv;
     }
 }
+
+#[cfg(test)]
+mod tests;

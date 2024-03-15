@@ -1,6 +1,8 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::{fmt::Debug, ops::Deref};
+
 use crate::{
     config::Config,
     database::{DatabaseRo, DatabaseRw},
@@ -19,6 +21,10 @@ use crate::{
 /// Objects that implement [`Env`] _should_ probably
 /// [`Env::sync`] in their drop implementations,
 /// although, no invariant relies on this (yet).
+///
+/// # Lifetimes
+/// TODO: Explain the very sequential lifetime pipeline:
+/// - `ConcreteEnv` -> `'env` -> `'tx` -> `impl DatabaseR{o,w}`
 pub trait Env: Sized {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
@@ -39,51 +45,49 @@ pub trait Env: Sized {
     const SYNCS_PER_TX: bool;
 
     //------------------------------------------------ Types
-    /// TODO
-    type TxRo<'env>: TxRo<'env>;
+    /// The struct representing the actual backend's database environment.
+    ///
+    /// This is used as the `self` in [`EnvInner`] functions, so whatever
+    /// this type is, is what will be accessible from those functions.
+    ///
+    /// # Explanation (not needed for practical use)
+    /// For `heed`, this is just `heed::Env`, for `redb` this is
+    /// `(redb::Database, redb::Durability)` as each transaction
+    /// needs the sync mode set during creation.
+    type EnvInner<'env>: EnvInner<'env, Self::TxRo<'env>, Self::TxRw<'env>>
+    where
+        Self: 'env;
 
-    /// TODO
-    type TxRw<'env>: TxRw<'env>;
+    /// The read-only transaction type of the backend.
+    type TxRo<'env>: TxRo<'env> + 'env
+    where
+        Self: 'env;
+
+    /// The read/write transaction type of the backend.
+    type TxRw<'env>: TxRw<'env> + 'env
+    where
+        Self: 'env;
 
     //------------------------------------------------ Required
-    /// TODO
+    /// Open the database environment, using the passed [`Config`].
+    ///
+    /// # Invariants
+    /// This function **must** create all tables listed in [`crate::tables`].
+    ///
+    /// The rest of the functions depend on the fact
+    /// they already exist, or else they will panic.
+    ///
     /// # Errors
-    /// TODO
+    /// This will error if the database could not be opened.
+    ///
+    /// This is the only [`Env`] function that will return
+    /// an [`InitError`] instead of a [`RuntimeError`].
     fn open(config: Config) -> Result<Self, InitError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError>;
 
     /// Return the [`Config`] that this database was [`Env::open`]ed with.
     fn config(&self) -> &Config;
 
-    /// Return the amount of actual of bytes the database is taking up on disk.
-    ///
-    /// This is the current _disk_ value in bytes, not the memory map.
-    ///
-    /// # Errors
-    /// This will error if either:
-    ///
-    /// - [`std::fs::File::open`]
-    /// - [`std::fs::File::metadata`]
-    ///
-    /// failed on the database file on disk.
-    fn disk_size_bytes(&self) -> std::io::Result<u64> {
-        // We have the direct PATH to the file,
-        // no need to use backend-specific functions.
-        //
-        // SAFETY: as we are only accessing the metadata of
-        // the file and not reading the bytes, it should be
-        // fine even with a memory mapped file being actively
-        // written to.
-        Ok(std::fs::File::open(&self.config().db_file)?
-            .metadata()?
-            .len())
-    }
-
-    /// TODO
+    /// Fully sync the database caches to disk.
     ///
     /// # Invariant
     /// This must **fully** and **synchronously** flush the database data to disk.
@@ -122,47 +126,98 @@ pub trait Env: Sized {
         unreachable!()
     }
 
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError>;
-
-    /// TODO
+    /// Return the [`Env::EnvInner`].
     ///
-    /// # TODO: Invariant
-    /// This should never panic the database because the table doesn't exist.
+    /// # Locking behavior
+    /// When using the `heed` backend, [`Env::EnvInner`] is a
+    /// `RwLockReadGuard`, i.e., calling this function takes a
+    /// read lock on the `heed::Env`.
     ///
-    /// Opening/using the database [`Env`] should have an invariant
-    /// that it creates all the tables we need, such that this
-    /// never returns `None`.
-    ///
-    /// # Errors
-    /// TODO
-    fn open_db_ro<T: Table>(
-        &self,
-        tx_ro: &Self::TxRo<'_>,
-    ) -> Result<impl DatabaseRo<T>, RuntimeError>;
-
-    /// TODO
-    ///
-    /// # TODO: Invariant
-    /// This should never panic the database because the table doesn't exist.
-    ///
-    /// Opening/using the database [`Env`] should have an invariant
-    /// that it creates all the tables we need, such that this
-    /// never returns `None`.
-    ///
-    /// # Errors
-    /// TODO
-    fn open_db_rw<T: Table>(
-        &self,
-        tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError>;
+    /// Be aware of this, as other functions (currently only
+    /// [`Env::resize_map`]) will take a _write_ lock.
+    fn env_inner(&self) -> Self::EnvInner<'_>;
 
     //------------------------------------------------ Provided
+    /// Return the amount of actual of bytes the database is taking up on disk.
+    ///
+    /// This is the current _disk_ value in bytes, not the memory map.
+    ///
+    /// # Errors
+    /// This will error if either:
+    ///
+    /// - [`std::fs::File::open`]
+    /// - [`std::fs::File::metadata`]
+    ///
+    /// failed on the database file on disk.
+    fn disk_size_bytes(&self) -> std::io::Result<u64> {
+        // We have the direct PATH to the file,
+        // no need to use backend-specific functions.
+        //
+        // SAFETY: as we are only accessing the metadata of
+        // the file and not reading the bytes, it should be
+        // fine even with a memory mapped file being actively
+        // written to.
+        Ok(std::fs::File::open(&self.config().db_file)?
+            .metadata()?
+            .len())
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseRo
+/// TODO
+pub trait EnvInner<'env, Ro, Rw>
+where
+    Self: 'env,
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+{
+    /// Create a read-only transaction.
+    ///
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] if it errors.
+    fn tx_ro(&'env self) -> Result<Ro, RuntimeError>;
+
+    /// Create a read/write transaction.
+    ///
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] if it errors.
+    fn tx_rw(&'env self) -> Result<Rw, RuntimeError>;
+
+    /// Open a database in read-only mode.
+    ///
+    /// This will open the database [`Table`]
+    /// passed as a generic to this function.
+    ///
+    /// ```rust,ignore
+    /// let db = env.open_db_ro::<Table>(&tx_ro);
+    /// //  ^                     ^
+    /// // database table       table metadata
+    /// //                      (name, key/value type)
+    /// ```
+    ///
+    /// # Errors
+    /// As [`Table`] is `Sealed`, and all tables are created
+    /// upon [`Env::open`], this function will never error because
+    /// a table doesn't exist.
+    fn open_db_ro<'tx, T: Table>(
+        &self,
+        tx_ro: &'tx Ro,
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
+
+    /// Open a database in read/write mode.
+    ///
+    /// All [`DatabaseRo`] functions are also callable
+    /// with the returned [`DatabaseRw`] structure.
+    ///
+    /// This will open the database [`Table`]
+    /// passed as a generic to this function.
+    ///
+    /// # Errors
+    /// As [`Table`] is `Sealed`, and all tables are created
+    /// upon [`Env::open`], this function will never error because
+    /// a table doesn't exist.
+    fn open_db_rw<'tx, T: Table>(
+        &self,
+        tx_rw: &'tx mut Rw,
+    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError>;
 }

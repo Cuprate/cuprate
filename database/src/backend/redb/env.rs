@@ -1,15 +1,19 @@
 //! Implementation of `trait Env` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{path::Path, sync::Arc};
+use std::{fmt::Debug, ops::Deref, path::Path, sync::Arc};
 
 use crate::{
-    backend::redb::types::{RedbTableRo, RedbTableRw},
+    backend::redb::{
+        storable::StorableRedb,
+        types::{RedbTableRo, RedbTableRw},
+    },
     config::{Config, SyncMode},
     database::{DatabaseRo, DatabaseRw},
-    env::Env,
+    env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     table::Table,
+    TxRw,
 };
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
@@ -30,6 +34,7 @@ pub struct ConcreteEnv {
 
 impl Drop for ConcreteEnv {
     fn drop(&mut self) {
+        // INVARIANT: drop(ConcreteEnv) must sync.
         if let Err(e) = self.sync() {
             // TODO: log error?
         }
@@ -42,12 +47,13 @@ impl Drop for ConcreteEnv {
 impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = false;
     const SYNCS_PER_TX: bool = false;
-
-    type TxRo<'env> = redb::ReadTransaction<'env>;
-    type TxRw<'env> = redb::WriteTransaction<'env>;
+    type EnvInner<'env> = (&'env redb::Database, redb::Durability);
+    type TxRo<'tx> = redb::ReadTransaction<'tx>;
+    type TxRw<'tx> = redb::WriteTransaction<'tx>;
 
     #[cold]
     #[inline(never)] // called once.
+    #[allow(clippy::items_after_statements)]
     fn open(config: Config) -> Result<Self, InitError> {
         // TODO: dynamic syncs are not implemented.
         let durability = match config.sync_mode {
@@ -61,13 +67,57 @@ impl Env for ConcreteEnv {
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
 
-        todo!()
-    }
+        let env_builder = redb::Builder::new();
 
-    #[cold]
-    #[inline(never)] // called once in [`Env::open`]?`
-    fn create_tables<T: Table>(&self, tx_rw: &mut Self::TxRw<'_>) -> Result<(), RuntimeError> {
-        todo!()
+        // TODO: we can set cache sizes with:
+        // env_builder.set_cache(bytes);
+
+        // Open the database file, create if needed.
+        let db_file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(config.db_file())?;
+        let mut env = env_builder.create_file(db_file)?;
+
+        // Create all database tables.
+        // `redb` creates tables if they don't exist.
+        // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
+        use crate::tables::{TestTable, TestTable2};
+        let tx_rw = env.begin_write()?;
+
+        // FIXME:
+        // These wonderful fully qualified trait types are brought
+        // to you by `tower::discover::Discover>::Key` collisions.
+
+        // TODO: Create all tables when schema is done.
+
+        /// Function that creates the tables based off the passed `T: Table`.
+        fn create_table<T: Table>(tx_rw: &redb::WriteTransaction<'_>) -> Result<(), InitError> {
+            let table: redb::TableDefinition<
+                'static,
+                StorableRedb<<T as Table>::Key>,
+                StorableRedb<<T as Table>::Value>,
+            > = redb::TableDefinition::new(<T as Table>::NAME);
+
+            // `redb` creates tables on open if not already created.
+            tx_rw.open_table(table)?;
+            Ok(())
+        }
+
+        create_table::<TestTable>(&tx_rw)?;
+        create_table::<TestTable2>(&tx_rw)?;
+        tx_rw.commit()?;
+
+        // Check for file integrity.
+        // TODO: should we do this? is it slow?
+        env.check_integrity()?;
+
+        Ok(Self {
+            env,
+            config,
+            durability,
+        })
     }
 
     fn config(&self) -> &Config {
@@ -75,41 +125,65 @@ impl Env for ConcreteEnv {
     }
 
     fn sync(&self) -> Result<(), RuntimeError> {
-        todo!()
+        // `redb`'s syncs are tied with write transactions,
+        // so just create one, don't do anything and commit.
+        let mut tx_rw = self.env.begin_write()?;
+        tx_rw.set_durability(redb::Durability::Paranoid);
+        TxRw::commit(tx_rw)
+    }
+
+    fn env_inner(&self) -> Self::EnvInner<'_> {
+        (&self.env, self.durability)
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- EnvInner Impl
+impl<'env> EnvInner<'env, redb::ReadTransaction<'env>, redb::WriteTransaction<'env>>
+    for (&'env redb::Database, redb::Durability)
+where
+    Self: 'env,
+{
+    #[inline]
+    fn tx_ro(&'env self) -> Result<redb::ReadTransaction<'env>, RuntimeError> {
+        Ok(self.0.begin_read()?)
     }
 
     #[inline]
-    fn tx_ro(&self) -> Result<Self::TxRo<'_>, RuntimeError> {
-        todo!()
-    }
-
-    #[inline]
-    fn tx_rw(&self) -> Result<Self::TxRw<'_>, RuntimeError> {
+    fn tx_rw(&'env self) -> Result<redb::WriteTransaction<'env>, RuntimeError> {
         // `redb` has sync modes on the TX level, unlike heed,
         // which sets it at the Environment level.
         //
         // So, set the durability here before returning the TX.
-        let mut tx_rw = self.env.begin_write()?;
-        tx_rw.set_durability(self.durability);
+        let mut tx_rw = self.0.begin_write()?;
+        tx_rw.set_durability(self.1);
         Ok(tx_rw)
     }
 
     #[inline]
-    fn open_db_ro<T: Table>(
+    fn open_db_ro<'tx, T: Table>(
         &self,
-        tx_ro: &Self::TxRo<'_>,
-    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
-        let tx: RedbTableRo<'_, T::Key, T::Value> = todo!();
-        Ok(tx)
+        tx_ro: &'tx redb::ReadTransaction<'env>,
+    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        // Open up a read-only database using our `T: Table`'s const metadata.
+        let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
+            redb::TableDefinition::new(T::NAME);
+
+        // INVARIANT: Our `?` error conversion will panic if the table does not exist.
+        Ok(tx_ro.open_table(table)?)
     }
 
     #[inline]
-    fn open_db_rw<T: Table>(
+    fn open_db_rw<'tx, T: Table>(
         &self,
-        tx_rw: &mut Self::TxRw<'_>,
-    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
-        let tx: RedbTableRw<'_, '_, T::Key, T::Value> = todo!();
-        Ok(tx)
+        tx_rw: &'tx mut redb::WriteTransaction<'env>,
+    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
+        // Open up a read/write database using our `T: Table`'s const metadata.
+        let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
+            redb::TableDefinition::new(T::NAME);
+
+        // `redb` creates tables if they don't exist, so this should never panic.
+        // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
+        Ok(tx_rw.open_table(table)?)
     }
 }
 

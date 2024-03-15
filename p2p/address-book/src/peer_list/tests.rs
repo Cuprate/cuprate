@@ -18,7 +18,7 @@ fn make_fake_peer(
         adr: TestNetZoneAddr(id),
         id: id as u64,
         last_seen: 0,
-        pruning_seed: PruningSeed::try_from(pruning_seed.unwrap_or(0)).unwrap(),
+        pruning_seed: PruningSeed::decompress(pruning_seed.unwrap_or(0)).unwrap(),
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     }
