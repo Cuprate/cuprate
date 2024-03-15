@@ -41,9 +41,9 @@ pub enum PruningError {
     LogStripesOutOfRange,
     #[error("Stripe is out of range")]
     StripeOutOfRange,
-    #[error("The block height is greater than `CRYPTONOTE_MAX_BLOCK_NUMBER`")]
+    #[error("The block height is greater than `CRYPTONOTE_MAX_BLOCK_HEIGHT`")]
     BlockHeightTooLarge,
-    #[error("The blockchain height is greater than `CRYPTONOTE_MAX_BLOCK_NUMBER`")]
+    #[error("The blockchain height is greater than `CRYPTONOTE_MAX_BLOCK_HEIGHT`")]
     BlockChainHeightTooLarge,
     #[error("The calculated height is smaller than the block height entered")]
     CalculatedHeightSmallerThanEnteredBlock,
@@ -138,7 +138,7 @@ impl PruningSeed {
     /// ### Errors
     ///
     /// This function will return an Error if the inputted `block_height` or
-    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_NUMBER`].
+    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_HEIGHT`].
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     pub fn get_next_pruned_block(
@@ -163,7 +163,7 @@ impl PruningSeed {
     /// ### Errors
     ///
     /// This function will return an Error if the inputted `block_height` or
-    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_NUMBER`].
+    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_HEIGHT`].
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     ///
@@ -312,7 +312,7 @@ impl DecompressedPruningSeed {
     /// ### Errors
     ///
     /// This function will return an Error if the inputted `block_height` or
-    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_NUMBER`].
+    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_HEIGHT`].
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     ///
@@ -378,7 +378,7 @@ impl DecompressedPruningSeed {
     /// ### Errors
     ///
     /// This function will return an Error if the inputted `block_height` or
-    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_NUMBER`].
+    /// `blockchain_height` is greater than [`CRYPTONOTE_MAX_BLOCK_HEIGHT`].
     ///
     /// This function will also error if `block_height` > `blockchain_height`
     ///
