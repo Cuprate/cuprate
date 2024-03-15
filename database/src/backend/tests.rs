@@ -30,7 +30,11 @@ use crate::{
         PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds, TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
-    types::{Amount, Output},
+    types::{
+        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
+        BlockInfoV2, BlockInfoV3, KeyImage, Output, PrunableBlob, PrunableHash, PrunedBlob,
+        RctOutput, TxHash, TxId, UnlockTime,
+    },
     value_guard::ValueGuard,
     ConcreteEnv,
 };
@@ -216,4 +220,158 @@ fn db_read_write() {
     table.delete(&KEY).unwrap();
     let value = table.get(&KEY);
     assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+}
+
+//---------------------------------------------------------------------------------------------------- Table Tests
+/// Test a table and it's key + values.
+///
+/// Each one of these tests:
+/// - Opens a specific table
+/// - Inserts a key + value
+/// - Retrieves the key + value
+/// - Asserts it is the same
+macro_rules! test_table {
+    ($(
+        $table:ident,    // Table type
+        $key_type:ty =>  // Key (type)
+        $value_type:ty,  // Value (type)
+        $key:expr =>     // Key (the value)
+        $value:expr,     // Value (the value)
+    )* $(,)?) => { paste::paste! { $(
+        #[test]
+        fn [<$table:snake>]() {
+            let (env, _tempdir) = tmp_concrete_env();
+            let env_inner = env.env_inner();
+            let mut tx_rw = env_inner.tx_rw().unwrap();
+            let mut table = env_inner.open_db_rw::<$table>(&mut tx_rw).unwrap();
+
+            /// The key.
+            const KEY: $key_type = $key;
+            /// The expected value.
+            const VALUE: &$value_type = &$value;
+
+            /// Assert a passed value is equal to the const value.
+            fn assert_eq(value: &$value_type) {
+                assert_eq!(value, VALUE);
+            }
+
+            // Insert the key.
+            table.put(&KEY, VALUE).unwrap();
+            // Assert key is there.
+            {
+                let guard = table.get(&KEY).unwrap();
+                let cow: Cow<'_, $value_type> = guard.unguard();
+                let value: &$value_type = cow.as_ref();
+                assert_eq(value);
+            }
+
+            // Assert `get_range()` works.
+            {
+                let range = KEY..;
+                assert_eq!(1, table.get_range(&range).unwrap().count());
+                let mut iter = table.get_range(&range).unwrap();
+                let guard = iter.next().unwrap().unwrap();
+                let cow = guard.unguard();
+                let value = cow.as_ref();
+                assert_eq(value);
+            }
+
+            // Assert deleting works.
+            table.delete(&KEY).unwrap();
+            let value = table.get(&KEY);
+            assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+        }
+    )*}};
+}
+
+test_table! {
+    TxIds, // Table type
+    TxHash => TxId, // Key type => Value type
+    [32; 32] => 123, // Actual key => Actual value
+
+    TxHeights,
+    TxId => BlockHeight,
+    123 => 123,
+
+    TxUnlockTime,
+    TxId => UnlockTime,
+    123 => 123,
+
+    PrunedTxBlobs,
+    TxId => PrunedBlob,
+    123 => [1,2,3,4,5,6,7,8].as_slice(),
+
+    PrunableTxBlobs,
+    TxId => PrunableBlob,
+    123 => [1,2,3,4,5,6,7,8].as_slice(),
+
+    PrunableHashes,
+    TxId => PrunableHash,
+    123 => [32; 32],
+
+    Outputs,
+    Amount => Output, // FIXME: `Amount | AmountIndex` key
+    123 => Output {
+        key: [1; 32],
+        height: 1,
+        output_flags: 0,
+        tx_idx: 3,
+    },
+
+    RctOutputs,
+    AmountIndex => RctOutput,
+    123 => RctOutput {
+        key: [1; 32],
+        height: 1,
+        output_flags: 0,
+        tx_idx: 3,
+        commitment: [3; 32],
+    },
+
+    KeyImages,
+    KeyImage => (),
+    [32; 32] => (),
+
+    BlockHeights,
+    BlockHash => BlockHeight,
+    [32; 32] => 123,
+
+    BlockBlobs,
+    BlockHeight => BlockBlob,
+    123 => [1,2,3,4,5,6,7,8].as_slice(),
+
+    BlockInfoV1s,
+    BlockHeight => BlockInfoV1,
+    123 => BlockInfoV1 {
+        timestamp: 1,
+        total_generated_coins: 123,
+        weight: 321,
+        cumulative_difficulty: 111,
+        block_hash: [54; 32],
+    },
+
+    BlockInfoV2s,
+    BlockHeight => BlockInfoV2,
+    123 => BlockInfoV2 {
+        timestamp: 1,
+        total_generated_coins: 123,
+        weight: 321,
+        cumulative_difficulty: 111,
+        cumulative_rct_outs: 2389,
+        block_hash: [54; 32],
+        _pad: [7; 4],
+    },
+
+    BlockInfoV3s,
+    BlockHeight => BlockInfoV3,
+    123 => BlockInfoV3 {
+        timestamp: 1,
+        total_generated_coins: 123,
+        weight: 321,
+        cumulative_difficulty_low: 111,
+        cumulative_difficulty_high: 112,
+        block_hash: [54; 32],
+        cumulative_rct_outs: 2389,
+        long_term_weight: 2389,
+    },
 }

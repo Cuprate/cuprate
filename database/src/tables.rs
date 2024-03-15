@@ -80,6 +80,7 @@ macro_rules! tables {
 // Notes:
 // - Keep this sorted A-Z
 // - Tables are defined in plural to avoid name conflicts with types
+// - If adding/changing a table, also edit the tests in `src/backend/tests.rs`
 tables! {
     /// TODO
     TxIds,
