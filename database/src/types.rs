@@ -49,6 +49,155 @@ use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+//---------------------------------------------------------------------------------------------------- Aliases
+// TODO: document these, why they exist, and their purpose.
+//
+// TODO: should we go as far as making transparent
+// wrappers for all of these to be more typesafe?
+//
+// Notes:
+// - Keep this sorted A-Z
+
+/// TODO
+pub type Amount = u64;
+
+/// TODO
+pub type AmountIndex = u64;
+
+/// TODO
+pub type AmountIndices = [AmountIndex];
+
+/// TODO
+pub type BlockBlob = [u8];
+
+/// TODO
+pub type BlockHash = [u8; 32];
+
+/// TODO
+pub type BlockHeight = u64;
+
+/// TODO
+pub type KeyImage = [u8; 32];
+
+/// TODO
+pub type PrunedBlob = [u8];
+
+/// TODO
+pub type PrunableBlob = [u8];
+
+/// TODO
+pub type PrunableHash = [u8; 32];
+
+/// TODO
+pub type TxId = u64;
+
+/// TODO
+pub type TxHash = [u8; 32];
+
+/// TODO
+pub type UnlockTime = u64;
+
+//---------------------------------------------------------------------------------------------------- Output
+/// TODO
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct Output {
+    /// TODO
+    key: [u8; 32],
+    /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
+    height: u32,
+    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
+    output_flags: u32,
+    /// TODO
+    tx_idx: u64,
+}
+
+//---------------------------------------------------------------------------------------------------- RctOutput
+/// TODO
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct RctOutput {
+    /// TODO
+    key: [u8; 32],
+    /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
+    height: u32,
+    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
+    output_flags: u32,
+    /// TODO
+    tx_idx: u64,
+    /// The amount commitment of this output.
+    commitment: [u8; 32],
+}
+// TODO: local_index?
+
+//---------------------------------------------------------------------------------------------------- BlockInfoV1
+/// TODO
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct BlockInfoV1 {
+    /// TODO
+    timestamp: u64,
+    /// TODO
+    total_generated_coins: u64,
+    /// TODO
+    weight: u64,
+    /// TODO
+    cumulative_difficulty: u64,
+    /// TODO
+    block_hash: [u8; 32],
+}
+
+//---------------------------------------------------------------------------------------------------- BlockInfoV2
+/// TODO
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct BlockInfoV2 {
+    /// TODO
+    timestamp: u64,
+    /// TODO
+    total_generated_coins: u64,
+    /// TODO
+    weight: u64,
+    /// TODO
+    cumulative_difficulty: u64,
+    /// TODO
+    block_hash: [u8; 32],
+    /// TODO
+    cumulative_rct_outs: u32,
+    /// TODO
+    _pad: [u8; 4], // TODO: get rid of or use this padding.
+}
+
+//---------------------------------------------------------------------------------------------------- BlockInfoV3
+/// TODO
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct BlockInfoV3 {
+    /// TODO
+    /// TODO
+    timestamp: u64,
+    /// TODO
+    total_generated_coins: u64,
+    /// TODO
+    weight: u64,
+    // Maintain 8 byte alignment.
+    /// TODO
+    cumulative_difficulty_low: u64,
+    /// TODO
+    cumulative_difficulty_high: u64,
+    /// TODO
+    block_hash: [u8; 32],
+    /// TODO
+    cumulative_rct_outs: u64,
+    /// TODO
+    long_term_weight: u64,
+}
+
 //---------------------------------------------------------------------------------------------------- TestType
 /// TEST
 ///
