@@ -5,7 +5,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     table::Table,
-    types::{TestType, TestType2},
+    types::{
+        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
+        BlockInfoV2, BlockInfoV3, KeyImage, Output, PrunableBlob, PrunableHash, PrunedBlob,
+        RctOutput, TestType, TestType2, TxHash, TxId, UnlockTime,
+    },
 };
 
 //---------------------------------------------------------------------------------------------------- Tables
@@ -35,7 +39,6 @@ macro_rules! tables {
         $(
             $(#[$attr:meta])* // Documentation and any `derive`'s.
             $table:ident,     // The table name + doubles as the table struct name.
-            $size:literal,    // Are the table's values all the same size?
             $key:ty =>        // Key type.
             $value:ty         // Value type.
         ),* $(,)?
@@ -56,7 +59,7 @@ macro_rules! tables {
             )]
             /// ```
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-            #[derive(Copy,Clone,Debug,PartialEq,PartialOrd,Eq,Ord,Hash)]
+            #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
             pub struct [<$table:camel>];
 
             // Implement the `Sealed` in this file.
@@ -74,16 +77,73 @@ macro_rules! tables {
 }
 
 //---------------------------------------------------------------------------------------------------- Tables
+// Notes:
+// - Keep this sorted A-Z
+// - Tables are defined in plural to avoid name conflicts with types
 tables! {
     /// Test documentation.
     TestTable,
-    true,
     i64 => TestType,
 
     /// Test documentation 2.
     TestTable2,
-    true,
     u8 => TestType2,
+
+    /// TODO
+    TxIds,
+    TxHash => TxId,
+
+    /// TODO
+    TxHeights,
+    TxId => BlockHeight,
+
+    /// TODO
+    TxUnlockTime,
+    TxId => UnlockTime,
+
+    /// TODO
+    PrunedTxBlobs,
+    TxId => PrunedBlob,
+
+    /// TODO
+    PrunableTxBlobs,
+    TxId => PrunableBlob,
+
+    /// TODO
+    PrunableHashes,
+    TxId => PrunableHash,
+
+    /// TODO
+    Outputs,
+    Amount => Output, // FIXME: `Amount | AmountIndex` key
+
+    /// TODO
+    RctOutputs,
+    AmountIndex => RctOutput,
+
+    /// TODO
+    KeyImages,
+    KeyImage => (),
+
+    /// TODO
+    BlockHeights,
+    BlockHash => BlockHeight,
+
+    /// TODO
+    BlockBlobs,
+    BlockHeight => BlockBlob,
+
+    /// TODO
+    BlockInfoV1s,
+    BlockHeight => BlockInfoV1,
+
+    /// TODO
+    BlockInfoV2s,
+    BlockHeight => BlockInfoV2,
+
+    /// TODO
+    BlockInfoV3s,
+    BlockHeight => BlockInfoV3,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
