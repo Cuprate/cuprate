@@ -132,7 +132,8 @@ impl PruningSeed {
     /// the ones that are out of your stripe. This function is finding the next height
     /// for which a specific seed will start pruning blocks.
     ///
-    /// This will return Ok(None) if the seed does no pruning.
+    /// This will return Ok(None) if the seed does no pruning or if there is no pruned block
+    /// after this one.
     ///
     /// ### Errors
     ///
@@ -148,7 +149,7 @@ impl PruningSeed {
         Ok(match self {
             PruningSeed::NotPruned => None,
             PruningSeed::Pruned(seed) => {
-                Some(seed.get_next_pruned_block(block_height, blockchain_height)?)
+                seed.get_next_pruned_block(block_height, blockchain_height)?
             }
         })
     }
@@ -360,9 +361,9 @@ impl DecompressedPruningSeed {
 
         if calculated_height + CRYPTONOTE_PRUNING_TIP_BLOCKS > blockchain_height {
             // if our calculated height is greater than the amount of tip blocks then the start of the tip blocks will be the next un-pruned
-            return Ok(blockchain_height.saturating_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS));
+            Ok(blockchain_height.saturating_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS))
         } else if calculated_height < block_height {
-            return Err(PruningError::CalculatedHeightSmallerThanEnteredBlock);
+            Err(PruningError::CalculatedHeightSmallerThanEnteredBlock)
         } else {
             Ok(calculated_height)
         }
@@ -385,26 +386,34 @@ impl DecompressedPruningSeed {
         &self,
         block_height: u64,
         blockchain_height: u64,
-    ) -> Result<u64, PruningError> {
+    ) -> Result<Option<u64>, PruningError> {
         if block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height {
             // If we are within `CRYPTONOTE_PRUNING_TIP_BLOCKS` of the chain we should
             // not prune blocks.
-            return Ok(blockchain_height);
+            return Ok(None);
         }
 
         let block_pruning_stripe = get_block_pruning_stripe(block_height, blockchain_height, self.log_stripes)
             .expect("We just checked if `block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height`");
         if self.stripe != block_pruning_stripe {
             // if our stripe != the blocks stripe that means we prune that block
-            return Ok(block_height);
+            return Ok(Some(block_height));
         }
 
         // We can get the end of our "non-pruning" cycle by getting the next stripe's first un-pruned block height.
         // So we calculate the next un-pruned block for the next stripe and return it as our next pruned block
-        let next_stripe = (1 + self.stripe) & ((1 << self.log_stripes) - 1);
+        let next_stripe = 1 + (self.stripe & ((1 << self.log_stripes) - 1));
         let seed = DecompressedPruningSeed::new(next_stripe, self.log_stripes)
             .expect("We just made sure this stripe is in range for this log_stripe");
-        seed.get_next_unpruned_block(block_height, blockchain_height)
+
+        let calculated_height = seed.get_next_unpruned_block(block_height, blockchain_height)?;
+
+        if calculated_height + CRYPTONOTE_PRUNING_TIP_BLOCKS > blockchain_height {
+            // If the calculated height is in tip blocks then there is no next block to prune
+            Ok(None)
+        } else {
+            Ok(Some(calculated_height))
+        }
     }
 }
 
@@ -428,7 +437,7 @@ mod tests {
     use super::*;
 
     fn make_all_pruning_seeds() -> Vec<PruningSeed> {
-        let possible_stripes = 1..(1 << CRYPTONOTE_PRUNING_LOG_STRIPES);
+        let possible_stripes = 1..=(1 << CRYPTONOTE_PRUNING_LOG_STRIPES);
         possible_stripes
             .map(|stripe| PruningSeed::new_pruned(stripe, CRYPTONOTE_PRUNING_LOG_STRIPES).unwrap())
             .collect()
@@ -569,5 +578,56 @@ mod tests {
         assert_eq!(seed.get_next_unpruned_block(5000, 11000).unwrap(), 5500)
     }
 
-    // TODO: next_pruned_block
+    #[test]
+    fn next_pruned_block() {
+        let all_valid_seeds = make_all_pruning_seeds();
+        let blockchain_height = 76437863;
+
+        for seed in all_valid_seeds.iter().skip(1) {
+            assert_eq!(
+                seed.get_next_pruned_block(0, blockchain_height)
+                    .unwrap()
+                    .unwrap(),
+                0
+            )
+        }
+
+        for (i, seed) in all_valid_seeds.iter().enumerate() {
+            assert_eq!(
+                seed.get_next_pruned_block((i as u64 + 1) * 4096, blockchain_height)
+                    .unwrap()
+                    .unwrap(),
+                (i as u64 + 1) * 4096
+            )
+        }
+
+        for (i, seed) in all_valid_seeds.iter().enumerate() {
+            assert_eq!(
+                seed.get_next_pruned_block((i as u64 + 8) * 4096, blockchain_height)
+                    .unwrap()
+                    .unwrap(),
+                (i as u64 + 9) * 4096
+            )
+        }
+
+        for seed in all_valid_seeds.iter() {
+            assert_eq!(
+                seed.get_next_pruned_block(76437863 - 1, blockchain_height)
+                    .unwrap(),
+                None
+            )
+        }
+
+        let zero_seed = PruningSeed::NotPruned;
+
+        assert_eq!(
+            zero_seed.get_next_pruned_block(33443, 5565445).unwrap(),
+            None
+        );
+
+        let seed = PruningSeed::decompress(384).unwrap();
+
+        // there is no next pruned block
+        assert_eq!(seed.get_next_pruned_block(5000, 10000).unwrap(), None)
+    }
 }
