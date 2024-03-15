@@ -35,7 +35,7 @@ macro_rules! try_right_then_left {
 macro_rules! epee_object {
     (
         $obj:ident,
-        $($field: ident $(($alt_name: literal))?: $ty:ty $(as $ty_as:ty )? $(= $default:expr)?  $(=> $read_fn:expr, $write_fn:expr, $should_write_fn:expr)?, )+
+        $($field: ident $(($alt_name: literal))?: $ty:ty $(as $ty_as:ty )? $(= $default:expr)?  $(=> $read_fn:expr, $write_fn:expr, $should_write_fn:expr)?, )*
         $(!flatten: $($flat_field: ident: $flat_ty:ty ,)+)?
 
     ) => {
@@ -46,7 +46,7 @@ macro_rules! epee_object {
 
                 #[derive(Default)]
                 pub struct [<__Builder $obj>] {
-                    $($field: Option<epee_encoding::field_ty!($ty, $($ty_as)?)>,)+
+                    $($field: Option<epee_encoding::field_ty!($ty, $($ty_as)?)>,)*
                     $($($flat_field: <$flat_ty as epee_encoding::EpeeObject>::Builder,)+)?
                 }
 
@@ -60,7 +60,7 @@ macro_rules! epee_object {
                                     Err(epee_encoding::error::Error::Value(format!("Duplicate field in data: {}", epee_encoding::field_name!($field, $($alt_name)?))))?;
                                 }
                                 Ok(true)
-                            },)+
+                            },)*
                             _ => {
                                 $(
                                     $( if self.$flat_field.add_field(name, b)? {
@@ -89,7 +89,7 @@ macro_rules! epee_object {
                                             $(.map(<$ty_as>::into))?
                                               .ok_or(epee_encoding::error::Error::Value(format!("Missing field in data: {}", epee_encoding::field_name!($field, $($alt_name)?))))?
                                   },
-                                )+
+                                )*
 
                                 $(
                                   $(
@@ -115,7 +115,7 @@ macro_rules! epee_object {
                       {
                           fields += 1;
                       }
-                    )+
+                    )*
 
                     $(
                       $(
@@ -134,7 +134,7 @@ macro_rules! epee_object {
                         {
                          epee_encoding::try_right_then_left!(epee_encoding::write_field, $($write_fn)?)((field), epee_encoding::field_name!($field, $($alt_name)?), w)?;
                       }
-                    )+
+                    )*
 
                     $(
                       $(

@@ -16,6 +16,10 @@ use crate::{NetZoneAddress, NetworkZone};
 impl NetZoneAddress for SocketAddr {
     type BanID = IpAddr;
 
+    fn set_port(&mut self, port: u16) {
+        self.set_port(port)
+    }
+
     fn ban_id(&self) -> Self::BanID {
         self.ip()
     }

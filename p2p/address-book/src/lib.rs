@@ -62,6 +62,7 @@ pub enum AddressBookError {
     AddressBookTaskExited,
 }
 
+/// Initializes the P2P address book for a specific network zone.
 pub async fn init_address_book<Z: NetworkZone>(
     cfg: AddressBookConfig,
 ) -> Result<Buffer<book::AddressBook<Z>, AddressBookRequest<Z>>, std::io::Error> {

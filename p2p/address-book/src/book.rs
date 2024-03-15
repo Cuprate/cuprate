@@ -1,3 +1,6 @@
+//! The address book service.
+//!
+//! This module holds the address book service for a specific network zone.
 use std::{
     collections::{HashMap, HashSet},
     panic,
@@ -366,8 +369,8 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
 
         let response = match req {
             AddressBookRequest::NewConnection {
-                addr,
                 internal_peer_id,
+                public_address,
                 handle,
                 id,
                 pruning_seed,
@@ -377,7 +380,7 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                 .handle_new_connection(
                     internal_peer_id,
                     ConnectionPeerEntry {
-                        addr,
+                        addr: public_address,
                         id,
                         handle,
                         pruning_seed,
@@ -386,10 +389,6 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                     },
                 )
                 .map(|_| AddressBookResponse::Ok),
-            AddressBookRequest::BanPeer(addr, time) => {
-                self.ban_peer(addr, time);
-                Ok(AddressBookResponse::Ok)
-            }
             AddressBookRequest::IncomingPeerList(peer_list) => {
                 self.handle_incoming_peer_list(peer_list);
                 Ok(AddressBookResponse::Ok)

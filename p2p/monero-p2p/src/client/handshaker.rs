@@ -8,12 +8,13 @@ use std::{
 };
 
 use futures::{FutureExt, SinkExt, StreamExt};
+use monero_pruning::PruningSeed;
 use tokio::{
     sync::{broadcast, mpsc, OwnedSemaphorePermit},
     time::{error::Elapsed, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::Instrument;
+use tracing::{info_span, instrument, Instrument};
 
 use monero_wire::{
     admin::{
@@ -29,12 +30,21 @@ use crate::{
     client::{connection::Connection, Client, InternalPeerID},
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, ConnectionDirection, CoreSyncDataRequest,
-    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerBroadcast, PeerRequestHandler,
-    SharedError, MAX_PEERS_IN_PEER_LIST_MESSAGE,
+    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetZoneAddress, NetworkZone, PeerBroadcast,
+    PeerRequestHandler, SharedError, MAX_PEERS_IN_PEER_LIST_MESSAGE,
 };
 
 const MAX_EAGER_PROTOCOL_MESSAGES: usize = 2;
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// A timeout put on pings during handshakes.
+///
+/// When we receive an inbound connection we open an outbound connection to the node and send a ping message
+/// to see if we can reach the node, so we can add it to our address book.
+///
+/// This timeout must be significantly shorter than [`HANDSHAKE_TIMEOUT`] so we don't drop inbound connections that
+/// don't have ports open.
+const PING_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, thiserror::Error)]
 pub enum HandshakeError {
@@ -122,7 +132,8 @@ where
         let core_sync_svc = self.core_sync_svc.clone();
         let our_basic_node_data = self.our_basic_node_data.clone();
 
-        let span = tracing::info_span!(parent: &tracing::Span::current(), "handshaker", %req.addr);
+        let span =
+            tracing::info_span!(parent: &tracing::Span::current(), "handshaker", addr=%req.addr);
 
         async move {
             timeout(
@@ -141,6 +152,41 @@ where
         .instrument(span)
         .boxed()
     }
+}
+pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> {
+    tracing::debug!("Sending Ping to peer");
+
+    let (mut peer_stream, mut peer_sink) = N::connect_to_peer(addr).await?;
+
+    tracing::debug!("Made outbound connection to peer, sending ping.");
+
+    peer_sink
+        .send(Message::Request(RequestMessage::Ping).into())
+        .await?;
+
+    if let Some(res) = peer_stream.next().await {
+        if let Message::Response(ResponseMessage::Ping(ping)) = res? {
+            if ping.status == PING_OK_RESPONSE_STATUS_TEXT {
+                tracing::debug!("Ping successful.");
+                return Ok(ping.peer_id);
+            }
+
+            tracing::debug!("Peer sent invalid response to ping.");
+            Err(HandshakeError::PeerSentInvalidMessage(
+                "Ping response was not `OK`",
+            ))?;
+        }
+        tracing::debug!("Peer sent invalid response to ping.");
+        Err(HandshakeError::PeerSentInvalidMessage(
+            "Peer did not send correct response for ping.",
+        ))?;
+    }
+
+    tracing::debug!("Connection closed before ping response.");
+    Err(BucketError::IO(std::io::Error::new(
+        std::io::ErrorKind::ConnectionAborted,
+        "The peer stream returned None",
+    )))?
 }
 
 /// This function completes a handshake with the requested peer.
@@ -279,20 +325,59 @@ where
         peer_node_data.support_flags = support_flags_res.support_flags;
     }
 
-    if direction == ConnectionDirection::InBound {
-        send_hs_response::<Z, _, _>(
-            &mut peer_sink,
-            &mut core_sync_svc,
-            &mut address_book,
-            our_basic_node_data,
-        )
-        .await?;
-    }
+    let public_address = 'check_out_addr: {
+        match direction {
+            ConnectionDirection::InBound => {
+                // First send the handshake response.
+                send_hs_response::<Z, _, _>(
+                    &mut peer_sink,
+                    &mut core_sync_svc,
+                    &mut address_book,
+                    our_basic_node_data,
+                )
+                .await?;
+
+                // Now ping the peer, if the peer specifies a reachable port.
+                if peer_node_data.my_port != 0 {
+                    let InternalPeerID::KnownAddr(mut outbound_address) = addr else {
+                        // Anonymity network, we don't know the inbound address.
+                        break 'check_out_addr None;
+                    };
+
+                    // u32 does not make sense as a port so just truncate it.
+                    outbound_address.set_port(peer_node_data.my_port as u16);
+
+                    let Ok(Ok(ping_peer_id)) = timeout(
+                        PING_TIMEOUT,
+                        ping::<Z>(outbound_address).instrument(info_span!("ping")),
+                    )
+                    .await
+                    else {
+                        // The ping was not successful.
+                        break 'check_out_addr None;
+                    };
+
+                    if ping_peer_id == peer_node_data.peer_id {
+                        break 'check_out_addr Some(outbound_address);
+                    }
+                }
+                // The peer did not specify a reachable port or the ping was not successful.
+                None
+            }
+            ConnectionDirection::OutBound => {
+                let InternalPeerID::KnownAddr(outbound_addr) = addr else {
+                    unreachable!("How could we make an outbound connection to an unknown address");
+                };
+
+                Some(outbound_addr)
+            }
+        }
+    };
 
     core_sync_svc
         .ready()
         .await?
-        .call(CoreSyncDataRequest::HandleIncoming(peer_core_sync))
+        .call(CoreSyncDataRequest::HandleIncoming(peer_core_sync.clone()))
         .await?;
 
     tracing::debug!("Handshake complete.");
@@ -315,7 +400,27 @@ where
     let connection_handle =
         tokio::spawn(connection.run(peer_stream.fuse(), eager_protocol_messages));
 
-    let client = Client::<Z>::new(addr, handle, connection_tx, connection_handle, error_slot);
+    let client = Client::<Z>::new(
+        addr,
+        handle.clone(),
+        connection_tx,
+        connection_handle,
+        error_slot,
+    );
+
+    address_book
+        .ready()
+        .await?
+        .call(AddressBookRequest::NewConnection {
+            internal_peer_id: addr,
+            public_address,
+            handle,
+            id: peer_node_data.peer_id,
+            pruning_seed: PruningSeed::try_from(peer_core_sync.pruning_seed).expect("TODO"),
+            rpc_port: peer_node_data.rpc_port,
+            rpc_credits_per_hash: peer_node_data.rpc_credits_per_hash,
+        })
+        .await?;
 
     Ok(client)
 }

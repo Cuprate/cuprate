@@ -81,6 +81,7 @@ impl Drop for ConnectionGuard {
 
 /// A handle given to a task that needs to ban, disconnect, check if the peer should be banned or check
 /// the peer is still connected.
+#[derive(Debug, Clone)]
 pub struct ConnectionHandle {
     token: CancellationToken,
     ban: Arc<OnceLock<BanPeer>>,
