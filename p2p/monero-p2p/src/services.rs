@@ -36,7 +36,7 @@ impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for monero_wire::
             adr: value.adr.into(),
             id: value.id,
             last_seen: value.last_seen,
-            pruning_seed: value.pruning_seed.into(),
+            pruning_seed: value.pruning_seed.compress(),
             rpc_port: value.rpc_port,
             rpc_credits_per_hash: value.rpc_credits_per_hash,
         }
@@ -61,7 +61,7 @@ impl<A: NetZoneAddress> TryFrom<monero_wire::PeerListEntryBase>
             adr: value.adr.try_into()?,
             id: value.id,
             last_seen: value.last_seen,
-            pruning_seed: PruningSeed::try_from(value.pruning_seed)?,
+            pruning_seed: PruningSeed::decompress_p2p_rules(value.pruning_seed)?,
             rpc_port: value.rpc_port,
             rpc_credits_per_hash: value.rpc_credits_per_hash,
         })

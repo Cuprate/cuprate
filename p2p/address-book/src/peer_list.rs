@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use rand::{seq::SliceRandom, Rng};
 
 use monero_p2p::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
-use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_NUMBER};
+use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
 
 #[cfg(test)]
 pub mod tests;
@@ -95,7 +95,7 @@ impl<Z: NetworkZone> PeerList<Z> {
         if let Some(needed_height) = block_needed {
             let (_, addresses_with_block) = self.pruning_seeds.iter().find(|(seed, _)| {
                 // TODO: factor in peer blockchain height?
-                seed.get_next_unpruned_block(needed_height, CRYPTONOTE_MAX_BLOCK_NUMBER)
+                seed.get_next_unpruned_block(needed_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
                     .expect("Explain")
                     == needed_height
             })?;
