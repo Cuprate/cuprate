@@ -171,20 +171,14 @@ impl Env for ConcreteEnv {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         // `heed` creates the database if it didn't exist.
         // <https://docs.rs/heed/0.20.0-alpha.9/src/heed/env.rs.html#223-229>
-        use crate::tables::{TestTable, TestTable2};
-        let mut tx_rw = env.write_txn()?;
-
-        // FIXME:
-        // These wonderful fully qualified trait types are brought
-        // to you by `tower::discover::Discover>::Key` collisions.
-
-        // TODO: Create all tables when schema is done.
 
         /// Function that creates the tables based off the passed `T: Table`.
         fn create_table<T: Table>(
             env: &heed::Env,
             tx_rw: &mut heed::RwTxn<'_>,
         ) -> Result<(), InitError> {
+            println!("create_table(): {}", T::NAME); // TODO: use tracing.
+
             DatabaseOpenOptions::new(env)
                 .name(<T as Table>::NAME)
                 .types::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>()
@@ -192,8 +186,31 @@ impl Env for ConcreteEnv {
             Ok(())
         }
 
+        use crate::tables::{
+            BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, Outputs,
+            PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TestTable, TestTable2,
+            TxHeights, TxIds, TxUnlockTime,
+        };
+
+        let mut tx_rw = env.write_txn()?;
+        create_table::<TestTable>(&env, &mut tx_rw)?; // TODO: remove me
+        create_table::<TestTable2>(&env, &mut tx_rw)?; // TODO: remove me
+        create_table::<BlockBlobs>(&env, &mut tx_rw)?;
+        create_table::<BlockHeights>(&env, &mut tx_rw)?;
+        create_table::<BlockInfoV1s>(&env, &mut tx_rw)?;
+        create_table::<BlockInfoV2s>(&env, &mut tx_rw)?;
+        create_table::<BlockInfoV3s>(&env, &mut tx_rw)?;
+        create_table::<KeyImages>(&env, &mut tx_rw)?;
+        create_table::<Outputs>(&env, &mut tx_rw)?;
+        create_table::<PrunableHashes>(&env, &mut tx_rw)?;
+        create_table::<PrunableTxBlobs>(&env, &mut tx_rw)?;
+        create_table::<PrunedTxBlobs>(&env, &mut tx_rw)?;
+        create_table::<RctOutputs>(&env, &mut tx_rw)?;
         create_table::<TestTable>(&env, &mut tx_rw)?;
         create_table::<TestTable2>(&env, &mut tx_rw)?;
+        create_table::<TxHeights>(&env, &mut tx_rw)?;
+        create_table::<TxIds>(&env, &mut tx_rw)?;
+        create_table::<TxUnlockTime>(&env, &mut tx_rw)?;
 
         // TODO: Set dupsort and comparison functions for certain tables
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
