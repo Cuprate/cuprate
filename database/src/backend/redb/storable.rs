@@ -5,7 +5,7 @@ use std::{any::Any, borrow::Cow, cmp::Ordering, fmt::Debug, marker::PhantomData}
 
 use redb::{RedbKey, RedbValue, TypeName};
 
-use crate::{key::Key, storable::Storable};
+use crate::{key::Key, storable::Storable, value_guard::ValueGuard};
 
 //---------------------------------------------------------------------------------------------------- StorableRedb
 /// The glue structs that implements `redb`'s (de)serialization
@@ -17,14 +17,14 @@ pub(super) struct StorableRedb<T>(PhantomData<T>)
 where
     T: Storable + ?Sized;
 
-impl<T: Storable> crate::value_guard::ValueGuard<T> for redb::AccessGuard<'_, StorableRedb<T>> {
+impl<T: Storable + ?Sized> ValueGuard<T> for redb::AccessGuard<'_, StorableRedb<T>> {
     #[inline]
     fn unguard(&self) -> Cow<'_, T> {
         self.value()
     }
 }
 
-impl<T: Storable> crate::value_guard::ValueGuard<T> for &redb::AccessGuard<'_, StorableRedb<T>> {
+impl<T: Storable + ?Sized> ValueGuard<T> for &redb::AccessGuard<'_, StorableRedb<T>> {
     #[inline]
     fn unguard(&self) -> Cow<'_, T> {
         self.value()
@@ -35,7 +35,7 @@ impl<T: Storable> crate::value_guard::ValueGuard<T> for &redb::AccessGuard<'_, S
 // If `Key` is also implemented, this can act as a `RedbKey`.
 impl<T> RedbKey for StorableRedb<T>
 where
-    T: Key,
+    T: Key + ?Sized,
 {
     #[inline]
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
