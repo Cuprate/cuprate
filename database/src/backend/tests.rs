@@ -23,7 +23,11 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    tables::{TestTable, TestTable2},
+    tables::{
+        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, Outputs,
+        PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TestTable, TestTable2,
+        TxHeights, TxIds, TxUnlockTime,
+    },
     transaction::{TxRo, TxRw},
     types::TestType,
     value_guard::ValueGuard,
@@ -72,13 +76,45 @@ fn open_db() {
 
     // Open all tables in read-only mode.
     // This should be updated when tables are modified.
+    env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap(); // TODO: remove me
+    env_inner.open_db_ro::<TestTable2>(&tx_ro).unwrap(); // TODO: remove me
+    env_inner.open_db_ro::<BlockBlobs>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<BlockHeights>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<BlockInfoV1s>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<BlockInfoV2s>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<BlockInfoV3s>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<KeyImages>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<PrunableHashes>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<PrunableTxBlobs>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<PrunedTxBlobs>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<RctOutputs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TestTable2>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<TxHeights>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<TxIds>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<TxUnlockTime>(&tx_ro).unwrap();
     TxRo::commit(tx_ro).unwrap();
 
     // Open all tables in read/write mode.
     env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<TestTable2>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockBlobs>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockHeights>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV1s>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV2s>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV3s>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<KeyImages>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunableHashes>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunableTxBlobs>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunedTxBlobs>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<RctOutputs>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<TestTable2>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<TxHeights>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<TxIds>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<TxUnlockTime>(&mut tx_rw).unwrap();
     TxRw::commit(tx_rw).unwrap();
 }
 
