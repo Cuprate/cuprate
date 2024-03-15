@@ -22,7 +22,7 @@ use std::cmp::Ordering;
 
 use thiserror::Error;
 
-pub const CRYPTONOTE_MAX_BLOCK_NUMBER: u64 = 500000000;
+pub const CRYPTONOTE_MAX_BLOCK_HEIGHT: u64 = 500000000;
 /// The default log stripes for Monero pruning.
 pub const CRYPTONOTE_PRUNING_LOG_STRIPES: u32 = 3;
 /// The amount of blocks that peers keep before another stripe starts storing blocks.
@@ -320,48 +320,50 @@ impl DecompressedPruningSeed {
         block_height: u64,
         blockchain_height: u64,
     ) -> Result<u64, PruningError> {
-        if block_height > CRYPTONOTE_MAX_BLOCK_NUMBER || block_height > blockchain_height {
-            Err(PruningError::BlockHeightTooLarge)
-        } else if blockchain_height > CRYPTONOTE_MAX_BLOCK_NUMBER {
-            Err(PruningError::BlockChainHeightTooLarge)
-        } else {
-            if block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height {
-                // If we are within `CRYPTONOTE_PRUNING_TIP_BLOCKS` of the chain we should
-                // not prune blocks.
-                return Ok(block_height);
-            }
+        if block_height > CRYPTONOTE_MAX_BLOCK_HEIGHT || block_height > blockchain_height {
+            return Err(PruningError::BlockHeightTooLarge);
+        }
 
-            let block_pruning_stripe = get_block_pruning_stripe(block_height, blockchain_height, self.log_stripes)
+        if blockchain_height > CRYPTONOTE_MAX_BLOCK_HEIGHT {
+            return Err(PruningError::BlockChainHeightTooLarge);
+        }
+
+        if block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height {
+            // If we are within `CRYPTONOTE_PRUNING_TIP_BLOCKS` of the chain we should
+            // not prune blocks.
+            return Ok(block_height);
+        }
+
+        let block_pruning_stripe = get_block_pruning_stripe(block_height, blockchain_height, self.log_stripes)
                 .expect("We just checked if `block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height`");
-            if self.stripe == block_pruning_stripe {
-                // if we have the same stripe as a block that means we keep the block so
-                // the entered block is the next un-pruned one.
-                return Ok(block_height);
-            }
+        if self.stripe == block_pruning_stripe {
+            // if we have the same stripe as a block that means we keep the block so
+            // the entered block is the next un-pruned one.
+            return Ok(block_height);
+        }
 
-            // cycles: how many times each seed has stored blocks so when all seeds have
-            // stored blocks thats 1 cycle
-            let cycles = (block_height / CRYPTONOTE_PRUNING_STRIPE_SIZE) >> self.log_stripes;
-            // if our seed is before the blocks seed in a cycle that means we have already past our
-            // seed this cycle and need to start the next
-            let cycles_start = cycles
-                + if self.stripe > block_pruning_stripe {
-                    0
-                } else {
-                    1
-                };
+        // cycles: how many times each seed has stored blocks so when all seeds have
+        // stored blocks thats 1 cycle
+        let cycles = (block_height / CRYPTONOTE_PRUNING_STRIPE_SIZE) >> self.log_stripes;
+        // if our seed is before the blocks seed in a cycle that means we have already past our
+        // seed this cycle and need to start the next
+        let cycles_start = cycles
+            + if self.stripe > block_pruning_stripe {
+                0
+            } else {
+                1
+            };
 
-            // amt_of_cycles * blocks in a cycle + how many blocks through a cycles until the seed starts storing blocks
-            let calculated_height = cycles_start
-                * (CRYPTONOTE_PRUNING_STRIPE_SIZE << self.log_stripes)
-                + (self.stripe as u64 - 1) * CRYPTONOTE_PRUNING_STRIPE_SIZE;
-            if calculated_height + CRYPTONOTE_PRUNING_TIP_BLOCKS > blockchain_height {
-                // if our calculated height is greater than the amount of tip blocks the the start of the tip blocks will be the next un-pruned
-                return Ok(blockchain_height.saturating_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS));
-            }
-            if calculated_height < block_height {
-                return Err(PruningError::CalculatedHeightSmallerThanEnteredBlock);
-            }
+        // amt_of_cycles * blocks in a cycle + how many blocks through a cycles until the seed starts storing blocks
+        let calculated_height = cycles_start * (CRYPTONOTE_PRUNING_STRIPE_SIZE << self.log_stripes)
+            + (self.stripe as u64 - 1) * CRYPTONOTE_PRUNING_STRIPE_SIZE;
+
+        if calculated_height + CRYPTONOTE_PRUNING_TIP_BLOCKS > blockchain_height {
+            // if our calculated height is greater than the amount of tip blocks then the start of the tip blocks will be the next un-pruned
+            return Ok(blockchain_height.saturating_sub(CRYPTONOTE_PRUNING_TIP_BLOCKS));
+        } else if calculated_height < block_height {
+            return Err(PruningError::CalculatedHeightSmallerThanEnteredBlock);
+        } else {
             Ok(calculated_height)
         }
     }
@@ -397,11 +399,11 @@ impl DecompressedPruningSeed {
             return Ok(block_height);
         }
 
-        // We can get the end of our "non-pruning" cycle by getting the next stripe's after us first un-pruned block height
-        // so we calculate the next un-pruned block for the next stripe and return it as our next pruned block
-        let next_stripe = (1 + self.log_stripes) & ((1 << self.log_stripes) - 1);
+        // We can get the end of our "non-pruning" cycle by getting the next stripe's first un-pruned block height.
+        // So we calculate the next un-pruned block for the next stripe and return it as our next pruned block
+        let next_stripe = (1 + self.stripe) & ((1 << self.log_stripes) - 1);
         let seed = DecompressedPruningSeed::new(next_stripe, self.log_stripes)
-            .expect("We just made sure this stipe is in range for this log_stripe");
+            .expect("We just made sure this stripe is in range for this log_stripe");
         seed.get_next_unpruned_block(block_height, blockchain_height)
     }
 }
