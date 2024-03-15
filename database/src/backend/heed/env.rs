@@ -188,13 +188,11 @@ impl Env for ConcreteEnv {
 
         use crate::tables::{
             BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, Outputs,
-            PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TestTable, TestTable2,
-            TxHeights, TxIds, TxUnlockTime,
+            PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds,
+            TxUnlockTime,
         };
 
         let mut tx_rw = env.write_txn()?;
-        create_table::<TestTable>(&env, &mut tx_rw)?; // TODO: remove me
-        create_table::<TestTable2>(&env, &mut tx_rw)?; // TODO: remove me
         create_table::<BlockBlobs>(&env, &mut tx_rw)?;
         create_table::<BlockHeights>(&env, &mut tx_rw)?;
         create_table::<BlockInfoV1s>(&env, &mut tx_rw)?;
@@ -206,8 +204,6 @@ impl Env for ConcreteEnv {
         create_table::<PrunableTxBlobs>(&env, &mut tx_rw)?;
         create_table::<PrunedTxBlobs>(&env, &mut tx_rw)?;
         create_table::<RctOutputs>(&env, &mut tx_rw)?;
-        create_table::<TestTable>(&env, &mut tx_rw)?;
-        create_table::<TestTable2>(&env, &mut tx_rw)?;
         create_table::<TxHeights>(&env, &mut tx_rw)?;
         create_table::<TxIds>(&env, &mut tx_rw)?;
         create_table::<TxUnlockTime>(&env, &mut tx_rw)?;

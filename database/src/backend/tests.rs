@@ -13,6 +13,8 @@
 //!
 //! `redb`, and it only must be enabled for it to be tested.
 
+#![allow(clippy::items_after_statements, clippy::significant_drop_tightening)]
+
 //---------------------------------------------------------------------------------------------------- Import
 use std::borrow::{Borrow, Cow};
 
@@ -25,11 +27,10 @@ use crate::{
     table::Table,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, Outputs,
-        PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TestTable, TestTable2,
-        TxHeights, TxIds, TxUnlockTime,
+        PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds, TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
-    types::TestType,
+    types::{Amount, Output},
     value_guard::ValueGuard,
     ConcreteEnv,
 };
@@ -67,7 +68,6 @@ fn tx() {
 /// Open (and verify) that all database tables
 /// exist already after calling [`Env::open`].
 #[test]
-#[allow(clippy::items_after_statements, clippy::significant_drop_tightening)]
 fn open_db() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
@@ -76,8 +76,6 @@ fn open_db() {
 
     // Open all tables in read-only mode.
     // This should be updated when tables are modified.
-    env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap(); // TODO: remove me
-    env_inner.open_db_ro::<TestTable2>(&tx_ro).unwrap(); // TODO: remove me
     env_inner.open_db_ro::<BlockBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<BlockHeights>(&tx_ro).unwrap();
     env_inner.open_db_ro::<BlockInfoV1s>(&tx_ro).unwrap();
@@ -89,16 +87,12 @@ fn open_db() {
     env_inner.open_db_ro::<PrunableTxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<PrunedTxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<RctOutputs>(&tx_ro).unwrap();
-    env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap();
-    env_inner.open_db_ro::<TestTable2>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxHeights>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxIds>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxUnlockTime>(&tx_ro).unwrap();
     TxRo::commit(tx_ro).unwrap();
 
     // Open all tables in read/write mode.
-    env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TestTable2>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<BlockBlobs>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<BlockHeights>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<BlockInfoV1s>(&mut tx_rw).unwrap();
@@ -110,8 +104,6 @@ fn open_db() {
     env_inner.open_db_rw::<PrunableTxBlobs>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<PrunedTxBlobs>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<RctOutputs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TestTable2>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<TxHeights>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<TxIds>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<TxUnlockTime>(&mut tx_rw).unwrap();
@@ -149,6 +141,7 @@ fn non_manual_resize_1() {
         env.resize_map(None);
     }
 }
+
 #[test]
 #[should_panic = "unreachable"]
 fn non_manual_resize_2() {
@@ -162,23 +155,31 @@ fn non_manual_resize_2() {
 
 /// Test all `DatabaseR{o,w}` operations.
 #[test]
-#[allow(
-    clippy::items_after_statements,
-    clippy::significant_drop_tightening,
-    clippy::used_underscore_binding
-)]
 fn db_read_write() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw().unwrap();
-    let mut table = env_inner.open_db_rw::<TestTable>(&mut tx_rw).unwrap();
+    let mut table = env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
 
-    const KEY: i64 = 0_i64;
-    const VALUE: TestType = TestType {
-        u: 1,
-        b: 255,
-        _pad: [0; 7],
+    /// The (1st) key.
+    const KEY: Amount = 0;
+    /// The expected value.
+    const VALUE: Output = Output {
+        key: [35; 32],
+        height: 45_761_798,
+        output_flags: 0,
+        tx_idx: 2_353_487,
     };
+
+    /// Assert a passed `Output` is equal to the const value.
+    fn assert_eq(output: &Output) {
+        assert_eq!(output, &VALUE);
+        // Make sure all field accesses are aligned.
+        assert_eq!(output.key, VALUE.key);
+        assert_eq!(output.height, VALUE.height);
+        assert_eq!(output.output_flags, VALUE.output_flags);
+        assert_eq!(output.tx_idx, VALUE.tx_idx);
+    }
 
     // Insert `0..100` keys.
     for i in 0..100 {
@@ -188,14 +189,9 @@ fn db_read_write() {
     // Assert the 1st key is there.
     {
         let guard = table.get(&KEY).unwrap();
-        let cow: Cow<'_, TestType> = guard.unguard();
-        let value: &TestType = cow.as_ref();
-
-        // Make sure all field accesses are aligned.
-        assert_eq!(value, &VALUE);
-        assert_eq!(value.u, VALUE.u);
-        assert_eq!(value.b, VALUE.b);
-        assert_eq!(value._pad, VALUE._pad);
+        let cow: Cow<'_, Output> = guard.unguard();
+        let value: &Output = cow.as_ref();
+        assert_eq(value);
     }
 
     // Assert the whole range is there.
@@ -204,14 +200,9 @@ fn db_read_write() {
         let mut i = 0;
         for result in range {
             let guard = result.unwrap();
-            let cow: Cow<'_, TestType> = guard.unguard();
-            let value: &TestType = cow.as_ref();
-
-            assert_eq!(value, &VALUE);
-            assert_eq!(value.u, VALUE.u);
-            assert_eq!(value.b, VALUE.b);
-            assert_eq!(value._pad, VALUE._pad);
-
+            let cow: Cow<'_, Output> = guard.unguard();
+            let value: &Output = cow.as_ref();
+            assert_eq(value);
             i += 1;
         }
         assert_eq!(i, 100);

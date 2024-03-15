@@ -8,7 +8,7 @@ use crate::{
     types::{
         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
         BlockInfoV2, BlockInfoV3, KeyImage, Output, PrunableBlob, PrunableHash, PrunedBlob,
-        RctOutput, TestType, TestType2, TxHash, TxId, UnlockTime,
+        RctOutput, TxHash, TxId, UnlockTime,
     },
 };
 
@@ -81,14 +81,6 @@ macro_rules! tables {
 // - Keep this sorted A-Z
 // - Tables are defined in plural to avoid name conflicts with types
 tables! {
-    /// Test documentation.
-    TestTable,
-    i64 => TestType,
-
-    /// Test documentation 2.
-    TestTable2,
-    u8 => TestType2,
-
     /// TODO
     TxIds,
     TxHash => TxId,
