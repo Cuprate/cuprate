@@ -337,13 +337,11 @@ impl<Z: NetworkZone> AddressBook<Z> {
 
         // if the address is Some that means we can reach it from our node.
         if let Some(addr) = peer.addr {
-            // remove the peer from the gray list as we know it's active.
-            self.gray_list.remove_peer(&addr);
             // The peer is reachable, update our white list and add it to the anchor connections.
             self.update_white_list_peer_entry(&peer)?;
+            self.anchor_list.insert(addr);
             self.white_list
                 .reduce_list(&self.anchor_list, self.cfg.max_white_list_length);
-            self.anchor_list.insert(addr);
         }
 
         self.connected_peers.insert(internal_peer_id, peer);
