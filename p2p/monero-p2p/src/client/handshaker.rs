@@ -8,7 +8,7 @@ use std::{
 };
 
 use futures::{FutureExt, SinkExt, StreamExt};
-use monero_pruning::PruningSeed;
+use monero_pruning::{PruningError, PruningSeed};
 use tokio::{
     sync::{broadcast, mpsc, OwnedSemaphorePermit},
     time::{error::Elapsed, timeout},
@@ -58,6 +58,8 @@ pub enum HandshakeError {
     PeerSentIncorrectPeerList(#[from] crate::services::PeerListConversionError),
     #[error("Peer sent invalid message: {0}")]
     PeerSentInvalidMessage(&'static str),
+    #[error("The peers pruning seed is invalid.")]
+    InvalidPruningSeed(#[from] PruningError),
     #[error("Levin bucket error: {0}")]
     LevinBucketError(#[from] BucketError),
     #[error("Internal service error: {0}")]
@@ -228,6 +230,7 @@ where
                 &mut eager_protocol_messages,
                 &mut allow_support_flag_req,
                 our_basic_node_data.support_flags,
+                our_basic_node_data.peer_id,
             )
             .await?
             else {
@@ -255,6 +258,7 @@ where
                     &mut eager_protocol_messages,
                     &mut allow_support_flag_req,
                     our_basic_node_data.support_flags,
+                    our_basic_node_data.peer_id,
                 )
                 .await?
             else {
@@ -315,6 +319,7 @@ where
                 &mut eager_protocol_messages,
                 &mut allow_support_flag_req,
                 our_basic_node_data.support_flags,
+                our_basic_node_data.peer_id,
             )
             .await?
         else {
@@ -324,6 +329,8 @@ where
         tracing::debug!("Received support flag response.");
         peer_node_data.support_flags = support_flags_res.support_flags;
     }
+
+    let pruning_seed = PruningSeed::decompress_p2p_rules(peer_core_sync.pruning_seed)?;
 
     let public_address = 'check_out_addr: {
         match direction {
@@ -416,7 +423,7 @@ where
             public_address,
             handle,
             id: peer_node_data.peer_id,
-            pruning_seed: PruningSeed::try_from(peer_core_sync.pruning_seed).expect("TODO"),
+            pruning_seed,
             rpc_port: peer_node_data.rpc_port,
             rpc_credits_per_hash: peer_node_data.rpc_credits_per_hash,
         })
@@ -505,11 +512,15 @@ where
 async fn wait_for_message<Z: NetworkZone>(
     levin_command: LevinCommand,
     request: bool,
+
     peer_sink: &mut Z::Sink,
     peer_stream: &mut Z::Stream,
+
     eager_protocol_messages: &mut Vec<monero_wire::ProtocolMessage>,
     allow_support_flag_req: &mut bool,
+
     support_flags: PeerSupportFlags,
+    our_peer_id: u64,
 ) -> Result<Message, HandshakeError> {
     while let Some(message) = peer_stream.next().await {
         let message = message?;
@@ -536,21 +547,28 @@ async fn wait_for_message<Z: NetworkZone>(
                     return Ok(Message::Request(req_message));
                 }
 
-                if matches!(req_message, RequestMessage::SupportFlags) {
-                    if !*allow_support_flag_req {
-                        return Err(HandshakeError::PeerSentInvalidMessage(
-                            "Peer sent 2 support flag requests",
-                        ));
+                match req_message {
+                    RequestMessage::SupportFlags => {
+                        if !*allow_support_flag_req {
+                            return Err(HandshakeError::PeerSentInvalidMessage(
+                                "Peer sent 2 support flag requests",
+                            ));
+                        }
+                        send_support_flags::<Z>(peer_sink, support_flags).await?;
+                        // don't let the peer send more after the first request.
+                        *allow_support_flag_req = false;
+                        continue;
                     }
-                    send_support_flags::<Z>(peer_sink, support_flags).await?;
-                    // don't let the peer send more after the first request.
-                    *allow_support_flag_req = false;
-                    continue;
+                    RequestMessage::Ping => {
+                        send_ping_response::<Z>(peer_sink, our_peer_id).await?;
+                        continue;
+                    }
+                    _ => {
+                        return Err(HandshakeError::PeerSentInvalidMessage(
+                            "Peer sent an admin request before responding to the handshake",
+                        ))
+                    }
                 }
-
-                return Err(HandshakeError::PeerSentInvalidMessage(
-                    "Peer sent an admin request before responding to the handshake",
-                ));
             }
             Message::Response(res_message) if !request => {
                 if res_message.command() == levin_command {
@@ -584,6 +602,22 @@ async fn send_support_flags<Z: NetworkZone>(
         .send(
             Message::Response(ResponseMessage::SupportFlags(SupportFlagsResponse {
                 support_flags,
+            }))
+            .into(),
+        )
+        .await?)
+}
+
+async fn send_ping_response<Z: NetworkZone>(
+    peer_sink: &mut Z::Sink,
+    peer_id: u64,
+) -> Result<(), HandshakeError> {
+    tracing::debug!("Sending ping response.");
+    Ok(peer_sink
+        .send(
+            Message::Response(ResponseMessage::Ping(PingResponse {
+                status: PING_OK_RESPONSE_STATUS_TEXT,
+                peer_id,
             }))
             .into(),
         )
