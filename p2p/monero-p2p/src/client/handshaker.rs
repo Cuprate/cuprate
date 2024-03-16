@@ -229,8 +229,7 @@ where
                 &mut peer_stream,
                 &mut eager_protocol_messages,
                 &mut allow_support_flag_req,
-                our_basic_node_data.support_flags,
-                our_basic_node_data.peer_id,
+                &our_basic_node_data,
             )
             .await?
             else {
@@ -257,8 +256,7 @@ where
                     &mut peer_stream,
                     &mut eager_protocol_messages,
                     &mut allow_support_flag_req,
-                    our_basic_node_data.support_flags,
-                    our_basic_node_data.peer_id,
+                    &our_basic_node_data,
                 )
                 .await?
             else {
@@ -318,8 +316,7 @@ where
                 &mut peer_stream,
                 &mut eager_protocol_messages,
                 &mut allow_support_flag_req,
-                our_basic_node_data.support_flags,
-                our_basic_node_data.peer_id,
+                &our_basic_node_data,
             )
             .await?
         else {
@@ -519,8 +516,7 @@ async fn wait_for_message<Z: NetworkZone>(
     eager_protocol_messages: &mut Vec<monero_wire::ProtocolMessage>,
     allow_support_flag_req: &mut bool,
 
-    support_flags: PeerSupportFlags,
-    our_peer_id: u64,
+    our_basic_node_data: &BasicNodeData,
 ) -> Result<Message, HandshakeError> {
     while let Some(message) = peer_stream.next().await {
         let message = message?;
@@ -554,13 +550,14 @@ async fn wait_for_message<Z: NetworkZone>(
                                 "Peer sent 2 support flag requests",
                             ));
                         }
-                        send_support_flags::<Z>(peer_sink, support_flags).await?;
+                        send_support_flags::<Z>(peer_sink, our_basic_node_data.support_flags)
+                            .await?;
                         // don't let the peer send more after the first request.
                         *allow_support_flag_req = false;
                         continue;
                     }
                     RequestMessage::Ping => {
-                        send_ping_response::<Z>(peer_sink, our_peer_id).await?;
+                        send_ping_response::<Z>(peer_sink, our_basic_node_data.peer_id).await?;
                         continue;
                     }
                     _ => {
