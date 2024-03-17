@@ -226,14 +226,16 @@ fn db_read_write() {
 }
 
 //---------------------------------------------------------------------------------------------------- Table Tests
-/// Test a table and it's key + values.
+/// Test multiple tables and their key + values.
 ///
 /// Each one of these tests:
 /// - Opens a specific table
 /// - Inserts a key + value
 /// - Retrieves the key + value
 /// - Asserts it is the same
-macro_rules! test_table {
+/// - Tests `get_range()`
+/// - Tests `delete()`
+macro_rules! test_tables {
     ($(
         $table:ident,    // Table type
         $key_type:ty =>  // Key (type)
@@ -241,14 +243,16 @@ macro_rules! test_table {
         $key:expr =>     // Key (the value)
         $value:expr,     // Value (the value)
     )* $(,)?) => { paste::paste! { $(
+        // Test function's name is the table type in `snake_case`.
         #[test]
         fn [<$table:snake>]() {
+            // Open the database env and table.
             let (env, _tempdir) = tmp_concrete_env();
             let env_inner = env.env_inner();
             let mut tx_rw = env_inner.tx_rw().unwrap();
             let mut table = env_inner.open_db_rw::<$table>(&mut tx_rw).unwrap();
 
-            /// The key.
+            /// The expected key.
             const KEY: $key_type = $key;
             /// The expected value.
             const VALUE: &$value_type = &$value;
@@ -289,10 +293,10 @@ macro_rules! test_table {
 
 // Notes:
 // - Keep this sorted A-Z (by table name)
-test_table! {
-    BlockBlobs,
-    BlockHeight => BlockBlob,
-    123 => [1,2,3,4,5,6,7,8].as_slice(),
+test_tables! {
+    BlockBlobs, // Table type
+    BlockHeight => BlockBlob, // Key type => Value type
+    123 => [1,2,3,4,5,6,7,8].as_slice(), // Actual key => Actual value
 
     BlockHeights,
     BlockHash => BlockHeight,
@@ -341,9 +345,9 @@ test_table! {
     Amount => AmountIndex,
     123 => 123,
 
-    TxIds, // Table type
-    TxHash => TxId, // Key type => Value type
-    [32; 32] => 123, // Actual key => Actual value
+    TxIds,
+    TxHash => TxId,
+    [32; 32] => 123,
 
     TxHeights,
     TxId => BlockHeight,

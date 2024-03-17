@@ -226,7 +226,6 @@ pub struct BlockInfoV2 {
 #[repr(C)]
 pub struct BlockInfoV3 {
     /// TODO
-    /// TODO
     pub timestamp: u64,
     /// TODO
     pub total_generated_coins: u64,
