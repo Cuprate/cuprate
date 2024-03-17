@@ -1,9 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use indexmap::IndexMap;
-use rand::prelude::SliceRandom;
-use rand::seq::IteratorRandom;
-use rand::Rng;
+use rand::prelude::*;
 
 use monero_p2p::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
 use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
