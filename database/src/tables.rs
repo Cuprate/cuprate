@@ -81,6 +81,7 @@ macro_rules! tables {
 // - Keep this sorted A-Z (by table name)
 // - Tables are defined in plural to avoid name conflicts with types
 // - If adding/changing a table, also edit the tests in `src/backend/tests.rs`
+//   and edit `Env::open` to make sure it creates the table
 tables! {
     /// TODO
     BlockBlobs,
