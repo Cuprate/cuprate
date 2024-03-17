@@ -78,53 +78,17 @@ macro_rules! tables {
 
 //---------------------------------------------------------------------------------------------------- Tables
 // Notes:
-// - Keep this sorted A-Z
+// - Keep this sorted A-Z (by table name)
 // - Tables are defined in plural to avoid name conflicts with types
 // - If adding/changing a table, also edit the tests in `src/backend/tests.rs`
 tables! {
     /// TODO
-    TxIds,
-    TxHash => TxId,
-
-    /// TODO
-    TxHeights,
-    TxId => BlockHeight,
-
-    /// TODO
-    TxUnlockTime,
-    TxId => UnlockTime,
-
-    /// TODO
-    PrunedTxBlobs,
-    TxId => PrunedBlob,
-
-    /// TODO
-    PrunableTxBlobs,
-    TxId => PrunableBlob,
-
-    /// TODO
-    PrunableHashes,
-    TxId => PrunableHash,
-
-    /// TODO
-    Outputs,
-    Amount => Output, // FIXME: `Amount | AmountIndex` key
-
-    /// TODO
-    RctOutputs,
-    AmountIndex => RctOutput,
-
-    /// TODO
-    KeyImages,
-    KeyImage => (),
+    BlockBlobs,
+    BlockHeight => BlockBlob,
 
     /// TODO
     BlockHeights,
     BlockHash => BlockHeight,
-
-    /// TODO
-    BlockBlobs,
-    BlockHeight => BlockBlob,
 
     /// TODO
     BlockInfoV1s,
@@ -137,6 +101,46 @@ tables! {
     /// TODO
     BlockInfoV3s,
     BlockHeight => BlockInfoV3,
+
+    /// TODO
+    KeyImages,
+    KeyImage => (),
+
+    /// TODO
+    NumOutputs,
+    Amount => AmountIndex,
+
+    /// TODO
+    PrunedTxBlobs,
+    TxId => PrunedBlob,
+
+    /// TODO
+    Outputs,
+    Amount => Output, // FIXME: `Amount | AmountIndex` key
+
+    /// TODO
+    PrunableTxBlobs,
+    TxId => PrunableBlob,
+
+    /// TODO
+    PrunableHashes,
+    TxId => PrunableHash,
+
+    /// TODO
+    RctOutputs,
+    AmountIndex => RctOutput,
+
+    /// TODO
+    TxIds,
+    TxHash => TxId,
+
+    /// TODO
+    TxHeights,
+    TxId => BlockHeight,
+
+    /// TODO
+    TxUnlockTime,
+    TxId => UnlockTime,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

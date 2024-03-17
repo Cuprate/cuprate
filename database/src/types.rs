@@ -93,92 +93,6 @@ pub type TxHash = [u8; 32];
 /// TODO
 pub type UnlockTime = u64;
 
-//---------------------------------------------------------------------------------------------------- Output
-/// TODO
-///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_database::{*, types::*};
-/// // Assert Storable is correct.
-/// let a = Output {
-///     key: [1; 32],
-///     height: 1,
-///     output_flags: 0,
-///     tx_idx: 3,
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: &Output = Storable::from_bytes(b);
-/// let c2: Cow<'_, Output> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
-/// ```
-///
-/// # Size & Alignment
-/// ```rust
-/// # use cuprate_database::types::*;
-/// # use std::mem::*;
-/// assert_eq!(size_of::<Output>(), 48);
-/// assert_eq!(align_of::<Output>(), 8);
-/// ```
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
-#[repr(C)]
-pub struct Output {
-    /// TODO
-    pub key: [u8; 32],
-    /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
-    pub height: u32,
-    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
-    pub output_flags: u32,
-    /// TODO
-    pub tx_idx: u64,
-}
-
-//---------------------------------------------------------------------------------------------------- RctOutput
-/// TODO
-///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_database::{*, types::*};
-/// // Assert Storable is correct.
-/// let a = RctOutput {
-///     key: [1; 32],
-///     height: 1,
-///     output_flags: 0,
-///     tx_idx: 3,
-///     commitment: [3; 32],
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: &RctOutput = Storable::from_bytes(b);
-/// let c2: Cow<'_, RctOutput> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
-/// ```
-///
-/// # Size & Alignment
-/// ```rust
-/// # use cuprate_database::types::*;
-/// # use std::mem::*;
-/// assert_eq!(size_of::<RctOutput>(), 80);
-/// assert_eq!(align_of::<RctOutput>(), 8);
-/// ```
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
-#[repr(C)]
-pub struct RctOutput {
-    /// TODO
-    pub key: [u8; 32],
-    /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
-    pub height: u32,
-    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
-    pub output_flags: u32,
-    /// TODO
-    pub tx_idx: u64,
-    /// The amount commitment of this output.
-    pub commitment: [u8; 32],
-}
-// TODO: local_index?
-
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
 /// TODO
 ///
@@ -330,6 +244,92 @@ pub struct BlockInfoV3 {
     /// TODO
     pub long_term_weight: u64,
 }
+
+//---------------------------------------------------------------------------------------------------- Output
+/// TODO
+///
+/// ```rust
+/// # use std::borrow::*;
+/// # use cuprate_database::{*, types::*};
+/// // Assert Storable is correct.
+/// let a = Output {
+///     key: [1; 32],
+///     height: 1,
+///     output_flags: 0,
+///     tx_idx: 3,
+/// };
+/// let b = Storable::as_bytes(&a);
+/// let c: &Output = Storable::from_bytes(b);
+/// let c2: Cow<'_, Output> = Storable::from_bytes_unaligned(b);
+/// assert_eq!(&a, c);
+/// assert_eq!(c, c2.as_ref());
+/// ```
+///
+/// # Size & Alignment
+/// ```rust
+/// # use cuprate_database::types::*;
+/// # use std::mem::*;
+/// assert_eq!(size_of::<Output>(), 48);
+/// assert_eq!(align_of::<Output>(), 8);
+/// ```
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct Output {
+    /// TODO
+    pub key: [u8; 32],
+    /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
+    pub height: u32,
+    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
+    pub output_flags: u32,
+    /// TODO
+    pub tx_idx: u64,
+}
+
+//---------------------------------------------------------------------------------------------------- RctOutput
+/// TODO
+///
+/// ```rust
+/// # use std::borrow::*;
+/// # use cuprate_database::{*, types::*};
+/// // Assert Storable is correct.
+/// let a = RctOutput {
+///     key: [1; 32],
+///     height: 1,
+///     output_flags: 0,
+///     tx_idx: 3,
+///     commitment: [3; 32],
+/// };
+/// let b = Storable::as_bytes(&a);
+/// let c: &RctOutput = Storable::from_bytes(b);
+/// let c2: Cow<'_, RctOutput> = Storable::from_bytes_unaligned(b);
+/// assert_eq!(&a, c);
+/// assert_eq!(c, c2.as_ref());
+/// ```
+///
+/// # Size & Alignment
+/// ```rust
+/// # use cuprate_database::types::*;
+/// # use std::mem::*;
+/// assert_eq!(size_of::<RctOutput>(), 80);
+/// assert_eq!(align_of::<RctOutput>(), 8);
+/// ```
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct RctOutput {
+    /// TODO
+    pub key: [u8; 32],
+    /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
+    pub height: u32,
+    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
+    pub output_flags: u32,
+    /// TODO
+    pub tx_idx: u64,
+    /// The amount commitment of this output.
+    pub commitment: [u8; 32],
+}
+// TODO: local_index?
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]

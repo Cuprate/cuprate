@@ -26,8 +26,9 @@ use crate::{
     resize::ResizeAlgorithm,
     table::Table,
     tables::{
-        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, Outputs,
-        PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds, TxUnlockTime,
+        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
+        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds,
+        TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
     types::{
@@ -86,6 +87,7 @@ fn open_db() {
     env_inner.open_db_ro::<BlockInfoV2s>(&tx_ro).unwrap();
     env_inner.open_db_ro::<BlockInfoV3s>(&tx_ro).unwrap();
     env_inner.open_db_ro::<KeyImages>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<NumOutputs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<PrunableHashes>(&tx_ro).unwrap();
     env_inner.open_db_ro::<PrunableTxBlobs>(&tx_ro).unwrap();
@@ -103,6 +105,7 @@ fn open_db() {
     env_inner.open_db_rw::<BlockInfoV2s>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<BlockInfoV3s>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<KeyImages>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<NumOutputs>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<PrunableHashes>(&mut tx_rw).unwrap();
     env_inner.open_db_rw::<PrunableTxBlobs>(&mut tx_rw).unwrap();
@@ -284,61 +287,16 @@ macro_rules! test_table {
     )*}};
 }
 
+// Notes:
+// - Keep this sorted A-Z (by table name)
 test_table! {
-    TxIds, // Table type
-    TxHash => TxId, // Key type => Value type
-    [32; 32] => 123, // Actual key => Actual value
-
-    TxHeights,
-    TxId => BlockHeight,
-    123 => 123,
-
-    TxUnlockTime,
-    TxId => UnlockTime,
-    123 => 123,
-
-    PrunedTxBlobs,
-    TxId => PrunedBlob,
+    BlockBlobs,
+    BlockHeight => BlockBlob,
     123 => [1,2,3,4,5,6,7,8].as_slice(),
-
-    PrunableTxBlobs,
-    TxId => PrunableBlob,
-    123 => [1,2,3,4,5,6,7,8].as_slice(),
-
-    PrunableHashes,
-    TxId => PrunableHash,
-    123 => [32; 32],
-
-    Outputs,
-    Amount => Output, // FIXME: `Amount | AmountIndex` key
-    123 => Output {
-        key: [1; 32],
-        height: 1,
-        output_flags: 0,
-        tx_idx: 3,
-    },
-
-    RctOutputs,
-    AmountIndex => RctOutput,
-    123 => RctOutput {
-        key: [1; 32],
-        height: 1,
-        output_flags: 0,
-        tx_idx: 3,
-        commitment: [3; 32],
-    },
-
-    KeyImages,
-    KeyImage => (),
-    [32; 32] => (),
 
     BlockHeights,
     BlockHash => BlockHeight,
     [32; 32] => 123,
-
-    BlockBlobs,
-    BlockHeight => BlockBlob,
-    123 => [1,2,3,4,5,6,7,8].as_slice(),
 
     BlockInfoV1s,
     BlockHeight => BlockInfoV1,
@@ -373,5 +331,56 @@ test_table! {
         block_hash: [54; 32],
         cumulative_rct_outs: 2389,
         long_term_weight: 2389,
+    },
+
+    KeyImages,
+    KeyImage => (),
+    [32; 32] => (),
+
+    NumOutputs,
+    Amount => AmountIndex,
+    123 => 123,
+
+    TxIds, // Table type
+    TxHash => TxId, // Key type => Value type
+    [32; 32] => 123, // Actual key => Actual value
+
+    TxHeights,
+    TxId => BlockHeight,
+    123 => 123,
+
+    TxUnlockTime,
+    TxId => UnlockTime,
+    123 => 123,
+
+    Outputs,
+    Amount => Output, // FIXME: `Amount | AmountIndex` key
+    123 => Output {
+        key: [1; 32],
+        height: 1,
+        output_flags: 0,
+        tx_idx: 3,
+    },
+
+    PrunedTxBlobs,
+    TxId => PrunedBlob,
+    123 => [1,2,3,4,5,6,7,8].as_slice(),
+
+    PrunableTxBlobs,
+    TxId => PrunableBlob,
+    123 => [1,2,3,4,5,6,7,8].as_slice(),
+
+    PrunableHashes,
+    TxId => PrunableHash,
+    123 => [32; 32],
+
+    RctOutputs,
+    AmountIndex => RctOutput,
+    123 => RctOutput {
+        key: [1; 32],
+        height: 1,
+        output_flags: 0,
+        tx_idx: 3,
+        commitment: [3; 32],
     },
 }
