@@ -16,11 +16,14 @@
 //! This module defines a Monero `Message` enum which contains
 //! every possible Monero network message (levin body)
 
+use std::fmt::Formatter;
+
 use bytes::{Buf, BytesMut};
+
+use epee_encoding::epee_object;
 use levin_cuprate::{
     BucketBuilder, BucketError, LevinBody, LevinCommand as LevinCommandTrait, MessageType,
 };
-use std::fmt::Formatter;
 
 pub mod admin;
 pub mod common;
@@ -28,7 +31,6 @@ pub mod protocol;
 
 use admin::*;
 pub use common::{BasicNodeData, CoreSyncData, PeerListEntryBase};
-use epee_encoding::epee_object;
 use protocol::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
