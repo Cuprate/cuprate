@@ -44,7 +44,7 @@ use crate::{
 ///
 /// When completing a handshake monerod might send protocol messages before the handshake is actually
 /// complete, this is a problem for Cuprate as we must complete the handshake before responding to any
-/// protocol requests. So when we recive a protocol message during a handshake we keep them around to handle
+/// protocol requests. So when we receive a protocol message during a handshake we keep them around to handle
 /// after the handshake.
 ///
 /// Because we use the [bytes crate](https://crates.io/crates/bytes) in monero-wire for zero-copy parsing
@@ -248,7 +248,7 @@ where
         permit,
     } = req;
 
-    // A list of protocl messages the peer has sent during the handshake for us to handle after the handshake.
+    // A list of protocol messages the peer has sent during the handshake for us to handle after the handshake.
     // see: MAX_EAGER_PROTOCOL_MESSAGES
     let mut eager_protocol_messages = Vec::new();
 
@@ -371,7 +371,7 @@ where
     // Make sure the pruning seed is valid.
     let pruning_seed = PruningSeed::decompress_p2p_rules(peer_core_sync.pruning_seed)?;
 
-    // public_address if Some is the reachable address of the node.
+    // public_address, if Some, is the reachable address of the node.
     let public_address = 'check_out_addr: {
         match direction {
             ConnectionDirection::InBound => {
