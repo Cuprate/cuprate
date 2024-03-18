@@ -26,7 +26,6 @@ use crate::{
     tables::{TestTable, TestTable2},
     transaction::{TxRo, TxRw},
     types::TestType,
-    value_guard::ValueGuard,
     ConcreteEnv,
 };
 
@@ -151,12 +150,10 @@ fn db_read_write() {
 
     // Assert the 1st key is there.
     {
-        let guard = table.get(&KEY).unwrap();
-        let cow: Cow<'_, TestType> = guard.unguard();
-        let value: &TestType = cow.as_ref();
+        let value: TestType = table.get(&KEY).unwrap();
 
         // Make sure all field accesses are aligned.
-        assert_eq!(value, &VALUE);
+        assert_eq!(value, VALUE);
         assert_eq!(value.u, VALUE.u);
         assert_eq!(value.b, VALUE.b);
         assert_eq!(value._pad, VALUE._pad);
@@ -164,14 +161,11 @@ fn db_read_write() {
 
     // Assert the whole range is there.
     {
-        let range = table.get_range(&..).unwrap();
+        let range = table.get_range(..).unwrap();
         let mut i = 0;
         for result in range {
-            let guard = result.unwrap();
-            let cow: Cow<'_, TestType> = guard.unguard();
-            let value: &TestType = cow.as_ref();
-
-            assert_eq!(value, &VALUE);
+            let value: TestType = result.unwrap();
+            assert_eq!(value, VALUE);
             assert_eq!(value.u, VALUE.u);
             assert_eq!(value.b, VALUE.b);
             assert_eq!(value._pad, VALUE._pad);
@@ -183,7 +177,7 @@ fn db_read_write() {
 
     // Assert `get_range()` works.
     let range = KEY..(KEY + 100);
-    assert_eq!(100, table.get_range(&range).unwrap().count());
+    assert_eq!(100, table.get_range(range).unwrap().count());
 
     // Assert deleting works.
     table.delete(&KEY).unwrap();
