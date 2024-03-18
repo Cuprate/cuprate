@@ -48,9 +48,6 @@ use serde::{Deserialize, Serialize};
 //---------------------------------------------------------------------------------------------------- Aliases
 // TODO: document these, why they exist, and their purpose.
 //
-// TODO: should we go as far as making transparent
-// wrappers for all of these to be more typesafe?
-//
 // Notes:
 // - Keep this sorted A-Z
 
@@ -183,10 +180,9 @@ pub struct BlockInfoV1 {
 ///     timestamp: 1,
 ///     total_generated_coins: 123,
 ///     weight: 321,
-///     cumulative_difficulty: 111,
 ///     block_hash: [54; 32],
+///     cumulative_difficulty: 111,
 ///     cumulative_rct_outs: 2389,
-///     _pad: [7; 4],
 /// };
 /// let b = Storable::as_bytes(&a);
 /// let c: &BlockInfoV2 = Storable::from_bytes(b);
@@ -213,16 +209,14 @@ pub struct BlockInfoV2 {
     /// TODO
     pub weight: u64,
     /// TODO
-    pub cumulative_difficulty: u64,
-    /// TODO
     pub block_hash: [u8; 32],
     /// TODO
-    pub cumulative_rct_outs: u32,
+    pub cumulative_difficulty: u64,
     /// TODO
-    // TODO: get rid of or use this padding.
-    // Without this, `BlockInfoV2` is 68 bytes,
-    // which isn't aligned to 8.
-    pub _pad: [u8; 4],
+    ///
+    /// TODO: note that this is originally u32,
+    /// but is u64 here for padding reasons.
+    pub cumulative_rct_outs: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV3

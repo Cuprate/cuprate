@@ -328,7 +328,6 @@ test_tables! {
         cumulative_difficulty: 111,
         cumulative_rct_outs: 2389,
         block_hash: [54; 32],
-        _pad: [7; 4],
     },
 
     BlockInfoV3s,
