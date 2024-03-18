@@ -2,14 +2,14 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    borrow::Cow,
+    borrow::{Borrow, Cow},
     char::ToLowercase,
     fmt::Debug,
     io::{Read, Write},
     sync::Arc,
 };
 
-use bytemuck::Pod;
+use bytemuck::{Pod, Zeroable};
 
 use crate::ToOwnedDebug;
 
@@ -134,27 +134,13 @@ pub trait Storable: ToOwnedDebug {
     /// Return `self` in byte form.
     fn as_bytes(&self) -> &[u8];
 
-    /// Create a borrowed [`Self`] from bytes.
-    ///
-    /// # Invariant
-    /// `bytes` must be perfectly aligned for `Self`
-    /// or else this function may cause UB.
-    ///
-    /// This function _may_ panic if `bytes` isn't aligned.
+    /// Create an owned [`Self`] from bytes.
     ///
     /// # Blanket implementation
     /// The blanket implementation that covers all types used
     /// by `cuprate_database` will simply cast `bytes` into `Self`,
     /// with no copying.
-    fn from_bytes(bytes: &[u8]) -> &Self;
-
-    /// Create a [`Self`] from potentially unaligned bytes.
-    ///
-    /// # Blanket implementation
-    /// The blanket implementation that covers all types used
-    /// by `cuprate_database` will **always** allocate a new buffer
-    /// or create a new `Self`.
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self>;
+    fn from_bytes(bytes: &[u8]) -> Self;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
@@ -171,37 +157,8 @@ where
     }
 
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> &T {
-        bytemuck::from_bytes(bytes)
-    }
-
-    #[inline]
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self> {
-        Cow::Owned(bytemuck::pod_read_unaligned(bytes))
-    }
-}
-
-impl<T> Storable for [T]
-where
-    T: Pod + ToOwnedDebug<OwnedDebug = T>,
-    Self: ToOwnedDebug<OwnedDebug = Vec<T>>,
-{
-    const ALIGN: usize = std::mem::align_of::<T>();
-    const BYTE_LENGTH: Option<usize> = None;
-
-    #[inline]
-    fn as_bytes(&self) -> &[u8] {
-        bytemuck::must_cast_slice(self)
-    }
-
-    #[inline]
-    fn from_bytes(bytes: &[u8]) -> &[T] {
-        bytemuck::cast_slice(bytes)
-    }
-
-    #[inline]
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self> {
-        Cow::Owned(bytemuck::pod_collect_to_vec(bytes))
+    fn from_bytes(bytes: &[u8]) -> T {
+        bytemuck::pod_read_unaligned(bytes)
     }
 }
 
@@ -220,7 +177,7 @@ mod test {
         // A `Vec` of the numbers to test.
         t: Vec<T>,
     ) where
-        T: Storable + Copy + PartialEq,
+        T: Storable + ToOwnedDebug<OwnedDebug = T> + Copy + PartialEq,
     {
         for t in t {
             let expected_bytes = to_le_bytes(t);
@@ -229,7 +186,7 @@ mod test {
 
             // (De)serialize.
             let se: &[u8] = Storable::as_bytes(&t);
-            let de: &T = Storable::from_bytes(se);
+            let de = <T as Storable>::from_bytes(se);
 
             println!("serialized: {se:?}, deserialized: {de:?}\n");
 
@@ -238,7 +195,7 @@ mod test {
                 assert_eq!(se.len(), expected_bytes.len());
             }
             // Assert the data is the same.
-            assert_eq!(de, &t);
+            assert_eq!(de, t);
         }
     }
 
