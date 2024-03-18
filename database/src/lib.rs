@@ -242,6 +242,9 @@ mod macros;
 mod storable;
 pub use storable::Storable;
 
+mod storable_slice;
+pub use storable_slice::StorableSlice;
+
 pub mod ops;
 
 mod table;
