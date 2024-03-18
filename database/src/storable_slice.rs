@@ -35,7 +35,7 @@ where
     #[inline]
     fn as_bytes(&self) -> &[u8] {
         match self {
-            Self::Vec(vec) => bytemuck::must_cast_slice(&vec),
+            Self::Vec(vec) => bytemuck::must_cast_slice(vec),
             Self::Slice(slice) => bytemuck::must_cast_slice(slice),
         }
     }
@@ -57,28 +57,10 @@ impl<T> Deref for StorableSlice<'_, T> {
     }
 }
 
-impl<T> DerefMut for StorableSlice<'_, T> {
-    fn deref_mut(&mut self) -> &mut [T] {
-        match self {
-            Self::Vec(vec) => vec,
-            Self::Slice(slice) => slice,
-        }
-    }
-}
-
 impl<T> Borrow<[T]> for StorableSlice<'_, T> {
     fn borrow(&self) -> &[T] {
         match self {
             Self::Vec(vec) => vec.as_slice(),
-            Self::Slice(slice) => slice,
-        }
-    }
-}
-
-impl<T> BorrowMut<[T]> for StorableSlice<'_, T> {
-    fn borrow_mut(&mut self) -> &mut [T] {
-        match self {
-            Self::Vec(vec) => vec,
             Self::Slice(slice) => slice,
         }
     }

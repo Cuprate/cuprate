@@ -260,9 +260,6 @@ pub use transaction::{TxRo, TxRw};
 mod to_owned_debug;
 pub use to_owned_debug::ToOwnedDebug;
 
-mod value_guard;
-pub use value_guard::ValueGuard;
-
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]
 pub mod service;

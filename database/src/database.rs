@@ -11,7 +11,6 @@ use crate::{
     error::RuntimeError,
     table::Table,
     transaction::{TxRo, TxRw},
-    value_guard::ValueGuard,
 };
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
@@ -22,19 +21,13 @@ use crate::{
 pub trait DatabaseRo<'tx, T: Table> {
     /// Get the value corresponding to a key.
     ///
-    /// This returns a guard to the value, not the value itself.
-    /// See [`ValueGuard`] for more info.
-    ///
     /// # Errors
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
     ///
     /// It will return other [`RuntimeError`]'s on things like IO errors as well.
-    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError>;
+    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError>;
 
     /// Get an iterator of values corresponding to a range of keys.
-    ///
-    /// This returns guards to the values, not the values themselves.
-    /// See [`ValueGuard`] for more info.
     ///
     /// # Errors
     /// Each key in the `range` has the potential to error, for example,
@@ -43,11 +36,8 @@ pub trait DatabaseRo<'tx, T: Table> {
     /// from the iterator.
     fn get_range<'a, Range>(
         &'a self,
-        range: &'a Range,
-    ) -> Result<
-        impl Iterator<Item = Result<impl ValueGuard<T::Value>, RuntimeError>> + 'a,
-        RuntimeError,
-    >
+        range: Range,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a;
 }
