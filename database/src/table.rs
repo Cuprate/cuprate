@@ -19,10 +19,10 @@ pub trait Table: crate::tables::private::Sealed + 'static {
     const NAME: &'static str;
 
     /// Primary key type.
-    type Key: Key + 'static;
+    type Key: Key + ?Sized + 'static;
 
     /// Value type.
-    type Value: Storable + 'static;
+    type Value: Storable + ?Sized + 'static;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

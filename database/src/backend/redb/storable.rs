@@ -15,7 +15,7 @@ use crate::{key::Key, storable::Storable};
 #[derive(Debug)]
 pub(super) struct StorableRedb<T>(PhantomData<T>)
 where
-    T: Storable + ?Sized;
+    T: Storable;
 
 //---------------------------------------------------------------------------------------------------- RedbKey
 // If `Key` is also implemented, this can act as a `RedbKey`.

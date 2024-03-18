@@ -115,6 +115,13 @@ impl<T: Key + Pod, const N: usize> Key for [T; N] {
     type Primary = Self;
 }
 
+// TODO: temporary for now for `Key` bound, remove later.
+impl Key for crate::types::PreRctOutputId {
+    const DUPLICATE: bool = false;
+    const CUSTOM_COMPARE: bool = false;
+    type Primary = Self;
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

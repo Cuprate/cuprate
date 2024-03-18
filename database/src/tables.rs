@@ -5,7 +5,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     table::Table,
-    types::{TestType, TestType2},
+    types::{
+        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
+        BlockInfoV2, BlockInfoV3, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash,
+        PrunedBlob, RctOutput, TxHash, TxId, UnlockTime,
+    },
 };
 
 //---------------------------------------------------------------------------------------------------- Tables
@@ -35,7 +39,6 @@ macro_rules! tables {
         $(
             $(#[$attr:meta])* // Documentation and any `derive`'s.
             $table:ident,     // The table name + doubles as the table struct name.
-            $size:literal,    // Are the table's values all the same size?
             $key:ty =>        // Key type.
             $value:ty         // Value type.
         ),* $(,)?
@@ -56,7 +59,7 @@ macro_rules! tables {
             )]
             /// ```
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-            #[derive(Copy,Clone,Debug,PartialEq,PartialOrd,Eq,Ord,Hash)]
+            #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
             pub struct [<$table:camel>];
 
             // Implement the `Sealed` in this file.
@@ -74,16 +77,71 @@ macro_rules! tables {
 }
 
 //---------------------------------------------------------------------------------------------------- Tables
+// Notes:
+// - Keep this sorted A-Z (by table name)
+// - Tables are defined in plural to avoid name conflicts with types
+// - If adding/changing a table, also edit the tests in `src/backend/tests.rs`
+//   and edit `Env::open` to make sure it creates the table
 tables! {
-    /// Test documentation.
-    TestTable,
-    true,
-    i64 => TestType,
+    /// TODO
+    BlockBlobs,
+    BlockHeight => BlockBlob,
 
-    /// Test documentation 2.
-    TestTable2,
-    true,
-    u8 => TestType2,
+    /// TODO
+    BlockHeights,
+    BlockHash => BlockHeight,
+
+    /// TODO
+    BlockInfoV1s,
+    BlockHeight => BlockInfoV1,
+
+    /// TODO
+    BlockInfoV2s,
+    BlockHeight => BlockInfoV2,
+
+    /// TODO
+    BlockInfoV3s,
+    BlockHeight => BlockInfoV3,
+
+    /// TODO
+    KeyImages,
+    KeyImage => (),
+
+    /// TODO
+    NumOutputs,
+    Amount => AmountIndex,
+
+    /// TODO
+    PrunedTxBlobs,
+    TxId => PrunedBlob,
+
+    /// TODO
+    Outputs,
+    PreRctOutputId => Output,
+
+    /// TODO
+    PrunableTxBlobs,
+    TxId => PrunableBlob,
+
+    /// TODO
+    PrunableHashes,
+    TxId => PrunableHash,
+
+    /// TODO
+    RctOutputs,
+    AmountIndex => RctOutput,
+
+    /// TODO
+    TxIds,
+    TxHash => TxId,
+
+    /// TODO
+    TxHeights,
+    TxId => BlockHeight,
+
+    /// TODO
+    TxUnlockTime,
+    TxId => UnlockTime,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
