@@ -83,17 +83,11 @@ impl Env for ConcreteEnv {
         // Create all database tables.
         // `redb` creates tables if they don't exist.
         // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
-        use crate::tables::{TestTable, TestTable2};
-        let tx_rw = env.begin_write()?;
-
-        // FIXME:
-        // These wonderful fully qualified trait types are brought
-        // to you by `tower::discover::Discover>::Key` collisions.
-
-        // TODO: Create all tables when schema is done.
 
         /// Function that creates the tables based off the passed `T: Table`.
         fn create_table<T: Table>(tx_rw: &redb::WriteTransaction<'_>) -> Result<(), InitError> {
+            println!("create_table(): {}", T::NAME); // TODO: use tracing.
+
             let table: redb::TableDefinition<
                 'static,
                 StorableRedb<<T as Table>::Key>,
@@ -105,8 +99,28 @@ impl Env for ConcreteEnv {
             Ok(())
         }
 
-        create_table::<TestTable>(&tx_rw)?;
-        create_table::<TestTable2>(&tx_rw)?;
+        use crate::tables::{
+            BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages,
+            NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs,
+            TxHeights, TxIds, TxUnlockTime,
+        };
+
+        let tx_rw = env.begin_write()?;
+        create_table::<BlockBlobs>(&tx_rw)?;
+        create_table::<BlockHeights>(&tx_rw)?;
+        create_table::<BlockInfoV1s>(&tx_rw)?;
+        create_table::<BlockInfoV2s>(&tx_rw)?;
+        create_table::<BlockInfoV3s>(&tx_rw)?;
+        create_table::<KeyImages>(&tx_rw)?;
+        create_table::<NumOutputs>(&tx_rw)?;
+        create_table::<Outputs>(&tx_rw)?;
+        create_table::<PrunableHashes>(&tx_rw)?;
+        create_table::<PrunableTxBlobs>(&tx_rw)?;
+        create_table::<PrunedTxBlobs>(&tx_rw)?;
+        create_table::<RctOutputs>(&tx_rw)?;
+        create_table::<TxHeights>(&tx_rw)?;
+        create_table::<TxIds>(&tx_rw)?;
+        create_table::<TxUnlockTime>(&tx_rw)?;
         tx_rw.commit()?;
 
         // Check for file integrity.
