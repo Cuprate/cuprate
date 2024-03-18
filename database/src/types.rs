@@ -100,6 +100,41 @@ pub type UnlockTime = u64;
 /// # use std::borrow::*;
 /// # use cuprate_database::{*, types::*};
 /// // Assert Storable is correct.
+/// let a = PreRctOutputId {
+///     amount: 1,
+///     amount_index: 123,
+/// };
+/// let b = Storable::as_bytes(&a);
+/// let c: &PreRctOutputId = Storable::from_bytes(b);
+/// let c2: Cow<'_, PreRctOutputId> = Storable::from_bytes_unaligned(b);
+/// assert_eq!(&a, c);
+/// assert_eq!(c, c2.as_ref());
+/// ```
+///
+/// # Size & Alignment
+/// ```rust
+/// # use cuprate_database::types::*;
+/// # use std::mem::*;
+/// assert_eq!(size_of::<PreRctOutputId>(), 16);
+/// assert_eq!(align_of::<PreRctOutputId>(), 8);
+/// ```
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct PreRctOutputId {
+    /// TODO
+    pub amount: Amount,
+    /// TODO
+    pub amount_index: AmountIndex,
+}
+
+//---------------------------------------------------------------------------------------------------- BlockInfoV1
+/// TODO
+///
+/// ```rust
+/// # use std::borrow::*;
+/// # use cuprate_database::{*, types::*};
+/// // Assert Storable is correct.
 /// let a = BlockInfoV1 {
 ///     timestamp: 1,
 ///     total_generated_coins: 123,

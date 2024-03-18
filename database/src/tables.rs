@@ -7,8 +7,8 @@ use crate::{
     table::Table,
     types::{
         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
-        BlockInfoV2, BlockInfoV3, KeyImage, Output, PrunableBlob, PrunableHash, PrunedBlob,
-        RctOutput, TxHash, TxId, UnlockTime,
+        BlockInfoV2, BlockInfoV3, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash,
+        PrunedBlob, RctOutput, TxHash, TxId, UnlockTime,
     },
 };
 
@@ -117,7 +117,7 @@ tables! {
 
     /// TODO
     Outputs,
-    Amount => Output, // FIXME: `Amount | AmountIndex` key
+    PreRctOutputId => Output,
 
     /// TODO
     PrunableTxBlobs,

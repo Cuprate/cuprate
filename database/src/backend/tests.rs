@@ -33,8 +33,8 @@ use crate::{
     transaction::{TxRo, TxRw},
     types::{
         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
-        BlockInfoV2, BlockInfoV3, KeyImage, Output, PrunableBlob, PrunableHash, PrunedBlob,
-        RctOutput, TxHash, TxId, UnlockTime,
+        BlockInfoV2, BlockInfoV3, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash,
+        PrunedBlob, RctOutput, TxHash, TxId, UnlockTime,
     },
     value_guard::ValueGuard,
     ConcreteEnv,
@@ -169,7 +169,10 @@ fn db_read_write() {
     let mut table = env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
 
     /// The (1st) key.
-    const KEY: Amount = 0;
+    const KEY: PreRctOutputId = PreRctOutputId {
+        amount: 1,
+        amount_index: 123,
+    };
     /// The expected value.
     const VALUE: Output = Output {
         key: [35; 32],
@@ -189,8 +192,10 @@ fn db_read_write() {
     }
 
     // Insert `0..100` keys.
+    let mut key = KEY;
     for i in 0..100 {
-        table.put(&(KEY + i), &VALUE).unwrap();
+        table.put(&key, &VALUE).unwrap();
+        key.amount += 1;
     }
 
     // Assert the 1st key is there.
@@ -216,7 +221,9 @@ fn db_read_write() {
     }
 
     // Assert `get_range()` works.
-    let range = KEY..(KEY + 100);
+    let mut key = KEY;
+    key.amount += 100;
+    let range = KEY..key;
     assert_eq!(100, table.get_range(&range).unwrap().count());
 
     // Assert deleting works.
@@ -358,8 +365,11 @@ test_tables! {
     123 => 123,
 
     Outputs,
-    Amount => Output, // FIXME: `Amount | AmountIndex` key
-    123 => Output {
+    PreRctOutputId => Output,
+    PreRctOutputId {
+        amount: 1,
+        amount_index: 2,
+    } => Output {
         key: [1; 32],
         height: 1,
         output_flags: 0,
