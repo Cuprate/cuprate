@@ -6,6 +6,8 @@ use std::{
     task::{Context, Poll},
 };
 
+use futures::channel::oneshot;
+
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
@@ -31,7 +33,7 @@ type ResponseResult = Result<Response, RuntimeError>;
 type ResponseRecv = InfallibleOneshotReceiver<ResponseResult>;
 
 /// The `Sender` channel for the response.
-type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
+type ResponseSend = oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriteHandle
 /// Write handle to the database.
@@ -51,19 +53,51 @@ pub struct DatabaseWriteHandle {
     pub(super) sender: crossbeam::channel::Sender<(WriteRequest, ResponseSend)>,
 }
 
+impl DatabaseWriteHandle {
+    /// Initialize the single `DatabaseWriter` thread.
+    #[cold]
+    #[inline(never)] // Only called once.
+    pub(super) fn init(db: Arc<ConcreteEnv>) -> Self {
+        // Initialize `Request/Response` channels.
+        let (sender, receiver) = crossbeam::channel::unbounded();
+
+        // Spawn the writer.
+        std::thread::Builder::new()
+            .name(WRITER_THREAD_NAME.into())
+            .spawn(move || {
+                let this = DatabaseWriter { receiver, db };
+                DatabaseWriter::main(this);
+            })
+            .unwrap();
+
+        Self { sender }
+    }
+}
+
 impl tower::Service<WriteRequest> for DatabaseWriteHandle {
     type Response = Response;
     type Error = RuntimeError;
     type Future = ResponseRecv;
 
     #[inline]
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // If there are previous write requests not fulfilled, wait.
+        if self.sender.is_empty() {
+            Poll::Ready(Ok(()))
+        } else {
+            Poll::Pending
+        }
     }
 
     #[inline]
-    fn call(&mut self, _req: WriteRequest) -> Self::Future {
-        todo!()
+    fn call(&mut self, request: WriteRequest) -> Self::Future {
+        // Response channel we `.await` on.
+        let (response_send, receiver) = oneshot::channel();
+
+        // Send the write request.
+        self.sender.send((request, response_send)).unwrap();
+
+        InfallibleOneshotReceiver::from(receiver)
     }
 }
 
@@ -81,33 +115,7 @@ pub(super) struct DatabaseWriter {
     db: Arc<ConcreteEnv>,
 }
 
-impl Drop for DatabaseWriter {
-    fn drop(&mut self) {
-        // TODO: log the writer thread has exited?
-    }
-}
-
 impl DatabaseWriter {
-    /// Initialize the single `DatabaseWriter` thread.
-    #[cold]
-    #[inline(never)] // Only called once.
-    pub(super) fn init(db: Arc<ConcreteEnv>) -> DatabaseWriteHandle {
-        // Initialize `Request/Response` channels.
-        let (sender, receiver) = crossbeam::channel::unbounded();
-
-        // Spawn the writer.
-        std::thread::Builder::new()
-            .name(WRITER_THREAD_NAME.into())
-            .spawn(move || {
-                let this = Self { receiver, db };
-                Self::main(this);
-            })
-            .unwrap();
-
-        // Return a handle to the pool.
-        DatabaseWriteHandle { sender }
-    }
-
     /// The `DatabaseWriter`'s main function.
     ///
     /// The writer just loops in this function.
@@ -183,5 +191,11 @@ impl DatabaseWriter {
     fn example_handler_3(&mut self, response_send: ResponseSend) {
         let db_result = todo!();
         response_send.send(db_result).unwrap();
+    }
+}
+
+impl Drop for DatabaseWriter {
+    fn drop(&mut self) {
+        // TODO: log the writer thread has exited?
     }
 }

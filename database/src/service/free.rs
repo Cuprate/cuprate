@@ -40,10 +40,9 @@ pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle),
 
     // Spawn the Reader thread pool and Writer.
     let readers = DatabaseReadHandle::init(&db, reader_threads);
-    let writers = DatabaseWriter::init(db);
+    let writer = DatabaseWriteHandle::init(db);
 
-    // Return the handles to those pools.
-    Ok((readers, writers))
+    Ok((readers, writer))
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
