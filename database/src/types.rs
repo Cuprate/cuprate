@@ -45,6 +45,8 @@ use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::storable_slice::StorableSlice;
+
 //---------------------------------------------------------------------------------------------------- Aliases
 // TODO: document these, why they exist, and their purpose.
 //
@@ -58,10 +60,10 @@ pub type Amount = u64;
 pub type AmountIndex = u64;
 
 /// TODO
-pub type AmountIndices = [AmountIndex];
+pub type AmountIndices = StorableSlice<AmountIndex>;
 
 /// TODO
-pub type BlockBlob = [u8];
+pub type BlockBlob = StorableSlice<u8>;
 
 /// TODO
 pub type BlockHash = [u8; 32];
@@ -73,10 +75,10 @@ pub type BlockHeight = u64;
 pub type KeyImage = [u8; 32];
 
 /// TODO
-pub type PrunedBlob = [u8];
+pub type PrunedBlob = StorableSlice<u8>;
 
 /// TODO
-pub type PrunableBlob = [u8];
+pub type PrunableBlob = StorableSlice<u8>;
 
 /// TODO
 pub type PrunableHash = [u8; 32];

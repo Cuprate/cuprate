@@ -16,8 +16,8 @@ use crate::{storable::Storable, to_owned_debug::ToOwnedDebug};
 
 //---------------------------------------------------------------------------------------------------- StorableSlice
 /// TODO
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum StorableSlice<'a, T> {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum StorableSlice<T: Storable> {
     /// TODO
     Vec(Vec<T>),
     /// TODO
@@ -25,7 +25,7 @@ pub enum StorableSlice<'a, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- Storable
-impl<T> Storable for StorableSlice<'_, T>
+impl<T> Storable for StorableSlice<T>
 where
     T: Pod + ToOwnedDebug<OwnedDebug = T>,
 {
@@ -47,7 +47,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- Traits
-impl<T> Deref for StorableSlice<'_, T> {
+impl<T> Deref for StorableSlice<T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         match self {
@@ -57,7 +57,7 @@ impl<T> Deref for StorableSlice<'_, T> {
     }
 }
 
-impl<T> Borrow<[T]> for StorableSlice<'_, T> {
+impl<T> Borrow<[T]> for StorableSlice<T> {
     fn borrow(&self) -> &[T] {
         match self {
             Self::Vec(vec) => vec.as_slice(),
@@ -66,25 +66,25 @@ impl<T> Borrow<[T]> for StorableSlice<'_, T> {
     }
 }
 
-impl<T> From<Vec<T>> for StorableSlice<'static, T> {
+impl<T> From<Vec<T>> for StorableSlice<T> {
     fn from(value: Vec<T>) -> Self {
         Self::Vec(value)
     }
 }
 
-impl<T> From<Box<[T]>> for StorableSlice<'static, T> {
+impl<T> From<Box<[T]>> for StorableSlice<T> {
     fn from(value: Box<[T]>) -> Self {
         Self::Vec(value.into_vec())
     }
 }
 
-impl<'a, T> From<&'a [T]> for StorableSlice<'a, T> {
+impl<'a, T> From<&'a [T]> for StorableSlice<T> {
     fn from(value: &'a [T]) -> Self {
         Self::Slice(value)
     }
 }
 
-impl<'a, const N: usize, T> From<&'a [T; N]> for StorableSlice<'a, T> {
+impl<'a, const N: usize, T> From<&'a [T; N]> for StorableSlice<T> {
     fn from(value: &'a [T; N]) -> Self {
         Self::Slice(value)
     }
