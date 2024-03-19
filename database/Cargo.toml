@@ -9,8 +9,8 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-default   = ["heed", "redb", "service"]
-# default   = ["redb", "service"]
+# default   = ["heed", "redb", "service"]
+default   = ["redb", "service"]
 heed    = ["dep:heed"]
 redb    = ["dep:redb"]
 service = ["dep:crossbeam", "dep:tokio", "dep:tower"]
@@ -30,6 +30,7 @@ thiserror      = { workspace = true }
 crossbeam = { workspace = true, features = ["std"], optional = true }
 tokio     = { workspace = true, features = ["full"], optional = true }
 tower     = { workspace = true, features = ["full"], optional = true }
+rayon     = { workspace = true, optional = true }
 
 # Optional features.
 heed  = { version = "0.20.0-alpha.9", optional = true }

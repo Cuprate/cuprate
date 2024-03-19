@@ -592,6 +592,7 @@ dependencies = [
  "heed",
  "page_size",
  "paste",
+ "rayon",
  "redb",
  "serde",
  "tempfile",
