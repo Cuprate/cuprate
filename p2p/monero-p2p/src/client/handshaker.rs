@@ -207,14 +207,15 @@ pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> 
             }
 
             tracing::debug!("Peer's ping response was not `OK`.");
-            Err(HandshakeError::PeerSentInvalidMessage(
+            return Err(HandshakeError::PeerSentInvalidMessage(
                 "Ping response was not `OK`",
-            ))?;
+            ));
         }
+
         tracing::debug!("Peer sent invalid response to ping.");
-        Err(HandshakeError::PeerSentInvalidMessage(
+        return Err(HandshakeError::PeerSentInvalidMessage(
             "Peer did not send correct response for ping.",
-        ))?;
+        ));
     }
 
     tracing::debug!("Connection closed before ping response.");
@@ -249,7 +250,7 @@ where
     } = req;
 
     // A list of protocol messages the peer has sent during the handshake for us to handle after the handshake.
-    // see: MAX_EAGER_PROTOCOL_MESSAGES
+    // see: [`MAX_EAGER_PROTOCOL_MESSAGES`]
     let mut eager_protocol_messages = Vec::new();
 
     let (peer_core_sync, mut peer_node_data) = match direction {
