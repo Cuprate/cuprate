@@ -164,6 +164,8 @@ impl Env for ConcreteEnv {
             reader_threads + 16
         });
 
+        // Create the database directory if it doesn't exist.
+        std::fs::create_dir_all(config.db_directory())?;
         // Open the environment in the user's PATH.
         let env = env_open_options.open(config.db_directory())?;
 
