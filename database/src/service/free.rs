@@ -39,7 +39,7 @@ pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle),
     let db: Arc<ConcreteEnv> = Arc::new(ConcreteEnv::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = DatabaseReader::init(&db, reader_threads);
+    let readers = DatabaseReadHandle::init(&db, reader_threads);
     let writers = DatabaseWriter::init(db);
 
     // Return the handles to those pools.

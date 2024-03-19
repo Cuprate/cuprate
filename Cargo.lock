@@ -589,6 +589,7 @@ dependencies = [
  "cfg-if",
  "crossbeam",
  "cuprate-helper",
+ "futures",
  "heed",
  "page_size",
  "paste",

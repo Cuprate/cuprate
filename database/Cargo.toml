@@ -13,7 +13,7 @@ keywords    = ["cuprate", "database"]
 default   = ["redb", "service"]
 heed    = ["dep:heed"]
 redb    = ["dep:redb"]
-service = ["dep:crossbeam", "dep:tokio", "dep:tower"]
+service = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tower", "dep:rayon"]
 
 [dependencies]
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
@@ -28,6 +28,7 @@ thiserror      = { workspace = true }
 
 # `service` feature.
 crossbeam = { workspace = true, features = ["std"], optional = true }
+futures   = { workspace = true, optional = true }
 tokio     = { workspace = true, features = ["full"], optional = true }
 tower     = { workspace = true, features = ["full"], optional = true }
 rayon     = { workspace = true, optional = true }
