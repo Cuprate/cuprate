@@ -13,7 +13,6 @@ use crate::{
     database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
-    value_guard::ValueGuard,
 };
 
 //---------------------------------------------------------------------------------------------------- Heed Database Wrappers

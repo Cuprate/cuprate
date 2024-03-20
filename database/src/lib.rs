@@ -129,7 +129,6 @@
 	redundant_semicolons,
 	unused_allocation,
 	coherence_leak_check,
-	single_use_lifetimes,
 	while_true,
 	clippy::missing_docs_in_private_items,
 
@@ -168,6 +167,7 @@
     clippy::pedantic,
     clippy::nursery,
     clippy::cargo,
+    single_use_lifetimes,
     missing_docs,
     deprecated,
     unused_comparisons,

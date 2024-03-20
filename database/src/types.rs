@@ -60,10 +60,10 @@ pub type Amount = u64;
 pub type AmountIndex = u64;
 
 /// TODO
-pub type AmountIndices = StorableSlice<AmountIndex>;
+pub type AmountIndices<'a> = StorableSlice<'a, AmountIndex>;
 
 /// TODO
-pub type BlockBlob = StorableSlice<u8>;
+pub type BlockBlob<'a> = StorableSlice<'a, u8>;
 
 /// TODO
 pub type BlockHash = [u8; 32];
@@ -75,10 +75,10 @@ pub type BlockHeight = u64;
 pub type KeyImage = [u8; 32];
 
 /// TODO
-pub type PrunedBlob = StorableSlice<u8>;
+pub type PrunedBlob<'a> = StorableSlice<'a, u8>;
 
 /// TODO
-pub type PrunableBlob = StorableSlice<u8>;
+pub type PrunableBlob<'a> = StorableSlice<'a, u8>;
 
 /// TODO
 pub type PrunableHash = [u8; 32];
