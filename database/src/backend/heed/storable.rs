@@ -5,7 +5,7 @@ use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
 
 use heed::{types::Bytes, BoxedError, BytesDecode, BytesEncode, Database};
 
-use crate::storable::Storable;
+use crate::{storable::Storable, storable_slice::StorableSlice};
 
 //---------------------------------------------------------------------------------------------------- StorableHeed
 /// The glue struct that implements `heed`'s (de)serialization
@@ -47,10 +47,6 @@ where
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    use std::fmt::Debug;
-
-    use crate::storable::StorableSlice;
-
     use super::*;
 
     // Each `#[test]` function has a `test()` to:

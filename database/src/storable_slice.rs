@@ -16,8 +16,8 @@ use crate::{storable::Storable, to_owned_debug::ToOwnedDebug};
 
 //---------------------------------------------------------------------------------------------------- StorableSlice
 /// TODO
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum StorableSlice<'a, T: Storable> {
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum StorableSlice<'a, T> {
     /// TODO
     Vec(Vec<T>),
     /// TODO
