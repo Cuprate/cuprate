@@ -81,12 +81,7 @@ impl tower::Service<WriteRequest> for DatabaseWriteHandle {
 
     #[inline]
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // If there are previous write requests not fulfilled, wait.
-        if self.sender.is_empty() {
-            Poll::Ready(Ok(()))
-        } else {
-            Poll::Pending
-        }
+        Poll::Ready(Ok(()))
     }
 
     #[inline]
