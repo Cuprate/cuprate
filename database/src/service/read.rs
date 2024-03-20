@@ -117,14 +117,14 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 
         // Spawn the request in the rayon DB thread-pool.
         //
-        // Note that this uses `install()` instead of `spawn()`
+        // Note that this uses `self.pool` instead of `rayon::spawn`
         // such that any `rayon` parallel code that runs within
         // the passed closure uses the same `rayon` threadpool.
         //
         // INVARIANT:
         // The below `DatabaseReader` function impl block relies on this behavior.
         self.pool
-            .install(move || db_reader.map_request(request, response_sender));
+            .spawn(move || db_reader.map_request(request, response_sender));
 
         InfallibleOneshotReceiver::from(receiver)
     }
@@ -157,7 +157,7 @@ impl Drop for DatabaseReader {
 
 // INVARIANT:
 // These functions are called above in `tower::Service::call()`
-// using `install()` which means any call to `par_*()` functions
+// using a custom threadpool which means any call to `par_*()` functions
 // will be using the custom rayon DB reader thread-pool, not the global one.
 //
 // All functions in this `impl` block assume that this is the case,
