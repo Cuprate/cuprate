@@ -38,7 +38,7 @@
 //!
 //! Upon dropping the [`crate::ConcreteEnv`]:
 //! - All un-processed database transactions are completed
-//! - All data gets flushed to disk (caused by [`Drop::drop`] impl of [`crate::ConcreteEnv`])
+//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on [`crate::ConcreteEnv`])
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),

@@ -121,7 +121,7 @@ impl DatabaseWriter {
     /// The writer just loops in this function.
     #[cold]
     #[inline(never)] // Only called once.
-    fn main(mut self) {
+    fn main(self) {
         // 1. Hang on request channel
         // 2. Map request to some database function
         // 3. Execute that function, get the result
@@ -142,8 +142,8 @@ impl DatabaseWriter {
             // Map [`Request`]'s to specific database functions.
             match request {
                 WriteRequest::Example1 => self.example_handler_1(response_send),
-                WriteRequest::Example2(_x) => self.example_handler_2(response_send),
-                WriteRequest::Example3(_x) => self.example_handler_3(response_send),
+                WriteRequest::Example2(x) => self.example_handler_2(response_send, x),
+                WriteRequest::Example3(x) => self.example_handler_3(response_send, x),
             }
         }
     }
@@ -174,22 +174,25 @@ impl DatabaseWriter {
 
     /// TODO
     #[inline]
-    fn example_handler_1(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_1(&self, response_send: ResponseSend) {
+        let db_result = Ok(Response::Example1);
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
     #[inline]
-    fn example_handler_2(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_2(&self, response_send: ResponseSend, x: usize) {
+        let db_result = Ok(Response::Example2(x));
         response_send.send(db_result).unwrap();
     }
 
     /// TODO
     #[inline]
-    fn example_handler_3(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_3(&self, response_send: ResponseSend, x: String) {
+        let db_result = Ok(Response::Example3(x));
         response_send.send(db_result).unwrap();
     }
 }
