@@ -1,4 +1,4 @@
-//! Database read thread-pool definitions and logic.
+//! Database reader thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
@@ -32,13 +32,13 @@ type ResponseResult = Result<Response, RuntimeError>;
 ///
 /// The channel itself should never fail,
 /// but the actual database operation might.
-type ResponseRecv = InfallibleOneshotReceiver<ResponseResult>;
+type ResponseReceiver = InfallibleOneshotReceiver<ResponseResult>;
 
 /// The `Sender` channel for the response.
 ///
 /// The database reader thread uses this to send
 /// the database result to the caller.
-type ResponseSend = oneshot::Sender<ResponseResult>;
+type ResponseSender = oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
@@ -98,7 +98,7 @@ impl DatabaseReadHandle {
 impl tower::Service<ReadRequest> for DatabaseReadHandle {
     type Response = Response;
     type Error = RuntimeError;
-    type Future = ResponseRecv;
+    type Future = ResponseReceiver;
 
     #[inline]
     fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -108,7 +108,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 
     fn call(&mut self, request: ReadRequest) -> Self::Future {
         // Response channel we `.await` on.
-        let (response_send, receiver) = oneshot::channel();
+        let (response_sender, receiver) = oneshot::channel();
 
         // Database thread's state.
         let db_reader = DatabaseReader {
@@ -124,7 +124,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         // INVARIANT:
         // The below `DatabaseReader` function impl block relies on this behavior.
         self.pool
-            .install(move || db_reader.map_request(request, response_send));
+            .install(move || db_reader.map_request(request, response_sender));
 
         InfallibleOneshotReceiver::from(receiver)
     }
@@ -133,7 +133,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 //---------------------------------------------------------------------------------------------------- DatabaseReader
 /// Database reader thread state.
 ///
-/// This struct represents the state every
+/// This struct represents (some of the) state every
 /// `DatabaseReadHandle` rayon thread will have access to.
 ///
 /// Could just be function inputs, although this allows `self`
@@ -141,6 +141,9 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 pub(super) struct DatabaseReader {
     /// Access to the database.
     db: Arc<ConcreteEnv>,
+    // FIXME:
+    // `request` and `response_sender` can't be in here
+    // for `drop()` + `send()` taking by value.
 }
 
 impl Drop for DatabaseReader {
@@ -162,39 +165,47 @@ impl Drop for DatabaseReader {
 impl DatabaseReader {
     #[inline]
     /// Map [`Request`]'s to specific database handler functions.
+    ///
+    /// This is the main entrance into all `Request` handler functions.
+    /// The basic structure is:
+    ///
+    /// 1. `Request` is mapped to a handler function
+    /// 2. Handler function is called
+    /// 3. [`Response`] is sent
+    /// 4. [`Self`] drop code runs
     fn map_request(
         self,
-        request: ReadRequest,        // The request we must fulfill
-        response_send: ResponseSend, // The channel we must send the response back to
+        request: ReadRequest,            // The request we must fulfill
+        response_sender: ResponseSender, // The channel we must send the response back to
     ) {
         match request {
-            ReadRequest::Example1 => self.example_handler_1(response_send),
-            ReadRequest::Example2(x) => self.example_handler_2(response_send, x),
-            ReadRequest::Example3(x) => self.example_handler_3(response_send, x),
+            ReadRequest::Example1 => self.example_handler_1(response_sender),
+            ReadRequest::Example2(x) => self.example_handler_2(response_sender, x),
+            ReadRequest::Example3(x) => self.example_handler_3(response_sender, x),
         }
     }
 
     /// TODO
     #[inline]
-    #[allow(clippy::unused_self)]
-    fn example_handler_1(self, response_send: ResponseSend) {
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_1(self, response_sender: ResponseSender) {
         let db_result = Ok(Response::Example1);
-        response_send.send(db_result).unwrap();
+        response_sender.send(db_result).unwrap();
     }
 
     /// TODO
     #[inline]
-    #[allow(clippy::unused_self)]
-    fn example_handler_2(self, response_send: ResponseSend, x: usize) {
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_2(self, response_sender: ResponseSender, x: usize) {
         let db_result = Ok(Response::Example2(x));
-        response_send.send(db_result).unwrap();
+        response_sender.send(db_result).unwrap();
     }
 
     /// TODO
     #[inline]
-    #[allow(clippy::unused_self)]
-    fn example_handler_3(self, response_send: ResponseSend, x: String) {
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_3(self, response_sender: ResponseSender, x: String) {
         let db_result = Ok(Response::Example3(x));
-        response_send.send(db_result).unwrap();
+        response_sender.send(db_result).unwrap();
     }
 }
