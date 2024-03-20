@@ -180,10 +180,10 @@ fn db_read_write() {
         tx_idx: 2_353_487,
     };
 
-    /// Assert a passed `Output` is equal to the const value.
-    fn assert_eq(output: &Output) {
-        assert_eq!(output, &VALUE);
-        // Make sure all field accesses are aligned.
+    /// Assert 2 `Output`'s are equal, and that accessing
+    /// their fields don't result in an unaligned panic.
+    fn assert_same(output: Output) {
+        assert_eq!(output, VALUE);
         assert_eq!(output.key, VALUE.key);
         assert_eq!(output.height, VALUE.height);
         assert_eq!(output.output_flags, VALUE.output_flags);
@@ -199,25 +199,17 @@ fn db_read_write() {
 
     // Assert the 1st key is there.
     {
-        let value: TestType = table.get(&KEY).unwrap();
-
-        // Make sure all field accesses are aligned.
-        assert_eq!(value, VALUE);
-        assert_eq!(value.u, VALUE.u);
-        assert_eq!(value.b, VALUE.b);
-        assert_eq!(value._pad, VALUE._pad);
+        let value: Output = table.get(&KEY).unwrap();
+        assert_same(value);
     }
 
     // Assert the whole range is there.
     {
-        let range = table.get_range(..).unwrap();
+        let range = table.get_range(&..).unwrap();
         let mut i = 0;
         for result in range {
-            let value: TestType = result.unwrap();
-            assert_eq!(value, VALUE);
-            assert_eq!(value.u, VALUE.u);
-            assert_eq!(value.b, VALUE.b);
-            assert_eq!(value._pad, VALUE._pad);
+            let value: Output = result.unwrap();
+            assert_same(value);
 
             i += 1;
         }
@@ -225,8 +217,10 @@ fn db_read_write() {
     }
 
     // Assert `get_range()` works.
-    let range = KEY..(KEY + 100);
-    assert_eq!(100, table.get_range(range).unwrap().count());
+    let mut key = KEY;
+    key.amount += 100;
+    let range = KEY..key;
+    assert_eq!(100, table.get_range(&range).unwrap().count());
 
     // Assert deleting works.
     table.delete(&KEY).unwrap();
