@@ -4,6 +4,8 @@
 //! This library contains the Epee binary format found in Monero, unlike other
 //! crates this crate does not use serde.
 //!
+//! See [`epee_object`] for how to easily implement [`EpeeObject`] for your types.
+//!
 //! example without macro:
 //! ```rust
 //! # use epee_encoding::{EpeeObject, EpeeObjectBuilder, read_epee_value, write_field, to_bytes, from_bytes};
@@ -54,33 +56,6 @@
 //! let val: Test = from_bytes(&mut data.as_slice()).unwrap();
 //! let data = to_bytes(val).unwrap();
 //!
-//!
-//! ```
-//!
-//! example with macro:
-//! ```rust
-//! use epee_encoding::{from_bytes, to_bytes};
-//!
-//! // TODO: open an issue documenting why you need to do this here
-//! // like this: https://github.com/Boog900/epee-encoding/issues/1
-//! mod i_64079 {
-//!     use epee_encoding::epee_object;
-//!
-//!     pub struct Test2 {
-//!         val: u64
-//!     }
-//!
-//!     epee_object!(
-//!         Test2,
-//!         val: u64,
-//!     );
-//! }
-//! use i_64079::*;
-//!
-//!
-//! let data = [1, 17, 1, 1, 1, 1, 2, 1, 1, 4, 3, 118, 97, 108, 5, 4, 0, 0, 0, 0, 0, 0, 0]; // the data to decode;
-//! let val: Test2 = from_bytes(&mut data.as_slice()).unwrap();
-//! let data = to_bytes(val).unwrap();
 //!
 //! ```
 

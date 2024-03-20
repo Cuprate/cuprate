@@ -8,12 +8,12 @@ use monero_p2p::handles::HandleBuilder;
 use monero_pruning::PruningSeed;
 
 use super::{AddressBook, ConnectionPeerEntry, InternalPeerID};
-use crate::{peer_list::tests::make_fake_peer_list, AddressBookError, Config};
+use crate::{peer_list::tests::make_fake_peer_list, AddressBookConfig, AddressBookError};
 
 use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
 
-fn test_cfg() -> Config {
-    Config {
+fn test_cfg() -> AddressBookConfig {
+    AddressBookConfig {
         max_white_list_length: 100,
         max_gray_list_length: 500,
         peer_store_file: PathBuf::new(),
@@ -35,7 +35,7 @@ fn make_fake_address_book(
         connected_peers: Default::default(),
         connected_peers_ban_id: Default::default(),
         banned_peers: Default::default(),
-        banned_peers_fut: Default::default(),
+        banned_peers_queue: Default::default(),
         peer_save_task_handle: None,
         peer_save_interval: interval(Duration::from_secs(60)),
         cfg: test_cfg(),
@@ -43,15 +43,15 @@ fn make_fake_address_book(
 }
 
 #[tokio::test]
-async fn get_random_peers() {
-    let address_book = make_fake_address_book(50, 250);
-    let peer = address_book.get_random_white_peer(None).unwrap();
-    assert!(address_book.white_list.contains_peer(&peer.adr));
+async fn take_random_peers() {
+    let mut address_book = make_fake_address_book(50, 250);
+    let peer = address_book.take_random_white_peer(None).unwrap();
+    assert!(!address_book.white_list.contains_peer(&peer.adr));
     assert!(!address_book.gray_list.contains_peer(&peer.adr));
 
-    let peer = address_book.get_random_gray_peer(None).unwrap();
+    let peer = address_book.take_random_gray_peer(None).unwrap();
     assert!(!address_book.white_list.contains_peer(&peer.adr));
-    assert!(address_book.gray_list.contains_peer(&peer.adr));
+    assert!(!address_book.gray_list.contains_peer(&peer.adr));
 }
 
 #[tokio::test]
@@ -81,7 +81,7 @@ async fn add_new_peer_already_connected() {
 
     let semaphore = Arc::new(Semaphore::new(10));
 
-    let (_, handle, _) = HandleBuilder::default()
+    let (_, handle) = HandleBuilder::default()
         .with_permit(semaphore.clone().try_acquire_owned().unwrap())
         .build();
 
@@ -99,7 +99,7 @@ async fn add_new_peer_already_connected() {
         )
         .unwrap();
 
-    let (_, handle, _) = HandleBuilder::default()
+    let (_, handle) = HandleBuilder::default()
         .with_permit(semaphore.try_acquire_owned().unwrap())
         .build();
 
@@ -143,7 +143,12 @@ async fn banned_peer_removed_from_peer_lists() {
     assert_eq!(address_book.white_list.len(), 98);
 
     assert_eq!(
-        address_book.banned_peers_fut.next().await.unwrap(),
+        address_book
+            .banned_peers_queue
+            .next()
+            .await
+            .unwrap()
+            .into_inner(),
         TestNetZoneAddr(1)
     )
 }

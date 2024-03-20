@@ -106,7 +106,7 @@ pub fn make_fragmented_messages<T: LevinBody>(
             new_body.resize(fragment_size - HEADER_SIZE, 0);
 
             bucket.body = new_body.freeze();
-            bucket.header.size = fragment_size
+            bucket.header.size = (fragment_size - HEADER_SIZE)
                 .try_into()
                 .expect("Bucket size does not fit into u64");
         }

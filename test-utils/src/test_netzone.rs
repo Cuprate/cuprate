@@ -29,6 +29,8 @@ pub struct TestNetZoneAddr(pub u32);
 impl NetZoneAddress for TestNetZoneAddr {
     type BanID = Self;
 
+    fn set_port(&mut self, _: u16) {}
+
     fn ban_id(&self) -> Self::BanID {
         *self
     }
