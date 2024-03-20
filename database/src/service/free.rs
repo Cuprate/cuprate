@@ -6,9 +6,7 @@ use std::sync::Arc;
 use crate::{
     config::Config,
     error::InitError,
-    service::{
-        read::DatabaseReader, write::DatabaseWriter, DatabaseReadHandle, DatabaseWriteHandle,
-    },
+    service::{write::DatabaseWriter, DatabaseReadHandle, DatabaseWriteHandle},
     ConcreteEnv, Env,
 };
 

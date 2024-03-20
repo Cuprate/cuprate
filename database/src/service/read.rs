@@ -58,19 +58,19 @@ pub struct DatabaseReadHandle {
     pub(super) pool: Arc<rayon::ThreadPool>,
 
     /// Access to the database.
-    pub(super) db: Arc<ConcreteEnv>,
+    pub(super) env: Arc<ConcreteEnv>,
 }
 
 impl DatabaseReadHandle {
     /// Initialize the `DatabaseReader` thread-pool backed by `rayon`.
     ///
     /// This spawns `N` amount of `DatabaseReader`'s
-    /// attached to `db` and returns a handle to the pool.
+    /// attached to `env` and returns a handle to the pool.
     ///
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
+    pub(super) fn init(env: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
         // How many reader threads to spawn?
         let reader_count = reader_threads.as_threads();
 
@@ -84,14 +84,14 @@ impl DatabaseReadHandle {
         // Return a handle to the pool.
         Self {
             pool: Arc::new(pool),
-            db: Arc::clone(db),
+            env: Arc::clone(env),
         }
     }
 
     /// TODO
     #[inline]
-    pub const fn db(&self) -> &Arc<ConcreteEnv> {
-        &self.db
+    pub const fn env(&self) -> &Arc<ConcreteEnv> {
+        &self.env
     }
 }
 
@@ -110,11 +110,6 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         // Response channel we `.await` on.
         let (response_sender, receiver) = oneshot::channel();
 
-        // Database thread's state.
-        let db_reader = DatabaseReader {
-            db: Arc::clone(&self.db),
-        };
-
         // Spawn the request in the rayon DB thread-pool.
         //
         // Note that this uses `self.pool` instead of `rayon::spawn`
@@ -123,89 +118,74 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         //
         // INVARIANT:
         // The below `DatabaseReader` function impl block relies on this behavior.
+        let env = Arc::clone(&self.env);
         self.pool
-            .spawn(move || db_reader.map_request(request, response_sender));
+            .spawn(move || map_request(env, request, response_sender));
 
         InfallibleOneshotReceiver::from(receiver)
     }
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseReader
-/// Database reader thread state.
-///
-/// This struct represents (some of the) state every
-/// `DatabaseReadHandle` rayon thread will have access to.
-///
-/// Could just be function inputs, although this allows `self`
-/// and a `Drop` impl such that each request has the same cleanup routine.
-pub(super) struct DatabaseReader {
-    /// Access to the database.
-    db: Arc<ConcreteEnv>,
-    // FIXME:
-    // `request` and `response_sender` can't be in here
-    // for `drop()` + `send()` taking by value.
-}
+//---------------------------------------------------------------------------------------------------- Request Mapping
+// This function maps [`Request`]s to function calls
+// executed by the rayon DB reader threadpool.
 
-impl Drop for DatabaseReader {
-    fn drop(&mut self) {
-        // INVARIANT: we set the thread name when spawning it.
-        let thread_name = std::thread::current().name().unwrap();
+#[inline]
+/// Map [`Request`]'s to specific database handler functions.
+///
+/// This is the main entrance into all `Request` handler functions.
+/// The basic structure is:
+///
+/// 1. `Request` is mapped to a handler function
+/// 2. Handler function is called
+/// 3. [`Response`] is sent
+fn map_request(
+    env: Arc<ConcreteEnv>,           // Access to the database
+    request: ReadRequest,            // The request we must fulfill
+    response_sender: ResponseSender, // The channel we must send the response back to
+) {
+    /* TODO: pre-request handling, run some code for each request? */
 
-        // TODO: log that this response has finished?
+    match request {
+        ReadRequest::Example1 => example_handler_1(env, response_sender),
+        ReadRequest::Example2(x) => example_handler_2(env, response_sender, x),
+        ReadRequest::Example3(x) => example_handler_3(env, response_sender, x),
     }
+
+    /* TODO: post-request handling, run some code for each request? */
 }
 
+//---------------------------------------------------------------------------------------------------- Handler functions
+// These are the actual functions that do stuff according to the incoming [`Request`].
+//
 // INVARIANT:
 // These functions are called above in `tower::Service::call()`
 // using a custom threadpool which means any call to `par_*()` functions
 // will be using the custom rayon DB reader thread-pool, not the global one.
 //
-// All functions in this `impl` block assume that this is the case,
-// such that `par_*()` functions will not block the _global_ rayon thread-pool.
-impl DatabaseReader {
-    #[inline]
-    /// Map [`Request`]'s to specific database handler functions.
-    ///
-    /// This is the main entrance into all `Request` handler functions.
-    /// The basic structure is:
-    ///
-    /// 1. `Request` is mapped to a handler function
-    /// 2. Handler function is called
-    /// 3. [`Response`] is sent
-    /// 4. [`Self`] drop code runs
-    fn map_request(
-        self,
-        request: ReadRequest,            // The request we must fulfill
-        response_sender: ResponseSender, // The channel we must send the response back to
-    ) {
-        match request {
-            ReadRequest::Example1 => self.example_handler_1(response_sender),
-            ReadRequest::Example2(x) => self.example_handler_2(response_sender, x),
-            ReadRequest::Example3(x) => self.example_handler_3(response_sender, x),
-        }
-    }
+// All functions below assume that this is the case, such that
+// `par_*()` functions will not block the _global_ rayon thread-pool.
 
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_1(self, response_sender: ResponseSender) {
-        let db_result = Ok(Response::Example1);
-        response_sender.send(db_result).unwrap();
-    }
+/// TODO
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn example_handler_1(env: Arc<ConcreteEnv>, response_sender: ResponseSender) {
+    let db_result = Ok(Response::Example1);
+    response_sender.send(db_result).unwrap();
+}
 
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_2(self, response_sender: ResponseSender, x: usize) {
-        let db_result = Ok(Response::Example2(x));
-        response_sender.send(db_result).unwrap();
-    }
+/// TODO
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn example_handler_2(env: Arc<ConcreteEnv>, response_sender: ResponseSender, x: usize) {
+    let db_result = Ok(Response::Example2(x));
+    response_sender.send(db_result).unwrap();
+}
 
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_3(self, response_sender: ResponseSender, x: String) {
-        let db_result = Ok(Response::Example3(x));
-        response_sender.send(db_result).unwrap();
-    }
+/// TODO
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn example_handler_3(env: Arc<ConcreteEnv>, response_sender: ResponseSender, x: String) {
+    let db_result = Ok(Response::Example3(x));
+    response_sender.send(db_result).unwrap();
 }
