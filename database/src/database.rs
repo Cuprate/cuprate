@@ -21,6 +21,8 @@ use crate::{
 pub trait DatabaseRo<'tx, T: Table> {
     /// Get the value corresponding to a key.
     ///
+    /// The returned value is _owned_.
+    ///
     /// # Errors
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
     ///
@@ -28,6 +30,9 @@ pub trait DatabaseRo<'tx, T: Table> {
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError>;
 
     /// Get an iterator of values corresponding to a range of keys.
+    ///
+    /// Although the returned iterator itself is tied to the lifetime
+    /// of `&'a self`, the returned values from the iterator are _owned_.
     ///
     /// # Errors
     /// Each key in the `range` has the potential to error, for example,
