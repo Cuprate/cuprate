@@ -77,7 +77,7 @@ mod test {
         test::<i16>(&-2, &[254, 255]);
         test::<i32>(&-3, &[253, 255, 255, 255]);
         test::<i64>(&-4, &[252, 255, 255, 255, 255, 255, 255, 255]);
-        test::<StorableVec<u8>>(&StorableVec::Slice([1, 2].as_slice()), &[1, 2]);
+        test::<StorableVec<u8>>(&StorableVec(vec![1, 2]), &[1, 2]);
         test::<[u8; 0]>(&[], &[]);
         test::<[u8; 1]>(&[255], &[255]);
         test::<[u8; 2]>(&[111, 0], &[111, 0]);
@@ -89,7 +89,7 @@ mod test {
     fn bytes_decode() {
         fn test<T>(bytes: &[u8], expected: &T)
         where
-            T: Storable + PartialEq + ToOwned + Debug,
+            T: Storable + PartialEq + ToOwned + Debug + 'static,
             T::Owned: Debug,
         {
             println!("bytes: {bytes:?}, expected: {expected:?}");
@@ -108,7 +108,7 @@ mod test {
         test::<i16>([254, 255].as_slice(), &-2);
         test::<i32>([253, 255, 255, 255].as_slice(), &-3);
         test::<i64>([252, 255, 255, 255, 255, 255, 255, 255].as_slice(), &-4);
-        test::<StorableVec<u8>>(&[1, 2], &StorableVec::Slice([1, 2].as_slice()));
+        test::<StorableVec<u8>>(&[1, 2], &StorableVec(vec![1, 2]));
         test::<[u8; 0]>([].as_slice(), &[]);
         test::<[u8; 1]>([255].as_slice(), &[255]);
         test::<[u8; 2]>([111, 0].as_slice(), &[111, 0]);

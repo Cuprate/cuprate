@@ -68,14 +68,12 @@ fn get<T: Table>(
 fn get_range<'a, T: Table, Range>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
-    range: &'a Range,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>>, RuntimeError>
+    range: Range,
+) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
 where
     Range: RangeBounds<T::Key> + 'a,
 {
-    // Ok(db.range(tx_ro, range)?.map(|res| Ok(res?.1)))
-    let iter: std::vec::Drain<Result<T::Value, RuntimeError>> = todo!();
-    Ok(iter)
+    Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
@@ -89,11 +87,11 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRo<'tx, T> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a,
     {
-        get_range::<T, Range>(&self.db, self.tx_ro, &range)
+        get_range::<T, Range>(&self.db, self.tx_ro, range)
     }
 }
 
@@ -108,11 +106,11 @@ impl<'tx, T: Table> DatabaseRo<'tx, T> for HeedTableRw<'_, 'tx, T> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>>, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a,
     {
-        get_range::<T, Range>(&self.db, self.tx_rw, &range)
+        get_range::<T, Range>(&self.db, self.tx_rw, range)
     }
 }
 
