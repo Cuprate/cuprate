@@ -13,7 +13,7 @@ keywords    = ["cuprate", "database"]
 default   = ["redb", "service"]
 heed    = ["dep:heed"]
 redb    = ["dep:redb"]
-service = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tower", "dep:rayon"]
+service = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon"]
 
 [dependencies]
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
@@ -27,11 +27,12 @@ page_size      = { version = "0.6.0" } # Needed for database resizes, they must 
 thiserror      = { workspace = true }
 
 # `service` feature.
-crossbeam = { workspace = true, features = ["std"], optional = true }
-futures   = { workspace = true, optional = true }
-tokio     = { workspace = true, features = ["full"], optional = true }
-tower     = { workspace = true, features = ["full"], optional = true }
-rayon     = { workspace = true, optional = true }
+crossbeam  = { workspace = true, features = ["std"], optional = true }
+futures    = { workspace = true, optional = true }
+tokio      = { workspace = true, features = ["full"], optional = true }
+tokio-util = { workspace = true, features = ["full"], optional = true }
+tower      = { workspace = true, features = ["full"], optional = true }
+rayon      = { workspace = true, optional = true }
 
 # Optional features.
 heed  = { version = "0.20.0-alpha.9", optional = true }
