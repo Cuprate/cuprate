@@ -187,89 +187,6 @@
 	// TODO: should be removed after all `todo!()`'s are gone.
 	clippy::diverging_sub_expression,
 
-	// FIXME:
-	// If #[deny(clippy::restriction)] is used, it
-	// enables a whole bunch of very subjective lints.
-	// The below disables most of the ones that are
-	// a bit too unwieldy.
-	//
-	// Figure out if if `clippy::restriction` should be
-	// used (it enables a bunch of good lints but has
-	// many false positives).
-
-	// clippy::single_char_lifetime_names,
-	// clippy::implicit_return,
-	// clippy::std_instead_of_alloc,
-	// clippy::std_instead_of_core,
-	// clippy::unwrap_used,
-	// clippy::min_ident_chars,
-	// clippy::absolute_paths,
-	// clippy::missing_inline_in_public_items,
-	// clippy::shadow_reuse,
-	// clippy::shadow_unrelated,
-	// clippy::missing_trait_methods,
-	// clippy::pub_use,
-	// clippy::pub_with_shorthand,
-	// clippy::blanket_clippy_restriction_lints,
-	// clippy::exhaustive_structs,
-	// clippy::exhaustive_enums,
-	// clippy::unsafe_derive_deserialize,
-	// clippy::multiple_inherent_impl,
-	// clippy::unreadable_literal,
-	// clippy::indexing_slicing,
-	// clippy::float_arithmetic,
-	// clippy::cast_possible_truncation,
-	// clippy::as_conversions,
-	// clippy::cast_precision_loss,
-	// clippy::cast_sign_loss,
-	// clippy::missing_asserts_for_indexing,
-	// clippy::default_numeric_fallback,
-	// clippy::module_inception,
-	// clippy::mod_module_files,
-	// clippy::multiple_unsafe_ops_per_block,
-	// clippy::too_many_lines,
-	// clippy::missing_assert_message,
-	// clippy::len_zero,
-	// clippy::separated_literal_suffix,
-	// clippy::single_call_fn,
-	// clippy::unreachable,
-	// clippy::many_single_char_names,
-	// clippy::redundant_pub_crate,
-	// clippy::decimal_literal_representation,
-	// clippy::option_if_let_else,
-	// clippy::lossy_float_literal,
-	// clippy::modulo_arithmetic,
-	// clippy::print_stdout,
-	// clippy::module_name_repetitions,
-	// clippy::no_effect,
-	// clippy::semicolon_outside_block,
-	// clippy::panic,
-	// clippy::question_mark_used,
-	// clippy::expect_used,
-	// clippy::integer_division,
-	// clippy::type_complexity,
-	// clippy::pattern_type_mismatch,
-	// clippy::arithmetic_side_effects,
-	// clippy::default_trait_access,
-	// clippy::similar_names,
-	// clippy::needless_pass_by_value,
-	// clippy::inline_always,
-	// clippy::if_then_some_else_none,
-	// clippy::arithmetic_side_effects,
-	// clippy::float_cmp,
-	// clippy::items_after_statements,
-	// clippy::use_debug,
-	// clippy::mem_forget,
-	// clippy::else_if_without_else,
-	// clippy::str_to_string,
-	// clippy::branches_sharing_code,
-	// clippy::impl_trait_in_params,
-	// clippy::struct_excessive_bools,
-	// clippy::exit,
-	// // This lint is actually good but
-	// // it sometimes hits false positive.
-	// clippy::self_named_module_files
-
 	clippy::module_name_repetitions,
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
@@ -282,6 +199,10 @@
 //
 // This allows us to assume 64-bit
 // invariants in code, e.g. `usize as u64`.
+//
+// # Safety
+// As of 0d67bfb1bcc431e90c82d577bf36dd1182c807e2 (2024-04-12)
+// there are invariants relying on 64-bit pointer sizes.
 #[cfg(not(target_pointer_width = "64"))]
 compile_error!("Cuprate is only compatible with 64-bit CPUs");
 
@@ -304,7 +225,7 @@ mod database;
 pub use database::{DatabaseRo, DatabaseRw};
 
 mod env;
-pub use env::Env;
+pub use env::{Env, EnvInner};
 
 mod error;
 pub use error::{InitError, RuntimeError};
@@ -332,6 +253,12 @@ pub mod types;
 
 mod transaction;
 pub use transaction::{TxRo, TxRw};
+
+mod to_owned_debug;
+pub use to_owned_debug::ToOwnedDebug;
+
+mod value_guard;
+pub use value_guard::ValueGuard;
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]

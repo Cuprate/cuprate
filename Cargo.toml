@@ -37,6 +37,7 @@ opt-level = 3
 
 [workspace.dependencies]
 async-trait           = { version = "0.1.74", default-features = false }
+bitflags              = { version = "2.4.2", default-features = false }
 borsh                 = { version = "1.2.1", default-features = false }
 bytes                 = { version = "1.5.0", default-features = false }
 cfg-if                = { version = "1.0.0", default-features = false }
@@ -50,6 +51,7 @@ dirs                  = { version = "5.0.1", default-features = false }
 futures               = { version = "0.3.29", default-features = false }
 hex                   = { version = "0.4.3", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
+indexmap              = { version = "2.2.5", default-features = false }
 monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
 multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
 paste                 = { version = "1.0.14", default-features = false }

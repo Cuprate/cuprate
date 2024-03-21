@@ -5,7 +5,7 @@ use tokio::task::{spawn_blocking, JoinHandle};
 
 use monero_p2p::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
 
-use crate::{peer_list::PeerList, Config};
+use crate::{peer_list::PeerList, AddressBookConfig};
 
 // TODO: store anchor and ban list.
 
@@ -22,7 +22,7 @@ struct DeserPeerDataV1<A: NetZoneAddress> {
 }
 
 pub fn save_peers_to_disk<Z: NetworkZone>(
-    cfg: &Config,
+    cfg: &AddressBookConfig,
     white_list: &PeerList<Z>,
     gray_list: &PeerList<Z>,
 ) -> JoinHandle<std::io::Result<()>> {
@@ -39,7 +39,7 @@ pub fn save_peers_to_disk<Z: NetworkZone>(
 }
 
 pub async fn read_peers_from_disk<Z: NetworkZone>(
-    cfg: &Config,
+    cfg: &AddressBookConfig,
 ) -> Result<
     (
         Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,

@@ -629,6 +629,7 @@ dependencies = [
  "tar",
  "tempfile",
  "tokio",
+ "tokio-util",
  "zip",
 ]
 
@@ -1050,7 +1051,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http 0.2.11",
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "slab",
  "tokio",
  "tokio-util",
@@ -1361,9 +1362,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.2.4"
+version = "2.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "967d6dd42f16dbf0eb8040cb9e477933562684d3918f7d253f2ff9087fb3e7a3"
+checksum = "7b0b929d511467233429c45a44ac1dcaa21ba0f5ba11e4879e6ed28ddb4f9df4"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.3",
@@ -1418,9 +1419,15 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 name = "levin-cuprate"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.4.2",
  "bytes",
+ "futures",
+ "proptest",
+ "rand",
  "thiserror",
+ "tokio",
  "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -1538,17 +1545,17 @@ dependencies = [
 name = "monero-address-book"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "borsh",
  "cuprate-test-utils",
  "futures",
+ "indexmap 2.2.5",
  "monero-p2p",
  "monero-pruning",
  "monero-wire",
- "pin-project",
  "rand",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tower",
  "tracing",
 ]
@@ -2857,6 +2864,7 @@ dependencies = [
  "futures-core",
  "futures-sink",
  "pin-project-lite",
+ "slab",
  "tokio",
  "tracing",
 ]
@@ -2873,7 +2881,7 @@ version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8534fd7f78b5405e860340ad6575217ce99f38d4d5c8f2442cb5ecb50090e1"
 dependencies = [
- "indexmap 2.2.4",
+ "indexmap 2.2.5",
  "toml_datetime",
  "winnow",
 ]

@@ -4,10 +4,13 @@
 //! `redb`'s errors are `#[non_exhaustive]`...
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::constants::DATABASE_CORRUPT_MSG;
+use crate::{
+    constants::DATABASE_CORRUPT_MSG,
+    error::{InitError, RuntimeError},
+};
 
-//---------------------------------------------------------------------------------------------------- DatabaseError
-impl From<redb::DatabaseError> for crate::InitError {
+//---------------------------------------------------------------------------------------------------- InitError
+impl From<redb::DatabaseError> for InitError {
     /// Created by `redb` in:
     /// - [`redb::Database::open`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.open).
     fn from(error: redb::DatabaseError) -> Self {
@@ -34,9 +37,67 @@ impl From<redb::DatabaseError> for crate::InitError {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- TransactionError
+impl From<redb::StorageError> for InitError {
+    /// Created by `redb` in:
+    /// - [`redb::Database::open`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.check_integrity)
+    fn from(error: redb::StorageError) -> Self {
+        use redb::StorageError as E;
+
+        match error {
+            E::Io(e) => Self::Io(e),
+            E::Corrupted(s) => Self::Corrupt,
+            // HACK: Handle new errors as `redb` adds them.
+            _ => Self::Unknown(Box::new(error)),
+        }
+    }
+}
+
+impl From<redb::TransactionError> for InitError {
+    /// Created by `redb` in:
+    /// - [`redb::Database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
+    fn from(error: redb::TransactionError) -> Self {
+        use redb::StorageError as E;
+
+        match error {
+            redb::TransactionError::Storage(error) => error.into(),
+            // HACK: Handle new errors as `redb` adds them.
+            _ => Self::Unknown(Box::new(error)),
+        }
+    }
+}
+
+impl From<redb::TableError> for InitError {
+    /// Created by `redb` in:
+    /// - [`redb::WriteTransaction::open_table`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.open_table)
+    fn from(error: redb::TableError) -> Self {
+        use redb::StorageError as E2;
+        use redb::TableError as E;
+
+        match error {
+            E::Storage(error) => error.into(),
+            // HACK: Handle new errors as `redb` adds them.
+            _ => Self::Unknown(Box::new(error)),
+        }
+    }
+}
+
+impl From<redb::CommitError> for InitError {
+    /// Created by `redb` in:
+    /// - [`redb::WriteTransaction::commit`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.commit)
+    fn from(error: redb::CommitError) -> Self {
+        use redb::StorageError as E;
+
+        match error {
+            redb::CommitError::Storage(error) => error.into(),
+            // HACK: Handle new errors as `redb` adds them.
+            _ => Self::Unknown(Box::new(error)),
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- RuntimeError
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
-impl From<redb::TransactionError> for crate::RuntimeError {
+impl From<redb::TransactionError> for RuntimeError {
     /// Created by `redb` in:
     /// - [`redb::Database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
     /// - [`redb::Database::begin_read`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_read)
@@ -52,9 +113,24 @@ impl From<redb::TransactionError> for crate::RuntimeError {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- TableError
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
-impl From<redb::TableError> for crate::RuntimeError {
+impl From<redb::CommitError> for RuntimeError {
+    /// Created by `redb` in:
+    /// - [`redb::WriteTransaction::commit`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.commit)
+    fn from(error: redb::CommitError) -> Self {
+        use redb::StorageError as E;
+
+        match error {
+            redb::CommitError::Storage(error) => error.into(),
+
+            // HACK: Handle new errors as `redb` adds them.
+            _ => unreachable!(),
+        }
+    }
+}
+
+#[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
+impl From<redb::TableError> for RuntimeError {
     /// Created by `redb` in:
     /// - [`redb::WriteTransaction::open_table`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.open_table)
     /// - [`redb::ReadTransaction::open_table`](https://docs.rs/redb/1.5.0/redb/struct.ReadTransaction.html#method.open_table)
@@ -79,9 +155,8 @@ impl From<redb::TableError> for crate::RuntimeError {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- StorageError
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
-impl From<redb::StorageError> for crate::RuntimeError {
+impl From<redb::StorageError> for RuntimeError {
     /// Created by `redb` in:
     /// - [`redb::Table`](https://docs.rs/redb/1.5.0/redb/struct.Table.html) functions
     /// - [`redb::ReadOnlyTable`](https://docs.rs/redb/1.5.0/redb/struct.ReadOnlyTable.html) functions

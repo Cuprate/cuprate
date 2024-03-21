@@ -16,11 +16,14 @@
 //! This module defines a Monero `Message` enum which contains
 //! every possible Monero network message (levin body)
 
-use bytes::{Buf, Bytes, BytesMut};
+use std::fmt::Formatter;
+
+use bytes::{Buf, BytesMut};
+
+use epee_encoding::epee_object;
 use levin_cuprate::{
     BucketBuilder, BucketError, LevinBody, LevinCommand as LevinCommandTrait, MessageType,
 };
-use std::fmt::Formatter;
 
 pub mod admin;
 pub mod common;
@@ -276,8 +279,18 @@ impl RequestMessage {
         Ok(match command {
             C::Handshake => decode_message(RequestMessage::Handshake, buf)?,
             C::TimedSync => decode_message(RequestMessage::TimedSync, buf)?,
-            C::Ping => RequestMessage::Ping,
-            C::SupportFlags => RequestMessage::SupportFlags,
+            C::Ping => {
+                epee_encoding::from_bytes::<EmptyMessage, _>(buf)
+                    .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
+
+                RequestMessage::Ping
+            }
+            C::SupportFlags => {
+                epee_encoding::from_bytes::<EmptyMessage, _>(buf)
+                    .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
+
+                RequestMessage::SupportFlags
+            }
             _ => return Err(BucketError::UnknownCommand),
         })
     }
@@ -288,14 +301,8 @@ impl RequestMessage {
         match self {
             RequestMessage::Handshake(val) => build_message(C::Handshake, val, builder)?,
             RequestMessage::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
-            RequestMessage::Ping => {
-                builder.set_command(C::Ping);
-                builder.set_body(Bytes::new());
-            }
-            RequestMessage::SupportFlags => {
-                builder.set_command(C::SupportFlags);
-                builder.set_body(Bytes::new());
-            }
+            RequestMessage::Ping => build_message(C::Ping, EmptyMessage, builder)?,
+            RequestMessage::SupportFlags => build_message(C::SupportFlags, EmptyMessage, builder)?,
         }
         Ok(())
     }
@@ -407,4 +414,14 @@ impl LevinBody for Message {
             }
         }
     }
+}
+
+/// An internal empty message.
+///
+/// This represents P2P messages that have no fields as epee's binary format will still add a header
+/// for these objects, so we need to decode/encode a message.
+struct EmptyMessage;
+
+epee_object! {
+    EmptyMessage,
 }

@@ -66,21 +66,23 @@ Note that `lib.rs/mod.rs` files are purely for re-exporting/visibility/lints, an
 ## `src/`
 The top-level `src/` files.
 
-| File             | Purpose |
-|------------------|---------|
-| `config.rs`      | Database `Env` configuration
-| `constants.rs`   | General constants used throughout `cuprate-database`
-| `database.rs`    | Abstracted database; `trait DatabaseR{o,w}`
-| `env.rs`         | Abstracted database environment; `trait Env`
-| `error.rs`       | Database error types
-| `free.rs`        | General free functions (related to the database)
-| `key.rs`         | Abstracted database keys; `trait Key`
-| `resize.rs`      | Database resizing algorithms
-| `storable.rs`    | Data (de)serialization; `trait Storable`
-| `table.rs`       | Database table abstraction; `trait Table`
-| `tables.rs`      | All the table definitions used by `cuprate-database`
-| `transaction.rs` | Database transaction abstraction; `trait TxR{o,w}`
-| `types.rs`       | Database table schema types
+| File                | Purpose |
+|---------------------|---------|
+| `config.rs`         | Database `Env` configuration
+| `constants.rs`      | General constants used throughout `cuprate-database`
+| `database.rs`       | Abstracted database; `trait DatabaseR{o,w}`
+| `env.rs`            | Abstracted database environment; `trait Env`
+| `error.rs`          | Database error types
+| `free.rs`           | General free functions (related to the database)
+| `key.rs`            | Abstracted database keys; `trait Key`
+| `resize.rs`         | Database resizing algorithms
+| `storable.rs`       | Data (de)serialization; `trait Storable`
+| `table.rs`          | Database table abstraction; `trait Table`
+| `tables.rs`         | All the table definitions used by `cuprate-database`
+| `to_owned_debug.rs` | Borrowed/owned data abstraction; `trait ToOwnedDebug`
+| `transaction.rs`    | Database transaction abstraction; `trait TxR{o,w}`
+| `types.rs`          | Database table schema types
+| `value_guard.rs`    | Database value "guard" abstraction; `trait ValueGuard`
 
 ## `src/ops/`
 This folder contains the `cupate_database::ops` module.
@@ -126,9 +128,10 @@ All backends follow the same file structure:
 | `database.rs`    | Implementation of `trait DatabaseR{o,w}`
 | `env.rs`         | Implementation of `trait Env`
 | `error.rs`       | Implementation of backend's errors to `cuprate_database`'s error types
+| `storable.rs`    | Compatibility layer between `cuprate_database::Storable` and backend-specific (de)serialization
+| `tests.rs`       | Tests for the specific backend
 | `transaction.rs` | Implementation of `trait TxR{o,w}`
 | `types.rs`       | Type aliases for long backend-specific types
-| `storable.rs`    | Compatibility layer between `cuprate_database::Storable` and backend-specific (de)serialization
 
 # Backends
 `cuprate-database`'s `trait`s abstract over various actual databases.
@@ -172,7 +175,7 @@ The default maximum value size is [1012 bytes](https://docs.rs/sanakirja/1.4.1/s
 As such, it is not implemented.
 
 ## `MDBX`
-[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions, this makes it a bit trickier to implement dup tables. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
+[`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions, this makes it a bit trickier to implement duplicate tables. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
 
 As such, it is not implemented (yet).
 
@@ -198,4 +201,4 @@ TODO: document disk flushing behavior.
 - Backend-specific behavior
 
 # (De)serialization
-TODO: document `Pod` and how databases use (de)serialize objects when storing/fetching, essentially using `<[u8], [u8]>`.
+TODO: document `Storable` and how databases (de)serialize types when storing/fetching.
