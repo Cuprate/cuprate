@@ -7,11 +7,11 @@
 
 // This is only imported on `#[cfg(test)]` in `mod.rs`.
 
-#![allow(unused_mut)]
-
-use tower::Service;
+#![allow(unused_mut, clippy::significant_drop_tightening)]
 
 //---------------------------------------------------------------------------------------------------- Use
+use tower::{Service, ServiceExt};
+
 use crate::{
     config::Config,
     service::{init, DatabaseReadHandle, DatabaseWriteHandle, ReadRequest, Response, WriteRequest},
@@ -38,22 +38,21 @@ fn init_drop() {
 /// asserting the response the expected value.
 #[tokio::test]
 async fn read_request() {
-    let (mut reader, writer, _tempdir) = init_service();
+    let (reader, writer, _tempdir) = init_service();
 
-    let request = ReadRequest::Example1;
-    let response_channel = reader.call(request);
-    let response = response_channel.await.unwrap();
-    assert_eq!(response, Response::Example1);
-
-    let request = ReadRequest::Example2(123);
-    let response_channel = reader.call(request);
-    let response = response_channel.await.unwrap();
-    assert_eq!(response, Response::Example2(123));
-
-    let request = ReadRequest::Example3("hello".into());
-    let response_channel = reader.call(request);
-    let response = response_channel.await.unwrap();
-    assert_eq!(response, Response::Example3("hello".into()));
+    for (request, expected_response) in [
+        (ReadRequest::Example1, Response::Example1),
+        (ReadRequest::Example2(123), Response::Example2(123)),
+        (
+            ReadRequest::Example3("hello".into()),
+            Response::Example3("hello".into()),
+        ),
+    ] {
+        // This calls `poll_ready()` asserting we have a permit before `call()`.
+        let response_channel = reader.clone().oneshot(request);
+        let response = response_channel.await.unwrap();
+        assert_eq!(response, expected_response);
+    }
 }
 
 /// Send a write request, and receive a response,

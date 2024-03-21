@@ -146,8 +146,12 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 
     #[inline]
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // Acquire a permit before returning `Ready`.
+        // Check if we already have a permit.
+        if self.permit.is_some() {
+            return Poll::Ready(Ok(()));
+        }
 
+        // Acquire a permit before returning `Ready`.
         let poll = self.semaphore.poll_acquire(cx);
 
         match poll {
