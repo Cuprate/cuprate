@@ -10,6 +10,9 @@ use crossbeam::channel::Receiver;
 
 use futures::channel::oneshot;
 
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::PollSemaphore;
+
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{
@@ -49,16 +52,39 @@ type ResponseSender = oneshot::Sender<ResponseResult>;
 /// Calling [`tower::Service::call`] with a [`DatabaseReadHandle`] & [`ReadRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding [`Response`].
-#[derive(Clone)]
 pub struct DatabaseReadHandle {
     /// Handle to the custom `rayon` DB reader thread-pool.
     ///
     /// Requests are "spawn"ed in this thread-pool, and responses
     /// are returned via a channel we (the caller) provide.
-    pub(super) pool: Arc<rayon::ThreadPool>,
+    pool: Arc<rayon::ThreadPool>,
+
+    /// Counting semaphore asynchronous permit for database access.
+    /// Each `tower::Service::poll_ready` will acquire a permit
+    /// before actually sending a request to the `rayon` DB threadpool.
+    semaphore: PollSemaphore,
+
+    /// An owned permit. This will be set to `Some` in `poll_ready()`
+    /// when we successfully acquire the permit, and will be `take()`n
+    /// after the request is finished by the rayon DB threadpool.
+    permit: Option<OwnedSemaphorePermit>,
 
     /// Access to the database.
-    pub(super) env: Arc<ConcreteEnv>,
+    env: Arc<ConcreteEnv>,
+}
+
+// `OwnedSemaphorePermit` does not implement `Clone`,
+// so manually clone all elements, while keeping `permit`
+// `None` across clones.
+impl Clone for DatabaseReadHandle {
+    fn clone(&self) -> Self {
+        Self {
+            pool: self.pool.clone(),
+            semaphore: self.semaphore.clone(),
+            permit: None,
+            env: self.env.clone(),
+        }
+    }
 }
 
 impl DatabaseReadHandle {
@@ -72,18 +98,24 @@ impl DatabaseReadHandle {
     #[inline(never)] // Only called once.
     pub(super) fn init(env: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
         // How many reader threads to spawn?
-        let reader_count = reader_threads.as_threads();
+        let reader_count = reader_threads.as_threads().get();
 
         // Spawn `rayon` reader threadpool.
         let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(reader_count.get())
+            .num_threads(reader_count)
             .thread_name(|i| format!("cuprate_helper::service::read::DatabaseReader{i}"))
             .build()
             .unwrap();
 
+        // Create a semaphore with the same amount of
+        // permits as the amount of reader threads.
+        let semaphore = PollSemaphore::new(Arc::new(Semaphore::new(reader_count)));
+
         // Return a handle to the pool.
         Self {
             pool: Arc::new(pool),
+            semaphore,
+            permit: None,
             env: Arc::clone(env),
         }
     }
@@ -93,6 +125,18 @@ impl DatabaseReadHandle {
     pub const fn env(&self) -> &Arc<ConcreteEnv> {
         &self.env
     }
+
+    /// TODO
+    #[inline]
+    pub const fn semaphore(&self) -> &PollSemaphore {
+        &self.semaphore
+    }
+
+    /// TODO
+    #[inline]
+    pub const fn permit(&self) -> &Option<OwnedSemaphorePermit> {
+        &self.permit
+    }
 }
 
 impl tower::Service<ReadRequest> for DatabaseReadHandle {
@@ -101,12 +145,27 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
     type Future = ResponseReceiver;
 
     #[inline]
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // Threadpool is always ready as long as this handle is alive.
-        Poll::Ready(Ok(()))
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // Acquire a permit before returning `Ready`.
+
+        let poll = self.semaphore.poll_acquire(cx);
+
+        match poll {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Some(permit)) => {
+                self.permit = Some(permit);
+                Poll::Ready(Ok(()))
+            }
+            Poll::Ready(None) => unreachable!(),
+        }
     }
 
     fn call(&mut self, request: ReadRequest) -> Self::Future {
+        let permit = self
+            .permit
+            .take()
+            .expect("poll_ready() should have acquire a permit before calling call()");
+
         // Response channel we `.await` on.
         let (response_sender, receiver) = oneshot::channel();
 
@@ -118,9 +177,9 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         //
         // INVARIANT:
         // The below `DatabaseReader` function impl block relies on this behavior.
-        let env = Arc::clone(&self.env);
+        let env = Arc::clone(self.env());
         self.pool
-            .spawn(move || map_request(env, request, response_sender));
+            .spawn(move || map_request(permit, env, request, response_sender));
 
         InfallibleOneshotReceiver::from(receiver)
     }
@@ -131,6 +190,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 // executed by the rayon DB reader threadpool.
 
 #[inline]
+#[allow(clippy::needless_pass_by_value)]
 /// Map [`Request`]'s to specific database handler functions.
 ///
 /// This is the main entrance into all `Request` handler functions.
@@ -140,6 +200,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 /// 2. Handler function is called
 /// 3. [`Response`] is sent
 fn map_request(
+    _permit: OwnedSemaphorePermit,   // Permit for this request
     env: Arc<ConcreteEnv>,           // Access to the database
     request: ReadRequest,            // The request we must fulfill
     response_sender: ResponseSender, // The channel we must send the response back to
