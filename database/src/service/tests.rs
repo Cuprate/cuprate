@@ -61,18 +61,16 @@ async fn read_request() {
 async fn write_request() {
     let (reader, mut writer, _tempdir) = init_service();
 
-    let request = WriteRequest::Example1;
-    let response_channel = writer.call(request);
-    let response = response_channel.await.unwrap();
-    assert_eq!(response, Response::Example1);
-
-    let request = WriteRequest::Example2(123);
-    let response_channel = writer.call(request);
-    let response = response_channel.await.unwrap();
-    assert_eq!(response, Response::Example2(123));
-
-    let request = WriteRequest::Example3("hello".into());
-    let response_channel = writer.call(request);
-    let response = response_channel.await.unwrap();
-    assert_eq!(response, Response::Example3("hello".into()));
+    for (request, expected_response) in [
+        (WriteRequest::Example1, Response::Example1),
+        (WriteRequest::Example2(123), Response::Example2(123)),
+        (
+            WriteRequest::Example3("hello".into()),
+            Response::Example3("hello".into()),
+        ),
+    ] {
+        let response_channel = writer.call(request);
+        let response = response_channel.await.unwrap();
+        assert_eq!(response, expected_response);
+    }
 }
