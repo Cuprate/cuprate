@@ -6,9 +6,7 @@ use std::sync::Arc;
 use crate::{
     config::Config,
     error::InitError,
-    service::{
-        read::DatabaseReader, write::DatabaseWriter, DatabaseReadHandle, DatabaseWriteHandle,
-    },
+    service::{write::DatabaseWriter, DatabaseReadHandle, DatabaseWriteHandle},
     ConcreteEnv, Env,
 };
 
@@ -39,11 +37,10 @@ pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle),
     let db: Arc<ConcreteEnv> = Arc::new(ConcreteEnv::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = DatabaseReader::init(&db, reader_threads);
-    let writers = DatabaseWriter::init(db);
+    let readers = DatabaseReadHandle::init(&db, reader_threads);
+    let writer = DatabaseWriteHandle::init(db);
 
-    // Return the handles to those pools.
-    Ok((readers, writers))
+    Ok((readers, writer))
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

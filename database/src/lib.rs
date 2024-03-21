@@ -142,7 +142,6 @@
 	keyword_idents,
 	non_ascii_idents,
 	variant_size_differences,
-	unused_mut, // Annoying when debugging, maybe put in allow.
 
 	// Probably can be put into `#[deny]`.
 	future_incompatible,
@@ -168,6 +167,7 @@
     clippy::pedantic,
     clippy::nursery,
     clippy::cargo,
+    unused_mut,
     missing_docs,
     deprecated,
     unused_comparisons,
