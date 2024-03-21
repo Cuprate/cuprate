@@ -8,7 +8,7 @@ use std::{
 
 use crossbeam::channel::Receiver;
 
-use futures::channel::oneshot;
+use futures::{channel::oneshot, ready};
 
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
@@ -155,19 +155,13 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         }
 
         // Acquire a permit before returning `Ready`.
-        let poll = self.semaphore.poll_acquire(cx);
+        let Some(permit) = ready!(self.semaphore.poll_acquire(cx)) else {
+            // `self` itself owns the backing semaphore, so it can't be closed.
+            unreachable!();
+        };
 
-        match poll {
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Some(permit)) => {
-                self.permit = Some(permit);
-                Poll::Ready(Ok(()))
-            }
-
-            // `self` itself owns the backing semaphore,
-            // so it can't be closed.
-            Poll::Ready(None) => unreachable!(),
-        }
+        self.permit = Some(permit);
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, request: ReadRequest) -> Self::Future {
