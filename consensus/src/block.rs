@@ -667,7 +667,7 @@ where
     })
     .await?;
 
-    // Altough this is checked in [`verify_main_chain_block_prepared`], check it now, so we don't waste time setting up txs.
+    // Although this is checked in [`verify_main_chain_block_prepared`], check it now, so we don't waste time setting up txs.
     check_block_pow(&prepped_block.pow_hash, context.cumulative_difficulty)
         .map_err(ConsensusError::Block)?;
 
