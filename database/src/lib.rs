@@ -240,10 +240,7 @@ pub use key::Key;
 mod macros;
 
 mod storable;
-pub use storable::Storable;
-
-mod storable_slice;
-pub use storable_slice::StorableSlice;
+pub use storable::{Storable, StorableVec};
 
 pub mod ops;
 

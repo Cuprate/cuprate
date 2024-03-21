@@ -60,15 +60,15 @@ macro_rules! tables {
             /// ```
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
-            pub struct [<$table:camel>]<'a>(std::marker::PhantomData<&'a ()>);
+            pub struct [<$table:camel>];
 
             // Implement the `Sealed` in this file.
             // Required by `Table`.
-            impl private::Sealed for [<$table:camel>]<'_> {}
+            impl private::Sealed for [<$table:camel>] {}
 
             // Table trait impl.
             #[allow(single_use_lifetimes)]
-            impl<'a> Table for [<$table:camel>]<'a> {
+            impl Table for [<$table:camel>] {
                 const NAME: &'static str = stringify!([<$table:snake>]);
                 type Key = $key;
                 type Value = $value;
@@ -86,7 +86,7 @@ macro_rules! tables {
 tables! {
     /// TODO
     BlockBlobs,
-    BlockHeight => BlockBlob<'a>,
+    BlockHeight => BlockBlob,
 
     /// TODO
     BlockHeights,
@@ -114,7 +114,7 @@ tables! {
 
     /// TODO
     PrunedTxBlobs,
-    TxId => PrunedBlob<'a>,
+    TxId => PrunedBlob,
 
     /// TODO
     Outputs,
@@ -122,7 +122,7 @@ tables! {
 
     /// TODO
     PrunableTxBlobs,
-    TxId => PrunableBlob<'a>,
+    TxId => PrunableBlob,
 
     /// TODO
     PrunableHashes,
