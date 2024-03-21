@@ -45,7 +45,7 @@ use crate::ToOwnedDebug;
 /// assert_eq!(into, &[0; 8]);
 ///
 /// // From bytes.
-/// let from: u64 = *Storable::from_bytes(&into);
+/// let from: u64 = Storable::from_bytes(&into);
 /// assert_eq!(from, number);
 /// ```
 ///
@@ -84,7 +84,7 @@ pub trait Storable: ToOwnedDebug {
     ///
     /// # Examples
     /// ```rust
-    /// # use cuprate_database::Storable;
+    /// # use cuprate_database::*;
     /// assert_eq!(<()>::BYTE_LENGTH, Some(0));
     /// assert_eq!(u8::BYTE_LENGTH, Some(1));
     /// assert_eq!(u16::BYTE_LENGTH, Some(2));
@@ -94,11 +94,8 @@ pub trait Storable: ToOwnedDebug {
     /// assert_eq!(i16::BYTE_LENGTH, Some(2));
     /// assert_eq!(i32::BYTE_LENGTH, Some(4));
     /// assert_eq!(i64::BYTE_LENGTH, Some(8));
-    /// assert_eq!(<[u8]>::BYTE_LENGTH, None);
-    /// assert_eq!(<[u8; 0]>::BYTE_LENGTH, Some(0));
-    /// assert_eq!(<[u8; 1]>::BYTE_LENGTH, Some(1));
-    /// assert_eq!(<[u8; 2]>::BYTE_LENGTH, Some(2));
-    /// assert_eq!(<[u8; 3]>::BYTE_LENGTH, Some(3));
+    /// assert_eq!(StorableVec::<u8>::BYTE_LENGTH, None);
+    /// assert_eq!(StorableVec::<u64>::BYTE_LENGTH, None);
     /// ```
     const BYTE_LENGTH: Option<usize>;
 

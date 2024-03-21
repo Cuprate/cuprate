@@ -104,10 +104,8 @@ pub type UnlockTime = u64;
 ///     amount_index: 123,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &PreRctOutputId = Storable::from_bytes(b);
-/// let c2: Cow<'_, PreRctOutputId> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: PreRctOutputId = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -142,10 +140,8 @@ pub struct PreRctOutputId {
 ///     block_hash: [54; 32],
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &BlockInfoV1 = Storable::from_bytes(b);
-/// let c2: Cow<'_, BlockInfoV1> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: BlockInfoV1 = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -187,10 +183,8 @@ pub struct BlockInfoV1 {
 ///     cumulative_rct_outs: 2389,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &BlockInfoV2 = Storable::from_bytes(b);
-/// let c2: Cow<'_, BlockInfoV2> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: BlockInfoV2 = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -239,10 +233,8 @@ pub struct BlockInfoV2 {
 ///     long_term_weight: 2389,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &BlockInfoV3 = Storable::from_bytes(b);
-/// let c2: Cow<'_, BlockInfoV3> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: BlockInfoV3 = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -289,10 +281,8 @@ pub struct BlockInfoV3 {
 ///     tx_idx: 3,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &Output = Storable::from_bytes(b);
-/// let c2: Cow<'_, Output> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: Output = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -331,10 +321,8 @@ pub struct Output {
 ///     commitment: [3; 32],
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &RctOutput = Storable::from_bytes(b);
-/// let c2: Cow<'_, RctOutput> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: RctOutput = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
