@@ -169,7 +169,7 @@ fn ring_member_info_needing_refresh(
         let tx_ring_member_info = tx.rings_member_info.lock().unwrap();
 
         // if we don't have ring members or if a re-org has happened do a full refresh.
-        // A re-org may change the outputs at certain indexs.
+        // A re-org may change the outputs at certain indexes.
         if let Some(tx_ring_member_info) = tx_ring_member_info.deref() {
             if tx_ring_member_info.1.reorg_happened() {
                 txs_needing_full_refresh.push(tx.clone());
