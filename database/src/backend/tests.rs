@@ -217,11 +217,30 @@ fn db_read_write() {
         assert_eq!(i, 100);
     }
 
-    // Assert `get_range()` works.
+    // `get_range()` tests.
     let mut key = KEY;
     key.amount += 100;
     let range = KEY..key;
-    assert_eq!(100, table.get_range(range).unwrap().count());
+
+    // Assert count is correct.
+    assert_eq!(100, table.get_range(range.clone()).unwrap().count());
+
+    // Assert each returned value from the iterator is owned.
+    {
+        let mut iter = table.get_range(range.clone()).unwrap();
+        let value: Output = iter.next().unwrap().unwrap(); // 1. take value out
+        drop(iter); // 2. drop the `impl Iterator + 'a`
+        assert_same(value); // 3. assert even without the iterator, the value is alive
+    }
+
+    // Assert each value is the same.
+    {
+        let mut iter = table.get_range(range).unwrap();
+        for _ in 0..100 {
+            let value: Output = iter.next().unwrap().unwrap();
+            assert_same(value);
+        }
+    }
 
     // Assert deleting works.
     table.delete(&KEY).unwrap();
@@ -277,9 +296,7 @@ macro_rules! test_tables {
             // Assert `get_range()` works.
             {
                 let range = KEY..;
-                assert_eq!(1, table.get_range(range).unwrap().count());
-
-                let range = KEY..;
+                assert_eq!(1, table.get_range(range.clone()).unwrap().count());
                 let mut iter = table.get_range(range).unwrap();
                 let value = iter.next().unwrap().unwrap();
                 assert_eq(&value);
