@@ -55,18 +55,21 @@ type ResponseSender = oneshot::Sender<ResponseResult>;
 pub struct DatabaseReadHandle {
     /// Handle to the custom `rayon` DB reader thread-pool.
     ///
-    /// Requests are "spawn"ed in this thread-pool, and responses
-    /// are returned via a channel we (the caller) provide.
+    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
+    /// and responses are returned via a channel we (the caller) provide.
     pool: Arc<rayon::ThreadPool>,
 
     /// Counting semaphore asynchronous permit for database access.
-    /// Each `tower::Service::poll_ready` will acquire a permit
+    /// Each [`tower::Service::poll_ready`] will acquire a permit
     /// before actually sending a request to the `rayon` DB threadpool.
     semaphore: PollSemaphore,
 
-    /// An owned permit. This will be set to `Some` in `poll_ready()`
-    /// when we successfully acquire the permit, and will be `take()`n
-    /// after the request is finished by the rayon DB threadpool.
+    /// An owned permit.
+    /// This will be set to [`Some`] in `poll_ready()` when we successfully acquire
+    /// the permit, and will be [`Option::take()`]n after `tower::Service::call()` is called.
+    ///
+    /// The actual permit will be dropped _after_ the rayon DB thread has finished
+    /// the request, i.e., after [`map_request()`] finishes.
     permit: Option<OwnedSemaphorePermit>,
 
     /// Access to the database.
@@ -160,6 +163,9 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
                 self.permit = Some(permit);
                 Poll::Ready(Ok(()))
             }
+
+            // `self` itself owns the backing semaphore,
+            // so it can't be closed.
             Poll::Ready(None) => unreachable!(),
         }
     }
