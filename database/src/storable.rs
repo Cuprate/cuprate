@@ -63,35 +63,6 @@ use crate::ToOwnedDebug;
 /// Most likely, the bytes are little-endian, however
 /// that cannot be relied upon when using this trait.
 pub trait Storable: ToOwnedDebug {
-    /// What is the alignment of `Self`?
-    ///
-    /// For `[T]` types, this is set to the alignment of `T`.
-    ///
-    /// This is used to prevent copying when unneeded, e.g.
-    /// `[u8] -> [u8]` does not need to account for unaligned bytes,
-    /// since no cast needs to occur.
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use cuprate_database::Storable;
-    /// assert_eq!(<()>::ALIGN, 1);
-    /// assert_eq!(u8::ALIGN, 1);
-    /// assert_eq!(u16::ALIGN, 2);
-    /// assert_eq!(u32::ALIGN, 4);
-    /// assert_eq!(u64::ALIGN, 8);
-    /// assert_eq!(i8::ALIGN, 1);
-    /// assert_eq!(i16::ALIGN, 2);
-    /// assert_eq!(i32::ALIGN, 4);
-    /// assert_eq!(i64::ALIGN, 8);
-    /// assert_eq!(<[u8]>::ALIGN, 1);
-    /// assert_eq!(<[u64]>::ALIGN, 8);
-    /// assert_eq!(<[u8; 0]>::ALIGN, 1);
-    /// assert_eq!(<[u8; 1]>::ALIGN, 1);
-    /// assert_eq!(<[u8; 2]>::ALIGN, 1);
-    /// assert_eq!(<[u64; 2]>::ALIGN, 8);
-    /// ```
-    const ALIGN: usize;
-
     /// Is this type fixed width in byte length?
     ///
     /// I.e., when converting `Self` to bytes, is it
@@ -148,7 +119,6 @@ impl<T> Storable for T
 where
     Self: Pod + ToOwnedDebug<OwnedDebug = T>,
 {
-    const ALIGN: usize = std::mem::align_of::<T>();
     const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
 
     #[inline]
@@ -159,6 +129,42 @@ where
     #[inline]
     fn from_bytes(bytes: &[u8]) -> T {
         bytemuck::pod_read_unaligned(bytes)
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- StorableVec
+/// TODO
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::TransparentWrapper)]
+#[repr(transparent)]
+pub struct StorableVec<T>(pub Vec<T>);
+
+impl<T> Storable for StorableVec<T>
+where
+    T: Pod + ToOwnedDebug<OwnedDebug = T>,
+{
+    const BYTE_LENGTH: Option<usize> = None;
+
+    #[inline]
+    fn as_bytes(&self) -> &[u8] {
+        bytemuck::must_cast_slice(&self.0)
+    }
+
+    #[inline]
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self(bytemuck::pod_collect_to_vec(bytes))
+    }
+}
+
+impl<T> std::ops::Deref for StorableVec<T> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+        &self.0
+    }
+}
+
+impl<T> Borrow<[T]> for StorableVec<T> {
+    fn borrow(&self) -> &[T] {
+        &self.0
     }
 }
 
