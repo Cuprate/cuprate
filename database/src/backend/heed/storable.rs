@@ -5,7 +5,7 @@ use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
 
 use heed::{types::Bytes, BoxedError, BytesDecode, BytesEncode, Database};
 
-use crate::{storable::Storable, storable_slice::StorableSlice};
+use crate::{storable::Storable, storable::StorableVec};
 
 //---------------------------------------------------------------------------------------------------- StorableHeed
 /// The glue struct that implements `heed`'s (de)serialization
@@ -77,7 +77,7 @@ mod test {
         test::<i16>(&-2, &[254, 255]);
         test::<i32>(&-3, &[253, 255, 255, 255]);
         test::<i64>(&-4, &[252, 255, 255, 255, 255, 255, 255, 255]);
-        test::<StorableSlice<u8>>(&StorableSlice::Slice([1, 2].as_slice()), &[1, 2]);
+        test::<StorableVec<u8>>(&StorableVec::Slice([1, 2].as_slice()), &[1, 2]);
         test::<[u8; 0]>(&[], &[]);
         test::<[u8; 1]>(&[255], &[255]);
         test::<[u8; 2]>(&[111, 0], &[111, 0]);
@@ -108,7 +108,7 @@ mod test {
         test::<i16>([254, 255].as_slice(), &-2);
         test::<i32>([253, 255, 255, 255].as_slice(), &-3);
         test::<i64>([252, 255, 255, 255, 255, 255, 255, 255].as_slice(), &-4);
-        test::<StorableSlice<u8>>(&[1, 2], &StorableSlice::Slice([1, 2].as_slice()));
+        test::<StorableVec<u8>>(&[1, 2], &StorableVec::Slice([1, 2].as_slice()));
         test::<[u8; 0]>([].as_slice(), &[]);
         test::<[u8; 1]>([255].as_slice(), &[255]);
         test::<[u8; 2]>([111, 0].as_slice(), &[111, 0]);

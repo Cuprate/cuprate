@@ -24,6 +24,7 @@ use crate::{
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
+    storable::StorableVec,
     table::Table,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
@@ -205,7 +206,7 @@ fn db_read_write() {
 
     // Assert the whole range is there.
     {
-        let range = table.get_range(&..).unwrap();
+        let range = table.get_range(..).unwrap();
         let mut i = 0;
         for result in range {
             let value: Output = result.unwrap();
@@ -220,7 +221,7 @@ fn db_read_write() {
     let mut key = KEY;
     key.amount += 100;
     let range = KEY..key;
-    assert_eq!(100, table.get_range(&range).unwrap().count());
+    assert_eq!(100, table.get_range(range).unwrap().count());
 
     // Assert deleting works.
     table.delete(&KEY).unwrap();
@@ -257,33 +258,31 @@ macro_rules! test_tables {
 
             /// The expected key.
             const KEY: $key_type = $key;
-            /// The expected value.
-            const VALUE: &$value_type = &$value;
+            // The expected value.
+            let value: $value_type = $value;
 
-            /// Assert a passed value is equal to the const value.
-            fn assert_eq(value: &$value_type) {
-                assert_eq!(value, VALUE);
-            }
+            // Assert a passed value is equal to the const value.
+            let assert_eq = |v: &$value_type| {
+                assert_eq!(v, &value);
+            };
 
             // Insert the key.
-            table.put(&KEY, VALUE).unwrap();
+            table.put(&KEY, &value).unwrap();
             // Assert key is there.
             {
-                let guard = table.get(&KEY).unwrap();
-                let cow: Cow<'_, $value_type> = guard.unguard();
-                let value: &$value_type = cow.as_ref();
-                assert_eq(value);
+                let value: $value_type = table.get(&KEY).unwrap();
+                assert_eq(&value);
             }
 
             // Assert `get_range()` works.
             {
                 let range = KEY..;
-                assert_eq!(1, table.get_range(&range).unwrap().count());
-                let mut iter = table.get_range(&range).unwrap();
-                let guard = iter.next().unwrap().unwrap();
-                let cow = guard.unguard();
-                let value = cow.as_ref();
-                assert_eq(value);
+                assert_eq!(1, table.get_range(range).unwrap().count());
+
+                let range = KEY..;
+                let mut iter = table.get_range(range).unwrap();
+                let value = iter.next().unwrap().unwrap();
+                assert_eq(&value);
             }
 
             // Assert deleting works.
@@ -299,7 +298,7 @@ macro_rules! test_tables {
 test_tables! {
     BlockBlobs, // Table type
     BlockHeight => BlockBlob, // Key type => Value type
-    123 => [1,2,3,4,5,6,7,8].as_slice(), // Actual key => Actual value
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]), // Actual key => Actual value
 
     BlockHeights,
     BlockHash => BlockHeight,
@@ -373,11 +372,11 @@ test_tables! {
 
     PrunedTxBlobs,
     TxId => PrunedBlob,
-    123 => [1,2,3,4,5,6,7,8].as_slice(),
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]),
 
     PrunableTxBlobs,
     TxId => PrunableBlob,
-    123 => [1,2,3,4,5,6,7,8].as_slice(),
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]),
 
     PrunableHashes,
     TxId => PrunableHash,
