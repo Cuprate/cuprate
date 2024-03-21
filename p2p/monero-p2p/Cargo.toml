@@ -22,7 +22,7 @@ async-trait = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 
 thiserror = { workspace = true }
-tracing = { workspace = true, features = ["std"] }
+tracing = { workspace = true, features = ["std", "attributes"] }
 
 borsh = { workspace = true, default-features = false, features = ["derive", "std"], optional = true }
 

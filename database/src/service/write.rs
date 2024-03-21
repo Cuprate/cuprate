@@ -1,10 +1,12 @@
-//! Database write thread-pool definitions and logic.
+//! Database writer thread definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     sync::Arc,
     task::{Context, Poll},
 };
+
+use futures::channel::oneshot;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
@@ -28,10 +30,10 @@ type ResponseResult = Result<Response, RuntimeError>;
 ///
 /// The channel itself should never fail,
 /// but the actual database operation might.
-type ResponseRecv = InfallibleOneshotReceiver<ResponseResult>;
+type ResponseReceiver = InfallibleOneshotReceiver<ResponseResult>;
 
 /// The `Sender` channel for the response.
-type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
+type ResponseSender = oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriteHandle
 /// Write handle to the database.
@@ -48,22 +50,49 @@ pub struct DatabaseWriteHandle {
     /// Sender channel to the database write thread-pool.
     ///
     /// We provide the response channel for the thread-pool.
-    pub(super) sender: crossbeam::channel::Sender<(WriteRequest, ResponseSend)>,
+    pub(super) sender: crossbeam::channel::Sender<(WriteRequest, ResponseSender)>,
+}
+
+impl DatabaseWriteHandle {
+    /// Initialize the single `DatabaseWriter` thread.
+    #[cold]
+    #[inline(never)] // Only called once.
+    pub(super) fn init(db: Arc<ConcreteEnv>) -> Self {
+        // Initialize `Request/Response` channels.
+        let (sender, receiver) = crossbeam::channel::unbounded();
+
+        // Spawn the writer.
+        std::thread::Builder::new()
+            .name(WRITER_THREAD_NAME.into())
+            .spawn(move || {
+                let this = DatabaseWriter { receiver, db };
+                DatabaseWriter::main(this);
+            })
+            .unwrap();
+
+        Self { sender }
+    }
 }
 
 impl tower::Service<WriteRequest> for DatabaseWriteHandle {
     type Response = Response;
     type Error = RuntimeError;
-    type Future = ResponseRecv;
+    type Future = ResponseReceiver;
 
     #[inline]
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
     }
 
     #[inline]
-    fn call(&mut self, _req: WriteRequest) -> Self::Future {
-        todo!()
+    fn call(&mut self, request: WriteRequest) -> Self::Future {
+        // Response channel we `.await` on.
+        let (response_sender, receiver) = oneshot::channel();
+
+        // Send the write request.
+        self.sender.send((request, response_sender)).unwrap();
+
+        InfallibleOneshotReceiver::from(receiver)
     }
 }
 
@@ -75,7 +104,7 @@ pub(super) struct DatabaseWriter {
     /// Any caller can send some requests to this channel.
     /// They send them alongside another `Response` channel,
     /// which we will eventually send to.
-    receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSend)>,
+    receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSender)>,
 
     /// Access to the database.
     db: Arc<ConcreteEnv>,
@@ -88,38 +117,18 @@ impl Drop for DatabaseWriter {
 }
 
 impl DatabaseWriter {
-    /// Initialize the single `DatabaseWriter` thread.
-    #[cold]
-    #[inline(never)] // Only called once.
-    pub(super) fn init(db: Arc<ConcreteEnv>) -> DatabaseWriteHandle {
-        // Initialize `Request/Response` channels.
-        let (sender, receiver) = crossbeam::channel::unbounded();
-
-        // Spawn the writer.
-        std::thread::Builder::new()
-            .name(WRITER_THREAD_NAME.into())
-            .spawn(move || {
-                let this = Self { receiver, db };
-                Self::main(this);
-            })
-            .unwrap();
-
-        // Return a handle to the pool.
-        DatabaseWriteHandle { sender }
-    }
-
     /// The `DatabaseWriter`'s main function.
     ///
     /// The writer just loops in this function.
     #[cold]
     #[inline(never)] // Only called once.
-    fn main(mut self) {
+    fn main(self) {
         // 1. Hang on request channel
         // 2. Map request to some database function
         // 3. Execute that function, get the result
         // 4. Return the result via channel
         loop {
-            let Ok((request, response_send)) = self.receiver.recv() else {
+            let Ok((request, response_sender)) = self.receiver.recv() else {
                 // If this receive errors, it means that the channel is empty
                 // and disconnected, meaning the other side (all senders) have
                 // been dropped. This means "shutdown", and we return here to
@@ -133,9 +142,9 @@ impl DatabaseWriter {
 
             // Map [`Request`]'s to specific database functions.
             match request {
-                WriteRequest::Example1 => self.example_handler_1(response_send),
-                WriteRequest::Example2(_x) => self.example_handler_2(response_send),
-                WriteRequest::Example3(_x) => self.example_handler_3(response_send),
+                WriteRequest::Example1 => self.example_handler_1(response_sender),
+                WriteRequest::Example2(x) => self.example_handler_2(response_sender, x),
+                WriteRequest::Example3(x) => self.example_handler_3(response_sender, x),
             }
         }
     }
@@ -166,22 +175,25 @@ impl DatabaseWriter {
 
     /// TODO
     #[inline]
-    fn example_handler_1(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_1(&self, response_sender: ResponseSender) {
+        let db_result = Ok(Response::Example1);
+        response_sender.send(db_result).unwrap();
     }
 
     /// TODO
     #[inline]
-    fn example_handler_2(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_2(&self, response_sender: ResponseSender, x: usize) {
+        let db_result = Ok(Response::Example2(x));
+        response_sender.send(db_result).unwrap();
     }
 
     /// TODO
     #[inline]
-    fn example_handler_3(&mut self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
+    #[allow(clippy::unused_self)] // TODO: remove me
+    fn example_handler_3(&self, response_sender: ResponseSender, x: String) {
+        let db_result = Ok(Response::Example3(x));
+        response_sender.send(db_result).unwrap();
     }
 }

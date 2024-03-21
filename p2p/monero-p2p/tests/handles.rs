@@ -7,11 +7,11 @@ use monero_p2p::handles::HandleBuilder;
 #[test]
 fn send_ban_signal() {
     let semaphore = Arc::new(Semaphore::new(5));
-    let (guard, mut connection_handle, mut peer_handle) = HandleBuilder::default()
+    let (guard, mut connection_handle) = HandleBuilder::default()
         .with_permit(semaphore.try_acquire_owned().unwrap())
         .build();
 
-    peer_handle.ban_peer(Duration::from_secs(300));
+    connection_handle.ban_peer(Duration::from_secs(300));
 
     let Some(ban_time) = connection_handle.check_should_ban() else {
         panic!("ban signal not received!");
@@ -29,13 +29,13 @@ fn send_ban_signal() {
 #[test]
 fn multiple_ban_signals() {
     let semaphore = Arc::new(Semaphore::new(5));
-    let (guard, mut connection_handle, mut peer_handle) = HandleBuilder::default()
+    let (guard, mut connection_handle) = HandleBuilder::default()
         .with_permit(semaphore.try_acquire_owned().unwrap())
         .build();
 
-    peer_handle.ban_peer(Duration::from_secs(300));
-    peer_handle.ban_peer(Duration::from_secs(301));
-    peer_handle.ban_peer(Duration::from_secs(302));
+    connection_handle.ban_peer(Duration::from_secs(300));
+    connection_handle.ban_peer(Duration::from_secs(301));
+    connection_handle.ban_peer(Duration::from_secs(302));
 
     let Some(ban_time) = connection_handle.check_should_ban() else {
         panic!("ban signal not received!");
@@ -54,7 +54,7 @@ fn multiple_ban_signals() {
 #[test]
 fn dropped_guard_sends_disconnect_signal() {
     let semaphore = Arc::new(Semaphore::new(5));
-    let (guard, connection_handle, _) = HandleBuilder::default()
+    let (guard, connection_handle) = HandleBuilder::default()
         .with_permit(semaphore.try_acquire_owned().unwrap())
         .build();
 

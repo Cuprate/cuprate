@@ -124,7 +124,8 @@ proptest! {
         let len = fragments.len();
 
         for (i, fragment) in fragments.into_iter().enumerate() {
-            prop_assert_eq!(fragment.body.len() + 33, fragment_size, "numb_fragments:{}, index: {}", len, i)
+            prop_assert_eq!(fragment.body.len() + 33, fragment_size, "numb_fragments:{}, index: {}", len, i);
+            prop_assert_eq!(fragment.header.size + 33, fragment_size as u64);
         }
     }
 

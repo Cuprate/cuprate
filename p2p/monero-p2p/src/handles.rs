@@ -1,28 +1,41 @@
+//! Connection Handles.
 //!
-use std::time::Duration;
+//! This module contains the [`ConnectionHandle`] which allows banning a peer, disconnecting a peer and
+//! checking if the peer is still connected.
+use std::{
+    sync::{Arc, OnceLock},
+    time::Duration,
+};
 
-use futures::{channel::mpsc, SinkExt};
+use futures::SinkExt;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
+/// A [`ConnectionHandle`] builder.
 #[derive(Default, Debug)]
 pub struct HandleBuilder {
     permit: Option<OwnedSemaphorePermit>,
 }
 
 impl HandleBuilder {
+    /// Create a new builder.
     pub fn new() -> Self {
         Self { permit: None }
     }
 
+    /// Sets the permit for this connection.
+    ///
+    /// This must be called at least once.
     pub fn with_permit(mut self, permit: OwnedSemaphorePermit) -> Self {
         self.permit = Some(permit);
         self
     }
 
-    pub fn build(self) -> (ConnectionGuard, ConnectionHandle, PeerHandle) {
+    /// Builds the [`ConnectionGuard`] which should be handed to the connection task and the [`ConnectionHandle`].
+    ///
+    /// This will panic if a permit was not set [`HandleBuilder::with_permit`]
+    pub fn build(self) -> (ConnectionGuard, ConnectionHandle) {
         let token = CancellationToken::new();
-        let (tx, rx) = mpsc::channel(0);
 
         (
             ConnectionGuard {
@@ -31,13 +44,14 @@ impl HandleBuilder {
             },
             ConnectionHandle {
                 token: token.clone(),
-                ban: rx,
+                ban: Arc::new(OnceLock::new()),
             },
-            PeerHandle { ban: tx, token },
         )
     }
 }
 
+/// A struct representing the time a peer should be banned for.
+#[derive(Debug, Copy, Clone)]
 pub struct BanPeer(pub Duration);
 
 /// A struct given to the connection task.
@@ -47,9 +61,13 @@ pub struct ConnectionGuard {
 }
 
 impl ConnectionGuard {
+    /// Checks if we should close the connection.
     pub fn should_shutdown(&self) -> bool {
         self.token.is_cancelled()
     }
+    /// Tell the corresponding [`ConnectionHandle`]s that this connection is closed.
+    ///
+    /// This will be called on [`Drop::drop`].
     pub fn connection_closed(&self) {
         self.token.cancel()
     }
@@ -61,39 +79,29 @@ impl Drop for ConnectionGuard {
     }
 }
 
-/// A handle given to a task that needs to close this connection and find out if the connection has
-/// been banned.
+/// A handle given to a task that needs to ban, disconnect, check if the peer should be banned or check
+/// the peer is still connected.
+#[derive(Debug, Clone)]
 pub struct ConnectionHandle {
     token: CancellationToken,
-    ban: mpsc::Receiver<BanPeer>,
+    ban: Arc<OnceLock<BanPeer>>,
 }
 
 impl ConnectionHandle {
+    /// Bans the peer for the given `duration`.
+    pub fn ban_peer(&self, duration: Duration) {
+        let _ = self.ban.set(BanPeer(duration));
+    }
+    /// Checks if this connection is closed.
     pub fn is_closed(&self) -> bool {
         self.token.is_cancelled()
     }
+    /// Returns if this peer has been banned and the [`Duration`] of that ban.
     pub fn check_should_ban(&mut self) -> Option<BanPeer> {
-        match self.ban.try_next() {
-            Ok(res) => res,
-            Err(_) => None,
-        }
+        self.ban.get().copied()
     }
+    /// Sends the signal to the connection task to disconnect.
     pub fn send_close_signal(&self) {
-        self.token.cancel()
-    }
-}
-
-/// A handle given to a task that needs to be able to ban a peer.
-#[derive(Clone)]
-pub struct PeerHandle {
-    token: CancellationToken,
-    ban: mpsc::Sender<BanPeer>,
-}
-
-impl PeerHandle {
-    pub fn ban_peer(&mut self, duration: Duration) {
-        // This channel won't be dropped and if it's full the peer has already been banned.
-        let _ = self.ban.try_send(BanPeer(duration));
         self.token.cancel()
     }
 }

@@ -74,6 +74,9 @@ pub trait NetZoneAddress:
     /// TODO: IP zone banning?
     type BanID: Debug + Hash + Eq + Clone + Copy + Send + 'static;
 
+    /// Changes the port of this address to `port`.
+    fn set_port(&mut self, port: u16);
+
     fn ban_id(&self) -> Self::BanID;
 
     fn should_add_to_peer_list(&self) -> bool;

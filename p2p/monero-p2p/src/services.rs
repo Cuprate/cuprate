@@ -69,34 +69,41 @@ impl<A: NetZoneAddress> TryFrom<monero_wire::PeerListEntryBase>
 }
 
 pub enum AddressBookRequest<Z: NetworkZone> {
+    /// Tells the address book that we have connected or received a connection from a peer.
     NewConnection {
-        addr: Option<Z::Addr>,
+        /// The [`InternalPeerID`] of this connection.
         internal_peer_id: InternalPeerID<Z::Addr>,
+        /// The public address of the peer, if this peer has a reachable public address.
+        public_address: Option<Z::Addr>,
+        /// The [`ConnectionHandle`] to this peer.
         handle: ConnectionHandle,
+        /// An ID the peer assigned itself.
         id: u64,
+        /// The peers [`PruningSeed`].
         pruning_seed: PruningSeed,
-        /// The peers port.
+        /// The peers rpc port.
         rpc_port: u16,
         /// The peers rpc credits per hash
         rpc_credits_per_hash: u32,
     },
-    /// Bans a peer for the specified duration. This request
-    /// will send disconnect signals to all peers with the same
-    /// address.
-    BanPeer(Z::Addr, std::time::Duration),
+    /// Tells the address book about a peer list received from a peer.
     IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
-    /// Gets a random white peer from the peer list. If height is specified
+    /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    GetRandomWhitePeer {
-        height: Option<u64>,
-    },
-    /// Gets a random gray peer from the peer list. If height is specified
+    TakeRandomWhitePeer { height: Option<u64> },
+    /// Takes a random gray peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    GetRandomGrayPeer {
-        height: Option<u64>,
-    },
+    TakeRandomGrayPeer { height: Option<u64> },
+    /// Takes a random peer from the peer list. If height is specified
+    /// then the peer list should retrieve a peer that should have a full
+    /// block at that height according to it's pruning seed.
+    ///
+    /// The address book will look in the white peer list first, then the gray
+    /// one if no peer is found.
+    TakeRandomPeer { height: Option<u64> },
+    /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
 }
 

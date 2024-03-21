@@ -3,7 +3,7 @@
 //! This module holds the logic for persistent peer storage.
 //! Cuprates address book is modeled as a [`tower::Service`]
 //! The request is [`AddressBookRequest`] and the response is
-//! [`AddressBookResponse`].
+//! [`AddressBookResponse`](monero_p2p::services::AddressBookResponse).
 //!
 //! Cuprate, like monerod, actually has multiple address books, one
 //! for each [`NetworkZone`]. This is to reduce the possibility of
@@ -11,24 +11,31 @@
 //! and so peers will only get told about peers they can
 //! connect to.
 //!
+use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
-use std::{path::PathBuf, time::Duration};
+use tower::buffer::Buffer;
 
-use monero_p2p::{
-    services::{AddressBookRequest, AddressBookResponse},
-    NetworkZone,
-};
+use monero_p2p::{services::AddressBookRequest, NetworkZone};
 
 mod book;
 mod peer_list;
 mod store;
 
+/// The address book config.
 #[derive(Debug, Clone)]
-pub struct Config {
-    max_white_list_length: usize,
-    max_gray_list_length: usize,
-    peer_store_file: PathBuf,
-    peer_save_period: Duration,
+pub struct AddressBookConfig {
+    /// The maximum number of white peers in the peer list.
+    ///
+    /// White peers are peers we have connected to before.
+    pub max_white_list_length: usize,
+    /// The maximum number of gray peers in the peer list.
+    ///
+    /// Gray peers are peers we are yet to make a connection to.
+    pub max_gray_list_length: usize,
+    /// The location to store the address book.
+    pub peer_store_file: PathBuf,
+    /// The amount of time between saving the address book to disk.
+    pub peer_save_period: Duration,
 }
 
 /// Possible errors when dealing with the address book.
@@ -41,9 +48,6 @@ pub enum AddressBookError {
     /// The peer is not in the address book for this zone.
     #[error("Peer was not found in book")]
     PeerNotFound,
-    /// The peer list is empty.
-    #[error("The peer list is empty")]
-    PeerListEmpty,
     /// Immutable peer data was changed.
     #[error("Immutable peer data was changed: {0}")]
     PeersDataChanged(&'static str),
@@ -58,19 +62,25 @@ pub enum AddressBookError {
     AddressBookTaskExited,
 }
 
+/// Initializes the P2P address book for a specific network zone.
 pub async fn init_address_book<Z: NetworkZone>(
-    cfg: Config,
-) -> Result<
-    impl tower::Service<
-        AddressBookRequest<Z>,
-        Response = AddressBookResponse<Z>,
-        Error = tower::BoxError,
-    >,
-    std::io::Error,
-> {
-    let (white_list, gray_list) = store::read_peers_from_disk::<Z>(&cfg).await?;
+    cfg: AddressBookConfig,
+) -> Result<Buffer<book::AddressBook<Z>, AddressBookRequest<Z>>, std::io::Error> {
+    tracing::info!(
+        "Loading peers from file: {} ",
+        cfg.peer_store_file.display()
+    );
+
+    let (white_list, gray_list) = match store::read_peers_from_disk::<Z>(&cfg).await {
+        Ok(res) => res,
+        Err(e) if e.kind() == ErrorKind::NotFound => (vec![], vec![]),
+        Err(e) => {
+            tracing::error!("Failed to open peer list, {}", e);
+            panic!("{e}");
+        }
+    };
 
     let address_book = book::AddressBook::<Z>::new(cfg, white_list, gray_list, Vec::new());
 
-    Ok(tower::buffer::Buffer::new(address_book, 15))
+    Ok(Buffer::new(address_book, 15))
 }

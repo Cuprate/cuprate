@@ -72,6 +72,9 @@ impl Env for ConcreteEnv {
         // TODO: we can set cache sizes with:
         // env_builder.set_cache(bytes);
 
+        // Create the database directory if it doesn't exist.
+        std::fs::create_dir_all(config.db_directory())?;
+
         // Open the database file, create if needed.
         let db_file = std::fs::OpenOptions::new()
             .read(true)
