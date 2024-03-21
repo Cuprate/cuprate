@@ -127,11 +127,12 @@ pub enum VerifyTxRequest {
         time_for_time_lock: u64,
         hf: HardFork,
         re_org_token: ReOrgToken,
+
+        out_cache: Option<Arc<OutputCache>>,
     },
 }
 
 pub enum VerifyTxResponse {
-    BatchSetupOk(Vec<Arc<TransactionVerificationData>>),
     Ok,
 }
 
@@ -175,6 +176,7 @@ where
                     time_for_time_lock,
                     hf,
                     re_org_token,
+                    out_cache,
                 } => {
                     verify_transactions_for_block(
                         database,
@@ -183,6 +185,7 @@ where
                         time_for_time_lock,
                         hf,
                         re_org_token,
+                        out_cache,
                     )
                     .await
                 }
@@ -200,6 +203,7 @@ async fn verify_transactions_for_block<D>(
     time_for_time_lock: u64,
     hf: HardFork,
     re_org_token: ReOrgToken,
+    out_cache: Option<Arc<OutputCache>>,
 ) -> Result<VerifyTxResponse, ExtendedConsensusError>
 where
     D: Database + Clone + Sync + Send + 'static,
@@ -211,7 +215,8 @@ where
         &hf,
         re_org_token,
         database.clone(),
-        None,
+        current_chain_height,
+        out_cache.as_deref(),
     )
     .await?;
 

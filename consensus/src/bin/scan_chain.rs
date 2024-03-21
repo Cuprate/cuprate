@@ -157,7 +157,7 @@ mod bin {
         );
 
         while let Some(incoming_blocks) = incoming_blocks.next().await {
-            let VerifyBlockResponse::MainChainBatchPrep(blocks, txs) = block_verifier
+            let VerifyBlockResponse::MainChainBatchPrep(blocks, txs, out_cache) = block_verifier
                 .ready()
                 .await?
                 .call(VerifyBlockRequest::MainChainBatchPrep(incoming_blocks))
@@ -171,7 +171,11 @@ mod bin {
                 let VerifyBlockResponse::MainChain(verified_block_info) = block_verifier
                     .ready()
                     .await?
-                    .call(VerifyBlockRequest::MainChainPrepared(block, txs))
+                    .call(VerifyBlockRequest::MainChainPrepared(
+                        block,
+                        txs,
+                        out_cache.clone(),
+                    ))
                     .await?
                 else {
                     panic!()

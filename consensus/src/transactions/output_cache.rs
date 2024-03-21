@@ -1,15 +1,9 @@
 use std::{
     collections::{BTreeMap, HashMap},
     iter::once,
-    sync::{Arc, OnceLock},
+    sync::Arc,
 };
 
-use cuprate_consensus_rules::{
-    blocks::BlockError,
-    miner_tx::MinerTxError,
-    transactions::{OutputOnChain, TransactionError},
-    ConsensusError,
-};
 use curve25519_dalek::{
     constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, EdwardsPoint, Scalar,
 };
@@ -20,21 +14,28 @@ use monero_serai::{
 };
 use tower::ServiceExt;
 
+use cuprate_consensus_rules::{
+    blocks::BlockError,
+    miner_tx::MinerTxError,
+    transactions::{OutputOnChain, TransactionError},
+    ConsensusError,
+};
+
 use crate::{
     transactions::TransactionVerificationData, Database, DatabaseRequest, DatabaseResponse,
     ExtendedConsensusError,
 };
 
 #[derive(Debug)]
-enum CachedAmount<'a> {
+enum CachedAmount {
     Clear(u64),
-    Commitment(&'a EdwardsPoint),
+    Commitment(EdwardsPoint),
 }
 
-impl<'a> CachedAmount<'a> {
+impl CachedAmount {
     fn get_commitment(&self) -> EdwardsPoint {
         match self {
-            CachedAmount::Commitment(commitment) => **commitment,
+            CachedAmount::Commitment(commitment) => *commitment,
             // TODO: Setup a table with common amounts.
             CachedAmount::Clear(amt) => ED25519_BASEPOINT_POINT + H() * Scalar::from(*amt),
         }
@@ -42,40 +43,47 @@ impl<'a> CachedAmount<'a> {
 }
 
 #[derive(Debug)]
-struct CachedOutput<'a> {
+struct CachedOutput {
     height: u64,
-    time_lock: &'a Timelock,
-    key: &'a CompressedEdwardsY,
-    amount: CachedAmount<'a>,
-
-    cached_created: OnceLock<OutputOnChain>,
+    time_lock: Timelock,
+    key: CompressedEdwardsY,
+    amount: CachedAmount,
 }
 
 #[derive(Debug)]
-pub struct OutputCache<'a>(HashMap<u64, BTreeMap<u64, CachedOutput<'a>>>);
+pub struct OutputCache {
+    outputs: HashMap<u64, BTreeMap<u64, CachedOutput>>,
+    amount_of_outputs: HashMap<u64, BTreeMap<u64, usize>>,
+}
 
-impl<'a> OutputCache<'a> {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        OutputCache(HashMap::new())
-    }
+impl OutputCache {
+    pub fn get_out(&self, amt: u64, idx: u64) -> Option<OutputOnChain> {
+        let cached_out = self.outputs.get(&amt)?.get(&idx)?;
 
-    pub fn get_out(&self, amt: u64, idx: u64) -> Option<&OutputOnChain> {
-        let cached_out = self.0.get(&amt)?.get(&idx)?;
-
-        Some(cached_out.cached_created.get_or_init(|| OutputOnChain {
+        Some(OutputOnChain {
             height: cached_out.height,
-            time_lock: *cached_out.time_lock,
+            time_lock: cached_out.time_lock,
             key: cached_out.key.decompress(),
             commitment: cached_out.amount.get_commitment(),
-        }))
+        })
     }
 
-    pub async fn extend_from_block<'b: 'a, D: Database>(
-        &mut self,
-        blocks: impl Iterator<Item = (&'b Block, &'b [Arc<TransactionVerificationData>])> + 'b,
+    pub fn outputs_in_cache_with_amount(&self, amt: u64, up_to_height: u64) -> usize {
+        if amt == 0 {
+            return 0;
+        }
+
+        let Some(map) = self.amount_of_outputs.get(&amt) else {
+            return 0;
+        };
+
+        map.range(0..up_to_height).map(|(_, numb)| numb).sum()
+    }
+
+    pub async fn new_from_blocks<D: Database>(
+        blocks: impl Iterator<Item = (&Block, &[Arc<TransactionVerificationData>])>,
         database: &mut D,
-    ) -> Result<(), ExtendedConsensusError> {
+    ) -> Result<Self, ExtendedConsensusError> {
         let mut idx_needed = HashMap::new();
 
         for (block, txs) in blocks {
@@ -90,7 +98,7 @@ impl<'a> OutputCache<'a> {
 
                     let amount_commitment = match (is_rct, is_miner) {
                         (true, false) => CachedAmount::Commitment(
-                            tx.rct_signatures.base.commitments.get(i).ok_or(
+                            *tx.rct_signatures.base.commitments.get(i).ok_or(
                                 ConsensusError::Transaction(TransactionError::NonZeroOutputForV2),
                             )?,
                         ),
@@ -100,29 +108,17 @@ impl<'a> OutputCache<'a> {
                         height: block.number().ok_or(ConsensusError::Block(
                             BlockError::MinerTxError(MinerTxError::InputNotOfTypeGen),
                         ))?,
-                        time_lock: &tx.prefix.timelock,
-                        key: &out.key,
+                        time_lock: tx.prefix.timelock,
+                        key: out.key,
                         amount: amount_commitment,
-
-                        cached_created: OnceLock::new(),
                     };
 
-                    let Some(amt_table) = self.0.get_mut(&amt_table_key) else {
-                        idx_needed
-                            .entry(amt_table_key)
-                            .or_insert_with(Vec::new)
-                            .push(output_to_cache);
-                        continue;
-                    };
-
-                    let top_idx = *amt_table.last_key_value().unwrap().0;
-                    amt_table.insert(top_idx + 1, output_to_cache);
+                    idx_needed
+                        .entry(amt_table_key)
+                        .or_insert_with(Vec::new)
+                        .push(output_to_cache);
                 }
             }
-        }
-
-        if idx_needed.is_empty() {
-            return Ok(());
         }
 
         let DatabaseResponse::NumberOutputsWithAmount(numb_outs) = database
@@ -136,18 +132,31 @@ impl<'a> OutputCache<'a> {
             panic!("Database sent incorrect response!");
         };
 
+        let mut outputs: HashMap<_, BTreeMap<_, _>> = HashMap::with_capacity(idx_needed.len() * 16);
+        let mut amount_of_outputs: HashMap<_, BTreeMap<_, _>> = HashMap::new();
+
         for (amt_table_key, out) in idx_needed {
             let numb_outs = *numb_outs
                 .get(&amt_table_key)
                 .expect("DB did not return all results!");
 
-            self.0.entry(amt_table_key).or_default().extend(
-                out.into_iter()
-                    .enumerate()
-                    .map(|(i, out)| (u64::try_from(i + numb_outs).unwrap(), out)),
-            )
+            let mut height_to_amount = BTreeMap::new();
+
+            outputs
+                .entry(amt_table_key)
+                .or_default()
+                .extend(out.into_iter().enumerate().map(|(i, out)| {
+                    *height_to_amount.entry(out.height).or_default() += 1_usize;
+
+                    (u64::try_from(i + numb_outs).unwrap(), out)
+                }));
+
+            amount_of_outputs.insert(amt_table_key, height_to_amount);
         }
 
-        Ok(())
+        Ok(OutputCache {
+            outputs,
+            amount_of_outputs,
+        })
     }
 }

@@ -191,7 +191,11 @@ pub enum VerifyBlockRequest {
         txs: Vec<Transaction>,
     },
     /// A request to verify a block that has already been prepared.
-    MainChainPrepared(PrePreparedBlock, Vec<Arc<TransactionVerificationData>>),
+    MainChainPrepared(
+        PrePreparedBlock,
+        Vec<Arc<TransactionVerificationData>>,
+        Arc<OutputCache>,
+    ),
 }
 
 /// A response from a verify block request.
@@ -202,6 +206,7 @@ pub enum VerifyBlockResponse {
     MainChainBatchPrep(
         Vec<PrePreparedBlock>,
         Vec<Vec<Arc<TransactionVerificationData>>>,
+        Arc<OutputCache>,
     ),
 }
 
@@ -286,13 +291,14 @@ where
                     verify_main_chain_block(block, txs, prepared_txs, context_svc, tx_verifier_svc)
                         .await
                 }
-                VerifyBlockRequest::MainChainPrepared(prepped_block, txs) => {
+                VerifyBlockRequest::MainChainPrepared(prepped_block, txs, out_cache) => {
                     verify_main_chain_block_prepared(
                         prepped_block,
                         txs,
                         context_svc,
                         tx_verifier_svc,
                         None,
+                        Some(out_cache),
                     )
                     .await
                 }
@@ -465,16 +471,14 @@ where
     .await?;
 
     // Build the OutputCache, see its docs for info.
-    let mut out_cache = OutputCache::new();
-    out_cache
-        .extend_from_block(
-            blocks
-                .iter()
-                .map(|block| &block.block)
-                .zip(txs.iter().map(Vec::as_slice)),
-            &mut database,
-        )
-        .await?;
+    let out_cache = OutputCache::new_from_blocks(
+        blocks
+            .iter()
+            .map(|block| &block.block)
+            .zip(txs.iter().map(Vec::as_slice)),
+        &mut database,
+    )
+    .await?;
 
     tracing::debug!("Filling transaction ring members/ ring member info.");
 
@@ -496,6 +500,7 @@ where
             hf,
             context.re_org_token.clone(),
             database.clone(),
+            None,
             Some(&out_cache),
         )
         .await?;
@@ -512,6 +517,7 @@ where
             &blocks.last().unwrap().hf_version,
             context.re_org_token.clone(),
             database.clone(),
+            None,
             Some(&out_cache),
         )
         .await?;
@@ -519,7 +525,11 @@ where
 
     tracing::debug!("batch setup complete.");
 
-    Ok(VerifyBlockResponse::MainChainBatchPrep(blocks, txs))
+    Ok(VerifyBlockResponse::MainChainBatchPrep(
+        blocks,
+        txs,
+        Arc::new(out_cache),
+    ))
 }
 
 /// Verifies a prepared block.
@@ -529,6 +539,7 @@ async fn verify_main_chain_block_prepared<C, TxV>(
     context_svc: C,
     tx_verifier_svc: TxV,
     context: Option<RawBlockChainContext>,
+    out_cache: Option<Arc<OutputCache>>,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
     C: Service<
@@ -593,6 +604,7 @@ where
             time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
             hf: context.current_hf,
             re_org_token: context.re_org_token.clone(),
+            out_cache,
         })
         .await?;
 
@@ -679,6 +691,7 @@ where
         context_svc,
         tx_verifier_svc,
         Some(context),
+        None,
     )
     .await
 }
