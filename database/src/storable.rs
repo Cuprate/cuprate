@@ -35,6 +35,8 @@ use crate::ToOwnedDebug;
 /// - All types in [`tables`](crate::tables)
 /// - Slices, e.g, `[T] where T: Storable`
 ///
+/// See [`StorableVec`] for storing slices of `T: Storable`.
+///
 /// ```rust
 /// # use cuprate_database::*;
 /// # use std::borrow::*;
@@ -111,7 +113,6 @@ pub trait Storable: ToOwnedDebug {
     fn from_bytes(bytes: &[u8]) -> Self;
 }
 
-//---------------------------------------------------------------------------------------------------- Impl
 impl<T> Storable for T
 where
     Self: Pod + ToOwnedDebug<OwnedDebug = T>,
@@ -130,7 +131,40 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- StorableVec
-/// TODO
+/// A [`Storable`] vector of `T: Storable`.
+///
+/// This is a wrapper around `Vec<T> where T: Storable`.
+///
+/// Slice types are owned both:
+/// - when returned from the database
+/// - in `put()`
+///
+/// This is needed as `impl Storable for Vec<T>` runs into impl conflicts.
+///
+/// ```rust
+/// # use cuprate_database::*;
+/// //---------------------------------------------------- u8
+/// let vec: StorableVec<u8> = StorableVec(vec![0,1]);
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&vec);
+/// assert_eq!(into, &[0,1]);
+///
+/// // From bytes.
+/// let from: StorableVec<u8> = Storable::from_bytes(&into);
+/// assert_eq!(from, vec);
+///
+/// //---------------------------------------------------- u64
+/// let vec: StorableVec<u64> = StorableVec(vec![0,1]);
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&vec);
+/// assert_eq!(into, &[0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]);
+///
+/// // From bytes.
+/// let from: StorableVec<u64> = Storable::from_bytes(&into);
+/// assert_eq!(from, vec);
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::TransparentWrapper)]
 #[repr(transparent)]
 pub struct StorableVec<T>(pub Vec<T>);
@@ -141,11 +175,14 @@ where
 {
     const BYTE_LENGTH: Option<usize> = None;
 
+    /// Casts the inner `Vec<T>` directly as bytes.
     #[inline]
     fn as_bytes(&self) -> &[u8] {
         bytemuck::must_cast_slice(&self.0)
     }
 
+    /// This always allocates a new `Vec<T>`,
+    /// casting `bytes` into a vector of type `T`.
     #[inline]
     fn from_bytes(bytes: &[u8]) -> Self {
         Self(bytemuck::pod_collect_to_vec(bytes))
@@ -154,12 +191,14 @@ where
 
 impl<T> std::ops::Deref for StorableVec<T> {
     type Target = [T];
+    #[inline]
     fn deref(&self) -> &[T] {
         &self.0
     }
 }
 
 impl<T> Borrow<[T]> for StorableVec<T> {
+    #[inline]
     fn borrow(&self) -> &[T] {
         &self.0
     }
