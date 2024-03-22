@@ -67,7 +67,6 @@ macro_rules! tables {
             impl private::Sealed for [<$table:camel>] {}
 
             // Table trait impl.
-            #[allow(single_use_lifetimes)]
             impl Table for [<$table:camel>] {
                 const NAME: &'static str = stringify!([<$table:snake>]);
                 type Key = $key;

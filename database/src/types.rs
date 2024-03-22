@@ -37,7 +37,6 @@
  */
 // actually i still don't trust you. no unsafe.
 #![forbid(unsafe_code)] // if you remove this line i will steal your monero
-#![allow(missing_docs)] // bytemuck auto-generates some non-documented structs
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};

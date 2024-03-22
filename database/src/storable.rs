@@ -108,8 +108,10 @@ pub trait Storable: ToOwnedDebug {
     ///
     /// # Blanket implementation
     /// The blanket implementation that covers all types used
-    /// by `cuprate_database` will simply cast `bytes` into `Self`,
-    /// with no copying.
+    /// by `cuprate_database` will simply bitwise copy `bytes`
+    /// into `Self`.
+    ///
+    /// The bytes do not have be correctly aligned.
     fn from_bytes(bytes: &[u8]) -> Self;
 }
 

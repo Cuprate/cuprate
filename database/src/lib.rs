@@ -141,6 +141,7 @@
 	keyword_idents,
 	non_ascii_idents,
 	variant_size_differences,
+    single_use_lifetimes,
 
 	// Probably can be put into `#[deny]`.
 	future_incompatible,
@@ -166,7 +167,6 @@
     clippy::pedantic,
     clippy::nursery,
     clippy::cargo,
-    single_use_lifetimes,
     unused_mut,
     missing_docs,
     deprecated,
