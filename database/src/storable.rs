@@ -11,8 +11,6 @@ use std::{
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::ToOwnedDebug;
-
 //---------------------------------------------------------------------------------------------------- Storable
 /// A type that can be stored in the database.
 ///
@@ -64,7 +62,7 @@ use crate::ToOwnedDebug;
 ///
 /// Most likely, the bytes are little-endian, however
 /// that cannot be relied upon when using this trait.
-pub trait Storable: ToOwnedDebug {
+pub trait Storable: Debug {
     /// Is this type fixed width in byte length?
     ///
     /// I.e., when converting `Self` to bytes, is it
@@ -117,7 +115,7 @@ pub trait Storable: ToOwnedDebug {
 
 impl<T> Storable for T
 where
-    Self: Pod + ToOwnedDebug<OwnedDebug = T>,
+    Self: Pod + Debug,
 {
     const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
 
@@ -173,7 +171,7 @@ pub struct StorableVec<T>(pub Vec<T>);
 
 impl<T> Storable for StorableVec<T>
 where
-    T: Pod + ToOwnedDebug<OwnedDebug = T>,
+    T: Pod + Debug,
 {
     const BYTE_LENGTH: Option<usize> = None;
 
@@ -221,7 +219,7 @@ mod test {
         // A `Vec` of the numbers to test.
         t: Vec<T>,
     ) where
-        T: Storable + ToOwnedDebug<OwnedDebug = T> + Copy + PartialEq,
+        T: Storable + Debug + Copy + PartialEq,
     {
         for t in t {
             let expected_bytes = to_le_bytes(t);

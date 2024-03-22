@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::fmt::Debug;
 
-use crate::{key::Key, storable::Storable, to_owned_debug::ToOwnedDebug};
+use crate::{key::Key, storable::Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database table metadata.

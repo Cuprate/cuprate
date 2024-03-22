@@ -5,10 +5,7 @@ use std::{cmp::Ordering, fmt::Debug};
 
 use bytemuck::Pod;
 
-use crate::{
-    storable::{self, Storable},
-    ToOwnedDebug,
-};
+use crate::storable::{self, Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`](crate::table::Table) key metadata.

@@ -17,7 +17,6 @@ use crate::{
     error::RuntimeError,
     storable::Storable,
     table::Table,
-    ToOwnedDebug,
 };
 
 //---------------------------------------------------------------------------------------------------- Shared functions
@@ -95,13 +94,13 @@ impl<'env, 'tx, T: Table + 'static> DatabaseRw<'env, 'tx, T>
 
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
-        self.insert(Cow::Borrowed(key), Cow::Borrowed(value))?;
+        self.insert(key, value)?;
         Ok(())
     }
 
     #[inline]
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
-        self.remove(Cow::Borrowed(key))?;
+        self.remove(key)?;
         Ok(())
     }
 }

@@ -254,9 +254,6 @@ pub mod types;
 mod transaction;
 pub use transaction::{TxRo, TxRw};
 
-mod to_owned_debug;
-pub use to_owned_debug::ToOwnedDebug;
-
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]
 pub mod service;
