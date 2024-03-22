@@ -644,6 +644,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-types"
+version = "0.0.0"
+dependencies = [
+ "bytemuck",
+ "cfg-if",
+ "paste",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "curve25519-dalek"
 version = "4.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
