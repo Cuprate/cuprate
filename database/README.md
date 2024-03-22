@@ -79,10 +79,8 @@ The top-level `src/` files.
 | `storable.rs`       | Data (de)serialization; `trait Storable`
 | `table.rs`          | Database table abstraction; `trait Table`
 | `tables.rs`         | All the table definitions used by `cuprate-database`
-| `to_owned_debug.rs` | Borrowed/owned data abstraction; `trait ToOwnedDebug`
 | `transaction.rs`    | Database transaction abstraction; `trait TxR{o,w}`
 | `types.rs`          | Database table schema types
-| `value_guard.rs`    | Database value "guard" abstraction; `trait ValueGuard`
 
 ## `src/ops/`
 This folder contains the `cupate_database::ops` module.

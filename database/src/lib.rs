@@ -129,7 +129,6 @@
 	redundant_semicolons,
 	unused_allocation,
 	coherence_leak_check,
-	single_use_lifetimes,
 	while_true,
 	clippy::missing_docs_in_private_items,
 
@@ -142,6 +141,7 @@
 	keyword_idents,
 	non_ascii_idents,
 	variant_size_differences,
+    single_use_lifetimes,
 
 	// Probably can be put into `#[deny]`.
 	future_incompatible,
@@ -240,7 +240,7 @@ pub use key::Key;
 mod macros;
 
 mod storable;
-pub use storable::Storable;
+pub use storable::{Storable, StorableBytes, StorableVec};
 
 pub mod ops;
 
@@ -253,12 +253,6 @@ pub mod types;
 
 mod transaction;
 pub use transaction::{TxRo, TxRw};
-
-mod to_owned_debug;
-pub use to_owned_debug::ToOwnedDebug;
-
-mod value_guard;
-pub use value_guard::ValueGuard;
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]

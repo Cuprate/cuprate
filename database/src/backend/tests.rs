@@ -24,6 +24,7 @@ use crate::{
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
+    storable::StorableVec,
     table::Table,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
@@ -36,7 +37,6 @@ use crate::{
         BlockInfoV2, BlockInfoV3, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash,
         PrunedBlob, RctOutput, TxHash, TxId, UnlockTime,
     },
-    value_guard::ValueGuard,
     ConcreteEnv,
 };
 
@@ -181,10 +181,10 @@ fn db_read_write() {
         tx_idx: 2_353_487,
     };
 
-    /// Assert a passed `Output` is equal to the const value.
-    fn assert_eq(output: &Output) {
-        assert_eq!(output, &VALUE);
-        // Make sure all field accesses are aligned.
+    /// Assert 2 `Output`'s are equal, and that accessing
+    /// their fields don't result in an unaligned panic.
+    fn assert_same(output: Output) {
+        assert_eq!(output, VALUE);
         assert_eq!(output.key, VALUE.key);
         assert_eq!(output.height, VALUE.height);
         assert_eq!(output.output_flags, VALUE.output_flags);
@@ -200,31 +200,47 @@ fn db_read_write() {
 
     // Assert the 1st key is there.
     {
-        let guard = table.get(&KEY).unwrap();
-        let cow: Cow<'_, Output> = guard.unguard();
-        let value: &Output = cow.as_ref();
-        assert_eq(value);
+        let value: Output = table.get(&KEY).unwrap();
+        assert_same(value);
     }
 
     // Assert the whole range is there.
     {
-        let range = table.get_range(&..).unwrap();
+        let range = table.get_range(..).unwrap();
         let mut i = 0;
         for result in range {
-            let guard = result.unwrap();
-            let cow: Cow<'_, Output> = guard.unguard();
-            let value: &Output = cow.as_ref();
-            assert_eq(value);
+            let value: Output = result.unwrap();
+            assert_same(value);
+
             i += 1;
         }
         assert_eq!(i, 100);
     }
 
-    // Assert `get_range()` works.
+    // `get_range()` tests.
     let mut key = KEY;
     key.amount += 100;
     let range = KEY..key;
-    assert_eq!(100, table.get_range(&range).unwrap().count());
+
+    // Assert count is correct.
+    assert_eq!(100, table.get_range(range.clone()).unwrap().count());
+
+    // Assert each returned value from the iterator is owned.
+    {
+        let mut iter = table.get_range(range.clone()).unwrap();
+        let value: Output = iter.next().unwrap().unwrap(); // 1. take value out
+        drop(iter); // 2. drop the `impl Iterator + 'a`
+        assert_same(value); // 3. assert even without the iterator, the value is alive
+    }
+
+    // Assert each value is the same.
+    {
+        let mut iter = table.get_range(range).unwrap();
+        for _ in 0..100 {
+            let value: Output = iter.next().unwrap().unwrap();
+            assert_same(value);
+        }
+    }
 
     // Assert deleting works.
     table.delete(&KEY).unwrap();
@@ -261,33 +277,29 @@ macro_rules! test_tables {
 
             /// The expected key.
             const KEY: $key_type = $key;
-            /// The expected value.
-            const VALUE: &$value_type = &$value;
+            // The expected value.
+            let value: $value_type = $value;
 
-            /// Assert a passed value is equal to the const value.
-            fn assert_eq(value: &$value_type) {
-                assert_eq!(value, VALUE);
-            }
+            // Assert a passed value is equal to the const value.
+            let assert_eq = |v: &$value_type| {
+                assert_eq!(v, &value);
+            };
 
             // Insert the key.
-            table.put(&KEY, VALUE).unwrap();
+            table.put(&KEY, &value).unwrap();
             // Assert key is there.
             {
-                let guard = table.get(&KEY).unwrap();
-                let cow: Cow<'_, $value_type> = guard.unguard();
-                let value: &$value_type = cow.as_ref();
-                assert_eq(value);
+                let value: $value_type = table.get(&KEY).unwrap();
+                assert_eq(&value);
             }
 
             // Assert `get_range()` works.
             {
                 let range = KEY..;
-                assert_eq!(1, table.get_range(&range).unwrap().count());
-                let mut iter = table.get_range(&range).unwrap();
-                let guard = iter.next().unwrap().unwrap();
-                let cow = guard.unguard();
-                let value = cow.as_ref();
-                assert_eq(value);
+                assert_eq!(1, table.get_range(range.clone()).unwrap().count());
+                let mut iter = table.get_range(range).unwrap();
+                let value = iter.next().unwrap().unwrap();
+                assert_eq(&value);
             }
 
             // Assert deleting works.
@@ -303,7 +315,7 @@ macro_rules! test_tables {
 test_tables! {
     BlockBlobs, // Table type
     BlockHeight => BlockBlob, // Key type => Value type
-    123 => [1,2,3,4,5,6,7,8].as_slice(), // Actual key => Actual value
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]), // Actual key => Actual value
 
     BlockHeights,
     BlockHash => BlockHeight,
@@ -377,11 +389,11 @@ test_tables! {
 
     PrunedTxBlobs,
     TxId => PrunedBlob,
-    123 => [1,2,3,4,5,6,7,8].as_slice(),
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]),
 
     PrunableTxBlobs,
     TxId => PrunableBlob,
-    123 => [1,2,3,4,5,6,7,8].as_slice(),
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]),
 
     PrunableHashes,
     TxId => PrunableHash,

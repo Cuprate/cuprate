@@ -37,13 +37,14 @@
  */
 // actually i still don't trust you. no unsafe.
 #![forbid(unsafe_code)] // if you remove this line i will steal your monero
-#![allow(missing_docs)] // bytemuck auto-generates some non-documented structs
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+
+use crate::storable::StorableVec;
 
 //---------------------------------------------------------------------------------------------------- Aliases
 // TODO: document these, why they exist, and their purpose.
@@ -58,10 +59,10 @@ pub type Amount = u64;
 pub type AmountIndex = u64;
 
 /// TODO
-pub type AmountIndices = [AmountIndex];
+pub type AmountIndices = StorableVec<AmountIndex>;
 
 /// TODO
-pub type BlockBlob = [u8];
+pub type BlockBlob = StorableVec<u8>;
 
 /// TODO
 pub type BlockHash = [u8; 32];
@@ -73,10 +74,10 @@ pub type BlockHeight = u64;
 pub type KeyImage = [u8; 32];
 
 /// TODO
-pub type PrunedBlob = [u8];
+pub type PrunedBlob = StorableVec<u8>;
 
 /// TODO
-pub type PrunableBlob = [u8];
+pub type PrunableBlob = StorableVec<u8>;
 
 /// TODO
 pub type PrunableHash = [u8; 32];
@@ -102,10 +103,8 @@ pub type UnlockTime = u64;
 ///     amount_index: 123,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &PreRctOutputId = Storable::from_bytes(b);
-/// let c2: Cow<'_, PreRctOutputId> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: PreRctOutputId = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -140,10 +139,8 @@ pub struct PreRctOutputId {
 ///     block_hash: [54; 32],
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &BlockInfoV1 = Storable::from_bytes(b);
-/// let c2: Cow<'_, BlockInfoV1> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: BlockInfoV1 = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -185,10 +182,8 @@ pub struct BlockInfoV1 {
 ///     cumulative_rct_outs: 2389,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &BlockInfoV2 = Storable::from_bytes(b);
-/// let c2: Cow<'_, BlockInfoV2> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: BlockInfoV2 = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -237,10 +232,8 @@ pub struct BlockInfoV2 {
 ///     long_term_weight: 2389,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &BlockInfoV3 = Storable::from_bytes(b);
-/// let c2: Cow<'_, BlockInfoV3> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: BlockInfoV3 = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -287,10 +280,8 @@ pub struct BlockInfoV3 {
 ///     tx_idx: 3,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &Output = Storable::from_bytes(b);
-/// let c2: Cow<'_, Output> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: Output = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment
@@ -329,10 +320,8 @@ pub struct Output {
 ///     commitment: [3; 32],
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: &RctOutput = Storable::from_bytes(b);
-/// let c2: Cow<'_, RctOutput> = Storable::from_bytes_unaligned(b);
-/// assert_eq!(&a, c);
-/// assert_eq!(c, c2.as_ref());
+/// let c: RctOutput = Storable::from_bytes(b);
+/// assert_eq!(a, c);
 /// ```
 ///
 /// # Size & Alignment

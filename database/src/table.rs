@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::fmt::Debug;
 
-use crate::{key::Key, storable::Storable, to_owned_debug::ToOwnedDebug};
+use crate::{key::Key, storable::Storable};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database table metadata.
@@ -19,10 +19,10 @@ pub trait Table: crate::tables::private::Sealed + 'static {
     const NAME: &'static str;
 
     /// Primary key type.
-    type Key: Key + ?Sized + 'static;
+    type Key: Key + 'static;
 
     /// Value type.
-    type Value: Storable + ?Sized + 'static;
+    type Value: Storable + 'static;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
