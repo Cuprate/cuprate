@@ -68,9 +68,8 @@ where
 #[cfg(test)]
 #[allow(clippy::needless_pass_by_value)]
 mod test {
-    use crate::StorableVec;
-
     use super::*;
+    use crate::{StorableBytes, StorableVec};
 
     // Each `#[test]` function has a `test()` to:
     // - log
@@ -120,6 +119,7 @@ mod test {
         test::<i32>(Some(4));
         test::<i64>(Some(8));
         test::<StorableVec<u8>>(None);
+        test::<StorableBytes>(None);
         test::<[u8; 0]>(Some(0));
         test::<[u8; 1]>(Some(1));
         test::<[u8; 2]>(Some(2));
@@ -147,6 +147,7 @@ mod test {
         test::<i32>(&-3, &[253, 255, 255, 255]);
         test::<i64>(&-4, &[252, 255, 255, 255, 255, 255, 255, 255]);
         test::<StorableVec<u8>>(&StorableVec([1, 2].to_vec()), &[1, 2]);
+        test::<StorableBytes>(&StorableBytes(bytes::Bytes::from_static(&[1, 2])), &[1, 2]);
         test::<[u8; 0]>(&[], &[]);
         test::<[u8; 1]>(&[255], &[255]);
         test::<[u8; 2]>(&[111, 0], &[111, 0]);
@@ -177,6 +178,7 @@ mod test {
         test::<i32>([253, 255, 255, 255].as_slice(), &-3);
         test::<i64>([252, 255, 255, 255, 255, 255, 255, 255].as_slice(), &-4);
         test::<StorableVec<u8>>(&[1, 2], &StorableVec(vec![1, 2]));
+        test::<StorableBytes>(&[1, 2], &StorableBytes(bytes::Bytes::from_static(&[1, 2])));
         test::<[u8; 0]>([].as_slice(), &[]);
         test::<[u8; 1]>([255].as_slice(), &[255]);
         test::<[u8; 2]>([111, 0].as_slice(), &[111, 0]);
@@ -200,6 +202,7 @@ mod test {
             <StorableRedb<i32> as RedbValue>::type_name(),
             <StorableRedb<i64> as RedbValue>::type_name(),
             <StorableRedb<StorableVec<u8>> as RedbValue>::type_name(),
+            <StorableRedb<StorableBytes> as RedbValue>::type_name(),
             <StorableRedb<[u8; 0]> as RedbValue>::type_name(),
             <StorableRedb<[u8; 1]> as RedbValue>::type_name(),
             <StorableRedb<[u8; 2]> as RedbValue>::type_name(),

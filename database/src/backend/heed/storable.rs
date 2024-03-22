@@ -48,6 +48,7 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::{StorableBytes, StorableVec};
 
     // Each `#[test]` function has a `test()` to:
     // - log
@@ -78,6 +79,7 @@ mod test {
         test::<i32>(&-3, &[253, 255, 255, 255]);
         test::<i64>(&-4, &[252, 255, 255, 255, 255, 255, 255, 255]);
         test::<StorableVec<u8>>(&StorableVec(vec![1, 2]), &[1, 2]);
+        test::<StorableBytes>(&StorableBytes(bytes::Bytes::from_static(&[1, 2])), &[1, 2]);
         test::<[u8; 0]>(&[], &[]);
         test::<[u8; 1]>(&[255], &[255]);
         test::<[u8; 2]>(&[111, 0], &[111, 0]);
@@ -109,6 +111,7 @@ mod test {
         test::<i32>([253, 255, 255, 255].as_slice(), &-3);
         test::<i64>([252, 255, 255, 255, 255, 255, 255, 255].as_slice(), &-4);
         test::<StorableVec<u8>>(&[1, 2], &StorableVec(vec![1, 2]));
+        test::<StorableBytes>(&[1, 2], &StorableBytes(bytes::Bytes::from_static(&[1, 2])));
         test::<[u8; 0]>([].as_slice(), &[]);
         test::<[u8; 1]>([255].as_slice(), &[255]);
         test::<[u8; 2]>([111, 0].as_slice(), &[111, 0]);
