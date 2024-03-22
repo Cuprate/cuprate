@@ -10,6 +10,7 @@ use std::{
 };
 
 use bytemuck::{Pod, Zeroable};
+use bytes::Bytes;
 
 //---------------------------------------------------------------------------------------------------- Storable
 /// A type that can be stored in the database.
@@ -200,6 +201,56 @@ impl<T> std::ops::Deref for StorableVec<T> {
 impl<T> Borrow<[T]> for StorableVec<T> {
     #[inline]
     fn borrow(&self) -> &[T] {
+        &self.0
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- StorableBytes
+/// A [`Storable`] version of [`Bytes`].
+///
+/// ```rust
+/// # use cuprate_database::*;
+/// # use bytes::Bytes;
+/// let bytes: StorableBytes = StorableBytes(Bytes::from_static(&[0,1]));
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&bytes);
+/// assert_eq!(into, &[0,1]);
+///
+/// // From bytes.
+/// let from: StorableBytes = Storable::from_bytes(&into);
+/// assert_eq!(from, bytes);
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct StorableBytes(pub Bytes);
+
+impl Storable for StorableBytes {
+    const BYTE_LENGTH: Option<usize> = None;
+
+    #[inline]
+    fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// This always allocates a new `Bytes`.
+    #[inline]
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self(Bytes::copy_from_slice(bytes))
+    }
+}
+
+impl std::ops::Deref for StorableBytes {
+    type Target = [u8];
+    #[inline]
+    fn deref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Borrow<[u8]> for StorableBytes {
+    #[inline]
+    fn borrow(&self) -> &[u8] {
         &self.0
     }
 }

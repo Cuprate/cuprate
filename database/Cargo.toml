@@ -17,6 +17,7 @@ service = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:t
 
 [dependencies]
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bytes    = { workspace = true }
 cfg-if   = { workspace = true }
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.

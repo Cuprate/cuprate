@@ -240,7 +240,7 @@ pub use key::Key;
 mod macros;
 
 mod storable;
-pub use storable::{Storable, StorableVec};
+pub use storable::{Storable, StorableBytes, StorableVec};
 
 pub mod ops;
 
