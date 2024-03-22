@@ -86,9 +86,8 @@ struct Parent12 {
 epee_object!(
     Parent12,
     h: f64,
-    !flatten:
-       child1: Child1,
-       child2: Child2,
+    !flatten: child1: Child1,
+    !flatten: child2: Child2,
 );
 
 #[test]

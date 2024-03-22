@@ -1,4 +1,4 @@
-//! Database read thread-pool definitions and logic.
+//! Database reader thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
@@ -7,6 +7,11 @@ use std::{
 };
 
 use crossbeam::channel::Receiver;
+
+use futures::{channel::oneshot, ready};
+
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::PollSemaphore;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
@@ -20,7 +25,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
 ///
-/// Either our [Response], or a database error occurred.
+/// Either our [`Response`], or a database error occurred.
 type ResponseResult = Result<Response, RuntimeError>;
 
 /// The `Receiver` channel that receives the read response.
@@ -30,13 +35,13 @@ type ResponseResult = Result<Response, RuntimeError>;
 ///
 /// The channel itself should never fail,
 /// but the actual database operation might.
-type ResponseRecv = InfallibleOneshotReceiver<ResponseResult>;
+type ResponseReceiver = InfallibleOneshotReceiver<ResponseResult>;
 
 /// The `Sender` channel for the response.
 ///
 /// The database reader thread uses this to send
 /// the database result to the caller.
-type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
+type ResponseSender = oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
@@ -47,145 +52,205 @@ type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
 /// Calling [`tower::Service::call`] with a [`DatabaseReadHandle`] & [`ReadRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding [`Response`].
-#[derive(Clone, Debug)]
 pub struct DatabaseReadHandle {
-    /// Sender channel to the database read thread-pool.
+    /// Handle to the custom `rayon` DB reader thread-pool.
     ///
-    /// We provide the response channel for the thread-pool.
-    pub(super) sender: crossbeam::channel::Sender<(ReadRequest, ResponseSend)>,
+    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
+    /// and responses are returned via a channel we (the caller) provide.
+    pool: Arc<rayon::ThreadPool>,
+
+    /// Counting semaphore asynchronous permit for database access.
+    /// Each [`tower::Service::poll_ready`] will acquire a permit
+    /// before actually sending a request to the `rayon` DB threadpool.
+    semaphore: PollSemaphore,
+
+    /// An owned permit.
+    /// This will be set to [`Some`] in `poll_ready()` when we successfully acquire
+    /// the permit, and will be [`Option::take()`]n after `tower::Service::call()` is called.
+    ///
+    /// The actual permit will be dropped _after_ the rayon DB thread has finished
+    /// the request, i.e., after [`map_request()`] finishes.
+    permit: Option<OwnedSemaphorePermit>,
+
+    /// Access to the database.
+    env: Arc<ConcreteEnv>,
+}
+
+// `OwnedSemaphorePermit` does not implement `Clone`,
+// so manually clone all elements, while keeping `permit`
+// `None` across clones.
+impl Clone for DatabaseReadHandle {
+    fn clone(&self) -> Self {
+        Self {
+            pool: self.pool.clone(),
+            semaphore: self.semaphore.clone(),
+            permit: None,
+            env: self.env.clone(),
+        }
+    }
+}
+
+impl DatabaseReadHandle {
+    /// Initialize the `DatabaseReader` thread-pool backed by `rayon`.
+    ///
+    /// This spawns `N` amount of `DatabaseReader`'s
+    /// attached to `env` and returns a handle to the pool.
+    ///
+    /// Should be called _once_ per actual database.
+    #[cold]
+    #[inline(never)] // Only called once.
+    pub(super) fn init(env: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
+        // How many reader threads to spawn?
+        let reader_count = reader_threads.as_threads().get();
+
+        // Spawn `rayon` reader threadpool.
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(reader_count)
+            .thread_name(|i| format!("cuprate_helper::service::read::DatabaseReader{i}"))
+            .build()
+            .unwrap();
+
+        // Create a semaphore with the same amount of
+        // permits as the amount of reader threads.
+        let semaphore = PollSemaphore::new(Arc::new(Semaphore::new(reader_count)));
+
+        // Return a handle to the pool.
+        Self {
+            pool: Arc::new(pool),
+            semaphore,
+            permit: None,
+            env: Arc::clone(env),
+        }
+    }
+
+    /// TODO
+    #[inline]
+    pub const fn env(&self) -> &Arc<ConcreteEnv> {
+        &self.env
+    }
+
+    /// TODO
+    #[inline]
+    pub const fn semaphore(&self) -> &PollSemaphore {
+        &self.semaphore
+    }
+
+    /// TODO
+    #[inline]
+    pub const fn permit(&self) -> &Option<OwnedSemaphorePermit> {
+        &self.permit
+    }
 }
 
 impl tower::Service<ReadRequest> for DatabaseReadHandle {
     type Response = Response;
     type Error = RuntimeError;
-    type Future = ResponseRecv;
+    type Future = ResponseReceiver;
 
     #[inline]
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
-    }
-
-    #[inline]
-    fn call(&mut self, _req: ReadRequest) -> Self::Future {
-        todo!()
-    }
-}
-
-//---------------------------------------------------------------------------------------------------- DatabaseReader
-/// Database reader thread.
-///
-/// This struct essentially represents a thread.
-///
-/// Each reader thread is spawned with access to this struct (self).
-pub(super) struct DatabaseReader {
-    /// Receiver side of the database request channel.
-    ///
-    /// Any caller can send some requests to this channel.
-    /// They send them alongside another `Response` channel,
-    /// which we will eventually send to.
-    ///
-    /// We (the database reader thread) are not responsible
-    /// for creating this channel, the caller provides it.
-    ///
-    /// SOMEDAY: this struct itself could cache a return channel
-    /// instead of creating a new `oneshot` each request.
-    receiver: Receiver<(ReadRequest, ResponseSend)>,
-
-    /// Access to the database.
-    db: Arc<ConcreteEnv>,
-}
-
-impl Drop for DatabaseReader {
-    fn drop(&mut self) {
-        // INVARIANT: we set the thread name when spawning it.
-        let thread_name = std::thread::current().name().unwrap();
-
-        // TODO: log that this thread has exited?
-    }
-}
-
-impl DatabaseReader {
-    /// Initialize the `DatabaseReader` thread-pool.
-    ///
-    /// This spawns `N` amount of `DatabaseReader`'s
-    /// attached to `db` and returns a handle to the pool.
-    ///
-    /// Should be called _once_ per actual database.
-    #[cold]
-    #[inline(never)] // Only called once.
-    pub(super) fn init(db: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> DatabaseReadHandle {
-        // Initialize `Request/Response` channels.
-        let (sender, receiver) = crossbeam::channel::unbounded();
-
-        // How many reader threads to spawn?
-        let reader_count = reader_threads.as_threads();
-
-        // Spawn pool of readers.
-        for i in 0..reader_count.get() {
-            let receiver = receiver.clone();
-            let db = Arc::clone(db);
-
-            std::thread::Builder::new()
-                .name(format!("cuprate_helper::service::read::DatabaseReader{i}"))
-                .spawn(move || {
-                    let this = Self { receiver, db };
-                    Self::main(this);
-                })
-                .unwrap();
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // Check if we already have a permit.
+        if self.permit.is_some() {
+            return Poll::Ready(Ok(()));
         }
 
-        // Return a handle to the pool and channels to
-        // allow clean shutdown of all reader threads.
-        DatabaseReadHandle { sender }
+        // Acquire a permit before returning `Ready`.
+        let Some(permit) = ready!(self.semaphore.poll_acquire(cx)) else {
+            // `self` itself owns the backing semaphore, so it can't be closed.
+            unreachable!();
+        };
+
+        self.permit = Some(permit);
+        Poll::Ready(Ok(()))
     }
 
-    /// The `DatabaseReader`'s main function.
-    ///
-    /// Each thread just loops in this function.
-    #[cold]
-    #[inline(never)] // Only called once.
-    fn main(self) {
-        // 1. Hang on request channel
-        // 2. Map request to some database function
-        // 3. Execute that function, get the result
-        // 4. Return the result via channel
-        loop {
-            // Database requests.
-            let Ok((request, response_send)) = self.receiver.recv() else {
-                // If this receive errors, it means that the channel is empty
-                // and disconnected, meaning the other side (all senders) have
-                // been dropped. This means "shutdown", and we return here to
-                // exit the thread.
-                return;
-            };
+    fn call(&mut self, request: ReadRequest) -> Self::Future {
+        let permit = self
+            .permit
+            .take()
+            .expect("poll_ready() should have acquire a permit before calling call()");
 
-            // Map [`Request`]'s to specific database functions.
-            match request {
-                ReadRequest::Example1 => self.example_handler_1(response_send),
-                ReadRequest::Example2(_x) => self.example_handler_2(response_send),
-                ReadRequest::Example3(_x) => self.example_handler_3(response_send),
-            }
-        }
+        // Response channel we `.await` on.
+        let (response_sender, receiver) = oneshot::channel();
+
+        // Spawn the request in the rayon DB thread-pool.
+        //
+        // Note that this uses `self.pool` instead of `rayon::spawn`
+        // such that any `rayon` parallel code that runs within
+        // the passed closure uses the same `rayon` threadpool.
+        //
+        // INVARIANT:
+        // The below `DatabaseReader` function impl block relies on this behavior.
+        let env = Arc::clone(self.env());
+        self.pool
+            .spawn(move || map_request(permit, env, request, response_sender));
+
+        InfallibleOneshotReceiver::from(receiver)
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Request Mapping
+// This function maps [`Request`]s to function calls
+// executed by the rayon DB reader threadpool.
+
+#[inline]
+#[allow(clippy::needless_pass_by_value)]
+/// Map [`Request`]'s to specific database handler functions.
+///
+/// This is the main entrance into all `Request` handler functions.
+/// The basic structure is:
+///
+/// 1. `Request` is mapped to a handler function
+/// 2. Handler function is called
+/// 3. [`Response`] is sent
+fn map_request(
+    _permit: OwnedSemaphorePermit,   // Permit for this request
+    env: Arc<ConcreteEnv>,           // Access to the database
+    request: ReadRequest,            // The request we must fulfill
+    response_sender: ResponseSender, // The channel we must send the response back to
+) {
+    /* TODO: pre-request handling, run some code for each request? */
+
+    match request {
+        ReadRequest::Example1 => example_handler_1(env, response_sender),
+        ReadRequest::Example2(x) => example_handler_2(env, response_sender, x),
+        ReadRequest::Example3(x) => example_handler_3(env, response_sender, x),
     }
 
-    /// TODO
-    #[inline]
-    fn example_handler_1(&self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
-    }
+    /* TODO: post-request handling, run some code for each request? */
+}
 
-    /// TODO
-    #[inline]
-    fn example_handler_2(&self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
-    }
+//---------------------------------------------------------------------------------------------------- Handler functions
+// These are the actual functions that do stuff according to the incoming [`Request`].
+//
+// INVARIANT:
+// These functions are called above in `tower::Service::call()`
+// using a custom threadpool which means any call to `par_*()` functions
+// will be using the custom rayon DB reader thread-pool, not the global one.
+//
+// All functions below assume that this is the case, such that
+// `par_*()` functions will not block the _global_ rayon thread-pool.
 
-    /// TODO
-    #[inline]
-    fn example_handler_3(&self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
-    }
+/// TODO
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn example_handler_1(env: Arc<ConcreteEnv>, response_sender: ResponseSender) {
+    let db_result = Ok(Response::Example1);
+    response_sender.send(db_result).unwrap();
+}
+
+/// TODO
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn example_handler_2(env: Arc<ConcreteEnv>, response_sender: ResponseSender, x: usize) {
+    let db_result = Ok(Response::Example2(x));
+    response_sender.send(db_result).unwrap();
+}
+
+/// TODO
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn example_handler_3(env: Arc<ConcreteEnv>, response_sender: ResponseSender, x: String) {
+    let db_result = Ok(Response::Example3(x));
+    response_sender.send(db_result).unwrap();
 }

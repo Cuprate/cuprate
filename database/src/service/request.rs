@@ -7,7 +7,7 @@
 //---------------------------------------------------------------------------------------------------- Constants
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// A read request to the database.
 pub enum ReadRequest {
     /// TODO
@@ -19,7 +19,7 @@ pub enum ReadRequest {
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// A write request to the database.
 pub enum WriteRequest {
     /// TODO

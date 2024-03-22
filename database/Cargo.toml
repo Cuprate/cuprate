@@ -9,11 +9,11 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-default   = ["heed", "service"]
-# default   = ["redb", "service"] # For testing `redb`.
+# default   = ["heed", "redb", "service"]
+default   = ["redb", "service"]
 heed    = ["dep:heed"]
 redb    = ["dep:redb"]
-service = ["dep:crossbeam", "dep:tokio", "dep:tower"]
+service = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon"]
 
 [dependencies]
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
@@ -22,23 +22,17 @@ cfg-if   = { workspace = true }
 # We only need the `thread` feature if `service` is enabled.
 # Figure out how to enable features of an already pulled in dependency conditionally.
 cuprate-helper = { path = "../helper", features = ["fs", "thread"] }
-paste = { workspace = true }
-# Needed for database resizes.
-# They must be a multiple of the OS page size.
-page_size = { version = "0.6.0" }
-thiserror = { workspace = true }
+paste          = { workspace = true }
+page_size      = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
+thiserror      = { workspace = true }
 
 # `service` feature.
-crossbeam = { workspace = true, features = ["std"], optional = true }
-tokio     = { workspace = true, features = ["full"], optional = true }
-tower     = { workspace = true, features = ["full"], optional = true }
-# SOMEDAY: could be used in `service` as
-# the database mutual exclusive `RwLock`.
-#
-# `parking_lot` has a fairness policy unlike `std`,
-# although for now (and until testing is done),
-# `std` is fine.
-# parking_lot = { workspace = true, optional = true }
+crossbeam  = { workspace = true, features = ["std"], optional = true }
+futures    = { workspace = true, optional = true }
+tokio      = { workspace = true, features = ["full"], optional = true }
+tokio-util = { workspace = true, features = ["full"], optional = true }
+tower      = { workspace = true, features = ["full"], optional = true }
+rayon      = { workspace = true, optional = true }
 
 # Optional features.
 heed  = { version = "0.20.0-alpha.9", optional = true }

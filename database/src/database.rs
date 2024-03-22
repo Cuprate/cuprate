@@ -1,54 +1,73 @@
 //! Abstracted database; `trait DatabaseRo` & `trait DatabaseRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{error::RuntimeError, table::Table};
+use std::{
+    borrow::{Borrow, Cow},
+    fmt::Debug,
+    ops::{Deref, RangeBounds},
+};
+
+use crate::{
+    error::RuntimeError,
+    table::Table,
+    transaction::{TxRo, TxRw},
+    value_guard::ValueGuard,
+};
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
 /// Database (key-value store) read abstraction.
 ///
-/// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRo<T: Table> {
-    /// TODO
-    /// # Errors
-    /// TODO
+/// This is a read-only database table,
+/// write operations are defined in [`DatabaseRw`].
+pub trait DatabaseRo<'tx, T: Table> {
+    /// Get the value corresponding to a key.
     ///
-    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    fn get(&self, key: &T::Key) -> Result<&T::Value, RuntimeError>;
-
-    /// TODO
+    /// This returns a guard to the value, not the value itself.
+    /// See [`ValueGuard`] for more info.
+    ///
     /// # Errors
-    /// TODO
-    //
-    // TODO: (Iterators + ?Sized + lifetimes) == bad time
-    // fix this later.
-    fn get_range<'a>(
+    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    ///
+    /// It will return other [`RuntimeError`]'s on things like IO errors as well.
+    fn get<'a>(&'a self, key: &'a T::Key) -> Result<impl ValueGuard<T::Value> + 'a, RuntimeError>;
+
+    /// Get an iterator of values corresponding to a range of keys.
+    ///
+    /// This returns guards to the values, not the values themselves.
+    /// See [`ValueGuard`] for more info.
+    ///
+    /// # Errors
+    /// Each key in the `range` has the potential to error, for example,
+    /// if a particular key in the `range` does not exist,
+    /// [`RuntimeError::KeyNotFound`] wrapped in [`Err`] will be returned
+    /// from the iterator.
+    fn get_range<'a, Range>(
         &'a self,
-        key: &'a T::Key,
-        amount: usize,
-    ) -> Result<impl Iterator<Item = &'a T::Value>, RuntimeError>
+        range: &'a Range,
+    ) -> Result<
+        impl Iterator<Item = Result<impl ValueGuard<T::Value>, RuntimeError>> + 'a,
+        RuntimeError,
+    >
     where
-        <T as Table>::Value: 'a;
+        Range: RangeBounds<T::Key> + 'a;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
 /// Database (key-value store) read/write abstraction.
 ///
-/// TODO: document relation between `DatabaseRo` <-> `DatabaseRw`.
-pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
-    /// TODO
+/// All [`DatabaseRo`] functions are also callable by [`DatabaseRw`].
+pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T> {
+    /// Insert a key-value pair into the database.
+    ///
+    /// This will overwrite any existing key-value pairs.
+    ///
     /// # Errors
-    /// TODO
+    /// This will not return [`RuntimeError::KeyExists`].
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError>;
 
-    /// TODO
-    /// # Errors
-    /// TODO
-    fn clear(&mut self) -> Result<(), RuntimeError>;
-
-    /// TODO
-    /// # Errors
-    /// TODO
+    /// Delete a key-value pair in the database.
     ///
+    /// # Errors
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
 }

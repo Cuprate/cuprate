@@ -1,10 +1,9 @@
-//! The Handshaker
+//! Handshake Module
 //!
-//! This module handles handshaking with a peer, be it an outbound or inbound handshake and returns a [`Client`]
-//! which requests can be sent to.
+//! This module contains a [`HandShaker`] which is a [`Service`] that takes an open connection and attempts
+//! to complete a handshake with them.
 //!
-//! If you are looking to do outbound handshakes the [`Connector`](super::Connector) wraps this and is what you are looking for.
-//!
+//! This module also contains a [`ping`] function that can be used to check if an address is reachable.
 use std::{
     future::Future,
     marker::PhantomData,
@@ -14,133 +13,138 @@ use std::{
     time::Duration,
 };
 
-use futures::{lock::Mutex, FutureExt, SinkExt, StreamExt};
+use futures::{FutureExt, SinkExt, StreamExt};
 use tokio::{
     sync::{broadcast, mpsc, OwnedSemaphorePermit},
     time::{error::Elapsed, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::{Instrument, Span};
+use tracing::{info_span, instrument, Instrument};
 
+use monero_pruning::{PruningError, PruningSeed};
 use monero_wire::{
     admin::{
         HandshakeRequest, HandshakeResponse, PingResponse, SupportFlagsResponse,
         PING_OK_RESPONSE_STATUS_TEXT,
     },
     common::PeerSupportFlags,
-    BasicNodeData, BucketError, CoreSyncData, LevinCommand, Message, ProtocolMessage,
-    RequestMessage, ResponseMessage,
+    BasicNodeData, BucketError, CoreSyncData, LevinCommand, Message, RequestMessage,
+    ResponseMessage,
 };
 
 use crate::{
-    client::{connection::Connection, Client, InternalPeerID, PeerInformation},
-    constants::{HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE},
+    client::{connection::Connection, Client, InternalPeerID},
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, ConnectionDirection, CoreSyncDataRequest,
-    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetworkZone, PeerRequestHandler, PeerSyncRequest,
-    PeerSyncSvc, SharedError,
+    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetZoneAddress, NetworkZone, PeerBroadcast,
+    PeerRequestHandler, SharedError, MAX_PEERS_IN_PEER_LIST_MESSAGE,
 };
 
-/// An error that can be returned from a handshake.
+/// This is a Cuprate specific constant.
+///
+/// When completing a handshake monerod might send protocol messages before the handshake is actually
+/// complete, this is a problem for Cuprate as we must complete the handshake before responding to any
+/// protocol requests. So when we receive a protocol message during a handshake we keep them around to handle
+/// after the handshake.
+///
+/// Because we use the [bytes crate](https://crates.io/crates/bytes) in monero-wire for zero-copy parsing
+/// it is not safe to keep too many of these messages around for long.
+const MAX_EAGER_PROTOCOL_MESSAGES: usize = 1;
+/// The time given to complete a handshake before the handshake fails.
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// A timeout put on pings during handshakes.
+///
+/// When we receive an inbound connection we open an outbound connection to the node and send a ping message
+/// to see if we can reach the node, so we can add it to our address book.
+///
+/// This timeout must be significantly shorter than [`HANDSHAKE_TIMEOUT`] so we don't drop inbound connections that
+/// don't have ports open.
+const PING_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[derive(Debug, thiserror::Error)]
 pub enum HandshakeError {
-    /// The handshake timed-out.
     #[error("The handshake timed out")]
     TimedOut(#[from] Elapsed),
-    /// The peer has the same node ID as us and we are on a NetworkZone where
-    /// node IDs are checked.
     #[error("Peer has the same node ID as us")]
     PeerHasSameNodeID,
-    /// The peer is on a different network to us.
     #[error("Peer is on a different network")]
     IncorrectNetwork,
-    /// The peer does not support a feature we require.
-    #[error("The peer does not meet one or more of the required features")]
-    PeerDoesNotHaveRequiredFeature,
-    /// The peer sent a peer list of nodes which contain peers on a different
-    /// network zone.
     #[error("Peer sent a peer list with peers from different zones")]
     PeerSentIncorrectPeerList(#[from] crate::services::PeerListConversionError),
-    /// The peer sent an invalid message.
     #[error("Peer sent invalid message: {0}")]
     PeerSentInvalidMessage(&'static str),
-    /// A levin error.
+    #[error("The peers pruning seed is invalid.")]
+    InvalidPruningSeed(#[from] PruningError),
     #[error("Levin bucket error: {0}")]
     LevinBucketError(#[from] BucketError),
-    /// An error from an internal service.
     #[error("Internal service error: {0}")]
     InternalSvcErr(#[from] tower::BoxError),
-    /// I/O error.
     #[error("I/O error: {0}")]
     IO(#[from] std::io::Error),
 }
 
-/// A request to complete a handshake with a peer.
+/// A request to complete a handshake.
 pub struct DoHandshakeRequest<Z: NetworkZone> {
-    /// The internal peer ID of this peer.
-    pub peer_id: InternalPeerID<Z::Addr>,
-    /// The message stream from this peer.
+    /// The [`InternalPeerID`] of the peer we are handshaking with.
+    pub addr: InternalPeerID<Z::Addr>,
+    /// The receiving side of the connection.
     pub peer_stream: Z::Stream,
-    /// The message sink to this peer.
+    /// The sending side of the connection.
     pub peer_sink: Z::Sink,
-    /// The direction of this peer connection.
+    /// The direction of the connection.
     pub direction: ConnectionDirection,
-    /// A permit that the connection task will hold for the duration of the connection.
+    /// A permit for this connection.
     pub permit: OwnedSemaphorePermit,
 }
 
-/// The handshaker service which performs a handshake with a peer returning a [`Client`].
+/// The peer handshaking service.
 #[derive(Debug, Clone)]
-pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> {
+pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
     /// The address book service.
     address_book: AdrBook,
-    /// The core sync service.
+    /// The core sync data service.
     core_sync_svc: CSync,
-    /// The peers sync service - keeps track of connected peers stated sync states.
-    peer_sync_svc: PSync,
     /// The peer request handler service.
     peer_request_svc: ReqHdlr,
 
-    /// The support flags that must be set by the peer for a handshake to succeed.
-    minimum_support_flags: PeerSupportFlags,
-
-    /// Our basic node data, for this network.
+    /// Our [`BasicNodeData`]
     our_basic_node_data: BasicNodeData,
 
-    /// The network zone for this handshaker.
+    /// The channel to broadcast messages to all peers created with this handshaker.
+    broadcast_tx: broadcast::Sender<Arc<PeerBroadcast>>,
+
+    /// The network zone.
     _zone: PhantomData<Z>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr> {
-    /// Create a new [`HandShaker`]
+impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqHdlr> {
+    /// Creates a new handshaker.
     pub fn new(
         address_book: AdrBook,
         core_sync_svc: CSync,
-        peer_sync_svc: PSync,
         peer_request_svc: ReqHdlr,
 
-        minimum_support_flags: Option<PeerSupportFlags>,
+        broadcast_tx: broadcast::Sender<Arc<PeerBroadcast>>,
 
         our_basic_node_data: BasicNodeData,
     ) -> Self {
         Self {
             address_book,
             core_sync_svc,
-            peer_sync_svc,
             peer_request_svc,
-            minimum_support_flags: minimum_support_flags.unwrap_or(PeerSupportFlags::empty()),
+            broadcast_tx,
             our_basic_node_data,
             _zone: PhantomData,
         }
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> Service<DoHandshakeRequest<Z>>
-    for HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr>
+impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> Service<DoHandshakeRequest<Z>>
+    for HandShaker<Z, AdrBook, CSync, ReqHdlr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
-    PSync: PeerSyncSvc<Z> + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
 {
     type Response = Client<Z>;
@@ -153,26 +157,23 @@ where
     }
 
     fn call(&mut self, req: DoHandshakeRequest<Z>) -> Self::Future {
-        let minimum_support_flags = self.minimum_support_flags;
+        let broadcast_rx = self.broadcast_tx.subscribe();
 
         let address_book = self.address_book.clone();
         let peer_request_svc = self.peer_request_svc.clone();
         let core_sync_svc = self.core_sync_svc.clone();
-        let peer_sync_svc = self.peer_sync_svc.clone();
         let our_basic_node_data = self.our_basic_node_data.clone();
 
-        let span =
-            tracing::info_span!(parent: &tracing::Span::current(), "handshaker", %req.peer_id);
+        let span = info_span!(parent: &tracing::Span::current(), "handshaker", addr=%req.addr);
 
         async move {
             timeout(
                 HANDSHAKE_TIMEOUT,
                 handshake(
                     req,
-                    minimum_support_flags,
+                    broadcast_rx,
                     address_book,
                     core_sync_svc,
-                    peer_sync_svc,
                     peer_request_svc,
                     our_basic_node_data,
                 ),
@@ -184,38 +185,77 @@ where
     }
 }
 
+/// Send a ping to the requested peer and wait for a response, returning the `peer_id`.
+///
+/// This function does not put a timeout on the ping.
+pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> {
+    tracing::debug!("Sending Ping to peer");
+
+    let (mut peer_stream, mut peer_sink) = N::connect_to_peer(addr).await?;
+
+    tracing::debug!("Made outbound connection to peer, sending ping.");
+
+    peer_sink
+        .send(Message::Request(RequestMessage::Ping).into())
+        .await?;
+
+    if let Some(res) = peer_stream.next().await {
+        if let Message::Response(ResponseMessage::Ping(ping)) = res? {
+            if ping.status == PING_OK_RESPONSE_STATUS_TEXT {
+                tracing::debug!("Ping successful.");
+                return Ok(ping.peer_id);
+            }
+
+            tracing::debug!("Peer's ping response was not `OK`.");
+            return Err(HandshakeError::PeerSentInvalidMessage(
+                "Ping response was not `OK`",
+            ));
+        }
+
+        tracing::debug!("Peer sent invalid response to ping.");
+        return Err(HandshakeError::PeerSentInvalidMessage(
+            "Peer did not send correct response for ping.",
+        ));
+    }
+
+    tracing::debug!("Connection closed before ping response.");
+    Err(BucketError::IO(std::io::Error::new(
+        std::io::ErrorKind::ConnectionAborted,
+        "The peer stream returned None",
+    )))?
+}
+
 /// This function completes a handshake with the requested peer.
-async fn handshake<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr>(
+async fn handshake<Z: NetworkZone, AdrBook, CSync, ReqHdlr>(
     req: DoHandshakeRequest<Z>,
 
-    minimum_support_flags: PeerSupportFlags,
+    broadcast_rx: broadcast::Receiver<Arc<PeerBroadcast>>,
 
     mut address_book: AdrBook,
     mut core_sync_svc: CSync,
-    mut peer_sync_svc: PSync,
     peer_request_svc: ReqHdlr,
     our_basic_node_data: BasicNodeData,
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z>,
     CSync: CoreSyncSvc,
-    PSync: PeerSyncSvc<Z>,
     ReqHdlr: PeerRequestHandler,
 {
     let DoHandshakeRequest {
-        peer_id: addr,
+        addr,
         mut peer_stream,
         mut peer_sink,
         direction,
         permit,
     } = req;
 
-    // See [`MAX_EAGER_PROTOCOL_MESSAGES`]
+    // A list of protocol messages the peer has sent during the handshake for us to handle after the handshake.
+    // see: [`MAX_EAGER_PROTOCOL_MESSAGES`]
     let mut eager_protocol_messages = Vec::new();
-    let mut allow_support_flag_req = true;
 
     let (peer_core_sync, mut peer_node_data) = match direction {
         ConnectionDirection::InBound => {
+            // Inbound handshake the peer sends the request.
             tracing::debug!("waiting for handshake request.");
 
             let Message::Request(RequestMessage::Handshake(handshake_req)) = wait_for_message::<Z>(
@@ -224,8 +264,7 @@ where
                 &mut peer_sink,
                 &mut peer_stream,
                 &mut eager_protocol_messages,
-                &mut allow_support_flag_req,
-                our_basic_node_data.support_flags,
+                &our_basic_node_data,
             )
             .await?
             else {
@@ -233,10 +272,11 @@ where
             };
 
             tracing::debug!("Received handshake request.");
-
+            // We will respond to the handshake request later.
             (handshake_req.payload_data, handshake_req.node_data)
         }
         ConnectionDirection::OutBound => {
+            // Outbound handshake, we send the request.
             send_hs_request::<Z, _>(
                 &mut peer_sink,
                 &mut core_sync_svc,
@@ -244,6 +284,7 @@ where
             )
             .await?;
 
+            // Wait for the handshake response.
             let Message::Response(ResponseMessage::Handshake(handshake_res)) =
                 wait_for_message::<Z>(
                     LevinCommand::Handshake,
@@ -251,8 +292,7 @@ where
                     &mut peer_sink,
                     &mut peer_stream,
                     &mut eager_protocol_messages,
-                    &mut allow_support_flag_req,
-                    our_basic_node_data.support_flags,
+                    &our_basic_node_data,
                 )
                 .await?
             else {
@@ -272,6 +312,7 @@ where
                 handshake_res.local_peerlist_new.len()
             );
 
+            // Tell our address book about the new peers.
             address_book
                 .ready()
                 .await?
@@ -296,6 +337,10 @@ where
         return Err(HandshakeError::PeerHasSameNodeID);
     }
 
+    /*
+    // monerod sends a request for support flags if the peer doesn't specify any but this seems unnecessary
+    // as the peer should specify them in the handshake.
+
     if peer_node_data.support_flags.is_empty() {
         tracing::debug!(
             "Peer didn't send support flags or has no features, sending request to make sure."
@@ -311,8 +356,7 @@ where
                 &mut peer_sink,
                 &mut peer_stream,
                 &mut eager_protocol_messages,
-                &mut allow_support_flag_req,
-                our_basic_node_data.support_flags,
+                &our_basic_node_data,
             )
             .await?
         else {
@@ -323,69 +367,116 @@ where
         peer_node_data.support_flags = support_flags_res.support_flags;
     }
 
-    if !peer_node_data.support_flags.contains(minimum_support_flags) {
-        tracing::debug!("Peer does not meet the minimum supported features, dropping connection.");
-        return Err(HandshakeError::PeerDoesNotHaveRequiredFeature);
-    }
+    */
 
-    if direction == ConnectionDirection::InBound {
-        send_hs_response::<Z, _, _>(
-            &mut peer_sink,
-            &mut core_sync_svc,
-            &mut address_book,
-            our_basic_node_data,
-        )
+    // Make sure the pruning seed is valid.
+    let pruning_seed = PruningSeed::decompress_p2p_rules(peer_core_sync.pruning_seed)?;
+
+    // public_address, if Some, is the reachable address of the node.
+    let public_address = 'check_out_addr: {
+        match direction {
+            ConnectionDirection::InBound => {
+                // First send the handshake response.
+                send_hs_response::<Z, _, _>(
+                    &mut peer_sink,
+                    &mut core_sync_svc,
+                    &mut address_book,
+                    our_basic_node_data,
+                )
+                .await?;
+
+                // Now if the peer specifies a reachable port, open a connection and ping them to check.
+                if peer_node_data.my_port != 0 {
+                    let InternalPeerID::KnownAddr(mut outbound_address) = addr else {
+                        // Anonymity network, we don't know the inbound address.
+                        break 'check_out_addr None;
+                    };
+
+                    // u32 does not make sense as a port so just truncate it.
+                    outbound_address.set_port(peer_node_data.my_port as u16);
+
+                    let Ok(Ok(ping_peer_id)) = timeout(
+                        PING_TIMEOUT,
+                        ping::<Z>(outbound_address).instrument(info_span!("ping")),
+                    )
+                    .await
+                    else {
+                        // The ping was not successful.
+                        break 'check_out_addr None;
+                    };
+
+                    // Make sure we are talking to the right node.
+                    if ping_peer_id == peer_node_data.peer_id {
+                        break 'check_out_addr Some(outbound_address);
+                    }
+                }
+                // The peer did not specify a reachable port or the ping was not successful.
+                None
+            }
+            ConnectionDirection::OutBound => {
+                let InternalPeerID::KnownAddr(outbound_addr) = addr else {
+                    unreachable!("How could we make an outbound connection to an unknown address");
+                };
+
+                // This is an outbound connection, this address is obviously reachable.
+                Some(outbound_addr)
+            }
+        }
+    };
+
+    // Tell the core sync service about the new peer.
+    core_sync_svc
+        .ready()
+        .await?
+        .call(CoreSyncDataRequest::HandleIncoming(peer_core_sync.clone()))
         .await?;
-    }
 
     tracing::debug!("Handshake complete.");
 
+    // Set up the connection data.
     let error_slot = SharedError::new();
-
     let (connection_guard, handle) = HandleBuilder::new().with_permit(permit).build();
-
-    let (connection_tx, client_rx) = mpsc::channel(1);
+    let (connection_tx, client_rx) = mpsc::channel(3);
 
     let connection = Connection::<Z, _>::new(
         peer_sink,
         client_rx,
+        broadcast_rx,
         peer_request_svc,
         connection_guard,
         error_slot.clone(),
     );
 
-    let connection_span = tracing::error_span!(parent: &Span::none(), "connection", %addr);
+    let connection_handle =
+        tokio::spawn(connection.run(peer_stream.fuse(), eager_protocol_messages));
 
-    let connection_handle = tokio::spawn(
-        connection
-            .run(peer_stream.fuse(), eager_protocol_messages)
-            .instrument(connection_span),
+    let client = Client::<Z>::new(
+        addr,
+        handle.clone(),
+        connection_tx,
+        connection_handle,
+        error_slot,
     );
 
-    let peer_info = Arc::new(PeerInformation {
-        id: addr,
-        handle,
-        direction,
-        // TODO: remove this.
-        core_sync_data: std::sync::Mutex::new(peer_core_sync.clone()),
-    });
-
-    peer_sync_svc
+    // Tell the address book about the new connection.
+    address_book
         .ready()
         .await?
-        .call(PeerSyncRequest::IncomingCoreSyncData(
-            peer_info.id,
-            peer_info.handle.clone(),
-            peer_core_sync,
-        ))
+        .call(AddressBookRequest::NewConnection {
+            internal_peer_id: addr,
+            public_address,
+            handle,
+            id: peer_node_data.peer_id,
+            pruning_seed,
+            rpc_port: peer_node_data.rpc_port,
+            rpc_credits_per_hash: peer_node_data.rpc_credits_per_hash,
+        })
         .await?;
-
-    let client = Client::<Z>::new(peer_info, connection_tx, connection_handle, error_slot);
 
     Ok(client)
 }
 
-/// Sends a [`HandshakeRequest`] to the peer.
+/// Sends a [`RequestMessage::Handshake`] down the peer sink.
 async fn send_hs_request<Z: NetworkZone, CSync>(
     peer_sink: &mut Z::Sink,
     core_sync_svc: &mut CSync,
@@ -394,11 +485,14 @@ async fn send_hs_request<Z: NetworkZone, CSync>(
 where
     CSync: CoreSyncSvc,
 {
-    let CoreSyncDataResponse(our_core_sync_data) = core_sync_svc
+    let CoreSyncDataResponse::Ours(our_core_sync_data) = core_sync_svc
         .ready()
         .await?
-        .call(CoreSyncDataRequest)
-        .await?;
+        .call(CoreSyncDataRequest::Ours)
+        .await?
+    else {
+        panic!("core sync service returned wrong response!");
+    };
 
     let req = HandshakeRequest {
         node_data: our_basic_node_data,
@@ -414,7 +508,7 @@ where
     Ok(())
 }
 
-/// Sends a [`HandshakeResponse`] to the peer.
+/// Sends a [`ResponseMessage::Handshake`] down the peer sink.
 async fn send_hs_response<Z: NetworkZone, CSync, AdrBook>(
     peer_sink: &mut Z::Sink,
     core_sync_svc: &mut CSync,
@@ -425,11 +519,14 @@ where
     AdrBook: AddressBook<Z>,
     CSync: CoreSyncSvc,
 {
-    let CoreSyncDataResponse(our_core_sync_data) = core_sync_svc
+    let CoreSyncDataResponse::Ours(our_core_sync_data) = core_sync_svc
         .ready()
         .await?
-        .call(CoreSyncDataRequest)
-        .await?;
+        .call(CoreSyncDataRequest::Ours)
+        .await?
+    else {
+        panic!("core sync service returned wrong response!");
+    };
 
     let AddressBookResponse::Peers(our_peer_list) = address_book
         .ready()
@@ -457,22 +554,30 @@ where
     Ok(())
 }
 
-/// This function waits for a specific P2P message, handling other messages, if they are valid.
+/// Waits for a message with a specific [`LevinCommand`].  
+///
+/// The message needed must not be a protocol message, only request/ response "admin" messages are allowed.
+///
+/// `levin_command` is the [`LevinCommand`] you need and `request` is for if the message is a request.
 async fn wait_for_message<Z: NetworkZone>(
     levin_command: LevinCommand,
     request: bool,
+
     peer_sink: &mut Z::Sink,
     peer_stream: &mut Z::Stream,
-    eager_protocol_messages: &mut Vec<ProtocolMessage>,
-    allow_support_flag_req: &mut bool,
-    support_flags: PeerSupportFlags,
+
+    eager_protocol_messages: &mut Vec<monero_wire::ProtocolMessage>,
+
+    our_basic_node_data: &BasicNodeData,
 ) -> Result<Message, HandshakeError> {
+    let mut allow_support_flag_req = true;
+    let mut allow_ping = true;
+
     while let Some(message) = peer_stream.next().await {
         let message = message?;
 
         match message {
             Message::Protocol(protocol_message) => {
-                // No protocol messages are exchanged during a normal handshake.
                 tracing::debug!(
                     "Received eager protocol message with ID: {}, adding to queue",
                     protocol_message.command()
@@ -493,31 +598,45 @@ async fn wait_for_message<Z: NetworkZone>(
                     return Ok(Message::Request(req_message));
                 }
 
-                // The only valid request while waiting for a message is a SupportFlags request
-                if matches!(req_message, RequestMessage::SupportFlags) {
-                    if !*allow_support_flag_req {
-                        return Err(HandshakeError::PeerSentInvalidMessage(
-                            "Peer sent 2 support flag requests",
-                        ));
+                match req_message {
+                    RequestMessage::SupportFlags => {
+                        if !allow_support_flag_req {
+                            return Err(HandshakeError::PeerSentInvalidMessage(
+                                "Peer sent 2 support flag requests",
+                            ));
+                        }
+                        send_support_flags::<Z>(peer_sink, our_basic_node_data.support_flags)
+                            .await?;
+                        // don't let the peer send more after the first request.
+                        allow_support_flag_req = false;
+                        continue;
                     }
-                    send_support_flags::<Z>(peer_sink, support_flags).await?;
-                    // don't let the peer send more after the first request.
-                    *allow_support_flag_req = false;
-                    continue;
-                }
+                    RequestMessage::Ping => {
+                        if !allow_support_flag_req {
+                            return Err(HandshakeError::PeerSentInvalidMessage(
+                                "Peer sent 2 ping requests",
+                            ));
+                        }
 
-                return Err(HandshakeError::PeerSentInvalidMessage(
-                    "Peer sent an admin request before responding to the handshake",
-                ));
+                        send_ping_response::<Z>(peer_sink, our_basic_node_data.peer_id).await?;
+
+                        // don't let the peer send more after the first request.
+                        allow_ping = false;
+                        continue;
+                    }
+                    _ => {
+                        return Err(HandshakeError::PeerSentInvalidMessage(
+                            "Peer sent an admin request before responding to the handshake",
+                        ))
+                    }
+                }
             }
             Message::Response(res_message) if !request => {
                 if res_message.command() == levin_command {
                     return Ok(Message::Response(res_message));
                 }
 
-                // The peer can only respond to our request it can't send a random response.
                 tracing::debug!("Received unexpected response: {}", res_message.command());
-
                 return Err(HandshakeError::PeerSentInvalidMessage(
                     "Peer sent an incorrect response",
                 ));
@@ -535,7 +654,7 @@ async fn wait_for_message<Z: NetworkZone>(
     )))?
 }
 
-/// Sends our support flags to the peer.
+/// Sends a [`ResponseMessage::SupportFlags`] down the peer sink.
 async fn send_support_flags<Z: NetworkZone>(
     peer_sink: &mut Z::Sink,
     support_flags: PeerSupportFlags,
@@ -545,6 +664,23 @@ async fn send_support_flags<Z: NetworkZone>(
         .send(
             Message::Response(ResponseMessage::SupportFlags(SupportFlagsResponse {
                 support_flags,
+            }))
+            .into(),
+        )
+        .await?)
+}
+
+/// Sends a [`ResponseMessage::Ping`] down the peer sink.
+async fn send_ping_response<Z: NetworkZone>(
+    peer_sink: &mut Z::Sink,
+    peer_id: u64,
+) -> Result<(), HandshakeError> {
+    tracing::debug!("Sending ping response.");
+    Ok(peer_sink
+        .send(
+            Message::Response(ResponseMessage::Ping(PingResponse {
+                status: PING_OK_RESPONSE_STATUS_TEXT,
+                peer_id,
             }))
             .into(),
         )

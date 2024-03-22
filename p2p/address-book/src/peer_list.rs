@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use rand::{seq::SliceRandom, Rng};
+use indexmap::IndexMap;
+use rand::prelude::*;
 
 use monero_p2p::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
-use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_NUMBER};
+use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
 
 #[cfg(test)]
 pub mod tests;
@@ -14,7 +15,7 @@ pub mod tests;
 #[derive(Debug)]
 pub struct PeerList<Z: NetworkZone> {
     /// The peers with their peer data.
-    pub peers: HashMap<Z::Addr, ZoneSpecificPeerListEntryBase<Z::Addr>>,
+    pub peers: IndexMap<Z::Addr, ZoneSpecificPeerListEntryBase<Z::Addr>>,
     /// An index of Pruning seed to address, so can quickly grab peers with the blocks
     /// we want.
     ///
@@ -31,7 +32,7 @@ pub struct PeerList<Z: NetworkZone> {
 impl<Z: NetworkZone> PeerList<Z> {
     /// Creates a new peer list.
     pub fn new(list: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>) -> PeerList<Z> {
-        let mut peers = HashMap::with_capacity(list.len());
+        let mut peers = IndexMap::with_capacity(list.len());
         let mut pruning_seeds = BTreeMap::new();
         let mut ban_ids = HashMap::with_capacity(list.len());
 
@@ -78,29 +79,27 @@ impl<Z: NetworkZone> PeerList<Z> {
         }
     }
 
-    /// Gets a reference to a peer
-    pub fn get_peer(&self, peer: &Z::Addr) -> Option<&ZoneSpecificPeerListEntryBase<Z::Addr>> {
-        self.peers.get(peer)
-    }
-
     /// Returns a random peer.
     /// If the pruning seed is specified then we will get a random peer with
     /// that pruning seed otherwise we will just get a random peer in the whole
     /// list.
-    pub fn get_random_peer<R: Rng>(
-        &self,
+    ///
+    /// The given peer will be removed from the peer list.
+    pub fn take_random_peer<R: Rng>(
+        &mut self,
         r: &mut R,
         block_needed: Option<u64>,
-    ) -> Option<&ZoneSpecificPeerListEntryBase<Z::Addr>> {
+    ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         if let Some(needed_height) = block_needed {
             let (_, addresses_with_block) = self.pruning_seeds.iter().find(|(seed, _)| {
                 // TODO: factor in peer blockchain height?
-                seed.get_next_unpruned_block(needed_height, CRYPTONOTE_MAX_BLOCK_NUMBER)
-                    .expect("TODO: Explain")
+                seed.get_next_unpruned_block(needed_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                    .expect("Block needed is higher than max block allowed.")
                     == needed_height
             })?;
             let n = r.gen_range(0..addresses_with_block.len());
-            self.get_peer(&addresses_with_block[n])
+            let peer = addresses_with_block[n];
+            self.remove_peer(&peer)
         } else {
             let len = self.len();
             if len == 0 {
@@ -108,7 +107,8 @@ impl<Z: NetworkZone> PeerList<Z> {
             } else {
                 let n = r.gen_range(0..len);
 
-                self.peers.values().nth(n)
+                let (&key, _) = self.peers.get_index(n).unwrap();
+                self.remove_peer(&key)
             }
         }
     }
@@ -118,7 +118,10 @@ impl<Z: NetworkZone> PeerList<Z> {
         r: &mut R,
         len: usize,
     ) -> Vec<ZoneSpecificPeerListEntryBase<Z::Addr>> {
-        let mut peers = self.peers.values().copied().collect::<Vec<_>>();
+        let mut peers = self.peers.values().copied().choose_multiple(r, len);
+        // Order of the returned peers is not random, I am unsure of the impact of this, potentially allowing someone to make guesses about which peers
+        // were connected first.
+        // So to mitigate this shuffle the result.
         peers.shuffle(r);
         peers.drain(len.min(peers.len())..peers.len());
         peers
@@ -180,7 +183,7 @@ impl<Z: NetworkZone> PeerList<Z> {
         &mut self,
         peer: &Z::Addr,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
-        let peer_eb = self.peers.remove(peer)?;
+        let peer_eb = self.peers.swap_remove(peer)?;
         self.remove_peer_from_all_idxs(&peer_eb);
         Some(peer_eb)
     }

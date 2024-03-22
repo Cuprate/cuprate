@@ -1,3 +1,6 @@
+//! The address book service.
+//!
+//! This module holds the address book service for a specific network zone.
 use std::{
     collections::{HashMap, HashSet},
     panic,
@@ -250,24 +253,22 @@ impl<Z: NetworkZone> AddressBook<Z> {
             .reduce_list(&HashSet::new(), self.cfg.max_gray_list_length);
     }
 
-    fn get_random_white_peer(
-        &self,
+    fn take_random_white_peer(
+        &mut self,
         block_needed: Option<u64>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random white peer");
         self.white_list
-            .get_random_peer(&mut rand::thread_rng(), block_needed)
-            .copied()
+            .take_random_peer(&mut rand::thread_rng(), block_needed)
     }
 
-    fn get_random_gray_peer(
-        &self,
+    fn take_random_gray_peer(
+        &mut self,
         block_needed: Option<u64>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random gray peer");
         self.gray_list
-            .get_random_peer(&mut rand::thread_rng(), block_needed)
-            .copied()
+            .take_random_peer(&mut rand::thread_rng(), block_needed)
     }
 
     fn get_white_peers(&self, len: usize) -> Vec<ZoneSpecificPeerListEntryBase<Z::Addr>> {
@@ -336,13 +337,11 @@ impl<Z: NetworkZone> AddressBook<Z> {
 
         // if the address is Some that means we can reach it from our node.
         if let Some(addr) = peer.addr {
-            // remove the peer from the gray list as we know it's active.
-            self.gray_list.remove_peer(&addr);
             // The peer is reachable, update our white list and add it to the anchor connections.
             self.update_white_list_peer_entry(&peer)?;
+            self.anchor_list.insert(addr);
             self.white_list
                 .reduce_list(&self.anchor_list, self.cfg.max_white_list_length);
-            self.anchor_list.insert(addr);
         }
 
         self.connected_peers.insert(internal_peer_id, peer);
@@ -368,8 +367,8 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
 
         let response = match req {
             AddressBookRequest::NewConnection {
-                addr,
                 internal_peer_id,
+                public_address,
                 handle,
                 id,
                 pruning_seed,
@@ -379,7 +378,7 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                 .handle_new_connection(
                     internal_peer_id,
                     ConnectionPeerEntry {
-                        addr,
+                        addr: public_address,
                         id,
                         handle,
                         pruning_seed,
@@ -388,20 +387,21 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                     },
                 )
                 .map(|_| AddressBookResponse::Ok),
-            AddressBookRequest::BanPeer(addr, time) => {
-                self.ban_peer(addr, time);
-                Ok(AddressBookResponse::Ok)
-            }
             AddressBookRequest::IncomingPeerList(peer_list) => {
                 self.handle_incoming_peer_list(peer_list);
                 Ok(AddressBookResponse::Ok)
             }
-            AddressBookRequest::GetRandomWhitePeer { height } => self
-                .get_random_white_peer(height)
+            AddressBookRequest::TakeRandomWhitePeer { height } => self
+                .take_random_white_peer(height)
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
-            AddressBookRequest::GetRandomGrayPeer { height } => self
-                .get_random_gray_peer(height)
+            AddressBookRequest::TakeRandomGrayPeer { height } => self
+                .take_random_gray_peer(height)
+                .map(AddressBookResponse::Peer)
+                .ok_or(AddressBookError::PeerNotFound),
+            AddressBookRequest::TakeRandomPeer { height } => self
+                .take_random_white_peer(height)
+                .or_else(|| self.take_random_gray_peer(height))
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
             AddressBookRequest::GetRandomPeer { height } => self

@@ -18,7 +18,7 @@ fn make_fake_peer(
         adr: TestNetZoneAddr(id),
         id: id as u64,
         last_seen: 0,
-        pruning_seed: PruningSeed::try_from(pruning_seed.unwrap_or(0)).unwrap(),
+        pruning_seed: PruningSeed::decompress(pruning_seed.unwrap_or(0)).unwrap(),
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     }
@@ -86,11 +86,9 @@ fn peer_list_reduce_length_with_peers_we_need() {
 fn peer_list_remove_specific_peer() {
     let mut peer_list = make_fake_peer_list_with_random_pruning_seeds(100);
 
-    let peer = *peer_list
-        .get_random_peer(&mut rand::thread_rng(), None)
+    let peer = peer_list
+        .take_random_peer(&mut rand::thread_rng(), None)
         .unwrap();
-
-    assert!(peer_list.remove_peer(&peer.adr).is_some());
 
     let pruning_idxs = peer_list.pruning_seeds;
     let peers = peer_list.peers;
@@ -125,7 +123,7 @@ fn peer_list_add_new_peer() {
     peer_list.add_new_peer(new_peer);
 
     assert_eq!(peer_list.len(), 11);
-    assert_eq!(peer_list.get_peer(&new_peer.adr), Some(&new_peer));
+    assert_eq!(peer_list.peers.get(&new_peer.adr), Some(&new_peer));
     assert!(peer_list
         .pruning_seeds
         .get(&new_peer.pruning_seed)
@@ -136,19 +134,22 @@ fn peer_list_add_new_peer() {
 #[test]
 fn peer_list_add_existing_peer() {
     let mut peer_list = make_fake_peer_list(0, 10);
-    let existing_peer = *peer_list.get_peer(&TestNetZoneAddr(0)).unwrap();
+    let existing_peer = *peer_list.peers.get(&TestNetZoneAddr(0)).unwrap();
 
     peer_list.add_new_peer(existing_peer);
 
     assert_eq!(peer_list.len(), 10);
-    assert_eq!(peer_list.get_peer(&existing_peer.adr), Some(&existing_peer));
+    assert_eq!(
+        peer_list.peers.get(&existing_peer.adr),
+        Some(&existing_peer)
+    );
 }
 
 #[test]
 fn peer_list_get_non_existent_peer() {
     let peer_list = make_fake_peer_list(0, 10);
     let non_existent_peer = TestNetZoneAddr(50);
-    assert_eq!(peer_list.get_peer(&non_existent_peer), None);
+    assert_eq!(peer_list.peers.get(&non_existent_peer), None);
 }
 
 #[test]
@@ -159,7 +160,7 @@ fn peer_list_get_peer_with_block() {
     peer_list.add_new_peer(make_fake_peer(101, Some(384)));
 
     let peer = peer_list
-        .get_random_peer(&mut r, Some(1))
+        .take_random_peer(&mut r, Some(1))
         .expect("We just added a peer with the correct seed");
 
     assert!(peer
@@ -172,13 +173,10 @@ fn peer_list_get_peer_with_block() {
 fn peer_list_ban_peers() {
     let mut peer_list = make_fake_peer_list_with_random_pruning_seeds(100);
     let peer = peer_list
-        .get_random_peer(&mut rand::thread_rng(), None)
+        .take_random_peer(&mut rand::thread_rng(), None)
         .unwrap();
     let ban_id = peer.adr.ban_id();
 
-    assert!(peer_list.contains_peer(&peer.adr));
-    assert_ne!(peer_list.ban_ids.get(&ban_id).unwrap().len(), 0);
-    peer_list.remove_peers_with_ban_id(&ban_id);
     assert_eq!(peer_list.ban_ids.get(&ban_id), None);
     for (addr, _) in peer_list.peers {
         assert_ne!(addr.ban_id(), ban_id);

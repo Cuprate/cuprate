@@ -63,8 +63,8 @@ impl ResizeAlgorithm {
     pub fn resize(&self, current_size_bytes: usize) -> NonZeroUsize {
         match self {
             Self::Monero => monero(current_size_bytes),
-            Self::FixedBytes(u) => todo!(),
-            Self::Percent(f) => todo!(),
+            Self::FixedBytes(add_bytes) => fixed_bytes(current_size_bytes, add_bytes.get()),
+            Self::Percent(f) => percent(current_size_bytes, *f),
         }
     }
 }
