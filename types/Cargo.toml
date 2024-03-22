@@ -1,0 +1,23 @@
+[package]
+name        = "cuprate-types"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate data types"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
+keywords    = ["cuprate", "types"]
+
+[features]
+default = ["dep:bytemuck"]
+service = []
+
+[dependencies]
+bytemuck  = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"], optional = true }
+cfg-if    = { workspace = true }
+paste     = { workspace = true }
+thiserror = { workspace = true, optional = true }
+serde     = { workspace = true, optional = true }
+
+[dev-dependencies]
+bytemuck = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
