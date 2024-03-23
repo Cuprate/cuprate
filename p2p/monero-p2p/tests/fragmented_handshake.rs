@@ -148,12 +148,12 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<FragNet, _, _, _, _>::new(
+    let handshaker = HandShaker::<FragNet, _, _, _, _, _>::new(
         DummyAddressBook,
-        DummyCoreSyncSvc,
         DummyPeerSyncSvc,
+        DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        None,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 
@@ -185,12 +185,12 @@ async fn fragmented_handshake_monerod_to_cuprate() {
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandShaker::<FragNet, _, _, _, _>::new(
+    let mut handshaker = HandShaker::<FragNet, _, _, _, _, _>::new(
         DummyAddressBook,
-        DummyCoreSyncSvc,
         DummyPeerSyncSvc,
+        DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        None,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 
@@ -211,7 +211,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
             .await
             .unwrap()
             .call(DoHandshakeRequest {
-                peer_id: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
+                addr: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
                 peer_stream: stream,
                 peer_sink: sink,
                 direction: ConnectionDirection::InBound,

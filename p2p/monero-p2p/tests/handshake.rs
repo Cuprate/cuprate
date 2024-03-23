@@ -48,21 +48,21 @@ async fn handshake_cuprate_to_cuprate() {
     let mut our_basic_node_data_2 = our_basic_node_data_1.clone();
     our_basic_node_data_2.peer_id = 2344;
 
-    let mut handshaker_1 = HandShaker::<TestNetZone<true, true, true>, _, _, _, _>::new(
+    let mut handshaker_1 = HandShaker::<TestNetZone<true, true, true>, _, _, _, _, _>::new(
         DummyAddressBook,
-        DummyCoreSyncSvc,
         DummyPeerSyncSvc,
+        DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        None,
+        |_| futures::stream::pending(),
         our_basic_node_data_1,
     );
 
-    let mut handshaker_2 = HandShaker::<TestNetZone<true, true, true>, _, _, _, _>::new(
+    let mut handshaker_2 = HandShaker::<TestNetZone<true, true, true>, _, _, _, _, _>::new(
         DummyAddressBook,
-        DummyCoreSyncSvc,
         DummyPeerSyncSvc,
+        DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        None,
+        |_| futures::stream::pending(),
         our_basic_node_data_2,
     );
 
@@ -72,7 +72,7 @@ async fn handshake_cuprate_to_cuprate() {
     let (p2_receiver, p2_sender) = split(p2);
 
     let p1_handshake_req = DoHandshakeRequest {
-        peer_id: InternalPeerID::KnownAddr(TestNetZoneAddr(888)),
+        addr: InternalPeerID::KnownAddr(TestNetZoneAddr(888)),
         peer_stream: FramedRead::new(p2_receiver, MoneroWireCodec::default()),
         peer_sink: FramedWrite::new(p2_sender, MoneroWireCodec::default()),
         direction: ConnectionDirection::OutBound,
@@ -80,7 +80,7 @@ async fn handshake_cuprate_to_cuprate() {
     };
 
     let p2_handshake_req = DoHandshakeRequest {
-        peer_id: InternalPeerID::KnownAddr(TestNetZoneAddr(444)),
+        addr: InternalPeerID::KnownAddr(TestNetZoneAddr(444)),
         peer_stream: FramedRead::new(p1_receiver, MoneroWireCodec::default()),
         peer_sink: FramedWrite::new(p1_sender, MoneroWireCodec::default()),
         direction: ConnectionDirection::InBound,
@@ -128,12 +128,12 @@ async fn handshake_cuprate_to_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<ClearNet, _, _, _, _>::new(
+    let handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
         DummyAddressBook,
-        DummyCoreSyncSvc,
         DummyPeerSyncSvc,
+        DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        None,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 
@@ -165,12 +165,12 @@ async fn handshake_monerod_to_cuprate() {
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandShaker::<ClearNet, _, _, _, _>::new(
+    let mut handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
         DummyAddressBook,
-        DummyCoreSyncSvc,
         DummyPeerSyncSvc,
+        DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        None,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 
@@ -191,7 +191,7 @@ async fn handshake_monerod_to_cuprate() {
             .await
             .unwrap()
             .call(DoHandshakeRequest {
-                peer_id: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
+                addr: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
                 peer_stream: stream,
                 peer_sink: sink,
                 direction: ConnectionDirection::InBound,

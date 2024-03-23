@@ -122,12 +122,12 @@ impl<N: NetworkZone> PeerSet<N> {
                     return Some(addr);
                 }
                 _ => {
-                    let indexs =
+                    let indexes =
                         rand::seq::index::sample(&mut thread_rng(), self.ready_peers.len(), 2);
 
                     // Get the first random peer.
                     let (&peer_1_addr, peer_1_client) =
-                        self.ready_peers.get_index_mut(indexs.index(0)).unwrap();
+                        self.ready_peers.get_index_mut(indexes.index(0)).unwrap();
                     // Check the peer is ready and has not had an error.
                     if !is_ok(peer_1_client) {
                         tracing::debug!("Peer {} had an error or was not ready.", peer_1_addr);
@@ -139,7 +139,7 @@ impl<N: NetworkZone> PeerSet<N> {
 
                     // Get the second random peer.
                     let (&peer_2_addr, peer_2_client) =
-                        self.ready_peers.get_index_mut(indexs.index(1)).unwrap();
+                        self.ready_peers.get_index_mut(indexes.index(1)).unwrap();
                     // Check the peer is ready and has not had an error.
                     if !is_ok(peer_2_client) {
                         tracing::debug!("Peer {} had an error or was not ready.", peer_2_addr);

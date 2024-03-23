@@ -456,8 +456,13 @@ where
         error_slot.clone(),
     );
 
-    let connection_handle =
-        tokio::spawn(connection.run(peer_stream.fuse(), eager_protocol_messages));
+    let connection_span =
+        tracing::error_span!(parent: &tracing::Span::none(), "connection", addr = %addr);
+    let connection_handle = tokio::spawn(
+        connection
+            .run(peer_stream.fuse(), eager_protocol_messages)
+            .instrument(connection_span),
+    );
 
     let info = PeerInformation {
         id: addr,

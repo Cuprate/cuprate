@@ -57,7 +57,7 @@ pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
     /// A semaphore to keep the amount of outbound peers constant.
     pub outbound_semaphore: Arc<Semaphore>,
     /// The amount of peers we connected to because we needed more peers. If the `outbound_semaphore`
-    /// is full, and we need to connect to more peers for blocks ro becuase not enough peers are ready
+    /// is full, and we need to connect to more peers for blocks ro because not enough peers are ready
     /// we add a permit to the semaphore and keep track here, upto a value in config.
     pub extra_peers: usize,
     /// The p2p config.
