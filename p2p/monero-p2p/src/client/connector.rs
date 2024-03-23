@@ -11,13 +11,14 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::FutureExt;
+use futures::{FutureExt, Stream};
 use tokio::sync::OwnedSemaphorePermit;
 use tower::{Service, ServiceExt};
 
 use crate::{
     client::{Client, DoHandshakeRequest, HandShaker, HandshakeError, InternalPeerID},
-    AddressBook, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerRequestHandler, PeerSyncSvc,
+    AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone,
+    PeerRequestHandler, PeerSyncSvc,
 };
 
 /// A request to connect to a peer.
@@ -30,24 +31,28 @@ pub struct ConnectRequest<Z: NetworkZone> {
 }
 
 /// The connector service, this service connects to peer and returns the [`Client`].
-pub struct Connector<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> {
-    handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr>,
+pub struct Connector<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr> {
+    handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> Connector<Z, AdrBook, CSync, PSync, ReqHdlr> {
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+    Connector<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+{
     /// Create a new connector from a handshaker.
-    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr>) -> Self {
+    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>) -> Self {
         Self { handshaker }
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr> Service<ConnectRequest<Z>>
-    for Connector<Z, AdrBook, CSync, PSync, ReqHdlr>
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr, BrdcstStrm>
+    Service<ConnectRequest<Z>> for Connector<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
     PSync: PeerSyncSvc<Z> + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
+    BrdcstStrm: Stream<Item = BroadcastMessage> + Unpin + Send + 'static,
+    BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
     type Response = Client<Z>;
     type Error = HandshakeError;
@@ -65,7 +70,7 @@ where
         async move {
             let (peer_stream, peer_sink) = Z::connect_to_peer(req.addr).await?;
             let req = DoHandshakeRequest {
-                peer_id: InternalPeerID::KnownAddr(req.addr),
+                addr: InternalPeerID::KnownAddr(req.addr),
                 permit: req.permit,
                 peer_stream,
                 peer_sink,

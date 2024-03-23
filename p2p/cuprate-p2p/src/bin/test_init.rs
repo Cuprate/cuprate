@@ -130,12 +130,12 @@ async fn main() {
         .await
         .unwrap();
 
-    let handshaker = HandShaker::<ClearNet, _, _, _, _>::new(
+    let handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
         addr_book_svc.clone(),
-        DummyCoreSyncSvc,
         DummyPeerSyncSvc,
+        DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        None,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 

@@ -78,7 +78,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
     fn update_peer_sync_info(
         &mut self,
         peer_id: InternalPeerID<N::Addr>,
-        mut handle: ConnectionHandle,
+        handle: ConnectionHandle,
         core_sync_data: CoreSyncData,
     ) -> Result<(), tower::BoxError> {
         tracing::trace!(

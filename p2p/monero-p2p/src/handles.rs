@@ -9,7 +9,7 @@ use std::{
 
 use futures::SinkExt;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio_util::sync::CancellationToken;
+use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
 
 /// A [`ConnectionHandle`] builder.
 #[derive(Default, Debug)]
@@ -88,6 +88,9 @@ pub struct ConnectionHandle {
 }
 
 impl ConnectionHandle {
+    pub fn closed(&self) -> WaitForCancellationFutureOwned {
+        self.token.clone().cancelled_owned()
+    }
     /// Bans the peer for the given `duration`.
     pub fn ban_peer(&self, duration: Duration) {
         let _ = self.ban.set(BanPeer(duration));

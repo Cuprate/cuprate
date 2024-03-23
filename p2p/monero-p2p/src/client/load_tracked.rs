@@ -18,7 +18,7 @@ pub struct PeakEwmaClient<N: NetworkZone> {
     client: PeakEwma<Client<N>>,
 
     /// The connected peer info.
-    pub info: Arc<PeerInformation<N::Addr>>,
+    pub info: PeerInformation<N::Addr>,
 }
 
 impl<N: NetworkZone> PeakEwmaClient<N> {

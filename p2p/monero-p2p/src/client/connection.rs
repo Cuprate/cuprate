@@ -9,7 +9,7 @@ use futures::{
     channel::oneshot,
     lock::{Mutex, OwnedMutexGuard},
     stream::{Fuse, FusedStream},
-    FutureExt, SinkExt, StreamExt, TryStreamExt,
+    FutureExt, SinkExt, Stream, StreamExt, TryStreamExt,
 };
 use tokio::{
     sync::{broadcast, mpsc},
@@ -18,11 +18,11 @@ use tokio::{
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream, ReceiverStream};
 use tower::ServiceExt;
 
-use monero_wire::{LevinCommand, Message, ProtocolMessage};
+use monero_wire::{levin::Bucket, LevinCommand, Message, ProtocolMessage};
 
 use crate::{
-    constants::REQUEST_TIMEOUT, handles::ConnectionGuard, MessageID, NetworkZone, PeerError,
-    PeerRequest, PeerRequestHandler, PeerResponse, SharedError,
+    constants::REQUEST_TIMEOUT, handles::ConnectionGuard, BroadcastMessage, MessageID, NetworkZone,
+    PeerError, PeerRequest, PeerRequestHandler, PeerResponse, SharedError,
 };
 
 /// The timeout used when sending messages to a peer.
@@ -80,7 +80,7 @@ fn levin_command_response(message_id: &MessageID, command: LevinCommand) -> bool
 }
 
 /// This represents a connection to a peer.
-pub struct Connection<Z: NetworkZone, ReqHndlr> {
+pub struct Connection<Z: NetworkZone, ReqHndlr, BrdcstStrm> {
     /// The peer sink - where we send messages to the peer.
     peer_sink: Z::Sink,
 
@@ -91,6 +91,7 @@ pub struct Connection<Z: NetworkZone, ReqHndlr> {
 
     /// The client channel where requests from Cuprate to this peer will come from for us to route.
     client_rx: Fuse<ReceiverStream<ConnectionTaskRequest>>,
+    broadcast_stream: BrdcstStrm,
 
     /// The inner handler for any requests that come from the requested peer.
     peer_request_handler: ReqHndlr,
@@ -101,23 +102,26 @@ pub struct Connection<Z: NetworkZone, ReqHndlr> {
     error: SharedError<PeerError>,
 }
 
-impl<Z: NetworkZone, ReqHndlr> Connection<Z, ReqHndlr>
+impl<Z: NetworkZone, ReqHndlr, BrdcstStrm> Connection<Z, ReqHndlr, BrdcstStrm>
 where
     ReqHndlr: PeerRequestHandler,
+    BrdcstStrm: Stream<Item = BroadcastMessage> + Unpin + Send + 'static,
 {
     /// Create a new connection struct.
     pub fn new(
         peer_sink: Z::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
+        broadcast_stream: BrdcstStrm,
         peer_request_handler: ReqHndlr,
         connection_guard: ConnectionGuard,
         error: SharedError<PeerError>,
-    ) -> Connection<Z, ReqHndlr> {
+    ) -> Connection<Z, ReqHndlr, BrdcstStrm> {
         Connection {
             peer_sink,
             state: State::WaitingForRequest,
             request_timeout: None,
             client_rx: ReceiverStream::new(client_rx).fuse(),
+            broadcast_stream,
             peer_request_handler,
             connection_guard,
             error,
@@ -149,6 +153,19 @@ where
         };
 
         self.handle_client_request(req).await
+    }
+
+    async fn handle_client_broadcast(&mut self, mes: BroadcastMessage) -> Result<(), PeerError> {
+        match mes {
+            BroadcastMessage::NewFluffyBlock(block) => {
+                self.send_message_to_peer(Message::Protocol(ProtocolMessage::NewFluffyBlock(block)))
+                    .await
+            }
+            BroadcastMessage::NewTransaction(txs) => {
+                self.send_message_to_peer(Message::Protocol(ProtocolMessage::NewTransactions(txs)))
+                    .await
+            }
+        }
     }
 
     /// Handles a request from Cuprate, unlike a broadcast this request will be directed specifically at this peer.
@@ -243,6 +260,13 @@ where
             biased;
             _ = timeout => {
                 self.check_alive().await
+            }
+            broadcast_req = self.broadcast_stream.next() => {
+                if let Some(broadcast_req) = broadcast_req {
+                    self.handle_client_broadcast(broadcast_req).await
+                } else {
+                    Err(PeerError::ClientChannelClosed)
+                }
             }
             client_req = self.client_rx.next() => {
                 if let Some(client_req) = client_req {

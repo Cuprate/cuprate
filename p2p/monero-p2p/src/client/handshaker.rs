@@ -13,7 +13,7 @@ use std::{
     time::Duration,
 };
 
-use futures::{FutureExt, SinkExt, StreamExt};
+use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use tokio::{
     sync::{broadcast, mpsc, OwnedSemaphorePermit},
     time::{error::Elapsed, timeout},
@@ -32,12 +32,14 @@ use monero_wire::{
     ResponseMessage,
 };
 
+use crate::services::PeerSyncRequest;
 use crate::{
-    client::{connection::Connection, Client, InternalPeerID},
+    client::{connection::Connection, Client, InternalPeerID, PeerInformation},
+    constants::MAX_PEERS_IN_PEER_LIST_MESSAGE,
     handles::HandleBuilder,
-    AddressBook, AddressBookRequest, AddressBookResponse, ConnectionDirection, CoreSyncDataRequest,
-    CoreSyncDataResponse, CoreSyncSvc, MessageID, NetZoneAddress, NetworkZone, PeerBroadcast,
-    PeerRequestHandler, SharedError, MAX_PEERS_IN_PEER_LIST_MESSAGE,
+    AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
+    CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, MessageID, NetZoneAddress, NetworkZone,
+    PeerRequestHandler, PeerSyncSvc, SharedError,
 };
 
 /// This is a Cuprate specific constant.
@@ -100,52 +102,60 @@ pub struct DoHandshakeRequest<Z: NetworkZone> {
 
 /// The peer handshaking service.
 #[derive(Debug, Clone)]
-pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
+pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr> {
     /// The address book service.
     address_book: AdrBook,
     /// The core sync data service.
     core_sync_svc: CSync,
+    /// The peer sync service.
+    peer_sync_svc: PSync,
     /// The peer request handler service.
     peer_request_svc: ReqHdlr,
 
     /// Our [`BasicNodeData`]
     our_basic_node_data: BasicNodeData,
 
-    /// The channel to broadcast messages to all peers created with this handshaker.
-    broadcast_tx: broadcast::Sender<Arc<PeerBroadcast>>,
+    /// A function that returns a stream that will give items to be broadcast by a connection.
+    broadcast_stream_maker: BrdcstStrmMkr,
 
     /// The network zone.
     _zone: PhantomData<Z>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> HandShaker<Z, AdrBook, CSync, ReqHdlr> {
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+    HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+{
     /// Creates a new handshaker.
     pub fn new(
         address_book: AdrBook,
+        peer_sync_svc: PSync,
         core_sync_svc: CSync,
         peer_request_svc: ReqHdlr,
-
-        broadcast_tx: broadcast::Sender<Arc<PeerBroadcast>>,
+        broadcast_stream_maker: BrdcstStrmMkr,
 
         our_basic_node_data: BasicNodeData,
     ) -> Self {
         Self {
             address_book,
+            peer_sync_svc,
             core_sync_svc,
             peer_request_svc,
-            broadcast_tx,
+            broadcast_stream_maker,
             our_basic_node_data,
             _zone: PhantomData,
         }
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> Service<DoHandshakeRequest<Z>>
-    for HandShaker<Z, AdrBook, CSync, ReqHdlr>
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr, BrdcstStrm>
+    Service<DoHandshakeRequest<Z>> for HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
+    PSync: PeerSyncSvc<Z> + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
+    BrdcstStrm: Stream<Item = BroadcastMessage> + Unpin + Send + 'static,
+    BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
     type Response = Client<Z>;
     type Error = HandshakeError;
@@ -157,11 +167,12 @@ where
     }
 
     fn call(&mut self, req: DoHandshakeRequest<Z>) -> Self::Future {
-        let broadcast_rx = self.broadcast_tx.subscribe();
+        let broadcast_stream_maker = self.broadcast_stream_maker.clone();
 
         let address_book = self.address_book.clone();
         let peer_request_svc = self.peer_request_svc.clone();
         let core_sync_svc = self.core_sync_svc.clone();
+        let peer_sync_svc = self.peer_sync_svc.clone();
         let our_basic_node_data = self.our_basic_node_data.clone();
 
         let span = info_span!(parent: &tracing::Span::current(), "handshaker", addr=%req.addr);
@@ -171,9 +182,10 @@ where
                 HANDSHAKE_TIMEOUT,
                 handshake(
                     req,
-                    broadcast_rx,
+                    broadcast_stream_maker,
                     address_book,
                     core_sync_svc,
+                    peer_sync_svc,
                     peer_request_svc,
                     our_basic_node_data,
                 ),
@@ -226,20 +238,24 @@ pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> 
 }
 
 /// This function completes a handshake with the requested peer.
-async fn handshake<Z: NetworkZone, AdrBook, CSync, ReqHdlr>(
+async fn handshake<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr, BrdcstStrm>(
     req: DoHandshakeRequest<Z>,
 
-    broadcast_rx: broadcast::Receiver<Arc<PeerBroadcast>>,
+    broadcast_stream_maker: BrdcstStrmMkr,
 
     mut address_book: AdrBook,
     mut core_sync_svc: CSync,
+    mut peer_sync_svc: PSync,
     peer_request_svc: ReqHdlr,
     our_basic_node_data: BasicNodeData,
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z>,
     CSync: CoreSyncSvc,
+    PSync: PeerSyncSvc<Z>,
     ReqHdlr: PeerRequestHandler,
+    BrdcstStrm: Stream<Item = BroadcastMessage> + Unpin + Send + 'static,
+    BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Send + 'static,
 {
     let DoHandshakeRequest {
         addr,
@@ -424,13 +440,6 @@ where
         }
     };
 
-    // Tell the core sync service about the new peer.
-    core_sync_svc
-        .ready()
-        .await?
-        .call(CoreSyncDataRequest::HandleIncoming(peer_core_sync.clone()))
-        .await?;
-
     tracing::debug!("Handshake complete.");
 
     // Set up the connection data.
@@ -438,10 +447,10 @@ where
     let (connection_guard, handle) = HandleBuilder::new().with_permit(permit).build();
     let (connection_tx, client_rx) = mpsc::channel(3);
 
-    let connection = Connection::<Z, _>::new(
+    let connection = Connection::<Z, _, _>::new(
         peer_sink,
         client_rx,
-        broadcast_rx,
+        broadcast_stream_maker(addr),
         peer_request_svc,
         connection_guard,
         error_slot.clone(),
@@ -450,13 +459,13 @@ where
     let connection_handle =
         tokio::spawn(connection.run(peer_stream.fuse(), eager_protocol_messages));
 
-    let client = Client::<Z>::new(
-        addr,
-        handle.clone(),
-        connection_tx,
-        connection_handle,
-        error_slot,
-    );
+    let info = PeerInformation {
+        id: addr,
+        handle: handle.clone(),
+        direction,
+    };
+
+    let client = Client::<Z>::new(info, connection_tx, connection_handle, error_slot);
 
     // Tell the address book about the new connection.
     address_book
@@ -465,12 +474,23 @@ where
         .call(AddressBookRequest::NewConnection {
             internal_peer_id: addr,
             public_address,
-            handle,
+            handle: handle.clone(),
             id: peer_node_data.peer_id,
             pruning_seed,
             rpc_port: peer_node_data.rpc_port,
             rpc_credits_per_hash: peer_node_data.rpc_credits_per_hash,
         })
+        .await?;
+
+    // Tell the core sync service about the new peer.
+    peer_sync_svc
+        .ready()
+        .await?
+        .call(PeerSyncRequest::IncomingCoreSyncData(
+            addr,
+            handle,
+            peer_core_sync,
+        ))
         .await?;
 
     Ok(client)
@@ -485,14 +505,11 @@ async fn send_hs_request<Z: NetworkZone, CSync>(
 where
     CSync: CoreSyncSvc,
 {
-    let CoreSyncDataResponse::Ours(our_core_sync_data) = core_sync_svc
+    let CoreSyncDataResponse(our_core_sync_data) = core_sync_svc
         .ready()
         .await?
-        .call(CoreSyncDataRequest::Ours)
-        .await?
-    else {
-        panic!("core sync service returned wrong response!");
-    };
+        .call(CoreSyncDataRequest)
+        .await?;
 
     let req = HandshakeRequest {
         node_data: our_basic_node_data,
@@ -519,14 +536,11 @@ where
     AdrBook: AddressBook<Z>,
     CSync: CoreSyncSvc,
 {
-    let CoreSyncDataResponse::Ours(our_core_sync_data) = core_sync_svc
+    let CoreSyncDataResponse(our_core_sync_data) = core_sync_svc
         .ready()
         .await?
-        .call(CoreSyncDataRequest::Ours)
-        .await?
-    else {
-        panic!("core sync service returned wrong response!");
-    };
+        .call(CoreSyncDataRequest)
+        .await?;
 
     let AddressBookResponse::Peers(our_peer_list) = address_book
         .ready()

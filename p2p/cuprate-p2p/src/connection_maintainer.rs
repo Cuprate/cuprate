@@ -172,7 +172,7 @@ where
             .ready()
             .await
             .expect("Error in address book!")
-            .call(AddressBookRequest::GetRandomPeer {
+            .call(AddressBookRequest::TakeRandomPeer {
                 height: req.block_needed,
             })
             .await;
@@ -213,10 +213,10 @@ where
         tracing::debug!("Permit available making outbound connection.");
 
         let req = if self.peer_type_gen.sample(&mut thread_rng()) {
-            AddressBookRequest::GetRandomGrayPeer { height: None }
+            AddressBookRequest::TakeRandomGrayPeer { height: None }
         } else {
             // This will try white peers first then gray.
-            AddressBookRequest::GetRandomPeer { height: None }
+            AddressBookRequest::TakeRandomPeer { height: None }
         };
 
         let Ok(AddressBookResponse::Peer(peer)) = self

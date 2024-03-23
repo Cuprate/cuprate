@@ -404,11 +404,6 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                 .or_else(|| self.take_random_gray_peer(height))
                 .map(AddressBookResponse::Peer)
                 .ok_or(AddressBookError::PeerNotFound),
-            AddressBookRequest::GetRandomPeer { height } => self
-                .get_random_white_peer(height)
-                .or_else(|| self.get_random_gray_peer(height))
-                .map(AddressBookResponse::Peer)
-                .ok_or(AddressBookError::PeerNotFound),
             AddressBookRequest::GetWhitePeers(len) => {
                 Ok(AddressBookResponse::Peers(self.get_white_peers(len)))
             }

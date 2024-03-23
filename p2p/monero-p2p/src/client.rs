@@ -51,6 +51,7 @@ impl<A: Display> Display for InternalPeerID<A> {
 }
 
 /// Information on a connected peer.
+#[derive(Debug, Clone)]
 pub struct PeerInformation<A> {
     /// The internal peer ID of this peer.
     pub id: InternalPeerID<A>,
@@ -59,11 +60,6 @@ pub struct PeerInformation<A> {
     pub handle: ConnectionHandle,
     /// The direction of this connection (inbound|outbound).
     pub direction: ConnectionDirection,
-
-    /// The core sync data of the peer.
-    ///
-    /// This is behind a Mutex because the data is dynamic.
-    pub core_sync_data: std::sync::Mutex<CoreSyncData>,
 }
 
 /// This represents a connection to a peer.
@@ -73,7 +69,7 @@ pub struct PeerInformation<A> {
 /// is the correct response for that request, not that the response contains the correct data.
 pub struct Client<Z: NetworkZone> {
     /// Information on the connected peer.
-    pub info: Arc<PeerInformation<Z::Addr>>,
+    pub info: PeerInformation<Z::Addr>,
 
     /// The channel to the [`Connection`](connection::Connection) task.
     connection_tx: PollSender<connection::ConnectionTaskRequest>,
@@ -87,7 +83,7 @@ pub struct Client<Z: NetworkZone> {
 impl<Z: NetworkZone> Client<Z> {
     /// Creates a new [`Client`].
     pub(crate) fn new(
-        info: Arc<PeerInformation<Z::Addr>>,
+        info: PeerInformation<Z::Addr>,
         connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
         connection_handle: JoinHandle<()>,
         error: SharedError<PeerError>,
