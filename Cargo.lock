@@ -649,6 +649,7 @@ version = "0.0.0"
 dependencies = [
  "bytemuck",
  "cfg-if",
+ "monero-serai",
  "paste",
  "serde",
  "thiserror",

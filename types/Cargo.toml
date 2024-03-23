@@ -13,11 +13,12 @@ default = ["dep:bytemuck"]
 service = []
 
 [dependencies]
-bytemuck  = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"], optional = true }
-cfg-if    = { workspace = true }
-paste     = { workspace = true }
-thiserror = { workspace = true, optional = true }
-serde     = { workspace = true, optional = true }
+bytemuck     = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"], optional = true }
+cfg-if       = { workspace = true }
+monero-serai = { workspace = true }
+paste        = { workspace = true }
+thiserror    = { workspace = true }
+serde        = { workspace = true, optional = true }
 
 [dev-dependencies]
 bytemuck = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }

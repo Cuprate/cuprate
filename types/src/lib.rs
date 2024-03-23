@@ -86,6 +86,16 @@
 //
 // Documentation for each module is located in the respective file.
 
+mod extended_block_header;
+pub use extended_block_header::ExtendedBlockHeader;
+
+pub mod hard_fork;
+
 //---------------------------------------------------------------------------------------------------- Feature-gated
+cfg_if::cfg_if! {
+    if #[cfg(feature = "service")] {
+        pub mod service;
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- Private
