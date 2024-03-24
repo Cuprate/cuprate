@@ -49,7 +49,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T::Value> {
+impl<T: Table + 'static> DatabaseRo<'_, T> for RedbTableRo<T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)
@@ -68,7 +68,7 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRo<'tx, T::Key, T:
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
-impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key, T::Value> {
+impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'tx, T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)
@@ -86,9 +86,7 @@ impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'_, 'tx, T::Key
     }
 }
 
-impl<'env, 'tx, T: Table + 'static> DatabaseRw<'env, 'tx, T>
-    for RedbTableRw<'env, 'tx, T::Key, T::Value>
-{
+impl<'tx, T: Table + 'static> DatabaseRw<'_, 'tx, T> for RedbTableRw<'tx, T::Key, T::Value> {
     // `redb` returns the value after `insert()/remove()`
     // we end with Ok(()) instead.
 

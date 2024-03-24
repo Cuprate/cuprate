@@ -9,7 +9,7 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- TxRo
-impl TxRo<'_> for redb::ReadTransaction<'_> {
+impl TxRo<'_> for redb::ReadTransaction {
     /// This function is infallible.
     fn commit(self) -> Result<(), RuntimeError> {
         // `redb`'s read transactions cleanup in their `drop()`, there is no `commit()`.
@@ -19,7 +19,7 @@ impl TxRo<'_> for redb::ReadTransaction<'_> {
 }
 
 //---------------------------------------------------------------------------------------------------- TxRw
-impl TxRw<'_> for redb::WriteTransaction<'_> {
+impl TxRw<'_> for redb::WriteTransaction {
     fn commit(self) -> Result<(), RuntimeError> {
         Ok(self.commit()?)
     }
