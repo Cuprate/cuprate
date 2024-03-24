@@ -39,11 +39,7 @@ impl<T: Containerable + EpeeValue> EpeeValue for ContainerAsBlob<T> {
         }
 
         Ok(ContainerAsBlob(
-            bytes
-                .windows(T::SIZE)
-                .step_by(T::SIZE)
-                .map(T::from_bytes)
-                .collect(),
+            bytes.chunks(T::SIZE).map(T::from_bytes).collect(),
         ))
     }
 

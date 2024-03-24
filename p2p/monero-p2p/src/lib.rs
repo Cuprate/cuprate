@@ -10,6 +10,7 @@ use monero_wire::{
 };
 
 pub mod client;
+mod constants;
 pub mod error;
 pub mod handles;
 pub mod network_zones;
@@ -19,8 +20,6 @@ pub mod services;
 pub use error::*;
 pub use protocol::*;
 use services::*;
-
-const MAX_PEERS_IN_PEER_LIST_MESSAGE: usize = 250;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ConnectionDirection {
@@ -35,9 +34,9 @@ pub trait NetZoneAddress:
     + std::fmt::Display
     + Hash
     + Eq
-    + Clone
     + Copy
     + Send
+    + Sync
     + Unpin
     + 'static
 {
@@ -64,6 +63,7 @@ pub trait NetZoneAddress:
     + Eq
     + Copy
     + Send
+    + Sync
     + Unpin
     + 'static
 {
@@ -100,6 +100,8 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     /// This has privacy implications on an anonymity network if true so should be set
     /// to false.
     const CHECK_NODE_ID: bool;
+    /// Fixed seed nodes for this network.
+    const SEEDS: &'static [Self::Addr];
 
     /// The address type of this network.
     type Addr: NetZoneAddress;
@@ -124,7 +126,31 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     ) -> Result<Self::Listener, std::io::Error>;
 }
 
-pub(crate) trait AddressBook<Z: NetworkZone>:
+pub trait PeerSyncSvc<Z: NetworkZone>:
+    tower::Service<
+        PeerSyncRequest<Z>,
+        Response = PeerSyncResponse<Z>,
+        Error = tower::BoxError,
+        Future = Self::Future2,
+    > + Send
+    + 'static
+{
+    // This allows us to put more restrictive bounds on the future without defining the future here
+    // explicitly.
+    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
+}
+
+impl<T, Z: NetworkZone> PeerSyncSvc<Z> for T
+where
+    T: tower::Service<PeerSyncRequest<Z>, Response = PeerSyncResponse<Z>, Error = tower::BoxError>
+        + Send
+        + 'static,
+    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+{
+    type Future2 = T::Future;
+}
+
+pub trait AddressBook<Z: NetworkZone>:
     tower::Service<
         AddressBookRequest<Z>,
         Response = AddressBookResponse<Z>,
@@ -151,7 +177,7 @@ where
     type Future2 = T::Future;
 }
 
-pub(crate) trait CoreSyncSvc:
+pub trait CoreSyncSvc:
     tower::Service<
         CoreSyncDataRequest,
         Response = CoreSyncDataResponse,

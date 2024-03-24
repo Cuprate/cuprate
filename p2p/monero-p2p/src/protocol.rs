@@ -1,3 +1,4 @@
+use monero_wire::levin::Bucket;
 /// This module defines InternalRequests and InternalResponses. Cuprate's P2P works by translating network messages into an internal
 /// request/ response, this is easy for levin "requests" and "responses" (admin messages) but takes a bit more work with "notifications"
 /// (protocol messages).
@@ -55,13 +56,12 @@ pub enum MessageID {
     NewTransactions,
 }
 
-/// This is a sub-set of [`PeerRequest`] for requests that should be sent to all nodes.
-pub enum PeerBroadcast {
-    Transactions(NewTransactions),
-    NewBlock(NewBlock),
+pub enum BroadcastMessage {
     NewFluffyBlock(NewFluffyBlock),
+    NewTransaction(NewTransactions),
 }
 
+#[derive(Debug, Clone)]
 pub enum PeerRequest {
     Handshake(HandshakeRequest),
     TimedSync(TimedSyncRequest),
@@ -105,6 +105,7 @@ impl PeerRequest {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum PeerResponse {
     Handshake(HandshakeResponse),
     TimedSync(TimedSyncResponse),

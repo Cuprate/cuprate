@@ -308,11 +308,7 @@ impl<const N: usize> EpeeValue for ByteArrayVec<N> {
             return Err(Error::Format("Byte array exceeded max length"));
         }
 
-        if r.remaining()
-            < usize::try_from(len)?
-                .checked_mul(N)
-                .ok_or(Error::Value("Length of field is too long".to_string()))?
-        {
+        if r.remaining() < usize::try_from(len)? {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 

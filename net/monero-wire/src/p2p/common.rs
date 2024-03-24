@@ -15,7 +15,9 @@
 
 //! Common types that are used across multiple messages.
 
+use bitflags::bitflags;
 use bytes::{Buf, BufMut, Bytes};
+
 use epee_encoding::{epee_object, EpeeValue, InnerMarker};
 use fixed_bytes::ByteArray;
 
@@ -23,6 +25,14 @@ use crate::NetworkAddress;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PeerSupportFlags(u32);
+
+bitflags! {
+    impl PeerSupportFlags: u32 {
+        const FLUFFY_BLOCKS = 0b0000_0001;
+        const _ = !0;
+
+    }
+}
 
 impl From<u32> for PeerSupportFlags {
     fn from(value: u32) -> Self {
@@ -42,27 +52,14 @@ impl<'a> From<&'a PeerSupportFlags> for &'a u32 {
     }
 }
 
-impl PeerSupportFlags {
-    //const FLUFFY_BLOCKS: u32 = 0b0000_0001;
-
-    pub fn is_empty(&self) -> bool {
-        self.0 == 0
-    }
-}
-
-impl From<u8> for PeerSupportFlags {
-    fn from(value: u8) -> Self {
-        PeerSupportFlags(value.into())
-    }
-}
-
 /// Basic Node Data, information on the connected peer
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BasicNodeData {
     /// Port
     pub my_port: u32,
     /// The Network Id
-    pub network_id: ByteArray<16>,
+    // We don't use ByteArray here to allow users to keep this data long term.
+    pub network_id: [u8; 16],
     /// Peer ID
     pub peer_id: u64,
     /// The Peers Support Flags
@@ -79,7 +76,7 @@ pub struct BasicNodeData {
 epee_object! {
     BasicNodeData,
     my_port: u32,
-    network_id: ByteArray<16>,
+    network_id: [u8; 16],
     peer_id: u64,
     support_flags: PeerSupportFlags as u32 = 0_u32,
     rpc_port: u16 = 0_u16,
@@ -101,7 +98,8 @@ pub struct CoreSyncData {
     /// (If this is not in the message the default is 0)
     pub pruning_seed: u32,
     /// Hash of the top block
-    pub top_id: ByteArray<32>,
+    // We don't use ByteArray here to allow users to keep this data long term.
+    pub top_id: [u8; 32],
     /// Version of the top block
     pub top_version: u8,
 }
@@ -112,7 +110,7 @@ epee_object! {
     cumulative_difficulty_top64: u64 = 0_u64,
     current_height: u64,
     pruning_seed: u32 = 0_u32,
-    top_id: ByteArray<32>,
+    top_id: [u8; 32],
     top_version: u8 = 0_u8,
 }
 
@@ -131,7 +129,7 @@ impl CoreSyncData {
             cumulative_difficulty_top64,
             current_height,
             pruning_seed,
-            top_id: top_id.into(),
+            top_id,
             top_version,
         }
     }

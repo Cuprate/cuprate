@@ -30,6 +30,8 @@ impl<T> SharedError<T> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum PeerError {
+    #[error("The connection timed out.")]
+    TimedOut,
     #[error("The connection was closed.")]
     ConnectionClosed,
     #[error("The connection tasks client channel was closed")]

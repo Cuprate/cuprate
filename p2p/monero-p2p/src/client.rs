@@ -1,32 +1,43 @@
-use std::fmt::Formatter;
 use std::{
-    fmt::{Debug, Display},
-    task::{Context, Poll},
+    fmt::{Debug, Display, Formatter},
+    sync::Arc,
+    task::{ready, Context, Poll},
 };
 
-use futures::channel::oneshot;
+use futures::{
+    channel::oneshot,
+    lock::{Mutex, OwnedMutexGuard, OwnedMutexLockFuture},
+    FutureExt,
+};
 use tokio::{sync::mpsc, task::JoinHandle};
 use tokio_util::sync::PollSender;
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use monero_wire::{CoreSyncData, LevinCommand};
 
 use crate::{
-    handles::ConnectionHandle, NetworkZone, PeerError, PeerRequest, PeerResponse, SharedError,
+    handles::ConnectionHandle, ConnectionDirection, NetworkZone, PeerError, PeerRequest,
+    PeerResponse, SharedError,
 };
 
 mod connection;
 mod connector;
 pub mod handshaker;
+mod load_tracked;
 
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
+pub use load_tracked::PeakEwmaClient;
+use monero_wire::levin::Bucket;
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u64 if not.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum InternalPeerID<A> {
+    /// A known address
     KnownAddr(A),
+    /// An unknown address (probably an inbound anonymity network connection).
     Unknown(u64),
 }
 
@@ -39,33 +50,53 @@ impl<A: Display> Display for InternalPeerID<A> {
     }
 }
 
-pub struct Client<Z: NetworkZone> {
-    id: InternalPeerID<Z::Addr>,
-    handle: ConnectionHandle,
+/// Information on a connected peer.
+#[derive(Debug, Clone)]
+pub struct PeerInformation<A> {
+    /// The internal peer ID of this peer.
+    pub id: InternalPeerID<A>,
+    /// The [`ConnectionHandle`] for this peer, allows banning this peer and checking if it is still
+    /// alive.
+    pub handle: ConnectionHandle,
+    /// The direction of this connection (inbound|outbound).
+    pub direction: ConnectionDirection,
+}
 
+/// This represents a connection to a peer.
+///
+/// It allows sending requests to the peer, but does only does minimal checks that the data returned
+/// is the data asked for, i.e. for a certain request the only thing checked will be that the response
+/// is the correct response for that request, not that the response contains the correct data.
+pub struct Client<Z: NetworkZone> {
+    /// Information on the connected peer.
+    pub info: PeerInformation<Z::Addr>,
+
+    /// The channel to the [`Connection`](connection::Connection) task.
     connection_tx: PollSender<connection::ConnectionTaskRequest>,
+    /// The [`JoinHandle`] of the spawned connection task.
     connection_handle: JoinHandle<()>,
 
+    /// The error slot shared between the [`Client`] and [`Connection`](connection::Connection).
     error: SharedError<PeerError>,
 }
 
 impl<Z: NetworkZone> Client<Z> {
-    pub fn new(
-        id: InternalPeerID<Z::Addr>,
-        handle: ConnectionHandle,
+    /// Creates a new [`Client`].
+    pub(crate) fn new(
+        info: PeerInformation<Z::Addr>,
         connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
         connection_handle: JoinHandle<()>,
         error: SharedError<PeerError>,
     ) -> Self {
         Self {
-            id,
-            handle,
+            info,
             connection_tx: PollSender::new(connection_tx),
             connection_handle,
             error,
         }
     }
 
+    /// Internal function to set an error on the [`SharedError`].
     fn set_err(&self, err: PeerError) -> tower::BoxError {
         let err_str = err.to_string();
         match self.error.try_insert_err(err) {
