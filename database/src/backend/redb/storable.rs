@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Use
 use std::{any::Any, borrow::Cow, cmp::Ordering, fmt::Debug, marker::PhantomData};
 
-use redb::{RedbKey, RedbValue, TypeName};
+use redb::TypeName;
 
 use crate::{key::Key, storable::Storable};
 
@@ -17,9 +17,9 @@ pub(super) struct StorableRedb<T>(PhantomData<T>)
 where
     T: Storable;
 
-//---------------------------------------------------------------------------------------------------- RedbKey
-// If `Key` is also implemented, this can act as a `RedbKey`.
-impl<T> RedbKey for StorableRedb<T>
+//---------------------------------------------------------------------------------------------------- redb::Key
+// If `Key` is also implemented, this can act as a `redb::Key`.
+impl<T> redb::Key for StorableRedb<T>
 where
     T: Key + 'static,
 {
@@ -29,8 +29,8 @@ where
     }
 }
 
-//---------------------------------------------------------------------------------------------------- RedbValue
-impl<T> RedbValue for StorableRedb<T>
+//---------------------------------------------------------------------------------------------------- redb::Value
+impl<T> redb::Value for StorableRedb<T>
 where
     T: Storable + 'static,
 {
@@ -77,7 +77,7 @@ mod test {
     // - make sure the right function is being called
 
     #[test]
-    /// Assert `RedbKey::compare` works for `StorableRedb`.
+    /// Assert `redb::Key::compare` works for `StorableRedb`.
     fn compare() {
         fn test<T>(left: T, right: T, expected: Ordering)
         where
@@ -85,9 +85,9 @@ mod test {
         {
             println!("left: {left:?}, right: {right:?}, expected: {expected:?}");
             assert_eq!(
-                <StorableRedb::<T> as RedbKey>::compare(
-                    <StorableRedb::<T> as RedbValue>::as_bytes(&left),
-                    <StorableRedb::<T> as RedbValue>::as_bytes(&right)
+                <StorableRedb::<T> as redb::Key>::compare(
+                    <StorableRedb::<T> as redb::Value>::as_bytes(&left),
+                    <StorableRedb::<T> as redb::Value>::as_bytes(&right)
                 ),
                 expected
             );
@@ -100,13 +100,13 @@ mod test {
     }
 
     #[test]
-    /// Assert `RedbKey::fixed_width` is accurate.
+    /// Assert `redb::Key::fixed_width` is accurate.
     fn fixed_width() {
         fn test<T>(expected: Option<usize>)
         where
             T: Storable + 'static,
         {
-            assert_eq!(<StorableRedb::<T> as RedbValue>::fixed_width(), expected);
+            assert_eq!(<StorableRedb::<T> as redb::Value>::fixed_width(), expected);
         }
 
         test::<()>(Some(0));
@@ -127,14 +127,14 @@ mod test {
     }
 
     #[test]
-    /// Assert `RedbKey::as_bytes` is accurate.
+    /// Assert `redb::Key::as_bytes` is accurate.
     fn as_bytes() {
         fn test<T>(t: &T, expected: &[u8])
         where
             T: Storable + 'static,
         {
             println!("t: {t:?}, expected: {expected:?}");
-            assert_eq!(<StorableRedb::<T> as RedbValue>::as_bytes(t), expected);
+            assert_eq!(<StorableRedb::<T> as redb::Value>::as_bytes(t), expected);
         }
 
         test::<()>(&(), &[]);
@@ -155,7 +155,7 @@ mod test {
     }
 
     #[test]
-    /// Assert `RedbKey::from_bytes` is accurate.
+    /// Assert `redb::Key::from_bytes` is accurate.
     fn from_bytes() {
         fn test<T>(bytes: &[u8], expected: &T)
         where
@@ -163,7 +163,7 @@ mod test {
         {
             println!("bytes: {bytes:?}, expected: {expected:?}");
             assert_eq!(
-                &<StorableRedb::<T> as RedbValue>::from_bytes(bytes),
+                &<StorableRedb::<T> as redb::Value>::from_bytes(bytes),
                 expected
             );
         }
@@ -186,27 +186,27 @@ mod test {
     }
 
     #[test]
-    /// Assert `RedbKey::type_name` returns unique names.
+    /// Assert `redb::Key::type_name` returns unique names.
     /// The name itself isn't tested, the invariant is that
     /// they are all unique.
     fn type_name() {
         // Can't use a proper set because `redb::TypeName: !Ord`.
         let set = [
-            <StorableRedb<()> as RedbValue>::type_name(),
-            <StorableRedb<u8> as RedbValue>::type_name(),
-            <StorableRedb<u16> as RedbValue>::type_name(),
-            <StorableRedb<u32> as RedbValue>::type_name(),
-            <StorableRedb<u64> as RedbValue>::type_name(),
-            <StorableRedb<i8> as RedbValue>::type_name(),
-            <StorableRedb<i16> as RedbValue>::type_name(),
-            <StorableRedb<i32> as RedbValue>::type_name(),
-            <StorableRedb<i64> as RedbValue>::type_name(),
-            <StorableRedb<StorableVec<u8>> as RedbValue>::type_name(),
-            <StorableRedb<StorableBytes> as RedbValue>::type_name(),
-            <StorableRedb<[u8; 0]> as RedbValue>::type_name(),
-            <StorableRedb<[u8; 1]> as RedbValue>::type_name(),
-            <StorableRedb<[u8; 2]> as RedbValue>::type_name(),
-            <StorableRedb<[u8; 3]> as RedbValue>::type_name(),
+            <StorableRedb<()> as redb::Value>::type_name(),
+            <StorableRedb<u8> as redb::Value>::type_name(),
+            <StorableRedb<u16> as redb::Value>::type_name(),
+            <StorableRedb<u32> as redb::Value>::type_name(),
+            <StorableRedb<u64> as redb::Value>::type_name(),
+            <StorableRedb<i8> as redb::Value>::type_name(),
+            <StorableRedb<i16> as redb::Value>::type_name(),
+            <StorableRedb<i32> as redb::Value>::type_name(),
+            <StorableRedb<i64> as redb::Value>::type_name(),
+            <StorableRedb<StorableVec<u8>> as redb::Value>::type_name(),
+            <StorableRedb<StorableBytes> as redb::Value>::type_name(),
+            <StorableRedb<[u8; 0]> as redb::Value>::type_name(),
+            <StorableRedb<[u8; 1]> as redb::Value>::type_name(),
+            <StorableRedb<[u8; 2]> as redb::Value>::type_name(),
+            <StorableRedb<[u8; 3]> as redb::Value>::type_name(),
         ];
 
         // Check every permutation is unique.
