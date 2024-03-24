@@ -11,7 +11,7 @@
 #![allow(dead_code)]
 
 mod block_downloader;
-mod broadcast;
+pub mod broadcast;
 pub mod config;
 pub mod connection_maintainer;
 mod constants;

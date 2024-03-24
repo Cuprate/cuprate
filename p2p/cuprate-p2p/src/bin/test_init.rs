@@ -69,6 +69,8 @@ impl Service<PeerRequest> for DummyPeerRequestHandlerSvc {
 }
 
 use cuprate_helper::network::Network;
+use cuprate_p2p::broadcast;
+use cuprate_p2p::broadcast::BroadcastConfig;
 use cuprate_p2p::config::P2PConfig;
 use futures::FutureExt;
 use monero_p2p::client::{Client, Connector, HandShaker};
@@ -98,6 +100,10 @@ async fn main() {
 
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::from_level(Level::DEBUG))
+        //  .pretty()
+        .with_line_number(false)
+        .with_file(false)
+        .with_target(false)
         .finish()
         .init();
 
@@ -114,7 +120,7 @@ async fn main() {
         max_white_list_length: 1000,
         max_gray_list_length: 50000,
         peer_store_file: PathBuf::new().join("p2p_store"),
-        peer_save_period: Duration::from_secs(600000),
+        peer_save_period: Duration::from_secs(60),
     };
 
     let cfg = P2PConfig {
@@ -130,12 +136,15 @@ async fn main() {
         .await
         .unwrap();
 
+    let (_broadcast_svc, outbound_broadcast_stream_maker, _) =
+        broadcast::init_broadcast_channels::<ClearNet>(&BroadcastConfig::default());
+
     let handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
         addr_book_svc.clone(),
         DummyPeerSyncSvc,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
+        outbound_broadcast_stream_maker,
         our_basic_node_data,
     );
 

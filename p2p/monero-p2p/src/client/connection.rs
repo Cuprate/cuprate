@@ -91,7 +91,7 @@ pub struct Connection<Z: NetworkZone, ReqHndlr, BrdcstStrm> {
 
     /// The client channel where requests from Cuprate to this peer will come from for us to route.
     client_rx: Fuse<ReceiverStream<ConnectionTaskRequest>>,
-    broadcast_stream: BrdcstStrm,
+    broadcast_stream: Pin<Box<BrdcstStrm>>,
 
     /// The inner handler for any requests that come from the requested peer.
     peer_request_handler: ReqHndlr,
@@ -105,7 +105,7 @@ pub struct Connection<Z: NetworkZone, ReqHndlr, BrdcstStrm> {
 impl<Z: NetworkZone, ReqHndlr, BrdcstStrm> Connection<Z, ReqHndlr, BrdcstStrm>
 where
     ReqHndlr: PeerRequestHandler,
-    BrdcstStrm: Stream<Item = BroadcastMessage> + Unpin + Send + 'static,
+    BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
 {
     /// Create a new connection struct.
     pub fn new(
@@ -121,7 +121,7 @@ where
             state: State::WaitingForRequest,
             request_timeout: None,
             client_rx: ReceiverStream::new(client_rx).fuse(),
-            broadcast_stream,
+            broadcast_stream: Box::pin(broadcast_stream),
             peer_request_handler,
             connection_guard,
             error,
@@ -297,6 +297,13 @@ where
             _ = self.request_timeout.as_mut().unwrap() => {
                 // TODO: Is disconnecting over the top?
                 Err(PeerError::ClientChannelClosed)
+            }
+            broadcast_req = self.broadcast_stream.next() => {
+                if let Some(broadcast_req) = broadcast_req {
+                    self.handle_client_broadcast(broadcast_req).await
+                } else {
+                    Err(PeerError::ClientChannelClosed)
+                }
             }
             peer_message = stream.next() => {
                 if let Some(peer_message) = peer_message {

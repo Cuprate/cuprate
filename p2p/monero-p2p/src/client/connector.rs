@@ -51,7 +51,7 @@ where
     CSync: CoreSyncSvc + Clone,
     PSync: PeerSyncSvc<Z> + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
-    BrdcstStrm: Stream<Item = BroadcastMessage> + Unpin + Send + 'static,
+    BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
     type Response = Client<Z>;

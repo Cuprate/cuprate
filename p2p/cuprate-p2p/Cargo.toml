@@ -14,12 +14,14 @@ cuprate-helper = { path = "../../helper" }
 tower = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true }
+tokio-stream = { workspace = true, features = ["sync"] }
 futures = { workspace = true, features = ["std"] }
 pin-project = { workspace = true }
 
 bytes = { workspace = true, features = ["std"] }
 indexmap = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["std", "std_rng"] }
+rand_distr = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 
