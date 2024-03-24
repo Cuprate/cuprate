@@ -86,7 +86,7 @@ impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
     }
 }
 
-impl<'tx, T: Table + 'static> DatabaseRw<'_, 'tx, T> for RedbTableRw<'tx, T::Key, T::Value> {
+impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     // `redb` returns the value after `insert()/remove()`
     // we end with Ok(()) instead.
 

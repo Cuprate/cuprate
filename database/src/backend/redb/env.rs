@@ -190,10 +190,10 @@ where
     }
 
     #[inline]
-    fn open_db_rw<'tx, T: Table>(
+    fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &'tx mut redb::WriteTransaction,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
+        tx_rw: &mut redb::WriteTransaction,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
