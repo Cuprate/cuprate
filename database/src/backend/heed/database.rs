@@ -114,7 +114,7 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     }
 }
 
-impl<'env, 'tx, T: Table> DatabaseRw<'env, 'tx, T> for HeedTableRw<'env, 'tx, T> {
+impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         Ok(self.db.put(self.tx_rw, key, value)?)
