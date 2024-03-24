@@ -3,19 +3,33 @@
 //! TODO: could add `strum` derives.
 
 //---------------------------------------------------------------------------------------------------- Import
-
-//---------------------------------------------------------------------------------------------------- Constants
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Range,
+};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// A read request to the database.
 pub enum ReadRequest {
     /// TODO
-    Example1,
+    BlockExtendedHeader(u64),
     /// TODO
-    Example2(usize),
+    BlockHash(u64),
     /// TODO
-    Example3(String),
+    BlockExtendedHeaderInRange(Range<u64>),
+    /// TODO
+    ChainHeight,
+    /// TODO
+    GeneratedCoins,
+    /// TODO
+    Outputs(HashMap<u64, HashSet<u64>>),
+    /// TODO
+    NumberOutputsWithAmount(Vec<u64>),
+    /// TODO
+    CheckKIsNotSpent(HashSet<[u8; 32]>),
+    /// TODO
+    BlockBatchInRange(Range<u64>),
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -23,11 +37,7 @@ pub enum ReadRequest {
 /// A write request to the database.
 pub enum WriteRequest {
     /// TODO
-    Example1,
-    /// TODO
-    Example2(usize),
-    /// TODO
-    Example3(String),
+    WriteBlock(VerifiedBlockInformation),
 }
 
 //---------------------------------------------------------------------------------------------------- Response
@@ -36,19 +46,35 @@ pub enum WriteRequest {
 ///
 /// TODO
 pub enum Response {
-    //-------------------------------------------------------- Read responses
+    //------------------------------------------------------ Reads
     /// TODO
-    Example1,
+    BlockExtendedHeader(ExtendedBlockHeader),
     /// TODO
-    Example2(usize),
+    BlockHash([u8; 32]),
     /// TODO
-    Example3(String),
+    BlockExtendedHeaderInRange(Vec<ExtendedBlockHeader>),
+    /// TODO
+    ChainHeight(u64, [u8; 32]),
+    /// TODO
+    GeneratedCoins(u64),
+    /// TODO
+    Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
+    /// TODO
+    NumberOutputsWithAmount(HashMap<u64, usize>),
+    /// TODO
+    /// returns true if key images are spent
+    CheckKIsNotSpent(bool),
+    /// TODO
+    BlockBatchInRange(
+        Vec<(
+            monero_serai::block::Block,
+            Vec<monero_serai::transaction::Transaction>,
+        )>,
+    ),
 
-    //-------------------------------------------------------- Write responses
-    /// The response
-    ///
+    //------------------------------------------------------ Writes
     /// TODO
-    ExampleWriteResponse, // Probably will be just `Ok`
+    WriteBlockOk,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -9,7 +9,7 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
 keywords    = ["cuprate", "types"]
 
 [features]
-default = ["dep:bytemuck"]
+default = ["service", "bytemuck", "serde"]
 service = []
 
 [dependencies]
@@ -21,4 +21,6 @@ thiserror    = { workspace = true }
 serde        = { workspace = true, optional = true }
 
 [dev-dependencies]
-bytemuck = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bytemuck   = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+serde      = { workspace = true }
+serde_json = { workspace = true }
