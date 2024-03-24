@@ -126,7 +126,7 @@ pub fn init_broadcast_channels<N: NetworkZone>(
 
 /// A request to broadcast some data to all connected peers or a sub-set like all inbound or all outbound.
 ///
-/// Only certain P2P messages are supported here: [`NewFluffyBlock`](monero_wire::protocol::NewFluffyBlock) and [`NewTransactions`](monero_wire::protocol::NewTransactions). These are the only
+/// Only certain P2P messages are supported here: [`NewFluffyBlock`] and [`NewTransactions`]. These are the only
 /// P2P messages that make sense to broadcast to multiple peers.
 ///
 /// [`NewBlock`](monero_wire::protocol::NewBlock) has been excluded as monerod has had fluffy blocks for a while and
