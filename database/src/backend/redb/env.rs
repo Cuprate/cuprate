@@ -177,10 +177,10 @@ where
     }
 
     #[inline]
-    fn open_db_ro<'tx, T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &'tx redb::ReadTransaction,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        tx_ro: &redb::ReadTransaction,
+    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
         // Open up a read-only database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);

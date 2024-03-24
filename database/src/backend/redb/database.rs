@@ -49,7 +49,7 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-impl<T: Table + 'static> DatabaseRo<'_, T> for RedbTableRo<T::Key, T::Value> {
+impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)
@@ -68,7 +68,7 @@ impl<T: Table + 'static> DatabaseRo<'_, T> for RedbTableRo<T::Key, T::Value> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
-impl<'tx, T: Table + 'static> DatabaseRo<'tx, T> for RedbTableRw<'tx, T::Key, T::Value> {
+impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)
