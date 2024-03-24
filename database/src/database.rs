@@ -51,7 +51,7 @@ pub trait DatabaseRo<T: Table> {
 /// Database (key-value store) read/write abstraction.
 ///
 /// All [`DatabaseRo`] functions are also callable by [`DatabaseRw`].
-pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<T> {
+pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// Insert a key-value pair into the database.
     ///
     /// This will overwrite any existing key-value pairs.
