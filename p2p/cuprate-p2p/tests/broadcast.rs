@@ -93,7 +93,7 @@ async fn broadcasts_in_specific_direction() {
                 direction: Some(ConnectionDirection::OutBound),
             },
         ]));
-        while let Some(_) = fut.next().await {}
+        while fut.next().await.is_some() {}
 
         let BroadcastMessage::NewTransaction(txs) = pin!(outbound_stream).next().await.unwrap()
         else {

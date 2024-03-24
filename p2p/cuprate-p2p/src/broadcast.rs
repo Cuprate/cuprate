@@ -303,13 +303,13 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
             // If there are more txs to broadcast then set the next flush for now so we get woken up straight away.
             Instant::now()
         } else {
-            next_diffusion_flush(&this.diffusion_flush_dist)
+            next_diffusion_flush(this.diffusion_flush_dist)
         };
 
         let next_flush = sleep_until(next_flush);
         this.next_flush.set(next_flush);
 
-        return if let Some(txs) = txs {
+        if let Some(txs) = txs {
             // no need to poll next_flush as we are ready now.
             Poll::Ready(Some(BroadcastMessage::NewTransaction(txs)))
         } else {
@@ -317,7 +317,7 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
             // the waker will already be registered with the block broadcast channel.
             let _ = this.next_flush.poll(cx);
             Poll::Pending
-        };
+        }
     }
 }
 
@@ -349,7 +349,7 @@ fn get_txs_to_broadcast<N: NetworkZone>(
     loop {
         match broadcast_rx.try_recv() {
             Ok(txs) => {
-                if txs.cancel.is_cancelled() || txs.skip_peers.lock().unwrap().contains(&addr) {
+                if txs.cancel.is_cancelled() || txs.skip_peers.lock().unwrap().contains(addr) {
                     continue;
                 }
 
