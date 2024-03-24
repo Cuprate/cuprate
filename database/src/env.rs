@@ -199,10 +199,7 @@ where
     /// As [`Table`] is `Sealed`, and all tables are created
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
-    fn open_db_ro<'tx, T: Table>(
-        &self,
-        tx_ro: &'tx Ro,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
+    fn open_db_ro<T: Table>(&self, tx_ro: &Ro) -> Result<impl DatabaseRo<T>, RuntimeError>;
 
     /// Open a database in read/write mode.
     ///
