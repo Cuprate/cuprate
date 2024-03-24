@@ -278,10 +278,10 @@ where
     }
 
     #[inline]
-    fn open_db_ro<'tx, T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &'tx heed::RoTxn<'env>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        tx_ro: &heed::RoTxn<'env>,
+    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         Ok(HeedTableRo {
             db: self
@@ -292,10 +292,10 @@ where
     }
 
     #[inline]
-    fn open_db_rw<'tx, T: Table>(
+    fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &'tx mut heed::RwTxn<'env>,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
+        tx_rw: &mut heed::RwTxn<'env>,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
         Ok(HeedTableRw {
             db: self

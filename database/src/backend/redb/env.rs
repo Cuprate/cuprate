@@ -48,8 +48,8 @@ impl Env for ConcreteEnv {
     const MANUAL_RESIZE: bool = false;
     const SYNCS_PER_TX: bool = false;
     type EnvInner<'env> = (&'env redb::Database, redb::Durability);
-    type TxRo<'tx> = redb::ReadTransaction<'tx>;
-    type TxRw<'tx> = redb::WriteTransaction<'tx>;
+    type TxRo<'tx> = redb::ReadTransaction;
+    type TxRw<'tx> = redb::WriteTransaction;
 
     #[cold]
     #[inline(never)] // called once.
@@ -88,7 +88,7 @@ impl Env for ConcreteEnv {
         // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
 
         /// Function that creates the tables based off the passed `T: Table`.
-        fn create_table<T: Table>(tx_rw: &redb::WriteTransaction<'_>) -> Result<(), InitError> {
+        fn create_table<T: Table>(tx_rw: &redb::WriteTransaction) -> Result<(), InitError> {
             println!("create_table(): {}", T::NAME); // TODO: use tracing.
 
             let table: redb::TableDefinition<
@@ -155,18 +155,18 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, redb::ReadTransaction<'env>, redb::WriteTransaction<'env>>
+impl<'env> EnvInner<'env, redb::ReadTransaction, redb::WriteTransaction>
     for (&'env redb::Database, redb::Durability)
 where
     Self: 'env,
 {
     #[inline]
-    fn tx_ro(&'env self) -> Result<redb::ReadTransaction<'env>, RuntimeError> {
+    fn tx_ro(&'env self) -> Result<redb::ReadTransaction, RuntimeError> {
         Ok(self.0.begin_read()?)
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<redb::WriteTransaction<'env>, RuntimeError> {
+    fn tx_rw(&'env self) -> Result<redb::WriteTransaction, RuntimeError> {
         // `redb` has sync modes on the TX level, unlike heed,
         // which sets it at the Environment level.
         //
@@ -177,10 +177,10 @@ where
     }
 
     #[inline]
-    fn open_db_ro<'tx, T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &'tx redb::ReadTransaction<'env>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        tx_ro: &redb::ReadTransaction,
+    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
         // Open up a read-only database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
@@ -190,10 +190,10 @@ where
     }
 
     #[inline]
-    fn open_db_rw<'tx, T: Table>(
+    fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &'tx mut redb::WriteTransaction<'env>,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
+        tx_rw: &mut redb::WriteTransaction,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);

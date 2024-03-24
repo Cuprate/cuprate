@@ -18,7 +18,7 @@ use crate::{
 ///
 /// This is a read-only database table,
 /// write operations are defined in [`DatabaseRw`].
-pub trait DatabaseRo<'tx, T: Table> {
+pub trait DatabaseRo<T: Table> {
     /// Get the value corresponding to a key.
     ///
     /// The returned value is _owned_.
@@ -51,7 +51,7 @@ pub trait DatabaseRo<'tx, T: Table> {
 /// Database (key-value store) read/write abstraction.
 ///
 /// All [`DatabaseRo`] functions are also callable by [`DatabaseRw`].
-pub trait DatabaseRw<'env, 'tx, T: Table>: DatabaseRo<'tx, T> {
+pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// Insert a key-value pair into the database.
     ///
     /// This will overwrite any existing key-value pairs.
