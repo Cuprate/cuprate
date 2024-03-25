@@ -8,9 +8,20 @@ use std::{
     ops::Range,
 };
 
+use monero_serai::{block::Block, transaction::Transaction};
+
+#[cfg(feature = "borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
+
 //---------------------------------------------------------------------------------------------------- ReadRequest
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// A read request to the database.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum ReadRequest {
     /// TODO
     BlockExtendedHeader(u64),
@@ -33,18 +44,20 @@ pub enum ReadRequest {
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// A write request to the database.
+#[derive(Debug, Clone, PartialEq, Eq)]
+// #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum WriteRequest {
     /// TODO
     WriteBlock(VerifiedBlockInformation),
 }
 
 //---------------------------------------------------------------------------------------------------- Response
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// A response from the database.
 ///
 /// TODO
+#[derive(Debug, Clone, PartialEq, Eq)]
+// #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum Response {
     //------------------------------------------------------ Reads
     /// TODO
@@ -65,12 +78,7 @@ pub enum Response {
     /// returns true if key images are spent
     CheckKIsNotSpent(bool),
     /// TODO
-    BlockBatchInRange(
-        Vec<(
-            monero_serai::block::Block,
-            Vec<monero_serai::transaction::Transaction>,
-        )>,
-    ),
+    BlockBatchInRange(Vec<(Block, Vec<Transaction>)>),
 
     //------------------------------------------------------ Writes
     /// TODO
