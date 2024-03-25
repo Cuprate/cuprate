@@ -53,7 +53,7 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
 // call the functions since the database is held by value, so
 // just use these generic functions that both can call instead.
 
-/// Shared generic `get()` between `HeedTableR{o,w}`.
+/// Shared [`DatabaseRo::get()`].
 #[inline]
 fn get<T: Table>(
     db: &HeedDb<T::Key, T::Value>,
@@ -63,7 +63,7 @@ fn get<T: Table>(
     db.get(tx_ro, key)?.ok_or(RuntimeError::KeyNotFound)
 }
 
-/// Shared generic `get_range()` between `HeedTableR{o,w}`.
+/// Shared [`DatabaseRo::get_range()`].
 #[inline]
 fn get_range<'a, T: Table, Range>(
     db: &'a HeedDb<T::Key, T::Value>,
@@ -74,6 +74,53 @@ where
     Range: RangeBounds<T::Key> + 'a,
 {
     Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
+}
+
+/// Shared [`DatabaseRo::iter()`].
+#[inline]
+#[allow(clippy::unnecessary_wraps)]
+fn iter<'a, T: Table>(
+    db: &'a HeedDb<T::Key, T::Value>,
+    tx_ro: &'a heed::RoTxn<'_>,
+) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError> {
+    let iter: std::vec::Drain<'_, Result<T::Value, RuntimeError>> = todo!();
+    Ok(iter)
+}
+
+/// Shared [`DatabaseRo::len()`].
+#[inline]
+fn len<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
+    tx_ro: &heed::RoTxn<'_>,
+) -> Result<u64, RuntimeError> {
+    todo!()
+}
+
+/// Shared [`DatabaseRo::first()`].
+#[inline]
+fn first<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
+    tx_ro: &heed::RoTxn<'_>,
+) -> Result<T::Value, RuntimeError> {
+    todo!()
+}
+
+/// Shared [`DatabaseRo::last()`].
+#[inline]
+fn last<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
+    tx_ro: &heed::RoTxn<'_>,
+) -> Result<T::Value, RuntimeError> {
+    todo!()
+}
+
+/// Shared [`DatabaseRo::is_empty()`].
+#[inline]
+fn is_empty<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
+    tx_ro: &heed::RoTxn<'_>,
+) -> Result<bool, RuntimeError> {
+    todo!()
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
