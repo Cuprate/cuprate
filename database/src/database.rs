@@ -29,7 +29,14 @@ pub trait DatabaseRo<T: Table> {
     /// It will return other [`RuntimeError`]'s on things like IO errors as well.
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError>;
 
-    /// Get an iterator of values corresponding to a range of keys.
+    /// Get an iterator of `(key, value)`s corresponding to a range of keys.
+    ///
+    /// For example:
+    /// ```rust,ignore
+    /// // This will return all 100 tuples of `(key, value)` where
+    /// // `key` is `0..100` and `value` is the corresponding value.
+    /// self.get_range(0..100);
+    /// ```
     ///
     /// Although the returned iterator itself is tied to the lifetime
     /// of `&'a self`, the returned values from the iterator are _owned_.
@@ -39,10 +46,11 @@ pub trait DatabaseRo<T: Table> {
     /// if a particular key in the `range` does not exist,
     /// [`RuntimeError::KeyNotFound`] wrapped in [`Err`] will be returned
     /// from the iterator.
+    #[allow(clippy::iter_not_returning_iterator)]
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a;
 
@@ -50,7 +58,7 @@ pub trait DatabaseRo<T: Table> {
     ///
     /// # Errors
     /// TODO
-    #[allow(clippy::iter_not_returning_iterator)] // this returns `impl Iterator` in a `Result`
+    #[allow(clippy::iter_not_returning_iterator)]
     fn iter(
         &self,
     ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>;

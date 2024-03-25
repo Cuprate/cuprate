@@ -209,7 +209,7 @@ fn db_read_write() {
         let range = table.get_range(..).unwrap();
         let mut i = 0;
         for result in range {
-            let value: Output = result.unwrap();
+            let (key, value): (PreRctOutputId, Output) = result.unwrap();
             assert_same(value);
 
             i += 1;
@@ -228,7 +228,7 @@ fn db_read_write() {
     // Assert each returned value from the iterator is owned.
     {
         let mut iter = table.get_range(range.clone()).unwrap();
-        let value: Output = iter.next().unwrap().unwrap(); // 1. take value out
+        let (key, value): (PreRctOutputId, Output) = iter.next().unwrap().unwrap(); // 1. take value out
         drop(iter); // 2. drop the `impl Iterator + 'a`
         assert_same(value); // 3. assert even without the iterator, the value is alive
     }
@@ -237,7 +237,7 @@ fn db_read_write() {
     {
         let mut iter = table.get_range(range).unwrap();
         for _ in 0..100 {
-            let value: Output = iter.next().unwrap().unwrap();
+            let (key, value): (PreRctOutputId, Output) = iter.next().unwrap().unwrap();
             assert_same(value);
         }
     }
@@ -298,7 +298,7 @@ macro_rules! test_tables {
                 let range = KEY..;
                 assert_eq!(1, table.get_range(range.clone()).unwrap().count());
                 let mut iter = table.get_range(range).unwrap();
-                let value = iter.next().unwrap().unwrap();
+                let (_key, value) = iter.next().unwrap().unwrap();
                 assert_eq(&value);
             }
 

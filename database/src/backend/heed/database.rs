@@ -69,11 +69,11 @@ fn get_range<'a, T: Table, Range>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
     range: Range,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
+) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError>
 where
     Range: RangeBounds<T::Key> + 'a,
 {
-    Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
+    Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?)))
 }
 
 /// Shared [`DatabaseRo::iter()`].
@@ -133,7 +133,7 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a,
     {
@@ -182,7 +182,7 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a,
     {
