@@ -651,11 +651,8 @@ dependencies = [
  "cfg-if",
  "curve25519-dalek",
  "monero-serai",
- "paste",
  "serde",
- "serde_json",
  "strum",
- "thiserror",
 ]
 
 [[package]]
