@@ -647,8 +647,10 @@ dependencies = [
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
+ "borsh",
  "bytemuck",
  "cfg-if",
+ "curve25519-dalek",
  "monero-serai",
  "paste",
  "serde",
