@@ -47,19 +47,35 @@ pub trait DatabaseRo<T: Table> {
         Range: RangeBounds<T::Key> + 'a;
 
     /// TODO
-    fn iter<'a>(
-        &'a self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>;
+    ///
+    /// # Errors
+    /// TODO
+    #[allow(clippy::iter_not_returning_iterator)] // this returns `impl Iterator` in a `Result`
+    fn iter(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError>;
 
+    /// TODO
+    ///
+    /// # Errors
     /// TODO
     fn len(&self) -> Result<u64, RuntimeError>;
 
     /// TODO
+    ///
+    /// # Errors
+    /// TODO
     fn first(&self) -> Result<T::Value, RuntimeError>;
 
     /// TODO
+    ///
+    /// # Errors
+    /// TODO
     fn last(&self) -> Result<T::Value, RuntimeError>;
 
+    /// TODO
+    ///
+    /// # Errors
     /// TODO
     fn is_empty(&self) -> Result<bool, RuntimeError>;
 }
@@ -84,8 +100,14 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
 
     /// TODO
+    ///
+    /// # Errors
+    /// TODO
     fn clear(&mut self) -> Result<(), RuntimeError>;
 
+    /// TODO
+    ///
+    /// # Errors
     /// TODO
     fn retain<P>(&mut self) -> Result<(), RuntimeError>
     where
