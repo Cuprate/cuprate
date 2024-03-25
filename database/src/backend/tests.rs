@@ -299,11 +299,7 @@ fn db_read_write() {
 ///
 /// Each one of these tests:
 /// - Opens a specific table
-/// - Inserts a key + value
-/// - Retrieves the key + value
-/// - Asserts it is the same
-/// - Tests `get_range()`
-/// - Tests `delete()`
+/// - Essentially does the `db_read_write` test
 macro_rules! test_tables {
     ($(
         $table:ident,    // Table type
@@ -339,6 +335,8 @@ macro_rules! test_tables {
                 assert_eq(&value);
             }
 
+            assert_eq!(table.len().unwrap(), 1);
+
             // Assert `get_range()` works.
             {
                 let range = KEY..;
@@ -349,9 +347,32 @@ macro_rules! test_tables {
             }
 
             // Assert deleting works.
-            table.delete(&KEY).unwrap();
-            let value = table.get(&KEY);
-            assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+            {
+                table.delete(&KEY).unwrap();
+                let value = table.get(&KEY);
+                assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+                assert_eq!(table.len().unwrap(), 0);
+            }
+
+            table.put(&KEY, &value).unwrap();
+
+            // Assert `retain()` works.
+            // This retains the key we put in
+            // (it does nothing).
+            {
+                table.retain(|k, v| k == KEY).unwrap();
+                assert_eq!(table.len().unwrap(), 1);
+                let value = table.get(&KEY).unwrap();
+                assert_eq(&value);
+            }
+
+            // Assert `clear()` works.
+            {
+                table.clear().unwrap();
+                let value = table.get(&KEY);
+                assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+                assert_eq!(table.len().unwrap(), 0);
+            }
         }
     )*}};
 }
