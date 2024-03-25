@@ -86,8 +86,10 @@
 //
 // Documentation for each module is located in the respective file.
 
-mod extended_block_header;
-pub use extended_block_header::ExtendedBlockHeader;
+mod types;
+pub use types::{
+    ExtendedBlockHeader, OutputOnChain, TransactionVerificationData, VerifiedBlockInformation,
+};
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 cfg_if::cfg_if! {
