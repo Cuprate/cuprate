@@ -73,13 +73,13 @@ pub trait DatabaseRo<T: Table> {
     ///
     /// # Errors
     /// TODO
-    fn first(&self) -> Result<T::Value, RuntimeError>;
+    fn first(&self) -> Result<(T::Key, T::Value), RuntimeError>;
 
     /// TODO
     ///
     /// # Errors
     /// TODO
-    fn last(&self) -> Result<T::Value, RuntimeError>;
+    fn last(&self) -> Result<(T::Key, T::Value), RuntimeError>;
 
     /// TODO
     ///

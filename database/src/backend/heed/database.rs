@@ -42,7 +42,7 @@ pub(super) struct HeedTableRo<'tx, T: Table> {
 ///
 /// Matches `redb::Table` (read & write).
 pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
-    /// TODO
+    /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
     pub(super) tx_rw: &'tx mut heed::RwTxn<'env>,
@@ -92,7 +92,7 @@ fn len<T: Table>(
     db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
 ) -> Result<u64, RuntimeError> {
-    todo!()
+    Ok(db.len(tx_ro)?)
 }
 
 /// Shared [`DatabaseRo::first()`].
@@ -100,7 +100,7 @@ fn len<T: Table>(
 fn first<T: Table>(
     db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
-) -> Result<T::Value, RuntimeError> {
+) -> Result<(T::Key, T::Value), RuntimeError> {
     todo!()
 }
 
@@ -109,7 +109,7 @@ fn first<T: Table>(
 fn last<T: Table>(
     db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
-) -> Result<T::Value, RuntimeError> {
+) -> Result<(T::Key, T::Value), RuntimeError> {
     todo!()
 }
 
@@ -156,12 +156,12 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     }
 
     #[inline]
-    fn first(&self) -> Result<T::Value, RuntimeError> {
+    fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn last(&self) -> Result<T::Value, RuntimeError> {
+    fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
         todo!()
     }
 
@@ -205,12 +205,12 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     }
 
     #[inline]
-    fn first(&self) -> Result<T::Value, RuntimeError> {
+    fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
         todo!()
     }
 
     #[inline]
-    fn last(&self) -> Result<T::Value, RuntimeError> {
+    fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
         todo!()
     }
 
