@@ -53,7 +53,7 @@ pub trait DatabaseRo<T: Table> {
     #[allow(clippy::iter_not_returning_iterator)] // this returns `impl Iterator` in a `Result`
     fn iter(
         &self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError>;
+    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>;
 
     /// TODO
     ///

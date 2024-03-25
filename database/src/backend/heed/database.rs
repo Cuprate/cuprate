@@ -82,9 +82,8 @@ where
 fn iter<'a, T: Table>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError> {
-    let iter: std::vec::Drain<'_, Result<T::Value, RuntimeError>> = todo!();
-    Ok(iter)
+) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError> {
+    Ok(db.iter(tx_ro)?.map(|res| Ok(res?)))
 }
 
 /// Shared [`DatabaseRo::len()`].
@@ -144,8 +143,10 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     #[inline]
     fn iter(
         &self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        let iter: std::vec::Drain<'_, Result<T::Value, RuntimeError>> = todo!();
+    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
+    {
+        #[allow(clippy::type_complexity)]
+        let iter: std::vec::Drain<'_, Result<(T::Key, T::Value), RuntimeError>> = todo!();
         Ok(iter)
     }
 
@@ -191,8 +192,10 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn iter(
         &self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        let iter: std::vec::Drain<'_, Result<T::Value, RuntimeError>> = todo!();
+    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
+    {
+        #[allow(clippy::type_complexity)]
+        let iter: std::vec::Drain<'_, Result<(T::Key, T::Value), RuntimeError>> = todo!();
         Ok(iter)
     }
 
