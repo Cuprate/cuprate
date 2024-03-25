@@ -9,7 +9,7 @@ use monero_serai::transaction::{Input, Timelock};
 use crate::{transactions::TransactionError, HardFork, TxVersion};
 
 /// An already approved previous transaction output.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct OutputOnChain {
     pub height: u64,
     pub time_lock: Timelock,
@@ -67,10 +67,10 @@ pub fn insert_ring_member_ids(
 /// Get the ring members for the inputs from the outputs on the chain.
 ///
 /// Will error if `outputs` does not contain the outputs needed.
-pub fn get_ring_members_for_inputs<'a>(
-    get_outputs: impl Fn(u64, u64) -> Option<&'a OutputOnChain>,
+pub fn get_ring_members_for_inputs(
+    get_outputs: impl Fn(u64, u64) -> Option<OutputOnChain>,
     inputs: &[Input],
-) -> Result<Vec<Vec<&'a OutputOnChain>>, TransactionError> {
+) -> Result<Vec<Vec<OutputOnChain>>, TransactionError> {
     inputs
         .iter()
         .map(|inp| match inp {
@@ -105,7 +105,7 @@ pub enum Rings {
 impl Rings {
     /// Builds the rings for the transaction inputs, from the given outputs.
     fn new(
-        outputs: Vec<Vec<&OutputOnChain>>,
+        outputs: Vec<Vec<OutputOnChain>>,
         tx_version: TxVersion,
     ) -> Result<Rings, TransactionError> {
         Ok(match tx_version {
@@ -157,7 +157,7 @@ impl TxRingMembersInfo {
     ///
     /// The used outs must be all the ring members used in the transactions inputs.
     pub fn new(
-        used_outs: Vec<Vec<&OutputOnChain>>,
+        used_outs: Vec<Vec<OutputOnChain>>,
         decoy_info: Option<DecoyInfo>,
         tx_version: TxVersion,
         hf: HardFork,
@@ -229,7 +229,7 @@ impl DecoyInfo {
     ///
     pub fn new(
         inputs: &[Input],
-        outputs_with_amount: &HashMap<u64, usize>,
+        outputs_with_amount: impl Fn(u64) -> usize,
         hf: &HardFork,
     ) -> Result<DecoyInfo, TransactionError> {
         let mut min_decoys = usize::MAX;
@@ -247,9 +247,7 @@ impl DecoyInfo {
                     ..
                 } => {
                     if let Some(amount) = amount {
-                        let outs_with_amt = *outputs_with_amount
-                            .get(amount)
-                            .expect("outputs_with_amount does not include needed amount.");
+                        let outs_with_amt = outputs_with_amount(*amount);
 
                         // <https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#mixable-and-unmixable-inputs>
                         if outs_with_amt <= minimum_decoys {

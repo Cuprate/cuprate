@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use proptest::prelude::*;
 use tokio::runtime::Builder;
 
-use monero_consensus::{
+use cuprate_consensus_rules::{
     blocks::{is_randomx_seed_height, randomx_seed_height},
     HardFork,
 };

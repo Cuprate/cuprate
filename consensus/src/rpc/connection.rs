@@ -405,7 +405,7 @@ impl RpcConnection {
             }
             DatabaseRequest::NumberOutputsWithAmount(_)
             | DatabaseRequest::GeneratedCoins
-            | DatabaseRequest::CheckKIsNotSpent(_) => {
+            | DatabaseRequest::KeyImagesSpent(_) => {
                 panic!("Request does not need RPC connection!")
             }
         }

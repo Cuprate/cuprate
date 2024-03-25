@@ -5,7 +5,7 @@ use tower::ServiceExt;
 use crate::{
     context::{
         initialize_blockchain_context, BlockChainContextRequest, BlockChainContextResponse,
-        ContextConfig, UpdateBlockchainCacheData,
+        ContextConfig, NewBlockData,
     },
     tests::mock_db::*,
     HardFork,
@@ -52,18 +52,16 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
     assert!(context.is_still_valid());
 
     ctx_svc
-        .oneshot(BlockChainContextRequest::Update(
-            UpdateBlockchainCacheData {
-                new_top_hash: [0; 32],
-                height: BLOCKCHAIN_HEIGHT,
-                timestamp: 0,
-                weight: 0,
-                long_term_weight: 0,
-                generated_coins: 0,
-                vote: HardFork::V1,
-                cumulative_difficulty: 0,
-            },
-        ))
+        .oneshot(BlockChainContextRequest::Update(NewBlockData {
+            block_hash: [0; 32],
+            height: BLOCKCHAIN_HEIGHT,
+            timestamp: 0,
+            weight: 0,
+            long_term_weight: 0,
+            generated_coins: 0,
+            vote: HardFork::V1,
+            cumulative_difficulty: 0,
+        }))
         .await?;
 
     assert!(!context.is_still_valid());

@@ -1,4 +1,4 @@
-use monero_consensus::HardFork;
+use cuprate_consensus_rules::HardFork;
 
 pub static HFS_2688888_2689608: [(HardFork, HardFork); 720] =
     include!("./data/hfs_2688888_2689608");

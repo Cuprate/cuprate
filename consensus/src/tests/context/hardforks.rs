@@ -1,5 +1,4 @@
-use monero_consensus::hard_forks::{HFInfo, HardFork, NUMB_OF_HARD_FORKS};
-use monero_consensus::HFsInfo;
+use cuprate_consensus_rules::hard_forks::{HFInfo, HFsInfo, HardFork, NUMB_OF_HARD_FORKS};
 
 use crate::{
     context::{hardforks::HardForkState, HardForkConfig},

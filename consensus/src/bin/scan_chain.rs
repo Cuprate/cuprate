@@ -13,8 +13,7 @@ mod bin {
 
     use cuprate_consensus::{
         context::{
-            BlockChainContextRequest, BlockChainContextResponse, ContextConfig,
-            UpdateBlockchainCacheData,
+            BlockChainContextRequest, BlockChainContextResponse, ContextConfig, NewBlockData,
         },
         initialize_blockchain_context, initialize_verifier,
         rpc::{cache::ScanningCache, init_rpc_load_balancer, RpcConfig},
@@ -58,18 +57,16 @@ mod bin {
         context_updater
             .ready()
             .await?
-            .call(BlockChainContextRequest::Update(
-                UpdateBlockchainCacheData {
-                    new_top_hash: verified_block_info.block_hash,
-                    height: verified_block_info.height,
-                    timestamp: verified_block_info.block.header.timestamp,
-                    weight: verified_block_info.weight,
-                    long_term_weight: verified_block_info.long_term_weight,
-                    vote: verified_block_info.hf_vote,
-                    generated_coins: verified_block_info.generated_coins,
-                    cumulative_difficulty: verified_block_info.cumulative_difficulty,
-                },
-            ))
+            .call(BlockChainContextRequest::Update(NewBlockData {
+                block_hash: verified_block_info.block_hash,
+                height: verified_block_info.height,
+                timestamp: verified_block_info.block.header.timestamp,
+                weight: verified_block_info.weight,
+                long_term_weight: verified_block_info.long_term_weight,
+                vote: verified_block_info.hf_vote,
+                generated_coins: verified_block_info.generated_coins,
+                cumulative_difficulty: verified_block_info.cumulative_difficulty,
+            }))
             .await?;
 
         Ok(())
@@ -160,7 +157,7 @@ mod bin {
         );
 
         while let Some(incoming_blocks) = incoming_blocks.next().await {
-            let VerifyBlockResponse::MainChainBatchPrep(blocks, txs) = block_verifier
+            let VerifyBlockResponse::MainChainBatchPrep(blocks, txs, out_cache) = block_verifier
                 .ready()
                 .await?
                 .call(VerifyBlockRequest::MainChainBatchPrep(incoming_blocks))
@@ -174,7 +171,11 @@ mod bin {
                 let VerifyBlockResponse::MainChain(verified_block_info) = block_verifier
                     .ready()
                     .await?
-                    .call(VerifyBlockRequest::MainChainPrepared(block, txs))
+                    .call(VerifyBlockRequest::MainChainPrepared(
+                        block,
+                        txs,
+                        out_cache.clone(),
+                    ))
                     .await?
                 else {
                     panic!()
@@ -339,7 +340,7 @@ mod bin {
             Err(_) => {
                 tracing::warn!("Couldn't load from cache starting from scratch");
                 let mut cache = ScanningCache::default();
-                let genesis = monero_consensus::genesis::generate_genesis_block(&network);
+                let genesis = cuprate_consensus_rules::genesis::generate_genesis_block(&network);
 
                 let total_outs = genesis
                     .miner_tx
