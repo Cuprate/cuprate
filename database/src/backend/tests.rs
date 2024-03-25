@@ -13,7 +13,11 @@
 //!
 //! `redb`, and it only must be enabled for it to be tested.
 
-#![allow(clippy::items_after_statements, clippy::significant_drop_tightening)]
+#![allow(
+    clippy::items_after_statements,
+    clippy::significant_drop_tightening,
+    clippy::cast_possible_truncation
+)]
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::borrow::{Borrow, Cow};
@@ -180,6 +184,8 @@ fn db_read_write() {
         output_flags: 0,
         tx_idx: 2_353_487,
     };
+    /// How many `(key, value)` pairs will be inserted.
+    const N: u64 = 100;
 
     /// Assert 2 `Output`'s are equal, and that accessing
     /// their fields don't result in an unaligned panic.
@@ -191,17 +197,27 @@ fn db_read_write() {
         assert_eq!(output.tx_idx, VALUE.tx_idx);
     }
 
-    // Insert `0..100` keys.
+    assert!(table.is_empty().unwrap());
+
+    // Insert keys.
     let mut key = KEY;
-    for i in 0..100 {
+    for i in 0..N {
         table.put(&key, &VALUE).unwrap();
         key.amount += 1;
     }
 
-    // Assert the 1st key is there.
+    assert_eq!(table.len().unwrap(), N);
+
+    // Assert the first/last `(key, value)`s are there.
     {
-        let value: Output = table.get(&KEY).unwrap();
-        assert_same(value);
+        let get: Output = table.get(&KEY).unwrap();
+        assert_same(get);
+
+        let first: Output = table.first().unwrap().1;
+        assert_same(first);
+
+        let last: Output = table.last().unwrap().1;
+        assert_same(last);
     }
 
     // Assert the whole range is there.
@@ -214,16 +230,16 @@ fn db_read_write() {
 
             i += 1;
         }
-        assert_eq!(i, 100);
+        assert_eq!(i, N);
     }
 
     // `get_range()` tests.
     let mut key = KEY;
-    key.amount += 100;
+    key.amount += N;
     let range = KEY..key;
 
     // Assert count is correct.
-    assert_eq!(100, table.get_range(range.clone()).unwrap().count());
+    assert_eq!(N as usize, table.get_range(range.clone()).unwrap().count());
 
     // Assert each returned value from the iterator is owned.
     {
@@ -236,16 +252,46 @@ fn db_read_write() {
     // Assert each value is the same.
     {
         let mut iter = table.get_range(range).unwrap();
-        for _ in 0..100 {
+        for _ in 0..N {
             let (key, value): (PreRctOutputId, Output) = iter.next().unwrap().unwrap();
             assert_same(value);
         }
     }
 
     // Assert deleting works.
-    table.delete(&KEY).unwrap();
-    let value = table.get(&KEY);
-    assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+    {
+        table.delete(&KEY).unwrap();
+        let value = table.get(&KEY);
+        assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+        // Assert the other `(key, value)` pairs are still there.
+        let mut key = KEY;
+        key.amount += N - 1; // we used inclusive `0..N`
+        let value = table.get(&key).unwrap();
+        assert_same(value);
+    }
+
+    // Assert `retain()` works.
+    // This should leave only the last `(key, value)` pair.
+    {
+        let mut key = KEY;
+        key.amount += N - 1; // we used inclusive `0..N`
+        table.retain(|k, v| k == key).unwrap();
+        assert_eq!(table.len().unwrap(), 1);
+        let value = table.get(&key).unwrap();
+        assert_same(value);
+    }
+
+    // Assert `clear()` works.
+    {
+        table.clear().unwrap();
+        assert!(table.is_empty().unwrap());
+        for n in 0..N {
+            let mut key = KEY;
+            key.amount += n;
+            let value = table.get(&key);
+            assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Table Tests
