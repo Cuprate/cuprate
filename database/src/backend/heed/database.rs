@@ -93,6 +93,34 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     {
         get_range::<T, Range>(&self.db, self.tx_ro, range)
     }
+
+    #[inline]
+    fn iter(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
+        let iter: std::vec::Drain<'_, Result<T::Value, RuntimeError>> = todo!();
+        Ok(iter)
+    }
+
+    #[inline]
+    fn len(&self) -> Result<u64, RuntimeError> {
+        todo!()
+    }
+
+    #[inline]
+    fn first(&self) -> Result<T::Value, RuntimeError> {
+        todo!()
+    }
+
+    #[inline]
+    fn last(&self) -> Result<T::Value, RuntimeError> {
+        todo!()
+    }
+
+    #[inline]
+    fn is_empty(&self) -> Result<bool, RuntimeError> {
+        todo!()
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
@@ -112,6 +140,34 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     {
         get_range::<T, Range>(&self.db, self.tx_rw, range)
     }
+
+    #[inline]
+    fn iter(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
+        let iter: std::vec::Drain<'_, Result<T::Value, RuntimeError>> = todo!();
+        Ok(iter)
+    }
+
+    #[inline]
+    fn len(&self) -> Result<u64, RuntimeError> {
+        todo!()
+    }
+
+    #[inline]
+    fn first(&self) -> Result<T::Value, RuntimeError> {
+        todo!()
+    }
+
+    #[inline]
+    fn last(&self) -> Result<T::Value, RuntimeError> {
+        todo!()
+    }
+
+    #[inline]
+    fn is_empty(&self) -> Result<bool, RuntimeError> {
+        todo!()
+    }
 }
 
 impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
@@ -124,6 +180,19 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
         self.db.delete(self.tx_rw, key)?;
         Ok(())
+    }
+
+    #[inline]
+    fn clear(&mut self) -> Result<(), RuntimeError> {
+        todo!()
+    }
+
+    #[inline]
+    fn retain<P>(&mut self) -> Result<(), RuntimeError>
+    where
+        P: FnMut(T::Key, T::Value) -> bool,
+    {
+        todo!()
     }
 }
 
