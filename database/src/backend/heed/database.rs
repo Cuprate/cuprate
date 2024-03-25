@@ -101,7 +101,7 @@ fn first<T: Table>(
     db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
 ) -> Result<(T::Key, T::Value), RuntimeError> {
-    todo!()
+    db.first(tx_ro)?.ok_or(RuntimeError::KeyNotFound)
 }
 
 /// Shared [`DatabaseRo::last()`].
@@ -110,7 +110,7 @@ fn last<T: Table>(
     db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
 ) -> Result<(T::Key, T::Value), RuntimeError> {
-    todo!()
+    db.last(tx_ro)?.ok_or(RuntimeError::KeyNotFound)
 }
 
 /// Shared [`DatabaseRo::is_empty()`].
@@ -119,7 +119,7 @@ fn is_empty<T: Table>(
     db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
 ) -> Result<bool, RuntimeError> {
-    todo!()
+    Ok(db.is_empty(tx_ro)?)
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
@@ -145,29 +145,27 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
         &self,
     ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
     {
-        #[allow(clippy::type_complexity)]
-        let iter: std::vec::Drain<'_, Result<(T::Key, T::Value), RuntimeError>> = todo!();
-        Ok(iter)
+        iter::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
-        todo!()
+        len::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        todo!()
+        first::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        todo!()
+        last::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn is_empty(&self) -> Result<bool, RuntimeError> {
-        todo!()
+        is_empty::<T>(&self.db, self.tx_ro)
     }
 }
 
@@ -194,29 +192,27 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
         &self,
     ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
     {
-        #[allow(clippy::type_complexity)]
-        let iter: std::vec::Drain<'_, Result<(T::Key, T::Value), RuntimeError>> = todo!();
-        Ok(iter)
+        iter::<T>(&self.db, self.tx_rw)
     }
 
     #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
-        todo!()
+        len::<T>(&self.db, self.tx_rw)
     }
 
     #[inline]
     fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        todo!()
+        first::<T>(&self.db, self.tx_rw)
     }
 
     #[inline]
     fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        todo!()
+        last::<T>(&self.db, self.tx_rw)
     }
 
     #[inline]
     fn is_empty(&self) -> Result<bool, RuntimeError> {
-        todo!()
+        is_empty::<T>(&self.db, self.tx_rw)
     }
 }
 
@@ -234,15 +230,36 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
 
     #[inline]
     fn clear(&mut self) -> Result<(), RuntimeError> {
-        todo!()
+        Ok(self.db.clear(self.tx_rw)?)
     }
 
     #[inline]
-    fn retain<P>(&mut self) -> Result<(), RuntimeError>
+    fn retain<P>(&mut self, mut predicate: P) -> Result<(), RuntimeError>
     where
         P: FnMut(T::Key, T::Value) -> bool,
     {
-        todo!()
+        let mut iter = self.db.iter_mut(self.tx_rw)?;
+
+        loop {
+            let Some(result) = iter.next() else {
+                return Ok(());
+            };
+
+            let (key, value) = result?;
+
+            if predicate(key, value) {
+                // SAFETY:
+                // It is undefined behavior to keep a reference of
+                // a value from this database while modifying it.
+                // We are deleting the value and never accessing
+                // it again so this should be safe.
+                unsafe {
+                    iter.del_current()?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 

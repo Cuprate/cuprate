@@ -117,7 +117,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     ///
     /// # Errors
     /// TODO
-    fn retain<P>(&mut self) -> Result<(), RuntimeError>
+    fn retain<P>(&mut self, predicate: P) -> Result<(), RuntimeError>
     where
         P: FnMut(T::Key, T::Value) -> bool;
 }
