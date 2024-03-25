@@ -240,6 +240,7 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     {
         let mut iter = self.db.iter_mut(self.tx_rw)?;
 
+        // FIXME: is this optimal?
         loop {
             let Some(result) = iter.next() else {
                 return Ok(());
@@ -254,6 +255,7 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
                 // We are deleting the value and never accessing
                 // it again so this should be safe.
                 unsafe {
+                    // TODO: is this actually safe?
                     iter.del_current()?;
                 }
             }
