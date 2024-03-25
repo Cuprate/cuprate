@@ -17,3 +17,5 @@ The top-level `src/` files.
 
 | File                | Purpose |
 |---------------------|---------|
+| `service.rs`        | Types used in database requests; `enum {Request,Response}`
+| `types.rs`          | Various general types used by Cuprate

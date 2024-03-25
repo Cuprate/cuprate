@@ -3,7 +3,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
-use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
 use curve25519_dalek::edwards::EdwardsPoint;
 use monero_serai::{
     block::Block,
@@ -17,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 //---------------------------------------------------------------------------------------------------- ExtendedBlockHeader
 /// TODO
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub struct ExtendedBlockHeader {
