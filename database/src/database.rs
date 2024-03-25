@@ -45,6 +45,23 @@ pub trait DatabaseRo<T: Table> {
     ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a;
+
+    /// TODO
+    fn iter<'a>(
+        &'a self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>;
+
+    /// TODO
+    fn len(&self) -> Result<u64, RuntimeError>;
+
+    /// TODO
+    fn first(&self) -> Result<T::Value, RuntimeError>;
+
+    /// TODO
+    fn last(&self) -> Result<T::Value, RuntimeError>;
+
+    /// TODO
+    fn is_empty(&self) -> Result<bool, RuntimeError>;
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
@@ -65,4 +82,12 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// # Errors
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
+
+    /// TODO
+    fn clear(&mut self) -> Result<(), RuntimeError>;
+
+    /// TODO
+    fn retain<P>(&mut self) -> Result<(), RuntimeError>
+    where
+        P: FnMut(T::Key, T::Value) -> bool;
 }
