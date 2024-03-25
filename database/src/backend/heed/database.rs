@@ -248,7 +248,7 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
 
             let (key, value) = result?;
 
-            if predicate(key, value) {
+            if !predicate(key, value) {
                 // SAFETY:
                 // It is undefined behavior to keep a reference of
                 // a value from this database while modifying it.

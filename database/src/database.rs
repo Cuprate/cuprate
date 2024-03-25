@@ -115,6 +115,9 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
 
     /// TODO
     ///
+    /// - `true == keep`
+    /// - `false == remove`
+    ///
     /// # Errors
     /// TODO
     fn retain<P>(&mut self, predicate: P) -> Result<(), RuntimeError>
