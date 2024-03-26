@@ -72,16 +72,22 @@ impl Env for ConcreteEnv {
         // TODO: we can set cache sizes with:
         // env_builder.set_cache(bytes);
 
-        // Create the database directory if it doesn't exist.
-        std::fs::create_dir_all(config.db_directory())?;
+        // Use the in-memory backend if the feature is enabled.
+        let mut env = if cfg!(feature = "redb-memory") {
+            env_builder.create_with_backend(redb::backends::InMemoryBackend::new())?
+        } else {
+            // Create the database directory if it doesn't exist.
+            std::fs::create_dir_all(config.db_directory())?;
 
-        // Open the database file, create if needed.
-        let db_file = std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .open(config.db_file())?;
-        let mut env = env_builder.create_file(db_file)?;
+            // Open the database file, create if needed.
+            let db_file = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(config.db_file())?;
+
+            env_builder.create_file(db_file)?
+        };
 
         // Create all database tables.
         // `redb` creates tables if they don't exist.
