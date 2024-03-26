@@ -210,6 +210,7 @@ fn db_read_write() {
 
     // Assert the first/last `(key, value)`s are there.
     {
+        assert!(table.contains(&KEY).unwrap());
         let get: Output = table.get(&KEY).unwrap();
         assert_same(get);
 
@@ -262,6 +263,7 @@ fn db_read_write() {
     {
         table.delete(&KEY).unwrap();
         let value = table.get(&KEY);
+        assert!(!table.contains(&KEY).unwrap());
         assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
         // Assert the other `(key, value)` pairs are still there.
         let mut key = KEY;
@@ -290,6 +292,7 @@ fn db_read_write() {
             key.amount += n;
             let value = table.get(&key);
             assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+            assert!(!table.contains(&key).unwrap());
         }
     }
 }
@@ -335,6 +338,7 @@ macro_rules! test_tables {
                 assert_eq(&value);
             }
 
+            assert!(table.contains(&KEY).unwrap());
             assert_eq!(table.len().unwrap(), 1);
 
             // Assert `get_range()` works.
@@ -351,6 +355,7 @@ macro_rules! test_tables {
                 table.delete(&KEY).unwrap();
                 let value = table.get(&KEY);
                 assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+                assert!(!table.contains(&KEY).unwrap());
                 assert_eq!(table.len().unwrap(), 0);
             }
 
@@ -371,6 +376,7 @@ macro_rules! test_tables {
                 table.clear().unwrap();
                 let value = table.get(&KEY);
                 assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
+                assert!(!table.contains(&KEY).unwrap());
                 assert_eq!(table.len().unwrap(), 0);
             }
         }
