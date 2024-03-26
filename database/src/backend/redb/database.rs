@@ -50,7 +50,6 @@ where
 
 /// Shared [`DatabaseRo::iter()`].
 #[inline]
-#[allow(clippy::unnecessary_wraps)]
 fn iter<T: Table>(
     db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
 ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError> {
@@ -62,7 +61,6 @@ fn iter<T: Table>(
 
 /// Shared [`DatabaseRo::iter()`].
 #[inline]
-#[allow(clippy::unnecessary_wraps)]
 fn keys<T: Table>(
     db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
 ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
@@ -74,7 +72,6 @@ fn keys<T: Table>(
 
 /// Shared [`DatabaseRo::values()`].
 #[inline]
-#[allow(clippy::unnecessary_wraps)]
 fn values<T: Table>(
     db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
 ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {

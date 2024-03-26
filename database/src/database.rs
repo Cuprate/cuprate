@@ -67,7 +67,6 @@ pub trait DatabaseRo<T: Table> {
     ///
     /// # Errors
     /// TODO
-    #[allow(clippy::iter_not_returning_iterator)]
     fn keys(&self)
         -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError>;
 
@@ -75,10 +74,21 @@ pub trait DatabaseRo<T: Table> {
     ///
     /// # Errors
     /// TODO
-    #[allow(clippy::iter_not_returning_iterator)]
     fn values(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn contains(&self, key: &T::Key) -> Result<bool, RuntimeError> {
+        match self.get(key) {
+            Ok(_) => Ok(true),
+            Err(RuntimeError::KeyNotFound) => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
 
     /// TODO
     ///

@@ -78,7 +78,6 @@ where
 
 /// Shared [`DatabaseRo::iter()`].
 #[inline]
-#[allow(clippy::unnecessary_wraps)]
 fn iter<'a, T: Table>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
@@ -88,7 +87,6 @@ fn iter<'a, T: Table>(
 
 /// Shared [`DatabaseRo::keys()`].
 #[inline]
-#[allow(clippy::unnecessary_wraps)]
 fn keys<'a, T: Table>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
@@ -98,7 +96,6 @@ fn keys<'a, T: Table>(
 
 /// Shared [`DatabaseRo::values()`].
 #[inline]
-#[allow(clippy::unnecessary_wraps)]
 fn values<'a, T: Table>(
     db: &'a HeedDb<T::Key, T::Value>,
     tx_ro: &'a heed::RoTxn<'_>,
