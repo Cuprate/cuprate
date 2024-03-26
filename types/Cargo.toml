@@ -10,7 +10,7 @@ keywords    = ["cuprate", "types"]
 
 [features]
 default = ["service"]
-service = ["dep:strum"]
+service = []
 
 [dependencies]
 borsh            = { workspace = true, optional = true }
@@ -18,6 +18,5 @@ cfg-if           = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
 serde            = { workspace = true, optional = true }
-strum            = { workspace = true, features = ["derive"], optional = true }
 
 [dev-dependencies]

@@ -7,7 +7,6 @@ use std::{
 };
 
 use monero_serai::{block::Block, transaction::Transaction};
-use strum::{Display, EnumCount, EnumIs, EnumIter, EnumString, IntoStaticStr, VariantNames};
 
 #[cfg(feature = "borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -18,19 +17,7 @@ use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation}
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the database.
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Display,
-    EnumCount,
-    EnumIs,
-    EnumIter,
-    EnumString,
-    IntoStaticStr,
-    VariantNames,
-)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum ReadRequest {
@@ -56,7 +43,7 @@ pub enum ReadRequest {
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
 /// A write request to the database.
-#[derive(Debug, Clone, PartialEq, Eq, Display, EnumCount, EnumIs, IntoStaticStr, VariantNames)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 // #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum WriteRequest {
     /// TODO
@@ -65,19 +52,7 @@ pub enum WriteRequest {
 
 //---------------------------------------------------------------------------------------------------- Response
 /// A response from the database.
-#[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Display,
-    EnumCount,
-    EnumIs,
-    EnumIter,
-    EnumString,
-    IntoStaticStr,
-    VariantNames,
-)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 // #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub enum Response {
     //------------------------------------------------------ Reads
