@@ -60,6 +60,30 @@ fn iter<T: Table>(
     }))
 }
 
+/// Shared [`DatabaseRo::iter()`].
+#[inline]
+#[allow(clippy::unnecessary_wraps)]
+fn keys<T: Table>(
+    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
+    Ok(db.iter()?.map(|result| {
+        let (key, _value) = result?;
+        Ok(key.value())
+    }))
+}
+
+/// Shared [`DatabaseRo::values()`].
+#[inline]
+#[allow(clippy::unnecessary_wraps)]
+fn values<T: Table>(
+    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
+    Ok(db.iter()?.map(|result| {
+        let (_key, value) = result?;
+        Ok(value.value())
+    }))
+}
+
 /// Shared [`DatabaseRo::len()`].
 #[inline]
 fn len<T: Table>(
@@ -121,6 +145,20 @@ impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
     }
 
     #[inline]
+    fn keys(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
+        keys::<T>(self)
+    }
+
+    #[inline]
+    fn values(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
+        values::<T>(self)
+    }
+
+    #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
         len::<T>(self)
     }
@@ -168,6 +206,20 @@ impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
     }
 
     #[inline]
+    fn keys(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
+        keys::<T>(self)
+    }
+
+    #[inline]
+    fn values(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
+        values::<T>(self)
+    }
+
+    #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
         len::<T>(self)
     }
@@ -212,7 +264,7 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
         // this functionality in `redb::WriteTransaction::delete_table`.
 
         // Pop the last `(key, value)` until there are none.
-        while self.pop_last()?.is_some() {}
+        while redb::Table::pop_last(self)?.is_some() {}
 
         Ok(())
     }
@@ -224,6 +276,18 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     {
         redb::Table::retain(self, predicate)?;
         Ok(())
+    }
+
+    #[inline]
+    fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
+        let (key, value) = redb::Table::pop_first(self)?.ok_or(RuntimeError::KeyNotFound)?;
+        Ok((key.value(), value.value()))
+    }
+
+    #[inline]
+    fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
+        let (key, value) = redb::Table::pop_last(self)?.ok_or(RuntimeError::KeyNotFound)?;
+        Ok((key.value(), value.value()))
     }
 }
 
