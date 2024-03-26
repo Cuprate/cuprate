@@ -75,6 +75,28 @@ where
     C: Service<ConnectRequest<N>, Response = Client<N>, Error = HandshakeError>,
     C::Future: Send + 'static,
 {
+    pub fn new(
+        config: &P2PConfig,
+        new_connection_tx: mpsc::Sender<Client<N>>,
+        make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
+        address_book_svc: A,
+        connector_svc: C,
+    ) -> Self {
+        let peer_type_gen = Bernoulli::new(config.gray_peers_percent)
+            .expect("Gray peer percent is incorrect should be 0..=1");
+
+        Self {
+            new_connection_tx,
+            make_connection_rx,
+            address_book_svc,
+            connector_svc,
+            outbound_semaphore: Arc::new(Semaphore::new(config.outbound_connections)),
+            extra_peers: 0,
+            config: config.clone(),
+            peer_type_gen,
+        }
+    }
+
     /// Connects to random seeds to get peers and immediately disconnects
     #[instrument(level = "info", skip(self))]
     async fn connect_to_random_seeds(&mut self) -> Result<(), OutboundConnectorError> {

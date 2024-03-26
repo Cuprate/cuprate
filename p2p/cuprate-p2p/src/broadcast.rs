@@ -37,6 +37,7 @@ use crate::constants::{
     SOFT_TX_MESSAGE_SIZE_SIZE_LIMIT,
 };
 
+#[derive(Debug, Clone)]
 pub struct BroadcastConfig {
     pub diffusion_flush_average_seconds_outbound: f32,
     pub diffusion_flush_average_seconds_inbound: f32,
@@ -295,7 +296,6 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
         }
 
         ready!(this.next_flush.as_mut().poll(cx));
-        tracing::debug!("Diffusion flush timer expired checking for txs to diffuse.");
 
         let (txs, more_available) = get_txs_to_broadcast::<N>(this.addr, this.tx_broadcast_channel);
 
@@ -310,9 +310,14 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
         this.next_flush.set(next_flush);
 
         if let Some(txs) = txs {
+            tracing::debug!(
+                "Diffusion flush timer expired, diffusing {} txs",
+                txs.txs.len()
+            );
             // no need to poll next_flush as we are ready now.
             Poll::Ready(Some(BroadcastMessage::NewTransaction(txs)))
         } else {
+            tracing::trace!("Diffusion flush timer expired but no txs to diffuse");
             // poll next_flush now to register the waker with it
             // the waker will already be registered with the block broadcast channel.
             let _ = this.next_flush.poll(cx);

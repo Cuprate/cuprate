@@ -10,7 +10,7 @@ pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 
 pub(crate) const PEER_FIND_TIMEOUT: Duration = Duration::from_secs(30);
 
-pub(crate) const OUTBOUND_CONNECTION_TIMEOUT: Duration = Duration::from_secs(15);
+pub(crate) const OUTBOUND_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The duration of a short ban (1 hour).
 pub(crate) const SHORT_BAN: Duration = Duration::from_secs(60 * 60);

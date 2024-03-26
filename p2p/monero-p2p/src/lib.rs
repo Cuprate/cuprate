@@ -209,7 +209,7 @@ impl<T> CoreSyncSvc for T where
 {
 }
 
-pub(crate) trait PeerRequestHandler:
+pub trait PeerRequestHandler:
     tower::Service<
         PeerRequest,
         Response = PeerResponse,

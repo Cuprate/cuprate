@@ -69,9 +69,9 @@ impl Service<PeerRequest> for DummyPeerRequestHandlerSvc {
 }
 
 use cuprate_helper::network::Network;
-use cuprate_p2p::broadcast;
 use cuprate_p2p::broadcast::BroadcastConfig;
 use cuprate_p2p::config::P2PConfig;
+use cuprate_p2p::{broadcast, init_network};
 use futures::FutureExt;
 use monero_p2p::client::{Client, Connector, HandShaker};
 use monero_p2p::network_zones::ClearNet;
@@ -85,10 +85,9 @@ use rand::distributions::Bernoulli;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
-use tokio::sync::{mpsc, Semaphore};
+use tokio::time::sleep;
 use tower::Service;
 use tracing::metadata::LevelFilter;
 use tracing::Level;
@@ -96,8 +95,6 @@ use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() {
-    let semaphore = Arc::new(Semaphore::new(100));
-
     tracing_subscriber::fmt()
         .with_max_level(LevelFilter::from_level(Level::DEBUG))
         //  .pretty()
@@ -107,15 +104,6 @@ async fn main() {
         .finish()
         .init();
 
-    let our_basic_node_data = BasicNodeData {
-        my_port: 0,
-        network_id: Network::Mainnet.network_id(),
-        peer_id: 87980,
-        support_flags: PeerSupportFlags::from(1_u32),
-        rpc_port: 0,
-        rpc_credits_per_hash: 0,
-    };
-
     let address_book_cfg = monero_address_book::AddressBookConfig {
         max_white_list_length: 1000,
         max_gray_list_length: 50000,
@@ -124,45 +112,26 @@ async fn main() {
     };
 
     let cfg = P2PConfig {
+        p2p_port: 0,
+        rpc_port: 0,
+        network: Default::default(),
         outbound_connections: 100,
         max_outbound_connections: 150,
         anchor_connections: 10,
         gray_peers_percent: 0.7,
         max_inbound_connections: 125,
         address_book_config: address_book_cfg.clone(),
+        broadcast_config: Default::default(),
     };
 
-    let addr_book_svc = monero_address_book::init_address_book::<ClearNet>(address_book_cfg)
-        .await
-        .unwrap();
+    let network =
+        init_network::<ClearNet, _, _>(&cfg, DummyCoreSyncSvc, DummyPeerRequestHandlerSvc)
+            .await
+            .unwrap();
 
-    let (_broadcast_svc, outbound_broadcast_stream_maker, _) =
-        broadcast::init_broadcast_channels::<ClearNet>(&BroadcastConfig::default());
+    loop {
+        sleep(Duration::from_secs(60)).await;
 
-    let handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
-        addr_book_svc.clone(),
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        outbound_broadcast_stream_maker,
-        our_basic_node_data,
-    );
-
-    let connector = Connector::new(handshaker);
-
-    let (tx, _rx) = mpsc::channel::<Client<ClearNet>>(10);
-    let (_tx2, rx2) = mpsc::channel(10);
-
-    let conn = cuprate_p2p::connection_maintainer::OutboundConnectionKeeper {
-        new_connection_tx: tx,
-        make_connection_rx: rx2,
-        address_book_svc: addr_book_svc,
-        connector_svc: connector,
-        outbound_semaphore: semaphore,
-        extra_peers: 0,
-        config: cfg,
-        peer_type_gen: Bernoulli::new(0.7).unwrap(),
-    };
-
-    conn.run().await
+        tracing::info!("{:?}", network.top_sync_data_watch.borrow())
+    }
 }

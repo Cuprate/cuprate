@@ -17,6 +17,12 @@ pub struct PendingService<N: NetworkZone> {
     svc: Option<PeakEwmaClient<N>>,
 }
 
+impl<N: NetworkZone> PendingService<N> {
+    pub fn new(svc: PeakEwmaClient<N>) -> Self {
+        Self { svc: Some(svc) }
+    }
+}
+
 impl<N: NetworkZone> Future for PendingService<N> {
     type Output = Result<PeakEwmaClient<N>, tower::BoxError>;
 

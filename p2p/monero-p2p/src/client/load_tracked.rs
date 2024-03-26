@@ -22,10 +22,7 @@ pub struct PeakEwmaClient<N: NetworkZone> {
 }
 
 impl<N: NetworkZone> PeakEwmaClient<N> {
-    pub(crate) fn new(
-        client: Client<N>,
-        mutex_lock: Arc<std::sync::Mutex<Option<OwnedMutexGuard<()>>>>,
-    ) -> Self {
+    pub fn new(client: Client<N>) -> Self {
         let info = client.info.clone();
 
         Self {

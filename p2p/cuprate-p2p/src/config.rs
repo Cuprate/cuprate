@@ -1,7 +1,17 @@
+use cuprate_helper::network::Network;
 use monero_address_book::AddressBookConfig;
 
+use crate::broadcast::BroadcastConfig;
+
 /// P2P config.
+#[derive(Clone, Debug)]
 pub struct P2PConfig {
+    pub p2p_port: u16,
+
+    pub rpc_port: u16,
+
+    pub network: Network,
+
     /// The number of outbound connections to make and try keep.
     pub outbound_connections: usize,
     /// The absolute maximum number of held outbound connections.
@@ -25,6 +35,8 @@ pub struct P2PConfig {
     pub max_inbound_connections: usize,
 
     pub address_book_config: AddressBookConfig,
+
+    pub broadcast_config: BroadcastConfig,
 }
 
 impl P2PConfig {

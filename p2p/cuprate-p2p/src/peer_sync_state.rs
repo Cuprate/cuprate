@@ -21,6 +21,7 @@ use monero_wire::CoreSyncData;
 
 use crate::constants::SHORT_BAN;
 
+#[derive(Debug)]
 pub struct NewSyncInfo {
     chain_height: u64,
     top_hash: [u8; 32],
@@ -42,12 +43,33 @@ pub struct PeerSyncSvc<N: NetworkZone> {
     /// this makes no guarantees about which peer will be chosen in case of a tie.
     new_height_watcher: watch::Sender<NewSyncInfo>,
     /// The handle to the peer that has data in `new_height_watcher`.
-    last_peer_in_watcher_handle: ConnectionHandle,
+    last_peer_in_watcher_handle: Option<ConnectionHandle>,
     /// A [`FuturesUnordered`] that resolves when a peer disconnects.
     closed_connections: FuturesUnordered<PeerDisconnectFut<N>>,
 }
 
 impl<N: NetworkZone> PeerSyncSvc<N> {
+    pub fn new() -> (Self, watch::Receiver<NewSyncInfo>) {
+        let (watch_tx, mut watch_rx) = watch::channel(NewSyncInfo {
+            chain_height: 0,
+            top_hash: [0; 32],
+            cumulative_difficulty: 0,
+        });
+
+        watch_rx.mark_unchanged();
+
+        (
+            Self {
+                cumulative_difficulties: BTreeMap::new(),
+                peers: HashMap::new(),
+                new_height_watcher: watch_tx,
+                last_peer_in_watcher_handle: None,
+                closed_connections: FuturesUnordered::new(),
+            },
+            watch_rx,
+        )
+    }
+
     fn poll_disconnected(&mut self, cx: &mut Context<'_>) {
         while let Poll::Ready(Some(peer_id)) = self.closed_connections.poll_next_unpin(cx) {
             tracing::trace!("Peer {peer_id} disconnected, removing from peers sync info service.");
@@ -126,7 +148,10 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             .insert(peer_id);
 
         if self.new_height_watcher.borrow().cumulative_difficulty < new_cumulative_difficulty
-            || self.last_peer_in_watcher_handle.is_closed()
+            || !self
+                .last_peer_in_watcher_handle
+                .as_ref()
+                .is_some_and(|handle| !handle.is_closed())
         {
             tracing::debug!(
                 "Updating sync watcher channel with new highest seen cumulative difficulty."
@@ -136,7 +161,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
                 chain_height: core_sync_data.current_height,
                 cumulative_difficulty: new_cumulative_difficulty,
             });
-            self.last_peer_in_watcher_handle = handle;
+            self.last_peer_in_watcher_handle.replace(handle);
         }
 
         Ok(())
