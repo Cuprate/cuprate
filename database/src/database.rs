@@ -67,6 +67,23 @@ pub trait DatabaseRo<T: Table> {
     ///
     /// # Errors
     /// TODO
+    #[allow(clippy::iter_not_returning_iterator)]
+    fn keys(&self)
+        -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    #[allow(clippy::iter_not_returning_iterator)]
+    fn values(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
     fn len(&self) -> Result<u64, RuntimeError>;
 
     /// TODO
@@ -120,7 +137,21 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     ///
     /// # Errors
     /// TODO
+    ///
+    /// TODO: Document early return on error.
     fn retain<P>(&mut self, predicate: P) -> Result<(), RuntimeError>
     where
         P: FnMut(T::Key, T::Value) -> bool;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError>;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError>;
 }
