@@ -267,15 +267,6 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     }
 
     #[inline]
-    fn retain<P>(&mut self, predicate: P) -> Result<(), RuntimeError>
-    where
-        P: FnMut(T::Key, T::Value) -> bool,
-    {
-        redb::Table::retain(self, predicate)?;
-        Ok(())
-    }
-
-    #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         let (key, value) = redb::Table::pop_first(self)?.ok_or(RuntimeError::KeyNotFound)?;
         Ok((key.value(), value.value()))

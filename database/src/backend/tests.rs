@@ -272,17 +272,6 @@ fn db_read_write() {
         assert_same(value);
     }
 
-    // Assert `retain()` works.
-    // This should leave only the last `(key, value)` pair.
-    {
-        let mut key = KEY;
-        key.amount += N - 1; // we used inclusive `0..N`
-        table.retain(|k, v| k == key).unwrap();
-        assert_eq!(table.len().unwrap(), 1);
-        let value = table.get(&key).unwrap();
-        assert_same(value);
-    }
-
     // Assert `clear()` works.
     {
         table.clear().unwrap();
@@ -360,16 +349,6 @@ macro_rules! test_tables {
             }
 
             table.put(&KEY, &value).unwrap();
-
-            // Assert `retain()` works.
-            // This retains the key we put in
-            // (it does nothing).
-            {
-                table.retain(|k, v| k == KEY).unwrap();
-                assert_eq!(table.len().unwrap(), 1);
-                let value = table.get(&KEY).unwrap();
-                assert_eq(&value);
-            }
 
             // Assert `clear()` works.
             {

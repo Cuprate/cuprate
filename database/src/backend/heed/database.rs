@@ -279,36 +279,6 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     }
 
     #[inline]
-    fn retain<P>(&mut self, mut predicate: P) -> Result<(), RuntimeError>
-    where
-        P: FnMut(T::Key, T::Value) -> bool,
-    {
-        let mut iter = self.db.iter_mut(self.tx_rw)?;
-
-        // FIXME: is this optimal?
-        loop {
-            let Some(result) = iter.next() else {
-                return Ok(());
-            };
-
-            let (key, value) = result?;
-
-            if !predicate(key, value) {
-                // SAFETY:
-                // It is undefined behavior to keep a reference of
-                // a value from this database while modifying it.
-                // We are deleting the value and never accessing
-                // it again so this should be safe.
-                unsafe {
-                    iter.del_current()?;
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         // Get the first value first...
         let Some(first) = self.db.first(self.tx_rw)? else {

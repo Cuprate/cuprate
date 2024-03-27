@@ -142,19 +142,6 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
 
     /// TODO
     ///
-    /// - `true == keep`
-    /// - `false == remove`
-    ///
-    /// # Errors
-    /// TODO
-    ///
-    /// TODO: Document early return on error.
-    fn retain<P>(&mut self, predicate: P) -> Result<(), RuntimeError>
-    where
-        P: FnMut(T::Key, T::Value) -> bool;
-
-    /// TODO
-    ///
     /// # Errors
     /// TODO
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError>;
