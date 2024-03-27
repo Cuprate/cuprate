@@ -11,6 +11,7 @@ Cuprate's database implementation.
 1. [Backends](#backends)
     - [`heed`](#heed)
     - [`redb`](#redb)
+    - [`redb-memory`](#redb-memory)
     - [`sanakirja`](#sanakirja)
     - [`MDBX`](#mdbx)
 1. [Layers](#layers)
@@ -164,6 +165,11 @@ The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used
 | `data.redb` | Main data file
 
 TODO: document DB on remote filesystem (does redb allow this?)
+
+## `redb-memory`
+This backend is 100% the same as `redb`, although, it uses `redb::backend::InMemoryBackend` which is a key-value store that completely resides in memory instead of a file.
+
+All other details about this should be the same as the normal `redb` backend.
 
 ## `sanakirja`
 [`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.
