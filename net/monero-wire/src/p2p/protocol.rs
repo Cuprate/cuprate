@@ -114,7 +114,7 @@ pub struct ChainResponse {
     /// Total Height
     pub total_height: u64,
     /// Cumulative Difficulty Low
-    pub cumulative_difficulty: u64,
+    pub cumulative_difficulty_low64: u64,
     /// Cumulative Difficulty High
     pub cumulative_difficulty_top64: u64,
     /// Block IDs
@@ -125,11 +125,19 @@ pub struct ChainResponse {
     pub first_block: Bytes,
 }
 
+impl ChainResponse {
+    #[inline]
+    pub fn cumulative_difficulty(&self) -> u128 {
+        let cumulative_difficulty = self.cumulative_difficulty_top64 as u128;
+        cumulative_difficulty << 64 | self.cumulative_difficulty_low64 as u128
+    }
+}
+
 epee_object!(
     ChainResponse,
     start_height: u64,
     total_height: u64,
-    cumulative_difficulty: u64,
+    cumulative_difficulty_low64("cumulative_difficulty"): u64,
     cumulative_difficulty_top64: u64 = 0_u64,
     m_block_ids: ByteArrayVec<32>,
     m_block_weights: Vec<u64> as ContainerAsBlob<u64>,

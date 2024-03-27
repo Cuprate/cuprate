@@ -94,6 +94,7 @@ impl ConnectionHandle {
     /// Bans the peer for the given `duration`.
     pub fn ban_peer(&self, duration: Duration) {
         let _ = self.ban.set(BanPeer(duration));
+        self.token.cancel();
     }
     /// Checks if this connection is closed.
     pub fn is_closed(&self) -> bool {

@@ -68,7 +68,43 @@ impl Service<PeerRequest> for DummyPeerRequestHandlerSvc {
     }
 }
 
+pub struct DummyBlockchain;
+
+impl Blockchain for DummyBlockchain {
+    fn chain_history(
+        &mut self,
+        from: Option<[u8; 32]>,
+    ) -> impl Future<Output = Vec<[u8; 32]>> + Send {
+        async {
+            vec![
+                hex::decode("418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+            ]
+        }
+    }
+
+    fn cumulative_difficulty(&mut self) -> impl Future<Output = u128> + Send {
+        async { 1 }
+    }
+
+    fn have_block(&mut self, block_id: [u8; 32]) -> impl Future<Output = Where> + Send {
+        async move {
+            if block_id.as_ref()
+                == hex::decode("418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
+                    .unwrap()
+            {
+                return Where::MainChain(0);
+            }
+
+            Where::NotFound
+        }
+    }
+}
+
 use cuprate_helper::network::Network;
+use cuprate_p2p::block_downloader::{BlockDownloader, Blockchain, Where};
 use cuprate_p2p::broadcast::BroadcastConfig;
 use cuprate_p2p::config::P2PConfig;
 use cuprate_p2p::{broadcast, init_network};
@@ -124,14 +160,17 @@ async fn main() {
         broadcast_config: Default::default(),
     };
 
-    let network =
+    let mut network =
         init_network::<ClearNet, _, _>(&cfg, DummyCoreSyncSvc, DummyPeerRequestHandlerSvc)
             .await
             .unwrap();
 
-    loop {
-        sleep(Duration::from_secs(60)).await;
+    network.top_sync_data_watch.changed().await.unwrap();
 
-        tracing::info!("{:?}", network.top_sync_data_watch.borrow())
-    }
+    BlockDownloader::new(network.peer_sync_svc, network.peer_set, DummyBlockchain)
+        .await
+        .unwrap()
+        .unwrap();
+
+    tracing::info!("{:?}", network.top_sync_data_watch.borrow())
 }

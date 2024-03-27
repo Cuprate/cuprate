@@ -104,6 +104,28 @@ impl<const N: usize> ByteArrayVec<N> {
     }
 }
 
+impl<const N: usize> From<&ByteArrayVec<N>> for Vec<[u8; N]> {
+    fn from(value: &ByteArrayVec<N>) -> Self {
+        let mut out = Vec::with_capacity(value.len());
+        for i in 0..value.len() {
+            out.push(value[i])
+        }
+
+        out
+    }
+}
+
+impl<const N: usize> From<Vec<[u8; N]>> for ByteArrayVec<N> {
+    fn from(value: Vec<[u8; N]>) -> Self {
+        let mut bytes = BytesMut::with_capacity(N * value.len());
+        for i in value.into_iter() {
+            bytes.extend_from_slice(&i)
+        }
+
+        ByteArrayVec(bytes.freeze())
+    }
+}
+
 impl<const N: usize> TryFrom<Bytes> for ByteArrayVec<N> {
     type Error = FixedByteError;
 
@@ -147,7 +169,7 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteArrayVec<N> {
 }
 
 impl<const N: usize> Index<usize> for ByteArrayVec<N> {
-    type Output = [u8; 32];
+    type Output = [u8; N];
 
     fn index(&self, index: usize) -> &Self::Output {
         if (index + 1) * N > self.0.len() {

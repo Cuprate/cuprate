@@ -17,7 +17,7 @@ use tower::buffer::Buffer;
 use monero_p2p::{AddressBook, CoreSyncSvc, NetworkZone, PeerRequestHandler};
 use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 
-mod block_downloader;
+pub mod block_downloader;
 pub mod broadcast;
 pub mod config;
 pub mod connection_maintainer;
@@ -33,7 +33,7 @@ pub async fn init_network<N: NetworkZone, CSync, ReqHdlr>(
     config: &P2PConfig,
     core_sync_svc: CSync,
     peer_request_hdlr: ReqHdlr,
-) -> Result<P2PNetwork<N, impl AddressBook<N>>, tower::BoxError>
+) -> Result<P2PNetwork<N, impl AddressBook<N>, impl monero_p2p::PeerSyncSvc<N>>, tower::BoxError>
 where
     CSync: CoreSyncSvc + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
@@ -81,6 +81,7 @@ where
 
     Ok(P2PNetwork::new(
         peer_set,
+        peer_sync_svc,
         broadcast_svc,
         addr_book,
         top_sync_data_watch,

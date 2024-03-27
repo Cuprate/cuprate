@@ -6,13 +6,17 @@ license = "MIT"
 authors = ["Boog900"]
 
 [dependencies]
+fixed-bytes = { path = "../../net/fixed-bytes" }
 monero-wire = { path = "../../net/monero-wire" }
 monero-p2p = { path = "../monero-p2p", features = ["borsh"] }
 monero-address-book = { path = "../address-book" }
-cuprate-helper = { path = "../../helper" }
+cuprate-helper = { path = "../../helper", features = ["asynch"] }
+
+monero-serai = { workspace = true, features = ["std"] }
 
 tower = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+rayon = { workspace = true }
 tokio-util = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync"] }
 futures = { workspace = true, features = ["std"] }

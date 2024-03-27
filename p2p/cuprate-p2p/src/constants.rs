@@ -15,6 +15,9 @@ pub(crate) const OUTBOUND_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10)
 /// The duration of a short ban (1 hour).
 pub(crate) const SHORT_BAN: Duration = Duration::from_secs(60 * 60);
 
+/// The duration of a medium ban (24 hours).
+pub(crate) const MEDIUM_BAN: Duration = Duration::from_secs(60 * 60 * 24);
+
 /// When broadcasting transactions we use the [Poisson](rand_distr::Poisson) distribution to generate the
 /// number of seconds we should wait between broadcasts.
 ///
