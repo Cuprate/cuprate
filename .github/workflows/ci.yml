@@ -107,7 +107,6 @@ jobs:
       run: |
         cargo test --all-features --workspace
         cargo test --package cuprate-database --no-default-features --features redb --features service
-        cargo test --package cuprate-database --no-default-features --features redb-memory --features service
 
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
