@@ -644,6 +644,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-types"
+version = "0.0.0"
+dependencies = [
+ "borsh",
+ "cfg-if",
+ "curve25519-dalek",
+ "monero-serai",
+ "serde",
+]
+
+[[package]]
 name = "curve25519-dalek"
 version = "4.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
