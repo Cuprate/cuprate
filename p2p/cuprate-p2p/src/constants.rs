@@ -45,3 +45,5 @@ pub(crate) const SOFT_TX_MESSAGE_SIZE_SIZE_LIMIT: usize = 1024 * 1024 * 60;
 /// Because of internal implementation details this limit will ALWAYS be hit i.e. a tx will stay in the
 /// channel until [`MAX_TXS_IN_BROADCAST_CHANNEL`] more txs are added.
 pub(crate) const MAX_TXS_IN_BROADCAST_CHANNEL: usize = 250;
+
+pub(crate) const INCOMING_BLOCKS_CACHE_SIZE: usize = 10 * 1024 * 1024;

@@ -1,9 +1,12 @@
 use futures::future::BoxFuture;
 use futures::stream::FuturesOrdered;
-use futures::FutureExt;
+use futures::{FutureExt, Stream, StreamExt};
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::ops::Index;
+use std::pin::pin;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::task::ready;
 use std::{
     future::Future,
@@ -13,6 +16,7 @@ use std::{
 
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
+use tokio::sync::{mpsc, Notify};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::asynch::rayon_spawn_async;
@@ -21,7 +25,7 @@ use monero_p2p::services::{PeerSyncRequest, PeerSyncResponse};
 use monero_p2p::{handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc};
 use monero_wire::protocol::{ChainRequest, GetObjectsResponse};
 
-use crate::constants::{MEDIUM_BAN, SHORT_BAN};
+use crate::constants::{INCOMING_BLOCKS_CACHE_SIZE, MEDIUM_BAN, SHORT_BAN};
 use crate::peer_set::PeerSet;
 use crate::peer_set::{PeerSetRequest, PeerSetResponse};
 
@@ -68,6 +72,10 @@ pub struct BlockDownloader<N: NetworkZone, PSync, BC> {
     our_chain: BC,
 
     incoming_blocks: FuturesOrdered<BlockDownloadFuture>,
+
+    channel: mpsc::UnboundedSender<Vec<(Block, Vec<Transaction>)>>,
+    channel_size: AtomicUsize,
+    notify: Arc<Notify>,
 }
 
 impl<N: NetworkZone, PSync, BC> BlockDownloader<N, PSync, BC>
@@ -99,7 +107,31 @@ where
             returned_blocks: vec![],
             our_chain,
             incoming_blocks: FuturesOrdered::new(),
+            channel: todo!(),
+            channel_size: todo!(),
+            notify: Arc::new(Notify::new()),
         }))
+    }
+
+    pub async fn run(mut self) {
+        todo!()
+        /*
+        loop {
+            match self.incoming_blocks.next().await {
+                None => todo!(),
+                Some(Ok((blocks, data_size))) => {
+                    let notify = pin!(self.notify.clone());
+
+
+
+                    while self.channel_size.load(Ordering::Acquire) > INCOMING_BLOCKS_CACHE_SIZE {
+                        notify.notified().await
+                    }
+                }
+            }
+        }
+
+         */
     }
 }
 
@@ -258,17 +290,19 @@ enum BlockDownloadState {
         BoxFuture<'static, Result<(GetObjectsResponse, ConnectionHandle), tower::BoxError>>,
     ),
     DeserializingBlocks(
-        BoxFuture<'static, Result<Vec<(Block, Vec<Transaction>)>, BlockDownloaderError>>,
+        BoxFuture<'static, Result<(Vec<(Block, Vec<Transaction>)>, usize), BlockDownloaderError>>,
     ),
 }
 
 struct BlockDownloadFuture {
     blocks: ByteArrayVec<32>,
     state: BlockDownloadState,
+    drop_peer_if_not_found: bool,
 }
 
 impl Future for BlockDownloadFuture {
-    type Output = Result<Vec<(Block, Vec<Transaction>)>, (BlockDownloaderError, ByteArrayVec<32>)>;
+    type Output =
+        Result<(Vec<(Block, Vec<Transaction>)>, usize), (BlockDownloaderError, ByteArrayVec<32>)>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
@@ -283,14 +317,18 @@ impl Future for BlockDownloadFuture {
                         )));
                     };
 
-                    if ret.blocks.is_empty() {
+                    if ret.blocks.len() < expected_hashes.len() {
+                        if self.drop_peer_if_not_found {
+                            con_handle.ban_peer(MEDIUM_BAN);
+                        }
+
                         return Poll::Ready(Err((
                             BlockDownloaderError::PeerDoesNotHaveData,
                             self.blocks.clone(),
                         )));
                     }
 
-                    if ret.blocks.len() > self.blocks.len() {
+                    if ret.blocks.len() > expected_hashes.len() {
                         con_handle.ban_peer(MEDIUM_BAN);
                         return Poll::Ready(Err((
                             BlockDownloaderError::PeerGaveInvalidInfo,
@@ -319,12 +357,14 @@ fn handle_incoming_blocks(
     block_entries: GetObjectsResponse,
     expected_blocks: ByteArrayVec<32>,
     con_handle: ConnectionHandle,
-) -> Result<Vec<(Block, Vec<Transaction>)>, BlockDownloaderError> {
-    block_entries
+) -> Result<(Vec<(Block, Vec<Transaction>)>, usize), BlockDownloaderError> {
+    let (blocks, sizes) = block_entries
         .blocks
         .into_par_iter()
         .enumerate()
         .map(|(i, block_entry)| {
+            let mut size = block_entry.block.len();
+
             let expected_hash = expected_blocks.index(i);
 
             let block = Block::read(&mut block_entry.block.as_ref()).map_err(|_| {
@@ -333,7 +373,8 @@ fn handle_incoming_blocks(
             })?;
 
             if block.hash().as_slice() != expected_hash {
-                // can't ban peer here as we could have been given an invalid list.
+                // We can ban here because we check if we are given the amount of blocks we asked for.
+                con_handle.ban_peer(MEDIUM_BAN);
                 return Err(BlockDownloaderError::PeerGaveInvalidInfo);
             }
 
@@ -344,6 +385,8 @@ fn handle_incoming_blocks(
             let txs = txs_bytes
                 .into_iter()
                 .map(|bytes| {
+                    size += bytes.len();
+
                     let tx = Transaction::read(&mut bytes.as_ref()).map_err(|_| {
                         con_handle.ban_peer(MEDIUM_BAN);
                         BlockDownloaderError::PeerGaveInvalidInfo
@@ -360,7 +403,9 @@ fn handle_incoming_blocks(
                 return Err(BlockDownloaderError::PeerGaveInvalidInfo);
             }
 
-            Ok((block, txs))
+            Ok(((block, txs), size))
         })
-        .collect::<Result<Vec<_>, _>>()
+        .collect::<Result<(Vec<_>, Vec<_>), _>>()?;
+
+    Ok((blocks, sizes.into_iter().sum()))
 }

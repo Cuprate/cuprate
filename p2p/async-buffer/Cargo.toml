@@ -1,0 +1,14 @@
+[package]
+name = "async-buffer"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+
+[dependencies]
+thiserror = { workspace = true }
+futures = { workspace = true, features = ["std"] }
+pin-project = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }

@@ -14,6 +14,7 @@ members = [
 	"p2p/monero-p2p",
 	"p2p/address-book",
 	"p2p/cuprate-p2p",
+	"p2p/async-buffer",
 	"pruning",
 	"test-utils",
 ]
