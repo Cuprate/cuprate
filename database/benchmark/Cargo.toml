@@ -14,7 +14,9 @@ default   = []
 [dependencies]
 anyhow         = { workspace = true }
 cfg-if         = { workspace = true }
-cuprate-helper = { path = "../helper", features = ["fs", "thread"] }
+clap           = { workspace = true, features = ["default", "derive"] }
+cuprate-helper = { path = "../../helper", features = ["fs", "thread"] }
+tracing        = { workspace = true }
 rayon          = { workspace = true, optional = true }
 
 [dev-dependencies]
