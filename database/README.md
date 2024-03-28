@@ -8,6 +8,7 @@ Cuprate's database implementation.
     - [`src/ops`](#src-ops)
     - [`src/service/`](#src-service)
     - [`src/backend/`](#src-backend)
+1. [Benchmarking](#benchmarking)
 1. [Backends](#backends)
     - [`heed`](#heed)
     - [`redb`](#redb)
@@ -130,6 +131,11 @@ All backends follow the same file structure:
 | `tests.rs`       | Tests for the specific backend
 | `transaction.rs` | Implementation of `trait TxR{o,w}`
 | `types.rs`       | Type aliases for long backend-specific types
+
+# Benchmarking
+There is a standalone binary within `benchmark` that allows various testing and benchmarking on all the features of `cuprate-database`.
+
+See [`benchmark/README.md`](benchmark/) for more info.
 
 # Backends
 `cuprate-database`'s `trait`s abstract over various actual databases.
