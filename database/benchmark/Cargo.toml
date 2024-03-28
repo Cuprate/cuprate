@@ -1,0 +1,20 @@
+[package]
+name        = "cuprate-database-benchmark"
+version     = "0.0.0"
+edition     = "2021"
+description = "Benchmarking binary for Cuprate's database(s)"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/database/benchmark"
+keywords    = ["cuprate", "database", "benchmark"]
+
+[features]
+default   = []
+
+[dependencies]
+anyhow         = { workspace = true }
+cfg-if         = { workspace = true }
+cuprate-helper = { path = "../helper", features = ["fs", "thread"] }
+rayon          = { workspace = true, optional = true }
+
+[dev-dependencies]
