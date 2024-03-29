@@ -29,7 +29,7 @@ pub trait DatabaseRo<T: Table> {
     /// It will return other [`RuntimeError`]'s on things like IO errors as well.
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError>;
 
-    /// Get an iterator of `(key, value)`s corresponding to a range of keys.
+    /// Get an iterator of value's corresponding to a range of keys.
     ///
     /// For example:
     /// ```rust,ignore
@@ -50,7 +50,7 @@ pub trait DatabaseRo<T: Table> {
     fn get_range<'a, Range>(
         &'a self,
         range: Range,
-    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError>
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
     where
         Range: RangeBounds<T::Key> + 'a;
 
