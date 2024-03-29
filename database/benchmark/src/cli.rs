@@ -1,7 +1,9 @@
 //! Command line argument parsing and handling.
 
 //---------------------------------------------------------------------------------------------------- Use
-use clap::{Args, Parser, Subcommand};
+use std::path::PathBuf;
+
+use clap::{crate_name, Args, Parser, Subcommand};
 
 use crate::config::Config;
 
@@ -18,9 +20,13 @@ use crate::config::Config;
 #[allow(clippy::struct_excessive_bools)]
 pub struct Cli {
     //------------------------------------------------------------------------------ TODO
-    // #[arg(long, value_name = "OFF|ERROR|INFO|WARN|DEBUG|TRACE")]
-    // Set filter level for console logs
-    // log_level: Option<tracing::Level>,
+    /// Set filter level for console logs.
+    #[arg(
+        long,
+        value_name = "OFF|ERROR|INFO|WARN|DEBUG|TRACE",
+        verbatim_doc_comment
+    )]
+    log_level: Option<String>, // FIXME: tracing::Level{Filter} doesn't work with clap?
 
     //------------------------------------------------------------------------------ Early Return
     // These are flags that do something
@@ -58,148 +64,72 @@ pub struct Cli {
     version: bool,
 }
 
+//---------------------------------------------------------------------------------------------------- CLI default
+impl Default for Cli {
+    fn default() -> Self {
+        todo!()
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- CLI argument handling
 impl Cli {
     /// `main()` calls this once.
-    pub fn init() -> Config {
-        // Self::parse().handle_args()
-        todo!()
+    pub fn init() -> Self {
+        match Self::parse().handle_args() {
+            Ok(cli) => cli,
+            Err(exit_code) => std::process::exit(exit_code),
+        }
     }
 
-    //     /// Handle all the values, routing code, and exiting early if needed.
-    //     ///
-    //     /// The order of the `if`'s are the precedence of the `--flags`'s
-    //     /// themselves, e.g `--version` will execute over all else.
-    //     fn handle_args(mut self) -> Config {
-    //         // TODO:
-    //         // Calling `exit()` on each branch could
-    //         // be replaced with something better,
-    //         // although exit codes must be maintained.
+    /// Handle all the values, routing code, and exiting early if needed.
+    ///
+    /// The order of the `if`'s are the precedence of the `--flags`'s
+    /// themselves, e.g `--version` will execute over all else.
+    fn handle_args(self) -> Result<Self, i32> {
+        // TODO:
+        // Calling `exit()` on each branch could
+        // be replaced with something better,
+        // although exit codes must be maintained.
 
-    //         //-------------------------------------------------- Version.
-    //         if self.version {
-    //             println!("{CUPRATE_BUILD_INFO}\n{CUPRATE_COPYRIGHT}");
-    //             exit(0);
-    //         }
+        //-------------------------------------------------- Version.
+        if self.version {
+            println!("TODO");
+            return Err(0);
+        }
 
-    //         //-------------------------------------------------- Path.
-    //         if self.path {
-    //             // Cache.
-    //             let p: PathBuf = todo!();
-    //             println!("{}", p.display());
+        //-------------------------------------------------- Path.
+        if self.path {
+            let p: PathBuf = todo!();
+            println!("{}", p.display());
+            return Err(0);
+        }
 
-    //             // Config.
-    //             let p: PathBuf = todo!();
-    //             println!("{}", p.display());
+        //-------------------------------------------------- Delete.
+        if self.delete {
+            let path = cuprate_helper::fs::cuprate_database_dir();
 
-    //             #[cfg(not(target_os = "macos"))]
-    //             {
-    //                 // `.local/share`
-    //                 let p: PathBuf = todo!();
-    //                 println!("{}", p.display());
-    //             }
+            if path.exists() {
+                println!(
+                    "{}: PATH does not exist '{}'",
+                    crate_name!(),
+                    path.display()
+                );
+                return Err(0);
+            }
 
-    //             exit(0);
-    //         }
+            match std::fs::remove_dir_all(path) {
+                Ok(()) => {
+                    println!("{}: deleted '{}'", crate_name!(), path.display());
+                    return Err(0);
+                }
+                Err(e) => {
+                    eprintln!("{} error: {} - {e}", crate_name!(), path.display());
+                    return Err(1);
+                }
+            }
+        }
 
-    //         //-------------------------------------------------- `reset_config`
-    //         if self.reset_config {
-    //             let p = Config::absolute_path().unwrap();
-    //             Config::mkdir().unwrap();
-    //             std::fs::write(&p, CUPRATE_CONFIG).unwrap();
-    //             exit(0);
-    //         }
-
-    //         //-------------------------------------------------- `reset_cache`
-    //         if self.reset_cache {
-    //             let p: PathBuf = todo!();
-    //             match std::fs::remove_dir_all(&p) {
-    //                 Ok(_) => {
-    //                     eprintln!("{}", p.display());
-    //                     exit(0);
-    //                 }
-    //                 Err(e) => {
-    //                     eprintln!("cuprate: Reset Cache failed: {e}");
-    //                     exit(1);
-    //                 }
-    //             }
-    //         }
-
-    //         //-------------------------------------------------- Docs.
-    //         if self.docs {
-    //             // Create documentation.
-    //             if let Err(e) = Docs::create_open() {
-    //                 eprintln!("cuprate: Could not create docs: {e}");
-    //                 exit(1);
-    //             }
-
-    //             exit(0);
-    //         }
-
-    //         //-------------------------------------------------- Delete.
-    //         if self.delete {
-    //             #[cfg(not(target_os = "macos"))]
-    //             let paths = [
-    //                 // Cache.
-    //                 todo!(),
-    //                 // Config.
-    //                 Config::sub_dir_parent_path().unwrap(),
-    //                 // `.local/share`
-    //                 todo!(),
-    //             ];
-
-    //             #[cfg(target_os = "macos")]
-    //             let paths = [
-    //                 // Cache.
-    //                 todo!(),
-    //                 // Config.
-    //                 Config::sub_dir_parent_path().unwrap(),
-    //             ];
-
-    //             let mut code = 0;
-
-    //             for p in paths {
-    //                 if !p.exists() {
-    //                     println!("cuprate: PATH does not exist ... {}", p.display());
-    //                     continue;
-    //                 }
-
-    //                 // TODO:
-    //                 // Although `disk` already does this,
-    //                 // maybe do sanity checks on these PATHs
-    //                 // to make sure we aren't doing `rm -rf /`.
-
-    //                 match std::fs::remove_dir_all(&p) {
-    //                     Ok(_) => println!("{}", p.display()),
-    //                     Err(e) => {
-    //                         eprintln!("cuprate error: {} - {e}", p.display());
-    //                         code = 1;
-    //                     }
-    //                 }
-    //             }
-
-    //             exit(code);
-    //         }
-
-    //         //-------------------------------------------------- Print
-    //         if self.print_config {
-    //             println!("{CUPRATE_CONFIG}");
-    //             exit(0);
-    //         } else if self.print_methods {
-    //             for method in [0 /* TODO(hinto): add methods iter */] {
-    //                 println!("{method}");
-    //             }
-    //             exit(0);
-    //         }
-
-    //         //-------------------------------------------------- Subcommands
-    //         self.handle_subcommand();
-
-    //         //-------------------------------------------------- Return to `main()`
-    //         Config {
-    //             dry_run: self.dry_run,
-    //             log_level: self.log_level,
-    //             config: self.map_cli_to_config(),
-    //         }
-    //     }
+        //-------------------------------------------------- Return `Config` to `main()`
+        Ok(self)
+    }
 }

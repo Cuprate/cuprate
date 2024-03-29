@@ -82,12 +82,12 @@ use crate::{cli::Cli, config::Config};
 //---------------------------------------------------------------------------------------------------- Main
 fn main() {
     // Handle CLI arguments.
-    let config: Config = if std::env::args_os().len() > 1 {
+    let cli: Cli = if std::env::args_os().len() > 1 {
         // Some arguments were passed, run all the `clap` code.
         Cli::init()
     } else {
         // No arguments were passed, use the default config.
-        Config::default()
+        Cli::default()
     };
 
     // // If `dry_run`, print config/stats/etc and exit cleanly.
