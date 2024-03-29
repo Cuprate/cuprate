@@ -272,9 +272,16 @@ fn db_read_write() {
         assert_same(value);
     }
 
+    drop(table);
+    tx_rw.commit().unwrap();
+    let mut tx_rw = env_inner.tx_rw().unwrap();
+
     // Assert `clear_db()` works.
     {
-        drop(table);
+        // Make sure this works even if readers have the table open.
+        let tx_ro = env_inner.tx_ro().unwrap();
+        let reader_table = env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
+
         env_inner.clear_db::<Outputs>(&mut tx_rw).unwrap();
         let table = env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
         assert!(table.is_empty().unwrap());
@@ -285,6 +292,12 @@ fn db_read_write() {
             assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
             assert!(!table.contains(&key).unwrap());
         }
+
+        // Reader still sees old value.
+        assert!(!reader_table.is_empty().unwrap());
+
+        // Writer sees updated value (nothing).
+        assert!(table.is_empty().unwrap());
     }
 }
 

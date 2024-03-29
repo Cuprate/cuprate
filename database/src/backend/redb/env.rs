@@ -211,7 +211,16 @@ where
             StorableRedb<<T as Table>::Value>,
         > = redb::TableDefinition::new(<T as Table>::NAME);
 
-        // TODO: this may panic if readers have this table open?
+        // INVARIANT:
+        // This `delete_table()` will not run into this `TableAlreadyOpen` error:
+        // <https://docs.rs/redb/2.0.0/src/redb/transactions.rs.html#382>
+        // which will panic in the `From` impl, as:
+        //
+        // 1. Only 1 `redb::WriteTransaction` can exist at a time
+        // 2. We have exclusive access to it
+        // 3. So it's not being used to open a table since that needs `&tx_rw`
+        //
+        // Reader-open tables do not affect this, if they're open the below is still OK.
         redb::WriteTransaction::delete_table(table)?;
 
         Ok(())
