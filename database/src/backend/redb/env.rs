@@ -202,6 +202,20 @@ where
         // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
         Ok(tx_rw.open_table(table)?)
     }
+
+    #[inline]
+    fn clear_db(&self, tx_rw: &mut redb::WriteTransaction) -> Result<(), RuntimeError> {
+        let table: redb::TableDefinition<
+            'static,
+            StorableRedb<<T as Table>::Key>,
+            StorableRedb<<T as Table>::Value>,
+        > = redb::TableDefinition::new(<T as Table>::NAME);
+
+        // TODO: this may panic if readers have this table open?
+        redb::WriteTransaction::delete_table(table)?;
+
+        Ok(())
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

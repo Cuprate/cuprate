@@ -274,11 +274,6 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     }
 
     #[inline]
-    fn clear(&mut self) -> Result<(), RuntimeError> {
-        Ok(self.db.clear(self.tx_rw)?)
-    }
-
-    #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         // Get the first value first...
         let Some(first) = self.db.first(self.tx_rw)? else {

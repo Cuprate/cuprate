@@ -138,12 +138,6 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     ///
     /// # Errors
     /// TODO
-    fn clear(&mut self) -> Result<(), RuntimeError>;
-
-    /// TODO
-    ///
-    /// # Errors
-    /// TODO
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError>;
 
     /// TODO

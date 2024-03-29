@@ -226,7 +226,7 @@ fn db_read_write() {
         let range = table.get_range(..).unwrap();
         let mut i = 0;
         for result in range {
-            let (key, value): (PreRctOutputId, Output) = result.unwrap();
+            let value: Output = result.unwrap();
             assert_same(value);
 
             i += 1;
@@ -245,7 +245,7 @@ fn db_read_write() {
     // Assert each returned value from the iterator is owned.
     {
         let mut iter = table.get_range(range.clone()).unwrap();
-        let (key, value): (PreRctOutputId, Output) = iter.next().unwrap().unwrap(); // 1. take value out
+        let value: Output = iter.next().unwrap().unwrap(); // 1. take value out
         drop(iter); // 2. drop the `impl Iterator + 'a`
         assert_same(value); // 3. assert even without the iterator, the value is alive
     }
@@ -254,7 +254,7 @@ fn db_read_write() {
     {
         let mut iter = table.get_range(range).unwrap();
         for _ in 0..N {
-            let (key, value): (PreRctOutputId, Output) = iter.next().unwrap().unwrap();
+            let value: Output = iter.next().unwrap().unwrap();
             assert_same(value);
         }
     }
@@ -272,9 +272,11 @@ fn db_read_write() {
         assert_same(value);
     }
 
-    // Assert `clear()` works.
+    // Assert `clear_db()` works.
     {
-        table.clear().unwrap();
+        drop(table);
+        env_inner.clear_db::<Outputs>(&mut tx_rw).unwrap();
+        let table = env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
         assert!(table.is_empty().unwrap());
         for n in 0..N {
             let mut key = KEY;
@@ -335,7 +337,7 @@ macro_rules! test_tables {
                 let range = KEY..;
                 assert_eq!(1, table.get_range(range.clone()).unwrap().count());
                 let mut iter = table.get_range(range).unwrap();
-                let (_key, value) = iter.next().unwrap().unwrap();
+                let value = iter.next().unwrap().unwrap();
                 assert_eq(&value);
             }
 
@@ -350,9 +352,11 @@ macro_rules! test_tables {
 
             table.put(&KEY, &value).unwrap();
 
-            // Assert `clear()` works.
+            // Assert `clear_db()` works.
             {
-                table.clear().unwrap();
+                drop(table);
+                env_inner.clear_db::<$table>(&mut tx_rw).unwrap();
+                let table = env_inner.open_db_rw::<$table>(&mut tx_rw).unwrap();
                 let value = table.get(&KEY);
                 assert!(matches!(value, Err(RuntimeError::KeyNotFound)));
                 assert!(!table.contains(&KEY).unwrap());

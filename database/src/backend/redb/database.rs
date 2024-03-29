@@ -253,20 +253,6 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     }
 
     #[inline]
-    fn clear(&mut self) -> Result<(), RuntimeError> {
-        // FIXME:
-        // Deleting and re-creating the table outright
-        // would be faster, although we don't have direct
-        // access to the write transaction, which implements
-        // this functionality in `redb::WriteTransaction::delete_table`.
-
-        // Pop the last `(key, value)` until there are none.
-        while redb::Table::pop_last(self)?.is_some() {}
-
-        Ok(())
-    }
-
-    #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         let (key, value) = redb::Table::pop_first(self)?.ok_or(RuntimeError::KeyNotFound)?;
         Ok((key.value(), value.value()))
