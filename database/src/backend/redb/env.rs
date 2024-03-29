@@ -204,7 +204,7 @@ where
     }
 
     #[inline]
-    fn clear_db(&self, tx_rw: &mut redb::WriteTransaction) -> Result<(), RuntimeError> {
+    fn clear_db<T: Table>(&self, tx_rw: &mut redb::WriteTransaction) -> Result<(), RuntimeError> {
         let table: redb::TableDefinition<
             'static,
             StorableRedb<<T as Table>::Key>,
@@ -221,7 +221,7 @@ where
         // 3. So it's not being used to open a table since that needs `&tx_rw`
         //
         // Reader-open tables do not affect this, if they're open the below is still OK.
-        redb::WriteTransaction::delete_table(table)?;
+        redb::WriteTransaction::delete_table(tx_rw, table)?;
 
         Ok(())
     }
