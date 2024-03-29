@@ -38,6 +38,7 @@ where
     CSync: CoreSyncSvc + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
 {
+    tracing::info!("Initialising network: {}", N::NAME);
     let our_basic_node_data = make_basic_node_data::<N>(config);
 
     let addr_book =

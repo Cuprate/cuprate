@@ -1,6 +1,12 @@
 use std::time::Duration;
 
-pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(120);
+pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
+
+pub(crate) const CHAIN_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
+pub(crate) const BLOCK_REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+
+pub(crate) const BLOCK_REQUEST_TIMEOUT_INTERVAL: Duration = Duration::from_secs(6);
 
 pub(crate) const SEED_CONNECTION_RETRY_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -47,3 +53,8 @@ pub(crate) const SOFT_TX_MESSAGE_SIZE_SIZE_LIMIT: usize = 1024 * 1024 * 60;
 pub(crate) const MAX_TXS_IN_BROADCAST_CHANNEL: usize = 250;
 
 pub(crate) const INCOMING_BLOCKS_CACHE_SIZE: usize = 10 * 1024 * 1024;
+
+pub(crate) const NUMBER_OF_BLOCKS_TO_REQUEST: usize = 100;
+
+/// The amount of requests for blocks to send concurrently.
+pub(crate) const CONCURRENT_BLOCKS_REQUESTS: usize = 16;

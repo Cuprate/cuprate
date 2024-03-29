@@ -260,6 +260,11 @@ where
 
     /// Runs the outbound connection count keeper.
     pub async fn run(mut self) {
+        info!(
+            "Starting outbound connection maintainer, target outbound connections: {}",
+            self.config.outbound_connections
+        );
+
         loop {
             tokio::select! {
                 biased;

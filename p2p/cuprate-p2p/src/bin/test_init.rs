@@ -71,6 +71,15 @@ impl Service<PeerRequest> for DummyPeerRequestHandlerSvc {
 pub struct DummyBlockchain;
 
 impl Blockchain for DummyBlockchain {
+    fn top_hash(&mut self) -> impl Future<Output = [u8; 32]> + Send {
+        async {
+            hex::decode("418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
+                .unwrap()
+                .try_into()
+                .unwrap()
+        }
+    }
+
     fn chain_history(
         &mut self,
         from: Option<[u8; 32]>,
@@ -101,14 +110,18 @@ impl Blockchain for DummyBlockchain {
             Where::NotFound
         }
     }
+
+    fn current_height(&mut self) -> impl Future<Output = u64> + Send {
+        async { 1 }
+    }
 }
 
 use cuprate_helper::network::Network;
-use cuprate_p2p::block_downloader::{BlockDownloader, Blockchain, Where};
+use cuprate_p2p::block_downloader::{download_blocks, BlockDownloader2, Blockchain, Where};
 use cuprate_p2p::broadcast::BroadcastConfig;
 use cuprate_p2p::config::P2PConfig;
 use cuprate_p2p::{broadcast, init_network};
-use futures::FutureExt;
+use futures::{FutureExt, StreamExt};
 use monero_p2p::client::{Client, Connector, HandShaker};
 use monero_p2p::network_zones::ClearNet;
 use monero_p2p::services::{
@@ -132,7 +145,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::from_level(Level::DEBUG))
+        .with_max_level(LevelFilter::from_level(Level::INFO))
         //  .pretty()
         .with_line_number(false)
         .with_file(false)
@@ -151,8 +164,8 @@ async fn main() {
         p2p_port: 0,
         rpc_port: 0,
         network: Default::default(),
-        outbound_connections: 100,
-        max_outbound_connections: 150,
+        outbound_connections: 60,
+        max_outbound_connections: 80,
         anchor_connections: 10,
         gray_peers_percent: 0.7,
         max_inbound_connections: 125,
@@ -167,10 +180,18 @@ async fn main() {
 
     network.top_sync_data_watch.changed().await.unwrap();
 
-    BlockDownloader::new(network.peer_sync_svc, network.peer_set, DummyBlockchain)
-        .await
-        .unwrap()
-        .unwrap();
+    sleep(Duration::from_secs(15)).await;
+
+    let mut buffer =
+        download_blocks(network.peer_sync_svc, network.peer_set, DummyBlockchain).await;
+
+    while let Some(blocks) = buffer.next().await {
+        tracing::info!(
+            "{}, {}",
+            hex::encode(blocks[0].0.hash()),
+            blocks[0].0.number().unwrap()
+        );
+    }
 
     tracing::info!("{:?}", network.top_sync_data_watch.borrow())
 }

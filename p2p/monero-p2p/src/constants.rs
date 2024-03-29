@@ -16,7 +16,7 @@ pub(crate) const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 pub(crate) const DEFAULT_RTT: Duration = Duration::from_secs(REQUEST_TIMEOUT.as_secs() + 1);
 
 /// The decay_ns used in the peer load measurement.
-pub(crate) const PEAK_EWMA_DECAY_NS: f64 = Duration::from_secs(300).as_nanos() as f64;
+pub(crate) const PEAK_EWMA_DECAY_NS: f64 = Duration::from_secs(400).as_nanos() as f64;
 
 /// This is Cuprate specific - monerod will send protocol messages before a handshake is complete in
 /// certain circumstances i.e. monerod will send a [`ProtocolMessage::GetTxPoolCompliment`] if our node

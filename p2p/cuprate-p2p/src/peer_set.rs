@@ -1,9 +1,9 @@
 //! This module contains the peer set and related functionality.
 //!
-use std::future::{ready, Future};
-use std::pin::Pin;
 use std::{
     cmp::Ordering,
+    future::{ready, Future},
+    pin::Pin,
     task::{Context, Poll},
 };
 
@@ -43,10 +43,14 @@ pub enum PeerSetRequest<N: NetworkZone> {
         peers: Vec<InternalPeerID<N::Addr>>,
         req: PeerRequest,
     },
+    RequestToSpecificPeer {
+        peer: InternalPeerID<N::Addr>,
+        req: PeerRequest,
+    },
 }
 
-pub enum PeerSetResponse {
-    PeerResponse(PeerResponse, ConnectionHandle),
+pub enum PeerSetResponse<N: NetworkZone> {
+    PeerResponse(PeerResponse, InternalPeerID<N::Addr>, ConnectionHandle),
 }
 
 /// The peer-set.
@@ -277,7 +281,7 @@ fn check_client_ok<N: NetworkZone>(client: &mut PeakEwmaClient<N>) -> bool {
 }
 
 impl<N: NetworkZone> Service<PeerSetRequest<N>> for PeerSet<N> {
-    type Response = PeerSetResponse;
+    type Response = PeerSetResponse<N>;
     type Error = tower::BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -296,15 +300,38 @@ impl<N: NetworkZone> Service<PeerSetRequest<N>> for PeerSet<N> {
                     return ready(Err("No peers to connect to".into())).boxed();
                 };
 
-                let client = self.get_peer(peer).unwrap();
+                let mut client = self.take_peer(&peer).unwrap();
 
                 let fut = client.call(req);
 
                 let handle = client.info.handle.clone();
+                let id = client.info.id;
 
-                return fut
-                    .map_ok(|res| PeerSetResponse::PeerResponse(res, handle))
+                let fut = fut
+                    .map_ok(move |res| PeerSetResponse::PeerResponse(res, id, handle))
                     .boxed();
+
+                self.pending_peers.push(PendingService::new(client));
+
+                return fut;
+            }
+            PeerSetRequest::RequestToSpecificPeer { peer, req } => {
+                let Some(mut client) = self.take_peer(&peer) else {
+                    return ready(Err("Peer not connected or ready".into())).boxed();
+                };
+
+                let fut = client.call(req);
+
+                let handle = client.info.handle.clone();
+                let id = client.info.id;
+
+                let fut = fut
+                    .map_ok(move |res| PeerSetResponse::PeerResponse(res, id, handle))
+                    .boxed();
+
+                self.pending_peers.push(PendingService::new(client));
+
+                return fut;
             }
         }
     }
