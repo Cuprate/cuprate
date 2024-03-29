@@ -222,6 +222,9 @@ where
         //
         // Reader-open tables do not affect this, if they're open the below is still OK.
         redb::WriteTransaction::delete_table(tx_rw, table)?;
+        // Re-create the table.
+        // `redb` creates tables if they don't exist, so this should never panic.
+        redb::WriteTransaction::open_table(tx_rw, table)?;
 
         Ok(())
     }
