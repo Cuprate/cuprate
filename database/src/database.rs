@@ -33,8 +33,8 @@ pub trait DatabaseRo<T: Table> {
     ///
     /// For example:
     /// ```rust,ignore
-    /// // This will return all 100 tuples of `(key, value)` where
-    /// // `key` is `0..100` and `value` is the corresponding value.
+    /// // This will return all 100 values corresponding
+    /// // to the keys `{0, 1, 2, ..., 100}`.
     /// self.get_range(0..100);
     /// ```
     ///
