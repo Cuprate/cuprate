@@ -6,7 +6,7 @@ pub(crate) const CHAIN_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub(crate) const BLOCK_REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
-pub(crate) const BLOCK_REQUEST_TIMEOUT_INTERVAL: Duration = Duration::from_secs(6);
+pub(crate) const BLOCK_REQUEST_TIMEOUT_INTERVAL: Duration = Duration::from_secs(4);
 
 pub(crate) const SEED_CONNECTION_RETRY_TIMEOUT: Duration = Duration::from_secs(60);
 

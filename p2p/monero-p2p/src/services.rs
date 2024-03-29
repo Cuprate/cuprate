@@ -11,7 +11,10 @@ pub enum PeerSyncRequest<N: NetworkZone> {
     ///
     /// This takes in the current cumulative difficulty of our chain and will return peers that
     /// claim to have a higher cumulative difficulty.
-    PeersToSyncFrom(u128),
+    PeersToSyncFrom {
+        current_cumulative_difficulty: u128,
+        block_needed: Option<u64>,
+    },
     /// Add/update a peers core sync data to the sync state service.
     IncomingCoreSyncData(InternalPeerID<N::Addr>, ConnectionHandle, CoreSyncData),
 }

@@ -472,6 +472,17 @@ where
 
     let client = Client::<Z>::new(info, connection_tx, connection_handle, error_slot);
 
+    // Tell the core sync service about the new peer.
+    peer_sync_svc
+        .ready()
+        .await?
+        .call(PeerSyncRequest::IncomingCoreSyncData(
+            addr,
+            handle.clone(),
+            peer_core_sync,
+        ))
+        .await?;
+
     // Tell the address book about the new connection.
     address_book
         .ready()
@@ -479,23 +490,12 @@ where
         .call(AddressBookRequest::NewConnection {
             internal_peer_id: addr,
             public_address,
-            handle: handle.clone(),
+            handle,
             id: peer_node_data.peer_id,
             pruning_seed,
             rpc_port: peer_node_data.rpc_port,
             rpc_credits_per_hash: peer_node_data.rpc_credits_per_hash,
         })
-        .await?;
-
-    // Tell the core sync service about the new peer.
-    peer_sync_svc
-        .ready()
-        .await?
-        .call(PeerSyncRequest::IncomingCoreSyncData(
-            addr,
-            handle,
-            peer_core_sync,
-        ))
         .await?;
 
     Ok(client)

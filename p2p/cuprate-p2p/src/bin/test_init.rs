@@ -164,7 +164,7 @@ async fn main() {
         p2p_port: 0,
         rpc_port: 0,
         network: Default::default(),
-        outbound_connections: 60,
+        outbound_connections: 32,
         max_outbound_connections: 80,
         anchor_connections: 10,
         gray_peers_percent: 0.7,

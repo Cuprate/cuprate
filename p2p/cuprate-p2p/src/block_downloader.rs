@@ -85,6 +85,7 @@ where
 
 pub struct NextChainEntry<N: NetworkZone> {
     next_ids: Vec<[u8; 32]>,
+    height: u64,
 
     peer: InternalPeerID<N::Addr>,
     handle: ConnectionHandle,
@@ -183,6 +184,7 @@ where
         request_id: u64,
         drop_peer_if_not_found: bool,
         cancel_token: CancellationToken,
+        height: Option<u64>,
     ) -> Result<(), BlockDownloaderError> {
         let req = PeerRequest::GetObjects(GetObjectsRequest {
             blocks: ids.clone(),
@@ -199,9 +201,10 @@ where
             .ready()
             .await
             .map_err(BlockDownloaderError::InternalSvc)?
-            .call(PeerSyncRequest::PeersToSyncFrom(
+            .call(PeerSyncRequest::PeersToSyncFrom {
                 current_cumulative_difficulty,
-            ))
+                block_needed: height,
+            })
             .await
             .map_err(BlockDownloaderError::InternalSvc)?
         else {
@@ -281,13 +284,18 @@ where
             chain_entry.handle.clone(),
         );
 
+        let height = chain_entry.height;
+        chain_entry.height += u64::try_from(ids.len()).unwrap();
+
         self.request_blocks(
             ids,
             request_id,
             false,
             inflight_request.cancel_token.clone(),
+            Some(height),
         )
         .await?;
+
         self.in_flight_requests.push_back(inflight_request);
         Ok(())
     }
@@ -306,7 +314,7 @@ where
                     for (ids, request_id, token) in requests_to_make {
 
                         tracing::warn!("request {} timed out sending another.", request_id);
-                        self.request_blocks(ids, request_id, false, token).await?
+                        self.request_blocks(ids, request_id, false, token, None).await?
                     }
                 }
 
@@ -400,6 +408,7 @@ where
                             request_id,
                             true,
                             self.in_flight_requests[index].cancel_token.clone(),
+                            None,
                         )
                         .await?;
                     }

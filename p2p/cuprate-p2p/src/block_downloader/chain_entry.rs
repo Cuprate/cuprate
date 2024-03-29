@@ -54,9 +54,10 @@ where
             .ready()
             .await
             .map_err(BlockDownloaderError::InternalSvc)?
-            .call(PeerSyncRequest::PeersToSyncFrom(
+            .call(PeerSyncRequest::PeersToSyncFrom {
                 current_cumulative_difficulty,
-            ))
+                block_needed: None,
+            })
             .await
             .map_err(BlockDownloaderError::InternalSvc)?
         else {
@@ -136,6 +137,7 @@ where
 
         return Ok(Some(NextChainEntry {
             next_ids: block_ids,
+            height: start_height,
             peer: peer_id,
             handle: con_handle,
         }));

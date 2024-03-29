@@ -648,6 +648,7 @@ dependencies = [
  "indexmap 2.2.6",
  "monero-address-book",
  "monero-p2p",
+ "monero-pruning",
  "monero-serai",
  "monero-wire",
  "pin-project",

@@ -17,6 +17,7 @@ use monero_p2p::{
     services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone,
 };
+use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
 use monero_wire::CoreSyncData;
 
 use crate::constants::SHORT_BAN;
@@ -36,7 +37,7 @@ pub struct PeerSyncSvc<N: NetworkZone> {
     /// A map of cumulative difficulties to peers.
     cumulative_difficulties: BTreeMap<u128, HashSet<InternalPeerID<N::Addr>>>,
     /// A map of peers to cumulative difficulties.
-    peers: HashMap<InternalPeerID<N::Addr>, u128>,
+    peers: HashMap<InternalPeerID<N::Addr>, (u128, PruningSeed)>,
     /// A watch channel for *a* top synced peer info.
     ///
     /// This is guaranteed to hold the sync info of a peer with the highest cumulative difficulty seen,
@@ -73,7 +74,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
     fn poll_disconnected(&mut self, cx: &mut Context<'_>) {
         while let Poll::Ready(Some(peer_id)) = self.closed_connections.poll_next_unpin(cx) {
             tracing::trace!("Peer {peer_id} disconnected, removing from peers sync info service.");
-            let peer_cum_diff = self.peers.remove(&peer_id).unwrap();
+            let (peer_cum_diff, _) = self.peers.remove(&peer_id).unwrap();
 
             let cum_dif_peers = self
                 .cumulative_difficulties
@@ -88,10 +89,27 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
     }
 
     /// Returns a list of peers that claim to have a higher cumulative difficulty than `current_cum_dif`.
-    fn peers_to_sync_from(&self, current_cum_dif: u128) -> Vec<InternalPeerID<N::Addr>> {
+    fn peers_to_sync_from(
+        &self,
+        current_cum_dif: u128,
+        block_needed: Option<u64>,
+    ) -> Vec<InternalPeerID<N::Addr>> {
         self.cumulative_difficulties
             .range((current_cum_dif + 1)..)
             .flat_map(|(_, peers)| peers)
+            .filter(|peer| {
+                if let Some(block_needed) = block_needed {
+                    // we just use CRYPTONOTE_MAX_BLOCK_HEIGHT as the blockchain height, this only means
+                    // we don't take into account the tip blocks which are not pruned.
+                    self.peers
+                        .get(peer)
+                        .unwrap()
+                        .1
+                        .has_full_block(block_needed, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                } else {
+                    true
+                }
+            })
             .copied()
             .collect()
     }
@@ -110,8 +128,8 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
 
         let new_cumulative_difficulty = core_sync_data.cumulative_difficulty();
 
-        if let Some(old_cum_dif) = self.peers.insert(peer_id, new_cumulative_difficulty) {
-            match old_cum_dif.cmp(&new_cumulative_difficulty) {
+        if let Some((old_cum_dif, _)) = self.peers.get_mut(&peer_id) {
+            match (*old_cum_dif).cmp(&new_cumulative_difficulty) {
                 Ordering::Equal => {
                     // If the cumulative difficulty of the peers chain hasn't changed then no need to update anything.
                     return Ok(());
@@ -123,19 +141,31 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
                         "Peer's claimed cumulative difficulty has dropped, closing connection and banning peer for: {} seconds.", SHORT_BAN.as_secs()
                     );
                     handle.ban_peer(SHORT_BAN);
+                    return Err("Peers cumulative difficulty dropped".into());
                 }
                 Ordering::Less => (),
             }
 
             // Remove the old cumulative difficulty entry for this peer
-            let old_cum_dif_peers = self.cumulative_difficulties.get_mut(&old_cum_dif).unwrap();
+            let old_cum_dif_peers = self.cumulative_difficulties.get_mut(old_cum_dif).unwrap();
             old_cum_dif_peers.remove(&peer_id);
             if old_cum_dif_peers.is_empty() {
                 // If this was the last peer remove the whole entry for this cumulative difficulty.
-                self.cumulative_difficulties.remove(&old_cum_dif);
+                self.cumulative_difficulties.remove(old_cum_dif);
             }
+            // update the cumulative difficulty
+            *old_cum_dif = new_cumulative_difficulty;
         } else {
-            // The peer is new so add it to the list of peers to watch for disconnection.
+            // The peer is new so add it the list of peers.
+            self.peers.insert(
+                peer_id,
+                (
+                    new_cumulative_difficulty,
+                    PruningSeed::decompress_p2p_rules(core_sync_data.pruning_seed)?,
+                ),
+            );
+
+            // add it to the list of peers to watch for disconnection.
             self.closed_connections.push(PeerDisconnectFut {
                 closed_fut: handle.closed(),
                 peer_id: Some(peer_id),
@@ -181,9 +211,13 @@ impl<N: NetworkZone> Service<PeerSyncRequest<N>> for PeerSyncSvc<N> {
 
     fn call(&mut self, req: PeerSyncRequest<N>) -> Self::Future {
         let res = match req {
-            PeerSyncRequest::PeersToSyncFrom(current_cum_dif) => Ok(
-                PeerSyncResponse::PeersToSyncFrom(self.peers_to_sync_from(current_cum_dif)),
-            ),
+            PeerSyncRequest::PeersToSyncFrom {
+                current_cumulative_difficulty,
+                block_needed,
+            } => Ok(PeerSyncResponse::PeersToSyncFrom(self.peers_to_sync_from(
+                current_cumulative_difficulty,
+                block_needed,
+            ))),
             PeerSyncRequest::IncomingCoreSyncData(peer_id, handle, sync_data) => self
                 .update_peer_sync_info(peer_id, handle, sync_data)
                 .map(|_| PeerSyncResponse::Ok),

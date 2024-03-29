@@ -126,6 +126,14 @@ impl PruningSeed {
         }
     }
 
+    /// Returns if a peer with this pruning seed should have a non-pruned version of a block.
+    pub fn has_full_block(&self, height: u64, blockchain_height: u64) -> bool {
+        match self {
+            PruningSeed::NotPruned => true,
+            PruningSeed::Pruned(seed) => seed.has_full_block(height, blockchain_height),
+        }
+    }
+
     /// Gets the next pruned block for a given `block_height` and `blockchain_height`
     ///
     /// Each seed will store, in a cyclic manner, a portion of blocks while discarding
@@ -301,6 +309,17 @@ impl DecompressedPruningSeed {
     pub fn compress(&self) -> u32 {
         (self.log_stripes << PRUNING_SEED_LOG_STRIPES_SHIFT)
             | ((self.stripe - 1) << PRUNING_SEED_STRIPE_SHIFT)
+    }
+
+    /// Returns if a peer with this pruning seed should have a non-pruned version of a block.
+    pub fn has_full_block(&self, height: u64, blockchain_height: u64) -> bool {
+        let Some(block_stripe) =
+            get_block_pruning_stripe(height, blockchain_height, self.log_stripes)
+        else {
+            return true;
+        };
+
+        self.stripe == block_stripe
     }
 
     /// Gets the next unpruned block for a given `block_height` and `blockchain_height`
