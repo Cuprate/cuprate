@@ -12,14 +12,16 @@ keywords    = ["cuprate", "database", "benchmark"]
 default   = []
 
 [dependencies]
-anyhow         = { workspace = true }
-cfg-if         = { workspace = true }
-clap           = { workspace = true, features = ["default", "derive", "cargo"] }
-cuprate-helper = { path = "../../helper", features = ["fs", "thread"] }
-serde          = { workspace = true, features = ["default", "derive"] }
-serde_json     = { workspace = true, features = ["default"] }
-tracing        = { workspace = true }
-toml_edit      = { workspace = true }
-rayon          = { workspace = true, optional = true }
+anyhow           = { workspace = true }
+cfg-if           = { workspace = true }
+clap             = { workspace = true, features = ["default", "derive", "cargo"] }
+cuprate-database = { path = "../", features = ["default", "serde"] }
+cuprate-helper   = { path = "../../helper", features = ["fs", "thread"] }
+serde            = { workspace = true, features = ["default", "derive"] }
+serde_json       = { workspace = true, features = ["default"] }
+strum            = { workspace = true, features = ["default", "derive"] }
+tracing          = { workspace = true }
+toml_edit        = { workspace = true, features = ["default", "serde"] }
+rayon            = { workspace = true, optional = true }
 
 [dev-dependencies]
