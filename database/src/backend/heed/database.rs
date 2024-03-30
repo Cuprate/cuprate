@@ -42,7 +42,7 @@ pub(super) struct HeedTableRo<'tx, T: Table> {
 ///
 /// Matches `redb::Table` (read & write).
 pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
-    /// TODO
+    /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
     pub(super) tx_rw: &'tx mut heed::RwTxn<'env>,
@@ -53,7 +53,7 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
 // call the functions since the database is held by value, so
 // just use these generic functions that both can call instead.
 
-/// Shared generic `get()` between `HeedTableR{o,w}`.
+/// Shared [`DatabaseRo::get()`].
 #[inline]
 fn get<T: Table>(
     db: &HeedDb<T::Key, T::Value>,
@@ -63,7 +63,7 @@ fn get<T: Table>(
     db.get(tx_ro, key)?.ok_or(RuntimeError::KeyNotFound)
 }
 
-/// Shared generic `get_range()` between `HeedTableR{o,w}`.
+/// Shared [`DatabaseRo::get_range()`].
 #[inline]
 fn get_range<'a, T: Table, Range>(
     db: &'a HeedDb<T::Key, T::Value>,
@@ -74,6 +74,69 @@ where
     Range: RangeBounds<T::Key> + 'a,
 {
     Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
+}
+
+/// Shared [`DatabaseRo::iter()`].
+#[inline]
+fn iter<'a, T: Table>(
+    db: &'a HeedDb<T::Key, T::Value>,
+    tx_ro: &'a heed::RoTxn<'_>,
+) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError> {
+    Ok(db.iter(tx_ro)?.map(|res| Ok(res?)))
+}
+
+/// Shared [`DatabaseRo::keys()`].
+#[inline]
+fn keys<'a, T: Table>(
+    db: &'a HeedDb<T::Key, T::Value>,
+    tx_ro: &'a heed::RoTxn<'_>,
+) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + 'a, RuntimeError> {
+    Ok(db.iter(tx_ro)?.map(|res| Ok(res?.0)))
+}
+
+/// Shared [`DatabaseRo::values()`].
+#[inline]
+fn values<'a, T: Table>(
+    db: &'a HeedDb<T::Key, T::Value>,
+    tx_ro: &'a heed::RoTxn<'_>,
+) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError> {
+    Ok(db.iter(tx_ro)?.map(|res| Ok(res?.1)))
+}
+
+/// Shared [`DatabaseRo::len()`].
+#[inline]
+fn len<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
+    tx_ro: &heed::RoTxn<'_>,
+) -> Result<u64, RuntimeError> {
+    Ok(db.len(tx_ro)?)
+}
+
+/// Shared [`DatabaseRo::first()`].
+#[inline]
+fn first<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
+    tx_ro: &heed::RoTxn<'_>,
+) -> Result<(T::Key, T::Value), RuntimeError> {
+    db.first(tx_ro)?.ok_or(RuntimeError::KeyNotFound)
+}
+
+/// Shared [`DatabaseRo::last()`].
+#[inline]
+fn last<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
+    tx_ro: &heed::RoTxn<'_>,
+) -> Result<(T::Key, T::Value), RuntimeError> {
+    db.last(tx_ro)?.ok_or(RuntimeError::KeyNotFound)
+}
+
+/// Shared [`DatabaseRo::is_empty()`].
+#[inline]
+fn is_empty<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
+    tx_ro: &heed::RoTxn<'_>,
+) -> Result<bool, RuntimeError> {
+    Ok(db.is_empty(tx_ro)?)
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
@@ -92,6 +155,48 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
         Range: RangeBounds<T::Key> + 'a,
     {
         get_range::<T, Range>(&self.db, self.tx_ro, range)
+    }
+
+    #[inline]
+    fn iter(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
+    {
+        iter::<T>(&self.db, self.tx_ro)
+    }
+
+    #[inline]
+    fn keys(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
+        keys::<T>(&self.db, self.tx_ro)
+    }
+
+    #[inline]
+    fn values(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
+        values::<T>(&self.db, self.tx_ro)
+    }
+
+    #[inline]
+    fn len(&self) -> Result<u64, RuntimeError> {
+        len::<T>(&self.db, self.tx_ro)
+    }
+
+    #[inline]
+    fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
+        first::<T>(&self.db, self.tx_ro)
+    }
+
+    #[inline]
+    fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
+        last::<T>(&self.db, self.tx_ro)
+    }
+
+    #[inline]
+    fn is_empty(&self) -> Result<bool, RuntimeError> {
+        is_empty::<T>(&self.db, self.tx_ro)
     }
 }
 
@@ -112,6 +217,48 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     {
         get_range::<T, Range>(&self.db, self.tx_rw, range)
     }
+
+    #[inline]
+    fn iter(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
+    {
+        iter::<T>(&self.db, self.tx_rw)
+    }
+
+    #[inline]
+    fn keys(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
+        keys::<T>(&self.db, self.tx_rw)
+    }
+
+    #[inline]
+    fn values(
+        &self,
+    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
+        values::<T>(&self.db, self.tx_rw)
+    }
+
+    #[inline]
+    fn len(&self) -> Result<u64, RuntimeError> {
+        len::<T>(&self.db, self.tx_rw)
+    }
+
+    #[inline]
+    fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
+        first::<T>(&self.db, self.tx_rw)
+    }
+
+    #[inline]
+    fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
+        last::<T>(&self.db, self.tx_rw)
+    }
+
+    #[inline]
+    fn is_empty(&self) -> Result<bool, RuntimeError> {
+        is_empty::<T>(&self.db, self.tx_rw)
+    }
 }
 
 impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
@@ -124,6 +271,53 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
         self.db.delete(self.tx_rw, key)?;
         Ok(())
+    }
+
+    #[inline]
+    fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
+        // Get the first value first...
+        let Some(first) = self.db.first(self.tx_rw)? else {
+            return Err(RuntimeError::KeyNotFound);
+        };
+
+        // ...then remove it.
+        //
+        // We use an iterator because we want to semantically
+        // remove the _first_ and only the first `(key, value)`.
+        // `delete()` removes all keys including duplicates which
+        // is slightly different behavior.
+        let mut iter = self.db.iter_mut(self.tx_rw)?;
+
+        // SAFETY:
+        // It is undefined behavior to keep a reference of
+        // a value from this database while modifying it.
+        // We are deleting the value and never accessing
+        // the iterator again so this should be safe.
+        unsafe {
+            iter.del_current()?;
+        }
+
+        Ok(first)
+    }
+
+    #[inline]
+    fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
+        let Some(first) = self.db.last(self.tx_rw)? else {
+            return Err(RuntimeError::KeyNotFound);
+        };
+
+        let mut iter = self.db.rev_iter_mut(self.tx_rw)?;
+
+        // SAFETY:
+        // It is undefined behavior to keep a reference of
+        // a value from this database while modifying it.
+        // We are deleting the value and never accessing
+        // the iterator again so this should be safe.
+        unsafe {
+            iter.del_current()?;
+        }
+
+        Ok(first)
     }
 }
 

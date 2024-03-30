@@ -196,6 +196,8 @@ where
     /// ```
     ///
     /// # Errors
+    /// This function errors upon internal database/IO errors.
+    ///
     /// As [`Table`] is `Sealed`, and all tables are created
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
@@ -210,8 +212,26 @@ where
     /// passed as a generic to this function.
     ///
     /// # Errors
+    /// This function errors upon internal database/IO errors.
+    ///
     /// As [`Table`] is `Sealed`, and all tables are created
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
     fn open_db_rw<T: Table>(&self, tx_rw: &mut Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
+
+    /// Clear all `(key, value)`'s from a database table.
+    ///
+    /// This will delete all key and values in the passed
+    /// `T: Table`, but the table itself will continue to exist.
+    ///
+    /// Note that this operation is tied to `tx_rw`, as such this
+    /// function's effects can be aborted using [`TxRw::abort`].
+    ///
+    /// # Errors
+    /// This function errors upon internal database/IO errors.
+    ///
+    /// As [`Table`] is `Sealed`, and all tables are created
+    /// upon [`Env::open`], this function will never error because
+    /// a table doesn't exist.
+    fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
 }

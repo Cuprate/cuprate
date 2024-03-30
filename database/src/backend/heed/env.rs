@@ -304,6 +304,17 @@ where
             tx_rw,
         })
     }
+
+    #[inline]
+    fn clear_db<T: Table>(&self, tx_rw: &mut heed::RwTxn<'env>) -> Result<(), RuntimeError> {
+        // Open the table first...
+        let db: HeedDb<T::Key, T::Value> = self
+            .open_database(tx_rw, Some(T::NAME))?
+            .expect(PANIC_MSG_MISSING_TABLE);
+
+        // ...then clear it.
+        Ok(db.clear(tx_rw)?)
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

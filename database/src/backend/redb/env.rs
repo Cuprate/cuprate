@@ -208,6 +208,32 @@ where
         // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
         Ok(tx_rw.open_table(table)?)
     }
+
+    #[inline]
+    fn clear_db<T: Table>(&self, tx_rw: &mut redb::WriteTransaction) -> Result<(), RuntimeError> {
+        let table: redb::TableDefinition<
+            'static,
+            StorableRedb<<T as Table>::Key>,
+            StorableRedb<<T as Table>::Value>,
+        > = redb::TableDefinition::new(<T as Table>::NAME);
+
+        // INVARIANT:
+        // This `delete_table()` will not run into this `TableAlreadyOpen` error:
+        // <https://docs.rs/redb/2.0.0/src/redb/transactions.rs.html#382>
+        // which will panic in the `From` impl, as:
+        //
+        // 1. Only 1 `redb::WriteTransaction` can exist at a time
+        // 2. We have exclusive access to it
+        // 3. So it's not being used to open a table since that needs `&tx_rw`
+        //
+        // Reader-open tables do not affect this, if they're open the below is still OK.
+        redb::WriteTransaction::delete_table(tx_rw, table)?;
+        // Re-create the table.
+        // `redb` creates tables if they don't exist, so this should never panic.
+        redb::WriteTransaction::open_table(tx_rw, table)?;
+
+        Ok(())
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
