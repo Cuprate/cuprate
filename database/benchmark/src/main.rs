@@ -57,6 +57,7 @@
 	// TODO: should be removed after all `todo!()`'s are gone.
 	clippy::diverging_sub_expression,
 
+    clippy::inline_always,
 	clippy::module_name_repetitions,
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
@@ -69,12 +70,11 @@
 // Import private modules, export public types.
 //
 // Documentation for each module is located in the respective file.
-mod benchmarks;
+mod bench;
 mod cli;
 mod config;
 mod constants;
 mod free;
-mod state;
 
 //---------------------------------------------------------------------------------------------------- Private
 
@@ -113,7 +113,7 @@ fn main() {
     };
 
     // Print config before starting.
-    println!("{config:#?}");
+    eprintln!("cuprate-database-benchmark configuration:\n{config:#?}");
 
     // If `dry_run`, exit cleanly.
     if cli.dry_run {
@@ -124,6 +124,6 @@ fn main() {
     let env = cuprate_database::ConcreteEnv::open(db_config).unwrap();
 
     // Start benchmarking/tests.
-    let mut benchmarker = crate::benchmarks::Benchmarker::new(env, todo!());
-    benchmarker.todo();
+    let mut benchmarker = crate::bench::Benchmarker::new(env, todo!());
+    benchmarker.bench_all();
 }

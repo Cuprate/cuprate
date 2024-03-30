@@ -10,16 +10,16 @@ use std::{
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
-use crate::{benchmarks::Benchmarks, cli::Cli};
+use crate::{bench::Benchmark, cli::Cli};
 
 //---------------------------------------------------------------------------------------------------- Config
 /// TODO
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
-pub struct Config {
+pub(crate) struct Config {
     /// TODO
-    iterations: usize,
+    pub(crate) iterations: usize,
     /// TODO
-    benchmark_set: BTreeSet<Benchmarks>,
+    pub(crate) benchmark_set: BTreeSet<Benchmark>,
 }
 
 impl Config {
@@ -27,7 +27,7 @@ impl Config {
     pub(crate) fn new() -> Self {
         Self {
             iterations: 100_000,
-            benchmark_set: Benchmarks::iter().collect(),
+            benchmark_set: Benchmark::iter().collect(),
         }
     }
 
