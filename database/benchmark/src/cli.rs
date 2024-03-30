@@ -5,6 +5,8 @@ use std::path::PathBuf;
 
 use clap::{crate_name, Args, Parser, Subcommand};
 
+use cuprate_helper::fs::cuprate_database_dir;
+
 use crate::config::Config;
 
 //---------------------------------------------------------------------------------------------------- Constants
@@ -16,60 +18,70 @@ use crate::config::Config;
 /// - parsing/validating input values
 /// - routing certain `--flags` to function paths (and exiting)
 /// - possibly handing `Config` back off to `main()` for continued execution
-#[derive(Parser)]
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Parser)]
 #[allow(clippy::struct_excessive_bools)]
 pub struct Cli {
-    //------------------------------------------------------------------------------ TODO
+    //------------------------------------------------------------------------------ Config options
     /// Set filter level for console logs.
     #[arg(
         long,
         value_name = "OFF|ERROR|INFO|WARN|DEBUG|TRACE",
         verbatim_doc_comment
     )]
-    log_level: Option<String>, // FIXME: tracing::Level{Filter} doesn't work with clap?
+    pub(crate) log_level: Option<String>, // FIXME: tracing::Level{Filter} doesn't work with clap?
+
+    /// TODO
+    #[arg(long, value_name = "PATH", verbatim_doc_comment)]
+    pub(crate) config: Option<PathBuf>,
+
+    /// TODO
+    #[arg(long, value_name = "PATH", verbatim_doc_comment)]
+    pub(crate) db_config: Option<PathBuf>,
 
     //------------------------------------------------------------------------------ Early Return
-    // These are flags that do something
-    // then immediately return, e.g `--docs`.
+    // These are flags that do something then immediately return.
     //
     // Regardless of other flags provided, these will force a return.
     #[arg(long, verbatim_doc_comment)]
-    /// Print the configuration `cuprate` would have used, but don't actually startup
+    /// Print the configuration `cuprate-database-benchmark`
+    /// would have used, but don't actually startup.
     ///
     /// This will go through the regular process of:
-    ///   - Reading disk for config
     ///   - Reading command-line
-    ///   - Merging options together
-    ///   - Validating options
+    ///   - Reading disk for config
     ///
-    /// and then print them out as TOML, and exit.
-    dry_run: bool,
+    /// and then print the config out as TOML, and exit.
+    pub(crate) dry_run: bool,
 
     #[arg(long, verbatim_doc_comment)]
-    /// Print the PATHs used by `cuprate`
-    ///
-    /// All data saved by `cuprate` is saved in these directories.
-    /// For more information, see: <https://TODO>
-    path: bool,
+    /// Print the PATH used by `cuprate-database`.
+    pub(crate) path: bool,
 
     #[arg(long, verbatim_doc_comment)]
-    /// Delete all `cuprate` files that are on disk
+    /// Delete all `cuprated-database` files that are on disk.
     ///
-    /// This deletes all `daemon` Cuprate folders.
-    /// The PATHs deleted will be printed on success.
-    delete: bool,
+    /// This deletes the PATH returned by `--path`, aka, the
+    /// directory that stores all database related files.
+    pub(crate) delete: bool,
 
     #[arg(short, long)]
-    /// Print version and exit.
-    version: bool,
+    /// Print various stats and exit.
+    pub(crate) version: bool,
 }
 
 //---------------------------------------------------------------------------------------------------- CLI default
-impl Default for Cli {
-    fn default() -> Self {
-        todo!()
-    }
-}
+// impl Default for Cli {
+//     fn default() -> Self {
+//         Self {
+//             log_level: None,
+//             db_config: None,
+//             dry_run: false,
+//             path: false,
+//             delete: false,
+//             version: false,
+//         }
+//     }
+// }
 
 //---------------------------------------------------------------------------------------------------- CLI argument handling
 impl Cli {
@@ -93,20 +105,20 @@ impl Cli {
 
         //-------------------------------------------------- Version.
         if self.version {
-            println!("TODO");
+            todo!();
             return Err(0);
         }
 
         //-------------------------------------------------- Path.
         if self.path {
-            let p: PathBuf = todo!();
-            println!("{}", p.display());
+            let path = cuprate_database_dir();
+            println!("{}", path.display());
             return Err(0);
         }
 
         //-------------------------------------------------- Delete.
         if self.delete {
-            let path = cuprate_helper::fs::cuprate_database_dir();
+            let path = cuprate_database_dir();
 
             if path.exists() {
                 println!(

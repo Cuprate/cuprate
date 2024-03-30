@@ -69,14 +69,18 @@
 // Import private modules, export public types.
 //
 // Documentation for each module is located in the respective file.
+mod benchmarks;
 mod cli;
 mod config;
 mod constants;
 mod free;
+mod state;
 
 //---------------------------------------------------------------------------------------------------- Private
 
 //---------------------------------------------------------------------------------------------------- Import
+use cuprate_database::Env;
+
 use crate::{cli::Cli, config::Config};
 
 //---------------------------------------------------------------------------------------------------- Main
@@ -86,13 +90,40 @@ fn main() {
         // Some arguments were passed, run all the `clap` code.
         Cli::init()
     } else {
-        // No arguments were passed, use the default config.
+        // No arguments were passed, use the default.
         Cli::default()
     };
 
-    // // If `dry_run`, print config/stats/etc and exit cleanly.
-    // if config.dry_run {
-    //     println!("{}", serde_json::to_string_pretty(CONFIG).unwrap());
-    //     std::process::exit(0);
-    // }
+    // Load the benchmark config.
+    let config = if let Some(path) = cli.config.as_ref() {
+        let bytes = std::fs::read(path).unwrap();
+        let mut disk: Config = toml_edit::de::from_slice(&bytes).unwrap();
+        disk.merge(&cli);
+        disk
+    } else {
+        Config::new()
+    };
+
+    // Load the database config.
+    let db_config = if let Some(path) = cli.db_config {
+        let bytes = std::fs::read(path).unwrap();
+        toml_edit::de::from_slice(&bytes).unwrap()
+    } else {
+        cuprate_database::config::Config::new(None)
+    };
+
+    // Print config before starting.
+    println!("{config:#?}");
+
+    // If `dry_run`, exit cleanly.
+    if cli.dry_run {
+        std::process::exit(0);
+    }
+
+    // Create database.
+    let env = cuprate_database::ConcreteEnv::open(db_config).unwrap();
+
+    // Start benchmarking/tests.
+    let mut benchmarker = crate::benchmarks::Benchmarker::new(env, todo!());
+    benchmarker.todo();
 }

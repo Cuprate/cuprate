@@ -3,29 +3,41 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     borrow::Cow,
+    collections::BTreeSet,
     path::{Path, PathBuf},
 };
 
+use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
+
+use crate::{benchmarks::Benchmarks, cli::Cli};
+
 //---------------------------------------------------------------------------------------------------- Config
 /// TODO
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Config {}
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Serialize, Deserialize)]
+pub struct Config {
+    /// TODO
+    iterations: usize,
+    /// TODO
+    benchmark_set: BTreeSet<Benchmarks>,
+}
 
 impl Config {
     /// Create a new [`Config`] with sane default settings.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
+        Self {
+            iterations: 100_000,
+            benchmark_set: Benchmarks::iter().collect(),
+        }
+    }
+
+    /// TODO
+    pub(crate) fn merge(&mut self, cli: &Cli) {
         todo!()
     }
 }
 
 impl Default for Config {
-    /// Same as `Self::new(None)`.
-    ///
-    /// ```rust
-    /// # use cuprate_database_benchmark::config::*;
-    /// assert_eq!(Config::default(), Config::new(None));
-    /// ```
     fn default() -> Self {
         Self::new()
     }
