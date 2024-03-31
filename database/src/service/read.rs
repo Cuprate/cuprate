@@ -14,13 +14,9 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_types::service::{ReadRequest, Response};
 
-use crate::{
-    config::ReaderThreads,
-    error::RuntimeError,
-    service::{request::ReadRequest, response::Response},
-    ConcreteEnv,
-};
+use crate::{config::ReaderThreads, error::RuntimeError, ConcreteEnv};
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
@@ -211,11 +207,9 @@ fn map_request(
 ) {
     /* TODO: pre-request handling, run some code for each request? */
 
-    match request {
-        ReadRequest::Example1 => example_handler_1(env, response_sender),
-        ReadRequest::Example2(x) => example_handler_2(env, response_sender, x),
-        ReadRequest::Example3(x) => example_handler_3(env, response_sender, x),
-    }
+    // match request {
+    // }
+    todo!()
 
     /* TODO: post-request handling, run some code for each request? */
 }
@@ -230,27 +224,3 @@ fn map_request(
 //
 // All functions below assume that this is the case, such that
 // `par_*()` functions will not block the _global_ rayon thread-pool.
-
-/// TODO
-#[inline]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn example_handler_1(env: Arc<ConcreteEnv>, response_sender: ResponseSender) {
-    let db_result = Ok(Response::Example1);
-    response_sender.send(db_result).unwrap();
-}
-
-/// TODO
-#[inline]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn example_handler_2(env: Arc<ConcreteEnv>, response_sender: ResponseSender, x: usize) {
-    let db_result = Ok(Response::Example2(x));
-    response_sender.send(db_result).unwrap();
-}
-
-/// TODO
-#[inline]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn example_handler_3(env: Arc<ConcreteEnv>, response_sender: ResponseSender, x: String) {
-    let db_result = Ok(Response::Example3(x));
-    response_sender.send(db_result).unwrap();
-}

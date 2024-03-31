@@ -9,12 +9,9 @@ use std::{
 use futures::channel::oneshot;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_types::service::{Response, WriteRequest};
 
-use crate::{
-    error::RuntimeError,
-    service::{request::WriteRequest, response::Response},
-    ConcreteEnv, Env,
-};
+use crate::{error::RuntimeError, ConcreteEnv, Env};
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// Name of the writer thread.
@@ -141,11 +138,9 @@ impl DatabaseWriter {
             };
 
             // Map [`Request`]'s to specific database functions.
-            match request {
-                WriteRequest::Example1 => self.example_handler_1(response_sender),
-                WriteRequest::Example2(x) => self.example_handler_2(response_sender, x),
-                WriteRequest::Example3(x) => self.example_handler_3(response_sender, x),
-            }
+            // match request {
+            // }
+            todo!()
         }
     }
 
@@ -171,29 +166,5 @@ impl DatabaseWriter {
         // batch transactions, i.e., we're about to add ~5GB
         // of data, add that much instead of the default 1GB.
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
-    }
-
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_1(&self, response_sender: ResponseSender) {
-        let db_result = Ok(Response::Example1);
-        response_sender.send(db_result).unwrap();
-    }
-
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_2(&self, response_sender: ResponseSender, x: usize) {
-        let db_result = Ok(Response::Example2(x));
-        response_sender.send(db_result).unwrap();
-    }
-
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_3(&self, response_sender: ResponseSender, x: String) {
-        let db_result = Ok(Response::Example3(x));
-        response_sender.send(db_result).unwrap();
     }
 }
