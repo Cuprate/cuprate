@@ -140,7 +140,10 @@ impl DatabaseWriter {
                 return;
             };
 
-            /// TODO
+            /// How many times should we retry handling the request on resize errors?
+            ///
+            /// This is 1 on automatically resizing databases, meaning there is only 1 iteration.
+            /// This is 2 on manually resizing databases, meaning we only retry once, as that should be all that's needed.
             #[allow(clippy::items_after_statements)]
             const REQUEST_RETRY_LIMIT: usize = if ConcreteEnv::MANUAL_RESIZE { 2 } else { 1 };
 
@@ -225,6 +228,14 @@ impl DatabaseWriter {
 }
 
 //---------------------------------------------------------------------------------------------------- Handler functions
+// These are the actual functions that do stuff according to the incoming [`Request`].
+//
+// Each function name is a 1-1 mapping (from CamelCase -> snake_case) to
+// the enum variant name, e.g: `BlockExtendedHeader` -> `block_extended_header`.
+//
+// Each function will return the [`Response`] that we
+// should send back to the caller in [`map_request()`].
+
 /// [`WriteRequest::WriteBlock`].
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me

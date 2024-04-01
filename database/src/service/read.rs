@@ -197,14 +197,13 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 ///
 /// This is the main entrance into all `Request` handler functions.
 /// The basic structure is:
-///
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`Response`] is sent
 fn map_request(
-    _permit: OwnedSemaphorePermit,   // Permit for this request
-    env: Arc<ConcreteEnv>,           // Access to the database
-    request: ReadRequest,            // The request we must fulfill
+    _permit: OwnedSemaphorePermit, // Permit for this request, dropped at end of function
+    env: Arc<ConcreteEnv>,         // Access to the database
+    request: ReadRequest,          // The request we must fulfill
     response_sender: ResponseSender, // The channel we must send the response back to
 ) {
     /* TODO: pre-request handling, run some code for each request? */
