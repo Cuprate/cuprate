@@ -9,7 +9,10 @@ use std::{
 use futures::channel::oneshot;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_types::service::{Response, WriteRequest};
+use cuprate_types::{
+    service::{Response, WriteRequest},
+    VerifiedBlockInformation,
+};
 
 use crate::{error::RuntimeError, ConcreteEnv, Env};
 
@@ -54,7 +57,7 @@ impl DatabaseWriteHandle {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: Arc<ConcreteEnv>) -> Self {
+    pub(super) fn init(env: Arc<ConcreteEnv>) -> Self {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -62,7 +65,7 @@ impl DatabaseWriteHandle {
         std::thread::Builder::new()
             .name(WRITER_THREAD_NAME.into())
             .spawn(move || {
-                let this = DatabaseWriter { receiver, db };
+                let this = DatabaseWriter { receiver, env };
                 DatabaseWriter::main(this);
             })
             .unwrap();
@@ -104,7 +107,7 @@ pub(super) struct DatabaseWriter {
     receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSender)>,
 
     /// Access to the database.
-    db: Arc<ConcreteEnv>,
+    env: Arc<ConcreteEnv>,
 }
 
 impl Drop for DatabaseWriter {
@@ -141,7 +144,7 @@ impl DatabaseWriter {
             // TODO: will there be more than 1 write request?
             // this won't have to be an enum.
             match request {
-                WriteRequest::WriteBlock(block) => todo!(),
+                WriteRequest::WriteBlock(block) => write_block(&self.env, block),
             }
         }
     }
@@ -162,11 +165,19 @@ impl DatabaseWriter {
         //
         // We need mutual exclusion due to:
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-        self.db.resize_map(None);
+        self.env.resize_map(None);
         // TODO:
         // We could pass in custom resizes to account for
         // batch transactions, i.e., we're about to add ~5GB
         // of data, add that much instead of the default 1GB.
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
     }
+}
+
+//---------------------------------------------------------------------------------------------------- Handler functions
+/// [`WriteRequest::WriteBlock`].
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn write_block(env: &ConcreteEnv, block: VerifiedBlockInformation) {
+    todo!()
 }

@@ -3,9 +3,9 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
+    ops::Range,
     sync::Arc,
     task::{Context, Poll},
-    ops::Range,
 };
 
 use crossbeam::channel::Receiver;
@@ -280,6 +280,7 @@ fn generated_coins(env: &Arc<ConcreteEnv>) -> ResponseResult {
 
 /// [`ReadRequest::Outputs`].
 #[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
 fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<u64, HashSet<u64>>) -> ResponseResult {
     todo!()
 }
@@ -287,12 +288,14 @@ fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<u64, HashSet<u64>>) -> ResponseR
 /// [`ReadRequest::NumberOutputsWithAmount`].
 /// TODO
 #[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
 fn number_outputs_with_amount(env: &Arc<ConcreteEnv>, vec: Vec<u64>) -> ResponseResult {
     todo!()
 }
 
 /// [`ReadRequest::CheckKIsNotSpent`].
 #[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
 fn check_k_is_not_spent(env: &Arc<ConcreteEnv>, set: HashSet<[u8; 32]>) -> ResponseResult {
     todo!()
 }
