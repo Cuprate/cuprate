@@ -6,6 +6,9 @@ extend-ignore-identifiers-re = [
 	# in file: `/cryptonight/c/oaes_lib.c:1213`
 	# not sure if false-positive or not.
 	"InvMixColums",
+	# cuprate_database's `TxRo` and `tx_ro`
+	"Ro",
+	"ro",
 ]
 
 [files]
