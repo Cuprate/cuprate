@@ -123,11 +123,6 @@ impl DatabaseWriter {
     #[cold]
     #[inline(never)] // Only called once.
     fn main(self) {
-        /// TODO
-        const REQUEST_RETRY_LIMIT: usize = 5;
-
-        let mut request_retry_counter = 0;
-
         // 1. Hang on request channel
         // 2. Map request to some database function
         // 3. Execute that function, get the result
@@ -145,39 +140,60 @@ impl DatabaseWriter {
                 return;
             };
 
+            /// TODO
+            #[allow(clippy::items_after_statements)]
+            const REQUEST_RETRY_LIMIT: usize = if ConcreteEnv::MANUAL_RESIZE { 2 } else { 1 };
+
             // Map [`Request`]'s to specific database functions.
+            //
             // TODO: will there be more than 1 write request?
             // this won't have to be an enum.
-            loop {
-                // TODO: Instead of reacting to resize errors, we should
-                // be proactively resizing each request. Else, we must
-                // `.clone()` the below block as the next `loop` retry
-                // must need access to it as well.
-                //
-                // If we had a local stack `usize` holding our
-                // current memory map bytes, we could calculate how
-                // much space we have, and if we need to proactively
-                // resize before writing some data to avoid a `.clone()`.
-
-                let response = match request {
+            //
+            // This loop will be:
+            // - 2 iterations for manually resizing databases
+            // - 1 iteration for auto resizing databases
+            //
+            // Both will:
+            // 1. Map the request to a function
+            // 2. Call the function
+            // 3. (manual resize only) If resize is needed, resize and `continue`
+            // 4. (manual resize only) Redo step {1, 2}
+            // 5. Send the function's `Result` back to the requester
+            for retry in 0..REQUEST_RETRY_LIMIT {
+                let response = match &request {
                     WriteRequest::WriteBlock(block) => write_block(&self.env, block),
                 };
 
-                match response {
-                    // TODO: what do we do if this errors?
-                    Ok(response) => response_sender.send(Ok(response)).unwrap(),
-                    Err(RuntimeError::ResizeNeeded) => {
-                        if request_retry_counter > REQUEST_RETRY_LIMIT {
-                            break;
-                        }
+                // If the database needs to resize, do so.
+                // This branch will only be taken if:
+                // - This database manually resizes (compile time `bool`)
+                // - we haven't surpassed the retry limit, [`REQUEST_RETRY_LIMIT`]
+                if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded))
+                {
+                    // If this is the 2nd iteration of the outer `for` loop and we
+                    // encounter a resize error _again_, it means something is wrong
+                    // as we should have successfully resized last iteration.
+                    assert_eq!(
+                        retry, 0,
+                        "database needed to resize twice - we should have handled it"
+                    );
 
-                        request_retry_counter += 1;
-                        self.resize_map();
-                        continue;
-                    }
-                    Err(error) => response_sender.send(Err(error)).unwrap(),
+                    // Resize the map, and retry the request handling loop.
+                    self.resize_map();
+                    continue;
                 }
 
+                // Automatically resizing databases should not be returning a resize error.
+                #[cfg(debug_assertions)]
+                if !ConcreteEnv::MANUAL_RESIZE {
+                    assert!(
+                        !matches!(response, Err(RuntimeError::ResizeNeeded)),
+                        "auto-resizing database returned a ResizeNeeded error"
+                    );
+                }
+
+                // Send the response back, whether if it's an `Ok` or `Err`.
+                response_sender.send(response).unwrap();
                 break;
             }
         }
@@ -212,6 +228,6 @@ impl DatabaseWriter {
 /// [`WriteRequest::WriteBlock`].
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn write_block(env: &ConcreteEnv, block: VerifiedBlockInformation) -> ResponseResult {
+fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
     todo!()
 }
