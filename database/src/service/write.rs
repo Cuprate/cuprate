@@ -18,7 +18,7 @@ use crate::{error::RuntimeError, ConcreteEnv, Env};
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// Name of the writer thread.
-const WRITER_THREAD_NAME: &str = "cuprate_helper::service::read::DatabaseWriter";
+const WRITER_THREAD_NAME: &str = concat!(module_path!(), "::DatabaseWriter");
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
@@ -123,6 +123,11 @@ impl DatabaseWriter {
     #[cold]
     #[inline(never)] // Only called once.
     fn main(self) {
+        /// TODO
+        const REQUEST_RETRY_LIMIT: usize = 5;
+
+        let mut request_retry_counter = 0;
+
         // 1. Hang on request channel
         // 2. Map request to some database function
         // 3. Execute that function, get the result
@@ -143,8 +148,37 @@ impl DatabaseWriter {
             // Map [`Request`]'s to specific database functions.
             // TODO: will there be more than 1 write request?
             // this won't have to be an enum.
-            match request {
-                WriteRequest::WriteBlock(block) => write_block(&self.env, block),
+            loop {
+                // TODO: Instead of reacting to resize errors, we should
+                // be proactively resizing each request. Else, we must
+                // `.clone()` the below block as the next `loop` retry
+                // must need access to it as well.
+                //
+                // If we had a local stack `usize` holding our
+                // current memory map bytes, we could calculate how
+                // much space we have, and if we need to proactively
+                // resize before writing some data to avoid a `.clone()`.
+
+                let response = match request {
+                    WriteRequest::WriteBlock(block) => write_block(&self.env, block),
+                };
+
+                match response {
+                    // TODO: what do we do if this errors?
+                    Ok(response) => response_sender.send(Ok(response)).unwrap(),
+                    Err(RuntimeError::ResizeNeeded) => {
+                        if request_retry_counter > REQUEST_RETRY_LIMIT {
+                            break;
+                        }
+
+                        request_retry_counter += 1;
+                        self.resize_map();
+                        continue;
+                    }
+                    Err(error) => response_sender.send(Err(error)).unwrap(),
+                }
+
+                break;
             }
         }
     }
@@ -178,6 +212,6 @@ impl DatabaseWriter {
 /// [`WriteRequest::WriteBlock`].
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn write_block(env: &ConcreteEnv, block: VerifiedBlockInformation) {
+fn write_block(env: &ConcreteEnv, block: VerifiedBlockInformation) -> ResponseResult {
     todo!()
 }
