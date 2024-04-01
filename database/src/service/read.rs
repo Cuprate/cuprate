@@ -2,8 +2,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
+    collections::{HashMap, HashSet},
     sync::Arc,
     task::{Context, Poll},
+    ops::Range,
 };
 
 use crossbeam::channel::Receiver;
@@ -208,23 +210,32 @@ fn map_request(
     /* TODO: pre-request handling, run some code for each request? */
     use ReadRequest as R;
 
-    match request {
-        R::BlockExtendedHeader(block) => todo!(),
-        R::BlockHash(block) => todo!(),
-        R::BlockExtendedHeaderInRange(range) => todo!(),
-        R::ChainHeight => todo!(),
-        R::GeneratedCoins => todo!(),
-        R::Outputs(map) => todo!(),
-        R::NumberOutputsWithAmount(vec) => todo!(),
-        R::CheckKIsNotSpent(set) => todo!(),
-        R::BlockBatchInRange(range) => todo!(),
-    }
+    let response = match request {
+        R::BlockExtendedHeader(block) => block_extended_header(&env, block),
+        R::BlockHash(block) => block_hash(&env, block),
+        R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(&env, range),
+        R::ChainHeight => chain_height(&env),
+        R::GeneratedCoins => generated_coins(&env),
+        R::Outputs(map) => outputs(&env, map),
+        R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(&env, vec),
+        R::CheckKIsNotSpent(set) => check_k_is_not_spent(&env, set),
+        R::BlockBatchInRange(range) => block_batch_in_range(&env, range),
+    };
+
+    // TODO: what do we do if this errors?
+    response_sender.send(response).unwrap();
 
     /* TODO: post-request handling, run some code for each request? */
 }
 
 //---------------------------------------------------------------------------------------------------- Handler functions
 // These are the actual functions that do stuff according to the incoming [`Request`].
+//
+// Each function name is a 1-1 mapping (from CamelCase -> snake_case) to
+// the enum variant name, e.g: `BlockExtendedHeader` -> `block_extended_header`.
+//
+// Each function will return the [`Response`] that we
+// should send back to the caller in [`map_request()`].
 //
 // INVARIANT:
 // These functions are called above in `tower::Service::call()`
@@ -233,3 +244,61 @@ fn map_request(
 //
 // All functions below assume that this is the case, such that
 // `par_*()` functions will not block the _global_ rayon thread-pool.
+
+/// [`ReadRequest::BlockExtendedHeader`].
+#[inline]
+fn block_extended_header(env: &Arc<ConcreteEnv>, block: u64) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::BlockHash`].
+#[inline]
+fn block_hash(env: &Arc<ConcreteEnv>, block: u64) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::BlockExtendedHeaderInRange`].
+#[inline]
+fn block_extended_header_in_range(
+    env: &Arc<ConcreteEnv>,
+    range: std::ops::Range<u64>,
+) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::ChainHeight`].
+#[inline]
+fn chain_height(env: &Arc<ConcreteEnv>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::GeneratedCoins`].
+#[inline]
+fn generated_coins(env: &Arc<ConcreteEnv>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::Outputs`].
+#[inline]
+fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<u64, HashSet<u64>>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::NumberOutputsWithAmount`].
+/// TODO
+#[inline]
+fn number_outputs_with_amount(env: &Arc<ConcreteEnv>, vec: Vec<u64>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::CheckKIsNotSpent`].
+#[inline]
+fn check_k_is_not_spent(env: &Arc<ConcreteEnv>, set: HashSet<[u8; 32]>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::BlockBatchInRange`].
+#[inline]
+fn block_batch_in_range(env: &Arc<ConcreteEnv>, range: Range<u64>) -> ResponseResult {
+    todo!()
+}
