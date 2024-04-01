@@ -138,9 +138,11 @@ impl DatabaseWriter {
             };
 
             // Map [`Request`]'s to specific database functions.
-            // match request {
-            // }
-            todo!()
+            // TODO: will there be more than 1 write request?
+            // this won't have to be an enum.
+            match request {
+                WriteRequest::WriteBlock(block) => todo!(),
+            }
         }
     }
 

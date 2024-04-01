@@ -206,10 +206,19 @@ fn map_request(
     response_sender: ResponseSender, // The channel we must send the response back to
 ) {
     /* TODO: pre-request handling, run some code for each request? */
+    use ReadRequest as R;
 
-    // match request {
-    // }
-    todo!()
+    match request {
+        R::BlockExtendedHeader(block) => todo!(),
+        R::BlockHash(block) => todo!(),
+        R::BlockExtendedHeaderInRange(range) => todo!(),
+        R::ChainHeight => todo!(),
+        R::GeneratedCoins => todo!(),
+        R::Outputs(map) => todo!(),
+        R::NumberOutputsWithAmount(vec) => todo!(),
+        R::CheckKIsNotSpent(set) => todo!(),
+        R::BlockBatchInRange(range) => todo!(),
+    }
 
     /* TODO: post-request handling, run some code for each request? */
 }

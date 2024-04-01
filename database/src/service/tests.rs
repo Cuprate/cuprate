@@ -36,6 +36,10 @@ fn init_drop() {
     let (reader, writer, _tempdir) = init_service();
 }
 
+// TODO:
+// un-comment and fix these tests when all `{read,write}`
+// service functions are implemented.
+
 // /// Send a read request, and receive a response,
 // /// asserting the response the expected value.
 // #[tokio::test]
