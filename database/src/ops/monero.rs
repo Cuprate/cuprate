@@ -10,16 +10,30 @@ use std::{
 use crate::{
     database::{DatabaseRo, DatabaseRw},
     table::Table,
+    tables::BlockBlobs,
+    ConcreteEnv, Env, EnvInner, TxRo, TxRw,
 };
 
 //---------------------------------------------------------------------------------------------------- MoneroRo
 /// Monero database read operations.
 ///
 /// TODO
-pub trait MoneroRo<T: Table>: DatabaseRo<T> {}
+pub trait MoneroRo<'env, Ro, Rw>
+where
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+    Self: EnvInner<'env, Ro, Rw>,
+{
+}
 
 //---------------------------------------------------------------------------------------------------- MoneroRw
 /// Monero database read/write operations.
 ///
 /// TODO
-pub trait MoneroRw<T: Table>: DatabaseRw<T> {}
+pub trait MoneroRw<'env, Ro, Rw>
+where
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+    Self: EnvInner<'env, Ro, Rw>,
+{
+}
