@@ -256,11 +256,8 @@ pub struct BlockInfoV3 {
     pub total_generated_coins: u64,
     /// TODO
     pub weight: u64,
-    // Maintain 8 byte alignment.
     /// TODO
-    pub cumulative_difficulty_low: u64,
-    /// TODO
-    pub cumulative_difficulty_high: u64,
+    pub cumulative_difficulty: u128,
     /// TODO
     pub block_hash: [u8; 32],
     /// TODO
