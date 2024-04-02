@@ -63,6 +63,9 @@ pub struct VerifiedBlockInformation {
     /// TODO
     pub block: Block,
     /// TODO
+    /// This is a `cuprate_consensus::HardFork`.
+    pub hf_vote: u8,
+    /// TODO
     pub txs: Vec<Arc<TransactionVerificationData>>,
     /// TODO
     pub block_hash: [u8; 32],
