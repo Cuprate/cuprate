@@ -10,7 +10,9 @@ use crate::{
     env::EnvInner,
     error::RuntimeError,
     tables::{
-        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds, TxUnlockTime
+        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
+        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds,
+        TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
     types::{
@@ -185,130 +187,7 @@ where
     Rw: TxRw<'env>,
     Env: EnvInner<'env, Ro, Rw>,
 {
-    add_blocks_v3(env, tx_rw, height_and_blocks)
-}
-
-/// TODO
-///
-/// # Errors
-/// TODO
-#[inline]
-pub fn add_block_v1<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &mut Rw,
-    height: BlockHeight,
-    block: &BlockInfoV1,
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    env.open_db_rw::<BlockInfoV1s>(tx_rw)?.put(&height, block)
-}
-
-/// TODO
-///
-/// # Errors
-/// TODO
-#[inline]
-pub fn add_blocks_v1<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &mut Rw,
-    height_and_blocks: &[(BlockHeight, BlockInfoV1)],
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let mut table = env.open_db_rw::<BlockInfoV1s>(tx_rw)?;
-    for (height, block) in height_and_blocks {
-        table.put(height, block)?;
-    }
-    Ok(())
-}
-
-/// TODO
-///
-/// # Errors
-/// TODO
-#[inline]
-pub fn add_block_v2<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &mut Rw,
-    height: BlockHeight,
-    block: &BlockInfoV2,
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    env.open_db_rw::<BlockInfoV2s>(tx_rw)?.put(&height, block)
-}
-
-/// TODO
-///
-/// # Errors
-/// TODO
-#[inline]
-pub fn add_blocks_v2<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &mut Rw,
-    height_and_blocks: &[(BlockHeight, BlockInfoV2)],
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let mut table = env.open_db_rw::<BlockInfoV2s>(tx_rw)?;
-    for (height, block) in height_and_blocks {
-        table.put(height, block)?;
-    }
-    Ok(())
-}
-
-/// TODO
-///
-/// # Errors
-/// TODO
-#[inline]
-pub fn add_block_v3<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &mut Rw,
-    height: BlockHeight,
-    block: &BlockInfoV3,
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    env.open_db_rw::<BlockInfoV3s>(tx_rw)?.put(&height, block)
-}
-
-/// TODO
-///
-/// # Errors
-/// TODO
-#[inline]
-pub fn add_blocks_v3<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &mut Rw,
-    height_and_blocks: &[(BlockHeight, BlockInfoV3)],
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let mut table = env.open_db_rw::<BlockInfoV3s>(tx_rw)?;
-    for (height, block) in height_and_blocks {
-        table.put(height, block)?;
-    }
-    Ok(())
+    todo!()
 }
 
 /// TODO
