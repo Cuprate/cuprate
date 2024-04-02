@@ -71,6 +71,9 @@ pub type BlockHash = [u8; 32];
 pub type BlockHeight = u64;
 
 /// TODO
+pub type BlockInfoLatest = BlockInfoV3;
+
+/// TODO
 pub type KeyImage = [u8; 32];
 
 /// TODO
