@@ -13,22 +13,20 @@ use crate::{
     transaction::{TxRo, TxRw},
 };
 
-//---------------------------------------------------------------------------------------------------- DatabaseRo
-/// Database (key-value store) read abstraction.
+//---------------------------------------------------------------------------------------------------- DatabaseRoIter
+/// Database (key-value store) read-only iteration abstraction.
 ///
-/// This is a read-only database table,
-/// write operations are defined in [`DatabaseRw`].
-pub trait DatabaseRo<T: Table> {
-    /// Get the value corresponding to a key.
-    ///
-    /// The returned value is _owned_.
-    ///
-    /// # Errors
-    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-    ///
-    /// It will return other [`RuntimeError`]'s on things like IO errors as well.
-    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError>;
-
+/// These are read-only iteration-related operations that
+/// can only be called from [`DatabaseRo`] objects.
+///
+/// # Hack
+/// This is a hack to get around the fact our read/write tables
+/// cannot _safely_ return values returning lifetimes, as such,
+/// only read-only tables implement this trait.
+///
+/// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>
+/// - <https://github.com/Cuprate/cuprate/pull/104>
+pub trait DatabaseIter<T: Table> {
     /// Get an iterator of value's corresponding to a range of keys.
     ///
     /// For example:
@@ -77,6 +75,23 @@ pub trait DatabaseRo<T: Table> {
     fn values(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError>;
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseRo
+/// Database (key-value store) read abstraction.
+///
+/// This is a read-only database table,
+/// write operations are defined in [`DatabaseRw`].
+pub trait DatabaseRo<T: Table> {
+    /// Get the value corresponding to a key.
+    ///
+    /// The returned value is _owned_.
+    ///
+    /// # Errors
+    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    ///
+    /// It will return other [`RuntimeError`]'s on things like IO errors as well.
+    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError>;
 
     /// TODO
     ///
