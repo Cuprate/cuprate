@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    cell::UnsafeCell,
+    cell::RefCell,
     fmt::Debug,
     ops::Deref,
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -98,9 +98,9 @@ impl Env for ConcreteEnv {
     type EnvInner<'env> = RwLockReadGuard<'env, heed::Env>;
     type TxRo<'tx> = heed::RoTxn<'tx>;
 
-    /// TODO: Explain why this is `UnsafeCell`
+    /// TODO: Explain why this is `RefCell`
     /// <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>
-    type TxRw<'tx> = UnsafeCell<heed::RwTxn<'tx>>;
+    type TxRw<'tx> = RefCell<heed::RwTxn<'tx>>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -267,7 +267,7 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, heed::RoTxn<'env>, UnsafeCell<heed::RwTxn<'env>>>
+impl<'env> EnvInner<'env, heed::RoTxn<'env>, RefCell<heed::RwTxn<'env>>>
     for RwLockReadGuard<'env, heed::Env>
 where
     Self: 'env,
@@ -278,8 +278,8 @@ where
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<UnsafeCell<heed::RwTxn<'env>>, RuntimeError> {
-        Ok(UnsafeCell::new(self.write_txn()?))
+    fn tx_rw(&'env self) -> Result<RefCell<heed::RwTxn<'env>>, RuntimeError> {
+        Ok(RefCell::new(self.write_txn()?))
     }
 
     #[inline]
@@ -299,18 +299,14 @@ where
     #[inline]
     fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &UnsafeCell<heed::RwTxn<'env>>,
+        tx_rw: &RefCell<heed::RwTxn<'env>>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
-        // SAFETY:
-        // - We are not mutating `tx_rw`
-        // - There are no mutable references
-        // - Pointer deref is from reference
-        let tx_rw_mut = unsafe { &*tx_rw.get() };
+        let tx_ro = tx_rw.borrow();
 
         // Open up a read/write database using our table's const metadata.
         Ok(HeedTableRw {
             db: self
-                .open_database(tx_rw_mut, Some(T::NAME))?
+                .open_database(&tx_ro, Some(T::NAME))?
                 .expect(PANIC_MSG_MISSING_TABLE),
             tx_rw,
         })
@@ -319,7 +315,7 @@ where
     #[inline]
     fn clear_db<T: Table>(
         &self,
-        tx_rw: &mut UnsafeCell<heed::RwTxn<'env>>,
+        tx_rw: &mut RefCell<heed::RwTxn<'env>>,
     ) -> Result<(), RuntimeError> {
         let tx_rw = tx_rw.get_mut();
 

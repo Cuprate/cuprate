@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     borrow::{Borrow, Cow},
-    cell::{Ref, UnsafeCell},
+    cell::{Ref, RefCell},
     fmt::Debug,
     ops::RangeBounds,
     sync::RwLockReadGuard,
@@ -46,18 +46,7 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
     /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
-    pub(super) tx_rw: &'tx UnsafeCell<heed::RwTxn<'env>>,
-}
-
-impl<T: Table> HeedTableRw<'_, '_, T> {
-    /// Retrieve a read-only transaction.
-    fn tx_ro(&self) -> &heed::RoTxn {
-        // SAFETY:
-        // - The returned `&` is good as long as `&self` is alive
-        // - `&self` statically asserts there are no mutable references
-        // - We're creating/dereferencing a pointer to a good reference
-        unsafe { &*self.tx_rw.get() }
-    }
+    pub(super) tx_rw: &'tx RefCell<heed::RwTxn<'env>>,
 }
 
 //---------------------------------------------------------------------------------------------------- Shared functions
@@ -179,48 +168,45 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
 impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
-        get::<T>(&self.db, self.tx_ro(), key)
+        get::<T>(&self.db, &self.tx_rw.borrow(), key)
     }
 
     #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
-        len::<T>(&self.db, self.tx_ro())
+        len::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        first::<T>(&self.db, self.tx_ro())
+        first::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        last::<T>(&self.db, self.tx_ro())
+        last::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn is_empty(&self) -> Result<bool, RuntimeError> {
-        is_empty::<T>(&self.db, self.tx_ro())
+        is_empty::<T>(&self.db, &self.tx_rw.borrow())
     }
 }
 
 impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
-        // SAFETY: we have `&mut self`.
-        Ok(self.db.put(unsafe { &mut *self.tx_rw.get() }, key, value)?)
+        Ok(self.db.put(&mut self.tx_rw.borrow_mut(), key, value)?)
     }
 
     #[inline]
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
-        // SAFETY: we have `&mut self`.
-        self.db.delete(unsafe { &mut *self.tx_rw.get() }, key)?;
+        self.db.delete(&mut self.tx_rw.borrow_mut(), key)?;
         Ok(())
     }
 
     #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
-        // SAFETY: we have `&mut self`.
-        let tx_rw = unsafe { &mut *self.tx_rw.get() };
+        let tx_rw = &mut self.tx_rw.borrow_mut();
 
         // Get the first value first...
         let Some(first) = self.db.first(tx_rw)? else {
@@ -250,8 +236,7 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
 
     #[inline]
     fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
-        // SAFETY: we have `&mut self`.
-        let tx_rw = unsafe { &mut *self.tx_rw.get() };
+        let tx_rw = &mut self.tx_rw.borrow_mut();
 
         let Some(first) = self.db.last(tx_rw)? else {
             return Err(RuntimeError::KeyNotFound);
