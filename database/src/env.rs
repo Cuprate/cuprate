@@ -217,7 +217,7 @@ where
     /// As [`Table`] is `Sealed`, and all tables are created
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
-    fn open_db_rw<T: Table>(&self, tx_rw: &mut Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
+    fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
 
     /// Clear all `(key, value)`'s from a database table.
     ///
