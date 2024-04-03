@@ -81,7 +81,7 @@ fn open_db() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro().unwrap();
-    let mut tx_rw = env_inner.tx_rw().unwrap();
+    let tx_rw = env_inner.tx_rw().unwrap();
 
     // Open all tables in read-only mode.
     // This should be updated when tables are modified.
@@ -103,21 +103,21 @@ fn open_db() {
     TxRo::commit(tx_ro).unwrap();
 
     // Open all tables in read/write mode.
-    env_inner.open_db_rw::<BlockBlobs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockHeights>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV1s>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV2s>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV3s>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<KeyImages>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<NumOutputs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<PrunableHashes>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<PrunableTxBlobs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<PrunedTxBlobs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<RctOutputs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TxHeights>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TxIds>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TxUnlockTime>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockBlobs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockHeights>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV1s>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV2s>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV3s>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<KeyImages>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<NumOutputs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunableHashes>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunableTxBlobs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunedTxBlobs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<RctOutputs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxHeights>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxIds>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxUnlockTime>(&tx_rw).unwrap();
     TxRw::commit(tx_rw).unwrap();
 }
 
@@ -169,8 +169,8 @@ fn non_manual_resize_2() {
 fn db_read_write() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
-    let mut tx_rw = env_inner.tx_rw().unwrap();
-    let mut table = env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
+    let tx_rw = env_inner.tx_rw().unwrap();
+    let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
 
     /// The (1st) key.
     const KEY: PreRctOutputId = PreRctOutputId {
@@ -273,7 +273,7 @@ fn db_read_write() {
     }
 
     drop(table);
-    tx_rw.commit().unwrap();
+    TxRw::commit(tx_rw).unwrap();
     let mut tx_rw = env_inner.tx_rw().unwrap();
 
     // Assert `clear_db()` works.
@@ -283,7 +283,7 @@ fn db_read_write() {
         let reader_table = env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
 
         env_inner.clear_db::<Outputs>(&mut tx_rw).unwrap();
-        let table = env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
+        let table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
         assert!(table.is_empty().unwrap());
         for n in 0..N {
             let mut key = KEY;
