@@ -1,6 +1,6 @@
 //! Implementation of `trait TxRo/TxRw` for `heed`.
 
-use std::{ops::Deref, sync::RwLockReadGuard};
+use std::{cell::UnsafeCell, ops::Deref, sync::RwLockReadGuard};
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
@@ -16,20 +16,20 @@ impl TxRo<'_> for heed::RoTxn<'_> {
 }
 
 //---------------------------------------------------------------------------------------------------- TxRw
-impl TxRo<'_> for heed::RwTxn<'_> {
+impl TxRo<'_> for UnsafeCell<heed::RwTxn<'_>> {
     fn commit(self) -> Result<(), RuntimeError> {
-        Ok(self.commit()?)
+        Ok(self.into_inner().commit()?)
     }
 }
 
-impl TxRw<'_> for heed::RwTxn<'_> {
+impl TxRw<'_> for UnsafeCell<heed::RwTxn<'_>> {
     fn commit(self) -> Result<(), RuntimeError> {
-        Ok(self.commit()?)
+        Ok(self.into_inner().commit()?)
     }
 
     /// This function is infallible.
     fn abort(self) -> Result<(), RuntimeError> {
-        self.abort();
+        self.into_inner().abort();
         Ok(())
     }
 }
