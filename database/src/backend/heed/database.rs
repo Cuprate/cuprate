@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     backend::heed::{storable::StorableHeed, types::HeedDb},
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
 };
@@ -75,46 +75,6 @@ fn get<T: Table>(
     db.get(tx_ro, key)?.ok_or(RuntimeError::KeyNotFound)
 }
 
-/// Shared [`DatabaseRo::get_range()`].
-#[inline]
-fn get_range<'a, T: Table, Range>(
-    db: &'a HeedDb<T::Key, T::Value>,
-    tx_ro: &'a heed::RoTxn<'_>,
-    range: Range,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
-where
-    Range: RangeBounds<T::Key> + 'a,
-{
-    Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
-}
-
-/// Shared [`DatabaseRo::iter()`].
-#[inline]
-fn iter<'a, T: Table>(
-    db: &'a HeedDb<T::Key, T::Value>,
-    tx_ro: &'a heed::RoTxn<'_>,
-) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError> {
-    Ok(db.iter(tx_ro)?.map(|res| Ok(res?)))
-}
-
-/// Shared [`DatabaseRo::keys()`].
-#[inline]
-fn keys<'a, T: Table>(
-    db: &'a HeedDb<T::Key, T::Value>,
-    tx_ro: &'a heed::RoTxn<'_>,
-) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + 'a, RuntimeError> {
-    Ok(db.iter(tx_ro)?.map(|res| Ok(res?.0)))
-}
-
-/// Shared [`DatabaseRo::values()`].
-#[inline]
-fn values<'a, T: Table>(
-    db: &'a HeedDb<T::Key, T::Value>,
-    tx_ro: &'a heed::RoTxn<'_>,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError> {
-    Ok(db.iter(tx_ro)?.map(|res| Ok(res?.1)))
-}
-
 /// Shared [`DatabaseRo::len()`].
 #[inline]
 fn len<T: Table>(
@@ -151,13 +111,8 @@ fn is_empty<T: Table>(
     Ok(db.is_empty(tx_ro)?)
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
-    #[inline]
-    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
-        get::<T>(&self.db, self.tx_ro, key)
-    }
-
+//---------------------------------------------------------------------------------------------------- DatabaseIter Impl
+impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
     #[inline]
     fn get_range<'a, Range>(
         &'a self,
@@ -166,7 +121,7 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     where
         Range: RangeBounds<T::Key> + 'a,
     {
-        get_range::<T, Range>(&self.db, self.tx_ro, range)
+        Ok(self.db.range(self.tx_ro, &range)?.map(|res| Ok(res?.1)))
     }
 
     #[inline]
@@ -174,21 +129,29 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
         &self,
     ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
     {
-        iter::<T>(&self.db, self.tx_ro)
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?)))
     }
 
     #[inline]
     fn keys(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
-        keys::<T>(&self.db, self.tx_ro)
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?.0)))
     }
 
     #[inline]
     fn values(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        values::<T>(&self.db, self.tx_ro)
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?.1)))
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseRo Impl
+impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
+    #[inline]
+    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+        get::<T>(&self.db, self.tx_ro, key)
     }
 
     #[inline]
@@ -217,39 +180,6 @@ impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(&self.db, self.tx_ro(), key)
-    }
-
-    #[inline]
-    fn get_range<'a, Range>(
-        &'a self,
-        range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
-    where
-        Range: RangeBounds<T::Key> + 'a,
-    {
-        get_range::<T, Range>(&self.db, self.tx_ro(), range)
-    }
-
-    #[inline]
-    fn iter(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
-    {
-        iter::<T>(&self.db, self.tx_ro())
-    }
-
-    #[inline]
-    fn keys(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
-        keys::<T>(&self.db, self.tx_ro())
-    }
-
-    #[inline]
-    fn values(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        values::<T>(&self.db, self.tx_ro())
     }
 
     #[inline]
