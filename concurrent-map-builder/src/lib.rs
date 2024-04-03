@@ -47,9 +47,9 @@ fn build() {
     use std::time::Duration;
 
     let mut keys = IndexSet::new();
-    keys.extend(0..100_u8);
+    keys.extend(0..1000_u16);
 
-    let map_builder = BuiltMap::<u8, u8>::builder(keys);
+    let map_builder = BuiltMap::<u16, u16>::builder(keys);
 
     let map_builder2 = map_builder.clone();
 
@@ -63,7 +63,7 @@ fn build() {
         for key in keys_needed {
             println!("Thread1: {}", key);
             work.insert_next_value(*key).unwrap();
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(10));
         }
     });
 
@@ -79,7 +79,7 @@ fn build() {
         for key in keys_needed {
             println!("Thread2: {}", key);
             work.insert_next_value(*key).unwrap();
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(10));
         }
     });
 
@@ -95,7 +95,7 @@ fn build() {
         for key in keys_needed {
             println!("Thread3: {}", key);
             work.insert_next_value(*key).unwrap();
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(10));
         }
     });
 
