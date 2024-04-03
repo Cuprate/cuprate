@@ -24,7 +24,7 @@ use std::borrow::{Borrow, Cow};
 
 use crate::{
     config::{Config, SyncMode},
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseRo, DatabaseRw, DatabaseIter},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
@@ -223,6 +223,9 @@ fn db_read_write() {
 
     // Assert the whole range is there.
     {
+        let table = env_inner
+            .open_db_ro::<Outputs>(&env_inner.tx_ro().unwrap())
+            .unwrap();
         let range = table.get_range(..).unwrap();
         let mut i = 0;
         for result in range {

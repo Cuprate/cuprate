@@ -5,7 +5,7 @@ use std::{fmt::Debug, ops::Deref};
 
 use crate::{
     config::Config,
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
@@ -201,7 +201,10 @@ where
     /// As [`Table`] is `Sealed`, and all tables are created
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
-    fn open_db_ro<T: Table>(&self, tx_ro: &Ro) -> Result<impl DatabaseRo<T>, RuntimeError>;
+    fn open_db_ro<T: Table>(
+        &self,
+        tx_ro: &Ro,
+    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError>;
 
     /// Open a database in read/write mode.
     ///

@@ -17,7 +17,7 @@ use crate::{
         types::HeedDb,
     },
     config::{Config, SyncMode},
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
@@ -286,7 +286,7 @@ where
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &heed::RoTxn<'env>,
-    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
+    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         Ok(HeedTableRo {
             db: self
