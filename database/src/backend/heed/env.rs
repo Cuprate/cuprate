@@ -106,7 +106,7 @@ impl Env for ConcreteEnv {
     /// Our mutable accesses are safe and will not panic as:
     /// - Write transactions are `!Sync`
     /// - A table operation does not hold a reference to the inner cell
-    ///   once the call is over, unless the return also holds a lifetime
+    ///   once the call is over
     /// - The function to manipulate the table takes the same type
     ///   of reference that the `RefCell` gets for that function
     ///
