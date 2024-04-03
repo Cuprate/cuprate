@@ -11,25 +11,25 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- TxRo
 impl TxRo<'_> for heed::RoTxn<'_> {
     fn commit(self) -> Result<(), RuntimeError> {
-        Ok(self.commit()?)
+        Ok(heed::RoTxn::commit(self)?)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- TxRw
 impl TxRo<'_> for UnsafeCell<heed::RwTxn<'_>> {
     fn commit(self) -> Result<(), RuntimeError> {
-        Ok(self.into_inner().commit()?)
+        TxRw::commit(self)
     }
 }
 
 impl TxRw<'_> for UnsafeCell<heed::RwTxn<'_>> {
     fn commit(self) -> Result<(), RuntimeError> {
-        Ok(self.into_inner().commit()?)
+        Ok(heed::RwTxn::commit(self.into_inner())?)
     }
 
     /// This function is infallible.
     fn abort(self) -> Result<(), RuntimeError> {
-        self.into_inner().abort();
+        heed::RwTxn::abort(self.into_inner());
         Ok(())
     }
 }
