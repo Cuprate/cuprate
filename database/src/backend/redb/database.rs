@@ -8,12 +8,14 @@ use std::{
     ops::{Bound, Deref, RangeBounds},
 };
 
+use redb::ReadableTable;
+
 use crate::{
     backend::redb::{
         storable::StorableRedb,
         types::{RedbTableRo, RedbTableRw},
     },
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::RuntimeError,
     storable::Storable,
     table::Table,
@@ -31,54 +33,6 @@ fn get<T: Table + 'static>(
     key: &T::Key,
 ) -> Result<T::Value, RuntimeError> {
     Ok(db.get(key)?.ok_or(RuntimeError::KeyNotFound)?.value())
-}
-
-/// Shared [`DatabaseRo::get_range()`].
-#[inline]
-fn get_range<'a, T: Table, Range>(
-    db: &'a impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-    range: Range,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
-where
-    Range: RangeBounds<T::Key> + 'a,
-{
-    Ok(db.range(range)?.map(|result| {
-        let (_key, value) = result?;
-        Ok(value.value())
-    }))
-}
-
-/// Shared [`DatabaseRo::iter()`].
-#[inline]
-fn iter<T: Table>(
-    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError> {
-    Ok(db.iter()?.map(|result| {
-        let (key, value) = result?;
-        Ok((key.value(), value.value()))
-    }))
-}
-
-/// Shared [`DatabaseRo::iter()`].
-#[inline]
-fn keys<T: Table>(
-    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
-    Ok(db.iter()?.map(|result| {
-        let (key, _value) = result?;
-        Ok(key.value())
-    }))
-}
-
-/// Shared [`DatabaseRo::values()`].
-#[inline]
-fn values<T: Table>(
-    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-    Ok(db.iter()?.map(|result| {
-        let (_key, value) = result?;
-        Ok(value.value())
-    }))
 }
 
 /// Shared [`DatabaseRo::len()`].
@@ -115,13 +69,8 @@ fn is_empty<T: Table>(
     Ok(db.is_empty()?)
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseRo
-impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
-    #[inline]
-    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
-        get::<T>(self, key)
-    }
-
+//---------------------------------------------------------------------------------------------------- DatabaseIter
+impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
     #[inline]
     fn get_range<'a, Range>(
         &'a self,
@@ -130,7 +79,10 @@ impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
     where
         Range: RangeBounds<T::Key> + 'a,
     {
-        get_range::<T, Range>(self, range)
+        Ok(ReadableTable::range(self, range)?.map(|result| {
+            let (_key, value) = result?;
+            Ok(value.value())
+        }))
     }
 
     #[inline]
@@ -138,21 +90,38 @@ impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
         &self,
     ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
     {
-        iter::<T>(self)
+        Ok(ReadableTable::iter(self)?.map(|result| {
+            let (key, value) = result?;
+            Ok((key.value(), value.value()))
+        }))
     }
 
     #[inline]
     fn keys(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
-        keys::<T>(self)
+        Ok(ReadableTable::iter(self)?.map(|result| {
+            let (key, _value) = result?;
+            Ok(key.value())
+        }))
     }
 
     #[inline]
     fn values(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        values::<T>(self)
+        Ok(ReadableTable::iter(self)?.map(|result| {
+            let (_key, value) = result?;
+            Ok(value.value())
+        }))
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseRo
+impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
+    #[inline]
+    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+        get::<T>(self, key)
     }
 
     #[inline]
@@ -181,39 +150,6 @@ impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)
-    }
-
-    #[inline]
-    fn get_range<'a, Range>(
-        &'a self,
-        range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
-    where
-        Range: RangeBounds<T::Key> + 'a,
-    {
-        get_range::<T, Range>(self, range)
-    }
-
-    #[inline]
-    fn iter(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
-    {
-        iter::<T>(self)
-    }
-
-    #[inline]
-    fn keys(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
-        keys::<T>(self)
-    }
-
-    #[inline]
-    fn values(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        values::<T>(self)
     }
 
     #[inline]

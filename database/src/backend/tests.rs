@@ -24,7 +24,7 @@ use std::borrow::{Borrow, Cow};
 
 use crate::{
     config::{Config, SyncMode},
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
@@ -81,7 +81,7 @@ fn open_db() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro().unwrap();
-    let mut tx_rw = env_inner.tx_rw().unwrap();
+    let tx_rw = env_inner.tx_rw().unwrap();
 
     // Open all tables in read-only mode.
     // This should be updated when tables are modified.
@@ -103,21 +103,21 @@ fn open_db() {
     TxRo::commit(tx_ro).unwrap();
 
     // Open all tables in read/write mode.
-    env_inner.open_db_rw::<BlockBlobs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockHeights>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV1s>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV2s>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV3s>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<KeyImages>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<NumOutputs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<PrunableHashes>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<PrunableTxBlobs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<PrunedTxBlobs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<RctOutputs>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TxHeights>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TxIds>(&mut tx_rw).unwrap();
-    env_inner.open_db_rw::<TxUnlockTime>(&mut tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockBlobs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockHeights>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV1s>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV2s>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfoV3s>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<KeyImages>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<NumOutputs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunableHashes>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunableTxBlobs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<PrunedTxBlobs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<RctOutputs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxHeights>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxIds>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxUnlockTime>(&tx_rw).unwrap();
     TxRw::commit(tx_rw).unwrap();
 }
 
@@ -166,11 +166,12 @@ fn non_manual_resize_2() {
 
 /// Test all `DatabaseR{o,w}` operations.
 #[test]
+#[allow(clippy::too_many_lines)]
 fn db_read_write() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
-    let mut tx_rw = env_inner.tx_rw().unwrap();
-    let mut table = env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
+    let tx_rw = env_inner.tx_rw().unwrap();
+    let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
 
     /// The (1st) key.
     const KEY: PreRctOutputId = PreRctOutputId {
@@ -221,9 +222,17 @@ fn db_read_write() {
         assert_same(last);
     }
 
+    // Commit transactions, create new ones.
+    drop(table);
+    TxRw::commit(tx_rw).unwrap();
+    let tx_ro = env_inner.tx_ro().unwrap();
+    let table_ro = env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
+    let tx_rw = env_inner.tx_rw().unwrap();
+    let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
+
     // Assert the whole range is there.
     {
-        let range = table.get_range(..).unwrap();
+        let range = table_ro.get_range(..).unwrap();
         let mut i = 0;
         for result in range {
             let value: Output = result.unwrap();
@@ -240,11 +249,14 @@ fn db_read_write() {
     let range = KEY..key;
 
     // Assert count is correct.
-    assert_eq!(N as usize, table.get_range(range.clone()).unwrap().count());
+    assert_eq!(
+        N as usize,
+        table_ro.get_range(range.clone()).unwrap().count()
+    );
 
     // Assert each returned value from the iterator is owned.
     {
-        let mut iter = table.get_range(range.clone()).unwrap();
+        let mut iter = table_ro.get_range(range.clone()).unwrap();
         let value: Output = iter.next().unwrap().unwrap(); // 1. take value out
         drop(iter); // 2. drop the `impl Iterator + 'a`
         assert_same(value); // 3. assert even without the iterator, the value is alive
@@ -252,7 +264,7 @@ fn db_read_write() {
 
     // Assert each value is the same.
     {
-        let mut iter = table.get_range(range).unwrap();
+        let mut iter = table_ro.get_range(range).unwrap();
         for _ in 0..N {
             let value: Output = iter.next().unwrap().unwrap();
             assert_same(value);
@@ -273,17 +285,13 @@ fn db_read_write() {
     }
 
     drop(table);
-    tx_rw.commit().unwrap();
-    let mut tx_rw = env_inner.tx_rw().unwrap();
+    TxRw::commit(tx_rw).unwrap();
 
     // Assert `clear_db()` works.
     {
-        // Make sure this works even if readers have the table open.
-        let tx_ro = env_inner.tx_ro().unwrap();
-        let reader_table = env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
-
+        let mut tx_rw = env_inner.tx_rw().unwrap();
         env_inner.clear_db::<Outputs>(&mut tx_rw).unwrap();
-        let table = env_inner.open_db_rw::<Outputs>(&mut tx_rw).unwrap();
+        let table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
         assert!(table.is_empty().unwrap());
         for n in 0..N {
             let mut key = KEY;
@@ -294,7 +302,7 @@ fn db_read_write() {
         }
 
         // Reader still sees old value.
-        assert!(!reader_table.is_empty().unwrap());
+        assert!(!table_ro.is_empty().unwrap());
 
         // Writer sees updated value (nothing).
         assert!(table.is_empty().unwrap());
@@ -345,11 +353,19 @@ macro_rules! test_tables {
             assert!(table.contains(&KEY).unwrap());
             assert_eq!(table.len().unwrap(), 1);
 
+            // Commit transactions, create new ones.
+            drop(table);
+            TxRw::commit(tx_rw).unwrap();
+            let mut tx_rw = env_inner.tx_rw().unwrap();
+            let tx_ro = env_inner.tx_ro().unwrap();
+            let mut table = env_inner.open_db_rw::<$table>(&tx_rw).unwrap();
+            let table_ro = env_inner.open_db_ro::<$table>(&tx_ro).unwrap();
+
             // Assert `get_range()` works.
             {
                 let range = KEY..;
-                assert_eq!(1, table.get_range(range.clone()).unwrap().count());
-                let mut iter = table.get_range(range).unwrap();
+                assert_eq!(1, table_ro.get_range(range.clone()).unwrap().count());
+                let mut iter = table_ro.get_range(range).unwrap();
                 let value = iter.next().unwrap().unwrap();
                 assert_eq(&value);
             }

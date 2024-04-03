@@ -3,6 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     borrow::{Borrow, Cow},
+    cell::RefCell,
     fmt::Debug,
     ops::RangeBounds,
     sync::RwLockReadGuard,
@@ -10,7 +11,7 @@ use std::{
 
 use crate::{
     backend::heed::{storable::StorableHeed, types::HeedDb},
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
 };
@@ -45,7 +46,7 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
     /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
-    pub(super) tx_rw: &'tx mut heed::RwTxn<'env>,
+    pub(super) tx_rw: &'tx RefCell<heed::RwTxn<'env>>,
 }
 
 //---------------------------------------------------------------------------------------------------- Shared functions
@@ -61,46 +62,6 @@ fn get<T: Table>(
     key: &T::Key,
 ) -> Result<T::Value, RuntimeError> {
     db.get(tx_ro, key)?.ok_or(RuntimeError::KeyNotFound)
-}
-
-/// Shared [`DatabaseRo::get_range()`].
-#[inline]
-fn get_range<'a, T: Table, Range>(
-    db: &'a HeedDb<T::Key, T::Value>,
-    tx_ro: &'a heed::RoTxn<'_>,
-    range: Range,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
-where
-    Range: RangeBounds<T::Key> + 'a,
-{
-    Ok(db.range(tx_ro, &range)?.map(|res| Ok(res?.1)))
-}
-
-/// Shared [`DatabaseRo::iter()`].
-#[inline]
-fn iter<'a, T: Table>(
-    db: &'a HeedDb<T::Key, T::Value>,
-    tx_ro: &'a heed::RoTxn<'_>,
-) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + 'a, RuntimeError> {
-    Ok(db.iter(tx_ro)?.map(|res| Ok(res?)))
-}
-
-/// Shared [`DatabaseRo::keys()`].
-#[inline]
-fn keys<'a, T: Table>(
-    db: &'a HeedDb<T::Key, T::Value>,
-    tx_ro: &'a heed::RoTxn<'_>,
-) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + 'a, RuntimeError> {
-    Ok(db.iter(tx_ro)?.map(|res| Ok(res?.0)))
-}
-
-/// Shared [`DatabaseRo::values()`].
-#[inline]
-fn values<'a, T: Table>(
-    db: &'a HeedDb<T::Key, T::Value>,
-    tx_ro: &'a heed::RoTxn<'_>,
-) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError> {
-    Ok(db.iter(tx_ro)?.map(|res| Ok(res?.1)))
 }
 
 /// Shared [`DatabaseRo::len()`].
@@ -139,13 +100,8 @@ fn is_empty<T: Table>(
     Ok(db.is_empty(tx_ro)?)
 }
 
-//---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
-    #[inline]
-    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
-        get::<T>(&self.db, self.tx_ro, key)
-    }
-
+//---------------------------------------------------------------------------------------------------- DatabaseIter Impl
+impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
     #[inline]
     fn get_range<'a, Range>(
         &'a self,
@@ -154,7 +110,7 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     where
         Range: RangeBounds<T::Key> + 'a,
     {
-        get_range::<T, Range>(&self.db, self.tx_ro, range)
+        Ok(self.db.range(self.tx_ro, &range)?.map(|res| Ok(res?.1)))
     }
 
     #[inline]
@@ -162,21 +118,29 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
         &self,
     ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
     {
-        iter::<T>(&self.db, self.tx_ro)
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?)))
     }
 
     #[inline]
     fn keys(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
-        keys::<T>(&self.db, self.tx_ro)
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?.0)))
     }
 
     #[inline]
     fn values(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        values::<T>(&self.db, self.tx_ro)
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?.1)))
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- DatabaseRo Impl
+impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
+    #[inline]
+    fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+        get::<T>(&self.db, self.tx_ro, key)
     }
 
     #[inline]
@@ -204,79 +168,48 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
 impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
-        get::<T>(&self.db, self.tx_rw, key)
-    }
-
-    #[inline]
-    fn get_range<'a, Range>(
-        &'a self,
-        range: Range,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + 'a, RuntimeError>
-    where
-        Range: RangeBounds<T::Key> + 'a,
-    {
-        get_range::<T, Range>(&self.db, self.tx_rw, range)
-    }
-
-    #[inline]
-    fn iter(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
-    {
-        iter::<T>(&self.db, self.tx_rw)
-    }
-
-    #[inline]
-    fn keys(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
-        keys::<T>(&self.db, self.tx_rw)
-    }
-
-    #[inline]
-    fn values(
-        &self,
-    ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        values::<T>(&self.db, self.tx_rw)
+        get::<T>(&self.db, &self.tx_rw.borrow(), key)
     }
 
     #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
-        len::<T>(&self.db, self.tx_rw)
+        len::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        first::<T>(&self.db, self.tx_rw)
+        first::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        last::<T>(&self.db, self.tx_rw)
+        last::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn is_empty(&self) -> Result<bool, RuntimeError> {
-        is_empty::<T>(&self.db, self.tx_rw)
+        is_empty::<T>(&self.db, &self.tx_rw.borrow())
     }
 }
 
 impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
-        Ok(self.db.put(self.tx_rw, key, value)?)
+        Ok(self.db.put(&mut self.tx_rw.borrow_mut(), key, value)?)
     }
 
     #[inline]
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
-        self.db.delete(self.tx_rw, key)?;
+        self.db.delete(&mut self.tx_rw.borrow_mut(), key)?;
         Ok(())
     }
 
     #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
+        let tx_rw = &mut self.tx_rw.borrow_mut();
+
         // Get the first value first...
-        let Some(first) = self.db.first(self.tx_rw)? else {
+        let Some(first) = self.db.first(tx_rw)? else {
             return Err(RuntimeError::KeyNotFound);
         };
 
@@ -286,7 +219,7 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
         // remove the _first_ and only the first `(key, value)`.
         // `delete()` removes all keys including duplicates which
         // is slightly different behavior.
-        let mut iter = self.db.iter_mut(self.tx_rw)?;
+        let mut iter = self.db.iter_mut(tx_rw)?;
 
         // SAFETY:
         // It is undefined behavior to keep a reference of
@@ -302,11 +235,13 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
 
     #[inline]
     fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
-        let Some(first) = self.db.last(self.tx_rw)? else {
+        let tx_rw = &mut self.tx_rw.borrow_mut();
+
+        let Some(first) = self.db.last(tx_rw)? else {
             return Err(RuntimeError::KeyNotFound);
         };
 
-        let mut iter = self.db.rev_iter_mut(self.tx_rw)?;
+        let mut iter = self.db.rev_iter_mut(tx_rw)?;
 
         // SAFETY:
         // It is undefined behavior to keep a reference of
