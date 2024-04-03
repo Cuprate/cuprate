@@ -20,8 +20,8 @@ use crate::{
 /// can only be called from [`DatabaseRo`] objects.
 ///
 /// # Hack
-/// This is a hack to get around the fact our read/write tables
-/// cannot _safely_ return values returning lifetimes, as such,
+/// This is a HACK to get around the fact our read/write tables
+/// cannot safely return values returning lifetimes, as such,
 /// only read-only tables implement this trait.
 ///
 /// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>

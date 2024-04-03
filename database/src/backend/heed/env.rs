@@ -98,8 +98,21 @@ impl Env for ConcreteEnv {
     type EnvInner<'env> = RwLockReadGuard<'env, heed::Env>;
     type TxRo<'tx> = heed::RoTxn<'tx>;
 
-    /// TODO: Explain why this is `RefCell`
-    /// <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>
+    /// HACK:
+    /// `heed::RwTxn` is wrapped in `RefCell` to allow:
+    /// - opening a database with only a `&` to it
+    /// - allowing 1 write tx to open multiple tables
+    ///
+    /// Our mutable accesses are safe and will not panic as:
+    /// - Write transactions are `!Sync`
+    /// - A table operation does not hold a reference to the inner cell
+    ///   once the call is over, unless the return also holds a lifetime
+    /// - The function to manipulate the table takes the same type
+    ///   of reference that the `RefCell` gets for that function
+    ///
+    /// Also see:
+    /// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>
+    /// - <https://github.com/Cuprate/cuprate/pull/104>
     type TxRw<'tx> = RefCell<heed::RwTxn<'tx>>;
 
     #[cold]
