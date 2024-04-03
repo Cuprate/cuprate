@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     borrow::{Borrow, Cow},
-    cell::{Ref, RefCell},
+    cell::RefCell,
     fmt::Debug,
     ops::RangeBounds,
     sync::RwLockReadGuard,
@@ -219,7 +219,6 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
         // remove the _first_ and only the first `(key, value)`.
         // `delete()` removes all keys including duplicates which
         // is slightly different behavior.
-        // SAFETY: we have `&mut self`.
         let mut iter = self.db.iter_mut(tx_rw)?;
 
         // SAFETY:
