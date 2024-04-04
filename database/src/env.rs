@@ -9,6 +9,11 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
+    tables::{
+        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
+        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds,
+        TxUnlockTime,
+    },
     transaction::{TxRo, TxRw},
 };
 
@@ -237,4 +242,50 @@ where
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
     fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn open_db_rw_all(
+        &self,
+        tx_rw: &Rw,
+    ) -> Result<
+        (
+            impl DatabaseRw<BlockInfoV1s>,
+            impl DatabaseRw<BlockInfoV2s>,
+            impl DatabaseRw<BlockInfoV3s>,
+            impl DatabaseRw<BlockBlobs>,
+            impl DatabaseRw<BlockHeights>,
+            impl DatabaseRw<KeyImages>,
+            impl DatabaseRw<NumOutputs>,
+            impl DatabaseRw<PrunedTxBlobs>,
+            impl DatabaseRw<PrunableHashes>,
+            impl DatabaseRw<Outputs>,
+            impl DatabaseRw<PrunableTxBlobs>,
+            impl DatabaseRw<RctOutputs>,
+            impl DatabaseRw<TxIds>,
+            impl DatabaseRw<TxHeights>,
+            impl DatabaseRw<TxUnlockTime>,
+        ),
+        RuntimeError,
+    > {
+        Ok((
+            EnvInner::open_db_rw::<BlockInfoV1s>(self, tx_rw)?,
+            EnvInner::open_db_rw::<BlockInfoV2s>(self, tx_rw)?,
+            EnvInner::open_db_rw::<BlockInfoV3s>(self, tx_rw)?,
+            EnvInner::open_db_rw::<BlockBlobs>(self, tx_rw)?,
+            EnvInner::open_db_rw::<BlockHeights>(self, tx_rw)?,
+            EnvInner::open_db_rw::<KeyImages>(self, tx_rw)?,
+            EnvInner::open_db_rw::<NumOutputs>(self, tx_rw)?,
+            EnvInner::open_db_rw::<PrunedTxBlobs>(self, tx_rw)?,
+            EnvInner::open_db_rw::<PrunableHashes>(self, tx_rw)?,
+            EnvInner::open_db_rw::<Outputs>(self, tx_rw)?,
+            EnvInner::open_db_rw::<PrunableTxBlobs>(self, tx_rw)?,
+            EnvInner::open_db_rw::<RctOutputs>(self, tx_rw)?,
+            EnvInner::open_db_rw::<TxIds>(self, tx_rw)?,
+            EnvInner::open_db_rw::<TxHeights>(self, tx_rw)?,
+            EnvInner::open_db_rw::<TxUnlockTime>(self, tx_rw)?,
+        ))
+    }
 }
