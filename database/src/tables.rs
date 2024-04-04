@@ -4,6 +4,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     table::Table,
     types::{
         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
@@ -11,6 +12,184 @@ use crate::{
         PrunedBlob, RctOutput, TxHash, TxId, UnlockTime,
     },
 };
+
+//---------------------------------------------------------------------------------------------------- Tables
+/// TODO
+#[allow(missing_docs)]
+pub trait Tables {
+    fn block_info_v1s(&self) -> &(impl DatabaseRo<BlockInfoV1s> + DatabaseIter<BlockInfoV1s>);
+    fn block_info_v2s(&self) -> &(impl DatabaseRo<BlockInfoV2s> + DatabaseIter<BlockInfoV2s>);
+    fn block_info_v3s(&self) -> &(impl DatabaseRo<BlockInfoV3s> + DatabaseIter<BlockInfoV3s>);
+    fn block_blobs(&self) -> &(impl DatabaseRo<BlockBlobs> + DatabaseIter<BlockBlobs>);
+    fn block_heights(&self) -> &(impl DatabaseRo<BlockHeights> + DatabaseIter<BlockHeights>);
+    fn key_images(&self) -> &(impl DatabaseRo<KeyImages> + DatabaseIter<KeyImages>);
+    fn num_outputs(&self) -> &(impl DatabaseRo<NumOutputs> + DatabaseIter<NumOutputs>);
+    fn pruned_tx_blobs(&self) -> &(impl DatabaseRo<PrunedTxBlobs> + DatabaseIter<PrunedTxBlobs>);
+    fn prunable_hashes(&self) -> &(impl DatabaseRo<PrunableHashes> + DatabaseIter<PrunableHashes>);
+    fn outputs(&self) -> &(impl DatabaseRo<Outputs> + DatabaseIter<Outputs>);
+    fn prunable_tx_blobs(
+        &self,
+    ) -> &(impl DatabaseRo<PrunableTxBlobs> + DatabaseIter<PrunableTxBlobs>);
+    fn rct_outputs(&self) -> &(impl DatabaseRo<RctOutputs> + DatabaseIter<RctOutputs>);
+    fn tx_ids(&self) -> &(impl DatabaseRo<TxIds> + DatabaseIter<TxIds>);
+    fn tx_heights(&self) -> &(impl DatabaseRo<TxHeights> + DatabaseIter<TxHeights>);
+    fn tx_unlock_time(&self) -> &(impl DatabaseRo<TxUnlockTime> + DatabaseIter<TxUnlockTime>);
+}
+
+impl<A, B, C, D, E, F, G, H, I, J, K, L, M, N, O> Tables
+    for (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)
+where
+    A: DatabaseRo<BlockInfoV1s> + DatabaseIter<BlockInfoV1s>,
+    B: DatabaseRo<BlockInfoV2s> + DatabaseIter<BlockInfoV2s>,
+    C: DatabaseRo<BlockInfoV3s> + DatabaseIter<BlockInfoV3s>,
+    D: DatabaseRo<BlockBlobs> + DatabaseIter<BlockBlobs>,
+    E: DatabaseRo<BlockHeights> + DatabaseIter<BlockHeights>,
+    F: DatabaseRo<KeyImages> + DatabaseIter<KeyImages>,
+    G: DatabaseRo<NumOutputs> + DatabaseIter<NumOutputs>,
+    H: DatabaseRo<PrunedTxBlobs> + DatabaseIter<PrunedTxBlobs>,
+    I: DatabaseRo<PrunableHashes> + DatabaseIter<PrunableHashes>,
+    J: DatabaseRo<Outputs> + DatabaseIter<Outputs>,
+    K: DatabaseRo<PrunableTxBlobs> + DatabaseIter<PrunableTxBlobs>,
+    L: DatabaseRo<RctOutputs> + DatabaseIter<RctOutputs>,
+    M: DatabaseRo<TxIds> + DatabaseIter<TxIds>,
+    N: DatabaseRo<TxHeights> + DatabaseIter<TxHeights>,
+    O: DatabaseRo<TxUnlockTime> + DatabaseIter<TxUnlockTime>,
+{
+    fn block_info_v1s(&self) -> &(impl DatabaseRo<BlockInfoV1s> + DatabaseIter<BlockInfoV1s>) {
+        &self.0
+    }
+    fn block_info_v2s(&self) -> &(impl DatabaseRo<BlockInfoV2s> + DatabaseIter<BlockInfoV2s>) {
+        &self.1
+    }
+    fn block_info_v3s(&self) -> &(impl DatabaseRo<BlockInfoV3s> + DatabaseIter<BlockInfoV3s>) {
+        &self.2
+    }
+    fn block_blobs(&self) -> &(impl DatabaseRo<BlockBlobs> + DatabaseIter<BlockBlobs>) {
+        &self.3
+    }
+    fn block_heights(&self) -> &(impl DatabaseRo<BlockHeights> + DatabaseIter<BlockHeights>) {
+        &self.4
+    }
+    fn key_images(&self) -> &(impl DatabaseRo<KeyImages> + DatabaseIter<KeyImages>) {
+        &self.5
+    }
+    fn num_outputs(&self) -> &(impl DatabaseRo<NumOutputs> + DatabaseIter<NumOutputs>) {
+        &self.6
+    }
+    fn pruned_tx_blobs(&self) -> &(impl DatabaseRo<PrunedTxBlobs> + DatabaseIter<PrunedTxBlobs>) {
+        &self.7
+    }
+    fn prunable_hashes(&self) -> &(impl DatabaseRo<PrunableHashes> + DatabaseIter<PrunableHashes>) {
+        &self.8
+    }
+    fn outputs(&self) -> &(impl DatabaseRo<Outputs> + DatabaseIter<Outputs>) {
+        &self.9
+    }
+    fn prunable_tx_blobs(
+        &self,
+    ) -> &(impl DatabaseRo<PrunableTxBlobs> + DatabaseIter<PrunableTxBlobs>) {
+        &self.10
+    }
+    fn rct_outputs(&self) -> &(impl DatabaseRo<RctOutputs> + DatabaseIter<RctOutputs>) {
+        &self.11
+    }
+    fn tx_ids(&self) -> &(impl DatabaseRo<TxIds> + DatabaseIter<TxIds>) {
+        &self.12
+    }
+    fn tx_heights(&self) -> &(impl DatabaseRo<TxHeights> + DatabaseIter<TxHeights>) {
+        &self.13
+    }
+    fn tx_unlock_time(&self) -> &(impl DatabaseRo<TxUnlockTime> + DatabaseIter<TxUnlockTime>) {
+        &self.14
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- TablesMut
+/// TODO
+#[allow(missing_docs)]
+pub trait TablesMut {
+    fn block_info_v1s_mut(&mut self) -> &mut impl DatabaseRw<BlockInfoV1s>;
+    fn block_info_v2s_mut(&mut self) -> &mut impl DatabaseRw<BlockInfoV2s>;
+    fn block_info_v3s_mut(&mut self) -> &mut impl DatabaseRw<BlockInfoV3s>;
+    fn block_blobs_mut(&mut self) -> &mut impl DatabaseRw<BlockBlobs>;
+    fn block_heights_mut(&mut self) -> &mut impl DatabaseRw<BlockHeights>;
+    fn key_images_mut(&mut self) -> &mut impl DatabaseRw<KeyImages>;
+    fn num_outputs_mut(&mut self) -> &mut impl DatabaseRw<NumOutputs>;
+    fn pruned_tx_blobs_mut(&mut self) -> &mut impl DatabaseRw<PrunedTxBlobs>;
+    fn prunable_hashes_mut(&mut self) -> &mut impl DatabaseRw<PrunableHashes>;
+    fn outputs_mut(&mut self) -> &mut impl DatabaseRw<Outputs>;
+    fn prunable_tx_blobs_mut(&mut self) -> &mut impl DatabaseRw<PrunableTxBlobs>;
+    fn rct_outputs_mut(&mut self) -> &mut impl DatabaseRw<RctOutputs>;
+    fn tx_ids_mut(&mut self) -> &mut impl DatabaseRw<TxIds>;
+    fn tx_heights_mut(&mut self) -> &mut impl DatabaseRw<TxHeights>;
+    fn tx_unlock_time_mut(&mut self) -> &mut impl DatabaseRw<TxUnlockTime>;
+}
+
+impl<A, B, C, D, E, F, G, H, I, J, K, L, M, N, O> TablesMut
+    for (A, B, C, D, E, F, G, H, I, J, K, L, M, N, O)
+where
+    A: DatabaseRw<BlockInfoV1s>,
+    B: DatabaseRw<BlockInfoV2s>,
+    C: DatabaseRw<BlockInfoV3s>,
+    D: DatabaseRw<BlockBlobs>,
+    E: DatabaseRw<BlockHeights>,
+    F: DatabaseRw<KeyImages>,
+    G: DatabaseRw<NumOutputs>,
+    H: DatabaseRw<PrunedTxBlobs>,
+    I: DatabaseRw<PrunableHashes>,
+    J: DatabaseRw<Outputs>,
+    K: DatabaseRw<PrunableTxBlobs>,
+    L: DatabaseRw<RctOutputs>,
+    M: DatabaseRw<TxIds>,
+    N: DatabaseRw<TxHeights>,
+    O: DatabaseRw<TxUnlockTime>,
+{
+    fn block_info_v1s_mut(&mut self) -> &mut impl DatabaseRw<BlockInfoV1s> {
+        &mut self.0
+    }
+    fn block_info_v2s_mut(&mut self) -> &mut impl DatabaseRw<BlockInfoV2s> {
+        &mut self.1
+    }
+    fn block_info_v3s_mut(&mut self) -> &mut impl DatabaseRw<BlockInfoV3s> {
+        &mut self.2
+    }
+    fn block_blobs_mut(&mut self) -> &mut impl DatabaseRw<BlockBlobs> {
+        &mut self.3
+    }
+    fn block_heights_mut(&mut self) -> &mut impl DatabaseRw<BlockHeights> {
+        &mut self.4
+    }
+    fn key_images_mut(&mut self) -> &mut impl DatabaseRw<KeyImages> {
+        &mut self.5
+    }
+    fn num_outputs_mut(&mut self) -> &mut impl DatabaseRw<NumOutputs> {
+        &mut self.6
+    }
+    fn pruned_tx_blobs_mut(&mut self) -> &mut impl DatabaseRw<PrunedTxBlobs> {
+        &mut self.7
+    }
+    fn prunable_hashes_mut(&mut self) -> &mut impl DatabaseRw<PrunableHashes> {
+        &mut self.8
+    }
+    fn outputs_mut(&mut self) -> &mut impl DatabaseRw<Outputs> {
+        &mut self.9
+    }
+    fn prunable_tx_blobs_mut(&mut self) -> &mut impl DatabaseRw<PrunableTxBlobs> {
+        &mut self.10
+    }
+    fn rct_outputs_mut(&mut self) -> &mut impl DatabaseRw<RctOutputs> {
+        &mut self.11
+    }
+    fn tx_ids_mut(&mut self) -> &mut impl DatabaseRw<TxIds> {
+        &mut self.12
+    }
+    fn tx_heights_mut(&mut self) -> &mut impl DatabaseRw<TxHeights> {
+        &mut self.13
+    }
+    fn tx_unlock_time_mut(&mut self) -> &mut impl DatabaseRw<TxUnlockTime> {
+        &mut self.14
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- Tables
 /// Private module, should not be accessible outside this crate.

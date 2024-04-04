@@ -11,8 +11,8 @@ use crate::{
     table::Table,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
-        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds,
-        TxUnlockTime,
+        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
+        TxHeights, TxIds, TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
 };
@@ -227,49 +227,35 @@ where
     /// a table doesn't exist.
     fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
 
-    /// Clear all `(key, value)`'s from a database table.
-    ///
-    /// This will delete all key and values in the passed
-    /// `T: Table`, but the table itself will continue to exist.
-    ///
-    /// Note that this operation is tied to `tx_rw`, as such this
-    /// function's effects can be aborted using [`TxRw::abort`].
+    /// TODO
     ///
     /// # Errors
-    /// This function errors upon internal database/IO errors.
-    ///
-    /// As [`Table`] is `Sealed`, and all tables are created
-    /// upon [`Env::open`], this function will never error because
-    /// a table doesn't exist.
-    fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
+    /// TODO
+    fn open_tables(&self, tx_ro: &Ro) -> Result<impl Tables, RuntimeError> {
+        Ok((
+            EnvInner::open_db_ro::<BlockInfoV1s>(self, tx_ro)?,
+            EnvInner::open_db_ro::<BlockInfoV2s>(self, tx_ro)?,
+            EnvInner::open_db_ro::<BlockInfoV3s>(self, tx_ro)?,
+            EnvInner::open_db_ro::<BlockBlobs>(self, tx_ro)?,
+            EnvInner::open_db_ro::<BlockHeights>(self, tx_ro)?,
+            EnvInner::open_db_ro::<KeyImages>(self, tx_ro)?,
+            EnvInner::open_db_ro::<NumOutputs>(self, tx_ro)?,
+            EnvInner::open_db_ro::<PrunedTxBlobs>(self, tx_ro)?,
+            EnvInner::open_db_ro::<PrunableHashes>(self, tx_ro)?,
+            EnvInner::open_db_ro::<Outputs>(self, tx_ro)?,
+            EnvInner::open_db_ro::<PrunableTxBlobs>(self, tx_ro)?,
+            EnvInner::open_db_ro::<RctOutputs>(self, tx_ro)?,
+            EnvInner::open_db_ro::<TxIds>(self, tx_ro)?,
+            EnvInner::open_db_ro::<TxHeights>(self, tx_ro)?,
+            EnvInner::open_db_ro::<TxUnlockTime>(self, tx_ro)?,
+        ))
+    }
 
     /// TODO
     ///
     /// # Errors
     /// TODO
-    fn open_db_rw_all(
-        &self,
-        tx_rw: &Rw,
-    ) -> Result<
-        (
-            impl DatabaseRw<BlockInfoV1s>,
-            impl DatabaseRw<BlockInfoV2s>,
-            impl DatabaseRw<BlockInfoV3s>,
-            impl DatabaseRw<BlockBlobs>,
-            impl DatabaseRw<BlockHeights>,
-            impl DatabaseRw<KeyImages>,
-            impl DatabaseRw<NumOutputs>,
-            impl DatabaseRw<PrunedTxBlobs>,
-            impl DatabaseRw<PrunableHashes>,
-            impl DatabaseRw<Outputs>,
-            impl DatabaseRw<PrunableTxBlobs>,
-            impl DatabaseRw<RctOutputs>,
-            impl DatabaseRw<TxIds>,
-            impl DatabaseRw<TxHeights>,
-            impl DatabaseRw<TxUnlockTime>,
-        ),
-        RuntimeError,
-    > {
+    fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
         Ok((
             EnvInner::open_db_rw::<BlockInfoV1s>(self, tx_rw)?,
             EnvInner::open_db_rw::<BlockInfoV2s>(self, tx_rw)?,
@@ -288,4 +274,20 @@ where
             EnvInner::open_db_rw::<TxUnlockTime>(self, tx_rw)?,
         ))
     }
+
+    /// Clear all `(key, value)`'s from a database table.
+    ///
+    /// This will delete all key and values in the passed
+    /// `T: Table`, but the table itself will continue to exist.
+    ///
+    /// Note that this operation is tied to `tx_rw`, as such this
+    /// function's effects can be aborted using [`TxRw::abort`].
+    ///
+    /// # Errors
+    /// This function errors upon internal database/IO errors.
+    ///
+    /// As [`Table`] is `Sealed`, and all tables are created
+    /// upon [`Env::open`], this function will never error because
+    /// a table doesn't exist.
+    fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
 }
