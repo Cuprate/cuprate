@@ -233,21 +233,21 @@ where
     /// TODO
     fn open_tables(&self, tx_ro: &Ro) -> Result<impl Tables, RuntimeError> {
         Ok((
-            EnvInner::open_db_ro::<BlockInfoV1s>(self, tx_ro)?,
-            EnvInner::open_db_ro::<BlockInfoV2s>(self, tx_ro)?,
-            EnvInner::open_db_ro::<BlockInfoV3s>(self, tx_ro)?,
-            EnvInner::open_db_ro::<BlockBlobs>(self, tx_ro)?,
-            EnvInner::open_db_ro::<BlockHeights>(self, tx_ro)?,
-            EnvInner::open_db_ro::<KeyImages>(self, tx_ro)?,
-            EnvInner::open_db_ro::<NumOutputs>(self, tx_ro)?,
-            EnvInner::open_db_ro::<PrunedTxBlobs>(self, tx_ro)?,
-            EnvInner::open_db_ro::<PrunableHashes>(self, tx_ro)?,
-            EnvInner::open_db_ro::<Outputs>(self, tx_ro)?,
-            EnvInner::open_db_ro::<PrunableTxBlobs>(self, tx_ro)?,
-            EnvInner::open_db_ro::<RctOutputs>(self, tx_ro)?,
-            EnvInner::open_db_ro::<TxIds>(self, tx_ro)?,
-            EnvInner::open_db_ro::<TxHeights>(self, tx_ro)?,
-            EnvInner::open_db_ro::<TxUnlockTime>(self, tx_ro)?,
+            self.open_db_ro::<BlockInfoV1s>(tx_ro)?,
+            self.open_db_ro::<BlockInfoV2s>(tx_ro)?,
+            self.open_db_ro::<BlockInfoV3s>(tx_ro)?,
+            self.open_db_ro::<BlockBlobs>(tx_ro)?,
+            self.open_db_ro::<BlockHeights>(tx_ro)?,
+            self.open_db_ro::<KeyImages>(tx_ro)?,
+            self.open_db_ro::<NumOutputs>(tx_ro)?,
+            self.open_db_ro::<PrunedTxBlobs>(tx_ro)?,
+            self.open_db_ro::<PrunableHashes>(tx_ro)?,
+            self.open_db_ro::<Outputs>(tx_ro)?,
+            self.open_db_ro::<PrunableTxBlobs>(tx_ro)?,
+            self.open_db_ro::<RctOutputs>(tx_ro)?,
+            self.open_db_ro::<TxIds>(tx_ro)?,
+            self.open_db_ro::<TxHeights>(tx_ro)?,
+            self.open_db_ro::<TxUnlockTime>(tx_ro)?,
         ))
     }
 
@@ -257,21 +257,21 @@ where
     /// TODO
     fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
         Ok((
-            EnvInner::open_db_rw::<BlockInfoV1s>(self, tx_rw)?,
-            EnvInner::open_db_rw::<BlockInfoV2s>(self, tx_rw)?,
-            EnvInner::open_db_rw::<BlockInfoV3s>(self, tx_rw)?,
-            EnvInner::open_db_rw::<BlockBlobs>(self, tx_rw)?,
-            EnvInner::open_db_rw::<BlockHeights>(self, tx_rw)?,
-            EnvInner::open_db_rw::<KeyImages>(self, tx_rw)?,
-            EnvInner::open_db_rw::<NumOutputs>(self, tx_rw)?,
-            EnvInner::open_db_rw::<PrunedTxBlobs>(self, tx_rw)?,
-            EnvInner::open_db_rw::<PrunableHashes>(self, tx_rw)?,
-            EnvInner::open_db_rw::<Outputs>(self, tx_rw)?,
-            EnvInner::open_db_rw::<PrunableTxBlobs>(self, tx_rw)?,
-            EnvInner::open_db_rw::<RctOutputs>(self, tx_rw)?,
-            EnvInner::open_db_rw::<TxIds>(self, tx_rw)?,
-            EnvInner::open_db_rw::<TxHeights>(self, tx_rw)?,
-            EnvInner::open_db_rw::<TxUnlockTime>(self, tx_rw)?,
+            self.open_db_rw::<BlockInfoV1s>(tx_rw)?,
+            self.open_db_rw::<BlockInfoV2s>(tx_rw)?,
+            self.open_db_rw::<BlockInfoV3s>(tx_rw)?,
+            self.open_db_rw::<BlockBlobs>(tx_rw)?,
+            self.open_db_rw::<BlockHeights>(tx_rw)?,
+            self.open_db_rw::<KeyImages>(tx_rw)?,
+            self.open_db_rw::<NumOutputs>(tx_rw)?,
+            self.open_db_rw::<PrunedTxBlobs>(tx_rw)?,
+            self.open_db_rw::<PrunableHashes>(tx_rw)?,
+            self.open_db_rw::<Outputs>(tx_rw)?,
+            self.open_db_rw::<PrunableTxBlobs>(tx_rw)?,
+            self.open_db_rw::<RctOutputs>(tx_rw)?,
+            self.open_db_rw::<TxIds>(tx_rw)?,
+            self.open_db_rw::<TxHeights>(tx_rw)?,
+            self.open_db_rw::<TxUnlockTime>(tx_rw)?,
         ))
     }
 
