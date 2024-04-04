@@ -56,7 +56,6 @@ macro_rules! define_trait_tables {
         /// // containing an open database table for  `BlockInfoV1s`.
         /// let _ = tables.block_info_v1s();
         /// ```
-        #[allow(missing_docs)] // No documentation needed for `field_accessor_functions()`.
         pub trait Tables: private::Sealed {
             // This expands to creating `fn field_accessor_functions()`
             // for each passed `$table` type.
@@ -67,6 +66,9 @@ macro_rules! define_trait_tables {
             // The function name of the function is
             // the table type in `snake_case`, e.g., `block_info_v1s()`.
             $(
+                /// Access an opened
+                #[doc = concat!("[`", stringify!($table), "`]")]
+                /// database.
                 fn [<$table:snake>](&self) -> &(impl DatabaseRo<$table> + DatabaseIter<$table>);
             )*
         }
@@ -76,9 +78,11 @@ macro_rules! define_trait_tables {
         /// This is the same as [`Tables`] but for mutable accesses.
         ///
         /// See [`Tables`] for documentation - this trait exists for the same reasons.
-        #[allow(missing_docs)]
         pub trait TablesMut: private::Sealed {
             $(
+                /// Access an opened
+                #[doc = concat!("[`", stringify!($table), "`]")]
+                /// database.
                 fn [<$table:snake _mut>](&mut self) -> &mut impl DatabaseRw<$table>;
             )*
         }
