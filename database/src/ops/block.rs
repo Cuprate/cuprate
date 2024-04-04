@@ -11,8 +11,8 @@ use crate::{
     error::RuntimeError,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
-        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds,
-        TxUnlockTime,
+        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
+        TxHeights, TxIds, TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
     types::{
@@ -30,36 +30,50 @@ use crate::{
 /// # Errors
 /// TODO
 #[inline]
-#[allow(clippy::cast_possible_truncation)] // TODO: remove me
 #[allow(clippy::too_many_lines)]
 pub fn add_block<'env, Ro, Rw, Env>(
     env: &Env,
     tx_rw: &Rw,
-    block: VerifiedBlockInformation,
+    block: &VerifiedBlockInformation,
 ) -> Result<(), RuntimeError>
 where
     Ro: TxRo<'env>,
     Rw: TxRw<'env>,
     Env: EnvInner<'env, Ro, Rw>,
 {
-    let (
-        mut table_block_info_v1s,
-        mut table_block_info_v2s,
-        mut table_block_info_v3s,
-        mut table_block_blobs,
-        table_block_heights,
-        table_key_images,
-        table_num_outputs,
-        table_pruned_tx_blobs,
-        table_prunable_hashes,
-        table_outputs,
-        table_prunable_tx_blobs,
-        table_rct_outputs,
-        table_tx_ids,
-        table_tx_heights,
-        table_tx_unlock_time,
-    ) = env.open_db_rw_all(tx_rw)?;
+    add_block_inner(&mut env.open_tables_mut(tx_rw)?, block)
+}
 
+/// TODO
+///
+/// # Errors
+/// TODO
+#[inline]
+pub fn add_blocks<'env, Ro, Rw, Env>(
+    env: &Env,
+    tx_rw: &Rw,
+    blocks: &[VerifiedBlockInformation],
+) -> Result<(), RuntimeError>
+where
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+    Env: EnvInner<'env, Ro, Rw>,
+{
+    let mut tables = env.open_tables_mut(tx_rw)?;
+    for block in blocks {
+        add_block_inner(&mut tables, block)?;
+    }
+    Ok(())
+}
+
+/// Internal function that [`add_block()`] and [`add_blocks()`] uses.
+///
+/// It takes the already opened tables.
+#[allow(clippy::cast_possible_truncation)] // TODO: remove me
+fn add_block_inner(
+    tables: &mut impl TablesMut,
+    block: &VerifiedBlockInformation,
+) -> Result<(), RuntimeError> {
     // Branch on the hard fork version (`major_version`)
     // and add the block to the appropriate table.
     // <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Mainnet-Hard-Forks>
@@ -67,7 +81,7 @@ where
     // FIXME: use `match` with ranges when stable:
     // <https://github.com/rust-lang/rust/issues/37854>
     if block.block.header.major_version < 4 {
-        table_block_info_v1s.put(
+        tables.block_info_v1s_mut().put(
             &block.height,
             &BlockInfoV1 {
                 timestamp: block.block.header.timestamp,
@@ -78,7 +92,7 @@ where
             },
         )
     } else if block.block.header.major_version < 10 {
-        table_block_info_v2s.put(
+        tables.block_info_v2s_mut().put(
             &block.height,
             &BlockInfoV2 {
                 timestamp: block.block.header.timestamp,
@@ -90,7 +104,7 @@ where
             },
         )
     } else {
-        table_block_info_v3s.put(
+        tables.block_info_v3s_mut().put(
             &block.height,
             &BlockInfoV3 {
                 timestamp: block.block.header.timestamp,
@@ -106,16 +120,18 @@ where
 
     // BlockBlobs: BlockHeight => BlockBlob
     // TODO: what is a block blob in Cuprate's case?
-    table_block_blobs.put(&block.height, todo!())?;
+    tables.block_blobs_mut().put(&block.height, todo!())?;
 
     // BlockHeights: BlockHash => BlockHeight
-    table_block_heights.put(&block.block_hash, &block.height)?;
+    tables
+        .block_heights_mut()
+        .put(&block.block_hash, &block.height)?;
 
     // KeyImages: KeyImage > ()
     {
         let key_images: std::slice::Iter<'_, KeyImage> = todo!();
         for key_image in key_images {
-            table_key_images.put(key_image, &())?;
+            tables.key_images_mut().put(key_image, &())?;
         }
     }
 
@@ -141,9 +157,9 @@ where
                 commitment: todo!(),
             };
 
-            table_pruned_tx_blobs.put(&tx_id, prunable_blob)?;
-            table_prunable_hashes.put(&tx_id, prunable_hash)?;
-            table_rct_outputs.put(&tx_id, &rct_output)?;
+            tables.pruned_tx_blobs_mut().put(&tx_id, prunable_blob)?;
+            tables.prunable_hashes_mut().put(&tx_id, prunable_hash)?;
+            tables.rct_outputs_mut().put(&tx_id, &rct_output)?;
 
             for output in tx.tx.prefix.outputs {
                 let amount = todo!();
@@ -161,40 +177,22 @@ where
                     tx_idx: todo!(),
                 };
 
-                table_num_outputs.put(&amount, &amount_index)?;
-                table_outputs.put(&pre_rct_output_id, &output)?;
-                table_tx_ids.put(&tx.tx_hash, &tx_id)?;
-                table_tx_heights.put(&tx_id, &block.height)?;
+                tables.num_outputs_mut().put(&amount, &amount_index)?;
+                tables.outputs_mut().put(&pre_rct_output_id, &output)?;
+                tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
+                tables.tx_heights_mut().put(&tx_id, &block.height)?;
 
                 let unlock_time = match tx.tx.prefix.timelock {
                     Timelock::None => todo!(),
                     Timelock::Block(height) => todo!(), // Calculate from height?
                     Timelock::Time(time) => time,
                 };
-                table_tx_unlock_time.put(&tx_id, &unlock_time)?;
+                tables.tx_unlock_time_mut().put(&tx_id, &unlock_time)?;
             }
         }
     }
 
     Ok(())
-}
-
-/// TODO
-///
-/// # Errors
-/// TODO
-#[inline]
-pub fn add_blocks<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &Rw,
-    height_and_blocks: &[(BlockHeight, BlockInfoLatest)],
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    todo!()
 }
 
 /// TODO
