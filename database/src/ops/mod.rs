@@ -20,3 +20,5 @@ pub mod output;
 pub mod property;
 pub mod spent_key;
 pub mod tx;
+
+mod macros;
