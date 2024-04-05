@@ -15,6 +15,7 @@
 
 pub mod alt_block;
 pub mod block;
+pub mod blockchain;
 pub mod output;
 pub mod property;
 pub mod spent_key;

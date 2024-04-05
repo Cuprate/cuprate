@@ -9,6 +9,7 @@ use crate::{
     database::{DatabaseRo, DatabaseRw},
     env::EnvInner,
     error::RuntimeError,
+    ops::blockchain::height_internal,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
         Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
@@ -69,7 +70,7 @@ This function operates on bulk input more efficiently than the above function.
 
 See `"#,
             stringify!($single_fn),
-            "()` for more documentation",
+            "()` for more documentation.",
         )
     };
 }
@@ -514,7 +515,8 @@ where
     Env: EnvInner<'env, Ro, Rw>,
 {
     let tables = &env.open_tables(tx_ro)?;
-    get_block_inner(tables, top_block_height(tables)?)
+    let top_block_height = height_internal(tables.block_heights())?;
+    get_block_inner(tables, top_block_height)
 }
 
 #[doc = doc_bulk!(get_block_top)]
@@ -537,7 +539,7 @@ where
 {
     let tables = &env.open_tables(tx_ro)?;
 
-    let top_block_height = top_block_height(tables)?;
+    let top_block_height = height_internal(tables.block_heights())?;
     if count > top_block_height {
         // Caller asked for more blocks than we have.
         return todo!();
@@ -613,14 +615,6 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- Misc
-/// Retrieve the block height of the latest/top block in the database.
-#[inline]
-fn top_block_height(tables: &impl Tables) -> Result<BlockHeight, RuntimeError> {
-    // TODO: is this correct?
-    // TODO: is there a faster way to do this? `.len()` is already quite cheap.
-    tables.block_heights().len()
-}
-
 /// Check if a block does _NOT_ exist in the database.
 ///
 #[doc = doc_single!(block_missing_bulk)]
