@@ -23,7 +23,6 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- Private free functions
 // Some utility functions/types used internally in the public functions.
-
 //---------------------------------------------------------------------------------------------------- Free functions
 /// TODO
 ///

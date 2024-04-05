@@ -22,7 +22,7 @@ pub(super) mod private {
     pub trait Sealed {}
 }
 
-//---------------------------------------------------------------------------------------------------- Tables
+//---------------------------------------------------------------------------------------------------- `trait Tables[Mut]`
 /// Creates:
 /// - `pub trait Tables`
 /// - `pub trait TablesMut`
@@ -181,6 +181,44 @@ define_trait_tables! {
     TxHeights => 13,
     TxUnlockTime => 14,
 }
+
+//---------------------------------------------------------------------------------------------------- Table function macro
+/// `crate`-private macro for callings functions on all tables.
+///
+/// This calls the function `$fn` with the optional
+/// arguments `$args` on all tables - returning early
+/// (within whatever scope this is called) if any
+/// of the function calls error.
+///
+/// Else, it evaluates to an `Ok((tuple, of, all, table, types, ...))`,
+/// i.e., an `impl Table[Mut]` wrapped in `Ok`.
+macro_rules! call_fn_on_all_tables_or_early_return {
+    (
+        $($fn:ident $(::)?)*
+        (
+            $($arg:ident),* $(,)?
+        )
+    ) => {{
+        Ok((
+            $($fn ::)*<BlockInfoV1s>($($arg),*)?,
+            $($fn ::)*<BlockInfoV2s>($($arg),*)?,
+            $($fn ::)*<BlockInfoV3s>($($arg),*)?,
+            $($fn ::)*<BlockBlobs>($($arg),*)?,
+            $($fn ::)*<BlockHeights>($($arg),*)?,
+            $($fn ::)*<KeyImages>($($arg),*)?,
+            $($fn ::)*<NumOutputs>($($arg),*)?,
+            $($fn ::)*<PrunedTxBlobs>($($arg),*)?,
+            $($fn ::)*<PrunableHashes>($($arg),*)?,
+            $($fn ::)*<Outputs>($($arg),*)?,
+            $($fn ::)*<PrunableTxBlobs>($($arg),*)?,
+            $($fn ::)*<RctOutputs>($($arg),*)?,
+            $($fn ::)*<TxIds>($($arg),*)?,
+            $($fn ::)*<TxHeights>($($arg),*)?,
+            $($fn ::)*<TxUnlockTime>($($arg),*)?,
+        ))
+    }};
+}
+pub(crate) use call_fn_on_all_tables_or_early_return;
 
 //---------------------------------------------------------------------------------------------------- Table macro
 /// Create all tables, should be used _once_.

@@ -10,9 +10,10 @@ use crate::{
     resize::ResizeAlgorithm,
     table::Table,
     tables::{
-        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
-        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
-        TxHeights, TxIds, TxUnlockTime,
+        call_fn_on_all_tables_or_early_return, BlockBlobs, BlockHeights, BlockInfoV1s,
+        BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs, Outputs, PrunableHashes,
+        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
+        TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
 };
@@ -232,23 +233,9 @@ where
     /// # Errors
     /// TODO
     fn open_tables(&self, tx_ro: &Ro) -> Result<impl Tables, RuntimeError> {
-        Ok((
-            self.open_db_ro::<BlockInfoV1s>(tx_ro)?,
-            self.open_db_ro::<BlockInfoV2s>(tx_ro)?,
-            self.open_db_ro::<BlockInfoV3s>(tx_ro)?,
-            self.open_db_ro::<BlockBlobs>(tx_ro)?,
-            self.open_db_ro::<BlockHeights>(tx_ro)?,
-            self.open_db_ro::<KeyImages>(tx_ro)?,
-            self.open_db_ro::<NumOutputs>(tx_ro)?,
-            self.open_db_ro::<PrunedTxBlobs>(tx_ro)?,
-            self.open_db_ro::<PrunableHashes>(tx_ro)?,
-            self.open_db_ro::<Outputs>(tx_ro)?,
-            self.open_db_ro::<PrunableTxBlobs>(tx_ro)?,
-            self.open_db_ro::<RctOutputs>(tx_ro)?,
-            self.open_db_ro::<TxIds>(tx_ro)?,
-            self.open_db_ro::<TxHeights>(tx_ro)?,
-            self.open_db_ro::<TxUnlockTime>(tx_ro)?,
-        ))
+        call_fn_on_all_tables_or_early_return! {
+            Self::open_db_ro(self, tx_ro)
+        }
     }
 
     /// TODO
@@ -256,23 +243,9 @@ where
     /// # Errors
     /// TODO
     fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
-        Ok((
-            self.open_db_rw::<BlockInfoV1s>(tx_rw)?,
-            self.open_db_rw::<BlockInfoV2s>(tx_rw)?,
-            self.open_db_rw::<BlockInfoV3s>(tx_rw)?,
-            self.open_db_rw::<BlockBlobs>(tx_rw)?,
-            self.open_db_rw::<BlockHeights>(tx_rw)?,
-            self.open_db_rw::<KeyImages>(tx_rw)?,
-            self.open_db_rw::<NumOutputs>(tx_rw)?,
-            self.open_db_rw::<PrunedTxBlobs>(tx_rw)?,
-            self.open_db_rw::<PrunableHashes>(tx_rw)?,
-            self.open_db_rw::<Outputs>(tx_rw)?,
-            self.open_db_rw::<PrunableTxBlobs>(tx_rw)?,
-            self.open_db_rw::<RctOutputs>(tx_rw)?,
-            self.open_db_rw::<TxIds>(tx_rw)?,
-            self.open_db_rw::<TxHeights>(tx_rw)?,
-            self.open_db_rw::<TxUnlockTime>(tx_rw)?,
-        ))
+        call_fn_on_all_tables_or_early_return! {
+            Self::open_db_rw(self, tx_rw)
+        }
     }
 
     /// Clear all `(key, value)`'s from a database table.
