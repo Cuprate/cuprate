@@ -21,21 +21,73 @@ use crate::{
     },
 };
 
+//---------------------------------------------------------------------------------------------------- Documentation macros
+// These generate repetitive documentation for all the functions defined here.
+
+/// Generate documentation for the required `# Error` section.
+macro_rules! doc_error {
+    // Single use function, e.g., `get_block()`
+    () => {
+        r#"# Errors
+This function returns [`RuntimeError::KeyNotFound`] if the block doesn't exist or other `RuntimeError`'s on database errors."#
+    };
+
+    // Bulk use function, e.g., `get_block_bulk()`
+    (bulk) => {
+        r#"# Errors
+This function returns [`RuntimeError::KeyNotFound`] if the block doesn't exist or other `RuntimeError`'s on database errors.
+
+Note that this function will early return if any individual operation returns an error - all operations are either OK or not."#
+    };
+}
+
+/// Generate documentation for single functions
+/// linking to its `_bulk()` version.
+macro_rules! doc_single {
+    (
+        $bulk_fn:ident // `fn` name of the bulk function to link to.
+    ) => {
+        concat!(
+            "Consider using [`",
+            stringify!($bulk_fn),
+            "()`] for multiple blocks."
+        )
+    };
+}
+
+/// Generate documentation for `_bulk()` functions.
+macro_rules! doc_bulk {
+    (
+        $single_fn:ident // `fn` name of the single function to link to.
+    ) => {
+        concat!(
+            "Bulk version of [`",
+            stringify!($single_fn),
+            r#"()`].
+
+This function operates on bulk input more efficiently than the above function.
+
+See `"#,
+            stringify!($single_fn),
+            "()` for more documentation",
+        )
+    };
+}
+
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
 ///
 /// This extracts all the data from the input block and
 /// maps and adds them to the appropriate database tables.
 ///
-/// Consider using [`add_block_bulk()`] for multiple blocks.
+#[doc = doc_single!(add_block_bulk)]
 ///
+/// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 #[allow(clippy::too_many_lines)]
 pub fn add_block<'env, Ro, Rw, Env>(
@@ -51,15 +103,14 @@ where
     add_block_inner(&mut env.open_tables_mut(tx_rw)?, block)
 }
 
-/// Bulk version of [`add_block()`].
+#[doc = doc_bulk!(add_block)]
 ///
+/// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!(bulk)]
 #[inline]
 pub fn add_block_bulk<'env, Ro, Rw, Env>(
     env: &Env,
@@ -80,7 +131,7 @@ where
 
 /// Internal function used by:
 /// - [`add_block()`]
-/// - [`add_blocks()`]
+/// - [`add_block_bulk()`]
 #[allow(clippy::cast_possible_truncation)] // TODO: remove me
 fn add_block_inner(
     tables: &mut impl TablesMut,
@@ -216,13 +267,12 @@ fn add_block_inner(
 /// - Consider using [`pop_block_bulk()`] for multiple blocks
 /// - Consider using [`pop_block_cheap()`] if the returned block is unneeded
 ///
+/// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 #[allow(clippy::missing_panics_doc)] // this should not panic
 pub fn pop_block<'env, Ro, Rw, Env>(
@@ -238,15 +288,13 @@ where
         .expect("this will always return `Some`"))
 }
 
-/// Bulk version of [`pop_block()`].
+#[doc = doc_bulk!(pop_block)]
 ///
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 #[allow(clippy::missing_panics_doc)] // this should not panic
 pub fn pop_block_bulk<'env, Ro, Rw, Env>(
@@ -277,15 +325,14 @@ where
 /// it should be faster to call in situations where the
 /// returned block would not be used anyway.
 ///
-/// Consider using [`pop_block_cheap_bulk()`] for multiple blocks.
+#[doc = doc_single!(pop_block_cheap_bulk)]
 ///
+/// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 pub fn pop_block_cheap<'env, Ro, Rw, Env>(env: &Env, tx_rw: &Rw) -> Result<(), RuntimeError>
 where
@@ -298,15 +345,13 @@ where
     Ok(())
 }
 
-/// Bulk version of [`pop_block_cheap()`].
+#[doc = doc_bulk!(pop_block_cheap)]
 ///
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!(bulk)]
 #[inline]
 pub fn pop_block_cheap_bulk<'env, Ro, Rw, Env>(
     env: &Env,
@@ -340,11 +385,8 @@ where
 /// # Invariant
 /// - `RETURN == true` -> This must return `Some`
 /// - `RETURN == false` -> This must return `None`
-///
-/// # Errors
-/// TODO
 #[inline]
-pub fn pop_block_inner<const RETURN: bool>(
+fn pop_block_inner<const RETURN: bool>(
     tables: &mut impl TablesMut,
 ) -> Result<Option<VerifiedBlockInformation>, RuntimeError> {
     /* 1. remove block data from tables */
@@ -384,15 +426,14 @@ pub fn pop_block_inner<const RETURN: bool>(
 /// This extracts all the data from the database needed
 /// to create a full `VerifiedBlockInformation`.
 ///
-/// Consider using [`get_block_bulk()`] for multiple blocks.
+#[doc = doc_single!(get_block_bulk)]
 ///
+/// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 pub fn get_block<'env, Ro, Rw, Env>(
     env: &Env,
@@ -407,15 +448,14 @@ where
     get_block_inner(&env.open_tables(tx_ro)?, height)
 }
 
-/// Bulk version of [`get_block()`].
+#[doc = doc_bulk!(get_block_bulk)]
 ///
+/// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!(bulk)]
 #[inline]
 pub fn get_block_bulk<'env, Ro, Rw, Env, Heights>(
     env: &Env,
@@ -442,9 +482,6 @@ where
 /// Internal function that is used by:
 /// - [`get_block()`]
 /// - [`get_block_bulk()`]
-///
-/// # Errors
-/// TODO
 #[inline]
 fn get_block_inner(
     tables: &impl Tables,
@@ -459,15 +496,13 @@ fn get_block_inner(
 /// This is the same as [`pop_block()`], but it does
 /// not remove the block, it only retrieves it.
 ///
-/// - Consider using [`get_block_top_bulk()`] for multiple blocks
+#[doc = doc_single!(get_block_top_bulk)]
 ///
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 pub fn get_block_top<'env, Ro, Rw, Env>(
     env: &Env,
@@ -482,15 +517,13 @@ where
     get_block_inner(tables, top_block_height(tables)?)
 }
 
-/// Bulk version of [`get_block_top()`].
+#[doc = doc_bulk!(get_block_top)]
 ///
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!(bulk)]
 #[inline]
 pub fn get_block_top_bulk<'env, Ro, Rw, Env>(
     env: &Env,
@@ -524,13 +557,14 @@ where
 //---------------------------------------------------------------------------------------------------- `get_block_height_*`
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 ///
+#[doc = doc_single!(get_block_height_bulk)]
+///
+/// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 pub fn get_block_height<'env, Ro, Rw, Env>(
     env: &Env,
@@ -546,15 +580,13 @@ where
     env.open_db_ro::<BlockHeights>(tx_ro)?.get(block_hash)
 }
 
-/// Bulk version of [`get_block_height()`].
+#[doc = doc_single!(get_block_height)]
 ///
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!(bulk)]
 #[inline]
 pub fn get_block_height_bulk<'env, Ro, Rw, Env, Hashes>(
     env: &Env,
@@ -581,25 +613,34 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- Misc
-/// TODO
-///
-/// # Errors
-/// TODO
+/// Retrieve the block height of the latest/top block in the database.
 #[inline]
 fn top_block_height(tables: &impl Tables) -> Result<BlockHeight, RuntimeError> {
     // TODO: is this correct?
+    // TODO: is there a faster way to do this? `.len()` is already quite cheap.
     tables.block_heights().len()
 }
 
 /// Check if a block does _NOT_ exist in the database.
 ///
+#[doc = doc_single!(block_missing_bulk)]
+///
+/// # Why not `block_exists()`?
+/// Usually in API's, `x_exists()` is the function defined, not the reverse.
+/// This is reversed as the bulk function [`block_missing_bulk()`] returns a set
+/// of _missing_ blocks - this would be more expensive to represent if the
+/// function were `block_exists_bulk()`
+///
+/// It would return all the blocks that exist? Although usually the output
+/// to act upon are the blocks that _don't_ exist, thus this pair of functions
+/// are `_missing` and not `_exists`.
+///
+/// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 pub fn block_missing<'env, Ro, Rw, Env>(
     env: &Env,
@@ -611,18 +652,18 @@ where
     Rw: TxRw<'env>,
     Env: EnvInner<'env, Ro, Rw>,
 {
-    env.open_db_ro::<BlockHeights>(tx_ro)?.contains(block_hash)
+    Ok(!env
+        .open_db_ro::<BlockHeights>(tx_ro)?
+        .contains(block_hash)?)
 }
 
-/// Bulk version of [`block_missing()`].
+#[doc = doc_bulk!(block_missing)]
 ///
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!(bulk)]
 #[inline]
 pub fn block_missing_bulk<'env, Ro, Rw, Env, Hashes>(
     env: &Env,
