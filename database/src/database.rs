@@ -13,7 +13,7 @@ use crate::{
     transaction::{TxRo, TxRw},
 };
 
-//---------------------------------------------------------------------------------------------------- DatabaseRoIter
+//---------------------------------------------------------------------------------------------------- DatabaseIter
 /// Database (key-value store) read-only iteration abstraction.
 ///
 /// These are read-only iteration-related operations that

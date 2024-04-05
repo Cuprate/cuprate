@@ -56,3 +56,35 @@ See `"#,
     };
 }
 pub(super) use doc_fn;
+
+/// Generate documentation for `_inner()` functions.
+///
+/// See this modules `mod.rs` for info.
+macro_rules! doc_inner {
+    (
+        $fn:ident // `fn` name of the parent function to link to.
+    ) => {
+        concat!(
+            "Internal function for [`",
+            stringify!($fn),
+            r#"()`].
+
+This function is the _internal_ implementation of the above function (and the `_bulk()` version if it exists).
+
+In contrast to the above function, this function takes already opened [`DatabaseRo`]/[`DatabaseIter`]/[`DatabaseRw`]
+types directly - as such, if you already have opened tables and would like to make multiple function calls, these `_inner()`
+functions are the cheaper choice.
+
+See `"#,
+            stringify!($fn),
+            r#"()` for more documentation on the actual function.
+
+# Return
+This function returns the same value as the actual function.
+
+# Errors
+This function errors in the same way as the actual function."#,
+        )
+    };
+}
+pub(super) use doc_inner;

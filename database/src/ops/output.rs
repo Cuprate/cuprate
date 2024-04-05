@@ -25,6 +25,8 @@ use crate::{
     },
 };
 
+use super::macros::doc_inner;
+
 //---------------------------------------------------------------------------------------------------- Private
 /// TODO
 #[inline]
@@ -148,12 +150,64 @@ pub fn get_output_list() {
     todo!()
 }
 
+//---------------------------------------------------------------------------------------------------- `get_rct_num_outputs()`
 /// TODO
-pub fn get_rct_num_outputs() {
-    todo!()
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
+/// // TODO
+/// ```
+#[doc = doc_error!()]
+#[inline]
+pub fn get_rct_num_outputs<'env, Ro, Rw, Env, Iter>(
+    env: &Env,
+    tx_ro: &Ro,
+) -> Result<u64, RuntimeError>
+where
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+    Env: EnvInner<'env, Ro, Rw>,
+{
+    get_rct_num_outputs_inner(&env.open_db_ro::<RctOutputs>(tx_ro)?)
 }
 
+/// Internal function for [`get_rct_num_outputs_inner()`].
+#[inline]
+pub(super) fn get_rct_num_outputs_inner(
+    table_rct_outputs: &(impl DatabaseRo<RctOutputs> + DatabaseIter<RctOutputs>),
+) -> Result<u64, RuntimeError> {
+    // TODO: is this correct?
+    table_rct_outputs.len()
+}
+
+//---------------------------------------------------------------------------------------------------- `get_pre_rct_num_outputs()`
 /// TODO
-pub fn get_pre_rct_num_outputs() {
-    todo!()
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
+/// // TODO
+/// ```
+#[doc = doc_error!()]
+#[inline]
+pub fn get_pre_rct_num_outputs<'env, Ro, Rw, Env, Iter>(
+    env: &Env,
+    tx_ro: &Ro,
+) -> Result<u64, RuntimeError>
+where
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+    Env: EnvInner<'env, Ro, Rw>,
+{
+    get_pre_rct_num_outputs_inner(&env.open_db_ro::<Outputs>(tx_ro)?)
+}
+
+#[doc = doc_inner!(get_pre_rct_num_outputs)]
+#[inline]
+pub fn get_pre_rct_num_outputs_inner(
+    table_outputs: &(impl DatabaseRo<Outputs> + DatabaseIter<Outputs>),
+) -> Result<u64, RuntimeError> {
+    // TODO: is this correct?
+    table_outputs.len()
 }

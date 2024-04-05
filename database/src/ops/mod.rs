@@ -7,6 +7,9 @@
 //! # `_bulk()`
 //! TODO: explain bulk functions.
 //!
+//! # `_inner()`
+//! TODO: explain inner functions that take tables directly.
+//!
 //! # Atomicity
 //! TODO: explain atomic behavior of `ops/` functions.
 //!
