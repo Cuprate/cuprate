@@ -21,9 +21,7 @@ use crate::{
     },
 };
 
-//---------------------------------------------------------------------------------------------------- Private free functions
-// Some utility functions/types used internally in the public functions.
-//---------------------------------------------------------------------------------------------------- Free functions
+//---------------------------------------------------------------------------------------------------- `add_block_*`
 /// TODO
 ///
 /// # Errors
@@ -51,7 +49,7 @@ where
 pub fn add_blocks<'env, Ro, Rw, Env>(
     env: &Env,
     tx_rw: &Rw,
-    blocks: &[VerifiedBlockInformation],
+    blocks: impl Iterator<Item = &'env VerifiedBlockInformation>,
 ) -> Result<(), RuntimeError>
 where
     Ro: TxRo<'env>,
@@ -194,6 +192,7 @@ fn add_block_inner(
     Ok(())
 }
 
+//---------------------------------------------------------------------------------------------------- `pop_block_*`
 /// TODO
 ///
 /// # Errors
@@ -245,6 +244,7 @@ where
     Ok(vec)
 }
 
+//---------------------------------------------------------------------------------------------------- `get_block_*`
 /// TODO
 ///
 /// # Errors
@@ -254,13 +254,13 @@ pub fn get_block<'env, Ro, Rw, Env>(
     env: &Env,
     tx_ro: &Ro,
     height: BlockHeight,
-) -> Result<BlockInfoLatest, RuntimeError>
+) -> Result<VerifiedBlockInformation, RuntimeError>
 where
     Ro: TxRo<'env>,
     Rw: TxRw<'env>,
     Env: EnvInner<'env, Ro, Rw>,
 {
-    get_block_v3(env, tx_ro, height)
+    get_block_inner(&env.open_tables(tx_ro)?, height)
 }
 
 /// TODO
@@ -268,17 +268,26 @@ where
 /// # Errors
 /// TODO
 #[inline]
-pub fn get_block_v1<'env, Ro, Rw, Env>(
+pub fn get_blocks<'env, Ro, Rw, Env, Heights>(
     env: &Env,
     tx_ro: &Ro,
-    height: BlockHeight,
-) -> Result<BlockInfoV1, RuntimeError>
+    heights: Heights,
+) -> Result<Vec<VerifiedBlockInformation>, RuntimeError>
 where
     Ro: TxRo<'env>,
     Rw: TxRw<'env>,
     Env: EnvInner<'env, Ro, Rw>,
+    Heights: Iterator<Item = &'env BlockHeight> + ExactSizeIterator,
 {
-    env.open_db_ro::<BlockInfoV1s>(tx_ro)?.get(&height)
+    let tables = env.open_tables(tx_ro)?;
+    let mut blocks = Vec::with_capacity(heights.len());
+
+    for height in heights {
+        let block = get_block_inner(&tables, *height)?;
+        blocks.push(block);
+    }
+
+    Ok(blocks)
 }
 
 /// TODO
@@ -286,35 +295,11 @@ where
 /// # Errors
 /// TODO
 #[inline]
-pub fn get_block_v2<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
+fn get_block_inner(
+    tables: &impl Tables,
     height: BlockHeight,
-) -> Result<BlockInfoV2, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    env.open_db_ro::<BlockInfoV2s>(tx_ro)?.get(&height)
-}
-
-/// TODO
-///
-/// # Errors
-/// TODO
-#[inline]
-pub fn get_block_v3<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
-    height: BlockHeight,
-) -> Result<BlockInfoV3, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    env.open_db_ro::<BlockInfoV3s>(tx_ro)?.get(&height)
+) -> Result<VerifiedBlockInformation, RuntimeError> {
+    todo!()
 }
 
 /// TODO
@@ -325,13 +310,14 @@ where
 pub fn get_top_block<'env, Ro, Rw, Env>(
     env: &Env,
     tx_ro: &Ro,
-) -> Result<(BlockHeight, BlockInfoLatest), RuntimeError>
+) -> Result<VerifiedBlockInformation, RuntimeError>
 where
     Ro: TxRo<'env>,
     Rw: TxRw<'env>,
     Env: EnvInner<'env, Ro, Rw>,
 {
-    env.open_db_ro::<BlockInfoV3s>(tx_ro)?.last()
+    let tables = env.open_tables(tx_ro)?;
+    get_block_inner(&tables, tables.block_heights().len()?)
 }
 
 /// TODO
@@ -352,6 +338,7 @@ where
     env.open_db_ro::<BlockHeights>(tx_ro)?.get(block_hash)
 }
 
+//---------------------------------------------------------------------------------------------------- Misc
 /// TODO
 ///
 /// # Errors
@@ -368,54 +355,4 @@ where
     Env: EnvInner<'env, Ro, Rw>,
 {
     env.open_db_ro::<BlockHeights>(tx_ro)?.contains(block_hash)
-}
-
-/// TODO
-pub fn get_block_header() {
-    todo!()
-}
-
-/// TODO
-pub fn get_block_header_from_height() {
-    todo!()
-}
-
-/// TODO
-pub fn get_top_block_hash() {
-    todo!()
-}
-
-/// TODO
-pub fn get_block_hash() {
-    todo!()
-}
-
-/// TODO
-pub fn get_block_weight() {
-    todo!()
-}
-
-/// TODO
-pub fn get_block_already_generated_coins() {
-    todo!()
-}
-
-/// TODO
-pub fn get_block_long_term_weight() {
-    todo!()
-}
-
-/// TODO
-pub fn get_block_timestamp() {
-    todo!()
-}
-
-/// TODO
-pub fn get_block_cumulative_rct_outputs() {
-    todo!()
-}
-
-/// TODO
-pub fn get_block_from_height() {
-    todo!()
 }

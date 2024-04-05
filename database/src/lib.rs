@@ -11,6 +11,10 @@
 //! 2. Implements various `Monero` related [functions](ops) & [tables] & [types]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
+//! # `ops/`
+//! TODO: explain how users should usually be using `ops/`
+//! instead of directly handling the database tables.
+//!
 //! # Terminology
 //! To be more clear on some terms used in this crate:
 //!

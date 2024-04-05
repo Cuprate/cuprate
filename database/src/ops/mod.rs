@@ -12,6 +12,8 @@
 //!
 //! TODO: All of these functions need to take in generic
 //! database trait parameters (and their actual inputs).
+//!
+//! TODO: explain atomic behavior of `ops/` functions.
 
 pub mod alt_block;
 pub mod block;
