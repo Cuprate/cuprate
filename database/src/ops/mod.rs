@@ -10,6 +10,9 @@
 //! # Atomicity
 //! TODO: explain atomic behavior of `ops/` functions.
 //!
+//! # Generic Inputs
+//! TODO: explain `<'env, Ro, Rw, EnvInner>` - show examples of setups and fn calls.
+//!
 //! # TODO
 //! TODO: These functions should pretty much map 1-1 to the `Request` enum.
 
