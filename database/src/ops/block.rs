@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use monero_serai::transaction::Timelock;
 
-use cuprate_types::VerifiedBlockInformation;
+use cuprate_types::{ExtendedBlockHeader, VerifiedBlockInformation};
 
 use crate::{
     database::{DatabaseRo, DatabaseRw},
@@ -373,10 +373,10 @@ fn pop_block_inner<const RETURN: bool>(
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_*`
-/// Retrieve a [`VerifiedBlockInformation`] to the database.
+/// Retrieve a [`VerifiedBlockInformation`] from the database.
 ///
-/// This extracts all the data from the database needed
-/// to create a full `VerifiedBlockInformation`.
+/// This extracts all the data from the database tables
+/// needed to create a full `VerifiedBlockInformation`.
 ///
 #[doc = doc_fn!(get_block_bulk)]
 ///
@@ -439,6 +439,76 @@ fn get_block_inner(
     tables: &impl Tables,
     height: BlockHeight,
 ) -> Result<VerifiedBlockInformation, RuntimeError> {
+    todo!()
+}
+
+//---------------------------------------------------------------------------------------------------- `get_block_header_*`
+/// Retrieve a [`ExtendedBlockHeader`] from the database.
+///
+/// This extracts all the data from the database tables
+/// needed to create a full `ExtendedBlockHeader`.
+///
+#[doc = doc_fn!(get_block_header_bulk)]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*};
+/// // TODO
+/// ```
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_header<'env, Ro, Rw, Env>(
+    env: &Env,
+    tx_ro: &Ro,
+    height: BlockHeight,
+) -> Result<ExtendedBlockHeader, RuntimeError>
+where
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+    Env: EnvInner<'env, Ro, Rw>,
+{
+    get_block_header_inner(&env.open_tables(tx_ro)?, height)
+}
+
+#[doc = doc_fn!(get_block_header, bulk)]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*};
+/// // TODO
+/// ```
+#[doc = doc_error!(bulk)]
+#[inline]
+pub fn get_block_header_bulk<'env, Ro, Rw, Env, Heights>(
+    env: &Env,
+    tx_ro: &Ro,
+    heights: Heights,
+) -> Result<Vec<ExtendedBlockHeader>, RuntimeError>
+where
+    Ro: TxRo<'env>,
+    Rw: TxRw<'env>,
+    Env: EnvInner<'env, Ro, Rw>,
+    Heights: Iterator<Item = &'env BlockHeight> + ExactSizeIterator,
+{
+    let tables = &env.open_tables(tx_ro)?;
+    let mut headers = Vec::with_capacity(heights.len());
+
+    for height in heights {
+        let block = get_block_header_inner(tables, *height)?;
+        headers.push(block);
+    }
+
+    Ok(headers)
+}
+
+/// Internal function that is used by:
+/// - [`get_block_header()`]
+/// - [`get_block_header_bulk()`]
+#[inline]
+fn get_block_header_inner(
+    tables: &impl Tables,
+    height: BlockHeight,
+) -> Result<ExtendedBlockHeader, RuntimeError> {
     todo!()
 }
 

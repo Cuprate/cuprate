@@ -29,7 +29,7 @@ use crate::{
 /// TODO
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub(super) fn add_tx_internal(
+pub(super) fn add_tx(
     table_tx_ids: &mut impl DatabaseRw<TxIds>,
     table_heights: &mut impl DatabaseRw<TxHeights>,
     table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
@@ -40,7 +40,7 @@ pub(super) fn add_tx_internal(
 /// TODO
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub(super) fn remove_tx_internal(
+pub(super) fn remove_tx(
     table_tx_ids: &mut impl DatabaseRw<TxIds>,
     table_heights: &mut impl DatabaseRw<TxHeights>,
     table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
