@@ -9,7 +9,7 @@ use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::EnvInner,
     error::RuntimeError,
-    ops::macros::doc_error,
+    ops::macros::{doc_add_block_inner_invariant, doc_error},
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
         Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
@@ -24,9 +24,10 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- Private
 /// TODO
+#[doc = doc_add_block_inner_invariant!()]
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub(super) fn add_tx(
+pub fn add_tx(
     table_tx_ids: &mut impl DatabaseRw<TxIds>,
     table_heights: &mut impl DatabaseRw<TxHeights>,
     table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
@@ -35,9 +36,10 @@ pub(super) fn add_tx(
 }
 
 /// TODO
+#[doc = doc_add_block_inner_invariant!()]
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub(super) fn remove_tx(
+pub fn remove_tx(
     table_tx_ids: &mut impl DatabaseRw<TxIds>,
     table_heights: &mut impl DatabaseRw<TxHeights>,
     table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,

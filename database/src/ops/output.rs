@@ -9,7 +9,7 @@ use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::EnvInner,
     error::RuntimeError,
-    ops::macros::doc_error,
+    ops::macros::{doc_add_block_inner_invariant, doc_error},
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
         Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
@@ -22,11 +22,13 @@ use crate::{
     },
 };
 
-//---------------------------------------------------------------------------------------------------- Private
+//---------------------------------------------------------------------------------------------------- `add_output()`
 /// TODO
+///
+#[doc = doc_add_block_inner_invariant!()]
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub(super) fn add_output(
+pub fn add_output(
     table_outputs: &mut impl DatabaseRw<Outputs>,
     table_key_images: &mut impl DatabaseRw<KeyImages>,
     table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
@@ -35,10 +37,12 @@ pub(super) fn add_output(
     todo!()
 }
 
+//---------------------------------------------------------------------------------------------------- `remove_output()`
 /// TODO
+#[doc = doc_add_block_inner_invariant!()]
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub(super) fn remove_output(
+pub fn remove_output(
     table_outputs: &mut impl DatabaseRw<Outputs>,
     table_key_images: &mut impl DatabaseRw<KeyImages>,
     table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
