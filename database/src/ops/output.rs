@@ -26,6 +26,13 @@ use crate::{
 /// TODO
 ///
 #[doc = doc_add_block_inner_invariant!()]
+#[doc = doc_error!()]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
+/// // TODO
+/// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_output(
@@ -33,13 +40,21 @@ pub fn add_output(
     table_key_images: &mut impl DatabaseRw<KeyImages>,
     table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
     table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) {
+) -> Result<(), RuntimeError> {
     todo!()
 }
 
 //---------------------------------------------------------------------------------------------------- `remove_output()`
 /// TODO
+///
 #[doc = doc_add_block_inner_invariant!()]
+#[doc = doc_error!()]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
+/// // TODO
+/// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn remove_output(
@@ -47,7 +62,7 @@ pub fn remove_output(
     table_key_images: &mut impl DatabaseRw<KeyImages>,
     table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
     table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) {
+) -> Result<(), RuntimeError> {
     todo!()
 }
 

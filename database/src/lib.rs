@@ -8,7 +8,7 @@
 //! # Purpose
 //! This crate does 3 things:
 //! 1. Abstracts various database backends with traits
-//! 2. Implements various `Monero` related [functions](ops), [tables], and [types]
+//! 2. Implements various `Monero` related [operations](ops), [tables], and [types]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
 //! Each layer builds on-top of the previous.
@@ -21,22 +21,20 @@
 //! # Terminology
 //! To be more clear on some terms used in this crate:
 //!
-//! | Term          | Meaning                              |
-//! |---------------|--------------------------------------|
-//! | `Env`         | The 1 database environment, the "whole" thing
-//! | `DatabaseRo`  | A read-only `key/value` store
-//! | `DatabaseRw`  | A readable/writable `key/value` store
-//! | `Table`       | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
-//! | `TxRo`        | Read only transaction
-//! | `TxRw`        | Read/write transaction
-//! | `Storable`    | A data that type can be stored in the database
+//! | Term             | Meaning                              |
+//! |------------------|--------------------------------------|
+//! | `Env`            | The 1 database environment, the "whole" thing
+//! | `DatabaseR{o,w}` | A _actively open_ readable/writable `key/value` store
+//! | `Table`          | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
+//! | `TxR{o,w}`       | A read/write transaction
+//! | `Storable`       | A data that type can be stored in the database
 //!
 //! The dataflow is `Env` -> `Tx` -> `Database`
 //!
 //! Which reads as:
 //! 1. You have a database `Environment`
 //! 1. You open up a `Transaction`
-//! 1. You get a particular `Database` from that `Environment`
+//! 1. You open a particular `Table` from that `Environment`, getting a `Database`
 //! 1. You can now read/write data from/to that `Database`
 //!
 //! # `ConcreteEnv`

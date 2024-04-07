@@ -9,6 +9,7 @@ use crate::{
     database::{DatabaseRo, DatabaseRw},
     env::EnvInner,
     error::RuntimeError,
+    ops::macros::doc_error,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
         Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
@@ -29,9 +30,7 @@ use crate::{
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
-///
-/// # Errors
-/// TODO
+#[doc = doc_error!()]
 #[inline]
 pub fn height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,

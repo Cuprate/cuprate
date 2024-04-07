@@ -22,25 +22,41 @@ use crate::{
     },
 };
 
-//---------------------------------------------------------------------------------------------------- `add_spent_key()`
+//---------------------------------------------------------------------------------------------------- `add_key_image()`
 /// TODO
+///
 #[doc = doc_add_block_inner_invariant!()]
+#[doc = doc_error!()]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::key_image::*};
+/// // TODO
+/// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn add_spent_key() {
+pub fn add_key_image() -> Result<(), RuntimeError> {
     todo!()
 }
 
-//---------------------------------------------------------------------------------------------------- `remove_spent_key()`
+//---------------------------------------------------------------------------------------------------- `remove_key_image()`
 /// TODO
+///
 #[doc = doc_add_block_inner_invariant!()]
+#[doc = doc_error!()]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::key_image::*};
+/// // TODO
+/// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn remove_spent_key() {
+pub fn remove_key_image() -> Result<(), RuntimeError> {
     todo!()
 }
 
 /// TODO
-pub fn is_spent_key_recorded() {
+pub fn key_image_exists() {
     todo!()
 }

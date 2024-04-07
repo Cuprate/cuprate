@@ -24,38 +24,54 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- Private
 /// TODO
+///
 #[doc = doc_add_block_inner_invariant!()]
-#[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn add_tx(
-    table_tx_ids: &mut impl DatabaseRw<TxIds>,
-    table_heights: &mut impl DatabaseRw<TxHeights>,
-    table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
-) {
-    todo!()
-}
-
-/// TODO
-#[doc = doc_add_block_inner_invariant!()]
-#[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn remove_tx(
-    table_tx_ids: &mut impl DatabaseRw<TxIds>,
-    table_heights: &mut impl DatabaseRw<TxHeights>,
-    table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
-) {
-    todo!()
-}
-
-//---------------------------------------------------------------------------------------------------- `get_tx_*`
-/// TODO
+#[doc = doc_error!()]
 ///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
 /// // TODO
 /// ```
+#[inline]
+#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
+pub fn add_tx(
+    table_tx_ids: &mut impl DatabaseRw<TxIds>,
+    table_heights: &mut impl DatabaseRw<TxHeights>,
+    table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
+) -> Result<(), RuntimeError> {
+    todo!()
+}
+
+/// TODO
+///
+#[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
+/// // TODO
+/// ```
+#[inline]
+#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
+pub fn remove_tx(
+    table_tx_ids: &mut impl DatabaseRw<TxIds>,
+    table_heights: &mut impl DatabaseRw<TxHeights>,
+    table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
+) -> Result<(), RuntimeError> {
+    todo!()
+}
+
+//---------------------------------------------------------------------------------------------------- `get_tx_*`
+/// TODO
+///
+#[doc = doc_error!()]
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
+/// // TODO
+/// ```
 #[inline]
 pub fn get_tx(
     table_tx_ids: &(impl DatabaseRo<TxIds> + DatabaseIter<TxIds>),
