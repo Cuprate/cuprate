@@ -4,17 +4,12 @@
 //! traits in this crate to generically call Monero-related
 //! database operations.
 //!
-//! # `_bulk()`
-//! TODO: explain bulk functions.
-//!
-//! # `_inner()`
-//! TODO: explain inner functions that take tables directly.
+//! # `impl Table`
+//! TODO: explain how functions take open tables directly, why, and how to use them.
+//! Show examples of setups and fn calls.
 //!
 //! # Atomicity
 //! TODO: explain atomic behavior of `ops/` functions.
-//!
-//! # Generic Inputs
-//! TODO: explain `<'env, Ro, Rw, EnvInner>` - show examples of setups and fn calls.
 //!
 //! # TODO
 //! TODO: These functions should pretty much map 1-1 to the `Request` enum.

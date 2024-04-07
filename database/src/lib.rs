@@ -1,4 +1,4 @@
-//! Database abstraction and utilities.
+//! Cuprate's database abstraction.
 //!
 //! This documentation is mostly for practical usage of `cuprate_database`.
 //!
@@ -8,12 +8,15 @@
 //! # Purpose
 //! This crate does 3 things:
 //! 1. Abstracts various database backends with traits
-//! 2. Implements various `Monero` related [functions](ops) & [tables] & [types]
+//! 2. Implements various `Monero` related [functions](ops), [tables], and [types]
 //! 3. Exposes a [`tower::Service`] backed by a thread-pool
 //!
-//! # `ops/`
-//! TODO: explain how users should usually be using `ops/`
-//! instead of directly handling the database tables.
+//! Each layer builds on-top of the previous.
+//!
+//! As a user of `cuprate_database`, consider using the higher-level [`service`],
+//! or at the very least [`ops`] instead of interacting with the database traits directly.
+//!
+//! With that said, many database traits and internals (like [`DatabaseRo::get`]) are exposed.
 //!
 //! # Terminology
 //! To be more clear on some terms used in this crate:
