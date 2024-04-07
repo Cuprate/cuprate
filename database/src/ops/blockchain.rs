@@ -33,26 +33,7 @@ use crate::{
 /// # Errors
 /// TODO
 #[inline]
-pub fn height<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
-    count: u64,
-) -> Result<BlockHeight, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let table_block_heights = env.open_db_ro::<BlockHeights>(tx_ro)?;
-    height_internal(&table_block_heights)
-}
-
-/// Internal function for [`height()`].
-///
-/// - Re-used elsewhere
-/// - More efficient as it takes the single table it needs directly
-#[inline]
-pub(super) fn height_internal(
+pub fn height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<BlockHeight, RuntimeError> {
     // TODO: is this correct?

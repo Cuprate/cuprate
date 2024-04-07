@@ -9,10 +9,7 @@ use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::EnvInner,
     error::RuntimeError,
-    ops::{
-        blockchain::height_internal,
-        macros::{doc_error, doc_fn},
-    },
+    ops::macros::doc_error,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
         Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
@@ -24,8 +21,6 @@ use crate::{
         BlockInfoV3, KeyImage, Output, PreRctOutputId, RctOutput, TxHash,
     },
 };
-
-use super::macros::doc_inner;
 
 //---------------------------------------------------------------------------------------------------- Private
 /// TODO
@@ -55,8 +50,6 @@ pub(super) fn remove_output(
 //---------------------------------------------------------------------------------------------------- `get_output_*`
 /// TODO
 ///
-#[doc = doc_fn!(get_output_bulk)]
-///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
@@ -64,82 +57,13 @@ pub(super) fn remove_output(
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_output<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
-    amount: Amount,
-    amount_index: AmountIndex,
-) -> Result<OutputOnChain, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    get_output_internal(
-        amount,
-        amount_index,
-        &env.open_db_ro::<Outputs>(tx_ro)?,
-        &env.open_db_ro::<KeyImages>(tx_ro)?,
-        &env.open_db_ro::<NumOutputs>(tx_ro)?,
-        &env.open_db_ro::<RctOutputs>(tx_ro)?,
-    )
-}
-
-/// TODO
-///
-#[doc = doc_fn!(get_output, bulk)]
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
-/// // TODO
-/// ```
-#[doc = doc_error!(bulk)]
-#[inline]
-pub fn get_output_bulk<'env, Ro, Rw, Env, Iter>(
-    env: &Env,
-    tx_ro: &Ro,
-    outputs: Iter,
-) -> Result<Vec<OutputOnChain>, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-    Iter: Iterator<Item = (Amount, AmountIndex)> + ExactSizeIterator,
-{
-    let (table_outputs, table_key_images, table_num_outputs, table_rct_outputs) = (
-        &env.open_db_ro::<Outputs>(tx_ro)?,
-        &env.open_db_ro::<KeyImages>(tx_ro)?,
-        &env.open_db_ro::<NumOutputs>(tx_ro)?,
-        &env.open_db_ro::<RctOutputs>(tx_ro)?,
-    );
-
-    let mut vec = Vec::with_capacity(outputs.len());
-
-    for (amount, amount_index) in outputs {
-        let output = get_output_internal(
-            amount,
-            amount_index,
-            table_outputs,
-            table_key_images,
-            table_num_outputs,
-            table_rct_outputs,
-        )?;
-        vec.push(output);
-    }
-
-    Ok(vec)
-}
-
-/// TODO
-#[inline]
-pub(super) fn get_output_internal(
-    amount: Amount,
-    amount_index: AmountIndex,
+pub fn get_output(
     table_outputs: &(impl DatabaseRo<Outputs> + DatabaseIter<Outputs>),
     table_key_images: &(impl DatabaseRo<KeyImages> + DatabaseIter<KeyImages>),
     table_num_outputs: &(impl DatabaseRo<NumOutputs> + DatabaseIter<NumOutputs>),
     table_rct_outputs: &(impl DatabaseRo<RctOutputs> + DatabaseIter<RctOutputs>),
+    amount: Amount,
+    amount_index: AmountIndex,
 ) -> Result<OutputOnChain, RuntimeError> {
     todo!()
 }
@@ -160,22 +84,8 @@ pub fn get_output_list() {
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_rct_num_outputs<'env, Ro, Rw, Env, Iter>(
-    env: &Env,
-    tx_ro: &Ro,
-) -> Result<u64, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    get_rct_num_outputs_inner(&env.open_db_ro::<RctOutputs>(tx_ro)?)
-}
-
-/// Internal function for [`get_rct_num_outputs_inner()`].
-#[inline]
-pub(super) fn get_rct_num_outputs_inner(
-    table_rct_outputs: &(impl DatabaseRo<RctOutputs> + DatabaseIter<RctOutputs>),
+pub fn get_rct_num_outputs(
+    table_rct_outputs: &impl DatabaseRo<RctOutputs>,
 ) -> Result<u64, RuntimeError> {
     // TODO: is this correct?
     table_rct_outputs.len()
@@ -191,22 +101,8 @@ pub(super) fn get_rct_num_outputs_inner(
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_pre_rct_num_outputs<'env, Ro, Rw, Env, Iter>(
-    env: &Env,
-    tx_ro: &Ro,
-) -> Result<u64, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    get_pre_rct_num_outputs_inner(&env.open_db_ro::<Outputs>(tx_ro)?)
-}
-
-#[doc = doc_inner!(get_pre_rct_num_outputs)]
-#[inline]
-pub fn get_pre_rct_num_outputs_inner(
-    table_outputs: &(impl DatabaseRo<Outputs> + DatabaseIter<Outputs>),
+pub fn get_pre_rct_num_outputs(
+    table_outputs: &impl DatabaseRo<Outputs>,
 ) -> Result<u64, RuntimeError> {
     // TODO: is this correct?
     table_outputs.len()

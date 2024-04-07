@@ -9,10 +9,7 @@ use crate::{
     database::{DatabaseRo, DatabaseRw},
     env::EnvInner,
     error::RuntimeError,
-    ops::{
-        blockchain::height_internal,
-        macros::{doc_error, doc_fn},
-    },
+    ops::macros::doc_error,
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
         Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
@@ -31,8 +28,6 @@ use crate::{
 /// This extracts all the data from the input block and
 /// maps and adds them to the appropriate database tables.
 ///
-#[doc = doc_fn!(add_block_bulk)]
-///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
@@ -41,51 +36,7 @@ use crate::{
 #[doc = doc_error!()]
 #[inline]
 #[allow(clippy::too_many_lines)]
-pub fn add_block<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &Rw,
-    block: &VerifiedBlockInformation,
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    add_block_inner(&mut env.open_tables_mut(tx_rw)?, block)
-}
-
-#[doc = doc_fn!(add_block, bulk)]
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!(bulk)]
-#[inline]
-pub fn add_block_bulk<'env, Ro, Rw, Env, Iter>(
-    env: &Env,
-    tx_rw: &Rw,
-    blocks: Iter,
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-    Iter: Iterator<Item = &'env VerifiedBlockInformation>,
-{
-    let tables = &mut env.open_tables_mut(tx_rw)?;
-    for block in blocks {
-        add_block_inner(tables, block)?;
-    }
-    Ok(())
-}
-
-/// Internal function used by:
-/// - [`add_block()`]
-/// - [`add_block_bulk()`]
-#[allow(clippy::cast_possible_truncation)] // TODO: remove me
-fn add_block_inner(
+pub fn add_block(
     tables: &mut impl TablesMut,
     block: &VerifiedBlockInformation,
 ) -> Result<(), RuntimeError> {
@@ -102,6 +53,7 @@ fn add_block_inner(
                 timestamp: block.block.header.timestamp,
                 total_generated_coins: block.generated_coins,
                 weight: block.weight as u64, // TODO
+                #[allow(clippy::cast_possible_truncation)] // TODO
                 cumulative_difficulty: block.cumulative_difficulty as u64, // TODO
                 block_hash: block.block_hash,
             },
@@ -109,10 +61,12 @@ fn add_block_inner(
     } else if block.block.header.major_version < 10 {
         tables.block_info_v2s_mut().put(
             &block.height,
+            #[allow(clippy::cast_possible_truncation)] // TODO
             &BlockInfoV2 {
                 timestamp: block.block.header.timestamp,
                 total_generated_coins: block.generated_coins,
                 weight: block.weight as u64, // TODO
+                #[allow(clippy::cast_possible_truncation)] // TODO
                 cumulative_difficulty: block.cumulative_difficulty as u64, // TODO
                 block_hash: block.block_hash,
                 cumulative_rct_outs: todo!(), // TODO
@@ -216,8 +170,7 @@ fn add_block_inner(
 /// This pops the latest block from the database, and
 /// constructs the data into the returned [`VerifiedBlockInformation`].
 ///
-/// - Consider using [`pop_block_bulk()`] for multiple blocks
-/// - Consider using [`pop_block_cheap()`] if the returned block is unneeded
+/// Consider using [`pop_block_cheap()`] if the returned block is unneeded.
 ///
 /// # Example
 /// ```rust
@@ -227,47 +180,8 @@ fn add_block_inner(
 #[doc = doc_error!()]
 #[inline]
 #[allow(clippy::missing_panics_doc)] // this should not panic
-pub fn pop_block<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &Rw,
-) -> Result<VerifiedBlockInformation, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    Ok(pop_block_inner::<true>(&mut env.open_tables_mut(tx_rw)?)?
-        .expect("this will always return `Some`"))
-}
-
-#[doc = doc_fn!(pop_block, bulk)]
-///
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!()]
-#[inline]
-#[allow(clippy::missing_panics_doc)] // this should not panic
-pub fn pop_block_bulk<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &Rw,
-    count: usize,
-) -> Result<Vec<VerifiedBlockInformation>, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let tables = &mut env.open_tables_mut(tx_rw)?;
-    let mut blocks = Vec::with_capacity(count);
-
-    for i in 0..count {
-        let block = pop_block_inner::<true>(tables)?.expect("this will always return `Some`");
-        blocks.push(block);
-    }
-
-    Ok(blocks)
+pub fn pop_block(tables: &mut impl TablesMut) -> Result<VerifiedBlockInformation, RuntimeError> {
+    Ok(pop_block_inner::<true>(tables)?.expect("this should always return `Some`"))
 }
 
 /// A cheaper to call [`pop_block()`].
@@ -277,8 +191,6 @@ where
 /// it should be faster to call in situations where the
 /// returned block would not be used anyway.
 ///
-#[doc = doc_fn!(pop_block_cheap_bulk)]
-///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
@@ -286,53 +198,19 @@ where
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn pop_block_cheap<'env, Ro, Rw, Env>(env: &Env, tx_rw: &Rw) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let option = pop_block_inner::<false>(&mut env.open_tables_mut(tx_rw)?)?;
+pub fn pop_block_cheap(tables: &mut impl TablesMut) -> Result<(), RuntimeError> {
+    let option = pop_block_inner::<false>(tables)?;
     debug_assert!(option.is_none());
-    Ok(())
-}
-
-#[doc = doc_fn!(pop_block_cheap, bulk)]
-///
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!(bulk)]
-#[inline]
-pub fn pop_block_cheap_bulk<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_rw: &Rw,
-    count: usize,
-) -> Result<(), RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let tables = &mut env.open_tables_mut(tx_rw)?;
-
-    for i in 0..count {
-        let option = pop_block_inner::<false>(tables)?;
-        debug_assert!(option.is_none());
-    }
-
     Ok(())
 }
 
 /// Internal function that is used by:
 /// - [`pop_block()`]
-/// - [`pop_block_bulk()`]
 /// - [`pop_block_cheap()`]
-/// - [`pop_block_cheap_bulk()`]
 ///
-/// The `const RETURN: bool` will dictate if this function
-/// returns the block wrapped in `Some` or `None`.
+/// The logic for "popping" the block is defined here,
+/// although the `const RETURN: bool` will dictate if this function
+/// constructs and returns the block wrapped in `Some` or `None`.
 ///
 /// # Invariant
 /// - `RETURN == true` -> This must return `Some`
@@ -378,8 +256,6 @@ fn pop_block_inner<const RETURN: bool>(
 /// This extracts all the data from the database tables
 /// needed to create a full `VerifiedBlockInformation`.
 ///
-#[doc = doc_fn!(get_block_bulk)]
-///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
@@ -387,55 +263,7 @@ fn pop_block_inner<const RETURN: bool>(
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
-    height: BlockHeight,
-) -> Result<VerifiedBlockInformation, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    get_block_inner(&env.open_tables(tx_ro)?, height)
-}
-
-#[doc = doc_fn!(get_block_bulk, bulk)]
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!(bulk)]
-#[inline]
-pub fn get_block_bulk<'env, Ro, Rw, Env, Heights>(
-    env: &Env,
-    tx_ro: &Ro,
-    heights: Heights,
-) -> Result<Vec<VerifiedBlockInformation>, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-    Heights: Iterator<Item = &'env BlockHeight> + ExactSizeIterator,
-{
-    let tables = &env.open_tables(tx_ro)?;
-    let mut blocks = Vec::with_capacity(heights.len());
-
-    for height in heights {
-        let block = get_block_inner(tables, *height)?;
-        blocks.push(block);
-    }
-
-    Ok(blocks)
-}
-
-/// Internal function that is used by:
-/// - [`get_block()`]
-/// - [`get_block_bulk()`]
-#[inline]
-fn get_block_inner(
+pub fn get_block(
     tables: &impl Tables,
     height: BlockHeight,
 ) -> Result<VerifiedBlockInformation, RuntimeError> {
@@ -448,8 +276,6 @@ fn get_block_inner(
 /// This extracts all the data from the database tables
 /// needed to create a full `ExtendedBlockHeader`.
 ///
-#[doc = doc_fn!(get_block_header_bulk)]
-///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
@@ -457,55 +283,7 @@ fn get_block_inner(
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_header<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
-    height: BlockHeight,
-) -> Result<ExtendedBlockHeader, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    get_block_header_inner(&env.open_tables(tx_ro)?, height)
-}
-
-#[doc = doc_fn!(get_block_header, bulk)]
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!(bulk)]
-#[inline]
-pub fn get_block_header_bulk<'env, Ro, Rw, Env, Heights>(
-    env: &Env,
-    tx_ro: &Ro,
-    heights: Heights,
-) -> Result<Vec<ExtendedBlockHeader>, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-    Heights: Iterator<Item = &'env BlockHeight> + ExactSizeIterator,
-{
-    let tables = &env.open_tables(tx_ro)?;
-    let mut headers = Vec::with_capacity(heights.len());
-
-    for height in heights {
-        let block = get_block_header_inner(tables, *height)?;
-        headers.push(block);
-    }
-
-    Ok(headers)
-}
-
-/// Internal function that is used by:
-/// - [`get_block_header()`]
-/// - [`get_block_header_bulk()`]
-#[inline]
-fn get_block_header_inner(
+pub fn get_block_header(
     tables: &impl Tables,
     height: BlockHeight,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
@@ -518,70 +296,20 @@ fn get_block_header_inner(
 /// This is the same as [`pop_block()`], but it does
 /// not remove the block, it only retrieves it.
 ///
-#[doc = doc_fn!(get_block_top_bulk)]
-///
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
 /// // TODO
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_top<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
-) -> Result<VerifiedBlockInformation, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let tables = &env.open_tables(tx_ro)?;
-    let top_block_height = height_internal(tables.block_heights())?;
-    get_block_inner(tables, top_block_height)
-}
-
-#[doc = doc_fn!(get_block_top, bulk)]
-///
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!(bulk)]
-#[inline]
-pub fn get_block_top_bulk<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
-    count: u64,
-) -> Result<Vec<VerifiedBlockInformation>, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    let tables = &env.open_tables(tx_ro)?;
-
-    let top_block_height = height_internal(tables.block_heights())?;
-    if count > top_block_height {
-        // Caller asked for more blocks than we have.
-        return todo!();
-    }
-
-    #[allow(clippy::cast_possible_truncation)] // TODO
-    let mut vec = Vec::with_capacity(count as usize);
-
-    for height in count..=top_block_height {
-        let block = get_block_inner(tables, height)?;
-        vec.push(block);
-    }
-
-    Ok(vec)
+pub fn get_block_top(tables: &impl Tables) -> Result<VerifiedBlockInformation, RuntimeError> {
+    let top_block_height = crate::ops::blockchain::height(tables.block_heights())?;
+    get_block(tables, top_block_height)
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_height_*`
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 ///
-#[doc = doc_fn!(get_block_height_bulk)]
-///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
@@ -589,66 +317,15 @@ where
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_height<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
+pub fn get_block_height(
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
     block_hash: &BlockHash,
-) -> Result<BlockHeight, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    // No need to open all tables, just 1.
-    env.open_db_ro::<BlockHeights>(tx_ro)?.get(block_hash)
-}
-
-#[doc = doc_fn!(get_block_height)]
-///
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!(bulk)]
-#[inline]
-pub fn get_block_height_bulk<'env, Ro, Rw, Env, Hashes>(
-    env: &Env,
-    tx_ro: &Ro,
-    block_hashes: Hashes,
-) -> Result<Vec<BlockHeight>, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-    Hashes: Iterator<Item = &'env BlockHash> + ExactSizeIterator,
-{
-    // FIXME: can we return an `impl Iterator` here instead of `Vec`?
-
-    let table_block_heights = env.open_db_ro::<BlockHeights>(tx_ro)?;
-    let mut heights = Vec::with_capacity(block_hashes.len());
-
-    for block_hash in block_hashes {
-        let height = table_block_heights.get(block_hash)?;
-        heights.push(height);
-    }
-
-    Ok(heights)
+) -> Result<BlockHeight, RuntimeError> {
+    table_block_heights.get(block_hash)
 }
 
 //---------------------------------------------------------------------------------------------------- Misc
-/// Check if a block does _NOT_ exist in the database.
-///
-#[doc = doc_fn!(block_missing_bulk)]
-///
-/// # Why not `block_exists()`?
-/// Usually in API's, `x_exists()` is the function defined, not the reverse.
-/// This is reversed as the bulk function [`block_missing_bulk()`] returns a set
-/// of _missing_ blocks - this would be more expensive to represent if the
-/// function were `block_exists_bulk()`
-///
-/// It would return all the blocks that exist? Although usually the output
-/// to act upon are the blocks that _don't_ exist, thus this pair of functions
-/// are `_missing` and not `_exists`.
+/// Check if a block exists in the database.
 ///
 /// # Example
 /// ```rust
@@ -657,50 +334,9 @@ where
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn block_missing<'env, Ro, Rw, Env>(
-    env: &Env,
-    tx_ro: &Ro,
+pub fn block_exists(
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
     block_hash: &BlockHash,
-) -> Result<bool, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-{
-    Ok(!env
-        .open_db_ro::<BlockHeights>(tx_ro)?
-        .contains(block_hash)?)
-}
-
-#[doc = doc_fn!(block_missing, bulk)]
-///
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!(bulk)]
-#[inline]
-pub fn block_missing_bulk<'env, Ro, Rw, Env, Hashes>(
-    env: &Env,
-    tx_ro: &Ro,
-    block_hashes: Hashes,
-) -> Result<Vec<&'env BlockHash>, RuntimeError>
-where
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-    Env: EnvInner<'env, Ro, Rw>,
-    Hashes: Iterator<Item = &'env BlockHash> + ExactSizeIterator,
-{
-    // FIXME: can we return an `impl Iterator` here instead of `Vec`?
-
-    let table_block_heights = env.open_db_ro::<BlockHeights>(tx_ro)?;
-    let mut blocks = Vec::with_capacity(block_hashes.len());
-
-    for block_hash in block_hashes {
-        if !table_block_heights.contains(block_hash)? {
-            blocks.push(block_hash);
-        }
-    }
-
-    Ok(blocks)
+) -> Result<bool, RuntimeError> {
+    table_block_heights.contains(block_hash)
 }
