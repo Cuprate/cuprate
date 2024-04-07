@@ -36,12 +36,16 @@ use crate::{
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_output(
-    table_outputs: &mut impl DatabaseRw<Outputs>,
+    amount: Amount,
+    amount_index: AmountIndex,
+    output: &Output,
     table_key_images: &mut impl DatabaseRw<KeyImages>,
     table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
-    table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
+    table_outputs: &mut impl DatabaseRw<Outputs>,
 ) -> Result<(), RuntimeError> {
     todo!()
+    // tables.num_outputs_mut().put(&amount, &amount_index)?;
+    // tables.outputs_mut().put(&pre_rct_output_id, &output)?;
 }
 
 //---------------------------------------------------------------------------------------------------- `remove_output()`
@@ -58,7 +62,54 @@ pub fn add_output(
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn remove_output(
+    table_key_images: &mut impl DatabaseRw<KeyImages>,
+    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
     table_outputs: &mut impl DatabaseRw<Outputs>,
+) -> Result<(), RuntimeError> {
+    todo!()
+}
+
+//---------------------------------------------------------------------------------------------------- `add_rct_output()`
+/// TODO
+///
+#[doc = doc_add_block_inner_invariant!()]
+#[doc = doc_error!()]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
+/// // TODO
+/// ```
+#[inline]
+#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
+pub fn add_rct_output(
+    amount: Amount,
+    amount_index: AmountIndex,
+    rct_output: &RctOutput,
+    table_key_images: &mut impl DatabaseRw<KeyImages>,
+    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
+    table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
+) -> Result<(), RuntimeError> {
+    // tables.num_outputs_mut().put(&amount, &amount_index)?;
+    todo!()
+}
+
+//---------------------------------------------------------------------------------------------------- `remove_rct_output()`
+/// TODO
+///
+#[doc = doc_add_block_inner_invariant!()]
+#[doc = doc_error!()]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
+/// // TODO
+/// ```
+#[inline]
+#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
+pub fn remove_rct_output(
+    amount: Amount,
+    amount_index: AmountIndex,
     table_key_images: &mut impl DatabaseRw<KeyImages>,
     table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
     table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
@@ -110,7 +161,7 @@ pub fn get_rct_num_outputs(
     table_rct_outputs.len()
 }
 
-//---------------------------------------------------------------------------------------------------- `get_pre_rct_num_outputs()`
+//---------------------------------------------------------------------------------------------------- `get_num_outputs()`
 /// TODO
 ///
 /// # Example
@@ -120,7 +171,7 @@ pub fn get_rct_num_outputs(
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_pre_rct_num_outputs(
+pub fn get_num_outputs(
     table_outputs: &impl DatabaseRo<Outputs>,
 ) -> Result<u64, RuntimeError> {
     // TODO: is this correct?

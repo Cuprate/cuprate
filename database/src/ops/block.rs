@@ -9,7 +9,12 @@ use crate::{
     database::{DatabaseRo, DatabaseRw},
     env::EnvInner,
     error::RuntimeError,
-    ops::macros::doc_error,
+    ops::{
+        key_image::{add_key_image, remove_key_image},
+        macros::doc_error,
+        output::{add_output, add_rct_output, remove_output, remove_rct_output},
+        tx::{add_tx, remove_tx},
+    },
     tables::{
         BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
         Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
@@ -34,8 +39,8 @@ use crate::{
 /// // TODO
 /// ```
 #[doc = doc_error!()]
-#[inline]
 #[allow(clippy::too_many_lines)]
+// no inline, too big.
 pub fn add_block(
     tables: &mut impl TablesMut,
     block: &VerifiedBlockInformation,
@@ -96,14 +101,6 @@ pub fn add_block(
         .block_heights_mut()
         .put(&block.block_hash, &block.height)?;
 
-    // KeyImages: KeyImage > ()
-    {
-        let key_images: std::slice::Iter<'_, KeyImage> = todo!();
-        for key_image in key_images {
-            tables.key_images_mut().put(key_image, &())?;
-        }
-    }
-
     // Transaction data.
     //
     // - NumOutputs:      Amount         => AmountIndex
@@ -113,22 +110,15 @@ pub fn add_block(
     // - PrunableTxBlobs: TxId           => PrunableBlob
     // - RctOutputs:      AmountIndex    => RctOutput
     // - TxIds:           TxHash         => TxId
+    // - KeyImages:       KeyImage       => ()
     {
         for tx in block.txs {
             let tx_id = todo!();
             let prunable_blob = todo!();
             let prunable_hash = todo!();
-            let rct_output = RctOutput {
-                key: todo!(),
-                height: todo!(),
-                output_flags: todo!(),
-                tx_idx: todo!(),
-                commitment: todo!(),
-            };
 
             tables.pruned_tx_blobs_mut().put(&tx_id, prunable_blob)?;
             tables.prunable_hashes_mut().put(&tx_id, prunable_hash)?;
-            tables.rct_outputs_mut().put(&tx_id, &rct_output)?;
 
             for output in tx.tx.prefix.outputs {
                 let amount = todo!();
@@ -139,15 +129,41 @@ pub fn add_block(
                     amount_index,
                 };
 
-                let output = Output {
-                    key: *output.key.as_bytes(),
-                    height: todo!(),
-                    output_flags: todo!(),
-                    tx_idx: todo!(),
-                };
+                add_key_image(tables.key_images_mut(), output.key.as_bytes())?;
 
-                tables.num_outputs_mut().put(&amount, &amount_index)?;
-                tables.outputs_mut().put(&pre_rct_output_id, &output)?;
+                // RingCT outputs.
+                if todo!() {
+                    add_rct_output(
+                        amount,
+                        amount_index,
+                        &RctOutput {
+                            key: todo!(),
+                            height: todo!(),
+                            output_flags: todo!(),
+                            tx_idx: todo!(),
+                            commitment: todo!(),
+                        },
+                        tables.key_images_mut(),
+                        tables.num_outputs_mut(),
+                        tables.rct_outputs_mut(),
+                    )?;
+                // Pre-RingCT outputs.
+                } else {
+                    add_output(
+                        amount,
+                        amount_index,
+                        &Output {
+                            key: *output.key.as_bytes(),
+                            height: todo!(),
+                            output_flags: todo!(),
+                            tx_idx: todo!(),
+                        },
+                        tables.key_images_mut(),
+                        tables.num_outputs_mut(),
+                        tables.outputs_mut(),
+                    )?;
+                }
+
                 tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
                 tables.tx_heights_mut().put(&tx_id, &block.height)?;
 

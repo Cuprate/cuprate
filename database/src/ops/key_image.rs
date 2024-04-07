@@ -35,8 +35,11 @@ use crate::{
 /// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn add_key_image() -> Result<(), RuntimeError> {
-    todo!()
+pub fn add_key_image(
+    table_key_images: &mut impl DatabaseRw<KeyImages>,
+    key_image: &KeyImage,
+) -> Result<(), RuntimeError> {
+    table_key_images.put(key_image, &())
 }
 
 //---------------------------------------------------------------------------------------------------- `remove_key_image()`
@@ -52,8 +55,11 @@ pub fn add_key_image() -> Result<(), RuntimeError> {
 /// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn remove_key_image() -> Result<(), RuntimeError> {
-    todo!()
+pub fn remove_key_image(
+    table_key_images: &mut impl DatabaseRw<KeyImages>,
+    key_image: &KeyImage,
+) -> Result<(), RuntimeError> {
+    table_key_images.delete(key_image)
 }
 
 /// TODO
