@@ -1,9 +1,9 @@
 //! Transactions.
 
 //---------------------------------------------------------------------------------------------------- Import
+use cuprate_types::{OutputOnChain, TransactionVerificationData, VerifiedBlockInformation};
+use monero_pruning::PruningSeed;
 use monero_serai::transaction::{Timelock, Transaction};
-
-use cuprate_types::{OutputOnChain, VerifiedBlockInformation};
 
 use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
@@ -18,12 +18,16 @@ use crate::{
     transaction::{TxRo, TxRw},
     types::{
         BlockHash, BlockHeight, BlockInfoLatest, BlockInfoV1, BlockInfoV2, BlockInfoV3, KeyImage,
-        Output, PreRctOutputId, RctOutput, TxHash,
+        Output, PreRctOutputId, RctOutput, TxHash, TxId,
     },
 };
 
+use super::property::get_blockchain_pruning_seed;
+
 //---------------------------------------------------------------------------------------------------- Private
 /// TODO
+///
+/// TODO: document this add to the latest block height.
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
@@ -36,11 +40,45 @@ use crate::{
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_tx(
+    tx: &Transaction,
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
     table_tx_ids: &mut impl DatabaseRw<TxIds>,
-    table_heights: &mut impl DatabaseRw<TxHeights>,
-    table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
-) -> Result<(), RuntimeError> {
-    todo!()
+    table_tx_heights: &mut impl DatabaseRw<TxHeights>,
+    table_tx_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
+    table_prunable_hashes: &mut impl DatabaseRw<PrunableHashes>,
+    table_prunable_tx_blobs: &mut impl DatabaseRw<PrunableTxBlobs>,
+) -> Result<TxId, RuntimeError> {
+    let tx_id = get_num_tx(table_tx_ids)?;
+    let block_height = crate::ops::blockchain::height(table_block_heights)?;
+
+    table_tx_ids.put(&tx.hash(), &tx_id)?;
+    table_tx_heights.put(&tx_id, &block_height)?;
+
+    // TODO: What exactly is a `UnlockTime (u64)` in Cuprate's case?
+    // What should we be storing? How?
+    match tx.prefix.timelock {
+        Timelock::None => (),
+        Timelock::Block(height) => todo!(), // Calculate from height?
+        Timelock::Time(time) => todo!(),
+    };
+
+    // TODO: is this the correct field? how should it be hashed?
+    let prunable_hash = /* hash_fn(tx_rct_signatures.prunable) */ todo!();
+    table_prunable_hashes.put(&tx_id, &prunable_hash)?;
+    // TODO: what part of `tx` is prunable?
+    //
+    // `tx.prefix: TransactionPrefix` + `tx.rct_signatures.prunable: RctPrunable`
+    // combined as a `StorableVec`?
+    //
+    // Is it `tx.blob: Vec<u8>`?
+    table_prunable_tx_blobs.put(&tx_id, todo!())?;
+
+    // TODO: impl pruning
+    if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
+        // TODO: what to store here? which table?
+    }
+
+    Ok(tx_id)
 }
 
 /// TODO
@@ -56,11 +94,31 @@ pub fn add_tx(
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn remove_tx(
+    tx_hash: &TxHash,
     table_tx_ids: &mut impl DatabaseRw<TxIds>,
     table_heights: &mut impl DatabaseRw<TxHeights>,
     table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
-) -> Result<(), RuntimeError> {
-    todo!()
+    table_prunable_hashes: &mut impl DatabaseRw<PrunableHashes>,
+    table_prunable_tx_blobs: &mut impl DatabaseRw<PrunableTxBlobs>,
+) -> Result<TxId, RuntimeError> {
+    let tx_id = table_tx_ids.get(tx_hash)?;
+    table_tx_ids.delete(tx_hash)?;
+    table_heights.delete(&tx_id)?;
+    table_prunable_hashes.delete(&tx_id)?;
+    table_prunable_tx_blobs.delete(&tx_id)?;
+
+    // TODO: impl pruning
+    if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
+        // TODO: what to remove here? which table?
+    }
+
+    match table_unlock_time.delete(&tx_id) {
+        Err(RuntimeError::KeyNotFound) | Ok(()) => (),
+        // An actual error occurred, return.
+        Err(e) => return Err(e),
+    };
+
+    Ok(tx_id)
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
@@ -74,41 +132,46 @@ pub fn remove_tx(
 /// ```
 #[inline]
 pub fn get_tx(
+    tx_hash: &TxHash,
     table_tx_ids: &(impl DatabaseRo<TxIds> + DatabaseIter<TxIds>),
     table_heights: &(impl DatabaseRo<TxHeights> + DatabaseIter<TxHeights>),
     table_unlock_time: &(impl DatabaseRo<TxUnlockTime> + DatabaseIter<TxUnlockTime>),
-    tx_hash: TxHash,
 ) -> Result<Transaction, RuntimeError> {
     todo!()
 }
 
 //----------------------------------------------------------------------------------------------------
 /// TODO
-pub fn get_num_tx() {
-    todo!()
+///
+#[doc = doc_error!()]
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
+/// // TODO
+/// ```
+#[inline]
+pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> Result<u64, RuntimeError> {
+    table_tx_ids.len()
 }
 
+//----------------------------------------------------------------------------------------------------
 /// TODO
-pub fn tx_exists() {
-    todo!()
-}
-
-/// TODO
-pub fn get_tx_unlock_time() {
-    todo!()
-}
-
-/// TODO
-pub fn get_tx_list() {
-    todo!()
+///
+#[doc = doc_error!()]
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
+/// // TODO
+/// ```
+#[inline]
+pub fn tx_exists(
+    tx_hash: &TxHash,
+    table_tx_ids: &impl DatabaseRo<TxIds>,
+) -> Result<bool, RuntimeError> {
+    table_tx_ids.contains(tx_hash)
 }
 
 /// TODO
 pub fn get_pruned_tx() {
-    todo!()
-}
-
-/// TODO
-pub fn get_tx_block_height() {
     todo!()
 }

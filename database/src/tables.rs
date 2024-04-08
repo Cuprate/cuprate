@@ -326,6 +326,13 @@ tables! {
     PrunableHashes,
     TxId => PrunableHash,
 
+    // TODO: impl a properties table:
+    // - db version
+    // - pruning seed
+    //
+    // Properties,
+    // KEY => VALUE,
+
     /// TODO
     RctOutputs,
     AmountIndex => RctOutput,

@@ -1,7 +1,7 @@
 //! Blocks.
 
 //---------------------------------------------------------------------------------------------------- Import
-use monero_serai::transaction::Timelock;
+use monero_serai::transaction::{Timelock, Transaction};
 
 use cuprate_types::{ExtendedBlockHeader, VerifiedBlockInformation};
 
@@ -106,24 +106,20 @@ pub fn add_block(
     // Transaction & Outputs.
     {
         for tx in block.txs {
-            // Transaction data.
-            let tx_id = todo!();
-            let prunable_blob = todo!();
-            let prunable_hash = todo!();
-            let unlock_time = match tx.tx.prefix.timelock {
-                Timelock::None => todo!(),
-                Timelock::Block(height) => todo!(), // Calculate from height?
-                Timelock::Time(time) => time,
-            };
+            let tx: &Transaction = &tx.tx;
 
-            tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
-            tables.tx_heights_mut().put(&tx_id, &block.height)?;
-            tables.tx_unlock_time_mut().put(&tx_id, &unlock_time)?;
-            tables.pruned_tx_blobs_mut().put(&tx_id, prunable_blob)?;
-            tables.prunable_hashes_mut().put(&tx_id, prunable_hash)?;
+            add_tx(
+                tx,
+                tables.block_heights_mut(),
+                tables.tx_ids_mut(),
+                tables.tx_heights_mut(),
+                tables.tx_unlock_time_mut(),
+                tables.prunable_hashes_mut(),
+                tables.prunable_tx_blobs_mut(),
+            )?;
 
             // Output data.
-            for output in tx.tx.prefix.outputs {
+            for output in tx.prefix.outputs {
                 // Key images.
                 add_key_image(tables.key_images_mut(), output.key.as_bytes())?;
 

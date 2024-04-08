@@ -140,13 +140,9 @@ pub fn remove_rct_output(
 #[inline]
 pub fn get_output(
     pre_rct_output_id: &PreRctOutputId,
-    table_outputs: &(impl DatabaseRo<Outputs> + DatabaseIter<Outputs>),
-    table_num_outputs: &(impl DatabaseRo<NumOutputs> + DatabaseIter<NumOutputs>),
-) -> Result<OutputOnChain, RuntimeError> {
-    // TODO: explain this method over dup keys.
-    let output = table_outputs.get(pre_rct_output_id)?;
-
-    todo!()
+    table_outputs: &impl DatabaseRo<Outputs>,
+) -> Result<Output, RuntimeError> {
+    table_outputs.get(pre_rct_output_id)
 }
 
 /// Retrieve an [`RctOutput`] from the database.
@@ -163,12 +159,6 @@ pub fn get_rct_output(
     table_rct_outputs: &impl DatabaseRo<RctOutputs>,
 ) -> Result<RctOutput, RuntimeError> {
     table_rct_outputs.get(amount_index)
-}
-
-//----------------------------------------------------------------------------------------------------
-/// TODO
-pub fn get_output_list() {
-    todo!()
 }
 
 //---------------------------------------------------------------------------------------------------- `get_rct_num_outputs()`
