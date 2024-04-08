@@ -599,6 +599,7 @@ dependencies = [
  "cuprate-types",
  "futures",
  "heed",
+ "monero-pruning",
  "monero-serai",
  "page_size",
  "paste",

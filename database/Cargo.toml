@@ -26,6 +26,7 @@ cfg-if   = { workspace = true }
 # Figure out how to enable features of an already pulled in dependency conditionally.
 cuprate-helper = { path = "../helper", features = ["fs", "thread"] }
 cuprate-types  = { path = "../types", features = ["service"] }
+monero-pruning = { path = "../pruning" }
 monero-serai   = { workspace = true }
 paste          = { workspace = true }
 page_size      = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
