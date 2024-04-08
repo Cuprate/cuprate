@@ -23,7 +23,10 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- `add_output()`
-/// TODO
+/// Add a Pre-RCT [`Output`] to the database.
+///
+/// Upon [`Ok`], this function returns the [`AmountIndex`] that
+/// can be used to lookup the `Output` in [`get_output()`].
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
@@ -34,22 +37,27 @@ use crate::{
 /// // TODO
 /// ```
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_output(
     amount: Amount,
-    amount_index: AmountIndex,
     output: &Output,
-    table_key_images: &mut impl DatabaseRw<KeyImages>,
-    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
     table_outputs: &mut impl DatabaseRw<Outputs>,
-) -> Result<(), RuntimeError> {
-    todo!()
-    // tables.num_outputs_mut().put(&amount, &amount_index)?;
-    // tables.outputs_mut().put(&pre_rct_output_id, &output)?;
+    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
+) -> Result<AmountIndex, RuntimeError> {
+    // Amount index is just the (current_amount_of_outputs + 1).
+    let amount_index = get_num_outputs(table_outputs)?;
+    table_num_outputs.put(&amount, &amount_index)?;
+
+    let pre_rct_output_id = PreRctOutputId {
+        amount,
+        amount_index,
+    };
+
+    table_outputs.put(&pre_rct_output_id, output)?;
+    Ok(amount_index)
 }
 
 //---------------------------------------------------------------------------------------------------- `remove_output()`
-/// TODO
+/// Remove a Pre-RCT [`Output`] from the database.
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
@@ -60,17 +68,27 @@ pub fn add_output(
 /// // TODO
 /// ```
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn remove_output(
-    table_key_images: &mut impl DatabaseRw<KeyImages>,
+    pre_rct_output_id: &PreRctOutputId,
     table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
     table_outputs: &mut impl DatabaseRw<Outputs>,
 ) -> Result<(), RuntimeError> {
-    todo!()
+    // Decrement the amount index by 1, or delete the entry out-right.
+    match table_num_outputs.get(&pre_rct_output_id.amount)? {
+        0 => (),
+        1 => table_num_outputs.delete(&pre_rct_output_id.amount)?,
+        amount_index => table_num_outputs.put(&pre_rct_output_id.amount, &(amount_index - 1))?,
+    }
+
+    // Delete the output data itself.
+    table_outputs.delete(pre_rct_output_id)
 }
 
 //---------------------------------------------------------------------------------------------------- `add_rct_output()`
-/// TODO
+/// Add an [`RctOutput`] to the database.
+///
+/// Upon [`Ok`], this function returns the [`AmountIndex`] that
+/// can be used to lookup the `RctOutput` in [`get_rct_output()`].
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
@@ -81,21 +99,18 @@ pub fn remove_output(
 /// // TODO
 /// ```
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_rct_output(
-    amount: Amount,
-    amount_index: AmountIndex,
     rct_output: &RctOutput,
-    table_key_images: &mut impl DatabaseRw<KeyImages>,
-    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
     table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
-) -> Result<(), RuntimeError> {
-    // tables.num_outputs_mut().put(&amount, &amount_index)?;
-    todo!()
+) -> Result<AmountIndex, RuntimeError> {
+    // Amount index is just the (current_amount_of_outputs + 1).
+    let amount_index = get_rct_num_outputs(table_rct_outputs)? + 1;
+    table_rct_outputs.put(&amount_index, rct_output)?;
+    Ok(amount_index)
 }
 
 //---------------------------------------------------------------------------------------------------- `remove_rct_output()`
-/// TODO
+/// Remove an [`RctOutput`] from the database.
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
@@ -106,19 +121,15 @@ pub fn add_rct_output(
 /// // TODO
 /// ```
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn remove_rct_output(
-    amount: Amount,
-    amount_index: AmountIndex,
-    table_key_images: &mut impl DatabaseRw<KeyImages>,
-    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
+    amount_index: &AmountIndex,
     table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
 ) -> Result<(), RuntimeError> {
-    todo!()
+    table_rct_outputs.delete(amount_index)
 }
 
 //---------------------------------------------------------------------------------------------------- `get_output_*`
-/// TODO
+/// Retrieve a Pre-RCT [`Output`] from the database.
 ///
 /// # Example
 /// ```rust
@@ -128,14 +139,30 @@ pub fn remove_rct_output(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_output(
+    pre_rct_output_id: &PreRctOutputId,
     table_outputs: &(impl DatabaseRo<Outputs> + DatabaseIter<Outputs>),
-    table_key_images: &(impl DatabaseRo<KeyImages> + DatabaseIter<KeyImages>),
     table_num_outputs: &(impl DatabaseRo<NumOutputs> + DatabaseIter<NumOutputs>),
-    table_rct_outputs: &(impl DatabaseRo<RctOutputs> + DatabaseIter<RctOutputs>),
-    amount: Amount,
-    amount_index: AmountIndex,
 ) -> Result<OutputOnChain, RuntimeError> {
+    // TODO: explain this method over dup keys.
+    let output = table_outputs.get(pre_rct_output_id)?;
+
     todo!()
+}
+
+/// Retrieve an [`RctOutput`] from the database.
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::output::*};
+/// // TODO
+/// ```
+#[doc = doc_error!()]
+#[inline]
+pub fn get_rct_output(
+    amount_index: &AmountIndex,
+    table_rct_outputs: &impl DatabaseRo<RctOutputs>,
+) -> Result<RctOutput, RuntimeError> {
+    table_rct_outputs.get(amount_index)
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -157,7 +184,6 @@ pub fn get_output_list() {
 pub fn get_rct_num_outputs(
     table_rct_outputs: &impl DatabaseRo<RctOutputs>,
 ) -> Result<u64, RuntimeError> {
-    // TODO: is this correct?
     table_rct_outputs.len()
 }
 
@@ -171,9 +197,6 @@ pub fn get_rct_num_outputs(
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_num_outputs(
-    table_outputs: &impl DatabaseRo<Outputs>,
-) -> Result<u64, RuntimeError> {
-    // TODO: is this correct?
+pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> Result<u64, RuntimeError> {
     table_outputs.len()
 }

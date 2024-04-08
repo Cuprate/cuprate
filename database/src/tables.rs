@@ -303,7 +303,10 @@ tables! {
     KeyImages,
     KeyImage => (),
 
-    /// TODO
+    /// Maps an output's amount to the number of outputs with that amount.
+    ///
+    /// For a new output the `AmountIndex` value from this
+    /// table will be its index in a list of duplicate outputs.
     NumOutputs,
     Amount => AmountIndex,
 

@@ -23,7 +23,7 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- `add_key_image()`
-/// TODO
+/// Add a [`KeyImage`] to the "spent" set in the database.
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
@@ -34,7 +34,6 @@ use crate::{
 /// // TODO
 /// ```
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_key_image(
     table_key_images: &mut impl DatabaseRw<KeyImages>,
     key_image: &KeyImage,
@@ -43,7 +42,7 @@ pub fn add_key_image(
 }
 
 //---------------------------------------------------------------------------------------------------- `remove_key_image()`
-/// TODO
+/// Remove a [`KeyImage`] from the "spent" set in the database.
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
@@ -54,7 +53,6 @@ pub fn add_key_image(
 /// // TODO
 /// ```
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn remove_key_image(
     table_key_images: &mut impl DatabaseRw<KeyImages>,
     key_image: &KeyImage,
@@ -62,7 +60,18 @@ pub fn remove_key_image(
     table_key_images.delete(key_image)
 }
 
-/// TODO
-pub fn key_image_exists() {
-    todo!()
+/// Check if a [`KeyImage`] exists - i.e. if it is "spent".
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::key_image::*};
+/// // TODO
+/// ```
+#[doc = doc_error!()]
+#[inline]
+pub fn key_image_exists(
+    table_key_images: &impl DatabaseRo<KeyImages>,
+    key_image: &KeyImage,
+) -> Result<bool, RuntimeError> {
+    table_key_images.contains(key_image)
 }

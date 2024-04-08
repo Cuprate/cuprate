@@ -45,6 +45,8 @@ pub fn add_block(
     tables: &mut impl TablesMut,
     block: &VerifiedBlockInformation,
 ) -> Result<(), RuntimeError> {
+    // Block Info.
+    //
     // Branch on the hard fork version (`major_version`)
     // and add the block to the appropriate table.
     // <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Mainnet-Hard-Forks>
@@ -92,50 +94,55 @@ pub fn add_block(
         )
     }?;
 
-    // BlockBlobs: BlockHeight => BlockBlob
+    // Block blobs.
     // TODO: what is a block blob in Cuprate's case?
     tables.block_blobs_mut().put(&block.height, todo!())?;
 
-    // BlockHeights: BlockHash => BlockHeight
+    // Block heights.
     tables
         .block_heights_mut()
         .put(&block.block_hash, &block.height)?;
 
-    // Transaction data.
-    //
-    // - NumOutputs:      Amount         => AmountIndex
-    // - PrunedTxBlobs:   TxId           => PrunableBlob
-    // - PrunableHashes:  TxId           => PrunableHash
-    // - Outputs:         PreRctOutputId => Output
-    // - PrunableTxBlobs: TxId           => PrunableBlob
-    // - RctOutputs:      AmountIndex    => RctOutput
-    // - TxIds:           TxHash         => TxId
-    // - KeyImages:       KeyImage       => ()
+    // Transaction & Outputs.
     {
         for tx in block.txs {
+            // Transaction data.
             let tx_id = todo!();
             let prunable_blob = todo!();
             let prunable_hash = todo!();
+            let unlock_time = match tx.tx.prefix.timelock {
+                Timelock::None => todo!(),
+                Timelock::Block(height) => todo!(), // Calculate from height?
+                Timelock::Time(time) => time,
+            };
 
+            tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
+            tables.tx_heights_mut().put(&tx_id, &block.height)?;
+            tables.tx_unlock_time_mut().put(&tx_id, &unlock_time)?;
             tables.pruned_tx_blobs_mut().put(&tx_id, prunable_blob)?;
             tables.prunable_hashes_mut().put(&tx_id, prunable_hash)?;
 
+            // Output data.
             for output in tx.tx.prefix.outputs {
-                let amount = todo!();
-                let amount_index = todo!();
-
-                let pre_rct_output_id = PreRctOutputId {
-                    amount,
-                    amount_index,
-                };
-
+                // Key images.
                 add_key_image(tables.key_images_mut(), output.key.as_bytes())?;
 
-                // RingCT outputs.
-                if todo!() {
-                    add_rct_output(
+                // Pre-RingCT outputs.
+                if let Some(amount) = output.amount {
+                    add_output(
                         amount,
-                        amount_index,
+                        &Output {
+                            key: *output.key.as_bytes(),
+                            height: todo!(),
+                            output_flags: todo!(),
+                            tx_idx: todo!(),
+                        },
+                        tables.outputs_mut(),
+                        tables.num_outputs_mut(),
+                    )?;
+                // RingCT outputs.
+                } else {
+                    add_rct_output(
                         &RctOutput {
                             key: todo!(),
                             height: todo!(),
@@ -143,36 +150,9 @@ pub fn add_block(
                             tx_idx: todo!(),
                             commitment: todo!(),
                         },
-                        tables.key_images_mut(),
-                        tables.num_outputs_mut(),
                         tables.rct_outputs_mut(),
                     )?;
-                // Pre-RingCT outputs.
-                } else {
-                    add_output(
-                        amount,
-                        amount_index,
-                        &Output {
-                            key: *output.key.as_bytes(),
-                            height: todo!(),
-                            output_flags: todo!(),
-                            tx_idx: todo!(),
-                        },
-                        tables.key_images_mut(),
-                        tables.num_outputs_mut(),
-                        tables.outputs_mut(),
-                    )?;
                 }
-
-                tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
-                tables.tx_heights_mut().put(&tx_id, &block.height)?;
-
-                let unlock_time = match tx.tx.prefix.timelock {
-                    Timelock::None => todo!(),
-                    Timelock::Block(height) => todo!(), // Calculate from height?
-                    Timelock::Time(time) => time,
-                };
-                tables.tx_unlock_time_mut().put(&tx_id, &unlock_time)?;
             }
         }
     }
