@@ -70,8 +70,8 @@ pub fn add_output(
 #[inline]
 pub fn remove_output(
     pre_rct_output_id: &PreRctOutputId,
-    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
     table_outputs: &mut impl DatabaseRw<Outputs>,
+    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
 ) -> Result<(), RuntimeError> {
     // Decrement the amount index by 1, or delete the entry out-right.
     match table_num_outputs.get(&pre_rct_output_id.amount)? {

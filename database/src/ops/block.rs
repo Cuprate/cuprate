@@ -22,8 +22,8 @@ use crate::{
     },
     transaction::{TxRo, TxRw},
     types::{
-        BlockHash, BlockHeight, BlockInfoLatest, BlockInfoV1, BlockInfoV2, BlockInfoV3, KeyImage,
-        Output, PreRctOutputId, RctOutput,
+        AmountIndex, BlockHash, BlockHeight, BlockInfoLatest, BlockInfoV1, BlockInfoV2,
+        BlockInfoV3, KeyImage, Output, PreRctOutputId, RctOutput, TxHash,
     },
 };
 
@@ -104,51 +104,49 @@ pub fn add_block(
         .put(&block.block_hash, &block.height)?;
 
     // Transaction & Outputs.
-    {
-        for tx in block.txs {
-            let tx: &Transaction = &tx.tx;
+    for tx in block.txs {
+        let tx: &Transaction = &tx.tx;
 
-            add_tx(
-                tx,
-                tables.block_heights_mut(),
-                tables.tx_ids_mut(),
-                tables.tx_heights_mut(),
-                tables.tx_unlock_time_mut(),
-                tables.prunable_hashes_mut(),
-                tables.prunable_tx_blobs_mut(),
-            )?;
+        add_tx(
+            tx,
+            tables.block_heights_mut(),
+            tables.tx_ids_mut(),
+            tables.tx_heights_mut(),
+            tables.tx_unlock_time_mut(),
+            tables.prunable_hashes_mut(),
+            tables.prunable_tx_blobs_mut(),
+        )?;
 
-            // Output data.
-            for output in tx.prefix.outputs {
-                // Key images.
-                add_key_image(tables.key_images_mut(), output.key.as_bytes())?;
+        // Output data.
+        for output in tx.prefix.outputs {
+            // Key images.
+            add_key_image(tables.key_images_mut(), output.key.as_bytes())?;
 
-                // Pre-RingCT outputs.
-                if let Some(amount) = output.amount {
-                    add_output(
-                        amount,
-                        &Output {
-                            key: *output.key.as_bytes(),
-                            height: todo!(),
-                            output_flags: todo!(),
-                            tx_idx: todo!(),
-                        },
-                        tables.outputs_mut(),
-                        tables.num_outputs_mut(),
-                    )?;
-                // RingCT outputs.
-                } else {
-                    add_rct_output(
-                        &RctOutput {
-                            key: todo!(),
-                            height: todo!(),
-                            output_flags: todo!(),
-                            tx_idx: todo!(),
-                            commitment: todo!(),
-                        },
-                        tables.rct_outputs_mut(),
-                    )?;
-                }
+            // Pre-RingCT outputs.
+            if let Some(amount) = output.amount {
+                add_output(
+                    amount,
+                    &Output {
+                        key: *output.key.as_bytes(),
+                        height: todo!(),
+                        output_flags: todo!(),
+                        tx_idx: todo!(),
+                    },
+                    tables.outputs_mut(),
+                    tables.num_outputs_mut(),
+                )?;
+            // RingCT outputs.
+            } else {
+                add_rct_output(
+                    &RctOutput {
+                        key: todo!(),
+                        height: todo!(),
+                        output_flags: todo!(),
+                        tx_idx: todo!(),
+                        commitment: todo!(),
+                    },
+                    tables.rct_outputs_mut(),
+                )?;
             }
         }
     }
@@ -157,12 +155,7 @@ pub fn add_block(
 }
 
 //---------------------------------------------------------------------------------------------------- `pop_block_*`
-/// Remove and return the top block from the database.
-///
-/// This pops the latest block from the database, and
-/// constructs the data into the returned [`VerifiedBlockInformation`].
-///
-/// Consider using [`pop_block_cheap()`] if the returned block is unneeded.
+/// Remove the top/latest block from the database.
 ///
 /// # Example
 /// ```rust
@@ -171,75 +164,69 @@ pub fn add_block(
 /// ```
 #[doc = doc_error!()]
 #[inline]
-#[allow(clippy::missing_panics_doc)] // this should not panic
-pub fn pop_block(tables: &mut impl TablesMut) -> Result<VerifiedBlockInformation, RuntimeError> {
-    Ok(pop_block_inner::<true>(tables)?.expect("this should always return `Some`"))
-}
-
-/// A cheaper to call [`pop_block()`].
-///
-/// This is the same as `pop_block()` however it will
-/// not construct and return the block removed, thus,
-/// it should be faster to call in situations where the
-/// returned block would not be used anyway.
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!()]
-#[inline]
-pub fn pop_block_cheap(tables: &mut impl TablesMut) -> Result<(), RuntimeError> {
-    let option = pop_block_inner::<false>(tables)?;
-    debug_assert!(option.is_none());
-    Ok(())
-}
-
-/// Internal function that is used by:
-/// - [`pop_block()`]
-/// - [`pop_block_cheap()`]
-///
-/// The logic for "popping" the block is defined here,
-/// although the `const RETURN: bool` will dictate if this function
-/// constructs and returns the block wrapped in `Some` or `None`.
-///
-/// # Invariant
-/// - `RETURN == true` -> This must return `Some`
-/// - `RETURN == false` -> This must return `None`
-#[inline]
-fn pop_block_inner<const RETURN: bool>(
-    tables: &mut impl TablesMut,
-) -> Result<Option<VerifiedBlockInformation>, RuntimeError> {
-    /* 1. remove block data from tables */
-
-    // Branch on the hard fork version (`major_version`)
-    // and add the block to the appropriate table.
-    // <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Mainnet-Hard-Forks>
-    //
-    // FIXME: use `match` with ranges when stable:
-    // <https://github.com/rust-lang/rust/issues/37854>
+pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeError> {
+    // Remove block data from tables.
     //
     // TODO: What table to pop from here?
     // Start with v3, if thats empty, try v2, etc?
-    if todo!() {
-        tables.block_info_v1s_mut().pop_last()?;
+    //
+    // Branch depending on `height` and known hard fork points?
+    let (block_height, block_hash) = if todo!() {
+        let (block_height, block_info) = tables.block_info_v1s_mut().pop_last()?;
+        (block_height, block_info.block_hash)
     } else if todo!() {
-        tables.block_info_v2s_mut().pop_last()?;
+        let (block_height, block_info) = tables.block_info_v2s_mut().pop_last()?;
+        (block_height, block_info.block_hash)
     } else {
-        tables.block_info_v3s_mut().pop_last()?;
-    }
-
-    /* 2. if the caller wants the block info, build it up */
-    let option: Option<VerifiedBlockInformation> = if RETURN {
-        /* build block */
-        let block: VerifiedBlockInformation = todo!();
-        Some(block)
-    } else {
-        None
+        let (block_height, block_info) = tables.block_info_v3s_mut().pop_last()?;
+        (block_height, block_info.block_hash)
     };
 
-    Ok(option)
+    // Block blobs.
+    tables.block_blobs_mut().delete(&block_height)?;
+
+    // Block heights.
+    tables.block_heights_mut().delete(&block_hash)?;
+
+    // Transaction & Outputs.
+    for () in /* block.txs */ std::iter::empty::<()>() {
+        let tx: &Transaction = todo!();
+        let tx_hash: &TxHash = todo!();
+
+        remove_tx(
+            tx_hash,
+            tables.tx_ids_mut(),
+            tables.tx_heights_mut(),
+            tables.tx_unlock_time_mut(),
+            tables.prunable_hashes_mut(),
+            tables.prunable_tx_blobs_mut(),
+        )?;
+
+        // Output data.
+        for output in tx.prefix.outputs {
+            // Key images.
+            remove_key_image(tables.key_images_mut(), output.key.as_bytes())?;
+
+            let amount_index: AmountIndex = todo!();
+
+            // Pre-RingCT outputs.
+            if let Some(amount) = output.amount {
+                remove_output(
+                    &PreRctOutputId {
+                        amount,
+                        amount_index,
+                    },
+                    tables.outputs_mut(),
+                    tables.num_outputs_mut(),
+                )?;
+            // RingCT outputs.
+            } else {
+                remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
+            }
+        }
+    }
+
+    Ok(block_height)
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_*`
