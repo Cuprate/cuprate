@@ -44,7 +44,6 @@ pub fn add_output(
     // table_outputs: &mut impl DatabaseRw<Outputs>,
     // table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
 ) -> Result<AmountIndex, RuntimeError> {
-    // Amount index is just the (current_amount_of_outputs + 1).
     let amount_index = get_num_outputs(tables.outputs_mut())?;
     tables.num_outputs_mut().put(&amount, &amount_index)?;
 
@@ -76,8 +75,12 @@ pub fn remove_output(
 ) -> Result<(), RuntimeError> {
     // Decrement the amount index by 1, or delete the entry out-right.
     match table_num_outputs.get(&pre_rct_output_id.amount)? {
-        0 => (),
         1 => table_num_outputs.delete(&pre_rct_output_id.amount)?,
+
+        // The above branch should delete the entry out-right
+        // if it hits zero. There should never be a `0` entry.
+        0 => unreachable!(),
+
         amount_index => table_num_outputs.put(&pre_rct_output_id.amount, &(amount_index - 1))?,
     }
 
@@ -104,8 +107,7 @@ pub fn add_rct_output(
     rct_output: &RctOutput,
     table_rct_outputs: &mut impl DatabaseRw<RctOutputs>,
 ) -> Result<AmountIndex, RuntimeError> {
-    // Amount index is just the (current_amount_of_outputs + 1).
-    let amount_index = get_rct_num_outputs(table_rct_outputs)? + 1;
+    let amount_index = get_rct_num_outputs(table_rct_outputs)?;
     table_rct_outputs.put(&amount_index, rct_output)?;
     Ok(amount_index)
 }
