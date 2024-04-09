@@ -51,7 +51,7 @@ pub const fn get_blockchain_pruning_seed() -> Result<PruningSeed, RuntimeError> 
 /// // TODO
 /// ```
 #[inline]
-pub const fn db_version() -> Result<usize, RuntimeError> {
+pub const fn db_version() -> Result<u64, RuntimeError> {
     // TODO: We need a DB properties table.
-    Ok(0)
+    Ok(crate::constants::DATABASE_VERSION)
 }

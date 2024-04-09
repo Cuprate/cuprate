@@ -224,6 +224,7 @@ pub mod config;
 mod constants;
 pub use constants::{
     DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_DATA_FILENAME, DATABASE_LOCK_FILENAME,
+    DATABASE_VERSION,
 };
 
 mod database;
