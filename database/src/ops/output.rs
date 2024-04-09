@@ -40,19 +40,20 @@ use crate::{
 pub fn add_output(
     amount: Amount,
     output: &Output,
-    table_outputs: &mut impl DatabaseRw<Outputs>,
-    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
+    tables: &mut impl TablesMut,
+    // table_outputs: &mut impl DatabaseRw<Outputs>,
+    // table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
 ) -> Result<AmountIndex, RuntimeError> {
     // Amount index is just the (current_amount_of_outputs + 1).
-    let amount_index = get_num_outputs(table_outputs)?;
-    table_num_outputs.put(&amount, &amount_index)?;
+    let amount_index = get_num_outputs(tables.outputs_mut())?;
+    tables.num_outputs_mut().put(&amount, &amount_index)?;
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
         amount_index,
     };
 
-    table_outputs.put(&pre_rct_output_id, output)?;
+    tables.outputs_mut().put(&pre_rct_output_id, output)?;
     Ok(amount_index)
 }
 

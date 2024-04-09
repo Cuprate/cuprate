@@ -41,18 +41,19 @@ use super::property::get_blockchain_pruning_seed;
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_tx(
     tx: &Transaction,
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
-    table_tx_ids: &mut impl DatabaseRw<TxIds>,
-    table_tx_heights: &mut impl DatabaseRw<TxHeights>,
-    table_tx_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
-    table_prunable_hashes: &mut impl DatabaseRw<PrunableHashes>,
-    table_prunable_tx_blobs: &mut impl DatabaseRw<PrunableTxBlobs>,
+    tables: &mut impl TablesMut,
+    // table_block_heights: &impl DatabaseRo<BlockHeights>,
+    // table_tx_ids: &mut impl DatabaseRw<TxIds>,
+    // table_tx_heights: &mut impl DatabaseRw<TxHeights>,
+    // table_tx_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
+    // table_prunable_hashes: &mut impl DatabaseRw<PrunableHashes>,
+    // table_prunable_tx_blobs: &mut impl DatabaseRw<PrunableTxBlobs>,
 ) -> Result<TxId, RuntimeError> {
-    let tx_id = get_num_tx(table_tx_ids)?;
-    let block_height = crate::ops::blockchain::height(table_block_heights)?;
+    let tx_id = get_num_tx(tables.tx_ids_mut())?;
+    let block_height = crate::ops::blockchain::height(tables.block_heights_mut())?;
 
-    table_tx_ids.put(&tx.hash(), &tx_id)?;
-    table_tx_heights.put(&tx_id, &block_height)?;
+    tables.tx_ids_mut().put(&tx.hash(), &tx_id)?;
+    tables.tx_heights_mut().put(&tx_id, &block_height)?;
 
     // TODO: What exactly is a `UnlockTime (u64)` in Cuprate's case?
     // What should we be storing? How?
@@ -64,14 +65,14 @@ pub fn add_tx(
 
     // TODO: is this the correct field? how should it be hashed?
     let prunable_hash = /* hash_fn(tx_rct_signatures.prunable) */ todo!();
-    table_prunable_hashes.put(&tx_id, &prunable_hash)?;
+    tables.prunable_hashes_mut().put(&tx_id, &prunable_hash)?;
     // TODO: what part of `tx` is prunable?
     //
     // `tx.prefix: TransactionPrefix` + `tx.rct_signatures.prunable: RctPrunable`
     // combined as a `StorableVec`?
     //
     // Is it `tx.blob: Vec<u8>`?
-    table_prunable_tx_blobs.put(&tx_id, todo!())?;
+    tables.prunable_tx_blobs_mut().put(&tx_id, todo!())?;
 
     // TODO: impl pruning
     if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {

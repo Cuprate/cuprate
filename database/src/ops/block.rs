@@ -25,6 +25,7 @@ use crate::{
         AmountIndex, BlockHash, BlockHeight, BlockInfoLatest, BlockInfoV1, BlockInfoV2,
         BlockInfoV3, KeyImage, Output, PreRctOutputId, RctOutput, TxHash,
     },
+    StorableVec,
 };
 
 //---------------------------------------------------------------------------------------------------- `add_block_*`
@@ -43,8 +44,21 @@ use crate::{
 // no inline, too big.
 pub fn add_block(
     tables: &mut impl TablesMut,
-    block: &VerifiedBlockInformation,
+    block: VerifiedBlockInformation,
 ) -> Result<(), RuntimeError> {
+    let VerifiedBlockInformation {
+        block,
+        txs,
+        block_hash,
+        pow_hash,
+        height,
+        generated_coins,
+        weight,
+        long_term_weight,
+        cumulative_difficulty,
+        block_blob,
+    } = block;
+
     // Block Info.
     //
     // Branch on the hard fork version (`major_version`)
@@ -53,72 +67,63 @@ pub fn add_block(
     //
     // FIXME: use `match` with ranges when stable:
     // <https://github.com/rust-lang/rust/issues/37854>
-    if block.block.header.major_version < 4 {
+    if block.header.major_version < 4 {
         tables.block_info_v1s_mut().put(
-            &block.height,
+            &height,
             &BlockInfoV1 {
-                timestamp: block.block.header.timestamp,
-                total_generated_coins: block.generated_coins,
-                weight: block.weight as u64, // TODO
+                timestamp: block.header.timestamp,
+                total_generated_coins: generated_coins,
+                weight: weight as u64, // TODO
                 #[allow(clippy::cast_possible_truncation)] // TODO
-                cumulative_difficulty: block.cumulative_difficulty as u64, // TODO
-                block_hash: block.block_hash,
+                cumulative_difficulty: cumulative_difficulty as u64, // TODO
+                block_hash,
             },
         )
-    } else if block.block.header.major_version < 10 {
+    } else if block.header.major_version < 10 {
         tables.block_info_v2s_mut().put(
-            &block.height,
+            &height,
             #[allow(clippy::cast_possible_truncation)] // TODO
             &BlockInfoV2 {
-                timestamp: block.block.header.timestamp,
-                total_generated_coins: block.generated_coins,
-                weight: block.weight as u64, // TODO
+                timestamp: block.header.timestamp,
+                total_generated_coins: generated_coins,
+                weight: weight as u64, // TODO
                 #[allow(clippy::cast_possible_truncation)] // TODO
-                cumulative_difficulty: block.cumulative_difficulty as u64, // TODO
-                block_hash: block.block_hash,
+                cumulative_difficulty: cumulative_difficulty as u64, // TODO
+                block_hash,
                 cumulative_rct_outs: todo!(), // TODO
             },
         )
     } else {
         tables.block_info_v3s_mut().put(
-            &block.height,
+            &height,
             &BlockInfoV3 {
-                timestamp: block.block.header.timestamp,
-                total_generated_coins: block.generated_coins,
-                weight: block.weight as u64, // TODO
-                cumulative_difficulty: block.cumulative_difficulty,
-                block_hash: block.block_hash,
-                cumulative_rct_outs: todo!(),                    // TODO
-                long_term_weight: block.long_term_weight as u64, // TODO
+                timestamp: block.header.timestamp,
+                total_generated_coins: generated_coins,
+                weight: weight as u64, // TODO
+                cumulative_difficulty,
+                block_hash,
+                cumulative_rct_outs: todo!(),              // TODO
+                long_term_weight: long_term_weight as u64, // TODO
             },
         )
     }?;
 
     // Block blobs.
-    // TODO: what is a block blob in Cuprate's case?
-    tables.block_blobs_mut().put(&block.height, todo!())?;
+    tables
+        .block_blobs_mut()
+        .put(&height, &StorableVec(block_blob))?;
 
     // Block heights.
-    tables
-        .block_heights_mut()
-        .put(&block.block_hash, &block.height)?;
+    tables.block_heights_mut().put(&block_hash, &height)?;
 
     // Transaction & Outputs.
-    for tx in block.txs {
+    for tx in txs {
         let tx: &Transaction = &tx.tx;
 
-        add_tx(
-            tx,
-            tables.block_heights_mut(),
-            tables.tx_ids_mut(),
-            tables.tx_heights_mut(),
-            tables.tx_unlock_time_mut(),
-            tables.prunable_hashes_mut(),
-            tables.prunable_tx_blobs_mut(),
-        )?;
+        add_tx(tx, tables)?;
 
         // Output data.
-        for output in tx.prefix.outputs {
+        for output in &tx.prefix.outputs {
             // Key images.
             add_key_image(tables.key_images_mut(), output.key.as_bytes())?;
 
@@ -132,8 +137,7 @@ pub fn add_block(
                         output_flags: todo!(),
                         tx_idx: todo!(),
                     },
-                    tables.outputs_mut(),
-                    tables.num_outputs_mut(),
+                    tables,
                 )?;
             // RingCT outputs.
             } else {
