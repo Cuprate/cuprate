@@ -292,7 +292,7 @@ pub fn get_block_header(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_top(tables: &impl Tables) -> Result<VerifiedBlockInformation, RuntimeError> {
-    let top_block_height = crate::ops::blockchain::height(tables.block_heights())?;
+    let top_block_height = crate::ops::blockchain::chain_height(tables.block_heights())?;
     get_block(tables, top_block_height)
 }
 

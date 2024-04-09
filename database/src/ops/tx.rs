@@ -50,18 +50,18 @@ pub fn add_tx(
     // table_prunable_tx_blobs: &mut impl DatabaseRw<PrunableTxBlobs>,
 ) -> Result<TxId, RuntimeError> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
-    let block_height = crate::ops::blockchain::height(tables.block_heights_mut())?;
+    let height = crate::ops::blockchain::chain_height(tables.block_heights_mut())?;
 
     tables.tx_ids_mut().put(&tx.hash(), &tx_id)?;
-    tables.tx_heights_mut().put(&tx_id, &block_height)?;
+    tables.tx_heights_mut().put(&tx_id, &height)?;
 
     // TODO: What exactly is a `UnlockTime (u64)` in Cuprate's case?
     // What should we be storing? How?
     match tx.prefix.timelock {
         Timelock::None => (),
-        Timelock::Block(height) => todo!(), // Calculate from height?
-        Timelock::Time(time) => todo!(),
-    };
+        Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
+        Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
+    }
 
     // TODO: is this the correct field? how should it be hashed?
     let prunable_hash = /* hash_fn(tx_rct_signatures.prunable) */ todo!();
