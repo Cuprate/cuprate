@@ -25,8 +25,6 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Free Functions
 /// TODO
 ///
-/// TODO: document this add to the latest block height.
-///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 ///
@@ -40,4 +38,20 @@ pub const fn get_blockchain_pruning_seed() -> Result<PruningSeed, RuntimeError> 
     // TODO: impl pruning.
     // We need a DB properties table.
     Ok(PruningSeed::NotPruned)
+}
+
+/// TODO
+///
+#[doc = doc_add_block_inner_invariant!()]
+#[doc = doc_error!()]
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
+/// // TODO
+/// ```
+#[inline]
+pub const fn db_version() -> Result<usize, RuntimeError> {
+    // TODO: We need a DB properties table.
+    Ok(0)
 }
