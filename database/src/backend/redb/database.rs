@@ -189,6 +189,15 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     }
 
     #[inline]
+    fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+        if let Some(value) = redb::Table::remove(self, key)? {
+            Ok(value.value())
+        } else {
+            Err(RuntimeError::KeyNotFound)
+        }
+    }
+
+    #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         let (key, value) = redb::Table::pop_first(self)?.ok_or(RuntimeError::KeyNotFound)?;
         Ok((key.value(), value.value()))

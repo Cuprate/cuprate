@@ -149,6 +149,15 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
 
+    /// Delete and return a key-value pair in the database.
+    ///
+    /// This is the same as [`DatabaseRw::delete`], however,
+    /// it will serialize the `T::Value` and return it.
+    ///
+    /// # Errors
+    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError>;
+
     /// TODO
     ///
     /// # Errors

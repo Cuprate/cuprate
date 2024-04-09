@@ -205,6 +205,20 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     }
 
     #[inline]
+    fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+        // LMDB/heed does not return the value on deletion.
+        // So, fetch it first - then delete.
+        let value = get::<T>(&self.db, &self.tx_rw.borrow(), key)?;
+        match self.db.delete(&mut self.tx_rw.borrow_mut(), key) {
+            Ok(true) => Ok(value),
+            Err(e) => Err(e.into()),
+            // We just `get()`'ed the value - it is
+            // incorrect for it to suddenly not exist.
+            Ok(false) => unreachable!(),
+        }
+    }
+
+    #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         let tx_rw = &mut self.tx_rw.borrow_mut();
 
