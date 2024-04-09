@@ -70,22 +70,21 @@ pub fn add_output(
 #[inline]
 pub fn remove_output(
     pre_rct_output_id: &PreRctOutputId,
-    table_outputs: &mut impl DatabaseRw<Outputs>,
-    table_num_outputs: &mut impl DatabaseRw<NumOutputs>,
+    tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
     // Decrement the amount index by 1, or delete the entry out-right.
-    match table_num_outputs.get(&pre_rct_output_id.amount)? {
-        1 => table_num_outputs.delete(&pre_rct_output_id.amount)?,
-
-        // The above branch should delete the entry out-right
-        // if it hits zero. There should never be a `0` entry.
-        0 => unreachable!(),
-
-        amount_index => table_num_outputs.put(&pre_rct_output_id.amount, &(amount_index - 1))?,
-    }
+    tables
+        .num_outputs_mut()
+        .update(&pre_rct_output_id.amount, |amount| {
+            if amount == 0 {
+                None
+            } else {
+                Some(amount - 1)
+            }
+        })?;
 
     // Delete the output data itself.
-    table_outputs.delete(pre_rct_output_id)
+    tables.outputs_mut().delete(pre_rct_output_id)
 }
 
 //---------------------------------------------------------------------------------------------------- `add_rct_output()`
