@@ -23,7 +23,9 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Free Functions
-/// Retrieve the block height of the latest/top block in the database.
+/// Retrieve the height of the chain.
+///
+/// This returns the chain-tip, not the height of top block.
 ///
 /// # Example
 /// ```rust
@@ -32,10 +34,8 @@ use crate::{
 /// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn height(
+pub fn chain_height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<BlockHeight, RuntimeError> {
-    // TODO: is this correct?
-    // TODO: is there a faster way to do this? `.len()` is already quite cheap.
     table_block_heights.len()
 }
