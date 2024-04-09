@@ -1,7 +1,10 @@
 //! Blocks.
 
 //---------------------------------------------------------------------------------------------------- Import
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_serai::{
+    block::Block,
+    transaction::{Timelock, Transaction},
+};
 
 use cuprate_types::{ExtendedBlockHeader, VerifiedBlockInformation};
 
@@ -187,13 +190,16 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
     };
 
     // Block blobs.
-    tables.block_blobs_mut().delete(&block_height)?;
+    // We deserialize the block blob into a `Block`, such
+    // that we can remove the associated transactions later.
+    let mut block_blob = tables.block_blobs_mut().take(&block_height)?.0;
+    let block = Block::read(&mut block_blob.as_slice())?;
 
     // Block heights.
     tables.block_heights_mut().delete(&block_hash)?;
 
     // Transaction & Outputs.
-    for () in /* block.txs */ std::iter::empty::<()>() {
+    for tx in block.txs {
         let tx: &Transaction = todo!();
         let tx_hash: &TxHash = todo!();
 
