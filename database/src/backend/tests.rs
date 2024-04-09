@@ -32,13 +32,13 @@ use crate::{
     table::Table,
     tables::{
         BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds, TxUnlockTime,
+        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
     types::{
         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
-        Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxHash, TxId,
-        UnlockTime,
+        Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash,
+        TxId, UnlockTime,
     },
     ConcreteEnv,
 };
@@ -94,6 +94,7 @@ fn open_db() {
     env_inner.open_db_ro::<PrunableTxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<PrunedTxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<RctOutputs>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<TxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxHeights>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxIds>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxUnlockTime>(&tx_ro).unwrap();
@@ -110,6 +111,7 @@ fn open_db() {
     env_inner.open_db_rw::<PrunableTxBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<PrunedTxBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<RctOutputs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxHeights>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxIds>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxUnlockTime>(&tx_rw).unwrap();
@@ -420,6 +422,10 @@ test_tables! {
     NumOutputs,
     Amount => AmountIndex,
     123 => 123,
+
+    TxBlobs,
+    TxId => TxBlob,
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]),
 
     TxIds,
     TxHash => TxId,

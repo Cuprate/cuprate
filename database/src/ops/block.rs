@@ -200,14 +200,7 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
         let tx: &Transaction = todo!();
         let tx_hash: &TxHash = todo!();
 
-        remove_tx(
-            tx_hash,
-            tables.tx_ids_mut(),
-            tables.tx_heights_mut(),
-            tables.tx_unlock_time_mut(),
-            tables.prunable_hashes_mut(),
-            tables.prunable_tx_blobs_mut(),
-        )?;
+        remove_tx(tx_hash, tables)?;
 
         // Output data.
         for output in tx.prefix.outputs {
@@ -223,8 +216,7 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
                         amount,
                         amount_index,
                     },
-                    tables.outputs_mut(),
-                    tables.num_outputs_mut(),
+                    tables,
                 )?;
             // RingCT outputs.
             } else {

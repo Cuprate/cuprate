@@ -39,16 +39,7 @@ use super::property::get_blockchain_pruning_seed;
 /// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn add_tx(
-    tx: &Transaction,
-    tables: &mut impl TablesMut,
-    // table_block_heights: &impl DatabaseRo<BlockHeights>,
-    // table_tx_ids: &mut impl DatabaseRw<TxIds>,
-    // table_tx_heights: &mut impl DatabaseRw<TxHeights>,
-    // table_tx_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
-    // table_prunable_hashes: &mut impl DatabaseRw<PrunableHashes>,
-    // table_prunable_tx_blobs: &mut impl DatabaseRw<PrunableTxBlobs>,
-) -> Result<TxId, RuntimeError> {
+pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, RuntimeError> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
     let height = crate::ops::blockchain::chain_height(tables.block_heights_mut())?;
 
@@ -63,21 +54,10 @@ pub fn add_tx(
         Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
     }
 
-    // TODO: is this the correct field? how should it be hashed?
-    let prunable_hash = /* hash_fn(tx_rct_signatures.prunable) */ todo!();
-    tables.prunable_hashes_mut().put(&tx_id, &prunable_hash)?;
-    // TODO: what part of `tx` is prunable?
-    //
-    // `tx.prefix: TransactionPrefix` + `tx.rct_signatures.prunable: RctPrunable`
-    // combined as a `StorableVec`?
-    //
-    // Is it `tx.blob: Vec<u8>`?
-    tables.prunable_tx_blobs_mut().put(&tx_id, todo!())?;
-
-    // TODO: impl pruning
-    if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
-        // TODO: what to store here? which table?
-    }
+    // TODO: implement pruning after `monero-serai` does.
+    // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
+    // TODO: what to store here? which table?
+    // }
 
     Ok(tx_id)
 }
@@ -94,26 +74,18 @@ pub fn add_tx(
 /// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn remove_tx(
-    tx_hash: &TxHash,
-    table_tx_ids: &mut impl DatabaseRw<TxIds>,
-    table_heights: &mut impl DatabaseRw<TxHeights>,
-    table_unlock_time: &mut impl DatabaseRw<TxUnlockTime>,
-    table_prunable_hashes: &mut impl DatabaseRw<PrunableHashes>,
-    table_prunable_tx_blobs: &mut impl DatabaseRw<PrunableTxBlobs>,
-) -> Result<TxId, RuntimeError> {
-    let tx_id = table_tx_ids.get(tx_hash)?;
-    table_tx_ids.delete(tx_hash)?;
-    table_heights.delete(&tx_id)?;
-    table_prunable_hashes.delete(&tx_id)?;
-    table_prunable_tx_blobs.delete(&tx_id)?;
+pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> Result<TxId, RuntimeError> {
+    let tx_id = tables.tx_ids_mut().take(tx_hash)?;
+    tables.tx_heights_mut().delete(&tx_id)?;
 
-    // TODO: impl pruning
-    if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
-        // TODO: what to remove here? which table?
-    }
+    // TODO: implement pruning after `monero-serai` does.
+    // table_prunable_hashes.delete(&tx_id)?;
+    // table_prunable_tx_blobs.delete(&tx_id)?;
+    // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
+    // TODO: what to remove here? which table?
+    // }
 
-    match table_unlock_time.delete(&tx_id) {
+    match tables.tx_unlock_time_mut().delete(&tx_id) {
         Err(RuntimeError::KeyNotFound) | Ok(()) => (),
         // An actual error occurred, return.
         Err(e) => return Err(e),

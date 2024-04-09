@@ -8,8 +8,8 @@ use crate::{
     table::Table,
     types::{
         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
-        Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxHash, TxId,
-        UnlockTime,
+        Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash,
+        TxId, UnlockTime,
     },
 };
 
@@ -27,6 +27,8 @@ pub(super) mod private {
 /// - `pub trait Tables`
 /// - `pub trait TablesMut`
 /// - Blanket implementation for `(tuples, containing, all, open, database, tables, ...)`
+///
+/// For why this exists, see: <https://github.com/Cuprate/cuprate/pull/102#pullrequestreview-1978348871>.
 macro_rules! define_trait_tables {
     ($(
         // The `T: Table` type     The index in a tuple
@@ -175,9 +177,10 @@ define_trait_tables! {
     Outputs => 7,
     PrunableTxBlobs => 8,
     RctOutputs => 9,
-    TxIds => 10,
-    TxHeights => 11,
-    TxUnlockTime => 12,
+    TxBlobs => 10,
+    TxIds => 11,
+    TxHeights => 12,
+    TxUnlockTime => 13,
 }
 
 //---------------------------------------------------------------------------------------------------- Table function macro
@@ -198,19 +201,20 @@ macro_rules! call_fn_on_all_tables_or_early_return {
         )
     ) => {{
         Ok((
-            $($fn ::)*<BlockInfos>($($arg),*)?,
-            $($fn ::)*<BlockBlobs>($($arg),*)?,
-            $($fn ::)*<BlockHeights>($($arg),*)?,
-            $($fn ::)*<KeyImages>($($arg),*)?,
-            $($fn ::)*<NumOutputs>($($arg),*)?,
-            $($fn ::)*<PrunedTxBlobs>($($arg),*)?,
-            $($fn ::)*<PrunableHashes>($($arg),*)?,
-            $($fn ::)*<Outputs>($($arg),*)?,
-            $($fn ::)*<PrunableTxBlobs>($($arg),*)?,
-            $($fn ::)*<RctOutputs>($($arg),*)?,
-            $($fn ::)*<TxIds>($($arg),*)?,
-            $($fn ::)*<TxHeights>($($arg),*)?,
-            $($fn ::)*<TxUnlockTime>($($arg),*)?,
+            $($fn ::)*<$crate::tables::BlockInfos>($($arg),*)?,
+            $($fn ::)*<$crate::tables::BlockBlobs>($($arg),*)?,
+            $($fn ::)*<$crate::tables::BlockHeights>($($arg),*)?,
+            $($fn ::)*<$crate::tables::KeyImages>($($arg),*)?,
+            $($fn ::)*<$crate::tables::NumOutputs>($($arg),*)?,
+            $($fn ::)*<$crate::tables::PrunedTxBlobs>($($arg),*)?,
+            $($fn ::)*<$crate::tables::PrunableHashes>($($arg),*)?,
+            $($fn ::)*<$crate::tables::Outputs>($($arg),*)?,
+            $($fn ::)*<$crate::tables::PrunableTxBlobs>($($arg),*)?,
+            $($fn ::)*<$crate::tables::RctOutputs>($($arg),*)?,
+            $($fn ::)*<$crate::tables::TxBlobs>($($arg),*)?,
+            $($fn ::)*<$crate::tables::TxIds>($($arg),*)?,
+            $($fn ::)*<$crate::tables::TxHeights>($($arg),*)?,
+            $($fn ::)*<$crate::tables::TxUnlockTime>($($arg),*)?,
         ))
     }};
 }
@@ -272,8 +276,10 @@ macro_rules! tables {
 // Notes:
 // - Keep this sorted A-Z (by table name)
 // - Tables are defined in plural to avoid name conflicts with types
-// - If adding/changing a table, also edit the tests in `src/backend/tests.rs`
-//   and edit `Env::open` to make sure it creates the table
+// - If adding/changing a table also edit:
+//   a) the tests in `src/backend/tests.rs`
+//   b) `Env::open` to make sure it creates the table (for all backends)
+//   c) `call_fn_on_all_tables_or_early_return!()` macro defined in this file
 tables! {
     /// TODO
     BlockBlobs,
@@ -306,24 +312,27 @@ tables! {
     Outputs,
     PreRctOutputId => Output,
 
-    /// TODO
+    // TODO: impl when `monero-serai` supports pruning
     PrunableTxBlobs,
     TxId => PrunableBlob,
 
-    /// TODO
+    // TODO: impl when `monero-serai` supports pruning
     PrunableHashes,
     TxId => PrunableHash,
 
     // TODO: impl a properties table:
     // - db version
     // - pruning seed
-    //
     // Properties,
     // StorableString => StorableVec,
 
     /// TODO
     RctOutputs,
     AmountIndex => RctOutput,
+
+    /// TODO: remove when `monero-serai` supports pruning
+    TxBlobs,
+    TxId => TxBlob,
 
     /// TODO
     TxIds,

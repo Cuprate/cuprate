@@ -83,6 +83,9 @@ pub type PrunableBlob = StorableVec<u8>;
 pub type PrunableHash = [u8; 32];
 
 /// TODO
+pub type TxBlob = StorableVec<u8>;
+
+/// TODO
 pub type TxId = u64;
 
 /// TODO
