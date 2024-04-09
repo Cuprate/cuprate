@@ -12,14 +12,14 @@ use crate::{
     error::RuntimeError,
     ops::macros::{doc_add_block_inner_invariant, doc_error},
     tables::{
-        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
-        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
-        TxHeights, TxIds, TxUnlockTime,
+        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
+        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
+        TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
     types::{
-        BlockHash, BlockHeight, BlockInfoLatest, BlockInfoV1, BlockInfoV2, BlockInfoV3, KeyImage,
-        Output, PreRctOutputId, RctOutput, TxHash, TxId,
+        BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, RctOutput, TxHash,
+        TxId,
     },
 };
 //---------------------------------------------------------------------------------------------------- Free Functions

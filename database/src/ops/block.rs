@@ -19,14 +19,14 @@ use crate::{
         tx::{add_tx, remove_tx},
     },
     tables::{
-        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
-        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut,
-        TxHeights, TxIds, TxUnlockTime,
+        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
+        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
+        TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
     types::{
-        AmountIndex, BlockHash, BlockHeight, BlockInfoLatest, BlockInfoV1, BlockInfoV2,
-        BlockInfoV3, KeyImage, Output, PreRctOutputId, RctOutput, TxHash,
+        AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId,
+        RctOutput, TxHash,
     },
     StorableVec,
 };
@@ -71,35 +71,38 @@ pub fn add_block(
     // FIXME: use `match` with ranges when stable:
     // <https://github.com/rust-lang/rust/issues/37854>
     if block.header.major_version < 4 {
-        tables.block_info_v1s_mut().put(
+        // TODO: add dummy values
+        tables.block_infos_mut().put(
             &height,
-            &BlockInfoV1 {
+            &BlockInfo {
                 timestamp: block.header.timestamp,
                 total_generated_coins: generated_coins,
                 weight: weight as u64, // TODO
-                #[allow(clippy::cast_possible_truncation)] // TODO
-                cumulative_difficulty: cumulative_difficulty as u64, // TODO
+                cumulative_difficulty,
                 block_hash,
+                cumulative_rct_outs: todo!(),              // TODO
+                long_term_weight: long_term_weight as u64, // TODO
             },
         )
     } else if block.header.major_version < 10 {
-        tables.block_info_v2s_mut().put(
+        // TODO: add dummy values
+        tables.block_infos_mut().put(
             &height,
             #[allow(clippy::cast_possible_truncation)] // TODO
-            &BlockInfoV2 {
+            &BlockInfo {
                 timestamp: block.header.timestamp,
                 total_generated_coins: generated_coins,
                 weight: weight as u64, // TODO
-                #[allow(clippy::cast_possible_truncation)] // TODO
-                cumulative_difficulty: cumulative_difficulty as u64, // TODO
+                cumulative_difficulty,
                 block_hash,
-                cumulative_rct_outs: todo!(), // TODO
+                cumulative_rct_outs: todo!(),              // TODO
+                long_term_weight: long_term_weight as u64, // TODO
             },
         )
     } else {
-        tables.block_info_v3s_mut().put(
+        tables.block_infos_mut().put(
             &height,
-            &BlockInfoV3 {
+            &BlockInfo {
                 timestamp: block.header.timestamp,
                 total_generated_coins: generated_coins,
                 weight: weight as u64, // TODO
@@ -178,21 +181,15 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
     // Start with v3, if thats empty, try v2, etc?
     //
     // Branch depending on `height` and known hard fork points?
-    let (block_height, block_hash) = if todo!() {
-        let (block_height, block_info) = tables.block_info_v1s_mut().pop_last()?;
-        (block_height, block_info.block_hash)
-    } else if todo!() {
-        let (block_height, block_info) = tables.block_info_v2s_mut().pop_last()?;
-        (block_height, block_info.block_hash)
-    } else {
-        let (block_height, block_info) = tables.block_info_v3s_mut().pop_last()?;
+    let (block_height, block_hash) = {
+        let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
         (block_height, block_info.block_hash)
     };
 
     // Block blobs.
     // We deserialize the block blob into a `Block`, such
     // that we can remove the associated transactions later.
-    let mut block_blob = tables.block_blobs_mut().take(&block_height)?.0;
+    let block_blob = tables.block_blobs_mut().take(&block_height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
 
     // Block heights.

@@ -10,10 +10,9 @@ use crate::{
     resize::ResizeAlgorithm,
     table::Table,
     tables::{
-        call_fn_on_all_tables_or_early_return, BlockBlobs, BlockHeights, BlockInfoV1s,
-        BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
-        TxUnlockTime,
+        call_fn_on_all_tables_or_early_return, BlockBlobs, BlockHeights, BlockInfos, KeyImages,
+        NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables,
+        TablesMut, TxHeights, TxIds, TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
 };

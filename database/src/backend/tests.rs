@@ -31,15 +31,14 @@ use crate::{
     storable::StorableVec,
     table::Table,
     tables::{
-        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
-        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds,
-        TxUnlockTime,
+        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
+        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds, TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
     types::{
-        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
-        BlockInfoV2, BlockInfoV3, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash,
-        PrunedBlob, RctOutput, TxHash, TxId, UnlockTime,
+        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
+        Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxHash, TxId,
+        UnlockTime,
     },
     ConcreteEnv,
 };
@@ -87,9 +86,7 @@ fn open_db() {
     // This should be updated when tables are modified.
     env_inner.open_db_ro::<BlockBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<BlockHeights>(&tx_ro).unwrap();
-    env_inner.open_db_ro::<BlockInfoV1s>(&tx_ro).unwrap();
-    env_inner.open_db_ro::<BlockInfoV2s>(&tx_ro).unwrap();
-    env_inner.open_db_ro::<BlockInfoV3s>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<BlockInfos>(&tx_ro).unwrap();
     env_inner.open_db_ro::<KeyImages>(&tx_ro).unwrap();
     env_inner.open_db_ro::<NumOutputs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
@@ -105,9 +102,7 @@ fn open_db() {
     // Open all tables in read/write mode.
     env_inner.open_db_rw::<BlockBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<BlockHeights>(&tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV1s>(&tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV2s>(&tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV3s>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfos>(&tx_rw).unwrap();
     env_inner.open_db_rw::<KeyImages>(&tx_rw).unwrap();
     env_inner.open_db_rw::<NumOutputs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -406,30 +401,9 @@ test_tables! {
     BlockHash => BlockHeight,
     [32; 32] => 123,
 
-    BlockInfoV1s,
-    BlockHeight => BlockInfoV1,
-    123 => BlockInfoV1 {
-        timestamp: 1,
-        total_generated_coins: 123,
-        weight: 321,
-        cumulative_difficulty: 111,
-        block_hash: [54; 32],
-    },
-
-    BlockInfoV2s,
-    BlockHeight => BlockInfoV2,
-    123 => BlockInfoV2 {
-        timestamp: 1,
-        total_generated_coins: 123,
-        weight: 321,
-        cumulative_difficulty: 111,
-        cumulative_rct_outs: 2389,
-        block_hash: [54; 32],
-    },
-
-    BlockInfoV3s,
-    BlockHeight => BlockInfoV3,
-    123 => BlockInfoV3 {
+    BlockInfos,
+    BlockHeight => BlockInfo,
+    123 => BlockInfo {
         timestamp: 1,
         total_generated_coins: 123,
         weight: 321,

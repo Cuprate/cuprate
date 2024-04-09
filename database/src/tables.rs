@@ -7,9 +7,9 @@ use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     table::Table,
     types::{
-        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
-        BlockInfoV2, BlockInfoV3, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash,
-        PrunedBlob, RctOutput, TxHash, TxId, UnlockTime,
+        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
+        Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxHash, TxId,
+        UnlockTime,
     },
 };
 
@@ -165,21 +165,19 @@ macro_rules! define_trait_tables {
 //
 // Compile errors will occur if these aren't satisfied.
 define_trait_tables! {
-    BlockInfoV1s => 0,
-    BlockInfoV2s => 1,
-    BlockInfoV3s => 2,
-    BlockBlobs => 3,
-    BlockHeights => 4,
-    KeyImages => 5,
-    NumOutputs => 6,
-    PrunedTxBlobs => 7,
-    PrunableHashes => 8,
-    Outputs => 9,
-    PrunableTxBlobs => 10,
-    RctOutputs => 11,
-    TxIds => 12,
-    TxHeights => 13,
-    TxUnlockTime => 14,
+    BlockInfos => 0,
+    BlockBlobs => 1,
+    BlockHeights => 2,
+    KeyImages => 3,
+    NumOutputs => 4,
+    PrunedTxBlobs => 5,
+    PrunableHashes => 6,
+    Outputs => 7,
+    PrunableTxBlobs => 8,
+    RctOutputs => 9,
+    TxIds => 10,
+    TxHeights => 11,
+    TxUnlockTime => 12,
 }
 
 //---------------------------------------------------------------------------------------------------- Table function macro
@@ -200,9 +198,7 @@ macro_rules! call_fn_on_all_tables_or_early_return {
         )
     ) => {{
         Ok((
-            $($fn ::)*<BlockInfoV1s>($($arg),*)?,
-            $($fn ::)*<BlockInfoV2s>($($arg),*)?,
-            $($fn ::)*<BlockInfoV3s>($($arg),*)?,
+            $($fn ::)*<BlockInfos>($($arg),*)?,
             $($fn ::)*<BlockBlobs>($($arg),*)?,
             $($fn ::)*<BlockHeights>($($arg),*)?,
             $($fn ::)*<KeyImages>($($arg),*)?,
@@ -288,16 +284,8 @@ tables! {
     BlockHash => BlockHeight,
 
     /// TODO
-    BlockInfoV1s,
-    BlockHeight => BlockInfoV1,
-
-    /// TODO
-    BlockInfoV2s,
-    BlockHeight => BlockInfoV2,
-
-    /// TODO
-    BlockInfoV3s,
-    BlockHeight => BlockInfoV3,
+    BlockInfos,
+    BlockHeight => BlockInfo,
 
     /// TODO
     KeyImages,
@@ -331,7 +319,7 @@ tables! {
     // - pruning seed
     //
     // Properties,
-    // KEY => VALUE,
+    // StorableString => StorableVec,
 
     /// TODO
     RctOutputs,
