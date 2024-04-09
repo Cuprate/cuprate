@@ -158,6 +158,32 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
     fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError>;
 
+    /// Fetch the value, and apply a function to it - or delete the entry.
+    ///
+    /// This will call [`DatabaseRo::get`] and call your provided function `f` on it.
+    ///
+    /// - If `f` returns `Some(value)`, that will be [`DatabaseRw::put`] as the new value
+    /// - If `f` returns `None`, the entry will be [`DatabaseRw::delete`]d
+    ///
+    /// # Errors
+    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    fn update<F>(&mut self, key: &T::Key, mut f: F) -> Result<(), RuntimeError>
+    where
+        F: FnMut(T::Value) -> Option<T::Value>,
+    {
+        let value = DatabaseRo::get(self, key)?;
+
+        match f(value) {
+            Some(value) => DatabaseRw::put(self, key, &value)?,
+            None => match DatabaseRw::delete(self, key) {
+                Ok(()) | Err(RuntimeError::KeyNotFound) => (),
+                Err(e) => return Err(e),
+            },
+        }
+
+        Ok(())
+    }
+
     /// TODO
     ///
     /// # Errors
