@@ -74,7 +74,7 @@ pub fn add_block(
             total_generated_coins: generated_coins,
             cumulative_difficulty,
             block_hash,
-            cumulative_rct_outs, // TODO: should this be a dummy value?
+            cumulative_rct_outs,
             // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
             weight: weight as u64,
             long_term_weight: long_term_weight as u64,

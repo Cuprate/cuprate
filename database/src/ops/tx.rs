@@ -46,8 +46,13 @@ pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, Run
     tables.tx_ids_mut().put(&tx.hash(), &tx_id)?;
     tables.tx_heights_mut().put(&tx_id, &height)?;
 
-    // TODO: What exactly is a `UnlockTime (u64)` in Cuprate's case?
-    // What should we be storing? How?
+    // Timelocks.
+    //
+    // Height/time is not differentiated via type, but rather:
+    // "height is any value less than 500_000_000 and timestamp is any value above"
+    // so the `u64/usize` is stored without any tag.
+    //
+    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
     match tx.prefix.timelock {
         Timelock::None => (),
         Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
