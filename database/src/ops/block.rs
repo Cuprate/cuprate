@@ -28,8 +28,8 @@ use crate::{
     },
     transaction::{TxRo, TxRw},
     types::{
-        AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId,
-        RctOutput, TxHash,
+        AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, OutputFlags,
+        PreRctOutputId, RctOutput, TxHash,
     },
     StorableVec,
 };
@@ -48,6 +48,9 @@ use super::{output::get_rct_num_outputs, tx::get_num_tx};
 /// // TODO
 /// ```
 #[doc = doc_error!()]
+///
+/// # Panics
+/// This function will panic if `block.height > u32::MAX` (not normally possible).
 #[allow(clippy::too_many_lines)]
 // no inline, too big.
 pub fn add_block(
@@ -92,6 +95,11 @@ pub fn add_block(
     // Block heights.
     tables.block_heights_mut().put(&block_hash, &height)?;
 
+    // Cast height to `u32` for storage.
+    // Panic (should never happen) instead of allowing DB corruption.
+    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1560020991>
+    let height = u32::try_from(height).expect("height was > u32::MAX");
+
     // Transaction & Outputs.
     for tx in txs {
         let tx: &Transaction = &tx.tx;
@@ -122,13 +130,9 @@ pub fn add_block(
         // Set to a non-zero bit value if the unlock time is non-zero.
         // TODO: use bitflags.
         let output_flags = match tx.prefix.timelock {
-            Timelock::None => 0b0000_0000,
-            Timelock::Block(_) | Timelock::Time(_) => 0b0000_0001,
+            Timelock::None => OutputFlags::NONE,
+            Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
         };
-
-        // TODO: Output types have `height: u32` but ours is u64 - is this cast ok?
-        #[allow(clippy::cast_possible_truncation)]
-        let height = height as u32;
 
         // Output data.
         for (i, output) in tx.prefix.outputs.iter().enumerate() {
