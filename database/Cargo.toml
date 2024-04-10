@@ -18,7 +18,7 @@ redb-memory = ["redb"]
 service     = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon"]
 
 [dependencies]
-bitflags = { workspace = true }
+bitflags = { workspace = true, features = ["serde", "bytemuck"] }
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 bytes    = { workspace = true }
 cfg-if   = { workspace = true }

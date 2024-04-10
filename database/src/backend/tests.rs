@@ -37,8 +37,8 @@ use crate::{
     transaction::{TxRo, TxRw},
     types::{
         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
-        Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash,
-        TxId, UnlockTime,
+        Output, OutputFlags, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput,
+        TxBlob, TxHash, TxId, UnlockTime,
     },
     ConcreteEnv,
 };
@@ -179,7 +179,7 @@ fn db_read_write() {
     const VALUE: Output = Output {
         key: [35; 32],
         height: 45_761_798,
-        output_flags: 0,
+        output_flags: OutputFlags::NONE,
         tx_idx: 2_353_487,
     };
     /// How many `(key, value)` pairs will be inserted.
@@ -447,7 +447,7 @@ test_tables! {
     } => Output {
         key: [1; 32],
         height: 1,
-        output_flags: 0,
+        output_flags: OutputFlags::NONE,
         tx_idx: 3,
     },
 
@@ -468,7 +468,7 @@ test_tables! {
     123 => RctOutput {
         key: [1; 32],
         height: 1,
-        output_flags: 0,
+        output_flags: OutputFlags::NONE,
         tx_idx: 3,
         commitment: [3; 32],
     },

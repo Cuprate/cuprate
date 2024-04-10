@@ -175,6 +175,38 @@ pub struct BlockInfo {
     pub long_term_weight: u64,
 }
 
+//---------------------------------------------------------------------------------------------------- OutputFlags
+bitflags::bitflags! {
+    /// TODO
+    ///
+    /// ```rust
+    /// # use std::borrow::*;
+    /// # use cuprate_database::{*, types::*};
+    /// // Assert Storable is correct.
+    /// let a = OutputFlags::NON_ZERO_UNLOCK_TIME;
+    /// let b = Storable::as_bytes(&a);
+    /// let c: OutputFlags = Storable::from_bytes(b);
+    /// assert_eq!(a, c);
+    /// ```
+    ///
+    /// # Size & Alignment
+    /// ```rust
+    /// # use cuprate_database::types::*;
+    /// # use std::mem::*;
+    /// assert_eq!(size_of::<OutputFlags>(), 4);
+    /// assert_eq!(align_of::<OutputFlags>(), 4);
+    /// ```
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+    #[repr(transparent)]
+    pub struct OutputFlags: u32 {
+        /// No flags set.
+        const NONE = 0b0000_0000;
+        /// This output has a non-zero unlock time.
+        const NON_ZERO_UNLOCK_TIME = 0b0000_0001;
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Output
 /// TODO
 ///
@@ -185,7 +217,7 @@ pub struct BlockInfo {
 /// let a = Output {
 ///     key: [1; 32],
 ///     height: 1,
-///     output_flags: 0,
+///     output_flags: OutputFlags::NONE,
 ///     tx_idx: 3,
 /// };
 /// let b = Storable::as_bytes(&a);
@@ -209,23 +241,10 @@ pub struct Output {
     /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
     pub height: u32,
     /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
-    pub output_flags: u32,
+    pub output_flags: OutputFlags,
     /// TODO
     pub tx_idx: u64,
 }
-
-// TODO
-// bitflags::bitflags! {
-//     /// TODO
-//     #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
-//     #[repr(C)]
-//     pub struct OutputFlags: u32 {
-//         /// No flags set.
-//         const NONE = 0b0000_0000;
-//         /// This output has a non-zero unlock time.
-//         const NON_ZERO_UNLOCK_TIME = 0b0000_0001;
-//     }
-// }
 
 //---------------------------------------------------------------------------------------------------- RctOutput
 /// TODO
@@ -237,7 +256,7 @@ pub struct Output {
 /// let a = RctOutput {
 ///     key: [1; 32],
 ///     height: 1,
-///     output_flags: 0,
+///     output_flags: OutputFlags::NONE,
 ///     tx_idx: 3,
 ///     commitment: [3; 32],
 /// };
@@ -262,7 +281,7 @@ pub struct RctOutput {
     /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
     pub height: u32,
     /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
-    pub output_flags: u32,
+    pub output_flags: OutputFlags,
     /// TODO
     pub tx_idx: u64,
     /// The amount commitment of this output.
