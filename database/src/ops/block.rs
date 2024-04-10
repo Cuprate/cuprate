@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use monero_serai::{
     block::Block,
-    transaction::{Timelock, Transaction},
+    transaction::{Input, Timelock, Transaction},
 };
 
 use cuprate_types::{ExtendedBlockHeader, VerifiedBlockInformation};
@@ -30,6 +30,8 @@ use crate::{
     },
     StorableVec,
 };
+
+use super::tx::get_num_tx;
 
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
@@ -62,57 +64,22 @@ pub fn add_block(
         block_blob,
     } = block;
 
+    let cumulative_rct_outs = crate::ops::output::get_rct_num_outputs(tables.rct_outputs_mut())?;
+
     // Block Info.
-    //
-    // Branch on the hard fork version (`major_version`)
-    // and add the block to the appropriate table.
-    // <https://monero-book.cuprate.org/consensus_rules/hardforks.html#Mainnet-Hard-Forks>
-    //
-    // FIXME: use `match` with ranges when stable:
-    // <https://github.com/rust-lang/rust/issues/37854>
-    if block.header.major_version < 4 {
-        // TODO: add dummy values
-        tables.block_infos_mut().put(
-            &height,
-            &BlockInfo {
-                timestamp: block.header.timestamp,
-                total_generated_coins: generated_coins,
-                weight: weight as u64, // TODO
-                cumulative_difficulty,
-                block_hash,
-                cumulative_rct_outs: todo!(),              // TODO
-                long_term_weight: long_term_weight as u64, // TODO
-            },
-        )
-    } else if block.header.major_version < 10 {
-        // TODO: add dummy values
-        tables.block_infos_mut().put(
-            &height,
-            #[allow(clippy::cast_possible_truncation)] // TODO
-            &BlockInfo {
-                timestamp: block.header.timestamp,
-                total_generated_coins: generated_coins,
-                weight: weight as u64, // TODO
-                cumulative_difficulty,
-                block_hash,
-                cumulative_rct_outs: todo!(),              // TODO
-                long_term_weight: long_term_weight as u64, // TODO
-            },
-        )
-    } else {
-        tables.block_infos_mut().put(
-            &height,
-            &BlockInfo {
-                timestamp: block.header.timestamp,
-                total_generated_coins: generated_coins,
-                weight: weight as u64, // TODO
-                cumulative_difficulty,
-                block_hash,
-                cumulative_rct_outs: todo!(),              // TODO
-                long_term_weight: long_term_weight as u64, // TODO
-            },
-        )
-    }?;
+    tables.block_infos_mut().put(
+        &height,
+        &BlockInfo {
+            timestamp: block.header.timestamp,
+            total_generated_coins: generated_coins,
+            cumulative_difficulty,
+            block_hash,
+            cumulative_rct_outs, // TODO: should this be a dummy value?
+            // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
+            weight: weight as u64,
+            long_term_weight: long_term_weight as u64,
+        },
+    )?;
 
     // Block blobs.
     tables
@@ -125,35 +92,75 @@ pub fn add_block(
     // Transaction & Outputs.
     for tx in txs {
         let tx: &Transaction = &tx.tx;
-
         add_tx(tx, tables)?;
 
-        // Output data.
-        for output in &tx.prefix.outputs {
-            // Key images.
-            add_key_image(tables.key_images_mut(), output.key.as_bytes())?;
+        // ^
+        // Everything above is adding tx data.
+        // Everything below is for adding input/output data.
+        // v
 
+        // Is this a miner transaction?
+        // Which table we add the output data to depends on this.
+        // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
+        let mut miner_tx = false;
+
+        for inputs in &tx.prefix.inputs {
+            match inputs {
+                // Key images.
+                Input::ToKey { key_image, .. } => {
+                    add_key_image(tables.key_images_mut(), key_image.compress().as_bytes())?;
+                }
+                // This is a miner transaction, set it for later use.
+                Input::Gen(_) => miner_tx = true,
+            }
+        }
+
+        // Output bit flags.
+        // Set to a non-zero bit value if the unlock time is non-zero.
+        let output_flags = match tx.prefix.timelock {
+            Timelock::None => 0x0000_0000,
+            Timelock::Block(_) | Timelock::Time(_) => 0x0000_0001,
+        };
+
+        // Output data.
+        for (i, output) in tx.prefix.outputs.iter().enumerate() {
+            let tx_idx = get_num_tx(tables.tx_ids_mut())?;
+            let key = *output.key.as_bytes();
+
+            // RingCT (v2 transaction) miner outputs.
+            if miner_tx && tx.prefix.version == 2 {
+                add_rct_output(
+                    &RctOutput {
+                        key,
+                        height,
+                        output_flags,
+                        tx_idx,
+                        commitment: todo!(), // Zero dummy commit?
+                    },
+                    tables.rct_outputs_mut(),
+                )?;
             // Pre-RingCT outputs.
-            if let Some(amount) = output.amount {
+            } else if let Some(amount) = output.amount {
                 add_output(
                     amount,
                     &Output {
-                        key: *output.key.as_bytes(),
-                        height: todo!(),
-                        output_flags: todo!(),
-                        tx_idx: todo!(),
+                        key,
+                        height,
+                        output_flags,
+                        tx_idx,
                     },
                     tables,
                 )?;
             // RingCT outputs.
             } else {
+                let commitment = tx.rct_signatures.base.commitments[i].compress().to_bytes();
                 add_rct_output(
                     &RctOutput {
-                        key: todo!(),
-                        height: todo!(),
-                        output_flags: todo!(),
-                        tx_idx: todo!(),
-                        commitment: todo!(),
+                        key,
+                        height,
+                        output_flags,
+                        tx_idx,
+                        commitment,
                     },
                     tables.rct_outputs_mut(),
                 )?;

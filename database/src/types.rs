@@ -247,7 +247,7 @@ pub struct RctOutput {
     /// TODO
     pub key: [u8; 32],
     /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
-    pub height: u32,
+    pub height: u64,
     /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
     pub output_flags: u32,
     /// TODO
