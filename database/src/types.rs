@@ -214,6 +214,18 @@ pub struct Output {
     pub tx_idx: u64,
 }
 
+// bitflags::bitflags! {
+//     /// TODO
+//     #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+//     #[repr(C)]
+//     pub struct OutputFlags: u32 {
+//         /// No flags set.
+//         const NONE = 0b0000_0000;
+//         /// This output has a non-zero unlock time.
+//         const NON_ZERO_UNLOCK_TIME = 0b0000_0001;
+//     }
+// }
+
 //---------------------------------------------------------------------------------------------------- RctOutput
 /// TODO
 ///
@@ -247,7 +259,7 @@ pub struct RctOutput {
     /// TODO
     pub key: [u8; 32],
     /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
-    pub height: u64,
+    pub height: u32,
     /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
     pub output_flags: u32,
     /// TODO

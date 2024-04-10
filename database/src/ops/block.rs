@@ -1,6 +1,7 @@
 //! Blocks.
 
 //---------------------------------------------------------------------------------------------------- Import
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::{
     block::Block,
     transaction::{Input, Timelock, Transaction},
@@ -117,40 +118,57 @@ pub fn add_block(
 
         // Output bit flags.
         // Set to a non-zero bit value if the unlock time is non-zero.
+        // TODO: use bitflags.
         let output_flags = match tx.prefix.timelock {
-            Timelock::None => 0x0000_0000,
-            Timelock::Block(_) | Timelock::Time(_) => 0x0000_0001,
+            Timelock::None => 0b0000_0000,
+            Timelock::Block(_) | Timelock::Time(_) => 0b0000_0001,
         };
+
+        // TODO: Output types have `height: u32` but ours is u64 - is this cast ok?
+        #[allow(clippy::cast_possible_truncation)]
+        let height = height as u32;
 
         // Output data.
         for (i, output) in tx.prefix.outputs.iter().enumerate() {
             let tx_idx = get_num_tx(tables.tx_ids_mut())?;
             let key = *output.key.as_bytes();
 
-            // RingCT (v2 transaction) miner outputs.
-            if miner_tx && tx.prefix.version == 2 {
-                add_rct_output(
-                    &RctOutput {
-                        key,
-                        height,
-                        output_flags,
-                        tx_idx,
-                        commitment: todo!(), // Zero dummy commit?
-                    },
-                    tables.rct_outputs_mut(),
-                )?;
-            // Pre-RingCT outputs.
-            } else if let Some(amount) = output.amount {
-                add_output(
-                    amount,
-                    &Output {
-                        key,
-                        height,
-                        output_flags,
-                        tx_idx,
-                    },
-                    tables,
-                )?;
+            // Outputs with clear amounts.
+            if let Some(amount) = output.amount {
+                // RingCT (v2 transaction) miner outputs.
+                if miner_tx && tx.prefix.version == 2 {
+                    // Create commitment.
+                    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1559489302>
+                    // FIXME: implement lookup table for common values:
+                    // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
+                    let commitment = (ED25519_BASEPOINT_POINT
+                        + monero_serai::H() * Scalar::from(amount))
+                    .compress()
+                    .to_bytes();
+
+                    add_rct_output(
+                        &RctOutput {
+                            key,
+                            height,
+                            output_flags,
+                            tx_idx,
+                            commitment,
+                        },
+                        tables.rct_outputs_mut(),
+                    )?;
+                // Pre-RingCT outputs.
+                } else {
+                    add_output(
+                        amount,
+                        &Output {
+                            key,
+                            height,
+                            output_flags,
+                            tx_idx,
+                        },
+                        tables,
+                    )?;
+                }
             // RingCT outputs.
             } else {
                 let commitment = tx.rct_signatures.base.commitments[i].compress().to_bytes();
