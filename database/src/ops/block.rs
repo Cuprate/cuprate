@@ -278,6 +278,7 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
 /// ```
 #[doc = doc_error!()]
 #[inline]
+#[allow(unused_assignments)] // `block_weight` gets returned at the end?
 pub fn get_block(
     tables: &impl Tables,
     block_hash: BlockHash,
@@ -298,11 +299,11 @@ pub fn get_block(
         block_weight += tx_weight;
 
         txs.push(Arc::new(TransactionVerificationData {
-            tx,
             tx_weight,
             tx_blob: tx_blob.to_vec(),
             tx_hash: tx.hash(),
             fee: todo!(), // TODO: how to calculate?
+            tx,
         }));
     }
 
@@ -332,6 +333,24 @@ pub fn get_block(
     })
 }
 
+/// Same as [`get_block`] but with a [`BlockHeight`].
+///
+/// Note: This is more expensive than the above.
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*};
+/// // TODO
+/// ```
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_from_height(
+    tables: &impl Tables,
+    block_height: BlockHeight,
+) -> Result<VerifiedBlockInformation, RuntimeError> {
+    get_block(tables, tables.block_infos().get(&block_height)?.block_hash)
+}
+
 //---------------------------------------------------------------------------------------------------- `get_block_header_*`
 /// Retrieve a [`ExtendedBlockHeader`] from the database.
 ///
@@ -347,16 +366,43 @@ pub fn get_block(
 #[inline]
 pub fn get_block_header(
     tables: &impl Tables,
-    height: BlockHeight,
+    block_hash: BlockHash,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
-    todo!()
+    let height = tables.block_heights().get(&block_hash)?;
+    let block_info = tables.block_infos().get(&height)?;
+    let block_blob = tables.block_blobs().get(&height)?.0;
+    let block = Block::read(&mut block_blob.as_slice())?;
+
+    Ok(ExtendedBlockHeader {
+        version: block.header.major_version,
+        vote: block.header.minor_version,
+        timestamp: block.header.timestamp,
+        cumulative_difficulty: todo!(),
+        block_weight: todo!(),
+        long_term_weight: todo!(),
+    })
+}
+
+/// Same as [`get_block_header`] but with a [`BlockHeight`].
+///
+/// Note: This is more expensive than the above.
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*};
+/// // TODO
+/// ```
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_header_from_height(
+    tables: &impl Tables,
+    block_height: BlockHeight,
+) -> Result<ExtendedBlockHeader, RuntimeError> {
+    get_block_header(tables, tables.block_infos().get(&block_height)?.block_hash)
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_top_*`
-/// Return the top block from the database.
-///
-/// This is the same as [`pop_block()`], but it does
-/// not remove the block, it only retrieves it.
+/// Return the top/latest block from the database.
 ///
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*};
@@ -365,8 +411,10 @@ pub fn get_block_header(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_top(tables: &impl Tables) -> Result<VerifiedBlockInformation, RuntimeError> {
-    let top_block_height = crate::ops::blockchain::chain_height(tables.block_heights())?;
-    get_block(tables, top_block_height)
+    get_block_from_height(
+        tables,
+        crate::ops::blockchain::chain_height(tables.block_heights())?.saturating_sub(1),
+    )
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_height_*`

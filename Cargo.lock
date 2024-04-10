@@ -591,12 +591,14 @@ dependencies = [
 name = "cuprate-database"
 version = "0.0.0"
 dependencies = [
+ "bitflags 2.4.2",
  "bytemuck",
  "bytes",
  "cfg-if",
  "crossbeam",
  "cuprate-helper",
  "cuprate-types",
+ "curve25519-dalek",
  "futures",
  "heed",
  "monero-pruning",
