@@ -17,8 +17,8 @@ use crate::{
     },
     transaction::{TxRo, TxRw},
     types::{
-        BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, RctOutput, TxHash,
-        TxId,
+        BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, RctOutput, TxBlob,
+        TxHash, TxId,
     },
 };
 
@@ -79,7 +79,10 @@ pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, Run
 /// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> Result<TxId, RuntimeError> {
+pub fn remove_tx(
+    tx_hash: &TxHash,
+    tables: &mut impl TablesMut,
+) -> Result<(TxId, TxBlob), RuntimeError> {
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
     tables.tx_heights_mut().delete(&tx_id)?;
 
@@ -96,7 +99,9 @@ pub fn remove_tx(tx_hash: &TxHash, tables: &mut impl TablesMut) -> Result<TxId, 
         Err(e) => return Err(e),
     };
 
-    Ok(tx_id)
+    let tx_blob = tables.tx_blobs_mut().take(&tx_id)?;
+
+    Ok((tx_id, tx_blob))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`

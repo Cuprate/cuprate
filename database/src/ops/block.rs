@@ -32,7 +32,7 @@ use crate::{
     StorableVec,
 };
 
-use super::tx::get_num_tx;
+use super::{output::get_rct_num_outputs, tx::get_num_tx};
 
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
@@ -201,15 +201,13 @@ pub fn add_block(
 #[inline]
 pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeError> {
     // Remove block data from tables.
-    //
-    // TODO: What table to pop from here?
-    // Start with v3, if thats empty, try v2, etc?
-    //
-    // Branch depending on `height` and known hard fork points?
     let (block_height, block_hash) = {
         let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
         (block_height, block_info.block_hash)
     };
+
+    // Block heights.
+    tables.block_heights_mut().delete(&block_hash)?;
 
     // Block blobs.
     // We deserialize the block blob into a `Block`, such
@@ -217,34 +215,46 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
     let block_blob = tables.block_blobs_mut().take(&block_height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
 
-    // Block heights.
-    tables.block_heights_mut().delete(&block_hash)?;
-
     // Transaction & Outputs.
-    for tx in block.txs {
-        let tx: &Transaction = todo!();
-        let tx_hash: &TxHash = todo!();
+    for tx_hash in block.txs {
+        let (tx_id, tx_blob) = remove_tx(&tx_hash, tables)?;
+        let tx = Transaction::read(&mut tx_blob.0.as_slice())?;
 
-        remove_tx(tx_hash, tables)?;
+        // Is this a miner transaction?
+        let mut miner_tx = false;
+        for inputs in &tx.prefix.inputs {
+            match inputs {
+                // Key images.
+                Input::ToKey { key_image, .. } => {
+                    add_key_image(tables.key_images_mut(), key_image.compress().as_bytes())?;
+                }
+                // This is a miner transaction, set it for later use.
+                Input::Gen(_) => miner_tx = true,
+            }
+        }
 
-        // Output data.
+        // Remove each output in the transaction.
         for output in tx.prefix.outputs {
-            // Key images.
-            remove_key_image(tables.key_images_mut(), output.key.as_bytes())?;
-
-            let amount_index: AmountIndex = todo!();
-
-            // Pre-RingCT outputs.
+            // Outputs with clear amounts.
             if let Some(amount) = output.amount {
-                remove_output(
-                    &PreRctOutputId {
-                        amount,
-                        amount_index,
-                    },
-                    tables,
-                )?;
+                // RingCT miner outputs.
+                if miner_tx && tx.prefix.version == 2 {
+                    let amount_index = get_rct_num_outputs(tables.rct_outputs_mut())?;
+                    remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
+                // Pre-RingCT outputs.
+                } else {
+                    let amount_index = tables.num_outputs_mut().take(&amount)?;
+                    remove_output(
+                        &PreRctOutputId {
+                            amount,
+                            amount_index,
+                        },
+                        tables,
+                    )?;
+                }
             // RingCT outputs.
             } else {
+                let amount_index = get_rct_num_outputs(tables.rct_outputs_mut())?;
                 remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
             }
         }

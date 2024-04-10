@@ -214,6 +214,7 @@ pub struct Output {
     pub tx_idx: u64,
 }
 
+// TODO
 // bitflags::bitflags! {
 //     /// TODO
 //     #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
