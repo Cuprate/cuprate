@@ -1,5 +1,7 @@
 //! Blocks.
 
+use std::sync::Arc;
+
 //---------------------------------------------------------------------------------------------------- Import
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::{
@@ -7,7 +9,7 @@ use monero_serai::{
     transaction::{Input, Timelock, Transaction},
 };
 
-use cuprate_types::{ExtendedBlockHeader, VerifiedBlockInformation};
+use cuprate_types::{ExtendedBlockHeader, TransactionVerificationData, VerifiedBlockInformation};
 
 use crate::{
     database::{DatabaseRo, DatabaseRw},
@@ -278,9 +280,56 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
 #[inline]
 pub fn get_block(
     tables: &impl Tables,
-    height: BlockHeight,
+    block_hash: BlockHash,
 ) -> Result<VerifiedBlockInformation, RuntimeError> {
-    todo!()
+    let height = tables.block_heights().get(&block_hash)?;
+    let block_info = tables.block_infos().get(&height)?;
+    let block_blob = tables.block_blobs().get(&height)?.0;
+    let block = Block::read(&mut block_blob.as_slice())?;
+
+    let mut txs = Vec::with_capacity(block.txs.len());
+    let mut block_weight = 0;
+
+    // Transactions.
+    for tx_blob in &block.txs {
+        let tx = Transaction::read(&mut tx_blob.as_slice())?;
+
+        let tx_weight = tx.weight();
+        block_weight += tx_weight;
+
+        txs.push(Arc::new(TransactionVerificationData {
+            tx,
+            tx_weight,
+            tx_blob: tx_blob.to_vec(),
+            tx_hash: tx.hash(),
+            fee: todo!(), // TODO: how to calculate?
+        }));
+    }
+
+    // Sum the amount of generated coins for this block.
+    let generated_coins = block
+        .miner_tx
+        .prefix
+        .inputs
+        .iter()
+        .map(|input| match input {
+            Input::Gen(amount) => *amount,
+            Input::ToKey { .. } => 0,
+        })
+        .sum();
+
+    Ok(VerifiedBlockInformation {
+        block,
+        txs,
+        block_hash,
+        pow_hash: todo!(),
+        height,
+        generated_coins,
+        weight: block_weight,
+        long_term_weight: todo!(),
+        cumulative_difficulty: todo!(),
+        block_blob,
+    })
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_header_*`
