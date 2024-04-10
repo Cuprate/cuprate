@@ -312,15 +312,15 @@ tables! {
     Outputs,
     PreRctOutputId => Output,
 
-    // TODO: impl when `monero-serai` supports pruning
+    // SOMEDAY: impl when `monero-serai` supports pruning
     PrunableTxBlobs,
     TxId => PrunableBlob,
 
-    // TODO: impl when `monero-serai` supports pruning
+    // SOMEDAY: impl when `monero-serai` supports pruning
     PrunableHashes,
     TxId => PrunableHash,
 
-    // TODO: impl a properties table:
+    // SOMEDAY: impl a properties table:
     // - db version
     // - pruning seed
     // Properties,
@@ -330,7 +330,7 @@ tables! {
     RctOutputs,
     AmountIndex => RctOutput,
 
-    /// TODO: remove when `monero-serai` supports pruning
+    /// SOMEDAY: remove when `monero-serai` supports pruning
     TxBlobs,
     TxId => TxBlob,
 

@@ -12,7 +12,7 @@ use crate::{
     ops::macros::{doc_add_block_inner_invariant, doc_error},
     tables::{
         BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
+        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxBlobs, TxHeights, TxIds,
         TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
@@ -59,9 +59,9 @@ pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, Run
         Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
     }
 
-    // TODO: implement pruning after `monero-serai` does.
+    // SOMEDAY: implement pruning after `monero-serai` does.
     // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
-    // TODO: what to store here? which table?
+    // SOMEDAY: what to store here? which table?
     // }
 
     Ok(tx_id)
@@ -86,11 +86,11 @@ pub fn remove_tx(
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
     tables.tx_heights_mut().delete(&tx_id)?;
 
-    // TODO: implement pruning after `monero-serai` does.
+    // SOMEDAY: implement pruning after `monero-serai` does.
     // table_prunable_hashes.delete(&tx_id)?;
     // table_prunable_tx_blobs.delete(&tx_id)?;
     // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
-    // TODO: what to remove here? which table?
+    // SOMEDAY: what to remove here? which table?
     // }
 
     match tables.tx_unlock_time_mut().delete(&tx_id) {
@@ -116,11 +116,27 @@ pub fn remove_tx(
 #[inline]
 pub fn get_tx(
     tx_hash: &TxHash,
-    table_tx_ids: &(impl DatabaseRo<TxIds> + DatabaseIter<TxIds>),
-    table_heights: &(impl DatabaseRo<TxHeights> + DatabaseIter<TxHeights>),
-    table_unlock_time: &(impl DatabaseRo<TxUnlockTime> + DatabaseIter<TxUnlockTime>),
+    table_tx_ids: &impl DatabaseRo<TxIds>,
+    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
 ) -> Result<Transaction, RuntimeError> {
-    todo!()
+    get_tx_from_id(&table_tx_ids.get(tx_hash)?, table_tx_blobs)
+}
+
+/// TODO
+///
+#[doc = doc_error!()]
+/// # Example
+/// ```rust
+/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
+/// // TODO
+/// ```
+#[inline]
+pub fn get_tx_from_id(
+    tx_id: &TxId,
+    table_tx_blobs: &impl DatabaseRo<TxBlobs>,
+) -> Result<Transaction, RuntimeError> {
+    let tx_blob = table_tx_blobs.get(tx_id)?.0;
+    Ok(Transaction::read(&mut tx_blob.as_slice())?)
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -152,9 +168,4 @@ pub fn tx_exists(
     table_tx_ids: &impl DatabaseRo<TxIds>,
 ) -> Result<bool, RuntimeError> {
     table_tx_ids.contains(tx_hash)
-}
-
-/// TODO
-pub fn get_pruned_tx() {
-    todo!()
 }
