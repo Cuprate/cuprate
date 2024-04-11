@@ -24,23 +24,23 @@ static DOWNLOAD_MONEROD_MUTEX: Mutex<()> = Mutex::const_new(());
 /// Returns the file name to download and the expected extracted folder name.
 fn file_name(version: &str) -> (String, String) {
     let download_file = match (OS, ARCH) {
-        ("windows", "x64") | ("windows", "x86_64") => format!("monero-win-x64-{}.zip", version),
-        ("windows", "x86") => format!("monero-win-x86-{}.zip", version),
-        ("linux", "x64") | ("linux", "x86_64") => format!("monero-linux-x64-{}.tar.bz2", version),
-        ("linux", "x86") => format!("monero-linux-x86-{}.tar.bz2", version),
-        ("macos", "x64") | ("macos", "x86_64") => format!("monero-mac-x64-{}.tar.bz2", version),
+        ("windows", "x64" | "x86_64") => format!("monero-win-x64-{version}.zip"),
+        ("windows", "x86") => format!("monero-win-x86-{version}.zip"),
+        ("linux", "x64" | "x86_64") => format!("monero-linux-x64-{version}.tar.bz2"),
+        ("linux", "x86") => format!("monero-linux-x86-{version}.tar.bz2"),
+        ("macos", "x64" | "x86_64") => format!("monero-mac-x64-{version}.tar.bz2"),
         _ => panic!("Can't get monerod for {OS}, {ARCH}."),
     };
 
     let extracted_dir = match (OS, ARCH) {
-        ("windows", "x64") | ("windows", "x86_64") => {
-            format!("monero-x86_64-w64-mingw32-{}", version)
+        ("windows", "x64" | "x86_64") => {
+            format!("monero-x86_64-w64-mingw32-{version}")
         }
-        ("windows", "x86") => format!("monero-i686-w64-mingw32-{}", version),
-        ("linux", "x64") | ("linux", "x86_64") => format!("monero-x86_64-linux-gnu-{}", version),
-        ("linux", "x86") => format!("monero-i686-linux-gnu-{}", version),
-        ("macos", "x64") | ("macos", "x86_64") => {
-            format!("monero-x86_64-apple-darwin11-{}", version)
+        ("windows", "x86") => format!("monero-i686-w64-mingw32-{version}"),
+        ("linux", "x64" | "x86_64") => format!("monero-x86_64-linux-gnu-{version}"),
+        ("linux", "x86") => format!("monero-i686-linux-gnu-{version}"),
+        ("macos", "x64" | "x86_64") => {
+            format!("monero-x86_64-apple-darwin11-{version}")
         }
         _ => panic!("Can't get monerod for {OS}, {ARCH}."),
     };
@@ -50,7 +50,7 @@ fn file_name(version: &str) -> (String, String) {
 
 /// Downloads the monerod file provided, extracts it and puts the extracted folder into `path_to_store`.
 async fn download_monerod(file_name: &str, path_to_store: &Path) -> Result<(), ReqError> {
-    let res = get(format!("https://downloads.getmonero.org/cli/{}", file_name)).await?;
+    let res = get(format!("https://downloads.getmonero.org/cli/{file_name}")).await?;
     let monerod_archive = res.bytes().await.unwrap();
 
     #[cfg(unix)]
@@ -83,7 +83,8 @@ fn find_target() -> PathBuf {
 }
 
 /// Checks if we have monerod or downloads it if we don't and then returns the path to it.
-pub async fn check_download_monerod() -> Result<PathBuf, ReqError> {
+#[allow(clippy::redundant_pub_crate)]
+pub(crate) async fn check_download_monerod() -> Result<PathBuf, ReqError> {
     // make sure no other threads are downloading monerod at the same time.
     let _guard = DOWNLOAD_MONEROD_MUTEX.lock().await;
 

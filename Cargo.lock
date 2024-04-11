@@ -634,6 +634,7 @@ dependencies = [
  "bzip2",
  "futures",
  "monero-p2p",
+ "monero-serai",
  "monero-wire",
  "reqwest",
  "tar",
