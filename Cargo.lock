@@ -633,6 +633,7 @@ dependencies = [
  "bytes",
  "bzip2",
  "futures",
+ "hex",
  "monero-p2p",
  "monero-serai",
  "monero-wire",

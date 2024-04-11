@@ -10,6 +10,7 @@ async-trait  = { workspace = true }
 bytes        = { workspace = true, features = ["std"] }
 borsh        = { workspace = true, features = ["derive"]}
 futures      = { workspace = true, features = ["std"] }
+hex          = { workspace = true }
 monero-p2p   = { path = "../p2p/monero-p2p", features = ["borsh"] }
 monero-serai = { workspace = true, features = ["std"] }
 monero-wire  = { path = "../net/monero-wire" }
