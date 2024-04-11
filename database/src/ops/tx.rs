@@ -9,7 +9,10 @@ use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::EnvInner,
     error::RuntimeError,
-    ops::macros::{doc_add_block_inner_invariant, doc_error},
+    ops::{
+        macros::{doc_add_block_inner_invariant, doc_error},
+        property::get_blockchain_pruning_seed,
+    },
     tables::{
         BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
         PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxBlobs, TxHeights, TxIds,
@@ -20,9 +23,8 @@ use crate::{
         BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, RctOutput, TxBlob,
         TxHash, TxId,
     },
+    StorableVec,
 };
-
-use super::property::get_blockchain_pruning_seed;
 
 //---------------------------------------------------------------------------------------------------- Private
 /// TODO
@@ -31,12 +33,6 @@ use super::property::get_blockchain_pruning_seed;
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
-/// // TODO
-/// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, RuntimeError> {
@@ -45,6 +41,9 @@ pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, Run
 
     tables.tx_ids_mut().put(&tx.hash(), &tx_id)?;
     tables.tx_heights_mut().put(&tx_id, &height)?;
+    tables
+        .tx_blobs_mut()
+        .put(&tx_id, &StorableVec(tx.serialize()))?;
 
     // Timelocks.
     //
@@ -71,12 +70,6 @@ pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, Run
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
-/// // TODO
-/// ```
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn remove_tx(
@@ -108,11 +101,6 @@ pub fn remove_tx(
 /// TODO
 ///
 #[doc = doc_error!()]
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
-/// // TODO
-/// ```
 #[inline]
 pub fn get_tx(
     tx_hash: &TxHash,
@@ -125,11 +113,6 @@ pub fn get_tx(
 /// TODO
 ///
 #[doc = doc_error!()]
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
-/// // TODO
-/// ```
 #[inline]
 pub fn get_tx_from_id(
     tx_id: &TxId,
@@ -143,11 +126,6 @@ pub fn get_tx_from_id(
 /// TODO
 ///
 #[doc = doc_error!()]
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
-/// // TODO
-/// ```
 #[inline]
 pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> Result<u64, RuntimeError> {
     table_tx_ids.len()
@@ -157,15 +135,99 @@ pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> Result<u64, RuntimeE
 /// TODO
 ///
 #[doc = doc_error!()]
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
-/// // TODO
-/// ```
 #[inline]
 pub fn tx_exists(
     tx_hash: &TxHash,
     table_tx_ids: &impl DatabaseRo<TxIds>,
 ) -> Result<bool, RuntimeError> {
     table_tx_ids.contains(tx_hash)
+}
+
+//---------------------------------------------------------------------------------------------------- Tests
+#[cfg(test)]
+#[allow(clippy::significant_drop_tightening)]
+mod test {
+    use super::*;
+    use crate::{
+        tests::{dummy_tx, tmp_concrete_env},
+        Env,
+    };
+
+    /// TODO: fix when we have real TX data to test on.
+    /// Tests all above tx functions.
+    #[test]
+    fn all_tx_functions() {
+        let (env, tmp) = tmp_concrete_env();
+        let env_inner = env.env_inner();
+
+        // Monero `Transaction`, not database tx.
+        let tx: Transaction = dummy_tx();
+
+        // Before starting, assert the DB is empty.
+        let assert_db_is_empty = || {
+            let tx_ro = env_inner.tx_ro().unwrap();
+            let tables = env_inner.open_tables(&tx_ro).unwrap();
+            assert!(tables.block_infos().is_empty().unwrap());
+            assert!(tables.block_blobs().is_empty().unwrap());
+            assert!(tables.block_heights().is_empty().unwrap());
+            assert!(tables.key_images().is_empty().unwrap());
+            assert!(tables.num_outputs().is_empty().unwrap());
+            assert!(tables.pruned_tx_blobs().is_empty().unwrap());
+            assert!(tables.prunable_hashes().is_empty().unwrap());
+            assert!(tables.outputs().is_empty().unwrap());
+            assert!(tables.prunable_tx_blobs().is_empty().unwrap());
+            assert!(tables.rct_outputs().is_empty().unwrap());
+            assert!(tables.tx_blobs().is_empty().unwrap());
+            assert!(tables.tx_ids().is_empty().unwrap());
+            assert!(tables.tx_heights().is_empty().unwrap());
+            assert!(tables.tx_unlock_time().is_empty().unwrap());
+            assert_eq!(get_num_tx(tables.tx_ids()).unwrap(), 0);
+        };
+        assert_db_is_empty();
+
+        // Add transaction.
+        let tx_id = {
+            let tx_rw = env_inner.tx_rw().unwrap();
+            let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+            let tx_id = add_tx(&tx, &mut tables).unwrap();
+
+            drop(tables);
+            TxRw::commit(tx_rw).unwrap();
+
+            tx_id
+        };
+
+        // Assert all reads of that transaction are OK.
+        let tx_hash = {
+            let tx_ro = env_inner.tx_ro().unwrap();
+            let tables = env_inner.open_tables(&tx_ro).unwrap();
+
+            // Assert proper tables were added to.
+            assert_eq!(tables.tx_ids().len().unwrap(), 1);
+            assert_eq!(tables.tx_heights().len().unwrap(), 1);
+            assert_eq!(tables.tx_unlock_time().len().unwrap(), 1);
+            assert_eq!(tables.tx_blobs().len().unwrap(), 1);
+
+            // Both from ID and hash should result in getting the same transaction.
+            let tx_get_from_id = get_tx_from_id(&tx_id, tables.tx_blobs()).unwrap();
+            let tx_hash = tx_get_from_id.hash();
+            let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
+            assert_eq!(tx_get_from_id, tx_get);
+            assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
+
+            tx_hash
+        };
+
+        // Remove the transaction.
+        {
+            let tx_rw = env_inner.tx_rw().unwrap();
+            let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+            remove_tx(&tx_hash, &mut tables).unwrap();
+            drop(tables);
+            TxRw::commit(tx_rw).unwrap();
+        }
+
+        assert_db_is_empty();
+    }
 }

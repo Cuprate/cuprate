@@ -265,3 +265,5 @@ pub use transaction::{TxRo, TxRw};
 pub mod service;
 
 //---------------------------------------------------------------------------------------------------- Private
+#[cfg(test)]
+pub(crate) mod tests;

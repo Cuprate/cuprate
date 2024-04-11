@@ -34,6 +34,7 @@ use crate::{
         BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
         PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxUnlockTime,
     },
+    tests::tmp_concrete_env,
     transaction::{TxRo, TxRw},
     types::{
         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
@@ -44,18 +45,6 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Tests
-/// Create an `Env` in a temporarily directory.
-/// The directory is automatically removed after the `TempDir` is dropped.
-///
-/// TODO: changing this to `-> impl Env` causes lifetime errors...
-fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
-    let tempdir = tempfile::tempdir().unwrap();
-    let config = Config::low_power(Some(tempdir.path().into()));
-    let env = ConcreteEnv::open(config).unwrap();
-
-    (env, tempdir)
-}
-
 /// Simply call [`Env::open`]. If this fails, something is really wrong.
 #[test]
 fn open() {
