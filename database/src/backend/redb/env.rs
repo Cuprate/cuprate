@@ -9,7 +9,7 @@ use crate::{
         types::{RedbTableRo, RedbTableRw},
     },
     config::{Config, SyncMode},
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     table::Table,
@@ -186,7 +186,7 @@ where
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &redb::ReadTransaction,
-    ) -> Result<impl DatabaseRo<T>, RuntimeError> {
+    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
@@ -198,7 +198,7 @@ where
     #[inline]
     fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &mut redb::WriteTransaction,
+        tx_rw: &redb::WriteTransaction,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =

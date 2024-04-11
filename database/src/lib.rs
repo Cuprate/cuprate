@@ -224,7 +224,7 @@ pub use constants::{
 };
 
 mod database;
-pub use database::{DatabaseRo, DatabaseRw};
+pub use database::{DatabaseIter, DatabaseRo, DatabaseRw};
 
 mod env;
 pub use env::{Env, EnvInner};
