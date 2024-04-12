@@ -18,8 +18,6 @@ use crate::data::constants::{
 /// Return [`BLOCK_BBD604`] as a [`Block`].
 ///
 /// ```rust
-/// use monero_serai::{block::Block, transaction::Input};
-///
 /// assert_eq!(
 ///     &cuprate_test_utils::data::block_v1_tx513().serialize(),
 ///     cuprate_test_utils::data::BLOCK_BBD604
@@ -36,8 +34,6 @@ pub fn block_v1_tx513() -> Block {
 /// Return [`BLOCK_F91043`] as a [`Block`].
 ///
 /// ```rust
-/// use monero_serai::{block::Block, transaction::Input};
-///
 /// assert_eq!(
 ///     &cuprate_test_utils::data::block_v9_tx3().serialize(),
 ///     cuprate_test_utils::data::BLOCK_F91043
@@ -54,8 +50,6 @@ pub fn block_v9_tx3() -> Block {
 /// Return [`BLOCK_43BD1F`] as a [`Block`].
 ///
 /// ```rust
-/// use monero_serai::{block::Block, transaction::Input};
-///
 /// assert_eq!(
 ///     &cuprate_test_utils::data::block_v16_tx0().serialize(),
 ///     cuprate_test_utils::data::BLOCK_43BD1F
@@ -71,6 +65,13 @@ pub fn block_v16_tx0() -> Block {
 
 //---------------------------------------------------------------------------------------------------- Transactions
 /// Return [`TX_3BC7FF`] as a [`Transaction`].
+///
+/// ```rust
+/// assert_eq!(
+///     &cuprate_test_utils::data::tx_v1_sig0().serialize(),
+///     cuprate_test_utils::data::TX_3BC7FF
+/// );
+/// ```
 pub fn tx_v1_sig0() -> Transaction {
     /// `OnceLock` holding the data.
     static TX: OnceLock<Transaction> = OnceLock::new();
@@ -79,6 +80,13 @@ pub fn tx_v1_sig0() -> Transaction {
 }
 
 /// Return [`TX_9E3F73`] as a [`Transaction`].
+///
+/// ```rust
+/// assert_eq!(
+///     &cuprate_test_utils::data::tx_v1_sig2().serialize(),
+///     cuprate_test_utils::data::TX_9E3F73
+/// );
+/// ```
 pub fn tx_v1_sig2() -> Transaction {
     /// `OnceLock` holding the data.
     static TX: OnceLock<Transaction> = OnceLock::new();
@@ -87,6 +95,13 @@ pub fn tx_v1_sig2() -> Transaction {
 }
 
 /// Return [`TX_84D48D`] as a [`Transaction`].
+///
+/// ```rust
+/// assert_eq!(
+///     &cuprate_test_utils::data::tx_v2_rct3().serialize(),
+///     cuprate_test_utils::data::TX_84D48D
+/// );
+/// ```
 pub fn tx_v2_rct3() -> Transaction {
     /// `OnceLock` holding the data.
     static TX: OnceLock<Transaction> = OnceLock::new();
