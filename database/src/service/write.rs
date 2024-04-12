@@ -65,7 +65,11 @@ impl DatabaseWriteHandle {
         std::thread::Builder::new()
             .name(WRITER_THREAD_NAME.into())
             .spawn(move || {
-                let this = DatabaseWriter { receiver, env };
+                let this = DatabaseWriter {
+                    receiver,
+                    env,
+                    env_memory_map_bytes_left: 0,
+                };
                 DatabaseWriter::main(this);
             })
             .unwrap();
@@ -108,6 +112,11 @@ pub(super) struct DatabaseWriter {
 
     /// Access to the database.
     env: Arc<ConcreteEnv>,
+
+    /// How many free bytes are left in our memory map?
+    ///
+    /// This is only used if `ConcreteEnv::MANUAL_RESIZE == true`.
+    env_memory_map_bytes_left: usize,
 }
 
 impl Drop for DatabaseWriter {
@@ -122,7 +131,8 @@ impl DatabaseWriter {
     /// The writer just loops in this function.
     #[cold]
     #[inline(never)] // Only called once.
-    fn main(self) {
+    #[allow(unused_mut)] // `self` needs to be mutable for manually resizing DBs
+    fn main(mut self) {
         // 1. Hang on request channel
         // 2. Map request to some database function
         // 3. Execute that function, get the result
@@ -140,65 +150,57 @@ impl DatabaseWriter {
                 return;
             };
 
-            /// How many times should we retry handling the request on resize errors?
-            ///
-            /// This is 1 on automatically resizing databases, meaning there is only 1 iteration.
-            /// This is 2 on manually resizing databases, meaning we only retry once, as that should be all that's needed.
-            #[allow(clippy::items_after_statements)]
-            const REQUEST_RETRY_LIMIT: usize = if ConcreteEnv::MANUAL_RESIZE { 2 } else { 1 };
+            // Calculate if we need to resize the memory map.
+            if ConcreteEnv::MANUAL_RESIZE {
+                // TODO: calculate the exact byte size needed to store this block.
+                // I think a adding a slight buffer is ok since we're only taking
+                // up the memory map, not actual disk space.
+                //
+                // We just need to make sure LMDB never returns a resize error.
+                let block_byte_size_including_heap_memory: usize = todo!();
+
+                // If our memory map doesn't have enough bytes to store the block, resize.
+                if block_byte_size_including_heap_memory > self.env_memory_map_bytes_left {
+                    let map_byte_size_before = self.env.current_map_size();
+                    let map_byte_size_after = self.env.resize_map(None);
+
+                    // Add on the bytes we adjusted to.
+                    self.env_memory_map_bytes_left +=
+                        map_byte_size_after.get() - map_byte_size_before;
+                }
+            }
 
             // Map [`Request`]'s to specific database functions.
             //
             // TODO: will there be more than 1 write request?
             // this won't have to be an enum.
             //
-            // This loop will be:
-            // - 2 iterations for manually resizing databases
-            // - 1 iteration for auto resizing databases
-            //
-            // Both will:
+            // 0. (manual resize only) If resize is needed, resize
             // 1. Map the request to a function
             // 2. Call the function
-            // 3. (manual resize only) If resize is needed, resize and `continue`
-            // 4. (manual resize only) Redo step {1, 2}
-            // 5. Send the function's `Result` back to the requester
-            for retry in 0..REQUEST_RETRY_LIMIT {
-                let response = match &request {
-                    WriteRequest::WriteBlock(block) => write_block(&self.env, block),
-                };
+            // 3. Send the function's `Result` back to the requester
+            let response = match &request {
+                WriteRequest::WriteBlock(block) => write_block(&self.env, block),
+            };
 
-                // If the database needs to resize, do so.
-                // This branch will only be taken if:
-                // - This database manually resizes (compile time `bool`)
-                // - we haven't surpassed the retry limit, [`REQUEST_RETRY_LIMIT`]
-                if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded))
-                {
-                    // If this is the 2nd iteration of the outer `for` loop and we
-                    // encounter a resize error _again_, it means something is wrong
-                    // as we should have successfully resized last iteration.
-                    assert_eq!(
-                        retry, 0,
-                        "database needed to resize twice - we should have handled it"
-                    );
-
-                    // Resize the map, and retry the request handling loop.
-                    self.resize_map();
-                    continue;
-                }
-
-                // Automatically resizing databases should not be returning a resize error.
-                #[cfg(debug_assertions)]
-                if !ConcreteEnv::MANUAL_RESIZE {
-                    assert!(
-                        !matches!(response, Err(RuntimeError::ResizeNeeded)),
-                        "auto-resizing database returned a ResizeNeeded error"
-                    );
-                }
-
-                // Send the response back, whether if it's an `Ok` or `Err`.
-                response_sender.send(response).unwrap();
-                break;
+            // INVARIANT: We proactively resized above, this error should never be returned.
+            #[allow(clippy::manual_assert)]
+            #[cfg(debug_assertions)]
+            if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded)) {
+                panic!("the database was proactively resized, yet a resize error was returned");
             }
+
+            // Automatically resizing databases should not be returning a resize error.
+            #[cfg(debug_assertions)]
+            if !ConcreteEnv::MANUAL_RESIZE {
+                assert!(
+                    !matches!(response, Err(RuntimeError::ResizeNeeded)),
+                    "auto-resizing database returned a ResizeNeeded error"
+                );
+            }
+
+            // Send the response back, whether if it's an `Ok` or `Err`.
+            response_sender.send(response).unwrap();
         }
     }
 
