@@ -4,6 +4,7 @@
 use std::{
     cell::RefCell,
     fmt::Debug,
+    num::NonZeroUsize,
     ops::Deref,
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
