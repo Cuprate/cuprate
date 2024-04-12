@@ -27,26 +27,73 @@
 pub const BLOCK_202612: &[u8] = include_bytes!("block/202612.bin");
 
 //---------------------------------------------------------------------------------------------------- Transaction
+/// Transaction with hash `3bc7ff015b227e7313cc2e8668bfbb3f3acbee274a9c201d6211cf681b5f6bb1`.
+///
+/// ```rust
+/// use monero_serai::transaction::{Transaction, Timelock};
+///
+/// let tx = Transaction::read(&mut
+///     cuprate_test_utils::data::TX_3BC7FF
+/// ).unwrap();
+///
+/// assert_eq!(tx.prefix.version, 1);
+/// assert_eq!(tx.prefix.timelock, Timelock::Block(100_081));
+/// assert_eq!(tx.prefix.inputs.len(), 1);
+/// assert_eq!(tx.prefix.outputs.len(), 5);
+/// assert_eq!(tx.signatures.len(), 0);
+///
+/// assert_eq!(
+///     hex::encode(tx.hash()),
+///     "3bc7ff015b227e7313cc2e8668bfbb3f3acbee274a9c201d6211cf681b5f6bb1",
+/// );
+/// ```
+pub const TX_3BC7FF: &[u8] =
+    include_bytes!("tx/3bc7ff015b227e7313cc2e8668bfbb3f3acbee274a9c201d6211cf681b5f6bb1.bin");
+
+/// Transaction with hash `9e3f73e66d7c7293af59c59c1ff5d6aae047289f49e5884c66caaf4aea49fb34`.
+///
+/// ```rust
+/// use monero_serai::transaction::{Transaction, Timelock};
+///
+/// let tx = Transaction::read(&mut
+///     cuprate_test_utils::data::TX_9E3F73
+/// ).unwrap();
+///
+/// assert_eq!(tx.prefix.version, 1);
+/// assert_eq!(tx.prefix.timelock, Timelock::None);
+/// assert_eq!(tx.prefix.inputs.len(), 2);
+/// assert_eq!(tx.prefix.outputs.len(), 5);
+/// assert_eq!(tx.signatures.len(), 2);
+///
+/// assert_eq!(
+///     hex::encode(tx.hash()),
+///     "9e3f73e66d7c7293af59c59c1ff5d6aae047289f49e5884c66caaf4aea49fb34",
+/// );
+/// ```
+pub const TX_9E3F73: &[u8] =
+    include_bytes!("tx/9e3f73e66d7c7293af59c59c1ff5d6aae047289f49e5884c66caaf4aea49fb34.bin");
+
 /// Transaction with hash `84d48dc11ec91950f8b70a85af9db91fe0c8abef71ef5db08304f7344b99ea66`.
 ///
 /// ```rust
 /// use monero_serai::transaction::{Transaction, Timelock};
 ///
 /// let tx = Transaction::read(&mut
-///     cuprate_test_utils::data::TX_84D48DC11EC91950F8B70A85AF9DB91FE0C8ABEF71EF5DB08304F7344B99EA66
+///     cuprate_test_utils::data::TX_84D48D
 /// ).unwrap();
 ///
 /// assert_eq!(tx.prefix.version, 2);
 /// assert_eq!(tx.prefix.timelock, Timelock::None);
 /// assert_eq!(tx.prefix.inputs.len(), 2);
 /// assert_eq!(tx.prefix.outputs.len(), 2);
+/// assert_eq!(tx.signatures.len(), 0);
 ///
 /// assert_eq!(
 ///     hex::encode(tx.hash()),
 ///     "84d48dc11ec91950f8b70a85af9db91fe0c8abef71ef5db08304f7344b99ea66",
 /// );
 /// ```
-pub const TX_84D48DC11EC91950F8B70A85AF9DB91FE0C8ABEF71EF5DB08304F7344B99EA66: &[u8] =
+pub const TX_84D48D: &[u8] =
     include_bytes!("tx/84d48dc11ec91950f8b70a85af9db91fe0c8abef71ef5db08304f7344b99ea66.bin");
 
 //---------------------------------------------------------------------------------------------------- Tests
