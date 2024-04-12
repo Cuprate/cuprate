@@ -3,25 +3,29 @@ name = "cuprate-test-utils"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-authors = ["Boog900", "hinto-janai"]
+authors = ["Boog900"]
 
 [dependencies]
-async-trait  = { workspace = true }
-bytes        = { workspace = true, features = ["std"] }
-borsh        = { workspace = true, features = ["derive"]}
-futures      = { workspace = true, features = ["std"] }
-hex          = { workspace = true }
-monero-p2p   = { path = "../p2p/monero-p2p", features = ["borsh"] }
-monero-serai = { workspace = true, features = ["std"] }
-monero-wire  = { path = "../net/monero-wire" }
-reqwest      = { workspace = true }
-tempfile     = { workspace = true }
-tokio        = { workspace = true, features = ["full"] }
-tokio-util   = { workspace = true }
+monero-wire = {path = "../net/monero-wire"}
+monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
+
+monero-serai = { workspace = true }
+futures = { workspace = true, features = ["std"] }
+async-trait = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true }
+reqwest = { workspace = true }
+bytes = { workspace = true, features = ["std"] }
+tempfile = { workspace = true }
+
+borsh = { workspace = true, features = ["derive"]}
 
 [target.'cfg(unix)'.dependencies]
-tar   = { version = "0.4.40" }
-bzip2 = { version = "0.4.4" }
+tar = "0.4.40"
+bzip2 = "0.4.4"
 
 [target.'cfg(windows)'.dependencies]
-zip = { version = "0.6" }
+zip = "0.6"
+
+[dev-dependencies]
+hex = { workspace = true }
