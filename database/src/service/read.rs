@@ -18,7 +18,12 @@ use tokio_util::sync::PollSemaphore;
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::service::{ReadRequest, Response};
 
-use crate::{config::ReaderThreads, error::RuntimeError, ConcreteEnv};
+use crate::{
+    config::ReaderThreads,
+    error::RuntimeError,
+    types::{Amount, AmountIndex, BlockHeight, KeyImage},
+    ConcreteEnv,
+};
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
@@ -153,10 +158,8 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         }
 
         // Acquire a permit before returning `Ready`.
-        let Some(permit) = ready!(self.semaphore.poll_acquire(cx)) else {
-            // `self` itself owns the backing semaphore, so it can't be closed.
-            unreachable!();
-        };
+        let permit = ready!(self.semaphore.poll_acquire(cx))
+            .expect("`self` itself owns the backing semaphore, so it can't be closed.");
 
         self.permit = Some(permit);
         Poll::Ready(Ok(()))
@@ -246,13 +249,13 @@ fn map_request(
 
 /// [`ReadRequest::BlockExtendedHeader`].
 #[inline]
-fn block_extended_header(env: &Arc<ConcreteEnv>, block: u64) -> ResponseResult {
+fn block_extended_header(env: &Arc<ConcreteEnv>, block_height: BlockHeight) -> ResponseResult {
     todo!()
 }
 
 /// [`ReadRequest::BlockHash`].
 #[inline]
-fn block_hash(env: &Arc<ConcreteEnv>, block: u64) -> ResponseResult {
+fn block_hash(env: &Arc<ConcreteEnv>, block_height: BlockHeight) -> ResponseResult {
     todo!()
 }
 
@@ -260,7 +263,7 @@ fn block_hash(env: &Arc<ConcreteEnv>, block: u64) -> ResponseResult {
 #[inline]
 fn block_extended_header_in_range(
     env: &Arc<ConcreteEnv>,
-    range: std::ops::Range<u64>,
+    range: std::ops::Range<BlockHeight>,
 ) -> ResponseResult {
     todo!()
 }
@@ -280,7 +283,7 @@ fn generated_coins(env: &Arc<ConcreteEnv>) -> ResponseResult {
 /// [`ReadRequest::Outputs`].
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<u64, HashSet<u64>>) -> ResponseResult {
+fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     todo!()
 }
 
@@ -288,19 +291,19 @@ fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<u64, HashSet<u64>>) -> ResponseR
 /// TODO
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn number_outputs_with_amount(env: &Arc<ConcreteEnv>, vec: Vec<u64>) -> ResponseResult {
+fn number_outputs_with_amount(env: &Arc<ConcreteEnv>, vec: Vec<Amount>) -> ResponseResult {
     todo!()
 }
 
 /// [`ReadRequest::CheckKIsNotSpent`].
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn check_k_is_not_spent(env: &Arc<ConcreteEnv>, set: HashSet<[u8; 32]>) -> ResponseResult {
+fn check_k_is_not_spent(env: &Arc<ConcreteEnv>, set: HashSet<KeyImage>) -> ResponseResult {
     todo!()
 }
 
 /// [`ReadRequest::BlockBatchInRange`].
 #[inline]
-fn block_batch_in_range(env: &Arc<ConcreteEnv>, range: Range<u64>) -> ResponseResult {
+fn block_batch_in_range(env: &Arc<ConcreteEnv>, range: Range<BlockHeight>) -> ResponseResult {
     todo!()
 }
