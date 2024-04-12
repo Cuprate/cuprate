@@ -134,6 +134,7 @@ impl DatabaseWriter {
     #[allow(unused_mut)] // `self` needs to be mutable for manually resizing DBs
     fn main(mut self) {
         // 1. Hang on request channel
+        // 1b. (manual resize only) If resize is needed, resize
         // 2. Map request to some database function
         // 3. Execute that function, get the result
         // 4. Return the result via channel
@@ -174,11 +175,6 @@ impl DatabaseWriter {
             //
             // TODO: will there be more than 1 write request?
             // this won't have to be an enum.
-            //
-            // 0. (manual resize only) If resize is needed, resize
-            // 1. Map the request to a function
-            // 2. Call the function
-            // 3. Send the function's `Result` back to the requester
             let response = match &request {
                 WriteRequest::WriteBlock(block) => write_block(&self.env, block),
             };
