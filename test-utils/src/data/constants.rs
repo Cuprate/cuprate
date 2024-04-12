@@ -9,7 +9,7 @@
 /// use monero_serai::{block::Block, transaction::Input};
 ///
 /// let block = Block::read(&mut
-///     cuprate_test_utils::data::BLOCK_202612
+///     cuprate_test_utils::data::BLOCK_BBD604
 /// ).unwrap();
 ///
 /// assert_eq!(block.header.major_version, 1);
@@ -24,7 +24,56 @@
 ///     "bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698",
 /// );
 /// ```
-pub const BLOCK_202612: &[u8] = include_bytes!("block/202612.bin");
+pub const BLOCK_BBD604: &[u8] =
+    include_bytes!("block/bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698.bin");
+
+/// Block with height `2751506` and hash `f910435a5477ca27be1986c080d5476aeab52d0c07cf3d9c72513213350d25d4`.
+///
+/// ```rust
+/// use monero_serai::{block::Block, transaction::Input};
+///
+/// let block = Block::read(&mut
+///     cuprate_test_utils::data::BLOCK_F91043
+/// ).unwrap();
+///
+/// assert_eq!(block.header.major_version, 9);
+/// assert_eq!(block.header.minor_version, 9);
+/// assert_eq!(block.header.timestamp, 1545423190);
+/// assert_eq!(block.header.nonce, 4123173351);
+/// assert!(matches!(block.miner_tx.prefix.inputs[0], Input::Gen(1731606)));
+/// assert_eq!(block.txs.len(), 3);
+///
+/// assert_eq!(
+///     hex::encode(block.hash()),
+///     "f910435a5477ca27be1986c080d5476aeab52d0c07cf3d9c72513213350d25d4",
+/// );
+/// ```
+pub const BLOCK_F91043: &[u8] =
+    include_bytes!("block/f910435a5477ca27be1986c080d5476aeab52d0c07cf3d9c72513213350d25d4.bin");
+
+/// Block with height `2751506` and hash `43bd1f2b6556dcafa413d8372974af59e4e8f37dbf74dc6b2a9b7212d0577428`.
+///
+/// ```rust
+/// use monero_serai::{block::Block, transaction::Input};
+///
+/// let block = Block::read(&mut
+///     cuprate_test_utils::data::BLOCK_43BD1F
+/// ).unwrap();
+///
+/// assert_eq!(block.header.major_version, 16);
+/// assert_eq!(block.header.minor_version, 16);
+/// assert_eq!(block.header.timestamp, 1667941829);
+/// assert_eq!(block.header.nonce, 4110909056);
+/// assert!(matches!(block.miner_tx.prefix.inputs[0], Input::Gen(2751506)));
+/// assert_eq!(block.txs.len(), 0);
+///
+/// assert_eq!(
+///     hex::encode(block.hash()),
+///     "43bd1f2b6556dcafa413d8372974af59e4e8f37dbf74dc6b2a9b7212d0577428",
+/// );
+/// ```
+pub const BLOCK_43BD1F: &[u8] =
+    include_bytes!("block/43bd1f2b6556dcafa413d8372974af59e4e8f37dbf74dc6b2a9b7212d0577428.bin");
 
 //---------------------------------------------------------------------------------------------------- Transaction
 /// Transaction with hash `3bc7ff015b227e7313cc2e8668bfbb3f3acbee274a9c201d6211cf681b5f6bb1`.
