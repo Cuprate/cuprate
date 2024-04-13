@@ -83,7 +83,6 @@ fn find_target() -> PathBuf {
 }
 
 /// Checks if we have monerod or downloads it if we don't and then returns the path to it.
-#[allow(clippy::redundant_pub_crate)]
 pub(crate) async fn check_download_monerod() -> Result<PathBuf, ReqError> {
     // make sure no other threads are downloading monerod at the same time.
     let _guard = DOWNLOAD_MONEROD_MUTEX.lock().await;

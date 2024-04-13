@@ -33,7 +33,6 @@ const MONEROD_SHUTDOWN_TEXT: &str = "Stopping cryptonote protocol";
 /// Spawns monerod and returns [`SpawnedMoneroD`].
 ///
 /// This function will set `regtest` and the P2P/ RPC ports so these can't be included in the flags.
-#[allow(clippy::future_not_send)]
 pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> SpawnedMoneroD {
     let path_to_monerod = download::check_download_monerod().await.unwrap();
 
@@ -165,7 +164,6 @@ impl Drop for SpawnedMoneroD {
             println!("------END-MONEROD-LOGS------");
         }
 
-        #[allow(clippy::manual_assert)] // clippy suggests some real unreadable things sometimes
         if error && !panicking() {
             // `println` only outputs in a test when panicking so if there is an error while
             // dropping monerod but not an error in the test then we need to panic to make sure
