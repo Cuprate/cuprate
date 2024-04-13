@@ -4,9 +4,9 @@ pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub(crate) const CHAIN_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
-pub(crate) const BLOCK_REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+pub(crate) const BLOCK_REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 
-pub(crate) const BLOCK_REQUEST_TIMEOUT_INTERVAL: Duration = Duration::from_secs(4);
+pub(crate) const BLOCK_REQUEST_TIMEOUT_INTERVAL: Duration = Duration::from_secs(5);
 
 pub(crate) const SEED_CONNECTION_RETRY_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -58,3 +58,5 @@ pub(crate) const NUMBER_OF_BLOCKS_TO_REQUEST: usize = 100;
 
 /// The amount of requests for blocks to send concurrently.
 pub(crate) const CONCURRENT_BLOCKS_REQUESTS: usize = 16;
+
+pub(crate) const CHAIN_REQUESTS_TO_SEND: usize = 2;

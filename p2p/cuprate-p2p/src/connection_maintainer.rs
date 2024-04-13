@@ -26,6 +26,7 @@ use crate::{
         HANDSHAKE_TIMEOUT, MAX_SEED_CONNECTIONS, OUTBOUND_CONNECTION_TIMEOUT, PEER_FIND_TIMEOUT,
     },
 };
+use crate::peer_set::ClientPool;
 
 enum OutboundConnectorError {
     MaxConnections,
@@ -46,8 +47,8 @@ pub struct MakeConnectionRequest {
 ///
 /// This handles maintaining a minimum number of connections and making extra connections when needed, upto a maximum.
 pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
-    /// The channel to send new connections down.
-    pub new_connection_tx: mpsc::Sender<Client<N>>,
+    /// TODO.
+    pub client_pool: Arc<ClientPool<N>>,
     /// The channel that tells us to make new outbound connections
     pub make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
     /// The address book service
@@ -77,7 +78,7 @@ where
 {
     pub fn new(
         config: &P2PConfig,
-        new_connection_tx: mpsc::Sender<Client<N>>,
+        client_pool: Arc<ClientPool<N>>,
         make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
         address_book_svc: A,
         connector_svc: C,
@@ -86,7 +87,7 @@ where
             .expect("Gray peer percent is incorrect should be 0..=1");
 
         Self {
-            new_connection_tx,
+            client_pool,
             make_connection_rx,
             address_book_svc,
             connector_svc,
@@ -151,7 +152,7 @@ where
     /// Connects to a given outbound peer.
     #[instrument(level = "info", skip(self, permit), fields(%addr))]
     async fn connect_to_outbound_peer(&mut self, permit: OwnedSemaphorePermit, addr: N::Addr) {
-        let new_connection_tx = self.new_connection_tx.clone();
+        let client_pool = self.client_pool.clone();
         let connection_fut = self
             .connector_svc
             .ready()
@@ -161,7 +162,7 @@ where
 
         tokio::spawn(async move {
             if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
-                let _ = new_connection_tx.send(peer).await;
+                client_pool.add_new_client(peer);
             }
         });
     }

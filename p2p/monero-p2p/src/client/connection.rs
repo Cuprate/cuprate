@@ -11,6 +11,7 @@ use futures::{
     stream::{Fuse, FusedStream},
     FutureExt, SinkExt, Stream, StreamExt, TryStreamExt,
 };
+use tokio::sync::OwnedSemaphorePermit;
 use tokio::{
     sync::{broadcast, mpsc},
     time::{sleep, timeout, Sleep, Timeout},
@@ -44,6 +45,8 @@ pub struct ConnectionTaskRequest {
     pub request: PeerRequest,
     /// The response channel.
     pub response_channel: oneshot::Sender<Result<PeerResponse, tower::BoxError>>,
+    /// A permit for this request
+    pub permit: Option<OwnedSemaphorePermit>,
 }
 
 /// The connection state.
@@ -56,6 +59,8 @@ pub enum State {
         request_id: MessageID,
         /// The channel to send the response down.
         tx: oneshot::Sender<Result<PeerResponse, tower::BoxError>>,
+        /// A permit for this request.
+        _req_permit: Option<OwnedSemaphorePermit>,
     },
 }
 
@@ -150,6 +155,7 @@ where
         let req = ConnectionTaskRequest {
             request: PeerRequest::Ping,
             response_channel: tx,
+            permit: None,
         };
 
         self.handle_client_request(req).await
@@ -176,6 +182,7 @@ where
             self.state = State::WaitingForResponse {
                 request_id: req.request.id(),
                 tx: req.response_channel,
+                _req_permit: req.permit,
             };
 
             self.send_message_to_peer(req.request.into()).await?;

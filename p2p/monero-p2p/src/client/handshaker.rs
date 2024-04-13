@@ -445,7 +445,7 @@ where
     // Set up the connection data.
     let error_slot = SharedError::new();
     let (connection_guard, handle) = HandleBuilder::new().with_permit(permit).build();
-    let (connection_tx, client_rx) = mpsc::channel(3);
+    let (connection_tx, client_rx) = mpsc::channel(1);
 
     let connection = Connection::<Z, _, _>::new(
         peer_sink,
@@ -456,8 +456,7 @@ where
         error_slot.clone(),
     );
 
-    let connection_span =
-        tracing::error_span!(parent: &tracing::Span::none(), "connection", addr = %addr);
+    let connection_span = tracing::error_span!(parent: &tracing::Span::none(), "connection", %addr);
     let connection_handle = tokio::spawn(
         connection
             .run(peer_stream.fuse(), eager_protocol_messages)
@@ -468,6 +467,7 @@ where
         id: addr,
         handle: handle.clone(),
         direction,
+        pruning_seed: pruning_seed.clone(),
     };
 
     let client = Client::<Z>::new(info, connection_tx, connection_handle, error_slot);

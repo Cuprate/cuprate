@@ -1,50 +1,34 @@
+use monero_p2p::client::Client;
 use std::ops::{Deref, DerefMut};
+use std::sync::Arc;
 
-use tokio::sync::mpsc;
+use monero_p2p::NetworkZone;
 
-use monero_p2p::{client::PeakEwmaClient, NetworkZone};
+use crate::peer_set::ClientPool;
 
-/// A [`PeakEwmaClient`] that returns itself to the peer set when dropped.
-pub struct DropGuardClient<N: NetworkZone> {
-    /// The client.
-    ///
-    /// Must stay [`Some`] until drop.
-    client: Option<PeakEwmaClient<N>>,
-    /// The return channel.
-    ret_channel: mpsc::Sender<PeakEwmaClient<N>>,
+pub struct ClientPoolGuard<N: NetworkZone> {
+    pub(super) pool: Arc<ClientPool<N>>,
+    pub(super) client: Option<Client<N>>,
 }
 
-impl<N: NetworkZone> DropGuardClient<N> {
-    pub fn new(client: PeakEwmaClient<N>, ret_channel: mpsc::Sender<PeakEwmaClient<N>>) -> Self {
-        Self {
-            client: Some(client),
-            ret_channel,
-        }
-    }
-}
-
-impl<N: NetworkZone> Deref for DropGuardClient<N> {
-    type Target = PeakEwmaClient<N>;
+impl<N: NetworkZone> Deref for ClientPoolGuard<N> {
+    type Target = Client<N>;
 
     fn deref(&self) -> &Self::Target {
         self.client.as_ref().unwrap()
     }
 }
 
-impl<N: NetworkZone> DerefMut for DropGuardClient<N> {
+impl<N: NetworkZone> DerefMut for ClientPoolGuard<N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.client.as_mut().unwrap()
     }
 }
 
-impl<N: NetworkZone> Drop for DropGuardClient<N> {
+impl<N: NetworkZone> Drop for ClientPoolGuard<N> {
     fn drop(&mut self) {
-        if self
-            .ret_channel
-            .try_send(self.client.take().unwrap())
-            .is_err()
-        {
-            tracing::debug!("Error returning peer to peer set. Disconnecting.")
-        }
+        let client = self.client.take().unwrap();
+
+        self.pool.add_client(client);
     }
 }

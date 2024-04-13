@@ -9,8 +9,9 @@ use futures::{
     lock::{Mutex, OwnedMutexGuard, OwnedMutexLockFuture},
     FutureExt,
 };
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio::{sync::mpsc, task::JoinHandle};
-use tokio_util::sync::PollSender;
+use tokio_util::sync::{PollSemaphore, PollSender};
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
@@ -29,6 +30,7 @@ mod load_tracked;
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
 pub use load_tracked::PeakEwmaClient;
+use monero_pruning::PruningSeed;
 use monero_wire::levin::Bucket;
 
 /// An internal identifier for a given peer, will be their address if known
@@ -60,6 +62,8 @@ pub struct PeerInformation<A> {
     pub handle: ConnectionHandle,
     /// The direction of this connection (inbound|outbound).
     pub direction: ConnectionDirection,
+    /// The peers pruning seed.
+    pub pruning_seed: PruningSeed,
 }
 
 /// This represents a connection to a peer.
@@ -72,9 +76,12 @@ pub struct Client<Z: NetworkZone> {
     pub info: PeerInformation<Z::Addr>,
 
     /// The channel to the [`Connection`](connection::Connection) task.
-    connection_tx: PollSender<connection::ConnectionTaskRequest>,
+    connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
     /// The [`JoinHandle`] of the spawned connection task.
     connection_handle: JoinHandle<()>,
+
+    semaphore: PollSemaphore,
+    permit: Option<OwnedSemaphorePermit>,
 
     /// The error slot shared between the [`Client`] and [`Connection`](connection::Connection).
     error: SharedError<PeerError>,
@@ -90,7 +97,9 @@ impl<Z: NetworkZone> Client<Z> {
     ) -> Self {
         Self {
             info,
-            connection_tx: PollSender::new(connection_tx),
+            connection_tx,
+            semaphore: PollSemaphore::new(Arc::new(Semaphore::new(1))),
+            permit: None,
             connection_handle,
             error,
         }
@@ -122,20 +131,33 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             return Poll::Ready(Err(err));
         }
 
-        self.connection_tx
-            .poll_reserve(cx)
-            .map_err(|_| PeerError::ClientChannelClosed.into())
+        if self.permit.is_some() {
+            return Poll::Ready(Ok(()));
+        }
+
+        let Some(permit) = ready!(self.semaphore.poll_acquire(cx)) else {
+            unreachable!("Client semaphore should not be closed!");
+        };
+
+        self.permit = Some(permit);
+
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, request: PeerRequest) -> Self::Future {
+        let Some(permit) = self.permit.take() else {
+            panic!("poll_ready did not return ready before call to call")
+        };
+
         let (tx, rx) = oneshot::channel();
         let req = connection::ConnectionTaskRequest {
             response_channel: tx,
             request,
+            permit: Some(permit),
         };
 
         self.connection_tx
-            .send_item(req)
+            .try_send(req)
             .map_err(|_| ())
             .expect("poll_ready should have been called");
 

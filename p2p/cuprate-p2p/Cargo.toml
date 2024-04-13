@@ -23,7 +23,9 @@ tokio-util = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync", "time"] }
 futures = { workspace = true, features = ["std"] }
 pin-project = { workspace = true }
+dashmap = { workspace = true }
 
+thiserror = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 indexmap = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["std", "std_rng"] }

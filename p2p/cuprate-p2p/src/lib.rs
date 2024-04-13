@@ -11,6 +11,7 @@
 #![allow(dead_code)]
 
 use rand::{random, Rng};
+use std::mem;
 use tokio::sync::mpsc;
 use tower::buffer::Buffer;
 
@@ -33,7 +34,10 @@ pub async fn init_network<N: NetworkZone, CSync, ReqHdlr>(
     config: &P2PConfig,
     core_sync_svc: CSync,
     peer_request_hdlr: ReqHdlr,
-) -> Result<P2PNetwork<N, impl AddressBook<N>, impl monero_p2p::PeerSyncSvc<N>>, tower::BoxError>
+) -> Result<
+    P2PNetwork<N, impl AddressBook<N>, impl monero_p2p::PeerSyncSvc<N> + Clone>,
+    tower::BoxError,
+>
 where
     CSync: CoreSyncSvc + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
@@ -65,12 +69,15 @@ where
 
     let outbound_connector = monero_p2p::client::Connector::new(outbound_handshaker);
 
-    let (new_connection_tx, new_connection_rx) = mpsc::channel(config.outbound_connections);
-    let (make_connection_tx, make_connection_rx) = mpsc::channel(5);
+    let (new_connection_tx, make_connection_rx) = mpsc::channel(config.outbound_connections);
+
+    mem::forget(new_connection_tx);
+
+    let client_pool = peer_set::ClientPool::new();
 
     let connection_maintainer = connection_maintainer::OutboundConnectionKeeper::new(
         &config,
-        new_connection_tx,
+        client_pool.clone(),
         make_connection_rx,
         addr_book.clone(),
         outbound_connector,
@@ -78,10 +85,8 @@ where
 
     tokio::spawn(connection_maintainer.run());
 
-    let peer_set = peer_set::PeerSet::new(new_connection_rx, make_connection_tx);
-
     Ok(P2PNetwork::new(
-        peer_set,
+        client_pool,
         peer_sync_svc,
         broadcast_svc,
         addr_book,

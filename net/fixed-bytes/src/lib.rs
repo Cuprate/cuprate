@@ -102,6 +102,18 @@ impl<const N: usize> ByteArrayVec<N> {
     pub fn take_bytes(self) -> Bytes {
         self.0
     }
+
+    /// Splits the byte array vec into two at the given index.
+    ///
+    /// Afterwards self contains elements [0, at), and the returned Bytes contains elements [at, len).
+    ///
+    /// This is an O(1) operation that just increases the reference count and sets a few indices.
+    ///
+    /// # Panics
+    /// Panics if at > len.
+    pub fn split_off(&mut self, at: usize) -> Self {
+        Self(self.0.split_off(at * N))
+    }
 }
 
 impl<const N: usize> From<&ByteArrayVec<N>> for Vec<[u8; N]> {

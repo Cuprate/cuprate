@@ -68,22 +68,11 @@ impl Service<PeerRequest> for DummyPeerRequestHandlerSvc {
     }
 }
 
+#[derive(Clone)]
 pub struct DummyBlockchain;
 
 impl Blockchain for DummyBlockchain {
-    fn top_hash(&mut self) -> impl Future<Output = [u8; 32]> + Send {
-        async {
-            hex::decode("418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
-                .unwrap()
-                .try_into()
-                .unwrap()
-        }
-    }
-
-    fn chain_history(
-        &mut self,
-        from: Option<[u8; 32]>,
-    ) -> impl Future<Output = Vec<[u8; 32]>> + Send {
+    fn history(&mut self) -> impl Future<Output = Vec<[u8; 32]>> + Send {
         async {
             vec![
                 hex::decode("418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
@@ -111,13 +100,13 @@ impl Blockchain for DummyBlockchain {
         }
     }
 
-    fn current_height(&mut self) -> impl Future<Output = u64> + Send {
+    fn chain_height(&mut self) -> impl Future<Output = u64> + Send {
         async { 1 }
     }
 }
 
 use cuprate_helper::network::Network;
-use cuprate_p2p::block_downloader::{download_blocks, BlockDownloader2, Blockchain, Where};
+use cuprate_p2p::block_downloader::{download_blocks, Blockchain, Where};
 use cuprate_p2p::broadcast::BroadcastConfig;
 use cuprate_p2p::config::P2PConfig;
 use cuprate_p2p::{broadcast, init_network};
@@ -137,6 +126,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::time::sleep;
+use tower::buffer::Buffer;
 use tower::Service;
 use tracing::metadata::LevelFilter;
 use tracing::Level;
@@ -155,7 +145,7 @@ async fn main() {
 
     let address_book_cfg = monero_address_book::AddressBookConfig {
         max_white_list_length: 1000,
-        max_gray_list_length: 50000,
+        max_gray_list_length: 5000,
         peer_store_file: PathBuf::new().join("p2p_store"),
         peer_save_period: Duration::from_secs(60),
     };
@@ -164,8 +154,8 @@ async fn main() {
         p2p_port: 0,
         rpc_port: 0,
         network: Default::default(),
-        outbound_connections: 32,
-        max_outbound_connections: 80,
+        outbound_connections: 64,
+        max_outbound_connections: 160,
         anchor_connections: 10,
         gray_peers_percent: 0.7,
         max_inbound_connections: 125,
@@ -183,13 +173,13 @@ async fn main() {
     sleep(Duration::from_secs(15)).await;
 
     let mut buffer =
-        download_blocks(network.peer_sync_svc, network.peer_set, DummyBlockchain).await;
+        download_blocks(network.peer_sync_svc, network.client_pool, DummyBlockchain).await;
 
     while let Some(blocks) = buffer.next().await {
         tracing::info!(
             "{}, {}",
-            hex::encode(blocks[0].0.hash()),
-            blocks[0].0.number().unwrap()
+            hex::encode(blocks.blocks[0].0.hash()),
+            blocks.blocks[0].0.number().unwrap()
         );
     }
 
