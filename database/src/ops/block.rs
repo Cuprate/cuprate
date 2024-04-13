@@ -1,8 +1,8 @@
 //! Blocks.
 
+//---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
-//---------------------------------------------------------------------------------------------------- Import
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::{
     block::Block,
@@ -18,8 +18,10 @@ use crate::{
     ops::{
         key_image::{add_key_image, remove_key_image},
         macros::doc_error,
-        output::{add_output, add_rct_output, remove_output, remove_rct_output},
-        tx::{add_tx, remove_tx},
+        output::{
+            add_output, add_rct_output, get_rct_num_outputs, remove_output, remove_rct_output,
+        },
+        tx::{add_tx, get_num_tx, remove_tx},
     },
     tables::{
         BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
@@ -33,8 +35,6 @@ use crate::{
     },
     StorableVec,
 };
-
-use super::{output::get_rct_num_outputs, tx::get_num_tx};
 
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
@@ -55,53 +55,43 @@ use super::{output::get_rct_num_outputs, tx::get_num_tx};
 // no inline, too big.
 pub fn add_block(
     tables: &mut impl TablesMut,
-    block: VerifiedBlockInformation,
+    block: &VerifiedBlockInformation,
 ) -> Result<(), RuntimeError> {
-    let VerifiedBlockInformation {
-        block,
-        txs,
-        block_hash,
-        pow_hash,
-        height,
-        generated_coins,
-        weight,
-        long_term_weight,
-        cumulative_difficulty,
-        block_blob,
-    } = block;
-
-    let cumulative_rct_outs = crate::ops::output::get_rct_num_outputs(tables.rct_outputs_mut())?;
+    let cumulative_rct_outs = crate::ops::output::get_rct_num_outputs(tables.rct_outputs())?;
 
     // Block Info.
     tables.block_infos_mut().put(
-        &height,
+        &block.height,
         &BlockInfo {
-            timestamp: block.header.timestamp,
-            total_generated_coins: generated_coins,
-            cumulative_difficulty,
-            block_hash,
+            timestamp: block.block.header.timestamp,
+            total_generated_coins: block.generated_coins,
+            cumulative_difficulty: block.cumulative_difficulty,
+            block_hash: block.block_hash,
             cumulative_rct_outs,
             // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-            weight: weight as u64,
-            long_term_weight: long_term_weight as u64,
+            weight: block.weight as u64,
+            long_term_weight: block.long_term_weight as u64,
         },
     )?;
 
     // Block blobs.
-    tables
-        .block_blobs_mut()
-        .put(&height, &StorableVec(block_blob))?;
+    tables.block_blobs_mut().put(
+        &block.height,
+        bytemuck::TransparentWrapper::wrap_ref(&block.block_blob),
+    )?;
 
     // Block heights.
-    tables.block_heights_mut().put(&block_hash, &height)?;
+    tables
+        .block_heights_mut()
+        .put(&block.block_hash, &block.height)?;
 
     // Cast height to `u32` for storage.
     // Panic (should never happen) instead of allowing DB corruption.
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1560020991>
-    let height = u32::try_from(height).expect("height was > u32::MAX");
+    let height = u32::try_from(block.height).expect("height was > u32::MAX");
 
     // Transaction & Outputs.
-    for tx in txs {
+    for tx in &block.txs {
         let tx: &Transaction = &tx.tx;
         add_tx(tx, tables)?;
 
