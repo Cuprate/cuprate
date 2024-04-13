@@ -71,7 +71,27 @@ macro_rules! define_trait_tables {
                 /// Access an opened
                 #[doc = concat!("[`", stringify!($table), "`]")]
                 /// database.
-                fn [<$table:snake>](&self) -> &(impl DatabaseRo<$table> + DatabaseIter<$table>);
+                fn [<$table:snake>](&self) -> &impl DatabaseRo<$table>;
+            )*
+
+            /// This returns `true` if all tables are empty.
+            ///
+            /// # Errors
+            /// This returns errors on regular database errors.
+            fn all_tables_empty(&self) -> Result<bool, $crate::error::RuntimeError>;
+        }
+
+        /// Object containing all opened [`Table`]s in read + iter mode.
+        ///
+        /// This is the same as [`Tables`] but includes `_iter()` variants.
+        ///
+        /// See [`Tables`] for documentation - this trait exists for the same reasons.
+        pub trait TablesIter: private::Sealed + Tables {
+            $(
+                /// Access an opened read-only + iterable
+                #[doc = concat!("[`", stringify!($table), "`]")]
+                /// database.
+                fn [<$table:snake _iter>](&self) -> &(impl DatabaseRo<$table> + DatabaseIter<$table>);
             )*
         }
 
@@ -80,7 +100,7 @@ macro_rules! define_trait_tables {
         /// This is the same as [`Tables`] but for mutable accesses.
         ///
         /// See [`Tables`] for documentation - this trait exists for the same reasons.
-        pub trait TablesMut: private::Sealed {
+        pub trait TablesMut: private::Sealed + Tables {
             $(
                 /// Access an opened
                 #[doc = concat!("[`", stringify!($table), "`]")]
@@ -88,6 +108,9 @@ macro_rules! define_trait_tables {
                 fn [<$table:snake _mut>](&mut self) -> &mut impl DatabaseRw<$table>;
             )*
         }
+
+        // Implement `Sealed` for all table types.
+        impl<$([<$table:upper>]),*> private::Sealed for ($([<$table:upper>]),*) {}
 
         // This creates a blanket-implementation for
         // `(tuple, containing, all, table, types)`.
@@ -120,16 +143,44 @@ macro_rules! define_trait_tables {
             // [...]
             // ```
             $(
-                [<$table:upper>]: DatabaseRo<$table> + DatabaseIter<$table>,
+                [<$table:upper>]: DatabaseRo<$table>,
             )*
         {
             $(
                 // The function name of the accessor function is
                 // the table type in `snake_case`, e.g., `block_info_v1s()`.
                 #[inline]
-                fn [<$table:snake>](&self) -> &(impl DatabaseRo<$table> + DatabaseIter<$table>) {
+                fn [<$table:snake>](&self) -> &impl DatabaseRo<$table> {
                     // The index of the database table in
                     // the tuple implements the table trait.
+                    &self.$index
+                }
+            )*
+
+            fn all_tables_empty(&self) -> Result<bool, $crate::error::RuntimeError> {
+                $(
+                     if !DatabaseRo::is_empty(&self.$index)? {
+                        return Ok(false);
+                     }
+                )*
+                Ok(true)
+            }
+        }
+
+        // This is the same as the above
+        // `Tables`, but for `TablesIter`.
+        impl<$([<$table:upper>]),*> TablesIter
+            for ($([<$table:upper>]),*)
+        where
+            $(
+                [<$table:upper>]: DatabaseRo<$table> + DatabaseIter<$table>,
+            )*
+        {
+            $(
+                // The function name of the accessor function is
+                // the table type in `snake_case` + `_iter`, e.g., `block_info_v1s_iter()`.
+                #[inline]
+                fn [<$table:snake _iter>](&self) -> &(impl DatabaseRo<$table> + DatabaseIter<$table>) {
                     &self.$index
                 }
             )*
@@ -145,7 +196,7 @@ macro_rules! define_trait_tables {
             )*
         {
             $(
-                // The function name of the accessor function is
+                // The function name of the mutable accessor function is
                 // the table type in `snake_case` + `_mut`, e.g., `block_info_v1s_mut()`.
                 #[inline]
                 fn [<$table:snake _mut>](&mut self) -> &mut impl DatabaseRw<$table> {
@@ -153,8 +204,6 @@ macro_rules! define_trait_tables {
                 }
             )*
         }
-
-        impl<$([<$table:upper>]),*> private::Sealed for ($([<$table:upper>]),*) {}
     }};
 }
 
