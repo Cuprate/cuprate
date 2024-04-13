@@ -598,6 +598,7 @@ dependencies = [
  "cfg-if",
  "crossbeam",
  "cuprate-helper",
+ "cuprate-test-utils",
  "cuprate-types",
  "curve25519-dalek",
  "futures",

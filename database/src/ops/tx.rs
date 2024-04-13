@@ -148,10 +148,8 @@ pub fn tx_exists(
 #[allow(clippy::significant_drop_tightening)]
 mod test {
     use super::*;
-    use crate::{
-        tests::{dummy_tx, tmp_concrete_env},
-        Env,
-    };
+    use crate::{tests::tmp_concrete_env, Env};
+    use cuprate_test_utils::data::tx_v2_rct3;
 
     /// TODO: fix when we have real TX data to test on.
     /// Tests all above tx functions.
@@ -161,26 +159,13 @@ mod test {
         let env_inner = env.env_inner();
 
         // Monero `Transaction`, not database tx.
-        let tx: Transaction = dummy_tx();
+        let tx: Transaction = tx_v2_rct3();
 
         // Before starting, assert the DB is empty.
         let assert_db_is_empty = || {
             let tx_ro = env_inner.tx_ro().unwrap();
             let tables = env_inner.open_tables(&tx_ro).unwrap();
-            assert!(tables.block_infos().is_empty().unwrap());
-            assert!(tables.block_blobs().is_empty().unwrap());
-            assert!(tables.block_heights().is_empty().unwrap());
-            assert!(tables.key_images().is_empty().unwrap());
-            assert!(tables.num_outputs().is_empty().unwrap());
-            assert!(tables.pruned_tx_blobs().is_empty().unwrap());
-            assert!(tables.prunable_hashes().is_empty().unwrap());
-            assert!(tables.outputs().is_empty().unwrap());
-            assert!(tables.prunable_tx_blobs().is_empty().unwrap());
-            assert!(tables.rct_outputs().is_empty().unwrap());
-            assert!(tables.tx_blobs().is_empty().unwrap());
-            assert!(tables.tx_ids().is_empty().unwrap());
-            assert!(tables.tx_heights().is_empty().unwrap());
-            assert!(tables.tx_unlock_time().is_empty().unwrap());
+            assert!(tables.all_tables_empty().unwrap());
             assert_eq!(get_num_tx(tables.tx_ids()).unwrap(), 0);
         };
         assert_db_is_empty();
@@ -206,7 +191,7 @@ mod test {
             // Assert proper tables were added to.
             assert_eq!(tables.tx_ids().len().unwrap(), 1);
             assert_eq!(tables.tx_heights().len().unwrap(), 1);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 1);
+            assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
             assert_eq!(tables.tx_blobs().len().unwrap(), 1);
 
             // Both from ID and hash should result in getting the same transaction.
