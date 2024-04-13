@@ -17,11 +17,17 @@ use tokio::{task::yield_now, time::timeout};
 
 mod download;
 
+/// IPv4 local host.
 const LOCALHOST: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+
+/// The `monerod` version to use.
 const MONEROD_VERSION: &str = "v0.18.3.1";
+
+/// The log line `monerod` emits indicated it has successfully started up.
 const MONEROD_STARTUP_TEXT: &str =
     "The daemon will start synchronizing with the network. This may take a long time to complete.";
 
+/// The log line `monerod` emits indicated it has stopped.
 const MONEROD_SHUTDOWN_TEXT: &str = "Stopping cryptonote protocol";
 
 /// Spawns monerod and returns [`SpawnedMoneroD`].
@@ -66,9 +72,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
 
             if logs.contains(MONEROD_SHUTDOWN_TEXT) {
                 panic!("Failed to start monerod, logs: \n {logs}");
-            }
-
-            if logs.contains(MONEROD_STARTUP_TEXT) {
+            } else if logs.contains(MONEROD_STARTUP_TEXT) {
                 break;
             }
             // this is blocking code but as this is for tests performance isn't a priority. However we should still yield so
@@ -88,6 +92,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
     }
 }
 
+/// Fetch an available TCP port on the machine for `monerod` to bind to.
 fn get_available_port(already_taken: &[u16]) -> u16 {
     loop {
         // Using `0` makes the OS return a random available port.
@@ -119,12 +124,12 @@ pub struct SpawnedMoneroD {
 
 impl SpawnedMoneroD {
     /// Returns the p2p port of the spawned monerod
-    pub fn p2p_addr(&self) -> SocketAddr {
+    pub const fn p2p_addr(&self) -> SocketAddr {
         SocketAddr::new(LOCALHOST, self.p2p_port)
     }
 
     /// Returns the RPC port of the spawned monerod
-    pub fn rpc_port(&self) -> SocketAddr {
+    pub const fn rpc_port(&self) -> SocketAddr {
         SocketAddr::new(LOCALHOST, self.rpc_port)
     }
 }
@@ -135,7 +140,7 @@ impl Drop for SpawnedMoneroD {
 
         if self.process.kill().is_err() {
             error = true;
-            println!("Failed to kill monerod, process id: {}", self.process.id())
+            println!("Failed to kill monerod, process id: {}", self.process.id());
         }
 
         if panicking() {
