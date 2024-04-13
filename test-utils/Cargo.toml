@@ -9,6 +9,7 @@ authors = ["Boog900"]
 monero-wire = {path = "../net/monero-wire"}
 monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
 
+monero-serai = { workspace = true }
 futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
@@ -25,3 +26,6 @@ bzip2 = "0.4.4"
 
 [target.'cfg(windows)'.dependencies]
 zip = "0.6"
+
+[dev-dependencies]
+hex = { workspace = true }

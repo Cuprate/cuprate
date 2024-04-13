@@ -1,4 +1,4 @@
-//! Test NetZone
+//! Test net zone.
 //!
 //! This module contains a test network zone, this network zone use channels as the network layer to simulate p2p
 //! communication.
@@ -48,7 +48,7 @@ impl std::fmt::Display for TestNetZoneAddr {
 
 impl From<TestNetZoneAddr> for NetworkAddress {
     fn from(value: TestNetZoneAddr) -> Self {
-        NetworkAddress::Clear(SocketAddr::new(Ipv4Addr::from(value.0).into(), 18080))
+        Self::Clear(SocketAddr::new(Ipv4Addr::from(value.0).into(), 18080))
     }
 }
 
@@ -58,13 +58,14 @@ impl TryFrom<NetworkAddress> for TestNetZoneAddr {
     fn try_from(value: NetworkAddress) -> Result<Self, Self::Error> {
         match value {
             NetworkAddress::Clear(soc) => match soc {
-                SocketAddr::V4(v4) => Ok(TestNetZoneAddr(u32::from_be_bytes(v4.ip().octets()))),
-                _ => panic!("None v4 address in test code"),
+                SocketAddr::V4(v4) => Ok(Self(u32::from_be_bytes(v4.ip().octets()))),
+                SocketAddr::V6(_) => panic!("None v4 address in test code"),
             },
         }
     }
 }
 
+/// TODO
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct TestNetZone<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool>;
 
