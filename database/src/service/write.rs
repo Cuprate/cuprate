@@ -162,7 +162,7 @@ impl DatabaseWriter {
             // FIXME: there's probably a more elegant way
             // represent this retry logic with recursive
             // functions instead of loops + stack state.
-            'retry: for retry in 0..=REQUEST_RETRY_LIMIT {
+            'retry: for retry in 0..REQUEST_RETRY_LIMIT {
                 // TODO: will there be more than 1 write request?
                 // this won't have to be an enum.
                 let response = match &request {
@@ -175,11 +175,10 @@ impl DatabaseWriter {
                 if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded))
                 {
                     // If this is the last iteration of the outer `for` loop and we
-                    // encounter a resize error _again_, it means something is wrong
-                    // as we should have successfully resized last iteration.
-                    assert!(
-                        retry < REQUEST_RETRY_LIMIT,
-                        "database resize failed {REQUEST_RETRY_LIMIT} times"
+                    // encounter a resize error _again_, it means something is wrong.
+                    assert_ne!(
+                        retry, REQUEST_RETRY_LIMIT,
+                        "database resize failed maximum of {REQUEST_RETRY_LIMIT} times"
                     );
 
                     // Resize the map, and retry the request handling loop.
