@@ -148,27 +148,21 @@ pub fn tx_exists(
 #[allow(clippy::significant_drop_tightening)]
 mod test {
     use super::*;
-    use crate::{tests::tmp_concrete_env, Env};
+    use crate::{
+        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        Env,
+    };
     use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
 
-    /// TODO: fix when we have real TX data to test on.
     /// Tests all above tx functions.
     #[test]
     fn all_tx_functions() {
         let (env, tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
+        assert_all_tables_are_empty(&env);
 
         // Monero `Transaction`, not database tx.
         let txs: Vec<Transaction> = vec![tx_v1_sig0(), tx_v1_sig2(), tx_v2_rct3()];
-
-        // Before starting, assert the DB is empty.
-        let assert_db_is_empty = || {
-            let tx_ro = env_inner.tx_ro().unwrap();
-            let tables = env_inner.open_tables(&tx_ro).unwrap();
-            assert!(tables.all_tables_empty().unwrap());
-            assert_eq!(get_num_tx(tables.tx_ids()).unwrap(), 0);
-        };
-        assert_db_is_empty();
 
         // Add transactions.
         let tx_ids = {
@@ -191,11 +185,21 @@ mod test {
             let tx_ro = env_inner.tx_ro().unwrap();
             let tables = env_inner.open_tables(&tx_ro).unwrap();
 
-            // Assert proper tables were added to.
+            // Assert only the proper tables were added to.
+            assert_eq!(tables.block_infos().len().unwrap(), 0);
+            assert_eq!(tables.block_blobs().len().unwrap(), 0);
+            assert_eq!(tables.block_heights().len().unwrap(), 0);
+            assert_eq!(tables.key_images().len().unwrap(), 0);
+            assert_eq!(tables.num_outputs().len().unwrap(), 0);
+            assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
+            assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
+            assert_eq!(tables.outputs().len().unwrap(), 0);
+            assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
+            assert_eq!(tables.rct_outputs().len().unwrap(), 0);
+            assert_eq!(tables.tx_blobs().len().unwrap(), 3);
             assert_eq!(tables.tx_ids().len().unwrap(), 3);
             assert_eq!(tables.tx_heights().len().unwrap(), 3);
             assert_eq!(tables.tx_unlock_time().len().unwrap(), 1); // only 1 has a timelock
-            assert_eq!(tables.tx_blobs().len().unwrap(), 3);
 
             // Both from ID and hash should result in getting the same transaction.
             let mut tx_hashes = vec![];
@@ -231,6 +235,6 @@ mod test {
             TxRw::commit(tx_rw).unwrap();
         }
 
-        assert_db_is_empty();
+        assert_all_tables_are_empty(&env);
     }
 }
