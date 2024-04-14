@@ -209,9 +209,10 @@ impl DatabaseWriter {
                 }
 
                 // Send the response back, whether if it's an `Ok` or `Err`.
-                response_sender
-                    .send(response)
-                    .expect("database writer thread failed to send response back to requester");
+                if let Err(e) = response_sender.send(response) {
+                    // TODO: use tracing.
+                    println!("database writer failed to send response: {e:?}");
+                }
 
                 continue 'main;
             }

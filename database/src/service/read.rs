@@ -224,9 +224,10 @@ fn map_request(
         R::BlockBatchInRange(range) => block_batch_in_range(&env, range),
     };
 
-    response_sender
-        .send(response)
-        .expect("database reader thread failed to send response back to requester");
+    if let Err(e) = response_sender.send(response) {
+        // TODO: use tracing.
+        println!("database reader failed to send response: {e:?}");
+    }
 
     /* TODO: post-request handling, run some code for each request? */
 }
