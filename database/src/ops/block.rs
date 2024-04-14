@@ -16,6 +16,7 @@ use crate::{
     env::EnvInner,
     error::RuntimeError,
     ops::{
+        blockchain::chain_height,
         key_image::{add_key_image, remove_key_image},
         macros::doc_error,
         output::{
@@ -36,19 +37,12 @@ use crate::{
     StorableVec,
 };
 
-use super::blockchain::chain_height;
-
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
 ///
 /// This extracts all the data from the input block and
 /// maps and adds them to the appropriate database tables.
 ///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
 #[doc = doc_error!()]
 ///
 /// # Panics
@@ -196,12 +190,6 @@ pub fn add_block(
 
 //---------------------------------------------------------------------------------------------------- `pop_block_*`
 /// Remove the top/latest block from the database.
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
 #[doc = doc_error!()]
 #[inline]
 pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeError> {
@@ -268,96 +256,14 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
     Ok(block_height)
 }
 
-//---------------------------------------------------------------------------------------------------- `get_block_*`
-/// Retrieve a [`VerifiedBlockInformation`] from the database.
-///
-/// This extracts all the data from the database tables
-/// needed to create a full `VerifiedBlockInformation`.
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!()]
-#[inline]
-pub fn get_block(
-    tables: &impl Tables,
-    block_hash: BlockHash,
-) -> Result<VerifiedBlockInformation, RuntimeError> {
-    let height = tables.block_heights().get(&block_hash)?;
-    let block_info = tables.block_infos().get(&height)?;
-    let block_blob = tables.block_blobs().get(&height)?.0;
-    let block = Block::read(&mut block_blob.as_slice())?;
-
-    let mut txs = Vec::with_capacity(block.txs.len());
-
-    // TODO: Block weight is (miner_tx + all_other_txs) ?
-    let mut block_weight = block.miner_tx.weight();
-
-    // Transactions.
-    for tx_blob in &block.txs {
-        let tx = Transaction::read(&mut tx_blob.as_slice())?;
-
-        let tx_weight = tx.weight();
-        block_weight += tx_weight;
-
-        txs.push(Arc::new(TransactionVerificationData {
-            tx_weight,
-            tx_blob: tx_blob.to_vec(),
-            tx_hash: tx.hash(),
-            fee: todo!(), // TODO: how to calculate?
-            tx,
-        }));
-    }
-
-    Ok(VerifiedBlockInformation {
-        block,
-        txs,
-        block_hash,
-        pow_hash: todo!(),
-        height,
-        generated_coins: block_info.total_generated_coins,
-        weight: block_weight,
-        #[allow(clippy::cast_possible_truncation)] // TODO: doc or fix
-        long_term_weight: block_info.long_term_weight as usize,
-        cumulative_difficulty: block_info.cumulative_difficulty,
-        block_blob,
-    })
-}
-
-/// Same as [`get_block`] but with a [`BlockHeight`].
-///
-/// Note: This is more expensive than the above.
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
-#[doc = doc_error!()]
-#[inline]
-pub fn get_block_from_height(
-    tables: &impl Tables,
-    block_height: BlockHeight,
-) -> Result<VerifiedBlockInformation, RuntimeError> {
-    get_block(tables, tables.block_infos().get(&block_height)?.block_hash)
-}
-
-//---------------------------------------------------------------------------------------------------- `get_block_header_*`
+//---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
 /// Retrieve a [`ExtendedBlockHeader`] from the database.
 ///
 /// This extracts all the data from the database tables
 /// needed to create a full `ExtendedBlockHeader`.
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_header(
+pub fn get_block_extended_header(
     tables: &impl Tables,
     block_hash: BlockHash,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
@@ -366,58 +272,43 @@ pub fn get_block_header(
     let block_blob = tables.block_blobs().get(&height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
 
+    #[allow(clippy::cast_possible_truncation)] // TODO: fix to `u64` or doc
     Ok(ExtendedBlockHeader {
         version: block.header.major_version,
         vote: block.header.minor_version,
         timestamp: block.header.timestamp,
-        cumulative_difficulty: todo!(),
-        block_weight: todo!(),
-        long_term_weight: todo!(),
+        cumulative_difficulty: block_info.cumulative_difficulty,
+        block_weight: block_info.weight as usize,
+        long_term_weight: block_info.long_term_weight as usize,
     })
 }
 
-/// Same as [`get_block_header`] but with a [`BlockHeight`].
+/// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
 ///
 /// Note: This is more expensive than the above.
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_header_from_height(
+pub fn get_block_extended_header_from_height(
     tables: &impl Tables,
     block_height: BlockHeight,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
-    get_block_header(tables, tables.block_infos().get(&block_height)?.block_hash)
+    get_block_extended_header(tables, tables.block_infos().get(&block_height)?.block_hash)
 }
 
-//---------------------------------------------------------------------------------------------------- `get_block_top_*`
-/// Return the top/latest block from the database.
-///
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
+/// Return the top/latest [`ExtendedBlockHeader`] from the database.
 #[doc = doc_error!()]
 #[inline]
-pub fn get_block_top(tables: &impl Tables) -> Result<VerifiedBlockInformation, RuntimeError> {
-    get_block_from_height(
+pub fn get_block_extended_header_top(
+    tables: &impl Tables,
+) -> Result<ExtendedBlockHeader, RuntimeError> {
+    get_block_extended_header_from_height(
         tables,
-        crate::ops::blockchain::chain_height(tables.block_heights())?.saturating_sub(1),
+        chain_height(tables.block_heights())?.saturating_sub(1),
     )
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_height_*`
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_height(
@@ -429,12 +320,6 @@ pub fn get_block_height(
 
 //---------------------------------------------------------------------------------------------------- Misc
 /// Check if a block exists in the database.
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*};
-/// // TODO
-/// ```
 #[doc = doc_error!()]
 #[inline]
 pub fn block_exists(
