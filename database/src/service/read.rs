@@ -165,6 +165,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         Poll::Ready(Ok(()))
     }
 
+    #[inline]
     fn call(&mut self, request: ReadRequest) -> Self::Future {
         let permit = self
             .permit
@@ -194,8 +195,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 // This function maps [`Request`]s to function calls
 // executed by the rayon DB reader threadpool.
 
-#[inline]
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value)] // TODO: fix me
 /// Map [`Request`]'s to specific database handler functions.
 ///
 /// This is the main entrance into all `Request` handler functions.

@@ -127,7 +127,7 @@ impl DatabaseWriter {
         // 2. Map request to some database function
         // 3. Execute that function, get the result
         // 4. Return the result via channel
-        loop {
+        'main: loop {
             let Ok((request, response_sender)) = self.receiver.recv() else {
                 // If this receive errors, it means that the channel is empty
                 // and disconnected, meaning the other side (all senders) have
@@ -158,7 +158,11 @@ impl DatabaseWriter {
             // 3. (manual resize only) If resize is needed, resize and `continue`
             // 4. (manual resize only) Redo step {1, 2}
             // 5. Send the function's `Result` back to the requester
-            for retry in 0..REQUEST_RETRY_LIMIT {
+            //
+            // FIXME: there's probably a more elegant way
+            // represent this retry logic with recursive
+            // functions instead of loops + stack state.
+            'retry: for retry in 0..=REQUEST_RETRY_LIMIT {
                 // TODO: will there be more than 1 write request?
                 // this won't have to be an enum.
                 let response = match &request {
@@ -170,7 +174,7 @@ impl DatabaseWriter {
                 // - we haven't surpassed the retry limit, [`REQUEST_RETRY_LIMIT`]
                 if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded))
                 {
-                    // If this is the 2nd iteration of the outer `for` loop and we
+                    // If this is the last iteration of the outer `for` loop and we
                     // encounter a resize error _again_, it means something is wrong
                     // as we should have successfully resized last iteration.
                     assert!(
@@ -192,7 +196,7 @@ impl DatabaseWriter {
                     println!("resizing database memory map, old: {old}B, new: {new}B");
 
                     // Try handling the request again.
-                    continue;
+                    continue 'retry;
                 }
 
                 // Automatically resizing databases should not be returning a resize error.
@@ -208,9 +212,21 @@ impl DatabaseWriter {
                 response_sender
                     .send(response)
                     .expect("database writer thread failed to send response back to requester");
-                break;
+
+                continue 'main;
             }
+
+            // Above retry loop should either:
+            // - continue to the next ['main] loop or...
+            // - ...retry until panic
+            unreachable!();
         }
+
+        // The only case the ['main] loop breaks should be a:
+        // - direct function return
+        // - panic
+        // anything below should be unreachable.
+        unreachable!();
     }
 }
 
