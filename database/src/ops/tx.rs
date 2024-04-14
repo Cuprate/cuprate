@@ -162,7 +162,7 @@ mod test {
         assert_all_tables_are_empty(&env);
 
         // Monero `Transaction`, not database tx.
-        let txs: Vec<Transaction> = vec![tx_v1_sig0(), tx_v1_sig2(), tx_v2_rct3()];
+        let txs = [tx_v1_sig0(), tx_v1_sig2(), tx_v2_rct3()];
 
         // Add transactions.
         let tx_ids = {
@@ -209,7 +209,7 @@ mod test {
                 let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
 
                 assert_eq!(tx_get_from_id, tx_get);
-                assert_eq!(tx_get, txs[i]);
+                assert_eq!(&tx_get, txs[i]);
                 assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
 
                 tx_hashes.push(tx_hash);

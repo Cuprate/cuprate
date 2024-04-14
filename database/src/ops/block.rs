@@ -36,6 +36,8 @@ use crate::{
     StorableVec,
 };
 
+use super::blockchain::chain_height;
+
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
 ///
@@ -54,10 +56,17 @@ use crate::{
 #[allow(clippy::too_many_lines)]
 // no inline, too big.
 pub fn add_block(
-    tables: &mut impl TablesMut,
     block: &VerifiedBlockInformation,
+    tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
-    let cumulative_rct_outs = crate::ops::output::get_rct_num_outputs(tables.rct_outputs())?;
+    let block_height = chain_height(tables.block_heights())?;
+    if block.height != block_height {
+        // TODO: what to do when the caller:
+        // - provided a block that isn't the chain tip
+        // - provided a block that already exists
+    }
+
+    let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
 
     // Block Info.
     tables.block_infos_mut().put(
@@ -443,4 +452,96 @@ pub fn block_exists(
     block_hash: &BlockHash,
 ) -> Result<bool, RuntimeError> {
     table_block_heights.contains(block_hash)
+}
+
+//---------------------------------------------------------------------------------------------------- Tests
+#[cfg(test)]
+#[allow(clippy::significant_drop_tightening)]
+mod test {
+    use super::*;
+    use crate::{
+        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        Env,
+    };
+    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx513, block_v9_tx3};
+
+    /// Tests all above block functions.
+    #[test]
+    fn all_block_functions() {
+        let (env, tmp) = tmp_concrete_env();
+        let env_inner = env.env_inner();
+        assert_all_tables_are_empty(&env);
+
+        //     let blocks: Vec<Block> = vec![block_v16_tx0(), block_v1_tx513(), block_v9_tx3()];
+
+        //     // Add blocks.
+        //     {
+        //         let tx_rw = env_inner.tx_rw().unwrap();
+        //         let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+        //         for block in &blocks {
+        //             add_block(&block, &mut tables).unwrap();
+        //         }
+
+        //         drop(tables);
+        //         TxRw::commit(tx_rw).unwrap();
+        //     }
+
+        //     // Assert all reads of the transactions are OK.
+        //     let tx_hashes = {
+        //         let tx_ro = env_inner.tx_ro().unwrap();
+        //         let tables = env_inner.open_tables(&tx_ro).unwrap();
+
+        //         // Assert only the proper tables were added to.
+        //         assert_eq!(tables.block_infos().len().unwrap(), 0);
+        //         assert_eq!(tables.block_blobs().len().unwrap(), 0);
+        //         assert_eq!(tables.block_heights().len().unwrap(), 0);
+        //         assert_eq!(tables.key_images().len().unwrap(), 0);
+        //         assert_eq!(tables.num_outputs().len().unwrap(), 0);
+        //         assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
+        //         assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
+        //         assert_eq!(tables.outputs().len().unwrap(), 0);
+        //         assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
+        //         assert_eq!(tables.rct_outputs().len().unwrap(), 0);
+        //         assert_eq!(tables.tx_blobs().len().unwrap(), 3);
+        //         assert_eq!(tables.tx_ids().len().unwrap(), 3);
+        //         assert_eq!(tables.tx_heights().len().unwrap(), 3);
+        //         assert_eq!(tables.tx_unlock_time().len().unwrap(), 1); // only 1 has a timelock
+
+        //         // Both from ID and hash should result in getting the same transaction.
+        //         let mut tx_hashes = vec![];
+        //         for (i, tx_id) in tx_ids.iter().enumerate() {
+        //             let tx_get_from_id = get_tx_from_id(tx_id, tables.tx_blobs()).unwrap();
+        //             let tx_hash = tx_get_from_id.hash();
+        //             let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
+
+        //             assert_eq!(tx_get_from_id, tx_get);
+        //             assert_eq!(tx_get, txs[i]);
+        //             assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
+
+        //             tx_hashes.push(tx_hash);
+        //         }
+
+        //         tx_hashes
+        //     };
+
+        //     // Remove the transactions.
+        //     {
+        //         let tx_rw = env_inner.tx_rw().unwrap();
+        //         let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+        //         for tx_hash in tx_hashes {
+        //             let (tx_id, _) = remove_tx(&tx_hash, &mut tables).unwrap();
+        //             assert!(matches!(
+        //                 get_tx_from_id(&tx_id, tables.tx_blobs()),
+        //                 Err(RuntimeError::KeyNotFound)
+        //             ));
+        //         }
+
+        //         drop(tables);
+        //         TxRw::commit(tx_rw).unwrap();
+        //     }
+
+        //     assert_all_tables_are_empty(&env);
+    }
 }
