@@ -201,7 +201,6 @@ fn map_request(
         R::Outputs(map) => outputs(&env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(&env, vec),
         R::CheckKIsNotSpent(set) => check_k_is_not_spent(&env, set),
-        R::BlockBatchInRange(range) => block_batch_in_range(&env, range),
     };
 
     if let Err(e) = response_sender.send(response) {
@@ -281,11 +280,5 @@ fn number_outputs_with_amount(env: &Arc<ConcreteEnv>, vec: Vec<Amount>) -> Respo
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
 fn check_k_is_not_spent(env: &Arc<ConcreteEnv>, set: HashSet<KeyImage>) -> ResponseResult {
-    todo!()
-}
-
-/// [`ReadRequest::BlockBatchInRange`].
-#[inline]
-fn block_batch_in_range(env: &Arc<ConcreteEnv>, range: Range<BlockHeight>) -> ResponseResult {
     todo!()
 }
