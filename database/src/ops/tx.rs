@@ -149,7 +149,7 @@ pub fn tx_exists(
 mod test {
     use super::*;
     use crate::{tests::tmp_concrete_env, Env};
-    use cuprate_test_utils::data::tx_v2_rct3;
+    use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
 
     /// TODO: fix when we have real TX data to test on.
     /// Tests all above tx functions.
@@ -159,7 +159,7 @@ mod test {
         let env_inner = env.env_inner();
 
         // Monero `Transaction`, not database tx.
-        let tx: Transaction = tx_v2_rct3();
+        let txs: Vec<Transaction> = vec![tx_v1_sig0(), tx_v1_sig2(), tx_v2_rct3()];
 
         // Before starting, assert the DB is empty.
         let assert_db_is_empty = || {
@@ -170,45 +170,63 @@ mod test {
         };
         assert_db_is_empty();
 
-        // Add transaction.
-        let tx_id = {
+        // Add transactions.
+        let tx_ids = {
             let tx_rw = env_inner.tx_rw().unwrap();
             let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
-            let tx_id = add_tx(&tx, &mut tables).unwrap();
+            let tx_ids = txs
+                .iter()
+                .map(|tx| add_tx(tx, &mut tables).unwrap())
+                .collect::<Vec<TxId>>();
 
             drop(tables);
             TxRw::commit(tx_rw).unwrap();
 
-            tx_id
+            tx_ids
         };
 
-        // Assert all reads of that transaction are OK.
-        let tx_hash = {
+        // Assert all reads of the transactions are OK.
+        let tx_hashes = {
             let tx_ro = env_inner.tx_ro().unwrap();
             let tables = env_inner.open_tables(&tx_ro).unwrap();
 
             // Assert proper tables were added to.
-            assert_eq!(tables.tx_ids().len().unwrap(), 1);
-            assert_eq!(tables.tx_heights().len().unwrap(), 1);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
-            assert_eq!(tables.tx_blobs().len().unwrap(), 1);
+            assert_eq!(tables.tx_ids().len().unwrap(), 3);
+            assert_eq!(tables.tx_heights().len().unwrap(), 3);
+            assert_eq!(tables.tx_unlock_time().len().unwrap(), 1); // only 1 has a timelock
+            assert_eq!(tables.tx_blobs().len().unwrap(), 3);
 
             // Both from ID and hash should result in getting the same transaction.
-            let tx_get_from_id = get_tx_from_id(&tx_id, tables.tx_blobs()).unwrap();
-            let tx_hash = tx_get_from_id.hash();
-            let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
-            assert_eq!(tx_get_from_id, tx_get);
-            assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
+            let mut tx_hashes = vec![];
+            for (i, tx_id) in tx_ids.iter().enumerate() {
+                let tx_get_from_id = get_tx_from_id(tx_id, tables.tx_blobs()).unwrap();
+                let tx_hash = tx_get_from_id.hash();
+                let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
 
-            tx_hash
+                assert_eq!(tx_get_from_id, tx_get);
+                assert_eq!(tx_get, txs[i]);
+                assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
+
+                tx_hashes.push(tx_hash);
+            }
+
+            tx_hashes
         };
 
-        // Remove the transaction.
+        // Remove the transactions.
         {
             let tx_rw = env_inner.tx_rw().unwrap();
             let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
-            remove_tx(&tx_hash, &mut tables).unwrap();
+
+            for tx_hash in tx_hashes {
+                let (tx_id, _) = remove_tx(&tx_hash, &mut tables).unwrap();
+                assert!(matches!(
+                    get_tx_from_id(&tx_id, tables.tx_blobs()),
+                    Err(RuntimeError::KeyNotFound)
+                ));
+            }
+
             drop(tables);
             TxRw::commit(tx_rw).unwrap();
         }
