@@ -21,30 +21,10 @@ use cuprate_types::service::{ReadRequest, Response};
 use crate::{
     config::ReaderThreads,
     error::RuntimeError,
+    service::types::{ResponseReceiver, ResponseResult, ResponseSender},
     types::{Amount, AmountIndex, BlockHeight, KeyImage},
     ConcreteEnv,
 };
-
-//---------------------------------------------------------------------------------------------------- Types
-/// The actual type of the response.
-///
-/// Either our [`Response`], or a database error occurred.
-type ResponseResult = Result<Response, RuntimeError>;
-
-/// The `Receiver` channel that receives the read response.
-///
-/// This is owned by the caller (the reader)
-/// who `.await`'s for the response.
-///
-/// The channel itself should never fail,
-/// but the actual database operation might.
-type ResponseReceiver = InfallibleOneshotReceiver<ResponseResult>;
-
-/// The `Sender` channel for the response.
-///
-/// The database reader thread uses this to send
-/// the database result to the caller.
-type ResponseSender = oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
@@ -158,8 +138,8 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         }
 
         // Acquire a permit before returning `Ready`.
-        let permit = ready!(self.semaphore.poll_acquire(cx))
-            .expect("`self` itself owns the backing semaphore, so it can't be closed.");
+        let permit =
+            ready!(self.semaphore.poll_acquire(cx)).expect("this semaphore is never closed");
 
         self.permit = Some(permit);
         Poll::Ready(Ok(()))

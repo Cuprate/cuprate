@@ -14,26 +14,15 @@ use cuprate_types::{
     VerifiedBlockInformation,
 };
 
-use crate::{error::RuntimeError, ConcreteEnv, Env};
+use crate::{
+    error::RuntimeError,
+    service::types::{ResponseReceiver, ResponseResult, ResponseSender},
+    ConcreteEnv, Env,
+};
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// Name of the writer thread.
 const WRITER_THREAD_NAME: &str = concat!(module_path!(), "::DatabaseWriter");
-
-//---------------------------------------------------------------------------------------------------- Types
-/// The actual type of the response.
-///
-/// Either our [Response], or a database error occurred.
-type ResponseResult = Result<Response, RuntimeError>;
-
-/// The `Receiver` channel that receives the write response.
-///
-/// The channel itself should never fail,
-/// but the actual database operation might.
-type ResponseReceiver = InfallibleOneshotReceiver<ResponseResult>;
-
-/// The `Sender` channel for the response.
-type ResponseSender = oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriteHandle
 /// Write handle to the database.

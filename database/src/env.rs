@@ -109,6 +109,8 @@ pub trait Env: Sized {
     ///
     /// If `resize_algorithm` is `Some`, that will be used instead.
     ///
+    /// This function returns the _new_ memory map size in bytes.
+    ///
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///

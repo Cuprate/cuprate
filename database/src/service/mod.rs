@@ -67,5 +67,8 @@ pub use write::DatabaseWriteHandle;
 mod free;
 pub use free::init;
 
+// Internal type aliases for `service`.
+mod types;
+
 #[cfg(test)]
 mod tests;
