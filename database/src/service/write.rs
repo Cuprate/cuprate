@@ -119,7 +119,8 @@ impl Drop for DatabaseWriter {
 impl DatabaseWriter {
     /// The `DatabaseWriter`'s main function.
     ///
-    /// The writer just loops in this function.
+    /// The writer just loops in this function, handling requests forever
+    /// until the request channel is dropped or a panic occurs.
     #[cold]
     #[inline(never)] // Only called once.
     fn main(self) {
@@ -148,20 +149,16 @@ impl DatabaseWriter {
 
             // Map [`Request`]'s to specific database functions.
             //
-            // This loop will be:
-            // - 2 iterations for manually resizing databases
-            // - 1 iteration for auto resizing databases
-            //
             // Both will:
             // 1. Map the request to a function
             // 2. Call the function
-            // 3. (manual resize only) If resize is needed, resize and `continue`
+            // 3. (manual resize only) If resize is needed, resize and retry
             // 4. (manual resize only) Redo step {1, 2}
             // 5. Send the function's `Result` back to the requester
             //
             // FIXME: there's probably a more elegant way
-            // represent this retry logic with recursive
-            // functions instead of loops + stack state.
+            // to represent this retry logic with recursive
+            // functions instead of a loop.
             'retry: for retry in 0..REQUEST_RETRY_LIMIT {
                 // TODO: will there be more than 1 write request?
                 // this won't have to be an enum.
@@ -169,9 +166,7 @@ impl DatabaseWriter {
                     WriteRequest::WriteBlock(block) => write_block(&self.env, block),
                 };
 
-                // If the database needs to resize, do so. This branch will only be taken if:
-                // - This database manually resizes (compile time `bool`)
-                // - we haven't surpassed the retry limit, [`REQUEST_RETRY_LIMIT`]
+                // If the database needs to resize, do so.
                 if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded))
                 {
                     // If this is the last iteration of the outer `for` loop and we
