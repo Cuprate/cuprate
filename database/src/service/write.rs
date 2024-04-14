@@ -205,7 +205,9 @@ impl DatabaseWriter {
                 }
 
                 // Send the response back, whether if it's an `Ok` or `Err`.
-                response_sender.send(response).unwrap();
+                response_sender
+                    .send(response)
+                    .expect("database writer thread failed to send response back to requester");
                 break;
             }
         }

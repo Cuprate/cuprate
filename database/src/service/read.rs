@@ -224,8 +224,9 @@ fn map_request(
         R::BlockBatchInRange(range) => block_batch_in_range(&env, range),
     };
 
-    // TODO: what do we do if this errors?
-    response_sender.send(response).unwrap();
+    response_sender
+        .send(response)
+        .expect("database reader thread failed to send response back to requester");
 
     /* TODO: post-request handling, run some code for each request? */
 }
