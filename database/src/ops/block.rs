@@ -281,7 +281,6 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
 /// ```
 #[doc = doc_error!()]
 #[inline]
-#[allow(unused_assignments)] // `block_weight` gets returned at the end?
 pub fn get_block(
     tables: &impl Tables,
     block_hash: BlockHash,
@@ -292,7 +291,9 @@ pub fn get_block(
     let block = Block::read(&mut block_blob.as_slice())?;
 
     let mut txs = Vec::with_capacity(block.txs.len());
-    let mut block_weight = 0;
+
+    // TODO: Block weight is (miner_tx + all_other_txs) ?
+    let mut block_weight = block.miner_tx.weight();
 
     // Transactions.
     for tx_blob in &block.txs {
@@ -310,28 +311,17 @@ pub fn get_block(
         }));
     }
 
-    // Sum the amount of generated coins for this block.
-    let generated_coins = block
-        .miner_tx
-        .prefix
-        .inputs
-        .iter()
-        .map(|input| match input {
-            Input::Gen(amount) => *amount,
-            Input::ToKey { .. } => 0,
-        })
-        .sum();
-
     Ok(VerifiedBlockInformation {
         block,
         txs,
         block_hash,
         pow_hash: todo!(),
         height,
-        generated_coins,
+        generated_coins: block_info.total_generated_coins,
         weight: block_weight,
-        long_term_weight: todo!(),
-        cumulative_difficulty: todo!(),
+        #[allow(clippy::cast_possible_truncation)] // TODO: doc or fix
+        long_term_weight: block_info.long_term_weight as usize,
+        cumulative_difficulty: block_info.cumulative_difficulty,
         block_blob,
     })
 }
