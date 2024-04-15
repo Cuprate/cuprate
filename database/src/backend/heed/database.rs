@@ -222,51 +222,38 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         let tx_rw = &mut self.tx_rw.borrow_mut();
 
-        // Get the first value first...
-        let Some(first) = self.db.first(tx_rw)? else {
+        // Get the value first...
+        let Some((key, value)) = self.db.first(tx_rw)? else {
             return Err(RuntimeError::KeyNotFound);
         };
 
         // ...then remove it.
-        //
-        // We use an iterator because we want to semantically
-        // remove the _first_ and only the first `(key, value)`.
-        // `delete()` removes all keys including duplicates which
-        // is slightly different behavior.
-        let mut iter = self.db.iter_mut(tx_rw)?;
-
-        // SAFETY:
-        // It is undefined behavior to keep a reference of
-        // a value from this database while modifying it.
-        // We are deleting the value and never accessing
-        // the iterator again so this should be safe.
-        unsafe {
-            iter.del_current()?;
+        match self.db.delete(tx_rw, &key) {
+            Ok(true) => Ok((key, value)),
+            Err(e) => Err(e.into()),
+            // We just `get()`'ed the value - it is
+            // incorrect for it to suddenly not exist.
+            Ok(false) => unreachable!(),
         }
-
-        Ok(first)
     }
 
     #[inline]
     fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         let tx_rw = &mut self.tx_rw.borrow_mut();
 
-        let Some(first) = self.db.last(tx_rw)? else {
+        // Get the value first...
+        let Some((key, value)) = self.db.last(tx_rw)? else {
             return Err(RuntimeError::KeyNotFound);
         };
 
-        let mut iter = self.db.rev_iter_mut(tx_rw)?;
-
-        // SAFETY:
-        // It is undefined behavior to keep a reference of
-        // a value from this database while modifying it.
-        // We are deleting the value and never accessing
-        // the iterator again so this should be safe.
-        unsafe {
-            iter.del_current()?;
+        // ...then remove it.
+        match self.db.delete(tx_rw, &key) {
+            Ok(true) => Ok((key, value)),
+            Err(e) => Err(e.into()),
+            // We just `get()`'ed the value - it is
+            // incorrect for it to suddenly not exist.
+            Ok(false) => unreachable!(),
         }
-
-        Ok(first)
     }
 }
 
