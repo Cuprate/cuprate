@@ -112,7 +112,7 @@ pub fn add_block(
             match inputs {
                 // Key images.
                 Input::ToKey { key_image, .. } => {
-                    add_key_image(tables.key_images_mut(), key_image.compress().as_bytes())?;
+                    add_key_image(key_image.compress().as_bytes(), tables.key_images_mut())?;
                 }
                 // This is a miner transaction, set it for later use.
                 Input::Gen(_) => miner_tx = true,
