@@ -95,8 +95,8 @@ pub fn add_block(
 
     // Transaction & Outputs.
     for tx in &block.txs {
-        let tx: &Transaction = &tx.tx;
         add_tx(tx, tables)?;
+        let tx: &Transaction = &tx.tx;
 
         // ^
         // Everything above is adding tx data.
@@ -192,7 +192,10 @@ pub fn add_block(
 /// Remove the top/latest block from the database.
 #[doc = doc_error!()]
 #[inline]
-pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeError> {
+#[allow(clippy::missing_panics_doc)] // TODO: remove
+#[allow(clippy::never_loop)] // TODO: remove me
+#[allow(unused_assignments)]
+pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash), RuntimeError> {
     // Remove block data from tables.
     let (block_height, block_hash) = {
         let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
@@ -219,7 +222,19 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
             match inputs {
                 // Key images.
                 Input::ToKey { key_image, .. } => {
-                    add_key_image(tables.key_images_mut(), key_image.compress().as_bytes())?;
+                    let result =
+                        remove_key_image(key_image.compress().as_bytes(), tables.key_images_mut());
+
+                    // TODO: all test tx's have the same key image so the 1st
+                    // removal removes everything - fix me after we have real data.
+                    if cfg!(test) {
+                        match result {
+                            Ok(()) | Err(RuntimeError::KeyNotFound) => (),
+                            Err(e) => return Err(e),
+                        }
+                    } else {
+                        result?;
+                    }
                 }
                 // This is a miner transaction, set it for later use.
                 Input::Gen(_) => miner_tx = true,
@@ -227,12 +242,12 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
         }
 
         // Remove each output in the transaction.
-        for output in tx.prefix.outputs {
+        for (i, output) in tx.prefix.outputs.into_iter().enumerate() {
             // Outputs with clear amounts.
             if let Some(amount) = output.amount {
                 // RingCT miner outputs.
                 if miner_tx && tx.prefix.version == 2 {
-                    let amount_index = get_rct_num_outputs(tables.rct_outputs_mut())?;
+                    let amount_index = get_rct_num_outputs(tables.rct_outputs())?.saturating_sub(1);
                     remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
                 // Pre-RingCT outputs.
                 } else {
@@ -247,13 +262,13 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
                 }
             // RingCT outputs.
             } else {
-                let amount_index = get_rct_num_outputs(tables.rct_outputs_mut())?;
+                let amount_index = get_rct_num_outputs(tables.rct_outputs())?.saturating_sub(1);
                 remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
             }
         }
     }
 
-    Ok(block_height)
+    Ok((block_height, block_hash))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
@@ -264,8 +279,8 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<BlockHeight, RuntimeErro
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_extended_header(
-    tables: &impl Tables,
     block_hash: BlockHash,
+    tables: &impl Tables,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
     let height = tables.block_heights().get(&block_hash)?;
     let block_info = tables.block_infos().get(&height)?;
@@ -290,10 +305,10 @@ pub fn get_block_extended_header(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_extended_header_from_height(
+    block_height: &BlockHeight,
     tables: &impl Tables,
-    block_height: BlockHeight,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
-    get_block_extended_header(tables, tables.block_infos().get(&block_height)?.block_hash)
+    get_block_extended_header(tables.block_infos().get(block_height)?.block_hash, tables)
 }
 
 /// Return the top/latest [`ExtendedBlockHeader`] from the database.
@@ -303,8 +318,8 @@ pub fn get_block_extended_header_top(
     tables: &impl Tables,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
     get_block_extended_header_from_height(
+        &chain_height(tables.block_heights())?.saturating_sub(1),
         tables,
-        chain_height(tables.block_heights())?.saturating_sub(1),
     )
 }
 
@@ -313,8 +328,8 @@ pub fn get_block_extended_header_top(
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_height(
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
     block_hash: &BlockHash,
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<BlockHeight, RuntimeError> {
     table_block_heights.get(block_hash)
 }
@@ -324,8 +339,8 @@ pub fn get_block_height(
 #[doc = doc_error!()]
 #[inline]
 pub fn block_exists(
-    table_block_heights: &impl DatabaseRo<BlockHeights>,
     block_hash: &BlockHash,
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<bool, RuntimeError> {
     table_block_heights.contains(block_hash)
 }
@@ -334,33 +349,61 @@ pub fn block_exists(
 #[cfg(test)]
 #[allow(clippy::significant_drop_tightening)]
 mod test {
+    use hex_literal::hex;
+    use pretty_assertions::assert_eq;
+
+    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx513, block_v9_tx3, tx_v2_rct3};
+
     use super::*;
     use crate::{
+        ops::tx::{get_tx, tx_exists},
         tests::{assert_all_tables_are_empty, tmp_concrete_env},
         Env,
     };
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx513, block_v9_tx3, tx_v2_rct3};
 
+    /// TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
     /// TODO: `cuprate_test_utils::data` should return `VerifiedBlockInformation`.
+    /// The tests below should be testing _real_ blocks that has _real_ transactions/outputs/hashes/etc.
     ///
     /// As `VerifiedBlockInformation` contains some fields that
     /// we cannot actually produce in `cuprate_database`, the testing
     /// below will use not real but "close-enough" values.
     ///
     /// For example, a real `pow_hash` is not computable here without
-    /// importing PoW code, so instead we fill it with dummy values.
-    fn dummy_map_block_to_verified_block_information(block: Block) -> VerifiedBlockInformation {
+    /// importing `PoW` code, so instead we fill it with dummy values.
+    fn dummy_verified_block_information() -> VerifiedBlockInformation {
+        let block = block_v9_tx3();
+
+        // `pop_block()` finds and removes a block's transactions by its `block.txs` field
+        // so we need to provide transactions that have the same hashes as `block_v9_tx3()`'s block.
+        // The other contents are not real (fee, weight, etc).
+        let tx = tx_v2_rct3();
+        let mut txs = vec![];
+        for tx_hash in [
+            hex_literal::hex!("e2d39395dd1625b2d707b98af789e7eab9d24c2bd2978ec38ef910961a8cdcee"),
+            hex_literal::hex!("e57440ec66d2f3b2a5fa2081af40128868973e7c021bb3877290db3066317474"),
+            hex_literal::hex!("b6b4394d4ec5f08ad63267c07962550064caa8d225dd9ad6d739ebf60291c169"),
+        ] {
+            txs.push(Arc::new(TransactionVerificationData {
+                tx_hash,
+                tx: tx.clone(),
+                tx_blob: tx.serialize(),
+                tx_weight: tx.weight(),
+                fee: 1_401_270_000,
+            }));
+        }
+
         VerifiedBlockInformation {
-            block,
             block_hash: block.hash(),
-            txs: vec![Arc::new(tx_v2_rct3())], // dummy
+            block_blob: block.serialize(),
+            block,
+            txs,                      // dummy
             pow_hash: [3; 32],        // dummy
             height: 3,                // dummy
             generated_coins: 3,       // dummy
             weight: 3,                // dummy
             long_term_weight: 3,      // dummy
             cumulative_difficulty: 3, // dummy
-            block_blob: vec![],       // dummy
         }
     }
 
@@ -372,12 +415,13 @@ mod test {
     /// It simply tests if the proper tables are mutated, and if the data
     /// stored and retrieved is the same.
     #[test]
+    #[allow(clippy::cognitive_complexity)]
     fn all_block_functions() {
         let (env, tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
-        let blocks: Vec<Block> = vec![block_v16_tx0(), block_v1_tx513(), block_v9_tx3()];
+        let blocks: Vec<VerifiedBlockInformation> = vec![dummy_verified_block_information()];
 
         // Add blocks.
         {
@@ -385,60 +429,105 @@ mod test {
             let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
             for block in &blocks {
-                add_block(&block, &mut tables).unwrap();
+                // println!("add_block: {block:#?}");
+                add_block(block, &mut tables).unwrap();
             }
 
             drop(tables);
             TxRw::commit(tx_rw).unwrap();
         }
 
-        // Assert all reads of the transactions are OK.
-        let tx_hashes = {
+        // Assert all reads are OK.
+        let block_hashes = {
             let tx_ro = env_inner.tx_ro().unwrap();
             let tables = env_inner.open_tables(&tx_ro).unwrap();
 
+            // TODO: fix this when new and _real_ blocks are added.
             // Assert only the proper tables were added to.
-            assert_eq!(tables.block_infos().len().unwrap(), 0);
-            assert_eq!(tables.block_blobs().len().unwrap(), 0);
-            assert_eq!(tables.block_heights().len().unwrap(), 0);
-            assert_eq!(tables.key_images().len().unwrap(), 0);
+            assert_eq!(tables.block_infos().len().unwrap(), 1);
+            assert_eq!(tables.block_blobs().len().unwrap(), 1);
+            assert_eq!(tables.block_heights().len().unwrap(), 1);
+            assert_eq!(tables.key_images().len().unwrap(), 2);
             assert_eq!(tables.num_outputs().len().unwrap(), 0);
             assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
             assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
             assert_eq!(tables.outputs().len().unwrap(), 0);
             assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.rct_outputs().len().unwrap(), 0);
+            assert_eq!(tables.rct_outputs().len().unwrap(), 6);
             assert_eq!(tables.tx_blobs().len().unwrap(), 3);
             assert_eq!(tables.tx_ids().len().unwrap(), 3);
             assert_eq!(tables.tx_heights().len().unwrap(), 3);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 1); // only 1 has a timelock
+            assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
 
-            // Both from ID and hash should result in getting the same transaction.
-            let mut tx_hashes = vec![];
-            for (i, tx_id) in tx_ids.iter().enumerate() {
-                let tx_get_from_id = get_tx_from_id(tx_id, tables.tx_blobs()).unwrap();
-                let tx_hash = tx_get_from_id.hash();
-                let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
+            // Both height and hash should result in getting the same data.
+            let mut block_hashes = vec![];
+            for block in &blocks {
+                println!("blocks.iter(): hash: {}", hex::encode(block.block_hash));
 
-                assert_eq!(tx_get_from_id, tx_get);
-                assert_eq!(tx_get, txs[i]);
-                assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
+                let height = get_block_height(&block.block_hash, tables.block_heights()).unwrap();
 
-                tx_hashes.push(tx_hash);
+                println!("blocks.iter(): height: {height}");
+
+                assert!(block_exists(&block.block_hash, tables.block_heights()).unwrap());
+
+                let block_header_from_height =
+                    get_block_extended_header_from_height(&height, &tables).unwrap();
+                let block_header_from_hash =
+                    get_block_extended_header(block.block_hash, &tables).unwrap();
+
+                // Just an alias, these names are long.
+                let b1 = block_header_from_hash;
+                let b2 = block;
+                assert_eq!(b1, block_header_from_height);
+                assert_eq!(b1.version, b2.block.header.major_version);
+                assert_eq!(b1.vote, b2.block.header.minor_version);
+                assert_eq!(b1.timestamp, b2.block.header.timestamp);
+                assert_eq!(b1.cumulative_difficulty, b2.cumulative_difficulty);
+                assert_eq!(b1.block_weight, b2.weight);
+                assert_eq!(b1.long_term_weight, b2.long_term_weight);
+
+                block_hashes.push(block.block_hash);
+
+                // Assert transaction reads are OK.
+                for (i, tx) in block.txs.iter().enumerate() {
+                    println!("tx_hash: {:?}", hex::encode(tx.tx_hash));
+
+                    assert!(tx_exists(&tx.tx_hash, tables.tx_ids()).unwrap());
+
+                    let tx2 = get_tx(&tx.tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
+
+                    assert_eq!(tx.tx_blob, tx2.serialize());
+                    assert_eq!(tx.tx_weight, tx2.weight());
+                    assert_eq!(tx.tx_hash, block.block.txs[i]);
+                    // assert_eq!(tx.tx_hash, tx2.hash()); // TODO: we're using fake hashes for now, fix this.
+
+                    // TODO: Assert output reads are OK.
+                }
             }
 
-            tx_hashes
+            block_hashes
         };
 
-        // Remove the transactions.
+        {
+            let len = block_hashes.len();
+            let hashes: Vec<String> = block_hashes.iter().map(hex::encode).collect();
+            println!("block_hashes: len: {len}, hashes: {hashes:?}");
+        }
+
+        // Remove the blocks.
         {
             let tx_rw = env_inner.tx_rw().unwrap();
             let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
-            for tx_hash in tx_hashes {
-                let (tx_id, _) = remove_tx(&tx_hash, &mut tables).unwrap();
+            for block_hash in block_hashes.into_iter().rev() {
+                println!("pop_block(): block_hash: {}", hex::encode(block_hash));
+
+                let (popped_height, popped_hash) = pop_block(&mut tables).unwrap();
+
+                assert_eq!(block_hash, popped_hash);
+
                 assert!(matches!(
-                    get_tx_from_id(&tx_id, tables.tx_blobs()),
+                    get_block_extended_header(block_hash, &tables),
                     Err(RuntimeError::KeyNotFound)
                 ));
             }

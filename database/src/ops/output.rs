@@ -149,15 +149,17 @@ mod test {
         Env,
     };
     use cuprate_test_utils::data::{tx_v1_sig2, tx_v2_rct3};
+    use pretty_assertions::assert_eq;
 
-    // Dummy `Output`.
+    /// Dummy `Output`.
     const OUTPUT: Output = Output {
         key: [44; 32],
         height: 0,
         output_flags: OutputFlags::NON_ZERO_UNLOCK_TIME,
         tx_idx: 0,
     };
-    // Dummy `RctOutput`.
+
+    /// Dummy `RctOutput`.
     const RCT_OUTPUT: RctOutput = RctOutput {
         key: [88; 32],
         height: 1,
@@ -166,7 +168,7 @@ mod test {
         commitment: [100; 32],
     };
 
-    /// Tests all above output functions.
+    /// Tests all above output functions when only inputting `Output` data (no Block).
     ///
     /// Note that this doesn't test the correctness of values added, as the
     /// functions have a pre-condition that the caller handles this.
@@ -246,5 +248,11 @@ mod test {
         }
 
         assert_all_tables_are_empty(&env);
+    }
+
+    /// Tests all above tx functions when using the full `add_block()`.
+    #[test]
+    const fn all_tx_functions_add_block() {
+        // TODO
     }
 }

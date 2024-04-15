@@ -53,8 +53,8 @@ pub fn add_key_image(
 /// ```
 #[inline]
 pub fn remove_key_image(
-    table_key_images: &mut impl DatabaseRw<KeyImages>,
     key_image: &KeyImage,
+    table_key_images: &mut impl DatabaseRw<KeyImages>,
 ) -> Result<(), RuntimeError> {
     table_key_images.delete(key_image)
 }
@@ -69,8 +69,8 @@ pub fn remove_key_image(
 #[doc = doc_error!()]
 #[inline]
 pub fn key_image_exists(
-    table_key_images: &impl DatabaseRo<KeyImages>,
     key_image: &KeyImage,
+    table_key_images: &impl DatabaseRo<KeyImages>,
 ) -> Result<bool, RuntimeError> {
     table_key_images.contains(key_image)
 }

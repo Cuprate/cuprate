@@ -35,15 +35,18 @@ use crate::{
 #[doc = doc_error!()]
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, RuntimeError> {
+pub fn add_tx(
+    tx: &TransactionVerificationData,
+    tables: &mut impl TablesMut,
+) -> Result<TxId, RuntimeError> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
     let height = crate::ops::blockchain::chain_height(tables.block_heights_mut())?;
 
-    tables.tx_ids_mut().put(&tx.hash(), &tx_id)?;
+    tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
     tables.tx_heights_mut().put(&tx_id, &height)?;
     tables
         .tx_blobs_mut()
-        .put(&tx_id, &StorableVec(tx.serialize()))?;
+        .put(&tx_id, bytemuck::TransparentWrapper::wrap_ref(&tx.tx_blob))?;
 
     // Timelocks.
     //
@@ -52,7 +55,7 @@ pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, Run
     // so the `u64/usize` is stored without any tag.
     //
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
-    match tx.prefix.timelock {
+    match tx.tx.prefix.timelock {
         Timelock::None => (),
         Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
         Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
@@ -72,11 +75,13 @@ pub fn add_tx(tx: &Transaction, tables: &mut impl TablesMut) -> Result<TxId, Run
 #[doc = doc_error!()]
 #[inline]
 #[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
+#[allow(clippy::missing_panics_doc)] // TODO: remove me
 pub fn remove_tx(
     tx_hash: &TxHash,
     tables: &mut impl TablesMut,
 ) -> Result<(TxId, TxBlob), RuntimeError> {
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
+    let tx_blob = tables.tx_blobs_mut().take(&tx_id)?;
     tables.tx_heights_mut().delete(&tx_id)?;
 
     // SOMEDAY: implement pruning after `monero-serai` does.
@@ -87,14 +92,10 @@ pub fn remove_tx(
     // }
 
     match tables.tx_unlock_time_mut().delete(&tx_id) {
-        Err(RuntimeError::KeyNotFound) | Ok(()) => (),
+        Ok(()) | Err(RuntimeError::KeyNotFound) => Ok((tx_id, tx_blob)),
         // An actual error occurred, return.
-        Err(e) => return Err(e),
-    };
-
-    let tx_blob = tables.tx_blobs_mut().take(&tx_id)?;
-
-    Ok((tx_id, tx_blob))
+        Err(e) => Err(e),
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
@@ -153,8 +154,21 @@ mod test {
         Env,
     };
     use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
+    use pretty_assertions::assert_eq;
 
-    /// Tests all above tx functions.
+    /// TODO: Use real data.
+    /// See `../block/block.rs/dummy_verified_block_information()` for more info.
+    fn dummy_verified_tx(tx: Transaction) -> TransactionVerificationData {
+        TransactionVerificationData {
+            tx_blob: tx.serialize(),
+            tx_hash: tx.hash(),
+            tx_weight: tx.weight(),
+            tx,
+            fee: 1_401_270_000,
+        }
+    }
+
+    /// Tests all above tx functions when only inputting `Transaction` data (no Block).
     #[test]
     fn all_tx_functions() {
         let (env, tmp) = tmp_concrete_env();
@@ -162,7 +176,11 @@ mod test {
         assert_all_tables_are_empty(&env);
 
         // Monero `Transaction`, not database tx.
-        let txs = [tx_v1_sig0(), tx_v1_sig2(), tx_v2_rct3()];
+        let txs = [
+            dummy_verified_tx(tx_v1_sig0()),
+            dummy_verified_tx(tx_v1_sig2()),
+            dummy_verified_tx(tx_v2_rct3()),
+        ];
 
         // Add transactions.
         let tx_ids = {
@@ -171,7 +189,10 @@ mod test {
 
             let tx_ids = txs
                 .iter()
-                .map(|tx| add_tx(tx, &mut tables).unwrap())
+                .map(|tx| {
+                    println!("add_tx(): {tx:#?}");
+                    add_tx(tx, &mut tables).unwrap()
+                })
                 .collect::<Vec<TxId>>();
 
             drop(tables);
@@ -204,12 +225,18 @@ mod test {
             // Both from ID and hash should result in getting the same transaction.
             let mut tx_hashes = vec![];
             for (i, tx_id) in tx_ids.iter().enumerate() {
+                println!("tx_ids.iter(): i: {i}, tx_id: {tx_id}");
+
                 let tx_get_from_id = get_tx_from_id(tx_id, tables.tx_blobs()).unwrap();
                 let tx_hash = tx_get_from_id.hash();
                 let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
 
+                println!("tx_ids.iter(): tx_get_from_id: {tx_get_from_id:#?}, tx_get: {tx_get:#?}");
+
+                assert_eq!(tx_get_from_id.hash(), tx_get.hash());
+                assert_eq!(tx_get_from_id.hash(), txs[i].tx_hash);
                 assert_eq!(tx_get_from_id, tx_get);
-                assert_eq!(tx_get, txs[i]);
+                assert_eq!(tx_get, txs[i].tx);
                 assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
 
                 tx_hashes.push(tx_hash);
@@ -224,6 +251,8 @@ mod test {
             let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
             for tx_hash in tx_hashes {
+                println!("remove_tx(): tx_hash: {tx_hash:?}");
+
                 let (tx_id, _) = remove_tx(&tx_hash, &mut tables).unwrap();
                 assert!(matches!(
                     get_tx_from_id(&tx_id, tables.tx_blobs()),
@@ -236,5 +265,11 @@ mod test {
         }
 
         assert_all_tables_are_empty(&env);
+    }
+
+    /// Tests all above tx functions when using the full `add_block()`.
+    #[test]
+    const fn all_tx_functions_add_block() {
+        // TODO
     }
 }
