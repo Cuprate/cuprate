@@ -18,6 +18,9 @@ use crate::data::constants::{
 };
 
 //---------------------------------------------------------------------------------------------------- Conversion
+/// FIXME: this isn't ideal, create a way to do this automatically
+/// and to actually verify the static data provided is correct.
+///
 /// Converts `monero_serai`'s `Block` into a
 /// `cuprate_types::VerifiedBlockInformation` (superset).
 ///
@@ -98,6 +101,8 @@ impl VerifiedTxMap {
 }
 
 //---------------------------------------------------------------------------------------------------- Blocks
+/// TODO: create a macro to generate these functions.
+
 /// Return [`BLOCK_BBD604`] as a [`VerifiedBlockInformation`].
 ///
 /// ```rust
