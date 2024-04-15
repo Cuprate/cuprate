@@ -272,7 +272,8 @@ pub fn get_block_extended_header(
     let block_blob = tables.block_blobs().get(&height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
 
-    #[allow(clippy::cast_possible_truncation)] // TODO: fix to `u64` or doc
+    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
+    #[allow(clippy::cast_possible_truncation)]
     Ok(ExtendedBlockHeader {
         version: block.header.major_version,
         vote: block.header.minor_version,
@@ -338,85 +339,114 @@ mod test {
         tests::{assert_all_tables_are_empty, tmp_concrete_env},
         Env,
     };
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx513, block_v9_tx3};
+    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx513, block_v9_tx3, tx_v2_rct3};
+
+    /// TODO: `cuprate_test_utils::data` should return `VerifiedBlockInformation`.
+    ///
+    /// As `VerifiedBlockInformation` contains some fields that
+    /// we cannot actually produce in `cuprate_database`, the testing
+    /// below will use not real but "close-enough" values.
+    ///
+    /// For example, a real `pow_hash` is not computable here without
+    /// importing PoW code, so instead we fill it with dummy values.
+    fn dummy_map_block_to_verified_block_information(block: Block) -> VerifiedBlockInformation {
+        VerifiedBlockInformation {
+            block,
+            block_hash: block.hash(),
+            txs: vec![Arc::new(tx_v2_rct3())], // dummy
+            pow_hash: [3; 32],        // dummy
+            height: 3,                // dummy
+            generated_coins: 3,       // dummy
+            weight: 3,                // dummy
+            long_term_weight: 3,      // dummy
+            cumulative_difficulty: 3, // dummy
+            block_blob: vec![],       // dummy
+        }
+    }
 
     /// Tests all above block functions.
+    ///
+    /// Note that this doesn't test the correctness of values added, as the
+    /// functions have a pre-condition that the caller handles this.
+    ///
+    /// It simply tests if the proper tables are mutated, and if the data
+    /// stored and retrieved is the same.
     #[test]
     fn all_block_functions() {
         let (env, tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
-        //     let blocks: Vec<Block> = vec![block_v16_tx0(), block_v1_tx513(), block_v9_tx3()];
+        let blocks: Vec<Block> = vec![block_v16_tx0(), block_v1_tx513(), block_v9_tx3()];
 
-        //     // Add blocks.
-        //     {
-        //         let tx_rw = env_inner.tx_rw().unwrap();
-        //         let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+        // Add blocks.
+        {
+            let tx_rw = env_inner.tx_rw().unwrap();
+            let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
-        //         for block in &blocks {
-        //             add_block(&block, &mut tables).unwrap();
-        //         }
+            for block in &blocks {
+                add_block(&block, &mut tables).unwrap();
+            }
 
-        //         drop(tables);
-        //         TxRw::commit(tx_rw).unwrap();
-        //     }
+            drop(tables);
+            TxRw::commit(tx_rw).unwrap();
+        }
 
-        //     // Assert all reads of the transactions are OK.
-        //     let tx_hashes = {
-        //         let tx_ro = env_inner.tx_ro().unwrap();
-        //         let tables = env_inner.open_tables(&tx_ro).unwrap();
+        // Assert all reads of the transactions are OK.
+        let tx_hashes = {
+            let tx_ro = env_inner.tx_ro().unwrap();
+            let tables = env_inner.open_tables(&tx_ro).unwrap();
 
-        //         // Assert only the proper tables were added to.
-        //         assert_eq!(tables.block_infos().len().unwrap(), 0);
-        //         assert_eq!(tables.block_blobs().len().unwrap(), 0);
-        //         assert_eq!(tables.block_heights().len().unwrap(), 0);
-        //         assert_eq!(tables.key_images().len().unwrap(), 0);
-        //         assert_eq!(tables.num_outputs().len().unwrap(), 0);
-        //         assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
-        //         assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-        //         assert_eq!(tables.outputs().len().unwrap(), 0);
-        //         assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-        //         assert_eq!(tables.rct_outputs().len().unwrap(), 0);
-        //         assert_eq!(tables.tx_blobs().len().unwrap(), 3);
-        //         assert_eq!(tables.tx_ids().len().unwrap(), 3);
-        //         assert_eq!(tables.tx_heights().len().unwrap(), 3);
-        //         assert_eq!(tables.tx_unlock_time().len().unwrap(), 1); // only 1 has a timelock
+            // Assert only the proper tables were added to.
+            assert_eq!(tables.block_infos().len().unwrap(), 0);
+            assert_eq!(tables.block_blobs().len().unwrap(), 0);
+            assert_eq!(tables.block_heights().len().unwrap(), 0);
+            assert_eq!(tables.key_images().len().unwrap(), 0);
+            assert_eq!(tables.num_outputs().len().unwrap(), 0);
+            assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
+            assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
+            assert_eq!(tables.outputs().len().unwrap(), 0);
+            assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
+            assert_eq!(tables.rct_outputs().len().unwrap(), 0);
+            assert_eq!(tables.tx_blobs().len().unwrap(), 3);
+            assert_eq!(tables.tx_ids().len().unwrap(), 3);
+            assert_eq!(tables.tx_heights().len().unwrap(), 3);
+            assert_eq!(tables.tx_unlock_time().len().unwrap(), 1); // only 1 has a timelock
 
-        //         // Both from ID and hash should result in getting the same transaction.
-        //         let mut tx_hashes = vec![];
-        //         for (i, tx_id) in tx_ids.iter().enumerate() {
-        //             let tx_get_from_id = get_tx_from_id(tx_id, tables.tx_blobs()).unwrap();
-        //             let tx_hash = tx_get_from_id.hash();
-        //             let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
+            // Both from ID and hash should result in getting the same transaction.
+            let mut tx_hashes = vec![];
+            for (i, tx_id) in tx_ids.iter().enumerate() {
+                let tx_get_from_id = get_tx_from_id(tx_id, tables.tx_blobs()).unwrap();
+                let tx_hash = tx_get_from_id.hash();
+                let tx_get = get_tx(&tx_hash, tables.tx_ids(), tables.tx_blobs()).unwrap();
 
-        //             assert_eq!(tx_get_from_id, tx_get);
-        //             assert_eq!(tx_get, txs[i]);
-        //             assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
+                assert_eq!(tx_get_from_id, tx_get);
+                assert_eq!(tx_get, txs[i]);
+                assert!(tx_exists(&tx_hash, tables.tx_ids()).unwrap());
 
-        //             tx_hashes.push(tx_hash);
-        //         }
+                tx_hashes.push(tx_hash);
+            }
 
-        //         tx_hashes
-        //     };
+            tx_hashes
+        };
 
-        //     // Remove the transactions.
-        //     {
-        //         let tx_rw = env_inner.tx_rw().unwrap();
-        //         let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+        // Remove the transactions.
+        {
+            let tx_rw = env_inner.tx_rw().unwrap();
+            let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
-        //         for tx_hash in tx_hashes {
-        //             let (tx_id, _) = remove_tx(&tx_hash, &mut tables).unwrap();
-        //             assert!(matches!(
-        //                 get_tx_from_id(&tx_id, tables.tx_blobs()),
-        //                 Err(RuntimeError::KeyNotFound)
-        //             ));
-        //         }
+            for tx_hash in tx_hashes {
+                let (tx_id, _) = remove_tx(&tx_hash, &mut tables).unwrap();
+                assert!(matches!(
+                    get_tx_from_id(&tx_id, tables.tx_blobs()),
+                    Err(RuntimeError::KeyNotFound)
+                ));
+            }
 
-        //         drop(tables);
-        //         TxRw::commit(tx_rw).unwrap();
-        //     }
+            drop(tables);
+            TxRw::commit(tx_rw).unwrap();
+        }
 
-        //     assert_all_tables_are_empty(&env);
+        assert_all_tables_are_empty(&env);
     }
 }
