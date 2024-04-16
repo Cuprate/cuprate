@@ -95,7 +95,8 @@ impl Env for ConcreteEnv {
 
         /// Function that creates the tables based off the passed `T: Table`.
         fn create_table<T: Table>(tx_rw: &redb::WriteTransaction) -> Result<(), InitError> {
-            println!("create_table(): {}", T::NAME); // TODO: use tracing.
+            // TODO: use tracing.
+            // println!("create_table(): {}", T::NAME);
 
             let table: redb::TableDefinition<
                 'static,

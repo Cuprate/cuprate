@@ -85,8 +85,8 @@ impl Drop for ConcreteEnv {
         // <https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L49-L61>
         let result = self.env.read().unwrap().clear_stale_readers();
         match result {
-            Ok(n) => println!("LMDB stale readers cleared: {n}"),
-            Err(e) => println!("LMDB stale reader clear error: {e:?}"),
+            Ok(n) => (),  // println!("LMDB stale readers cleared: {n}"),
+            Err(e) => (), // println!("LMDB stale reader clear error: {e:?}"),
         }
     }
 }
@@ -196,7 +196,8 @@ impl Env for ConcreteEnv {
             env: &heed::Env,
             tx_rw: &mut heed::RwTxn<'_>,
         ) -> Result<(), InitError> {
-            println!("create_table(): {}", T::NAME); // TODO: use tracing.
+            // TODO: use tracing.
+            // println!("create_table(): {}", T::NAME);
 
             DatabaseOpenOptions::new(env)
                 .name(<T as Table>::NAME)
