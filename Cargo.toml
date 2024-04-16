@@ -16,6 +16,7 @@ members = [
 	"p2p/address-book",
 	"pruning",
 	"test-utils",
+	"types",
 ]
 
 [profile.release]
@@ -41,6 +42,7 @@ anyhow                = { version = "1.0.81", default-features = false }
 async-trait           = { version = "0.1.74", default-features = false }
 bitflags              = { version = "2.4.2", default-features = false }
 borsh                 = { version = "1.2.1", default-features = false }
+bytemuck              = { version = "1.14.3", default-features = false }
 bytes                 = { version = "1.5.0", default-features = false }
 cfg-if                = { version = "1.0.0", default-features = false }
 clap                  = { version = "4.5.4", default-features = false }
@@ -92,7 +94,6 @@ proptest-derive       = { version = "0.4.0" }
 # open      = { version = "5.0.0" }  # Open PATH/URL, probably for binaries | https://github.com/byron/open-rs
 # regex     = { version = "1.10.2" } # Regular expressions                  | https://github.com/rust-lang/regex
 # ryu       = { version = "1.0.15" } # Fast float to string formatting      | https://github.com/dtolnay/ryu
-# strum     = { version = "0.25.0" } # Enum macros/traits                   | https://github.com/Peternator7/strum
 
 # Maybe one day.
 # disk     = { version = "*" } # (De)serialization to/from disk with various file formats | https://github.com/hinto-janai/disk
