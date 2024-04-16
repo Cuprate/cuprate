@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-//---------------------------------------------------------------------------------------------------- `add_key_image()`
+//---------------------------------------------------------------------------------------------------- Key image functions
 /// Add a [`KeyImage`] to the "spent" set in the database.
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
@@ -33,7 +33,6 @@ pub fn add_key_image(
     table_key_images.put(key_image, &())
 }
 
-//---------------------------------------------------------------------------------------------------- `remove_key_image()`
 /// Remove a [`KeyImage`] from the "spent" set in the database.
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
