@@ -23,15 +23,8 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- `add_key_image()`
 /// Add a [`KeyImage`] to the "spent" set in the database.
-///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::key_image::*};
-/// // TODO
-/// ```
 #[inline]
 pub fn add_key_image(
     key_image: &KeyImage,
@@ -42,15 +35,8 @@ pub fn add_key_image(
 
 //---------------------------------------------------------------------------------------------------- `remove_key_image()`
 /// Remove a [`KeyImage`] from the "spent" set in the database.
-///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::key_image::*};
-/// // TODO
-/// ```
 #[inline]
 pub fn remove_key_image(
     key_image: &KeyImage,
@@ -60,12 +46,6 @@ pub fn remove_key_image(
 }
 
 /// Check if a [`KeyImage`] exists - i.e. if it is "spent".
-///
-/// # Example
-/// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::key_image::*};
-/// // TODO
-/// ```
 #[doc = doc_error!()]
 #[inline]
 pub fn key_image_exists(

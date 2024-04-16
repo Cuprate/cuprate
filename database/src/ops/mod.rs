@@ -14,7 +14,7 @@
 //! # TODO
 //! TODO: These functions should pretty much map 1-1 to the `Request` enum.
 
-pub mod alt_block;
+// pub mod alt_block; // TODO: is this needed?
 pub mod block;
 pub mod blockchain;
 pub mod key_image;

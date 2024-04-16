@@ -49,7 +49,6 @@ pub fn add_output(
 }
 
 /// Remove a Pre-RCT [`Output`] from the database.
-///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
@@ -82,7 +81,9 @@ pub fn get_output(
     table_outputs.get(pre_rct_output_id)
 }
 
-/// TODO
+/// How many pre-RCT [`Output`]s are there?
+///
+/// This returns the amount of pre-RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
 pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> Result<u64, RuntimeError> {
@@ -94,7 +95,6 @@ pub fn get_num_outputs(table_outputs: &impl DatabaseRo<Outputs>) -> Result<u64, 
 ///
 /// Upon [`Ok`], this function returns the [`AmountIndex`] that
 /// can be used to lookup the `RctOutput` in [`get_rct_output()`].
-///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
@@ -108,7 +108,6 @@ pub fn add_rct_output(
 }
 
 /// Remove an [`RctOutput`] from the database.
-///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
@@ -129,7 +128,9 @@ pub fn get_rct_output(
     table_rct_outputs.get(amount_index)
 }
 
-/// TODO
+/// How many [`RctOutput`]s are there?
+///
+/// This returns the amount of RCT outputs currently stored.
 #[doc = doc_error!()]
 #[inline]
 pub fn get_rct_num_outputs(

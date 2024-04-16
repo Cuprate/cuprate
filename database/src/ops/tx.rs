@@ -10,6 +10,7 @@ use crate::{
     env::EnvInner,
     error::RuntimeError,
     ops::{
+        blockchain::chain_height,
         macros::{doc_add_block_inner_invariant, doc_error},
         property::get_blockchain_pruning_seed,
     },
@@ -27,26 +28,29 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Private
-/// TODO
+/// Add a [`TransactionVerificationData`] to the database.
 ///
-/// TODO: document this add to the latest block height.
+/// # Notes
+/// This uses the [`chain_height`] when addings to the [`TxHeights`] table.
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
 pub fn add_tx(
     tx: &TransactionVerificationData,
     tables: &mut impl TablesMut,
 ) -> Result<TxId, RuntimeError> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
-    let height = crate::ops::blockchain::chain_height(tables.block_heights_mut())?;
+    let chain_height = chain_height(tables.block_heights_mut())?;
 
+    // Transaction data.
     tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
-    tables.tx_heights_mut().put(&tx_id, &height)?;
+    tables.tx_heights_mut().put(&tx_id, &chain_height)?;
     tables
         .tx_blobs_mut()
         .put(&tx_id, bytemuck::TransparentWrapper::wrap_ref(&tx.tx_blob))?;
+
+    // Key images.
 
     // Timelocks.
     //
@@ -69,13 +73,13 @@ pub fn add_tx(
     Ok(tx_id)
 }
 
-/// TODO
+/// Remove a transaction from the database with its [`TxHash`].
+///
+/// This returns the [`TxId`] and [`TxBlob`] of the removed transaction.
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
-#[allow(clippy::needless_pass_by_ref_mut)] // TODO: remove me
-#[allow(clippy::missing_panics_doc)] // TODO: remove me
 pub fn remove_tx(
     tx_hash: &TxHash,
     tables: &mut impl TablesMut,
@@ -99,8 +103,7 @@ pub fn remove_tx(
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
-/// TODO
-///
+/// Retrieve a [`Transaction`] from the database with its [`TxHash`].
 #[doc = doc_error!()]
 #[inline]
 pub fn get_tx(
@@ -111,8 +114,7 @@ pub fn get_tx(
     get_tx_from_id(&table_tx_ids.get(tx_hash)?, table_tx_blobs)
 }
 
-/// TODO
-///
+/// Retrieve a [`Transaction`] from the database with its [`TxId`].
 #[doc = doc_error!()]
 #[inline]
 pub fn get_tx_from_id(
@@ -124,8 +126,15 @@ pub fn get_tx_from_id(
 }
 
 //----------------------------------------------------------------------------------------------------
-/// TODO
+/// How many [`Transaction`]s are there?
 ///
+/// This returns the amount of transactions currently stored.
+///
+/// For example:
+/// - 0 transactions exist => returns 0
+/// - 1 transactions exist => returns 1
+/// - 5 transactions exist => returns 5
+/// - etc
 #[doc = doc_error!()]
 #[inline]
 pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> Result<u64, RuntimeError> {
@@ -133,8 +142,9 @@ pub fn get_num_tx(table_tx_ids: &impl DatabaseRo<TxIds>) -> Result<u64, RuntimeE
 }
 
 //----------------------------------------------------------------------------------------------------
-/// TODO
+/// Check if a transaction exists in the database.
 ///
+/// Returns `true` if it does, else `false`.
 #[doc = doc_error!()]
 #[inline]
 pub fn tx_exists(

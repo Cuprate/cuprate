@@ -41,7 +41,7 @@ use crate::{
 /// Add a [`VerifiedBlockInformation`] to the database.
 ///
 /// This extracts all the data from the input block and
-/// maps and adds them to the appropriate database tables.
+/// maps/adds them to the appropriate database tables.
 ///
 #[doc = doc_error!()]
 ///
@@ -53,12 +53,12 @@ pub fn add_block(
     block: &VerifiedBlockInformation,
     tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
-    let block_height = chain_height(tables.block_heights())?;
-    if block.height != block_height {
-        // TODO: what to do when the caller:
-        // - provided a block that isn't the chain tip
-        // - provided a block that already exists
-    }
+    // let new_block_height = chain_height(tables.block_heights())?;
+    // if block.height > new_block_height {
+    //     // ...provided a block that isn't (chain tip + 1)
+    // } else if block.height < new_block_height {
+    //     // ... provided a block that already exists
+    // }
 
     let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
 
@@ -190,11 +190,10 @@ pub fn add_block(
 
 //---------------------------------------------------------------------------------------------------- `pop_block_*`
 /// Remove the top/latest block from the database.
+///
+/// The removed block's height and hash are returned.
 #[doc = doc_error!()]
-#[inline]
-#[allow(clippy::missing_panics_doc)] // TODO: remove
-#[allow(clippy::never_loop)] // TODO: remove me
-#[allow(unused_assignments)]
+// no inline, too big
 pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash), RuntimeError> {
     // Remove block data from tables.
     let (block_height, block_hash) = {
@@ -279,10 +278,10 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash)
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_extended_header(
-    block_hash: BlockHash,
+    block_hash: &BlockHash,
     tables: &impl Tables,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
-    let height = tables.block_heights().get(&block_hash)?;
+    let height = tables.block_heights().get(block_hash)?;
     let block_info = tables.block_infos().get(&height)?;
     let block_blob = tables.block_blobs().get(&height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
@@ -308,7 +307,7 @@ pub fn get_block_extended_header_from_height(
     block_height: &BlockHeight,
     tables: &impl Tables,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
-    get_block_extended_header(tables.block_infos().get(block_height)?.block_hash, tables)
+    get_block_extended_header(&tables.block_infos().get(block_height)?.block_hash, tables)
 }
 
 /// Return the top/latest [`ExtendedBlockHeader`] from the database.
@@ -316,14 +315,13 @@ pub fn get_block_extended_header_from_height(
 #[inline]
 pub fn get_block_extended_header_top(
     tables: &impl Tables,
-) -> Result<ExtendedBlockHeader, RuntimeError> {
-    get_block_extended_header_from_height(
-        &chain_height(tables.block_heights())?.saturating_sub(1),
-        tables,
-    )
+) -> Result<(ExtendedBlockHeader, BlockHeight), RuntimeError> {
+    let height = chain_height(tables.block_heights())?.saturating_sub(1);
+    let header = get_block_extended_header_from_height(&height, tables)?;
+    Ok((header, height))
 }
 
-//---------------------------------------------------------------------------------------------------- `get_block_height_*`
+//---------------------------------------------------------------------------------------------------- Misc
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 #[doc = doc_error!()]
 #[inline]
@@ -334,7 +332,6 @@ pub fn get_block_height(
     table_block_heights.get(block_hash)
 }
 
-//---------------------------------------------------------------------------------------------------- Misc
 /// Check if a block exists in the database.
 #[doc = doc_error!()]
 #[inline]
@@ -357,55 +354,9 @@ mod test {
     use super::*;
     use crate::{
         ops::tx::{get_tx, tx_exists},
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, dummy_verified_block_information, tmp_concrete_env},
         Env,
     };
-
-    /// TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
-    /// TODO: `cuprate_test_utils::data` should return `VerifiedBlockInformation`.
-    /// The tests below should be testing _real_ blocks that has _real_ transactions/outputs/hashes/etc.
-    ///
-    /// As `VerifiedBlockInformation` contains some fields that
-    /// we cannot actually produce in `cuprate_database`, the testing
-    /// below will use not real but "close-enough" values.
-    ///
-    /// For example, a real `pow_hash` is not computable here without
-    /// importing `PoW` code, so instead we fill it with dummy values.
-    fn dummy_verified_block_information() -> VerifiedBlockInformation {
-        let block = block_v9_tx3();
-
-        // `pop_block()` finds and removes a block's transactions by its `block.txs` field
-        // so we need to provide transactions that have the same hashes as `block_v9_tx3()`'s block.
-        // The other contents are not real (fee, weight, etc).
-        let tx = tx_v2_rct3();
-        let mut txs = vec![];
-        for tx_hash in [
-            hex_literal::hex!("e2d39395dd1625b2d707b98af789e7eab9d24c2bd2978ec38ef910961a8cdcee"),
-            hex_literal::hex!("e57440ec66d2f3b2a5fa2081af40128868973e7c021bb3877290db3066317474"),
-            hex_literal::hex!("b6b4394d4ec5f08ad63267c07962550064caa8d225dd9ad6d739ebf60291c169"),
-        ] {
-            txs.push(Arc::new(TransactionVerificationData {
-                tx_hash,
-                tx: tx.clone(),
-                tx_blob: tx.serialize(),
-                tx_weight: tx.weight(),
-                fee: 1_401_270_000,
-            }));
-        }
-
-        VerifiedBlockInformation {
-            block_hash: block.hash(),
-            block_blob: block.serialize(),
-            block,
-            txs,                      // dummy
-            pow_hash: [3; 32],        // dummy
-            height: 3,                // dummy
-            generated_coins: 3,       // dummy
-            weight: 3,                // dummy
-            long_term_weight: 3,      // dummy
-            cumulative_difficulty: 3, // dummy
-        }
-    }
 
     /// Tests all above block functions.
     ///
@@ -473,7 +424,7 @@ mod test {
                 let block_header_from_height =
                     get_block_extended_header_from_height(&height, &tables).unwrap();
                 let block_header_from_hash =
-                    get_block_extended_header(block.block_hash, &tables).unwrap();
+                    get_block_extended_header(&block.block_hash, &tables).unwrap();
 
                 // Just an alias, these names are long.
                 let b1 = block_header_from_hash;
@@ -527,7 +478,7 @@ mod test {
                 assert_eq!(block_hash, popped_hash);
 
                 assert!(matches!(
-                    get_block_extended_header(block_hash, &tables),
+                    get_block_extended_header(&block_hash, &tables),
                     Err(RuntimeError::KeyNotFound)
                 ));
             }
