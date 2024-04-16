@@ -1,6 +1,5 @@
-use std::net::Ipv4Addr;
 use std::{
-    net::{IpAddr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -25,6 +24,11 @@ impl NetZoneAddress for SocketAddr {
 
     fn ban_id(&self) -> Self::BanID {
         self.ip()
+    }
+
+    fn make_canonical(&mut self) {
+        let ip = self.ip().to_canonical();
+        self.set_ip(ip);
     }
 
     fn should_add_to_peer_list(&self) -> bool {
@@ -99,7 +103,10 @@ impl Stream for InBoundStream {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.listener
             .poll_accept(cx)
-            .map_ok(|(stream, addr)| {
+            .map_ok(|(stream, mut addr)| {
+                let ip = addr.ip().to_canonical();
+                addr.set_ip(ip);
+
                 let (read, write) = stream.into_split();
                 (
                     Some(addr),

@@ -1,5 +1,8 @@
-use core::fmt::{Debug, Formatter};
-use core::{num::TryFromIntError, str::Utf8Error};
+use core::{
+    fmt::{Debug, Formatter},
+    num::TryFromIntError,
+    str::Utf8Error,
+};
 
 pub type Result<T> = core::result::Result<T, Error>;
 

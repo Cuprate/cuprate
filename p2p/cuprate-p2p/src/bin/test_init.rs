@@ -106,41 +106,43 @@ impl Blockchain for DummyBlockchain {
 }
 
 use cuprate_helper::network::Network;
-use cuprate_p2p::block_downloader::{download_blocks, Blockchain, Where};
-use cuprate_p2p::broadcast::BroadcastConfig;
-use cuprate_p2p::config::P2PConfig;
-use cuprate_p2p::{broadcast, init_network};
-use futures::{FutureExt, StreamExt};
-use monero_p2p::client::{Client, Connector, HandShaker};
-use monero_p2p::network_zones::ClearNet;
-use monero_p2p::services::{
-    CoreSyncDataRequest, CoreSyncDataResponse, PeerSyncRequest, PeerSyncResponse,
+use cuprate_p2p::{
+    block_downloader::{download_blocks, Blockchain, Where},
+    broadcast,
+    broadcast::BroadcastConfig,
+    config::P2PConfig,
+    init_network,
 };
-use monero_p2p::{NetworkZone, PeerRequest, PeerResponse};
-use monero_wire::common::PeerSupportFlags;
-use monero_wire::BasicNodeData;
+use futures::{FutureExt, StreamExt};
+use monero_p2p::{
+    client::{Client, Connector, HandShaker},
+    network_zones::ClearNet,
+    services::{CoreSyncDataRequest, CoreSyncDataResponse, PeerSyncRequest, PeerSyncResponse},
+    NetworkZone, PeerRequest, PeerResponse,
+};
+use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 use rand::distributions::Bernoulli;
-use std::future::Future;
-use std::path::PathBuf;
-use std::pin::Pin;
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::{
+    future::Future,
+    path::PathBuf,
+    pin::Pin,
+    task::{Context, Poll},
+    time::Duration,
+};
 use tokio::time::sleep;
-use tower::buffer::Buffer;
-use tower::Service;
-use tracing::metadata::LevelFilter;
-use tracing::Level;
+use tower::{buffer::Buffer, Service};
+use tracing::{metadata::LevelFilter, Level};
 use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() {
     tracing_subscriber::fmt()
-        .with_max_level(LevelFilter::from_level(Level::INFO))
-        //  .pretty()
-        .with_line_number(false)
-        .with_file(false)
-        .with_target(false)
-        .finish()
+        // Configure formatting settings.
+        .with_target(true)
+        .with_timer(tracing_subscriber::fmt::time::uptime())
+        .with_level(true)
+        .with_max_level(Level::DEBUG)
+        // Set the subscriber as the default.
         .init();
 
     let address_book_cfg = monero_address_book::AddressBookConfig {
@@ -154,7 +156,7 @@ async fn main() {
         p2p_port: 0,
         rpc_port: 0,
         network: Default::default(),
-        outbound_connections: 64,
+        outbound_connections: 32,
         max_outbound_connections: 160,
         anchor_connections: 10,
         gray_peers_percent: 0.7,

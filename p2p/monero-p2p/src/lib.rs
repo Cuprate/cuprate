@@ -1,5 +1,17 @@
-#![allow(unused)]
-
+//! # Monero P2P
+//!
+//! This crate is general purpose P2P networking library for working with Monero. This is a low level
+//! crate, which means it may seem verbose for a lot of use cases, if you want a crate that handles
+//! more of the P2P logic have a look at `cuprate-p2p`.
+//!
+//! # Network Zones
+//!
+//! This crate abstracts over network zones, Tor/I2p/clearnet with the [NetworkZone] trait. Currently only clearnet is implemented: [ClearNet](network_zones::ClearNet).
+//!
+//! # Usage
+//!
+//! TODO
+//!
 use std::{fmt::Debug, future::Future, hash::Hash, pin::Pin};
 
 use futures::{Sink, Stream};
@@ -47,6 +59,11 @@ pub trait NetZoneAddress:
     /// TODO: IP zone banning?
     type BanID: Debug + Hash + Eq + Clone + Copy + Send + 'static;
 
+    /// Changes the port of this address to `port`.
+    fn set_port(&mut self, port: u16);
+
+    fn make_canonical(&mut self);
+
     fn ban_id(&self) -> Self::BanID;
 
     fn should_add_to_peer_list(&self) -> bool;
@@ -76,6 +93,8 @@ pub trait NetZoneAddress:
 
     /// Changes the port of this address to `port`.
     fn set_port(&mut self, port: u16);
+
+    fn make_canonical(&mut self);
 
     fn ban_id(&self) -> Self::BanID;
 
@@ -125,6 +144,10 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
         config: Self::ServerCfg,
     ) -> Result<Self::Listener, std::io::Error>;
 }
+
+// ####################################################################################
+// Below here is just helper traits, so we don't have to type out tower::Service bounds
+// everywhere but still get to use tower.
 
 pub trait PeerSyncSvc<Z: NetworkZone>:
     tower::Service<

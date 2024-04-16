@@ -11,9 +11,8 @@ use futures::{
     stream::{Fuse, FusedStream},
     FutureExt, SinkExt, Stream, StreamExt, TryStreamExt,
 };
-use tokio::sync::OwnedSemaphorePermit;
 use tokio::{
-    sync::{broadcast, mpsc},
+    sync::{broadcast, mpsc, OwnedSemaphorePermit},
     time::{sleep, timeout, Sleep, Timeout},
 };
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream, ReceiverStream};
@@ -22,22 +21,11 @@ use tower::ServiceExt;
 use monero_wire::{levin::Bucket, LevinCommand, Message, ProtocolMessage};
 
 use crate::{
-    constants::REQUEST_TIMEOUT, handles::ConnectionGuard, BroadcastMessage, MessageID, NetworkZone,
-    PeerError, PeerRequest, PeerRequestHandler, PeerResponse, SharedError,
+    constants::{REQUEST_TIMEOUT, SENDING_TIMEOUT, TIMEOUT_INTERVAL},
+    handles::ConnectionGuard,
+    BroadcastMessage, MessageID, NetworkZone, PeerError, PeerRequest, PeerRequestHandler,
+    PeerResponse, SharedError,
 };
-
-/// The timeout used when sending messages to a peer.
-///
-/// TODO: Make this configurable?
-/// TODO: Is this a good default.
-const SENDING_TIMEOUT: Duration = Duration::from_secs(20);
-
-/// The maximum interval between messages from the peer before we send a ping message
-/// to check it is still alive.
-///
-/// TODO: Make this configurable?
-/// TODO: Is this a good default.
-const TIMEOUT_INTERVAL: Duration = Duration::from_secs(60);
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
 pub struct ConnectionTaskRequest {
@@ -96,6 +84,7 @@ pub struct Connection<Z: NetworkZone, ReqHndlr, BrdcstStrm> {
 
     /// The client channel where requests from Cuprate to this peer will come from for us to route.
     client_rx: Fuse<ReceiverStream<ConnectionTaskRequest>>,
+    /// A stream of messages to broadcast from Cuprate.
     broadcast_stream: Pin<Box<BrdcstStrm>>,
 
     /// The inner handler for any requests that come from the requested peer.
@@ -144,23 +133,7 @@ where
             .and_then(|res| res.map_err(PeerError::BucketError))
     }
 
-    /// Checks if the connection is still alive, by sending a [`PeerRequest::Ping`] and setting the state
-    /// to [`State::WaitingForResponse`]. This prevents this connection from handling an internal request
-    /// from Cuprate until it returns the ping response.
-    async fn check_alive(&mut self) -> Result<(), PeerError> {
-        // We hijack the client request handling function with a dummy request
-        // to prevent duplicating code.
-        let (tx, _) = oneshot::channel();
-
-        let req = ConnectionTaskRequest {
-            request: PeerRequest::Ping,
-            response_channel: tx,
-            permit: None,
-        };
-
-        self.handle_client_request(req).await
-    }
-
+    /// Handles a broadcast request from Cuprate.
     async fn handle_client_broadcast(&mut self, mes: BroadcastMessage) -> Result<(), PeerError> {
         match mes {
             BroadcastMessage::NewFluffyBlock(block) => {
@@ -189,14 +162,18 @@ where
             // Set the timeout after sending the message, TODO: Is this a good idea.
             self.request_timeout = Some(Box::pin(sleep(REQUEST_TIMEOUT)));
         } else {
+            // For future devs: This function cannot exit early without sending a response back down the
+            // response channel.
             let res = self.send_message_to_peer(req.request.into()).await;
+
+            // send the response now, the request does not need a response from the peer.
             if let Err(e) = res {
                 let err_str = e.to_string();
                 let _ = req.response_channel.send(Err(err_str.clone().into()));
                 Err(e)?
             } else {
                 // We still need to respond even if the response is this.
-                req.response_channel.send(Ok(PeerResponse::NA));
+                let _ = req.response_channel.send(Ok(PeerResponse::NA));
             }
         }
         Ok(())
@@ -212,7 +189,11 @@ where
             return Ok(());
         }
 
-        self.send_message_to_peer(res.try_into().unwrap()).await
+        self.send_message_to_peer(
+            res.try_into()
+                .expect("We just checked if the response was `NA`"),
+        )
+        .await
     }
 
     /// Handles a message from a peer when we are in [`State::WaitingForResponse`].
@@ -229,6 +210,7 @@ where
             panic!("Not in correct state, can't receive response!")
         };
 
+        // Check if the message is a response to our request.
         if levin_command_response(request_id, mes.command()) {
             // TODO: Do more checks before returning response.
 
@@ -261,13 +243,8 @@ where
     {
         tracing::debug!("waiting for peer/client request.");
 
-        let timeout = sleep(TIMEOUT_INTERVAL);
-
         tokio::select! {
             biased;
-            _ = timeout => {
-                self.check_alive().await
-            }
             broadcast_req = self.broadcast_stream.next() => {
                 if let Some(broadcast_req) = broadcast_req {
                     self.handle_client_broadcast(broadcast_req).await
@@ -301,8 +278,7 @@ where
 
         tokio::select! {
             biased;
-            _ = self.request_timeout.as_mut().unwrap() => {
-                // TODO: Is disconnecting over the top?
+            _ = self.request_timeout.as_mut().expect("Request timeout was not set!") => {
                 Err(PeerError::ClientChannelClosed)
             }
             broadcast_req = self.broadcast_stream.next() => {
@@ -312,6 +288,7 @@ where
                     Err(PeerError::ClientChannelClosed)
                 }
             }
+            // We don't wait for client requests as we are already handling one.
             peer_message = stream.next() => {
                 if let Some(peer_message) = peer_message {
                     self.handle_potential_response(peer_message?).await
@@ -369,6 +346,7 @@ where
     /// set already.
     fn shutdown(mut self, err: PeerError) {
         tracing::debug!("Connection task shutting down: {}", err);
+
         let mut client_rx = self.client_rx.into_inner().into_inner();
         client_rx.close();
 

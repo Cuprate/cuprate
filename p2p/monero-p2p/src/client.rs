@@ -9,8 +9,10 @@ use futures::{
     lock::{Mutex, OwnedMutexGuard, OwnedMutexLockFuture},
     FutureExt,
 };
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio::{sync::mpsc, task::JoinHandle};
+use tokio::{
+    sync::{mpsc, OwnedSemaphorePermit, Semaphore},
+    task::JoinHandle,
+};
 use tokio_util::sync::{PollSemaphore, PollSender};
 use tower::Service;
 
@@ -25,11 +27,10 @@ use crate::{
 mod connection;
 mod connector;
 pub mod handshaker;
-mod load_tracked;
+mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
-pub use load_tracked::PeakEwmaClient;
 use monero_pruning::PruningSeed;
 use monero_wire::levin::Bucket;
 
@@ -79,6 +80,8 @@ pub struct Client<Z: NetworkZone> {
     connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
     /// The [`JoinHandle`] of the spawned connection task.
     connection_handle: JoinHandle<()>,
+    /// The [`JoinHandle`] of the spawned timeout monitor task.
+    timeout_handle: JoinHandle<Result<(), tower::BoxError>>,
 
     semaphore: PollSemaphore,
     permit: Option<OwnedSemaphorePermit>,
@@ -93,12 +96,15 @@ impl<Z: NetworkZone> Client<Z> {
         info: PeerInformation<Z::Addr>,
         connection_tx: mpsc::Sender<connection::ConnectionTaskRequest>,
         connection_handle: JoinHandle<()>,
+        timeout_handle: JoinHandle<Result<(), tower::BoxError>>,
+        semaphore: Arc<Semaphore>,
         error: SharedError<PeerError>,
     ) -> Self {
         Self {
             info,
             connection_tx,
-            semaphore: PollSemaphore::new(Arc::new(Semaphore::new(1))),
+            timeout_handle,
+            semaphore: PollSemaphore::new(semaphore),
             permit: None,
             connection_handle,
             error,
@@ -126,7 +132,7 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             return Poll::Ready(Err(err.to_string().into()));
         }
 
-        if self.connection_handle.is_finished() {
+        if self.connection_handle.is_finished() || self.timeout_handle.is_finished() {
             let err = self.set_err(PeerError::ClientChannelClosed);
             return Poll::Ready(Err(err));
         }

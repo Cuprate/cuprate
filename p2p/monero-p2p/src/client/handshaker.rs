@@ -15,7 +15,7 @@ use std::{
 
 use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use tokio::{
-    sync::{broadcast, mpsc, OwnedSemaphorePermit},
+    sync::{broadcast, mpsc, OwnedSemaphorePermit, Semaphore},
     time::{error::Elapsed, timeout},
 };
 use tower::{Service, ServiceExt};
@@ -32,11 +32,14 @@ use monero_wire::{
     ResponseMessage,
 };
 
-use crate::services::PeerSyncRequest;
 use crate::{
-    client::{connection::Connection, Client, InternalPeerID, PeerInformation},
+    client::{
+        connection::Connection, timeout_monitor::connection_timeout_monitor_task, Client,
+        InternalPeerID, PeerInformation,
+    },
     constants::MAX_PEERS_IN_PEER_LIST_MESSAGE,
     handles::HandleBuilder,
+    services::PeerSyncRequest,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, MessageID, NetZoneAddress, NetworkZone,
     PeerRequestHandler, PeerSyncSvc, SharedError,
@@ -456,21 +459,12 @@ where
         error_slot.clone(),
     );
 
-    let connection_span = tracing::error_span!(parent: &tracing::Span::none(), "connection", %addr);
+    let connection_span = tracing::error_span!(target: "connion", parent: &tracing::Span::none(), "connection", %addr);
     let connection_handle = tokio::spawn(
         connection
             .run(peer_stream.fuse(), eager_protocol_messages)
             .instrument(connection_span),
     );
-
-    let info = PeerInformation {
-        id: addr,
-        handle: handle.clone(),
-        direction,
-        pruning_seed: pruning_seed.clone(),
-    };
-
-    let client = Client::<Z>::new(info, connection_tx, connection_handle, error_slot);
 
     // Tell the core sync service about the new peer.
     peer_sync_svc
@@ -490,13 +484,41 @@ where
         .call(AddressBookRequest::NewConnection {
             internal_peer_id: addr,
             public_address,
-            handle,
+            handle: handle.clone(),
             id: peer_node_data.peer_id,
             pruning_seed,
             rpc_port: peer_node_data.rpc_port,
             rpc_credits_per_hash: peer_node_data.rpc_credits_per_hash,
         })
         .await?;
+
+    let info = PeerInformation {
+        id: addr,
+        handle,
+        direction,
+        pruning_seed: pruning_seed.clone(),
+    };
+
+    let semaphore = Arc::new(Semaphore::new(1));
+
+    let timeout_handle = tokio::spawn(connection_timeout_monitor_task(
+        info.id,
+        info.handle.clone(),
+        connection_tx.clone(),
+        semaphore.clone(),
+        address_book,
+        core_sync_svc,
+        peer_sync_svc,
+    ));
+
+    let client = Client::<Z>::new(
+        info,
+        connection_tx,
+        connection_handle,
+        timeout_handle,
+        semaphore,
+        error_slot,
+    );
 
     Ok(client)
 }
