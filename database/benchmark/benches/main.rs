@@ -81,6 +81,7 @@
 
 use criterion::criterion_main;
 
+mod db;
 mod env;
 
 criterion_main! {

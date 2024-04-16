@@ -19,5 +19,5 @@ cuprate-helper   = { path = "../../helper", features = ["fs", "thread"] }
 tempfile         = { version = "3.10.0" }
 
 [[bench]]
-name    = "lib"
+name    = "main"
 harness = false
