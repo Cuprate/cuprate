@@ -6,10 +6,8 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use function_name::named;
 
 use cuprate_database::{
-    resize::{page_size, ResizeAlgorithm},
     tables::Outputs,
-    types::{Output, PreRctOutputId},
-    ConcreteEnv, DatabaseIter, DatabaseRo, DatabaseRw, Env, EnvInner, TxRo, TxRw,
+    types::{Output, PreRctOutputId}, DatabaseIter, DatabaseRo, DatabaseRw, Env, EnvInner, TxRw,
 };
 
 use cuprate_database_benchmark::tmp_concrete_env;
