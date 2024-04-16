@@ -11,6 +11,7 @@ members = [
 	"net/fixed-bytes",
 	"net/levin",
 	"net/monero-wire",
+	"p2p/async-buffer",
 	"p2p/monero-p2p",
 	"p2p/address-book",
 	"pruning",
