@@ -105,8 +105,6 @@ This folder contains the `cupate_database::service` module.
 |----------------|---------|
 | `free.rs`      | General free functions used (related to `cuprate_database::service`)
 | `read.rs`      | Read thread-pool definitions and logic
-| `request.rs`   | Read/write `Request`s to the database
-| `response.rs`  | Read/write `Response`'s from the database
 | `tests.rs`     | Thread-pool tests and test helper functions
 | `types.rs`     | `cuprate_database::service`-related type aliases
 | `write.rs`     | Write thread-pool definitions and logic
