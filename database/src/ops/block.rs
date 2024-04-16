@@ -123,7 +123,7 @@ pub fn add_block(
         // Set to a non-zero bit value if the unlock time is non-zero.
         // TODO: use bitflags.
         let output_flags = match tx.prefix.timelock {
-            Timelock::None => OutputFlags::NONE,
+            Timelock::None => OutputFlags::empty(),
             Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
         };
 

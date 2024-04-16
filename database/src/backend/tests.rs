@@ -168,7 +168,7 @@ fn db_read_write() {
     const VALUE: Output = Output {
         key: [35; 32],
         height: 45_761_798,
-        output_flags: OutputFlags::NONE,
+        output_flags: OutputFlags::empty(),
         tx_idx: 2_353_487,
     };
     /// How many `(key, value)` pairs will be inserted.
@@ -469,7 +469,7 @@ test_tables! {
     } => Output {
         key: [1; 32],
         height: 1,
-        output_flags: OutputFlags::NONE,
+        output_flags: OutputFlags::empty(),
         tx_idx: 3,
     },
 
@@ -490,7 +490,7 @@ test_tables! {
     123 => RctOutput {
         key: [1; 32],
         height: 1,
-        output_flags: OutputFlags::NONE,
+        output_flags: OutputFlags::empty(),
         tx_idx: 3,
         commitment: [3; 32],
     },

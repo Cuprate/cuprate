@@ -164,7 +164,7 @@ mod test {
     const RCT_OUTPUT: RctOutput = RctOutput {
         key: [88; 32],
         height: 1,
-        output_flags: OutputFlags::NONE,
+        output_flags: OutputFlags::empty(),
         tx_idx: 1,
         commitment: [100; 32],
     };

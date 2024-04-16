@@ -200,8 +200,6 @@ bitflags::bitflags! {
     #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
     #[repr(transparent)]
     pub struct OutputFlags: u32 {
-        /// No flags set.
-        const NONE = 0b0000_0000;
         /// This output has a non-zero unlock time.
         const NON_ZERO_UNLOCK_TIME = 0b0000_0001;
     }
@@ -217,7 +215,7 @@ bitflags::bitflags! {
 /// let a = Output {
 ///     key: [1; 32],
 ///     height: 1,
-///     output_flags: OutputFlags::NONE,
+///     output_flags: OutputFlags::empty(),
 ///     tx_idx: 3,
 /// };
 /// let b = Storable::as_bytes(&a);
@@ -256,7 +254,7 @@ pub struct Output {
 /// let a = RctOutput {
 ///     key: [1; 32],
 ///     height: 1,
-///     output_flags: OutputFlags::NONE,
+///     output_flags: OutputFlags::empty(),
 ///     tx_idx: 3,
 ///     commitment: [3; 32],
 /// };
