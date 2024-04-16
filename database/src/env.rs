@@ -1,7 +1,7 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{fmt::Debug, ops::Deref};
+use std::{fmt::Debug, num::NonZeroUsize, ops::Deref};
 
 use crate::{
     config::Config,
@@ -109,11 +109,13 @@ pub trait Env: Sized {
     ///
     /// If `resize_algorithm` is `Some`, that will be used instead.
     ///
+    /// This function returns the _new_ memory map size in bytes.
+    ///
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
-    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
+    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         unreachable!()
     }
 

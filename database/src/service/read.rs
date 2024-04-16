@@ -2,6 +2,8 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
+    collections::{HashMap, HashSet},
+    ops::Range,
     sync::Arc,
     task::{Context, Poll},
 };
@@ -14,34 +16,15 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_types::service::{ReadRequest, Response};
 
 use crate::{
     config::ReaderThreads,
     error::RuntimeError,
-    service::{request::ReadRequest, response::Response},
+    service::types::{ResponseReceiver, ResponseResult, ResponseSender},
+    types::{Amount, AmountIndex, BlockHeight, KeyImage},
     ConcreteEnv,
 };
-
-//---------------------------------------------------------------------------------------------------- Types
-/// The actual type of the response.
-///
-/// Either our [`Response`], or a database error occurred.
-type ResponseResult = Result<Response, RuntimeError>;
-
-/// The `Receiver` channel that receives the read response.
-///
-/// This is owned by the caller (the reader)
-/// who `.await`'s for the response.
-///
-/// The channel itself should never fail,
-/// but the actual database operation might.
-type ResponseReceiver = InfallibleOneshotReceiver<ResponseResult>;
-
-/// The `Sender` channel for the response.
-///
-/// The database reader thread uses this to send
-/// the database result to the caller.
-type ResponseSender = oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
@@ -155,15 +138,14 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         }
 
         // Acquire a permit before returning `Ready`.
-        let Some(permit) = ready!(self.semaphore.poll_acquire(cx)) else {
-            // `self` itself owns the backing semaphore, so it can't be closed.
-            unreachable!();
-        };
+        let permit =
+            ready!(self.semaphore.poll_acquire(cx)).expect("this semaphore is never closed");
 
         self.permit = Some(permit);
         Poll::Ready(Ok(()))
     }
 
+    #[inline]
     fn call(&mut self, request: ReadRequest) -> Self::Future {
         let permit = self
             .permit
@@ -193,28 +175,37 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 // This function maps [`Request`]s to function calls
 // executed by the rayon DB reader threadpool.
 
-#[inline]
-#[allow(clippy::needless_pass_by_value)]
+#[allow(clippy::needless_pass_by_value)] // TODO: fix me
 /// Map [`Request`]'s to specific database handler functions.
 ///
 /// This is the main entrance into all `Request` handler functions.
 /// The basic structure is:
-///
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`Response`] is sent
 fn map_request(
-    _permit: OwnedSemaphorePermit,   // Permit for this request
-    env: Arc<ConcreteEnv>,           // Access to the database
-    request: ReadRequest,            // The request we must fulfill
+    _permit: OwnedSemaphorePermit, // Permit for this request, dropped at end of function
+    env: Arc<ConcreteEnv>,         // Access to the database
+    request: ReadRequest,          // The request we must fulfill
     response_sender: ResponseSender, // The channel we must send the response back to
 ) {
     /* TODO: pre-request handling, run some code for each request? */
+    use ReadRequest as R;
 
-    match request {
-        ReadRequest::Example1 => example_handler_1(env, response_sender),
-        ReadRequest::Example2(x) => example_handler_2(env, response_sender, x),
-        ReadRequest::Example3(x) => example_handler_3(env, response_sender, x),
+    let response = match request {
+        R::BlockExtendedHeader(block) => block_extended_header(&env, block),
+        R::BlockHash(block) => block_hash(&env, block),
+        R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(&env, range),
+        R::ChainHeight => chain_height(&env),
+        R::GeneratedCoins => generated_coins(&env),
+        R::Outputs(map) => outputs(&env, map),
+        R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(&env, vec),
+        R::CheckKIsNotSpent(set) => check_k_is_not_spent(&env, set),
+    };
+
+    if let Err(e) = response_sender.send(response) {
+        // TODO: use tracing.
+        println!("database reader failed to send response: {e:?}");
     }
 
     /* TODO: post-request handling, run some code for each request? */
@@ -222,6 +213,12 @@ fn map_request(
 
 //---------------------------------------------------------------------------------------------------- Handler functions
 // These are the actual functions that do stuff according to the incoming [`Request`].
+//
+// Each function name is a 1-1 mapping (from CamelCase -> snake_case) to
+// the enum variant name, e.g: `BlockExtendedHeader` -> `block_extended_header`.
+//
+// Each function will return the [`Response`] that we
+// should send back to the caller in [`map_request()`].
 //
 // INVARIANT:
 // These functions are called above in `tower::Service::call()`
@@ -231,26 +228,57 @@ fn map_request(
 // All functions below assume that this is the case, such that
 // `par_*()` functions will not block the _global_ rayon thread-pool.
 
-/// TODO
+/// [`ReadRequest::BlockExtendedHeader`].
 #[inline]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn example_handler_1(env: Arc<ConcreteEnv>, response_sender: ResponseSender) {
-    let db_result = Ok(Response::Example1);
-    response_sender.send(db_result).unwrap();
+fn block_extended_header(env: &Arc<ConcreteEnv>, block_height: BlockHeight) -> ResponseResult {
+    todo!()
 }
 
-/// TODO
+/// [`ReadRequest::BlockHash`].
 #[inline]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn example_handler_2(env: Arc<ConcreteEnv>, response_sender: ResponseSender, x: usize) {
-    let db_result = Ok(Response::Example2(x));
-    response_sender.send(db_result).unwrap();
+fn block_hash(env: &Arc<ConcreteEnv>, block_height: BlockHeight) -> ResponseResult {
+    todo!()
 }
 
+/// [`ReadRequest::BlockExtendedHeaderInRange`].
+#[inline]
+fn block_extended_header_in_range(
+    env: &Arc<ConcreteEnv>,
+    range: std::ops::Range<BlockHeight>,
+) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::ChainHeight`].
+#[inline]
+fn chain_height(env: &Arc<ConcreteEnv>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::GeneratedCoins`].
+#[inline]
+fn generated_coins(env: &Arc<ConcreteEnv>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::Outputs`].
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::NumberOutputsWithAmount`].
 /// TODO
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn example_handler_3(env: Arc<ConcreteEnv>, response_sender: ResponseSender, x: String) {
-    let db_result = Ok(Response::Example3(x));
-    response_sender.send(db_result).unwrap();
+fn number_outputs_with_amount(env: &Arc<ConcreteEnv>, vec: Vec<Amount>) -> ResponseResult {
+    todo!()
+}
+
+/// [`ReadRequest::CheckKIsNotSpent`].
+#[inline]
+#[allow(clippy::needless_pass_by_value)] // TODO: remove me
+fn check_k_is_not_spent(env: &Arc<ConcreteEnv>, set: HashSet<KeyImage>) -> ResponseResult {
+    todo!()
 }
