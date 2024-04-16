@@ -98,6 +98,11 @@ mod test {
             let tx_rw = env_inner.tx_rw().unwrap();
             let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
+            assert!(matches!(
+                top_block_height(tables.block_heights()),
+                Err(RuntimeError::KeyNotFound),
+            ));
+
             for (i, mut block) in blocks.into_iter().enumerate() {
                 let i = u64::try_from(i).unwrap();
                 block.height = i;

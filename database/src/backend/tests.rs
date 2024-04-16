@@ -257,6 +257,22 @@ fn db_read_write() {
         }
     }
 
+    // Assert `update()` works.
+    {
+        const HEIGHT: u32 = 999;
+
+        assert_ne!(table.get(&KEY).unwrap().height, HEIGHT);
+
+        table
+            .update(&KEY, |mut value| {
+                value.height = HEIGHT;
+                Some(value)
+            })
+            .unwrap();
+
+        assert_eq!(table.get(&KEY).unwrap().height, HEIGHT);
+    }
+
     // Assert deleting works.
     {
         table.delete(&KEY).unwrap();
@@ -266,6 +282,23 @@ fn db_read_write() {
         // Assert the other `(key, value)` pairs are still there.
         let mut key = KEY;
         key.amount += N - 1; // we used inclusive `0..N`
+        let value = table.get(&key).unwrap();
+        assert_same(value);
+    }
+
+    // Assert `take()` works.
+    {
+        let mut key = KEY;
+        key.amount += 1;
+        let value = table.take(&key).unwrap();
+        assert_eq!(value, VALUE);
+
+        let get = table.get(&KEY);
+        assert!(!table.contains(&key).unwrap());
+        assert!(matches!(get, Err(RuntimeError::KeyNotFound)));
+
+        // Assert the other `(key, value)` pairs are still there.
+        key.amount += 1;
         let value = table.get(&key).unwrap();
         assert_same(value);
     }
