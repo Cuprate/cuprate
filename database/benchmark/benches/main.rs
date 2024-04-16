@@ -79,12 +79,12 @@
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
 
-use criterion::criterion_main;
-
 mod db;
 mod env;
+mod storable;
 
-criterion_main! {
-    env::benches,
+criterion::criterion_main! {
     db::benches,
+    env::benches,
+    storable::benches,
 }

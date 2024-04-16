@@ -7,7 +7,8 @@ use function_name::named;
 
 use cuprate_database::{
     tables::Outputs,
-    types::{Output, PreRctOutputId}, DatabaseIter, DatabaseRo, DatabaseRw, Env, EnvInner, TxRw,
+    types::{Output, PreRctOutputId},
+    DatabaseIter, DatabaseRo, DatabaseRw, Env, EnvInner, TxRw,
 };
 
 use cuprate_database_benchmark::tmp_concrete_env;
