@@ -86,4 +86,5 @@ mod env;
 
 criterion_main! {
     env::benches,
+    db::benches,
 }
