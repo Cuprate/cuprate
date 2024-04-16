@@ -47,6 +47,7 @@ clap                  = { version = "4.5.4", default-features = false }
 chrono                = { version = "0.4.31", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
 crossbeam             = { version = "0.8.4", default-features = false }
+criterion             = { version = "0.5.1", default-features = false }
 curve25519-dalek      = { version = "4.1.1", default-features = false }
 dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }

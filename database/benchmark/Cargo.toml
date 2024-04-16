@@ -2,7 +2,7 @@
 name        = "cuprate-database-benchmark"
 version     = "0.0.0"
 edition     = "2021"
-description = "Benchmarking binary for Cuprate's database(s)"
+description = "Benchmarking for Cuprate's database abstraction"
 license     = "MIT"
 authors     = ["hinto-janai"]
 repository  = "https://github.com/Cuprate/cuprate/tree/main/database/benchmark"
@@ -12,16 +12,12 @@ keywords    = ["cuprate", "database", "benchmark"]
 default   = []
 
 [dependencies]
-anyhow           = { workspace = true }
-cfg-if           = { workspace = true }
-clap             = { workspace = true, features = ["default", "derive", "cargo"] }
-cuprate-database = { path = "../", features = ["default", "serde"] }
+criterion        = { workspace = true }
+cuprate-database = { path = "../", features = ["default"] }
 cuprate-helper   = { path = "../../helper", features = ["fs", "thread"] }
-serde            = { workspace = true, features = ["default", "derive"] }
-serde_json       = { workspace = true, features = ["default"] }
-strum            = { workspace = true, features = ["default", "derive"] }
-tracing          = { workspace = true }
-toml_edit        = { workspace = true, features = ["default", "serde"] }
-rayon            = { workspace = true, optional = true }
+# cuprate-types    = { path = "../../types", features = ["service"] }
+tempfile         = { version = "3.10.0" }
 
-[dev-dependencies]
+[[bench]]
+name    = "lib"
+harness = false
