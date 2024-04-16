@@ -78,7 +78,7 @@ impl<T> Stream for BufferStream<T> {
         // wake the sink.
         self.sink_waker.wake();
 
-        return Poll::Ready(Some(item));
+        Poll::Ready(Some(item))
     }
 }
 
