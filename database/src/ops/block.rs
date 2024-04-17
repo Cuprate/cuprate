@@ -263,7 +263,7 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash)
             if let Some(amount) = output.amount {
                 // RingCT miner outputs.
                 if miner_tx && tx.prefix.version == 2 {
-                    let amount_index = get_rct_num_outputs(tables.rct_outputs())?.saturating_sub(1);
+                    let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
                     remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
                 // Pre-RingCT outputs.
                 } else {
@@ -278,7 +278,7 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash)
                 }
             // RingCT outputs.
             } else {
-                let amount_index = get_rct_num_outputs(tables.rct_outputs())?.saturating_sub(1);
+                let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
                 remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
             }
         }
