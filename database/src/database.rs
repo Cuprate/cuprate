@@ -140,13 +140,15 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     /// This will overwrite any existing key-value pairs.
     ///
     /// # Errors
-    /// This will not return [`RuntimeError::KeyExists`].
+    /// This will never [`RuntimeError::KeyExists`].
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError>;
 
     /// Delete a key-value pair in the database.
     ///
+    /// This will return `Ok(())` if the key does not exist.
+    ///
     /// # Errors
-    /// This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
+    /// This will never [`RuntimeError::KeyNotFound`].
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
 
     /// Delete and return a key-value pair in the database.

@@ -200,11 +200,8 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
 
     #[inline]
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
-        match self.db.delete(&mut self.tx_rw.borrow_mut(), key) {
-            Ok(true) => Ok(()),
-            Ok(false) => Err(RuntimeError::KeyNotFound),
-            Err(e) => Err(e.into()),
-        }
+        self.db.delete(&mut self.tx_rw.borrow_mut(), key)?;
+        Ok(())
     }
 
     #[inline]
