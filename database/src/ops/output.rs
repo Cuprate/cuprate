@@ -36,7 +36,17 @@ pub fn add_output(
     output: &Output,
     tables: &mut impl TablesMut,
 ) -> Result<PreRctOutputId, RuntimeError> {
-    let amount_index = get_num_outputs(tables.outputs_mut())?;
+    // FIXME: this would be much better expressed with a
+    // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
+    let amount_index = match tables.num_outputs().get(&amount) {
+        // Entry with `amount` already exists, get the next index.
+        Ok(amount_index) => amount_index + 1,
+        // Entry with `amount` didn't exist, this is
+        // the 1st output with this amount (index 0).
+        Err(RuntimeError::KeyNotFound) => 0,
+        Err(e) => return Err(e),
+    };
+
     tables.num_outputs_mut().put(&amount, &amount_index)?;
 
     let pre_rct_output_id = PreRctOutputId {
@@ -57,6 +67,8 @@ pub fn remove_output(
     tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
     // Decrement the amount index by 1, or delete the entry out-right.
+    // FIXME: this would be much better expressed with a
+    // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
     tables
         .num_outputs_mut()
         .update(&pre_rct_output_id.amount, |amount_index| {
