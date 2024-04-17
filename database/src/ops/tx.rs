@@ -1,9 +1,12 @@
 //! Transactions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_types::{OutputOnChain, TransactionVerificationData, VerifiedBlockInformation};
+use bytemuck::TransparentWrapper;
+
 use monero_pruning::PruningSeed;
 use monero_serai::transaction::{Timelock, Transaction};
+
+use cuprate_types::{OutputOnChain, TransactionVerificationData, VerifiedBlockInformation};
 
 use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
@@ -48,7 +51,7 @@ pub fn add_tx(
     tables.tx_heights_mut().put(&tx_id, &chain_height)?;
     tables
         .tx_blobs_mut()
-        .put(&tx_id, bytemuck::TransparentWrapper::wrap_ref(&tx.tx_blob))?;
+        .put(&tx_id, StorableVec::wrap_ref(&tx.tx_blob))?;
 
     // Key images.
 
