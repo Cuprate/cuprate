@@ -3,6 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
+use bytemuck::TransparentWrapper;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::{
     block::Block,
@@ -78,36 +79,6 @@ pub fn add_block(
         );
     }
 
-    //------------------------------------------------------ Block Info.
-
-    let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
-
-    // Block Info.
-    tables.block_infos_mut().put(
-        &block.height,
-        &BlockInfo {
-            timestamp: block.block.header.timestamp,
-            total_generated_coins: block.generated_coins,
-            cumulative_difficulty: block.cumulative_difficulty,
-            block_hash: block.block_hash,
-            cumulative_rct_outs,
-            // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-            weight: block.weight as u64,
-            long_term_weight: block.long_term_weight as u64,
-        },
-    )?;
-
-    // Block blobs.
-    tables.block_blobs_mut().put(
-        &block.height,
-        bytemuck::TransparentWrapper::wrap_ref(&block.block_blob),
-    )?;
-
-    // Block heights.
-    tables
-        .block_heights_mut()
-        .put(&block.block_hash, &block.height)?;
-
     //------------------------------------------------------ Transactions
     for tx in &block.txs {
         add_tx(tx, tables)?;
@@ -138,7 +109,6 @@ pub fn add_block(
         //------------------------------------------------------ Outputs
         // Output bit flags.
         // Set to a non-zero bit value if the unlock time is non-zero.
-        // TODO: use bitflags.
         let output_flags = match tx.prefix.timelock {
             Timelock::None => OutputFlags::empty(),
             Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
@@ -200,6 +170,37 @@ pub fn add_block(
             }
         }
     }
+
+    //------------------------------------------------------ Block Info.
+
+    // INVARIANT: must be below the above `for` loop since this
+    // RCT output count needs account for _this_ block's outputs.
+    let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
+
+    // Block Info.
+    tables.block_infos_mut().put(
+        &block.height,
+        &BlockInfo {
+            timestamp: block.block.header.timestamp,
+            total_generated_coins: block.generated_coins,
+            cumulative_difficulty: block.cumulative_difficulty,
+            block_hash: block.block_hash,
+            cumulative_rct_outs,
+            // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
+            weight: block.weight as u64,
+            long_term_weight: block.long_term_weight as u64,
+        },
+    )?;
+
+    // Block blobs.
+    tables
+        .block_blobs_mut()
+        .put(&block.height, StorableVec::wrap_ref(&block.block_blob))?;
+
+    // Block heights.
+    tables
+        .block_heights_mut()
+        .put(&block.block_hash, &block.height)?;
 
     Ok(())
 }
