@@ -46,19 +46,39 @@ use crate::{
 #[doc = doc_error!()]
 ///
 /// # Panics
-/// This function will panic if `block.height > u32::MAX` (not normally possible).
-#[allow(clippy::too_many_lines)]
+/// This function will panic if:
+/// - `block.height > u32::MAX` (not normally possible)
+/// - `block.height` is not != [`chain_height`]
+///
+/// # Already exists
+/// This function will operate normally even if `block` already
+/// exists, i.e., this function will not return `Err` even if you
+/// call this function infinitely with the same block.
 // no inline, too big.
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::manual_assert)] // assert doesn't let you `{}`
 pub fn add_block(
     block: &VerifiedBlockInformation,
     tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
-    // let new_block_height = chain_height(tables.block_heights())?;
-    // if block.height > new_block_height {
-    //     // ...provided a block that isn't (chain tip + 1)
-    // } else if block.height < new_block_height {
-    //     // ... provided a block that already exists
-    // }
+    //------------------------------------------------------ Check preconditions first.
+
+    // Cast height to `u32` for storage (handled at top of function).
+    // Panic (should never happen) instead of allowing DB corruption.
+    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1560020991>
+    let Ok(height) = u32::try_from(block.height) else {
+        panic!("block.height ({}) > u32::MAX", block.height);
+    };
+
+    let chain_height = chain_height(tables.block_heights())?;
+    if block.height != chain_height {
+        panic!(
+            "block.height ({}) != chain height ({chain_height})",
+            block.height
+        );
+    }
+
+    //------------------------------------------------------ Block Info.
 
     let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
 
@@ -88,12 +108,7 @@ pub fn add_block(
         .block_heights_mut()
         .put(&block.block_hash, &block.height)?;
 
-    // Cast height to `u32` for storage.
-    // Panic (should never happen) instead of allowing DB corruption.
-    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1560020991>
-    let height = u32::try_from(block.height).expect("height was > u32::MAX");
-
-    // Transaction & Outputs.
+    //------------------------------------------------------ Transactions
     for tx in &block.txs {
         add_tx(tx, tables)?;
         let tx: &Transaction = &tx.tx;
@@ -108,6 +123,7 @@ pub fn add_block(
         // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
         let mut miner_tx = false;
 
+        // Key images.
         for inputs in &tx.prefix.inputs {
             match inputs {
                 // Key images.
@@ -119,6 +135,7 @@ pub fn add_block(
             }
         }
 
+        //------------------------------------------------------ Outputs
         // Output bit flags.
         // Set to a non-zero bit value if the unlock time is non-zero.
         // TODO: use bitflags.
@@ -127,7 +144,6 @@ pub fn add_block(
             Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
         };
 
-        // Output data.
         for (i, output) in tx.prefix.outputs.iter().enumerate() {
             let tx_idx = get_num_tx(tables.tx_ids_mut())?;
             let key = *output.key.as_bytes();
@@ -488,5 +504,44 @@ mod test {
         }
 
         assert_all_tables_are_empty(&env);
+    }
+
+    /// We should panic if: `block.height` != the chain height
+    #[test]
+    #[should_panic(expected = "block.height (123) != chain height (1)")]
+    fn block_height_not_chain_height() {
+        let (env, tmp) = tmp_concrete_env();
+        let env_inner = env.env_inner();
+        assert_all_tables_are_empty(&env);
+
+        let tx_rw = env_inner.tx_rw().unwrap();
+        let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+        let mut block = dummy_verified_block_information();
+
+        // OK, `0 == 0`
+        assert_eq!(block.height, 0);
+        add_block(&block, &mut tables).unwrap();
+
+        // FAIL, `123 != 1`
+        block.height = 123;
+        add_block(&block, &mut tables).unwrap();
+    }
+
+    /// We should panic if: `block.height` > `u32::MAX`
+    #[test]
+    #[should_panic(expected = "block.height (4294967296) > u32::MAX")]
+    fn block_height_gt_u32_max() {
+        let (env, tmp) = tmp_concrete_env();
+        let env_inner = env.env_inner();
+        assert_all_tables_are_empty(&env);
+
+        let tx_rw = env_inner.tx_rw().unwrap();
+        let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+        let mut block = dummy_verified_block_information();
+
+        block.height = u64::from(u32::MAX) + 1;
+        add_block(&block, &mut tables).unwrap();
     }
 }

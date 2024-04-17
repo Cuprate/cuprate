@@ -85,7 +85,7 @@ pub(super) fn dummy_verified_block_information() -> VerifiedBlockInformation {
         block,
         txs,                      // dummy
         pow_hash: [3; 32],        // dummy
-        height: 3,                // dummy
+        height: 0,                // dummy
         generated_coins: 3,       // dummy
         weight: 3,                // dummy
         long_term_weight: 3,      // dummy
