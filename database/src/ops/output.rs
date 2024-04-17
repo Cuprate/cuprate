@@ -43,7 +43,7 @@ pub fn add_output(
         Ok(num_outputs) => num_outputs,
         // Entry with `amount` didn't exist, this is
         // the 1st output with this amount.
-        Err(RuntimeError::KeyNotFound) => 1,
+        Err(RuntimeError::KeyNotFound) => 0,
         Err(e) => return Err(e),
     };
     // Update the amount of outputs.
@@ -51,8 +51,8 @@ pub fn add_output(
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
-        // The `amount_index` is the (amount of outputs with same amount - 1)
-        amount_index: num_outputs - 1,
+        // The new `amount_index` is the length of amount of outputs with same amount.
+        amount_index: num_outputs,
     };
 
     tables.outputs_mut().put(&pre_rct_output_id, output)?;
@@ -72,12 +72,12 @@ pub fn remove_output(
     // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
     tables
         .num_outputs_mut()
-        .update(&pre_rct_output_id.amount, |amount_index| {
+        .update(&pre_rct_output_id.amount, |num_outputs| {
             // INVARIANT: Should never be 0.
-            if amount_index == 1 {
+            if num_outputs == 1 {
                 None
             } else {
-                Some(amount_index - 1)
+                Some(num_outputs - 1)
             }
         })?;
 
@@ -183,6 +183,9 @@ mod test {
         commitment: [100; 32],
     };
 
+    /// Dummy `Amount`
+    const AMOUNT: Amount = 22;
+
     /// Tests all above output functions when only inputting `Output` data (no Block).
     ///
     /// Note that this doesn't test the correctness of values added, as the
@@ -205,8 +208,16 @@ mod test {
         assert_eq!(get_rct_num_outputs(tables.rct_outputs()).unwrap(), 0);
 
         // Add outputs.
-        let pre_rct_output_id = add_output(22, &OUTPUT, &mut tables).unwrap();
+        let pre_rct_output_id = add_output(AMOUNT, &OUTPUT, &mut tables).unwrap();
         let amount_index = add_rct_output(&RCT_OUTPUT, tables.rct_outputs_mut()).unwrap();
+
+        assert_eq!(
+            pre_rct_output_id,
+            PreRctOutputId {
+                amount: AMOUNT,
+                amount_index: 0,
+            }
+        );
 
         // Assert all reads of the outputs are OK.
         {
@@ -229,6 +240,7 @@ mod test {
             // Assert length is correct.
             assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 1);
             assert_eq!(get_rct_num_outputs(tables.rct_outputs()).unwrap(), 1);
+            assert_eq!(1, tables.num_outputs().get(&AMOUNT).unwrap());
 
             // Assert value is save after retrieval.
             assert_eq!(
