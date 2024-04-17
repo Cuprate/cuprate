@@ -60,7 +60,7 @@ pub fn remove_output(
     tables
         .num_outputs_mut()
         .update(&pre_rct_output_id.amount, |amount| {
-            if amount == 0 {
+            if amount == 1 {
                 None
             } else {
                 Some(amount - 1)
