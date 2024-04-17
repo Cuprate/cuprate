@@ -110,7 +110,8 @@ impl Env for ConcreteEnv {
 
         use crate::tables::{
             BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-            PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxUnlockTime,
+            PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
+            TxUnlockTime,
         };
 
         let tx_rw = env.begin_write()?;
@@ -127,6 +128,7 @@ impl Env for ConcreteEnv {
         create_table::<TxBlobs>(&tx_rw)?;
         create_table::<TxHeights>(&tx_rw)?;
         create_table::<TxIds>(&tx_rw)?;
+        create_table::<TxOutputs>(&tx_rw)?;
         create_table::<TxUnlockTime>(&tx_rw)?;
         tx_rw.commit()?;
 

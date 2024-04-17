@@ -31,8 +31,7 @@ use crate::{
     storable::StorableVec,
     table::Table,
     tables::{
-        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxUnlockTime,
+        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs, TxUnlockTime
     },
     tests::tmp_concrete_env,
     transaction::{TxRo, TxRw},
@@ -86,6 +85,7 @@ fn open_db() {
     env_inner.open_db_ro::<TxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxHeights>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxIds>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<TxOutputs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxUnlockTime>(&tx_ro).unwrap();
     TxRo::commit(tx_ro).unwrap();
 
@@ -103,6 +103,7 @@ fn open_db() {
     env_inner.open_db_rw::<TxBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxHeights>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxIds>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxOutputs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxUnlockTime>(&tx_rw).unwrap();
     TxRw::commit(tx_rw).unwrap();
 }
@@ -456,6 +457,10 @@ test_tables! {
     TxHeights,
     TxId => BlockHeight,
     123 => 123,
+
+    TxOutputs,
+    TxId => AmountIndices,
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]),
 
     TxUnlockTime,
     TxId => UnlockTime,

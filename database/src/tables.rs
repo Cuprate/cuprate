@@ -229,7 +229,8 @@ define_trait_tables! {
     TxBlobs => 10,
     TxIds => 11,
     TxHeights => 12,
-    TxUnlockTime => 13,
+    TxOutputs => 13,
+    TxUnlockTime => 14,
 }
 
 //---------------------------------------------------------------------------------------------------- Table function macro
@@ -263,6 +264,7 @@ macro_rules! call_fn_on_all_tables_or_early_return {
             $($fn ::)*<$crate::tables::TxBlobs>($($arg),*)?,
             $($fn ::)*<$crate::tables::TxIds>($($arg),*)?,
             $($fn ::)*<$crate::tables::TxHeights>($($arg),*)?,
+            $($fn ::)*<$crate::tables::TxOutputs>($($arg),*)?,
             $($fn ::)*<$crate::tables::TxUnlockTime>($($arg),*)?,
         ))
     }};
@@ -390,6 +392,10 @@ tables! {
     /// TODO
     TxHeights,
     TxId => BlockHeight,
+
+    /// TODO
+    TxOutputs,
+    TxId => AmountIndices,
 
     /// TODO
     TxUnlockTime,

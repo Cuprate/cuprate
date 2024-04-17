@@ -207,7 +207,8 @@ impl Env for ConcreteEnv {
 
         use crate::tables::{
             BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-            PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxUnlockTime,
+            PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
+            TxUnlockTime,
         };
 
         let mut tx_rw = env.write_txn()?;
@@ -224,6 +225,7 @@ impl Env for ConcreteEnv {
         create_table::<TxBlobs>(&env, &mut tx_rw)?;
         create_table::<TxHeights>(&env, &mut tx_rw)?;
         create_table::<TxIds>(&env, &mut tx_rw)?;
+        create_table::<TxOutputs>(&env, &mut tx_rw)?;
         create_table::<TxUnlockTime>(&env, &mut tx_rw)?;
 
         // TODO: Set dupsort and comparison functions for certain tables
