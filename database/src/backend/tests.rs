@@ -31,7 +31,9 @@ use crate::{
     storable::StorableVec,
     table::Table,
     tables::{
-        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs, TxUnlockTime
+        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
+        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
+        TxUnlockTime,
     },
     tests::tmp_concrete_env,
     transaction::{TxRo, TxRw},

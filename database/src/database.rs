@@ -164,6 +164,10 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     ///
     /// This will call [`DatabaseRo::get`] and call your provided function `f` on it.
     ///
+    /// The [`Option`] `f` returns will dictate whether `update()`:
+    /// - Updates the current value OR
+    /// - Deletes the `(key, value)` pair
+    ///
     /// - If `f` returns `Some(value)`, that will be [`DatabaseRw::put`] as the new value
     /// - If `f` returns `None`, the entry will be [`DatabaseRw::delete`]d
     ///
@@ -176,14 +180,9 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
         let value = DatabaseRo::get(self, key)?;
 
         match f(value) {
-            Some(value) => DatabaseRw::put(self, key, &value)?,
-            None => match DatabaseRw::delete(self, key) {
-                Ok(()) | Err(RuntimeError::KeyNotFound) => (),
-                Err(e) => return Err(e),
-            },
+            Some(value) => DatabaseRw::put(self, key, &value),
+            None => DatabaseRw::delete(self, key),
         }
-
-        Ok(())
     }
 
     /// TODO
