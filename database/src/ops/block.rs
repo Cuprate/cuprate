@@ -114,12 +114,14 @@ pub fn add_block(
             Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
         };
 
+        let mut amount_indices = Vec::with_capacity(tx.prefix.outputs.len());
+        let tx_idx = get_num_tx(tables.tx_ids_mut())?;
+
         for (i, output) in tx.prefix.outputs.iter().enumerate() {
-            let tx_idx = get_num_tx(tables.tx_ids_mut())?;
             let key = *output.key.as_bytes();
 
             // Outputs with clear amounts.
-            if let Some(amount) = output.amount {
+            let amount_index = if let Some(amount) = output.amount {
                 // RingCT (v2 transaction) miner outputs.
                 if miner_tx && tx.prefix.version == 2 {
                     // Create commitment.
@@ -140,7 +142,7 @@ pub fn add_block(
                             commitment,
                         },
                         tables.rct_outputs_mut(),
-                    )?;
+                    )?
                 // Pre-RingCT outputs.
                 } else {
                     add_output(
@@ -152,7 +154,8 @@ pub fn add_block(
                             tx_idx,
                         },
                         tables,
-                    )?;
+                    )?
+                    .amount_index
                 }
             // RingCT outputs.
             } else {
@@ -166,14 +169,21 @@ pub fn add_block(
                         commitment,
                     },
                     tables.rct_outputs_mut(),
-                )?;
-            }
-        }
-    }
+                )?
+            };
+
+            amount_indices.push(amount_index);
+        } // for each output
+
+        // TxOutputs.
+        tables
+            .tx_outputs_mut()
+            .put(&tx_idx, StorableVec::wrap_ref(&amount_indices))?;
+    } // for each tx
 
     //------------------------------------------------------ Block Info.
 
-    // INVARIANT: must be below the above `for` loop since this
+    // INVARIANT: must be below the above transaction loop since this
     // RCT output count needs account for _this_ block's outputs.
     let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
 
