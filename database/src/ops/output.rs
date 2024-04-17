@@ -59,11 +59,11 @@ pub fn remove_output(
     // Decrement the amount index by 1, or delete the entry out-right.
     tables
         .num_outputs_mut()
-        .update(&pre_rct_output_id.amount, |amount| {
-            if amount == 1 {
+        .update(&pre_rct_output_id.amount, |amount_index| {
+            if amount_index == 0 {
                 None
             } else {
-                Some(amount - 1)
+                Some(amount_index - 1)
             }
         })?;
 
