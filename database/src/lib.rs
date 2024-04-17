@@ -105,6 +105,8 @@
 //!     config::Config,
 //!     ConcreteEnv,
 //!     Env, Key, TxRo, TxRw,
+//! };
+//! use cuprate_types::{
 //!     service::{ReadRequest, WriteRequest, Response},
 //! };
 //!

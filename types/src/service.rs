@@ -37,8 +37,6 @@ pub enum ReadRequest {
     NumberOutputsWithAmount(Vec<u64>),
     /// TODO
     CheckKIsNotSpent(HashSet<[u8; 32]>),
-    /// TODO
-    BlockBatchInRange(Range<u64>),
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -73,8 +71,6 @@ pub enum Response {
     /// TODO
     /// returns true if key images are spent
     CheckKIsNotSpent(bool),
-    /// TODO
-    BlockBatchInRange(Vec<(Block, Vec<Transaction>)>),
 
     //------------------------------------------------------ Writes
     /// TODO

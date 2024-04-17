@@ -9,31 +9,20 @@ use std::{
 use futures::channel::oneshot;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_types::{
+    service::{Response, WriteRequest},
+    VerifiedBlockInformation,
+};
 
 use crate::{
     error::RuntimeError,
-    service::{request::WriteRequest, response::Response},
+    service::types::{ResponseReceiver, ResponseResult, ResponseSender},
     ConcreteEnv, Env,
 };
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// Name of the writer thread.
-const WRITER_THREAD_NAME: &str = "cuprate_helper::service::read::DatabaseWriter";
-
-//---------------------------------------------------------------------------------------------------- Types
-/// The actual type of the response.
-///
-/// Either our [Response], or a database error occurred.
-type ResponseResult = Result<Response, RuntimeError>;
-
-/// The `Receiver` channel that receives the write response.
-///
-/// The channel itself should never fail,
-/// but the actual database operation might.
-type ResponseReceiver = InfallibleOneshotReceiver<ResponseResult>;
-
-/// The `Sender` channel for the response.
-type ResponseSender = oneshot::Sender<ResponseResult>;
+const WRITER_THREAD_NAME: &str = concat!(module_path!(), "::DatabaseWriter");
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriteHandle
 /// Write handle to the database.
@@ -57,7 +46,7 @@ impl DatabaseWriteHandle {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(db: Arc<ConcreteEnv>) -> Self {
+    pub(super) fn init(env: Arc<ConcreteEnv>) -> Self {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -65,7 +54,7 @@ impl DatabaseWriteHandle {
         std::thread::Builder::new()
             .name(WRITER_THREAD_NAME.into())
             .spawn(move || {
-                let this = DatabaseWriter { receiver, db };
+                let this = DatabaseWriter { receiver, env };
                 DatabaseWriter::main(this);
             })
             .unwrap();
@@ -107,7 +96,7 @@ pub(super) struct DatabaseWriter {
     receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSender)>,
 
     /// Access to the database.
-    db: Arc<ConcreteEnv>,
+    env: Arc<ConcreteEnv>,
 }
 
 impl Drop for DatabaseWriter {
@@ -119,7 +108,8 @@ impl Drop for DatabaseWriter {
 impl DatabaseWriter {
     /// The `DatabaseWriter`'s main function.
     ///
-    /// The writer just loops in this function.
+    /// The writer just loops in this function, handling requests forever
+    /// until the request channel is dropped or a panic occurs.
     #[cold]
     #[inline(never)] // Only called once.
     fn main(self) {
@@ -127,7 +117,7 @@ impl DatabaseWriter {
         // 2. Map request to some database function
         // 3. Execute that function, get the result
         // 4. Return the result via channel
-        loop {
+        'main: loop {
             let Ok((request, response_sender)) = self.receiver.recv() else {
                 // If this receive errors, it means that the channel is empty
                 // and disconnected, meaning the other side (all senders) have
@@ -140,60 +130,101 @@ impl DatabaseWriter {
                 return;
             };
 
+            /// How many times should we retry handling the request on resize errors?
+            ///
+            /// This is 1 on automatically resizing databases, meaning there is only 1 iteration.
+            #[allow(clippy::items_after_statements)]
+            const REQUEST_RETRY_LIMIT: usize = if ConcreteEnv::MANUAL_RESIZE { 3 } else { 1 };
+
             // Map [`Request`]'s to specific database functions.
-            match request {
-                WriteRequest::Example1 => self.example_handler_1(response_sender),
-                WriteRequest::Example2(x) => self.example_handler_2(response_sender, x),
-                WriteRequest::Example3(x) => self.example_handler_3(response_sender, x),
+            //
+            // Both will:
+            // 1. Map the request to a function
+            // 2. Call the function
+            // 3. (manual resize only) If resize is needed, resize and retry
+            // 4. (manual resize only) Redo step {1, 2}
+            // 5. Send the function's `Result` back to the requester
+            //
+            // FIXME: there's probably a more elegant way
+            // to represent this retry logic with recursive
+            // functions instead of a loop.
+            'retry: for retry in 0..REQUEST_RETRY_LIMIT {
+                // TODO: will there be more than 1 write request?
+                // this won't have to be an enum.
+                let response = match &request {
+                    WriteRequest::WriteBlock(block) => write_block(&self.env, block),
+                };
+
+                // If the database needs to resize, do so.
+                if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded))
+                {
+                    // If this is the last iteration of the outer `for` loop and we
+                    // encounter a resize error _again_, it means something is wrong.
+                    assert_ne!(
+                        retry, REQUEST_RETRY_LIMIT,
+                        "database resize failed maximum of {REQUEST_RETRY_LIMIT} times"
+                    );
+
+                    // Resize the map, and retry the request handling loop.
+                    //
+                    // FIXME:
+                    // We could pass in custom resizes to account for
+                    // batches, i.e., we're about to add ~5GB of data,
+                    // add that much instead of the default 1GB.
+                    // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
+                    let old = self.env.current_map_size();
+                    let new = self.env.resize_map(None);
+
+                    // TODO: use tracing.
+                    println!("resizing database memory map, old: {old}B, new: {new}B");
+
+                    // Try handling the request again.
+                    continue 'retry;
+                }
+
+                // Automatically resizing databases should not be returning a resize error.
+                #[cfg(debug_assertions)]
+                if !ConcreteEnv::MANUAL_RESIZE {
+                    assert!(
+                        !matches!(response, Err(RuntimeError::ResizeNeeded)),
+                        "auto-resizing database returned a ResizeNeeded error"
+                    );
+                }
+
+                // Send the response back, whether if it's an `Ok` or `Err`.
+                if let Err(e) = response_sender.send(response) {
+                    // TODO: use tracing.
+                    println!("database writer failed to send response: {e:?}");
+                }
+
+                continue 'main;
             }
-        }
-    }
 
-    /// Resize the database's memory map.
-    fn resize_map(&self) {
-        // The compiler most likely optimizes out this
-        // entire function call if this returns here.
-        if !ConcreteEnv::MANUAL_RESIZE {
-            return;
+            // Above retry loop should either:
+            // - continue to the next ['main] loop or...
+            // - ...retry until panic
+            unreachable!();
         }
 
-        // INVARIANT:
-        // [`Env`]'s that are `MANUAL_RESIZE` are expected to implement
-        // their internals such that we have exclusive access when calling
-        // this function. We do not handle the exclusion part, `resize_map()`
-        // itself does. The `heed` backend does this with `RwLock`.
-        //
-        // We need mutual exclusion due to:
-        // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
-        self.db.resize_map(None);
-        // TODO:
-        // We could pass in custom resizes to account for
-        // batch transactions, i.e., we're about to add ~5GB
-        // of data, add that much instead of the default 1GB.
-        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
+        // The only case the ['main] loop breaks should be a:
+        // - direct function return
+        // - panic
+        // anything below should be unreachable.
+        unreachable!();
     }
+}
 
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_1(&self, response_sender: ResponseSender) {
-        let db_result = Ok(Response::Example1);
-        response_sender.send(db_result).unwrap();
-    }
+//---------------------------------------------------------------------------------------------------- Handler functions
+// These are the actual functions that do stuff according to the incoming [`Request`].
+//
+// Each function name is a 1-1 mapping (from CamelCase -> snake_case) to
+// the enum variant name, e.g: `BlockExtendedHeader` -> `block_extended_header`.
+//
+// Each function will return the [`Response`] that we
+// should send back to the caller in [`map_request()`].
 
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_2(&self, response_sender: ResponseSender, x: usize) {
-        let db_result = Ok(Response::Example2(x));
-        response_sender.send(db_result).unwrap();
-    }
-
-    /// TODO
-    #[inline]
-    #[allow(clippy::unused_self)] // TODO: remove me
-    fn example_handler_3(&self, response_sender: ResponseSender, x: String) {
-        let db_result = Ok(Response::Example3(x));
-        response_sender.send(db_result).unwrap();
-    }
+/// [`WriteRequest::WriteBlock`].
+#[inline]
+fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
+    todo!()
 }
