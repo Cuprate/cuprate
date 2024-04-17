@@ -38,20 +38,21 @@ pub fn add_output(
 ) -> Result<PreRctOutputId, RuntimeError> {
     // FIXME: this would be much better expressed with a
     // `btree_map::Entry`-like API, fix `trait DatabaseRw`.
-    let amount_index = match tables.num_outputs().get(&amount) {
-        // Entry with `amount` already exists, get the next index.
-        Ok(amount_index) => amount_index + 1,
+    let num_outputs = match tables.num_outputs().get(&amount) {
+        // Entry with `amount` already exists.
+        Ok(num_outputs) => num_outputs,
         // Entry with `amount` didn't exist, this is
-        // the 1st output with this amount (index 0).
-        Err(RuntimeError::KeyNotFound) => 0,
+        // the 1st output with this amount.
+        Err(RuntimeError::KeyNotFound) => 1,
         Err(e) => return Err(e),
     };
-
-    tables.num_outputs_mut().put(&amount, &amount_index)?;
+    // Update the amount of outputs.
+    tables.num_outputs_mut().put(&amount, &(num_outputs + 1))?;
 
     let pre_rct_output_id = PreRctOutputId {
         amount,
-        amount_index,
+        // The `amount_index` is the (amount of outputs with same amount - 1)
+        amount_index: num_outputs - 1,
     };
 
     tables.outputs_mut().put(&pre_rct_output_id, output)?;
@@ -72,7 +73,8 @@ pub fn remove_output(
     tables
         .num_outputs_mut()
         .update(&pre_rct_output_id.amount, |amount_index| {
-            if amount_index == 0 {
+            // INVARIANT: Should never be 0.
+            if amount_index == 1 {
                 None
             } else {
                 Some(amount_index - 1)
