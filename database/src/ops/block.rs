@@ -80,14 +80,8 @@ pub fn add_block(
     }
 
     //------------------------------------------------------ Transactions
-    for tx in &block.txs {
-        add_tx(tx, &chain_height, tables)?;
-        let tx: &Transaction = &tx.tx;
-
-        // ^
-        // Everything above is adding tx data.
-        // Everything below is for adding input/output data.
-        // v
+    for tx_verification_data in &block.txs {
+        let tx: &Transaction = &tx_verification_data.tx;
 
         // Is this a miner transaction?
         // Which table we add the output data to depends on this.
@@ -175,10 +169,13 @@ pub fn add_block(
             amount_indices.push(amount_index);
         } // for each output
 
-        // TxOutputs.
-        tables
-            .tx_outputs_mut()
-            .put(&tx_idx, StorableVec::wrap_ref(&amount_indices))?;
+        //------------------------------------------------------ Transaction
+        add_tx(
+            tx_verification_data,
+            StorableVec::wrap_ref(&amount_indices),
+            &chain_height,
+            tables,
+        )?;
     } // for each tx
 
     //------------------------------------------------------ Block Info.
@@ -265,7 +262,7 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash)
                 // This is a miner transaction, set it for later use.
                 Input::Gen(_) => miner_tx = true,
             }
-        }
+        } // for each input
 
         // Remove each output in the transaction.
         for (i, output) in tx.prefix.outputs.into_iter().enumerate() {
@@ -291,8 +288,8 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash)
                 let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
                 remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
             }
-        }
-    }
+        } // for each output
+    } // for each transaction
 
     Ok((block_height, block_hash))
 }

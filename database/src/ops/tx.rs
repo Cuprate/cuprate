@@ -24,8 +24,8 @@ use crate::{
     },
     transaction::{TxRo, TxRw},
     types::{
-        BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, RctOutput, TxBlob,
-        TxHash, TxId,
+        AmountIndices, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId,
+        RctOutput, TxBlob, TxHash, TxId,
     },
     StorableVec,
 };
@@ -46,6 +46,7 @@ use crate::{
 #[inline]
 pub fn add_tx(
     tx: &TransactionVerificationData,
+    amount_indices: &AmountIndices,
     block_height: &BlockHeight,
     tables: &mut impl TablesMut,
 ) -> Result<TxId, RuntimeError> {
@@ -57,6 +58,7 @@ pub fn add_tx(
     tables
         .tx_blobs_mut()
         .put(&tx_id, StorableVec::wrap_ref(&tx.tx_blob))?;
+    tables.tx_outputs_mut().put(&tx_id, amount_indices)?;
 
     // Key images.
 
@@ -95,6 +97,7 @@ pub fn remove_tx(
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
     let tx_blob = tables.tx_blobs_mut().take(&tx_id)?;
     tables.tx_heights_mut().delete(&tx_id)?;
+    tables.tx_outputs_mut().delete(&tx_id)?;
 
     // SOMEDAY: implement pruning after `monero-serai` does.
     // table_prunable_hashes.delete(&tx_id)?;
@@ -209,7 +212,7 @@ mod test {
                 .iter()
                 .map(|tx| {
                     println!("add_tx(): {tx:#?}");
-                    add_tx(tx, &0, &mut tables).unwrap()
+                    add_tx(tx, &StorableVec(vec![]), &0, &mut tables).unwrap()
                 })
                 .collect::<Vec<TxId>>();
 
