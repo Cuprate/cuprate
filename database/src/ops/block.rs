@@ -81,7 +81,7 @@ pub fn add_block(
 
     //------------------------------------------------------ Transactions
     for tx in &block.txs {
-        add_tx(tx, tables)?;
+        add_tx(tx, &chain_height, tables)?;
         let tx: &Transaction = &tx.tx;
 
         // ^

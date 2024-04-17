@@ -33,6 +33,11 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Private
 /// Add a [`TransactionVerificationData`] to the database.
 ///
+/// The `block_height` is the block that this `tx` belongs to.
+///
+/// Note that the caller's input is trusted implicitly and no checks
+/// are done (in this function) whether the `block_height` is correct or not.
+///
 /// # Notes
 /// This uses the [`chain_height`] when addings to the [`TxHeights`] table.
 ///
@@ -41,14 +46,14 @@ use crate::{
 #[inline]
 pub fn add_tx(
     tx: &TransactionVerificationData,
+    block_height: &BlockHeight,
     tables: &mut impl TablesMut,
 ) -> Result<TxId, RuntimeError> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
-    let chain_height = chain_height(tables.block_heights_mut())?;
 
     // Transaction data.
     tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
-    tables.tx_heights_mut().put(&tx_id, &chain_height)?;
+    tables.tx_heights_mut().put(&tx_id, block_height)?;
     tables
         .tx_blobs_mut()
         .put(&tx_id, StorableVec::wrap_ref(&tx.tx_blob))?;
@@ -204,7 +209,7 @@ mod test {
                 .iter()
                 .map(|tx| {
                     println!("add_tx(): {tx:#?}");
-                    add_tx(tx, &mut tables).unwrap()
+                    add_tx(tx, &0, &mut tables).unwrap()
                 })
                 .collect::<Vec<TxId>>();
 
