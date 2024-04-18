@@ -11,6 +11,7 @@ monero-wire = { path = "../net/monero-wire"}
 monero-p2p = { path = "../p2p/monero-p2p", features = ["borsh"] }
 
 hex = { workspace = true }
+hex-literal = { workspace = true }
 monero-serai = { workspace = true, features = ["std", "http-rpc"] }
 futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }

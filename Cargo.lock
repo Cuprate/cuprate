@@ -636,6 +636,7 @@ dependencies = [
  "cuprate-types",
  "futures",
  "hex",
+ "hex-literal",
  "monero-p2p",
  "monero-serai",
  "monero-wire",
