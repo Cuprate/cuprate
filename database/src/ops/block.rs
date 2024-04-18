@@ -274,7 +274,7 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash)
                     remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
                 // Pre-RingCT outputs.
                 } else {
-                    let amount_index = tables.num_outputs_mut().take(&amount)?;
+                    let amount_index = tables.num_outputs_mut().get(&amount)? - 1;
                     remove_output(
                         &PreRctOutputId {
                             amount,
