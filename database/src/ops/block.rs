@@ -299,15 +299,28 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash)
 ///
 /// This extracts all the data from the database tables
 /// needed to create a full `ExtendedBlockHeader`.
+///
+/// # Notes
+/// This is slightly more expensive than [`get_block_extended_header_from_height`]
+/// (1 more database lookup).
 #[doc = doc_error!()]
 #[inline]
 pub fn get_block_extended_header(
     block_hash: &BlockHash,
     tables: &impl Tables,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
-    let height = tables.block_heights().get(block_hash)?;
-    let block_info = tables.block_infos().get(&height)?;
-    let block_blob = tables.block_blobs().get(&height)?.0;
+    get_block_extended_header_from_height(&tables.block_heights().get(block_hash)?, tables)
+}
+
+/// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_extended_header_from_height(
+    block_height: &BlockHeight,
+    tables: &impl Tables,
+) -> Result<ExtendedBlockHeader, RuntimeError> {
+    let block_info = tables.block_infos().get(block_height)?;
+    let block_blob = tables.block_blobs().get(block_height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
 
     // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
@@ -320,18 +333,6 @@ pub fn get_block_extended_header(
         block_weight: block_info.weight as usize,
         long_term_weight: block_info.long_term_weight as usize,
     })
-}
-
-/// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
-///
-/// Note: This is more expensive than the above.
-#[doc = doc_error!()]
-#[inline]
-pub fn get_block_extended_header_from_height(
-    block_height: &BlockHeight,
-    tables: &impl Tables,
-) -> Result<ExtendedBlockHeader, RuntimeError> {
-    get_block_extended_header(&tables.block_infos().get(block_height)?.block_hash, tables)
 }
 
 /// Return the top/latest [`ExtendedBlockHeader`] from the database.
