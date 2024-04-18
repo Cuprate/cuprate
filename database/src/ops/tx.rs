@@ -2,11 +2,11 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-
-use monero_pruning::PruningSeed;
-use monero_serai::transaction::{Timelock, Transaction};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
+use monero_serai::transaction::{Input, Timelock, Transaction};
 
 use cuprate_types::{OutputOnChain, TransactionVerificationData, VerifiedBlockInformation};
+use monero_pruning::PruningSeed;
 
 use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
@@ -24,10 +24,15 @@ use crate::{
     },
     transaction::{TxRo, TxRw},
     types::{
-        AmountIndices, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId,
-        RctOutput, TxBlob, TxHash, TxId,
+        AmountIndices, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, OutputFlags,
+        PreRctOutputId, RctOutput, TxBlob, TxHash, TxId,
     },
     StorableVec,
+};
+
+use super::{
+    key_image::{add_key_image, remove_key_image},
+    output::{add_output, add_rct_output, get_rct_num_outputs, remove_output, remove_rct_output},
 };
 
 //---------------------------------------------------------------------------------------------------- Private
@@ -39,31 +44,38 @@ use crate::{
 /// are done (in this function) whether the `block_height` is correct or not.
 ///
 /// # Notes
-/// This uses the [`chain_height`] when addings to the [`TxHeights`] table.
+/// This function is different from other sub-functions and slightly more similar to
+/// [`add_block()`](crate::ops::block::add_block) in that it calls other sub-functions.
+///
+/// This function calls:
+/// - [`add_output()`]
+/// - [`add_key_image()`]
+///
+/// Thus, after [`add_tx`], those values (outputs and key images)
+/// will be added to database tables as well.
+///
+/// # Panics
+/// This function will panic if:
+/// - `block.height > u32::MAX` (not normally possible)
 ///
 #[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
 pub fn add_tx(
     tx: &TransactionVerificationData,
-    amount_indices: &AmountIndices,
     block_height: &BlockHeight,
     tables: &mut impl TablesMut,
 ) -> Result<TxId, RuntimeError> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
 
-    // Transaction data.
+    //------------------------------------------------------ Transaction data
     tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
     tables.tx_heights_mut().put(&tx_id, block_height)?;
     tables
         .tx_blobs_mut()
         .put(&tx_id, StorableVec::wrap_ref(&tx.tx_blob))?;
-    tables.tx_outputs_mut().put(&tx_id, amount_indices)?;
 
-    // Key images.
-
-    // Timelocks.
-    //
+    //------------------------------------------------------ Timelocks
     // Height/time is not differentiated via type, but rather:
     // "height is any value less than 500_000_000 and timestamp is any value above"
     // so the `u64/usize` is stored without any tag.
@@ -75,10 +87,109 @@ pub fn add_tx(
         Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
     }
 
+    //------------------------------------------------------ Pruning
     // SOMEDAY: implement pruning after `monero-serai` does.
     // if let PruningSeed::Pruned(decompressed_pruning_seed) = get_blockchain_pruning_seed()? {
     // SOMEDAY: what to store here? which table?
     // }
+
+    //------------------------------------------------------
+    // Refer to the inner transaction type from now on.
+    let tx: &Transaction = &tx.tx;
+    let Ok(height) = u32::try_from(*block_height) else {
+        panic!("add_tx(): block_height ({block_height}) > u32::MAX");
+    };
+
+    //------------------------------------------------------ Key Images
+    // Is this a miner transaction?
+    // Which table we add the output data to depends on this.
+    // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
+    let mut miner_tx = false;
+
+    // Key images.
+    for inputs in &tx.prefix.inputs {
+        match inputs {
+            // Key images.
+            Input::ToKey { key_image, .. } => {
+                add_key_image(key_image.compress().as_bytes(), tables.key_images_mut())?;
+            }
+            // This is a miner transaction, set it for later use.
+            Input::Gen(_) => miner_tx = true,
+        }
+    }
+
+    //------------------------------------------------------ Outputs
+    // Output bit flags.
+    // Set to a non-zero bit value if the unlock time is non-zero.
+    let output_flags = match tx.prefix.timelock {
+        Timelock::None => OutputFlags::empty(),
+        Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
+    };
+
+    let mut amount_indices = Vec::with_capacity(tx.prefix.outputs.len());
+    let tx_idx = get_num_tx(tables.tx_ids_mut())?;
+
+    for (i, output) in tx.prefix.outputs.iter().enumerate() {
+        let key = *output.key.as_bytes();
+
+        // Outputs with clear amounts.
+        let amount_index = if let Some(amount) = output.amount {
+            // RingCT (v2 transaction) miner outputs.
+            if miner_tx && tx.prefix.version == 2 {
+                // Create commitment.
+                // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1559489302>
+                // FIXME: implement lookup table for common values:
+                // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
+                let commitment = (ED25519_BASEPOINT_POINT
+                    + monero_serai::H() * Scalar::from(amount))
+                .compress()
+                .to_bytes();
+
+                add_rct_output(
+                    &RctOutput {
+                        key,
+                        height,
+                        output_flags,
+                        tx_idx,
+                        commitment,
+                    },
+                    tables.rct_outputs_mut(),
+                )?
+            // Pre-RingCT outputs.
+            } else {
+                add_output(
+                    amount,
+                    &Output {
+                        key,
+                        height,
+                        output_flags,
+                        tx_idx,
+                    },
+                    tables,
+                )?
+                .amount_index
+            }
+        // RingCT outputs.
+        } else {
+            let commitment = tx.rct_signatures.base.commitments[i].compress().to_bytes();
+            add_rct_output(
+                &RctOutput {
+                    key,
+                    height,
+                    output_flags,
+                    tx_idx,
+                    commitment,
+                },
+                tables.rct_outputs_mut(),
+            )?
+        };
+
+        amount_indices.push(amount_index);
+    } // for each output
+
+    tables
+        .tx_outputs_mut()
+        .put(&tx_id, &StorableVec(amount_indices))?;
 
     Ok(tx_id)
 }
@@ -93,12 +204,14 @@ pub fn add_tx(
 pub fn remove_tx(
     tx_hash: &TxHash,
     tables: &mut impl TablesMut,
-) -> Result<(TxId, TxBlob), RuntimeError> {
+) -> Result<(TxId, Transaction), RuntimeError> {
+    //------------------------------------------------------ Transaction data
     let tx_id = tables.tx_ids_mut().take(tx_hash)?;
     let tx_blob = tables.tx_blobs_mut().take(&tx_id)?;
     tables.tx_heights_mut().delete(&tx_id)?;
     tables.tx_outputs_mut().delete(&tx_id)?;
 
+    //------------------------------------------------------ Pruning
     // SOMEDAY: implement pruning after `monero-serai` does.
     // table_prunable_hashes.delete(&tx_id)?;
     // table_prunable_tx_blobs.delete(&tx_id)?;
@@ -106,11 +219,71 @@ pub fn remove_tx(
     // SOMEDAY: what to remove here? which table?
     // }
 
+    //------------------------------------------------------ Unlock Time
     match tables.tx_unlock_time_mut().delete(&tx_id) {
-        Ok(()) | Err(RuntimeError::KeyNotFound) => Ok((tx_id, tx_blob)),
+        Ok(()) | Err(RuntimeError::KeyNotFound) => (),
         // An actual error occurred, return.
-        Err(e) => Err(e),
+        Err(e) => return Err(e),
     }
+
+    //------------------------------------------------------
+    // Refer to the inner transaction type from now on.
+    let tx = Transaction::read(&mut tx_blob.0.as_slice())?;
+
+    //------------------------------------------------------ Key Images
+    // Is this a miner transaction?
+    let mut miner_tx = false;
+    for inputs in &tx.prefix.inputs {
+        match inputs {
+            // Key images.
+            Input::ToKey { key_image, .. } => {
+                let result =
+                    remove_key_image(key_image.compress().as_bytes(), tables.key_images_mut());
+
+                // TODO: all test tx's have the same key image so the 1st
+                // removal removes everything - fix me after we have real data.
+                if cfg!(test) {
+                    match result {
+                        Ok(()) | Err(RuntimeError::KeyNotFound) => (),
+                        Err(e) => return Err(e),
+                    }
+                } else {
+                    result?;
+                }
+            }
+            // This is a miner transaction, set it for later use.
+            Input::Gen(_) => miner_tx = true,
+        }
+    } // for each input
+
+    //------------------------------------------------------ Outputs
+    // Remove each output in the transaction.
+    for (i, output) in tx.prefix.outputs.iter().enumerate() {
+        // Outputs with clear amounts.
+        if let Some(amount) = output.amount {
+            // RingCT miner outputs.
+            if miner_tx && tx.prefix.version == 2 {
+                let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
+                remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
+            // Pre-RingCT outputs.
+            } else {
+                let amount_index = tables.num_outputs_mut().get(&amount)? - 1;
+                remove_output(
+                    &PreRctOutputId {
+                        amount,
+                        amount_index,
+                    },
+                    tables,
+                )?;
+            }
+        // RingCT outputs.
+        } else {
+            let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
+            remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
+        }
+    } // for each output
+
+    Ok((tx_id, tx))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_tx_*`
@@ -212,7 +385,7 @@ mod test {
                 .iter()
                 .map(|tx| {
                     println!("add_tx(): {tx:#?}");
-                    add_tx(tx, &StorableVec(vec![]), &0, &mut tables).unwrap()
+                    add_tx(tx, &0, &mut tables).unwrap()
                 })
                 .collect::<Vec<TxId>>();
 
@@ -231,13 +404,13 @@ mod test {
             assert_eq!(tables.block_infos().len().unwrap(), 0);
             assert_eq!(tables.block_blobs().len().unwrap(), 0);
             assert_eq!(tables.block_heights().len().unwrap(), 0);
-            assert_eq!(tables.key_images().len().unwrap(), 0);
-            assert_eq!(tables.num_outputs().len().unwrap(), 0);
+            assert_eq!(tables.key_images().len().unwrap(), 4); // added to key images
             assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
             assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-            assert_eq!(tables.outputs().len().unwrap(), 0);
+            assert_eq!(tables.num_outputs().len().unwrap(), 9);
+            assert_eq!(tables.outputs().len().unwrap(), 10); // added to outputs
             assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.rct_outputs().len().unwrap(), 0);
+            assert_eq!(tables.rct_outputs().len().unwrap(), 2);
             assert_eq!(tables.tx_blobs().len().unwrap(), 3);
             assert_eq!(tables.tx_ids().len().unwrap(), 3);
             assert_eq!(tables.tx_heights().len().unwrap(), 3);

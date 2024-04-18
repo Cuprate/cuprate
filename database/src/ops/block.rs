@@ -62,7 +62,7 @@ pub fn add_block(
     block: &VerifiedBlockInformation,
     tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
-    //------------------------------------------------------ Check preconditions first.
+    //------------------------------------------------------ Check preconditions first
 
     // Cast height to `u32` for storage (handled at top of function).
     // Panic (should never happen) instead of allowing DB corruption.
@@ -79,106 +79,12 @@ pub fn add_block(
         );
     }
 
-    //------------------------------------------------------ Transactions
+    //------------------------------------------------------ Transaction / Outputs / Key Images
     for tx_verification_data in &block.txs {
-        let tx: &Transaction = &tx_verification_data.tx;
+        add_tx(tx_verification_data, &chain_height, tables)?;
+    }
 
-        // Is this a miner transaction?
-        // Which table we add the output data to depends on this.
-        // <https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/blockchain_db/blockchain_db.cpp#L212-L216>
-        let mut miner_tx = false;
-
-        // Key images.
-        for inputs in &tx.prefix.inputs {
-            match inputs {
-                // Key images.
-                Input::ToKey { key_image, .. } => {
-                    add_key_image(key_image.compress().as_bytes(), tables.key_images_mut())?;
-                }
-                // This is a miner transaction, set it for later use.
-                Input::Gen(_) => miner_tx = true,
-            }
-        }
-
-        //------------------------------------------------------ Outputs
-        // Output bit flags.
-        // Set to a non-zero bit value if the unlock time is non-zero.
-        let output_flags = match tx.prefix.timelock {
-            Timelock::None => OutputFlags::empty(),
-            Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
-        };
-
-        let mut amount_indices = Vec::with_capacity(tx.prefix.outputs.len());
-        let tx_idx = get_num_tx(tables.tx_ids_mut())?;
-
-        for (i, output) in tx.prefix.outputs.iter().enumerate() {
-            let key = *output.key.as_bytes();
-
-            // Outputs with clear amounts.
-            let amount_index = if let Some(amount) = output.amount {
-                // RingCT (v2 transaction) miner outputs.
-                if miner_tx && tx.prefix.version == 2 {
-                    // Create commitment.
-                    // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1559489302>
-                    // FIXME: implement lookup table for common values:
-                    // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
-                    let commitment = (ED25519_BASEPOINT_POINT
-                        + monero_serai::H() * Scalar::from(amount))
-                    .compress()
-                    .to_bytes();
-
-                    add_rct_output(
-                        &RctOutput {
-                            key,
-                            height,
-                            output_flags,
-                            tx_idx,
-                            commitment,
-                        },
-                        tables.rct_outputs_mut(),
-                    )?
-                // Pre-RingCT outputs.
-                } else {
-                    add_output(
-                        amount,
-                        &Output {
-                            key,
-                            height,
-                            output_flags,
-                            tx_idx,
-                        },
-                        tables,
-                    )?
-                    .amount_index
-                }
-            // RingCT outputs.
-            } else {
-                let commitment = tx.rct_signatures.base.commitments[i].compress().to_bytes();
-                add_rct_output(
-                    &RctOutput {
-                        key,
-                        height,
-                        output_flags,
-                        tx_idx,
-                        commitment,
-                    },
-                    tables.rct_outputs_mut(),
-                )?
-            };
-
-            amount_indices.push(amount_index);
-        } // for each output
-
-        //------------------------------------------------------ Transaction
-        add_tx(
-            tx_verification_data,
-            StorableVec::wrap_ref(&amount_indices),
-            &chain_height,
-            tables,
-        )?;
-    } // for each tx
-
-    //------------------------------------------------------ Block Info.
+    //------------------------------------------------------ Block Info
 
     // INVARIANT: must be below the above transaction loop since this
     // RCT output count needs account for _this_ block's outputs.
@@ -212,13 +118,16 @@ pub fn add_block(
     Ok(())
 }
 
-//---------------------------------------------------------------------------------------------------- `pop_block_*`
+//---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.
 ///
 /// The removed block's height and hash are returned.
 #[doc = doc_error!()]
 // no inline, too big
-pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash), RuntimeError> {
+pub fn pop_block(
+    tables: &mut impl TablesMut,
+) -> Result<(BlockHeight, BlockHash, Block), RuntimeError> {
+    //------------------------------------------------------ Block Info
     // Remove block data from tables.
     let (block_height, block_hash) = {
         let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
@@ -234,64 +143,12 @@ pub fn pop_block(tables: &mut impl TablesMut) -> Result<(BlockHeight, BlockHash)
     let block_blob = tables.block_blobs_mut().take(&block_height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
 
-    // Transaction & Outputs.
-    for tx_hash in block.txs {
-        let (tx_id, tx_blob) = remove_tx(&tx_hash, tables)?;
-        let tx = Transaction::read(&mut tx_blob.0.as_slice())?;
+    //------------------------------------------------------ Transaction / Outputs / Key Images
+    for tx_hash in &block.txs {
+        remove_tx(tx_hash, tables)?;
+    }
 
-        // Is this a miner transaction?
-        let mut miner_tx = false;
-        for inputs in &tx.prefix.inputs {
-            match inputs {
-                // Key images.
-                Input::ToKey { key_image, .. } => {
-                    let result =
-                        remove_key_image(key_image.compress().as_bytes(), tables.key_images_mut());
-
-                    // TODO: all test tx's have the same key image so the 1st
-                    // removal removes everything - fix me after we have real data.
-                    if cfg!(test) {
-                        match result {
-                            Ok(()) | Err(RuntimeError::KeyNotFound) => (),
-                            Err(e) => return Err(e),
-                        }
-                    } else {
-                        result?;
-                    }
-                }
-                // This is a miner transaction, set it for later use.
-                Input::Gen(_) => miner_tx = true,
-            }
-        } // for each input
-
-        // Remove each output in the transaction.
-        for (i, output) in tx.prefix.outputs.into_iter().enumerate() {
-            // Outputs with clear amounts.
-            if let Some(amount) = output.amount {
-                // RingCT miner outputs.
-                if miner_tx && tx.prefix.version == 2 {
-                    let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
-                    remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
-                // Pre-RingCT outputs.
-                } else {
-                    let amount_index = tables.num_outputs_mut().get(&amount)? - 1;
-                    remove_output(
-                        &PreRctOutputId {
-                            amount,
-                            amount_index,
-                        },
-                        tables,
-                    )?;
-                }
-            // RingCT outputs.
-            } else {
-                let amount_index = get_rct_num_outputs(tables.rct_outputs())? - 1;
-                remove_rct_output(&amount_index, tables.rct_outputs_mut())?;
-            }
-        } // for each output
-    } // for each transaction
-
-    Ok((block_height, block_hash))
+    Ok((block_height, block_hash, block))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
@@ -498,7 +355,7 @@ mod test {
             for block_hash in block_hashes.into_iter().rev() {
                 println!("pop_block(): block_hash: {}", hex::encode(block_hash));
 
-                let (popped_height, popped_hash) = pop_block(&mut tables).unwrap();
+                let (popped_height, popped_hash, popped_block) = pop_block(&mut tables).unwrap();
 
                 assert_eq!(block_hash, popped_hash);
 
