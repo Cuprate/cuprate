@@ -6,3 +6,4 @@ Cuprate crate, only in tests.
 It currently contains:
 - Code to spawn monerod instances and a testing network zone
 - Real raw and typed Monero data, e.g. `Block, Transaction`
+- An RPC client to generate types from `cuprate_types`
