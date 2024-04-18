@@ -46,6 +46,10 @@ pub fn chain_height(
 /// - The blockchain has 0 blocks => this returns `Err(RuntimeError::KeyNotFound)`
 /// - The blockchain has 1 block (height 0) => this returns `Ok(0)`
 /// - The blockchain has 2 blocks (height 1) => this returns `Ok(1)`
+///
+/// Note that in cases where no blocks have been written to the
+/// database yet, an error is returned: `Err(RuntimeError::KeyNotFound)`.
+///
 #[doc = doc_error!()]
 #[inline]
 pub fn top_block_height(
