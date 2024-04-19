@@ -18,15 +18,15 @@ use crate::data::constants::{
 };
 
 //---------------------------------------------------------------------------------------------------- Conversion
-/// FIXME: this isn't ideal, create a way to do this automatically
-/// and to actually verify the static data provided is correct.
-///
 /// Converts `monero_serai`'s `Block` into a
 /// `cuprate_types::VerifiedBlockInformation` (superset).
 ///
 /// To prevent pulling other code in order to actually calculate things
-/// (e.g. `pow_hash`), some information must be provided statically.
-struct VerifiedBlockMap {
+/// (e.g. `pow_hash`), some information must be provided statically,
+/// this struct represents that data that must be provided.
+///
+/// Consider using `cuprate_test_utils::rpc` to get this data easily.
+struct VerifiedBlockMap<'a> {
     block: Block,
     pow_hash: [u8; 32],
     height: u64,
@@ -34,12 +34,12 @@ struct VerifiedBlockMap {
     weight: usize,
     long_term_weight: usize,
     cumulative_difficulty: u128,
-    // .len() should be == `block.tx.len()` and should contain the
-    // fees for each transaction, i.e. `block.tx[0]`s fee is `tx_fees[0]`.
-    tx_fees: Vec<u64>,
+    // Vec of `tx_blob`'s, i.e. the data in `/test-utils/src/data/tx/`.
+    // This should the actual `tx_blob`'s of the transactions within this block.
+    txs: Vec<&'a [u8]>,
 }
 
-impl VerifiedBlockMap {
+impl VerifiedBlockMap<'_> {
     fn into_verified(self) -> VerifiedBlockInformation {
         let Self {
             block,
@@ -49,23 +49,27 @@ impl VerifiedBlockMap {
             weight,
             long_term_weight,
             cumulative_difficulty,
-            tx_fees,
+            txs,
         } = self;
 
-        let txs: Vec<Arc<TransactionVerificationData>> = block
-            .txs
-            .clone()
-            .iter()
-            .enumerate()
-            .map(|(i, tx_blob)| {
-                VerifiedTxMap {
-                    tx_blob: tx_blob.to_vec(),
-                    fee: tx_fees[i],
-                }
-                .into_verified()
-            })
+        let txs: Vec<Arc<TransactionVerificationData>> = txs
+            .into_iter()
+            .map(to_tx_verification_data)
             .map(Arc::new)
             .collect();
+
+        assert_eq!(
+            txs.len(),
+            block.txs.len(),
+            "(deserialized txs).len() != (txs hashes in block).len()"
+        );
+
+        for (tx, tx_hash_in_block) in txs.iter().zip(&block.txs) {
+            assert_eq!(
+                &tx.tx_hash, tx_hash_in_block,
+                "deserialized tx hash is not the same as the one in the parent block"
+            );
+        }
 
         VerifiedBlockInformation {
             block_hash: block.hash(),
@@ -82,48 +86,56 @@ impl VerifiedBlockMap {
 }
 
 // Same as [`VerifiedBlockMap`] but for [`TransactionVerificationData`].
-struct VerifiedTxMap {
-    tx_blob: Vec<u8>,
-    fee: u64,
-}
-
-impl VerifiedTxMap {
-    fn into_verified(self) -> TransactionVerificationData {
-        let tx = Transaction::read(&mut self.tx_blob.as_slice()).unwrap();
-        TransactionVerificationData {
-            tx_blob: self.tx_blob,
-            tx_weight: tx.weight(),
-            fee: self.fee,
-            tx_hash: tx.hash(),
-            tx,
-        }
+fn to_tx_verification_data(tx_blob: &[u8]) -> TransactionVerificationData {
+    let tx_blob = tx_blob.to_vec();
+    let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
+    TransactionVerificationData {
+        tx_weight: tx.weight(),
+        fee: tx.rct_signatures.base.fee,
+        tx_hash: tx.hash(),
+        tx_blob,
+        tx,
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Blocks
 /// TODO: create a macro to generate these functions.
 
-/// Return [`BLOCK_BBD604`] as a [`VerifiedBlockInformation`].
+/// Block with height `202611` and hash `5da0a3d004c352a90cc86b00fab676695d76a4d1de16036c41ba4dd188c4d76f`.
 ///
 /// ```rust
+/// use monero_serai::{block::Block, transaction::Input};
+///
+/// let block = block_v1_tx1();
+///
+/// assert_eq!(block.block.header.major_version, 1);
+/// assert_eq!(block.block.header.minor_version, 0);
+/// assert_eq!(block.block.header.timestamp, 1409804537);
+/// assert_eq!(block.block.header.nonce, 481);
+/// assert!(matches!(block.block.miner_tx.prefix.inputs[0], Input::Gen(202612)));
+/// assert_eq!(block.block.txs.len(), 3);
 /// assert_eq!(
-///     &cuprate_test_utils::data::block_v1_tx513().block.serialize(),
-///     cuprate_test_utils::data::BLOCK_BBD604
+///     hex::encode(block.block.hash()),
+///     "5da0a3d004c352a90cc86b00fab676695d76a4d1de16036c41ba4dd188c4d76f",
 /// );
+///
+///
 /// ```
 pub fn block_v1_tx513() -> &'static VerifiedBlockInformation {
-    /// `OnceLock` holding the data.
+    const BLOCK_BLOB: &[u8] = include_bytes!(
+        "block/5da0a3d004c352a90cc86b00fab676695d76a4d1de16036c41ba4dd188c4d76f.bin"
+    );
     static BLOCK: OnceLock<VerifiedBlockInformation> = OnceLock::new();
     BLOCK.get_or_init(|| {
         VerifiedBlockMap {
-            block: Block::read(&mut BLOCK_BBD604).unwrap(),
+            block: Block::read(&mut BLOCK_BLOB).unwrap(),
             pow_hash: hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000"),
             height: 202_612,
             generated_coins: 13_138_270_468_431,
             weight: 55_503,
             long_term_weight: 55_503,
             cumulative_difficulty: 126_654_460_829_362,
-            tx_fees: vec![0; 513], // 513 tx's, 0 fees
+            txs: vec![],
         }
         .into_verified()
     })
@@ -138,7 +150,6 @@ pub fn block_v1_tx513() -> &'static VerifiedBlockInformation {
 /// );
 /// ```
 pub fn block_v9_tx3() -> &'static VerifiedBlockInformation {
-    /// `OnceLock` holding the data.
     static BLOCK: OnceLock<VerifiedBlockInformation> = OnceLock::new();
     BLOCK.get_or_init(|| {
         VerifiedBlockMap {
@@ -149,7 +160,7 @@ pub fn block_v9_tx3() -> &'static VerifiedBlockInformation {
             weight: 6_597,
             long_term_weight: 6_597,
             cumulative_difficulty: 23_558_910_234_058_343,
-            tx_fees: vec![43370000, 42820000, 61470000], // 3 tx's
+            txs: vec![],
         }
         .into_verified()
     })
@@ -164,7 +175,6 @@ pub fn block_v9_tx3() -> &'static VerifiedBlockInformation {
 /// );
 /// ```
 pub fn block_v16_tx0() -> &'static VerifiedBlockInformation {
-    /// `OnceLock` holding the data.
     static BLOCK: OnceLock<VerifiedBlockInformation> = OnceLock::new();
     BLOCK.get_or_init(|| {
         VerifiedBlockMap {
@@ -175,7 +185,7 @@ pub fn block_v16_tx0() -> &'static VerifiedBlockInformation {
             weight: 106,
             long_term_weight: 176_470,
             cumulative_difficulty: 236_046_001_376_524_168,
-            tx_fees: vec![], // 0 tx's, 0 fees
+            txs: vec![],
         }
         .into_verified()
     })
@@ -193,13 +203,7 @@ pub fn block_v16_tx0() -> &'static VerifiedBlockInformation {
 pub fn tx_v1_sig0() -> &'static TransactionVerificationData {
     /// `OnceLock` holding the data.
     static TX: OnceLock<TransactionVerificationData> = OnceLock::new();
-    TX.get_or_init(|| {
-        VerifiedTxMap {
-            tx_blob: TX_3BC7FF.to_vec(),
-            fee: 0,
-        }
-        .into_verified()
-    })
+    TX.get_or_init(|| to_tx_verification_data(TX_3BC7FF))
 }
 
 /// Return [`TX_9E3F73`] as a [`TransactionVerificationData`].
@@ -213,13 +217,7 @@ pub fn tx_v1_sig0() -> &'static TransactionVerificationData {
 pub fn tx_v1_sig2() -> &'static TransactionVerificationData {
     /// `OnceLock` holding the data.
     static TX: OnceLock<TransactionVerificationData> = OnceLock::new();
-    TX.get_or_init(|| {
-        VerifiedTxMap {
-            tx_blob: TX_9E3F73.to_vec(),
-            fee: 14_000_000_000,
-        }
-        .into_verified()
-    })
+    TX.get_or_init(|| to_tx_verification_data(TX_9E3F73))
 }
 
 /// Return [`TX_84D48D`] as a [`TransactionVerificationData`].
@@ -233,11 +231,5 @@ pub fn tx_v1_sig2() -> &'static TransactionVerificationData {
 pub fn tx_v2_rct3() -> &'static TransactionVerificationData {
     /// `OnceLock` holding the data.
     static TX: OnceLock<TransactionVerificationData> = OnceLock::new();
-    TX.get_or_init(|| {
-        VerifiedTxMap {
-            tx_blob: TX_84D48D.to_vec(),
-            fee: 1_401_270_000,
-        }
-        .into_verified()
-    })
+    TX.get_or_init(|| to_tx_verification_data(TX_84D48D))
 }
