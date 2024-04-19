@@ -1,6 +1,29 @@
-//! Testing data and utilities.
+//! Real Monero data.
 //!
-//! Raw data is found in `data/`.
+//! This module provides access to _real_ Monero data,
+//! either in raw bytes or typed.
+//!
+//! ## Constants
+//! The `const`ants provide byte slices representing block
+//! and transaction blobs that can be directly deserialized:
+//!
+//! ```rust
+//! # use cuprate_test_utils::data::*;
+//! use monero_serai::{block::Block, transaction::Transaction};
+//!
+//! let block: Block = Block::read(&mut BLOCK_43BD1F).unwrap();
+//! let tx: Transaction = Transaction::read(&mut TX_E57440).unwrap();
+//! ```
+//!
+//! ## Functions
+//! The free functions provide access to typed data found in `cuprate_types`:
+//! ```rust
+//! # use cuprate_test_utils::data::*;
+//! use cuprate_types::{VerifiedBlockInformation, TransactionVerificationData};
+//!
+//! let block: VerifiedBlockInformation = block_v16_tx0().clone();
+//! let tx: TransactionVerificationData = tx_v1_sig0().clone();
+//! ```
 
 mod constants;
 pub use constants::{

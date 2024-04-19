@@ -41,6 +41,11 @@ struct VerifiedBlockMap<'a> {
 }
 
 impl VerifiedBlockMap<'_> {
+    /// Turn the various static data bits in `self` into a `VerifiedBlockInformation`.
+    ///
+    /// Transactions are verified that they at least match the block's,
+    /// although the correctness of data (whether this block actually existed or not)
+    /// is not checked.
     fn into_verified(self) -> VerifiedBlockInformation {
         let Self {
             block,
@@ -136,7 +141,6 @@ macro_rules! verified_block_information_fn {
             #[doc = concat!("- [`", stringify!($tx_data_const), "`]")]
         )*
         ///
-        /// # Fields
         /// ```rust
         #[doc = "# use cuprate_test_utils::data::*;"]
         #[doc = "# use hex_literal::hex;"]
@@ -222,7 +226,6 @@ macro_rules! transaction_verification_data_fn {
     ) => {
         #[doc = concat!("Return [`", stringify!($tx_blob), "`] as a [`TransactionVerificationData`].")]
         ///
-        /// # Fields
         /// ```rust
         #[doc = "# use cuprate_test_utils::data::*;"]
         #[doc = "# use hex_literal::hex;"]
