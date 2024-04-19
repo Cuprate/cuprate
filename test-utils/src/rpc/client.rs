@@ -1,4 +1,4 @@
-//! TODO
+//! HTTP RPC client.
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::sync::Arc;
@@ -16,7 +16,7 @@ use cuprate_types::{TransactionVerificationData, VerifiedBlockInformation};
 
 use crate::rpc::constants::LOCALHOST_RPC_URL;
 
-//---------------------------------------------------------------------------------------------------- TODO
+//---------------------------------------------------------------------------------------------------- HttpRpcClient
 /// An HTTP RPC client for Monero.
 pub struct HttpRpcClient {
     address: String,
@@ -167,6 +167,7 @@ mod tests {
     }
 
     /// Assert blocks are correctly received/calculated.
+    #[ignore] // FIXME: doesn't work in CI, we need a real unrestricted node
     #[tokio::test]
     async fn get() {
         #[allow(clippy::too_many_arguments)]
@@ -196,7 +197,7 @@ mod tests {
             assert_eq!(block.cumulative_difficulty, cumulative_difficulty);
         }
 
-        let rpc = HttpRpcClient::new(Some("http://192.168.2.10:18081".to_string())).await;
+        let rpc = HttpRpcClient::new(None).await;
 
         assert_eq(
             &rpc,

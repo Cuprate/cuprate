@@ -1,4 +1,4 @@
-//! TODO
+//! Monero RPC client.
 
 mod client;
 pub use client::HttpRpcClient;
