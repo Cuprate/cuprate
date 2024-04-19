@@ -67,7 +67,6 @@ impl HttpRpcClient {
         struct Result {
             blob: String,
             block_header: BlockHeader,
-            untrusted: bool,
         }
 
         #[derive(Debug, Deserialize)]
@@ -97,7 +96,7 @@ impl HttpRpcClient {
 
         // Make sure this is a trusted, `pow_hash` only works there.
         assert!(
-        	!result.untrusted,
+        	!result.block_header.pow_hash.is_empty(),
         	"untrusted node detected, `pow_hash` will not show on these nodes - use a trusted node!"
         );
 
@@ -108,49 +107,58 @@ impl HttpRpcClient {
         .await
         .unwrap();
 
-        let txs = self.rpc.get_transactions(&block.txs).await.unwrap();
+        let txs = self
+            .get_transaction_verification_data(&block.txs)
+            .await
+            .map(Arc::new)
+            .collect();
 
-        spawn_blocking(move || {
-            let txs = txs
-                .into_iter()
-                .enumerate()
-                .map(|(i, tx)| {
-                    let tx_hash = tx.hash();
-                    assert_eq!(tx_hash, block.txs[i]);
-                    TransactionVerificationData {
-                        tx_blob: tx.serialize(),
-                        tx_weight: tx.weight(),
-                        tx_hash,
-                        fee: tx.rct_signatures.base.fee,
-                        tx,
-                    }
-                })
-                .map(Arc::new)
-                .collect();
+        let block_header = result.block_header;
+        let block_hash_2 = <[u8; 32]>::try_from(hex::decode(&block_header.hash).unwrap()).unwrap();
+        let pow_hash = <[u8; 32]>::try_from(hex::decode(&block_header.pow_hash).unwrap()).unwrap();
 
-            let block_header = result.block_header;
-            let block_hash_2 =
-                <[u8; 32]>::try_from(hex::decode(&block_header.hash).unwrap()).unwrap();
-            let pow_hash =
-                <[u8; 32]>::try_from(hex::decode(&block_header.pow_hash).unwrap()).unwrap();
+        // Assert the block hash matches.
+        assert_eq!(block_hash, block_hash_2);
 
-            // Assert the block hash matches.
-            assert_eq!(block_hash, block_hash_2);
+        VerifiedBlockInformation {
+            block,
+            txs,
+            block_hash,
+            pow_hash,
+            height: block_header.height,
+            generated_coins: block_header.reward,
+            weight: block_header.block_weight,
+            long_term_weight: block_header.long_term_weight,
+            cumulative_difficulty: block_header.cumulative_difficulty,
+        }
+    }
 
-            VerifiedBlockInformation {
-                block,
-                txs,
-                block_hash,
-                pow_hash,
-                height: block_header.height,
-                generated_coins: block_header.reward,
-                weight: block_header.block_weight,
-                long_term_weight: block_header.long_term_weight,
-                cumulative_difficulty: block_header.cumulative_difficulty,
-            }
-        })
-        .await
-        .unwrap()
+    /// Request data and map the response to a [`TransactionVerificationData`].
+    ///
+    /// # Panics
+    /// This function will panic at any error point, e.g.,
+    /// if the node cannot be connected to, if deserialization fails, etc.
+    pub async fn get_transaction_verification_data<'a>(
+        &self,
+        tx_hashes: &'a [[u8; 32]],
+    ) -> impl Iterator<Item = TransactionVerificationData> + 'a {
+        self.rpc
+            .get_transactions(tx_hashes)
+            .await
+            .unwrap()
+            .into_iter()
+            .enumerate()
+            .map(|(i, tx)| {
+                let tx_hash = tx.hash();
+                assert_eq!(tx_hash, tx_hashes[i]);
+                TransactionVerificationData {
+                    tx_blob: tx.serialize(),
+                    tx_weight: tx.weight(),
+                    tx_hash,
+                    fee: tx.rct_signatures.base.fee,
+                    tx,
+                }
+            })
     }
 }
 
