@@ -1,0 +1,12 @@
+[package]
+name = "dandelion_tower"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+
+[dependencies]
+rand = { workspace = true, features = ["std", "std_rng"] }
+
+[dev-dependencies]
+proptest = { workspace = true, features = ["default"] }
