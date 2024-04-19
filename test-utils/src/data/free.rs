@@ -121,7 +121,7 @@ macro_rules! verified_block_information_fn {
     (
         fn_name: $fn_name:ident, // Name of the function created
         block_blob: $block_blob:ident, // Block blob ([u8], found in `constants.rs`)
-        tx_data: [$($tx_data_const:ident),*], // Array of contained transaction blobs
+        tx_blobs: [$($tx_blob:ident),*], // Array of contained transaction blobs
         pow_hash: $pow_hash:literal, // PoW hash as a string literal
         height: $height:literal, // Block height
         generated_coins: $generated_coins:literal, // Generated coins in block (`reward`)
@@ -138,7 +138,7 @@ macro_rules! verified_block_information_fn {
         ///
         /// Contained transactions:
         $(
-            #[doc = concat!("- [`", stringify!($tx_data_const), "`]")]
+            #[doc = concat!("- [`", stringify!($tx_blob), "`]")]
         )*
         ///
         /// ```rust
@@ -165,7 +165,7 @@ macro_rules! verified_block_information_fn {
                     weight: $weight,
                     long_term_weight: $long_term_weight,
                     cumulative_difficulty: $cumulative_difficulty,
-                    txs: vec![$($tx_data_const),*],
+                    txs: vec![$($tx_blob),*],
                 }
                 .into_verified()
             })
@@ -176,7 +176,7 @@ macro_rules! verified_block_information_fn {
 verified_block_information_fn! {
     fn_name: block_v1_tx2,
     block_blob: BLOCK_5ECB7E,
-    tx_data: [TX_2180A8, TX_D7FEBD],
+    tx_blobs: [TX_2180A8, TX_D7FEBD],
     pow_hash: "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000",
     height: 202_612,
     generated_coins: 13_138_270_468_431,
@@ -189,7 +189,7 @@ verified_block_information_fn! {
 verified_block_information_fn! {
     fn_name: block_v9_tx3,
     block_blob: BLOCK_F91043,
-    tx_data: [TX_E2D393, TX_E57440, TX_B6B439],
+    tx_blobs: [TX_E2D393, TX_E57440, TX_B6B439],
     pow_hash: "7c78b5b67a112a66ea69ea51477492057dba9cfeaa2942ee7372c61800000000",
     height: 1_731_606,
     generated_coins: 3_403_921_682_163,
@@ -202,7 +202,7 @@ verified_block_information_fn! {
 verified_block_information_fn! {
     fn_name: block_v16_tx0,
     block_blob: BLOCK_43BD1F,
-    tx_data: [],
+    tx_blobs: [],
     pow_hash: "10b473b5d097d6bfa0656616951840724dfe38c6fb9c4adf8158800300000000",
     height: 2_751_506,
     generated_coins: 600_000_000_000,
@@ -220,7 +220,7 @@ verified_block_information_fn! {
 macro_rules! transaction_verification_data_fn {
     (
         fn_name: $fn_name:ident, // Name of the function created
-        tx_data: $tx_blob:ident, // Transaction blob ([u8], found in `constants.rs`)
+        tx_blobs: $tx_blob:ident, // Transaction blob ([u8], found in `constants.rs`)
         weight: $weight:literal, // Transaction weight
         hash: $hash:literal, // Transaction hash as a string literal
     ) => {
@@ -245,21 +245,21 @@ macro_rules! transaction_verification_data_fn {
 
 transaction_verification_data_fn! {
     fn_name: tx_v1_sig0,
-    tx_data: TX_3BC7FF,
+    tx_blobs: TX_3BC7FF,
     weight: 248,
     hash: "3bc7ff015b227e7313cc2e8668bfbb3f3acbee274a9c201d6211cf681b5f6bb1",
 }
 
 transaction_verification_data_fn! {
     fn_name: tx_v1_sig2,
-    tx_data: TX_9E3F73,
+    tx_blobs: TX_9E3F73,
     weight: 448,
     hash: "9e3f73e66d7c7293af59c59c1ff5d6aae047289f49e5884c66caaf4aea49fb34",
 }
 
 transaction_verification_data_fn! {
     fn_name: tx_v2_rct3,
-    tx_data: TX_84D48D,
+    tx_blobs: TX_84D48D,
     weight: 2743,
     hash: "84d48dc11ec91950f8b70a85af9db91fe0c8abef71ef5db08304f7344b99ea66",
 }
