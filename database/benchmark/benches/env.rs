@@ -6,6 +6,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use function_name::named;
 
 use cuprate_database::{
+    config::Config,
     resize::{page_size, ResizeAlgorithm},
     tables::Outputs,
     ConcreteEnv, Env, EnvInner, TxRo, TxRw,
@@ -17,11 +18,14 @@ use cuprate_database_benchmark::tmp_concrete_env;
 criterion_group!(
     benches,
     open,
+    env_inner,
     tx_ro,
     tx_rw,
     open_tables,
     open_tables_mut,
-    resize
+    resize,
+    current_map_size,
+    disk_size_bytes,
 );
 criterion_main!(benches);
 
@@ -29,14 +33,24 @@ criterion_main!(benches);
 /// [`Env::open`].
 #[named]
 fn open(c: &mut Criterion) {
+    let tempdir = tempfile::tempdir().unwrap();
+    let config = Config::low_power(Some(tempdir.path().into()));
+
+    c.bench_function(function_name!(), |b| {
+        b.iter_with_large_drop(|| {
+            ConcreteEnv::open(config.clone()).unwrap();
+        });
+    });
+}
+
+/// [`Env::env_inner`].
+#[named]
+fn env_inner(c: &mut Criterion) {
+    let (env, _tempdir) = tmp_concrete_env();
+
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
-            // We don't want `tempfile`'s file destruction code
-            // to overtake the benchmark, so forget the object
-            // so it doesn't get deconstructed.
-            //
-            // FIXME: this might hit file descriptor limits.
-            std::mem::forget(black_box(tmp_concrete_env()));
+            black_box(env.env_inner());
         });
     });
 }
@@ -101,7 +115,7 @@ fn open_tables_mut(c: &mut Criterion) {
     });
 }
 
-/// Test `Env` resizes.
+/// `Env` memory map resizes.
 #[named]
 fn resize(c: &mut Criterion) {
     let (env, _tempdir) = tmp_concrete_env();
@@ -115,6 +129,33 @@ fn resize(c: &mut Criterion) {
             if ConcreteEnv::MANUAL_RESIZE {
                 env.resize_map(black_box(Some(ResizeAlgorithm::FixedBytes(page_size))));
             }
+        });
+    });
+}
+
+/// Access current memory map size of the database.
+#[named]
+fn current_map_size(c: &mut Criterion) {
+    let (env, _tempdir) = tmp_concrete_env();
+
+    c.bench_function(function_name!(), |b| {
+        b.iter(|| {
+            // This test is only valid for `Env`'s that need to resize manually.
+            if ConcreteEnv::MANUAL_RESIZE {
+                black_box(env.current_map_size());
+            }
+        });
+    });
+}
+
+/// Access on-disk size of the database.
+#[named]
+fn disk_size_bytes(c: &mut Criterion) {
+    let (env, _tempdir) = tmp_concrete_env();
+
+    c.bench_function(function_name!(), |b| {
+        b.iter(|| {
+            black_box(env.disk_size_bytes()).unwrap();
         });
     });
 }
