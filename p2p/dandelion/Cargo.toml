@@ -5,8 +5,17 @@ edition = "2021"
 license = "MIT"
 authors = ["Boog900"]
 
+[features]
+default = []
+txpool = ["dep:rand_distr"]
+
 [dependencies]
+tower = { workspace = true, features = ["discover"] }
+
 rand = { workspace = true, features = ["std", "std_rng"] }
+rand_distr = { workspace = true, features = ["std"], optional = true }
+
+thiserror = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true, features = ["default"] }

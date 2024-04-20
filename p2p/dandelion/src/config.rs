@@ -6,7 +6,7 @@ use std::{
 /// When calculating the embargo timeout using the formula: `(-k*(k-1)*hop)/(2*log(1-ep))`
 ///
 /// (1 - ep) is the probability that a transaction travels for `k` hops before a nodes embargo timeout fires, this constant is (1 - ep).
-const EMBARGO_FULL_TRAVEL_PROBABILITY: f64 = 0.9;
+const EMBARGO_FULL_TRAVEL_PROBABILITY: f64 = 0.90;
 
 /// The graph type to use for dandelion routing, the dandelion paper recommends [Graph::FourRegular].
 ///
@@ -47,7 +47,7 @@ pub enum Graph {
 pub struct DandelionConfig {
     /// The time it takes for a stem transaction to pass through a node, including network latency.
     pub time_between_hop: Duration,
-    /// The average duration of an epoch, each epochs duration will be randomised.
+    /// The duration of an epoch.
     pub epoch_duration: Duration,
     /// q in the dandelion paper, this is the probability that a node will be in the fluff state for
     /// a certain epoch.
@@ -62,6 +62,16 @@ pub struct DandelionConfig {
 }
 
 impl DandelionConfig {
+    /// Returns the number of outbound peers to use to stem transactions.
+    ///
+    /// This value depends on the [`Graph`] chosen.
+    pub fn number_of_stems(&self) -> usize {
+        match self.graph {
+            Graph::Line => 1,
+            Graph::FourRegular => 2,
+        }
+    }
+
     /// Returns the average embargo timeout, `Tbase` in the dandelion++ paper.
     pub fn average_embargo_timeout(&self) -> Duration {
         // we set k equal to the expected stem length with this fluff probability.
@@ -76,6 +86,7 @@ impl DandelionConfig {
         )
     }
 
+    /// Returns the expected length of a stem.
     pub fn expected_stem_length(&self) -> f64 {
         self.fluff_probability.recip()
     }
@@ -83,15 +94,16 @@ impl DandelionConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::EMBARGO_FULL_TRAVEL_PROBABILITY;
-    use proptest::{prop_assert, proptest};
     use std::{
         f64::consts::E,
         ops::{Mul, Neg},
         time::Duration,
     };
 
-    use crate::DandelionConfig;
+    use proptest::{prop_assert, proptest};
+    use rand::{prelude::Distribution, thread_rng};
+
+    use super::*;
 
     #[test]
     #[ignore] // monerod is using log10, we are using ln, investigate this.

@@ -708,6 +708,9 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "rand",
+ "rand_distr",
+ "thiserror",
+ "tower",
 ]
 
 [[package]]
