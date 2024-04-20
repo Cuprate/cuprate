@@ -50,7 +50,7 @@ fn env_inner(c: &mut Criterion) {
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
-            black_box(env.env_inner());
+            let _ = black_box(env.env_inner());
         });
     });
 }
