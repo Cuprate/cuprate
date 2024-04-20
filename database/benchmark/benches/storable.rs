@@ -11,13 +11,13 @@ use cuprate_database::{
 };
 
 //---------------------------------------------------------------------------------------------------- Criterion
-criterion_group!(
+criterion_group! {
     benches,
     pre_rct_output_id_as_bytes,
     pre_rct_output_id_from_bytes,
     output_as_bytes,
     output_from_bytes
-);
+}
 criterion_main!(benches);
 
 //---------------------------------------------------------------------------------------------------- Constants

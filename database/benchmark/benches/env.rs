@@ -15,7 +15,7 @@ use cuprate_database::{
 use cuprate_database_benchmark::tmp_concrete_env;
 
 //---------------------------------------------------------------------------------------------------- Criterion
-criterion_group!(
+criterion_group! {
     benches,
     open,
     env_inner,
@@ -26,7 +26,7 @@ criterion_group!(
     resize,
     current_map_size,
     disk_size_bytes,
-);
+}
 criterion_main!(benches);
 
 //---------------------------------------------------------------------------------------------------- Env benchmarks
