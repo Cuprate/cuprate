@@ -5,3 +5,4 @@ mod router;
 mod traits;
 
 pub use config::*;
+pub use router::*;

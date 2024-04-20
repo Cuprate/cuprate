@@ -1,22 +1,23 @@
-use std::future::Future;
-use std::pin::{pin, Pin};
-use std::task::ready;
 use std::{
     collections::HashMap,
+    future::Future,
     hash::Hash,
-    task::{Context, Poll},
+    marker::PhantomData,
+    pin::Pin,
+    task::{ready, Context, Poll},
     time::Instant,
 };
 
-use rand::distributions::Bernoulli;
-use rand::prelude::*;
-use rand::thread_rng;
-use tower::discover::Change;
-use tower::{discover::Discover, Service};
+use futures::TryFutureExt;
+use rand::{distributions::Bernoulli, prelude::*, thread_rng};
+use tower::{
+    discover::{Change, Discover},
+    Service,
+};
 
 use crate::{
-    traits::{DiffuseRequest, OutboundPeers, OutboundPeersRequest, StemRequest},
-    DandelionConfig, Graph,
+    traits::{DiffuseRequest, StemRequest},
+    DandelionConfig,
 };
 
 #[derive(thiserror::Error, Debug)]
@@ -37,7 +38,7 @@ pub enum DandelionRouterError {
 
 /// The current dandelion++ state.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum State {
+pub enum State {
     /// Fluff state, in this state we are diffusing stem transactions to all peers.
     Fluff,
     /// Stem state, in this state we are stemming stem transactions to a single outbound peer.
@@ -61,13 +62,13 @@ pub enum TxState<ID> {
 /// A request to route a transaction.
 pub struct DandelionRouteReq<Tx, ID> {
     /// The transaction.
-    tx: Tx,
+    pub tx: Tx,
     /// The transaction state.
-    state: TxState<ID>,
+    pub state: TxState<ID>,
 }
 
 /// The dandelion router service.
-pub struct DandelionRouter<P, B, ID, S> {
+pub struct DandelionRouter<P, B, ID, S, Tx> {
     /// A [`Discover`] where we can get outbound peers from.
     outbound_peer_discover: Pin<Box<P>>,
     /// A [`Service`] which handle broadcasting (diffusing) transactions.
@@ -93,14 +94,18 @@ pub struct DandelionRouter<P, B, ID, S> {
 
     /// The config.
     config: DandelionConfig,
+
+    _tx: PhantomData<Tx>,
 }
 
-impl<P, B, ID, S> DandelionRouter<P, B, ID, S>
+impl<Tx, ID, P, B, S> DandelionRouter<P, B, ID, S, Tx>
 where
-    ID: Hash + Eq,
+    ID: Hash + Eq + Clone,
     P: Discover<Key = ID, Service = S, Error = tower::BoxError>,
+    B: Service<DiffuseRequest<Tx>, Error = tower::BoxError>,
+    S: Service<StemRequest<Tx>, Error = tower::BoxError>,
 {
-    /// This function gets the number of outbound peers from the [`Discover`] required for the selected [`Graph`].
+    /// This function gets the number of outbound peers from the [`Discover`] required for the selected [`Graph`](crate::Graph).
     fn poll_prepare_graph(
         &mut self,
         cx: &mut Context<'_>,
@@ -130,6 +135,50 @@ where
 
         Poll::Ready(Ok(()))
     }
+
+    fn fluff_tx(&mut self, tx: Tx) -> B::Future {
+        self.broadcast_svc.call(DiffuseRequest(tx))
+    }
+
+    fn stem_tx(&mut self, tx: Tx, from: ID) -> S::Future {
+        loop {
+            let stem_route = self.stem_routes.entry(from.clone()).or_insert_with(|| {
+                self.stem_peers
+                    .iter()
+                    .choose(&mut thread_rng())
+                    .expect("No peers in `stem_peers` was poll_ready called?")
+                    .0
+                    .clone()
+            });
+
+            let Some(peer) = self.stem_peers.get_mut(stem_route) else {
+                self.stem_routes.remove(&from);
+                continue;
+            };
+
+            return peer.call(StemRequest(tx));
+        }
+    }
+
+    fn stem_local_tx(&mut self, tx: Tx) -> S::Future {
+        loop {
+            let stem_route = self.local_route.get_or_insert_with(|| {
+                self.stem_peers
+                    .iter()
+                    .choose(&mut thread_rng())
+                    .expect("No peers in `stem_peers` was poll_ready called?")
+                    .0
+                    .clone()
+            });
+
+            let Some(peer) = self.stem_peers.get_mut(stem_route) else {
+                self.local_route.take();
+                continue;
+            };
+
+            return peer.call(StemRequest(tx));
+        }
+    }
 }
 
 /*
@@ -141,12 +190,14 @@ P: Peer Set discover - where we can get outbound peers from
 B: Broadcast service - where we send txs to get diffused.
 S: The Peer service - handles routing messages to a single node.
  */
-impl<Tx, ID, P, B, S> Service<DandelionRouteReq<Tx, ID>> for DandelionRouter<P, B, ID, S>
+impl<Tx, ID, P, B, S> Service<DandelionRouteReq<Tx, ID>> for DandelionRouter<P, B, ID, S, Tx>
 where
     ID: Hash + Eq + Clone,
     P: Discover<Key = ID, Service = S, Error = tower::BoxError>,
     B: Service<DiffuseRequest<Tx>, Error = tower::BoxError>,
+    B::Future: Send + 'static,
     S: Service<StemRequest<Tx>, Error = tower::BoxError>,
+    S::Future: Send + 'static,
 {
     type Response = State;
     type Error = DandelionRouterError;
@@ -182,23 +233,116 @@ where
 
         // now we have removed the failed peers check if we still have enough for the graph chosen.
         ready!(self.poll_prepare_graph(cx)?);
-        ready!(self.broadcast_svc.poll_ready(cx)?);
+
+        ready!(self
+            .broadcast_svc
+            .poll_ready(cx)
+            .map_err(DandelionRouterError::BroadcastError)?);
 
         Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: DandelionRouteReq<Tx, ID>) -> Self::Future {
-        todo!();
-        /*
-        let fut = match req.state {
-            TxState::Fluff => Box::pin( self.broadcast_svc.call(DiffuseRequest(req.tx))),
-            TxState::Stem {from} => {
-                let stem_route = self.stem_routes.entry(&from).or_insert_with(|| self.stem_peers.keys().choose(&mut thread_rng()).clone());
-
-                Box::pin(self.stem_peers.get_mut(stem_route).unwrap().call(StemRequest(req.tx)))
-            }
+        match req.state {
+            TxState::Fluff => Box::pin(
+                self.fluff_tx(req.tx)
+                    .map_ok(|_| State::Fluff)
+                    .map_err(DandelionRouterError::BroadcastError),
+            ),
+            TxState::Stem { from } => match self.current_state {
+                State::Fluff => Box::pin(
+                    self.fluff_tx(req.tx)
+                        .map_ok(|_| State::Fluff)
+                        .map_err(DandelionRouterError::BroadcastError),
+                ),
+                State::Stem => Box::pin(
+                    self.stem_tx(req.tx, from)
+                        .map_ok(|_| State::Stem)
+                        .map_err(DandelionRouterError::PeerError),
+                ),
+            },
+            TxState::Local => Box::pin(
+                self.stem_local_tx(req.tx)
+                    .map_ok(|_| State::Stem)
+                    .map_err(DandelionRouterError::PeerError),
+            ),
         }
+    }
+}
 
-         */
+/// A [`DandelionRouter`] builder.
+#[derive(Debug)]
+pub struct DandelionRouterBuilder<P, B, Tx> {
+    config: Option<DandelionConfig>,
+    /// A [`Discover`] where we can get outbound peers from.
+    outbound_peer_discover: Option<P>,
+    /// A [`Service`] which handle broadcasting (diffusing) transactions.
+    broadcast_svc: Option<B>,
+
+    _tx: PhantomData<Tx>,
+}
+
+impl<P, B, Tx> Default for DandelionRouterBuilder<P, B, Tx> {
+    fn default() -> Self {
+        Self {
+            config: None,
+            outbound_peer_discover: None,
+            broadcast_svc: None,
+
+            _tx: PhantomData,
+        }
+    }
+}
+
+impl<ID, S, P, B, Tx> DandelionRouterBuilder<P, B, Tx>
+where
+    ID: Hash + Eq + Clone,
+    P: Discover<Key = ID, Service = S, Error = tower::BoxError>,
+    B: Service<DiffuseRequest<Tx>, Error = tower::BoxError>,
+    B::Future: Send + 'static,
+    S: Service<StemRequest<Tx>, Error = tower::BoxError>,
+    S::Future: Send + 'static,
+{
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub fn with_config(self, config: DandelionConfig) -> Self {
+        Self {
+            config: Some(config),
+            ..self
+        }
+    }
+
+    pub fn with_outbound_peer_discover(self, outbound_peer_discover: P) -> Self {
+        Self {
+            outbound_peer_discover: Some(outbound_peer_discover),
+            ..self
+        }
+    }
+
+    pub fn with_broadcast_svc(self, broadcast_svc: B) -> Self {
+        Self {
+            broadcast_svc: Some(broadcast_svc),
+            ..self
+        }
+    }
+
+    pub fn build(self) -> DandelionRouter<P, B, ID, S, Tx> {
+        let config = self.config.unwrap();
+
+        DandelionRouter {
+            outbound_peer_discover: Box::pin(self.outbound_peer_discover.unwrap()),
+            broadcast_svc: self.broadcast_svc.unwrap(),
+            current_state: State::Fluff,
+            epoch_start: Instant::now() - 2 * config.epoch_duration,
+            local_route: None,
+            stem_routes: HashMap::new(),
+            stem_peers: HashMap::new(),
+            state_dist: Bernoulli::new(config.fluff_probability)
+                .expect("Fluff probability was not between 0 and 1"),
+            config,
+            _tx: PhantomData,
+        }
     }
 }

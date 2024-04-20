@@ -15,7 +15,7 @@ const EMBARGO_FULL_TRAVEL_PROBABILITY: f64 = 0.90;
 /// can give constant-order privacy benefits against adversaries with knowledge of the graph.
 ///
 /// See appendix C of the dandelion++ paper.
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Debug, Copy, Clone)]
 pub enum Graph {
     /// Line graph.
     ///
@@ -43,7 +43,7 @@ pub enum Graph {
 ///
 /// Where `k` is calculated from the fluff probability, `hop` is `time_between_hop` and `ep` is fixed at `0.1`.
 ///
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct DandelionConfig {
     /// The time it takes for a stem transaction to pass through a node, including network latency.
     pub time_between_hop: Duration,
@@ -73,13 +73,16 @@ impl DandelionConfig {
     }
 
     /// Returns the average embargo timeout, `Tbase` in the dandelion++ paper.
+    ///
+    /// This is the average embargo timeout _only including this node_ with k nodes also putting an embargo timeout
+    /// using the exponential distrobution, the average until one of them fluffs is `Tbase / k`.
     pub fn average_embargo_timeout(&self) -> Duration {
         // we set k equal to the expected stem length with this fluff probability.
         let k = self.expected_stem_length();
         let time_between_hop = self.time_between_hop.as_secs_f64();
 
         Duration::from_secs_f64(
-            // (-k*(k-1)*hop)/(2*log(1-ep))
+            // (-k*(k-1)*hop)/(2*ln(1-ep))
             ((k.neg() * (k - 1.0) * time_between_hop)
                 / EMBARGO_FULL_TRAVEL_PROBABILITY.ln().mul(2.0))
             .ceil(),
@@ -101,21 +104,19 @@ mod tests {
     };
 
     use proptest::{prop_assert, proptest};
-    use rand::{prelude::Distribution, thread_rng};
 
     use super::*;
 
     #[test]
-    #[ignore] // monerod is using log10, we are using ln, investigate this.
     fn monerod_average_embargo_timeout() {
         let cfg = DandelionConfig {
             time_between_hop: Duration::from_millis(175),
             epoch_duration: Default::default(),
-            fluff_probability: 0.2,
+            fluff_probability: 0.1,
             graph: Default::default(),
         };
 
-        assert_eq!(cfg.average_embargo_timeout(), Duration::from_secs(39));
+        assert_eq!(cfg.average_embargo_timeout(), Duration::from_secs(75));
     }
 
     proptest! {

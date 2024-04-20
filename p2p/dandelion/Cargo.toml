@@ -6,11 +6,12 @@ license = "MIT"
 authors = ["Boog900"]
 
 [features]
-default = []
+default = ["txpool"]
 txpool = ["dep:rand_distr"]
 
 [dependencies]
-tower = { workspace = true, features = ["discover"] }
+tower = { workspace = true, features = ["discover", "util"] }
+futures = { workspace = true, features = ["std"] }
 
 rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"], optional = true }
@@ -18,4 +19,5 @@ rand_distr = { workspace = true, features = ["std"], optional = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync"] }
 proptest = { workspace = true, features = ["default"] }
