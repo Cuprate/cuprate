@@ -75,6 +75,7 @@
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
 	clippy::option_if_let_else,
+	clippy::significant_drop_tightening,
 )]
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
