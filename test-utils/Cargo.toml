@@ -6,8 +6,9 @@ license = "MIT"
 authors = ["Boog900"]
 
 [dependencies]
-monero-wire = {path = "../net/monero-wire"}
-monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
+monero-wire = { path = "../net/monero-wire"}
+monero-p2p = { path = "../p2p/monero-p2p", features = ["borsh"] }
+cuprate-types = { path = "../types" }
 
 monero-serai = { workspace = true }
 futures = { workspace = true, features = ["std"] }
@@ -17,6 +18,7 @@ tokio-util = { workspace = true }
 reqwest = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 tempfile = { workspace = true }
+hex-literal = { workspace = true }
 
 borsh = { workspace = true, features = ["derive"]}
 
