@@ -124,7 +124,7 @@ macro_rules! verified_block_information_fn {
         tx_blobs: [$($tx_blob:ident),*], // Array of contained transaction blobs
         pow_hash: $pow_hash:literal, // PoW hash as a string literal
         height: $height:literal, // Block height
-        generated_coins: $generated_coins:literal, // Generated coins in block (`reward`)
+        generated_coins: $generated_coins:literal, // Generated coins in block (minus fees)
         weight: $weight:literal, // Block weight
         long_term_weight: $long_term_weight:literal, // Block long term weight
         cumulative_difficulty: $cumulative_difficulty:literal, // Block cumulative difficulty
@@ -179,7 +179,7 @@ verified_block_information_fn! {
     tx_blobs: [TX_2180A8, TX_D7FEBD],
     pow_hash: "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000",
     height: 202_612,
-    generated_coins: 13_138_270_468_431,
+    generated_coins: 13_138_270_467_918,
     weight: 55_503,
     long_term_weight: 55_503,
     cumulative_difficulty: 126_654_460_829_362,
@@ -192,7 +192,7 @@ verified_block_information_fn! {
     tx_blobs: [TX_E2D393, TX_E57440, TX_B6B439],
     pow_hash: "7c78b5b67a112a66ea69ea51477492057dba9cfeaa2942ee7372c61800000000",
     height: 1_731_606,
-    generated_coins: 3_403_921_682_163,
+    generated_coins: 3_403_774_022_163,
     weight: 6_597,
     long_term_weight: 6_597,
     cumulative_difficulty: 23_558_910_234_058_343,
