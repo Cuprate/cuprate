@@ -27,8 +27,8 @@ use crate::data::constants::{
 /// this struct represents that data that must be provided.
 ///
 /// Consider using `cuprate_test_utils::rpc` to get this data easily.
-struct VerifiedBlockMap<'a> {
-    block: Block,
+struct VerifiedBlockMap {
+    block_blob: &'static [u8],
     pow_hash: [u8; 32],
     height: u64,
     generated_coins: u64,
@@ -37,10 +37,10 @@ struct VerifiedBlockMap<'a> {
     cumulative_difficulty: u128,
     // Vec of `tx_blob`'s, i.e. the data in `/test-utils/src/data/tx/`.
     // This should the actual `tx_blob`'s of the transactions within this block.
-    txs: Vec<&'a [u8]>,
+    txs: &'static [&'static [u8]],
 }
 
-impl VerifiedBlockMap<'_> {
+impl VerifiedBlockMap {
     /// Turn the various static data bits in `self` into a `VerifiedBlockInformation`.
     ///
     /// Transactions are verified that they at least match the block's,
@@ -48,7 +48,7 @@ impl VerifiedBlockMap<'_> {
     /// is not checked.
     fn into_verified(self) -> VerifiedBlockInformation {
         let Self {
-            block,
+            block_blob,
             pow_hash,
             height,
             generated_coins,
@@ -58,8 +58,11 @@ impl VerifiedBlockMap<'_> {
             txs,
         } = self;
 
+        let block_blob = block_blob.to_vec();
+        let block = Block::read(&mut block_blob.as_slice()).unwrap();
+
         let txs: Vec<Arc<TransactionVerificationData>> = txs
-            .into_iter()
+            .iter()
             .map(to_tx_verification_data)
             .map(Arc::new)
             .collect();
@@ -79,6 +82,7 @@ impl VerifiedBlockMap<'_> {
 
         VerifiedBlockInformation {
             block_hash: block.hash(),
+            block_blob,
             block,
             txs,
             pow_hash,
@@ -92,8 +96,8 @@ impl VerifiedBlockMap<'_> {
 }
 
 // Same as [`VerifiedBlockMap`] but for [`TransactionVerificationData`].
-fn to_tx_verification_data(tx_blob: &[u8]) -> TransactionVerificationData {
-    let tx_blob = tx_blob.to_vec();
+fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> TransactionVerificationData {
+    let tx_blob = tx_blob.as_ref().to_vec();
     let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
     TransactionVerificationData {
         tx_weight: tx.weight(),
@@ -158,14 +162,14 @@ macro_rules! verified_block_information_fn {
             static BLOCK: OnceLock<VerifiedBlockInformation> = OnceLock::new();
             BLOCK.get_or_init(|| {
                 VerifiedBlockMap {
-                    block: Block::read(&mut $block_blob).unwrap(),
+                    block_blob: $block_blob,
                     pow_hash: hex!($pow_hash),
                     height: $height,
                     generated_coins: $generated_coins,
                     weight: $weight,
                     long_term_weight: $long_term_weight,
                     cumulative_difficulty: $cumulative_difficulty,
-                    txs: vec![$($tx_blob),*],
+                    txs: &[$($tx_blob),*],
                 }
                 .into_verified()
             })

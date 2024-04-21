@@ -102,9 +102,10 @@ impl HttpRpcClient {
 
         let reward = result.block_header.reward;
 
-        let (block_hash, block) = spawn_blocking(|| {
-            let block = Block::read(&mut hex::decode(result.blob).unwrap().as_slice()).unwrap();
-            (block.hash(), block)
+        let (block_hash, block_blob, block) = spawn_blocking(|| {
+            let block_blob = hex::decode(result.blob).unwrap();
+            let block = Block::read(&mut block_blob.as_slice()).unwrap();
+            (block.hash(), block_blob, block)
         })
         .await
         .unwrap();
@@ -139,6 +140,7 @@ impl HttpRpcClient {
 
         VerifiedBlockInformation {
             block,
+            block_blob,
             txs,
             block_hash,
             pow_hash,
