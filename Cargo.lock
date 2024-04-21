@@ -641,6 +641,8 @@ dependencies = [
  "monero-serai",
  "monero-wire",
  "reqwest",
+ "serde",
+ "serde_json",
  "tar",
  "tempfile",
  "tokio",

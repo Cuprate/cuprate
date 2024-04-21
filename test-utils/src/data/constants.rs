@@ -22,7 +22,6 @@ macro_rules! const_block_blob {
         minor_version: $minor_version:literal, // Block's minor version
         timestamp: $timestamp:literal, // Block's timestamp
         nonce: $nonce:literal, // Block's nonce
-        miner_tx_generated: $miner_tx_generated:literal, // Generated Monero in block's miner transaction
         tx_len: $tx_len:literal, // How many transactions there are in the block
     ) => {
         #[doc = concat!("Block with hash `", $hash, "`.")]
@@ -39,7 +38,7 @@ macro_rules! const_block_blob {
         #[doc = concat!("assert_eq!(block.header.minor_version, ", $minor_version, ");")]
         #[doc = concat!("assert_eq!(block.header.timestamp, ", $timestamp, ");")]
         #[doc = concat!("assert_eq!(block.header.nonce, ", $nonce, ");")]
-        #[doc = concat!("assert!(matches!(block.miner_tx.prefix.inputs[0], Input::Gen(", $miner_tx_generated, ")));")]
+        #[doc = concat!("assert!(matches!(block.miner_tx.prefix.inputs[0], Input::Gen(", $height, ")));")]
         #[doc = concat!("assert_eq!(block.txs.len(), ", $tx_len, ");")]
         #[doc = concat!("assert_eq!(hex::encode(block.hash()), \"", $hash, "\")")]
         /// ```
@@ -56,7 +55,6 @@ const_block_blob! {
     minor_version: 0,
     timestamp: 1409804570,
     nonce: 1073744198,
-    miner_tx_generated: 202612,
     tx_len: 513,
 }
 
@@ -69,20 +67,18 @@ const_block_blob! {
     minor_version: 0,
     timestamp: 1409804315,
     nonce: 48426,
-    miner_tx_generated: 202609,
     tx_len: 2,
 }
 
 const_block_blob! {
     name: BLOCK_F91043,
-    height: 2_751_506,
+    height: 1_731_606,
     hash: "f910435a5477ca27be1986c080d5476aeab52d0c07cf3d9c72513213350d25d4",
     data_path: "block/f910435a5477ca27be1986c080d5476aeab52d0c07cf3d9c72513213350d25d4.bin",
     major_version: 9,
     minor_version: 9,
     timestamp: 1545423190,
     nonce: 4123173351,
-    miner_tx_generated: 1731606,
     tx_len: 3,
 }
 
@@ -95,7 +91,6 @@ const_block_blob! {
     minor_version: 16,
     timestamp: 1667941829,
     nonce: 4110909056,
-    miner_tx_generated: 2751506,
     tx_len: 0,
 }
 
