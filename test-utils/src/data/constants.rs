@@ -72,7 +72,7 @@ const_block_blob! {
 
 const_block_blob! {
     name: BLOCK_F91043,
-    height: 2_751_506,
+    height: 1_731_606,
     hash: "f910435a5477ca27be1986c080d5476aeab52d0c07cf3d9c72513213350d25d4",
     data_path: "block/f910435a5477ca27be1986c080d5476aeab52d0c07cf3d9c72513213350d25d4.bin",
     major_version: 9,
