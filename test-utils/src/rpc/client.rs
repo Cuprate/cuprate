@@ -77,7 +77,7 @@ impl HttpRpcClient {
             hash: String,
             height: u64,
             pow_hash: String,
-            reward: u64, // generated_coins
+            reward: u64, // generated_coins + total_tx_fees
         }
 
         let result = self
@@ -100,6 +100,8 @@ impl HttpRpcClient {
         	"untrusted node detected, `pow_hash` will not show on these nodes - use a trusted node!"
         );
 
+        let reward = result.block_header.reward;
+
         let (block_hash, block) = spawn_blocking(|| {
             let block = Block::read(&mut hex::decode(result.blob).unwrap().as_slice()).unwrap();
             (block.hash(), block)
@@ -107,7 +109,7 @@ impl HttpRpcClient {
         .await
         .unwrap();
 
-        let txs = self
+        let txs: Vec<Arc<TransactionVerificationData>> = self
             .get_transaction_verification_data(&block.txs)
             .await
             .map(Arc::new)
@@ -120,13 +122,28 @@ impl HttpRpcClient {
         // Assert the block hash matches.
         assert_eq!(block_hash, block_hash_2);
 
+        let total_tx_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
+        let generated_coins = block
+            .miner_tx
+            .prefix
+            .outputs
+            .iter()
+            .map(|output| output.amount.expect("miner_tx amount was None"))
+            .sum::<u64>()
+            - total_tx_fees;
+        assert_eq!(
+            reward,
+            generated_coins + total_tx_fees,
+            "generated_coins ({generated_coins}) + total_tx_fees ({total_tx_fees}) != reward ({reward})"
+        );
+
         VerifiedBlockInformation {
             block,
             txs,
             block_hash,
             pow_hash,
+            generated_coins,
             height: block_header.height,
-            generated_coins: block_header.reward,
             weight: block_header.block_weight,
             long_term_weight: block_header.long_term_weight,
             cumulative_difficulty: block_header.cumulative_difficulty,
@@ -238,7 +255,7 @@ mod tests {
             202612,
             hex!("bbd604d2ba11ba27935e006ed39c9bfdd99b76bf4a50654bc1e1e61217962698"),
             hex!("84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000"),
-            13138270468431,
+            13138270467918,
             55503,
             55503,
             126654460829362,
@@ -251,7 +268,7 @@ mod tests {
             1731606,
             hex!("f910435a5477ca27be1986c080d5476aeab52d0c07cf3d9c72513213350d25d4"),
             hex!("7c78b5b67a112a66ea69ea51477492057dba9cfeaa2942ee7372c61800000000"),
-            3403921682163,
+            3403774022163,
             6597,
             6597,
             23558910234058343,
@@ -269,6 +286,19 @@ mod tests {
             176470,
             236046001376524168,
             0,
+        )
+        .await;
+
+        assert_eq(
+            &rpc,
+            3132285,
+            hex!("a999c6ba4d2993541ba9d81561bb8293baa83b122f8aa9ab65b3c463224397d8"),
+            hex!("4eaa3b3d4dc888644bc14dc4895ca0b008586e30b186fbaa009d330100000000"),
+            600000000000,
+            133498,
+            176470,
+            348189741564698577,
+            57,
         )
         .await;
     }
