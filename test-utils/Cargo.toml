@@ -22,6 +22,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 tempfile = { workspace = true }
+hex-literal = { workspace = true }
 
 borsh = { workspace = true, features = ["derive"]}
 
