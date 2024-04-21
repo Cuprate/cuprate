@@ -56,8 +56,6 @@ use crate::{
 /// exists, i.e., this function will not return `Err` even if you
 /// call this function infinitely with the same block.
 // no inline, too big.
-#[allow(clippy::too_many_lines)]
-#[allow(clippy::manual_assert)] // assert doesn't let you `{}`
 pub fn add_block(
     block: &VerifiedBlockInformation,
     tables: &mut impl TablesMut,
@@ -72,12 +70,11 @@ pub fn add_block(
     };
 
     let chain_height = chain_height(tables.block_heights())?;
-    if block.height != chain_height {
-        panic!(
-            "block.height ({}) != chain height ({chain_height})",
-            block.height
-        );
-    }
+    assert_eq!(
+        block.height, chain_height,
+        "block.height ({}) != chain_height ({})",
+        block.height, chain_height,
+    );
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     for tx_verification_data in &block.txs {
@@ -226,7 +223,7 @@ pub fn block_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening)]
+#[allow(clippy::significant_drop_tightening, clippy::cognitive_complexity)]
 mod test {
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
@@ -248,7 +245,6 @@ mod test {
     /// It simply tests if the proper tables are mutated, and if the data
     /// stored and retrieved is the same.
     #[test]
-    #[allow(clippy::cognitive_complexity)]
     fn all_block_functions() {
         let (env, tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
@@ -374,7 +370,9 @@ mod test {
 
     /// We should panic if: `block.height` != the chain height
     #[test]
-    #[should_panic(expected = "block.height (123) != chain height (1)")]
+    #[should_panic(
+        expected = "assertion `left == right` failed: block.height (123) != chain_height (1)\n  left: 123\n right: 1"
+    )]
     fn block_height_not_chain_height() {
         let (env, tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
