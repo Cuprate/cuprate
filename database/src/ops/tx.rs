@@ -43,12 +43,15 @@ use super::{
 /// Note that the caller's input is trusted implicitly and no checks
 /// are done (in this function) whether the `block_height` is correct or not.
 ///
+#[doc = doc_add_block_inner_invariant!()]
+///
 /// # Notes
 /// This function is different from other sub-functions and slightly more similar to
 /// [`add_block()`](crate::ops::block::add_block) in that it calls other sub-functions.
 ///
 /// This function calls:
 /// - [`add_output()`]
+/// - [`add_rct_output()`]
 /// - [`add_key_image()`]
 ///
 /// Thus, after [`add_tx`], those values (outputs and key images)
@@ -57,8 +60,6 @@ use super::{
 /// # Panics
 /// This function will panic if:
 /// - `block.height > u32::MAX` (not normally possible)
-///
-#[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 #[inline]
 pub fn add_tx(
@@ -199,6 +200,16 @@ pub fn add_tx(
 /// This returns the [`TxId`] and [`TxBlob`] of the removed transaction.
 ///
 #[doc = doc_add_block_inner_invariant!()]
+///
+/// # Notes
+/// As mentioned in [`add_tx`], this function will call other sub-functions:
+/// - [`remove_output()`]
+/// - [`remove_rct_output()`]
+/// - [`remove_key_image()`]
+///
+/// Thus, after [`remove_tx`], those values (outputs and key images)
+/// will be remove from database tables as well.
+///
 #[doc = doc_error!()]
 #[inline]
 pub fn remove_tx(
@@ -237,19 +248,7 @@ pub fn remove_tx(
         match inputs {
             // Key images.
             Input::ToKey { key_image, .. } => {
-                let result =
-                    remove_key_image(key_image.compress().as_bytes(), tables.key_images_mut());
-
-                // TODO: all test tx's have the same key image so the 1st
-                // removal removes everything - fix me after we have real data.
-                if cfg!(test) {
-                    match result {
-                        Ok(()) | Err(RuntimeError::KeyNotFound) => (),
-                        Err(e) => return Err(e),
-                    }
-                } else {
-                    result?;
-                }
+                remove_key_image(key_image.compress().as_bytes(), tables.key_images_mut())?;
             }
             // This is a miner transaction, set it for later use.
             Input::Gen(_) => miner_tx = true,
@@ -350,18 +349,6 @@ mod test {
     use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
     use pretty_assertions::assert_eq;
 
-    /// TODO: Use real data.
-    /// See `../block/block.rs/dummy_verified_block_information()` for more info.
-    fn dummy_verified_tx(tx: Transaction) -> TransactionVerificationData {
-        TransactionVerificationData {
-            tx_blob: tx.serialize(),
-            tx_hash: tx.hash(),
-            tx_weight: tx.weight(),
-            tx,
-            fee: 1_401_270_000,
-        }
-    }
-
     /// Tests all above tx functions when only inputting `Transaction` data (no Block).
     #[test]
     fn all_tx_functions() {
@@ -455,11 +442,5 @@ mod test {
         }
 
         assert_all_tables_are_empty(&env);
-    }
-
-    /// Tests all above tx functions when using the full `add_block()`.
-    #[test]
-    const fn all_tx_functions_add_block() {
-        // TODO
     }
 }

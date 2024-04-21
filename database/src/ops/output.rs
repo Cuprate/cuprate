@@ -155,7 +155,7 @@ pub fn get_rct_num_outputs(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening)]
+#[allow(clippy::significant_drop_tightening, clippy::cognitive_complexity)]
 mod test {
     use super::*;
     use crate::{
@@ -194,7 +194,6 @@ mod test {
     /// It simply tests if the proper tables are mutated, and if the data
     /// stored and retrieved is the same.
     #[test]
-    #[allow(clippy::cognitive_complexity)] // it's a long test
     fn all_output_functions() {
         let (env, tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
@@ -275,11 +274,5 @@ mod test {
         }
 
         assert_all_tables_are_empty(&env);
-    }
-
-    /// Tests all above tx functions when using the full `add_block()`.
-    #[test]
-    const fn all_tx_functions_add_block() {
-        // TODO
     }
 }

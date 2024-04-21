@@ -56,7 +56,7 @@ pub fn key_image_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening)]
+#[allow(clippy::significant_drop_tightening, clippy::cognitive_complexity)]
 mod test {
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
@@ -76,13 +76,12 @@ mod test {
     /// It simply tests if the proper tables are mutated, and if the data
     /// stored and retrieved is the same.
     #[test]
-    #[allow(clippy::cognitive_complexity)]
     fn all_key_image_functions() {
         let (env, tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
-        let key_images: Vec<KeyImage> = vec![
+        let key_images = [
             hex!("be1c87fc8f958f68fbe346a18dfb314204dca7573f61aae14840b8037da5c286"),
             hex!("c5e4a592c11f34a12e13516ab2883b7c580d47b286b8fe8b15d57d2a18ade275"),
             hex!("93288b646f858edfb0997ae08d7c76f4599b04c127f108e8e69a0696ae7ba334"),

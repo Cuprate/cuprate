@@ -393,9 +393,7 @@ mod test {
                     assert_eq!(tx.tx_blob, tx2.serialize());
                     assert_eq!(tx.tx_weight, tx2.weight());
                     assert_eq!(tx.tx_hash, block.block.txs[i]);
-                    // assert_eq!(tx.tx_hash, tx2.hash()); // TODO: we're using fake hashes for now, fix this.
-
-                    // TODO: Assert output reads are OK.
+                    assert_eq!(tx.tx_hash, tx2.hash());
                 }
             }
 

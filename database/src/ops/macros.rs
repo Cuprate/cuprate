@@ -18,7 +18,7 @@ pub(super) use doc_error;
 macro_rules! doc_add_block_inner_invariant {
     () => {
             r#"# ⚠️ Invariant ⚠️
-This function mainly exists to be used internally by the wider-scope function [`crate::ops::block::add_block`].
+This function mainly exists to be used internally by the parent function [`crate::ops::block::add_block`].
 
 `add_block()` makes sure all data related to the input is mutated, while
 this function _does not_, it specifically mutates _particular_ tables.
