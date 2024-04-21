@@ -117,7 +117,7 @@ mod test {
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
-        let blocks = [
+        let mut blocks = [
             block_v1_tx2().clone(),
             block_v9_tx3().clone(),
             block_v16_tx0().clone(),
@@ -133,13 +133,17 @@ mod test {
                 top_block_height(tables.block_heights()),
                 Err(RuntimeError::KeyNotFound),
             ));
+            assert_eq!(
+                0,
+                cumulative_generated_coins(&0, tables.block_infos()).unwrap()
+            );
 
-            for (i, mut block) in blocks.into_iter().enumerate() {
+            for (i, block) in blocks.iter_mut().enumerate() {
                 let i = u64::try_from(i).unwrap();
                 // HACK: `add_block()` asserts blocks with non-sequential heights
                 // cannot be added, to get around this, manually edit the block height.
                 block.height = i;
-                add_block(&block, &mut tables).unwrap();
+                add_block(block, &mut tables).unwrap();
             }
 
             // Assert reads are correct.
@@ -148,6 +152,22 @@ mod test {
                 blocks_len - 1,
                 top_block_height(tables.block_heights()).unwrap()
             );
+            assert_eq!(
+                cumulative_generated_coins(&0, tables.block_infos()).unwrap(),
+                13_138_270_467_918,
+            );
+            assert_eq!(
+                cumulative_generated_coins(&1, tables.block_infos()).unwrap(),
+                16_542_044_490_081,
+            );
+            assert_eq!(
+                cumulative_generated_coins(&2, tables.block_infos()).unwrap(),
+                17_142_044_490_081,
+            );
+            assert!(matches!(
+                cumulative_generated_coins(&3, tables.block_infos()),
+                Err(RuntimeError::KeyNotFound),
+            ));
 
             drop(tables);
             TxRw::commit(tx_rw).unwrap();
