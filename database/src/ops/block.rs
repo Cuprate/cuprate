@@ -17,7 +17,7 @@ use crate::{
     env::EnvInner,
     error::RuntimeError,
     ops::{
-        blockchain::chain_height,
+        blockchain::{chain_height, cumulative_generated_coins},
         key_image::{add_key_image, remove_key_image},
         macros::doc_error,
         output::{
@@ -238,29 +238,6 @@ pub fn block_exists(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<bool, RuntimeError> {
     table_block_heights.contains(block_hash)
-}
-
-/// Check how many cumulative generated coins there have been until a certain [`BlockHeight`].
-///
-/// This returns the total amount of Monero generated up to `block_height`
-/// (including the block itself) in atomic units.
-///
-/// For example:
-/// - on the genesis block `0`, this returns the amount block `0` generated
-/// - on the next block `1`, this returns the amount block `0` and `1` generated
-///
-/// If no blocks have been added, this returns `0`.
-#[doc = doc_error!()]
-#[inline]
-pub fn cumulative_generated_coins(
-    block_height: &BlockHeight,
-    table_block_infos: &impl DatabaseRo<BlockInfos>,
-) -> Result<u64, RuntimeError> {
-    match table_block_infos.get(block_height) {
-        Ok(block_info) => Ok(block_info.cumulative_generated_coins),
-        Err(RuntimeError::KeyNotFound) if block_height == &0 => Ok(0),
-        Err(e) => Err(e),
-    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
