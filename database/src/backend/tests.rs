@@ -432,7 +432,7 @@ test_tables! {
     BlockHeight => BlockInfo,
     123 => BlockInfo {
         timestamp: 1,
-        total_generated_coins: 123,
+        cumulative_generated_coins: 123,
         weight: 321,
         cumulative_difficulty: 111,
         block_hash: [54; 32],

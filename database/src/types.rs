@@ -136,7 +136,7 @@ pub struct PreRctOutputId {
 /// // Assert Storable is correct.
 /// let a = BlockInfo {
 ///     timestamp: 1,
-///     total_generated_coins: 123,
+///     cumulative_generated_coins: 123,
 ///     weight: 321,
 ///     cumulative_difficulty: 112,
 ///     block_hash: [54; 32],
@@ -162,7 +162,7 @@ pub struct BlockInfo {
     /// TODO
     pub timestamp: u64,
     /// TODO
-    pub total_generated_coins: u64,
+    pub cumulative_generated_coins: u64,
     /// TODO
     pub weight: u64,
     /// TODO

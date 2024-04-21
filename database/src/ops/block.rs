@@ -82,6 +82,7 @@ pub fn add_block(
         assert_eq!(block.block.serialize(), block.block_blob);
         assert_eq!(block.block.hash(), block.block_hash);
         assert_eq!(block.block.txs.len(), block.txs.len());
+        assert_ne!(block.generated_coins, 0);
         for (i, tx) in block.txs.iter().enumerate() {
             assert_eq!(tx.tx_blob, tx.tx.serialize());
             assert_eq!(tx.tx_weight, tx.tx.weight());
@@ -101,15 +102,19 @@ pub fn add_block(
     // RCT output count needs account for _this_ block's outputs.
     let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
 
+    let cumulative_generated_coins =
+        cumulative_generated_coins(&block.height.saturating_sub(1), tables.block_infos())?
+            + block.generated_coins;
+
     // Block Info.
     tables.block_infos_mut().put(
         &block.height,
         &BlockInfo {
+            cumulative_generated_coins,
+            cumulative_rct_outs,
             timestamp: block.block.header.timestamp,
-            total_generated_coins: block.generated_coins,
             cumulative_difficulty: block.cumulative_difficulty,
             block_hash: block.block_hash,
-            cumulative_rct_outs,
             // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
             weight: block.weight as u64,
             long_term_weight: block.long_term_weight as u64,
@@ -235,6 +240,29 @@ pub fn block_exists(
     table_block_heights.contains(block_hash)
 }
 
+/// Check how many cumulative generated coins there have been until a certain [`BlockHeight`].
+///
+/// This returns the total amount of Monero generated up to `block_height`
+/// (including the block itself) in atomic units.
+///
+/// For example:
+/// - on the genesis block `0`, this returns the amount block `0` generated
+/// - on the next block `1`, this returns the amount block `0` and `1` generated
+///
+/// If no blocks have been added, this returns `0`.
+#[doc = doc_error!()]
+#[inline]
+pub fn cumulative_generated_coins(
+    block_height: &BlockHeight,
+    table_block_infos: &impl DatabaseRo<BlockInfos>,
+) -> Result<u64, RuntimeError> {
+    match table_block_infos.get(block_height) {
+        Ok(block_info) => Ok(block_info.cumulative_generated_coins),
+        Err(RuntimeError::KeyNotFound) if block_height == &0 => Ok(0),
+        Err(e) => Err(e),
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 #[allow(
@@ -279,6 +307,10 @@ mod test {
             block.height = height as u64;
             assert_eq!(block.block.serialize(), block.block_blob);
         }
+        let generated_coins_sum = blocks
+            .iter()
+            .map(|block| block.generated_coins)
+            .sum::<u64>();
 
         // Add blocks.
         {
@@ -314,6 +346,12 @@ mod test {
             assert_eq!(tables.tx_ids().len().unwrap(), 5);
             assert_eq!(tables.tx_heights().len().unwrap(), 5);
             assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
+
+            // Check `cumulative` functions work.
+            assert_eq!(
+                cumulative_generated_coins(&2, tables.block_infos()).unwrap(),
+                generated_coins_sum,
+            );
 
             // Both height and hash should result in getting the same data.
             let mut block_hashes = vec![];
