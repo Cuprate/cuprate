@@ -61,8 +61,6 @@ mod test {
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
 
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx513, block_v9_tx3, tx_v2_rct3};
-
     use super::*;
     use crate::{
         ops::tx::{get_tx, tx_exists},

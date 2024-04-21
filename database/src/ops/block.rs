@@ -76,6 +76,20 @@ pub fn add_block(
         block.height, chain_height,
     );
 
+    // Expensive checks - debug only.
+    #[cfg(debug_assertions)]
+    {
+        assert_eq!(block.block.serialize(), block.block_blob);
+        assert_eq!(block.block.hash(), block.block_hash);
+        assert_eq!(block.block.txs.len(), block.txs.len());
+        for (i, tx) in block.txs.iter().enumerate() {
+            assert_eq!(tx.tx_blob, tx.tx.serialize());
+            assert_eq!(tx.tx_weight, tx.tx.weight());
+            assert_eq!(tx.tx_hash, tx.tx.hash());
+            assert_eq!(tx.tx_hash, block.block.txs[i]);
+        }
+    }
+
     //------------------------------------------------------ Transaction / Outputs / Key Images
     for tx_verification_data in &block.txs {
         add_tx(tx_verification_data, &chain_height, tables)?;
@@ -223,17 +237,21 @@ pub fn block_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening, clippy::cognitive_complexity)]
+#[allow(
+    clippy::significant_drop_tightening,
+    clippy::cognitive_complexity,
+    clippy::too_many_lines
+)]
 mod test {
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
 
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx513, block_v9_tx3, tx_v2_rct3};
+    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3, tx_v2_rct3};
 
     use super::*;
     use crate::{
         ops::tx::{get_tx, tx_exists},
-        tests::{assert_all_tables_are_empty, dummy_verified_block_information, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env},
         Env,
     };
 
@@ -250,7 +268,17 @@ mod test {
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
-        let blocks: Vec<VerifiedBlockInformation> = vec![dummy_verified_block_information()];
+        let mut blocks = [
+            block_v1_tx2().clone(),
+            block_v9_tx3().clone(),
+            block_v16_tx0().clone(),
+        ];
+        // HACK: `add_block()` asserts blocks with non-sequential heights
+        // cannot be added, to get around this, manually edit the block height.
+        for (height, block) in blocks.iter_mut().enumerate() {
+            block.height = height as u64;
+            assert_eq!(block.block.serialize(), block.block_blob);
+        }
 
         // Add blocks.
         {
@@ -271,21 +299,20 @@ mod test {
             let tx_ro = env_inner.tx_ro().unwrap();
             let tables = env_inner.open_tables(&tx_ro).unwrap();
 
-            // TODO: fix this when new and _real_ blocks are added.
             // Assert only the proper tables were added to.
-            assert_eq!(tables.block_infos().len().unwrap(), 1);
-            assert_eq!(tables.block_blobs().len().unwrap(), 1);
-            assert_eq!(tables.block_heights().len().unwrap(), 1);
-            assert_eq!(tables.key_images().len().unwrap(), 2);
-            assert_eq!(tables.num_outputs().len().unwrap(), 0);
+            assert_eq!(tables.block_infos().len().unwrap(), 3);
+            assert_eq!(tables.block_blobs().len().unwrap(), 3);
+            assert_eq!(tables.block_heights().len().unwrap(), 3);
+            assert_eq!(tables.key_images().len().unwrap(), 69);
+            assert_eq!(tables.num_outputs().len().unwrap(), 38);
             assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
             assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-            assert_eq!(tables.outputs().len().unwrap(), 0);
+            assert_eq!(tables.outputs().len().unwrap(), 107);
             assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
             assert_eq!(tables.rct_outputs().len().unwrap(), 6);
-            assert_eq!(tables.tx_blobs().len().unwrap(), 3);
-            assert_eq!(tables.tx_ids().len().unwrap(), 3);
-            assert_eq!(tables.tx_heights().len().unwrap(), 3);
+            assert_eq!(tables.tx_blobs().len().unwrap(), 5);
+            assert_eq!(tables.tx_ids().len().unwrap(), 5);
+            assert_eq!(tables.tx_heights().len().unwrap(), 5);
             assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
 
             // Both height and hash should result in getting the same data.
@@ -368,6 +395,23 @@ mod test {
         assert_all_tables_are_empty(&env);
     }
 
+    /// We should panic if: `block.height` > `u32::MAX`
+    #[test]
+    #[should_panic(expected = "block.height (4294967296) > u32::MAX")]
+    fn block_height_gt_u32_max() {
+        let (env, tmp) = tmp_concrete_env();
+        let env_inner = env.env_inner();
+        assert_all_tables_are_empty(&env);
+
+        let tx_rw = env_inner.tx_rw().unwrap();
+        let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+        let mut block = block_v9_tx3().clone();
+
+        block.height = u64::from(u32::MAX) + 1;
+        add_block(&block, &mut tables).unwrap();
+    }
+
     /// We should panic if: `block.height` != the chain height
     #[test]
     #[should_panic(
@@ -381,7 +425,10 @@ mod test {
         let tx_rw = env_inner.tx_rw().unwrap();
         let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
-        let mut block = dummy_verified_block_information();
+        let mut block = block_v9_tx3().clone();
+        // HACK: `add_block()` asserts blocks with non-sequential heights
+        // cannot be added, to get around this, manually edit the block height.
+        block.height = 0;
 
         // OK, `0 == 0`
         assert_eq!(block.height, 0);
@@ -389,23 +436,6 @@ mod test {
 
         // FAIL, `123 != 1`
         block.height = 123;
-        add_block(&block, &mut tables).unwrap();
-    }
-
-    /// We should panic if: `block.height` > `u32::MAX`
-    #[test]
-    #[should_panic(expected = "block.height (4294967296) > u32::MAX")]
-    fn block_height_gt_u32_max() {
-        let (env, tmp) = tmp_concrete_env();
-        let env_inner = env.env_inner();
-        assert_all_tables_are_empty(&env);
-
-        let tx_rw = env_inner.tx_rw().unwrap();
-        let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
-
-        let mut block = dummy_verified_block_information();
-
-        block.height = u64::from(u32::MAX) + 1;
         add_block(&block, &mut tables).unwrap();
     }
 }

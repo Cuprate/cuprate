@@ -370,11 +370,7 @@ mod test {
         assert_all_tables_are_empty(&env);
 
         // Monero `Transaction`, not database tx.
-        let txs = [
-            dummy_verified_tx(tx_v1_sig0()),
-            dummy_verified_tx(tx_v1_sig2()),
-            dummy_verified_tx(tx_v2_rct3()),
-        ];
+        let txs = [tx_v1_sig0(), tx_v1_sig2(), tx_v2_rct3()];
 
         // Add transactions.
         let tx_ids = {

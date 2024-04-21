@@ -68,7 +68,7 @@ mod test {
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
 
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx513, block_v9_tx3, tx_v2_rct3};
+    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3, tx_v2_rct3};
 
     use super::*;
     use crate::{
@@ -76,7 +76,7 @@ mod test {
             block::add_block,
             tx::{get_tx, tx_exists},
         },
-        tests::{assert_all_tables_are_empty, dummy_verified_block_information, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env},
         Env,
     };
 
@@ -94,7 +94,11 @@ mod test {
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
-        let blocks: Vec<VerifiedBlockInformation> = vec![dummy_verified_block_information(); 3];
+        let blocks = [
+            block_v1_tx2().clone(),
+            block_v9_tx3().clone(),
+            block_v16_tx0().clone(),
+        ];
         let blocks_len = u64::try_from(blocks.len()).unwrap();
 
         // Add blocks.
@@ -109,8 +113,9 @@ mod test {
 
             for (i, mut block) in blocks.into_iter().enumerate() {
                 let i = u64::try_from(i).unwrap();
+                // HACK: `add_block()` asserts blocks with non-sequential heights
+                // cannot be added, to get around this, manually edit the block height.
                 block.height = i;
-                block.block_hash[0] = i as u8; // add_block() doesn't error for same block hash
                 add_block(&block, &mut tables).unwrap();
             }
 
