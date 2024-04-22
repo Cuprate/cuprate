@@ -70,7 +70,9 @@ pub fn top_block_height(
 /// - on the genesis block `0`, this returns the amount block `0` generated
 /// - on the next block `1`, this returns the amount block `0` and `1` generated
 ///
-/// If no blocks have been added, this returns `0`.
+/// If no blocks have been added and `block_height == 0`
+/// (i.e., the cumulative generated coins before genesis block is being calculated),
+/// this returns `Ok(0)`.
 #[doc = doc_error!()]
 #[inline]
 pub fn cumulative_generated_coins(
