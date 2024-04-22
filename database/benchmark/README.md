@@ -44,4 +44,5 @@ Each file represents some logical benchmark grouping.
 | `db_multi_thread.rs`  | Same as `db.rs` but multi-threaded
 | `env.rs`              | `trait {Env, EnvInner, TxR{o,w}, Tables[Mut]}` benchmarks
 | `env_multi_thread.rs` | Same as `env.rs` but multi-threaded
+| `service.rs`          | `cuprate_database::service` benchmarks
 | `storable.rs`         | `trait Storable` benchmarks

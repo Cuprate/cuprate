@@ -1,4 +1,4 @@
-//! TODO
+//! `trait Storable` benchmarks.
 
 //---------------------------------------------------------------------------------------------------- Import
 use criterion::{black_box, criterion_group, criterion_main, Criterion};

@@ -80,4 +80,4 @@
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
 
 mod helper;
-pub use helper::tmp_concrete_env;
+pub use helper::{tmp_env, tmp_env_all_threads};

@@ -1,4 +1,4 @@
-//! TODO
+//! `trait Database{Ro,Rw,Iter}` benchmarks.
 
 use std::time::Instant;
 
@@ -13,7 +13,7 @@ use cuprate_database::{
     DatabaseIter, DatabaseRo, DatabaseRw, Env, EnvInner, TxRw,
 };
 
-use cuprate_database_benchmark::tmp_concrete_env;
+use cuprate_database_benchmark::tmp_env;
 
 //---------------------------------------------------------------------------------------------------- Criterion
 criterion_group! {
@@ -66,7 +66,7 @@ const VALUE: Output = Output {
 /// [`DatabaseRo::get`]
 #[named]
 fn ro_get(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -88,7 +88,7 @@ fn ro_get(c: &mut Criterion) {
 /// [`DatabaseRo::len`]
 #[named]
 fn ro_len(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -110,7 +110,7 @@ fn ro_len(c: &mut Criterion) {
 /// [`DatabaseRo::first`]
 #[named]
 fn ro_first(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -132,7 +132,7 @@ fn ro_first(c: &mut Criterion) {
 /// [`DatabaseRo::last`]
 #[named]
 fn ro_last(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -154,7 +154,7 @@ fn ro_last(c: &mut Criterion) {
 /// [`DatabaseRo::is_empty`]
 #[named]
 fn ro_is_empty(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -176,7 +176,7 @@ fn ro_is_empty(c: &mut Criterion) {
 /// [`DatabaseRo::contains`]
 #[named]
 fn ro_contains(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -203,7 +203,7 @@ fn ro_contains(c: &mut Criterion) {
 /// [`DatabaseRo::get`]
 #[named]
 fn rw_get(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -225,7 +225,7 @@ fn rw_get(c: &mut Criterion) {
 /// [`DatabaseRo::len`]
 #[named]
 fn rw_len(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -247,7 +247,7 @@ fn rw_len(c: &mut Criterion) {
 /// [`DatabaseRo::first`]
 #[named]
 fn rw_first(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -269,7 +269,7 @@ fn rw_first(c: &mut Criterion) {
 /// [`DatabaseRo::last`]
 #[named]
 fn rw_last(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -291,7 +291,7 @@ fn rw_last(c: &mut Criterion) {
 /// [`DatabaseRo::is_empty`]
 #[named]
 fn rw_is_empty(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -313,7 +313,7 @@ fn rw_is_empty(c: &mut Criterion) {
 /// [`DatabaseRo::contains`]
 #[named]
 fn rw_contains(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -336,7 +336,7 @@ fn rw_contains(c: &mut Criterion) {
 /// [`DatabaseRw::put`]
 #[named]
 fn put(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -354,7 +354,7 @@ fn put(c: &mut Criterion) {
 /// [`DatabaseRw::delete`]
 #[named]
 fn delete(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -383,7 +383,7 @@ fn delete(c: &mut Criterion) {
 /// [`DatabaseRw::pop_first`]
 #[named]
 fn pop_first(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -412,7 +412,7 @@ fn pop_first(c: &mut Criterion) {
 /// [`DatabaseRw::pop_last`]
 #[named]
 fn pop_last(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -442,7 +442,7 @@ fn pop_last(c: &mut Criterion) {
 // /// [`DatabaseRw::take`]
 // #[named]
 // fn take(c: &mut Criterion) {
-//     let (env, _tempdir) = tmp_concrete_env();
+//     let (env, _tempdir) = tmp_env();
 //     let env_inner = env.env_inner();
 //     let tx_rw = env_inner.tx_rw().unwrap();
 //     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -465,7 +465,7 @@ fn pop_last(c: &mut Criterion) {
 /// [`DatabaseRo::get_range`]
 #[named]
 fn get_range(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -495,7 +495,7 @@ fn get_range(c: &mut Criterion) {
 /// [`DatabaseRo::iter`]
 #[named]
 fn iter(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -525,7 +525,7 @@ fn iter(c: &mut Criterion) {
 /// [`DatabaseRo::keys`]
 #[named]
 fn keys(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -555,7 +555,7 @@ fn keys(c: &mut Criterion) {
 /// [`DatabaseRo::values`]
 #[named]
 fn values(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();

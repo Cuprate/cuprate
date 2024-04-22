@@ -1,3 +1,4 @@
+//! Same as `env.rs` but multi-threaded.
 //! TODO: create multi-threaded benchmarks
 
 //---------------------------------------------------------------------------------------------------- Import
@@ -12,7 +13,7 @@ use cuprate_database::{
     ConcreteEnv, Env, EnvInner, TxRo, TxRw,
 };
 
-use cuprate_database_benchmark::tmp_concrete_env;
+use cuprate_database_benchmark::tmp_env_all_threads;
 
 //---------------------------------------------------------------------------------------------------- Criterion
 criterion_group! {
@@ -46,7 +47,7 @@ fn open(c: &mut Criterion) {
 /// [`Env::env_inner`].
 #[named]
 fn env_inner(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env_all_threads();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
@@ -58,7 +59,7 @@ fn env_inner(c: &mut Criterion) {
 /// Create and commit read-only transactions.
 #[named]
 fn tx_ro(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env_all_threads();
     let env_inner = env.env_inner();
 
     c.bench_function(function_name!(), |b| {
@@ -72,7 +73,7 @@ fn tx_ro(c: &mut Criterion) {
 /// Create and commit read/write transactions.
 #[named]
 fn tx_rw(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env_all_threads();
     let env_inner = env.env_inner();
 
     c.bench_function(function_name!(), |b| {
@@ -86,7 +87,7 @@ fn tx_rw(c: &mut Criterion) {
 /// Open all database tables in read-only mode.
 #[named]
 fn open_tables(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env_all_threads();
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro().unwrap();
 
@@ -102,7 +103,7 @@ fn open_tables(c: &mut Criterion) {
 /// Open all database tables in read/write mode.
 #[named]
 fn open_tables_mut(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env_all_threads();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw().unwrap();
 
@@ -118,7 +119,7 @@ fn open_tables_mut(c: &mut Criterion) {
 /// `Env` memory map resizes.
 #[named]
 fn resize(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env_all_threads();
 
     // Resize by the OS page size.
     let page_size = page_size();
@@ -136,7 +137,7 @@ fn resize(c: &mut Criterion) {
 /// Access current memory map size of the database.
 #[named]
 fn current_map_size(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env_all_threads();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
@@ -151,7 +152,7 @@ fn current_map_size(c: &mut Criterion) {
 /// Access on-disk size of the database.
 #[named]
 fn disk_size_bytes(c: &mut Criterion) {
-    let (env, _tempdir) = tmp_concrete_env();
+    let (env, _tempdir) = tmp_env_all_threads();
 
     c.bench_function(function_name!(), |b| {
         b.iter(|| {
