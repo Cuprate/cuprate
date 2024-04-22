@@ -134,7 +134,7 @@ All backends follow the same file structure:
 | `types.rs`       | Type aliases for long backend-specific types
 
 # Benchmarking
-There is a standalone binary within `benchmark` that allows various testing and benchmarking on all the features of `cuprate-database`.
+There is a `cargo bench` suite for `cuprate_database` within `benchmark/`.
 
 See [`benchmark/README.md`](benchmark/) for more info.
 

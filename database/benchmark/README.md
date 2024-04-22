@@ -1,48 +1,23 @@
 # `cuprate-database-benchmark`
-This is a standalone binary that allows testing/benchmarking `cuprate-database`.
+This is a benchmarking suite that allows testing/benchmarking `cuprate-database` with [`criterion`](https://bheisler.github.io/criterion.rs/book/criterion_rs.html).
+
+For more information on `cargo bench` and `criterion`:
+- https://doc.rust-lang.org/cargo/commands/cargo-bench.html
+- https://bheisler.github.io/criterion.rs/book/criterion_rs.html
 
 <!-- Did you know markdown automatically increments number lists, even if they are all 1...? -->
-1. [Documentation](#documentation)
+1. [Usage](#Usage)
 1. [File Structure](#file-structure)
     - [`src/`](#src)
-    - [`src/ops`](#src-ops)
-    - [`src/service/`](#src-service)
-    - [`src/backend/`](#src-backend)
-1. [Benchmarking](#benchmarking)
-1. [Testing](#testing)
+    - [`benches/`](#benches)
 
-# Documentation
-In general, documentation for `database/` is split into 3:
+# Usage
+Ensure the system is as quiet as possible (no background tasks) before starting and during the benchmarks.
 
-| Documentation location    | Purpose |
-|---------------------------|---------|
-| `database/README.md`      | High level design of `cuprate-database`
-| `cuprate-database`        | Practical usage documentation/warnings/notes/etc
-| Source file `// comments` | Implementation-specific details (e.g, how many reader threads to spawn?)
-
-This README serves as the overview/design document.
-
-For actual practical usage, `cuprate-database`'s types and general usage are documented via standard Rust tooling.
-
-Run:
+To start all benchmarks, run:
 ```bash
-cargo doc --package cuprate-database --open
+cargo bench --package cuprate-database-benchmarks
 ```
-at the root of the repo to open/read the documentation.
-
-If this documentation is too abstract, refer to any of the source files, they are heavily commented. There are many `// Regular comments` that explain more implementation specific details that aren't present here or in the docs. Use the file reference below to find what you're looking for.
-
-The code within `src/` is also littered with some `grep`-able comments containing some keywords:
-
-| Word        | Meaning |
-|-------------|---------|
-| `INVARIANT` | This code makes an _assumption_ that must be upheld for correctness
-| `SAFETY`    | This `unsafe` code is okay, for `x,y,z` reasons
-| `FIXME`     | This code works but isn't ideal
-| `HACK`      | This code is a brittle workaround
-| `PERF`      | This code is weird for performance reasons
-| `TODO`      | This must be implemented; There should be 0 of these in production code
-| `SOMEDAY`   | This should be implemented... someday
 
 # File Structure
 A quick reference of the structure of the folders & files in `cuprate-database`.
@@ -52,5 +27,21 @@ Note that `lib.rs/mod.rs` files are purely for re-exporting/visibility/lints, an
 ## `src/`
 The top-level `src/` files.
 
+The actual `cuprate-database-benchmark` library crate is just used as a helper for the benchmarks within `benches/`.
+
 | File                | Purpose |
 |---------------------|---------|
+| `helper.rs`         | Helper functions
+
+## `benches/`
+The actual benchmarks.
+
+Each file represents some logical benchmark grouping.
+
+| File                  | Purpose |
+|-----------------------|---------|
+| `db.rs`               | `trait Database{Ro,Rw,Iter}` benchmarks
+| `db_multi_thread.rs`  | Same as `db.rs` but multi-threaded
+| `env.rs`              | `trait {Env, EnvInner, TxR{o,w}, Tables[Mut]}` benchmarks
+| `env_multi_thread.rs` | Same as `env.rs` but multi-threaded
+| `storable.rs`         | `trait Storable` benchmarks
