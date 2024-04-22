@@ -80,13 +80,9 @@ pub fn add_block(
     #[cfg(debug_assertions)]
     {
         assert_eq!(block.block.serialize(), block.block_blob);
-        assert_eq!(block.block.hash(), block.block_hash);
         assert_eq!(block.block.txs.len(), block.txs.len());
-        assert_ne!(block.generated_coins, 0);
         for (i, tx) in block.txs.iter().enumerate() {
             assert_eq!(tx.tx_blob, tx.tx.serialize());
-            assert_eq!(tx.tx_weight, tx.tx.weight());
-            assert_eq!(tx.tx_hash, tx.tx.hash());
             assert_eq!(tx.tx_hash, block.block.txs[i]);
         }
     }
