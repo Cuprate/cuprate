@@ -1,29 +1,40 @@
 //! Database reader thread-pool definitions and logic.
 
+// `EnvInner` is a RwLock for `heed`.
+// Clippy thinks it should be dropped earlier but it
+// needs to be open until most functions return.
+#![allow(clippy::significant_drop_tightening)]
+
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
+    num::NonZeroUsize,
     ops::Range,
     sync::Arc,
     task::{Context, Poll},
 };
 
+use cfg_if::cfg_if;
 use crossbeam::channel::Receiver;
-
 use futures::{channel::oneshot, ready};
-
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_types::service::{ReadRequest, Response};
+use cuprate_types::{
+    service::{ReadRequest, Response},
+    ExtendedBlockHeader,
+};
 
 use crate::{
     config::ReaderThreads,
     error::RuntimeError,
+    ops::block::{get_block_extended_header_from_height, get_block_info},
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
+    tables::{BlockInfos, Tables},
     types::{Amount, AmountIndex, BlockHeight, KeyImage},
-    ConcreteEnv,
+    ConcreteEnv, Env, EnvInner,
 };
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
@@ -230,14 +241,26 @@ fn map_request(
 
 /// [`ReadRequest::BlockExtendedHeader`].
 #[inline]
-fn block_extended_header(env: &Arc<ConcreteEnv>, block_height: BlockHeight) -> ResponseResult {
-    todo!()
+fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(Response::BlockExtendedHeader(
+        get_block_extended_header_from_height(&block_height, &tables)?,
+    ))
 }
 
 /// [`ReadRequest::BlockHash`].
 #[inline]
 fn block_hash(env: &Arc<ConcreteEnv>, block_height: BlockHeight) -> ResponseResult {
-    todo!()
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+
+    Ok(Response::BlockHash(
+        get_block_info(&block_height, &table_block_infos)?.block_hash,
+    ))
 }
 
 /// [`ReadRequest::BlockExtendedHeaderInRange`].
@@ -246,7 +269,34 @@ fn block_extended_header_in_range(
     env: &Arc<ConcreteEnv>,
     range: std::ops::Range<BlockHeight>,
 ) -> ResponseResult {
-    todo!()
+    let env_inner = env.env_inner();
+
+    // This iterator will early return as `Err` if there's even 1 error.
+    let vec = {
+        cfg_if! {
+            if #[cfg(all(feature = "redb", not(feature = "heed")))] {
+                let tables = env_inner.open_tables(&tx_ro)?;
+                let (env_inner, tx_ro, tables) = open_tables!(env);
+                range
+                    .into_par_iter()
+                    .map(|block_height| {
+                        get_block_extended_header_from_height(&block_height, &tables)
+                    })
+                    .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?
+            } else {
+                range
+                    .into_par_iter()
+                    .map(|block_height| {
+                        let tx_ro = env_inner.tx_ro()?;
+                        let tables = env_inner.open_tables(&tx_ro)?;
+                        get_block_extended_header_from_height(&block_height, &tables)
+                    })
+                    .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?
+            }
+        }
+    };
+
+    Ok(Response::BlockExtendedHeaderInRange(vec))
 }
 
 /// [`ReadRequest::ChainHeight`].
