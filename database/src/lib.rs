@@ -191,6 +191,10 @@
 	// although it is sometimes nice.
 	clippy::must_use_candidate,
 
+	// FIXME: good lint but too many false positives
+	// with our `Env` + `RwLock` setup.
+	clippy::significant_drop_tightening,
+
 	// TODO: should be removed after all `todo!()`'s are gone.
 	clippy::diverging_sub_expression,
 

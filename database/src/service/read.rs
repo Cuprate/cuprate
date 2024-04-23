@@ -10,7 +10,7 @@ use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,
     ops::Range,
-    sync::Arc,
+    sync::{Arc, RwLock},
     task::{Context, Poll},
 };
 
@@ -29,6 +29,7 @@ use cuprate_types::{
 
 use crate::{
     config::ReaderThreads,
+    constants::DATABASE_CORRUPT_MSG,
     error::RuntimeError,
     ops::block::{get_block_extended_header_from_height, get_block_info},
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
@@ -67,7 +68,7 @@ pub struct DatabaseReadHandle {
     permit: Option<OwnedSemaphorePermit>,
 
     /// Access to the database.
-    env: Arc<ConcreteEnv>,
+    env: Arc<RwLock<ConcreteEnv>>,
 }
 
 // `OwnedSemaphorePermit` does not implement `Clone`,
@@ -76,10 +77,10 @@ pub struct DatabaseReadHandle {
 impl Clone for DatabaseReadHandle {
     fn clone(&self) -> Self {
         Self {
-            pool: self.pool.clone(),
+            pool: Arc::clone(&self.pool),
             semaphore: self.semaphore.clone(),
             permit: None,
-            env: self.env.clone(),
+            env: Arc::clone(&self.env),
         }
     }
 }
@@ -93,7 +94,7 @@ impl DatabaseReadHandle {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(env: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
+    pub(super) fn init(env: &Arc<RwLock<ConcreteEnv>>, reader_threads: ReaderThreads) -> Self {
         // How many reader threads to spawn?
         let reader_count = reader_threads.as_threads().get();
 
@@ -119,7 +120,7 @@ impl DatabaseReadHandle {
 
     /// TODO
     #[inline]
-    pub const fn env(&self) -> &Arc<ConcreteEnv> {
+    pub const fn env(&self) -> &Arc<RwLock<ConcreteEnv>> {
         &self.env
     }
 
@@ -174,7 +175,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
         //
         // INVARIANT:
         // The below `DatabaseReader` function impl block relies on this behavior.
-        let env = Arc::clone(self.env());
+        let env = Arc::clone(&self.env);
         self.pool
             .spawn(move || map_request(permit, env, request, response_sender));
 
@@ -196,12 +197,14 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 /// 3. [`Response`] is sent
 fn map_request(
     _permit: OwnedSemaphorePermit, // Permit for this request, dropped at end of function
-    env: Arc<ConcreteEnv>,         // Access to the database
+    env: Arc<RwLock<ConcreteEnv>>, // Access to the database
     request: ReadRequest,          // The request we must fulfill
     response_sender: ResponseSender, // The channel we must send the response back to
 ) {
-    /* TODO: pre-request handling, run some code for each request? */
     use ReadRequest as R;
+
+    /* TODO: pre-request handling, run some code for each request? */
+    let env = env.read().expect(DATABASE_CORRUPT_MSG);
 
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(&env, block),
@@ -272,16 +275,14 @@ fn block_extended_header_in_range(
     let env_inner = env.env_inner();
 
     // This iterator will early return as `Err` if there's even 1 error.
-    let vec = {
-        range
-            .into_par_iter()
-            .map(|block_height| {
-                let tx_ro = env_inner.tx_ro()?;
-                let tables = env_inner.open_tables(&tx_ro)?;
-                get_block_extended_header_from_height(&block_height, &tables)
-            })
-            .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?
-    };
+    let vec = range
+        .into_par_iter()
+        .map(|block_height| {
+            let tx_ro = env_inner.tx_ro()?;
+            let tables = env_inner.open_tables(&tx_ro)?;
+            get_block_extended_header_from_height(&block_height, &tables)
+        })
+        .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
 
     Ok(Response::BlockExtendedHeaderInRange(vec))
 }

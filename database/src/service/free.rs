@@ -1,7 +1,7 @@
 //! General free functions used (related to `cuprate_database::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use crate::{
     config::Config,
@@ -34,7 +34,29 @@ pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle),
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.
-    let db: Arc<ConcreteEnv> = Arc::new(ConcreteEnv::open(config)?);
+    //
+    // INVARIANT:
+    // To prevent the reader thread-pool seeing different states of the
+    // database amongst themselves in the face of a write, i.e:
+    // ```
+    // Reader 1 (same request as reader 2)
+    //    |
+    //    v      Writer
+    //  tx_ro      |
+    //             v        Reader 2
+    //       tx_rw + commit   |
+    //                        v
+    //                      tx_ro <- different state than reader 1
+    // ```
+    // We must ensure that all reader threads see the same
+    // database state, and that if the writer writes, all
+    // reader threads also see the changes at the same time.
+    //
+    // This invariant is protected by this `RwLock`.
+    //
+    // Functions that do not necessarily need multi-transaction
+    // synchronization (resizing, disk size, etc) can use `.read()` instead.
+    let db = Arc::new(RwLock::new(ConcreteEnv::open(config)?));
 
     // Spawn the Reader thread pool and Writer.
     let readers = DatabaseReadHandle::init(&db, reader_threads);
