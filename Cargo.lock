@@ -712,7 +712,9 @@ dependencies = [
  "rand_distr",
  "thiserror",
  "tokio",
+ "tokio-util",
  "tower",
+ "tracing",
 ]
 
 [[package]]

@@ -46,7 +46,7 @@ pub enum State {
 }
 
 /// The routing state of a transaction.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TxState<ID> {
     /// Fluff state.
     Fluff,

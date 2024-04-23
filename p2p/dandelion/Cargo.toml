@@ -7,11 +7,15 @@ authors = ["Boog900"]
 
 [features]
 default = ["txpool"]
-txpool = ["dep:rand_distr"]
+txpool = ["dep:rand_distr", "dep:tokio-util"]
 
 [dependencies]
 tower = { workspace = true, features = ["discover", "util"] }
+tracing = { workspace = true, features = ["std"] }
+
 futures = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["rt", "sync"]}
+tokio-util = { workspace = true, features = ["time"], optional = true }
 
 rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"], optional = true }

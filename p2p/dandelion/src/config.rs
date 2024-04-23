@@ -46,6 +46,8 @@ pub enum Graph {
 #[derive(Debug, Clone)]
 pub struct DandelionConfig {
     /// The time it takes for a stem transaction to pass through a node, including network latency.
+    ///
+    /// It's better to be safe and put a slightly higher value than lower.
     pub time_between_hop: Duration,
     /// The duration of an epoch.
     pub epoch_duration: Duration,
@@ -112,11 +114,11 @@ mod tests {
         let cfg = DandelionConfig {
             time_between_hop: Duration::from_millis(175),
             epoch_duration: Default::default(),
-            fluff_probability: 0.1,
+            fluff_probability: 0.125,
             graph: Default::default(),
         };
 
-        assert_eq!(cfg.average_embargo_timeout(), Duration::from_secs(75));
+        assert_eq!(cfg.average_embargo_timeout(), Duration::from_secs(47));
     }
 
     proptest! {
