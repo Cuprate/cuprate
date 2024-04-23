@@ -15,9 +15,11 @@ use cuprate_types::{
 };
 
 use crate::{
+    env::{Env, EnvInner},
     error::RuntimeError,
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
-    ConcreteEnv, Env,
+    transaction::TxRw,
+    ConcreteEnv,
 };
 
 //---------------------------------------------------------------------------------------------------- Constants
@@ -225,6 +227,28 @@ impl DatabaseWriter {
 
 /// [`WriteRequest::WriteBlock`].
 #[inline]
+#[allow(clippy::significant_drop_tightening)]
 fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
-    todo!()
+    let env_inner = env.env_inner();
+    let tx_rw = env_inner.tx_rw()?;
+
+    let result = {
+        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+        crate::ops::block::add_block(block, &mut tables_mut)
+    };
+
+    match result {
+        Ok(()) => {
+            tx_rw.commit()?;
+            Ok(Response::WriteBlockOk)
+        }
+        Err(e) => {
+            // INVARIANT: ensure database atomicity by aborting
+            // the transaction on `add_block()` failures.
+            tx_rw
+                .abort()
+                .expect("TODO: if we cannot maintain atomicity by aborting, should we panic?");
+            Err(e)
+        }
+    }
 }
