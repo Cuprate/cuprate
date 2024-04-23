@@ -623,6 +623,7 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror",
+ "thread_local",
  "tokio",
  "tokio-util",
  "tower",
