@@ -31,11 +31,15 @@ pub enum TxStoreRequest<Tx, TxID> {
     ///
     /// Must return [`TxStoreResponse::Contains`]
     Contains(TxID),
+    /// Returns the IDs of all the transaction in the stem pool.
+    ///
+    /// Must return [`TxStoreResponse::IDs`]
+    IDsInStemPool,
 }
 
 #[cfg(feature = "txpool")]
 /// A response sent back from the backing transaction pool.
-pub enum TxStoreResponse<Tx> {
+pub enum TxStoreResponse<Tx, TxID> {
     /// A generic ok response.
     Ok,
     /// A response containing a [`Option`] for if the transaction is in the pool (Some) or not (None) and in which pool
@@ -43,4 +47,6 @@ pub enum TxStoreResponse<Tx> {
     Contains(Option<crate::State>),
     /// A response containing a requested transaction.
     Transaction(Option<(Tx, crate::State)>),
+    /// A list of transaction IDs.
+    IDs(Vec<TxID>),
 }
