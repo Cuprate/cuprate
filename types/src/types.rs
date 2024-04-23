@@ -78,6 +78,10 @@ pub struct VerifiedBlockInformation {
     pub long_term_weight: usize,
     /// TODO
     pub cumulative_difficulty: u128,
+    /// TODO
+    /// <https://github.com/Cuprate/cuprate/pull/102#discussion_r1556694072>
+    /// <https://github.com/serai-dex/serai/blob/93be7a30674ecedfb325b6d09dc22d550d7c13f8/coins/monero/src/block.rs#L110>
+    pub block_blob: Vec<u8>,
 }
 
 //---------------------------------------------------------------------------------------------------- OutputOnChain

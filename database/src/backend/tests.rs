@@ -31,32 +31,21 @@ use crate::{
     storable::StorableVec,
     table::Table,
     tables::{
-        BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages, NumOutputs,
-        Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxHeights, TxIds,
+        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
+        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
         TxUnlockTime,
     },
+    tests::tmp_concrete_env,
     transaction::{TxRo, TxRw},
     types::{
-        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfoV1,
-        BlockInfoV2, BlockInfoV3, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash,
-        PrunedBlob, RctOutput, TxHash, TxId, UnlockTime,
+        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
+        Output, OutputFlags, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput,
+        TxBlob, TxHash, TxId, UnlockTime,
     },
     ConcreteEnv,
 };
 
 //---------------------------------------------------------------------------------------------------- Tests
-/// Create an `Env` in a temporarily directory.
-/// The directory is automatically removed after the `TempDir` is dropped.
-///
-/// TODO: changing this to `-> impl Env` causes lifetime errors...
-fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
-    let tempdir = tempfile::tempdir().unwrap();
-    let config = Config::low_power(Some(tempdir.path().into()));
-    let env = ConcreteEnv::open(config).unwrap();
-
-    (env, tempdir)
-}
-
 /// Simply call [`Env::open`]. If this fails, something is really wrong.
 #[test]
 fn open() {
@@ -87,9 +76,7 @@ fn open_db() {
     // This should be updated when tables are modified.
     env_inner.open_db_ro::<BlockBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<BlockHeights>(&tx_ro).unwrap();
-    env_inner.open_db_ro::<BlockInfoV1s>(&tx_ro).unwrap();
-    env_inner.open_db_ro::<BlockInfoV2s>(&tx_ro).unwrap();
-    env_inner.open_db_ro::<BlockInfoV3s>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<BlockInfos>(&tx_ro).unwrap();
     env_inner.open_db_ro::<KeyImages>(&tx_ro).unwrap();
     env_inner.open_db_ro::<NumOutputs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
@@ -97,17 +84,17 @@ fn open_db() {
     env_inner.open_db_ro::<PrunableTxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<PrunedTxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<RctOutputs>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<TxBlobs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxHeights>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxIds>(&tx_ro).unwrap();
+    env_inner.open_db_ro::<TxOutputs>(&tx_ro).unwrap();
     env_inner.open_db_ro::<TxUnlockTime>(&tx_ro).unwrap();
     TxRo::commit(tx_ro).unwrap();
 
     // Open all tables in read/write mode.
     env_inner.open_db_rw::<BlockBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<BlockHeights>(&tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV1s>(&tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV2s>(&tx_rw).unwrap();
-    env_inner.open_db_rw::<BlockInfoV3s>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<BlockInfos>(&tx_rw).unwrap();
     env_inner.open_db_rw::<KeyImages>(&tx_rw).unwrap();
     env_inner.open_db_rw::<NumOutputs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
@@ -115,8 +102,10 @@ fn open_db() {
     env_inner.open_db_rw::<PrunableTxBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<PrunedTxBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<RctOutputs>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxBlobs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxHeights>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxIds>(&tx_rw).unwrap();
+    env_inner.open_db_rw::<TxOutputs>(&tx_rw).unwrap();
     env_inner.open_db_rw::<TxUnlockTime>(&tx_rw).unwrap();
     TxRw::commit(tx_rw).unwrap();
 }
@@ -182,7 +171,7 @@ fn db_read_write() {
     const VALUE: Output = Output {
         key: [35; 32],
         height: 45_761_798,
-        output_flags: 0,
+        output_flags: OutputFlags::empty(),
         tx_idx: 2_353_487,
     };
     /// How many `(key, value)` pairs will be inserted.
@@ -271,6 +260,22 @@ fn db_read_write() {
         }
     }
 
+    // Assert `update()` works.
+    {
+        const HEIGHT: u32 = 999;
+
+        assert_ne!(table.get(&KEY).unwrap().height, HEIGHT);
+
+        table
+            .update(&KEY, |mut value| {
+                value.height = HEIGHT;
+                Some(value)
+            })
+            .unwrap();
+
+        assert_eq!(table.get(&KEY).unwrap().height, HEIGHT);
+    }
+
     // Assert deleting works.
     {
         table.delete(&KEY).unwrap();
@@ -280,6 +285,23 @@ fn db_read_write() {
         // Assert the other `(key, value)` pairs are still there.
         let mut key = KEY;
         key.amount += N - 1; // we used inclusive `0..N`
+        let value = table.get(&key).unwrap();
+        assert_same(value);
+    }
+
+    // Assert `take()` works.
+    {
+        let mut key = KEY;
+        key.amount += 1;
+        let value = table.take(&key).unwrap();
+        assert_eq!(value, VALUE);
+
+        let get = table.get(&KEY);
+        assert!(!table.contains(&key).unwrap());
+        assert!(matches!(get, Err(RuntimeError::KeyNotFound)));
+
+        // Assert the other `(key, value)` pairs are still there.
+        key.amount += 1;
         let value = table.get(&key).unwrap();
         assert_same(value);
     }
@@ -406,35 +428,13 @@ test_tables! {
     BlockHash => BlockHeight,
     [32; 32] => 123,
 
-    BlockInfoV1s,
-    BlockHeight => BlockInfoV1,
-    123 => BlockInfoV1 {
+    BlockInfos,
+    BlockHeight => BlockInfo,
+    123 => BlockInfo {
         timestamp: 1,
-        total_generated_coins: 123,
+        cumulative_generated_coins: 123,
         weight: 321,
         cumulative_difficulty: 111,
-        block_hash: [54; 32],
-    },
-
-    BlockInfoV2s,
-    BlockHeight => BlockInfoV2,
-    123 => BlockInfoV2 {
-        timestamp: 1,
-        total_generated_coins: 123,
-        weight: 321,
-        cumulative_difficulty: 111,
-        cumulative_rct_outs: 2389,
-        block_hash: [54; 32],
-    },
-
-    BlockInfoV3s,
-    BlockHeight => BlockInfoV3,
-    123 => BlockInfoV3 {
-        timestamp: 1,
-        total_generated_coins: 123,
-        weight: 321,
-        cumulative_difficulty_low: 111,
-        cumulative_difficulty_high: 112,
         block_hash: [54; 32],
         cumulative_rct_outs: 2389,
         long_term_weight: 2389,
@@ -448,6 +448,10 @@ test_tables! {
     Amount => AmountIndex,
     123 => 123,
 
+    TxBlobs,
+    TxId => TxBlob,
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]),
+
     TxIds,
     TxHash => TxId,
     [32; 32] => 123,
@@ -455,6 +459,10 @@ test_tables! {
     TxHeights,
     TxId => BlockHeight,
     123 => 123,
+
+    TxOutputs,
+    TxId => AmountIndices,
+    123 => StorableVec(vec![1,2,3,4,5,6,7,8]),
 
     TxUnlockTime,
     TxId => UnlockTime,
@@ -468,7 +476,7 @@ test_tables! {
     } => Output {
         key: [1; 32],
         height: 1,
-        output_flags: 0,
+        output_flags: OutputFlags::empty(),
         tx_idx: 3,
     },
 
@@ -489,7 +497,7 @@ test_tables! {
     123 => RctOutput {
         key: [1; 32],
         height: 1,
-        output_flags: 0,
+        output_flags: OutputFlags::empty(),
         tx_idx: 3,
         commitment: [3; 32],
     },

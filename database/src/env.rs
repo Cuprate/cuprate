@@ -9,6 +9,11 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
+    tables::{
+        call_fn_on_all_tables_or_early_return, BlockBlobs, BlockHeights, BlockInfos, KeyImages,
+        NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables,
+        TablesMut, TxHeights, TxIds, TxUnlockTime,
+    },
     transaction::{TxRo, TxRw},
 };
 
@@ -223,6 +228,26 @@ where
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
     fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn open_tables(&self, tx_ro: &Ro) -> Result<impl Tables, RuntimeError> {
+        call_fn_on_all_tables_or_early_return! {
+            Self::open_db_ro(self, tx_ro)
+        }
+    }
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
+        call_fn_on_all_tables_or_early_return! {
+            Self::open_db_rw(self, tx_rw)
+        }
+    }
 
     /// Clear all `(key, value)`'s from a database table.
     ///

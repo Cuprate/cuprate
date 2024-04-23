@@ -9,26 +9,30 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-# default   = ["heed", "redb", "service"]
+default   = ["heed", "redb", "service"]
 # default   = ["redb", "service"]
-default   = ["redb-memory", "service"]
+# default   = ["redb-memory", "service"]
 heed       = ["dep:heed"]
 redb       = ["dep:redb"]
 redb-memory = ["redb"]
 service     = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon"]
 
 [dependencies]
+bitflags = { workspace = true, features = ["serde", "bytemuck"] }
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 bytes    = { workspace = true }
 cfg-if   = { workspace = true }
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.
 # Figure out how to enable features of an already pulled in dependency conditionally.
-cuprate-helper = { path = "../helper", features = ["fs", "thread"] }
-cuprate-types  = { path = "../types", features = ["service"] }
-paste          = { workspace = true }
-page_size      = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
-thiserror      = { workspace = true }
+cuprate-helper   = { path = "../helper", features = ["fs", "thread"] }
+cuprate-types    = { path = "../types", features = ["service"] }
+curve25519-dalek = { workspace = true }
+monero-pruning   = { path = "../pruning" }
+monero-serai     = { workspace = true, features = ["std"] }
+paste            = { workspace = true }
+page_size        = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
+thiserror        = { workspace = true }
 
 # `service` feature.
 crossbeam  = { workspace = true, features = ["std"], optional = true }
@@ -46,5 +50,9 @@ serde = { workspace = true, optional = true }
 [dev-dependencies]
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 cuprate-helper = { path = "../helper", features = ["thread"] }
+cuprate-test-utils = { path = "../test-utils" }
 page_size = { version = "0.6.0" }
 tempfile = { version = "3.10.0" }
+pretty_assertions = { version = "1.4.0" }
+hex = { workspace = true }
+hex-literal = { workspace = true }
