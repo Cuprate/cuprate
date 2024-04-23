@@ -49,7 +49,7 @@ impl DatabaseWriteHandle {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(env: Arc<RwLock<ConcreteEnv>>) -> Self {
+    pub(super) fn init(env: Arc<ConcreteEnv>) -> Self {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -99,7 +99,7 @@ pub(super) struct DatabaseWriter {
     receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSender)>,
 
     /// Access to the database.
-    env: Arc<RwLock<ConcreteEnv>>,
+    env: Arc<ConcreteEnv>,
 }
 
 impl Drop for DatabaseWriter {
@@ -175,12 +175,8 @@ impl DatabaseWriter {
                     // batches, i.e., we're about to add ~5GB of data,
                     // add that much instead of the default 1GB.
                     // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L665-L695>
-                    let (old, new) = {
-                        let env = self.env.read().expect(DATABASE_CORRUPT_MSG);
-                        let old = env.current_map_size();
-                        let new = env.resize_map(None);
-                        (old, new)
-                    };
+                    let old = self.env.current_map_size();
+                    let new = self.env.resize_map(None);
 
                     // TODO: use tracing.
                     println!("resizing database memory map, old: {old}B, new: {new}B");
@@ -233,9 +229,7 @@ impl DatabaseWriter {
 /// [`WriteRequest::WriteBlock`].
 #[inline]
 #[allow(clippy::significant_drop_tightening)]
-fn write_block(env: &RwLock<ConcreteEnv>, block: &VerifiedBlockInformation) -> ResponseResult {
-    let env = env.write().expect(DATABASE_CORRUPT_MSG);
-
+fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
