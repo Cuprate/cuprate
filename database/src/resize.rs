@@ -59,6 +59,8 @@ impl ResizeAlgorithm {
     }
 
     /// Maps the `self` variant to the free functions in [`crate::resize`].
+    ///
+    /// This function returns the _new_ memory map size in bytes.
     #[inline]
     pub fn resize(&self, current_size_bytes: usize) -> NonZeroUsize {
         match self {

@@ -83,6 +83,9 @@ pub type PrunableBlob = StorableVec<u8>;
 pub type PrunableHash = [u8; 32];
 
 /// TODO
+pub type TxBlob = StorableVec<u8>;
+
+/// TODO
 pub type TxId = u64;
 
 /// TODO
@@ -124,96 +127,6 @@ pub struct PreRctOutputId {
     pub amount_index: AmountIndex,
 }
 
-//---------------------------------------------------------------------------------------------------- BlockInfoV1
-/// TODO
-///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_database::{*, types::*};
-/// // Assert Storable is correct.
-/// let a = BlockInfoV1 {
-///     timestamp: 1,
-///     total_generated_coins: 123,
-///     weight: 321,
-///     cumulative_difficulty: 111,
-///     block_hash: [54; 32],
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: BlockInfoV1 = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
-/// # Size & Alignment
-/// ```rust
-/// # use cuprate_database::types::*;
-/// # use std::mem::*;
-/// assert_eq!(size_of::<BlockInfoV1>(), 64);
-/// assert_eq!(align_of::<BlockInfoV1>(), 8);
-/// ```
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
-#[repr(C)]
-pub struct BlockInfoV1 {
-    /// TODO
-    pub timestamp: u64,
-    /// TODO
-    pub total_generated_coins: u64,
-    /// TODO
-    pub weight: u64,
-    /// TODO
-    pub cumulative_difficulty: u64,
-    /// TODO
-    pub block_hash: [u8; 32],
-}
-
-//---------------------------------------------------------------------------------------------------- BlockInfoV2
-/// TODO
-///
-/// ```rust
-/// # use std::borrow::*;
-/// # use cuprate_database::{*, types::*};
-/// // Assert Storable is correct.
-/// let a = BlockInfoV2 {
-///     timestamp: 1,
-///     total_generated_coins: 123,
-///     weight: 321,
-///     block_hash: [54; 32],
-///     cumulative_difficulty: 111,
-///     cumulative_rct_outs: 2389,
-/// };
-/// let b = Storable::as_bytes(&a);
-/// let c: BlockInfoV2 = Storable::from_bytes(b);
-/// assert_eq!(a, c);
-/// ```
-///
-/// # Size & Alignment
-/// ```rust
-/// # use cuprate_database::types::*;
-/// # use std::mem::*;
-/// assert_eq!(size_of::<BlockInfoV2>(), 72);
-/// assert_eq!(align_of::<BlockInfoV2>(), 8);
-/// ```
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
-#[repr(C)]
-pub struct BlockInfoV2 {
-    /// TODO
-    pub timestamp: u64,
-    /// TODO
-    pub total_generated_coins: u64,
-    /// TODO
-    pub weight: u64,
-    /// TODO
-    pub block_hash: [u8; 32],
-    /// TODO
-    pub cumulative_difficulty: u64,
-    /// TODO
-    ///
-    /// TODO: note that this is originally u32,
-    /// but is u64 here for padding reasons.
-    pub cumulative_rct_outs: u64,
-}
-
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
 /// TODO
 ///
@@ -221,18 +134,17 @@ pub struct BlockInfoV2 {
 /// # use std::borrow::*;
 /// # use cuprate_database::{*, types::*};
 /// // Assert Storable is correct.
-/// let a = BlockInfoV3 {
+/// let a = BlockInfo {
 ///     timestamp: 1,
-///     total_generated_coins: 123,
+///     cumulative_generated_coins: 123,
 ///     weight: 321,
-///     cumulative_difficulty_low: 111,
-///     cumulative_difficulty_high: 112,
+///     cumulative_difficulty: 112,
 ///     block_hash: [54; 32],
 ///     cumulative_rct_outs: 2389,
 ///     long_term_weight: 2389,
 /// };
 /// let b = Storable::as_bytes(&a);
-/// let c: BlockInfoV3 = Storable::from_bytes(b);
+/// let c: BlockInfo = Storable::from_bytes(b);
 /// assert_eq!(a, c);
 /// ```
 ///
@@ -240,30 +152,57 @@ pub struct BlockInfoV2 {
 /// ```rust
 /// # use cuprate_database::types::*;
 /// # use std::mem::*;
-/// assert_eq!(size_of::<BlockInfoV3>(), 88);
-/// assert_eq!(align_of::<BlockInfoV3>(), 8);
+/// assert_eq!(size_of::<BlockInfo>(), 88);
+/// assert_eq!(align_of::<BlockInfo>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
-pub struct BlockInfoV3 {
+pub struct BlockInfo {
     /// TODO
     pub timestamp: u64,
     /// TODO
-    pub total_generated_coins: u64,
+    pub cumulative_generated_coins: u64,
     /// TODO
     pub weight: u64,
-    // Maintain 8 byte alignment.
     /// TODO
-    pub cumulative_difficulty_low: u64,
-    /// TODO
-    pub cumulative_difficulty_high: u64,
+    pub cumulative_difficulty: u128,
     /// TODO
     pub block_hash: [u8; 32],
     /// TODO
     pub cumulative_rct_outs: u64,
     /// TODO
     pub long_term_weight: u64,
+}
+
+//---------------------------------------------------------------------------------------------------- OutputFlags
+bitflags::bitflags! {
+    /// TODO
+    ///
+    /// ```rust
+    /// # use std::borrow::*;
+    /// # use cuprate_database::{*, types::*};
+    /// // Assert Storable is correct.
+    /// let a = OutputFlags::NON_ZERO_UNLOCK_TIME;
+    /// let b = Storable::as_bytes(&a);
+    /// let c: OutputFlags = Storable::from_bytes(b);
+    /// assert_eq!(a, c);
+    /// ```
+    ///
+    /// # Size & Alignment
+    /// ```rust
+    /// # use cuprate_database::types::*;
+    /// # use std::mem::*;
+    /// assert_eq!(size_of::<OutputFlags>(), 4);
+    /// assert_eq!(align_of::<OutputFlags>(), 4);
+    /// ```
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+    #[repr(transparent)]
+    pub struct OutputFlags: u32 {
+        /// This output has a non-zero unlock time.
+        const NON_ZERO_UNLOCK_TIME = 0b0000_0001;
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Output
@@ -276,7 +215,7 @@ pub struct BlockInfoV3 {
 /// let a = Output {
 ///     key: [1; 32],
 ///     height: 1,
-///     output_flags: 0,
+///     output_flags: OutputFlags::empty(),
 ///     tx_idx: 3,
 /// };
 /// let b = Storable::as_bytes(&a);
@@ -300,7 +239,7 @@ pub struct Output {
     /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
     pub height: u32,
     /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
-    pub output_flags: u32,
+    pub output_flags: OutputFlags,
     /// TODO
     pub tx_idx: u64,
 }
@@ -315,7 +254,7 @@ pub struct Output {
 /// let a = RctOutput {
 ///     key: [1; 32],
 ///     height: 1,
-///     output_flags: 0,
+///     output_flags: OutputFlags::empty(),
 ///     tx_idx: 3,
 ///     commitment: [3; 32],
 /// };
@@ -340,7 +279,7 @@ pub struct RctOutput {
     /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
     pub height: u32,
     /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
-    pub output_flags: u32,
+    pub output_flags: OutputFlags,
     /// TODO
     pub tx_idx: u64,
     /// The amount commitment of this output.

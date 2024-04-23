@@ -3,18 +3,23 @@ name = "cuprate-test-utils"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-authors = ["Boog900"]
+authors = ["Boog900", "hinto-janai"]
 
 [dependencies]
-monero-wire = {path = "../net/monero-wire"}
-monero-p2p = {path = "../p2p/monero-p2p", features = ["borsh"] }
+cuprate-types = { path = "../types" }
+monero-wire = { path = "../net/monero-wire" }
+monero-p2p = { path = "../p2p/monero-p2p", features = ["borsh"] }
 
-monero-serai = { workspace = true }
+hex = { workspace = true }
+hex-literal = { workspace = true }
+monero-serai = { workspace = true, features = ["std", "http-rpc"] }
 futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true }
 reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 tempfile = { workspace = true }
 

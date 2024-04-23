@@ -4,6 +4,7 @@
 use std::{
     cell::RefCell,
     fmt::Debug,
+    num::NonZeroUsize,
     ops::Deref,
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
@@ -206,17 +207,15 @@ impl Env for ConcreteEnv {
         }
 
         use crate::tables::{
-            BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages,
-            NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs,
-            TxHeights, TxIds, TxUnlockTime,
+            BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
+            PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
+            TxUnlockTime,
         };
 
         let mut tx_rw = env.write_txn()?;
         create_table::<BlockBlobs>(&env, &mut tx_rw)?;
         create_table::<BlockHeights>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV1s>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV2s>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV3s>(&env, &mut tx_rw)?;
+        create_table::<BlockInfos>(&env, &mut tx_rw)?;
         create_table::<KeyImages>(&env, &mut tx_rw)?;
         create_table::<NumOutputs>(&env, &mut tx_rw)?;
         create_table::<Outputs>(&env, &mut tx_rw)?;
@@ -224,8 +223,10 @@ impl Env for ConcreteEnv {
         create_table::<PrunableTxBlobs>(&env, &mut tx_rw)?;
         create_table::<PrunedTxBlobs>(&env, &mut tx_rw)?;
         create_table::<RctOutputs>(&env, &mut tx_rw)?;
+        create_table::<TxBlobs>(&env, &mut tx_rw)?;
         create_table::<TxHeights>(&env, &mut tx_rw)?;
         create_table::<TxIds>(&env, &mut tx_rw)?;
+        create_table::<TxOutputs>(&env, &mut tx_rw)?;
         create_table::<TxUnlockTime>(&env, &mut tx_rw)?;
 
         // TODO: Set dupsort and comparison functions for certain tables
@@ -249,11 +250,11 @@ impl Env for ConcreteEnv {
         Ok(self.env.read().unwrap().force_sync()?)
     }
 
-    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
+    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         let resize_algorithm = resize_algorithm.unwrap_or_else(|| self.config().resize_algorithm);
 
         let current_size_bytes = self.current_map_size();
-        let new_size_bytes = resize_algorithm.resize(current_size_bytes).get();
+        let new_size_bytes = resize_algorithm.resize(current_size_bytes);
 
         // SAFETY:
         // Resizing requires that we have
@@ -264,8 +265,14 @@ impl Env for ConcreteEnv {
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
         unsafe {
             // INVARIANT: `resize()` returns a valid `usize` to resize to.
-            self.env.write().unwrap().resize(new_size_bytes).unwrap();
+            self.env
+                .write()
+                .unwrap()
+                .resize(new_size_bytes.get())
+                .unwrap();
         }
+
+        new_size_bytes
     }
 
     #[inline]

@@ -5,7 +5,7 @@
 //! along with the reader/writer thread-pool system.
 //!
 //! The thread-pool allows outside crates to communicate with it by
-//! sending database [`Request`](ReadRequest)s and receiving [`Response`]s `async`hronously -
+//! sending database [`Request`][req_r]s and receiving [`Response`][resp]s `async`hronously -
 //! without having to actually worry and handle the database themselves.
 //!
 //! The system is managed by this crate, and only requires [`init`] by the user.
@@ -17,9 +17,9 @@
 //! - [`DatabaseReadHandle`]
 //! - [`DatabaseWriteHandle`]
 //!
-//! The 1st allows any caller to send [`ReadRequest`]s.
+//! The 1st allows any caller to send [`ReadRequest`][req_r]s.
 //!
-//! The 2nd allows any caller to send [`WriteRequest`]s.
+//! The 2nd allows any caller to send [`WriteRequest`][req_w]s.
 //!
 //! The `DatabaseReadHandle` can be shared as it is cheaply [`Clone`]able, however,
 //! the `DatabaseWriteHandle` cannot be cloned. There is only 1 place in Cuprate that
@@ -49,6 +49,14 @@
 //! An `async`hronous channel will be returned from the call.
 //! This channel can be `.await`ed upon to (eventually) receive
 //! the corresponding `Response` to your `Request`.
+//!
+//!
+//!
+//! [req_r]: cuprate_types::service::ReadRequest
+//!
+//! [req_w]: cuprate_types::service::WriteRequest
+//!
+//! [resp]: cuprate_types::service::Response
 
 mod read;
 pub use read::DatabaseReadHandle;
@@ -59,11 +67,8 @@ pub use write::DatabaseWriteHandle;
 mod free;
 pub use free::init;
 
-mod request;
-pub use request::{ReadRequest, WriteRequest};
-
-mod response;
-pub use response::Response;
+// Internal type aliases for `service`.
+mod types;
 
 #[cfg(test)]
 mod tests;
