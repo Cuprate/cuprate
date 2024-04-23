@@ -216,6 +216,16 @@ pub fn get_block_extended_header_top(
 }
 
 //---------------------------------------------------------------------------------------------------- Misc
+/// Retrieve a [`BlockInfo`] via its [`BlockHeight`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_info(
+    block_height: &BlockHeight,
+    table_block_infos: &impl DatabaseRo<BlockInfos>,
+) -> Result<BlockInfo, RuntimeError> {
+    table_block_infos.get(block_height)
+}
+
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 #[doc = doc_error!()]
 #[inline]
