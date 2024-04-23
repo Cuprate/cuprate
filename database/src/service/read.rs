@@ -253,7 +253,7 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 
 /// [`ReadRequest::BlockHash`].
 #[inline]
-fn block_hash(env: &Arc<ConcreteEnv>, block_height: BlockHeight) -> ResponseResult {
+fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
@@ -266,34 +266,21 @@ fn block_hash(env: &Arc<ConcreteEnv>, block_height: BlockHeight) -> ResponseResu
 /// [`ReadRequest::BlockExtendedHeaderInRange`].
 #[inline]
 fn block_extended_header_in_range(
-    env: &Arc<ConcreteEnv>,
+    env: &ConcreteEnv,
     range: std::ops::Range<BlockHeight>,
 ) -> ResponseResult {
     let env_inner = env.env_inner();
 
     // This iterator will early return as `Err` if there's even 1 error.
     let vec = {
-        cfg_if! {
-            if #[cfg(all(feature = "redb", not(feature = "heed")))] {
+        range
+            .into_par_iter()
+            .map(|block_height| {
+                let tx_ro = env_inner.tx_ro()?;
                 let tables = env_inner.open_tables(&tx_ro)?;
-                let (env_inner, tx_ro, tables) = open_tables!(env);
-                range
-                    .into_par_iter()
-                    .map(|block_height| {
-                        get_block_extended_header_from_height(&block_height, &tables)
-                    })
-                    .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?
-            } else {
-                range
-                    .into_par_iter()
-                    .map(|block_height| {
-                        let tx_ro = env_inner.tx_ro()?;
-                        let tables = env_inner.open_tables(&tx_ro)?;
-                        get_block_extended_header_from_height(&block_height, &tables)
-                    })
-                    .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?
-            }
-        }
+                get_block_extended_header_from_height(&block_height, &tables)
+            })
+            .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?
     };
 
     Ok(Response::BlockExtendedHeaderInRange(vec))
@@ -301,20 +288,20 @@ fn block_extended_header_in_range(
 
 /// [`ReadRequest::ChainHeight`].
 #[inline]
-fn chain_height(env: &Arc<ConcreteEnv>) -> ResponseResult {
+fn chain_height(env: &ConcreteEnv) -> ResponseResult {
     todo!()
 }
 
 /// [`ReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins(env: &Arc<ConcreteEnv>) -> ResponseResult {
+fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
     todo!()
 }
 
 /// [`ReadRequest::Outputs`].
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     todo!()
 }
 
@@ -322,13 +309,13 @@ fn outputs(env: &Arc<ConcreteEnv>, map: HashMap<Amount, HashSet<AmountIndex>>) -
 /// TODO
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn number_outputs_with_amount(env: &Arc<ConcreteEnv>, vec: Vec<Amount>) -> ResponseResult {
+fn number_outputs_with_amount(env: &ConcreteEnv, vec: Vec<Amount>) -> ResponseResult {
     todo!()
 }
 
 /// [`ReadRequest::CheckKIsNotSpent`].
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
-fn check_k_is_not_spent(env: &Arc<ConcreteEnv>, set: HashSet<KeyImage>) -> ResponseResult {
+fn check_k_is_not_spent(env: &ConcreteEnv, set: HashSet<KeyImage>) -> ResponseResult {
     todo!()
 }
