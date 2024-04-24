@@ -10,6 +10,9 @@ use monero_serai::{
     transaction::{Input, Timelock, Transaction},
 };
 
+use cuprate_helper::map::{
+    cumulative_difficulty_from_low_high_bits, cumulative_difficulty_to_low_high_bits,
+};
 use cuprate_types::{ExtendedBlockHeader, TransactionVerificationData, VerifiedBlockInformation};
 
 use crate::{
@@ -102,14 +105,18 @@ pub fn add_block(
         cumulative_generated_coins(&block.height.saturating_sub(1), tables.block_infos())?
             + block.generated_coins;
 
+    let (cumulative_difficulty_low, cumulative_difficulty_high) =
+        cumulative_difficulty_to_low_high_bits(block.cumulative_difficulty);
+
     // Block Info.
     tables.block_infos_mut().put(
         &block.height,
         &BlockInfo {
+            cumulative_difficulty_low,
+            cumulative_difficulty_high,
             cumulative_generated_coins,
             cumulative_rct_outs,
             timestamp: block.block.header.timestamp,
-            cumulative_difficulty: block.cumulative_difficulty,
             block_hash: block.block_hash,
             // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
             weight: block.weight as u64,
@@ -192,13 +199,18 @@ pub fn get_block_extended_header_from_height(
     let block_blob = tables.block_blobs().get(block_height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
 
+    let cumulative_difficulty = cumulative_difficulty_from_low_high_bits(
+        block_info.cumulative_difficulty_low,
+        block_info.cumulative_difficulty_high,
+    );
+
     // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
     #[allow(clippy::cast_possible_truncation)]
     Ok(ExtendedBlockHeader {
+        cumulative_difficulty,
         version: block.header.major_version,
         vote: block.header.minor_version,
         timestamp: block.header.timestamp,
-        cumulative_difficulty: block_info.cumulative_difficulty,
         block_weight: block_info.weight as usize,
         long_term_weight: block_info.long_term_weight as usize,
     })
