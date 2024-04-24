@@ -12,7 +12,7 @@ use crate::{
     tables::{
         call_fn_on_all_tables_or_early_return, BlockBlobs, BlockHeights, BlockInfos, KeyImages,
         NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables,
-        TablesMut, TxHeights, TxIds, TxUnlockTime,
+        TablesIter, TablesMut, TxHeights, TxIds, TxUnlockTime,
     },
     transaction::{TxRo, TxRw},
 };
@@ -233,7 +233,7 @@ where
     ///
     /// # Errors
     /// TODO
-    fn open_tables(&self, tx_ro: &Ro) -> Result<impl Tables, RuntimeError> {
+    fn open_tables(&self, tx_ro: &Ro) -> Result<impl TablesIter, RuntimeError> {
         call_fn_on_all_tables_or_early_return! {
             Self::open_db_ro(self, tx_ro)
         }
