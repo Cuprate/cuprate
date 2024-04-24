@@ -138,7 +138,8 @@ pub struct PreRctOutputId {
 ///     timestamp: 1,
 ///     cumulative_generated_coins: 123,
 ///     weight: 321,
-///     cumulative_difficulty: 112,
+///     cumulative_difficulty_low: 112,
+///     cumulative_difficulty_high: 112,
 ///     block_hash: [54; 32],
 ///     cumulative_rct_outs: 2389,
 ///     long_term_weight: 2389,
@@ -165,8 +166,10 @@ pub struct BlockInfo {
     pub cumulative_generated_coins: u64,
     /// TODO
     pub weight: u64,
-    /// TODO
-    pub cumulative_difficulty: u128,
+    /// Least-significant 64 bits of the 128-bit cumulative difficulty.
+    pub cumulative_difficulty_low: u64,
+    /// Most-significant 64 bits of the 128-bit cumulative difficulty.
+    pub cumulative_difficulty_high: u64,
     /// TODO
     pub block_hash: [u8; 32],
     /// TODO
