@@ -10,9 +10,7 @@ use monero_serai::{
     transaction::{Input, Timelock, Transaction},
 };
 
-use cuprate_helper::map::{
-    cumulative_difficulty_from_low_high_bits, cumulative_difficulty_to_low_high_bits,
-};
+use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{ExtendedBlockHeader, TransactionVerificationData, VerifiedBlockInformation};
 
 use crate::{
@@ -106,7 +104,7 @@ pub fn add_block(
             + block.generated_coins;
 
     let (cumulative_difficulty_low, cumulative_difficulty_high) =
-        cumulative_difficulty_to_low_high_bits(block.cumulative_difficulty);
+        split_u128_into_low_high_bits(block.cumulative_difficulty);
 
     // Block Info.
     tables.block_infos_mut().put(
@@ -199,7 +197,7 @@ pub fn get_block_extended_header_from_height(
     let block_blob = tables.block_blobs().get(block_height)?.0;
     let block = Block::read(&mut block_blob.as_slice())?;
 
-    let cumulative_difficulty = cumulative_difficulty_from_low_high_bits(
+    let cumulative_difficulty = combine_low_high_bits_to_u128(
         block_info.cumulative_difficulty_low,
         block_info.cumulative_difficulty_high,
     );
