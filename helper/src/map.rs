@@ -58,13 +58,8 @@ pub const fn split_u128_into_low_high_bits(value: u128) -> (u64, u64) {
 /// ```
 #[inline]
 pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u128 {
-    let low = low_bits.to_le_bytes();
-    let high = high_bits.to_le_bytes();
-
-    u128::from_le_bytes([
-        low[0], low[1], low[2], low[3], low[4], low[5], low[6], low[7], high[0], high[1], high[2],
-        high[3], high[4], high[5], high[6], high[7],
-    ])
+    let res = (high_bits as u128) << 64;
+    res | (low_bits as u128)
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
