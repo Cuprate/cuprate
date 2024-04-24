@@ -227,6 +227,13 @@ fn map_request(
     /* TODO: post-request handling, run some code for each request? */
 }
 
+//---------------------------------------------------------------------------------------------------- Thread Local
+/// TODO: explain this.
+#[inline]
+fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
+    ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get())
+}
+
 //---------------------------------------------------------------------------------------------------- Handler functions
 // These are the actual functions that do stuff according to the incoming [`Request`].
 //
@@ -279,8 +286,8 @@ fn block_extended_header_in_range(
 ) -> ResponseResult {
     let env_inner = env.env_inner();
 
-    let tx_ro = ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get());
-    let tables = ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get());
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
 
     // This iterator will early return as `Err` if there's even 1 error.
     let vec = range
@@ -330,8 +337,8 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     let env_inner = env.env_inner();
 
-    let tx_ro = ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get());
-    let table_outputs = ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get());
+    let tx_ro = thread_local(env);
+    let table_outputs = thread_local(env);
 
     // -> Result<(AmountIndex, OutputOnChain), RuntimeError>
     let inner_map = |amount, amount_index| {
@@ -344,30 +351,35 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
         };
         let output = crate::ops::output::get_output(&pre_rct_output_id, table_outputs)?;
 
+        // Map `Output` -> `OutputOnChain`
+        // FIXME: This should be in a function somewhere.
+
         // FIXME: implement lookup table for common values:
         // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
         let commitment = ED25519_BASEPOINT_POINT + monero_serai::H() * Scalar::from(amount);
 
-        Ok((
-            amount_index,
-            OutputOnChain {
-                #[allow(clippy::cast_lossless)]
-                height: output.height as u64,
-                time_lock: if output
-                    .output_flags
-                    .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
-                {
-                    // TODO: how to recover the timelock height/time?
-                    todo!()
-                } else {
-                    Timelock::None
-                },
-                key: CompressedEdwardsY::from_slice(&output.key)
-                    .map(|y| y.decompress())
-                    .unwrap_or(None),
-                commitment,
-            },
-        ))
+        let time_lock = if output
+            .output_flags
+            .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
+        {
+            // TODO: how to recover the timelock height/time?
+            todo!()
+        } else {
+            Timelock::None
+        };
+
+        let key = CompressedEdwardsY::from_slice(&output.key)
+            .map(|y| y.decompress())
+            .unwrap_or(None);
+
+        let output_on_chain = OutputOnChain {
+            height: u64::from(output.height),
+            time_lock,
+            key,
+            commitment,
+        };
+
+        Ok((amount_index, output_on_chain))
     };
 
     let map = map
@@ -409,9 +421,8 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
     let env_inner = env.env_inner();
 
-    let tx_ro = ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get());
-    let table_key_images =
-        ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get());
+    let tx_ro = thread_local(env);
+    let table_key_images = thread_local(env);
 
     let key_image_exists = |key_image| {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
