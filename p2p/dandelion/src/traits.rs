@@ -12,10 +12,7 @@ pub enum TxStoreRequest<Tx, TxID> {
     /// A request to store a transaction with the ID to store it under and the pool to store it in.
     ///
     /// If the tx is already in the pool then do nothing, unless the tx is in the stem pool then move it
-    /// to the fluff pool _if this request state is fluff_.
-    ///
-    /// The ID is user defined and is provided to the [`DandelionPool`](crate::txpool::DandelionPool) in
-    /// the request.
+    /// to the fluff pool, _if this request state is fluff_.
     Store(Tx, TxID, crate::State),
     /// A request to retrieve a [`Tx`] with the given ID from the pool, should not remove that tx from the pool.
     ///

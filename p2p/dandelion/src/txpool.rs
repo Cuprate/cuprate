@@ -1,5 +1,7 @@
 //! # Dandelion++ TxPool
-
+//!
+//! This is an implementation of a dandelion++ compatible tx pool.
+//!
 use std::{
     collections::{HashMap, HashSet},
     future::{ready, Ready},
@@ -78,7 +80,7 @@ where
 
 /// The dandelion++ tx pool.
 ///
-/// See [TODO] for more info.
+/// This is the inner task that handles the tx-pool see [`DandelionPoolService`] and [`DandelionPoolServiceBuilder`].
 pub struct DandelionPool<P, R, Tx, TxID, PID> {
     /// The dandelion++ router
     dandelion_router: R,
@@ -313,8 +315,8 @@ where
             return Ok(());
         }
 
-        // This will store the tx in the public pool, removing it from the stem pool.
-        self.store_and_fluff_tx(tx, tx_id).await
+        self.promote_tx(tx_id.clone()).await?;
+        self.fluff_tx(tx, tx_id).await
     }
 
     /// Returns a tx stored in the fluff _OR_ stem pool.

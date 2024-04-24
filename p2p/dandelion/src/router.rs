@@ -294,6 +294,8 @@ where
 }
 
 /// A [`DandelionRouter`] builder.
+///
+/// You _must_ call all functions, no defaults are set.
 #[derive(Debug)]
 pub struct DandelionRouterBuilder<P, B, Tx> {
     config: Option<DandelionConfig>,

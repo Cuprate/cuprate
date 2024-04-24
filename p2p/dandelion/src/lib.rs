@@ -1,10 +1,64 @@
-#![allow(dead_code)]
-
+//! # Dandelion Tower
+//!
+//! This crate implements [dandelion++](https://arxiv.org/pdf/1805.11060.pdf), using [`tower`].
+//!  
+//! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPool`](txpool::DandelionPool).
+//! The router is pretty minimal and only handles that absolute necessary data to route transactions, whereas the
+//! pool requires you to provide a backing tx-pool and keeps track of all data necessary for dandelion++.
+//!
+//! This split was done not because the [`DandelionPool`](txpool::DandelionPool) is unnecessary but because it is hard
+//! to cover a wide range of projects when abstracting over the tx-pool. Not using the [`DandelionPool`](txpool::DandelionPool)
+//! requires you to implement part of the paper yourself.
+//!
+//! # Needed Services
+//!
+//! To use this crate you need to provide a few types.
+//!
+//! ## Diffuse Service
+//!
+//! This service should implement diffusion, which is sending the transaction to every peer, with each peer
+//! having a timer using the exponential distrobution and batch sending all txs that were queued in that time.
+//!
+//! The diffuse service should have a request of [`DiffuseRequest`](traits::DiffuseRequest) and it's error
+//! should be [`tower::BoxError`].
+//!
+//! ## Outbound Peer Discoverer
+//!
+//! The outbound peer [`Discover`](tower::discover::Discover) should provide a stream of randomly selected outbound
+//! peers, these peers will then be used to route stem txs to.
+//!
+//! The peers will not be returned anywhere, so it is recommended to wrap them in some sort of drop guard that returns
+//! them back to a peer set.
+//!
+//! ## Peer Service
+//!
+//! This service represents a connection to an individual peer, this should be returned from the Outbound Peer
+//! Discover. This should immediately send the transaction to the peer when requested, i.e. it should _not_ set
+//! a timer.
+//!
+//! The diffuse service should have a request of [`StemRequest`](traits::StemRequest) and it's error
+//! should be [`tower::BoxError`].
+//!
+//! ## Backing Pool
+//!
+//! ([`DandelionPool`](txpool::DandelionPool) only)
+//!
+//! This service is a backing tx-pool, in memory or on disk.
+//! The backing pool should have a request of [`TxStoreRequest`](traits::TxStoreRequest) and a response of
+//! [`TxStoreResponse`](traits::TxStoreResponse), with an error of [`tower::BoxError`].
+//!
+//! Users should keep a handle to the backing pool to request data from it, when requesting data you _must_
+//! make sure you only look in the public pool if you are going to be giving data to peers, as stem transactions
+//! must stay private.
+//!
+//! When removing data, for example because of a new block, you can remove from both pools provided it doesn't leak
+//! any data about stem transactions. You will probably want to set up a task that monitors the tx pool for stuck transactions,
+//! transactions that slipped in just as one was removed etc, this crate does not handle that.
 mod config;
 mod router;
-mod traits;
+pub mod traits;
 #[cfg(feature = "txpool")]
-mod txpool;
+pub mod txpool;
 
 pub use config::*;
 pub use router::*;
