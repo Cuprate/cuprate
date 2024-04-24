@@ -95,6 +95,9 @@ pub struct DandelionRouter<P, B, ID, S, Tx> {
     /// The config.
     config: DandelionConfig,
 
+    /// The routers tracing span.
+    span: tracing::Span,
+
     _tx: PhantomData<Tx>,
 }
 
@@ -206,6 +209,7 @@ where
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if self.epoch_start.elapsed() > self.config.epoch_duration {
+            // clear all the stem routing data.
             self.stem_peers.clear();
             self.stem_routes.clear();
             self.local_route.take();
@@ -215,6 +219,10 @@ where
             } else {
                 State::Stem
             };
+
+            self.span
+                .record("state", format!("{:?}", self.current_state));
+            tracing::debug!(parent: &self.span, "Starting new d++ epoch",);
 
             self.epoch_start = Instant::now();
         }
@@ -228,6 +236,7 @@ where
         }
 
         for failed_peer in failed_peers_ids {
+            tracing::debug!(parent: &self.span, "Peer returned an error on `poll_ready`, removing from router.");
             self.stem_peers.remove(&failed_peer);
         }
 
@@ -243,6 +252,8 @@ where
     }
 
     fn call(&mut self, req: DandelionRouteReq<Tx, ID>) -> Self::Future {
+        tracing::trace!(parent: &self.span,  "Handling route request.");
+
         match req.state {
             TxState::Fluff => Box::pin(
                 self.fluff_tx(req.tx)
@@ -250,22 +261,34 @@ where
                     .map_err(DandelionRouterError::BroadcastError),
             ),
             TxState::Stem { from } => match self.current_state {
-                State::Fluff => Box::pin(
-                    self.fluff_tx(req.tx)
-                        .map_ok(|_| State::Fluff)
-                        .map_err(DandelionRouterError::BroadcastError),
-                ),
-                State::Stem => Box::pin(
-                    self.stem_tx(req.tx, from)
+                State::Fluff => {
+                    tracing::debug!(parent: &self.span, "Fluffing stem tx.");
+
+                    Box::pin(
+                        self.fluff_tx(req.tx)
+                            .map_ok(|_| State::Fluff)
+                            .map_err(DandelionRouterError::BroadcastError),
+                    )
+                }
+                State::Stem => {
+                    tracing::trace!(parent: &self.span, "Steming transaction");
+
+                    Box::pin(
+                        self.stem_tx(req.tx, from)
+                            .map_ok(|_| State::Stem)
+                            .map_err(DandelionRouterError::PeerError),
+                    )
+                }
+            },
+            TxState::Local => {
+                tracing::debug!(parent: &self.span, "Steming local tx.");
+
+                Box::pin(
+                    self.stem_local_tx(req.tx)
                         .map_ok(|_| State::Stem)
                         .map_err(DandelionRouterError::PeerError),
-                ),
-            },
-            TxState::Local => Box::pin(
-                self.stem_local_tx(req.tx)
-                    .map_ok(|_| State::Stem)
-                    .map_err(DandelionRouterError::PeerError),
-            ),
+                )
+            }
         }
     }
 }
@@ -335,6 +358,8 @@ where
             outbound_peer_discover: Box::pin(self.outbound_peer_discover.unwrap()),
             broadcast_svc: self.broadcast_svc.unwrap(),
             current_state: State::Fluff,
+            // we want to start the next epoch now so set the start time to a position where that will happen
+            // multiplied by 2 just to make sure.
             epoch_start: Instant::now() - 2 * config.epoch_duration,
             local_route: None,
             stem_routes: HashMap::new(),
@@ -342,6 +367,8 @@ where
             state_dist: Bernoulli::new(config.fluff_probability)
                 .expect("Fluff probability was not between 0 and 1"),
             config,
+            // state is just a default and will be changed on epochs.
+            span: tracing::debug_span!("dandelion_router", state = tracing::field::Empty),
             _tx: PhantomData,
         }
     }

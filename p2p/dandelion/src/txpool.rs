@@ -15,6 +15,7 @@ use rand_distr::Exp;
 use tokio::{sync::mpsc, task::JoinSet};
 use tokio_util::{sync::PollSender, time::DelayQueue};
 use tower::{Service, ServiceExt};
+use tracing::Instrument;
 
 use crate::{
     traits::{TxStoreRequest, TxStoreResponse},
@@ -25,7 +26,7 @@ pub struct DandelionPoolShutDown;
 
 /// A request to the dandelion tx pool.
 ///
-/// This enum does not contain requests to get tx data from the pool(s), this is to reduce the amount
+/// This enum does not contain requests to get tx data from the pool, this is to reduce the amount
 /// of requests that get sent to the [`DandelionPool`]. Users should hold a handle to the backing tx storage
 /// to get transaction data from the pool.
 ///
@@ -69,6 +70,8 @@ where
     }
 
     fn call(&mut self, req: DandelionPoolRequest<Tx, TxID, PID>) -> Self::Future {
+        // The pool handles errors and critical errors shutdown the pool and this channel, so no need
+        // to wait on a return value.
         ready(self.tx.send_item(req).map_err(|_| DandelionPoolShutDown))
     }
 }
@@ -130,6 +133,10 @@ where
             .await?;
 
         let embargo_timer = self.embargo_dist.sample(&mut thread_rng());
+        tracing::debug!(
+            "Setting embargo timer for stem tx: {} seconds.",
+            embargo_timer
+        );
         self.embargo_timers
             .insert(tx_id.clone(), Duration::from_secs_f64(embargo_timer));
 
@@ -227,6 +234,7 @@ where
         };
         // If we have already fluffed this tx then we don't need to do anything.
         if have_tx == Some(State::Fluff) {
+            tracing::debug!("Already fluffed incoming tx, ignoring.");
             return Ok(());
         }
 
@@ -237,21 +245,27 @@ where
                     .get(&tx_id)
                     .is_some_and(|peers| peers.contains(&from))
                 {
+                    tracing::debug!("Received stem tx twice from same peer, fluffing it");
                     // The same peer sent us a tx twice, fluff it.
                     self.promote_and_fluff_tx(tx_id).await
                 } else {
                     // This could be a new tx or it could have already been stemed, but we still stem it again
                     // unless the same peer sends us a tx twice.
+                    tracing::debug!("Steming incoming tx");
                     self.store_tx_and_stem(tx, tx_id, Some(from)).await
                 }
             }
-            TxState::Fluff => self.store_and_fluff_tx(tx, tx_id).await,
+            TxState::Fluff => {
+                tracing::debug!("Fluffing incoming tx");
+                self.store_and_fluff_tx(tx, tx_id).await
+            }
             TxState::Local => {
                 // If we have already stemed this tx then nothing to do.
                 if have_tx.is_some() {
+                    tracing::debug!("Received a local tx that we already have, skipping");
                     return Ok(());
                 }
-
+                tracing::debug!("Steming local transaction");
                 self.store_tx_and_stem(tx, tx_id, None).await
             }
         }
@@ -277,6 +291,8 @@ where
 
     /// Promotes a tx to the public fluff pool and fluffs the tx.
     async fn promote_and_fluff_tx(&mut self, tx_id: TxID) -> Result<(), tower::BoxError> {
+        tracing::debug!("Promoting transaction to public pool and fluffing it.");
+
         let TxStoreResponse::Transaction(tx) = self
             .backing_pool
             .ready()
@@ -288,10 +304,12 @@ where
         };
 
         let Some((tx, state)) = tx else {
+            tracing::debug!("Could not find tx, skipping.");
             return Ok(());
         };
 
         if state == State::Fluff {
+            tracing::debug!("Transaction already fluffed, skipping.");
             return Ok(());
         }
 
@@ -315,6 +333,8 @@ where
     }
 
     async fn run(mut self, mut rx: mpsc::Receiver<DandelionPoolRequest<Tx, TxID, PID>>) {
+        tracing::debug!("Starting dandelion++ tx-pool, config: {:?}", self.config);
+
         // On start up we just fluff all txs left in the stem pool.
         let Ok(TxStoreResponse::IDs(ids)) = (&mut self.backing_pool)
             .oneshot(TxStoreRequest::IDsInStemPool)
@@ -324,6 +344,11 @@ where
             return;
         };
 
+        tracing::debug!(
+            "Fluffing {} txs that are currently in the stem pool",
+            ids.len()
+        );
+
         for id in ids {
             if let Err(e) = self.promote_and_fluff_tx(id).await {
                 tracing::error!("Failed to fluff tx in the stem pool at start up, {e}.");
@@ -332,10 +357,13 @@ where
         }
 
         loop {
+            tracing::trace!("Waiting for next event.");
             tokio::select! {
                 // biased to handle current txs before routing new ones.
                 biased;
                 Some(fired) = self.embargo_timers.next() => {
+                    tracing::debug!("Embargo timer fired, did not see stem tx in time.");
+
                     let tx_id = fired.into_inner();
                     if let Err(e) = self.promote_and_fluff_tx(tx_id).await {
                         tracing::error!("Error handling fired embargo timer: {e}");
@@ -343,11 +371,16 @@ where
                     }
                 }
                 Some(Ok((tx_id, res))) = self.routing_set.join_next() => {
+                    tracing::trace!("Received d++ routing result.");
+
                     let res = match res {
                         Ok(State::Fluff) => {
+                            tracing::debug!("Transaction was fluffed upgrading it to the public pool.");
                             self.promote_tx(tx_id).await
                         }
                         Err(tx_state) => {
+                            tracing::debug!("Error routing transaction, trying again.");
+
                             match self.get_tx_from_pool(tx_id.clone()).await {
                                 Ok(Some(tx)) => match tx_state {
                                     TxState::Fluff => self.fluff_tx(tx, tx_id).await,
@@ -367,6 +400,8 @@ where
                     }
                 }
                 req = rx.recv() => {
+                    tracing::debug!("Received new tx to route.");
+
                     let Some(DandelionPoolRequest::IncomingTx { tx, tx_state, tx_id }) = req else {
                         return;
                     };
@@ -471,7 +506,9 @@ where
             _tx: PhantomData,
         };
 
-        tokio::spawn(pool.run(rx));
+        let span = tracing::debug_span!("dandelion_pool");
+
+        tokio::spawn(pool.run(rx).instrument(span));
 
         DandelionPoolService {
             tx: PollSender::new(tx),
