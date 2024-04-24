@@ -19,8 +19,55 @@ use monero_serai::{
 
 use crate::{
     config::Config, key::Key, storable::Storable, tables::Tables, transaction::TxRo, ConcreteEnv,
-    Env, EnvInner,
+    DatabaseRo, Env, EnvInner,
 };
+
+//---------------------------------------------------------------------------------------------------- Struct
+/// Named struct to assert the length of all tables.
+///
+/// This is a struct with fields instead of a function
+/// so that callers can name arguments, otherwise the call-site
+/// is a little confusing, i.e. `assert_table_len(0, 25, 1, 123)`.
+pub(crate) struct AssertTableLen {
+    block_infos: u64,
+    block_blobs: u64,
+    block_heights: u64,
+    key_images: u64,
+    num_outputs: u64,
+    pruned_tx_blobs: u64,
+    prunable_hashes: u64,
+    outputs: u64,
+    prunable_tx_blobs: u64,
+    rct_outputs: u64,
+    tx_blobs: u64,
+    tx_ids: u64,
+    tx_heights: u64,
+    tx_unlock_time: u64,
+}
+
+impl AssertTableLen {
+    /// Assert the length of all tables.
+    pub(crate) fn assert(self, tables: &impl Tables) {
+        for (table_len, self_len) in [
+            (tables.block_infos().len(), self.block_infos),
+            (tables.block_blobs().len(), self.block_blobs),
+            (tables.block_heights().len(), self.block_heights),
+            (tables.key_images().len(), self.key_images),
+            (tables.num_outputs().len(), self.num_outputs),
+            (tables.pruned_tx_blobs().len(), self.pruned_tx_blobs),
+            (tables.prunable_hashes().len(), self.prunable_hashes),
+            (tables.outputs().len(), self.outputs),
+            (tables.prunable_tx_blobs().len(), self.prunable_tx_blobs),
+            (tables.rct_outputs().len(), self.rct_outputs),
+            (tables.tx_blobs().len(), self.tx_blobs),
+            (tables.tx_ids().len(), self.tx_ids),
+            (tables.tx_heights().len(), self.tx_heights),
+            (tables.tx_unlock_time().len(), self.tx_unlock_time),
+        ] {
+            assert_eq!(table_len.unwrap(), self_len);
+        }
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- fn
 /// Create an `Env` in a temporarily directory.
