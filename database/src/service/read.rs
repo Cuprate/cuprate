@@ -121,22 +121,14 @@ impl DatabaseReadHandle {
         }
     }
 
-    /// TODO
+    /// Access to the actual database environment.
+    ///
+    /// TODO: we need this for testing but should we allow it publicly?
+    /// Or within `crate`? It allows anyone to start tampering with the
+    /// database directly instead of going through `service`.
     #[inline]
     pub const fn env(&self) -> &Arc<ConcreteEnv> {
         &self.env
-    }
-
-    /// TODO
-    #[inline]
-    pub const fn semaphore(&self) -> &PollSemaphore {
-        &self.semaphore
-    }
-
-    /// TODO
-    #[inline]
-    pub const fn permit(&self) -> &Option<OwnedSemaphorePermit> {
-        &self.permit
     }
 }
 
