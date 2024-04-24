@@ -18,9 +18,11 @@
 ///
 /// ```rust
 /// # use cuprate_helper::map::*;
-/// //                              regular u128 number          low         high
-/// //                                                v            v         v
-/// assert_eq!(split_u128_into_low_high_bits(u128::MAX), (u64::MAX, u64::MAX));
+/// let number = u128::MAX - 1;
+/// let low = u64::MAX - 1;
+/// let high = u64::MAX;
+///
+/// assert_eq!(split_u128_into_low_high_bits(number), (low, high));
 /// ```
 #[inline]
 pub const fn split_u128_into_low_high_bits(number: u128) -> (u64, u64) {
@@ -50,9 +52,11 @@ pub const fn split_u128_into_low_high_bits(number: u128) -> (u64, u64) {
 ///
 /// ```rust
 /// # use cuprate_helper::map::*;
-/// //                                     low         high       regular u128 value
-/// //                                       v         v          v
-/// assert_eq!(combine_low_high_bits_to_u128(u64::MAX, u64::MAX), u128::MAX);
+/// let number = u128::MAX - 1;
+/// let low = u64::MAX - 1;
+/// let high = u64::MAX;
+///
+/// assert_eq!(combine_low_high_bits_to_u128(low, high), number);
 /// ```
 #[inline]
 pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u128 {
