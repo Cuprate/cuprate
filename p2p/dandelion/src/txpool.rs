@@ -1,7 +1,11 @@
+//! # Dandelion++ TxPool
+
 use std::{
     collections::{HashMap, HashSet},
+    future::{ready, Ready},
     hash::Hash,
     marker::PhantomData,
+    task::{Context, Poll},
     time::Duration,
 };
 
@@ -9,13 +13,15 @@ use futures::{FutureExt, StreamExt};
 use rand::prelude::*;
 use rand_distr::Exp;
 use tokio::{sync::mpsc, task::JoinSet};
-use tokio_util::time::DelayQueue;
+use tokio_util::{sync::PollSender, time::DelayQueue};
 use tower::{Service, ServiceExt};
 
 use crate::{
     traits::{TxStoreRequest, TxStoreResponse},
     DandelionConfig, DandelionRouteReq, DandelionRouterError, State, TxState,
 };
+
+pub struct DandelionPoolShutDown;
 
 /// A request to the dandelion tx pool.
 ///
@@ -38,6 +44,33 @@ pub enum DandelionPoolRequest<Tx, TxID, PID> {
         /// The routing state of this transaction.
         tx_state: TxState<PID>,
     },
+}
+
+/// The dandelion tx pool service.
+#[derive(Clone)]
+pub struct DandelionPoolService<Tx, TxID, PID> {
+    /// The channel to [`DandelionPool`].
+    tx: PollSender<DandelionPoolRequest<Tx, TxID, PID>>,
+}
+
+impl<Tx, TxID, PID> Service<DandelionPoolRequest<Tx, TxID, PID>>
+    for DandelionPoolService<Tx, TxID, PID>
+where
+    Tx: Clone + Send,
+    TxID: Hash + Eq + Clone + Send + 'static,
+    PID: Hash + Eq + Clone + Send + 'static,
+{
+    type Response = ();
+    type Error = DandelionPoolShutDown;
+    type Future = Ready<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.tx.poll_reserve(cx).map_err(|_| DandelionPoolShutDown)
+    }
+
+    fn call(&mut self, req: DandelionPoolRequest<Tx, TxID, PID>) -> Self::Future {
+        ready(self.tx.send_item(req).map_err(|_| DandelionPoolShutDown))
+    }
 }
 
 /// The dandelion++ tx pool.
@@ -67,7 +100,7 @@ pub struct DandelionPool<P, R, Tx, TxID, PID> {
 
 impl<P, R, Tx, TxID, PID> DandelionPool<P, R, Tx, TxID, PID>
 where
-    Tx: Clone,
+    Tx: Clone + Send,
     TxID: Hash + Eq + Clone + Send + 'static,
     PID: Hash + Eq + Clone + Send + 'static,
     P: Service<
@@ -225,19 +258,19 @@ where
     }
 
     /// Promotes a tx to the clear pool.
-    async fn promote_tx(&mut self, tx_id: &TxID) -> Result<(), tower::BoxError> {
-        self.backing_pool
-            .ready()
-            .await?
-            .call(TxStoreRequest::Promote(tx_id.clone()))
-            .await?;
-
+    async fn promote_tx(&mut self, tx_id: TxID) -> Result<(), tower::BoxError> {
         // Remove the tx from the maps used during the stem phase.
-        self.stem_origins.remove(tx_id);
+        self.stem_origins.remove(&tx_id);
 
         // The key for this is *Not* the tx_id, it is given on insert, so just keep the timer in the
         // map. These timers should be relatively short, so it shouldn't be a problem.
         //self.embargo_timers.try_remove(&tx_id);
+
+        self.backing_pool
+            .ready()
+            .await?
+            .call(TxStoreRequest::Promote(tx_id))
+            .await?;
 
         Ok(())
     }
@@ -312,7 +345,7 @@ where
                 Some(Ok((tx_id, res))) = self.routing_set.join_next() => {
                     let res = match res {
                         Ok(State::Fluff) => {
-                            self.promote_tx(&tx_id).await
+                            self.promote_tx(tx_id).await
                         }
                         Err(tx_state) => {
                             match self.get_tx_from_pool(tx_id.clone()).await {
@@ -344,6 +377,104 @@ where
                     }
                 }
             }
+        }
+    }
+}
+
+/// The dandelion pool service builder.
+pub struct DandelionPoolServiceBuilder<P, R, Tx, TxID, PID> {
+    /// The dandelion++ router.
+    router: Option<R>,
+    /// The backing transaction pool.
+    backing_pool: Option<P>,
+    /// The d++ config.
+    config: Option<DandelionConfig>,
+
+    _types: PhantomData<(Tx, TxID, PID)>,
+}
+
+impl<P, R, Tx, TxID, PID> Default for DandelionPoolServiceBuilder<P, R, Tx, TxID, PID> {
+    fn default() -> Self {
+        Self {
+            router: None,
+            backing_pool: None,
+            config: None,
+
+            _types: PhantomData,
+        }
+    }
+}
+
+impl<P, R, Tx, TxID, PID> DandelionPoolServiceBuilder<P, R, Tx, TxID, PID>
+where
+    Tx: Clone + Send + 'static,
+    TxID: Hash + Eq + Clone + Send + 'static,
+    PID: Hash + Eq + Clone + Send + 'static,
+    P: Service<
+            TxStoreRequest<Tx, TxID>,
+            Response = TxStoreResponse<Tx, TxID>,
+            Error = tower::BoxError,
+        > + Send
+        + 'static,
+    P::Future: Send + 'static,
+    R: Service<DandelionRouteReq<Tx, PID>, Response = State, Error = DandelionRouterError>
+        + Send
+        + 'static,
+    R::Future: Send + 'static,
+{
+    /// Starts a new builder.
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    /// Adds the router to the builder.
+    pub fn with_router(self, router: R) -> Self {
+        Self {
+            router: Some(router),
+            ..self
+        }
+    }
+
+    /// Adds the backing pool to the builder.
+    pub fn with_backing_pool(self, backing_pool: P) -> Self {
+        Self {
+            backing_pool: Some(backing_pool),
+            ..self
+        }
+    }
+
+    /// Adds the config to the builder.
+    pub fn with_config(self, config: DandelionConfig) -> Self {
+        Self {
+            config: Some(config),
+            ..self
+        }
+    }
+
+    pub fn spawn(self, buffer: usize) -> DandelionPoolService<Tx, TxID, PID> {
+        let config = self.config.expect("Config was not added to builder");
+
+        let (tx, rx) = mpsc::channel(buffer);
+
+        let pool = DandelionPool {
+            dandelion_router: self
+                .router
+                .expect("Dandelion router was not added to builder."),
+            backing_pool: self
+                .backing_pool
+                .expect("Backing pool was not added to router"),
+            routing_set: JoinSet::new(),
+            stem_origins: HashMap::new(),
+            embargo_timers: DelayQueue::new(),
+            embargo_dist: Exp::new(1.0 / config.average_embargo_timeout().as_secs_f64()).unwrap(),
+            config,
+            _tx: PhantomData,
+        };
+
+        tokio::spawn(pool.run(rx));
+
+        DandelionPoolService {
+            tx: PollSender::new(tx),
         }
     }
 }
