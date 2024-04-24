@@ -14,7 +14,7 @@ pub enum TxStoreRequest<Tx, TxID> {
     /// If the tx is already in the pool then do nothing, unless the tx is in the stem pool then move it
     /// to the fluff pool, _if this request state is fluff_.
     Store(Tx, TxID, crate::State),
-    /// A request to retrieve a [`Tx`] with the given ID from the pool, should not remove that tx from the pool.
+    /// A request to retrieve a `Tx` with the given ID from the pool, should not remove that tx from the pool.
     ///
     /// Must return [`TxStoreResponse::Transaction`]
     Get(TxID),
