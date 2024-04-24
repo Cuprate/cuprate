@@ -10,7 +10,7 @@ mod common;
 async fn routes_constant() {
     let config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
-        epoch_duration: Duration::from_secs(600_000),
+        epoch_duration: Duration::from_secs(60_000),
         fluff_probability: 0.0, // we want this test to always stem
         graph: Graph::FourRegular,
     };
