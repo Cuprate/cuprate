@@ -333,7 +333,6 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`ReadRequest::Outputs`].
 #[inline]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove me
 fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     let env_inner = env.env_inner();
 
@@ -399,21 +398,31 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
 }
 
 /// [`ReadRequest::NumberOutputsWithAmount`].
-/// TODO
 #[inline]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove me
 fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
-    // let env_inner = env.env_inner();
+    let env_inner = env.env_inner();
 
-    // let vec = amounts
-    //     .into_par_iter()
-    //     .map(|amount| {
-    //         let tx_ro = env_inner.tx_ro()?;
-    //         let table_num_outputs = env_inner.open_db_ro::<NumOutputs>(&tx_ro)?;
-    //         match table_num_outputs.get(amount) {}
-    //     })
-    //     .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
-    todo!()
+    let tx_ro = thread_local(env);
+    let table_num_outputs = thread_local(env);
+
+    let map = amounts
+        .into_par_iter()
+        .map(|amount| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let table_num_outputs =
+                table_num_outputs.get_or_try(|| env_inner.open_db_ro::<NumOutputs>(tx_ro))?;
+
+            match table_num_outputs.get(&amount) {
+                // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
+                #[allow(clippy::cast_possible_truncation)]
+                Ok(count) => Ok((amount, count as usize)),
+                Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),
+                Err(e) => Err(e),
+            }
+        })
+        .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
+
+    Ok(Response::NumberOutputsWithAmount(map))
 }
 
 /// [`ReadRequest::CheckKIsNotSpent`].
