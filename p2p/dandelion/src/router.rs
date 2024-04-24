@@ -356,21 +356,27 @@ where
     pub fn build(self) -> DandelionRouter<P, B, ID, S, Tx> {
         let config = self.config.unwrap();
 
+        // get the current state
+        let state_dist = Bernoulli::new(config.fluff_probability)
+            .expect("Fluff probability was not between 0 and 1");
+
+        let current_state = if state_dist.sample(&mut thread_rng()) {
+            State::Fluff
+        } else {
+            State::Stem
+        };
+
         DandelionRouter {
             outbound_peer_discover: Box::pin(self.outbound_peer_discover.unwrap()),
             broadcast_svc: self.broadcast_svc.unwrap(),
-            current_state: State::Fluff,
-            // we want to start the next epoch now so set the start time to a position where that will happen
-            // multiplied by 2 just to make sure.
-            epoch_start: Instant::now() - 2 * config.epoch_duration,
+            current_state,
+            epoch_start: Instant::now(),
             local_route: None,
             stem_routes: HashMap::new(),
             stem_peers: HashMap::new(),
-            state_dist: Bernoulli::new(config.fluff_probability)
-                .expect("Fluff probability was not between 0 and 1"),
+            state_dist,
             config,
-            // state is just a default and will be changed on epochs.
-            span: tracing::debug_span!("dandelion_router", state = tracing::field::Empty),
+            span: tracing::debug_span!("dandelion_router", state = ?current_state),
             _tx: PhantomData,
         }
     }
