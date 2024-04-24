@@ -101,7 +101,7 @@ mod test {
             block::add_block,
             tx::{get_tx, tx_exists},
         },
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         Env,
     };
 
@@ -149,6 +149,24 @@ mod test {
             }
 
             // Assert reads are correct.
+            AssertTableLen {
+                block_infos: 3,
+                block_blobs: 3,
+                block_heights: 3,
+                key_images: 69,
+                num_outputs: 38,
+                pruned_tx_blobs: 0,
+                prunable_hashes: 0,
+                outputs: 107,
+                prunable_tx_blobs: 0,
+                rct_outputs: 6,
+                tx_blobs: 5,
+                tx_ids: 5,
+                tx_heights: 5,
+                tx_unlock_time: 0,
+            }
+            .assert(&tables);
+
             assert_eq!(blocks_len, chain_height(tables.block_heights()).unwrap());
             assert_eq!(
                 blocks_len - 1,

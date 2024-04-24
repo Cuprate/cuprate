@@ -343,7 +343,7 @@ pub fn tx_exists(
 mod test {
     use super::*;
     use crate::{
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         Env,
     };
     use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
@@ -384,20 +384,23 @@ mod test {
             let tables = env_inner.open_tables(&tx_ro).unwrap();
 
             // Assert only the proper tables were added to.
-            assert_eq!(tables.block_infos().len().unwrap(), 0);
-            assert_eq!(tables.block_blobs().len().unwrap(), 0);
-            assert_eq!(tables.block_heights().len().unwrap(), 0);
-            assert_eq!(tables.key_images().len().unwrap(), 4); // added to key images
-            assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-            assert_eq!(tables.num_outputs().len().unwrap(), 9);
-            assert_eq!(tables.outputs().len().unwrap(), 10); // added to outputs
-            assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.rct_outputs().len().unwrap(), 2);
-            assert_eq!(tables.tx_blobs().len().unwrap(), 3);
-            assert_eq!(tables.tx_ids().len().unwrap(), 3);
-            assert_eq!(tables.tx_heights().len().unwrap(), 3);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 1); // only 1 has a timelock
+            AssertTableLen {
+                block_infos: 0,
+                block_blobs: 0,
+                block_heights: 0,
+                key_images: 4, // added to key images
+                pruned_tx_blobs: 0,
+                prunable_hashes: 0,
+                num_outputs: 9,
+                outputs: 10, // added to outputs
+                prunable_tx_blobs: 0,
+                rct_outputs: 2,
+                tx_blobs: 3,
+                tx_ids: 3,
+                tx_heights: 3,
+                tx_unlock_time: 1, // only 1 has a timelock
+            }
+            .assert(&tables);
 
             // Both from ID and hash should result in getting the same transaction.
             let mut tx_hashes = vec![];

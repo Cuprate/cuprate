@@ -159,7 +159,7 @@ pub fn get_rct_num_outputs(
 mod test {
     use super::*;
     use crate::{
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         types::OutputFlags,
         Env,
     };
@@ -221,20 +221,23 @@ mod test {
         // Assert all reads of the outputs are OK.
         {
             // Assert proper tables were added to.
-            assert_eq!(tables.block_infos().len().unwrap(), 0);
-            assert_eq!(tables.block_blobs().len().unwrap(), 0);
-            assert_eq!(tables.block_heights().len().unwrap(), 0);
-            assert_eq!(tables.key_images().len().unwrap(), 0);
-            assert_eq!(tables.num_outputs().len().unwrap(), 1);
-            assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-            assert_eq!(tables.outputs().len().unwrap(), 1);
-            assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.rct_outputs().len().unwrap(), 1);
-            assert_eq!(tables.tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.tx_ids().len().unwrap(), 0);
-            assert_eq!(tables.tx_heights().len().unwrap(), 0);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
+            AssertTableLen {
+                block_infos: 0,
+                block_blobs: 0,
+                block_heights: 0,
+                key_images: 0,
+                num_outputs: 1,
+                pruned_tx_blobs: 0,
+                prunable_hashes: 0,
+                outputs: 1,
+                prunable_tx_blobs: 0,
+                rct_outputs: 1,
+                tx_blobs: 0,
+                tx_ids: 0,
+                tx_heights: 0,
+                tx_unlock_time: 0,
+            }
+            .assert(&tables);
 
             // Assert length is correct.
             assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 1);

@@ -16,6 +16,7 @@ use monero_serai::{
     ringct::{RctPrunable, RctSignatures},
     transaction::{Timelock, Transaction, TransactionPrefix},
 };
+use pretty_assertions::assert_eq;
 
 use crate::{
     config::Config, key::Key, storable::Storable, tables::Tables, transaction::TxRo, ConcreteEnv,
@@ -28,44 +29,45 @@ use crate::{
 /// This is a struct with fields instead of a function
 /// so that callers can name arguments, otherwise the call-site
 /// is a little confusing, i.e. `assert_table_len(0, 25, 1, 123)`.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct AssertTableLen {
-    block_infos: u64,
-    block_blobs: u64,
-    block_heights: u64,
-    key_images: u64,
-    num_outputs: u64,
-    pruned_tx_blobs: u64,
-    prunable_hashes: u64,
-    outputs: u64,
-    prunable_tx_blobs: u64,
-    rct_outputs: u64,
-    tx_blobs: u64,
-    tx_ids: u64,
-    tx_heights: u64,
-    tx_unlock_time: u64,
+    pub(crate) block_infos: u64,
+    pub(crate) block_blobs: u64,
+    pub(crate) block_heights: u64,
+    pub(crate) key_images: u64,
+    pub(crate) num_outputs: u64,
+    pub(crate) pruned_tx_blobs: u64,
+    pub(crate) prunable_hashes: u64,
+    pub(crate) outputs: u64,
+    pub(crate) prunable_tx_blobs: u64,
+    pub(crate) rct_outputs: u64,
+    pub(crate) tx_blobs: u64,
+    pub(crate) tx_ids: u64,
+    pub(crate) tx_heights: u64,
+    pub(crate) tx_unlock_time: u64,
 }
 
 impl AssertTableLen {
     /// Assert the length of all tables.
     pub(crate) fn assert(self, tables: &impl Tables) {
-        for (table_len, self_len) in [
-            (tables.block_infos().len(), self.block_infos),
-            (tables.block_blobs().len(), self.block_blobs),
-            (tables.block_heights().len(), self.block_heights),
-            (tables.key_images().len(), self.key_images),
-            (tables.num_outputs().len(), self.num_outputs),
-            (tables.pruned_tx_blobs().len(), self.pruned_tx_blobs),
-            (tables.prunable_hashes().len(), self.prunable_hashes),
-            (tables.outputs().len(), self.outputs),
-            (tables.prunable_tx_blobs().len(), self.prunable_tx_blobs),
-            (tables.rct_outputs().len(), self.rct_outputs),
-            (tables.tx_blobs().len(), self.tx_blobs),
-            (tables.tx_ids().len(), self.tx_ids),
-            (tables.tx_heights().len(), self.tx_heights),
-            (tables.tx_unlock_time().len(), self.tx_unlock_time),
-        ] {
-            assert_eq!(table_len.unwrap(), self_len);
-        }
+        let other = Self {
+            block_infos: tables.block_infos().len().unwrap(),
+            block_blobs: tables.block_blobs().len().unwrap(),
+            block_heights: tables.block_heights().len().unwrap(),
+            key_images: tables.key_images().len().unwrap(),
+            num_outputs: tables.num_outputs().len().unwrap(),
+            pruned_tx_blobs: tables.pruned_tx_blobs().len().unwrap(),
+            prunable_hashes: tables.prunable_hashes().len().unwrap(),
+            outputs: tables.outputs().len().unwrap(),
+            prunable_tx_blobs: tables.prunable_tx_blobs().len().unwrap(),
+            rct_outputs: tables.rct_outputs().len().unwrap(),
+            tx_blobs: tables.tx_blobs().len().unwrap(),
+            tx_ids: tables.tx_ids().len().unwrap(),
+            tx_heights: tables.tx_heights().len().unwrap(),
+            tx_unlock_time: tables.tx_unlock_time().len().unwrap(),
+        };
+
+        assert_eq!(self, other);
     }
 }
 
