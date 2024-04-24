@@ -16,7 +16,9 @@ use std::{
 
 use cfg_if::cfg_if;
 use crossbeam::channel::Receiver;
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
 use futures::{channel::oneshot, ready};
+use monero_serai::transaction::Timelock;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use thread_local::ThreadLocal;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
@@ -25,7 +27,7 @@ use tokio_util::sync::PollSemaphore;
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::{
     service::{ReadRequest, Response},
-    ExtendedBlockHeader,
+    ExtendedBlockHeader, OutputOnChain,
 };
 
 use crate::{
@@ -35,7 +37,7 @@ use crate::{
     ops::block::{get_block_extended_header_from_height, get_block_info},
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
     tables::{BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, Tables},
-    types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
+    types::{Amount, AmountIndex, BlockHeight, KeyImage, OutputFlags, PreRctOutputId},
     ConcreteEnv, DatabaseRo, Env, EnvInner,
 };
 
@@ -326,25 +328,62 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 #[inline]
 #[allow(clippy::needless_pass_by_value)] // TODO: remove me
 fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
-    // let env_inner = env.env_inner();
+    let env_inner = env.env_inner();
 
-    // let vec = map
-    //     .par_iter()
-    //     .map(|(amount, amount_index_set)| {
-    //         amount_index_set.par_iter().map(|amount_index| {
-    //             let tx_ro = env_inner.tx_ro()?;
-    //             let table_outputs = env_inner.open_db_ro::<Outputs>(&tx_ro)?;
+    let tx_ro = ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get());
+    let table_outputs = ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get());
 
-    //             let pre_rct_output_id = PreRctOutputId {
-    //                 amount: *amount,
-    //                 amount_index: *amount_index,
-    //             };
-    //             crate::ops::output::get_output(&pre_rct_output_id, &table_outputs)
-    //         })
-    //     })
-    //     .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
+    // -> Result<(AmountIndex, OutputOnChain), RuntimeError>
+    let inner_map = |amount, amount_index| {
+        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+        let table_outputs = table_outputs.get_or_try(|| env_inner.open_db_ro::<Outputs>(tx_ro))?;
 
-    todo!()
+        let pre_rct_output_id = PreRctOutputId {
+            amount,
+            amount_index,
+        };
+        let output = crate::ops::output::get_output(&pre_rct_output_id, table_outputs)?;
+
+        // FIXME: implement lookup table for common values:
+        // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
+        let commitment = ED25519_BASEPOINT_POINT + monero_serai::H() * Scalar::from(amount);
+
+        Ok((
+            amount_index,
+            OutputOnChain {
+                #[allow(clippy::cast_lossless)]
+                height: output.height as u64,
+                time_lock: if output
+                    .output_flags
+                    .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
+                {
+                    // TODO: how to recover the timelock height/time?
+                    todo!()
+                } else {
+                    Timelock::None
+                },
+                key: CompressedEdwardsY::from_slice(&output.key)
+                    .map(|y| y.decompress())
+                    .unwrap_or(None),
+                commitment,
+            },
+        ))
+    };
+
+    let map = map
+        .into_par_iter()
+        .map(|(amount, amount_index_set)| {
+            Ok((
+                amount,
+                amount_index_set
+                    .into_par_iter()
+                    .map(|amount_index| inner_map(amount, amount_index))
+                    .collect::<Result<HashMap<AmountIndex, OutputOnChain>, RuntimeError>>()?,
+            ))
+        })
+        .collect::<Result<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>, RuntimeError>>()?;
+
+    Ok(Response::Outputs(map))
 }
 
 /// [`ReadRequest::NumberOutputsWithAmount`].
@@ -393,6 +432,6 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
     {
         None | Some(Ok(false)) => Ok(Response::CheckKIsNotSpent(true)), // Key image was NOT found.
         Some(Ok(true)) => Ok(Response::CheckKIsNotSpent(false)),        // Key image was found.
-        Some(Err(e)) => Err(e),                                         // A database error occured.
+        Some(Err(e)) => Err(e), // A database error occurred.
     }
 }
