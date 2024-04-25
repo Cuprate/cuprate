@@ -1,14 +1,19 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{fmt::Debug, ops::Deref};
+use std::{fmt::Debug, num::NonZeroUsize, ops::Deref};
 
 use crate::{
     config::Config,
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
+    tables::{
+        call_fn_on_all_tables_or_early_return, BlockBlobs, BlockHeights, BlockInfos, KeyImages,
+        NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables,
+        TablesMut, TxHeights, TxIds, TxUnlockTime,
+    },
     transaction::{TxRo, TxRw},
 };
 
@@ -109,11 +114,13 @@ pub trait Env: Sized {
     ///
     /// If `resize_algorithm` is `Some`, that will be used instead.
     ///
+    /// This function returns the _new_ memory map size in bytes.
+    ///
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
-    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
+    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         unreachable!()
     }
 
@@ -196,13 +203,15 @@ where
     /// ```
     ///
     /// # Errors
+    /// This function errors upon internal database/IO errors.
+    ///
     /// As [`Table`] is `Sealed`, and all tables are created
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
-    fn open_db_ro<'tx, T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &'tx Ro,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError>;
+        tx_ro: &Ro,
+    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError>;
 
     /// Open a database in read/write mode.
     ///
@@ -213,11 +222,46 @@ where
     /// passed as a generic to this function.
     ///
     /// # Errors
+    /// This function errors upon internal database/IO errors.
+    ///
     /// As [`Table`] is `Sealed`, and all tables are created
     /// upon [`Env::open`], this function will never error because
     /// a table doesn't exist.
-    fn open_db_rw<'tx, T: Table>(
-        &self,
-        tx_rw: &'tx mut Rw,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError>;
+    fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn open_tables(&self, tx_ro: &Ro) -> Result<impl Tables, RuntimeError> {
+        call_fn_on_all_tables_or_early_return! {
+            Self::open_db_ro(self, tx_ro)
+        }
+    }
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
+        call_fn_on_all_tables_or_early_return! {
+            Self::open_db_rw(self, tx_rw)
+        }
+    }
+
+    /// Clear all `(key, value)`'s from a database table.
+    ///
+    /// This will delete all key and values in the passed
+    /// `T: Table`, but the table itself will continue to exist.
+    ///
+    /// Note that this operation is tied to `tx_rw`, as such this
+    /// function's effects can be aborted using [`TxRw::abort`].
+    ///
+    /// # Errors
+    /// This function errors upon internal database/IO errors.
+    ///
+    /// As [`Table`] is `Sealed`, and all tables are created
+    /// upon [`Env::open`], this function will never error because
+    /// a table doesn't exist.
+    fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
 }

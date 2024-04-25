@@ -2,7 +2,9 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
+    cell::RefCell,
     fmt::Debug,
+    num::NonZeroUsize,
     ops::Deref,
     sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
@@ -16,7 +18,7 @@ use crate::{
         types::HeedDb,
     },
     config::{Config, SyncMode},
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
@@ -96,7 +98,23 @@ impl Env for ConcreteEnv {
     const SYNCS_PER_TX: bool = false;
     type EnvInner<'env> = RwLockReadGuard<'env, heed::Env>;
     type TxRo<'tx> = heed::RoTxn<'tx>;
-    type TxRw<'tx> = heed::RwTxn<'tx>;
+
+    /// HACK:
+    /// `heed::RwTxn` is wrapped in `RefCell` to allow:
+    /// - opening a database with only a `&` to it
+    /// - allowing 1 write tx to open multiple tables
+    ///
+    /// Our mutable accesses are safe and will not panic as:
+    /// - Write transactions are `!Sync`
+    /// - A table operation does not hold a reference to the inner cell
+    ///   once the call is over
+    /// - The function to manipulate the table takes the same type
+    ///   of reference that the `RefCell` gets for that function
+    ///
+    /// Also see:
+    /// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>
+    /// - <https://github.com/Cuprate/cuprate/pull/104>
+    type TxRw<'tx> = RefCell<heed::RwTxn<'tx>>;
 
     #[cold]
     #[inline(never)] // called once.
@@ -189,17 +207,15 @@ impl Env for ConcreteEnv {
         }
 
         use crate::tables::{
-            BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages,
-            NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs,
-            TxHeights, TxIds, TxUnlockTime,
+            BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
+            PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
+            TxUnlockTime,
         };
 
         let mut tx_rw = env.write_txn()?;
         create_table::<BlockBlobs>(&env, &mut tx_rw)?;
         create_table::<BlockHeights>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV1s>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV2s>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV3s>(&env, &mut tx_rw)?;
+        create_table::<BlockInfos>(&env, &mut tx_rw)?;
         create_table::<KeyImages>(&env, &mut tx_rw)?;
         create_table::<NumOutputs>(&env, &mut tx_rw)?;
         create_table::<Outputs>(&env, &mut tx_rw)?;
@@ -207,8 +223,10 @@ impl Env for ConcreteEnv {
         create_table::<PrunableTxBlobs>(&env, &mut tx_rw)?;
         create_table::<PrunedTxBlobs>(&env, &mut tx_rw)?;
         create_table::<RctOutputs>(&env, &mut tx_rw)?;
+        create_table::<TxBlobs>(&env, &mut tx_rw)?;
         create_table::<TxHeights>(&env, &mut tx_rw)?;
         create_table::<TxIds>(&env, &mut tx_rw)?;
+        create_table::<TxOutputs>(&env, &mut tx_rw)?;
         create_table::<TxUnlockTime>(&env, &mut tx_rw)?;
 
         // TODO: Set dupsort and comparison functions for certain tables
@@ -232,11 +250,11 @@ impl Env for ConcreteEnv {
         Ok(self.env.read().unwrap().force_sync()?)
     }
 
-    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
+    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         let resize_algorithm = resize_algorithm.unwrap_or_else(|| self.config().resize_algorithm);
 
         let current_size_bytes = self.current_map_size();
-        let new_size_bytes = resize_algorithm.resize(current_size_bytes).get();
+        let new_size_bytes = resize_algorithm.resize(current_size_bytes);
 
         // SAFETY:
         // Resizing requires that we have
@@ -247,8 +265,14 @@ impl Env for ConcreteEnv {
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
         unsafe {
             // INVARIANT: `resize()` returns a valid `usize` to resize to.
-            self.env.write().unwrap().resize(new_size_bytes).unwrap();
+            self.env
+                .write()
+                .unwrap()
+                .resize(new_size_bytes.get())
+                .unwrap();
         }
+
+        new_size_bytes
     }
 
     #[inline]
@@ -263,7 +287,8 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, heed::RoTxn<'env>, heed::RwTxn<'env>> for RwLockReadGuard<'env, heed::Env>
+impl<'env> EnvInner<'env, heed::RoTxn<'env>, RefCell<heed::RwTxn<'env>>>
+    for RwLockReadGuard<'env, heed::Env>
 where
     Self: 'env,
 {
@@ -273,15 +298,15 @@ where
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<heed::RwTxn<'env>, RuntimeError> {
-        Ok(self.write_txn()?)
+    fn tx_rw(&'env self) -> Result<RefCell<heed::RwTxn<'env>>, RuntimeError> {
+        Ok(RefCell::new(self.write_txn()?))
     }
 
     #[inline]
-    fn open_db_ro<'tx, T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &'tx heed::RoTxn<'env>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        tx_ro: &heed::RoTxn<'env>,
+    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         Ok(HeedTableRo {
             db: self
@@ -292,17 +317,35 @@ where
     }
 
     #[inline]
-    fn open_db_rw<'tx, T: Table>(
+    fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &'tx mut heed::RwTxn<'env>,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
+        tx_rw: &RefCell<heed::RwTxn<'env>>,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
+        let tx_ro = tx_rw.borrow();
+
         // Open up a read/write database using our table's const metadata.
         Ok(HeedTableRw {
             db: self
-                .open_database(tx_rw, Some(T::NAME))?
+                .open_database(&tx_ro, Some(T::NAME))?
                 .expect(PANIC_MSG_MISSING_TABLE),
             tx_rw,
         })
+    }
+
+    #[inline]
+    fn clear_db<T: Table>(
+        &self,
+        tx_rw: &mut RefCell<heed::RwTxn<'env>>,
+    ) -> Result<(), RuntimeError> {
+        let tx_rw = tx_rw.get_mut();
+
+        // Open the table first...
+        let db: HeedDb<T::Key, T::Value> = self
+            .open_database(tx_rw, Some(T::NAME))?
+            .expect(PANIC_MSG_MISSING_TABLE);
+
+        // ...then clear it.
+        Ok(db.clear(tx_rw)?)
     }
 }
 

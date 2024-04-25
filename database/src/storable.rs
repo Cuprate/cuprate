@@ -2,16 +2,15 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    borrow::Cow,
+    borrow::{Borrow, Cow},
     char::ToLowercase,
     fmt::Debug,
     io::{Read, Write},
     sync::Arc,
 };
 
-use bytemuck::Pod;
-
-use crate::ToOwnedDebug;
+use bytemuck::{Pod, Zeroable};
+use bytes::Bytes;
 
 //---------------------------------------------------------------------------------------------------- Storable
 /// A type that can be stored in the database.
@@ -35,6 +34,8 @@ use crate::ToOwnedDebug;
 /// - All types in [`tables`](crate::tables)
 /// - Slices, e.g, `[T] where T: Storable`
 ///
+/// See [`StorableVec`] for storing slices of `T: Storable`.
+///
 /// ```rust
 /// # use cuprate_database::*;
 /// # use std::borrow::*;
@@ -45,7 +46,7 @@ use crate::ToOwnedDebug;
 /// assert_eq!(into, &[0; 8]);
 ///
 /// // From bytes.
-/// let from: u64 = *Storable::from_bytes(&into);
+/// let from: u64 = Storable::from_bytes(&into);
 /// assert_eq!(from, number);
 /// ```
 ///
@@ -62,36 +63,7 @@ use crate::ToOwnedDebug;
 ///
 /// Most likely, the bytes are little-endian, however
 /// that cannot be relied upon when using this trait.
-pub trait Storable: ToOwnedDebug {
-    /// What is the alignment of `Self`?
-    ///
-    /// For `[T]` types, this is set to the alignment of `T`.
-    ///
-    /// This is used to prevent copying when unneeded, e.g.
-    /// `[u8] -> [u8]` does not need to account for unaligned bytes,
-    /// since no cast needs to occur.
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use cuprate_database::Storable;
-    /// assert_eq!(<()>::ALIGN, 1);
-    /// assert_eq!(u8::ALIGN, 1);
-    /// assert_eq!(u16::ALIGN, 2);
-    /// assert_eq!(u32::ALIGN, 4);
-    /// assert_eq!(u64::ALIGN, 8);
-    /// assert_eq!(i8::ALIGN, 1);
-    /// assert_eq!(i16::ALIGN, 2);
-    /// assert_eq!(i32::ALIGN, 4);
-    /// assert_eq!(i64::ALIGN, 8);
-    /// assert_eq!(<[u8]>::ALIGN, 1);
-    /// assert_eq!(<[u64]>::ALIGN, 8);
-    /// assert_eq!(<[u8; 0]>::ALIGN, 1);
-    /// assert_eq!(<[u8; 1]>::ALIGN, 1);
-    /// assert_eq!(<[u8; 2]>::ALIGN, 1);
-    /// assert_eq!(<[u64; 2]>::ALIGN, 8);
-    /// ```
-    const ALIGN: usize;
-
+pub trait Storable: Debug {
     /// Is this type fixed width in byte length?
     ///
     /// I.e., when converting `Self` to bytes, is it
@@ -113,7 +85,7 @@ pub trait Storable: ToOwnedDebug {
     ///
     /// # Examples
     /// ```rust
-    /// # use cuprate_database::Storable;
+    /// # use cuprate_database::*;
     /// assert_eq!(<()>::BYTE_LENGTH, Some(0));
     /// assert_eq!(u8::BYTE_LENGTH, Some(1));
     /// assert_eq!(u16::BYTE_LENGTH, Some(2));
@@ -123,46 +95,29 @@ pub trait Storable: ToOwnedDebug {
     /// assert_eq!(i16::BYTE_LENGTH, Some(2));
     /// assert_eq!(i32::BYTE_LENGTH, Some(4));
     /// assert_eq!(i64::BYTE_LENGTH, Some(8));
-    /// assert_eq!(<[u8]>::BYTE_LENGTH, None);
-    /// assert_eq!(<[u8; 0]>::BYTE_LENGTH, Some(0));
-    /// assert_eq!(<[u8; 1]>::BYTE_LENGTH, Some(1));
-    /// assert_eq!(<[u8; 2]>::BYTE_LENGTH, Some(2));
-    /// assert_eq!(<[u8; 3]>::BYTE_LENGTH, Some(3));
+    /// assert_eq!(StorableVec::<u8>::BYTE_LENGTH, None);
+    /// assert_eq!(StorableVec::<u64>::BYTE_LENGTH, None);
     /// ```
     const BYTE_LENGTH: Option<usize>;
 
     /// Return `self` in byte form.
     fn as_bytes(&self) -> &[u8];
 
-    /// Create a borrowed [`Self`] from bytes.
-    ///
-    /// # Invariant
-    /// `bytes` must be perfectly aligned for `Self`
-    /// or else this function may cause UB.
-    ///
-    /// This function _may_ panic if `bytes` isn't aligned.
+    /// Create an owned [`Self`] from bytes.
     ///
     /// # Blanket implementation
     /// The blanket implementation that covers all types used
-    /// by `cuprate_database` will simply cast `bytes` into `Self`,
-    /// with no copying.
-    fn from_bytes(bytes: &[u8]) -> &Self;
-
-    /// Create a [`Self`] from potentially unaligned bytes.
+    /// by `cuprate_database` will simply bitwise copy `bytes`
+    /// into `Self`.
     ///
-    /// # Blanket implementation
-    /// The blanket implementation that covers all types used
-    /// by `cuprate_database` will **always** allocate a new buffer
-    /// or create a new `Self`.
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'_, Self>;
+    /// The bytes do not have be correctly aligned.
+    fn from_bytes(bytes: &[u8]) -> Self;
 }
 
-//---------------------------------------------------------------------------------------------------- Impl
 impl<T> Storable for T
 where
-    Self: Pod + ToOwnedDebug<OwnedDebug = T>,
+    Self: Pod + Debug,
 {
-    const ALIGN: usize = std::mem::align_of::<T>();
     const BYTE_LENGTH: Option<usize> = Some(std::mem::size_of::<T>());
 
     #[inline]
@@ -171,37 +126,132 @@ where
     }
 
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> &T {
-        bytemuck::from_bytes(bytes)
-    }
-
-    #[inline]
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self> {
-        Cow::Owned(bytemuck::pod_read_unaligned(bytes))
+    fn from_bytes(bytes: &[u8]) -> T {
+        bytemuck::pod_read_unaligned(bytes)
     }
 }
 
-impl<T> Storable for [T]
+//---------------------------------------------------------------------------------------------------- StorableVec
+/// A [`Storable`] vector of `T: Storable`.
+///
+/// This is a wrapper around `Vec<T> where T: Storable`.
+///
+/// Slice types are owned both:
+/// - when returned from the database
+/// - in `put()`
+///
+/// This is needed as `impl Storable for Vec<T>` runs into impl conflicts.
+///
+/// ```rust
+/// # use cuprate_database::*;
+/// //---------------------------------------------------- u8
+/// let vec: StorableVec<u8> = StorableVec(vec![0,1]);
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&vec);
+/// assert_eq!(into, &[0,1]);
+///
+/// // From bytes.
+/// let from: StorableVec<u8> = Storable::from_bytes(&into);
+/// assert_eq!(from, vec);
+///
+/// //---------------------------------------------------- u64
+/// let vec: StorableVec<u64> = StorableVec(vec![0,1]);
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&vec);
+/// assert_eq!(into, &[0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]);
+///
+/// // From bytes.
+/// let from: StorableVec<u64> = Storable::from_bytes(&into);
+/// assert_eq!(from, vec);
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::TransparentWrapper)]
+#[repr(transparent)]
+pub struct StorableVec<T>(pub Vec<T>);
+
+impl<T> Storable for StorableVec<T>
 where
-    T: Pod + ToOwnedDebug<OwnedDebug = T>,
-    Self: ToOwnedDebug<OwnedDebug = Vec<T>>,
+    T: Pod + Debug,
 {
-    const ALIGN: usize = std::mem::align_of::<T>();
+    const BYTE_LENGTH: Option<usize> = None;
+
+    /// Casts the inner `Vec<T>` directly as bytes.
+    #[inline]
+    fn as_bytes(&self) -> &[u8] {
+        bytemuck::must_cast_slice(&self.0)
+    }
+
+    /// This always allocates a new `Vec<T>`,
+    /// casting `bytes` into a vector of type `T`.
+    #[inline]
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self(bytemuck::pod_collect_to_vec(bytes))
+    }
+}
+
+impl<T> std::ops::Deref for StorableVec<T> {
+    type Target = [T];
+    #[inline]
+    fn deref(&self) -> &[T] {
+        &self.0
+    }
+}
+
+impl<T> Borrow<[T]> for StorableVec<T> {
+    #[inline]
+    fn borrow(&self) -> &[T] {
+        &self.0
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- StorableBytes
+/// A [`Storable`] version of [`Bytes`].
+///
+/// ```rust
+/// # use cuprate_database::*;
+/// # use bytes::Bytes;
+/// let bytes: StorableBytes = StorableBytes(Bytes::from_static(&[0,1]));
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&bytes);
+/// assert_eq!(into, &[0,1]);
+///
+/// // From bytes.
+/// let from: StorableBytes = Storable::from_bytes(&into);
+/// assert_eq!(from, bytes);
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct StorableBytes(pub Bytes);
+
+impl Storable for StorableBytes {
     const BYTE_LENGTH: Option<usize> = None;
 
     #[inline]
     fn as_bytes(&self) -> &[u8] {
-        bytemuck::must_cast_slice(self)
+        &self.0
     }
 
+    /// This always allocates a new `Bytes`.
     #[inline]
-    fn from_bytes(bytes: &[u8]) -> &[T] {
-        bytemuck::cast_slice(bytes)
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self(Bytes::copy_from_slice(bytes))
     }
+}
 
+impl std::ops::Deref for StorableBytes {
+    type Target = [u8];
     #[inline]
-    fn from_bytes_unaligned(bytes: &[u8]) -> Cow<'static, Self> {
-        Cow::Owned(bytemuck::pod_collect_to_vec(bytes))
+    fn deref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Borrow<[u8]> for StorableBytes {
+    #[inline]
+    fn borrow(&self) -> &[u8] {
+        &self.0
     }
 }
 
@@ -220,7 +270,7 @@ mod test {
         // A `Vec` of the numbers to test.
         t: Vec<T>,
     ) where
-        T: Storable + Copy + PartialEq,
+        T: Storable + Debug + Copy + PartialEq,
     {
         for t in t {
             let expected_bytes = to_le_bytes(t);
@@ -229,7 +279,7 @@ mod test {
 
             // (De)serialize.
             let se: &[u8] = Storable::as_bytes(&t);
-            let de: &T = Storable::from_bytes(se);
+            let de = <T as Storable>::from_bytes(se);
 
             println!("serialized: {se:?}, deserialized: {de:?}\n");
 
@@ -238,7 +288,7 @@ mod test {
                 assert_eq!(se.len(), expected_bytes.len());
             }
             // Assert the data is the same.
-            assert_eq!(de, &t);
+            assert_eq!(de, t);
         }
     }
 

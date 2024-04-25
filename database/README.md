@@ -11,6 +11,7 @@ Cuprate's database implementation.
 1. [Backends](#backends)
     - [`heed`](#heed)
     - [`redb`](#redb)
+    - [`redb-memory`](#redb-memory)
     - [`sanakirja`](#sanakirja)
     - [`MDBX`](#mdbx)
 1. [Layers](#layers)
@@ -79,10 +80,8 @@ The top-level `src/` files.
 | `storable.rs`       | Data (de)serialization; `trait Storable`
 | `table.rs`          | Database table abstraction; `trait Table`
 | `tables.rs`         | All the table definitions used by `cuprate-database`
-| `to_owned_debug.rs` | Borrowed/owned data abstraction; `trait ToOwnedDebug`
 | `transaction.rs`    | Database transaction abstraction; `trait TxR{o,w}`
 | `types.rs`          | Database table schema types
-| `value_guard.rs`    | Database value "guard" abstraction; `trait ValueGuard`
 
 ## `src/ops/`
 This folder contains the `cupate_database::ops` module.
@@ -106,9 +105,8 @@ This folder contains the `cupate_database::service` module.
 |----------------|---------|
 | `free.rs`      | General free functions used (related to `cuprate_database::service`)
 | `read.rs`      | Read thread-pool definitions and logic
-| `request.rs`   | Read/write `Request`s to the database
-| `response.rs`  | Read/write `Response`'s from the database
 | `tests.rs`     | Thread-pool tests and test helper functions
+| `types.rs`     | `cuprate_database::service`-related type aliases
 | `write.rs`     | Write thread-pool definitions and logic
 
 ## `src/backend/`
@@ -166,6 +164,11 @@ The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used
 | `data.redb` | Main data file
 
 TODO: document DB on remote filesystem (does redb allow this?)
+
+## `redb-memory`
+This backend is 100% the same as `redb`, although, it uses `redb::backend::InMemoryBackend` which is a key-value store that completely resides in memory instead of a file.
+
+All other details about this should be the same as the normal `redb` backend.
 
 ## `sanakirja`
 [`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.
