@@ -7,6 +7,7 @@ authors = ["Boog900", "hinto-janai"]
 
 [dependencies]
 cuprate-types = { path = "../types" }
+cuprate-helper = { path = "../helper", features = ["map"] }
 monero-wire = { path = "../net/monero-wire" }
 monero-p2p = { path = "../p2p/monero-p2p", features = ["borsh"] }
 
@@ -34,3 +35,4 @@ zip = "0.6"
 
 [dev-dependencies]
 hex = { workspace = true }
+pretty_assertions = { workspace = true, features = ["default"] }
