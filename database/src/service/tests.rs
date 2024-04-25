@@ -22,6 +22,7 @@ use std::{
     },
 };
 
+use pretty_assertions::assert_eq;
 use tower::{Service, ServiceExt};
 
 use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
@@ -230,7 +231,7 @@ fn init_drop() {
 async fn v1_tx2() {
     test_template(
         &[block_v1_tx2],
-        13_138_270_467_918,
+        14_535_350_982_449,
         AssertTableLen {
             block_infos: 1,
             block_blobs: 1,
