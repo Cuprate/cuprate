@@ -89,7 +89,9 @@ where
 
         async move {
             res?;
-            Ok(rx.await.expect("Oneshot dropped before response!"))
+            rx.await.expect("Oneshot dropped before response!");
+
+            Ok(())
         }
         .boxed()
     }

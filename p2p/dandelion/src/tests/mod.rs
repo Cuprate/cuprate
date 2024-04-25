@@ -66,6 +66,7 @@ pub fn mock_broadcast_svc<Req: Send + 'static>() -> (
     )
 }
 
+#[allow(clippy::type_complexity)] // just test code.
 pub fn mock_in_memory_backing_pool<
     Tx: Clone + Send + 'static,
     TxID: Clone + Hash + Eq + Send + 'static,
@@ -117,8 +118,8 @@ pub fn mock_in_memory_backing_pool<
                             .lock()
                             .unwrap()
                             .get_mut(&tx_id)
-                            // The Some does nothing just to make Rust happy
-                            .and_then(|tx| Some(tx.1 = State::Fluff));
+                            .map(|tx| tx.1 = State::Fluff);
+
                         Ok(TxStoreResponse::Ok)
                     }
                 }
