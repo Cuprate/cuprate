@@ -71,10 +71,7 @@ jobs:
     - name: Cache
       uses: actions/cache@v3
       with:
-        path: |
-          target
-          ~/.cargo
-          ~/.rustup
+        path: target
         key: ${{ matrix.os }}
 
     # Packages other than `Boost` used by `Monero` are listed here.
