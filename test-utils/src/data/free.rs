@@ -8,6 +8,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::{Arc, OnceLock};
 
+use cuprate_helper::map::combine_low_high_bits_to_u128;
 use hex_literal::hex;
 use monero_serai::{block::Block, transaction::Transaction};
 
@@ -34,7 +35,8 @@ struct VerifiedBlockMap {
     generated_coins: u64,
     weight: usize,
     long_term_weight: usize,
-    cumulative_difficulty: u128,
+    cumulative_difficulty_low: u64,
+    cumulative_difficulty_high: u64,
     // Vec of `tx_blob`'s, i.e. the data in `/test-utils/src/data/tx/`.
     // This should the actual `tx_blob`'s of the transactions within this block.
     txs: &'static [&'static [u8]],
@@ -54,7 +56,8 @@ impl VerifiedBlockMap {
             generated_coins,
             weight,
             long_term_weight,
-            cumulative_difficulty,
+            cumulative_difficulty_low,
+            cumulative_difficulty_high,
             txs,
         } = self;
 
@@ -90,7 +93,10 @@ impl VerifiedBlockMap {
             generated_coins,
             weight,
             long_term_weight,
-            cumulative_difficulty,
+            cumulative_difficulty: combine_low_high_bits_to_u128(
+                cumulative_difficulty_low,
+                cumulative_difficulty_high,
+            ),
         }
     }
 }
@@ -131,7 +137,8 @@ macro_rules! verified_block_information_fn {
         generated_coins: $generated_coins:literal, // Generated coins in block (minus fees)
         weight: $weight:literal, // Block weight
         long_term_weight: $long_term_weight:literal, // Block long term weight
-        cumulative_difficulty: $cumulative_difficulty:literal, // Block cumulative difficulty
+        cumulative_difficulty_low: $cumulative_difficulty_low:literal, // Least significant 64-bits of block cumulative difficulty
+        cumulative_difficulty_high: $cumulative_difficulty_high:literal, // Most significant 64-bits of block cumulative difficulty
         tx_len: $tx_len:literal, // Amount of transactions in this block
     ) => {
         #[doc = concat!(
@@ -148,6 +155,8 @@ macro_rules! verified_block_information_fn {
         /// ```rust
         #[doc = "# use cuprate_test_utils::data::*;"]
         #[doc = "# use hex_literal::hex;"]
+        #[doc = "use cuprate_helper::map::combine_low_high_bits_to_u128;"]
+        #[doc = ""]
         #[doc = concat!("let block = ", stringify!($fn_name), "();")]
         #[doc = concat!("assert_eq!(&block.block.serialize(), ", stringify!($block_blob), ");")]
         #[doc = concat!("assert_eq!(block.pow_hash, hex!(\"", $pow_hash, "\"));")]
@@ -155,8 +164,16 @@ macro_rules! verified_block_information_fn {
         #[doc = concat!("assert_eq!(block.generated_coins, ", $generated_coins, ");")]
         #[doc = concat!("assert_eq!(block.weight, ", $weight, ");")]
         #[doc = concat!("assert_eq!(block.long_term_weight, ", $long_term_weight, ");")]
-        #[doc = concat!("assert_eq!(block.cumulative_difficulty, ", $cumulative_difficulty, ");")]
         #[doc = concat!("assert_eq!(block.txs.len(), ", $tx_len, ");")]
+        #[doc = ""]
+        #[doc = concat!(
+            "assert_eq!(block.cumulative_difficulty, ",
+            "combine_low_high_bits_to_u128(",
+            stringify!($cumulative_difficulty_low),
+            ", ",
+            stringify!($cumulative_difficulty_high),
+            "));"
+        )]
         /// ```
         pub fn $fn_name() -> &'static VerifiedBlockInformation {
             static BLOCK: OnceLock<VerifiedBlockInformation> = OnceLock::new();
@@ -168,7 +185,8 @@ macro_rules! verified_block_information_fn {
                     generated_coins: $generated_coins,
                     weight: $weight,
                     long_term_weight: $long_term_weight,
-                    cumulative_difficulty: $cumulative_difficulty,
+                    cumulative_difficulty_low: $cumulative_difficulty_low,
+                    cumulative_difficulty_high: $cumulative_difficulty_high,
                     txs: &[$($tx_blob),*],
                 }
                 .into_verified()
@@ -181,12 +199,13 @@ verified_block_information_fn! {
     fn_name: block_v1_tx2,
     block_blob: BLOCK_5ECB7E,
     tx_blobs: [TX_2180A8, TX_D7FEBD],
-    pow_hash: "84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000",
-    height: 202_612,
-    generated_coins: 13_138_270_467_918,
-    weight: 55_503,
-    long_term_weight: 55_503,
-    cumulative_difficulty: 126_654_460_829_362,
+    pow_hash: "c960d540000459480560b7816de968c7470083e5874e10040bdd4cc501000000",
+    height: 202_609,
+    generated_coins: 14_535_350_982_449,
+    weight: 21_905,
+    long_term_weight: 21_905,
+    cumulative_difficulty_low: 126_650_740_038_710,
+    cumulative_difficulty_high: 0,
     tx_len: 2,
 }
 
@@ -199,7 +218,8 @@ verified_block_information_fn! {
     generated_coins: 3_403_774_022_163,
     weight: 6_597,
     long_term_weight: 6_597,
-    cumulative_difficulty: 23_558_910_234_058_343,
+    cumulative_difficulty_low: 23_558_910_234_058_343,
+    cumulative_difficulty_high: 0,
     tx_len: 3,
 }
 
@@ -212,7 +232,8 @@ verified_block_information_fn! {
     generated_coins: 600_000_000_000,
     weight: 106,
     long_term_weight: 176_470,
-    cumulative_difficulty: 236_046_001_376_524_168,
+    cumulative_difficulty_low: 236_046_001_376_524_168,
+    cumulative_difficulty_high: 0,
     tx_len: 0,
 }
 
@@ -266,4 +287,56 @@ transaction_verification_data_fn! {
     tx_blobs: TX_84D48D,
     weight: 2743,
     hash: "84d48dc11ec91950f8b70a85af9db91fe0c8abef71ef5db08304f7344b99ea66",
+}
+
+//---------------------------------------------------------------------------------------------------- TESTS
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use pretty_assertions::assert_eq;
+
+    use crate::rpc::HttpRpcClient;
+
+    /// Assert the defined blocks are the same compared to ones received from a local RPC call.
+    #[ignore] // FIXME: doesn't work in CI, we need a real unrestricted node
+    #[tokio::test]
+    async fn block_same_as_rpc() {
+        let rpc = HttpRpcClient::new(None).await;
+        for block in [block_v1_tx2(), block_v9_tx3(), block_v16_tx0()] {
+            println!("block_height: {}", block.height);
+            let block_rpc = rpc.get_verified_block_information(block.height).await;
+            assert_eq!(block, &block_rpc);
+        }
+    }
+
+    /// Same as `block_same_as_rpc` but for transactions.
+    /// This also tests all the transactions within the defined blocks.
+    #[ignore] // FIXME: doesn't work in CI, we need a real unrestricted node
+    #[tokio::test]
+    async fn tx_same_as_rpc() {
+        let rpc = HttpRpcClient::new(None).await;
+
+        let mut txs = [block_v1_tx2(), block_v9_tx3(), block_v16_tx0()]
+            .into_iter()
+            .flat_map(|block| block.txs.iter().map(|arc| (**arc).clone()))
+            .collect::<Vec<TransactionVerificationData>>();
+
+        txs.extend([
+            tx_v1_sig0().clone(),
+            tx_v1_sig2().clone(),
+            tx_v2_rct3().clone(),
+        ]);
+
+        for tx in txs {
+            println!("tx_hash: {:?}", tx.tx_hash);
+            let tx_rpc = rpc
+                .get_transaction_verification_data(&[tx.tx_hash])
+                .await
+                .collect::<Vec<TransactionVerificationData>>()
+                .pop()
+                .unwrap();
+            assert_eq!(tx, tx_rpc);
+        }
+    }
 }
