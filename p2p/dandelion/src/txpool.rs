@@ -4,9 +4,10 @@
 //!
 use std::{
     collections::{HashMap, HashSet},
-    future::{ready, Ready},
+    future::Future,
     hash::Hash,
     marker::PhantomData,
+    pin::Pin,
     task::{Context, Poll},
     time::Duration,
 };
@@ -14,7 +15,10 @@ use std::{
 use futures::{FutureExt, StreamExt};
 use rand::prelude::*;
 use rand_distr::Exp;
-use tokio::{sync::mpsc, task::JoinSet};
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::JoinSet,
+};
 use tokio_util::{sync::PollSender, time::DelayQueue};
 use tower::{Service, ServiceExt};
 use tracing::Instrument;
@@ -24,6 +28,8 @@ use crate::{
     DandelionConfig, DandelionRouteReq, DandelionRouterError, State, TxState,
 };
 
+#[derive(Copy, Clone, Debug, thiserror::Error)]
+#[error("The dandelion pool was shutdown")]
 pub struct DandelionPoolShutDown;
 
 /// A request to the dandelion tx pool.
@@ -53,7 +59,7 @@ pub enum DandelionPoolRequest<Tx, TxID, PID> {
 #[derive(Clone)]
 pub struct DandelionPoolService<Tx, TxID, PID> {
     /// The channel to [`DandelionPool`].
-    tx: PollSender<DandelionPoolRequest<Tx, TxID, PID>>,
+    tx: PollSender<(DandelionPoolRequest<Tx, TxID, PID>, oneshot::Sender<()>)>,
 }
 
 impl<Tx, TxID, PID> Service<DandelionPoolRequest<Tx, TxID, PID>>
@@ -65,16 +71,27 @@ where
 {
     type Response = ();
     type Error = DandelionPoolShutDown;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.tx.poll_reserve(cx).map_err(|_| DandelionPoolShutDown)
     }
 
     fn call(&mut self, req: DandelionPoolRequest<Tx, TxID, PID>) -> Self::Future {
-        // The pool handles errors and critical errors shutdown the pool and this channel, so no need
-        // to wait on a return value.
-        ready(self.tx.send_item(req).map_err(|_| DandelionPoolShutDown))
+        // although the channel isn't sending anything we want to wait for the request to be handled before continuing.
+        let (tx, rx) = oneshot::channel();
+
+        let res = self
+            .tx
+            .send_item((req, tx))
+            .map_err(|_| DandelionPoolShutDown);
+
+        async move {
+            res?;
+            Ok(rx.await.expect("Oneshot dropped before response!"))
+        }
+        .boxed()
     }
 }
 
@@ -334,7 +351,10 @@ where
         Ok(tx.map(|tx| tx.0))
     }
 
-    async fn run(mut self, mut rx: mpsc::Receiver<DandelionPoolRequest<Tx, TxID, PID>>) {
+    async fn run(
+        mut self,
+        mut rx: mpsc::Receiver<(DandelionPoolRequest<Tx, TxID, PID>, oneshot::Sender<()>)>,
+    ) {
         tracing::debug!("Starting dandelion++ tx-pool, config: {:?}", self.config);
 
         // On start up we just fluff all txs left in the stem pool.
@@ -404,14 +424,18 @@ where
                 req = rx.recv() => {
                     tracing::debug!("Received new tx to route.");
 
-                    let Some(DandelionPoolRequest::IncomingTx { tx, tx_state, tx_id }) = req else {
+                    let Some((DandelionPoolRequest::IncomingTx { tx, tx_state, tx_id }, res_tx)) = req else {
                         return;
                     };
 
                     if let Err(e) = self.handle_incoming_tx(tx, tx_state, tx_id).await {
+                        let _ = res_tx.send(());
+
                         tracing::error!("Error handling transaction in dandelion pool: {e}");
                         return;
                     }
+                    let _ = res_tx.send(());
+
                 }
             }
         }

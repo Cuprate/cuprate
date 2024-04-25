@@ -56,6 +56,8 @@
 //! transactions that slipped in just as one was removed etc, this crate does not handle that.
 mod config;
 mod router;
+#[cfg(test)]
+mod tests;
 pub mod traits;
 #[cfg(feature = "txpool")]
 pub mod txpool;

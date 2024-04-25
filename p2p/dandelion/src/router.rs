@@ -69,28 +69,29 @@ pub struct DandelionRouteReq<Tx, ID> {
 
 /// The dandelion router service.
 pub struct DandelionRouter<P, B, ID, S, Tx> {
+    // pub(crate) is for tests
     /// A [`Discover`] where we can get outbound peers from.
-    outbound_peer_discover: Pin<Box<P>>,
+    pub(crate) outbound_peer_discover: Pin<Box<P>>,
     /// A [`Service`] which handle broadcasting (diffusing) transactions.
-    broadcast_svc: B,
+    pub(crate) broadcast_svc: B,
 
     /// The current state.
-    current_state: State,
+    pub(crate) current_state: State,
     /// The time at which this epoch started.
-    epoch_start: Instant,
+    pub(crate) epoch_start: Instant,
 
     /// The stem our local transactions will be sent to.
-    local_route: Option<ID>,
+    pub(crate) local_route: Option<ID>,
     /// A [`HashMap`] linking peer's IDs to IDs in `stem_peers`.
-    stem_routes: HashMap<ID, ID>,
+    pub(crate) stem_routes: HashMap<ID, ID>,
     /// Peers we are using for stemming.
     ///
     /// This will contain peers, even in [`State::Fluff`] to allow us to stem [`TxState::Local`]
     /// transactions.
-    stem_peers: HashMap<ID, S>,
+    pub(crate) stem_peers: HashMap<ID, S>,
 
     /// The distribution to sample to get the [`State`], true is [`State::Fluff`].
-    state_dist: Bernoulli,
+    pub(crate) state_dist: Bernoulli,
 
     /// The config.
     config: DandelionConfig,
