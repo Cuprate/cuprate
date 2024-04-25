@@ -8,10 +8,10 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::{Arc, OnceLock};
 
-use cuprate_helper::map::combine_low_high_bits_to_u128;
 use hex_literal::hex;
 use monero_serai::{block::Block, transaction::Transaction};
 
+use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{TransactionVerificationData, VerifiedBlockInformation};
 
 use crate::data::constants::{
