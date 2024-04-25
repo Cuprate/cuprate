@@ -15,7 +15,7 @@
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet},
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc,
@@ -41,7 +41,7 @@ use crate::{
     service::{init, DatabaseReadHandle, DatabaseWriteHandle},
     tables::{KeyImages, Tables, TablesIter},
     tests::AssertTableLen,
-    types::{Amount, KeyImage},
+    types::{Amount, AmountIndex, KeyImage, PreRctOutputId},
     ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError,
 };
 
@@ -105,6 +105,9 @@ async fn test_template(
     assert_table_len.assert(&tables);
 
     //----------------------------------------------------------------------- Read request prep
+    // Next few lines are just for preparing the expected responses,
+    // see further below for usage.
+
     let extended_block_header_0 = Ok(Response::BlockExtendedHeader(
         get_block_extended_header_from_height(&0, &tables).unwrap(),
     ));
@@ -150,14 +153,6 @@ async fn test_template(
 
     let cumulative_generated_coins = Ok(Response::GeneratedCoins(cumulative_generated_coins));
 
-    // let outputs = tables
-    //     .outputs_iter()
-    //     .keys()
-    //     .unwrap()
-    //     .map(Result::unwrap)
-    //     .map(key.amount);
-    //     .collect::<HashMap<Amount, HashSet<u64>>>();
-
     let num_req = tables
         .outputs_iter()
         .keys()
@@ -194,7 +189,6 @@ async fn test_template(
         (ReadRequest::BlockExtendedHeaderInRange(0..2), range_0_2),
         (ReadRequest::ChainHeight, chain_height),
         (ReadRequest::GeneratedCoins, cumulative_generated_coins),
-        // (ReadRequest::Outputs(HashMap<u64, HashSet<u64>>), ),
         (ReadRequest::NumberOutputsWithAmount(num_req), num_resp),
         (ReadRequest::CheckKIsNotSpent(ki_req), ki_resp),
     ] {
@@ -215,6 +209,70 @@ async fn test_template(
         println!("response: {response:#?}, key_image: {key_image:#?}");
         assert_eq!(response.unwrap(), Response::CheckKIsNotSpent(false));
     }
+
+    //----------------------------------------------------------------------- Output checks
+    // FIXME: Constructing the correct `OutputOnChain` here is
+    // hard to do without the code inside `service/read.rs`.
+    // For now, we're only testing the amount of outputs returned
+    // is as expected, but not if the output values themselves are correct.
+
+    // Create the map of amounts and amount indices.
+    //
+    // FIXME: There's definitely a better way to map
+    // `Vec<PreRctOutputId>` -> `HashMap<u64, HashSet<u64>>`
+    let (map, output_count) = {
+        let ids = tables
+            .outputs_iter()
+            .keys()
+            .unwrap()
+            .map(Result::unwrap)
+            .collect::<Vec<PreRctOutputId>>();
+
+        // Used later to compare the amount of Outputs
+        // returned in the Response is equal to the amount
+        // we asked for.
+        let output_count = ids.len();
+
+        let mut map = HashMap::<Amount, HashSet<AmountIndex>>::new();
+        for id in ids {
+            map.entry(id.amount)
+                .and_modify(|set| {
+                    set.insert(id.amount_index);
+                })
+                .or_insert_with(|| HashSet::from([id.amount_index]));
+        }
+
+        (map, output_count)
+    };
+
+    // Send a request for every output we inserted before.
+    let request = ReadRequest::Outputs(map.clone());
+    let response = reader.clone().oneshot(request).await;
+    println!("Response::Outputs response: {response:#?}");
+    let Ok(Response::Outputs(response)) = response else {
+        panic!()
+    };
+
+    // Assert amount of `Amount`'s are the same.
+    assert_eq!(map.len(), response.len());
+
+    // Assert we get back the same map of
+    // `Amount`'s and `AmountIndex`'s.
+    let mut response_output_count = 0;
+    for (amount, output_map) in response {
+        let amount_index_set = map.get(&amount).unwrap();
+
+        for (amount_index, output) in output_map {
+            response_output_count += 1;
+            assert!(amount_index_set.contains(&amount_index));
+            // FIXME: assert output correctness.
+        }
+    }
+
+    // Assert the amount of `Output`'s returned is as expected.
+    let table_output_len = tables.outputs().len().unwrap();
+    assert_eq!(output_count as u64, table_output_len);
+    assert_eq!(output_count, response_output_count);
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
