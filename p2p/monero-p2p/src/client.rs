@@ -4,7 +4,7 @@ use std::{
     task::{ready, Context, Poll},
 };
 
-use futures::{channel::oneshot, FutureExt};
+use futures::channel::oneshot;
 use tokio::{
     sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     task::JoinHandle,

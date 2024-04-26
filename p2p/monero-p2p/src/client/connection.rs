@@ -3,11 +3,10 @@
 //! This module handles routing requests from a [`Client`](crate::client::Client) or a broadcast channel to
 //! a peer. This module also handles routing requests from the connected peer to a request handler.
 //!
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::pin::Pin;
 
 use futures::{
     channel::oneshot,
-    lock::{Mutex, OwnedMutexGuard},
     stream::{Fuse, FusedStream},
     SinkExt, Stream, StreamExt,
 };

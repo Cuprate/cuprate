@@ -475,7 +475,7 @@ where
         id: addr,
         handle,
         direction,
-        pruning_seed: pruning_seed.clone(),
+        pruning_seed,
     };
 
     let semaphore = Arc::new(Semaphore::new(1));

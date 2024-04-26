@@ -107,7 +107,7 @@ async fn handshake_cuprate_to_cuprate() {
             .unwrap()
     });
 
-    let (res1, res2) = futures::join!(p1, p2);
+    let (res1, res2) = tokio::join!(p1, p2);
     res1.unwrap();
     res2.unwrap();
 }
