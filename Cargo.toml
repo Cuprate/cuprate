@@ -6,6 +6,7 @@ members = [
 	"consensus/rules",
 	"cryptonight",
 	"database",
+	"database/benchmark",
 	"helper",
 	"net/epee-encoding",
 	"net/fixed-bytes",
@@ -37,16 +38,18 @@ opt-level     = 1
 opt-level = 3
 
 [workspace.dependencies]
+anyhow                = { version = "1.0.81", default-features = false }
 async-trait           = { version = "0.1.74", default-features = false }
 bitflags              = { version = "2.4.2", default-features = false }
 borsh                 = { version = "1.2.1", default-features = false }
 bytemuck              = { version = "1.14.3", default-features = false }
 bytes                 = { version = "1.5.0", default-features = false }
 cfg-if                = { version = "1.0.0", default-features = false }
-clap                  = { version = "4.4.7", default-features = false }
+clap                  = { version = "4.5.4", default-features = false }
 chrono                = { version = "0.4.31", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
 crossbeam             = { version = "0.8.4", default-features = false }
+criterion             = { version = "0.5.1", default-features = false }
 curve25519-dalek      = { version = "4.1.1", default-features = false }
 dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
@@ -64,11 +67,13 @@ rayon                 = { version = "1.9.0", default-features = false }
 serde_bytes           = { version = "0.11.12", default-features = false }
 serde_json            = { version = "1.0.108", default-features = false }
 serde                 = { version = "1.0.190", default-features = false }
+strum                 = { version = "0.26.2", default-features = false }
 thiserror             = { version = "1.0.50", default-features = false }
 thread_local		  = { version = "1.1.7", default-features = false }
 tokio-util            = { version = "0.7.10", default-features = false }
 tokio-stream          = { version = "0.1.14", default-features = false }
 tokio                 = { version = "1.33.0", default-features = false }
+toml_edit             = { version = "0.22.9", default-features = false }
 tower                 = { version = "0.4.13", default-features = false }
 tracing-subscriber    = { version = "0.3.17", default-features = false }
 tracing               = { version = "0.1.40", default-features = false }
