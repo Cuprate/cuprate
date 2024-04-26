@@ -1,10 +1,5 @@
 //! Database reader thread-pool definitions and logic.
 
-// `EnvInner` is a RwLock for `heed`.
-// Clippy thinks it should be dropped earlier but it
-// needs to be open until most functions return.
-#![allow(clippy::significant_drop_tightening)]
-
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
@@ -476,7 +471,6 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
                 // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
                 #[allow(clippy::cast_possible_truncation)]
                 Ok(count) => Ok((amount, count as usize)),
-                Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),
                 Err(e) => Err(e),
             }
         })

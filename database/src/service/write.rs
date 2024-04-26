@@ -228,7 +228,6 @@ impl DatabaseWriter {
 
 /// [`WriteRequest::WriteBlock`].
 #[inline]
-#[allow(clippy::significant_drop_tightening)]
 fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
