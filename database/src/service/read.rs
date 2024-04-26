@@ -123,9 +123,15 @@ impl DatabaseReadHandle {
 
     /// Access to the actual database environment.
     ///
-    /// TODO: we need this for testing but should we allow it publicly?
-    /// Or within `crate`? It allows anyone to start tampering with the
-    /// database directly instead of going through `service`.
+    /// # ⚠️ Warning
+    /// This function gives you access to the actual
+    /// underlying database connected to by `self`.
+    ///
+    /// I.e. it allows you to read/write data _directly_
+    /// instead of going through a request.
+    ///
+    /// Be warned that using the database directly
+    /// in this manner has not been tested.
     #[inline]
     pub const fn env(&self) -> &Arc<ConcreteEnv> {
         &self.env
@@ -420,8 +426,7 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
             .output_flags
             .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
         {
-            // TODO: how to recover the timelock height/time?
-            todo!()
+            Timelock::Time(tables.tx_unlock_time().get(&output.tx_idx)?)
         } else {
             Timelock::None
         };
@@ -471,6 +476,9 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
                 // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
                 #[allow(clippy::cast_possible_truncation)]
                 Ok(count) => Ok((amount, count as usize)),
+                // If we get a request for an `amount` that doesn't exist,
+                // we return `0` instead of an error.
+                Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),
                 Err(e) => Err(e),
             }
         })
@@ -490,6 +498,10 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
         key_image_exists(&key_image, tables.key_images())
     };
 
+    // TODO:
+    // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
+    // or similar instead of `bool` for clarity.
+    // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>
     match key_images
         .into_par_iter()
         .map(key_image_exists)
