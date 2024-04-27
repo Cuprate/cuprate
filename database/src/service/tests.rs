@@ -28,11 +28,12 @@ use tower::{Service, ServiceExt};
 use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 use cuprate_types::{
     service::{ReadRequest, Response, WriteRequest},
-    ExtendedBlockHeader, VerifiedBlockInformation,
+    ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation,
 };
 
 use crate::{
     config::Config,
+    free::output_to_output_on_chain,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::top_block_height,
@@ -211,11 +212,6 @@ async fn test_template(
     }
 
     //----------------------------------------------------------------------- Output checks
-    // FIXME: Constructing the correct `OutputOnChain` here is
-    // hard to do without the code inside `service/read.rs`.
-    // For now, we're only testing the amount of outputs returned
-    // is as expected, but not if the output values themselves are correct.
-
     // Create the map of amounts and amount indices.
     //
     // FIXME: There's definitely a better way to map
@@ -245,6 +241,17 @@ async fn test_template(
         (map, output_count)
     };
 
+    // Map `Output` -> `OutputOnChain`
+    // This is the expected output from the `Response`.
+    let outputs_on_chain = tables
+        .outputs_iter()
+        .iter()
+        .unwrap()
+        .map(Result::unwrap)
+        .map(|(id, output)| output_to_output_on_chain(&output, id.amount, tables.tx_unlock_time()))
+        .map(Result::unwrap)
+        .collect::<Vec<OutputOnChain>>();
+
     // Send a request for every output we inserted before.
     let request = ReadRequest::Outputs(map.clone());
     let response = reader.clone().oneshot(request).await;
@@ -265,7 +272,7 @@ async fn test_template(
         for (amount_index, output) in output_map {
             response_output_count += 1;
             assert!(amount_index_set.contains(&amount_index));
-            // FIXME: assert output correctness.
+            assert!(outputs_on_chain.contains(&output));
         }
     }
 
