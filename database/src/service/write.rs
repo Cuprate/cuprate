@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    sync::{Arc, RwLock},
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -247,7 +247,7 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
             // the transaction on `add_block()` failures.
             tx_rw
                 .abort()
-                .expect("TODO: if we cannot maintain atomicity by aborting, should we panic?");
+                .expect("could not maintain database atomicity by aborting write transaction");
             Err(e)
         }
     }

@@ -1,7 +1,7 @@
 //! General free functions used (related to `cuprate_database::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use crate::{
     config::Config,
@@ -34,7 +34,7 @@ pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle),
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.
-    let db = Arc::new(ConcreteEnv::open(config)?);
+    let db: Arc<ConcreteEnv> = Arc::new(ConcreteEnv::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
     let readers = DatabaseReadHandle::init(&db, reader_threads);
