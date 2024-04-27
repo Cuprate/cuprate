@@ -29,6 +29,7 @@ use crate::{
     config::ReaderThreads,
     constants::DATABASE_CORRUPT_MSG,
     error::RuntimeError,
+    free::output_to_output_on_chain,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::{cumulative_generated_coins, top_block_height},
@@ -434,33 +435,9 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
             amount,
             amount_index,
         };
+
         let output = get_output(&pre_rct_output_id, tables.outputs())?;
-
-        //---  Map `Output` -> `OutputOnChain`
-
-        // FIXME: implement lookup table for common values:
-        // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
-        let commitment = ED25519_BASEPOINT_POINT + H() * Scalar::from(amount);
-
-        let time_lock = if output
-            .output_flags
-            .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
-        {
-            Timelock::Time(tables.tx_unlock_time().get(&output.tx_idx)?)
-        } else {
-            Timelock::None
-        };
-
-        let key = CompressedEdwardsY::from_slice(&output.key)
-            .map(|y| y.decompress())
-            .unwrap_or(None);
-
-        let output_on_chain = OutputOnChain {
-            height: u64::from(output.height),
-            time_lock,
-            key,
-            commitment,
-        };
+        let output_on_chain = output_to_output_on_chain(&output, amount, tables.tx_unlock_time())?;
 
         Ok((amount_index, output_on_chain))
     };

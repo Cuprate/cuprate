@@ -242,7 +242,7 @@ pub use env::{Env, EnvInner};
 mod error;
 pub use error::{InitError, RuntimeError};
 
-mod free;
+pub(crate) mod free;
 
 pub mod resize;
 
