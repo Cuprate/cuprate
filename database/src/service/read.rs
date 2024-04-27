@@ -248,24 +248,31 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
 ///
 /// An imaginary signature would look something like:
 /// ```ignore
-/// fn set_tx_ro_and_tables() -> if heed {
-///     (ThreadLocal<TxRo>, ThreadLocal<Tables>) }
+/// fn set_tx_ro() -> if heed {
+///     ThreadLocal<TxRo>
 /// } else {
-///     (TxRo, Tables)
+///     TxRo
 /// };
 /// ```
 ///
-/// See [`get_tx_ro_and_tables`] for retrieving the output.
+/// - See [`set_tables`] for the same thing but for `ThreadLocal<impl Tables>`
+/// - See [`get_tx_ro_and_tables`] for retrieving the output
+///
+/// # Note
+/// Note that this is _only_ needed when `Send`ing another thread,
+/// i.e. when using `rayon`. If the function handling the `Request`
+/// is single-threaded, normal `tx_ro()` and `open_tables()` can be used.
 ///
 /// # Early return
-/// Note that this early returns with `?` from whatever scope
-/// it was called from if `tx_ro()` or `open_tables()` errors.
+/// Note that this early returns with `?` from  whatever
+/// scope it was called from if `tx_ro()` errors.
 ///
 /// # Example
 /// ```ignore
 /// // Outside scope, still single threaded.
 /// // Set the transaction and tables.
-/// let (tx_ro, tables) = set_tx_ro_and_tables!(env, env_inner);
+/// let tx_ro = set_tx_ro!(env, env_inner);
+/// let tables = set_tables!(env, env_inner, tx_ro);
 ///
 /// iter
 ///     .into_par_iter() // <- we've entered `rayon` scope
@@ -277,26 +284,37 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
 ///         /* do rayon stuff */
 ///     });
 /// ```
-macro_rules! set_tx_ro_and_tables {
+macro_rules! set_tx_ro {
     ($env:ident, $env_inner:ident) => {{
         cfg_if::cfg_if! {
             if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-                let tx_ro = $env_inner.tx_ro()?;
-                let tables = $env_inner.open_tables(tx_ro)?;
-                (tx_ro, tables)
+                $env_inner.tx_ro()?
             } else {
-                (thread_local($env), thread_local($env))
+                thread_local($env)
             }
         }
     }};
 }
 
-/// Access the values set with [`set_tx_ro_and_tables`].
+/// Same as [`set_tx_ro`] but for the variable holding `impl Tables`.
+macro_rules! set_tables {
+    ($env:ident, $env_inner:ident, $tx_ro:ident) => {{
+        cfg_if::cfg_if! {
+            if #[cfg(all(feature = "redb", not(feature = "heed")))] {
+                $env_inner.open_tables(&$tx_ro)?
+            } else {
+                thread_local($env)
+            }
+        }
+    }};
+}
+
+/// Access the values set with [`set_tx_ro`] and [`set_tables`].
 macro_rules! get_tx_ro_and_tables {
     ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
         cfg_if::cfg_if! {
             if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-                ($tx_ro, $tables)
+                (&$tx_ro, &$tables)
             } else {
                 let tx_ro = $tx_ro.get_or_try(|| $env_inner.tx_ro())?;
                 let tables = $tables.get_or_try(|| $env_inner.open_tables(tx_ro))?;
@@ -357,7 +375,8 @@ fn block_extended_header_in_range(
     range: std::ops::Range<BlockHeight>,
 ) -> ResponseResult {
     let env_inner = env.env_inner();
-    let (tx_ro, tables) = set_tx_ro_and_tables!(env, env_inner);
+    let tx_ro = set_tx_ro!(env, env_inner);
+    let tables = set_tables!(env, env_inner, tx_ro);
 
     let vec = range
         .into_par_iter()
@@ -404,7 +423,8 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 #[inline]
 fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     let env_inner = env.env_inner();
-    let (tx_ro, tables) = set_tx_ro_and_tables!(env, env_inner);
+    let tx_ro = set_tx_ro!(env, env_inner);
+    let tables = set_tables!(env, env_inner, tx_ro);
 
     // -> Result<(AmountIndex, OutputOnChain), RuntimeError>
     let inner_map = |amount, amount_index| {
@@ -465,7 +485,8 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
 #[inline]
 fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
     let env_inner = env.env_inner();
-    let (tx_ro, tables) = set_tx_ro_and_tables!(env, env_inner);
+    let tx_ro = set_tx_ro!(env, env_inner);
+    let tables = set_tables!(env, env_inner, tx_ro);
 
     let map = amounts
         .into_par_iter()
@@ -491,7 +512,8 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 #[inline]
 fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
     let env_inner = env.env_inner();
-    let (tx_ro, tables) = set_tx_ro_and_tables!(env, env_inner);
+    let tx_ro = set_tx_ro!(env, env_inner);
+    let tables = set_tables!(env, env_inner, tx_ro);
 
     let key_image_exists = |key_image| {
         let (tx_ro, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
