@@ -2,6 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 
+use cuprate_helper::map::u64_to_timelock;
 use cuprate_types::OutputOnChain;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
 use monero_serai::{transaction::Timelock, H};
@@ -27,7 +28,7 @@ pub(crate) fn output_to_output_on_chain(
         .output_flags
         .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
     {
-        Timelock::Time(table_tx_unlock_time.get(&output.tx_idx)?)
+        u64_to_timelock(table_tx_unlock_time.get(&output.tx_idx)?)
     } else {
         Timelock::None
     };

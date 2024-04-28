@@ -638,6 +638,7 @@ dependencies = [
  "dirs",
  "futures",
  "libc",
+ "monero-serai",
  "rayon",
  "tokio",
  "windows",
