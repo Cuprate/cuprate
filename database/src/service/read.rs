@@ -29,10 +29,7 @@ use crate::{
     config::ReaderThreads,
     constants::DATABASE_CORRUPT_MSG,
     error::RuntimeError,
-    free::{
-        output_to_output_on_chain, output_v1_or_v2_to_output_on_chain,
-        rct_output_to_output_on_chain,
-    },
+    free::{output_to_output_on_chain, rct_output_to_output_on_chain},
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::{cumulative_generated_coins, top_block_height},
@@ -480,10 +477,12 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
     let tables = set_tables!(env, env_inner, tx_ro);
 
     // Cache the amount of RCT outputs once.
-    let (_, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
     // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
     #[allow(clippy::cast_possible_truncation)]
-    let num_rct_outputs = tables.rct_outputs().len()? as usize;
+    let num_rct_outputs = get_tx_ro_and_tables!(env_inner, tx_ro, tables)
+        .1
+        .rct_outputs()
+        .len()? as usize;
 
     let map = amounts
         .into_par_iter()
