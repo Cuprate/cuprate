@@ -5,16 +5,17 @@
 use cuprate_helper::map::u64_to_timelock;
 use cuprate_types::OutputOnChain;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
-use monero_serai::{transaction::Timelock, H};
+use monero_serai::{transaction::Timelock, Commitment, H};
 
 use crate::{
     tables::{Tables, TxUnlockTime},
-    types::{Amount, Output, OutputFlags},
+    types::{Amount, Output, OutputFlags, RctOutput},
     DatabaseRo, RuntimeError,
 };
 
 //---------------------------------------------------------------------------------------------------- Free functions
-/// Map a [`crate::types::Output`] to a [`cuprate_types::OutputOnChain`].
+/// Map an [`Output`] to a [`cuprate_types::OutputOnChain`].
+#[inline]
 pub(crate) fn output_to_output_on_chain(
     output: &Output,
     amount: Amount,
@@ -39,6 +40,43 @@ pub(crate) fn output_to_output_on_chain(
 
     Ok(OutputOnChain {
         height: u64::from(output.height),
+        time_lock,
+        key,
+        commitment,
+    })
+}
+
+/// Map an [`RctOutput`] to a [`cuprate_types::OutputOnChain`].
+///
+/// # Panics
+/// This function will panic if `rct_output`'s `commitment` fails to decompress into a valid [`EdwardsPoint`].
+#[inline]
+pub(crate) fn rct_output_to_output_on_chain(
+    rct_output: &RctOutput,
+    amount: Amount,
+    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
+) -> Result<OutputOnChain, RuntimeError> {
+    // INVARIANT: Commitments stored are valid when stored by the database.
+    let commitment = CompressedEdwardsY::from_slice(&rct_output.commitment)
+        .unwrap()
+        .decompress()
+        .unwrap();
+
+    let time_lock = if rct_output
+        .output_flags
+        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
+    {
+        u64_to_timelock(table_tx_unlock_time.get(&rct_output.tx_idx)?)
+    } else {
+        Timelock::None
+    };
+
+    let key = CompressedEdwardsY::from_slice(&rct_output.key)
+        .map(|y| y.decompress())
+        .unwrap_or(None);
+
+    Ok(OutputOnChain {
+        height: u64::from(rct_output.height),
         time_lock,
         key,
         commitment,

@@ -29,12 +29,15 @@ use crate::{
     config::ReaderThreads,
     constants::DATABASE_CORRUPT_MSG,
     error::RuntimeError,
-    free::output_to_output_on_chain,
+    free::{
+        output_to_output_on_chain, output_v1_or_v2_to_output_on_chain,
+        rct_output_to_output_on_chain,
+    },
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::{cumulative_generated_coins, top_block_height},
         key_image::key_image_exists,
-        output::get_output,
+        output::{get_output, get_rct_output},
     },
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
     tables::{BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, Tables},
@@ -431,15 +434,26 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
     let inner_map = |amount, amount_index| {
         let (tx_ro, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
 
-        let pre_rct_output_id = PreRctOutputId {
-            amount,
-            amount_index,
-        };
+        if amount == 0 {
+            // v2 transactions.
+            let rct_output = get_rct_output(&amount_index, tables.rct_outputs())?;
+            let output_on_chain =
+                rct_output_to_output_on_chain(&rct_output, amount, tables.tx_unlock_time())?;
 
-        let output = get_output(&pre_rct_output_id, tables.outputs())?;
-        let output_on_chain = output_to_output_on_chain(&output, amount, tables.tx_unlock_time())?;
+            Ok((amount_index, output_on_chain))
+        } else {
+            // v1 transactions.
+            let pre_rct_output_id = PreRctOutputId {
+                amount,
+                amount_index,
+            };
 
-        Ok((amount_index, output_on_chain))
+            let output = get_output(&pre_rct_output_id, tables.outputs())?;
+            let output_on_chain =
+                output_to_output_on_chain(&output, amount, tables.tx_unlock_time())?;
+
+            Ok((amount_index, output_on_chain))
+        }
     };
 
     let map = map
@@ -465,19 +479,31 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
     let tx_ro = set_tx_ro!(env, env_inner);
     let tables = set_tables!(env, env_inner, tx_ro);
 
+    // Cache the amount of RCT outputs once.
+    let (_, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
+    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
+    #[allow(clippy::cast_possible_truncation)]
+    let num_rct_outputs = tables.rct_outputs().len()? as usize;
+
     let map = amounts
         .into_par_iter()
         .map(|amount| {
             let (tx_ro, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
 
-            match tables.num_outputs().get(&amount) {
-                // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-                #[allow(clippy::cast_possible_truncation)]
-                Ok(count) => Ok((amount, count as usize)),
-                // If we get a request for an `amount` that doesn't exist,
-                // we return `0` instead of an error.
-                Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),
-                Err(e) => Err(e),
+            if amount == 0 {
+                // v2 transactions.
+                Ok((amount, num_rct_outputs))
+            } else {
+                // v1 transactions.
+                match tables.num_outputs().get(&amount) {
+                    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
+                    #[allow(clippy::cast_possible_truncation)]
+                    Ok(count) => Ok((amount, count as usize)),
+                    // If we get a request for an `amount` that doesn't exist,
+                    // we return `0` instead of an error.
+                    Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),
+                    Err(e) => Err(e),
+                }
             }
         })
         .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
