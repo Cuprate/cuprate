@@ -44,7 +44,7 @@ thread_local = { workspace = true }
 rayon        = { workspace = true, optional = true }
 
 # Optional features.
-heed  = { version = "0.20.0", optional = true }
+heed  = { version = "0.20.0", features = ["read-txn-no-tls"], optional = true }
 redb  = { version = "2.1.0", optional = true }
 serde = { workspace = true, optional = true }
 
