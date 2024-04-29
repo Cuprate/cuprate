@@ -260,9 +260,22 @@ macro_rules! get_tables {
                         // then 1 transaction could be used to open multiple tables, then sent to
                         // other threads - this would be a soundness hole against `Sync`.
                         //
+                        // `&T` is only `Send` if `T: Sync`.
+                        //
+                        // `heed::RoTxn: !Sync`, therefore our table
+                        // holding `&heed::RoTxn` must NOT be `Send`.
+                        //
+                        // <https://doc.rust-lang.org/std/marker/trait.Sync.html>
+                        // <https://doc.rust-lang.org/nomicon/send-and-sync.html>
+                        //
                         // Instead, we are unsafely using `UnsafeSendable` in `service`'s reader
                         // thread-pool as we are pairing our usage with `ThreadLocal` - only 1 thread
                         // will ever access a transaction at a time. This is an INVARIANT.
+                        //
+                        // A `Mutex` was considered but:
+                        // - It is less performant
+                        // - It isn't technically needed for safety in our use-case
+                        // - It causes `DatabaseIter` function return issues as there is a MutexGuard object
                         //
                         // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581684698>
                         Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
