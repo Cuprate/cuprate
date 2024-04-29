@@ -30,7 +30,7 @@ use std::{num::NonZeroUsize, sync::OnceLock};
 /// # TODO
 /// We could test around with different algorithms.
 /// Calling `heed::Env::resize` is surprisingly fast,
-/// around `0.0000082s` on my machine. We could probably
+/// around 8.2µs on my machine. We could probably
 /// get away with smaller and more frequent resizes.
 /// **With the caveat being we are taking a `WriteGuard` to a `RwLock`.**
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
@@ -133,7 +133,7 @@ pub fn page_size() -> NonZeroUsize {
 /// // Ridiculous large numbers panic.
 /// monero(usize::MAX);
 /// ```
-pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
+fn monero(current_size_bytes: usize) -> NonZeroUsize {
     /// The exact expression used by `monerod`
     /// when calculating how many bytes to add.
     ///
@@ -189,7 +189,7 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
 /// // Ridiculous large numbers panic.
 /// fixed_bytes(1, usize::MAX);
 /// ```
-pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize {
+fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize {
     let page_size = page_size();
     let new_size_bytes = current_size_bytes + add_bytes;
 
@@ -251,7 +251,7 @@ pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize 
 /// // Ridiculous large numbers panic.
 /// percent(usize::MAX, 1.001);
 /// ```
-pub fn percent(current_size_bytes: usize, percent: f32) -> NonZeroUsize {
+fn percent(current_size_bytes: usize, percent: f32) -> NonZeroUsize {
     // Guard against bad floats.
     use std::num::FpCategory;
     let percent = match percent.classify() {
