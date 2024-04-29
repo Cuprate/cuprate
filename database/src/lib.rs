@@ -273,3 +273,6 @@ pub mod service;
 //---------------------------------------------------------------------------------------------------- Private
 #[cfg(test)]
 pub(crate) mod tests;
+
+#[cfg(feature = "service")] // only needed in `service` for now
+pub(crate) mod unsafe_sendable;
