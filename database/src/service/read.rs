@@ -241,6 +241,39 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
     ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get())
 }
 
+/// Depending on the backend, the table type will need `UnsafeSendable`.
+///
+/// This macro branches on the backend and uses the appropriate type.
+/// See the below `SAFETY` comment for more info.
+macro_rules! get_tables {
+    ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
+        cfg_if::cfg_if! {
+            if #[cfg(all(feature = "redb", not(feature = "heed")))] {
+                $tables.get_or_try(|| $env_inner.open_tables($tx_ro))
+            } else {
+                $tables.get_or_try(|| {
+                    #[allow(clippy::significant_drop_in_scrutinee)]
+                    match $env_inner.open_tables($tx_ro) {
+                        // SAFETY:
+                        // `heed`'s transactions are `Send` but `HeedTableRo` contains a `&`
+                        // to the transaction, as such, if `Send` were implemented on `HeedTableRo`
+                        // then 1 transaction could be used to open multiple tables, then sent to
+                        // other threads - this would be a soundness hole against `Sync`.
+                        //
+                        // Instead, we are unsafely using `UnsafeSendable` in `service`'s reader
+                        // thread-pool as we are pairing our usage with `ThreadLocal` - only 1 thread
+                        // will ever access a transaction at a time. This is an INVARIANT.
+                        //
+                        // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581684698>
+                        Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
+                        Err(e) => Err(e),
+                    }
+                })
+            }
+        }
+    }};
+}
+
 //---------------------------------------------------------------------------------------------------- Handler functions
 // These are the actual functions that do stuff according to the incoming [`Request`].
 //
@@ -299,7 +332,7 @@ fn block_extended_header_in_range(
         .into_par_iter()
         .map(|block_height| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
             get_block_extended_header_from_height(&block_height, tables)
         })
         .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
@@ -347,7 +380,8 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
     // -> Result<(AmountIndex, OutputOnChain), RuntimeError>
     let inner_map = |amount, amount_index| {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-        let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
+        // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
         if amount == 0 {
             // v2 transactions.
@@ -407,7 +441,8 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         .into_par_iter()
         .map(|amount| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
+            // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
             if amount == 0 {
                 // v2 transactions.
@@ -439,7 +474,8 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
 
     let key_image_exists = |key_image| {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-        let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+        // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
         key_image_exists(&key_image, tables.key_images())
     };
 
