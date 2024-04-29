@@ -49,7 +49,7 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
     pub(super) tx_rw: &'tx RefCell<heed::RwTxn<'env>>,
 }
 
-#[allow(clippy::non_send_fields_in_send_ty)]
+#[allow(clippy::non_send_fields_in_send_ty)] // false positive? <https://github.com/rust-lang/rust-clippy/issues/8045>
 /// SAFETY: 2 invariants for safety:
 ///
 /// 1. `cuprate_database`'s Cargo.toml enables a feature
@@ -62,12 +62,7 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
 ///
 /// This is required as in `crate::service` we must put our transactions and
 /// tables inside `ThreadLocal`'s to use across multiple threads.
-unsafe impl<T: Table> Send for HeedTableRo<'_, T>
-where
-    T::Key: Send,
-    T::Value: Send,
-{
-}
+unsafe impl<T: Table> Send for HeedTableRo<'_, T> {}
 
 //---------------------------------------------------------------------------------------------------- Shared functions
 // FIXME: we cannot just deref `HeedTableRw -> HeedTableRo` and
