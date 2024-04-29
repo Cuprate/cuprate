@@ -154,16 +154,16 @@ mod test {
                 block_blobs: 3,
                 block_heights: 3,
                 key_images: 69,
-                num_outputs: 38,
+                num_outputs: 41,
                 pruned_tx_blobs: 0,
                 prunable_hashes: 0,
-                outputs: 107,
+                outputs: 111,
                 prunable_tx_blobs: 0,
-                rct_outputs: 6,
-                tx_blobs: 5,
-                tx_ids: 5,
-                tx_heights: 5,
-                tx_unlock_time: 0,
+                rct_outputs: 8,
+                tx_blobs: 8,
+                tx_ids: 8,
+                tx_heights: 8,
+                tx_unlock_time: 3,
             }
             .assert(&tables);
 
