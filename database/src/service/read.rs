@@ -227,102 +227,18 @@ fn map_request(
 }
 
 //---------------------------------------------------------------------------------------------------- Thread Local
-/// `heed`'s transactions and tables are not `Sync`, so we cannot use
+/// Q: Why does this exist?
+///
+/// A1: `heed`'s transactions and tables are not `Sync`, so we cannot use
 /// them with rayon, however, we set a feature such that they are `Send`.
 ///
-/// Thus, before using rayon, we put the tx/table inside a
-/// `ThreadLocal` which gives access to those threads.
+/// A2: When sending to rayon, we want to ensure each read transaction
+/// is only being used by 1 thread only to scale reads
 ///
 /// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576762346>
 #[inline]
 fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
     ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get())
-}
-
-/// Only `heed` requires the above [`thread_local()`] function,
-/// as `redb`'s transactions and tables are `Send + Sync`.
-///
-/// Thus, wrapping them in `ThreadLocal` is wasteful.
-///
-/// This macro branches depending on what backend we're using
-/// and either returns `ThreadLocal<T>` or the T directly.
-///
-/// An imaginary signature would look something like:
-/// ```ignore
-/// fn set_tx_ro() -> if heed {
-///     ThreadLocal<TxRo>
-/// } else {
-///     TxRo
-/// };
-/// ```
-///
-/// - See [`set_tables`] for the same thing but for `ThreadLocal<impl Tables>`
-/// - See [`get_tx_ro_and_tables`] for retrieving the output
-///
-/// # Note
-/// Note that this is _only_ needed when `Send`ing another thread,
-/// i.e. when using `rayon`. If the function handling the `Request`
-/// is single-threaded, normal `tx_ro()` and `open_tables()` can be used.
-///
-/// # Early return
-/// Note that this early returns with `?` from  whatever
-/// scope it was called from if `tx_ro()` errors.
-///
-/// # Example
-/// ```ignore
-/// // Outside scope, still single threaded.
-/// // Set the transaction and tables.
-/// let tx_ro = set_tx_ro!(env, env_inner);
-/// let tables = set_tables!(env, env_inner, tx_ro);
-///
-/// iter
-///     .into_par_iter() // <- we've entered `rayon` scope
-///     .map(|_| {
-///         // Access the outside scope's `tx_ro` and `tables`.
-///         // If needed, this will initialize some `ThreadLocal`'s.
-///         let (tx_ro, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
-///
-///         /* do rayon stuff */
-///     });
-/// ```
-macro_rules! set_tx_ro {
-    ($env:ident, $env_inner:ident) => {{
-        cfg_if::cfg_if! {
-            if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-                $env_inner.tx_ro()?
-            } else {
-                thread_local($env)
-            }
-        }
-    }};
-}
-
-/// Same as [`set_tx_ro`] but for the variable holding `impl Tables`.
-macro_rules! set_tables {
-    ($env:ident, $env_inner:ident, $tx_ro:ident) => {{
-        cfg_if::cfg_if! {
-            if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-                $env_inner.open_tables(&$tx_ro)?
-            } else {
-                thread_local($env)
-            }
-        }
-    }};
-}
-
-/// Access the values set with [`set_tx_ro`] and [`set_tables`].
-macro_rules! get_tx_ro_and_tables {
-    ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
-        cfg_if::cfg_if! {
-            if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-                (&$tx_ro, &$tables)
-            } else {
-                let tx_ro = $tx_ro.get_or_try(|| $env_inner.tx_ro())?;
-                let tables = $tables.get_or_try(|| $env_inner.open_tables(tx_ro))?;
-                (tx_ro, tables)
-            }
-        }
-    }};
 }
 
 //---------------------------------------------------------------------------------------------------- Handler functions
@@ -376,13 +292,14 @@ fn block_extended_header_in_range(
     range: std::ops::Range<BlockHeight>,
 ) -> ResponseResult {
     let env_inner = env.env_inner();
-    let tx_ro = set_tx_ro!(env, env_inner);
-    let tables = set_tables!(env, env_inner, tx_ro);
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
 
     let vec = range
         .into_par_iter()
         .map(|block_height| {
-            let (tx_ro, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
             get_block_extended_header_from_height(&block_height, tables)
         })
         .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
@@ -424,12 +341,13 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 #[inline]
 fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     let env_inner = env.env_inner();
-    let tx_ro = set_tx_ro!(env, env_inner);
-    let tables = set_tables!(env, env_inner, tx_ro);
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
 
     // -> Result<(AmountIndex, OutputOnChain), RuntimeError>
     let inner_map = |amount, amount_index| {
-        let (tx_ro, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
+        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+        let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
 
         if amount == 0 {
             // v2 transactions.
@@ -473,21 +391,23 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
 #[inline]
 fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
     let env_inner = env.env_inner();
-    let tx_ro = set_tx_ro!(env, env_inner);
-    let tables = set_tables!(env, env_inner, tx_ro);
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
 
     // Cache the amount of RCT outputs once.
     // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
     #[allow(clippy::cast_possible_truncation)]
-    let num_rct_outputs = get_tx_ro_and_tables!(env_inner, tx_ro, tables)
-        .1
-        .rct_outputs()
-        .len()? as usize;
+    let num_rct_outputs = {
+        let tx_ro = env_inner.tx_ro()?;
+        let tables = env_inner.open_tables(&tx_ro)?;
+        tables.rct_outputs().len()? as usize
+    };
 
     let map = amounts
         .into_par_iter()
         .map(|amount| {
-            let (tx_ro, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
 
             if amount == 0 {
                 // v2 transactions.
@@ -514,11 +434,12 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 #[inline]
 fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
     let env_inner = env.env_inner();
-    let tx_ro = set_tx_ro!(env, env_inner);
-    let tables = set_tables!(env, env_inner, tx_ro);
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
 
     let key_image_exists = |key_image| {
-        let (tx_ro, tables) = get_tx_ro_and_tables!(env_inner, tx_ro, tables);
+        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+        let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
         key_image_exists(&key_image, tables.key_images())
     };
 
