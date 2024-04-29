@@ -6,7 +6,7 @@ use std::{
     cell::RefCell,
     fmt::Debug,
     ops::RangeBounds,
-    sync::{Mutex, RwLockReadGuard},
+    sync::RwLockReadGuard,
 };
 
 use crate::{
@@ -36,7 +36,7 @@ pub(super) struct HeedTableRo<'tx, T: Table> {
     /// An already opened database table.
     pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
-    pub(super) tx_ro: Mutex<&'tx heed::RoTxn<'tx>>,
+    pub(super) tx_ro: &'tx heed::RoTxn<'tx>,
 }
 
 /// An opened read/write database associated with a transaction.
@@ -48,21 +48,6 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
     /// The associated read/write transaction that opened this table.
     pub(super) tx_rw: &'tx RefCell<heed::RwTxn<'env>>,
 }
-
-#[allow(clippy::non_send_fields_in_send_ty)] // false positive? <https://github.com/rust-lang/rust-clippy/issues/8045>
-/// SAFETY: 2 invariants for safety:
-///
-/// 1. `cuprate_database`'s Cargo.toml enables a feature
-/// for `heed` that turns on the `MDB_NOTLS` flag for LMDB.
-/// This makes read transactions `Send`, but only if that flag is enabled.
-///
-/// 2. Our `tx_ro` is wrapped in Mutex, as `&T: Send` only if `T: Sync`.
-/// This is what is happening as we have `&TxRw`, not `TxRw`.
-/// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1582189108>
-///
-/// This is required as in `crate::service` we must put our transactions and
-/// tables inside `ThreadLocal`'s to use across multiple threads.
-unsafe impl<T: Table> Send for HeedTableRo<'_, T> {}
 
 //---------------------------------------------------------------------------------------------------- Shared functions
 // FIXME: we cannot just deref `HeedTableRw -> HeedTableRo` and
@@ -125,10 +110,7 @@ impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
     where
         Range: RangeBounds<T::Key> + 'a,
     {
-        Ok(self
-            .db
-            .range(&self.tx_ro.lock().unwrap(), &range)?
-            .map(|res| Ok(res?.1)))
+        Ok(self.db.range(self.tx_ro, &range)?.map(|res| Ok(res?.1)))
     }
 
     #[inline]
@@ -136,30 +118,21 @@ impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
         &self,
     ) -> Result<impl Iterator<Item = Result<(T::Key, T::Value), RuntimeError>> + '_, RuntimeError>
     {
-        Ok(self
-            .db
-            .iter(&self.tx_ro.lock().unwrap())?
-            .map(|res| Ok(res?)))
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?)))
     }
 
     #[inline]
     fn keys(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Key, RuntimeError>> + '_, RuntimeError> {
-        Ok(self
-            .db
-            .iter(&self.tx_ro.lock().unwrap())?
-            .map(|res| Ok(res?.0)))
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?.0)))
     }
 
     #[inline]
     fn values(
         &self,
     ) -> Result<impl Iterator<Item = Result<T::Value, RuntimeError>> + '_, RuntimeError> {
-        Ok(self
-            .db
-            .iter(&self.tx_ro.lock().unwrap())?
-            .map(|res| Ok(res?.1)))
+        Ok(self.db.iter(self.tx_ro)?.map(|res| Ok(res?.1)))
     }
 }
 
@@ -167,27 +140,27 @@ impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
 impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
-        get::<T>(&self.db, &self.tx_ro.lock().unwrap(), key)
+        get::<T>(&self.db, self.tx_ro, key)
     }
 
     #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
-        len::<T>(&self.db, &self.tx_ro.lock().unwrap())
+        len::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        first::<T>(&self.db, &self.tx_ro.lock().unwrap())
+        first::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        last::<T>(&self.db, &self.tx_ro.lock().unwrap())
+        last::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn is_empty(&self) -> Result<bool, RuntimeError> {
-        is_empty::<T>(&self.db, &self.tx_ro.lock().unwrap())
+        is_empty::<T>(&self.db, self.tx_ro)
     }
 }
 
