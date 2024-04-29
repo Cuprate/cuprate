@@ -6,7 +6,7 @@ use std::{
     fmt::Debug,
     num::NonZeroUsize,
     ops::Deref,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
@@ -312,7 +312,7 @@ where
             db: self
                 .open_database(tx_ro, Some(T::NAME))?
                 .expect(PANIC_MSG_MISSING_TABLE),
-            tx_ro,
+            tx_ro: Mutex::new(tx_ro),
         })
     }
 
