@@ -89,6 +89,19 @@ pub fn add_block(
     }
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
+    // Add the miner transaction first.
+    add_tx(
+        &TransactionVerificationData {
+            tx: block.block.miner_tx.clone(),
+            tx_blob: block.block.miner_tx.serialize(),
+            tx_weight: block.block.miner_tx.weight(),
+            fee: 0,
+            tx_hash: block.block.miner_tx.hash(),
+        },
+        &chain_height,
+        tables,
+    )?;
+
     for tx_verification_data in &block.txs {
         add_tx(tx_verification_data, &chain_height, tables)?;
     }
