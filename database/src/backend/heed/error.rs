@@ -49,10 +49,9 @@ impl From<heed::Error> for crate::InitError {
                 | E2::Panic => Self::Unknown(Box::new(mdb_error)),
             },
 
-            E1::InvalidDatabaseTyping
-            | E1::BadOpenOptions { .. }
-            | E1::Encoding(_)
-            | E1::Decoding(_) => Self::Unknown(Box::new(error)),
+            E1::BadOpenOptions { .. } | E1::Encoding(_) | E1::Decoding(_) => {
+                Self::Unknown(Box::new(error))
+            }
         }
     }
 }
@@ -139,11 +138,9 @@ impl From<heed::Error> for crate::RuntimeError {
             },
 
             // Only if we write incorrect code.
-            E1::InvalidDatabaseTyping
-            | E1::DatabaseClosing
-            | E1::BadOpenOptions { .. }
-            | E1::Encoding(_)
-            | E1::Decoding(_) => panic!("fix the database code! {error:#?}"),
+            E1::DatabaseClosing | E1::BadOpenOptions { .. } | E1::Encoding(_) | E1::Decoding(_) => {
+                panic!("fix the database code! {error:#?}")
+            }
         }
     }
 }
