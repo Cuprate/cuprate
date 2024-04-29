@@ -77,7 +77,9 @@ pub struct Client<Z: NetworkZone> {
     /// The [`JoinHandle`] of the spawned timeout monitor task.
     timeout_handle: JoinHandle<Result<(), tower::BoxError>>,
 
+    /// The semaphore that limits the requests sent to the peer.
     semaphore: PollSemaphore,
+    /// A permit for the semaphore, will be some after `poll_ready` returns ready.
     permit: Option<OwnedSemaphorePermit>,
 
     /// The error slot shared between the [`Client`] and [`Connection`](connection::Connection).

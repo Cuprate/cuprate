@@ -91,6 +91,9 @@ impl<Z: NetworkZone> PeerList<Z> {
         block_needed: Option<u64>,
         must_keep_peers: &HashSet<Z::Addr>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
+        // Take a random peer and see if it's in the list of must_keep_peers, if it is try again.
+        // TODO: improve this
+
         for _ in 0..3 {
             if let Some(needed_height) = block_needed {
                 let (_, addresses_with_block) = self.pruning_seeds.iter().find(|(seed, _)| {
