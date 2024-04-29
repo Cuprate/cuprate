@@ -29,6 +29,7 @@ fn file_name(version: &str) -> (String, String) {
         ("linux", "x64" | "x86_64") => format!("monero-linux-x64-{version}.tar.bz2"),
         ("linux", "x86") => format!("monero-linux-x86-{version}.tar.bz2"),
         ("macos", "x64" | "x86_64") => format!("monero-mac-x64-{version}.tar.bz2"),
+        ("macos", "aarch64") => format!("monero-mac-armv8-{version}.tar.bz2"),
         _ => panic!("Can't get monerod for {OS}, {ARCH}."),
     };
 
@@ -42,6 +43,7 @@ fn file_name(version: &str) -> (String, String) {
         ("macos", "x64" | "x86_64") => {
             format!("monero-x86_64-apple-darwin11-{version}")
         }
+        ("macos", "aarch64") => format!("monero-aarch64-apple-darwin11-{version}"),
         _ => panic!("Can't get monerod for {OS}, {ARCH}."),
     };
 

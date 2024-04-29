@@ -156,15 +156,15 @@ mod test {
             );
             assert_eq!(
                 cumulative_generated_coins(&0, tables.block_infos()).unwrap(),
-                13_138_270_467_918,
+                14_535_350_982_449,
             );
             assert_eq!(
                 cumulative_generated_coins(&1, tables.block_infos()).unwrap(),
-                16_542_044_490_081,
+                17_939_125_004_612,
             );
             assert_eq!(
                 cumulative_generated_coins(&2, tables.block_infos()).unwrap(),
-                17_142_044_490_081,
+                18_539_125_004_612,
             );
             assert!(matches!(
                 cumulative_generated_coins(&3, tables.block_infos()),
