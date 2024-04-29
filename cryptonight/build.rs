@@ -32,7 +32,10 @@ fn main() {
         //    29 | extern int ftime (struct timeb *__timebuf)
         //       |            ^~~~~
         // This flag doesn't work on MSVC and breaks CI.
-        .flag_if_supported("-Wno-deprecated-declarations");
+        .flag_if_supported("-Wno-deprecated-declarations")
+        // `#include <boost>` isn't found without this in macOS CI.
+        // <https://github.com/Cuprate/cuprate/pull/116>
+        .flag_if_supported("-I/opt/homebrew/include");
 
     // Optimization flags are automatically added.
     // https://docs.rs/cc/latest/cc/struct.Build.html#method.opt_level

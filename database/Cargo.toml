@@ -44,10 +44,8 @@ thread_local = { workspace = true }
 rayon        = { workspace = true, optional = true }
 
 # Optional features.
-# SAFETY: Do not remove the `read-txn-no-tls` feature,
-# required for `heed`'s read transaction to be `Send`.
-heed  = { version = "0.20.0-alpha.9", features = ["read-txn-no-tls"], optional = true }
-redb  = { version = "2.0.0", optional = true }
+heed  = { version = "0.20.0", optional = true }
+redb  = { version = "2.1.0", optional = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
