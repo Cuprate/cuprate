@@ -57,6 +57,7 @@ jobs:
             shell: bash
           - os: ubuntu-latest
             shell: bash
+
     defaults:
       run:
         shell: ${{ matrix.shell }}
@@ -103,6 +104,7 @@ jobs:
       run: |
         rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy --no-self-update
         rustup default stable-x86_64-pc-windows-gnu
+
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
 
@@ -114,6 +116,7 @@ jobs:
       run: |
         cargo test --all-features --workspace
         cargo test --package cuprate-database --no-default-features --features redb --features service
+        
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
       run: cargo build --all-features --all-targets --workspace
