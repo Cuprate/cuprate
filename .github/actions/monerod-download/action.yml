@@ -49,6 +49,7 @@ runs:
           "Linux X64") FILE=monero-linux-x64-${{ inputs.version }}.tar.bz2 ;;
           "Linux X86") FILE=monero-linux-x86-${{ inputs.version }}.tar.bz2 ;;
           "macOS X64") FILE=monero-mac-x64-${{ inputs.version }}.tar.bz2 ;;
+          "macOS ARM64") FILE=monero-mac-armv8-${{ inputs.version }}.tar.bz2 ;;
           *) exit 1 ;;
         esac
         curl -O -L https://downloads.getmonero.org/cli/$FILE

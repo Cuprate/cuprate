@@ -77,7 +77,7 @@ jobs:
             ~/.rustup
           key: ${{ matrix.os }}
 
-      - name: Spawn monerod
+      - name: Download monerod
         uses: ./.github/actions/monerod-download
 
       # Packages other than `Boost` used by `Monero` are listed here.
