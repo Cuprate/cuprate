@@ -128,7 +128,6 @@ pub fn add_tx(
     };
 
     let mut amount_indices = Vec::with_capacity(tx.prefix.outputs.len());
-    let tx_idx = get_num_tx(tables.tx_ids())?.saturating_sub(1);
 
     for (i, output) in tx.prefix.outputs.iter().enumerate() {
         let key = *output.key.as_bytes();
@@ -151,7 +150,7 @@ pub fn add_tx(
                         key,
                         height,
                         output_flags,
-                        tx_idx,
+                        tx_idx: tx_id,
                         commitment,
                     },
                     tables.rct_outputs_mut(),
@@ -164,7 +163,7 @@ pub fn add_tx(
                         key,
                         height,
                         output_flags,
-                        tx_idx,
+                        tx_idx: tx_id,
                     },
                     tables,
                 )?
@@ -178,7 +177,7 @@ pub fn add_tx(
                     key,
                     height,
                     output_flags,
-                    tx_idx,
+                    tx_idx: tx_id,
                     commitment,
                 },
                 tables.rct_outputs_mut(),
