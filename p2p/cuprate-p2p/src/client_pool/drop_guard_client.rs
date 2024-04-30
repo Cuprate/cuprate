@@ -6,7 +6,7 @@ use std::{
 
 use monero_p2p::NetworkZone;
 
-use crate::peer_set::ClientPool;
+use crate::client_pool::ClientPool;
 
 pub struct ClientPoolGuard<N: NetworkZone> {
     pub(super) pool: Arc<ClientPool<N>>,

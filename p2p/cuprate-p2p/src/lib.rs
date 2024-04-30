@@ -10,9 +10,9 @@
 
 #![allow(dead_code)]
 
+mod client_pool;
 pub mod config;
 pub mod connection_maintainer;
 mod constants;
-mod peer_set;
 
 pub use config::P2PConfig;

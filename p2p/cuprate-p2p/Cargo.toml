@@ -16,7 +16,7 @@ cuprate-helper = { path = "../../helper", features = ["asynch"] }
 monero-serai = { workspace = true, features = ["std"] }
 
 tower = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true, features = ["rt"] }
 rayon = { workspace = true }
 tokio-util = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync", "time"] }

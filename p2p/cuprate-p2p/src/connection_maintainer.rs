@@ -21,11 +21,11 @@ use monero_p2p::{
 };
 
 use crate::{
+    client_pool::ClientPool,
     config::P2PConfig,
     constants::{
         HANDSHAKE_TIMEOUT, MAX_SEED_CONNECTIONS, OUTBOUND_CONNECTION_TIMEOUT, PEER_FIND_TIMEOUT,
     },
-    peer_set::ClientPool,
 };
 
 enum OutboundConnectorError {
@@ -47,9 +47,9 @@ pub struct MakeConnectionRequest {
 ///
 /// This handles maintaining a minimum number of connections and making extra connections when needed, upto a maximum.
 pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
-    /// TODO.
+    /// The pool of currently connected peers.
     pub client_pool: Arc<ClientPool<N>>,
-    /// The channel that tells us to make new outbound connections
+    /// The channel that tells us to make new _extra_ outbound connections.
     pub make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
     /// The address book service
     pub address_book_svc: A,
@@ -58,7 +58,7 @@ pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
     /// A semaphore to keep the amount of outbound peers constant.
     pub outbound_semaphore: Arc<Semaphore>,
     /// The amount of peers we connected to because we needed more peers. If the `outbound_semaphore`
-    /// is full, and we need to connect to more peers for blocks ro because not enough peers are ready
+    /// is full, and we need to connect to more peers for blocks or because not enough peers are ready
     /// we add a permit to the semaphore and keep track here, upto a value in config.
     pub extra_peers: usize,
     /// The p2p config.
