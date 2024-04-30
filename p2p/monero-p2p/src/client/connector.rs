@@ -3,7 +3,7 @@
 //! This module handles connecting to peers and giving the sink/stream to the handshaker which will then
 //! perform a handshake and create a [`Client`].
 //!
-//! This is where outbound connections are crated.
+//! This is where outbound connections are created.
 //!
 use std::{
     future::Future,
@@ -23,7 +23,7 @@ use crate::{
 
 /// A request to connect to a peer.
 pub struct ConnectRequest<Z: NetworkZone> {
-    /// The peers address
+    /// The peer's address.
     pub addr: Z::Addr,
     /// A permit which will be held be the connection allowing you to set limits on the number of
     /// connections.

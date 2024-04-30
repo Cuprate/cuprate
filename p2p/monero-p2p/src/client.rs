@@ -32,7 +32,7 @@ use monero_pruning::PruningSeed;
 /// or a random u64 if not.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum InternalPeerID<A> {
-    /// A known address
+    /// A known address.
     KnownAddr(A),
     /// An unknown address (probably an inbound anonymity network connection).
     Unknown(u64),
@@ -42,7 +42,7 @@ impl<A: Display> Display for InternalPeerID<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             InternalPeerID::KnownAddr(addr) => addr.fmt(f),
-            InternalPeerID::Unknown(id) => f.write_str(&format!("Unknown, ID: {}", id)),
+            InternalPeerID::Unknown(id) => f.write_str(&format!("Unknown, ID: {id}")),
         }
     }
 }
@@ -79,7 +79,7 @@ pub struct Client<Z: NetworkZone> {
 
     /// The semaphore that limits the requests sent to the peer.
     semaphore: PollSemaphore,
-    /// A permit for the semaphore, will be some after `poll_ready` returns ready.
+    /// A permit for the semaphore, will be [`Some`] after `poll_ready` returns ready.
     permit: Option<OwnedSemaphorePermit>,
 
     /// The error slot shared between the [`Client`] and [`Connection`](connection::Connection).
@@ -137,9 +137,8 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             return Poll::Ready(Ok(()));
         }
 
-        let Some(permit) = ready!(self.semaphore.poll_acquire(cx)) else {
-            unreachable!("Client semaphore should not be closed!");
-        };
+        let permit = ready!(self.semaphore.poll_acquire(cx))
+            .expect("Client semaphore should not be closed!");
 
         self.permit = Some(permit);
 
@@ -147,9 +146,10 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
     }
 
     fn call(&mut self, request: PeerRequest) -> Self::Future {
-        let Some(permit) = self.permit.take() else {
-            panic!("poll_ready did not return ready before call to call")
-        };
+        let permit = self
+            .permit
+            .take()
+            .expect("poll_ready did not return ready before call to call");
 
         let (tx, rx) = oneshot::channel();
         let req = connection::ConnectionTaskRequest {

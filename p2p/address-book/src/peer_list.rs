@@ -104,25 +104,21 @@ impl<Z: NetworkZone> PeerList<Z> {
                 })?;
                 let n = r.gen_range(0..addresses_with_block.len());
                 let peer = addresses_with_block[n];
-                if must_keep_peers.contains(&peer) {
-                    continue;
+                if !must_keep_peers.contains(&peer) {
+                    return self.remove_peer(&peer);
                 }
+            }
+            let len = self.len();
 
-                return self.remove_peer(&peer);
-            } else {
-                let len = self.len();
-                if len == 0 {
-                    return None;
-                } else {
-                    let n = r.gen_range(0..len);
+            if len == 0 {
+                return None;
+            }
 
-                    let (&key, _) = self.peers.get_index(n).unwrap();
-                    if must_keep_peers.contains(&key) {
-                        continue;
-                    }
+            let n = r.gen_range(0..len);
 
-                    return self.remove_peer(&key);
-                }
+            let (&key, _) = self.peers.get_index(n).unwrap();
+            if !must_keep_peers.contains(&key) {
+                return self.remove_peer(&key);
             }
         }
 

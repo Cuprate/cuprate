@@ -105,7 +105,7 @@ impl<const N: usize> ByteArrayVec<N> {
 
     /// Splits the byte array vec into two at the given index.
     ///
-    /// Afterwards self contains elements [0, at), and the returned Bytes contains elements [at, len).
+    /// Afterwards self contains elements [0, at), and the returned [`ByteArrayVec`] contains elements [at, len).
     ///
     /// This is an O(1) operation that just increases the reference count and sets a few indices.
     ///
