@@ -1,6 +1,7 @@
 #  MIT License
 #
 #  Copyright (c) 2022-2023 Luke Parker
+#  Copyright (c) Cuprate developers
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -14,12 +15,12 @@
 #
 #  Initially taken from Serai Dex: https://github.com/serai-dex/serai/blob/b823413c9b7ae6747b9af99e18379cfc49f4271a/.github/actions/monero/action.yml.
 
-name: monero-regtest
-description: Spawns a regtest Monero daemon
+name: monerod-download
+description: Downloads the core Monero daemon
 
 inputs:
   version:
-    description: "Version to download and run"
+    description: "Version to download"
     required: false
     default: v0.18.3.1
 
@@ -42,7 +43,7 @@ runs:
         OS=${{ runner.os }}
         ARCH=${{ runner.arch }}
         # - Monero doesn't have macOS x86
-        # - GitHub CI doesn't have BSDs, or ARM Linux/macOS
+
         case "$OS $ARCH" in
           "Windows X64") FILE=monero-win-x64-${{ inputs.version }}.zip ;;
           "Windows X86") FILE=monero-win-x86-${{ inputs.version }}.zip ;;
