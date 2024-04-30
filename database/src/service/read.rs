@@ -245,11 +245,15 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
 ///
 /// This macro branches on the backend and uses the appropriate type.
 /// See the below `SAFETY` comment for more info.
+///
+/// # Notes
+/// This macro will early return the scope it is called from
+/// with an `Err(RuntimeError)` if there is a database error.
 macro_rules! get_tables {
     ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
         cfg_if::cfg_if! {
             if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-                $tables.get_or_try(|| $env_inner.open_tables($tx_ro))
+                $tables.get_or_try(|| $env_inner.open_tables($tx_ro))?
             } else {
                 $tables.get_or_try(|| {
                     #[allow(clippy::significant_drop_in_scrutinee)]
@@ -281,7 +285,7 @@ macro_rules! get_tables {
                         Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
                         Err(e) => Err(e),
                     }
-                })
+                })?.as_ref()
             }
         }
     }};
@@ -310,6 +314,7 @@ macro_rules! get_tables {
 /// [`ReadRequest::BlockExtendedHeader`].
 #[inline]
 fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
@@ -322,6 +327,7 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 /// [`ReadRequest::BlockHash`].
 #[inline]
 fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
@@ -337,16 +343,17 @@ fn block_extended_header_in_range(
     env: &ConcreteEnv,
     range: std::ops::Range<BlockHeight>,
 ) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
     let tables = thread_local(env);
 
+    // Collect results using `rayon`.
     let vec = range
         .into_par_iter()
         .map(|block_height| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?;
-            // let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+            let tables = get_tables!(env_inner, tx_ro, tables);
             get_block_extended_header_from_height(&block_height, tables)
         })
         .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
@@ -357,6 +364,7 @@ fn block_extended_header_in_range(
 /// [`ReadRequest::ChainHeight`].
 #[inline]
 fn chain_height(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
@@ -371,6 +379,7 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
 /// [`ReadRequest::GeneratedCoins`].
 #[inline]
 fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
@@ -387,15 +396,16 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 /// [`ReadRequest::Outputs`].
 #[inline]
 fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
     let tables = thread_local(env);
 
+    // The 2nd mapping function.
+    // This is pulled out from the below `map()` for readability.
     let inner_map = |amount, amount_index| -> Result<(AmountIndex, OutputOnChain), RuntimeError> {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-        // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
-        let tables = get_tables!(env_inner, tx_ro, tables)?;
-        // let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+        let tables = get_tables!(env_inner, tx_ro, tables);
 
         let id = PreRctOutputId {
             amount,
@@ -407,6 +417,7 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
         Ok((amount_index, output_on_chain))
     };
 
+    // Collect results using `rayon`.
     let map = map
         .into_par_iter()
         .map(|(amount, amount_index_set)| {
@@ -426,6 +437,7 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
 /// [`ReadRequest::NumberOutputsWithAmount`].
 #[inline]
 fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
     let tables = thread_local(env);
@@ -439,13 +451,12 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         tables.rct_outputs().len()? as usize
     };
 
+    // Collect results using `rayon`.
     let map = amounts
         .into_par_iter()
         .map(|amount| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?;
-            // let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+            let tables = get_tables!(env_inner, tx_ro, tables);
 
             if amount == 0 {
                 // v2 transactions.
@@ -471,15 +482,15 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 /// [`ReadRequest::CheckKIsNotSpent`].
 #[inline]
 fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
     let tables = thread_local(env);
 
+    // Key image check function.
     let key_image_exists = |key_image| {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-        let tables = get_tables!(env_inner, tx_ro, tables)?;
-        // let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-        // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
+        let tables = get_tables!(env_inner, tx_ro, tables);
         key_image_exists(&key_image, tables.key_images())
     };
 
@@ -487,6 +498,8 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
     // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
     // or similar instead of `bool` for clarity.
     // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>
+    //
+    // Collect results using `rayon`.
     match key_images
         .into_par_iter()
         .map(key_image_exists)
