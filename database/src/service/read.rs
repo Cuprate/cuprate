@@ -395,7 +395,7 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`ReadRequest::Outputs`].
 #[inline]
-fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -418,7 +418,7 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
     };
 
     // Collect results using `rayon`.
-    let map = map
+    let map = outputs
         .into_par_iter()
         .map(|(amount, amount_index_set)| {
             Ok((

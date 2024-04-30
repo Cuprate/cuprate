@@ -82,7 +82,26 @@ pub trait DatabaseIter<T: Table> {
 ///
 /// This is a read-only database table,
 /// write operations are defined in [`DatabaseRw`].
-pub trait DatabaseRo<T: Table> {
+///
+/// # Safety
+/// The table type that implements this MUST be `Send`.
+///
+/// However if the table holds a reference to a transaction:
+/// - only the transaction only has to be `Send`
+/// - the table cannot implement `Send`
+///
+/// For example:
+///
+/// `heed`'s transactions are `Send` but `HeedTableRo` contains a `&`
+/// to the transaction, as such, if `Send` were implemented on `HeedTableRo`
+/// then 1 transaction could be used to open multiple tables, then sent to
+/// other threads - this would be a soundness hole against `Sync`.
+///
+/// `&T` is only `Send` if `T: Sync`.
+///
+/// `heed::RoTxn: !Sync`, therefore our table
+/// holding `&heed::RoTxn` must NOT be `Send`.
+pub unsafe trait DatabaseRo<T: Table> {
     /// Get the value corresponding to a key.
     ///
     /// The returned value is _owned_.
