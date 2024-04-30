@@ -88,10 +88,6 @@ pub(crate) fn rct_output_to_output_on_chain(
 /// Map an [`PreRctOutputId`] to an [`OutputOnChain`].
 ///
 /// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
-///
-/// Note that this does not support post-RCT miner transactions,
-/// as those have non-zero amounts, which is how this function
-/// distinguishes pre & post-RCT outputs.
 pub(crate) fn id_to_output_on_chain(
     id: &PreRctOutputId,
     tables: &impl Tables,
