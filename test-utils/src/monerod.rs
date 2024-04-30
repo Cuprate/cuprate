@@ -93,7 +93,7 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
 }
 
 /// Finds the root of the repo by finding the `target` directory, this will work up from the current
-/// directory until it finds a `target` directory, then returns the directly that the target is contained
+/// directory until it finds a `target` directory, then returns the directory that the target is contained
 /// in.
 fn find_root() -> PathBuf {
     let mut current_dir = current_dir().unwrap();

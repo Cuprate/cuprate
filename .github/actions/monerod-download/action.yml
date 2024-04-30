@@ -22,7 +22,7 @@ inputs:
   version:
     description: "Version to download"
     required: false
-    default: v0.18.3.1
+    default: v0.18.3.3
 
 runs:
   using: "composite"
@@ -42,7 +42,6 @@ runs:
       run: |
         OS=${{ runner.os }}
         ARCH=${{ runner.arch }}
-        # - Monero doesn't have macOS x86
 
         case "$OS $ARCH" in
           "Windows X64") FILE=monero-win-x64-${{ inputs.version }}.zip ;;
