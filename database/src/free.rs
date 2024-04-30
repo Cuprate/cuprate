@@ -8,8 +8,9 @@ use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEd
 use monero_serai::{transaction::Timelock, Commitment, H};
 
 use crate::{
+    ops::output::{get_output, get_rct_output},
     tables::{Tables, TxUnlockTime},
-    types::{Amount, Output, OutputFlags, RctOutput},
+    types::{Amount, Output, OutputFlags, PreRctOutputId, RctOutput},
     DatabaseRo, RuntimeError,
 };
 
@@ -51,6 +52,7 @@ pub(crate) fn output_to_output_on_chain(
 /// # Panics
 /// This function will panic if `rct_output`'s `commitment` fails to decompress into a valid [`EdwardsPoint`].
 #[inline]
+#[allow(clippy::unnecessary_wraps)]
 pub(crate) fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
     amount: Amount,
@@ -81,6 +83,30 @@ pub(crate) fn rct_output_to_output_on_chain(
         key,
         commitment,
     })
+}
+
+/// Map an [`PreRctOutputId`] to an [`OutputOnChain`].
+///
+/// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
+pub(crate) fn id_to_output_on_chain(
+    id: &PreRctOutputId,
+    tables: &impl Tables,
+) -> Result<OutputOnChain, RuntimeError> {
+    // v2 transactions.
+    if id.amount == 0 {
+        let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
+        let output_on_chain =
+            rct_output_to_output_on_chain(&rct_output, id.amount, tables.tx_unlock_time())?;
+
+        Ok(output_on_chain)
+    } else {
+        // v1 transactions.
+        let output = get_output(id, tables.outputs())?;
+        let output_on_chain =
+            output_to_output_on_chain(&output, id.amount, tables.tx_unlock_time())?;
+
+        Ok(output_on_chain)
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

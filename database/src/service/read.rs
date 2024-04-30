@@ -29,7 +29,7 @@ use crate::{
     config::ReaderThreads,
     constants::DATABASE_CORRUPT_MSG,
     error::RuntimeError,
-    free::{output_to_output_on_chain, rct_output_to_output_on_chain},
+    free::{id_to_output_on_chain, output_to_output_on_chain, rct_output_to_output_on_chain},
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::{cumulative_generated_coins, top_block_height},
@@ -345,7 +345,8 @@ fn block_extended_header_in_range(
         .into_par_iter()
         .map(|block_height| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+            let tables = get_tables!(env_inner, tx_ro, tables)?;
+            // let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
             get_block_extended_header_from_height(&block_height, tables)
         })
         .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
@@ -390,32 +391,20 @@ fn outputs(env: &ConcreteEnv, map: HashMap<Amount, HashSet<AmountIndex>>) -> Res
     let tx_ro = thread_local(env);
     let tables = thread_local(env);
 
-    // -> Result<(AmountIndex, OutputOnChain), RuntimeError>
-    let inner_map = |amount, amount_index| {
+    let inner_map = |amount, amount_index| -> Result<(AmountIndex, OutputOnChain), RuntimeError> {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
         // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
-        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+        let tables = get_tables!(env_inner, tx_ro, tables)?;
+        // let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
-        if amount == 0 {
-            // v2 transactions.
-            let rct_output = get_rct_output(&amount_index, tables.rct_outputs())?;
-            let output_on_chain =
-                rct_output_to_output_on_chain(&rct_output, amount, tables.tx_unlock_time())?;
+        let id = PreRctOutputId {
+            amount,
+            amount_index,
+        };
 
-            Ok((amount_index, output_on_chain))
-        } else {
-            // v1 transactions.
-            let pre_rct_output_id = PreRctOutputId {
-                amount,
-                amount_index,
-            };
+        let output_on_chain = id_to_output_on_chain(&id, tables)?;
 
-            let output = get_output(&pre_rct_output_id, tables.outputs())?;
-            let output_on_chain =
-                output_to_output_on_chain(&output, amount, tables.tx_unlock_time())?;
-
-            Ok((amount_index, output_on_chain))
-        }
+        Ok((amount_index, output_on_chain))
     };
 
     let map = map
@@ -455,7 +444,8 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         .map(|amount| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
             // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+            let tables = get_tables!(env_inner, tx_ro, tables)?;
+            // let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
             if amount == 0 {
                 // v2 transactions.
@@ -487,7 +477,8 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
 
     let key_image_exists = |key_image| {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+        let tables = get_tables!(env_inner, tx_ro, tables)?;
+        // let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
         // let tables = tables.get_or_try(|| env_inner.open_tables(tx_ro))?;
         key_image_exists(&key_image, tables.key_images())
     };

@@ -33,7 +33,7 @@ use cuprate_types::{
 
 use crate::{
     config::Config,
-    free::output_to_output_on_chain,
+    free::{id_to_output_on_chain, output_to_output_on_chain},
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::top_block_height,
@@ -217,12 +217,24 @@ async fn test_template(
     // FIXME: There's definitely a better way to map
     // `Vec<PreRctOutputId>` -> `HashMap<u64, HashSet<u64>>`
     let (map, output_count) = {
-        let ids = tables
+        let mut ids = tables
             .outputs_iter()
             .keys()
             .unwrap()
             .map(Result::unwrap)
             .collect::<Vec<PreRctOutputId>>();
+
+        ids.extend(
+            tables
+                .rct_outputs_iter()
+                .keys()
+                .unwrap()
+                .map(Result::unwrap)
+                .map(|amount_index| PreRctOutputId {
+                    amount: 0,
+                    amount_index,
+                }),
+        );
 
         // Used later to compare the amount of Outputs
         // returned in the Response is equal to the amount
@@ -243,13 +255,17 @@ async fn test_template(
 
     // Map `Output` -> `OutputOnChain`
     // This is the expected output from the `Response`.
-    let outputs_on_chain = tables
-        .outputs_iter()
+    let outputs_on_chain = map
         .iter()
-        .unwrap()
-        .map(Result::unwrap)
-        .map(|(id, output)| output_to_output_on_chain(&output, id.amount, tables.tx_unlock_time()))
-        .map(Result::unwrap)
+        .flat_map(|(amount, amount_index_set)| {
+            amount_index_set.iter().map(|amount_index| {
+                let id = PreRctOutputId {
+                    amount: *amount,
+                    amount_index: *amount_index,
+                };
+                id_to_output_on_chain(&id, &tables).unwrap()
+            })
+        })
         .collect::<Vec<OutputOnChain>>();
 
     // Send a request for every output we inserted before.
@@ -257,7 +273,7 @@ async fn test_template(
     let response = reader.clone().oneshot(request).await;
     println!("Response::Outputs response: {response:#?}");
     let Ok(Response::Outputs(response)) = response else {
-        panic!()
+        panic!("{response:#?}")
     };
 
     // Assert amount of `Amount`'s are the same.
@@ -277,7 +293,7 @@ async fn test_template(
     }
 
     // Assert the amount of `Output`'s returned is as expected.
-    let table_output_len = tables.outputs().len().unwrap();
+    let table_output_len = tables.outputs().len().unwrap() + tables.rct_outputs().len().unwrap();
     assert_eq!(output_count as u64, table_output_len);
     assert_eq!(output_count, response_output_count);
 }
@@ -302,16 +318,16 @@ async fn v1_tx2() {
             block_blobs: 1,
             block_heights: 1,
             key_images: 65,
-            num_outputs: 38,
+            num_outputs: 41,
             pruned_tx_blobs: 0,
             prunable_hashes: 0,
-            outputs: 107,
+            outputs: 111,
             prunable_tx_blobs: 0,
             rct_outputs: 0,
-            tx_blobs: 2,
-            tx_ids: 2,
-            tx_heights: 2,
-            tx_unlock_time: 0,
+            tx_blobs: 3,
+            tx_ids: 3,
+            tx_heights: 3,
+            tx_unlock_time: 1,
         },
     )
     .await;
@@ -333,11 +349,11 @@ async fn v9_tx3() {
             prunable_hashes: 0,
             outputs: 0,
             prunable_tx_blobs: 0,
-            rct_outputs: 6,
-            tx_blobs: 3,
-            tx_ids: 3,
-            tx_heights: 3,
-            tx_unlock_time: 0,
+            rct_outputs: 7,
+            tx_blobs: 4,
+            tx_ids: 4,
+            tx_heights: 4,
+            tx_unlock_time: 1,
         },
     )
     .await;
@@ -359,11 +375,11 @@ async fn v16_tx0() {
             prunable_hashes: 0,
             outputs: 0,
             prunable_tx_blobs: 0,
-            rct_outputs: 0,
-            tx_blobs: 0,
-            tx_ids: 0,
-            tx_heights: 0,
-            tx_unlock_time: 0,
+            rct_outputs: 1,
+            tx_blobs: 1,
+            tx_ids: 1,
+            tx_heights: 1,
+            tx_unlock_time: 1,
         },
     )
     .await;
