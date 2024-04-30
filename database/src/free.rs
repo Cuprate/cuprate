@@ -55,7 +55,6 @@ pub(crate) fn output_to_output_on_chain(
 #[allow(clippy::unnecessary_wraps)]
 pub(crate) fn rct_output_to_output_on_chain(
     rct_output: &RctOutput,
-    amount: Amount,
     table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
 ) -> Result<OutputOnChain, RuntimeError> {
     // INVARIANT: Commitments stored are valid when stored by the database.
@@ -95,8 +94,7 @@ pub(crate) fn id_to_output_on_chain(
     // v2 transactions.
     if id.amount == 0 {
         let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
-        let output_on_chain =
-            rct_output_to_output_on_chain(&rct_output, id.amount, tables.tx_unlock_time())?;
+        let output_on_chain = rct_output_to_output_on_chain(&rct_output, tables.tx_unlock_time())?;
 
         Ok(output_on_chain)
     } else {
