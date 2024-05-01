@@ -1,7 +1,12 @@
 //! Outputs.
 
+use cuprate_helper::map::u64_to_timelock;
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
 //---------------------------------------------------------------------------------------------------- Import
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_serai::{
+    transaction::{Timelock, Transaction},
+    H,
+};
 
 use cuprate_types::{OutputOnChain, VerifiedBlockInformation};
 
@@ -17,8 +22,8 @@ use crate::{
     },
     transaction::{TxRo, TxRw},
     types::{
-        Amount, AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId,
-        RctOutput, TxHash,
+        Amount, AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, OutputFlags,
+        PreRctOutputId, RctOutput, TxHash,
     },
 };
 
@@ -153,13 +158,110 @@ pub fn get_rct_num_outputs(
     table_rct_outputs.len()
 }
 
+//---------------------------------------------------------------------------------------------------- Mapping functions
+/// Map an [`Output`] to a [`cuprate_types::OutputOnChain`].
+#[doc = doc_error!()]
+pub fn output_to_output_on_chain(
+    output: &Output,
+    amount: Amount,
+    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
+) -> Result<OutputOnChain, RuntimeError> {
+    // FIXME: implement lookup table for common values:
+    // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
+    let commitment = ED25519_BASEPOINT_POINT + H() * Scalar::from(amount);
+
+    let time_lock = if output
+        .output_flags
+        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
+    {
+        u64_to_timelock(table_tx_unlock_time.get(&output.tx_idx)?)
+    } else {
+        Timelock::None
+    };
+
+    let key = CompressedEdwardsY::from_slice(&output.key)
+        .map(|y| y.decompress())
+        .unwrap_or(None);
+
+    Ok(OutputOnChain {
+        height: u64::from(output.height),
+        time_lock,
+        key,
+        commitment,
+    })
+}
+
+/// Map an [`RctOutput`] to a [`cuprate_types::OutputOnChain`].
+///
+/// # Panics
+/// This function will panic if `rct_output`'s `commitment` fails to decompress
+/// into a valid [`EdwardsPoint`](curve25519_dalek::edwards::EdwardsPoint).
+///
+/// This should normally not happen as commitments that
+/// are stored in the database should always be valid.
+#[doc = doc_error!()]
+pub fn rct_output_to_output_on_chain(
+    rct_output: &RctOutput,
+    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
+) -> Result<OutputOnChain, RuntimeError> {
+    // INVARIANT: Commitments stored are valid when stored by the database.
+    let commitment = CompressedEdwardsY::from_slice(&rct_output.commitment)
+        .unwrap()
+        .decompress()
+        .unwrap();
+
+    let time_lock = if rct_output
+        .output_flags
+        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
+    {
+        u64_to_timelock(table_tx_unlock_time.get(&rct_output.tx_idx)?)
+    } else {
+        Timelock::None
+    };
+
+    let key = CompressedEdwardsY::from_slice(&rct_output.key)
+        .map(|y| y.decompress())
+        .unwrap_or(None);
+
+    Ok(OutputOnChain {
+        height: u64::from(rct_output.height),
+        time_lock,
+        key,
+        commitment,
+    })
+}
+
+/// Map an [`PreRctOutputId`] to an [`OutputOnChain`].
+///
+/// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
+#[doc = doc_error!()]
+pub fn id_to_output_on_chain(
+    id: &PreRctOutputId,
+    tables: &impl Tables,
+) -> Result<OutputOnChain, RuntimeError> {
+    // v2 transactions.
+    if id.amount == 0 {
+        let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
+        let output_on_chain = rct_output_to_output_on_chain(&rct_output, tables.tx_unlock_time())?;
+
+        Ok(output_on_chain)
+    } else {
+        // v1 transactions.
+        let output = get_output(id, tables.outputs())?;
+        let output_on_chain =
+            output_to_output_on_chain(&output, id.amount, tables.tx_unlock_time())?;
+
+        Ok(output_on_chain)
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 #[allow(clippy::significant_drop_tightening, clippy::cognitive_complexity)]
 mod test {
     use super::*;
     use crate::{
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         types::OutputFlags,
         Env,
     };
@@ -221,20 +323,23 @@ mod test {
         // Assert all reads of the outputs are OK.
         {
             // Assert proper tables were added to.
-            assert_eq!(tables.block_infos().len().unwrap(), 0);
-            assert_eq!(tables.block_blobs().len().unwrap(), 0);
-            assert_eq!(tables.block_heights().len().unwrap(), 0);
-            assert_eq!(tables.key_images().len().unwrap(), 0);
-            assert_eq!(tables.num_outputs().len().unwrap(), 1);
-            assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-            assert_eq!(tables.outputs().len().unwrap(), 1);
-            assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.rct_outputs().len().unwrap(), 1);
-            assert_eq!(tables.tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.tx_ids().len().unwrap(), 0);
-            assert_eq!(tables.tx_heights().len().unwrap(), 0);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
+            AssertTableLen {
+                block_infos: 0,
+                block_blobs: 0,
+                block_heights: 0,
+                key_images: 0,
+                num_outputs: 1,
+                pruned_tx_blobs: 0,
+                prunable_hashes: 0,
+                outputs: 1,
+                prunable_tx_blobs: 0,
+                rct_outputs: 1,
+                tx_blobs: 0,
+                tx_ids: 0,
+                tx_heights: 0,
+                tx_unlock_time: 0,
+            }
+            .assert(&tables);
 
             // Assert length is correct.
             assert_eq!(get_num_outputs(tables.outputs()).unwrap(), 1);

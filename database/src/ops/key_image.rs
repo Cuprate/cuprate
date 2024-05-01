@@ -64,7 +64,7 @@ mod test {
     use super::*;
     use crate::{
         ops::tx::{get_tx, tx_exists},
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         Env,
     };
 
@@ -108,23 +108,11 @@ mod test {
             let tables = env_inner.open_tables(&tx_ro).unwrap();
 
             // Assert only the proper tables were added to.
-            assert_eq!(
-                tables.key_images().len().unwrap(),
-                u64::try_from(key_images.len()).unwrap()
-            );
-            assert_eq!(tables.block_infos().len().unwrap(), 0);
-            assert_eq!(tables.block_blobs().len().unwrap(), 0);
-            assert_eq!(tables.block_heights().len().unwrap(), 0);
-            assert_eq!(tables.num_outputs().len().unwrap(), 0);
-            assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-            assert_eq!(tables.outputs().len().unwrap(), 0);
-            assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.rct_outputs().len().unwrap(), 0);
-            assert_eq!(tables.tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.tx_ids().len().unwrap(), 0);
-            assert_eq!(tables.tx_heights().len().unwrap(), 0);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
+            AssertTableLen {
+                key_images: tables.key_images().len().unwrap(),
+                ..Default::default()
+            }
+            .assert(&tables);
 
             for key_image in &key_images {
                 println!("key_image_exists(): {}", hex::encode(key_image));

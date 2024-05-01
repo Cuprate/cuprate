@@ -191,6 +191,10 @@
 	// although it is sometimes nice.
 	clippy::must_use_candidate,
 
+	// FIXME: good lint but too many false positives
+	// with our `Env` + `RwLock` setup.
+	clippy::significant_drop_tightening,
+
 	// TODO: should be removed after all `todo!()`'s are gone.
 	clippy::diverging_sub_expression,
 
@@ -238,7 +242,7 @@ pub use env::{Env, EnvInner};
 mod error;
 pub use error::{InitError, RuntimeError};
 
-mod free;
+pub(crate) mod free;
 
 pub mod resize;
 
@@ -269,3 +273,6 @@ pub mod service;
 //---------------------------------------------------------------------------------------------------- Private
 #[cfg(test)]
 pub(crate) mod tests;
+
+#[cfg(feature = "service")] // only needed in `service` for now
+pub(crate) mod unsafe_sendable;
