@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use pretty_assertions::assert_eq;
 
-use crate::{config::Config, tables::Tables, ConcreteEnv, DatabaseRo, Env, EnvInner};
+use crate::{config::ConfigBuilder, tables::Tables, ConcreteEnv, DatabaseRo, Env, EnvInner};
 
 //---------------------------------------------------------------------------------------------------- Struct
 /// Named struct to assert the length of all tables.
@@ -68,7 +68,10 @@ impl AssertTableLen {
 /// FIXME: changing this to `-> impl Env` causes lifetime errors...
 pub(crate) fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
     let tempdir = tempfile::tempdir().unwrap();
-    let config = Config::low_power(Some(tempdir.path().into()));
+    let config = ConfigBuilder::new()
+        .db_directory(tempdir.path().into())
+        .low_power()
+        .build();
     let env = ConcreteEnv::open(config).unwrap();
 
     (env, tempdir)

@@ -31,14 +31,22 @@
 //! # Sub-functions
 //! The main functions within this module are mostly within the [`block`] module.
 //!
-//! Practically speaking, you should only be using 2 functions:
+//! Practically speaking, you should only be using 2 functions for mutation:
 //! - [`add_block`](block::add_block)
 //! - [`pop_block`](block::pop_block)
 //!
 //! The `block` functions are "parent" functions, calling other
-//! sub-functions such as [`add_output()`](output::add_output). `add_output()`
-//! itself only modifies output-related tables, while the `block` "parent" functions
-//! (like `add_block` and `pop_block`) modify _everything_ that is required.
+//! sub-functions such as [`add_output()`](output::add_output).
+//!
+//! `add_output()` itself only modifies output-related tables, while the `block` "parent"
+//! functions (like `add_block` and `pop_block`) modify all tables required.
+//!
+//! `add_block()` makes sure all data related to the input is mutated, while
+//! this sub-function _do not_, it specifically mutates _particular_ tables.
+//!
+//! When calling this sub-functions, ensure that either:
+//! 1. This effect (incomplete database mutation) is what is desired, or that...
+//! 2. ...the other tables will also be mutated to a correct state
 //!
 //! # Example
 //! Simple usage of `ops`.
@@ -50,7 +58,7 @@
 //!
 //! use cuprate_database::{
 //!     ConcreteEnv,
-//!     config::Config,
+//!     config::ConfigBuilder,
 //!     Env, EnvInner,
 //!     tables::{Tables, TablesMut},
 //!     DatabaseRo, DatabaseRw, TxRo, TxRw,
@@ -60,7 +68,9 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
 //! let db_dir = tempfile::tempdir()?;
-//! let config = Config::new(Some(db_dir.path().to_path_buf()));
+//! let config = ConfigBuilder::new()
+//!     .db_directory(db_dir.path().to_path_buf())
+//!     .build();
 //!
 //! // Initialize the database environment.
 //! let env = ConcreteEnv::open(config)?;

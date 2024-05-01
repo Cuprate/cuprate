@@ -35,8 +35,8 @@ TODO: instructions on:
 ///
 /// | Backend | Value |
 /// |---------|-------|
-/// | `heed`  | "heed"
-/// | `redb`  | "redb"
+/// | `heed`  | `"heed"`
+/// | `redb`  | `"redb"`
 pub const DATABASE_BACKEND: &str = {
     cfg_if! {
         if #[cfg(all(feature = "redb", not(feature = "heed")))] {
@@ -53,8 +53,8 @@ pub const DATABASE_BACKEND: &str = {
 ///
 /// | Backend | Value |
 /// |---------|-------|
-/// | `heed`  | "data.mdb"
-/// | `redb`  | "data.redb"
+/// | `heed`  | `"data.mdb"`
+/// | `redb`  | `"data.redb"`
 pub const DATABASE_DATA_FILENAME: &str = {
     cfg_if! {
         if #[cfg(all(feature = "redb", not(feature = "heed")))] {
@@ -69,8 +69,8 @@ pub const DATABASE_DATA_FILENAME: &str = {
 ///
 /// | Backend | Value |
 /// |---------|-------|
-/// | `heed`  | Some("lock.mdb")
-/// | `redb`  | None (redb doesn't use a file lock)
+/// | `heed`  | `Some("lock.mdb")`
+/// | `redb`  | `None` (redb doesn't use a file lock)
 pub const DATABASE_LOCK_FILENAME: Option<&str> = {
     cfg_if! {
         if #[cfg(all(feature = "redb", not(feature = "heed")))] {

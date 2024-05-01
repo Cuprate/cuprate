@@ -29,7 +29,7 @@ use cuprate_types::{
 };
 
 use crate::{
-    config::Config,
+    config::ConfigBuilder,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::chain_height,
@@ -51,7 +51,10 @@ fn init_service() -> (
     tempfile::TempDir,
 ) {
     let tempdir = tempfile::tempdir().unwrap();
-    let config = Config::low_power(Some(tempdir.path().into()));
+    let config = ConfigBuilder::new()
+        .db_directory(tempdir.path().into())
+        .low_power()
+        .build();
     let (reader, writer) = init(config).unwrap();
     let env = reader.env().clone();
     (reader, writer, env, tempdir)

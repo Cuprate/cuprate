@@ -66,13 +66,15 @@
 //! use cuprate_types::service::{ReadRequest, WriteRequest, Response};
 //! use cuprate_test_utils::data::block_v16_tx0;
 //!
-//! use cuprate_database::{ConcreteEnv, config::Config, Env};
+//! use cuprate_database::{ConcreteEnv, config::ConfigBuilder, Env};
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
 //! let db_dir = tempfile::tempdir()?;
-//! let config = Config::new(Some(db_dir.path().to_path_buf()));
+//! let config = ConfigBuilder::new()
+//!     .db_directory(db_dir.path().to_path_buf())
+//!     .build();
 //!
 //! // Initialize the database thread-pool.
 //! let (mut read_handle, mut write_handle) = cuprate_database::service::init(config)?;

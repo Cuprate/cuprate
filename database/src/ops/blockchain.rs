@@ -1,4 +1,4 @@
-//! Blockchain.
+//! Blockchain functions - chain height, generated coins, etc.
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{

@@ -69,21 +69,22 @@ Note that `lib.rs/mod.rs` files are purely for re-exporting/visibility/lints, an
 ## `src/`
 The top-level `src/` files.
 
-| File                | Purpose |
-|---------------------|---------|
-| `constants.rs`      | General constants used throughout `cuprate-database`
-| `database.rs`       | Abstracted database; `trait DatabaseR{o,w}`
-| `env.rs`            | Abstracted database environment; `trait Env`
-| `error.rs`          | Database error types
-| `free.rs`           | General free functions (related to the database)
-| `key.rs`            | Abstracted database keys; `trait Key`
-| `resize.rs`         | Database resizing algorithms
-| `storable.rs`       | Data (de)serialization; `trait Storable`
-| `table.rs`          | Database table abstraction; `trait Table`
-| `tables.rs`         | All the table definitions used by `cuprate-database`
-| `tests.rs`          | Utilities for `cuprate_database` testing
-| `transaction.rs`    | Database transaction abstraction; `trait TxR{o,w}`
-| `types.rs`          | Database-specific types
+| File                   | Purpose |
+|------------------------|---------|
+| `constants.rs`         | General constants used throughout `cuprate-database`
+| `database.rs`          | Abstracted database; `trait DatabaseR{o,w}`
+| `env.rs`               | Abstracted database environment; `trait Env`
+| `error.rs`             | Database error types
+| `free.rs`              | General free functions (related to the database)
+| `key.rs`               | Abstracted database keys; `trait Key`
+| `resize.rs`            | Database resizing algorithms
+| `storable.rs`          | Data (de)serialization; `trait Storable`
+| `table.rs`             | Database table abstraction; `trait Table`
+| `tables.rs`            | All the table definitions used by `cuprate-database`
+| `tests.rs`             | Utilities for `cuprate_database` testing
+| `transaction.rs`       | Database transaction abstraction; `trait TxR{o,w}`
+| `types.rs`             | Database-specific types
+| `unsafe_unsendable.rs` | Marker type for `Send` objects not proveable to the compiler
 
 ## `src/backend/`
 This folder contains the implementation for actual databases used as the backend for `cuprate-database`.
@@ -284,7 +285,7 @@ As noted in the [`Layers`](#layers) section, the base database abstractions them
 
 However, the actual API `cuprate_database` exposes for practical usage by the main `cuprated` binary (and other `async` use-cases) is the asynchronous `service` API, which _does_ have a thread model backing it.
 
-As such, when `cuprate_database`'s `service` initialization function is called, threads will be spawned.
+As such, when `cuprate_database::service`'s initialization function is called, threads will be spawned.
 
 The current system is:
 - [1 writer thread](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/write.rs#L52-L66)

@@ -1,4 +1,4 @@
-//! Outputs.
+//! Output functions.
 
 //---------------------------------------------------------------------------------------------------- Import
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};

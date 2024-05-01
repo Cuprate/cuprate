@@ -1,4 +1,4 @@
-//! Properties.
+//! Database properties functions - version, pruning, etc.
 
 //---------------------------------------------------------------------------------------------------- Import
 use monero_pruning::PruningSeed;

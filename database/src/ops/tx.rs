@@ -1,4 +1,4 @@
-//! Transactions.
+//! Transaction functions.
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
