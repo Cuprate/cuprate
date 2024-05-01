@@ -166,7 +166,8 @@ unsafe impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-// SAFETY: Same as `HeedTableRo`.
+// SAFETY: The `Send` bound only applies to `HeedTableRo`.
+// `HeedTableRw`'s write transaction is `!Send`.
 unsafe impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
