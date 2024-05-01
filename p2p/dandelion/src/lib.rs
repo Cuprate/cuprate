@@ -3,7 +3,7 @@
 //! This crate implements [dandelion++](https://arxiv.org/pdf/1805.11060.pdf), using [`tower`].
 //!  
 //! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPool`](txpool::DandelionPool).
-//! The router is pretty minimal and only handles that absolute necessary data to route transactions, whereas the
+//! The router is pretty minimal and only handles the absolute necessary data to route transactions, whereas the
 //! pool keeps track of all data necessary for dandelion++ but requires you to provide a backing tx-pool.
 //!
 //! This split was done not because the [`DandelionPool`](txpool::DandelionPool) is unnecessary but because it is hard
@@ -21,7 +21,7 @@
 //! ## Diffuse Service
 //!
 //! This service should implement diffusion, which is sending the transaction to every peer, with each peer
-//! having a timer using the exponential distrobution and batch sending all txs that were queued in that time.
+//! having a timer using the exponential distribution and batch sending all txs that were queued in that time.
 //!
 //! The diffuse service should have a request of [`DiffuseRequest`](traits::DiffuseRequest) and it's error
 //! should be [`tower::BoxError`].

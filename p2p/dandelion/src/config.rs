@@ -51,7 +51,7 @@ pub struct DandelionConfig {
     pub time_between_hop: Duration,
     /// The duration of an epoch.
     pub epoch_duration: Duration,
-    /// q in the dandelion paper, this is the probability that a node will be in the fluff state for
+    /// `q` in the dandelion paper, this is the probability that a node will be in the fluff state for
     /// a certain epoch.
     ///
     /// The dandelion paper recommends to make this value small, but the smaller this value, the higher
@@ -76,8 +76,8 @@ impl DandelionConfig {
 
     /// Returns the average embargo timeout, `Tbase` in the dandelion++ paper.
     ///
-    /// This is the average embargo timeout _only including this node_ with k nodes also putting an embargo timeout
-    /// using the exponential distrobution, the average until one of them fluffs is `Tbase / k`.
+    /// This is the average embargo timeout _only including this node_ with `k` nodes also putting an embargo timeout
+    /// using the exponential distribution, the average until one of them fluffs is `Tbase / k`.
     pub fn average_embargo_timeout(&self) -> Duration {
         // we set k equal to the expected stem length with this fluff probability.
         let k = self.expected_stem_length();
