@@ -19,9 +19,11 @@ Cuprate's database implementation.
     - [Backend](#backend)
     - [Trait](#trait)
     - [ConcreteEnv](#concreteenv)
-    - [Service](#service)
+    - [`ops`](#concreteenv)
+    - [`service`](#service)
+1. [Syncing](#Syncing)
+1. [Thread model](#thread-model)
 1. [Resizing](#resizing)
-1. [Flushing](#flushing)
 1. [(De)serialization](#deserialization)
 
 ---
@@ -251,12 +253,56 @@ These are Monero-specific functions that use the abstracted `trait` forms of the
 
 Instead of dealing with the database directly (`get()`, `delete()`), the `ops` layer provides functions that deal with commonly used Monero operations (`get_block()`, `add_block()`, `pop_block()`).
 
-## `tower::Service`
+## `service`
 The final layer abstracts the database completely into a Monero-specific `async` request/response API, using `tower::Service`.
 
 It handles the database using a separate writer thread & reader thread-pool, and uses the previously mentioned `ops` functions when responding to requests.
 
 Instead of handling the database directly, requests for data (e.g. Outputs) can be sent here and receive responses using handles that connect to this layer.
+
+For more information on the backing thread-pool, see [`Thread model`](#thread-model).
+
+# Syncing
+`cuprate_database`'s database has 5 disk syncing modes.
+
+- FastThenSafe
+- Safe
+- Async
+- Threshold
+- Fast
+
+The default mode is `Safe`.
+
+This means that upon each transaction commit, all the data that was written will be fully synced to disk. This is the slowest, but safest mode of operation.
+
+Note that upon any database `Drop`, whether via `service` or dropping the database directly, the current implementation will sync to disk regardless of any configuration.
+
+For more information on the other modes, read the documentation (here)[https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/config/sync_mode.rs#L63-L144].
+
+## Thread model
+As noted in the [`Layers`](#layers) section, the base database abstractions themselves are not concerned with threads, they are mostly functions to be called from a single-thread.
+
+However, the actual API `cuprate_database` exposes for practical usage by the main `cuprated` binary (and other `async` use-cases) is the asynchronous `service` API, which _does_ have a thread model backing it.
+
+As such, when `cuprate_database`'s `service` initialization function is called, threads will be spawned.
+
+The current system is:
+- [1 writer thread](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/write.rs#L52-L66)
+- [As many reader threads as there are system threads](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/read.rs#L104-L126)
+
+For example, on a system with 32-threads, `cuprate_database` will spawn:
+- 1 writer thread
+- 32 reader threads
+
+whose sole responsibility is to listen for database requests, access the database (potentially in parallel), and return a response.
+
+Note that the `1 system thread = 1 reader thread` model is only the default setting, the reader thread count can be configured by the user to be any number between `1 .. amount_of_system_threads`.
+
+The reader threads are managed and used by [`rayon`](https://docs.rs/rayon).
+
+For an example of where multiple reader threads are used: given a request that asks if any key-image within a set already exist, `cuprate_database` will [split that work between the threads with `rayon`](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/read.rs#L490-L503).
+
+Once the [handles](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/free.rs#L33) to these threads are `Drop`ed, the back thread(pool) will gracefully exit, automatically.
 
 # Resizing
 Database backends that require manually resizing will, by default, use a similar algorithm as `monerod`'s.
@@ -269,27 +315,13 @@ Note that this relates to the `service` module, where the database is handled by
 
 https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/service/write.rs#L139-L201.
 
-# Flushing
-`cuprate_database`'s database has 5 disk flushing modes.
-
-- FastThenSafe
-- Safe
-- Async
-- Threshold
-- Fast
-
-The default mode is `Safe`.
-
-This means that upon each transaction commit, all the data that was written will be fully flushed to disk. This is the slowest, but safest mode of operation.
-
-For more information on the other modes, read the documentation here [https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/config/sync_mode.rs#L63-L144].
 
 # (De)serialization
 All the types stored inside the database are either bytes already, or are perfectly bitcast-able.
 
 As such, they do not incur heavy (de)serialization costs when storing/fetching them from the database. The main (de)serialization used is [`bytemuck`](https://docs.rs/bytemuck)'s traits and casting functions.
 
-The main `trait` deserialization for database storage is: []`cuprate_database::Storable`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L16-L115).
+The main `trait` deserialization for database storage is: [`cuprate_database::Storable`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L16-L115).
 
 - Before storage, the type is [simply cast into bytes](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L125)
 - When fetching, the bytes are [simply cast into the type](hhttps://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L130)
