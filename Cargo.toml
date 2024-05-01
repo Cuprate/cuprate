@@ -75,7 +75,6 @@ tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
 tempfile              = { version = "3" }
-reqwest               = { version = "0.11.24" }
 pretty_assertions     = { version = "1.4.0" }
 proptest              = { version = "1" }
 proptest-derive       = { version = "0.4.0" }
