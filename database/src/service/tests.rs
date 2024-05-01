@@ -35,7 +35,7 @@ use crate::{
     config::Config,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
-        blockchain::top_block_height,
+        blockchain::{chain_height, top_block_height},
         output::{get_output, id_to_output_on_chain, output_to_output_on_chain},
     },
     service::{init, DatabaseReadHandle, DatabaseWriteHandle},
@@ -146,8 +146,8 @@ async fn test_template(
     };
 
     let chain_height = {
-        let height = top_block_height(tables.block_heights()).unwrap();
-        let block_info = get_block_info(&height, tables.block_infos()).unwrap();
+        let height = chain_height(tables.block_heights()).unwrap();
+        let block_info = get_block_info(&height.saturating_sub(1), tables.block_infos()).unwrap();
         Ok(Response::ChainHeight(height, block_info.block_hash))
     };
 

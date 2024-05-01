@@ -367,10 +367,11 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    let top_height = top_block_height(&table_block_heights)?;
-    let block_hash = get_block_info(&top_height, &table_block_infos)?.block_hash;
+    let chain_height = crate::ops::blockchain::chain_height(&table_block_heights)?;
+    let block_hash =
+        get_block_info(&chain_height.saturating_sub(1), &table_block_infos)?.block_hash;
 
-    Ok(Response::ChainHeight(top_height, block_hash))
+    Ok(Response::ChainHeight(chain_height, block_hash))
 }
 
 /// [`ReadRequest::GeneratedCoins`].
