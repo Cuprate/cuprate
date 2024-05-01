@@ -6,7 +6,7 @@
 //! ### What The Router Does Not Do
 //!
 //! It does not handle anything to do with keeping transactions long term, i.e. embargo timers and handling
-//! loops in the stem. It is up to implementers to do this if they decide not top use [`DandelionPool`](crate::txpool::DandelionPool)
+//! loops in the stem. It is up to implementers to do this if they decide not top use [`DandelionPool`](crate::pool::DandelionPool)
 //!
 use std::{
     collections::HashMap,

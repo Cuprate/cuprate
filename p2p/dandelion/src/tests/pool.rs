@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    txpool::{start_dandelion_pool, IncomingTx},
+    pool::{start_dandelion_pool, IncomingTx},
     DandelionConfig, DandelionRouter, Graph, TxState,
 };
 

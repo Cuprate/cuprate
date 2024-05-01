@@ -2,17 +2,17 @@
 //!
 //! This crate implements [dandelion++](https://arxiv.org/pdf/1805.11060.pdf), using [`tower`].
 //!  
-//! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPool`](txpool::DandelionPool).
+//! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPool`](pool::DandelionPool).
 //! The router is pretty minimal and only handles the absolute necessary data to route transactions, whereas the
 //! pool keeps track of all data necessary for dandelion++ but requires you to provide a backing tx-pool.
 //!
-//! This split was done not because the [`DandelionPool`](txpool::DandelionPool) is unnecessary but because it is hard
-//! to cover a wide range of projects when abstracting over the tx-pool. Not using the [`DandelionPool`](txpool::DandelionPool)
+//! This split was done not because the [`DandelionPool`](pool::DandelionPool) is unnecessary but because it is hard
+//! to cover a wide range of projects when abstracting over the tx-pool. Not using the [`DandelionPool`](pool::DandelionPool)
 //! requires you to implement part of the paper yourself.
 //!
 //! # Features
 //!
-//! This crate only has one feature `txpool` which enables [`DandelionPool`](txpool::DandelionPool).
+//! This crate only has one feature `txpool` which enables [`DandelionPool`](pool::DandelionPool).
 //!
 //! # Needed Services
 //!
@@ -45,7 +45,7 @@
 //!
 //! ## Backing Pool
 //!
-//! ([`DandelionPool`](txpool::DandelionPool) only)
+//! ([`DandelionPool`](pool::DandelionPool) only)
 //!
 //! This service is a backing tx-pool, in memory or on disk.
 //! The backing pool should have a request of [`TxStoreRequest`](traits::TxStoreRequest) and a response of
@@ -59,12 +59,12 @@
 //! any data about stem transactions. You will probably want to set up a task that monitors the tx pool for stuck transactions,
 //! transactions that slipped in just as one was removed etc, this crate does not handle that.
 mod config;
+#[cfg(feature = "txpool")]
+pub mod pool;
 mod router;
 #[cfg(test)]
 mod tests;
 pub mod traits;
-#[cfg(feature = "txpool")]
-pub mod txpool;
 
 pub use config::*;
 pub use router::*;
