@@ -12,7 +12,6 @@ use crate::storable::StorableVec;
 
 //---------------------------------------------------------------------------------------------------- Aliases
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, TransparentWrapper)]
-#[allow(clippy::unsafe_derive_deserialize)] // see safety message on the Send impl
 #[repr(transparent)]
 /// A wrapper type that `unsafe`ly implements `Send` for any `T`.
 ///
