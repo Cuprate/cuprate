@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use crate::{
-    txpool::{DandelionPoolRequest, DandelionPoolServiceBuilder},
-    DandelionConfig, DandelionRouterBuilder, Graph, TxState,
+    txpool::{start_dandelion_pool, IncomingTx},
+    DandelionConfig, DandelionRouter, Graph, TxState,
 };
 
 use super::*;
@@ -19,25 +19,17 @@ async fn basic_functionality() {
     let (broadcast_svc, mut broadcast_rx) = mock_broadcast_svc();
     let (outbound_peer_svc, _outbound_rx) = mock_discover_svc();
 
-    let router = DandelionRouterBuilder::default()
-        .with_config(config)
-        .with_broadcast_svc(broadcast_svc)
-        .with_outbound_peer_discover(outbound_peer_svc)
-        .build();
+    let router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
     let (pool_svc, pool) = mock_in_memory_backing_pool();
 
-    let mut pool_svc = DandelionPoolServiceBuilder::default()
-        .with_config(config)
-        .with_backing_pool(pool_svc)
-        .with_router(router)
-        .spawn(15);
+    let mut pool_svc = start_dandelion_pool(15, router, pool_svc, config);
 
     pool_svc
         .ready()
         .await
         .unwrap()
-        .call(DandelionPoolRequest::IncomingTx {
+        .call(IncomingTx {
             tx: 0_usize,
             tx_id: 1_usize,
             tx_state: TxState::Fluff,

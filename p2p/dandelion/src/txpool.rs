@@ -1,6 +1,21 @@
-//! # Dandelion++ TxPool
+//! # Dandelion++ Pool
 //!
-//! This is an implementation of a dandelion++ compatible tx pool.
+//! This module contains [`DandelionPool`] which is a thin wrapper around a backing transaction store,
+//! which fully implements the dandelion++ protocol.
+//!
+//! ### How To Get Txs From [`DandelionPool`].
+//!
+//! [`DandelionPool`] does not provide a full tx-pool API. You cannot retrieve transactions from it or
+//! check what transactions are in it, to do this you must keep a handle to the backing transaction store
+//! yourself.
+//!
+//! The reason for this is, the [`DandelionPool`] will only itself be passing these requests onto the backing
+//! pool, so it makes sense to remove the "middle man".
+//!
+//! ### Keep Stem Transactions Hidden
+//!
+//! When using your handle to the backing store it must be remembered to keep transactions in the stem pool hidden.
+//! So handle any requests to the tx-pool like the stem side of the pool does not exist.
 //!
 use std::{
     collections::{HashMap, HashSet},
@@ -28,42 +43,91 @@ use crate::{
     DandelionConfig, DandelionRouteReq, DandelionRouterError, State, TxState,
 };
 
+/// Start the [`DandelionPool`].
+///
+/// This function spawns the [`DandelionPool`] and returns [`DandelionPoolService`] which can be used to send
+/// requests to the pool.
+///
+/// ### Args
+///
+/// - `buffer_size` is the size of the channel's buffer between the [`DandelionPoolService`] and [`DandelionPool`].
+/// - `dandelion_router` is the router service, kept generic instead of [`DandelionRouter`](crate::DandelionRouter) to allow
+/// user to customise routing functionality.
+/// - `backing_pool` is the backing transaction storage service
+/// - `config` is [`DandelionConfig`].
+pub fn start_dandelion_pool<P, R, Tx, TxID, PID>(
+    buffer_size: usize,
+    dandelion_router: R,
+    backing_pool: P,
+    config: DandelionConfig,
+) -> DandelionPoolService<Tx, TxID, PID>
+where
+    Tx: Clone + Send + 'static,
+    TxID: Hash + Eq + Clone + Send + 'static,
+    PID: Hash + Eq + Clone + Send + 'static,
+    P: Service<
+            TxStoreRequest<Tx, TxID>,
+            Response = TxStoreResponse<Tx, TxID>,
+            Error = tower::BoxError,
+        > + Send
+        + 'static,
+    P::Future: Send + 'static,
+    R: Service<DandelionRouteReq<Tx, PID>, Response = State, Error = DandelionRouterError>
+        + Send
+        + 'static,
+    R::Future: Send + 'static,
+{
+    let (tx, rx) = mpsc::channel(buffer_size);
+
+    let pool = DandelionPool {
+        dandelion_router,
+        backing_pool,
+        routing_set: JoinSet::new(),
+        stem_origins: HashMap::new(),
+        embargo_timers: DelayQueue::new(),
+        embargo_dist: Exp::new(1.0 / config.average_embargo_timeout().as_secs_f64()).unwrap(),
+        config,
+        _tx: PhantomData,
+    };
+
+    let span = tracing::debug_span!("dandelion_pool");
+
+    tokio::spawn(pool.run(rx).instrument(span));
+
+    DandelionPoolService {
+        tx: PollSender::new(tx),
+    }
+}
+
 #[derive(Copy, Clone, Debug, thiserror::Error)]
 #[error("The dandelion pool was shutdown")]
 pub struct DandelionPoolShutDown;
 
-/// A request to the dandelion tx pool.
-///
-/// This enum does not contain requests to get tx data from the pool, this is to reduce the amount
-/// of requests that get sent to the [`DandelionPool`]. Users should hold a handle to the backing tx storage
-/// to get transaction data from the pool.
-///
-/// It MUST be remembered to not expose the private stem pool to peers.
+/// An incoming transaction for the [`DandelionPool`] to handle.
 ///
 /// Users may notice there is no way to check if the dandelion-pool wants a tx according to an inventory message like seen
 /// in Bitcoin, only having a request for a full tx. Users should look in the *public* backing pool to handle inv messages,
 /// and request txs even if they are in the stem pool.
-pub enum DandelionPoolRequest<Tx, TxID, PID> {
-    /// An incoming tx.
-    IncomingTx {
-        /// The transaction.
-        tx: Tx,
-        /// The transaction ID.
-        tx_id: TxID,
-        /// The routing state of this transaction.
-        tx_state: TxState<PID>,
-    },
+pub struct IncomingTx<Tx, TxID, PID> {
+    /// The transaction.
+    ///
+    /// It is recommended to put this in an [`Arc`](std::sync::Arc) as it needs to be cloned to send to the backing
+    /// tx pool and [`DandelionRouter`](crate::DandelionRouter)
+    pub tx: Tx,
+    /// The transaction ID.
+    pub tx_id: TxID,
+    /// The routing state of this transaction.
+    pub tx_state: TxState<PID>,
 }
 
 /// The dandelion tx pool service.
 #[derive(Clone)]
 pub struct DandelionPoolService<Tx, TxID, PID> {
     /// The channel to [`DandelionPool`].
-    tx: PollSender<(DandelionPoolRequest<Tx, TxID, PID>, oneshot::Sender<()>)>,
+    tx: PollSender<(IncomingTx<Tx, TxID, PID>, oneshot::Sender<()>)>,
 }
 
-impl<Tx, TxID, PID> Service<DandelionPoolRequest<Tx, TxID, PID>>
-    for DandelionPoolService<Tx, TxID, PID>
+impl<Tx, TxID, PID> Service<IncomingTx<Tx, TxID, PID>> for DandelionPoolService<Tx, TxID, PID>
 where
     Tx: Clone + Send,
     TxID: Hash + Eq + Clone + Send + 'static,
@@ -78,7 +142,7 @@ where
         self.tx.poll_reserve(cx).map_err(|_| DandelionPoolShutDown)
     }
 
-    fn call(&mut self, req: DandelionPoolRequest<Tx, TxID, PID>) -> Self::Future {
+    fn call(&mut self, req: IncomingTx<Tx, TxID, PID>) -> Self::Future {
         // although the channel isn't sending anything we want to wait for the request to be handled before continuing.
         let (tx, rx) = oneshot::channel();
 
@@ -99,7 +163,7 @@ where
 
 /// The dandelion++ tx pool.
 ///
-/// This is the inner task that handles the tx-pool see [`DandelionPoolService`] and [`DandelionPoolServiceBuilder`].
+/// See the [module docs](self) for more.
 pub struct DandelionPool<P, R, Tx, TxID, PID> {
     /// The dandelion++ router
     dandelion_router: R,
@@ -353,9 +417,10 @@ where
         Ok(tx.map(|tx| tx.0))
     }
 
+    /// Starts the [`DandelionPool`].
     async fn run(
         mut self,
-        mut rx: mpsc::Receiver<(DandelionPoolRequest<Tx, TxID, PID>, oneshot::Sender<()>)>,
+        mut rx: mpsc::Receiver<(IncomingTx<Tx, TxID, PID>, oneshot::Sender<()>)>,
     ) {
         tracing::debug!("Starting dandelion++ tx-pool, config: {:?}", self.config);
 
@@ -426,7 +491,7 @@ where
                 req = rx.recv() => {
                     tracing::debug!("Received new tx to route.");
 
-                    let Some((DandelionPoolRequest::IncomingTx { tx, tx_state, tx_id }, res_tx)) = req else {
+                    let Some((IncomingTx { tx, tx_state, tx_id }, res_tx)) = req else {
                         return;
                     };
 
@@ -440,106 +505,6 @@ where
 
                 }
             }
-        }
-    }
-}
-
-/// The dandelion pool service builder.
-pub struct DandelionPoolServiceBuilder<P, R, Tx, TxID, PID> {
-    /// The dandelion++ router.
-    router: Option<R>,
-    /// The backing transaction pool.
-    backing_pool: Option<P>,
-    /// The d++ config.
-    config: Option<DandelionConfig>,
-
-    _types: PhantomData<(Tx, TxID, PID)>,
-}
-
-impl<P, R, Tx, TxID, PID> Default for DandelionPoolServiceBuilder<P, R, Tx, TxID, PID> {
-    fn default() -> Self {
-        Self {
-            router: None,
-            backing_pool: None,
-            config: None,
-
-            _types: PhantomData,
-        }
-    }
-}
-
-impl<P, R, Tx, TxID, PID> DandelionPoolServiceBuilder<P, R, Tx, TxID, PID>
-where
-    Tx: Clone + Send + 'static,
-    TxID: Hash + Eq + Clone + Send + 'static,
-    PID: Hash + Eq + Clone + Send + 'static,
-    P: Service<
-            TxStoreRequest<Tx, TxID>,
-            Response = TxStoreResponse<Tx, TxID>,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    P::Future: Send + 'static,
-    R: Service<DandelionRouteReq<Tx, PID>, Response = State, Error = DandelionRouterError>
-        + Send
-        + 'static,
-    R::Future: Send + 'static,
-{
-    /// Starts a new builder.
-    pub fn new() -> Self {
-        Default::default()
-    }
-
-    /// Adds the router to the builder.
-    pub fn with_router(self, router: R) -> Self {
-        Self {
-            router: Some(router),
-            ..self
-        }
-    }
-
-    /// Adds the backing pool to the builder.
-    pub fn with_backing_pool(self, backing_pool: P) -> Self {
-        Self {
-            backing_pool: Some(backing_pool),
-            ..self
-        }
-    }
-
-    /// Adds the config to the builder.
-    pub fn with_config(self, config: DandelionConfig) -> Self {
-        Self {
-            config: Some(config),
-            ..self
-        }
-    }
-
-    pub fn spawn(self, buffer: usize) -> DandelionPoolService<Tx, TxID, PID> {
-        let config = self.config.expect("Config was not added to builder");
-
-        let (tx, rx) = mpsc::channel(buffer);
-
-        let pool = DandelionPool {
-            dandelion_router: self
-                .router
-                .expect("Dandelion router was not added to builder."),
-            backing_pool: self
-                .backing_pool
-                .expect("Backing pool was not added to router"),
-            routing_set: JoinSet::new(),
-            stem_origins: HashMap::new(),
-            embargo_timers: DelayQueue::new(),
-            embargo_dist: Exp::new(1.0 / config.average_embargo_timeout().as_secs_f64()).unwrap(),
-            config,
-            _tx: PhantomData,
-        };
-
-        let span = tracing::debug_span!("dandelion_pool");
-
-        tokio::spawn(pool.run(rx).instrument(span));
-
-        DandelionPoolService {
-            tx: PollSender::new(tx),
         }
     }
 }

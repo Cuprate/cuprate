@@ -4,11 +4,15 @@
 //!  
 //! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPool`](txpool::DandelionPool).
 //! The router is pretty minimal and only handles that absolute necessary data to route transactions, whereas the
-//! pool requires you to provide a backing tx-pool and keeps track of all data necessary for dandelion++.
+//! pool keeps track of all data necessary for dandelion++ but requires you to provide a backing tx-pool.
 //!
 //! This split was done not because the [`DandelionPool`](txpool::DandelionPool) is unnecessary but because it is hard
 //! to cover a wide range of projects when abstracting over the tx-pool. Not using the [`DandelionPool`](txpool::DandelionPool)
 //! requires you to implement part of the paper yourself.
+//!
+//! # Features
+//!
+//! This crate only has one feature `txpool` which enables [`DandelionPool`](txpool::DandelionPool).
 //!
 //! # Needed Services
 //!

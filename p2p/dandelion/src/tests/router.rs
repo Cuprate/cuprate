@@ -2,14 +2,13 @@ use std::time::Duration;
 
 use tower::{Service, ServiceExt};
 
-use crate::{DandelionConfig, DandelionRouteReq, DandelionRouterBuilder, Graph, TxState};
+use crate::{DandelionConfig, DandelionRouteReq, DandelionRouter, Graph, TxState};
 
 use super::*;
 
+/// make sure a tx from the same peer goes to the same peer.
 #[tokio::test]
 async fn routes_consistent() {
-    // make sure a tx from the same peer goes to the same peer.
-
     let config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
         epoch_duration: Duration::from_secs(60_000),
@@ -20,13 +19,7 @@ async fn routes_consistent() {
     let (broadcast_svc, mut broadcast_rx) = mock_broadcast_svc();
     let (outbound_peer_svc, mut outbound_rx) = mock_discover_svc();
 
-    let mut router = DandelionRouterBuilder::default()
-        .with_config(config)
-        .with_broadcast_svc(broadcast_svc)
-        .with_outbound_peer_discover(outbound_peer_svc)
-        .build();
-
-    const FROM_PEER: usize = 20;
+    let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
     // The router will panic if it attempts to flush.
     broadcast_rx.close();
@@ -38,7 +31,7 @@ async fn routes_consistent() {
             .unwrap()
             .call(DandelionRouteReq {
                 tx: 0_usize,
-                state: TxState::Stem { from: FROM_PEER },
+                state: TxState::Stem { from: 20 },
             })
             .await
             .unwrap();
@@ -58,10 +51,9 @@ async fn routes_consistent() {
     assert_eq!(total_txs, 30);
 }
 
+/// make sure local txs always stem - even in fluff state.
 #[tokio::test]
 async fn local_always_stem() {
-    // make sure local txs always stem - even in fluff state.
-
     let config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
         epoch_duration: Duration::from_secs(60_000),
@@ -72,11 +64,7 @@ async fn local_always_stem() {
     let (broadcast_svc, mut broadcast_rx) = mock_broadcast_svc();
     let (outbound_peer_svc, mut outbound_rx) = mock_discover_svc();
 
-    let mut router = DandelionRouterBuilder::default()
-        .with_config(config)
-        .with_broadcast_svc(broadcast_svc)
-        .with_outbound_peer_discover(outbound_peer_svc)
-        .build();
+    let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
     // The router will panic if it attempts to flush.
     broadcast_rx.close();
@@ -108,10 +96,9 @@ async fn local_always_stem() {
     assert_eq!(total_txs, 30);
 }
 
+/// make sure local txs always stem - even in fluff state.
 #[tokio::test]
 async fn stem_txs_fluff_in_state_fluff() {
-    // make sure local txs always stem - even in fluff state.
-
     let config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
         epoch_duration: Duration::from_secs(60_000),
@@ -122,16 +109,10 @@ async fn stem_txs_fluff_in_state_fluff() {
     let (broadcast_svc, mut broadcast_rx) = mock_broadcast_svc();
     let (outbound_peer_svc, mut outbound_rx) = mock_discover_svc();
 
-    let mut router = DandelionRouterBuilder::default()
-        .with_config(config)
-        .with_broadcast_svc(broadcast_svc)
-        .with_outbound_peer_discover(outbound_peer_svc)
-        .build();
+    let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
     // The router will panic if it attempts to stem.
     outbound_rx.close();
-
-    const FROM_PEER: usize = 20;
 
     for _ in 0..30 {
         router
@@ -140,7 +121,7 @@ async fn stem_txs_fluff_in_state_fluff() {
             .unwrap()
             .call(DandelionRouteReq {
                 tx: 0_usize,
-                state: TxState::Stem { from: FROM_PEER },
+                state: TxState::Stem { from: 20 },
             })
             .await
             .unwrap();
@@ -155,10 +136,9 @@ async fn stem_txs_fluff_in_state_fluff() {
     assert_eq!(total_txs, 30);
 }
 
+/// make sure we get all txs sent to the router out in a stem or a fluff.
 #[tokio::test]
 async fn random_routing() {
-    // make sure we get all txs sent to the router out in a stem or a fluff.
-
     let config = DandelionConfig {
         time_between_hop: Duration::from_millis(175),
         epoch_duration: Duration::from_secs(0), // make every poll ready change state
@@ -169,11 +149,7 @@ async fn random_routing() {
     let (broadcast_svc, mut broadcast_rx) = mock_broadcast_svc();
     let (outbound_peer_svc, mut outbound_rx) = mock_discover_svc();
 
-    let mut router = DandelionRouterBuilder::default()
-        .with_config(config)
-        .with_broadcast_svc(broadcast_svc)
-        .with_outbound_peer_discover(outbound_peer_svc)
-        .build();
+    let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
     for _ in 0..3000 {
         router
