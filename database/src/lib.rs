@@ -97,30 +97,53 @@
 //! 1. `heed::Error::BadOpenOptions`
 //! 1. Encoding/decoding into `[u8]`
 //!
-//! # Example
-//! Simple usage of this crate.
+//! # Examples
+//! The below is an example of using `cuprate_database`'s
+//! lowest API, i.e. using the database directly.
+//!
+//! For examples of the higher-level APIs, see:
+//! - [`ops`]
+//! - [`service`]
 //!
 //! ```rust
+//! use cuprate_test_utils::data::block_v16_tx0;
+//!
 //! use cuprate_database::{
-//!     config::Config,
 //!     ConcreteEnv,
-//!     Env, Key, TxRo, TxRw,
-//! };
-//! use cuprate_types::{
-//!     service::{ReadRequest, WriteRequest, Response},
+//!     config::Config,
+//!     Env, EnvInner,
+//!     tables::{Tables, TablesMut},
+//!     DatabaseRo, DatabaseRw, TxRo, TxRw,
 //! };
 //!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
-//! let db_dir = tempfile::tempdir().unwrap();
+//! let db_dir = tempfile::tempdir()?;
 //! let config = Config::new(Some(db_dir.path().to_path_buf()));
 //!
-//! // Initialize the database thread-pool.
+//! // Initialize the database environment.
+//! let env = ConcreteEnv::open(config)?;
 //!
-//! // TODO:
-//! // 1. let (read_handle, write_handle) = cuprate_database::service::init(config).unwrap();
-//! // 2. Send write/read requests
-//! // 3. Use some other `Env` functions
-//! // 4. Shutdown
+//! // Open up a transaction + tables for writing.
+//! let env_inner = env.env_inner();
+//! let tx_rw = env_inner.tx_rw()?;
+//! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
+//!
+//! // ⚠️ Write data to the tables directly.
+//! // (not recommended, use `ops` or `service`).
+//! const KEY_IMAGE: [u8; 32] = [88; 32];
+//! tables.key_images_mut().put(&KEY_IMAGE, &())?;
+//!
+//! // Commit the data written.
+//! drop(tables);
+//! TxRw::commit(tx_rw)?;
+//!
+//! // Read the data, assert it is correct.
+//! let tx_ro = env_inner.tx_ro()?;
+//! let tables = env_inner.open_tables(&tx_ro)?;
+//! let (key_image, _) = tables.key_images().first()?;
+//! assert_eq!(key_image, KEY_IMAGE);
+//! # Ok(()) }
 //! ```
 
 //---------------------------------------------------------------------------------------------------- Lints
