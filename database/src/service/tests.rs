@@ -15,11 +15,8 @@
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc,
-    },
+    collections::{HashMap, HashSet},
+    sync::Arc,
 };
 
 use pretty_assertions::assert_eq;
@@ -28,20 +25,20 @@ use tower::{Service, ServiceExt};
 use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 use cuprate_types::{
     service::{ReadRequest, Response, WriteRequest},
-    ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation,
+    OutputOnChain, VerifiedBlockInformation,
 };
 
 use crate::{
     config::Config,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
-        blockchain::{chain_height, top_block_height},
-        output::{get_output, id_to_output_on_chain, output_to_output_on_chain},
+        blockchain::chain_height,
+        output::id_to_output_on_chain,
     },
     service::{init, DatabaseReadHandle, DatabaseWriteHandle},
-    tables::{KeyImages, Tables, TablesIter},
+    tables::{Tables, TablesIter},
     tests::AssertTableLen,
-    types::{Amount, AmountIndex, KeyImage, PreRctOutputId},
+    types::{Amount, AmountIndex, PreRctOutputId},
     ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError,
 };
 
@@ -169,7 +166,7 @@ async fn test_template(
                 #[allow(clippy::cast_possible_truncation)]
                 Ok(count) => (*amount, count as usize),
                 Err(RuntimeError::KeyNotFound) => (*amount, 0),
-                Err(e) => panic!(),
+                Err(e) => panic!("{e:?}"),
             })
             .collect::<HashMap<Amount, usize>>(),
     ));
@@ -196,7 +193,7 @@ async fn test_template(
         println!("response: {response:#?}, expected_response: {expected_response:#?}");
         match response {
             Ok(resp) => assert_eq!(resp, expected_response.unwrap()),
-            Err(ref e) => assert!(matches!(response, expected_response)),
+            Err(_) => assert!(matches!(response, _expected_response)),
         }
     }
 
@@ -303,7 +300,7 @@ async fn test_template(
 /// If this test fails, something is very wrong.
 #[test]
 fn init_drop() {
-    let (reader, writer, env, _tempdir) = init_service();
+    let (_reader, _writer, _env, _tempdir) = init_service();
 }
 
 /// Assert write/read correctness of [`block_v1_tx2`].

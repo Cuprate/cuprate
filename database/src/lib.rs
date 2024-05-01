@@ -180,7 +180,6 @@
     unused_comparisons,
     nonstandard_style
 )]
-#![allow(unreachable_code, unused_variables, dead_code, unused_imports)] // TODO: remove
 #![allow(
 	// FIXME: this lint affects crates outside of
 	// `database/` for some reason, allow for now.
@@ -194,9 +193,6 @@
 	// FIXME: good lint but too many false positives
 	// with our `Env` + `RwLock` setup.
 	clippy::significant_drop_tightening,
-
-	// TODO: should be removed after all `todo!()`'s are gone.
-	clippy::diverging_sub_expression,
 
 	clippy::module_name_repetitions,
 	clippy::module_inception,
@@ -248,8 +244,6 @@ pub mod resize;
 
 mod key;
 pub use key::Key;
-
-mod macros;
 
 mod storable;
 pub use storable::{Storable, StorableBytes, StorableVec};

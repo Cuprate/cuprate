@@ -5,9 +5,10 @@ Cuprate's database implementation.
 1. [Documentation](#documentation)
 1. [File Structure](#file-structure)
     - [`src/`](#src)
+    - [`src/backend/`](#src-backend)
+    - [`src/config`](#src-config)
     - [`src/ops`](#src-ops)
     - [`src/service/`](#src-service)
-    - [`src/backend/`](#src-backend)
 1. [Backends](#backends)
     - [`heed`](#heed)
     - [`redb`](#redb)
@@ -15,10 +16,9 @@ Cuprate's database implementation.
     - [`sanakirja`](#sanakirja)
     - [`MDBX`](#mdbx)
 1. [Layers](#layers)
-    - [Database](#database)
+    - [Backend](#backend)
     - [Trait](#trait)
     - [ConcreteEnv](#concreteenv)
-    - [Thread-pool](#thread-pool)
     - [Service](#service)
 1. [Resizing](#resizing)
 1. [Flushing](#flushing)
@@ -27,7 +27,7 @@ Cuprate's database implementation.
 ---
 
 # Documentation
-In general, documentation for `database/` is split into 3:
+Documentation for `database/` is split into 3 locations:
 
 | Documentation location    | Purpose |
 |---------------------------|---------|
@@ -69,7 +69,6 @@ The top-level `src/` files.
 
 | File                | Purpose |
 |---------------------|---------|
-| `config.rs`         | Database `Env` configuration
 | `constants.rs`      | General constants used throughout `cuprate-database`
 | `database.rs`       | Abstracted database; `trait DatabaseR{o,w}`
 | `env.rs`            | Abstracted database environment; `trait Env`
@@ -80,44 +79,20 @@ The top-level `src/` files.
 | `storable.rs`       | Data (de)serialization; `trait Storable`
 | `table.rs`          | Database table abstraction; `trait Table`
 | `tables.rs`         | All the table definitions used by `cuprate-database`
+| `tests.rs`          | Utilities for `cuprate_database` testing
 | `transaction.rs`    | Database transaction abstraction; `trait TxR{o,w}`
-| `types.rs`          | Database table schema types
-
-## `src/ops/`
-This folder contains the `cupate_database::ops` module.
-
-TODO: more detailed descriptions.
-
-| File            | Purpose |
-|-----------------|---------|
-| `alt_block.rs`  | Alternative blocks
-| `block.rs`      | Blocks
-| `blockchain.rs` | Blockchain-related
-| `output.rs`     | Outputs
-| `property.rs`   | Properties
-| `spent_key.rs`  | Spent keys
-| `tx.rs`         | Transactions
-
-## `src/service/`
-This folder contains the `cupate_database::service` module.
-
-| File           | Purpose |
-|----------------|---------|
-| `free.rs`      | General free functions used (related to `cuprate_database::service`)
-| `read.rs`      | Read thread-pool definitions and logic
-| `tests.rs`     | Thread-pool tests and test helper functions
-| `types.rs`     | `cuprate_database::service`-related type aliases
-| `write.rs`     | Write thread-pool definitions and logic
+| `types.rs`          | Database-specific types
 
 ## `src/backend/`
-This folder contains the actual database crates used as the backend for `cuprate-database`.
+This folder contains the implementation for actual databases used as the backend for `cuprate-database`.
 
 Each backend has its own folder.
 
-| Folder       | Purpose |
-|--------------|---------|
-| `heed/`      | Backend using using forked [`heed`](https://github.com/Cuprate/heed)
-| `sanakirja/` | Backend using [`sanakirja`](https://docs.rs/sanakirja)
+| Folder/File | Purpose |
+|-------------|---------|
+| `heed/`     | Backend using using [`heed`](https://github.com/meilisearch/heed) (LMDB)
+| `redb/`     | Backend using [`redb`](https://github.com/cberner/redb)
+| `tests.rs`  | Backend-agnostic tests
 
 All backends follow the same file structure:
 
@@ -127,17 +102,52 @@ All backends follow the same file structure:
 | `env.rs`         | Implementation of `trait Env`
 | `error.rs`       | Implementation of backend's errors to `cuprate_database`'s error types
 | `storable.rs`    | Compatibility layer between `cuprate_database::Storable` and backend-specific (de)serialization
-| `tests.rs`       | Tests for the specific backend
 | `transaction.rs` | Implementation of `trait TxR{o,w}`
 | `types.rs`       | Type aliases for long backend-specific types
 
-# Backends
-`cuprate-database`'s `trait`s abstract over various actual databases.
+## `src/config/`
+| File                | Purpose |
+|---------------------|---------|
+| `config.rs`         | Main database `Config` struct
+| `reader_threads.rs` | Reader thread configuration for `service` thread-pool
+| `sync_mode.rs`      | Disk sync configuration for backends
 
-Each database's implementation is located in its respective file in `src/backend/${DATABASE_NAME}.rs`.
+## `src/ops/`
+This folder contains the `cupate_database::ops` module.
+
+These are higher-level functions abstracted over the database, that are Monero-related.
+
+| File            | Purpose |
+|-----------------|---------|
+| `block.rs`      | Block related (main functions)
+| `blockchain.rs` | Blockchain related (height, cumulative values, etc)
+| `key_image.rs`  | Key image related
+| `output.rs`     | Output related
+| `property.rs`   | Database properties (pruned, version, etc)
+| `tx.rs`         | Transaction related
+
+## `src/service/`
+This folder contains the `cupate_database::service` module.
+
+The `async`hronous request/response API other Cuprate crates use instead of managing the database directly themselves.
+
+| File           | Purpose |
+|----------------|---------|
+| `free.rs`      | General free functions used (related to `cuprate_database::service`)
+| `read.rs`      | Read thread-pool definitions and logic
+| `tests.rs`     | Thread-pool tests and test helper functions
+| `types.rs`     | `cuprate_database::service`-related type aliases
+| `write.rs`     | Writer thread definitions and logic
+
+# Backends
+`cuprate-database`'s `trait`s allow abstracting over the actual database, such that any backend in particular could be used.
+
+Each database's implementation for those `trait`'s are located in its respective folder in `src/backend/${DATABASE_NAME}/`.
 
 ## `heed`
 The default database used is [`heed`](https://github.com/meilisearch/heed) (LMDB).
+
+The upstream versions from [`crates.io`](https://crates.io/crates/heed) are used.
 
 `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
@@ -148,9 +158,9 @@ The default database used is [`heed`](https://github.com/meilisearch/heed) (LMDB
 | `data.mdb` | Main data file
 | `lock.mdb` | Database lock file
 
-TODO: document max readers limit: https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372. Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
-
-TODO: document DB on remote filesystem: https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L129.
+`heed`-specific notes:
+- [There is a maximum reader limit](https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372). Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
+- [LMDB does not work on remote filesystem](https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L129).
 
 ## `redb`
 The 2nd database backend is the 100% Rust [`redb`](https://github.com/cberner/redb).
@@ -183,25 +193,109 @@ As such, it is not implemented.
 As such, it is not implemented (yet).
 
 # Layers
-TODO: update with accurate information when ready, update image.
+`cuprate_database` is logically abstracted into 4 layers, starting from the lowest:
+1. Backend
+2. Trait
+3. ConcreteEnv
+4. Thread-pool
+5. Service
+
+where each layer is built upon the last.
+
+<!-- TODO: insert image here after database/ split -->
 
 ## Database
+This is the actual database backend implementation (or a thin Rust shim).
+
+Examples:
+- `LMDB` (heed)
+- `redb`
+
+`cuprate_database` itself just uses a backend, it does not implement one.
+
+All backends have the following attributes:
+- [Embedded](https://en.wikipedia.org/wiki/Embedded_database)
+- [Multiversion concurrency control](https://en.wikipedia.org/wiki/Multiversion_concurrency_control)
+- [ACID](https://en.wikipedia.org/wiki/ACID)
+- Are `(key, value)` oriented and have the expected API (`get()`, `insert()`, `delete()`)
+- Are table oriented (`"table_name" -> (key, value)`)
+- Allows concurrent readers
+
 ## Trait
+`cuprate_database` provides a set of `trait`s that abstract over the various database backend.
+
+This allows the function signatures and behavior to stay the same but allows for swapping out databases in an easier fashion.
+
+All common behavior of the backend's are encapsulated here and used instead of using the backend directly.
+
+Examples:
+- [`trait Env`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/env.rs)
+- [`trait {TxRo, TxRw}`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/transaction.rs)
+- [`trait {DatabaseRo, DatabaseRw}`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/database.rs)
+
+For example, instead of calling `LMDB` or `redb`'s `get()` function directly, `DatabaseRo::get()` is called.
+
 ## ConcreteEnv
-## Thread
-## Service
+This is the non-generic, concrete `struct` provided by `cuprate_database` that contains all the data necessary to operate the database. The actual database backend `ConcreteEnv` will use internally depends on which backend feature is used.
+
+`ConcreteEnv` implements `trait Env`, which opens the door to all the other traits.
+
+The equivalent objects in the backends themselves are:
+- [`heed::Env`](https://docs.rs/heed/0.20.0/heed/struct.Env.html)
+- [`redb::Database`](https://docs.rs/redb/2.1.0/redb/struct.Database.html)
+
+This is the main object used when handling the database directly, although that is not strictly necessary as a user if the next layer is used.
+
+## `ops`
+These are Monero-specific functions that use the abstracted `trait` forms of the database.
+
+Instead of dealing with the database directly (`get()`, `delete()`), the `ops` layer provides functions that deal with commonly used Monero operations (`get_block()`, `add_block()`, `pop_block()`).
+
+## `tower::Service`
+The final layer abstracts the database completely into a Monero-specific `async` request/response API, using `tower::Service`.
+
+It handles the database using a separate writer thread & reader thread-pool, and uses the previously mentioned `ops` functions when responding to requests.
+
+Instead of handling the database directly, requests for data (e.g. Outputs) can be sent here and receive responses using handles that connect to this layer.
 
 # Resizing
-TODO: document resize algorithm:
-- Exactly when it occurs
-- How much bytes are added
+Database backends that require manually resizing will, by default, use a similar algorithm as `monerod`'s.
 
-All backends follow the same algorithm.
+Note that this relates to the `service` module, where the database is handled by `cuprate_database` itself, not the user. In the case of a user directly using `cuprate_database`, it is up to them how to resize.
+
+- Each resize statically adds around [`1_073_745_920`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/resize.rs#L104-L160) bytes to the current map size
+- Resizes occur simply when the current memory map size cannot contain new data that has come in
+- A resize will be attempted `3` times before failing
+
+https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/service/write.rs#L139-L201.
 
 # Flushing
-TODO: document disk flushing behavior.
-- Config options
-- Backend-specific behavior
+`cuprate_database`'s database has 5 disk flushing modes.
+
+- FastThenSafe
+- Safe
+- Async
+- Threshold
+- Fast
+
+The default mode is `Safe`.
+
+This means that upon each transaction commit, all the data that was written will be fully flushed to disk. This is the slowest, but safest mode of operation.
+
+For more information on the other modes, read the documentation here [https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/config/sync_mode.rs#L63-L144].
 
 # (De)serialization
-TODO: document `Storable` and how databases (de)serialize types when storing/fetching.
+All the types stored inside the database are either bytes already, or are perfectly bitcast-able.
+
+As such, they do not incur heavy (de)serialization costs when storing/fetching them from the database. The main (de)serialization used is [`bytemuck`](https://docs.rs/bytemuck)'s traits and casting functions.
+
+The main `trait` deserialization for database storage is: []`cuprate_database::Storable`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L16-L115).
+
+- Before storage, the type is [simply cast into bytes](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L125)
+- When fetching, the bytes are [simply cast into the type](hhttps://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L130)
+
+It is worth noting that when bytes are casted into the type, it is copied, the reference is not casted. This is due to byte alignment issues with both backends. This is more costly than necessary although in the main use-case for `cuprate_database`, the `service` module, the bytes would need to be owned regardless.
+
+The data stored in the tables are still type-safe, but require a compatibility type to wrap them, e.g:
+- [`StorableHeed`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/backend/heed/storable.rs#L11-L45)
+- [`StorableRedb`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/backend/redb/storable.rs#L11-L30)

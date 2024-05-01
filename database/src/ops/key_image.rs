@@ -1,24 +1,12 @@
-//! Spent keys.
+//! Key images.
 
 //---------------------------------------------------------------------------------------------------- Import
-use monero_serai::transaction::{Timelock, Transaction};
-
-use cuprate_types::{OutputOnChain, VerifiedBlockInformation};
-
 use crate::{
-    database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    env::EnvInner,
+    database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
     ops::macros::{doc_add_block_inner_invariant, doc_error},
-    tables::{
-        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
-        TxUnlockTime,
-    },
-    transaction::{TxRo, TxRw},
-    types::{
-        BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, RctOutput, TxHash,
-    },
+    tables::KeyImages,
+    types::KeyImage,
 };
 
 //---------------------------------------------------------------------------------------------------- Key image functions
@@ -59,13 +47,13 @@ pub fn key_image_exists(
 #[allow(clippy::significant_drop_tightening, clippy::cognitive_complexity)]
 mod test {
     use hex_literal::hex;
-    use pretty_assertions::assert_eq;
 
     use super::*;
     use crate::{
-        ops::tx::{get_tx, tx_exists},
+        tables::{Tables, TablesMut},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        Env,
+        transaction::TxRw,
+        Env, EnvInner,
     };
 
     /// Tests all above key-image functions.
@@ -77,7 +65,7 @@ mod test {
     /// stored and retrieved is the same.
     #[test]
     fn all_key_image_functions() {
-        let (env, tmp) = tmp_concrete_env();
+        let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 

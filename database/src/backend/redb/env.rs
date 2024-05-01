@@ -115,22 +115,17 @@ impl Env for ConcreteEnv {
             TxUnlockTime,
         };
 
+        // Create all tables.
+        // FIXME: this macro is kinda awkward.
         let tx_rw = env.begin_write()?;
-        create_table::<BlockBlobs>(&tx_rw)?;
-        create_table::<BlockHeights>(&tx_rw)?;
-        create_table::<BlockInfos>(&tx_rw)?;
-        create_table::<KeyImages>(&tx_rw)?;
-        create_table::<NumOutputs>(&tx_rw)?;
-        create_table::<Outputs>(&tx_rw)?;
-        create_table::<PrunableHashes>(&tx_rw)?;
-        create_table::<PrunableTxBlobs>(&tx_rw)?;
-        create_table::<PrunedTxBlobs>(&tx_rw)?;
-        create_table::<RctOutputs>(&tx_rw)?;
-        create_table::<TxBlobs>(&tx_rw)?;
-        create_table::<TxHeights>(&tx_rw)?;
-        create_table::<TxIds>(&tx_rw)?;
-        create_table::<TxOutputs>(&tx_rw)?;
-        create_table::<TxUnlockTime>(&tx_rw)?;
+        {
+            let env = &env;
+            let tx_rw = &mut tx_rw;
+            match call_fn_on_all_tables_or_early_return!(create_table(env, tx_rw)) {
+                Ok(_) => (),
+                Err(e) => return Err(e),
+            }
+        }
         tx_rw.commit()?;
 
         // Check for file integrity.

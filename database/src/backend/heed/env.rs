@@ -3,10 +3,8 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     cell::RefCell,
-    fmt::Debug,
     num::NonZeroUsize,
-    ops::Deref,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{RwLock, RwLockReadGuard},
 };
 
 use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
@@ -23,6 +21,7 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
+    tables::call_fn_on_all_tables_or_early_return,
 };
 
 //---------------------------------------------------------------------------------------------------- Consts
@@ -76,7 +75,7 @@ impl Drop for ConcreteEnv {
         // We need to do `mdb_env_set_flags(&env, MDB_NOSYNC|MDB_ASYNCMAP, 0)`
         // to clear the no sync and async flags such that the below `self.sync()`
         // _actually_ synchronously syncs.
-        if let Err(e) = crate::Env::sync(self) {
+        if let Err(_e) = crate::Env::sync(self) {
             // TODO: log error?
         }
 
@@ -122,6 +121,8 @@ impl Env for ConcreteEnv {
     fn open(config: Config) -> Result<Self, InitError> {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 
+        let mut env_open_options = EnvOpenOptions::new();
+
         // Map our `Config` sync mode to the LMDB environment flags.
         //
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
@@ -133,7 +134,12 @@ impl Env for ConcreteEnv {
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
 
-        let mut env_open_options = EnvOpenOptions::new();
+        // SAFETY: the flags we're setting are 'unsafe'
+        // from a data durability perspective, although,
+        // the user config wanted this.
+        unsafe {
+            env_open_options.flags(flags);
+        }
 
         // Set the memory map size to
         // (current disk size) + (a bit of leeway)
@@ -174,12 +180,12 @@ impl Env for ConcreteEnv {
         // For now:
         // - No other program using our DB exists
         // - Almost no-one has a 126+ thread CPU
-        #[allow(clippy::cast_possible_truncation)] // no-one has `u32::MAX`+ threads
-        let reader_threads = config.reader_threads.as_threads().get() as u32;
+        let reader_threads =
+            u32::try_from(config.reader_threads.as_threads().get()).unwrap_or(u32::MAX);
         env_open_options.max_readers(if reader_threads < 110 {
             126
         } else {
-            reader_threads + 16
+            reader_threads.saturating_add(16)
         });
 
         // Create the database directory if it doesn't exist.
@@ -208,28 +214,17 @@ impl Env for ConcreteEnv {
             Ok(())
         }
 
-        use crate::tables::{
-            BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-            PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
-            TxUnlockTime,
-        };
-
         let mut tx_rw = env.write_txn()?;
-        create_table::<BlockBlobs>(&env, &mut tx_rw)?;
-        create_table::<BlockHeights>(&env, &mut tx_rw)?;
-        create_table::<BlockInfos>(&env, &mut tx_rw)?;
-        create_table::<KeyImages>(&env, &mut tx_rw)?;
-        create_table::<NumOutputs>(&env, &mut tx_rw)?;
-        create_table::<Outputs>(&env, &mut tx_rw)?;
-        create_table::<PrunableHashes>(&env, &mut tx_rw)?;
-        create_table::<PrunableTxBlobs>(&env, &mut tx_rw)?;
-        create_table::<PrunedTxBlobs>(&env, &mut tx_rw)?;
-        create_table::<RctOutputs>(&env, &mut tx_rw)?;
-        create_table::<TxBlobs>(&env, &mut tx_rw)?;
-        create_table::<TxHeights>(&env, &mut tx_rw)?;
-        create_table::<TxIds>(&env, &mut tx_rw)?;
-        create_table::<TxOutputs>(&env, &mut tx_rw)?;
-        create_table::<TxUnlockTime>(&env, &mut tx_rw)?;
+        // Create all tables.
+        // FIXME: this macro is kinda awkward.
+        {
+            let env = &env;
+            let tx_rw = &mut tx_rw;
+            match call_fn_on_all_tables_or_early_return!(create_table(env, tx_rw)) {
+                Ok(_) => (),
+                Err(e) => return Err(e),
+            }
+        }
 
         // TODO: Set dupsort and comparison functions for certain tables
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>

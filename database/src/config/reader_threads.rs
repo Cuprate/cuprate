@@ -9,18 +9,10 @@
 //! based on these values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::Cow,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-};
+use std::num::NonZeroUsize;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use cuprate_helper::fs::cuprate_database_dir;
-
-use crate::{constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
 
 //---------------------------------------------------------------------------------------------------- ReaderThreads
 /// Amount of database reader threads to spawn.

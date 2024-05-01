@@ -20,16 +20,13 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::borrow::{Borrow, Cow};
 
 use crate::{
-    config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
-    error::{InitError, RuntimeError},
+    error::RuntimeError,
     resize::ResizeAlgorithm,
     storable::StorableVec,
-    table::Table,
     tables::{
         BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
         PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
@@ -191,7 +188,7 @@ fn db_read_write() {
 
     // Insert keys.
     let mut key = KEY;
-    for i in 0..N {
+    for _ in 0..N {
         table.put(&key, &VALUE).unwrap();
         key.amount += 1;
     }

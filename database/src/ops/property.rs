@@ -2,25 +2,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use monero_pruning::PruningSeed;
-use monero_serai::transaction::{Timelock, Transaction};
-
-use cuprate_types::{OutputOnChain, VerifiedBlockInformation};
 
 use crate::{
-    database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    env::EnvInner,
     error::RuntimeError,
     ops::macros::{doc_add_block_inner_invariant, doc_error},
-    tables::{
-        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
-        TxUnlockTime,
-    },
-    transaction::{TxRo, TxRw},
-    types::{
-        BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, RctOutput, TxHash,
-        TxId,
-    },
 };
 //---------------------------------------------------------------------------------------------------- Free Functions
 /// TODO

@@ -40,7 +40,6 @@
 //! itself only modifies output-related tables, while the `block` "parent" functions
 //! (like `add_block` and `pop_block`) modify _everything_ that is required.
 
-// pub mod alt_block; // TODO: is this needed?
 pub mod block;
 pub mod blockchain;
 pub mod key_image;

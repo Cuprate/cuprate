@@ -1,30 +1,18 @@
 //! Outputs.
 
-use cuprate_helper::map::u64_to_timelock;
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
 //---------------------------------------------------------------------------------------------------- Import
-use monero_serai::{
-    transaction::{Timelock, Transaction},
-    H,
-};
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
+use monero_serai::{transaction::Timelock, H};
 
-use cuprate_types::{OutputOnChain, VerifiedBlockInformation};
+use cuprate_helper::map::u64_to_timelock;
+use cuprate_types::OutputOnChain;
 
 use crate::{
-    database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    env::EnvInner,
+    database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
     ops::macros::{doc_add_block_inner_invariant, doc_error},
-    tables::{
-        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
-        TxUnlockTime,
-    },
-    transaction::{TxRo, TxRw},
-    types::{
-        Amount, AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, OutputFlags,
-        PreRctOutputId, RctOutput, TxHash,
-    },
+    tables::{Outputs, RctOutputs, Tables, TablesMut, TxUnlockTime},
+    types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
 };
 
 //---------------------------------------------------------------------------------------------------- Pre-RCT Outputs
@@ -261,11 +249,12 @@ pub fn id_to_output_on_chain(
 mod test {
     use super::*;
     use crate::{
+        tables::{Tables, TablesMut},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         types::OutputFlags,
-        Env,
+        Env, EnvInner,
     };
-    use cuprate_test_utils::data::{tx_v1_sig2, tx_v2_rct3};
+
     use pretty_assertions::assert_eq;
 
     /// Dummy `Output`.
@@ -297,7 +286,7 @@ mod test {
     /// stored and retrieved is the same.
     #[test]
     fn all_output_functions() {
-        let (env, tmp) = tmp_concrete_env();
+        let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 

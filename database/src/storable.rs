@@ -1,15 +1,9 @@
 //! (De)serialization for table keys & values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::{Borrow, Cow},
-    char::ToLowercase,
-    fmt::Debug,
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::{borrow::Borrow, fmt::Debug};
 
-use bytemuck::{Pod, Zeroable};
+use bytemuck::Pod;
 use bytes::Bytes;
 
 //---------------------------------------------------------------------------------------------------- Storable
@@ -284,7 +278,7 @@ mod test {
             println!("serialized: {se:?}, deserialized: {de:?}\n");
 
             // Assert we wrote correct amount of bytes.
-            if let Some(len) = T::BYTE_LENGTH {
+            if T::BYTE_LENGTH.is_some() {
                 assert_eq!(se.len(), expected_bytes.len());
             }
             // Assert the data is the same.

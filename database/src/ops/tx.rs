@@ -5,34 +5,19 @@ use bytemuck::TransparentWrapper;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::transaction::{Input, Timelock, Transaction};
 
-use cuprate_types::{OutputOnChain, TransactionVerificationData, VerifiedBlockInformation};
-use monero_pruning::PruningSeed;
-
 use crate::{
-    database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    env::EnvInner,
+    database::{DatabaseRo, DatabaseRw},
     error::RuntimeError,
     ops::{
-        blockchain::chain_height,
+        key_image::{add_key_image, remove_key_image},
         macros::{doc_add_block_inner_invariant, doc_error},
-        property::get_blockchain_pruning_seed,
+        output::{
+            add_output, add_rct_output, get_rct_num_outputs, remove_output, remove_rct_output,
+        },
     },
-    tables::{
-        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxBlobs, TxHeights, TxIds,
-        TxUnlockTime,
-    },
-    transaction::{TxRo, TxRw},
-    types::{
-        AmountIndices, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, OutputFlags,
-        PreRctOutputId, RctOutput, TxBlob, TxHash, TxId,
-    },
+    tables::{TablesMut, TxBlobs, TxIds},
+    types::{BlockHeight, Output, OutputFlags, PreRctOutputId, RctOutput, TxHash, TxId},
     StorableVec,
-};
-
-use super::{
-    key_image::{add_key_image, remove_key_image},
-    output::{add_output, add_rct_output, get_rct_num_outputs, remove_output, remove_rct_output},
 };
 
 //---------------------------------------------------------------------------------------------------- Private
@@ -196,7 +181,7 @@ pub fn add_tx(
 
 /// Remove a transaction from the database with its [`TxHash`].
 ///
-/// This returns the [`TxId`] and [`TxBlob`] of the removed transaction.
+/// This returns the [`TxId`] and [`TxBlob`](crate::types::TxBlob) of the removed transaction.
 ///
 #[doc = doc_add_block_inner_invariant!()]
 ///
@@ -256,7 +241,7 @@ pub fn remove_tx(
 
     //------------------------------------------------------ Outputs
     // Remove each output in the transaction.
-    for (i, output) in tx.prefix.outputs.iter().enumerate() {
+    for output in &tx.prefix.outputs {
         // Outputs with clear amounts.
         if let Some(amount) = output.amount {
             // RingCT miner outputs.
@@ -342,8 +327,10 @@ pub fn tx_exists(
 mod test {
     use super::*;
     use crate::{
+        tables::Tables,
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        Env,
+        transaction::TxRw,
+        Env, EnvInner,
     };
     use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
     use pretty_assertions::assert_eq;
@@ -351,7 +338,7 @@ mod test {
     /// Tests all above tx functions when only inputting `Transaction` data (no Block).
     #[test]
     fn all_tx_functions() {
-        let (env, tmp) = tmp_concrete_env();
+        let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 

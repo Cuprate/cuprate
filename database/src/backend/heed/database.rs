@@ -1,16 +1,10 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::{Borrow, Cow},
-    cell::RefCell,
-    fmt::Debug,
-    ops::RangeBounds,
-    sync::RwLockReadGuard,
-};
+use std::{cell::RefCell, ops::RangeBounds};
 
 use crate::{
-    backend::heed::{storable::StorableHeed, types::HeedDb},
+    backend::heed::types::HeedDb,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
@@ -48,6 +42,17 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
     /// The associated read/write transaction that opened this table.
     pub(super) tx_rw: &'tx RefCell<heed::RwTxn<'env>>,
 }
+
+/// SAFETY: `cuprate_database`'s Cargo.toml enables a feature
+/// for `heed` that turns on the `MDB_NOTLS` flag for LMDB.
+///
+/// This makes read transactions `Send`, but only if that flag is enabled.
+///
+/// This is required as in `crate::service` we must put our transactions and
+/// tables inside `ThreadLocal`'s to use across multiple threads.
+///
+/// `ThreadLocal<T>` requires that `T: Send`.
+unsafe impl<T: Table> Send for HeedTableRo<'_, T> {}
 
 //---------------------------------------------------------------------------------------------------- Shared functions
 // FIXME: we cannot just deref `HeedTableRw -> HeedTableRo` and

@@ -15,7 +15,6 @@ use cuprate_types::{
 };
 
 use crate::{
-    constants::DATABASE_CORRUPT_MSG,
     env::{Env, EnvInner},
     error::RuntimeError,
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
@@ -208,12 +207,6 @@ impl DatabaseWriter {
             // - ...retry until panic
             unreachable!();
         }
-
-        // The only case the ['main] loop breaks should be a:
-        // - direct function return
-        // - panic
-        // anything below should be unreachable.
-        unreachable!();
     }
 }
 

@@ -1,7 +1,7 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{fmt::Debug, num::NonZeroUsize, ops::Deref};
+use std::num::NonZeroUsize;
 
 use crate::{
     config::Config,
@@ -9,11 +9,7 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    tables::{
-        call_fn_on_all_tables_or_early_return, BlockBlobs, BlockHeights, BlockInfos, KeyImages,
-        NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables,
-        TablesIter, TablesMut, TxHeights, TxIds, TxUnlockTime,
-    },
+    tables::{call_fn_on_all_tables_or_early_return, TablesIter, TablesMut},
     transaction::{TxRo, TxRw},
 };
 
@@ -120,6 +116,7 @@ pub trait Env: Sized {
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
+    #[allow(unused_variables)]
     fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         unreachable!()
     }

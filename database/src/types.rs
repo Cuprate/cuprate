@@ -39,7 +39,7 @@
 #![forbid(unsafe_code)] // if you remove this line i will steal your monero
 
 //---------------------------------------------------------------------------------------------------- Import
-use bytemuck::{AnyBitPattern, NoUninit, Pod, Zeroable};
+use bytemuck::{Pod, Zeroable};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};

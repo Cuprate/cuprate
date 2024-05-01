@@ -1,7 +1,6 @@
 //! Database table abstraction; `trait Table`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::fmt::Debug;
 
 use crate::{key::Key, storable::Storable};
 

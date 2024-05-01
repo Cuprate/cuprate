@@ -9,18 +9,9 @@
 //! based on these values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::Cow,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use cuprate_helper::fs::cuprate_database_dir;
-
-use crate::{constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
 
 //---------------------------------------------------------------------------------------------------- SyncMode
 /// Disk synchronization mode.

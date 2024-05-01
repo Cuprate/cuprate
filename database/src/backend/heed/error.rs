@@ -20,7 +20,6 @@ impl From<heed::Error> for crate::InitError {
             E1::Mdb(mdb_error) => match mdb_error {
                 E2::Invalid => Self::Invalid,
                 E2::VersionMismatch => Self::InvalidVersion,
-                E2::Other(c_int) => Self::Unknown(Box::new(mdb_error)),
 
                 // "Located page was wrong type".
                 // <https://docs.rs/heed/latest/heed/enum.MdbError.html#variant.Corrupted>
@@ -31,6 +30,7 @@ impl From<heed::Error> for crate::InitError {
 
                 // These errors shouldn't be returned on database init.
                 E2::Incompatible
+                | E2::Other(_)
                 | E2::BadTxn
                 | E2::Problem
                 | E2::KeyExist

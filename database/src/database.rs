@@ -1,17 +1,9 @@
 //! Abstracted database; `trait DatabaseRo` & `trait DatabaseRw`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::{Borrow, Cow},
-    fmt::Debug,
-    ops::{Deref, RangeBounds},
-};
+use std::ops::RangeBounds;
 
-use crate::{
-    error::RuntimeError,
-    table::Table,
-    transaction::{TxRo, TxRw},
-};
+use crate::{error::RuntimeError, table::Table};
 
 //---------------------------------------------------------------------------------------------------- DatabaseIter
 /// Database (key-value store) read-only iteration abstraction.
