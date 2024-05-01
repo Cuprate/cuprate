@@ -39,6 +39,7 @@ use crate::{
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
     tables::{BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, Tables},
     types::{Amount, AmountIndex, BlockHeight, KeyImage, OutputFlags, PreRctOutputId},
+    unsafe_sendable::UnsafeSendable,
     ConcreteEnv, DatabaseRo, Env, EnvInner,
 };
 
@@ -241,53 +242,47 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
     ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get())
 }
 
-/// Depending on the backend, the table type will need `UnsafeSendable`.
+/// Take in a `ThreadLocal<impl Tables>` and return an `&impl Tables + Send`.
 ///
-/// This macro branches on the backend and uses the appropriate type.
-/// See the below `SAFETY` comment for more info.
+/// SAFETY:
+/// `heed`'s transactions are `Send` but `HeedTableRo` contains a `&`
+/// to the transaction, as such, if `Send` were implemented on `HeedTableRo`
+/// then 1 transaction could be used to open multiple tables, then sent to
+/// other threads - this would be a soundness hole against `HeedTableRo`.
+///
+/// `&T` is only `Send` if `T: Sync`.
+///
+/// `heed::RoTxn: !Sync`, therefore our table
+/// holding `&heed::RoTxn` must NOT be `Send`.
+///
+/// <https://doc.rust-lang.org/std/marker/trait.Sync.html>
+/// <https://doc.rust-lang.org/nomicon/send-and-sync.html>
+///
+/// Instead, we are safely using `UnsafeSendable` in `service`'s reader
+/// thread-pool as we are pairing our usage with `ThreadLocal` - only 1 thread
+/// will ever access a transaction at a time. This is an INVARIANT.
+///
+/// A `Mutex` was considered but:
+/// - It is less performant
+/// - It isn't technically needed for safety in our use-case
+/// - It causes `DatabaseIter` function return issues as there is a `MutexGuard` object
+///
+/// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581684698>
 ///
 /// # Notes
-/// This macro will early return the scope it is called from
-/// with an `Err(RuntimeError)` if there is a database error.
+/// This is used for other backends as well instead of branching with `cfg_if`.
+/// The other backends (as of current) are `Send + Sync` so this is fine.
+/// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1585618374>
 macro_rules! get_tables {
     ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
-        cfg_if::cfg_if! {
-            if #[cfg(all(feature = "redb", not(feature = "heed")))] {
-                $tables.get_or_try(|| $env_inner.open_tables($tx_ro))?
-            } else {
-                $tables.get_or_try(|| {
-                    #[allow(clippy::significant_drop_in_scrutinee)]
-                    match $env_inner.open_tables($tx_ro) {
-                        // SAFETY:
-                        // `heed`'s transactions are `Send` but `HeedTableRo` contains a `&`
-                        // to the transaction, as such, if `Send` were implemented on `HeedTableRo`
-                        // then 1 transaction could be used to open multiple tables, then sent to
-                        // other threads - this would be a soundness hole against `Sync`.
-                        //
-                        // `&T` is only `Send` if `T: Sync`.
-                        //
-                        // `heed::RoTxn: !Sync`, therefore our table
-                        // holding `&heed::RoTxn` must NOT be `Send`.
-                        //
-                        // <https://doc.rust-lang.org/std/marker/trait.Sync.html>
-                        // <https://doc.rust-lang.org/nomicon/send-and-sync.html>
-                        //
-                        // Instead, we are unsafely using `UnsafeSendable` in `service`'s reader
-                        // thread-pool as we are pairing our usage with `ThreadLocal` - only 1 thread
-                        // will ever access a transaction at a time. This is an INVARIANT.
-                        //
-                        // A `Mutex` was considered but:
-                        // - It is less performant
-                        // - It isn't technically needed for safety in our use-case
-                        // - It causes `DatabaseIter` function return issues as there is a MutexGuard object
-                        //
-                        // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581684698>
-                        Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
-                        Err(e) => Err(e),
-                    }
-                })?.as_ref()
+        $tables.get_or_try(|| {
+            #[allow(clippy::significant_drop_in_scrutinee)]
+            match $env_inner.open_tables($tx_ro) {
+                // SAFETY: see above macro doc comment.
+                Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
+                Err(e) => Err(e),
             }
-        }
+        })
     }};
 }
 
@@ -353,7 +348,7 @@ fn block_extended_header_in_range(
         .into_par_iter()
         .map(|block_height| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables);
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
             get_block_extended_header_from_height(&block_height, tables)
         })
         .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
@@ -405,7 +400,7 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
     // This is pulled out from the below `map()` for readability.
     let inner_map = |amount, amount_index| -> Result<(AmountIndex, OutputOnChain), RuntimeError> {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-        let tables = get_tables!(env_inner, tx_ro, tables);
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
         let id = PreRctOutputId {
             amount,
@@ -456,7 +451,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         .into_par_iter()
         .map(|amount| {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables);
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
 
             if amount == 0 {
                 // v2 transactions.
@@ -490,7 +485,7 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
     // Key image check function.
     let key_image_exists = |key_image| {
         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-        let tables = get_tables!(env_inner, tx_ro, tables);
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
         key_image_exists(&key_image, tables.key_images())
     };
 
