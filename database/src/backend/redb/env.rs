@@ -1,18 +1,14 @@
 //! Implementation of `trait Env` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{fmt::Debug, ops::Deref, path::Path, sync::Arc};
-
 use crate::{
-    backend::redb::{
-        storable::StorableRedb,
-        types::{RedbTableRo, RedbTableRw},
-    },
+    backend::redb::storable::StorableRedb,
     config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     table::Table,
+    tables::call_fn_on_all_tables_or_early_return,
     TxRw,
 };
 
@@ -36,7 +32,8 @@ impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         // INVARIANT: drop(ConcreteEnv) must sync.
         if let Err(e) = self.sync() {
-            // TODO: log error?
+            // TODO: use tracing
+            println!("{e:#?}");
         }
 
         // TODO: log that we are dropping the database.
@@ -96,8 +93,6 @@ impl Env for ConcreteEnv {
 
         /// Function that creates the tables based off the passed `T: Table`.
         fn create_table<T: Table>(tx_rw: &redb::WriteTransaction) -> Result<(), InitError> {
-            println!("create_table(): {}", T::NAME); // TODO: use tracing.
-
             let table: redb::TableDefinition<
                 'static,
                 StorableRedb<<T as Table>::Key>,
@@ -109,19 +104,12 @@ impl Env for ConcreteEnv {
             Ok(())
         }
 
-        use crate::tables::{
-            BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-            PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
-            TxUnlockTime,
-        };
-
         // Create all tables.
         // FIXME: this macro is kinda awkward.
-        let tx_rw = env.begin_write()?;
+        let mut tx_rw = env.begin_write()?;
         {
-            let env = &env;
             let tx_rw = &mut tx_rw;
-            match call_fn_on_all_tables_or_early_return!(create_table(env, tx_rw)) {
+            match call_fn_on_all_tables_or_early_return!(create_table(tx_rw)) {
                 Ok(_) => (),
                 Err(e) => return Err(e),
             }

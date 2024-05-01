@@ -232,14 +232,13 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
 
     match result {
         Ok(()) => {
-            tx_rw.commit()?;
+            TxRw::commit(tx_rw)?;
             Ok(Response::WriteBlockOk)
         }
         Err(e) => {
             // INVARIANT: ensure database atomicity by aborting
             // the transaction on `add_block()` failures.
-            tx_rw
-                .abort()
+            TxRw::abort(tx_rw)
                 .expect("could not maintain database atomicity by aborting write transaction");
             Err(e)
         }

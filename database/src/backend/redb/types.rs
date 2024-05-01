@@ -1,7 +1,7 @@
 //! `redb` type aliases.
 
 //---------------------------------------------------------------------------------------------------- Types
-use crate::{backend::redb::storable::StorableRedb, table::Table};
+use crate::backend::redb::storable::StorableRedb;
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The concrete type for readable `redb` tables.
