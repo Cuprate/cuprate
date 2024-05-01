@@ -36,7 +36,7 @@ use super::{
 };
 
 //---------------------------------------------------------------------------------------------------- Private
-/// Add a [`TransactionVerificationData`] to the database.
+/// Add a [`Transaction`] (and related data) to the database.
 ///
 /// The `block_height` is the block that this `tx` belongs to.
 ///
@@ -63,18 +63,20 @@ use super::{
 #[doc = doc_error!()]
 #[inline]
 pub fn add_tx(
-    tx: &TransactionVerificationData,
+    tx: &Transaction,
+    tx_blob: &Vec<u8>,
+    tx_hash: &TxHash,
     block_height: &BlockHeight,
     tables: &mut impl TablesMut,
 ) -> Result<TxId, RuntimeError> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
 
     //------------------------------------------------------ Transaction data
-    tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
+    tables.tx_ids_mut().put(tx_hash, &tx_id)?;
     tables.tx_heights_mut().put(&tx_id, block_height)?;
     tables
         .tx_blobs_mut()
-        .put(&tx_id, StorableVec::wrap_ref(&tx.tx_blob))?;
+        .put(&tx_id, StorableVec::wrap_ref(tx_blob))?;
 
     //------------------------------------------------------ Timelocks
     // Height/time is not differentiated via type, but rather:
@@ -82,7 +84,7 @@ pub fn add_tx(
     // so the `u64/usize` is stored without any tag.
     //
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
-    match tx.tx.prefix.timelock {
+    match tx.prefix.timelock {
         Timelock::None => (),
         Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
         Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
@@ -95,8 +97,6 @@ pub fn add_tx(
     // }
 
     //------------------------------------------------------
-    // Refer to the inner transaction type from now on.
-    let tx: &Transaction = &tx.tx;
     let Ok(height) = u32::try_from(*block_height) else {
         panic!("add_tx(): block_height ({block_height}) > u32::MAX");
     };
@@ -128,7 +128,6 @@ pub fn add_tx(
     };
 
     let mut amount_indices = Vec::with_capacity(tx.prefix.outputs.len());
-    let tx_idx = get_num_tx(tables.tx_ids_mut())?;
 
     for (i, output) in tx.prefix.outputs.iter().enumerate() {
         let key = *output.key.as_bytes();
@@ -151,7 +150,7 @@ pub fn add_tx(
                         key,
                         height,
                         output_flags,
-                        tx_idx,
+                        tx_idx: tx_id,
                         commitment,
                     },
                     tables.rct_outputs_mut(),
@@ -164,7 +163,7 @@ pub fn add_tx(
                         key,
                         height,
                         output_flags,
-                        tx_idx,
+                        tx_idx: tx_id,
                     },
                     tables,
                 )?
@@ -178,7 +177,7 @@ pub fn add_tx(
                     key,
                     height,
                     output_flags,
-                    tx_idx,
+                    tx_idx: tx_id,
                     commitment,
                 },
                 tables.rct_outputs_mut(),
@@ -343,7 +342,7 @@ pub fn tx_exists(
 mod test {
     use super::*;
     use crate::{
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         Env,
     };
     use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
@@ -368,7 +367,7 @@ mod test {
                 .iter()
                 .map(|tx| {
                     println!("add_tx(): {tx:#?}");
-                    add_tx(tx, &0, &mut tables).unwrap()
+                    add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &0, &mut tables).unwrap()
                 })
                 .collect::<Vec<TxId>>();
 
@@ -384,20 +383,23 @@ mod test {
             let tables = env_inner.open_tables(&tx_ro).unwrap();
 
             // Assert only the proper tables were added to.
-            assert_eq!(tables.block_infos().len().unwrap(), 0);
-            assert_eq!(tables.block_blobs().len().unwrap(), 0);
-            assert_eq!(tables.block_heights().len().unwrap(), 0);
-            assert_eq!(tables.key_images().len().unwrap(), 4); // added to key images
-            assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-            assert_eq!(tables.num_outputs().len().unwrap(), 9);
-            assert_eq!(tables.outputs().len().unwrap(), 10); // added to outputs
-            assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.rct_outputs().len().unwrap(), 2);
-            assert_eq!(tables.tx_blobs().len().unwrap(), 3);
-            assert_eq!(tables.tx_ids().len().unwrap(), 3);
-            assert_eq!(tables.tx_heights().len().unwrap(), 3);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 1); // only 1 has a timelock
+            AssertTableLen {
+                block_infos: 0,
+                block_blobs: 0,
+                block_heights: 0,
+                key_images: 4, // added to key images
+                pruned_tx_blobs: 0,
+                prunable_hashes: 0,
+                num_outputs: 9,
+                outputs: 10, // added to outputs
+                prunable_tx_blobs: 0,
+                rct_outputs: 2,
+                tx_blobs: 3,
+                tx_ids: 3,
+                tx_heights: 3,
+                tx_unlock_time: 1, // only 1 has a timelock
+            }
+            .assert(&tables);
 
             // Both from ID and hash should result in getting the same transaction.
             let mut tx_hashes = vec![];

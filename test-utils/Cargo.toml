@@ -7,6 +7,7 @@ authors = ["Boog900", "hinto-janai"]
 
 [dependencies]
 cuprate-types = { path = "../types" }
+cuprate-helper = { path = "../helper", features = ["map"] }
 monero-wire = { path = "../net/monero-wire" }
 monero-p2p = { path = "../p2p/monero-p2p", features = ["borsh"] }
 
@@ -17,7 +18,6 @@ futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-util = { workspace = true }
-reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
@@ -25,12 +25,6 @@ tempfile = { workspace = true }
 
 borsh = { workspace = true, features = ["derive"]}
 
-[target.'cfg(unix)'.dependencies]
-tar = "0.4.40"
-bzip2 = "0.4.4"
-
-[target.'cfg(windows)'.dependencies]
-zip = "0.6"
-
 [dev-dependencies]
 hex = { workspace = true }
+pretty_assertions = { workspace = true }

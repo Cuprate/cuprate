@@ -77,6 +77,9 @@ jobs:
           ~/.rustup
         key: ${{ matrix.os }}
 
+    - name: Download monerod
+      uses: ./.github/actions/monerod-download
+
     # Packages other than `Boost` used by `Monero` are listed here.
     # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
 
@@ -96,8 +99,14 @@ jobs:
         update: true
         install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 
+    - name: Switch target (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy --no-self-update
+        rustup default stable-x86_64-pc-windows-gnu
+
     - name: Documentation
-      run: cargo doc --workspace --all-features
+      run: cargo doc --workspace --all-features --no-deps
 
     - name: Clippy (fail on warnings)
       run: cargo clippy --workspace --all-features --all-targets -- -D warnings
@@ -107,7 +116,7 @@ jobs:
       run: |
         cargo test --all-features --workspace
         cargo test --package cuprate-database --no-default-features --features redb --features service
-
+        
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
       run: cargo build --all-features --all-targets --workspace

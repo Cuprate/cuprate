@@ -137,7 +137,8 @@ impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
+// SAFETY: `HeedTableRo: !Send` as it holds a reference to `heed::RoTxn: Send + !Sync`.
+unsafe impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(&self.db, self.tx_ro, key)
@@ -165,7 +166,9 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
+// SAFETY: The `Send` bound only applies to `HeedTableRo`.
+// `HeedTableRw`'s write transaction is `!Send`.
+unsafe impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(&self.db, &self.tx_rw.borrow(), key)

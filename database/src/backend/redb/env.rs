@@ -84,6 +84,7 @@ impl Env for ConcreteEnv {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(false)
                 .open(config.db_file())?;
 
             env_builder.create_file(db_file)?

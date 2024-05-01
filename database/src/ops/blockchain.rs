@@ -101,7 +101,7 @@ mod test {
             block::add_block,
             tx::{get_tx, tx_exists},
         },
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         Env,
     };
 
@@ -149,6 +149,24 @@ mod test {
             }
 
             // Assert reads are correct.
+            AssertTableLen {
+                block_infos: 3,
+                block_blobs: 3,
+                block_heights: 3,
+                key_images: 69,
+                num_outputs: 41,
+                pruned_tx_blobs: 0,
+                prunable_hashes: 0,
+                outputs: 111,
+                prunable_tx_blobs: 0,
+                rct_outputs: 8,
+                tx_blobs: 8,
+                tx_ids: 8,
+                tx_heights: 8,
+                tx_unlock_time: 3,
+            }
+            .assert(&tables);
+
             assert_eq!(blocks_len, chain_height(tables.block_heights()).unwrap());
             assert_eq!(
                 blocks_len - 1,
@@ -156,15 +174,15 @@ mod test {
             );
             assert_eq!(
                 cumulative_generated_coins(&0, tables.block_infos()).unwrap(),
-                13_138_270_467_918,
+                14_535_350_982_449,
             );
             assert_eq!(
                 cumulative_generated_coins(&1, tables.block_infos()).unwrap(),
-                16_542_044_490_081,
+                17_939_125_004_612,
             );
             assert_eq!(
                 cumulative_generated_coins(&2, tables.block_infos()).unwrap(),
-                17_142_044_490_081,
+                18_539_125_004_612,
             );
             assert!(matches!(
                 cumulative_generated_coins(&3, tables.block_infos()),

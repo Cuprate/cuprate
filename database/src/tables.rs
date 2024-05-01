@@ -350,10 +350,10 @@ tables! {
 
     /// Maps an output's amount to the number of outputs with that amount.
     ///
-    /// For a new output the `AmountIndex` value from this
-    /// table will be its index in a list of duplicate outputs.
+    /// For example, if there are 5 outputs with `amount = 123`
+    /// then calling `get(123)` on this table will return 5.
     NumOutputs,
-    Amount => AmountIndex,
+    Amount => u64,
 
     /// TODO
     PrunedTxBlobs,
