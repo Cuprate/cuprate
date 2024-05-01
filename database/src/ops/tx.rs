@@ -36,7 +36,7 @@ use super::{
 };
 
 //---------------------------------------------------------------------------------------------------- Private
-/// Add a [`TransactionVerificationData`] to the database.
+/// Add a [`Transaction`] (and related data) to the database.
 ///
 /// The `block_height` is the block that this `tx` belongs to.
 ///
@@ -63,18 +63,20 @@ use super::{
 #[doc = doc_error!()]
 #[inline]
 pub fn add_tx(
-    tx: &TransactionVerificationData,
+    tx: &Transaction,
+    tx_blob: &Vec<u8>,
+    tx_hash: &TxHash,
     block_height: &BlockHeight,
     tables: &mut impl TablesMut,
 ) -> Result<TxId, RuntimeError> {
     let tx_id = get_num_tx(tables.tx_ids_mut())?;
 
     //------------------------------------------------------ Transaction data
-    tables.tx_ids_mut().put(&tx.tx_hash, &tx_id)?;
+    tables.tx_ids_mut().put(tx_hash, &tx_id)?;
     tables.tx_heights_mut().put(&tx_id, block_height)?;
     tables
         .tx_blobs_mut()
-        .put(&tx_id, StorableVec::wrap_ref(&tx.tx_blob))?;
+        .put(&tx_id, StorableVec::wrap_ref(tx_blob))?;
 
     //------------------------------------------------------ Timelocks
     // Height/time is not differentiated via type, but rather:
@@ -82,7 +84,7 @@ pub fn add_tx(
     // so the `u64/usize` is stored without any tag.
     //
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
-    match tx.tx.prefix.timelock {
+    match tx.prefix.timelock {
         Timelock::None => (),
         Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
         Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
@@ -95,8 +97,6 @@ pub fn add_tx(
     // }
 
     //------------------------------------------------------
-    // Refer to the inner transaction type from now on.
-    let tx: &Transaction = &tx.tx;
     let Ok(height) = u32::try_from(*block_height) else {
         panic!("add_tx(): block_height ({block_height}) > u32::MAX");
     };
@@ -367,7 +367,7 @@ mod test {
                 .iter()
                 .map(|tx| {
                     println!("add_tx(): {tx:#?}");
-                    add_tx(tx, &0, &mut tables).unwrap()
+                    add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &0, &mut tables).unwrap()
                 })
                 .collect::<Vec<TxId>>();
 
