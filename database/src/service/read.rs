@@ -246,22 +246,11 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
 
 /// Take in a `ThreadLocal<impl Tables>` and return an `&impl Tables + Send`.
 ///
-/// SAFETY:
-/// `heed`'s transactions are `Send` but `HeedTableRo` contains a `&`
-/// to the transaction, as such, if `Send` were implemented on `HeedTableRo`
-/// then 1 transaction could be used to open multiple tables, then sent to
-/// other threads - this would be a soundness hole against `HeedTableRo`.
+/// # Safety
+/// See [`DatabaseRo`] docs.
 ///
-/// `&T` is only `Send` if `T: Sync`.
-///
-/// `heed::RoTxn: !Sync`, therefore our table
-/// holding `&heed::RoTxn` must NOT be `Send`.
-///
-/// <https://doc.rust-lang.org/std/marker/trait.Sync.html>
-/// <https://doc.rust-lang.org/nomicon/send-and-sync.html>
-///
-/// Instead, we are safely using `UnsafeSendable` in `service`'s reader
-/// thread-pool as we are pairing our usage with `ThreadLocal` - only 1 thread
+/// We are safely using `UnsafeSendable` in `service`'s reader thread-pool
+/// as we are pairing our usage with `ThreadLocal` - only 1 thread
 /// will ever access a transaction at a time. This is an INVARIANT.
 ///
 /// A `Mutex` was considered but:

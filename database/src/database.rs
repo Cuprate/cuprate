@@ -95,12 +95,15 @@ pub trait DatabaseIter<T: Table> {
 /// `heed`'s transactions are `Send` but `HeedTableRo` contains a `&`
 /// to the transaction, as such, if `Send` were implemented on `HeedTableRo`
 /// then 1 transaction could be used to open multiple tables, then sent to
-/// other threads - this would be a soundness hole against `Sync`.
+/// other threads - this would be a soundness hole against `HeedTableRo`.
 ///
 /// `&T` is only `Send` if `T: Sync`.
 ///
 /// `heed::RoTxn: !Sync`, therefore our table
 /// holding `&heed::RoTxn` must NOT be `Send`.
+///
+/// - <https://doc.rust-lang.org/std/marker/trait.Sync.html>
+/// - <https://doc.rust-lang.org/nomicon/send-and-sync.html>
 pub unsafe trait DatabaseRo<T: Table> {
     /// Get the value corresponding to a key.
     ///
