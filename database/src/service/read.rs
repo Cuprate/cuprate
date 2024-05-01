@@ -29,12 +29,14 @@ use crate::{
     config::ReaderThreads,
     constants::DATABASE_CORRUPT_MSG,
     error::RuntimeError,
-    free::{id_to_output_on_chain, output_to_output_on_chain, rct_output_to_output_on_chain},
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::{cumulative_generated_coins, top_block_height},
         key_image::key_image_exists,
-        output::{get_output, get_rct_output},
+        output::{
+            get_output, get_rct_output, id_to_output_on_chain, output_to_output_on_chain,
+            rct_output_to_output_on_chain,
+        },
     },
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
     tables::{BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, Tables},

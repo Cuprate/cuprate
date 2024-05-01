@@ -33,11 +33,10 @@ use cuprate_types::{
 
 use crate::{
     config::Config,
-    free::{id_to_output_on_chain, output_to_output_on_chain},
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::top_block_height,
-        output::get_output,
+        output::{get_output, id_to_output_on_chain, output_to_output_on_chain},
     },
     service::{init, DatabaseReadHandle, DatabaseWriteHandle},
     tables::{KeyImages, Tables, TablesIter},

@@ -1,7 +1,12 @@
 //! Outputs.
 
+use cuprate_helper::map::u64_to_timelock;
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
 //---------------------------------------------------------------------------------------------------- Import
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_serai::{
+    transaction::{Timelock, Transaction},
+    H,
+};
 
 use cuprate_types::{OutputOnChain, VerifiedBlockInformation};
 
@@ -17,8 +22,8 @@ use crate::{
     },
     transaction::{TxRo, TxRw},
     types::{
-        Amount, AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId,
-        RctOutput, TxHash,
+        Amount, AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, OutputFlags,
+        PreRctOutputId, RctOutput, TxHash,
     },
 };
 
@@ -151,6 +156,103 @@ pub fn get_rct_num_outputs(
     table_rct_outputs: &impl DatabaseRo<RctOutputs>,
 ) -> Result<u64, RuntimeError> {
     table_rct_outputs.len()
+}
+
+//---------------------------------------------------------------------------------------------------- Mapping functions
+/// Map an [`Output`] to a [`cuprate_types::OutputOnChain`].
+#[doc = doc_error!()]
+pub fn output_to_output_on_chain(
+    output: &Output,
+    amount: Amount,
+    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
+) -> Result<OutputOnChain, RuntimeError> {
+    // FIXME: implement lookup table for common values:
+    // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
+    let commitment = ED25519_BASEPOINT_POINT + H() * Scalar::from(amount);
+
+    let time_lock = if output
+        .output_flags
+        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
+    {
+        u64_to_timelock(table_tx_unlock_time.get(&output.tx_idx)?)
+    } else {
+        Timelock::None
+    };
+
+    let key = CompressedEdwardsY::from_slice(&output.key)
+        .map(|y| y.decompress())
+        .unwrap_or(None);
+
+    Ok(OutputOnChain {
+        height: u64::from(output.height),
+        time_lock,
+        key,
+        commitment,
+    })
+}
+
+/// Map an [`RctOutput`] to a [`cuprate_types::OutputOnChain`].
+///
+/// # Panics
+/// This function will panic if `rct_output`'s `commitment` fails to decompress
+/// into a valid [`EdwardsPoint`](curve25519_dalek::edwards::EdwardsPoint).
+///
+/// This should normally not happen as commitments that
+/// are stored in the database should always be valid.
+#[doc = doc_error!()]
+pub fn rct_output_to_output_on_chain(
+    rct_output: &RctOutput,
+    table_tx_unlock_time: &impl DatabaseRo<TxUnlockTime>,
+) -> Result<OutputOnChain, RuntimeError> {
+    // INVARIANT: Commitments stored are valid when stored by the database.
+    let commitment = CompressedEdwardsY::from_slice(&rct_output.commitment)
+        .unwrap()
+        .decompress()
+        .unwrap();
+
+    let time_lock = if rct_output
+        .output_flags
+        .contains(OutputFlags::NON_ZERO_UNLOCK_TIME)
+    {
+        u64_to_timelock(table_tx_unlock_time.get(&rct_output.tx_idx)?)
+    } else {
+        Timelock::None
+    };
+
+    let key = CompressedEdwardsY::from_slice(&rct_output.key)
+        .map(|y| y.decompress())
+        .unwrap_or(None);
+
+    Ok(OutputOnChain {
+        height: u64::from(rct_output.height),
+        time_lock,
+        key,
+        commitment,
+    })
+}
+
+/// Map an [`PreRctOutputId`] to an [`OutputOnChain`].
+///
+/// Note that this still support RCT outputs, in that case, [`PreRctOutputId::amount`] should be `0`.
+#[doc = doc_error!()]
+pub fn id_to_output_on_chain(
+    id: &PreRctOutputId,
+    tables: &impl Tables,
+) -> Result<OutputOnChain, RuntimeError> {
+    // v2 transactions.
+    if id.amount == 0 {
+        let rct_output = get_rct_output(&id.amount_index, tables.rct_outputs())?;
+        let output_on_chain = rct_output_to_output_on_chain(&rct_output, tables.tx_unlock_time())?;
+
+        Ok(output_on_chain)
+    } else {
+        // v1 transactions.
+        let output = get_output(id, tables.outputs())?;
+        let output_on_chain =
+            output_to_output_on_chain(&output, id.amount, tables.tx_unlock_time())?;
+
+        Ok(output_on_chain)
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
