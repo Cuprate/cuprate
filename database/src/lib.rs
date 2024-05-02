@@ -13,8 +13,8 @@
 //!
 //! Each layer builds on-top of the previous.
 //!
-//! As a user of `cuprate_database`, consider using the higher-level [`service`],
-//! or at the very least [`ops`] instead of interacting with the database traits directly.
+//! As a user of `cuprate_database`, consider using the higher-level [`service`] module,
+//! or at the very least the [`ops`] module instead of interacting with the database traits directly.
 //!
 //! With that said, many database traits and internals (like [`DatabaseRo::get`]) are exposed.
 //!
@@ -63,14 +63,10 @@
 //! Note that `ConcreteEnv` itself is not a clonable type,
 //! it should be wrapped in [`std::sync::Arc`].
 //!
-//! TODO: we could also expose `ConcreteDatabase` if we're
-//! going to be storing any databases in structs, to lessen
-//! the generic `<D: Database>` pain.
-//!
-//! TODO: we could replace `ConcreteEnv` with `fn Env::open() -> impl Env`/
+//! <!-- SOMEDAY: replace `ConcreteEnv` with `fn Env::open() -> impl Env`/
 //! and use `<E: Env>` everywhere it is stored instead. This would allow
 //! generic-backed dynamic runtime selection of the database backend, i.e.
-//! the user can select which database backend they use.
+//! the user can select which database backend they use. -->
 //!
 //! # Feature flags
 //! The `service` module requires the `service` feature to be enabled.
@@ -82,20 +78,18 @@
 //!
 //! The default is `heed`.
 //!
+//! `tracing` is always enabled and cannot be disable via feature-flag.
+//! <!-- FIXME: tracing should be behind a feature flag -->
+//!
 //! # Invariants when not using `service`
 //! `cuprate_database` can be used without the `service` feature enabled but
-//! there are some things that must be kept in mind when doing so:
+//! there are some things that must be kept in mind when doing so.
 //!
-//! TODO: make pretty. these will need to be updated
-//! as things change and as more backends are added.
+//! Failing to uphold these invariants may cause panics.
 //!
-//! 1. Memory map resizing (must resize as needed)
-//! 1. Must not exceed `Config`'s maximum reader count
-//! 1. Avoid many nested transactions
-//! 1. `heed::MdbError::BadValSize`
-//! 1. `heed::Error::InvalidDatabaseTyping`
-//! 1. `heed::Error::BadOpenOptions`
-//! 1. Encoding/decoding into `[u8]`
+//! 1. `LMDB` requires the user to resize the memory map resizing (see [`RuntimeError::ResizeNeeded`]
+//! 1. `LMDB` has a maximum reader transaction count, currently it is set to `128`
+//! 1. `LMDB` has [maximum key/value byte size](http://www.lmdb.tech/doc/group__internal.html#gac929399f5d93cef85f874b9e9b1d09e0) which must not be exceeded
 //!
 //! # Examples
 //! The below is an example of using `cuprate_database`'s

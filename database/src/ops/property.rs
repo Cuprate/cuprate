@@ -1,42 +1,39 @@
 //! Database properties functions - version, pruning, etc.
+//!
+//! SOMEDAY: the database `properties` table is not yet implemented.
 
 //---------------------------------------------------------------------------------------------------- Import
 use monero_pruning::PruningSeed;
 
-use crate::{
-    error::RuntimeError,
-    ops::macros::{doc_add_block_inner_invariant, doc_error},
-};
+use crate::{error::RuntimeError, ops::macros::doc_error};
 //---------------------------------------------------------------------------------------------------- Free Functions
-/// TODO
+/// SOMEDAY
 ///
-#[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 ///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
-/// // TODO
+/// // SOMEDAY
 /// ```
 #[inline]
 pub const fn get_blockchain_pruning_seed() -> Result<PruningSeed, RuntimeError> {
-    // TODO: impl pruning.
+    // SOMEDAY: impl pruning.
     // We need a DB properties table.
     Ok(PruningSeed::NotPruned)
 }
 
-/// TODO
+/// SOMEDAY
 ///
-#[doc = doc_add_block_inner_invariant!()]
 #[doc = doc_error!()]
 ///
 /// # Example
 /// ```rust
 /// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
-/// // TODO
+/// // SOMEDAY
 /// ```
 #[inline]
 pub const fn db_version() -> Result<u64, RuntimeError> {
-    // TODO: We need a DB properties table.
+    // SOMEDAY: We need a DB properties table.
     Ok(crate::constants::DATABASE_VERSION)
 }

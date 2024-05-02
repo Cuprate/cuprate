@@ -54,10 +54,14 @@ macro_rules! define_trait_tables {
         /// ```rust,ignore
         /// let tables = open_tables();
         ///
-        /// // The accessor function `block_info_v1s()` returns the field
-        /// // containing an open database table for  `BlockInfoV1s`.
-        /// let _ = tables.block_info_v1s();
+        /// // The accessor function `block_infos()` returns the field
+        /// // containing an open database table for `BlockInfos`.
+        /// let _ = tables.block_infos();
         /// ```
+        ///
+        /// See also:
+        /// - [`TablesMut`]
+        /// - [`TablesIter`]
         pub trait Tables: private::Sealed {
             // This expands to creating `fn field_accessor_functions()`
             // for each passed `$table` type.
@@ -85,6 +89,9 @@ macro_rules! define_trait_tables {
         ///
         /// This is the same as [`Tables`] but includes `_iter()` variants.
         ///
+        /// Note that this trait is a supertrait of `Tables`,
+        /// as in it can use all of its functions as well.
+        ///
         /// See [`Tables`] for documentation - this trait exists for the same reasons.
         pub trait TablesIter: private::Sealed + Tables {
             $(
@@ -98,6 +105,9 @@ macro_rules! define_trait_tables {
         /// Object containing all opened [`Table`]s in write mode.
         ///
         /// This is the same as [`Tables`] but for mutable accesses.
+        ///
+        /// Note that this trait is a supertrait of `Tables`,
+        /// as in it can use all of its functions as well.
         ///
         /// See [`Tables`] for documentation - this trait exists for the same reasons.
         pub trait TablesMut: private::Sealed + Tables {

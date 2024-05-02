@@ -13,10 +13,9 @@ macro_rules! doc_iter {
 of `&self`, the returned values from the iterator are _owned_.
 
 # Errors
-Each key in the `range` has the potential to error, for example,
-if a particular key in the `range` does not exist,
-[`RuntimeError::KeyNotFound`] wrapped in [`Err`] will be returned
-from the iterator."
+The construction of the iterator itself may error.
+
+Each iteration of the iterator has the potential to error as well."
     };
 }
 
@@ -26,7 +25,7 @@ from the iterator."
 /// can only be called from [`DatabaseRo`] objects.
 ///
 /// # Hack
-/// This is a HACK to get around the fact our read/write tables
+/// This is a HACK to get around the fact [`DatabaseRw`] tables
 /// cannot safely return values returning lifetimes, as such,
 /// only read-only tables implement this trait.
 ///
@@ -78,9 +77,9 @@ pub trait DatabaseIter<T: Table> {
 macro_rules! doc_database {
     () => {
         r"# Errors
-This will return [`RuntimeError::KeyNotFound`] wrapped in [`Err`] if `key` does not exist.
-
-It will return other [`RuntimeError`]'s on things like IO errors as well."
+This will return [`RuntimeError::KeyNotFound`] if:
+- Input does not exist OR
+- Database is empty"
     };
 }
 
@@ -131,7 +130,9 @@ pub unsafe trait DatabaseRo<T: Table> {
     }
 
     /// Returns the number of `(key, value)` pairs in the database.
-    #[doc = doc_database!()]
+    ///
+    /// # Errors
+    /// This will never return [`RuntimeError::KeyNotFound`].
     fn len(&self) -> Result<u64, RuntimeError>;
 
     /// Returns the first `(key, value)` pair in the database.
@@ -143,7 +144,9 @@ pub unsafe trait DatabaseRo<T: Table> {
     fn last(&self) -> Result<(T::Key, T::Value), RuntimeError>;
 
     /// Returns `true` if the database contains no `(key, value)` pairs.
-    #[doc = doc_database!()]
+    ///
+    /// # Errors
+    /// This can only return [`RuntimeError::Io`] on errors.
     fn is_empty(&self) -> Result<bool, RuntimeError>;
 }
 
@@ -158,7 +161,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     ///
     #[doc = doc_database!()]
     ///
-    /// Note that this will never [`RuntimeError::KeyExists`].
+    /// This will never [`RuntimeError::KeyExists`].
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError>;
 
     /// Delete a key-value pair in the database.
@@ -167,7 +170,7 @@ pub trait DatabaseRw<T: Table>: DatabaseRo<T> {
     ///
     #[doc = doc_database!()]
     ///
-    /// Note that this will never [`RuntimeError::KeyExists`].
+    /// This will never [`RuntimeError::KeyExists`].
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError>;
 
     /// Delete and return a key-value pair in the database.

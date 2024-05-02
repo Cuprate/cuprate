@@ -128,8 +128,11 @@ pub fn add_block(
 //---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.
 ///
-/// The removed block's height and hash are returned.
+/// The removed block's data isreturned.
 #[doc = doc_error!()]
+///
+/// In `pop_block()`'s case, [`RuntimeError::KeyNotFound`]
+/// will be returned if there are no blocks left.
 // no inline, too big
 pub fn pop_block(
     tables: &mut impl TablesMut,
@@ -238,7 +241,12 @@ pub fn get_block_height(
 }
 
 /// Check if a block exists in the database.
-#[doc = doc_error!()]
+///
+/// # Errors
+/// Note that this will never return `Err(RuntimeError::KeyNotFound)`,
+/// as in that case, `Ok(false)` will be returned.
+///
+/// Other errors may still occur.
 #[inline]
 pub fn block_exists(
     block_hash: &BlockHash,

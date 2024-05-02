@@ -19,16 +19,14 @@ use bytes::Bytes;
 /// Any type that implements:
 /// - [`bytemuck::Pod`]
 /// - [`Debug`]
-/// - [`ToOwned`]
 ///
 /// will automatically implement [`Storable`].
 ///
 /// This includes:
 /// - Most primitive types
 /// - All types in [`tables`](crate::tables)
-/// - Slices, e.g, `[T] where T: Storable`
 ///
-/// See [`StorableVec`] for storing slices of `T: Storable`.
+/// See [`StorableVec`] & [`StorableBytes`] for storing slices of `T: Storable`.
 ///
 /// ```rust
 /// # use cuprate_database::*;
@@ -136,6 +134,7 @@ where
 ///
 /// This is needed as `impl Storable for Vec<T>` runs into impl conflicts.
 ///
+/// # Example
 /// ```rust
 /// # use cuprate_database::*;
 /// //---------------------------------------------------- u8

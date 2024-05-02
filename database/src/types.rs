@@ -2,7 +2,7 @@
 //!
 //! This module contains all types used by the database tables.
 //!
-//! TODO: Add schema here or a link to it.
+//! <-- TODO: Add schema here or a link to it when complete -->
 
 /*
  * <============================================> VERY BIG SCARY SAFETY MESSAGE <============================================>
@@ -47,51 +47,49 @@ use serde::{Deserialize, Serialize};
 use crate::storable::StorableVec;
 
 //---------------------------------------------------------------------------------------------------- Aliases
-// TODO: document these, why they exist, and their purpose.
-//
-// Notes:
-// - Keep this sorted A-Z
+// These type aliases exist as many Monero-related types are the exact same.
+// For clarity, they're given type aliases as to not confuse them.
 
-/// TODO
+/// An output's amount.
 pub type Amount = u64;
 
-/// TODO
+/// The index of an [`Amount`] in a list of duplicate `Amount`s.
 pub type AmountIndex = u64;
 
-/// TODO
+/// A list of [`AmountIndex`]s.
 pub type AmountIndices = StorableVec<AmountIndex>;
 
-/// TODO
+/// A serialized block.
 pub type BlockBlob = StorableVec<u8>;
 
-/// TODO
+/// A block's hash.
 pub type BlockHash = [u8; 32];
 
-/// TODO
+/// A block's height.
 pub type BlockHeight = u64;
 
-/// TODO
+/// A key image.
 pub type KeyImage = [u8; 32];
 
-/// TODO
+/// Pruned serialized bytes.
 pub type PrunedBlob = StorableVec<u8>;
 
-/// TODO
+/// A prunable serialized bytes.
 pub type PrunableBlob = StorableVec<u8>;
 
-/// TODO
+/// A prunable hash.
 pub type PrunableHash = [u8; 32];
 
-/// TODO
+/// A serialized transaction.
 pub type TxBlob = StorableVec<u8>;
 
-/// TODO
+/// A transaction's global index, or ID.
 pub type TxId = u64;
 
-/// TODO
+/// A transaction's hash.
 pub type TxHash = [u8; 32];
 
-/// TODO
+/// The unlock time value of an output.
 pub type UnlockTime = u64;
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
