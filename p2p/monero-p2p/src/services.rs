@@ -1,20 +1,34 @@
 use monero_pruning::{PruningError, PruningSeed};
-use monero_wire::{NetZone, NetworkAddress, PeerListEntryBase};
+use monero_wire::{CoreSyncData, PeerListEntryBase};
 
 use crate::{
     client::InternalPeerID, handles::ConnectionHandle, NetZoneAddress, NetworkAddressIncorrectZone,
     NetworkZone,
 };
 
-pub enum CoreSyncDataRequest {
-    Ours,
-    HandleIncoming(monero_wire::CoreSyncData),
+pub enum PeerSyncRequest<N: NetworkZone> {
+    /// Request some peers to sync from.
+    ///
+    /// This takes in the current cumulative difficulty of our chain and will return peers that
+    /// claim to have a higher cumulative difficulty.
+    PeersToSyncFrom {
+        current_cumulative_difficulty: u128,
+        block_needed: Option<u64>,
+    },
+    /// Add/update a peers core sync data to the sync state service.
+    IncomingCoreSyncData(InternalPeerID<N::Addr>, ConnectionHandle, CoreSyncData),
 }
 
-pub enum CoreSyncDataResponse {
-    Ours(monero_wire::CoreSyncData),
+pub enum PeerSyncResponse<N: NetworkZone> {
+    /// The return value of [`PeerSyncRequest::PeersToSyncFrom`].
+    PeersToSyncFrom(Vec<InternalPeerID<N::Addr>>),
+    /// A generic ok response.
     Ok,
 }
+
+pub struct CoreSyncDataRequest;
+
+pub struct CoreSyncDataResponse(pub CoreSyncData);
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(
