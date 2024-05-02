@@ -104,9 +104,11 @@ impl<Z: NetworkZone> PeerList<Z> {
                 })?;
                 let n = r.gen_range(0..addresses_with_block.len());
                 let peer = addresses_with_block[n];
-                if !must_keep_peers.contains(&peer) {
-                    return self.remove_peer(&peer);
+                if must_keep_peers.contains(&peer) {
+                    continue;
                 }
+
+                return self.remove_peer(&peer);
             }
             let len = self.len();
 
