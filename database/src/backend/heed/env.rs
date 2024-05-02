@@ -25,7 +25,7 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Consts
-/// TODO
+/// Panic message when there's a table missing.
 const PANIC_MSG_MISSING_TABLE: &str =
     "cuprate_database::Env should uphold the invariant that all tables are already created";
 
@@ -67,7 +67,7 @@ impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         // INVARIANT: drop(ConcreteEnv) must sync.
         //
-        // TODO:
+        // SOMEDAY:
         // "if the environment has the MDB_NOSYNC flag set the flushes will be omitted,
         // and with MDB_MAPASYNC they will be asynchronous."
         // <http://www.lmdb.tech/doc/group__mdb.html#ga85e61f05aa68b520cc6c3b981dba5037>
@@ -130,7 +130,7 @@ impl Env for ConcreteEnv {
             SyncMode::Safe => EnvFlags::empty(),
             SyncMode::Async => EnvFlags::MAP_ASYNC,
             SyncMode::Fast => EnvFlags::NO_SYNC | EnvFlags::WRITE_MAP | EnvFlags::MAP_ASYNC,
-            // TODO: dynamic syncs are not implemented.
+            // SOMEDAY: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
 
@@ -158,7 +158,7 @@ impl Env for ConcreteEnv {
 
         // Set the max amount of database tables.
         // We know at compile time how many tables there are.
-        // TODO: ...how many?
+        // SOMEDAY: ...how many?
         env_open_options.max_dbs(32);
 
         // LMDB documentation:
@@ -173,7 +173,7 @@ impl Env for ConcreteEnv {
         // - Use at least 126 reader threads
         // - Add 16 extra reader threads if <126
         //
-        // TODO: This behavior is from `monerod`:
+        // FIXME: This behavior is from `monerod`:
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         // I believe this could be adjusted percentage-wise so very high
         // thread PCs can benefit from something like (cuprated + anything that uses the DB in the future).
@@ -195,18 +195,14 @@ impl Env for ConcreteEnv {
         // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
         let env = unsafe { env_open_options.open(config.db_directory())? };
 
-        // TODO: Open/create tables with certain flags
+        // FIXME: Open/create tables with certain flags
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
-        // `heed` creates the database if it didn't exist.
-        // <https://docs.rs/heed/0.20.0-alpha.9/src/heed/env.rs.html#223-229>
 
         /// Function that creates the tables based off the passed `T: Table`.
         fn create_table<T: Table>(
             env: &heed::Env,
             tx_rw: &mut heed::RwTxn<'_>,
         ) -> Result<(), InitError> {
-            println!("create_table(): {}", T::NAME); // TODO: use tracing.
-
             DatabaseOpenOptions::new(env)
                 .name(<T as Table>::NAME)
                 .types::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>()
@@ -226,7 +222,7 @@ impl Env for ConcreteEnv {
             }
         }
 
-        // TODO: Set dupsort and comparison functions for certain tables
+        // FIXME: Set dupsort and comparison functions for certain tables
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 
         // INVARIANT: this should never return `ResizeNeeded` due to adding

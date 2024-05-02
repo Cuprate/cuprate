@@ -52,21 +52,21 @@ impl Env for ConcreteEnv {
     #[inline(never)] // called once.
     #[allow(clippy::items_after_statements)]
     fn open(config: Config) -> Result<Self, InitError> {
-        // TODO: dynamic syncs are not implemented.
+        // SOMEDAY: dynamic syncs are not implemented.
         let durability = match config.sync_mode {
-            // TODO: There's also `redb::Durability::Paranoid`:
+            // FIXME: There's also `redb::Durability::Paranoid`:
             // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
             // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
             SyncMode::Async => redb::Durability::Eventual,
             SyncMode::Fast => redb::Durability::None,
-            // TODO: dynamic syncs are not implemented.
+            // SOMEDAY: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
 
         let env_builder = redb::Builder::new();
 
-        // TODO: we can set cache sizes with:
+        // FIXME: we can set cache sizes with:
         // env_builder.set_cache(bytes);
 
         // Use the in-memory backend if the feature is enabled.
@@ -117,7 +117,7 @@ impl Env for ConcreteEnv {
         tx_rw.commit()?;
 
         // Check for file integrity.
-        // TODO: should we do this? is it slow?
+        // FIXME: should we do this? is it slow?
         env.check_integrity()?;
 
         Ok(Self {

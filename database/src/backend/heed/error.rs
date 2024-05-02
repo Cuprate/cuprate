@@ -108,7 +108,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 // occurring indicates we did _not_ do that, which is a bug
                 // and we should panic.
                 //
-                // TODO: This can also mean _another_ process wrote to our
+                // FIXME: This can also mean _another_ process wrote to our
                 // LMDB file and increased the size. I don't think we need to accommodate for this.
                 // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
                 // Although `monerod` reacts to that instead of `MDB_MAP_FULL`

@@ -197,7 +197,7 @@ fn map_request(
 ) {
     use ReadRequest as R;
 
-    /* TODO: pre-request handling, run some code for each request? */
+    /* SOMEDAY: pre-request handling, run some code for each request? */
 
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
@@ -215,7 +215,7 @@ fn map_request(
         println!("database reader failed to send response: {e:?}");
     }
 
-    /* TODO: post-request handling, run some code for each request? */
+    /* SOMEDAY: post-request handling, run some code for each request? */
 }
 
 //---------------------------------------------------------------------------------------------------- Thread Local
@@ -283,7 +283,7 @@ macro_rules! get_tables {
 // All functions below assume that this is the case, such that
 // `par_*()` functions will not block the _global_ rayon thread-pool.
 
-// TODO: implement multi-transaction read atomicity.
+// FIXME: implement multi-transaction read atomicity.
 // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576874589>.
 
 /// [`ReadRequest::BlockExtendedHeader`].
@@ -470,7 +470,7 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
         key_image_exists(&key_image, tables.key_images())
     };
 
-    // TODO:
+    // FIXME:
     // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
     // or similar instead of `bool` for clarity.
     // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>

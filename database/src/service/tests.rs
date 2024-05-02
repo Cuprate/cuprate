@@ -1,12 +1,8 @@
 //! `crate::service` tests.
 //!
 //! This module contains general tests for the `service` implementation.
-//!
-//! Testing a thread-pool is slightly more complicated,
-//! so this file provides TODO.
 
 // This is only imported on `#[cfg(test)]` in `mod.rs`.
-
 #![allow(
     clippy::significant_drop_tightening,
     clippy::await_holding_lock,

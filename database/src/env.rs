@@ -104,8 +104,8 @@ pub trait Env: Sized {
     /// I.e., after this function returns, there must be no doubts
     /// that the data isn't synced yet, it _must_ be synced.
     ///
-    /// TODO: either this invariant or `sync()` itself will most
-    /// likely be removed/changed after `SyncMode` is finalized.
+    // FIXME: either this invariant or `sync()` itself will most
+    // likely be removed/changed after `SyncMode` is finalized.
     ///
     /// # Errors
     /// If there is a synchronization error, this should return an error.

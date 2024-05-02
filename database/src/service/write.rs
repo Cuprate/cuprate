@@ -151,7 +151,7 @@ impl DatabaseWriter {
             // to represent this retry logic with recursive
             // functions instead of a loop.
             'retry: for retry in 0..REQUEST_RETRY_LIMIT {
-                // TODO: will there be more than 1 write request?
+                // FIXME: will there be more than 1 write request?
                 // this won't have to be an enum.
                 let response = match &request {
                     WriteRequest::WriteBlock(block) => write_block(&self.env, block),

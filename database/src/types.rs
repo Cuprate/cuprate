@@ -4,7 +4,7 @@
 //! and aliases for common Monero-related types that use the
 //! same underlying primitive type.
 //!
-//! <!-- TODO: Add schema here or a link to it when complete -->
+//! <!-- FIXME: Add schema here or a link to it when complete -->
 
 /*
  * <============================================> VERY BIG SCARY SAFETY MESSAGE <============================================>

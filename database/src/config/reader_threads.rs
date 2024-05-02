@@ -15,10 +15,12 @@ use std::num::NonZeroUsize;
 use serde::{Deserialize, Serialize};
 
 //---------------------------------------------------------------------------------------------------- ReaderThreads
-/// Amount of database reader threads to spawn.
+/// Amount of database reader threads to spawn when using [`service`](crate::service).
 ///
-/// This controls how many reader thread [`crate::service`]'s
+/// This controls how many reader thread `service`'s
 /// thread-pool will spawn to receive and send requests/responses.
+///
+/// It does nothing outside of `service`.
 ///
 /// It will always be at least 1, up until the amount of threads on the machine.
 ///
@@ -30,8 +32,8 @@ pub enum ReaderThreads {
     #[default]
     /// Spawn 1 reader thread per available thread on the machine.
     ///
-    /// For example, a `16-core, 32-thread` Ryzen 5950x will
-    /// spawn `32` reader threads using this setting.
+    /// For example, a `32-thread` system will spawn
+    /// `32` reader threads using this setting.
     OnePerThread,
 
     /// Only spawn 1 reader thread.
