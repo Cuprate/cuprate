@@ -1,6 +1,21 @@
 //! Database tables.
 //!
-//! This module contains all the table definitions used by `cuprate-database`.
+//! # Table marker structs
+//! This module contains all the table definitions used by `cuprate_database`.
+//!
+//! The zero-sized structs here represents the table type;
+//! they all are essentially marker types that implement [`Table`].
+//!
+//! Table structs are `CamelCase`, and their static string
+//! names used by the actual database backend are `snake_case`.
+//!
+//! For example: [`BlockBlobs`] -> `block_blobs`.
+//!
+//! # Traits
+//! This module also contains a set of traits for
+//! accessing _all_ tables defined here at once.
+//!
+//! For example, this is the object returned by [`EnvInner::open_tables`](crate::EnvInner::open_tables).
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
@@ -25,6 +40,7 @@ pub(super) mod private {
 //---------------------------------------------------------------------------------------------------- `trait Tables[Mut]`
 /// Creates:
 /// - `pub trait Tables`
+/// - `pub trait TablesIter`
 /// - `pub trait TablesMut`
 /// - Blanket implementation for `(tuples, containing, all, open, database, tables, ...)`
 ///
@@ -217,14 +233,20 @@ macro_rules! define_trait_tables {
     }};
 }
 
-// Format: $table_type => $index
+// Input format: $table_type => $index
 //
 // The $index:
 // - Simply increments by 1 for each table
 // - Must be 0..
-// - Must end at the total amount of table types
+// - Must end at the total amount of table types - 1
 //
 // Compile errors will occur if these aren't satisfied.
+//
+// $index is just the `tuple.$index`, as the above [`define_trait_tables`]
+// macro has a blanket impl for `(all, table, types, ...)` and we must map
+// each type to a tuple index explicitly.
+//
+// FIXME: there's definitely an automatic way to this :)
 define_trait_tables! {
     BlockInfos => 0,
     BlockBlobs => 1,
@@ -304,6 +326,9 @@ macro_rules! tables {
             // Table struct.
             $(#[$attr])*
             // The below test show the `snake_case` table name in cargo docs.
+            #[doc = concat!("- Key: [`", stringify!($key), "`]")]
+            #[doc = concat!("- Value: [`", stringify!($value), "`]")]
+            ///
             /// ## Table Name
             /// ```rust
             /// # use cuprate_database::{*,tables::*};
@@ -342,19 +367,30 @@ macro_rules! tables {
 //   b) `Env::open` to make sure it creates the table (for all backends)
 //   c) `call_fn_on_all_tables_or_early_return!()` macro defined in this file
 tables! {
-    /// TODO
+    /// Serialized block blobs (bytes).
+    ///
+    /// Contains the serialized version of all blocks.
     BlockBlobs,
     BlockHeight => BlockBlob,
 
-    /// TODO
+    /// Block heights.
+    ///
+    /// Contains the height of all blocks.
     BlockHeights,
     BlockHash => BlockHeight,
 
-    /// TODO
+    /// Block information.
+    ///
+    /// Contains metadata of all blocks.
     BlockInfos,
     BlockHeight => BlockInfo,
 
-    /// TODO
+    /// Set of key images.
+    ///
+    /// Contains all the key images known to be spent.
+    ///
+    /// This table has `()` as the value type, as in,
+    /// it is a set of key images.
     KeyImages,
     KeyImage => (),
 
@@ -365,18 +401,26 @@ tables! {
     NumOutputs,
     Amount => u64,
 
-    /// TODO
+    /// Pruned transaction blobs (bytes).
+    ///
+    /// Contains the pruned portion of serialized transaction data.
     PrunedTxBlobs,
     TxId => PrunedBlob,
 
-    /// TODO
+    /// Pre-RCT output data.
     Outputs,
     PreRctOutputId => Output,
 
+    /// Prunable transaction blobs (bytes).
+    ///
+    /// Contains the prunable portion of serialized transaction data.
     // SOMEDAY: impl when `monero-serai` supports pruning
     PrunableTxBlobs,
     TxId => PrunableBlob,
 
+    /// Prunable transaction hashes.
+    ///
+    /// Contains the prunable portion of transaction hashes.
     // SOMEDAY: impl when `monero-serai` supports pruning
     PrunableHashes,
     TxId => PrunableHash,
@@ -387,27 +431,40 @@ tables! {
     // Properties,
     // StorableString => StorableVec,
 
-    /// TODO
+    /// RCT output data.
     RctOutputs,
     AmountIndex => RctOutput,
 
-    /// SOMEDAY: remove when `monero-serai` supports pruning
+    /// Transaction blobs (bytes).
+    ///
+    /// Contains the serialized version of all transactions.
+    // SOMEDAY: remove when `monero-serai` supports pruning
     TxBlobs,
     TxId => TxBlob,
 
-    /// TODO
+    /// Transaction indices.
+    ///
+    /// Contains the indices all transactions.
     TxIds,
     TxHash => TxId,
 
-    /// TODO
+    /// Transaction heights.
+    ///
+    /// Contains the block height associated with all transactions.
     TxHeights,
     TxId => BlockHeight,
 
-    /// TODO
+    /// Transaction outputs.
+    ///
+    /// Contains the list of `AmountIndex`'s of the
+    /// outputs associated with all transactions.
     TxOutputs,
     TxId => AmountIndices,
 
-    /// TODO
+    /// Transaction unlock time.
+    ///
+    /// Contains the unlock time of transactions IF they have one.
+    /// Transactions without unlock times will not exist in this table.
     TxUnlockTime,
     TxId => UnlockTime,
 }

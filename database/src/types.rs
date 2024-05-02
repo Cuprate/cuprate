@@ -1,8 +1,10 @@
 //! Database [table](crate::tables) types.
 //!
-//! This module contains all types used by the database tables.
+//! This module contains all types used by the database tables,
+//! and aliases for common Monero-related types that use the
+//! same underlying primitive type.
 //!
-//! <-- TODO: Add schema here or a link to it when complete -->
+//! <!-- TODO: Add schema here or a link to it when complete -->
 
 /*
  * <============================================> VERY BIG SCARY SAFETY MESSAGE <============================================>
@@ -93,7 +95,13 @@ pub type TxHash = [u8; 32];
 pub type UnlockTime = u64;
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV1
-/// TODO
+/// A identifier for a pre-RCT [`Output`].
+///
+/// This can also serve as an identifier for [`RctOutput`]'s
+/// when [`PreRctOutputId::amount`] is set to `0`, although,
+/// in that case, only [`AmountIndex`] needs to be known.
+///
+/// This is the key to the [`Outputs`](crate::tables::Outputs) table.
 ///
 /// ```rust
 /// # use std::borrow::*;
@@ -119,14 +127,26 @@ pub type UnlockTime = u64;
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct PreRctOutputId {
-    /// TODO
+    /// Amount of the output.
+    ///
+    /// This should be `0` if the output is an [`RctOutput`].
     pub amount: Amount,
-    /// TODO
+    /// The index of the output with the same `amount`.
+    ///
+    /// In the case of [`Output`]'s, this is the index of the list
+    /// of outputs with the same clear amount.
+    ///
+    /// In the case of [`RctOutput`]'s, this is the
+    /// global index of _all_ `RctOutput`s
     pub amount_index: AmountIndex,
 }
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
-/// TODO
+/// Block information.
+///
+/// Unlike [`monerod`](https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/blockchain_db/lmdb/db_lmdb.cpp#L283-L329), this covers all block info variations (v1 to v4).
+///
+/// This is the value in the [`BlockInfos`](crate::tables::BlockInfos) table.
 ///
 /// ```rust
 /// # use std::borrow::*;
@@ -158,27 +178,34 @@ pub struct PreRctOutputId {
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct BlockInfo {
-    /// TODO
+    /// The UNIX time at which the block was recorded into the blockchain.
     pub timestamp: u64,
-    /// TODO
+    /// The total amount of coins mined in all blocks so far, including this block's.
     pub cumulative_generated_coins: u64,
-    /// TODO
+    /// The adjusted block size, in bytes.
+    ///
+    /// See [`block_weight`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header>).
     pub weight: u64,
     /// Least-significant 64 bits of the 128-bit cumulative difficulty.
     pub cumulative_difficulty_low: u64,
     /// Most-significant 64 bits of the 128-bit cumulative difficulty.
     pub cumulative_difficulty_high: u64,
-    /// TODO
+    /// The block's hash.
     pub block_hash: [u8; 32],
-    /// TODO
+    /// The total amount of RCT outputs so far, including this block's.
     pub cumulative_rct_outs: u64,
-    /// TODO
+    /// The long term block weight, based on the median weight of the preceding `100_000` blocks.
+    ///
+    /// See [`long_term_weight`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header).
     pub long_term_weight: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- OutputFlags
 bitflags::bitflags! {
-    /// TODO
+    /// Bit flags for [`Output`]s and [`RctOutput`]s,
+    ///
+    /// Currently only the first bit is used and, if set,
+    /// it means this output has a non-zero unlock time.
     ///
     /// ```rust
     /// # use std::borrow::*;
@@ -207,7 +234,7 @@ bitflags::bitflags! {
 }
 
 //---------------------------------------------------------------------------------------------------- Output
-/// TODO
+/// A pre-RCT (v1) output's data.
 ///
 /// ```rust
 /// # use std::borrow::*;
@@ -235,18 +262,20 @@ bitflags::bitflags! {
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct Output {
-    /// TODO
+    /// The public key of the output.
     pub key: [u8; 32],
-    /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
+    /// The block height this output belongs to.
+    // PERF: We could get this from the tx_idx with the `TxHeights`
+    // table but that would require another look up per out.
     pub height: u32,
-    /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
+    /// Bit flags for this output.
     pub output_flags: OutputFlags,
-    /// TODO
+    /// The index of the transaction this output belongs to.
     pub tx_idx: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- RctOutput
-/// TODO
+/// An RCT (v2+) output's data.
 ///
 /// ```rust
 /// # use std::borrow::*;
@@ -275,13 +304,15 @@ pub struct Output {
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct RctOutput {
-    /// TODO
+    /// The public key of the output.
     pub key: [u8; 32],
-    /// We could get this from the tx_idx with the Tx Heights table but that would require another look up per out.
+    /// The block height this output belongs to.
+    // PERF: We could get this from the tx_idx with the `TxHeights`
+    // table but that would require another look up per out.
     pub height: u32,
     /// Bit flags for this output, currently only the first bit is used and, if set, it means this output has a non-zero unlock time.
     pub output_flags: OutputFlags,
-    /// TODO
+    /// The index of the transaction this output belongs to.
     pub tx_idx: u64,
     /// The amount commitment of this output.
     pub commitment: [u8; 32],
