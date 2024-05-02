@@ -48,7 +48,7 @@ pub struct ConcreteEnv {
     /// `reader_count` would be spinned on until 0, at which point
     /// we are safe to resize.
     ///
-    /// Although, 3 atomic operations (check atomic bool, reader_count++, reader_count--)
+    /// Although, 3 atomic operations (check atomic bool, `reader_count++`, `reader_count--`)
     /// turns out to be roughly as expensive as acquiring a non-contended `RwLock`,
     /// the CPU sleeping instead of spinning is much better too.
     ///
@@ -117,7 +117,6 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
-    #[allow(clippy::items_after_statements)]
     fn open(config: Config) -> Result<Self, InitError> {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 

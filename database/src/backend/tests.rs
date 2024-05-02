@@ -13,12 +13,6 @@
 //!
 //! `redb`, and it only must be enabled for it to be tested.
 
-#![allow(
-    clippy::items_after_statements,
-    clippy::significant_drop_tightening,
-    clippy::cast_possible_truncation
-)]
-
 //---------------------------------------------------------------------------------------------------- Import
 
 use crate::{
@@ -152,7 +146,6 @@ fn non_manual_resize_2() {
 
 /// Test all `DatabaseR{o,w}` operations.
 #[test]
-#[allow(clippy::too_many_lines)]
 fn db_read_write() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();

@@ -50,7 +50,6 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
-    #[allow(clippy::items_after_statements)]
     fn open(config: Config) -> Result<Self, InitError> {
         // SOMEDAY: dynamic syncs are not implemented.
         let durability = match config.sync_mode {

@@ -3,11 +3,7 @@
 //! This module contains general tests for the `service` implementation.
 
 // This is only imported on `#[cfg(test)]` in `mod.rs`.
-#![allow(
-    clippy::significant_drop_tightening,
-    clippy::await_holding_lock,
-    clippy::too_many_lines
-)]
+#![allow(clippy::await_holding_lock, clippy::too_many_lines)]
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{

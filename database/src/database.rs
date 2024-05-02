@@ -45,7 +45,6 @@ pub trait DatabaseIter<T: Table> {
     /// of `&'a self`, the returned values from the iterator are _owned_.
     ///
     #[doc = doc_iter!()]
-    #[allow(clippy::iter_not_returning_iterator)]
     fn get_range<'a, Range>(
         &'a self,
         range: Range,

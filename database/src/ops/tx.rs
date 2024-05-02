@@ -323,7 +323,6 @@ pub fn tx_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening)]
 mod test {
     use super::*;
     use crate::{

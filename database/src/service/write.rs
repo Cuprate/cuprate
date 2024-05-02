@@ -135,7 +135,6 @@ impl DatabaseWriter {
             /// How many times should we retry handling the request on resize errors?
             ///
             /// This is 1 on automatically resizing databases, meaning there is only 1 iteration.
-            #[allow(clippy::items_after_statements)]
             const REQUEST_RETRY_LIMIT: usize = if ConcreteEnv::MANUAL_RESIZE { 3 } else { 1 };
 
             // Map [`Request`]'s to specific database functions.

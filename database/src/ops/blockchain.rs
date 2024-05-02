@@ -78,7 +78,6 @@ pub fn cumulative_generated_coins(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening)]
 mod test {
     use pretty_assertions::assert_eq;
 
@@ -101,7 +100,6 @@ mod test {
     /// It simply tests if the proper tables are mutated, and if the data
     /// stored and retrieved is the same.
     #[test]
-    #[allow(clippy::cognitive_complexity, clippy::cast_possible_truncation)]
     fn all_blockchain_functions() {
         let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();

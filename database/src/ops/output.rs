@@ -245,7 +245,6 @@ pub fn id_to_output_on_chain(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening, clippy::cognitive_complexity)]
 mod test {
     use super::*;
     use crate::{

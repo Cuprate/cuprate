@@ -4,8 +4,6 @@
 //! - enabled on #[cfg(test)]
 //! - only used internally
 
-#![allow(clippy::significant_drop_tightening)]
-
 //---------------------------------------------------------------------------------------------------- Import
 use std::fmt::Debug;
 

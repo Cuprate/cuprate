@@ -211,6 +211,9 @@
 	// with our `Env` + `RwLock` setup.
 	clippy::significant_drop_tightening,
 
+	// FIXME: good lint but is less clear in most cases.
+	clippy::items_after_statements,
+
 	clippy::module_name_repetitions,
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
@@ -218,7 +221,16 @@
 )]
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
-
+// Allow some lints in tests.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::cognitive_complexity,
+        clippy::needless_pass_by_value,
+        clippy::cast_possible_truncation,
+        clippy::too_many_lines
+    )
+)]
 // Only allow building 64-bit targets.
 //
 // This allows us to assume 64-bit

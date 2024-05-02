@@ -44,7 +44,6 @@ pub fn key_image_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening, clippy::cognitive_complexity)]
 mod test {
     use hex_literal::hex;
 
