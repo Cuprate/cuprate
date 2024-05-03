@@ -9,11 +9,11 @@ Cuprate's database implementation.
     - [2.4 `src/ops`](#24-srcops)
     - [2.5 `src/service/`](#25-srcservice)
 - [3. Backends](#3-backends)
-    - [3.1 `heed`](#31-heed)
-    - [3.2 `redb`](#32-redb)
-    - [3.3 `redb-memory`](#33-redb-memory)
-    - [3.4 `sanakirja`](#34-sanakirja)
-    - [3.5 `MDBX`](#35-mdbx)
+    - [3.1 heed](#31-heed)
+    - [3.2 redb](#32-redb)
+    - [3.3 redbmemory`](#33-redb-memory)
+    - [3.4 sanakirja](#34-sanakirja)
+    - [3.5 MDBX](#35-mdbx)
 - [4. Layers](#4-layers)
     - [4.1 Backend](#41-backend)
     - [4.2 Trait](#42-trait)
@@ -149,7 +149,7 @@ The `async`hronous request/response API other Cuprate crates use instead of mana
 
 Each database's implementation for those `trait`'s are located in its respective folder in `src/backend/${DATABASE_NAME}/`.
 
-### 3.1 `heed`
+### 3.1 heed
 The default database used is [`heed`](https://github.com/meilisearch/heed) (LMDB).
 
 The upstream versions from [`crates.io`](https://crates.io/crates/heed) are used.
@@ -167,7 +167,7 @@ The upstream versions from [`crates.io`](https://crates.io/crates/heed) are used
 - [There is a maximum reader limit](https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1372). Other potential processes (e.g. `xmrblocks`) that are also reading the `data.mdb` file need to be accounted for.
 - [LMDB does not work on remote filesystem](https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/lmdb.h#L129).
 
-### 3.2 `redb`
+### 3.2 redb
 The 2nd database backend is the 100% Rust [`redb`](https://github.com/cberner/redb).
 
 The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used.
@@ -180,19 +180,19 @@ The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used
 
 <!-- TODO: document DB on remote filesystem (does redb allow this?) -->
 
-### 3.3 `redb-memory`
+### 3.3 redb-memory
 This backend is 100% the same as `redb`, although, it uses `redb::backend::InMemoryBackend` which is a key-value store that completely resides in memory instead of a file.
 
 All other details about this should be the same as the normal `redb` backend.
 
-### 3.4 `sanakirja`
+### 3.4 sanakirja
 [`sanakirja`](https://docs.rs/sanakirja) was a candidate as a backend, however there were problems with maximum value sizes.
 
 The default maximum value size is [1012 bytes](https://docs.rs/sanakirja/1.4.1/sanakirja/trait.Storable.html) which was too small for our requirements. Using [`sanakirja::Slice`](https://docs.rs/sanakirja/1.4.1/sanakirja/union.Slice.html) and [sanakirja::UnsizedStorage](https://docs.rs/sanakirja/1.4.1/sanakirja/trait.UnsizedStorable.html) was attempted, but there were bugs found when inserting a value in-between `512..=4096` bytes.
 
 As such, it is not implemented.
 
-### 3.5 `MDBX`
+### 3.5 MDBX
 [`MDBX`](https://erthink.github.io/libmdbx) was a candidate as a backend, however MDBX deprecated the custom key/value comparison functions, this makes it a bit trickier to implement duplicate tables. It is also quite similar to the main backend LMDB (of which it was originally a fork of).
 
 As such, it is not implemented (yet).
@@ -289,9 +289,9 @@ As noted in the [`Layers`](#layers) section, the base database abstractions them
 
 However, the actual API `cuprate_database` exposes for practical usage for the main `cuprated` binary (and other `async` use-cases) is the asynchronous `service` API, which _does_ have a thread model backing it.
 
-As such, when `cuprate_database::service`'s initialization function is called, threads will be spawned and maintained until the user disconnects.
+As such, when [`cuprate_database::service`'s initialization function](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/free.rs#L33-L44) is called, threads will be spawned and maintained until the user drops (disconnects) the returned handles.
 
-The current system is:
+The current behavior is:
 - [1 writer thread](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/write.rs#L52-L66)
 - [As many reader threads as there are system threads](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/read.rs#L104-L126)
 
@@ -340,7 +340,7 @@ However, it is worth noting that when bytes are casted into the type, [it is cop
 - https://github.com/AltSysrq/lmdb-zero/issues/8
 - https://github.com/cberner/redb/issues/360
 
-As such, `bytemuck` will panic with [`TargetAlignmentGreaterAndInputNotAligned`](https://docs.rs/bytemuck/latest/bytemuck/enum.PodCastError.html#variant.TargetAlignmentGreaterAndInputNotAligned) when casting.
+Without this, `bytemuck` will panic with [`TargetAlignmentGreaterAndInputNotAligned`](https://docs.rs/bytemuck/latest/bytemuck/enum.PodCastError.html#variant.TargetAlignmentGreaterAndInputNotAligned) when casting.
 
 Copying the bytes fixes this problem, although it is more costly than necessary. However, in the main use-case for `cuprate_database` (the `service` module) the bytes would need to be owned regardless as the `Request/Response` API uses owned data types (`T`, `Vec<T>`, `HashMap<K, V>`, etc).
 
