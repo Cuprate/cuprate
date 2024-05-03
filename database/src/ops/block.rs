@@ -89,8 +89,14 @@ pub fn add_block(
     }
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    for tx_verification_data in &block.txs {
-        add_tx(tx_verification_data, &chain_height, tables)?;
+    // Add the miner transaction first.
+    {
+        let tx = &block.block.miner_tx;
+        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?;
+    }
+
+    for tx in &block.txs {
+        add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, tables)?;
     }
 
     //------------------------------------------------------ Block Info
@@ -161,6 +167,7 @@ pub fn pop_block(
     let block = Block::read(&mut block_blob.as_slice())?;
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
+    remove_tx(&block.miner_tx.hash(), tables)?;
     for tx_hash in &block.txs {
         remove_tx(tx_hash, tables)?;
     }
@@ -226,6 +233,16 @@ pub fn get_block_extended_header_top(
 }
 
 //---------------------------------------------------------------------------------------------------- Misc
+/// Retrieve a [`BlockInfo`] via its [`BlockHeight`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_info(
+    block_height: &BlockHeight,
+    table_block_infos: &impl DatabaseRo<BlockInfos>,
+) -> Result<BlockInfo, RuntimeError> {
+    table_block_infos.get(block_height)
+}
+
 /// Retrieve a [`BlockHeight`] via its [`BlockHash`].
 #[doc = doc_error!()]
 #[inline]
@@ -262,7 +279,7 @@ mod test {
     use super::*;
     use crate::{
         ops::tx::{get_tx, tx_exists},
-        tests::{assert_all_tables_are_empty, tmp_concrete_env},
+        tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         Env,
     };
 
@@ -315,20 +332,23 @@ mod test {
             let tables = env_inner.open_tables(&tx_ro).unwrap();
 
             // Assert only the proper tables were added to.
-            assert_eq!(tables.block_infos().len().unwrap(), 3);
-            assert_eq!(tables.block_blobs().len().unwrap(), 3);
-            assert_eq!(tables.block_heights().len().unwrap(), 3);
-            assert_eq!(tables.key_images().len().unwrap(), 69);
-            assert_eq!(tables.num_outputs().len().unwrap(), 38);
-            assert_eq!(tables.pruned_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.prunable_hashes().len().unwrap(), 0);
-            assert_eq!(tables.outputs().len().unwrap(), 107);
-            assert_eq!(tables.prunable_tx_blobs().len().unwrap(), 0);
-            assert_eq!(tables.rct_outputs().len().unwrap(), 6);
-            assert_eq!(tables.tx_blobs().len().unwrap(), 5);
-            assert_eq!(tables.tx_ids().len().unwrap(), 5);
-            assert_eq!(tables.tx_heights().len().unwrap(), 5);
-            assert_eq!(tables.tx_unlock_time().len().unwrap(), 0);
+            AssertTableLen {
+                block_infos: 3,
+                block_blobs: 3,
+                block_heights: 3,
+                key_images: 69,
+                num_outputs: 41,
+                pruned_tx_blobs: 0,
+                prunable_hashes: 0,
+                outputs: 111,
+                prunable_tx_blobs: 0,
+                rct_outputs: 8,
+                tx_blobs: 8,
+                tx_ids: 8,
+                tx_heights: 8,
+                tx_unlock_time: 3,
+            }
+            .assert(&tables);
 
             // Check `cumulative` functions work.
             assert_eq!(

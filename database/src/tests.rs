@@ -16,11 +16,60 @@ use monero_serai::{
     ringct::{RctPrunable, RctSignatures},
     transaction::{Timelock, Transaction, TransactionPrefix},
 };
+use pretty_assertions::assert_eq;
 
 use crate::{
     config::Config, key::Key, storable::Storable, tables::Tables, transaction::TxRo, ConcreteEnv,
-    Env, EnvInner,
+    DatabaseRo, Env, EnvInner,
 };
+
+//---------------------------------------------------------------------------------------------------- Struct
+/// Named struct to assert the length of all tables.
+///
+/// This is a struct with fields instead of a function
+/// so that callers can name arguments, otherwise the call-site
+/// is a little confusing, i.e. `assert_table_len(0, 25, 1, 123)`.
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct AssertTableLen {
+    pub(crate) block_infos: u64,
+    pub(crate) block_blobs: u64,
+    pub(crate) block_heights: u64,
+    pub(crate) key_images: u64,
+    pub(crate) num_outputs: u64,
+    pub(crate) pruned_tx_blobs: u64,
+    pub(crate) prunable_hashes: u64,
+    pub(crate) outputs: u64,
+    pub(crate) prunable_tx_blobs: u64,
+    pub(crate) rct_outputs: u64,
+    pub(crate) tx_blobs: u64,
+    pub(crate) tx_ids: u64,
+    pub(crate) tx_heights: u64,
+    pub(crate) tx_unlock_time: u64,
+}
+
+impl AssertTableLen {
+    /// Assert the length of all tables.
+    pub(crate) fn assert(self, tables: &impl Tables) {
+        let other = Self {
+            block_infos: tables.block_infos().len().unwrap(),
+            block_blobs: tables.block_blobs().len().unwrap(),
+            block_heights: tables.block_heights().len().unwrap(),
+            key_images: tables.key_images().len().unwrap(),
+            num_outputs: tables.num_outputs().len().unwrap(),
+            pruned_tx_blobs: tables.pruned_tx_blobs().len().unwrap(),
+            prunable_hashes: tables.prunable_hashes().len().unwrap(),
+            outputs: tables.outputs().len().unwrap(),
+            prunable_tx_blobs: tables.prunable_tx_blobs().len().unwrap(),
+            rct_outputs: tables.rct_outputs().len().unwrap(),
+            tx_blobs: tables.tx_blobs().len().unwrap(),
+            tx_ids: tables.tx_ids().len().unwrap(),
+            tx_heights: tables.tx_heights().len().unwrap(),
+            tx_unlock_time: tables.tx_unlock_time().len().unwrap(),
+        };
+
+        assert_eq!(self, other);
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- fn
 /// Create an `Env` in a temporarily directory.

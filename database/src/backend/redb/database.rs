@@ -118,7 +118,8 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
+// SAFETY: Both `redb`'s transaction and table types are `Send + Sync`.
+unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)
@@ -146,7 +147,8 @@ impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
-impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
+// SAFETY: Both `redb`'s transaction and table types are `Send + Sync`.
+unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)

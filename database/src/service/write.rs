@@ -15,9 +15,12 @@ use cuprate_types::{
 };
 
 use crate::{
+    constants::DATABASE_CORRUPT_MSG,
+    env::{Env, EnvInner},
     error::RuntimeError,
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
-    ConcreteEnv, Env,
+    transaction::TxRw,
+    ConcreteEnv,
 };
 
 //---------------------------------------------------------------------------------------------------- Constants
@@ -226,5 +229,26 @@ impl DatabaseWriter {
 /// [`WriteRequest::WriteBlock`].
 #[inline]
 fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
-    todo!()
+    let env_inner = env.env_inner();
+    let tx_rw = env_inner.tx_rw()?;
+
+    let result = {
+        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+        crate::ops::block::add_block(block, &mut tables_mut)
+    };
+
+    match result {
+        Ok(()) => {
+            tx_rw.commit()?;
+            Ok(Response::WriteBlockOk)
+        }
+        Err(e) => {
+            // INVARIANT: ensure database atomicity by aborting
+            // the transaction on `add_block()` failures.
+            tx_rw
+                .abort()
+                .expect("could not maintain database atomicity by aborting write transaction");
+            Err(e)
+        }
+    }
 }

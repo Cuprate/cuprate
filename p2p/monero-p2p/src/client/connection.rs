@@ -160,21 +160,24 @@ where
             self.send_message_to_peer(req.request.into()).await?;
             // Set the timeout after sending the message, TODO: Is this a good idea.
             self.request_timeout = Some(Box::pin(sleep(REQUEST_TIMEOUT)));
-        } else {
-            // For future devs: This function cannot exit early without sending a response back down the
-            // response channel.
-            let res = self.send_message_to_peer(req.request.into()).await;
-
-            // send the response now, the request does not need a response from the peer.
-            if let Err(e) = res {
-                let err_str = e.to_string();
-                let _ = req.response_channel.send(Err(err_str.clone().into()));
-                Err(e)?
-            } else {
-                // We still need to respond even if the response is this.
-                let _ = req.response_channel.send(Ok(PeerResponse::NA));
-            }
+            return Ok(());
         }
+
+        // INVARIANT: This function cannot exit early without sending a response back down the
+        // response channel.
+        let res = self.send_message_to_peer(req.request.into()).await;
+
+        // send the response now, the request does not need a response from the peer.
+        if let Err(e) = res {
+            // can't clone the error so turn it to a string first, hacky but oh well.
+            let err_str = e.to_string();
+            let _ = req.response_channel.send(Err(err_str.clone().into()));
+            return Err(e);
+        } else {
+            // We still need to respond even if the response is this.
+            let _ = req.response_channel.send(Ok(PeerResponse::NA));
+        }
+
         Ok(())
     }
 

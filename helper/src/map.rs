@@ -5,6 +5,7 @@
 //! `#[no_std]` compatible.
 
 //---------------------------------------------------------------------------------------------------- Use
+use monero_serai::transaction::Timelock;
 
 //---------------------------------------------------------------------------------------------------- `(u64, u64) <-> u128`
 /// Split a [`u128`] value into 2 64-bit values.
@@ -51,6 +52,54 @@ pub const fn split_u128_into_low_high_bits(value: u128) -> (u64, u64) {
 pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u128 {
     let res = (high_bits as u128) << 64;
     res | (low_bits as u128)
+}
+
+//---------------------------------------------------------------------------------------------------- Timelock
+/// Map a [`u64`] to a [`Timelock`].
+///
+/// Height/time is not differentiated via type, but rather:
+/// "height is any value less than 500_000_000 and timestamp is any value above"
+/// so the `u64/usize` is stored without any tag.
+///
+/// See [`timelock_to_u64`] for the inverse function.
+///
+/// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
+/// - <https://github.com/serai-dex/serai/blob/bc1dec79917d37d326ac3d9bc571a64131b0424a/coins/monero/src/transaction.rs#L139>
+///
+/// ```rust
+/// # use cuprate_helper::map::*;
+/// # use monero_serai::transaction::*;
+/// assert_eq!(u64_to_timelock(0), Timelock::None);
+/// assert_eq!(u64_to_timelock(499_999_999), Timelock::Block(499_999_999));
+/// assert_eq!(u64_to_timelock(500_000_000), Timelock::Time(500_000_000));
+/// ```
+pub fn u64_to_timelock(u: u64) -> Timelock {
+    if u == 0 {
+        Timelock::None
+    } else if u < 500_000_000 {
+        Timelock::Block(usize::try_from(u).unwrap())
+    } else {
+        Timelock::Time(u)
+    }
+}
+
+/// Map [`Timelock`] to a [`u64`].
+///
+/// See [`u64_to_timelock`] for the inverse function and more documentation.
+///
+/// ```rust
+/// # use cuprate_helper::map::*;
+/// # use monero_serai::transaction::*;
+/// assert_eq!(timelock_to_u64(Timelock::None), 0);
+/// assert_eq!(timelock_to_u64(Timelock::Block(499_999_999)), 499_999_999);
+/// assert_eq!(timelock_to_u64(Timelock::Time(500_000_000)), 500_000_000);
+/// ```
+pub fn timelock_to_u64(timelock: Timelock) -> u64 {
+    match timelock {
+        Timelock::None => 0,
+        Timelock::Block(u) => u64::try_from(u).unwrap(),
+        Timelock::Time(u) => u,
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

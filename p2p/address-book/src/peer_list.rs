@@ -109,20 +109,18 @@ impl<Z: NetworkZone> PeerList<Z> {
                 }
 
                 return self.remove_peer(&peer);
-            } else {
-                let len = self.len();
-                if len == 0 {
-                    return None;
-                } else {
-                    let n = r.gen_range(0..len);
+            }
+            let len = self.len();
 
-                    let (&key, _) = self.peers.get_index(n).unwrap();
-                    if must_keep_peers.contains(&key) {
-                        continue;
-                    }
+            if len == 0 {
+                return None;
+            }
 
-                    return self.remove_peer(&key);
-                }
+            let n = r.gen_range(0..len);
+
+            let (&key, _) = self.peers.get_index(n).unwrap();
+            if !must_keep_peers.contains(&key) {
+                return self.remove_peer(&key);
             }
         }
 

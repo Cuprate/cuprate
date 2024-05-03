@@ -30,7 +30,6 @@ bitflags! {
     impl PeerSupportFlags: u32 {
         const FLUFFY_BLOCKS = 0b0000_0001;
         const _ = !0;
-
     }
 }
 

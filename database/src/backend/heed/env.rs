@@ -185,7 +185,9 @@ impl Env for ConcreteEnv {
         // Create the database directory if it doesn't exist.
         std::fs::create_dir_all(config.db_directory())?;
         // Open the environment in the user's PATH.
-        let env = env_open_options.open(config.db_directory())?;
+        // SAFETY: LMDB uses a memory-map backed file.
+        // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
+        let env = unsafe { env_open_options.open(config.db_directory())? };
 
         // TODO: Open/create tables with certain flags
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
