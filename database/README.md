@@ -11,7 +11,7 @@ Cuprate's database implementation.
 - [3. Backends](#3-backends)
     - [3.1 heed](#31-heed)
     - [3.2 redb](#32-redb)
-    - [3.3 redbmemory`](#33-redb-memory)
+    - [3.3 redb-memory](#33-redb-memory)
     - [3.4 sanakirja](#34-sanakirja)
     - [3.5 MDBX](#35-mdbx)
 - [4. Layers](#4-layers)

@@ -4,7 +4,7 @@
 //!
 //! # Features flags
 //! The `service` module, containing `cuprate_database` request/response
-//! types must be enabled with the `service` feature (on by default).
+//! types, must be enabled with the `service` feature (on by default).
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
