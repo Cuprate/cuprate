@@ -108,6 +108,8 @@ All backends follow the same file structure:
 | `types.rs`       | Type aliases for long backend-specific types
 
 ### 2.3 `src/config/`
+This folder contains the `cupate_database::config` module; configuration options for the database.
+
 | File                | Purpose |
 |---------------------|---------|
 | `config.rs`         | Main database `Config` struct
@@ -176,7 +178,7 @@ The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used
 |-------------|---------|
 | `data.redb` | Main data file
 
-TODO: document DB on remote filesystem (does redb allow this?)
+<!-- TODO: document DB on remote filesystem (does redb allow this?) -->
 
 ### 3.3 `redb-memory`
 This backend is 100% the same as `redb`, although, it uses `redb::backend::InMemoryBackend` which is a key-value store that completely resides in memory instead of a file.
@@ -196,14 +198,14 @@ As such, it is not implemented.
 As such, it is not implemented (yet).
 
 ## 4. Layers
-`cuprate_database` is logically abstracted into 4 layers, starting from the lowest:
+`cuprate_database` is logically abstracted into 5 layers, starting from the lowest:
 1. Backend
 2. Trait
 3. ConcreteEnv
-4. Thread-pool
-5. Service
+4. `ops`
+5. `service`
 
-where each layer is built upon the last.
+Each layer is built upon the last.
 
 <!-- TODO: insert image here after database/ split -->
 
@@ -252,25 +254,27 @@ This is the main object used when handling the database directly, although that 
 ### 4.4 `ops`
 These are Monero-specific functions that use the abstracted `trait` forms of the database.
 
-Instead of dealing with the database directly (`get()`, `delete()`), the `ops` layer provides more abstract functions that deal with commonly used Monero operations (`get_block()`, `add_block()`, `pop_block()`).
+Instead of dealing with the database directly (`get()`, `delete()`), the `ops` layer provides more abstract functions that deal with commonly used Monero operations (`add_block()`, `pop_block()`).
 
 ### 4.5 `service`
-The final layer abstracts the database completely into a Monero-specific `async` request/response API, using `tower::Service`.
+The final layer abstracts the database completely into a [Monero-specific `async` request/response API](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/types/src/service.rs#L18-L78), using [`tower::Service`](https://docs.rs/tower/latest/tower/trait.Service.html).
 
 It handles the database using a separate writer thread & reader thread-pool, and uses the previously mentioned `ops` functions when responding to requests.
 
-Instead of handling the database directly, requests for data (e.g. Outputs) can be sent here and receive responses using handles that connect to this layer.
+Instead of handling the database directly, this layer provides read/write handles that allow:
+- Sending requests for data (e.g. Outputs)
+- Receiving responses
 
-For more information on the backing thread-pool, see [`Thread model`](#thread-model).
+For more information on the backing thread-pool, see [`Thread model`](#6-thread-model).
 
 ## 5. Syncing
 `cuprate_database`'s database has 5 disk syncing modes.
 
-- FastThenSafe
-- Safe
-- Async
-- Threshold
-- Fast
+1. FastThenSafe
+1. Safe
+1. Async
+1. Threshold
+1. Fast
 
 The default mode is `Safe`.
 
@@ -281,11 +285,11 @@ Note that upon any database `Drop`, whether via `service` or dropping the databa
 For more information on the other modes, read the documentation [here](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/config/sync_mode.rs#L63-L144).
 
 ## 6. Thread model
-As noted in the [`Layers`](#layers) section, the base database abstractions themselves are not concerned with threads, they are mostly functions to be called from a single-thread.
+As noted in the [`Layers`](#layers) section, the base database abstractions themselves are not concerned with parallelism, they are mostly functions to be called from a single-thread.
 
-However, the actual API `cuprate_database` exposes for practical usage by the main `cuprated` binary (and other `async` use-cases) is the asynchronous `service` API, which _does_ have a thread model backing it.
+However, the actual API `cuprate_database` exposes for practical usage for the main `cuprated` binary (and other `async` use-cases) is the asynchronous `service` API, which _does_ have a thread model backing it.
 
-As such, when `cuprate_database::service`'s initialization function is called, threads will be spawned.
+As such, when `cuprate_database::service`'s initialization function is called, threads will be spawned and maintained until the user disconnects.
 
 The current system is:
 - [1 writer thread](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/write.rs#L52-L66)
@@ -308,28 +312,39 @@ Once the [handles](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d
 ## 7. Resizing
 Database backends that require manually resizing will, by default, use a similar algorithm as `monerod`'s.
 
-Note that this relates to the `service` module, where the database is handled by `cuprate_database` itself, not the user. In the case of a user directly using `cuprate_database`, it is up to them on how to resize.
+Note that this only relates to the `service` module, where the database is handled by `cuprate_database` itself, not the user. In the case of a user directly using `cuprate_database`, it is up to them on how to resize.
 
-- Each resize statically adds around [`1_073_745_920`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/resize.rs#L104-L160) bytes to the current map size
-- Resizes occur simply when the current memory map size cannot contain new data that has come in
+Within `service`, the resizing logic defined [here](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/service/write.rs#L139-L201) does the following:
+
+- If there's not enough space to fit a write request's data, start a resize
+- Each resize adds around [`1_073_745_920`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/resize.rs#L104-L160) bytes to the current map size
 - A resize will be attempted `3` times before failing
 
-https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/service/write.rs#L139-L201.
-
+There are other [resizing algorithms](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/resize.rs#L38-L47) that define how the database's memory map grows, although currently the behavior of [`monerod`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/resize.rs#L104-L160) is closely followed.
 
 ## 8. (De)serialization
-All the types stored inside the database are either bytes already, or are perfectly bitcast-able.
+All types stored inside the database are either bytes already, or are perfectly bitcast-able.
 
 As such, they do not incur heavy (de)serialization costs when storing/fetching them from the database. The main (de)serialization used is [`bytemuck`](https://docs.rs/bytemuck)'s traits and casting functions.
+
+Note that the data stored in the tables are still type-safe; we still refer to the key and values within our tables by the type.
 
 The main deserialization `trait` for database storage is: [`cuprate_database::Storable`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L16-L115).
 
 - Before storage, the type is [simply cast into bytes](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L125)
-- When fetching, the bytes are [simply cast into the type](hhttps://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L130)
+- When fetching, the bytes are [simply cast into the type](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L130)
 
-It is worth noting that when bytes are casted into the type, it is copied, the reference is not casted. This is due to byte alignment issues with both backends. This is more costly than necessary although in the main use-case for `cuprate_database`, the `service` module, the bytes would need to be owned regardless.
+When a type is casted into bytes, [the reference is casted](https://docs.rs/bytemuck/latest/bytemuck/fn.bytes_of.html), i.e. this is zero-cost serialization.
 
-Practically speaking, this mean functions that normally look like such:
+However, it is worth noting that when bytes are casted into the type, [it is copied](https://docs.rs/bytemuck/latest/bytemuck/fn.pod_read_unaligned.html). This is due to byte alignment guarantee issues with both backends, see:
+- https://github.com/AltSysrq/lmdb-zero/issues/8
+- https://github.com/cberner/redb/issues/360
+
+As such, `bytemuck` will panic with [`TargetAlignmentGreaterAndInputNotAligned`](https://docs.rs/bytemuck/latest/bytemuck/enum.PodCastError.html#variant.TargetAlignmentGreaterAndInputNotAligned) when casting.
+
+Copying the bytes fixes this problem, although it is more costly than necessary. However, in the main use-case for `cuprate_database` (the `service` module) the bytes would need to be owned regardless as the `Request/Response` API uses owned data types (`T`, `Vec<T>`, `HashMap<K, V>`, etc).
+
+Practically speaking, this means lower-level database functions that normally look like such:
 ```rust
 fn get(key: &Key) -> &Value;
 ```
@@ -338,6 +353,12 @@ end up looking like this in `cuprate_database`:
 fn get(key: &Key) -> Value;
 ```
 
-The data stored in the tables are still type-safe, but require a compatibility type to wrap them, e.g:
+Since each backend has its own (de)serialization methods, our types are wrapped in compatibility types that map our `Storable` functions into whatever is required for the backend, e.g:
 - [`StorableHeed<T>`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/backend/heed/storable.rs#L11-L45)
 - [`StorableRedb<T>`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/backend/redb/storable.rs#L11-L30)
+
+Compatibility structs also exist for any `Storable` containers:
+- [`StorableVec<T>`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L135-L191)
+- [`StorableBytes`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L208-L241)
+
+Again, it's unfortunate that these must be owned, although in `service`'s use-case, they would have to be owned anyway.
