@@ -71,10 +71,7 @@ jobs:
     - name: Cache
       uses: actions/cache@v3
       with:
-        path: |
-          target
-          ~/.cargo
-          ~/.rustup
+        path: target
         key: ${{ matrix.os }}
 
     - name: Download monerod
@@ -116,7 +113,7 @@ jobs:
       run: |
         cargo test --all-features --workspace
         cargo test --package cuprate-database --no-default-features --features redb --features service
-        
+
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
       run: cargo build --all-features --all-targets --workspace
