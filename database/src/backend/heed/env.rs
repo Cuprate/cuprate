@@ -136,6 +136,11 @@ impl Env for ConcreteEnv {
         // SAFETY: the flags we're setting are 'unsafe'
         // from a data durability perspective, although,
         // the user config wanted this.
+        //
+        // MAYBE: We may need to open/create tables with certain flags
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        // MAYBE: Set comparison functions for certain tables
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         unsafe {
             env_open_options.flags(flags);
         }
@@ -194,9 +199,6 @@ impl Env for ConcreteEnv {
         // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
         let env = unsafe { env_open_options.open(config.db_directory())? };
 
-        // FIXME: Open/create tables with certain flags
-        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
-
         /// Function that creates the tables based off the passed `T: Table`.
         fn create_table<T: Table>(
             env: &heed::Env,
@@ -220,9 +222,6 @@ impl Env for ConcreteEnv {
                 Err(e) => return Err(e),
             }
         }
-
-        // FIXME: Set dupsort and comparison functions for certain tables
-        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
 
         // INVARIANT: this should never return `ResizeNeeded` due to adding
         // some tables since we added some leeway to the memory map above.

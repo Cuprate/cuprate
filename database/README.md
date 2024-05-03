@@ -27,7 +27,7 @@ Cuprate's database implementation.
 
 ---
 
-### 1. Documentation
+## 1. Documentation
 Documentation for `database/` is split into 3 locations:
 
 | Documentation location    | Purpose |
