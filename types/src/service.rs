@@ -1,7 +1,9 @@
 //! Database [`ReadRequest`]s, [`WriteRequest`]s, and [`Response`]s.
 //!
-//!
 //! See [`cuprate_database`](https://github.com/Cuprate/cuprate/blob/00c3692eac6b2669e74cfd8c9b41c7e704c779ad/database/src/service/mod.rs#L1-L59)'s `service` module for more usage/documentation.
+//!
+//! Tests that assert particular requests lead to particular
+//! responses are also tested in `cuprate_database`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{

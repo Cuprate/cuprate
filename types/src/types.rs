@@ -26,7 +26,7 @@ pub struct ExtendedBlockHeader {
     ///
     /// This can also be represented with `cuprate_consensus::HardFork`.
     ///
-    /// This is the same value as [`monero_serai::block::BlockHeader::major_version].
+    /// This is the same value as [`monero_serai::block::BlockHeader::major_version`].
     pub version: u8,
     /// The block's hard-fork vote.
     ///

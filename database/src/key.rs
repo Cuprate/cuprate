@@ -9,6 +9,10 @@ use crate::storable::Storable;
 /// Database [`Table`](crate::table::Table) key metadata.
 ///
 /// Purely compile time information for database table keys.
+//
+// FIXME: this doesn't need to exist right now but
+// may be used if we implement getting values using ranges.
+// <https://github.com/Cuprate/cuprate/pull/117#discussion_r1589378104>
 pub trait Key: Storable + Sized {
     /// The primary key type.
     type Primary: Storable;

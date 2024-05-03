@@ -78,7 +78,7 @@
 //!
 //! The default is `heed`.
 //!
-//! `tracing` is always enabled and cannot be disable via feature-flag.
+//! `tracing` is always enabled and cannot be disabled via feature-flag.
 //! <!-- FIXME: tracing should be behind a feature flag -->
 //!
 //! # Invariants when not using `service`
