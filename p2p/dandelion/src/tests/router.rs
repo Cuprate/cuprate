@@ -6,6 +6,59 @@ use crate::{DandelionConfig, DandelionRouteReq, DandelionRouter, Graph, TxState}
 
 use super::*;
 
+/// make sure the number of stemm peers is correct.
+#[tokio::test]
+async fn number_stems_correct() {
+    let mut config = DandelionConfig {
+        time_between_hop: Duration::from_millis(175),
+        epoch_duration: Duration::from_secs(60_000),
+        fluff_probability: 0.0, // we want to be in stem state
+        graph: Graph::FourRegular,
+    };
+
+    let (broadcast_svc, _broadcast_rx) = mock_broadcast_svc();
+    let (outbound_peer_svc, _outbound_rx) = mock_discover_svc();
+
+    let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config.clone());
+
+    const FROM_PEER: usize = 20;
+
+    // send a request to make the generic bound inference work, without specifying types.
+    router
+        .ready()
+        .await
+        .unwrap()
+        .call(DandelionRouteReq {
+            tx: 0_usize,
+            state: TxState::Stem { from: FROM_PEER },
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(router.stem_peers.len(), 2); // Graph::FourRegular
+
+    config.graph = Graph::Line;
+
+    let (broadcast_svc, _broadcast_rx) = mock_broadcast_svc();
+    let (outbound_peer_svc, _outbound_rx) = mock_discover_svc();
+
+    let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
+
+    // send a request to make the generic bound inference work, without specifying types.
+    router
+        .ready()
+        .await
+        .unwrap()
+        .call(DandelionRouteReq {
+            tx: 0_usize,
+            state: TxState::Stem { from: FROM_PEER },
+        })
+        .await
+        .unwrap();
+
+    assert_eq!(router.stem_peers.len(), 1); // Graph::Line
+}
+
 /// make sure a tx from the same peer goes to the same peer.
 #[tokio::test]
 async fn routes_consistent() {
@@ -21,6 +74,8 @@ async fn routes_consistent() {
 
     let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
+    const FROM_PEER: usize = 20;
+
     // The router will panic if it attempts to flush.
     broadcast_rx.close();
 
@@ -31,7 +86,7 @@ async fn routes_consistent() {
             .unwrap()
             .call(DandelionRouteReq {
                 tx: 0_usize,
-                state: TxState::Stem { from: 20 },
+                state: TxState::Stem { from: FROM_PEER },
             })
             .await
             .unwrap();
@@ -111,6 +166,8 @@ async fn stem_txs_fluff_in_state_fluff() {
 
     let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
+    const FROM_PEER: usize = 20;
+
     // The router will panic if it attempts to stem.
     outbound_rx.close();
 
@@ -121,7 +178,7 @@ async fn stem_txs_fluff_in_state_fluff() {
             .unwrap()
             .call(DandelionRouteReq {
                 tx: 0_usize,
-                state: TxState::Stem { from: 20 },
+                state: TxState::Stem { from: FROM_PEER },
             })
             .await
             .unwrap();

@@ -14,7 +14,7 @@ tower = { workspace = true, features = ["discover", "util"] }
 tracing = { workspace = true, features = ["std"] }
 
 futures = { workspace = true, features = ["std"] }
-tokio = { workspace = true, features = ["rt", "sync"], optional = true}
+tokio = { workspace = true, features = ["rt", "sync", "macros"], optional = true}
 tokio-util = { workspace = true, features = ["time"], optional = true }
 
 rand = { workspace = true, features = ["std", "std_rng"] }

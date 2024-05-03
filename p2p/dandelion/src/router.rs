@@ -80,6 +80,7 @@ pub struct DandelionRouteReq<Tx, ID> {
 
 /// The dandelion router service.
 pub struct DandelionRouter<P, B, ID, S, Tx> {
+    // pub(crate) is for tests
     /// A [`Discover`] where we can get outbound peers from.
     outbound_peer_discover: Pin<Box<P>>,
     /// A [`Service`] which handle broadcasting (diffusing) transactions.
@@ -98,7 +99,7 @@ pub struct DandelionRouter<P, B, ID, S, Tx> {
     ///
     /// This will contain peers, even in [`State::Fluff`] to allow us to stem [`TxState::Local`]
     /// transactions.
-    stem_peers: HashMap<ID, S>,
+    pub(crate) stem_peers: HashMap<ID, S>,
 
     /// The distribution to sample to get the [`State`], true is [`State::Fluff`].
     state_dist: Bernoulli,
@@ -267,10 +268,20 @@ where
 
         let mut peers_pending = false;
 
+        let span = &self.span;
+
         self.stem_peers
             .retain(|_, peer_svc| match peer_svc.poll_ready(cx) {
-                Poll::Ready(res) => res.is_ok(),
+                Poll::Ready(res) => res
+                    .inspect_err(|e| {
+                        tracing::debug!(
+                            parent: span,
+                            "Peer returned an error on `poll_ready`: {e}, removing from router.",
+                        )
+                    })
+                    .is_ok(),
                 Poll::Pending => {
+                    // Pending peers should be kept - they have not errored yet.
                     peers_pending = true;
                     true
                 }

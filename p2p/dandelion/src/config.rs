@@ -57,7 +57,7 @@ pub struct DandelionConfig {
     /// The dandelion paper recommends to make this value small, but the smaller this value, the higher
     /// the broadcast latency.
     ///
-    /// It is recommended for this value to be <= `0.2`, this value *MUST* be between 0 and 1 (not equal to either).
+    /// It is recommended for this value to be <= `0.2`, this value *MUST* be in range `0.0..=1.0`.
     pub fluff_probability: f64,
     /// The graph type.
     pub graph: Graph,
