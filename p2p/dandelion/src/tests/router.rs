@@ -19,7 +19,7 @@ async fn number_stems_correct() {
     let (broadcast_svc, _broadcast_rx) = mock_broadcast_svc();
     let (outbound_peer_svc, _outbound_rx) = mock_discover_svc();
 
-    let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config.clone());
+    let mut router = DandelionRouter::new(broadcast_svc, outbound_peer_svc, config);
 
     const FROM_PEER: usize = 20;
 
