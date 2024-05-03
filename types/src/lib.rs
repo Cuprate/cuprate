@@ -1,6 +1,10 @@
 //! Cuprate shared data types.
 //!
-//! TODO
+//! This crate is a kitchen-sink for data types that are shared across `Cuprate`.
+//!
+//! # Features flags
+//! The `service` module, containing `cuprate_database` request/response
+//! types must be enabled with the `service` feature (on by default).
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
@@ -59,7 +63,6 @@
     unused_comparisons,
     nonstandard_style
 )]
-#![allow(unreachable_code, unused_variables, dead_code, unused_imports)] // TODO: remove
 #![allow(
 	// FIXME: this lint affects crates outside of
 	// `database/` for some reason, allow for now.
@@ -69,9 +72,6 @@
 	// might just be more annoying than useful...
 	// although it is sometimes nice.
 	clippy::must_use_candidate,
-
-	// TODO: should be removed after all `todo!()`'s are gone.
-	clippy::diverging_sub_expression,
 
 	clippy::module_name_repetitions,
 	clippy::module_inception,
