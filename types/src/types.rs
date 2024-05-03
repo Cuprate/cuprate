@@ -18,6 +18,8 @@ use serde::{Deserialize, Serialize};
 /// Extended header data of a block.
 ///
 /// This contains various metadata of a block, but not the block blob itself.
+///
+/// For more definitions, see also: <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header>.
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
@@ -39,12 +41,8 @@ pub struct ExtendedBlockHeader {
     /// The total amount of coins mined in all blocks so far, including this block's.
     pub cumulative_difficulty: u128,
     /// The adjusted block size, in bytes.
-    ///
-    /// See [`block_weight`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header>).
     pub block_weight: usize,
     /// The long term block weight, based on the median weight of the preceding `100_000` blocks.
-    ///
-    /// See [`long_term_weight`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header).
     pub long_term_weight: usize,
 }
 
@@ -79,6 +77,8 @@ pub struct TransactionVerificationData {
 /// Verified information of a block.
 ///
 /// This represents a block that has already been verified to be correct.
+///
+/// For more definitions, see also: <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block>.
 #[derive(Clone, Debug, PartialEq, Eq)]
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))] // FIXME: monero_serai
 // #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
@@ -102,19 +102,17 @@ pub struct VerifiedBlockInformation {
     /// The amount of generated coins (atomic units) in this block.
     pub generated_coins: u64,
     /// The adjusted block size, in bytes.
-    ///
-    /// See [`block_weight`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header>).
     pub weight: usize,
     /// The long term block weight, based on the median weight of the preceding `100_000` blocks.
-    ///
-    /// See [`long_term_weight`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header).
     pub long_term_weight: usize,
-    /// TODO
+    /// The cumulative difficulty of all blocks up until and including this block.
     pub cumulative_difficulty: u128,
 }
 
 //---------------------------------------------------------------------------------------------------- OutputOnChain
 /// An already existing transaction output.
+///
+/// For more definitions, see also: <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_outs>.
 #[derive(Clone, Debug, PartialEq, Eq)]
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))] // FIXME: monero_serai
 // #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
