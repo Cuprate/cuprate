@@ -1,4 +1,4 @@
-//! Utilities for `cuprate_database` testing, and some tests.
+//! Utilities for `cuprate_database` testing.
 //!
 //! These types/fn's are only:
 //! - enabled on #[cfg(test)]
@@ -9,11 +9,7 @@ use std::fmt::Debug;
 
 use pretty_assertions::assert_eq;
 
-use crate::{
-    config::ConfigBuilder,
-    tables::{Tables, TablesIter, TablesMut},
-    ConcreteEnv, DatabaseIter, DatabaseRo, DatabaseRw, Env, EnvInner, TxRw,
-};
+use crate::{config::ConfigBuilder, tables::Tables, ConcreteEnv, DatabaseRo, Env, EnvInner};
 
 //---------------------------------------------------------------------------------------------------- Struct
 /// Named struct to assert the length of all tables.
@@ -86,59 +82,4 @@ pub(crate) fn assert_all_tables_are_empty(env: &ConcreteEnv) {
     let tables = env_inner.open_tables(&tx_ro).unwrap();
     assert!(tables.all_tables_empty().unwrap());
     assert_eq!(crate::ops::tx::get_num_tx(tables.tx_ids()).unwrap(), 0);
-}
-
-//---------------------------------------------------------------------------------------------------- Tests
-/// Assert that `key`'s in database tables are sorted in
-/// an ordered B-Tree fashion, i.e. `min_value -> max_value`.
-#[test]
-fn tables_are_sorted() {
-    let (env, _tmp) = tmp_concrete_env();
-    let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw().unwrap();
-    let mut tables_mut = env_inner.open_tables_mut(&tx_rw).unwrap();
-
-    // Insert `{5, 4, 3, 2, 1, 0}`, assert each new
-    // number inserted is the minimum `first()` value.
-    for key in (0..6).rev() {
-        tables_mut.num_outputs_mut().put(&key, &123).unwrap();
-        let (first, _) = tables_mut.num_outputs_mut().first().unwrap();
-        assert_eq!(first, key);
-    }
-
-    drop(tables_mut);
-    TxRw::commit(tx_rw).unwrap();
-    let tx_rw = env_inner.tx_rw().unwrap();
-
-    // Assert iterators are ordered.
-    {
-        let tx_ro = env_inner.tx_ro().unwrap();
-        let tables = env_inner.open_tables(&tx_ro).unwrap();
-        let t = tables.num_outputs_iter();
-        let iter = t.iter().unwrap();
-        let keys = t.keys().unwrap();
-        for ((i, iter), key) in (0..6).zip(iter).zip(keys) {
-            let (iter, _) = iter.unwrap();
-            let key = key.unwrap();
-            assert_eq!(i, iter);
-            assert_eq!(iter, key);
-        }
-    }
-
-    let mut tables_mut = env_inner.open_tables_mut(&tx_rw).unwrap();
-    let t = tables_mut.num_outputs_mut();
-
-    // Assert the `first()` values are the minimum, i.e. `{0, 1, 2}`
-    for key in 0..3 {
-        let (first, _) = t.first().unwrap();
-        assert_eq!(first, key);
-        t.delete(&key).unwrap();
-    }
-
-    // Assert the `last()` values are the maximum, i.e. `{5, 4, 3}`
-    for key in (3..6).rev() {
-        let (last, _) = tables_mut.num_outputs_mut().last().unwrap();
-        assert_eq!(last, key);
-        tables_mut.num_outputs_mut().delete(&key).unwrap();
-    }
 }
