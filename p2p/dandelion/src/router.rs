@@ -121,6 +121,9 @@ where
     S: Service<StemRequest<Tx>, Error = tower::BoxError>,
 {
     /// Creates a new [`DandelionRouter`], with the provided services and config.
+    ///
+    /// # Panics
+    /// This function panics if [`DandelionConfig::fluff_probability`] is not `0.0..=1.0`.
     pub fn new(broadcast_svc: B, outbound_peer_discover: P, config: DandelionConfig) -> Self {
         // get the current state
         let state_dist = Bernoulli::new(config.fluff_probability)
