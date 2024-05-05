@@ -657,6 +657,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dandelion_tower"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "proptest",
+ "rand",
+ "rand_distr",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
