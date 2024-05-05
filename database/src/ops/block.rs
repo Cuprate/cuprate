@@ -1,41 +1,23 @@
-//! Blocks.
+//! Blocks functions.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::Arc;
-
 use bytemuck::TransparentWrapper;
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
-use monero_serai::{
-    block::Block,
-    transaction::{Input, Timelock, Transaction},
-};
+use monero_serai::block::Block;
 
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
-use cuprate_types::{ExtendedBlockHeader, TransactionVerificationData, VerifiedBlockInformation};
+use cuprate_types::{ExtendedBlockHeader, VerifiedBlockInformation};
 
 use crate::{
     database::{DatabaseRo, DatabaseRw},
-    env::EnvInner,
     error::RuntimeError,
     ops::{
         blockchain::{chain_height, cumulative_generated_coins},
-        key_image::{add_key_image, remove_key_image},
         macros::doc_error,
-        output::{
-            add_output, add_rct_output, get_rct_num_outputs, remove_output, remove_rct_output,
-        },
-        tx::{add_tx, get_num_tx, remove_tx},
+        output::get_rct_num_outputs,
+        tx::{add_tx, remove_tx},
     },
-    tables::{
-        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
-        TxUnlockTime,
-    },
-    transaction::{TxRo, TxRw},
-    types::{
-        AmountIndex, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, OutputFlags,
-        PreRctOutputId, RctOutput, TxHash,
-    },
+    tables::{BlockHeights, BlockInfos, Tables, TablesMut},
+    types::{BlockHash, BlockHeight, BlockInfo},
     StorableVec,
 };
 
@@ -66,9 +48,11 @@ pub fn add_block(
     // Cast height to `u32` for storage (handled at top of function).
     // Panic (should never happen) instead of allowing DB corruption.
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1560020991>
-    let Ok(height) = u32::try_from(block.height) else {
-        panic!("block.height ({}) > u32::MAX", block.height);
-    };
+    assert!(
+        u32::try_from(block.height).is_ok(),
+        "block.height ({}) > u32::MAX",
+        block.height,
+    );
 
     let chain_height = chain_height(tables.block_heights())?;
     assert_eq!(
@@ -144,8 +128,11 @@ pub fn add_block(
 //---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.
 ///
-/// The removed block's height and hash are returned.
+/// The removed block's data is returned.
 #[doc = doc_error!()]
+///
+/// In `pop_block()`'s case, [`RuntimeError::KeyNotFound`]
+/// will be returned if there are no blocks left.
 // no inline, too big
 pub fn pop_block(
     tables: &mut impl TablesMut,
@@ -254,7 +241,12 @@ pub fn get_block_height(
 }
 
 /// Check if a block exists in the database.
-#[doc = doc_error!()]
+///
+/// # Errors
+/// Note that this will never return `Err(RuntimeError::KeyNotFound)`,
+/// as in that case, `Ok(false)` will be returned.
+///
+/// Other errors may still occur.
 #[inline]
 pub fn block_exists(
     block_hash: &BlockHash,
@@ -271,16 +263,16 @@ pub fn block_exists(
     clippy::too_many_lines
 )]
 mod test {
-    use hex_literal::hex;
     use pretty_assertions::assert_eq;
 
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3, tx_v2_rct3};
+    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 
     use super::*;
     use crate::{
         ops::tx::{get_tx, tx_exists},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        Env,
+        transaction::TxRw,
+        Env, EnvInner,
     };
 
     /// Tests all above block functions.
@@ -292,7 +284,7 @@ mod test {
     /// stored and retrieved is the same.
     #[test]
     fn all_block_functions() {
-        let (env, tmp) = tmp_concrete_env();
+        let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
@@ -417,7 +409,7 @@ mod test {
             for block_hash in block_hashes.into_iter().rev() {
                 println!("pop_block(): block_hash: {}", hex::encode(block_hash));
 
-                let (popped_height, popped_hash, popped_block) = pop_block(&mut tables).unwrap();
+                let (_popped_height, popped_hash, _popped_block) = pop_block(&mut tables).unwrap();
 
                 assert_eq!(block_hash, popped_hash);
 
@@ -438,7 +430,7 @@ mod test {
     #[test]
     #[should_panic(expected = "block.height (4294967296) > u32::MAX")]
     fn block_height_gt_u32_max() {
-        let (env, tmp) = tmp_concrete_env();
+        let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
@@ -457,7 +449,7 @@ mod test {
         expected = "assertion `left == right` failed: block.height (123) != chain_height (1)\n  left: 123\n right: 1"
     )]
     fn block_height_not_chain_height() {
-        let (env, tmp) = tmp_concrete_env();
+        let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 

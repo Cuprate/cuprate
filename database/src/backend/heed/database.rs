@@ -1,16 +1,10 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::{Borrow, Cow},
-    cell::RefCell,
-    fmt::Debug,
-    ops::RangeBounds,
-    sync::RwLockReadGuard,
-};
+use std::{cell::RefCell, ops::RangeBounds};
 
 use crate::{
-    backend::heed::{storable::StorableHeed, types::HeedDb},
+    backend::heed::types::HeedDb,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,

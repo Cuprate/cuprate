@@ -13,8 +13,8 @@
 //!
 //! Each layer builds on-top of the previous.
 //!
-//! As a user of `cuprate_database`, consider using the higher-level [`service`],
-//! or at the very least [`ops`] instead of interacting with the database traits directly.
+//! As a user of `cuprate_database`, consider using the higher-level [`service`] module,
+//! or at the very least the [`ops`] module instead of interacting with the database traits directly.
 //!
 //! With that said, many database traits and internals (like [`DatabaseRo::get`]) are exposed.
 //!
@@ -63,14 +63,10 @@
 //! Note that `ConcreteEnv` itself is not a clonable type,
 //! it should be wrapped in [`std::sync::Arc`].
 //!
-//! TODO: we could also expose `ConcreteDatabase` if we're
-//! going to be storing any databases in structs, to lessen
-//! the generic `<D: Database>` pain.
-//!
-//! TODO: we could replace `ConcreteEnv` with `fn Env::open() -> impl Env`/
+//! <!-- SOMEDAY: replace `ConcreteEnv` with `fn Env::open() -> impl Env`/
 //! and use `<E: Env>` everywhere it is stored instead. This would allow
 //! generic-backed dynamic runtime selection of the database backend, i.e.
-//! the user can select which database backend they use.
+//! the user can select which database backend they use. -->
 //!
 //! # Feature flags
 //! The `service` module requires the `service` feature to be enabled.
@@ -82,45 +78,66 @@
 //!
 //! The default is `heed`.
 //!
+//! `tracing` is always enabled and cannot be disabled via feature-flag.
+//! <!-- FIXME: tracing should be behind a feature flag -->
+//!
 //! # Invariants when not using `service`
 //! `cuprate_database` can be used without the `service` feature enabled but
-//! there are some things that must be kept in mind when doing so:
+//! there are some things that must be kept in mind when doing so.
 //!
-//! TODO: make pretty. these will need to be updated
-//! as things change and as more backends are added.
+//! Failing to uphold these invariants may cause panics.
 //!
-//! 1. Memory map resizing (must resize as needed)
-//! 1. Must not exceed `Config`'s maximum reader count
-//! 1. Avoid many nested transactions
-//! 1. `heed::MdbError::BadValSize`
-//! 1. `heed::Error::InvalidDatabaseTyping`
-//! 1. `heed::Error::BadOpenOptions`
-//! 1. Encoding/decoding into `[u8]`
+//! 1. `LMDB` requires the user to resize the memory map resizing (see [`RuntimeError::ResizeNeeded`]
+//! 1. `LMDB` has a maximum reader transaction count, currently it is set to `128`
+//! 1. `LMDB` has [maximum key/value byte size](http://www.lmdb.tech/doc/group__internal.html#gac929399f5d93cef85f874b9e9b1d09e0) which must not be exceeded
 //!
-//! # Example
-//! Simple usage of this crate.
+//! # Examples
+//! The below is an example of using `cuprate_database`'s
+//! lowest API, i.e. using the database directly.
+//!
+//! For examples of the higher-level APIs, see:
+//! - [`ops`]
+//! - [`service`]
 //!
 //! ```rust
 //! use cuprate_database::{
-//!     config::Config,
 //!     ConcreteEnv,
-//!     Env, Key, TxRo, TxRw,
-//! };
-//! use cuprate_types::{
-//!     service::{ReadRequest, WriteRequest, Response},
+//!     config::ConfigBuilder,
+//!     Env, EnvInner,
+//!     tables::{Tables, TablesMut},
+//!     DatabaseRo, DatabaseRw, TxRo, TxRw,
 //! };
 //!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
-//! let db_dir = tempfile::tempdir().unwrap();
-//! let config = Config::new(Some(db_dir.path().to_path_buf()));
+//! let db_dir = tempfile::tempdir()?;
+//! let config = ConfigBuilder::new()
+//!     .db_directory(db_dir.path().to_path_buf())
+//!     .build();
 //!
-//! // Initialize the database thread-pool.
+//! // Initialize the database environment.
+//! let env = ConcreteEnv::open(config)?;
 //!
-//! // TODO:
-//! // 1. let (read_handle, write_handle) = cuprate_database::service::init(config).unwrap();
-//! // 2. Send write/read requests
-//! // 3. Use some other `Env` functions
-//! // 4. Shutdown
+//! // Open up a transaction + tables for writing.
+//! let env_inner = env.env_inner();
+//! let tx_rw = env_inner.tx_rw()?;
+//! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
+//!
+//! // ⚠️ Write data to the tables directly.
+//! // (not recommended, use `ops` or `service`).
+//! const KEY_IMAGE: [u8; 32] = [88; 32];
+//! tables.key_images_mut().put(&KEY_IMAGE, &())?;
+//!
+//! // Commit the data written.
+//! drop(tables);
+//! TxRw::commit(tx_rw)?;
+//!
+//! // Read the data, assert it is correct.
+//! let tx_ro = env_inner.tx_ro()?;
+//! let tables = env_inner.open_tables(&tx_ro)?;
+//! let (key_image, _) = tables.key_images().first()?;
+//! assert_eq!(key_image, KEY_IMAGE);
+//! # Ok(()) }
 //! ```
 
 //---------------------------------------------------------------------------------------------------- Lints
@@ -180,7 +197,6 @@
     unused_comparisons,
     nonstandard_style
 )]
-#![allow(unreachable_code, unused_variables, dead_code, unused_imports)] // TODO: remove
 #![allow(
 	// FIXME: this lint affects crates outside of
 	// `database/` for some reason, allow for now.
@@ -195,8 +211,8 @@
 	// with our `Env` + `RwLock` setup.
 	clippy::significant_drop_tightening,
 
-	// TODO: should be removed after all `todo!()`'s are gone.
-	clippy::diverging_sub_expression,
+	// FIXME: good lint but is less clear in most cases.
+	clippy::items_after_statements,
 
 	clippy::module_name_repetitions,
 	clippy::module_inception,
@@ -205,7 +221,16 @@
 )]
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
-
+// Allow some lints in tests.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::cognitive_complexity,
+        clippy::needless_pass_by_value,
+        clippy::cast_possible_truncation,
+        clippy::too_many_lines
+    )
+)]
 // Only allow building 64-bit targets.
 //
 // This allows us to assume 64-bit
@@ -248,8 +273,6 @@ pub mod resize;
 
 mod key;
 pub use key::Key;
-
-mod macros;
 
 mod storable;
 pub use storable::{Storable, StorableBytes, StorableVec};

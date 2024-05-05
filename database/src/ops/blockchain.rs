@@ -1,22 +1,12 @@
-//! Blockchain.
+//! Blockchain functions - chain height, generated coins, etc.
 
 //---------------------------------------------------------------------------------------------------- Import
-use monero_serai::transaction::Timelock;
-
-use cuprate_types::VerifiedBlockInformation;
-
 use crate::{
-    database::{DatabaseRo, DatabaseRw},
-    env::EnvInner,
+    database::DatabaseRo,
     error::RuntimeError,
     ops::macros::doc_error,
-    tables::{
-        BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-        PrunableTxBlobs, PrunedTxBlobs, RctOutputs, Tables, TablesMut, TxHeights, TxIds,
-        TxUnlockTime,
-    },
-    transaction::{TxRo, TxRw},
-    types::{BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, RctOutput},
+    tables::{BlockHeights, BlockInfos},
+    types::BlockHeight,
 };
 
 //---------------------------------------------------------------------------------------------------- Free Functions
@@ -88,21 +78,18 @@ pub fn cumulative_generated_coins(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(clippy::significant_drop_tightening)]
 mod test {
-    use hex_literal::hex;
     use pretty_assertions::assert_eq;
 
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3, tx_v2_rct3};
+    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 
     use super::*;
     use crate::{
-        ops::{
-            block::add_block,
-            tx::{get_tx, tx_exists},
-        },
+        ops::block::add_block,
+        tables::Tables,
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        Env,
+        transaction::TxRw,
+        Env, EnvInner,
     };
 
     /// Tests all above functions.
@@ -113,9 +100,8 @@ mod test {
     /// It simply tests if the proper tables are mutated, and if the data
     /// stored and retrieved is the same.
     #[test]
-    #[allow(clippy::cognitive_complexity, clippy::cast_possible_truncation)]
     fn all_blockchain_functions() {
-        let (env, tmp) = tmp_concrete_env();
+        let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 

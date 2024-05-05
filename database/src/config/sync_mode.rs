@@ -9,18 +9,9 @@
 //! based on these values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::Cow,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use cuprate_helper::fs::cuprate_database_dir;
-
-use crate::{constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
 
 //---------------------------------------------------------------------------------------------------- SyncMode
 /// Disk synchronization mode.
@@ -48,7 +39,7 @@ use crate::{constants::DATABASE_DATA_FILENAME, resize::ResizeAlgorithm};
 /// ```
 /// will be fine, most likely pulling from memory instead of disk.
 ///
-/// # TODO
+/// # SOMEDAY
 /// Dynamic sync's are not yet supported.
 ///
 /// Only:
@@ -64,24 +55,24 @@ pub enum SyncMode {
     /// Use [`SyncMode::Fast`] until fully synced,
     /// then use [`SyncMode::Safe`].
     ///
-    /// # TODO: how to implement this?
-    /// ref: <https://github.com/monero-project/monero/issues/1463>
-    /// monerod-solution: <https://github.com/monero-project/monero/pull/1506>
-    /// cuprate-issue: <https://github.com/Cuprate/cuprate/issues/78>
-    ///
-    /// We could:
-    /// ```rust,ignore
-    /// if current_db_block <= top_block.saturating_sub(N) {
-    ///     // don't sync()
-    /// } else {
-    ///     // sync()
-    /// }
-    /// ```
-    /// where N is some threshold we pick that is _close_ enough
-    /// to being synced where we want to start being safer.
-    ///
-    /// Essentially, when we are in a certain % range of being finished,
-    /// switch to safe mode, until then, go fast.
+    // # SOMEDAY: how to implement this?
+    // ref: <https://github.com/monero-project/monero/issues/1463>
+    // monerod-solution: <https://github.com/monero-project/monero/pull/1506>
+    // cuprate-issue: <https://github.com/Cuprate/cuprate/issues/78>
+    //
+    // We could:
+    // ```rust,ignore
+    // if current_db_block <= top_block.saturating_sub(N) {
+    //     // don't sync()
+    // } else {
+    //     // sync()
+    // }
+    // ```
+    // where N is some threshold we pick that is _close_ enough
+    // to being synced where we want to start being safer.
+    //
+    // Essentially, when we are in a certain % range of being finished,
+    // switch to safe mode, until then, go fast.
     FastThenSafe,
 
     #[default]
@@ -136,7 +127,7 @@ pub enum SyncMode {
     /// In the case of a system crash, the database
     /// may become corrupted when using this option.
     //
-    // TODO: we could call this `unsafe`
+    // FIXME: we could call this `unsafe`
     // and use that terminology in the config file
     // so users know exactly what they are getting
     // themselves into.

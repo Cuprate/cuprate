@@ -1,5 +1,4 @@
 //! Database error types.
-//! TODO: `InitError/RuntimeError` are maybe bad names.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::fmt::Debug;
@@ -42,8 +41,12 @@ pub enum InitError {
     /// The database is currently in the process
     /// of shutting down and cannot respond.
     ///
-    /// TODO: This might happen if we try to open
-    /// while we are shutting down, `unreachable!()`?
+    /// # Notes
+    /// This error can only occur with the `heed` backend when
+    /// the database environment is opened _right_ at the same time
+    /// another thread/process is closing it.
+    ///
+    /// This will never occur with other backends.
     #[error("database is shutting down")]
     ShuttingDown,
 
