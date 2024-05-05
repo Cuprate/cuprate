@@ -83,7 +83,7 @@ The top-level `src/` files.
 | `tests.rs`             | Utilities for `cuprate_database` testing
 | `transaction.rs`       | Database transaction abstraction; `trait TxR{o,w}`
 | `types.rs`             | Database-specific types
-| `unsafe_unsendable.rs` | Marker type for `Send` objects not proveable to the compiler
+| `unsafe_unsendable.rs` | Marker type to impl `Send` for objects not `Send`
 
 ### 2.2 `src/backend/`
 This folder contains the implementation for actual databases used as the backend for `cuprate-database`.

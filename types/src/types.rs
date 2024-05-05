@@ -36,7 +36,7 @@ pub struct ExtendedBlockHeader {
     ///
     /// This is the same value as [`monero_serai::block::BlockHeader::minor_version`].
     pub vote: u8,
-    /// The UNIX time at which the block was recorded into the blockchain.
+    /// The UNIX time at which the block was mined.
     pub timestamp: u64,
     /// The total amount of coins mined in all blocks so far, including this block's.
     pub cumulative_difficulty: u128,
@@ -103,7 +103,7 @@ pub struct VerifiedBlockInformation {
     pub generated_coins: u64,
     /// The adjusted block size, in bytes.
     pub weight: usize,
-    /// The long term block weight, based on the median weight of the preceding `100_000` blocks.
+    /// The long term block weight, which is the weight factored in with previous block weights.
     pub long_term_weight: usize,
     /// The cumulative difficulty of all blocks up until and including this block.
     pub cumulative_difficulty: u128,
@@ -111,8 +111,6 @@ pub struct VerifiedBlockInformation {
 
 //---------------------------------------------------------------------------------------------------- OutputOnChain
 /// An already existing transaction output.
-///
-/// For more definitions, see also: <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_outs>.
 #[derive(Clone, Debug, PartialEq, Eq)]
 // #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))] // FIXME: monero_serai
 // #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]

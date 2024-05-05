@@ -128,7 +128,7 @@ pub fn add_block(
 //---------------------------------------------------------------------------------------------------- `pop_block`
 /// Remove the top/latest block from the database.
 ///
-/// The removed block's data isreturned.
+/// The removed block's data is returned.
 #[doc = doc_error!()]
 ///
 /// In `pop_block()`'s case, [`RuntimeError::KeyNotFound`]

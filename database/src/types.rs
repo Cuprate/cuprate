@@ -144,8 +144,6 @@ pub struct PreRctOutputId {
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
 /// Block information.
 ///
-/// Unlike [`monerod`](https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/blockchain_db/lmdb/db_lmdb.cpp#L283-L329), this covers all block info variations (v1 to v4).
-///
 /// This is the value in the [`BlockInfos`](crate::tables::BlockInfos) table.
 ///
 /// ```rust
@@ -178,13 +176,13 @@ pub struct PreRctOutputId {
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct BlockInfo {
-    /// The UNIX time at which the block was recorded into the blockchain.
+    /// The UNIX time at which the block was mined.
     pub timestamp: u64,
     /// The total amount of coins mined in all blocks so far, including this block's.
     pub cumulative_generated_coins: u64,
     /// The adjusted block size, in bytes.
     ///
-    /// See [`block_weight`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header>).
+    /// See [`block_weight`](https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#blocks-weight).
     pub weight: u64,
     /// Least-significant 64 bits of the 128-bit cumulative difficulty.
     pub cumulative_difficulty_low: u64,
@@ -196,7 +194,7 @@ pub struct BlockInfo {
     pub cumulative_rct_outs: u64,
     /// The long term block weight, based on the median weight of the preceding `100_000` blocks.
     ///
-    /// See [`long_term_weight`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header).
+    /// See [`long_term_weight`](https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#long-term-block-weight).
     pub long_term_weight: u64,
 }
 
