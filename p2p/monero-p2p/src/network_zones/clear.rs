@@ -1,8 +1,8 @@
-use std::net::{IpAddr, SocketAddr};
-use std::pin::Pin;
-use std::task::{Context, Poll};
-
-use monero_wire::MoneroWireCodec;
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    pin::Pin,
+    task::{Context, Poll},
+};
 
 use futures::Stream;
 use tokio::net::{
@@ -10,6 +10,8 @@ use tokio::net::{
     TcpListener, TcpStream,
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
+
+use monero_wire::MoneroWireCodec;
 
 use crate::{NetZoneAddress, NetworkZone};
 
@@ -24,8 +26,14 @@ impl NetZoneAddress for SocketAddr {
         self.ip()
     }
 
+    fn make_canonical(&mut self) {
+        let ip = self.ip().to_canonical();
+        self.set_ip(ip);
+    }
+
     fn should_add_to_peer_list(&self) -> bool {
-        todo!()
+        // TODO
+        true
     }
 }
 
@@ -36,9 +44,19 @@ pub struct ClearNetServerCfg {
 #[derive(Clone, Copy)]
 pub enum ClearNet {}
 
+const fn ip_v4(a: u8, b: u8, c: u8, d: u8, port: u16) -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(a, b, c, d)), port)
+}
+
 #[async_trait::async_trait]
 impl NetworkZone for ClearNet {
     const NAME: &'static str = "ClearNet";
+
+    const SEEDS: &'static [Self::Addr] = &[
+        ip_v4(37, 187, 74, 171, 18080),
+        ip_v4(192, 99, 8, 110, 18080),
+    ];
+
     const ALLOW_SYNC: bool = true;
     const DANDELION_PP: bool = true;
     const CHECK_NODE_ID: bool = true;
@@ -85,7 +103,10 @@ impl Stream for InBoundStream {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.listener
             .poll_accept(cx)
-            .map_ok(|(stream, addr)| {
+            .map_ok(|(stream, mut addr)| {
+                let ip = addr.ip().to_canonical();
+                addr.set_ip(ip);
+
                 let (read, write) = stream.into_split();
                 (
                     Some(addr),

@@ -1,8 +1,7 @@
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
 use futures::StreamExt;
-use tokio::sync::Semaphore;
-use tokio::time::interval;
+use tokio::{sync::Semaphore, time::interval};
 
 use monero_p2p::handles::HandleBuilder;
 use monero_pruning::PruningSeed;

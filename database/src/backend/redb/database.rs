@@ -1,12 +1,7 @@
 //! Implementation of `trait DatabaseR{o,w}` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::{Borrow, Cow},
-    fmt::Debug,
-    marker::PhantomData,
-    ops::{Bound, Deref, RangeBounds},
-};
+use std::ops::RangeBounds;
 
 use redb::ReadableTable;
 
@@ -17,7 +12,6 @@ use crate::{
     },
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::RuntimeError,
-    storable::Storable,
     table::Table,
 };
 

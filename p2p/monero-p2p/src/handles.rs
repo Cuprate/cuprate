@@ -7,9 +7,8 @@ use std::{
     time::Duration,
 };
 
-use futures::SinkExt;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio_util::sync::CancellationToken;
+use tokio::sync::OwnedSemaphorePermit;
+use tokio_util::sync::{CancellationToken, WaitForCancellationFutureOwned};
 
 /// A [`ConnectionHandle`] builder.
 #[derive(Default, Debug)]
@@ -40,7 +39,7 @@ impl HandleBuilder {
         (
             ConnectionGuard {
                 token: token.clone(),
-                permit: self.permit.expect("connection permit was not set!"),
+                _permit: self.permit.expect("connection permit was not set!"),
             },
             ConnectionHandle {
                 token: token.clone(),
@@ -57,7 +56,7 @@ pub struct BanPeer(pub Duration);
 /// A struct given to the connection task.
 pub struct ConnectionGuard {
     token: CancellationToken,
-    permit: OwnedSemaphorePermit,
+    _permit: OwnedSemaphorePermit,
 }
 
 impl ConnectionGuard {
@@ -88,9 +87,13 @@ pub struct ConnectionHandle {
 }
 
 impl ConnectionHandle {
+    pub fn closed(&self) -> WaitForCancellationFutureOwned {
+        self.token.clone().cancelled_owned()
+    }
     /// Bans the peer for the given `duration`.
     pub fn ban_peer(&self, duration: Duration) {
         let _ = self.ban.set(BanPeer(duration));
+        self.token.cancel();
     }
     /// Checks if this connection is closed.
     pub fn is_closed(&self) -> bool {

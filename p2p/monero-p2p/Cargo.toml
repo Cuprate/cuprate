@@ -17,14 +17,14 @@ monero-pruning = { path = "../../pruning" }
 tokio = { workspace = true, features = ["net", "sync", "macros", "time"]}
 tokio-util = { workspace = true, features = ["codec"] }
 tokio-stream = { workspace = true, features = ["sync"]}
-futures = { workspace = true, features = ["std", "async-await"] }
+futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
-tower = { workspace = true, features = ["util"] }
+tower = { workspace = true, features = ["util", "tracing"] }
 
 thiserror = { workspace = true }
 tracing = { workspace = true, features = ["std", "attributes"] }
 
-borsh = { workspace = true, default-features = false, features = ["derive", "std"], optional = true }
+borsh = { workspace = true, features = ["derive", "std"], optional = true }
 
 [dev-dependencies]
 cuprate-test-utils = {path = "../../test-utils"}

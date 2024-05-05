@@ -15,7 +15,6 @@ use cuprate_types::{
 };
 
 use crate::{
-    constants::DATABASE_CORRUPT_MSG,
     env::{Env, EnvInner},
     error::RuntimeError,
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
@@ -136,7 +135,6 @@ impl DatabaseWriter {
             /// How many times should we retry handling the request on resize errors?
             ///
             /// This is 1 on automatically resizing databases, meaning there is only 1 iteration.
-            #[allow(clippy::items_after_statements)]
             const REQUEST_RETRY_LIMIT: usize = if ConcreteEnv::MANUAL_RESIZE { 3 } else { 1 };
 
             // Map [`Request`]'s to specific database functions.
@@ -152,7 +150,7 @@ impl DatabaseWriter {
             // to represent this retry logic with recursive
             // functions instead of a loop.
             'retry: for retry in 0..REQUEST_RETRY_LIMIT {
-                // TODO: will there be more than 1 write request?
+                // FIXME: will there be more than 1 write request?
                 // this won't have to be an enum.
                 let response = match &request {
                     WriteRequest::WriteBlock(block) => write_block(&self.env, block),
@@ -208,12 +206,6 @@ impl DatabaseWriter {
             // - ...retry until panic
             unreachable!();
         }
-
-        // The only case the ['main] loop breaks should be a:
-        // - direct function return
-        // - panic
-        // anything below should be unreachable.
-        unreachable!();
     }
 }
 
@@ -239,14 +231,13 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
 
     match result {
         Ok(()) => {
-            tx_rw.commit()?;
+            TxRw::commit(tx_rw)?;
             Ok(Response::WriteBlockOk)
         }
         Err(e) => {
             // INVARIANT: ensure database atomicity by aborting
             // the transaction on `add_block()` failures.
-            tx_rw
-                .abort()
+            TxRw::abort(tx_rw)
                 .expect("could not maintain database atomicity by aborting write transaction");
             Err(e)
         }

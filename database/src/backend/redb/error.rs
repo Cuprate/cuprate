@@ -45,7 +45,7 @@ impl From<redb::StorageError> for InitError {
 
         match error {
             E::Io(e) => Self::Io(e),
-            E::Corrupted(s) => Self::Corrupt,
+            E::Corrupted(_) => Self::Corrupt,
             // HACK: Handle new errors as `redb` adds them.
             _ => Self::Unknown(Box::new(error)),
         }
@@ -56,8 +56,6 @@ impl From<redb::TransactionError> for InitError {
     /// Created by `redb` in:
     /// - [`redb::Database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
     fn from(error: redb::TransactionError) -> Self {
-        use redb::StorageError as E;
-
         match error {
             redb::TransactionError::Storage(error) => error.into(),
             // HACK: Handle new errors as `redb` adds them.
@@ -70,7 +68,6 @@ impl From<redb::TableError> for InitError {
     /// Created by `redb` in:
     /// - [`redb::WriteTransaction::open_table`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.open_table)
     fn from(error: redb::TableError) -> Self {
-        use redb::StorageError as E2;
         use redb::TableError as E;
 
         match error {
@@ -85,8 +82,6 @@ impl From<redb::CommitError> for InitError {
     /// Created by `redb` in:
     /// - [`redb::WriteTransaction::commit`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.commit)
     fn from(error: redb::CommitError) -> Self {
-        use redb::StorageError as E;
-
         match error {
             redb::CommitError::Storage(error) => error.into(),
             // HACK: Handle new errors as `redb` adds them.
@@ -102,8 +97,6 @@ impl From<redb::TransactionError> for RuntimeError {
     /// - [`redb::Database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
     /// - [`redb::Database::begin_read`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_read)
     fn from(error: redb::TransactionError) -> Self {
-        use redb::StorageError as E;
-
         match error {
             redb::TransactionError::Storage(error) => error.into(),
 
@@ -118,8 +111,6 @@ impl From<redb::CommitError> for RuntimeError {
     /// Created by `redb` in:
     /// - [`redb::WriteTransaction::commit`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.commit)
     fn from(error: redb::CommitError) -> Self {
-        use redb::StorageError as E;
-
         match error {
             redb::CommitError::Storage(error) => error.into(),
 
@@ -135,7 +126,6 @@ impl From<redb::TableError> for RuntimeError {
     /// - [`redb::WriteTransaction::open_table`](https://docs.rs/redb/1.5.0/redb/struct.WriteTransaction.html#method.open_table)
     /// - [`redb::ReadTransaction::open_table`](https://docs.rs/redb/1.5.0/redb/struct.ReadTransaction.html#method.open_table)
     fn from(error: redb::TableError) -> Self {
-        use redb::StorageError as E2;
         use redb::TableError as E;
 
         match error {

@@ -13,7 +13,7 @@ use tokio::{
         tcp::{OwnedReadHalf, OwnedWriteHalf},
         TcpListener, TcpStream,
     },
-    sync::{broadcast, Semaphore},
+    sync::Semaphore,
     time::timeout,
 };
 use tokio_util::{
@@ -47,6 +47,7 @@ pub enum FragNet {}
 #[async_trait::async_trait]
 impl NetworkZone for FragNet {
     const NAME: &'static str = "FragNet";
+    const SEEDS: &'static [Self::Addr] = &[];
     const ALLOW_SYNC: bool = true;
     const DANDELION_PP: bool = true;
     const CHECK_NODE_ID: bool = true;
@@ -133,7 +134,6 @@ impl Encoder<LevinMessage<Message>> for FragmentCodec {
 
 #[tokio::test]
 async fn fragmented_handshake_cuprate_to_monerod() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
@@ -141,18 +141,19 @@ async fn fragmented_handshake_cuprate_to_monerod() {
 
     let our_basic_node_data = BasicNodeData {
         my_port: 0,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         support_flags: PeerSupportFlags::from(1_u32),
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<FragNet, _, _, _>::new(
+    let handshaker = HandShaker::<FragNet, _, _, _, _, _>::new(
         DummyAddressBook,
+        DummyPeerSyncSvc,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        broadcast_tx,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 
@@ -172,24 +173,24 @@ async fn fragmented_handshake_cuprate_to_monerod() {
 
 #[tokio::test]
 async fn fragmented_handshake_monerod_to_cuprate() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
     let our_basic_node_data = BasicNodeData {
         my_port: 18081,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         support_flags: PeerSupportFlags::from(1_u32),
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandShaker::<FragNet, _, _, _>::new(
+    let mut handshaker = HandShaker::<FragNet, _, _, _, _, _>::new(
         DummyAddressBook,
+        DummyPeerSyncSvc,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        broadcast_tx,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 

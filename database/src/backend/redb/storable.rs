@@ -1,7 +1,7 @@
 //! `cuprate_database::Storable` <-> `redb` serde trait compatibility layer.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{any::Any, borrow::Cow, cmp::Ordering, fmt::Debug, marker::PhantomData};
+use std::{cmp::Ordering, fmt::Debug, marker::PhantomData};
 
 use redb::TypeName;
 

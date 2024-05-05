@@ -8,8 +8,6 @@ use std::{
 
 use bytemuck::TransparentWrapper;
 
-use crate::storable::StorableVec;
-
 //---------------------------------------------------------------------------------------------------- Aliases
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, TransparentWrapper)]
 #[repr(transparent)]
@@ -43,6 +41,7 @@ impl<T> UnsafeSendable<T> {
     }
 
     /// Extract the inner `T`.
+    #[allow(dead_code)]
     pub(crate) fn into_inner(self) -> T {
         self.0
     }

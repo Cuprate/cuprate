@@ -1,15 +1,9 @@
 //! (De)serialization for table keys & values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::{Borrow, Cow},
-    char::ToLowercase,
-    fmt::Debug,
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::{borrow::Borrow, fmt::Debug};
 
-use bytemuck::{Pod, Zeroable};
+use bytemuck::Pod;
 use bytes::Bytes;
 
 //---------------------------------------------------------------------------------------------------- Storable
@@ -25,16 +19,14 @@ use bytes::Bytes;
 /// Any type that implements:
 /// - [`bytemuck::Pod`]
 /// - [`Debug`]
-/// - [`ToOwned`]
 ///
 /// will automatically implement [`Storable`].
 ///
 /// This includes:
 /// - Most primitive types
 /// - All types in [`tables`](crate::tables)
-/// - Slices, e.g, `[T] where T: Storable`
 ///
-/// See [`StorableVec`] for storing slices of `T: Storable`.
+/// See [`StorableVec`] & [`StorableBytes`] for storing slices of `T: Storable`.
 ///
 /// ```rust
 /// # use cuprate_database::*;
@@ -142,6 +134,7 @@ where
 ///
 /// This is needed as `impl Storable for Vec<T>` runs into impl conflicts.
 ///
+/// # Example
 /// ```rust
 /// # use cuprate_database::*;
 /// //---------------------------------------------------- u8
@@ -284,7 +277,7 @@ mod test {
             println!("serialized: {se:?}, deserialized: {de:?}\n");
 
             // Assert we wrote correct amount of bytes.
-            if let Some(len) = T::BYTE_LENGTH {
+            if T::BYTE_LENGTH.is_some() {
                 assert_eq!(se.len(), expected_bytes.len());
             }
             // Assert the data is the same.
