@@ -33,6 +33,7 @@ monero-serai     = { workspace = true, features = ["std"] }
 paste            = { workspace = true }
 page_size        = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
 thiserror        = { workspace = true }
+tracing          = { workspace = true }
 
 # `service` feature.
 crossbeam    = { workspace = true, features = ["std"], optional = true }
