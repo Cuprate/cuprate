@@ -3,18 +3,12 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
-    num::NonZeroUsize,
-    ops::Range,
-    sync::{Arc, RwLock},
+    sync::Arc,
     task::{Context, Poll},
 };
 
-use cfg_if::cfg_if;
-use crossbeam::channel::Receiver;
-use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
 use futures::{channel::oneshot, ready};
-use monero_serai::{transaction::Timelock, H};
-use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use thread_local::ThreadLocal;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
@@ -27,21 +21,16 @@ use cuprate_types::{
 
 use crate::{
     config::ReaderThreads,
-    constants::DATABASE_CORRUPT_MSG,
     error::RuntimeError,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::{cumulative_generated_coins, top_block_height},
         key_image::key_image_exists,
-        output::{
-            get_output, get_rct_output, id_to_output_on_chain, output_to_output_on_chain,
-            rct_output_to_output_on_chain,
-        },
+        output::id_to_output_on_chain,
     },
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
-    tables::{BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, Tables},
-    types::{Amount, AmountIndex, BlockHeight, KeyImage, OutputFlags, PreRctOutputId},
-    unsafe_sendable::UnsafeSendable,
+    tables::{BlockHeights, BlockInfos, Tables},
+    types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
     ConcreteEnv, DatabaseRo, Env, EnvInner,
 };
 
@@ -208,7 +197,7 @@ fn map_request(
 ) {
     use ReadRequest as R;
 
-    /* TODO: pre-request handling, run some code for each request? */
+    /* SOMEDAY: pre-request handling, run some code for each request? */
 
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
@@ -226,7 +215,7 @@ fn map_request(
         println!("database reader failed to send response: {e:?}");
     }
 
-    /* TODO: post-request handling, run some code for each request? */
+    /* SOMEDAY: post-request handling, run some code for each request? */
 }
 
 //---------------------------------------------------------------------------------------------------- Thread Local
@@ -294,7 +283,7 @@ macro_rules! get_tables {
 // All functions below assume that this is the case, such that
 // `par_*()` functions will not block the _global_ rayon thread-pool.
 
-// TODO: implement multi-transaction read atomicity.
+// FIXME: implement multi-transaction read atomicity.
 // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576874589>.
 
 /// [`ReadRequest::BlockExtendedHeader`].
@@ -481,7 +470,7 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
         key_image_exists(&key_image, tables.key_images())
     };
 
-    // TODO:
+    // FIXME:
     // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
     // or similar instead of `bool` for clarity.
     // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>

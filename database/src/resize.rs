@@ -1,7 +1,7 @@
 //! Database memory map resizing algorithms.
 //!
 //! This modules contains [`ResizeAlgorithm`] which determines how the
-//! [`ConcreteEnv`](crate::ConcreteEnv) resizes it's memory map when needing more space.
+//! [`ConcreteEnv`](crate::ConcreteEnv) resizes its memory map when needing more space.
 //! This value is in [`Config`](crate::config::Config) and can be selected at runtime.
 //!
 //! Although, it is only used by `ConcreteEnv` if [`Env::MANUAL_RESIZE`](crate::env::Env::MANUAL_RESIZE) is `true`.
@@ -27,12 +27,12 @@ use std::{num::NonZeroUsize, sync::OnceLock};
 /// The function/algorithm used by the
 /// database when resizing the memory map.
 ///
-/// # TODO
-/// We could test around with different algorithms.
-/// Calling `heed::Env::resize` is surprisingly fast,
-/// around `0.0000082s` on my machine. We could probably
-/// get away with smaller and more frequent resizes.
-/// **With the caveat being we are taking a `WriteGuard` to a `RwLock`.**
+// # SOMEDAY
+// We could test around with different algorithms.
+// Calling `heed::Env::resize` is surprisingly fast,
+// around `0.0000082s` on my machine. We could probably
+// get away with smaller and more frequent resizes.
+// **With the caveat being we are taking a `WriteGuard` to a `RwLock`.**
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ResizeAlgorithm {

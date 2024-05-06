@@ -12,6 +12,7 @@ members = [
 	"net/levin",
 	"net/monero-wire",
 	"p2p/cuprate-p2p",
+	"p2p/dandelion",
 	"p2p/monero-p2p",
 	"p2p/address-book",
 	"pruning",

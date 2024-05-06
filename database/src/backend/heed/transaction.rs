@@ -1,6 +1,6 @@
 //! Implementation of `trait TxRo/TxRw` for `heed`.
 
-use std::{cell::RefCell, ops::Deref, sync::RwLockReadGuard};
+use std::cell::RefCell;
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{

@@ -53,10 +53,13 @@ jobs:
         include:
           - os: windows-latest
             shell: msys2 {0}
+            rust: stable-x86_64-pc-windows-gnu
           - os: macos-latest
             shell: bash
+            rust: stable
           - os: ubuntu-latest
             shell: bash
+            rust: stable
 
     defaults:
       run:
@@ -68,13 +71,16 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: clippy
+
     - name: Cache
       uses: actions/cache@v3
       with:
-        path: |
-          target
-          ~/.cargo
-          ~/.rustup
+        path: target
         key: ${{ matrix.os }}
 
     - name: Download monerod
@@ -99,12 +105,6 @@ jobs:
         update: true
         install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 
-    - name: Switch target (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        rustup toolchain install stable-x86_64-pc-windows-gnu -c clippy --no-self-update
-        rustup default stable-x86_64-pc-windows-gnu
-
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
 
@@ -116,7 +116,7 @@ jobs:
       run: |
         cargo test --all-features --workspace
         cargo test --package cuprate-database --no-default-features --features redb --features service
-        
+
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
       run: cargo build --all-features --all-targets --workspace

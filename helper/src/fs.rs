@@ -1,11 +1,31 @@
 //! Cuprate directories and filenames.
 //!
-//! # TODO
-//! Document how environment variables can change these.
+//! # Environment variables on Linux
+//! Note that this module's functions uses [`dirs`],
+//! which adheres to the XDG standard on Linux.
 //!
-//! # Reference
-//! <https://github.com/Cuprate/cuprate/issues/46>
-//! <https://docs.rs/dirs>
+//! This means that the values returned by these functions
+//! may change at runtime depending on environment variables,
+//! for example:
+//!
+//! By default the config directory is `~/.config`, however
+//! if `$XDG_CONFIG_HOME` is set to something, that will be
+//! used instead.
+//!
+//! ```rust
+//! # use cuprate_helper::fs::*;
+//! # if cfg!(target_os = "linux") {
+//! std::env::set_var("XDG_CONFIG_HOME", "/custom/path");
+//! assert_eq!(
+//!     cuprate_config_dir().to_string_lossy(),
+//!     "/custom/path/cuprate"
+//! );
+//! # }
+//! ```
+//!
+//! Reference:
+//! - <https://github.com/Cuprate/cuprate/issues/46>
+//! - <https://docs.rs/dirs>
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{
