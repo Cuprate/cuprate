@@ -1,4 +1,14 @@
-//! This module contains the peer set and related functionality.
+//! # Client Pool.
+//!
+//! The [`ClientPool`], is a pool of currently connected peers that can be pulled from.
+//! It does _not_ necessarily contain every connected peer as another place could have
+//! taken a peer from the pool.
+//!
+//! When taking peers from the pool they are wrapped in [`ClientPoolDropGuard`], which
+//! returns the peer to the pool when it is dropped.
+//!
+//! Internally the pool is a [`DashMap`] which means care should be taken in `async` code
+//! as internally this uses blocking RwLocks.
 //!
 use std::sync::Arc;
 
@@ -13,13 +23,21 @@ use monero_p2p::{
 mod disconnect_monitor;
 mod drop_guard_client;
 
-pub use drop_guard_client::ClientPoolGuard;
+pub use drop_guard_client::ClientPoolDropGuard;
 use monero_p2p::handles::ConnectionHandle;
 
+/// The client pool, which holds currently connected free peers.
+///
+/// See the [module docs](self) for more.
 pub struct ClientPool<N: NetworkZone> {
+    /// The connected [`Client`]s.
     clients: DashMap<InternalPeerID<N::Addr>, Client<N>>,
+    /// A set of outbound clients, as these allow accesses/ mutation from different threads
+    /// a peer ID in here does not mean the peer is definitely in `clients` , if the peer is
+    /// in both here and `clients` it is defiantly an outbound peer,
     outbound_clients: DashSet<InternalPeerID<N::Addr>>,
 
+    /// A channel to send new peer ids down to monitor for disconnect.
     new_connection_tx: mpsc::UnboundedSender<(ConnectionHandle, InternalPeerID<N::Addr>)>,
 }
 
@@ -76,10 +94,10 @@ impl<N: NetworkZone> ClientPool<N> {
     pub fn borrow_client(
         self: &Arc<Self>,
         peer: &InternalPeerID<N::Addr>,
-    ) -> Option<ClientPoolGuard<N>> {
+    ) -> Option<ClientPoolDropGuard<N>> {
         self.outbound_clients.remove(peer);
 
-        self.remove_client(peer).map(|client| ClientPoolGuard {
+        self.remove_client(peer).map(|client| ClientPoolDropGuard {
             pool: Arc::clone(self),
             client: Some(client),
         })
@@ -88,7 +106,7 @@ impl<N: NetworkZone> ClientPool<N> {
     pub fn borrow_clients(
         self: &Arc<Self>,
         peers: &[InternalPeerID<N::Addr>],
-    ) -> Vec<ClientPoolGuard<N>> {
+    ) -> Vec<ClientPoolDropGuard<N>> {
         peers
             .iter()
             .filter_map(|peer| self.borrow_client(peer))

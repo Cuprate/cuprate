@@ -8,12 +8,12 @@ use monero_p2p::NetworkZone;
 
 use crate::client_pool::ClientPool;
 
-pub struct ClientPoolGuard<N: NetworkZone> {
+pub struct ClientPoolDropGuard<N: NetworkZone> {
     pub(super) pool: Arc<ClientPool<N>>,
     pub(super) client: Option<Client<N>>,
 }
 
-impl<N: NetworkZone> Deref for ClientPoolGuard<N> {
+impl<N: NetworkZone> Deref for ClientPoolDropGuard<N> {
     type Target = Client<N>;
 
     fn deref(&self) -> &Self::Target {
@@ -21,13 +21,13 @@ impl<N: NetworkZone> Deref for ClientPoolGuard<N> {
     }
 }
 
-impl<N: NetworkZone> DerefMut for ClientPoolGuard<N> {
+impl<N: NetworkZone> DerefMut for ClientPoolDropGuard<N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.client.as_mut().unwrap()
     }
 }
 
-impl<N: NetworkZone> Drop for ClientPoolGuard<N> {
+impl<N: NetworkZone> Drop for ClientPoolDropGuard<N> {
     fn drop(&mut self) {
         let client = self.client.take().unwrap();
 

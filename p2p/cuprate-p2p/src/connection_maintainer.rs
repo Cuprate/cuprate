@@ -43,7 +43,7 @@ pub struct MakeConnectionRequest {
     block_needed: Option<u64>,
 }
 
-/// The outbound connection (count) keeper.
+/// The outbound connection count keeper.
 ///
 /// This handles maintaining a minimum number of connections and making extra connections when needed, upto a maximum.
 pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
