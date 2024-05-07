@@ -51,6 +51,9 @@ pub mod network;
 #[cfg(feature = "num")]
 pub mod num;
 
+#[cfg(feature = "map")]
+pub mod map;
+
 #[cfg(feature = "thread")]
 pub mod thread;
 

@@ -53,10 +53,13 @@ jobs:
         include:
           - os: windows-latest
             shell: msys2 {0}
+            rust: stable-x86_64-pc-windows-gnu
           - os: macos-latest
             shell: bash
+            rust: stable
           - os: ubuntu-latest
             shell: bash
+            rust: stable
 
     defaults:
       run:
@@ -68,14 +71,20 @@ jobs:
       with:
         submodules: recursive
 
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: clippy
+
     - name: Cache
       uses: actions/cache@v3
       with:
-        path: |
-          target
-          ~/.cargo
-          ~/.rustup
+        path: target
         key: ${{ matrix.os }}
+
+    - name: Download monerod
+      uses: ./.github/actions/monerod-download
 
     # Packages other than `Boost` used by `Monero` are listed here.
     # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
@@ -97,7 +106,7 @@ jobs:
         install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
 
     - name: Documentation
-      run: cargo doc --workspace --all-features
+      run: cargo doc --workspace --all-features --no-deps
 
     - name: Clippy (fail on warnings)
       run: cargo clippy --workspace --all-features --all-targets -- -D warnings

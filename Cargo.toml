@@ -11,10 +11,12 @@ members = [
 	"net/fixed-bytes",
 	"net/levin",
 	"net/monero-wire",
+	"p2p/dandelion",
 	"p2p/monero-p2p",
 	"p2p/address-book",
 	"pruning",
 	"test-utils",
+	"types",
 ]
 
 [profile.release]
@@ -39,6 +41,7 @@ opt-level = 3
 async-trait           = { version = "0.1.74", default-features = false }
 bitflags              = { version = "2.4.2", default-features = false }
 borsh                 = { version = "1.2.1", default-features = false }
+bytemuck              = { version = "1.14.3", default-features = false }
 bytes                 = { version = "1.5.0", default-features = false }
 cfg-if                = { version = "1.0.0", default-features = false }
 clap                  = { version = "4.4.7", default-features = false }
@@ -58,7 +61,8 @@ paste                 = { version = "1.0.14", default-features = false }
 pin-project           = { version = "1.1.3", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
 rand                  = { version = "0.8.5", default-features = false }
-rayon                 = { version = "1.8.0", default-features = false }
+rand_distr            = { version = "0.4.3", default-features = false }
+rayon                 = { version = "1.9.0", default-features = false }
 serde_bytes           = { version = "0.11.12", default-features = false }
 serde_json            = { version = "1.0.108", default-features = false }
 serde                 = { version = "1.0.190", default-features = false }
@@ -73,7 +77,7 @@ tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
 tempfile              = { version = "3" }
-reqwest               = { version = "0.11.24" }
+pretty_assertions     = { version = "1.4.0" }
 proptest              = { version = "1" }
 proptest-derive       = { version = "0.4.0" }
 
@@ -87,7 +91,6 @@ proptest-derive       = { version = "0.4.0" }
 # open      = { version = "5.0.0" }  # Open PATH/URL, probably for binaries | https://github.com/byron/open-rs
 # regex     = { version = "1.10.2" } # Regular expressions                  | https://github.com/rust-lang/regex
 # ryu       = { version = "1.0.15" } # Fast float to string formatting      | https://github.com/dtolnay/ryu
-# strum     = { version = "0.25.0" } # Enum macros/traits                   | https://github.com/Peternator7/strum
 
 # Maybe one day.
 # disk     = { version = "*" } # (De)serialization to/from disk with various file formats | https://github.com/hinto-janai/disk

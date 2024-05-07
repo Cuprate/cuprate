@@ -11,33 +11,49 @@ keywords    = ["cuprate", "database"]
 [features]
 default   = ["heed", "redb", "service"]
 # default   = ["redb", "service"]
-heed    = ["dep:heed"]
-redb    = ["dep:redb"]
-service = ["dep:crossbeam", "dep:tokio", "dep:tower"]
+# default   = ["redb-memory", "service"]
+heed       = ["dep:heed"]
+redb       = ["dep:redb"]
+redb-memory = ["redb"]
+service     = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon"]
 
 [dependencies]
+bitflags = { workspace = true, features = ["serde", "bytemuck"] }
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bytes    = { workspace = true }
 cfg-if   = { workspace = true }
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.
 # Figure out how to enable features of an already pulled in dependency conditionally.
-cuprate-helper = { path = "../helper", features = ["fs", "thread"] }
-paste          = { workspace = true }
-page_size      = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
-thiserror      = { workspace = true }
+cuprate-helper   = { path = "../helper", features = ["fs", "thread", "map"] }
+cuprate-types    = { path = "../types", features = ["service"] }
+curve25519-dalek = { workspace = true }
+monero-pruning   = { path = "../pruning" }
+monero-serai     = { workspace = true, features = ["std"] }
+paste            = { workspace = true }
+page_size        = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
+thiserror        = { workspace = true }
 
 # `service` feature.
-crossbeam = { workspace = true, features = ["std"], optional = true }
-tokio     = { workspace = true, features = ["full"], optional = true }
-tower     = { workspace = true, features = ["full"], optional = true }
+crossbeam    = { workspace = true, features = ["std"], optional = true }
+futures      = { workspace = true, optional = true }
+tokio        = { workspace = true, features = ["full"], optional = true }
+tokio-util   = { workspace = true, features = ["full"], optional = true }
+tower        = { workspace = true, features = ["full"], optional = true }
+thread_local = { workspace = true }
+rayon        = { workspace = true, optional = true }
 
 # Optional features.
-heed  = { version = "0.20.0-alpha.9", optional = true }
-redb  = { version = "1.5.0", optional = true }
+heed  = { version = "0.20.0", features = ["read-txn-no-tls"], optional = true }
+redb  = { version = "2.1.0", optional = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 cuprate-helper = { path = "../helper", features = ["thread"] }
+cuprate-test-utils = { path = "../test-utils" }
 page_size = { version = "0.6.0" }
 tempfile = { version = "3.10.0" }
+pretty_assertions = { workspace = true }
+hex = { workspace = true }
+hex-literal = { workspace = true }

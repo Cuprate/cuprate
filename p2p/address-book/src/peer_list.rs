@@ -89,28 +89,42 @@ impl<Z: NetworkZone> PeerList<Z> {
         &mut self,
         r: &mut R,
         block_needed: Option<u64>,
+        must_keep_peers: &HashSet<Z::Addr>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
-        if let Some(needed_height) = block_needed {
-            let (_, addresses_with_block) = self.pruning_seeds.iter().find(|(seed, _)| {
-                // TODO: factor in peer blockchain height?
-                seed.get_next_unpruned_block(needed_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
-                    .expect("Block needed is higher than max block allowed.")
-                    == needed_height
-            })?;
-            let n = r.gen_range(0..addresses_with_block.len());
-            let peer = addresses_with_block[n];
-            self.remove_peer(&peer)
-        } else {
-            let len = self.len();
-            if len == 0 {
-                None
-            } else {
-                let n = r.gen_range(0..len);
+        // Take a random peer and see if it's in the list of must_keep_peers, if it is try again.
+        // TODO: improve this
 
-                let (&key, _) = self.peers.get_index(n).unwrap();
-                self.remove_peer(&key)
+        for _ in 0..3 {
+            if let Some(needed_height) = block_needed {
+                let (_, addresses_with_block) = self.pruning_seeds.iter().find(|(seed, _)| {
+                    // TODO: factor in peer blockchain height?
+                    seed.get_next_unpruned_block(needed_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                        .expect("Block needed is higher than max block allowed.")
+                        == needed_height
+                })?;
+                let n = r.gen_range(0..addresses_with_block.len());
+                let peer = addresses_with_block[n];
+                if must_keep_peers.contains(&peer) {
+                    continue;
+                }
+
+                return self.remove_peer(&peer);
+            }
+            let len = self.len();
+
+            if len == 0 {
+                return None;
+            }
+
+            let n = r.gen_range(0..len);
+
+            let (&key, _) = self.peers.get_index(n).unwrap();
+            if !must_keep_peers.contains(&key) {
+                return self.remove_peer(&key);
             }
         }
+
+        None
     }
 
     pub fn get_random_peers<R: Rng>(

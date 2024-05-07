@@ -1,42 +1,38 @@
-//! Database read thread-pool definitions and logic.
+//! Database reader thread-pool definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
+    collections::{HashMap, HashSet},
     sync::Arc,
     task::{Context, Poll},
 };
 
-use crossbeam::channel::Receiver;
+use futures::{channel::oneshot, ready};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use thread_local::ThreadLocal;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio_util::sync::PollSemaphore;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_types::{
+    service::{ReadRequest, Response},
+    ExtendedBlockHeader, OutputOnChain,
+};
 
 use crate::{
     config::ReaderThreads,
     error::RuntimeError,
-    service::{request::ReadRequest, response::Response},
-    ConcreteEnv,
+    ops::{
+        block::{get_block_extended_header_from_height, get_block_info},
+        blockchain::{cumulative_generated_coins, top_block_height},
+        key_image::key_image_exists,
+        output::id_to_output_on_chain,
+    },
+    service::types::{ResponseReceiver, ResponseResult, ResponseSender},
+    tables::{BlockHeights, BlockInfos, Tables},
+    types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
+    ConcreteEnv, DatabaseRo, Env, EnvInner,
 };
-
-//---------------------------------------------------------------------------------------------------- Types
-/// The actual type of the response.
-///
-/// Either our [Response], or a database error occurred.
-type ResponseResult = Result<Response, RuntimeError>;
-
-/// The `Receiver` channel that receives the read response.
-///
-/// This is owned by the caller (the reader)
-/// who `.await`'s for the response.
-///
-/// The channel itself should never fail,
-/// but the actual database operation might.
-type ResponseRecv = InfallibleOneshotReceiver<ResponseResult>;
-
-/// The `Sender` channel for the response.
-///
-/// The database reader thread uses this to send
-/// the database result to the caller.
-type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
@@ -47,145 +43,451 @@ type ResponseSend = tokio::sync::oneshot::Sender<ResponseResult>;
 /// Calling [`tower::Service::call`] with a [`DatabaseReadHandle`] & [`ReadRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding [`Response`].
-#[derive(Clone, Debug)]
 pub struct DatabaseReadHandle {
-    /// Sender channel to the database read thread-pool.
+    /// Handle to the custom `rayon` DB reader thread-pool.
     ///
-    /// We provide the response channel for the thread-pool.
-    pub(super) sender: crossbeam::channel::Sender<(ReadRequest, ResponseSend)>,
+    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
+    /// and responses are returned via a channel we (the caller) provide.
+    pool: Arc<rayon::ThreadPool>,
+
+    /// Counting semaphore asynchronous permit for database access.
+    /// Each [`tower::Service::poll_ready`] will acquire a permit
+    /// before actually sending a request to the `rayon` DB threadpool.
+    semaphore: PollSemaphore,
+
+    /// An owned permit.
+    /// This will be set to [`Some`] in `poll_ready()` when we successfully acquire
+    /// the permit, and will be [`Option::take()`]n after `tower::Service::call()` is called.
+    ///
+    /// The actual permit will be dropped _after_ the rayon DB thread has finished
+    /// the request, i.e., after [`map_request()`] finishes.
+    permit: Option<OwnedSemaphorePermit>,
+
+    /// Access to the database.
+    env: Arc<ConcreteEnv>,
+}
+
+// `OwnedSemaphorePermit` does not implement `Clone`,
+// so manually clone all elements, while keeping `permit`
+// `None` across clones.
+impl Clone for DatabaseReadHandle {
+    fn clone(&self) -> Self {
+        Self {
+            pool: Arc::clone(&self.pool),
+            semaphore: self.semaphore.clone(),
+            permit: None,
+            env: Arc::clone(&self.env),
+        }
+    }
+}
+
+impl DatabaseReadHandle {
+    /// Initialize the `DatabaseReader` thread-pool backed by `rayon`.
+    ///
+    /// This spawns `N` amount of `DatabaseReader`'s
+    /// attached to `env` and returns a handle to the pool.
+    ///
+    /// Should be called _once_ per actual database.
+    #[cold]
+    #[inline(never)] // Only called once.
+    pub(super) fn init(env: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
+        // How many reader threads to spawn?
+        let reader_count = reader_threads.as_threads().get();
+
+        // Spawn `rayon` reader threadpool.
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(reader_count)
+            .thread_name(|i| format!("cuprate_helper::service::read::DatabaseReader{i}"))
+            .build()
+            .unwrap();
+
+        // Create a semaphore with the same amount of
+        // permits as the amount of reader threads.
+        let semaphore = PollSemaphore::new(Arc::new(Semaphore::new(reader_count)));
+
+        // Return a handle to the pool.
+        Self {
+            pool: Arc::new(pool),
+            semaphore,
+            permit: None,
+            env: Arc::clone(env),
+        }
+    }
+
+    /// Access to the actual database environment.
+    ///
+    /// # ⚠️ Warning
+    /// This function gives you access to the actual
+    /// underlying database connected to by `self`.
+    ///
+    /// I.e. it allows you to read/write data _directly_
+    /// instead of going through a request.
+    ///
+    /// Be warned that using the database directly
+    /// in this manner has not been tested.
+    #[inline]
+    pub const fn env(&self) -> &Arc<ConcreteEnv> {
+        &self.env
+    }
 }
 
 impl tower::Service<ReadRequest> for DatabaseReadHandle {
     type Response = Response;
     type Error = RuntimeError;
-    type Future = ResponseRecv;
+    type Future = ResponseReceiver;
 
     #[inline]
-    fn poll_ready(&mut self, _cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        todo!()
-    }
-
-    #[inline]
-    fn call(&mut self, _req: ReadRequest) -> Self::Future {
-        todo!()
-    }
-}
-
-//---------------------------------------------------------------------------------------------------- DatabaseReader
-/// Database reader thread.
-///
-/// This struct essentially represents a thread.
-///
-/// Each reader thread is spawned with access to this struct (self).
-pub(super) struct DatabaseReader {
-    /// Receiver side of the database request channel.
-    ///
-    /// Any caller can send some requests to this channel.
-    /// They send them alongside another `Response` channel,
-    /// which we will eventually send to.
-    ///
-    /// We (the database reader thread) are not responsible
-    /// for creating this channel, the caller provides it.
-    ///
-    /// SOMEDAY: this struct itself could cache a return channel
-    /// instead of creating a new `oneshot` each request.
-    receiver: Receiver<(ReadRequest, ResponseSend)>,
-
-    /// Access to the database.
-    db: Arc<ConcreteEnv>,
-}
-
-impl Drop for DatabaseReader {
-    fn drop(&mut self) {
-        // INVARIANT: we set the thread name when spawning it.
-        let thread_name = std::thread::current().name().unwrap();
-
-        // TODO: log that this thread has exited?
-    }
-}
-
-impl DatabaseReader {
-    /// Initialize the `DatabaseReader` thread-pool.
-    ///
-    /// This spawns `N` amount of `DatabaseReader`'s
-    /// attached to `db` and returns a handle to the pool.
-    ///
-    /// Should be called _once_ per actual database.
-    #[cold]
-    #[inline(never)] // Only called once.
-    pub(super) fn init(db: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> DatabaseReadHandle {
-        // Initialize `Request/Response` channels.
-        let (sender, receiver) = crossbeam::channel::unbounded();
-
-        // How many reader threads to spawn?
-        let reader_count = reader_threads.as_threads();
-
-        // Spawn pool of readers.
-        for i in 0..reader_count.get() {
-            let receiver = receiver.clone();
-            let db = Arc::clone(db);
-
-            std::thread::Builder::new()
-                .name(format!("cuprate_helper::service::read::DatabaseReader{i}"))
-                .spawn(move || {
-                    let this = Self { receiver, db };
-                    Self::main(this);
-                })
-                .unwrap();
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // Check if we already have a permit.
+        if self.permit.is_some() {
+            return Poll::Ready(Ok(()));
         }
 
-        // Return a handle to the pool and channels to
-        // allow clean shutdown of all reader threads.
-        DatabaseReadHandle { sender }
+        // Acquire a permit before returning `Ready`.
+        let permit =
+            ready!(self.semaphore.poll_acquire(cx)).expect("this semaphore is never closed");
+
+        self.permit = Some(permit);
+        Poll::Ready(Ok(()))
     }
 
-    /// The `DatabaseReader`'s main function.
-    ///
-    /// Each thread just loops in this function.
-    #[cold]
-    #[inline(never)] // Only called once.
-    fn main(self) {
-        // 1. Hang on request channel
-        // 2. Map request to some database function
-        // 3. Execute that function, get the result
-        // 4. Return the result via channel
-        loop {
-            // Database requests.
-            let Ok((request, response_send)) = self.receiver.recv() else {
-                // If this receive errors, it means that the channel is empty
-                // and disconnected, meaning the other side (all senders) have
-                // been dropped. This means "shutdown", and we return here to
-                // exit the thread.
-                return;
-            };
+    #[inline]
+    fn call(&mut self, request: ReadRequest) -> Self::Future {
+        let permit = self
+            .permit
+            .take()
+            .expect("poll_ready() should have acquire a permit before calling call()");
 
-            // Map [`Request`]'s to specific database functions.
-            match request {
-                ReadRequest::Example1 => self.example_handler_1(response_send),
-                ReadRequest::Example2(_x) => self.example_handler_2(response_send),
-                ReadRequest::Example3(_x) => self.example_handler_3(response_send),
+        // Response channel we `.await` on.
+        let (response_sender, receiver) = oneshot::channel();
+
+        // Spawn the request in the rayon DB thread-pool.
+        //
+        // Note that this uses `self.pool` instead of `rayon::spawn`
+        // such that any `rayon` parallel code that runs within
+        // the passed closure uses the same `rayon` threadpool.
+        //
+        // INVARIANT:
+        // The below `DatabaseReader` function impl block relies on this behavior.
+        let env = Arc::clone(&self.env);
+        self.pool.spawn(move || {
+            let _permit: OwnedSemaphorePermit = permit;
+            map_request(&env, request, response_sender);
+        }); // drop(permit/env);
+
+        InfallibleOneshotReceiver::from(receiver)
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Request Mapping
+// This function maps [`Request`]s to function calls
+// executed by the rayon DB reader threadpool.
+
+/// Map [`Request`]'s to specific database handler functions.
+///
+/// This is the main entrance into all `Request` handler functions.
+/// The basic structure is:
+/// 1. `Request` is mapped to a handler function
+/// 2. Handler function is called
+/// 3. [`Response`] is sent
+fn map_request(
+    env: &ConcreteEnv,               // Access to the database
+    request: ReadRequest,            // The request we must fulfill
+    response_sender: ResponseSender, // The channel we must send the response back to
+) {
+    use ReadRequest as R;
+
+    /* SOMEDAY: pre-request handling, run some code for each request? */
+
+    let response = match request {
+        R::BlockExtendedHeader(block) => block_extended_header(env, block),
+        R::BlockHash(block) => block_hash(env, block),
+        R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(env, range),
+        R::ChainHeight => chain_height(env),
+        R::GeneratedCoins => generated_coins(env),
+        R::Outputs(map) => outputs(env, map),
+        R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
+        R::CheckKIsNotSpent(set) => check_k_is_not_spent(env, set),
+    };
+
+    if let Err(e) = response_sender.send(response) {
+        // TODO: use tracing.
+        println!("database reader failed to send response: {e:?}");
+    }
+
+    /* SOMEDAY: post-request handling, run some code for each request? */
+}
+
+//---------------------------------------------------------------------------------------------------- Thread Local
+/// Q: Why does this exist?
+///
+/// A1: `heed`'s transactions and tables are not `Sync`, so we cannot use
+/// them with rayon, however, we set a feature such that they are `Send`.
+///
+/// A2: When sending to rayon, we want to ensure each read transaction
+/// is only being used by 1 thread only to scale reads
+///
+/// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576762346>
+#[inline]
+fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
+    ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get())
+}
+
+/// Take in a `ThreadLocal<impl Tables>` and return an `&impl Tables + Send`.
+///
+/// # Safety
+/// See [`DatabaseRo`] docs.
+///
+/// We are safely using `UnsafeSendable` in `service`'s reader thread-pool
+/// as we are pairing our usage with `ThreadLocal` - only 1 thread
+/// will ever access a transaction at a time. This is an INVARIANT.
+///
+/// A `Mutex` was considered but:
+/// - It is less performant
+/// - It isn't technically needed for safety in our use-case
+/// - It causes `DatabaseIter` function return issues as there is a `MutexGuard` object
+///
+/// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581684698>
+///
+/// # Notes
+/// This is used for other backends as well instead of branching with `cfg_if`.
+/// The other backends (as of current) are `Send + Sync` so this is fine.
+/// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1585618374>
+macro_rules! get_tables {
+    ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
+        $tables.get_or_try(|| {
+            #[allow(clippy::significant_drop_in_scrutinee)]
+            match $env_inner.open_tables($tx_ro) {
+                // SAFETY: see above macro doc comment.
+                Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
+                Err(e) => Err(e),
             }
-        }
-    }
+        })
+    }};
+}
 
-    /// TODO
-    #[inline]
-    fn example_handler_1(&self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
-    }
+//---------------------------------------------------------------------------------------------------- Handler functions
+// These are the actual functions that do stuff according to the incoming [`Request`].
+//
+// Each function name is a 1-1 mapping (from CamelCase -> snake_case) to
+// the enum variant name, e.g: `BlockExtendedHeader` -> `block_extended_header`.
+//
+// Each function will return the [`Response`] that we
+// should send back to the caller in [`map_request()`].
+//
+// INVARIANT:
+// These functions are called above in `tower::Service::call()`
+// using a custom threadpool which means any call to `par_*()` functions
+// will be using the custom rayon DB reader thread-pool, not the global one.
+//
+// All functions below assume that this is the case, such that
+// `par_*()` functions will not block the _global_ rayon thread-pool.
 
-    /// TODO
-    #[inline]
-    fn example_handler_2(&self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
-    }
+// FIXME: implement multi-transaction read atomicity.
+// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576874589>.
 
-    /// TODO
-    #[inline]
-    fn example_handler_3(&self, response_send: ResponseSend) {
-        let db_result = todo!();
-        response_send.send(db_result).unwrap();
+/// [`ReadRequest::BlockExtendedHeader`].
+#[inline]
+fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(Response::BlockExtendedHeader(
+        get_block_extended_header_from_height(&block_height, &tables)?,
+    ))
+}
+
+/// [`ReadRequest::BlockHash`].
+#[inline]
+fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+
+    Ok(Response::BlockHash(
+        get_block_info(&block_height, &table_block_infos)?.block_hash,
+    ))
+}
+
+/// [`ReadRequest::BlockExtendedHeaderInRange`].
+#[inline]
+fn block_extended_header_in_range(
+    env: &ConcreteEnv,
+    range: std::ops::Range<BlockHeight>,
+) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    // Collect results using `rayon`.
+    let vec = range
+        .into_par_iter()
+        .map(|block_height| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+            get_block_extended_header_from_height(&block_height, tables)
+        })
+        .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
+
+    Ok(Response::BlockExtendedHeaderInRange(vec))
+}
+
+/// [`ReadRequest::ChainHeight`].
+#[inline]
+fn chain_height(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+    let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+
+    let chain_height = crate::ops::blockchain::chain_height(&table_block_heights)?;
+    let block_hash =
+        get_block_info(&chain_height.saturating_sub(1), &table_block_infos)?.block_hash;
+
+    Ok(Response::ChainHeight(chain_height, block_hash))
+}
+
+/// [`ReadRequest::GeneratedCoins`].
+#[inline]
+fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+    let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+
+    let top_height = top_block_height(&table_block_heights)?;
+
+    Ok(Response::GeneratedCoins(cumulative_generated_coins(
+        &top_height,
+        &table_block_infos,
+    )?))
+}
+
+/// [`ReadRequest::Outputs`].
+#[inline]
+fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    // The 2nd mapping function.
+    // This is pulled out from the below `map()` for readability.
+    let inner_map = |amount, amount_index| -> Result<(AmountIndex, OutputOnChain), RuntimeError> {
+        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+        let id = PreRctOutputId {
+            amount,
+            amount_index,
+        };
+
+        let output_on_chain = id_to_output_on_chain(&id, tables)?;
+
+        Ok((amount_index, output_on_chain))
+    };
+
+    // Collect results using `rayon`.
+    let map = outputs
+        .into_par_iter()
+        .map(|(amount, amount_index_set)| {
+            Ok((
+                amount,
+                amount_index_set
+                    .into_par_iter()
+                    .map(|amount_index| inner_map(amount, amount_index))
+                    .collect::<Result<HashMap<AmountIndex, OutputOnChain>, RuntimeError>>()?,
+            ))
+        })
+        .collect::<Result<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>, RuntimeError>>()?;
+
+    Ok(Response::Outputs(map))
+}
+
+/// [`ReadRequest::NumberOutputsWithAmount`].
+#[inline]
+fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    // Cache the amount of RCT outputs once.
+    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
+    #[allow(clippy::cast_possible_truncation)]
+    let num_rct_outputs = {
+        let tx_ro = env_inner.tx_ro()?;
+        let tables = env_inner.open_tables(&tx_ro)?;
+        tables.rct_outputs().len()? as usize
+    };
+
+    // Collect results using `rayon`.
+    let map = amounts
+        .into_par_iter()
+        .map(|amount| {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+            if amount == 0 {
+                // v2 transactions.
+                Ok((amount, num_rct_outputs))
+            } else {
+                // v1 transactions.
+                match tables.num_outputs().get(&amount) {
+                    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
+                    #[allow(clippy::cast_possible_truncation)]
+                    Ok(count) => Ok((amount, count as usize)),
+                    // If we get a request for an `amount` that doesn't exist,
+                    // we return `0` instead of an error.
+                    Err(RuntimeError::KeyNotFound) => Ok((amount, 0)),
+                    Err(e) => Err(e),
+                }
+            }
+        })
+        .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
+
+    Ok(Response::NumberOutputsWithAmount(map))
+}
+
+/// [`ReadRequest::CheckKIsNotSpent`].
+#[inline]
+fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    // Key image check function.
+    let key_image_exists = |key_image| {
+        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+        key_image_exists(&key_image, tables.key_images())
+    };
+
+    // FIXME:
+    // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
+    // or similar instead of `bool` for clarity.
+    // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>
+    //
+    // Collect results using `rayon`.
+    match key_images
+        .into_par_iter()
+        .map(key_image_exists)
+        // If the result is either:
+        // `Ok(true)` => a key image was found, return early
+        // `Err` => an error was found, return early
+        //
+        // Else, `Ok(false)` will continue the iterator.
+        .find_any(|result| !matches!(result, Ok(false)))
+    {
+        None | Some(Ok(false)) => Ok(Response::CheckKIsNotSpent(true)), // Key image was NOT found.
+        Some(Ok(true)) => Ok(Response::CheckKIsNotSpent(false)),        // Key image was found.
+        Some(Err(e)) => Err(e), // A database error occurred.
     }
 }

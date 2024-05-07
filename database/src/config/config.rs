@@ -1,17 +1,8 @@
-//! Database [`Env`](crate::Env) configuration.
-//!
-//! This module contains the main [`Config`]uration struct
-//! for the database [`Env`](crate::Env)ironment, and data
-//! structures related to any configuration setting.
-//!
-//! These configurations are processed at runtime, meaning
-//! the `Env` can/will dynamically adjust its behavior
-//! based on these values.
+//! The main [`Config`] struct, holding all configurable values.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     borrow::Cow,
-    num::NonZeroUsize,
     path::{Path, PathBuf},
 };
 
@@ -26,13 +17,143 @@ use crate::{
     resize::ResizeAlgorithm,
 };
 
+//---------------------------------------------------------------------------------------------------- ConfigBuilder
+/// Builder for [`Config`].
+///
+// SOMEDAY: there's are many more options to add in the future.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ConfigBuilder {
+    /// [`Config::db_directory`].
+    db_directory: Option<Cow<'static, Path>>,
+
+    /// [`Config::sync_mode`].
+    sync_mode: Option<SyncMode>,
+
+    /// [`Config::reader_threads`].
+    reader_threads: Option<ReaderThreads>,
+
+    /// [`Config::resize_algorithm`].
+    resize_algorithm: Option<ResizeAlgorithm>,
+}
+
+impl ConfigBuilder {
+    /// Create a new [`ConfigBuilder`].
+    ///
+    /// [`ConfigBuilder::build`] can be called immediately
+    /// after this function to use default values.
+    pub const fn new() -> Self {
+        Self {
+            db_directory: None,
+            sync_mode: None,
+            reader_threads: None,
+            resize_algorithm: None,
+        }
+    }
+
+    /// Build into a [`Config`].
+    ///
+    /// # Default values
+    /// If [`ConfigBuilder::db_directory`] was not called,
+    /// the default [`cuprate_database_dir`] will be used.
+    ///
+    /// For all other values, [`Default::default`] is used.
+    pub fn build(self) -> Config {
+        // INVARIANT: all PATH safety checks are done
+        // in `helper::fs`. No need to do them here.
+        let db_directory = self
+            .db_directory
+            .unwrap_or_else(|| Cow::Borrowed(cuprate_database_dir()));
+
+        // Add the database filename to the directory.
+        let db_file = {
+            let mut db_file = db_directory.to_path_buf();
+            db_file.push(DATABASE_DATA_FILENAME);
+            Cow::Owned(db_file)
+        };
+
+        Config {
+            db_directory,
+            db_file,
+            sync_mode: self.sync_mode.unwrap_or_default(),
+            reader_threads: self.reader_threads.unwrap_or_default(),
+            resize_algorithm: self.resize_algorithm.unwrap_or_default(),
+        }
+    }
+
+    /// Set a custom database directory (and file) [`Path`].
+    #[must_use]
+    pub fn db_directory(mut self, db_directory: PathBuf) -> Self {
+        self.db_directory = Some(Cow::Owned(db_directory));
+        self
+    }
+
+    /// Tune the [`ConfigBuilder`] for the highest performing,
+    /// but also most resource-intensive & maybe risky settings.
+    ///
+    /// Good default for testing, and resource-available machines.
+    #[must_use]
+    pub fn fast(mut self) -> Self {
+        self.sync_mode = Some(SyncMode::Fast);
+        self.reader_threads = Some(ReaderThreads::OnePerThread);
+        self.resize_algorithm = Some(ResizeAlgorithm::default());
+        self
+    }
+
+    /// Tune the [`ConfigBuilder`] for the lowest performing,
+    /// but also least resource-intensive settings.
+    ///
+    /// Good default for resource-limited machines, e.g. a cheap VPS.
+    #[must_use]
+    pub fn low_power(mut self) -> Self {
+        self.sync_mode = Some(SyncMode::default());
+        self.reader_threads = Some(ReaderThreads::One);
+        self.resize_algorithm = Some(ResizeAlgorithm::default());
+        self
+    }
+
+    /// Set a custom [`SyncMode`].
+    #[must_use]
+    pub const fn sync_mode(mut self, sync_mode: SyncMode) -> Self {
+        self.sync_mode = Some(sync_mode);
+        self
+    }
+
+    /// Set a custom [`ReaderThreads`].
+    #[must_use]
+    pub const fn reader_threads(mut self, reader_threads: ReaderThreads) -> Self {
+        self.reader_threads = Some(reader_threads);
+        self
+    }
+
+    /// Set a custom [`ResizeAlgorithm`].
+    #[must_use]
+    pub const fn resize_algorithm(mut self, resize_algorithm: ResizeAlgorithm) -> Self {
+        self.resize_algorithm = Some(resize_algorithm);
+        self
+    }
+}
+
+impl Default for ConfigBuilder {
+    fn default() -> Self {
+        Self {
+            db_directory: Some(Cow::Borrowed(cuprate_database_dir())),
+            sync_mode: Some(SyncMode::default()),
+            reader_threads: Some(ReaderThreads::default()),
+            resize_algorithm: Some(ResizeAlgorithm::default()),
+        }
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Config
 /// Database [`Env`](crate::Env) configuration.
 ///
 /// This is the struct passed to [`Env::open`](crate::Env::open) that
 /// allows the database to be configured in various ways.
 ///
-/// TODO: there's probably more options to add.
+/// For construction, either use [`ConfigBuilder`] or [`Config::default`].
+///
+// SOMEDAY: there's are many more options to add in the future.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
@@ -44,8 +165,8 @@ pub struct Config {
     /// By default, if no value is provided in the [`Config`]
     /// constructor functions, this will be [`cuprate_database_dir`].
     ///
-    /// TODO: we should also support `/etc/cuprated.conf`.
-    /// This could be represented with an `enum DbPath { Default, Custom, Etc, }`
+    // SOMEDAY: we should also support `/etc/cuprated.conf`.
+    // This could be represented with an `enum DbPath { Default, Custom, Etc, }`
     pub(crate) db_directory: Cow<'static, Path>,
     /// The actual database data file.
     ///
@@ -67,111 +188,50 @@ pub struct Config {
 }
 
 impl Config {
-    /// Private function to acquire [`Config::db_file`]
-    /// from the user provided (or default) [`Config::db_directory`].
-    ///
-    /// As the database data file PATH is just the directory + the filename,
-    /// we only need the directory from the user/Config, and can add it here.
-    fn return_db_dir_and_file(
-        db_directory: Option<PathBuf>,
-    ) -> (Cow<'static, Path>, Cow<'static, Path>) {
-        // INVARIANT: all PATH safety checks are done
-        // in `helper::fs`. No need to do them here.
-        let db_directory =
-            db_directory.map_or_else(|| Cow::Borrowed(cuprate_database_dir()), Cow::Owned);
-
-        // Add the database filename to the directory.
-        let mut db_file = db_directory.to_path_buf();
-        db_file.push(DATABASE_DATA_FILENAME);
-
-        (db_directory, Cow::Owned(db_file))
-    }
-
     /// Create a new [`Config`] with sane default settings.
     ///
-    /// # `db_directory`
-    /// If this is `Some`, it will be used as the
-    /// directory that contains all database files.
+    /// The [`Config::db_directory`] will be [`cuprate_database_dir`].
     ///
-    /// If `None`, it will use the default directory [`cuprate_database_dir`].
-    pub fn new(db_directory: Option<PathBuf>) -> Self {
-        let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
-        Self {
-            db_directory,
-            db_file,
-            sync_mode: SyncMode::default(),
-            reader_threads: ReaderThreads::OnePerThread,
-            resize_algorithm: ResizeAlgorithm::default(),
-        }
-    }
-
-    /// Create a [`Config`] with the highest performing,
-    /// but also most resource-intensive & maybe risky settings.
+    /// All other values will be [`Default::default`].
     ///
-    /// Good default for testing, and resource-available machines.
+    /// Same as [`Config::default`].
     ///
-    /// # `db_directory`
-    /// If this is `Some`, it will be used as the
-    /// directory that contains all database files.
+    /// ```rust
+    /// use cuprate_database::{config::*, resize::*, DATABASE_DATA_FILENAME};
+    /// use cuprate_helper::fs::*;
     ///
-    /// If `None`, it will use the default directory [`cuprate_database_dir`].
-    pub fn fast(db_directory: Option<PathBuf>) -> Self {
-        let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
-        Self {
-            db_directory,
-            db_file,
-            sync_mode: SyncMode::Fast,
-            reader_threads: ReaderThreads::OnePerThread,
-            resize_algorithm: ResizeAlgorithm::default(),
-        }
-    }
-
-    /// Create a [`Config`] with the lowest performing,
-    /// but also least resource-intensive settings.
+    /// let config = Config::new();
     ///
-    /// Good default for resource-limited machines, e.g. a cheap VPS.
-    ///
-    /// # `db_directory`
-    /// If this is `Some`, it will be used as the
-    /// directory that contains all database files.
-    ///
-    /// If `None`, it will use the default directory [`cuprate_database_dir`].
-    pub fn low_power(db_directory: Option<PathBuf>) -> Self {
-        let (db_directory, db_file) = Self::return_db_dir_and_file(db_directory);
-        Self {
-            db_directory,
-            db_file,
-            sync_mode: SyncMode::default(),
-            reader_threads: ReaderThreads::One,
-            resize_algorithm: ResizeAlgorithm::default(),
-        }
+    /// assert_eq!(config.db_directory(), cuprate_database_dir());
+    /// assert!(config.db_file().starts_with(cuprate_database_dir()));
+    /// assert!(config.db_file().ends_with(DATABASE_DATA_FILENAME));
+    /// assert_eq!(config.sync_mode, SyncMode::default());
+    /// assert_eq!(config.reader_threads, ReaderThreads::default());
+    /// assert_eq!(config.resize_algorithm, ResizeAlgorithm::default());
+    /// ```
+    pub fn new() -> Self {
+        ConfigBuilder::default().build()
     }
 
     /// Return the absolute [`Path`] to the database directory.
-    ///
-    /// This will be the `db_directory` given
-    /// (or default) during [`Config`] construction.
     pub const fn db_directory(&self) -> &Cow<'_, Path> {
         &self.db_directory
     }
 
     /// Return the absolute [`Path`] to the database data file.
-    ///
-    /// This will be based off the `db_directory` given
-    /// (or default) during [`Config`] construction.
     pub const fn db_file(&self) -> &Cow<'_, Path> {
         &self.db_file
     }
 }
 
 impl Default for Config {
-    /// Same as `Self::new(None)`.
+    /// Same as [`Config::new`].
     ///
     /// ```rust
     /// # use cuprate_database::config::*;
-    /// assert_eq!(Config::default(), Config::new(None));
+    /// assert_eq!(Config::default(), Config::new());
     /// ```
     fn default() -> Self {
-        Self::new(None)
+        Self::new()
     }
 }

@@ -1,0 +1,22 @@
+[package]
+name        = "cuprate-types"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate data types"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
+keywords    = ["cuprate", "types"]
+
+[features]
+default = ["service"]
+service = []
+
+[dependencies]
+borsh            = { workspace = true, optional = true }
+cfg-if           = { workspace = true }
+curve25519-dalek = { workspace = true }
+monero-serai     = { workspace = true }
+serde            = { workspace = true, optional = true }
+
+[dev-dependencies]

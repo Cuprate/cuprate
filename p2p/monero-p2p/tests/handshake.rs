@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use futures::StreamExt;
 use tokio::{
     io::{duplex, split},
-    sync::{broadcast, Semaphore},
+    sync::Semaphore,
     time::timeout,
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
@@ -31,14 +31,13 @@ async fn handshake_cuprate_to_cuprate() {
     // Tests a Cuprate <-> Cuprate handshake by making 2 handshake services and making them talk to
     // each other.
 
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit_1 = semaphore.clone().acquire_owned().await.unwrap();
     let permit_2 = semaphore.acquire_owned().await.unwrap();
 
     let our_basic_node_data_1 = BasicNodeData {
         my_port: 0,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         // TODO: This fails if the support flags are empty (0)
         support_flags: PeerSupportFlags::from(1_u32),
@@ -49,19 +48,21 @@ async fn handshake_cuprate_to_cuprate() {
     let mut our_basic_node_data_2 = our_basic_node_data_1.clone();
     our_basic_node_data_2.peer_id = 2344;
 
-    let mut handshaker_1 = HandShaker::<TestNetZone<true, true, true>, _, _, _>::new(
+    let mut handshaker_1 = HandShaker::<TestNetZone<true, true, true>, _, _, _, _, _>::new(
         DummyAddressBook,
+        DummyPeerSyncSvc,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        broadcast_tx.clone(),
+        |_| futures::stream::pending(),
         our_basic_node_data_1,
     );
 
-    let mut handshaker_2 = HandShaker::<TestNetZone<true, true, true>, _, _, _>::new(
+    let mut handshaker_2 = HandShaker::<TestNetZone<true, true, true>, _, _, _, _, _>::new(
         DummyAddressBook,
+        DummyPeerSyncSvc,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        broadcast_tx.clone(),
+        |_| futures::stream::pending(),
         our_basic_node_data_2,
     );
 
@@ -106,14 +107,13 @@ async fn handshake_cuprate_to_cuprate() {
             .unwrap()
     });
 
-    let (res1, res2) = futures::join!(p1, p2);
+    let (res1, res2) = tokio::join!(p1, p2);
     res1.unwrap();
     res2.unwrap();
 }
 
 #[tokio::test]
 async fn handshake_cuprate_to_monerod() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
@@ -121,18 +121,19 @@ async fn handshake_cuprate_to_monerod() {
 
     let our_basic_node_data = BasicNodeData {
         my_port: 0,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         support_flags: PeerSupportFlags::from(1_u32),
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<ClearNet, _, _, _>::new(
+    let handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
         DummyAddressBook,
+        DummyPeerSyncSvc,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        broadcast_tx,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 
@@ -152,24 +153,24 @@ async fn handshake_cuprate_to_monerod() {
 
 #[tokio::test]
 async fn handshake_monerod_to_cuprate() {
-    let (broadcast_tx, _) = broadcast::channel(1); // this isn't actually used in this test.
     let semaphore = Arc::new(Semaphore::new(10));
     let permit = semaphore.acquire_owned().await.unwrap();
 
     let our_basic_node_data = BasicNodeData {
         my_port: 18081,
-        network_id: Network::Mainnet.network_id().into(),
+        network_id: Network::Mainnet.network_id(),
         peer_id: 87980,
         support_flags: PeerSupportFlags::from(1_u32),
         rpc_port: 0,
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandShaker::<ClearNet, _, _, _>::new(
+    let mut handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
         DummyAddressBook,
+        DummyPeerSyncSvc,
         DummyCoreSyncSvc,
         DummyPeerRequestHandlerSvc,
-        broadcast_tx,
+        |_| futures::stream::pending(),
         our_basic_node_data,
     );
 

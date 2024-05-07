@@ -2,9 +2,9 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
-    fmt::Debug,
-    ops::Deref,
-    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
+    cell::RefCell,
+    num::NonZeroUsize,
+    sync::{RwLock, RwLockReadGuard},
 };
 
 use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
@@ -16,15 +16,16 @@ use crate::{
         types::HeedDb,
     },
     config::{Config, SyncMode},
-    database::{DatabaseRo, DatabaseRw},
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
+    tables::call_fn_on_all_tables_or_early_return,
 };
 
 //---------------------------------------------------------------------------------------------------- Consts
-/// TODO
+/// Panic message when there's a table missing.
 const PANIC_MSG_MISSING_TABLE: &str =
     "cuprate_database::Env should uphold the invariant that all tables are already created";
 
@@ -47,7 +48,7 @@ pub struct ConcreteEnv {
     /// `reader_count` would be spinned on until 0, at which point
     /// we are safe to resize.
     ///
-    /// Although, 3 atomic operations (check atomic bool, reader_count++, reader_count--)
+    /// Although, 3 atomic operations (check atomic bool, `reader_count++`, `reader_count--`)
     /// turns out to be roughly as expensive as acquiring a non-contended `RwLock`,
     /// the CPU sleeping instead of spinning is much better too.
     ///
@@ -66,7 +67,7 @@ impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         // INVARIANT: drop(ConcreteEnv) must sync.
         //
-        // TODO:
+        // SOMEDAY:
         // "if the environment has the MDB_NOSYNC flag set the flushes will be omitted,
         // and with MDB_MAPASYNC they will be asynchronous."
         // <http://www.lmdb.tech/doc/group__mdb.html#ga85e61f05aa68b520cc6c3b981dba5037>
@@ -74,7 +75,7 @@ impl Drop for ConcreteEnv {
         // We need to do `mdb_env_set_flags(&env, MDB_NOSYNC|MDB_ASYNCMAP, 0)`
         // to clear the no sync and async flags such that the below `self.sync()`
         // _actually_ synchronously syncs.
-        if let Err(e) = crate::Env::sync(self) {
+        if let Err(_e) = crate::Env::sync(self) {
             // TODO: log error?
         }
 
@@ -96,13 +97,30 @@ impl Env for ConcreteEnv {
     const SYNCS_PER_TX: bool = false;
     type EnvInner<'env> = RwLockReadGuard<'env, heed::Env>;
     type TxRo<'tx> = heed::RoTxn<'tx>;
-    type TxRw<'tx> = heed::RwTxn<'tx>;
+
+    /// HACK:
+    /// `heed::RwTxn` is wrapped in `RefCell` to allow:
+    /// - opening a database with only a `&` to it
+    /// - allowing 1 write tx to open multiple tables
+    ///
+    /// Our mutable accesses are safe and will not panic as:
+    /// - Write transactions are `!Sync`
+    /// - A table operation does not hold a reference to the inner cell
+    ///   once the call is over
+    /// - The function to manipulate the table takes the same type
+    ///   of reference that the `RefCell` gets for that function
+    ///
+    /// Also see:
+    /// - <https://github.com/Cuprate/cuprate/pull/102#discussion_r1548695610>
+    /// - <https://github.com/Cuprate/cuprate/pull/104>
+    type TxRw<'tx> = RefCell<heed::RwTxn<'tx>>;
 
     #[cold]
     #[inline(never)] // called once.
-    #[allow(clippy::items_after_statements)]
     fn open(config: Config) -> Result<Self, InitError> {
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+
+        let mut env_open_options = EnvOpenOptions::new();
 
         // Map our `Config` sync mode to the LMDB environment flags.
         //
@@ -111,11 +129,21 @@ impl Env for ConcreteEnv {
             SyncMode::Safe => EnvFlags::empty(),
             SyncMode::Async => EnvFlags::MAP_ASYNC,
             SyncMode::Fast => EnvFlags::NO_SYNC | EnvFlags::WRITE_MAP | EnvFlags::MAP_ASYNC,
-            // TODO: dynamic syncs are not implemented.
+            // SOMEDAY: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
 
-        let mut env_open_options = EnvOpenOptions::new();
+        // SAFETY: the flags we're setting are 'unsafe'
+        // from a data durability perspective, although,
+        // the user config wanted this.
+        //
+        // MAYBE: We may need to open/create tables with certain flags
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        // MAYBE: Set comparison functions for certain tables
+        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        unsafe {
+            env_open_options.flags(flags);
+        }
 
         // Set the memory map size to
         // (current disk size) + (a bit of leeway)
@@ -134,7 +162,7 @@ impl Env for ConcreteEnv {
 
         // Set the max amount of database tables.
         // We know at compile time how many tables there are.
-        // TODO: ...how many?
+        // SOMEDAY: ...how many?
         env_open_options.max_dbs(32);
 
         // LMDB documentation:
@@ -149,36 +177,33 @@ impl Env for ConcreteEnv {
         // - Use at least 126 reader threads
         // - Add 16 extra reader threads if <126
         //
-        // TODO: This behavior is from `monerod`:
+        // FIXME: This behavior is from `monerod`:
         // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
         // I believe this could be adjusted percentage-wise so very high
         // thread PCs can benefit from something like (cuprated + anything that uses the DB in the future).
         // For now:
         // - No other program using our DB exists
         // - Almost no-one has a 126+ thread CPU
-        #[allow(clippy::cast_possible_truncation)] // no-one has `u32::MAX`+ threads
-        let reader_threads = config.reader_threads.as_threads().get() as u32;
+        let reader_threads =
+            u32::try_from(config.reader_threads.as_threads().get()).unwrap_or(u32::MAX);
         env_open_options.max_readers(if reader_threads < 110 {
             126
         } else {
-            reader_threads + 16
+            reader_threads.saturating_add(16)
         });
 
+        // Create the database directory if it doesn't exist.
+        std::fs::create_dir_all(config.db_directory())?;
         // Open the environment in the user's PATH.
-        let env = env_open_options.open(config.db_directory())?;
-
-        // TODO: Open/create tables with certain flags
-        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
-        // `heed` creates the database if it didn't exist.
-        // <https://docs.rs/heed/0.20.0-alpha.9/src/heed/env.rs.html#223-229>
+        // SAFETY: LMDB uses a memory-map backed file.
+        // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
+        let env = unsafe { env_open_options.open(config.db_directory())? };
 
         /// Function that creates the tables based off the passed `T: Table`.
         fn create_table<T: Table>(
             env: &heed::Env,
             tx_rw: &mut heed::RwTxn<'_>,
         ) -> Result<(), InitError> {
-            println!("create_table(): {}", T::NAME); // TODO: use tracing.
-
             DatabaseOpenOptions::new(env)
                 .name(<T as Table>::NAME)
                 .types::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>()
@@ -186,31 +211,17 @@ impl Env for ConcreteEnv {
             Ok(())
         }
 
-        use crate::tables::{
-            BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages,
-            NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs,
-            TxHeights, TxIds, TxUnlockTime,
-        };
-
         let mut tx_rw = env.write_txn()?;
-        create_table::<BlockBlobs>(&env, &mut tx_rw)?;
-        create_table::<BlockHeights>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV1s>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV2s>(&env, &mut tx_rw)?;
-        create_table::<BlockInfoV3s>(&env, &mut tx_rw)?;
-        create_table::<KeyImages>(&env, &mut tx_rw)?;
-        create_table::<NumOutputs>(&env, &mut tx_rw)?;
-        create_table::<Outputs>(&env, &mut tx_rw)?;
-        create_table::<PrunableHashes>(&env, &mut tx_rw)?;
-        create_table::<PrunableTxBlobs>(&env, &mut tx_rw)?;
-        create_table::<PrunedTxBlobs>(&env, &mut tx_rw)?;
-        create_table::<RctOutputs>(&env, &mut tx_rw)?;
-        create_table::<TxHeights>(&env, &mut tx_rw)?;
-        create_table::<TxIds>(&env, &mut tx_rw)?;
-        create_table::<TxUnlockTime>(&env, &mut tx_rw)?;
-
-        // TODO: Set dupsort and comparison functions for certain tables
-        // <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L1324>
+        // Create all tables.
+        // FIXME: this macro is kinda awkward.
+        {
+            let env = &env;
+            let tx_rw = &mut tx_rw;
+            match call_fn_on_all_tables_or_early_return!(create_table(env, tx_rw)) {
+                Ok(_) => (),
+                Err(e) => return Err(e),
+            }
+        }
 
         // INVARIANT: this should never return `ResizeNeeded` due to adding
         // some tables since we added some leeway to the memory map above.
@@ -230,11 +241,11 @@ impl Env for ConcreteEnv {
         Ok(self.env.read().unwrap().force_sync()?)
     }
 
-    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
+    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         let resize_algorithm = resize_algorithm.unwrap_or_else(|| self.config().resize_algorithm);
 
         let current_size_bytes = self.current_map_size();
-        let new_size_bytes = resize_algorithm.resize(current_size_bytes).get();
+        let new_size_bytes = resize_algorithm.resize(current_size_bytes);
 
         // SAFETY:
         // Resizing requires that we have
@@ -245,8 +256,14 @@ impl Env for ConcreteEnv {
         // <http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5>
         unsafe {
             // INVARIANT: `resize()` returns a valid `usize` to resize to.
-            self.env.write().unwrap().resize(new_size_bytes).unwrap();
+            self.env
+                .write()
+                .unwrap()
+                .resize(new_size_bytes.get())
+                .unwrap();
         }
+
+        new_size_bytes
     }
 
     #[inline]
@@ -261,7 +278,8 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, heed::RoTxn<'env>, heed::RwTxn<'env>> for RwLockReadGuard<'env, heed::Env>
+impl<'env> EnvInner<'env, heed::RoTxn<'env>, RefCell<heed::RwTxn<'env>>>
+    for RwLockReadGuard<'env, heed::Env>
 where
     Self: 'env,
 {
@@ -271,15 +289,15 @@ where
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<heed::RwTxn<'env>, RuntimeError> {
-        Ok(self.write_txn()?)
+    fn tx_rw(&'env self) -> Result<RefCell<heed::RwTxn<'env>>, RuntimeError> {
+        Ok(RefCell::new(self.write_txn()?))
     }
 
     #[inline]
-    fn open_db_ro<'tx, T: Table>(
+    fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &'tx heed::RoTxn<'env>,
-    ) -> Result<impl DatabaseRo<'tx, T>, RuntimeError> {
+        tx_ro: &heed::RoTxn<'env>,
+    ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         Ok(HeedTableRo {
             db: self
@@ -290,17 +308,35 @@ where
     }
 
     #[inline]
-    fn open_db_rw<'tx, T: Table>(
+    fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &'tx mut heed::RwTxn<'env>,
-    ) -> Result<impl DatabaseRw<'env, 'tx, T>, RuntimeError> {
+        tx_rw: &RefCell<heed::RwTxn<'env>>,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError> {
+        let tx_ro = tx_rw.borrow();
+
         // Open up a read/write database using our table's const metadata.
         Ok(HeedTableRw {
             db: self
-                .open_database(tx_rw, Some(T::NAME))?
+                .open_database(&tx_ro, Some(T::NAME))?
                 .expect(PANIC_MSG_MISSING_TABLE),
             tx_rw,
         })
+    }
+
+    #[inline]
+    fn clear_db<T: Table>(
+        &self,
+        tx_rw: &mut RefCell<heed::RwTxn<'env>>,
+    ) -> Result<(), RuntimeError> {
+        let tx_rw = tx_rw.get_mut();
+
+        // Open the table first...
+        let db: HeedDb<T::Key, T::Value> = self
+            .open_database(tx_rw, Some(T::NAME))?
+            .expect(PANIC_MSG_MISSING_TABLE);
+
+        // ...then clear it.
+        Ok(db.clear(tx_rw)?)
     }
 }
 
