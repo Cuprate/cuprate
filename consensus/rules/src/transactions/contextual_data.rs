@@ -141,7 +141,7 @@ impl Rings {
     }
 }
 
-/// Information on the outputs the transaction is is referencing for inputs (ring members).
+/// Information on the outputs the transaction is referencing for inputs (ring members).
 #[derive(Debug)]
 pub struct TxRingMembersInfo {
     pub rings: Rings,
@@ -149,7 +149,6 @@ pub struct TxRingMembersInfo {
     pub decoy_info: Option<DecoyInfo>,
     pub youngest_used_out_height: u64,
     pub time_locked_outs: Vec<Timelock>,
-    pub hf: HardFork,
 }
 
 impl TxRingMembersInfo {
@@ -160,7 +159,6 @@ impl TxRingMembersInfo {
         used_outs: Vec<Vec<OutputOnChain>>,
         decoy_info: Option<DecoyInfo>,
         tx_version: TxVersion,
-        hf: HardFork,
     ) -> Result<TxRingMembersInfo, TransactionError> {
         Ok(TxRingMembersInfo {
             youngest_used_out_height: used_outs
@@ -187,7 +185,6 @@ impl TxRingMembersInfo {
                         .collect::<Vec<_>>()
                 })
                 .collect(),
-            hf,
             rings: Rings::new(used_outs, tx_version)?,
             decoy_info,
         })

@@ -655,7 +655,7 @@ pub fn check_transaction_semantic(
 
 /// Checks the transaction is contextually valid.
 ///
-/// To fully verify a transaction this must be accompanied with [`check_transaction_semantic`]
+/// To fully verify a transaction this must be accompanied by [`check_transaction_semantic`]
 ///
 /// `current_time_lock_timestamp` must be: <https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#getting-the-current-time>
 

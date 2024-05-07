@@ -9,7 +9,7 @@ use std::{
 
 use futures::FutureExt;
 use monero_serai::ringct::RctType;
-use monero_serai::transaction::Transaction;
+use monero_serai::transaction::{Timelock, Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -29,44 +29,6 @@ use crate::{
 };
 
 pub mod contextual_data;
-mod output_cache;
-
-pub use output_cache::OutputCache;
-
-pub async fn batch_setup_txs(
-    txs: Vec<(Vec<Transaction>, HardFork)>,
-) -> Result<Vec<Vec<Arc<TransactionVerificationData>>>, ExtendedConsensusError> {
-    let batch_verifier = Arc::new(MultiThreadedBatchVerifier::new(rayon::current_num_threads()));
-
-    // Move out of the async runtime and use rayon to parallelize the serialisation and hashing of the txs.
-    let txs = rayon_spawn_async(move || {
-        let txs = txs
-            .into_par_iter()
-            .map(|(txs, hf)| {
-                txs.into_par_iter()
-                    .map(|tx| {
-                        Ok(Arc::new(TransactionVerificationData::new(
-                            tx,
-                            &hf,
-                            batch_verifier.clone(),
-                        )?))
-                    })
-                    .collect::<Result<Vec<_>, ConsensusError>>()
-            })
-            .collect::<Result<Vec<_>, ConsensusError>>()?;
-
-        if !Arc::into_inner(batch_verifier).unwrap().verify() {
-            Err(ConsensusError::Transaction(TransactionError::RingCTError(
-                RingCTError::BulletproofsRangeInvalid,
-            )))?
-        }
-
-        Ok::<_, ConsensusError>(txs)
-    })
-    .await?;
-
-    Ok(txs)
-}
 
 /// Data needed to verify a transaction.
 ///
@@ -78,9 +40,11 @@ pub struct TransactionVerificationData {
     pub tx_weight: usize,
     pub fee: u64,
     pub tx_hash: [u8; 32],
-    /// We put this behind a mutex as the information is not constant and is based of past outputs idxs
-    /// which could change on re-orgs.
-    rings_member_info: std::sync::Mutex<Option<(TxRingMembersInfo, ReOrgToken)>>,
+    /// Represents if a time-based time-lock was used with this transaction, if so the tx could become invalid
+    /// as the time lock could become locked again as time-based locks are _not_ monotonic.
+    youngest_time_based_time_lock_used: std::sync::Mutex<Option<Timelock>>,
+    /// The hash the tx was valid at, if this is still in the chain, _most_ verification can be skipped.
+    verified_at_hash: std::sync::Mutex<Option<[u8; 32]>>,
 }
 
 impl TransactionVerificationData {
@@ -111,7 +75,9 @@ impl TransactionVerificationData {
             tx_blob,
             tx_weight,
             fee,
-            rings_member_info: std::sync::Mutex::new(None),
+            verified_at_hash: std::sync::Mutex::new(None),
+            // set this as true for now, this will be changed when ring members are got
+            youngest_time_based_time_lock_used: std::sync::Mutex::new(None),
             version: TxVersion::from_raw(tx.prefix.version)
                 .ok_or(TransactionError::TransactionVersionInvalid)?,
             tx,
@@ -127,8 +93,6 @@ pub enum VerifyTxRequest {
         time_for_time_lock: u64,
         hf: HardFork,
         re_org_token: ReOrgToken,
-
-        out_cache: Option<Arc<OutputCache>>,
     },
 }
 
@@ -176,7 +140,6 @@ where
                     time_for_time_lock,
                     hf,
                     re_org_token,
-                    out_cache,
                 } => {
                     verify_transactions_for_block(
                         database,
@@ -185,7 +148,6 @@ where
                         time_for_time_lock,
                         hf,
                         re_org_token,
-                        out_cache,
                     )
                     .await
                 }
@@ -203,7 +165,6 @@ async fn verify_transactions_for_block<D>(
     time_for_time_lock: u64,
     hf: HardFork,
     re_org_token: ReOrgToken,
-    out_cache: Option<Arc<OutputCache>>,
 ) -> Result<VerifyTxResponse, ExtendedConsensusError>
 where
     D: Database + Clone + Sync + Send + 'static,
@@ -216,7 +177,6 @@ where
         re_org_token,
         database.clone(),
         current_chain_height,
-        out_cache.as_deref(),
     )
     .await?;
 

@@ -33,8 +33,7 @@ use crate::{
         RawBlockChainContext,
     },
     transactions::{
-        batch_setup_txs, contextual_data, OutputCache, TransactionVerificationData,
-        VerifyTxRequest, VerifyTxResponse,
+        contextual_data, TransactionVerificationData, VerifyTxRequest, VerifyTxResponse,
     },
     Database, ExtendedConsensusError,
 };
@@ -173,41 +172,17 @@ pub struct VerifiedBlockInformation {
 
 /// A request to verify a block, or to prepare a block for verification.
 pub enum VerifyBlockRequest {
-    /// A request to batch the setup of verification data.
-    /// Will return [`VerifyBlockResponse::MainChainBatchPrep`], which you can then call
-    /// [`VerifyBlockRequest::MainChainPrepared`] to finish the verification.
-    ///
-    /// The amount of blocks that are being batch set-up should not be too large as if *any* are
-    /// incorrect a lot of work could be wasted. There is a hard limit of the length of a RX seed window
-    /// (2048 blocks) and this will panic if more than this many blocks is passed in.
-    ///
-    /// It is not valid to call this more than once and keep the batches around to pass into [`VerifyBlockRequest::MainChainPrepared`]
-    /// later.
-    MainChainBatchPrep(Vec<(Block, Vec<Transaction>)>),
     /// A request to verify a block.
     MainChain {
         block: Block,
         prepared_txs: Vec<Arc<TransactionVerificationData>>,
-        txs: Vec<Transaction>,
     },
-    /// A request to verify a block that has already been prepared.
-    MainChainPrepared(
-        PrePreparedBlock,
-        Vec<Arc<TransactionVerificationData>>,
-        Arc<OutputCache>,
-    ),
 }
 
 /// A response from a verify block request.
 pub enum VerifyBlockResponse {
     /// This block is valid.
     MainChain(VerifiedBlockInformation),
-    /// These blocks have been batch prepared successfully but may not be valid.
-    MainChainBatchPrep(
-        Vec<PrePreparedBlock>,
-        Vec<Vec<Arc<TransactionVerificationData>>>,
-        Arc<OutputCache>,
-    ),
 }
 
 /// The block verifier service.
@@ -279,31 +254,14 @@ where
     fn call(&mut self, req: VerifyBlockRequest) -> Self::Future {
         let context_svc = self.context_svc.clone();
         let tx_verifier_svc = self.tx_verifier_svc.clone();
-        let database = self.database.clone();
 
         async move {
             match req {
                 VerifyBlockRequest::MainChain {
                     block,
                     prepared_txs,
-                    txs,
                 } => {
-                    verify_main_chain_block(block, txs, prepared_txs, context_svc, tx_verifier_svc)
-                        .await
-                }
-                VerifyBlockRequest::MainChainPrepared(prepped_block, txs, out_cache) => {
-                    verify_main_chain_block_prepared(
-                        prepped_block,
-                        txs,
-                        context_svc,
-                        tx_verifier_svc,
-                        None,
-                        Some(out_cache),
-                    )
-                    .await
-                }
-                VerifyBlockRequest::MainChainBatchPrep(blocks) => {
-                    batch_prepare_main_chain_block(blocks, context_svc, database).await
+                    verify_main_chain_block(block, prepared_txs, context_svc, tx_verifier_svc).await
                 }
             }
         }
@@ -311,235 +269,12 @@ where
     }
 }
 
-/// Batches the setup of multiple blocks.
-#[instrument(level = "info", name = "batch_prep_blocks", skip_all)]
-async fn batch_prepare_main_chain_block<C, D>(
-    blocks: Vec<(Block, Vec<Transaction>)>,
-    mut context_svc: C,
-    mut database: D,
-) -> Result<VerifyBlockResponse, ExtendedConsensusError>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
-    D: Database + Clone + Send + Sync + 'static,
-    D::Future: Send + 'static,
-{
-    assert!((blocks.len() as u64) < RX_SEEDHASH_EPOCH_BLOCKS);
-
-    tracing::debug!("preparing {} blocks for verification.", blocks.len());
-
-    let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
-
-    tracing::debug!("Setting up PrePreparedBlockExPOW for blocks");
-    let blocks: Vec<PrePreparedBlockExPOW> = rayon_spawn_async(|| {
-        blocks
-            .into_iter()
-            .map(PrePreparedBlockExPOW::new)
-            .collect::<Result<Vec<_>, _>>()
-    })
-    .await?;
-
-    let mut timestamps_hfs = Vec::with_capacity(blocks.len());
-    let mut new_rx_vm = None;
-
-    // Make sure each block's parent is the block before it.
-    for window in blocks.windows(2) {
-        if window[0].block_hash != window[1].block.header.previous
-            || window[0].height != window[1].height - 1
-        {
-            tracing::debug!(
-                "Block {} does not have expected parent {} or correct stated height",
-                hex::encode(window[1].block_hash),
-                hex::encode(window[0].block_hash)
-            );
-
-            Err(ConsensusError::Block(BlockError::PreviousIDIncorrect))?;
-        }
-
-        // While we are looping over the blocks check if one of the blocks is a RX seed
-        if is_randomx_seed_height(window[0].height) {
-            // cache it if it is.
-            new_rx_vm = Some((window[0].height, window[0].block_hash));
-        }
-
-        // Keep track of the blocks timestamp and hf.
-        timestamps_hfs.push((window[0].block.header.timestamp, window[0].hf_version))
-    }
-
-    // Get the current blockchain context.
-
-    tracing::debug!("getting blockchain context");
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::GetContext)
-        .await?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
-    // Batch get the required difficulties for these blocks.
-
-    let BlockChainContextResponse::BatchDifficulties(difficulties) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::BatchGetDifficulties(
-            timestamps_hfs,
-        ))
-        .await?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
-    let context = checked_context.unchecked_blockchain_context().clone();
-
-    // make sure the first block is the expected height.
-    if context.chain_height != blocks[0].height {
-        Err(ConsensusError::Block(BlockError::MinerTxError(
-            MinerTxError::InputsHeightIncorrect,
-        )))?;
-    }
-
-    // make sure the first block has the correct parent.
-    if context.top_hash != blocks[0].block.header.previous {
-        Err(ConsensusError::Block(BlockError::PreviousIDIncorrect))?;
-    }
-
-    // get the RX VM map.
-    let mut rx_vms = context.rx_vms;
-
-    // Check if we found a RX seed in these blocks earlier
-    if let Some((new_vm_height, new_vm_seed)) = new_rx_vm {
-        tracing::debug!("New RX seed in blocks, setting up VM.");
-
-        // If we did, set up the RX VM.
-        let new_vm = rayon_spawn_async(move || {
-            Arc::new(RandomXVM::new(&new_vm_seed).expect("RandomX VM gave an error on set up!"))
-        })
-        .await;
-
-        // and give it to the context service to cache so we don't have to create it again.
-        context_svc
-            .ready()
-            .await?
-            .call(BlockChainContextRequest::NewRXVM((
-                new_vm_seed,
-                new_vm.clone(),
-            )))
-            .await?;
-
-        // insert it in our map, so we can use it.
-        rx_vms.insert(new_vm_height, new_vm);
-    }
-
-    // Compute the POW hashes and make sure they pass the required difficulty.
-    tracing::debug!("Computing PoW hashes for blocks.");
-
-    let blocks = rayon_spawn_async(move || {
-        blocks
-            .into_par_iter()
-            .zip(difficulties)
-            .map(|(block, difficultly)| {
-                let height = block.height;
-
-                trace!("Computing PoW hash for block: {}", height);
-
-                let block = PrePreparedBlock::new(
-                    block,
-                    rx_vms.get(&randomx_seed_height(height)).map(AsRef::as_ref),
-                )?;
-
-                check_block_pow(&block.pow_hash, difficultly)?;
-                Ok(block)
-            })
-            .collect::<Result<Vec<_>, ConsensusError>>()
-    })
-    .await?;
-
-    // batch setup the txs (excluding ring member info).
-    let txs = batch_setup_txs(
-        // wrap each tx list with it's hf.
-        txs.into_iter()
-            .zip(blocks.iter().map(|block| block.hf_version))
-            .collect(),
-    )
-    .await?;
-
-    // Build the OutputCache, see its docs for info.
-    let out_cache = OutputCache::new_from_blocks(
-        blocks
-            .iter()
-            .map(|block| &block.block)
-            .zip(txs.iter().map(Vec::as_slice)),
-        &mut database,
-    )
-    .await?;
-
-    tracing::debug!("Filling transaction ring members/ ring member info.");
-
-    let mut complete_block_idx = 0;
-
-    // loop over the blocks and find if there are any changes in HFs in the batch.
-    for (idx, hf) in blocks
-        .windows(2)
-        .enumerate()
-        .filter(|(_, block)| block[0].hf_version != blocks[1].hf_version)
-        .map(|(i, block)| (i, &block[0].hf_version))
-    {
-        // Only batch prepare txs together if they are on the same HF.
-        contextual_data::batch_fill_ring_member_info(
-            txs.iter()
-                .take(idx + 1)
-                .skip(complete_block_idx)
-                .flat_map(|txs| txs.iter()),
-            hf,
-            context.re_org_token.clone(),
-            database.clone(),
-            None,
-            Some(&out_cache),
-        )
-        .await?;
-
-        complete_block_idx = idx + 1;
-    }
-
-    // The last group of txs will always be skipped above so handle that now.
-    if complete_block_idx != blocks.len() {
-        contextual_data::batch_fill_ring_member_info(
-            txs.iter()
-                .skip(complete_block_idx)
-                .flat_map(|txs| txs.iter()),
-            &blocks.last().unwrap().hf_version,
-            context.re_org_token.clone(),
-            database.clone(),
-            None,
-            Some(&out_cache),
-        )
-        .await?;
-    }
-
-    tracing::debug!("batch setup complete.");
-
-    Ok(VerifyBlockResponse::MainChainBatchPrep(
-        blocks,
-        txs,
-        Arc::new(out_cache),
-    ))
-}
-
 /// Verifies a prepared block.
-async fn verify_main_chain_block_prepared<C, TxV>(
-    prepped_block: PrePreparedBlock,
+async fn verify_main_chain_block<C, TxV>(
+    block: Block,
     txs: Vec<Arc<TransactionVerificationData>>,
     context_svc: C,
     tx_verifier_svc: TxV,
-    context: Option<RawBlockChainContext>,
-    out_cache: Option<Arc<OutputCache>>,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
     C: Service<
@@ -551,27 +286,35 @@ where
     C::Future: Send + 'static,
     TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
 {
-    tracing::debug!("verifying block: {}", hex::encode(prepped_block.block_hash));
+    tracing::debug!("getting blockchain context");
 
-    // Allow reusing context.
-    let context = match context {
-        Some(context) => context,
-        None => {
-            tracing::debug!("getting blockchain context");
-            let BlockChainContextResponse::Context(checked_context) = context_svc
-                .oneshot(BlockChainContextRequest::GetContext)
-                .await
-                .map_err(Into::<ExtendedConsensusError>::into)?
-            else {
-                panic!("Context service returned wrong response!");
-            };
-
-            let context = checked_context.unchecked_blockchain_context().clone();
-
-            tracing::debug!("got blockchain context: {:?}", context);
-            context
-        }
+    let BlockChainContextResponse::Context(checked_context) = context_svc
+        .oneshot(BlockChainContextRequest::GetContext)
+        .await
+        .map_err(Into::<ExtendedConsensusError>::into)?
+    else {
+        panic!("Context service returned wrong response!");
     };
+
+    let context = checked_context.unchecked_blockchain_context().clone();
+    tracing::debug!("got blockchain context: {:?}", context);
+
+    // Set up the block and just pass it to [`verify_main_chain_block_prepared`]
+
+    let rx_vms = context.rx_vms.clone();
+    let prepped_block = rayon_spawn_async(move || {
+        let prepped_block_ex_pow = PrePreparedBlockExPOW::new(block)?;
+        let height = prepped_block_ex_pow.height;
+
+        PrePreparedBlock::new(prepped_block_ex_pow, rx_vms.get(&height).map(AsRef::as_ref))
+    })
+    .await?;
+
+    // Although this is checked in [`verify_main_chain_block_prepared`], check it now, so we don't waste time setting up txs.
+    check_block_pow(&prepped_block.pow_hash, context.cumulative_difficulty)
+        .map_err(ConsensusError::Block)?;
+
+    tracing::debug!("verifying block: {}", hex::encode(prepped_block.block_hash));
 
     check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
         .map_err(ConsensusError::Block)?;
@@ -604,7 +347,6 @@ where
             time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
             hf: context.current_hf,
             re_org_token: context.re_org_token.clone(),
-            out_cache,
         })
         .await?;
 
@@ -634,64 +376,4 @@ where
         hf_vote,
         cumulative_difficulty: context.cumulative_difficulty + context.next_difficulty,
     }))
-}
-
-/// Verifies a block that has not been prepared.
-async fn verify_main_chain_block<C, TxV>(
-    block: Block,
-    txs: Vec<Transaction>,
-    mut prepared_txs: Vec<Arc<TransactionVerificationData>>,
-    mut context_svc: C,
-    tx_verifier_svc: TxV,
-) -> Result<VerifyBlockResponse, ExtendedConsensusError>
-where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Send
-        + 'static,
-    C::Future: Send + 'static,
-    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>,
-{
-    tracing::debug!("getting blockchain context");
-    let BlockChainContextResponse::Context(checked_context) = context_svc
-        .ready()
-        .await?
-        .call(BlockChainContextRequest::GetContext)
-        .await
-        .map_err(Into::<ExtendedConsensusError>::into)?
-    else {
-        panic!("Context service returned wrong response!");
-    };
-
-    let context = checked_context.unchecked_blockchain_context().clone();
-    tracing::debug!("got blockchain context: {:?}", context);
-
-    // Set up the block and just pass it to [`verify_main_chain_block_prepared`]
-
-    let rx_vms = context.rx_vms.clone();
-    let prepped_block = rayon_spawn_async(move || {
-        let prepped_block_ex_pow = PrePreparedBlockExPOW::new(block)?;
-        let height = prepped_block_ex_pow.height;
-
-        PrePreparedBlock::new(prepped_block_ex_pow, rx_vms.get(&height).map(AsRef::as_ref))
-    })
-    .await?;
-
-    // Although this is checked in [`verify_main_chain_block_prepared`], check it now, so we don't waste time setting up txs.
-    check_block_pow(&prepped_block.pow_hash, context.cumulative_difficulty)
-        .map_err(ConsensusError::Block)?;
-
-    prepared_txs.append(&mut batch_setup_txs(vec![(txs, context.current_hf)]).await?[0]);
-
-    verify_main_chain_block_prepared(
-        prepped_block,
-        prepared_txs,
-        context_svc,
-        tx_verifier_svc,
-        Some(context),
-        None,
-    )
-    .await
 }
