@@ -85,9 +85,8 @@ impl<N: NetworkZone> ClientPool<N> {
         }
     }
 
-    /// Adds a _new_ [`Client`] to the pool, this client should be a new connection,
-    ///
-    /// See [`ClientPool::add_client`] to add a [`Client`] which was removed from the pool.
+    /// Adds a _new_ [`Client`] to the pool, this client should be a new connection, and not already
+    /// from the pool.
     pub fn add_new_client(&self, client: Client<N>) {
         self.new_connection_tx
             .send((client.info.handle.clone(), client.info.id))

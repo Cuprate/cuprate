@@ -7,7 +7,7 @@
 //!
 #![allow(dead_code)]
 
-mod client_pool;
+pub mod client_pool;
 pub mod config;
 pub mod connection_maintainer;
 mod constants;
