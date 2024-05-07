@@ -42,6 +42,7 @@ pub struct ClientPool<N: NetworkZone> {
 }
 
 impl<N: NetworkZone> ClientPool<N> {
+    /// Returns a new [`ClientPool`] wrapped in an [`Arc`].
     pub fn new() -> Arc<ClientPool<N>> {
         let (tx, rx) = mpsc::unbounded_channel();
 
@@ -56,10 +57,15 @@ impl<N: NetworkZone> ClientPool<N> {
         pool
     }
 
+    /// Adds a [`Client`] to the pool, the client must have previously been taken from the
+    /// pool.
+    ///
+    /// See [`ClientPool::add_new_client`] to add a [`Client`] which was not taken from the pool before.
     fn add_client(&self, client: Client<N>) {
         let handle = client.info.handle.clone();
         let id = client.info.id;
 
+        // Fast path: if the client is disconnected don't add it to the peer set.
         if handle.is_closed() {
             return;
         }
@@ -69,14 +75,19 @@ impl<N: NetworkZone> ClientPool<N> {
         }
 
         let res = self.clients.insert(id, client);
-        debug_assert!(res.is_none());
+        assert!(res.is_none());
 
-        // TODO: document how this prevents a race condition.
+        // We have to check this again otherwise we could have a race condition where a
+        // peer is disconnected after the first check, the disconnect monitor trys to remove it,
+        // and then it is added to the pool.
         if handle.is_closed() {
             self.remove_client(&id);
         }
     }
 
+    /// Adds a _new_ [`Client`] to the pool, this client should be a new connection,
+    ///
+    /// See [`ClientPool::add_client`] to add a [`Client`] which was removed from the pool.
     pub fn add_new_client(&self, client: Client<N>) {
         self.new_connection_tx
             .send((client.info.handle.clone(), client.info.id))
@@ -85,31 +96,39 @@ impl<N: NetworkZone> ClientPool<N> {
         self.add_client(client);
     }
 
+    /// Remove a [`Client`] from the pool.
     fn remove_client(&self, peer: &InternalPeerID<N::Addr>) -> Option<Client<N>> {
         self.outbound_clients.remove(peer);
 
         self.clients.remove(peer).map(|(_, client)| client)
     }
 
+    /// Borrows a [`Client`] from the pool, the [`Client`] is wrapped in [`ClientPoolDropGuard`] which
+    /// will return the client to the pool when it's dropped.
     pub fn borrow_client(
         self: &Arc<Self>,
         peer: &InternalPeerID<N::Addr>,
     ) -> Option<ClientPoolDropGuard<N>> {
-        self.outbound_clients.remove(peer);
-
         self.remove_client(peer).map(|client| ClientPoolDropGuard {
             pool: Arc::clone(self),
             client: Some(client),
         })
     }
 
-    pub fn borrow_clients(
-        self: &Arc<Self>,
-        peers: &[InternalPeerID<N::Addr>],
-    ) -> Vec<ClientPoolDropGuard<N>> {
-        peers
-            .iter()
-            .filter_map(|peer| self.borrow_client(peer))
-            .collect()
+    /// Borrows multiple [`Client`]s from the pool.
+    ///
+    /// The returned iterator is not guaranteed to contain ever peer asked for,
+    #[allow(private_interfaces)] // TODO: Remove me when 2024 Rust
+    pub fn borrow_clients<'a, 'b>(
+        self: &'a Arc<Self>,
+        peers: &'b [InternalPeerID<N::Addr>],
+    ) -> impl Iterator<Item = ClientPoolDropGuard<N>> + Captures<(&'a (), &'b ())> {
+        peers.iter().filter_map(|peer| self.borrow_client(peer))
     }
 }
+
+/// TODO: Remove me when 2024 Rust
+///
+/// https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick
+trait Captures<U> {}
+impl<T: ?Sized, U> Captures<U> for T {}

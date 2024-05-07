@@ -1,3 +1,7 @@
+//! # Disconnect Monitor
+//!
+//! This module contains the [`disconnect_monitor`] task, which monitors connected peers for disconnection
+//! and the removes them from the [`ClientPool`] if they do.
 use std::{
     future::Future,
     pin::Pin,
@@ -14,7 +18,8 @@ use monero_p2p::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone}
 
 use super::ClientPool;
 
-#[instrument(level="info", skip_all, fields(network=N::NAME))]
+/// The disconnect monitor task.
+#[instrument(level = "info", skip_all)]
 pub async fn disconnect_monitor<N: NetworkZone>(
     mut new_connection_rx: mpsc::UnboundedReceiver<(ConnectionHandle, InternalPeerID<N::Addr>)>,
     client_pool: Arc<ClientPool<N>>,
@@ -33,7 +38,7 @@ pub async fn disconnect_monitor<N: NetworkZone>(
                 });
             }
             Some(peer_id) = futs.next() => {
-                tracing::debug!("{peer_id} has disconnecting, removing from peer_set.");
+                tracing::debug!("{peer_id} has disconnected, removing from client pool.");
                 client_pool.remove_client(&peer_id);
             }
             else => {
@@ -44,10 +49,13 @@ pub async fn disconnect_monitor<N: NetworkZone>(
     }
 }
 
+/// A [`Future`] that resolves when a peer disconnects.
 #[pin_project::pin_project]
 struct PeerDisconnectFut<N: NetworkZone> {
+    /// The inner [`Future`] that resolves when a peer disconnects.
     #[pin]
     closed_fut: WaitForCancellationFutureOwned,
+    /// The peers ID.
     peer_id: Option<InternalPeerID<N::Addr>>,
 }
 

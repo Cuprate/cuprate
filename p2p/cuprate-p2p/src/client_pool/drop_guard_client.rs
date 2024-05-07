@@ -1,15 +1,17 @@
-use monero_p2p::client::Client;
 use std::{
     ops::{Deref, DerefMut},
     sync::Arc,
 };
 
-use monero_p2p::NetworkZone;
+use monero_p2p::{client::Client, NetworkZone};
 
 use crate::client_pool::ClientPool;
 
+/// A wrapper around [`Client`] which returns the client to the [`ClientPool`] when dropped.
 pub struct ClientPoolDropGuard<N: NetworkZone> {
+    /// The [`ClientPool`] to return the peer to.
     pub(super) pool: Arc<ClientPool<N>>,
+    /// The [`Client`].
     pub(super) client: Option<Client<N>>,
 }
 

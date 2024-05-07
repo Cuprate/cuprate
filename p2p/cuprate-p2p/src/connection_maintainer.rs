@@ -23,9 +23,7 @@ use monero_p2p::{
 use crate::{
     client_pool::ClientPool,
     config::P2PConfig,
-    constants::{
-        HANDSHAKE_TIMEOUT, MAX_SEED_CONNECTIONS, OUTBOUND_CONNECTION_TIMEOUT, PEER_FIND_TIMEOUT,
-    },
+    constants::{HANDSHAKE_TIMEOUT, MAX_SEED_CONNECTIONS, OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT},
 };
 
 enum OutboundConnectorError {
@@ -271,13 +269,11 @@ where
                 biased;
                 peer_req = self.make_connection_rx.recv() => {
                     let Some(peer_req) = peer_req else {
-                        info!("Shutting down outbound connector, make_connection_rx closed.");
+                        info!("Shutting down outbound connector, make connection channel closed.");
                         return;
                     };
-                    while self.handle_peer_request(&peer_req).await.is_err() {
-                        warn!("Failed to find peer to connect to or to add a permit, trying again in {} seconds", PEER_FIND_TIMEOUT.as_secs());
-                        sleep(PEER_FIND_TIMEOUT).await;
-                    }
+                    // We can't really do much about errors in this function.
+                    let _ = self.handle_peer_request(&peer_req).await;
                 },
                 // This future is not cancellation safe as you will lose your space in the queue but as we are the only place
                 // that actually requires permits that should be ok.
@@ -285,7 +281,7 @@ where
                     if self.handle_free_permit(permit).await.is_err() {
                         // if we got an error then we still have a permit free so to prevent this from just looping
                         // uncontrollably add a timeout.
-                        sleep(OUTBOUND_CONNECTION_TIMEOUT).await;
+                        sleep(OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT).await;
                     }
                 }
             }
