@@ -49,16 +49,6 @@ tokio-util = { workspace = true }
 
 hex = "0.4"
 
-# used in binaries
-monero-wire = {path="../net/monero-wire", optional = true}
-epee-encoding = { path="../net/epee-encoding" , optional = true}
-serde_json = {version = "1", optional = true}
-serde = {version = "1", optional = true, features = ["derive"]}
-tracing-subscriber = {version = "0.3", optional = true}
-borsh = { workspace = true, features = ["derive", "std"], optional = true}
-dirs = {version="5.0", optional = true}
-clap = { version = "4.4.8", optional = true, features = ["derive"] }
-
 [dev-dependencies]
 cuprate-consensus-rules =  {path = "./rules", features = ["proptest"]}
 
