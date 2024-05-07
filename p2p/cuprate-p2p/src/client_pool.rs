@@ -78,7 +78,7 @@ impl<N: NetworkZone> ClientPool<N> {
         assert!(res.is_none());
 
         // We have to check this again otherwise we could have a race condition where a
-        // peer is disconnected after the first check, the disconnect monitor trys to remove it,
+        // peer is disconnected after the first check, the disconnect monitor tries to remove it,
         // and then it is added to the pool.
         if handle.is_closed() {
             self.remove_client(&id);
