@@ -4,7 +4,7 @@
 //! It holds all the context caches and handles [`tower::Service`] requests.
 //!
 use futures::channel::oneshot;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc;
 use tower::ServiceExt;
 use tracing::Instrument;
 
@@ -12,7 +12,7 @@ use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
 
 use super::{
     difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
-    BlockChainContextResponse, ContextConfig, RawBlockChainContext, ReOrgToken, ValidityToken,
+    BlockChainContextResponse, ContextConfig, RawBlockChainContext, ValidityToken,
     BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
@@ -32,8 +32,6 @@ pub struct ContextTask {
     /// A token used to invalidate previous contexts when a new
     /// block is added to the chain.
     current_validity_token: ValidityToken,
-    /// A token which is used to signal a reorg has happened.
-    current_reorg_token: ReOrgToken,
 
     /// The difficulty cache.
     difficulty_cache: difficulty::DifficultyCache,
@@ -117,7 +115,6 @@ impl ContextTask {
 
         let context_svc = ContextTask {
             current_validity_token: ValidityToken::new(),
-            current_reorg_token: ReOrgToken::new(),
             difficulty_cache: difficulty_cache_handle.await.unwrap()?,
             weight_cache: weight_cache_handle.await.unwrap()?,
             rx_vm_cache: rx_seed_handle.await.unwrap()?,
@@ -164,7 +161,6 @@ impl ContextTask {
                         cumulative_difficulty: self.difficulty_cache.cumulative_difficulty(),
                         median_long_term_weight: self.weight_cache.median_long_term_weight(),
                         top_block_timestamp: self.difficulty_cache.top_block_timestamp(),
-                        re_org_token: self.current_reorg_token.clone(),
                     },
                 })
             }
@@ -225,7 +221,7 @@ impl ContextTask {
 
     /// Run the [`ContextTask`], the task will listen for requests on the passed in channel. When the channel closes the
     /// task will finish.
-    pub async fn run(mut self, mut rx: UnboundedReceiver<ContextTaskRequest>) {
+    pub async fn run(mut self, mut rx: mpsc::Receiver<ContextTaskRequest>) {
         while let Some(req) = rx.recv().await {
             let res = self.handle_req(req.req).instrument(req.span).await;
             let _ = req.tx.send(res);

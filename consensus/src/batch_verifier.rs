@@ -27,12 +27,10 @@ impl MultiThreadedBatchVerifier {
     ) -> Result<R, ConsensusError> {
         let verifier_cell = self
             .internal
-            .get_or(|| RefCell::new(InternalBatchVerifier::new(0)));
+            .get_or(|| RefCell::new(InternalBatchVerifier::new(8)));
         // SAFETY: This is safe for 2 reasons:
         //  1. each thread gets a different batch verifier.
         //  2. only this function `queue_statement` will get the inner batch verifier, it's private.
-        //
-        // TODO: it's probably ok to just use RefCell
         stmt(verifier_cell.borrow_mut().deref_mut())
     }
 

@@ -4,6 +4,7 @@
 //! This is used during contextual validation, this does not have all the data for contextual validation
 //! (outputs) for that you will need a [`Database`].
 //!
+use std::pin::Pin;
 use std::{
     cmp::min,
     collections::HashMap,
@@ -13,11 +14,13 @@ use std::{
 };
 
 use futures::channel::oneshot;
-use tokio::sync::mpsc::{self, UnboundedSender};
+use futures::FutureExt;
+use tokio::sync::mpsc;
+use tokio_util::sync::PollSender;
 use tower::Service;
 
 use cuprate_consensus_rules::{blocks::ContextToVerifyBlock, current_unix_timestamp, HardFork};
-use cuprate_helper::asynch::{poll_sender_channel, InfallibleOneshotReceiver, PollSender};
+use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{Database, ExtendedConsensusError};
 
@@ -104,11 +107,13 @@ where
 {
     let context_task = task::ContextTask::init_context(cfg, database).await?;
 
-    let (tx, rx) = poll_sender_channel(mpsc::unbounded_channel, 5);
+    let (tx, rx) = mpsc::channel(5);
 
     tokio::spawn(context_task.run(rx));
 
-    Ok(BlockChainContextService { channel: tx })
+    Ok(BlockChainContextService {
+        channel: PollSender::new(tx),
+    })
 }
 
 /// Raw blockchain context, gotten from [`BlockChainContext`]. This data may turn invalid so is not ok to keep
@@ -117,8 +122,6 @@ where
 pub struct RawBlockChainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
-    /// A token which is used to signal if a reorg has happened since creating the token.
-    pub re_org_token: ReOrgToken,
     /// RandomX VMs, this maps seeds height to VM. Will definitely contain the VM required to calculate the current blocks
     /// POW hash (if a RX VM is required), may contain more.
     pub rx_vms: HashMap<u64, Arc<RandomXVM>>,
@@ -259,16 +262,19 @@ pub enum BlockChainContextResponse {
 /// The blockchain context service.
 #[derive(Clone)]
 pub struct BlockChainContextService {
-    channel: PollSender<UnboundedSender<task::ContextTaskRequest>, task::ContextTaskRequest>,
+    channel: PollSender<task::ContextTaskRequest>,
 }
 
 impl Service<BlockChainContextRequest> for BlockChainContextService {
     type Response = BlockChainContextResponse;
     type Error = tower::BoxError;
-    type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        self.channel.poll_ready(cx).map_err(Into::into)
+        self.channel
+            .poll_reserve(cx)
+            .map_err(|_| "Context service channel closed".into())
     }
 
     fn call(&mut self, req: BlockChainContextRequest) -> Self::Future {
@@ -280,8 +286,12 @@ impl Service<BlockChainContextRequest> for BlockChainContextService {
             span: tracing::Span::current(),
         };
 
-        self.channel.send(req);
+        let res = self.channel.send_item(req);
 
-        InfallibleOneshotReceiver::from(rx)
+        async move {
+            res.map_err(|_| "Context service closed.")?;
+            rx.await.expect("Oneshot closed without response!")
+        }
+        .boxed()
     }
 }

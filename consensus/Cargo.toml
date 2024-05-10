@@ -7,26 +7,6 @@ license = "MIT"
 authors = ["Boog900"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
-[features]
-default = []
-binaries = [
-    "tokio/rt-multi-thread",
-    "tokio/macros",
-    "tower/retry",
-    "tower/balance",
-    "tower/buffer",
-    "tower/timeout",
-    "monero-serai/http-rpc",
-    "dep:tracing-subscriber",
-    "dep:serde_json",
-    "dep:serde",
-    "dep:epee-encoding",
-    "dep:monero-wire",
-    "dep:borsh",
-    "dep:dirs",
-    "dep:clap"
-]
-
 [dependencies]
 cuprate-helper = { path = "../helper", default-features = false, features = ["std", "asynch", "num"] }
 cuprate-consensus-rules = {path = "./rules", features = ["rayon"]}
@@ -34,7 +14,7 @@ cuprate-consensus-rules = {path = "./rules", features = ["rayon"]}
 thiserror = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
-futures = { workspace = true, features = ["std"] }
+futures = { workspace = true, features = ["std", "async-await"] }
 
 randomx-rs = { workspace = true }
 monero-serai = { workspace = true, features = ["std"] }
@@ -48,6 +28,7 @@ tokio = { workspace = true, features = ["rt"] }
 tokio-util = { workspace = true }
 
 hex = "0.4"
+rand = "0.8.5"
 
 [dev-dependencies]
 cuprate-consensus-rules =  {path = "./rules", features = ["proptest"]}

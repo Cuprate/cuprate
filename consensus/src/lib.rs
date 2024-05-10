@@ -43,6 +43,9 @@ pub enum ExtendedConsensusError {
     /// The transactions passed in with this block were not the ones needed.
     #[error("The transactions passed in with the block are incorrect.")]
     TxsIncludedWithBlockIncorrect,
+    /// One or more statements in the batch verifier was invalid.
+    #[error("One or more statements in the batch verifier was invalid.")]
+    OneOrMoreBatchVerificationStatmentsInvalid,
 }
 
 /// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
@@ -115,6 +118,11 @@ pub enum DatabaseRequest {
     /// Must return: [`DatabaseResponse::BlockHash`]     
     BlockHash(u64),
 
+    /// Removes the block hashes that are not in the _main_ chain.
+    ///
+    /// This should filter (remove) hashes in alt-blocks as well.
+    FilterUnknownHashes(HashSet<[u8; 32]>),
+
     /// A request for multiple block extended headers.
     /// Must return: [`DatabaseResponse::BlockExtendedHeaderInRange`]
     BlockExtendedHeaderInRange(std::ops::Range<u64>),
@@ -136,10 +144,6 @@ pub enum DatabaseRequest {
     /// A request to check if these key images are in the database.
     /// Must return: [`DatabaseResponse::KeyImagesSpent`]     
     KeyImagesSpent(HashSet<[u8; 32]>),
-
-    /// A request for blocks - only used for scanning the chain using RPC.
-    #[cfg(feature = "binaries")]
-    BlockBatchInRange(std::ops::Range<u64>),
 }
 
 #[derive(Debug)]
@@ -148,6 +152,8 @@ pub enum DatabaseResponse {
     BlockExtendedHeader(ExtendedBlockHeader),
     /// A block hash response.
     BlockHash([u8; 32]),
+
+    FilteredHashes(HashSet<[u8; 32]>),
 
     /// A batch block extended header response.
     BlockExtendedHeaderInRange(Vec<ExtendedBlockHeader>),
@@ -173,13 +179,4 @@ pub enum DatabaseResponse {
     /// Key images spent response.
     /// returns true if key images are spent
     KeyImagesSpent(bool),
-
-    /// Only used for RPC scanning.
-    #[cfg(feature = "binaries")]
-    BlockBatchInRange(
-        Vec<(
-            monero_serai::block::Block,
-            Vec<monero_serai::transaction::Transaction>,
-        )>,
-    ),
 }

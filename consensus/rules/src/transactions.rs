@@ -57,7 +57,7 @@ pub enum TransactionError {
     #[error("The transaction inputs are not ordered.")]
     InputsAreNotOrdered,
     #[error("The transaction spends a decoy which is too young.")]
-    OneOrMoreDecoysLocked,
+    OneOrMoreRingMembersLocked,
     #[error("The transaction inputs overflow.")]
     InputsOverflow,
     #[error("The transaction has no inputs.")]
@@ -247,7 +247,7 @@ fn check_outputs_semantics(
 /// Checks if an outputs unlock time has passed.
 ///
 /// <https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html>
-fn output_unlocked(
+pub fn output_unlocked(
     time_lock: &Timelock,
     current_chain_height: u64,
     current_time_lock_timestamp: u64,
@@ -303,7 +303,7 @@ fn check_all_time_locks(
             hf,
         ) {
             tracing::debug!("Transaction invalid: one or more inputs locked, lock: {time_lock:?}.");
-            Err(TransactionError::OneOrMoreDecoysLocked)
+            Err(TransactionError::OneOrMoreRingMembersLocked)
         } else {
             Ok(())
         }
@@ -316,7 +316,7 @@ fn check_all_time_locks(
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#minimum-decoys>
 /// &&   <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#equal-number-of-decoys>
-fn check_decoy_info(decoy_info: &DecoyInfo, hf: &HardFork) -> Result<(), TransactionError> {
+pub fn check_decoy_info(decoy_info: &DecoyInfo, hf: &HardFork) -> Result<(), TransactionError> {
     if hf == &HardFork::V15 {
         // Hard-fork 15 allows both v14 and v16 rules
         return check_decoy_info(decoy_info, &HardFork::V14)
@@ -347,25 +347,15 @@ fn check_decoy_info(decoy_info: &DecoyInfo, hf: &HardFork) -> Result<(), Transac
     Ok(())
 }
 
-/// Checks the inputs key images for torsion and for duplicates in the spent_kis list.
+/// Checks the inputs key images for torsion.
 ///
-/// The `spent_kis` parameter is not meant to be a complete list of key images, just a list of related transactions
-/// key images, for example transactions in a block. The chain will be checked for duplicates later.
-///
-/// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#unique-key-image>
-/// &&   <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#torsion-free-key-image>
-fn check_key_images(
-    input: &Input,
-    spent_kis: &mut HashSet<[u8; 32]>,
-) -> Result<(), TransactionError> {
+/// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#torsion-free-key-image>
+fn check_key_images(input: &Input) -> Result<(), TransactionError> {
     match input {
         Input::ToKey { key_image, .. } => {
             // this happens in monero-serai but we may as well duplicate the check.
             if !key_image.is_torsion_free() {
                 return Err(TransactionError::KeyImageIsNotInPrimeSubGroup);
-            }
-            if !spent_kis.insert(key_image.compress().to_bytes()) {
-                return Err(TransactionError::KeyImageSpent);
             }
         }
         _ => Err(TransactionError::IncorrectInputType)?,
@@ -455,7 +445,7 @@ fn check_10_block_lock(
             tracing::debug!(
                 "Transaction invalid: One or more ring members younger than 10 blocks."
             );
-            Err(TransactionError::OneOrMoreDecoysLocked)
+            Err(TransactionError::OneOrMoreRingMembersLocked)
         } else {
             Ok(())
         }
@@ -510,23 +500,19 @@ fn check_inputs_semantics(inputs: &[Input], hf: &HardFork) -> Result<u64, Transa
 ///
 /// Contextual rules are rules that require blockchain context to check.
 ///
-/// This function does not check signatures.
-///
-/// The `spent_kis` parameter is not meant to be a complete list of key images, just a list of related transactions
-/// key images, for example transactions in a block. The chain should be checked for duplicates later.
+/// This function does not check signatures or for duplicate key-images.
 fn check_inputs_contextual(
     inputs: &[Input],
     tx_ring_members_info: &TxRingMembersInfo,
     current_chain_height: u64,
     hf: &HardFork,
-    spent_kis: Arc<std::sync::Mutex<HashSet<[u8; 32]>>>,
 ) -> Result<(), TransactionError> {
     // This rule is not contained in monero-core explicitly, but it is enforced by how Monero picks ring members.
     // When picking ring members monerod will only look in the DB at past blocks so an output has to be younger
     // than this transaction to be used in this tx.
     if tx_ring_members_info.youngest_used_out_height >= current_chain_height {
         tracing::debug!("Transaction invalid: One or more ring members too young.");
-        Err(TransactionError::OneOrMoreDecoysLocked)?;
+        Err(TransactionError::OneOrMoreRingMembersLocked)?;
     }
 
     check_10_block_lock(
@@ -541,11 +527,9 @@ fn check_inputs_contextual(
         assert_eq!(hf, &HardFork::V1);
     }
 
-    let mut spent_kis_lock = spent_kis.lock().unwrap();
     for input in inputs {
-        check_key_images(input, &mut spent_kis_lock)?;
+        check_key_images(input)?;
     }
-    drop(spent_kis_lock);
 
     Ok(())
 }
@@ -655,9 +639,11 @@ pub fn check_transaction_semantic(
 
 /// Checks the transaction is contextually valid.
 ///
-/// To fully verify a transaction this must be accompanied by [`check_transaction_semantic`]
+/// To fully verify a transaction this must be accompanied by [`check_transaction_semantic`].
 ///
-/// `current_time_lock_timestamp` must be: <https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#getting-the-current-time>
+/// This function also does _not_ check for duplicate key-images: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#unique-key-image>.
+///
+/// `current_time_lock_timestamp` must be: <https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#getting-the-current-time>.
 
 pub fn check_transaction_contextual(
     tx: &Transaction,
@@ -665,7 +651,6 @@ pub fn check_transaction_contextual(
     current_chain_height: u64,
     current_time_lock_timestamp: u64,
     hf: &HardFork,
-    spent_kis: Arc<std::sync::Mutex<HashSet<[u8; 32]>>>,
 ) -> Result<(), TransactionError> {
     let tx_version = TxVersion::from_raw(tx.prefix.version)
         .ok_or(TransactionError::TransactionVersionInvalid)?;
@@ -675,7 +660,6 @@ pub fn check_transaction_contextual(
         tx_ring_members_info,
         current_chain_height,
         hf,
-        spent_kis,
     )?;
     check_tx_version(&tx_ring_members_info.decoy_info, &tx_version, hf)?;
 

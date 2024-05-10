@@ -199,7 +199,7 @@ impl TxRingMembersInfo {
 /// - The top block hash is the same as when this data was retrieved (the blockchain state is unchanged).
 ///
 /// <https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html>
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct DecoyInfo {
     /// The number of inputs that have enough outputs on the chain to mix with.
     pub mixable: usize,
