@@ -1,7 +1,6 @@
 use std::{
     collections::HashSet,
     future::Future,
-    ops::Deref,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -9,17 +8,15 @@ use std::{
 
 use futures::FutureExt;
 use monero_serai::ringct::RctType;
-use monero_serai::transaction::{Timelock, Transaction};
+use monero_serai::transaction::{Input, Timelock, Transaction};
 use rayon::prelude::*;
-use tokio::task::JoinSet;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_consensus_rules::transactions::{check_decoy_info, output_unlocked};
 use cuprate_consensus_rules::{
     transactions::{
-        check_transaction_contextual, check_transaction_semantic, TransactionError,
-        TxRingMembersInfo,
+        check_decoy_info, check_transaction_contextual, check_transaction_semantic,
+        output_unlocked, TransactionError,
     },
     ConsensusError, HardFork, TxVersion,
 };
@@ -190,6 +187,37 @@ where
 {
     tracing::debug!("Verifying {} transactions", txs.len());
 
+    tracing::trace!("Checking for duplicate key images");
+
+    let mut spent_kis = HashSet::with_capacity(txs.len());
+
+    txs.iter().try_for_each(|tx| {
+        tx.tx.prefix.inputs.iter().try_for_each(|input| {
+            if let Input::ToKey { key_image, .. } = input {
+                if !spent_kis.insert(key_image.compress().0) {
+                    tracing::debug!("Duplicate key image found in batch.");
+                    return Err(ConsensusError::Transaction(TransactionError::KeyImageSpent));
+                }
+            }
+
+            Ok(())
+        })
+    })?;
+
+    let DatabaseResponse::KeyImagesSpent(kis_spent) = database
+        .ready()
+        .await?
+        .call(DatabaseRequest::KeyImagesSpent(spent_kis))
+        .await?
+    else {
+        panic!("Database sent incorrect response!");
+    };
+
+    if kis_spent {
+        tracing::debug!("One or more key images in batch already spent.");
+        Err(ConsensusError::Transaction(TransactionError::KeyImageSpent))?;
+    }
+
     let mut verified_at_block_hashes = txs
         .iter()
         .filter_map(|txs| txs.cached_verification_state.verified_at_block_hash())
@@ -237,43 +265,9 @@ where
     )?;
 
     Ok(VerifyTxResponse::Ok)
-
-    /*
-    let spent_kis = Arc::new(std::sync::Mutex::new(HashSet::new()));
-
-    let cloned_spent_kis = spent_kis.clone();
-
-    rayon_spawn_async(move || {
-        txs.par_iter().try_for_each(|tx| {
-            verify_transaction_for_block(
-                tx,
-                current_chain_height,
-                time_for_time_lock,
-                hf,
-                cloned_spent_kis,
-            )
-        })
-    })
-    .await?;
-
-    let DatabaseResponse::KeyImagesSpent(kis_spent) = database
-        .oneshot(DatabaseRequest::KeyImagesSpent(
-            Arc::into_inner(spent_kis).unwrap().into_inner().unwrap(),
-        ))
-        .await?
-    else {
-        panic!("Database sent incorrect response!");
-    };
-
-    if kis_spent {
-        Err(ConsensusError::Transaction(TransactionError::KeyImageSpent))?;
-    }
-
-    Ok(VerifyTxResponse::Ok)
-
-     */
 }
 
+#[allow(clippy::type_complexity)] // I don't think the return is too complex
 fn transactions_needing_verification(
     txs: Vec<Arc<TransactionVerificationData>>,
     hashes_in_main_chain: HashSet<[u8; 32]>,
@@ -329,7 +323,6 @@ fn transactions_needing_verification(
                     continue;
                 }
             }
-            _ => (),
         }
 
         if tx.version == TxVersion::RingSignatures {

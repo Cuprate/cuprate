@@ -53,7 +53,7 @@ pub struct ContextTask {
 impl ContextTask {
     /// Initialize the [`ContextTask`], this will need to pull a lot of data from the database so may take a
     /// while to complete.
-    pub async fn init_context<D: Database>(
+    pub async fn init_context<D>(
         cfg: ContextConfig,
         mut database: D,
     ) -> Result<ContextTask, ExtendedConsensusError>

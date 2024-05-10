@@ -20,7 +20,6 @@ use tokio_util::sync::PollSender;
 use tower::Service;
 
 use cuprate_consensus_rules::{blocks::ContextToVerifyBlock, current_unix_timestamp, HardFork};
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 use crate::{Database, ExtendedConsensusError};
 

@@ -1,5 +1,5 @@
 use monero_serai::ringct::RctType;
-use std::{cmp::Ordering, collections::HashSet, sync::Arc};
+use std::cmp::Ordering;
 
 use monero_serai::transaction::{Input, Output, Timelock, Transaction};
 use multiexp::BatchVerifier;

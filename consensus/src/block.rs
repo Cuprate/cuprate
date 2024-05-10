@@ -9,32 +9,19 @@ use std::{
 
 use cuprate_helper::asynch::rayon_spawn_async;
 use futures::FutureExt;
-use monero_serai::{
-    block::Block,
-    transaction::{Input, Transaction},
-};
-use rayon::prelude::*;
+use monero_serai::{block::Block, transaction::Input};
 use tower::{Service, ServiceExt};
-use tracing::{instrument, trace};
+use tracing::trace;
 
-use cuprate_consensus_rules::blocks::RX_SEEDHASH_EPOCH_BLOCKS;
 use cuprate_consensus_rules::{
-    blocks::{
-        calculate_pow_hash, check_block, check_block_pow, is_randomx_seed_height,
-        randomx_seed_height, BlockError, RandomX,
-    },
+    blocks::{calculate_pow_hash, check_block, check_block_pow, BlockError, RandomX},
     miner_tx::MinerTxError,
     ConsensusError, HardFork,
 };
 
 use crate::{
-    context::{
-        rx_vms::RandomXVM, BlockChainContextRequest, BlockChainContextResponse,
-        RawBlockChainContext,
-    },
-    transactions::{
-        contextual_data, TransactionVerificationData, VerifyTxRequest, VerifyTxResponse,
-    },
+    context::{BlockChainContextRequest, BlockChainContextResponse},
+    transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     Database, ExtendedConsensusError,
 };
 
@@ -192,7 +179,8 @@ pub struct BlockVerifierService<C, TxV, D> {
     /// The tx verifier service.
     tx_verifier_svc: TxV,
     /// The database.
-    database: D,
+    // Not use yet but will be.
+    _database: D,
 }
 
 impl<C, TxV, D> BlockVerifierService<C, TxV, D>
@@ -217,7 +205,7 @@ where
         BlockVerifierService {
             context_svc,
             tx_verifier_svc,
-            database,
+            _database: database,
         }
     }
 }
