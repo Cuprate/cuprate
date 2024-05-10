@@ -45,7 +45,7 @@ pub enum ExtendedConsensusError {
     TxsIncludedWithBlockIncorrect,
     /// One or more statements in the batch verifier was invalid.
     #[error("One or more statements in the batch verifier was invalid.")]
-    OneOrMoreBatchVerificationStatmentsInvalid,
+    OneOrMoreBatchVerificationStatementsInvalid,
 }
 
 /// Initialize the 2 verifier [`tower::Service`]s (block and transaction).

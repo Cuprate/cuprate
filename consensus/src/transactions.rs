@@ -399,7 +399,7 @@ where
         )?;
 
         if !batch_veriifier.verify() {
-            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatmentsInvalid);
+            return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
         }
 
         Ok(())
