@@ -2,11 +2,11 @@
 Cuprate's database implementation.
 
 - [1. Documentation](#1-documentation)
-- [2. File Structure](#2-file-structure)
+- [2. File structure](#2-file-structure)
     - [2.1 `src/`](#21-src)
     - [2.2 `src/backend/`](#22-srcbackend)
-    - [2.3 `src/config`](#23-srcconfig)
-    - [2.4 `src/ops`](#24-srcops)
+    - [2.3 `src/config/`](#23-srcconfig)
+    - [2.4 `src/ops/`](#24-srcops)
     - [2.5 `src/service/`](#25-srcservice)
 - [3. Backends](#3-backends)
     - [3.1 heed](#31-heed)
@@ -26,7 +26,14 @@ Cuprate's database implementation.
 - [8. (De)serialization](#8-deserialization)
 - [9. Schema](#9-schema)
     - [9.1 Tables](#91-tables)
-    - [9.2 Multimap Tables](#92-multimap-tables)
+    - [9.2 Multimap tables](#92-multimap-tables)
+- [10. Known issues and tradeoffs](#10-known-issues-and-tradeoffs)
+    - [10.1 Traits abstracting backends](#101-traits-abstracting-backends)
+    - [10.2 Hot-swappable backends](#102-hot-swappable-backends)
+    - [10.3 Copying unaligned bytes](#103-copying-unaligned-bytes)
+    - [10.4 Non-fixed sized data](#104-non-fixed-sized-data)
+    - [10.5 Endianness](#105-endianness)
+    - [10.6 Extra tables](#106-extra-tables)
 
 ---
 
@@ -63,7 +70,7 @@ The code within `src/` is also littered with some `grep`-able comments containin
 | `TODO`      | This must be implemented; There should be 0 of these in production code
 | `SOMEDAY`   | This should be implemented... someday
 
-## 2. File Structure
+## 2. File structure
 A quick reference of the structure of the folders & files in `cuprate-database`.
 
 Note that `lib.rs/mod.rs` files are purely for re-exporting/visibility/lints, and contain no code. Each sub-directory has a corresponding `mod.rs`.
@@ -330,6 +337,8 @@ All types stored inside the database are either bytes already, or are perfectly 
 
 As such, they do not incur heavy (de)serialization costs when storing/fetching them from the database. The main (de)serialization used is [`bytemuck`](https://docs.rs/bytemuck)'s traits and casting functions.
 
+The size & layout of types is stable across compiler versions, as they are set and determined with [`#[repr(C)]`](https://doc.rust-lang.org/nomicon/other-reprs.html#reprc) and `bytemuck`'s derive macros such as [`#[derive(bytemuck::Pod)]`](https://docs.rs/bytemuck/latest/bytemuck/derive.Pod.html).
+
 Note that the data stored in the tables are still type-safe; we still refer to the key and values within our tables by the type.
 
 The main deserialization `trait` for database storage is: [`cuprate_database::Storable`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L16-L115).
@@ -376,35 +385,36 @@ Note that words written within `code blocks` mean that it is a real type defined
 
 Within `cuprate_database::tables`, the below table is essentially defined as-is with [a macro](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/tables.rs#L369-L470).
 
-Many of the data types stored are the same data types, although are different semantically. Here is a map of aliases used and their real data types:
+Many of the data types stored are the same data types, although are different semantically, as such, a map of aliases used and their real data types is also provided below.
 
 | Alias                                              | Real Type |
 |----------------------------------------------------|-----------|
 | BlockHeight, Amount, AmountIndex, TxId, UnlockTime | u64
 | BlockHash, KeyImage, TxHash, PrunableHash          | [u8; 32]
-| Bytes                                              | `StorableVec<u8>`
 
-| Table             | Key                  | Value        | Description |
-|-------------------|----------------------|--------------|-------------|
-| `BlockBlobs`      | BlockHeight          | Bytes        | Maps a block's height to a serialized form block blobs (bytes)
-| `BlockHeights`    | BlockHash            | BlockHeight  | Maps a block's hash to its height
-| `BlockInfos`      | BlockHeight          | `BlockInfo`  | Contains metadata of all blocks
-| `KeyImages`       | KeyImage             | ()           | This table is a set with no value, it stores transaction key images
-| `NumOutputs`      | Amount               | u64          | Maps an output's amount to the number of outputs with that amount
-| `Outputs`         | `PreRctOutputId`     | `Output`     | This table contains legacy CryptoNote outputs which have clear amounts. This table will not contain an output with 0 amount.
-| `PrunedTxBlobs`   | TxId                 | Bytes        | Contains pruned transaction blobs (even if the database is not pruned)
-| `PrunableTxBlobs` | TxId                 | Bytes        | Contains the prunable part of a transaction
-| `PrunableHashes`  | TxId                 | PrunableHash | Contains the hash of the prunable part of a transaction
-| `RctOutputs`      | AmountIndex          | `RctOutput`  | Contains RingCT outputs mapped from their global RCT index
-| `TxBlobs`         | TxId                 | Bytes        | Serialized transaction blobs (bytes)
-| `TxIds`           | TxHash               | TxId         | Maps a transaction's hash to its index/ID
-| `TxHeights`       | TxId                 | BlockHeight  | Maps a transaction's ID to the height of the block it comes from
-| `TxOutputs`       | TxId                 | Bytes        | Gives the amount indices of a transaction's outputs
-| `TxUnlockTime`    | TxId                 | UnlockTime   | Stores the unlock time of a transaction (only if it has a non-zero lock time)
+| Table             | Key                  | Value              | Description |
+|-------------------|----------------------|--------------------|-------------|
+| `BlockBlobs`      | BlockHeight          | `StorableVec<u8>`  | Maps a block's height to a serialized form block blobs (bytes)
+| `BlockHeights`    | BlockHash            | BlockHeight        | Maps a block's hash to its height
+| `BlockInfos`      | BlockHeight          | `BlockInfo`        | Contains metadata of all blocks
+| `KeyImages`       | KeyImage             | ()                 | This table is a set with no value, it stores transaction key images
+| `NumOutputs`      | Amount               | u64                | Maps an output's amount to the number of outputs with that amount
+| `Outputs`         | `PreRctOutputId`     | `Output`           | This table contains legacy CryptoNote outputs which have clear amounts. This table will not contain an output with 0 amount.
+| `PrunedTxBlobs`   | TxId                 | `StorableVec<u8>`  | Contains pruned transaction blobs (even if the database is not pruned)
+| `PrunableTxBlobs` | TxId                 | `StorableVec<u8>`  | Contains the prunable part of a transaction
+| `PrunableHashes`  | TxId                 | PrunableHash       | Contains the hash of the prunable part of a transaction
+| `RctOutputs`      | AmountIndex          | `RctOutput`        | Contains RingCT outputs mapped from their global RCT index
+| `TxBlobs`         | TxId                 | `StorableVec<u8>`  | Serialized transaction blobs (bytes)
+| `TxIds`           | TxHash               | TxId               | Maps a transaction's hash to its index/ID
+| `TxHeights`       | TxId                 | BlockHeight        | Maps a transaction's ID to the height of the block it comes from
+| `TxOutputs`       | TxId                 | `StorableVec<u64>` | Gives the amount indices of a transaction's outputs
+| `TxUnlockTime`    | TxId                 | UnlockTime         | Stores the unlock time of a transaction (only if it has a non-zero lock time)
+
+The definitions for aliases and types (e.g. `RctOutput`) are within the [`cuprate_database::types`](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/types.rs#L51) module.
 
 <!-- TODO(Boog900): We could split this table again into `RingCT (non-miner) Outputs` and `RingCT (miner) Outputs` as for miner outputs we can store the amount instead of commitment saving 24 bytes per miner output. -->
 
-### 9.2 Multimap Tables
+### 9.2 Multimap tables
 When referencing outputs, Monero will [use the amount and the amount index](https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/blockchain_db/lmdb/db_lmdb.cpp#L3447-L3449). This means 2 keys are needed to reach an output.
 
 With LMDB you can set the `DUP_SORT` flag on a table and then set the key/value to:
@@ -450,3 +460,12 @@ struct PreRctOutputId {
 ```
 
 <!-- TODO(Boog900):  We also need to get the amount of outputs with a certain amount so the database will need to allow getting keys less than a key i.e. to get the number of outputs with amount `10` we would get the first key below `(10 | MAX)` and add one to `KEY_PART_2`. We also have to make sure the DB is storing these values in the correct order for this to work. -->
+
+## 10. Known issues and tradeoffs
+### 10.1 Traits abstracting backends
+### 10.2 Hot-swappable backends
+### 10.3 Copying unaligned bytes
+### 10.4 Non-fixed sized data
+### 10.5 Endianness
+### 10.6 Extra tables
+### 10.7 `DatabaseIter`
