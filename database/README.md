@@ -24,6 +24,9 @@ Cuprate's database implementation.
 - [6. Thread model](#6-thread-model)
 - [7. Resizing](#7-resizing)
 - [8. (De)serialization](#8-deserialization)
+- [9. Schema](#9-schema)
+    - [9.1 Tables](#91-tables)
+    - [9.2 Multimap Tables](#92-multimap-tables)
 
 ---
 
@@ -362,3 +365,80 @@ Compatibility structs also exist for any `Storable` containers:
 - [`StorableBytes`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L208-L241)
 
 Again, it's unfortunate that these must be owned, although in `service`'s use-case, they would have to be owned anyway.
+
+## 9. Schema
+This following section contains Cuprate's database schema, it may change throughout the development of Cuprate, as such, nothing here is final.
+
+### 9.1 Tables
+The `CamelCase` names of the table headers documented here (e.g. `TxIds`) are the actual type name of the table within `cuprate_database`.
+
+Note that words written within `code blocks` mean that it is a real type defined and usable within `cuprate_database`. Other standard types like u64 and type aliases (TxId) are written normally.
+
+Within `cuprate_database::tables`, the below table is defined as-is with [a macro](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/tables.rs#L369-L470).
+
+| Table             | Key                  | Value              | Description |
+|-------------------|----------------------|--------------------|-------------|
+| `BlockBlobs`      | BlockHeight (u64)    | `StorableVec<u8>`  | Contains serialized block blobs (bytes)
+| `BlockHeights`    | BlockHash ([u8; 32]) | BlockHeight (u64)  | Maps a block's hash to its height
+| `BlockInfos`      | BlockHeight (u64)    | `BlockInfo`        | Contains metadata of all blocks
+| `KeyImages`       | KeyImage ([u8; 32])  | ()                 | This table is a set with no value, it stores transaction key images
+| `NumOutputs`      | Amount (u64)         | u64                | Maps an output's amount to the number of outputs with that amount
+| `Outputs`         | `PreRctOutputId`     | `Output`           | This table contains legacy CryptoNote outputs which have clear amounts. This table will not contain an output with 0 amount.
+| `PrunedTxBlobs`   | TxId (u64)           | `StorableVec<u8>`  | Contains pruned transaction blobs (even if the database is not pruned)
+| `PrunableTxBlobs` | TxId (u64)           | `StorableVec<u8>`  | Contains the prunable part of a transaction
+| `PrunableHashes`  | TxId (u64)           | [u8; 32]           | Contains the hash of the prunable part of a transaction
+| `RctOutputs`      | AmountIndex (u64)    | `RctOutput`        | Contains RingCT outputs mapped to the global RCT output index
+| `TxBlobs`         | TxId (u64)           | `StorableVec<u8>`  | Serialized transaction blobs (bytes)
+| `TxIds`           | [u8; 32]             | u64                | Maps a transaction's hash to its index/ID
+| `TxHeights`       | TxId (u64)           | Height (u64)       | Maps a transaction's ID to the height of the block it comes from
+| `TxOutputs`       | TxId (u64)           | `StorableVec<u64>` | Gives the amount indicies of a transaction's outputs
+| `TxUnlockTime`    | TxId (u64)           | UnlockTime (u64)   | Stores the unlock time of a transaction (only if it has a non-zero lock time)
+
+<!-- TODO(Boog900): We could split this table again into `RingCT (non-miner) Outputs` and `RingCT (miner) Outputs` as for miner outputs we can store the amount instead of commitment saving 24 bytes per miner output. -->
+
+### 9.2 Multimap Tables
+When referencing outputs, Monero will [use the amount and the amount index](https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/blockchain_db/lmdb/db_lmdb.cpp#L3447-L3449). This means 2 keys are needed to reach an output.
+
+With LMDB you can set the `DUP_SORT` flag on a table and then set the key/value to:
+```rust
+Key = KEY_PART_1
+```
+```rust
+Value = {
+    KEY_PART_2,
+    VALUE // The actual value we are storing.
+}
+```
+
+Then you can set a custom value sorting function that only takes `KEY_PART_2` into account; this is how `monerod` does it.
+
+This requires that the underlying database supports:
+- multimap tables
+- custom sort functions on values
+- setting a cursor on a specific key/value
+
+---
+
+Another way to implement this is as follows:
+```rust
+Key = { KEY_PART_1, KEY_PART_2 }
+```
+```rust
+Value = VALUE
+```
+
+Then the key type is simply used to look up the value; this is how `cuprate_database` does it.
+
+For example, the key/value pair for outputs is:
+```rust
+PreRctOutputId => Output
+```
+where `PreRctOutputId` looks like this:
+```rust
+struct PreRctOutputId {
+    amount: u64,
+    amount_index: u64,
+}
+```
+
+<!-- TODO(Boog900):  We also need to get the amount of outputs with a certain amount so the database will need to allow getting keys less than a key i.e. to get the number of outputs with amount `10` we would get the first key below `(10 | MAX)` and add one to `KEY_PART_2`. We also have to make sure the DB is storing these values in the correct order for this to work. -->
