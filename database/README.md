@@ -374,25 +374,33 @@ The `CamelCase` names of the table headers documented here (e.g. `TxIds`) are th
 
 Note that words written within `code blocks` mean that it is a real type defined and usable within `cuprate_database`. Other standard types like u64 and type aliases (TxId) are written normally.
 
-Within `cuprate_database::tables`, the below table is defined as-is with [a macro](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/tables.rs#L369-L470).
+Within `cuprate_database::tables`, the below table is essentially defined as-is with [a macro](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/tables.rs#L369-L470).
 
-| Table             | Key                  | Value              | Description |
-|-------------------|----------------------|--------------------|-------------|
-| `BlockBlobs`      | BlockHeight (u64)    | `StorableVec<u8>`  | Contains serialized block blobs (bytes)
-| `BlockHeights`    | BlockHash ([u8; 32]) | BlockHeight (u64)  | Maps a block's hash to its height
-| `BlockInfos`      | BlockHeight (u64)    | `BlockInfo`        | Contains metadata of all blocks
-| `KeyImages`       | KeyImage ([u8; 32])  | ()                 | This table is a set with no value, it stores transaction key images
-| `NumOutputs`      | Amount (u64)         | u64                | Maps an output's amount to the number of outputs with that amount
-| `Outputs`         | `PreRctOutputId`     | `Output`           | This table contains legacy CryptoNote outputs which have clear amounts. This table will not contain an output with 0 amount.
-| `PrunedTxBlobs`   | TxId (u64)           | `StorableVec<u8>`  | Contains pruned transaction blobs (even if the database is not pruned)
-| `PrunableTxBlobs` | TxId (u64)           | `StorableVec<u8>`  | Contains the prunable part of a transaction
-| `PrunableHashes`  | TxId (u64)           | [u8; 32]           | Contains the hash of the prunable part of a transaction
-| `RctOutputs`      | AmountIndex (u64)    | `RctOutput`        | Contains RingCT outputs mapped to the global RCT output index
-| `TxBlobs`         | TxId (u64)           | `StorableVec<u8>`  | Serialized transaction blobs (bytes)
-| `TxIds`           | [u8; 32]             | u64                | Maps a transaction's hash to its index/ID
-| `TxHeights`       | TxId (u64)           | Height (u64)       | Maps a transaction's ID to the height of the block it comes from
-| `TxOutputs`       | TxId (u64)           | `StorableVec<u64>` | Gives the amount indicies of a transaction's outputs
-| `TxUnlockTime`    | TxId (u64)           | UnlockTime (u64)   | Stores the unlock time of a transaction (only if it has a non-zero lock time)
+Many of the data types stored are the same data types, although are different semantically. Here is a map of aliases used and their real data types:
+
+| Alias                                              | Real Type |
+|----------------------------------------------------|-----------|
+| BlockHeight, Amount, AmountIndex, TxId, UnlockTime | u64
+| BlockHash, KeyImage, TxHash, PrunableHash          | [u8; 32]
+| Bytes                                              | `StorableVec<u8>`
+
+| Table             | Key                  | Value        | Description |
+|-------------------|----------------------|--------------|-------------|
+| `BlockBlobs`      | BlockHeight          | Bytes        | Maps a block's height to a serialized form block blobs (bytes)
+| `BlockHeights`    | BlockHash            | BlockHeight  | Maps a block's hash to its height
+| `BlockInfos`      | BlockHeight          | `BlockInfo`  | Contains metadata of all blocks
+| `KeyImages`       | KeyImage             | ()           | This table is a set with no value, it stores transaction key images
+| `NumOutputs`      | Amount               | u64          | Maps an output's amount to the number of outputs with that amount
+| `Outputs`         | `PreRctOutputId`     | `Output`     | This table contains legacy CryptoNote outputs which have clear amounts. This table will not contain an output with 0 amount.
+| `PrunedTxBlobs`   | TxId                 | Bytes        | Contains pruned transaction blobs (even if the database is not pruned)
+| `PrunableTxBlobs` | TxId                 | Bytes        | Contains the prunable part of a transaction
+| `PrunableHashes`  | TxId                 | PrunableHash | Contains the hash of the prunable part of a transaction
+| `RctOutputs`      | AmountIndex          | `RctOutput`  | Contains RingCT outputs mapped from their global RCT index
+| `TxBlobs`         | TxId                 | Bytes        | Serialized transaction blobs (bytes)
+| `TxIds`           | TxHash               | TxId         | Maps a transaction's hash to its index/ID
+| `TxHeights`       | TxId                 | BlockHeight  | Maps a transaction's ID to the height of the block it comes from
+| `TxOutputs`       | TxId                 | Bytes        | Gives the amount indices of a transaction's outputs
+| `TxUnlockTime`    | TxId                 | UnlockTime   | Stores the unlock time of a transaction (only if it has a non-zero lock time)
 
 <!-- TODO(Boog900): We could split this table again into `RingCT (non-miner) Outputs` and `RingCT (miner) Outputs` as for miner outputs we can store the amount instead of commitment saving 24 bytes per miner output. -->
 
