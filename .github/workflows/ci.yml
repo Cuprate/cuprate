@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 env:
+  # Show colored output in CI.
   CARGO_TERM_COLOR: always
   # Show full panics.
   RUST_BACKTRACE: "full"
@@ -15,6 +16,8 @@ env:
   RUST_MIN_STACK: 8000000
   # Fail on documentation warnings.
   RUSTDOCFLAGS: '-D warnings'
+  # Enable debug information generation for build dependencies.
+  CARGO_PROFILE_DEV_BUILD_OVERRIDE_DEBUG: true
 
 jobs:
   # Run format separately.
@@ -53,6 +56,8 @@ jobs:
         include:
           - os: windows-latest
             shell: msys2 {0}
+            # GNU Windows is used as we need
+            # `unistd.h` and more in `cryptonight/`.
             rust: stable-x86_64-pc-windows-gnu
           - os: macos-latest
             shell: bash
@@ -104,6 +109,19 @@ jobs:
         path-type: inherit
         update: true
         install: mingw-w64-x86_64-toolchain mingw-w64-x86_64-boost msys2-runtime-devel git mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+
+    # HACK: 2024-05-14
+    # GCC 14+ fails to build `lmdb-master-sys` with no clear error message:
+    # <https://github.com/Cuprate/cuprate/pull/127>
+    #
+    # - MSYS2 repos carry older versions of packages
+    # - pacman lets us manually downgrade from package files
+    # - Note that `gcc` requires `gcc-libs`
+    - name: Downgrade to GCC 13.2 (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        wget https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
+        pacman -U --noconfirm mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
 
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
