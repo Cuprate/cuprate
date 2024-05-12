@@ -468,4 +468,3 @@ struct PreRctOutputId {
 ### 10.4 Non-fixed sized data
 ### 10.5 Endianness
 ### 10.6 Extra tables
-### 10.7 `DatabaseIter`
