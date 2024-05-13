@@ -1,22 +1,19 @@
-use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
-use curve25519_dalek::edwards::CompressedEdwardsY;
-use curve25519_dalek::{EdwardsPoint, Scalar};
-use monero_serai::transaction::{Timelock, Transaction};
-use monero_serai::H;
 use std::{
     collections::{BTreeMap, HashMap},
     future::ready,
     sync::Arc,
 };
 
+use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY};
+use monero_serai::transaction::{Timelock, Transaction};
+use tower::{service_fn, Service, ServiceExt};
+
 use cuprate_consensus::{
     Database, DatabaseRequest, DatabaseResponse, TxVerifierService, VerifyTxRequest,
     VerifyTxResponse,
 };
-use cuprate_consensus_rules::HardFork;
-use tower::{service_fn, Service, ServiceExt};
 
-use cuprate_consensus_rules::transactions::OutputOnChain;
+use cuprate_consensus_rules::{transactions::OutputOnChain, HardFork};
 
 use cuprate_test_utils::data::{TX_84D48D, TX_E2D393};
 
