@@ -17,6 +17,7 @@ use tokio::sync::mpsc;
 
 use monero_p2p::{
     client::{Client, InternalPeerID},
+    handles::ConnectionHandle,
     ConnectionDirection, NetworkZone,
 };
 
@@ -24,7 +25,6 @@ mod disconnect_monitor;
 mod drop_guard_client;
 
 pub use drop_guard_client::ClientPoolDropGuard;
-use monero_p2p::handles::ConnectionHandle;
 
 /// The client pool, which holds currently connected free peers.
 ///
@@ -33,8 +33,9 @@ pub struct ClientPool<N: NetworkZone> {
     /// The connected [`Client`]s.
     clients: DashMap<InternalPeerID<N::Addr>, Client<N>>,
     /// A set of outbound clients, as these allow accesses/ mutation from different threads
-    /// a peer ID in here does not mean the peer is definitely in `clients` , if the peer is
-    /// in both here and `clients` it is defiantly an outbound peer,
+    /// a peer ID in here does not mean the peer is in `clients` as it could have been removed
+    /// by another thread. However, if the peer is in both here and `clients` it is defiantly
+    /// an outbound peer,
     outbound_clients: DashSet<InternalPeerID<N::Addr>>,
 
     /// A channel to send new peer ids down to monitor for disconnect.
