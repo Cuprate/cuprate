@@ -27,11 +27,14 @@ thread_local = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 tokio-util = { workspace = true }
 
-hex = "0.4"
-rand = "0.8.5"
+hex = { workspace = true }
+#rand = "0.8.5"
 
 [dev-dependencies]
+cuprate-test-utils = { path = "../test-utils" }
 cuprate-consensus-rules =  {path = "./rules", features = ["proptest"]}
+
+hex-literal = { workspace = true }
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
 proptest = { workspace = true }

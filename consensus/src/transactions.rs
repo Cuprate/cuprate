@@ -113,8 +113,15 @@ pub enum VerifyTxRequest {
         time_for_time_lock: u64,
         hf: HardFork,
     },
+    New {
+        txs: Vec<Transaction>,
+        current_chain_height: u64,
+        time_for_time_lock: u64,
+        hf: HardFork,
+    },
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub enum VerifyTxResponse {
     Ok,
 }
@@ -153,6 +160,22 @@ where
 
         async move {
             match req {
+                VerifyTxRequest::New {
+                    txs,
+                    current_chain_height,
+                    time_for_time_lock,
+                    hf,
+                } => {
+                    prep_and_verify_transactions(
+                        database,
+                        txs,
+                        current_chain_height,
+                        time_for_time_lock,
+                        hf,
+                    )
+                    .await
+                }
+
                 VerifyTxRequest::Prepped {
                     txs,
                     current_chain_height,
@@ -174,7 +197,30 @@ where
     }
 }
 
-#[instrument(name = "verify_txs", skip_all, level = "info")]
+async fn prep_and_verify_transactions<D>(
+    database: D,
+    txs: Vec<Transaction>,
+    current_chain_height: u64,
+    time_for_time_lock: u64,
+    hf: HardFork,
+) -> Result<VerifyTxResponse, ExtendedConsensusError>
+where
+    D: Database + Clone + Sync + Send + 'static,
+{
+    let span = tracing::info_span!("prep_txs", amt = txs.len());
+
+    tracing::debug!(parent: &span, "prepping transactions for verification.");
+    let txs = rayon_spawn_async(|| {
+        txs.into_par_iter()
+            .map(|tx| TransactionVerificationData::new(tx).map(Arc::new))
+            .collect::<Result<_, _>>()
+    })
+    .await?;
+
+    verify_prepped_transactions(database, txs, current_chain_height, time_for_time_lock, hf).await
+}
+
+#[instrument(name = "verify_txs", skip_all, fields(amt = txs.len()) level = "info")]
 async fn verify_prepped_transactions<D>(
     mut database: D,
     txs: Vec<Arc<TransactionVerificationData>>,
@@ -185,7 +231,7 @@ async fn verify_prepped_transactions<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
-    tracing::debug!("Verifying {} transactions", txs.len());
+    tracing::debug!("Verifying transactions");
 
     tracing::trace!("Checking for duplicate key images");
 
@@ -311,16 +357,16 @@ fn transactions_needing_verification(
                     continue;
                 }
 
+                if !hashes_in_main_chain.contains(&hash) {
+                    full_validation_transactions.push((tx, VerificationNeeded::Contextual));
+                    continue;
+                }
+
                 // If the time lock is still locked then the transaction is invalid.
                 if !output_unlocked(&lock, current_chain_height, time_for_time_lock, &hf) {
                     return Err(ConsensusError::Transaction(
                         TransactionError::OneOrMoreRingMembersLocked,
                     ));
-                }
-
-                if !hashes_in_main_chain.contains(&hash) {
-                    full_validation_transactions.push((tx, VerificationNeeded::Contextual));
-                    continue;
                 }
             }
         }
@@ -388,13 +434,15 @@ where
                 }
 
                 // Both variants of `VerificationNeeded` require contextual validation.
-                Ok::<_, ConsensusError>(check_transaction_contextual(
+                check_transaction_contextual(
                     &tx.tx,
                     &ring,
                     current_chain_height,
                     current_time_lock_timestamp,
                     &hf,
-                )?)
+                )?;
+
+                Ok::<_, ConsensusError>(())
             },
         )?;
 

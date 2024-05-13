@@ -10,7 +10,10 @@
 //! implement a database you need to have a service which accepts [`DatabaseRequest`] and responds
 //! with [`DatabaseResponse`].
 //!
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    future::Future,
+};
 
 use cuprate_consensus_rules::{transactions::OutputOnChain, ConsensusError, HardFork};
 
@@ -80,13 +83,22 @@ where
 /// An internal trait used to represent a database so we don't have to write [`tower::Service`] bounds
 /// everywhere.
 pub trait Database:
-    tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tower::BoxError>
+    tower::Service<
+    DatabaseRequest,
+    Response = DatabaseResponse,
+    Error = tower::BoxError,
+    Future = Self::Future2,
+>
 {
+    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
 }
 
 impl<T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tower::BoxError>>
     Database for T
+where
+    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
 {
+    type Future2 = T::Future;
 }
 
 /// An extended block header.
