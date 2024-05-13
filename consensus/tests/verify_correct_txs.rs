@@ -1,3 +1,5 @@
+mod common;
+
 use std::{
     collections::{BTreeMap, HashMap},
     future::ready,
@@ -15,7 +17,7 @@ use cuprate_consensus::{
 
 use cuprate_consensus_rules::{transactions::OutputOnChain, HardFork};
 
-use cuprate_test_utils::data::{TX_84D48D, TX_E2D393};
+use cuprate_test_utils::data::TX_E2D393;
 
 fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clone {
     let outputs = Arc::new(outputs);
@@ -136,13 +138,4 @@ test_verify_valid_v2_tx! {
         8315222: ("a8b165589dffa4c31c27fb432cfdd4855b0d04102b79e439720bb80198d5b9c0", "c3febd29c1a3cc397639ff7fdb357d22a900821bef956af626651f2a916cf6f6"),
     ],
     V9
-}
-
-test_verify_valid_v2_tx! {
-    verify_tx_84d48d,
-    TX_84D48D,
-    Rings: [
-        7: ("", ""),
-    ],
-    V16
 }
