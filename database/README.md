@@ -36,9 +36,8 @@ Cuprate's database implementation.
     - [10.1 Traits abstracting backends](#101-traits-abstracting-backends)
     - [10.2 Hot-swappable backends](#102-hot-swappable-backends)
     - [10.3 Copying unaligned bytes](#103-copying-unaligned-bytes)
-    - [10.4 Non-fixed sized data](#104-non-fixed-sized-data)
-    - [10.5 Endianness](#105-endianness)
-    - [10.6 Extra tables](#106-extra-tables)
+    - [10.4 Endianness](#104-endianness)
+    - [10.5 Extra tables](#105-extra-tables)
 
 ---
 
@@ -504,9 +503,82 @@ struct PreRctOutputId {
 <!-- TODO(Boog900):  We also need to get the amount of outputs with a certain amount so the database will need to allow getting keys less than a key i.e. to get the number of outputs with amount `10` we would get the first key below `(10 | MAX)` and add one to `KEY_PART_2`. We also have to make sure the DB is storing these values in the correct order for this to work. -->
 
 ## 10. Known issues and tradeoffs
+`cuprate_database` takes many tradeoffs, whether due to:
+- Purposefully making that choice
+- Not having a better solution
+- Being "good enough"
+
+This is a list of the larger ones, along with issues that `cuprate_database` does not have an answer for yet.
+
 ### 10.1 Traits abstracting backends
+Although all database backends used are very similar, they have some crucial differences in implementation details that must be worked around when confirming them to `cuprate_database`'s traits that define what a database is.
+
+Put simply: using `cuprate_database`'s traits is less efficient and more awkward to use than using the backend directly.
+
+For an example:
+- [Data types must be wrapped in compatability layers when they otherwise wouldn't be](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/backend/heed/env.rs#L101-L116)
+- [There exists types that only apply to a specific backend, but are visible to all](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/error.rs#L86-L89)
+- [There exists extra layers of abstraction to smoothen the differences between all backends](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/env.rs#L62-L68)
+- [Existing functionality of backends must be taken away, as it isn't supported in the others](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/database.rs#L27-L34)
+
+This is a _tradeoff_ that `cuprate_database` takes, as:
+- The backend itself is usually not the source of bottlenecks in the greater system, as such, small inefficiencies are OK
+- None of the lost functionality is crucial for operation
+- The ability to use, test, and swap between multiple database backends is [worth it](https://github.com/Cuprate/cuprate/pull/35#issuecomment-1952804393)
+
 ### 10.2 Hot-swappable backends
+Using a different backend is really as simple as re-building `cuprate_database` with a different feature flag:
+```
+# Use LMDB.
+cargo build --package cuprate-database --features heed
+
+# Use redb.
+cargo build --package cuprate-database --features redb
+```
+
+This is "good enough" for now, however ideally, this hot-swapping of backends would be able to be done at _runtime_.
+
+`cuprate_database` as it is now, cannot compile _both_ backends and swap based on user input at runtime; it must be compiled with a certain backend, which will produce a binary only using that backend.
+
+This also means things like [CI testing multiple backends is awkward](https://github.com/Cuprate/cuprate/blob/main/.github/workflows/ci.yml#L132-L136), as we must re-compile with different feature flags instead.
+
 ### 10.3 Copying unaligned bytes
-### 10.4 Non-fixed sized data
-### 10.5 Endianness
-### 10.6 Extra tables
+As mentioned in [`(De)serialization`](#8-deserialization), bytes are _copied_ when they are turned into a type `T` due to unaligned bytes being returned from database backends.
+
+The reference would be casted but would not be properly aligned to the type `T`; [such a type even existing causes undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html). In our case, `bytemuck` saves us by panicking when this occurs. 
+
+Thus, when using with `cuprate_database`'s database traits, an _owned_ `T` is returned.
+
+This unfortunately means `&[u8]` cannot be returned, thus `StorableVec` exists.
+
+For example, `StorableVec` could have been this:
+```rust
+enum StorableBytes<'a, T: Storable> {
+    Owned(T),
+    Ref(&'a T),
+}
+```
+but this would require supporting types that must be copied regardless with the occasional `&[u8]` that can be returned without casting. This was hard to do so in a generic way, thus all `[u8]`'s are copied and returned as owned `StorableVec`s.
+
+This is a _tradeoff_ `cuprate_database` takes as:
+- `bytemuck::pod_read_unaligned` is cheap enough
+- The main API, `service`, needs to returned owned value anyway
+- Having no references removes a lot of lifetime complexity
+
+The alternative is either:
+- Using proper (de)serialization instead of casting (which comes with its own costs)
+- Somehow fixing the alignment issues in the backends mentioned previously
+
+### 10.4 Endianness
+`cuprate_database`'s (de)serialization and storage of bytes are native-endian, as in, byte storage order will depend on the machine it is running on.
+
+As Cuprate's build-targets are all little-endian ([big-endian by default machines barely exist](https://en.wikipedia.org/wiki/Endianness#Hardware)), this doesn't matter much and the byte ordering can be seen as a constant.
+
+Practically, this means `cuprated`'s database files can be transferred across computers, as can `monerod`'s.
+
+### 10.5 Extra tables
+Some of `cuprate_database`'s tables aren't as optimized as `monerod`'s tables, for example, the way [`Multimap tables`](#92-multimap-tables) tables are done require 2 database lookups for legacy outputs compared to `monerod`'s 1; this difference can matter when scaling many reads.
+
+Cuprate also stores/requires more data, meaning `cuprated`'s database may be slightly larger than `monerod`.
+
+The current method `cuprate_database` uses will be "good enough" until usage shows that it must be optimized as multimap tables are tricky to implement across all backends.
