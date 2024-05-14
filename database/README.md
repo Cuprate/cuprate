@@ -20,8 +20,13 @@ Cuprate's database implementation.
     - [4.3 ConcreteEnv](#43-concreteenv)
     - [4.4 `ops`](#44-ops)
     - [4.5 `service`](#45-service)
-- [5. Syncing](#5-Syncing)
-- [6. Thread model](#6-thread-model)
+- [5. The service](#5-the-service)
+    - [5.1 Initialization](#51-initialization)
+    - [5.2 Requests](#53-requests)
+    - [5.3 Responses](#54-responses)
+    - [5.4 Thread model](#52-thread-model)
+    - [5.5 Shutdown](#55-shutdown)
+- [6. Syncing](#6-Syncing)
 - [7. Resizing](#7-resizing)
 - [8. (De)serialization](#8-deserialization)
 - [9. Schema](#9-schema)
@@ -269,37 +274,54 @@ Instead of dealing with the database directly (`get()`, `delete()`), the `ops` l
 ### 4.5 `service`
 The final layer abstracts the database completely into a [Monero-specific `async` request/response API](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/types/src/service.rs#L18-L78), using [`tower::Service`](https://docs.rs/tower/latest/tower/trait.Service.html).
 
-It handles the database using a separate writer thread & reader thread-pool, and uses the previously mentioned `ops` functions when responding to requests.
+For more information on this layer, see the next section: [`The service`](#5-the-service).
 
-Instead of handling the database directly, this layer provides read/write handles that allow:
-- Sending requests for data (e.g. Outputs)
-- Receiving responses
+## 5. The service
+The main API `cuprate_database` exposes for other crates to use is the `cuprate_database::service` module.
 
-For more information on the backing thread-pool, see [`Thread model`](#6-thread-model).
+This module exposes an `async` request/response API with `tower::Service`, backed by a threadpool, that allows reading/writing Monero-related data to the database.
 
-## 5. Syncing
-`cuprate_database`'s database has 5 disk syncing modes.
+`cuprate_database::service` itself manages the database using a separate writer thread & reader thread-pool, and uses the previously mentioned [`ops`](#44-ops) functions when responding to requests.
 
-1. FastThenSafe
-1. Safe
-1. Async
-1. Threshold
-1. Fast
+### 5.1 Initialization
+The service is started simply by calling: [`cuprate_database::service::init()`](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/service/free.rs#L23). From a normal user's perspective, this is the last `cuprate_database` function that will be called.
 
-The default mode is `Safe`.
+This function initializes the database, spawns threads, and returns a:
+- Read handle to the database (cloneable)
+- Write handle to the database (not cloneable)
 
-This means that upon each transaction commit, all the data that was written will be fully synced to disk. This is the slowest, but safest mode of operation.
+These "handles" implement the `tower::Service` trait, which allows sending requests and receiving responses `async`hronously.
 
-Note that upon any database `Drop`, whether via `service` or dropping the database directly, the current implementation will sync to disk regardless of any configuration.
+### 5.2 Requests
+Along with the 2 handles, there are 2 types of requests:
+- [`ReadRequest`](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/types/src/service.rs#L23-L90)
+- [`WriteRequest`](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/types/src/service.rs#L93-L105)
 
-For more information on the other modes, read the documentation [here](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/config/sync_mode.rs#L63-L144).
+`ReadRequest` is for retrieving various types of information from the database.
 
-## 6. Thread model
+`WriteRequest` currently only has 1 variant: to write a block to the database.
+
+### 5.3 Responses
+After sending one of the above requests using the read/write handle, the value returned is _not_ the response, yet an `async`hronous  channel that will eventually return the response:
+```rust,ignore
+let response_channel: Channel = read_handle.call(ReadResponse::ChainHeight)?;
+let response: ReadResponse = response_channel.await?;
+
+assert_eq!(matches!(response), Response::ChainHeight(_));
+```
+
+After `await`'ing upon the channel, a `Response` will be returned when the `service` threadpool has fetched the value from the database and sent it off. Note that this channel is a oneshot channel, it can be dropped after retrieving the response as it will never receive a message again.
+
+Both read/write requests variants match in name with `Response` types, i.e.
+- `ReadRequest::ChainHeight` leads to `Response::ChainHeight`
+- `WriteRequest::WriteBlock` leads to `Response::WriteBlockOk`
+
+### 5.4 Thread model
 As noted in the [`Layers`](#layers) section, the base database abstractions themselves are not concerned with parallelism, they are mostly functions to be called from a single-thread.
 
-However, the actual API `cuprate_database` exposes for practical usage for the main `cuprated` binary (and other `async` use-cases) is the asynchronous `service` API, which _does_ have a thread model backing it.
+However, the `cuprate_database::service` API, _does_ have a thread model backing it.
 
-As such, when [`cuprate_database::service`'s initialization function](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/free.rs#L33-L44) is called, threads will be spawned and maintained until the user drops (disconnects) the returned handles.
+When [`cuprate_database::service`'s initialization function](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/free.rs#L33-L44) is called, threads will be spawned and maintained until the user drops (disconnects) the returned handles.
 
 The current behavior is:
 - [1 writer thread](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/write.rs#L52-L66)
@@ -317,7 +339,27 @@ The reader threads are managed by [`rayon`](https://docs.rs/rayon).
 
 For an example of where multiple reader threads are used: given a request that asks if any key-image within a set already exists, `cuprate_database` will [split that work between the threads with `rayon`](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/read.rs#L490-L503).
 
-Once the [handles](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/free.rs#L33) to these threads are `Drop`ed, the backing thread(pool) will gracefully exit, automatically.
+### 5.5 Shutdown
+Once the read/write handles are `Drop`ed, the backing thread(pool) will gracefully exit, automatically.
+
+Note the writer thread and reader threadpool aren't connected whatsoever; dropping the write handle will make the writer thread exit, however, the reader handle is free to be held onto and can be continued to be read from - and vice-versa for the write handle.
+
+## 6. Syncing
+`cuprate_database`'s database has 5 disk syncing modes.
+
+1. FastThenSafe
+1. Safe
+1. Async
+1. Threshold
+1. Fast
+
+The default mode is `Safe`.
+
+This means that upon each transaction commit, all the data that was written will be fully synced to disk. This is the slowest, but safest mode of operation.
+
+Note that upon any database `Drop`, whether via `service` or dropping the database directly, the current implementation will sync to disk regardless of any configuration.
+
+For more information on the other modes, read the documentation [here](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/config/sync_mode.rs#L63-L144).
 
 ## 7. Resizing
 Database backends that require manually resizing will, by default, use a similar algorithm as `monerod`'s.
