@@ -283,7 +283,7 @@ This module exposes an `async` request/response API with `tower::Service`, backe
 `cuprate_database::service` itself manages the database using a separate writer thread & reader thread-pool, and uses the previously mentioned [`ops`](#44-ops) functions when responding to requests.
 
 ### 5.1 Initialization
-The service is started simply by calling: [`cuprate_database::service::init()`](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/service/free.rs#L23). From a normal user's perspective, this is the last `cuprate_database` function that will be called.
+The service is started simply by calling: [`cuprate_database::service::init()`](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/service/free.rs#L23).
 
 This function initializes the database, spawns threads, and returns a:
 - Read handle to the database (cloneable)
@@ -301,15 +301,17 @@ Along with the 2 handles, there are 2 types of requests:
 `WriteRequest` currently only has 1 variant: to write a block to the database.
 
 ### 5.3 Responses
-After sending one of the above requests using the read/write handle, the value returned is _not_ the response, yet an `async`hronous  channel that will eventually return the response:
+After sending one of the above requests using the read/write handle, the value returned is _not_ the response, yet an `async`hronous channel that will eventually return the response:
 ```rust,ignore
+//                                   tower::Service::call()
+//                                          V
 let response_channel: Channel = read_handle.call(ReadResponse::ChainHeight)?;
 let response: ReadResponse = response_channel.await?;
 
 assert_eq!(matches!(response), Response::ChainHeight(_));
 ```
 
-After `await`'ing upon the channel, a `Response` will be returned when the `service` threadpool has fetched the value from the database and sent it off. Note that this channel is a oneshot channel, it can be dropped after retrieving the response as it will never receive a message again.
+After `await`'ing returned the channel, a `Response` will eventually be returned when the `service` threadpool has fetched the value from the database and sent it off.
 
 Both read/write requests variants match in name with `Response` types, i.e.
 - `ReadRequest::ChainHeight` leads to `Response::ChainHeight`
@@ -378,7 +380,7 @@ All types stored inside the database are either bytes already, or are perfectly 
 
 As such, they do not incur heavy (de)serialization costs when storing/fetching them from the database. The main (de)serialization used is [`bytemuck`](https://docs.rs/bytemuck)'s traits and casting functions.
 
-The size & layout of types is stable across compiler versions, as they are set and determined with [`#[repr(C)]`](https://doc.rust-lang.org/nomicon/other-reprs.html#reprc) and `bytemuck`'s derive macros such as [`#[derive(bytemuck::Pod)]`](https://docs.rs/bytemuck/latest/bytemuck/derive.Pod.html).
+The size & layout of types is stable across compiler versions, as they are set and determined with [`#[repr(C)]`](https://doc.rust-lang.org/nomicon/other-reprs.html#reprc) and `bytemuck`'s derive macros such as [`bytemuck::Pod`](https://docs.rs/bytemuck/latest/bytemuck/derive.Pod.html).
 
 Note that the data stored in the tables are still type-safe; we still refer to the key and values within our tables by the type.
 
@@ -435,7 +437,7 @@ Many of the data types stored are the same data types, although are different se
 
 | Table             | Key                  | Value              | Description |
 |-------------------|----------------------|--------------------|-------------|
-| `BlockBlobs`      | BlockHeight          | `StorableVec<u8>`  | Maps a block's height to a serialized form block blobs (bytes)
+| `BlockBlobs`      | BlockHeight          | `StorableVec<u8>`  | Maps a block's height to a serialized byte form of a block
 | `BlockHeights`    | BlockHash            | BlockHeight        | Maps a block's hash to its height
 | `BlockInfos`      | BlockHeight          | `BlockInfo`        | Contains metadata of all blocks
 | `KeyImages`       | KeyImage             | ()                 | This table is a set with no value, it stores transaction key images
@@ -504,21 +506,21 @@ struct PreRctOutputId {
 
 ## 10. Known issues and tradeoffs
 `cuprate_database` takes many tradeoffs, whether due to:
-- Purposefully making that choice
+- Prioritizing certain values over others
 - Not having a better solution
 - Being "good enough"
 
-This is a list of the larger ones, along with issues that `cuprate_database` does not have an answer for yet.
+This is a list of the larger ones, along with issues that don't have answers yet.
 
 ### 10.1 Traits abstracting backends
-Although all database backends used are very similar, they have some crucial differences in implementation details that must be worked around when confirming them to `cuprate_database`'s traits that define what a database is.
+Although all database backends used are very similar, they have some crucial differences in small implementation details that must be worked around when conforming them to `cuprate_database`'s traits.
 
 Put simply: using `cuprate_database`'s traits is less efficient and more awkward to use than using the backend directly.
 
 For an example:
-- [Data types must be wrapped in compatability layers when they otherwise wouldn't be](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/backend/heed/env.rs#L101-L116)
-- [There exists types that only apply to a specific backend, but are visible to all](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/error.rs#L86-L89)
-- [There exists extra layers of abstraction to smoothen the differences between all backends](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/env.rs#L62-L68)
+- [Data types must be wrapped in compatibility layers when they otherwise wouldn't be](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/backend/heed/env.rs#L101-L116)
+- [There are types that only apply to a specific backend, but are visible to all](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/error.rs#L86-L89)
+- [There are extra layers of abstraction to smoothen the differences between all backends](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/env.rs#L62-L68)
 - [Existing functionality of backends must be taken away, as it isn't supported in the others](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/database.rs#L27-L34)
 
 This is a _tradeoff_ that `cuprate_database` takes, as:
@@ -538,18 +540,18 @@ cargo build --package cuprate-database --features redb
 
 This is "good enough" for now, however ideally, this hot-swapping of backends would be able to be done at _runtime_.
 
-`cuprate_database` as it is now, cannot compile _both_ backends and swap based on user input at runtime; it must be compiled with a certain backend, which will produce a binary only using that backend.
+As it is now, `cuprate_database` cannot compile _both_ backends and swap based on user input at runtime; it must be compiled with a certain backend, which will produce a binary with only that backend.
 
 This also means things like [CI testing multiple backends is awkward](https://github.com/Cuprate/cuprate/blob/main/.github/workflows/ci.yml#L132-L136), as we must re-compile with different feature flags instead.
 
 ### 10.3 Copying unaligned bytes
 As mentioned in [`(De)serialization`](#8-deserialization), bytes are _copied_ when they are turned into a type `T` due to unaligned bytes being returned from database backends.
 
-The reference would be casted but would not be properly aligned to the type `T`; [such a type even existing causes undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html). In our case, `bytemuck` saves us by panicking when this occurs. 
+Using a regular reference cast results in an improperly aligned type `T`; [such a type even existing causes undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html). In our case, `bytemuck` saves us by panicking when this occurs. 
 
 Thus, when using with `cuprate_database`'s database traits, an _owned_ `T` is returned.
 
-This unfortunately means `&[u8]` cannot be returned, thus `StorableVec` exists.
+This is doubly unfortunately for `&[u8]` as this does not even need deserialization.
 
 For example, `StorableVec` could have been this:
 ```rust
@@ -562,7 +564,7 @@ but this would require supporting types that must be copied regardless with the 
 
 This is a _tradeoff_ `cuprate_database` takes as:
 - `bytemuck::pod_read_unaligned` is cheap enough
-- The main API, `service`, needs to returned owned value anyway
+- The main API, `service`, needs to return owned value anyway
 - Having no references removes a lot of lifetime complexity
 
 The alternative is either:
