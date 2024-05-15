@@ -401,15 +401,15 @@ tables! {
     NumOutputs,
     Amount => u64,
 
+    /// Pre-RCT output data.
+    Outputs,
+    PreRctOutputId => Output,
+
     /// Pruned transaction blobs (bytes).
     ///
     /// Contains the pruned portion of serialized transaction data.
     PrunedTxBlobs,
     TxId => PrunedBlob,
-
-    /// Pre-RCT output data.
-    Outputs,
-    PreRctOutputId => Output,
 
     /// Prunable transaction blobs (bytes).
     ///
