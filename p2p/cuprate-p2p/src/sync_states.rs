@@ -22,10 +22,14 @@ use monero_wire::CoreSyncData;
 
 use crate::constants::SHORT_BAN;
 
+/// The highest claimed sync info from our connected peers.
 #[derive(Debug)]
 pub struct NewSyncInfo {
+    /// The peers chain height.
     chain_height: u64,
+    /// The peers top block's hash.
     top_hash: [u8; 32],
+    /// The peers cumulative difficulty.
     cumulative_difficulty: u128,
 }
 
@@ -50,6 +54,8 @@ pub struct PeerSyncSvc<N: NetworkZone> {
 }
 
 impl<N: NetworkZone> PeerSyncSvc<N> {
+    /// Creates a new [`PeerSyncSvc`] with a [`Receiver`](watch::Receiver) that will be updated with
+    /// the highest seen sync data.
     pub fn new() -> (Self, watch::Receiver<NewSyncInfo>) {
         let (watch_tx, mut watch_rx) = watch::channel(NewSyncInfo {
             chain_height: 0,
@@ -243,5 +249,101 @@ impl<N: NetworkZone> Future for PeerDisconnectFut<N> {
         this.closed_fut
             .poll(cx)
             .map(|_| this.peer_id.take().unwrap())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use tokio::sync::Semaphore;
+    use tower::{Service, ServiceExt};
+
+    use monero_p2p::{client::InternalPeerID, handles::HandleBuilder, services::PeerSyncRequest};
+    use monero_wire::CoreSyncData;
+
+    use cuprate_test_utils::test_netzone::TestNetZone;
+
+    use super::PeerSyncSvc;
+
+    #[tokio::test]
+    async fn top_sync_channel_updates() {
+        let semaphore = Arc::new(Semaphore::new(1));
+
+        let (_g, handle) = HandleBuilder::new()
+            .with_permit(semaphore.try_acquire_owned().unwrap())
+            .build();
+
+        let (mut svc, mut watch) = PeerSyncSvc::<TestNetZone<true, true, true>>::new();
+
+        assert!(!watch.has_changed().unwrap());
+
+        svc.ready()
+            .await
+            .unwrap()
+            .call(PeerSyncRequest::IncomingCoreSyncData(
+                InternalPeerID::Unknown(0),
+                handle.clone(),
+                CoreSyncData {
+                    cumulative_difficulty: 1_000,
+                    cumulative_difficulty_top64: 0,
+                    current_height: 0,
+                    pruning_seed: 0,
+                    top_id: [0; 32],
+                    top_version: 0,
+                },
+            ))
+            .await
+            .unwrap();
+
+        assert!(watch.has_changed().unwrap());
+
+        assert_eq!(watch.borrow().top_hash, [0; 32]);
+        assert_eq!(watch.borrow().cumulative_difficulty, 1000);
+        assert_eq!(watch.borrow_and_update().chain_height, 0);
+
+        svc.ready()
+            .await
+            .unwrap()
+            .call(PeerSyncRequest::IncomingCoreSyncData(
+                InternalPeerID::Unknown(1),
+                handle.clone(),
+                CoreSyncData {
+                    cumulative_difficulty: 1_000,
+                    cumulative_difficulty_top64: 0,
+                    current_height: 0,
+                    pruning_seed: 0,
+                    top_id: [0; 32],
+                    top_version: 0,
+                },
+            ))
+            .await
+            .unwrap();
+
+        assert!(!watch.has_changed().unwrap());
+
+        svc.ready()
+            .await
+            .unwrap()
+            .call(PeerSyncRequest::IncomingCoreSyncData(
+                InternalPeerID::Unknown(2),
+                handle.clone(),
+                CoreSyncData {
+                    cumulative_difficulty: 1_001,
+                    cumulative_difficulty_top64: 0,
+                    current_height: 0,
+                    pruning_seed: 0,
+                    top_id: [1; 32],
+                    top_version: 0,
+                },
+            ))
+            .await
+            .unwrap();
+
+        assert!(watch.has_changed().unwrap());
+
+        assert_eq!(watch.borrow().top_hash, [1; 32]);
+        assert_eq!(watch.borrow().cumulative_difficulty, 1001);
+        assert_eq!(watch.borrow_and_update().chain_height, 0);
     }
 }
