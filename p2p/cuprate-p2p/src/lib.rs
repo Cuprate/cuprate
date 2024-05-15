@@ -7,6 +7,7 @@
 //!
 #![allow(dead_code)]
 
+mod broadcast;
 pub mod client_pool;
 pub mod config;
 pub mod connection_maintainer;
