@@ -37,7 +37,7 @@ Cuprate's database implementation.
     - [10.2 Hot-swappable backends](#102-hot-swappable-backends)
     - [10.3 Copying unaligned bytes](#103-copying-unaligned-bytes)
     - [10.4 Endianness](#104-endianness)
-    - [10.5 Extra tables](#105-extra-tables)
+    - [10.5 Extra table data](#105-extra-table-data)
 
 ---
 
@@ -508,8 +508,6 @@ struct PreRctOutputId {
 }
 ```
 
-<!-- TODO(Boog900):  We also need to get the amount of outputs with a certain amount so the database will need to allow getting keys less than a key i.e. to get the number of outputs with amount `10` we would get the first key below `(10 | MAX)` and add one to `KEY_PART_2`. We also have to make sure the DB is storing these values in the correct order for this to work. -->
-
 ## 10. Known issues and tradeoffs
 `cuprate_database` takes many tradeoffs, whether due to:
 - Prioritizing certain values over others
@@ -521,7 +519,7 @@ This is a list of the larger ones, along with issues that don't have answers yet
 ### 10.1 Traits abstracting backends
 Although all database backends used are very similar, they have some crucial differences in small implementation details that must be worked around when conforming them to `cuprate_database`'s traits.
 
-Put simply: using `cuprate_database`'s traits is less efficient and more awkward to use than using the backend directly.
+Put simply: using `cuprate_database`'s traits is less efficient and more awkward than using the backend directly.
 
 For example:
 - [Data types must be wrapped in compatibility layers when they otherwise wouldn't be](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/backend/heed/env.rs#L101-L116)
@@ -555,7 +553,7 @@ As mentioned in [`8. (De)serialization`](#8-deserialization), bytes are _copied_
 
 Using a regular reference cast results in an improperly aligned type `T`; [such a type even existing causes undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html). In our case, `bytemuck` saves us by panicking before this occurs. 
 
-Thus, when using with `cuprate_database`'s database traits, an _owned_ `T` is returned.
+Thus, when using `cuprate_database`'s database traits, an _owned_ `T` is returned.
 
 This is doubly unfortunately for `&[u8]` as this does not even need deserialization.
 
@@ -584,9 +582,17 @@ As Cuprate's build-targets are all little-endian ([big-endian by default machine
 
 Practically, this means `cuprated`'s database files can be transferred across computers, as can `monerod`'s.
 
-### 10.5 Extra tables
-Some of `cuprate_database`'s tables aren't as optimized as `monerod`'s tables, for example, the way [`9.2 Multimap tables`](#92-multimap-tables) tables are done require 2 database lookups for legacy outputs compared to `monerod`'s 1; this difference can matter when scaling many reads.
+### 10.5 Extra table data
+Some of `cuprate_database`'s tables differ from `monerod`'s tables, for example, the way [`9.2 Multimap tables`](#92-multimap-tables) tables are done requires that the primary key is stored _for all_ entries, compared to `monerod` only needing to store it once.
 
-Cuprate also stores more data, meaning `cuprated`'s database may be slightly larger than `monerod`.
+For example:
+```rust
+// `monerod` only stores `amount: 1` once,
+// `cuprated` stores it each time it appears.
+struct PreRctOutputId { amount: 1, amount_index: 0 }
+struct PreRctOutputId { amount: 1, amount_index: 1 }
+```
+
+This means `cuprated`'s database will be slightly larger than `monerod`'s.
 
 The current method `cuprate_database` uses will be "good enough" until usage shows that it must be optimized as multimap tables are tricky to implement across all backends.
