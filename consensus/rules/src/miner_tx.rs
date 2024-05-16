@@ -216,7 +216,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn tail_emmision(generated_coins in any::<u64>(), hf in any::<HardFork>()) {
+        fn tail_emission(generated_coins in any::<u64>(), hf in any::<HardFork>()) {
             prop_assert!(calculate_base_reward(generated_coins, &hf) >= MINIMUM_REWARD_PER_MIN * hf.block_time().as_secs() / 60)
         }
     }
