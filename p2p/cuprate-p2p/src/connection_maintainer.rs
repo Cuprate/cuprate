@@ -101,9 +101,7 @@ where
     async fn connect_to_random_seeds(&mut self) -> Result<(), OutboundConnectorError> {
         let seeds = N::SEEDS.choose_multiple(&mut thread_rng(), MAX_SEED_CONNECTIONS);
 
-        if seeds.len() == 0 {
-            panic!("No seed nodes available to get peers from");
-        }
+        assert!(!seeds.is_empty(), "No seed nodes available to get peers from");
 
         // This isn't really needed here to limit connections as the seed nodes will be dropped when we have got
         // peers from them.
@@ -141,7 +139,7 @@ where
         }
 
         if allowed_errors == 0 {
-            return Err(OutboundConnectorError::FailedToConnectToSeeds);
+            Err(OutboundConnectorError::FailedToConnectToSeeds)
         } else {
             Ok(())
         }
@@ -215,7 +213,7 @@ where
         }
     }
 
-    /// Handles a free permit, by either connecting to a new peer or by removing a permit if we above the
+    /// Handles a free permit, by either connecting to a new peer or by removing a permit if we are above the
     /// minimum number of outbound connections.
     #[instrument(level = "debug", skip(self, permit))]
     async fn handle_free_permit(
