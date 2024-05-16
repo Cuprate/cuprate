@@ -713,7 +713,7 @@ mod tests {
         });
     }
 
-    /// Returns a stratergy that resloves to a [`RctType`] that uses
+    /// Returns a strategy that resolves to a [`RctType`] that uses
     /// BPs(+).
     #[allow(unreachable_code)]
     #[allow(clippy::diverging_sub_expression)]
@@ -809,15 +809,15 @@ mod tests {
         fn output_types(
             mut view_tag_outs in vec(random_out(true, true), 1..16),
             mut non_view_tag_outs in vec(random_out(true, false), 1..16),
-            hf_no_veiw_tags in hf_in_range(1..14),
-            hf_veiw_tags in hf_in_range(16..17),
+            hf_no_view_tags in hf_in_range(1..14),
+            hf_view_tags in hf_in_range(16..17),
         ) {
-            prop_assert!(check_output_types(&view_tag_outs, &hf_veiw_tags).is_ok());
-            prop_assert!(check_output_types(&view_tag_outs, &hf_no_veiw_tags).is_err());
+            prop_assert!(check_output_types(&view_tag_outs, &hf_view_tags).is_ok());
+            prop_assert!(check_output_types(&view_tag_outs, &hf_no_view_tags).is_err());
 
 
-            prop_assert!(check_output_types(&non_view_tag_outs, &hf_no_veiw_tags).is_ok());
-            prop_assert!(check_output_types(&non_view_tag_outs, &hf_veiw_tags).is_err());
+            prop_assert!(check_output_types(&non_view_tag_outs, &hf_no_view_tags).is_ok());
+            prop_assert!(check_output_types(&non_view_tag_outs, &hf_view_tags).is_err());
 
             prop_assert!(check_output_types(&non_view_tag_outs, &HardFork::V15).is_ok());
             prop_assert!(check_output_types(&view_tag_outs, &HardFork::V15).is_ok());
