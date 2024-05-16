@@ -124,7 +124,7 @@ pub(crate) fn check_output_types(
 ) -> Result<(), TransactionError> {
     if hf == &HardFork::V15 {
         for outs in outputs.windows(2) {
-            if outs[0].view_tag.is_some() != outs[0].view_tag.is_some() {
+            if outs[0].view_tag.is_some() != outs[1].view_tag.is_some() {
                 return Err(TransactionError::OutputTypeInvalid);
             }
         }
@@ -213,7 +213,10 @@ fn check_number_of_outputs(
     }
 
     match rct_type {
-        RctType::Bulletproofs | RctType::BulletproofsCompactAmount | RctType::BulletproofsPlus => {
+        RctType::Bulletproofs
+        | RctType::BulletproofsCompactAmount
+        | RctType::Clsag
+        | RctType::BulletproofsPlus => {
             if outputs <= MAX_BULLETPROOFS_OUTPUTS {
                 Ok(())
             } else {
@@ -683,5 +686,153 @@ pub fn check_transaction_contextual(
             &tx.rct_signatures,
             &tx_ring_members_info.rings,
         )?),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use curve25519_dalek::EdwardsPoint;
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+    use std::ops::Range;
+
+    use crate::decomposed_amount::decomposed_amounts;
+    use monero_serai::transaction::Output;
+
+    use super::*;
+
+    #[test]
+    fn test_check_output_amount_v1() {
+        for amount in decomposed_amounts() {
+            assert!(check_output_amount_v1(*amount, &HardFork::V2).is_ok())
+        }
+
+        proptest!(|(amount in any::<u64>().prop_filter("value_decomposed", |val| !is_decomposed_amount(val)))| {
+            prop_assert!(check_output_amount_v1(amount, &HardFork::V2).is_err());
+            prop_assert!(check_output_amount_v1(amount, &HardFork::V1).is_ok())
+        });
+    }
+
+    /// Returns a stratergy that resloves to a [`RctType`] that uses
+    /// BPs(+).
+    #[allow(unreachable_code)]
+    #[allow(clippy::diverging_sub_expression)]
+    fn bulletproof_rct_type() -> BoxedStrategy<RctType> {
+        return prop_oneof![
+            Just(RctType::Bulletproofs),
+            Just(RctType::BulletproofsCompactAmount),
+            Just(RctType::Clsag),
+            Just(RctType::BulletproofsPlus),
+        ]
+        .boxed();
+
+        // Here to make sure this is updated when needed.
+        match unreachable!() {
+            RctType::Null => {}
+            RctType::MlsagAggregate => {}
+            RctType::MlsagIndividual => {}
+            RctType::Bulletproofs => {}
+            RctType::BulletproofsCompactAmount => {}
+            RctType::Clsag => {}
+            RctType::BulletproofsPlus => {}
+        };
+    }
+
+    prop_compose! {
+        /// Returns a valid prime-order point.
+        fn random_point()(bytes in any::<[u8; 32]>()) -> EdwardsPoint {
+            EdwardsPoint::mul_base_clamped(bytes)
+        }
+    }
+
+    prop_compose! {
+        /// Returns a valid torsioned point.
+        fn random_torsioned_point()(point in random_point(), torsion in 0..8_usize ) -> EdwardsPoint {
+            point + curve25519_dalek::constants::EIGHT_TORSION[torsion]
+        }
+    }
+
+    prop_compose! {
+        /// Returns a random [`Output`].
+        ///
+        /// `key` is always valid.
+        fn random_out(rct: bool, view_tagged: bool)(
+            point in random_point(),
+            amount in any::<u64>(),
+            view_tag in any::<u8>(),
+        ) -> Output {
+            Output {
+                amount: if rct { None } else { Some(amount) },
+                key: point.compress(),
+                view_tag: if view_tagged { Some(view_tag) } else { None },
+            }
+        }
+    }
+
+    prop_compose! {
+        /// Returns a random [`Output`].
+        ///
+        /// `key` is always valid but torsioned.
+        fn random_torsioned_out(rct: bool, view_tagged: bool)(
+            point in random_torsioned_point(),
+            amount in any::<u64>(),
+            view_tag in any::<u8>(),
+        ) -> Output {
+            Output {
+                amount: if rct { None } else { Some(amount) },
+                key: point.compress(),
+                view_tag: if view_tagged { Some(view_tag) } else { None },
+            }
+        }
+    }
+
+    prop_compose! {
+        /// Returns a [`HardFork`] in a specific range.
+        fn hf_in_range(range: Range<u8>)(
+            hf in range,
+        ) -> HardFork {
+            HardFork::from_version(hf).unwrap()
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn test_check_output_keys(
+            outs in vec(random_out(true, true), 0..16),
+            torsioned_outs in vec(random_torsioned_out(false, true), 0..16)
+        ) {
+            prop_assert!(check_output_keys(&outs).is_ok());
+            prop_assert!(check_output_keys(&torsioned_outs).is_ok());
+        }
+
+        #[test]
+        fn output_types(
+            mut view_tag_outs in vec(random_out(true, true), 1..16),
+            mut non_view_tag_outs in vec(random_out(true, false), 1..16),
+            hf_no_veiw_tags in hf_in_range(1..14),
+            hf_veiw_tags in hf_in_range(16..17),
+        ) {
+            prop_assert!(check_output_types(&view_tag_outs, &hf_veiw_tags).is_ok());
+            prop_assert!(check_output_types(&view_tag_outs, &hf_no_veiw_tags).is_err());
+
+
+            prop_assert!(check_output_types(&non_view_tag_outs, &hf_no_veiw_tags).is_ok());
+            prop_assert!(check_output_types(&non_view_tag_outs, &hf_veiw_tags).is_err());
+
+            prop_assert!(check_output_types(&non_view_tag_outs, &HardFork::V15).is_ok());
+            prop_assert!(check_output_types(&view_tag_outs, &HardFork::V15).is_ok());
+            view_tag_outs.append(&mut non_view_tag_outs);
+            prop_assert!(check_output_types(&view_tag_outs, &HardFork::V15).is_err());
+        }
+
+        #[test]
+        fn test_valid_number_of_outputs(valid_numb_outs in 2..17_usize, rct_type in bulletproof_rct_type()) {
+            prop_assert!(check_number_of_outputs(valid_numb_outs, &HardFork::V16, &TxVersion::RingCT, &rct_type).is_ok());
+        }
+
+        #[test]
+        fn test_invalid_number_of_outputs(numb_outs in 17..160_000_usize, rct_type in bulletproof_rct_type()) {
+            prop_assert!(check_number_of_outputs(numb_outs, &HardFork::V16, &TxVersion::RingCT, &rct_type).is_err());
+        }
     }
 }
