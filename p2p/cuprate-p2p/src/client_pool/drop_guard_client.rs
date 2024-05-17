@@ -12,6 +12,9 @@ pub struct ClientPoolDropGuard<N: NetworkZone> {
     /// The [`ClientPool`] to return the peer to.
     pub(super) pool: Arc<ClientPool<N>>,
     /// The [`Client`].
+    ///
+    /// This is set to [`Some`] when this guard is created, then
+    /// ### [`take`](Option::take)n and returned to the pool when dropped.
     pub(super) client: Option<Client<N>>,
 }
 
