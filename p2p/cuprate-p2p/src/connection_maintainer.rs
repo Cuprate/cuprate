@@ -68,8 +68,9 @@ pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
     pub peer_type_gen: Bernoulli,
 }
 
-impl<N: NetworkZone, A, C> OutboundConnectionKeeper<N, A, C>
+impl<N, A, C> OutboundConnectionKeeper<N, A, C>
 where
+    N: NetworkZone,
     A: AddressBook<N>,
     C: Service<ConnectRequest<N>, Response = Client<N>, Error = HandshakeError>,
     C::Future: Send + 'static,
