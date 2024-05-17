@@ -263,6 +263,7 @@ mod tests {
     use monero_wire::CoreSyncData;
 
     use cuprate_test_utils::test_netzone::TestNetZone;
+    use monero_p2p::services::PeerSyncResponse;
 
     use super::PeerSyncSvc;
 
@@ -345,5 +346,98 @@ mod tests {
         assert_eq!(watch.borrow().top_hash, [1; 32]);
         assert_eq!(watch.borrow().cumulative_difficulty, 1001);
         assert_eq!(watch.borrow_and_update().chain_height, 0);
+    }
+
+    #[tokio::test]
+    async fn peer_sync_info_updates() {
+        let semaphore = Arc::new(Semaphore::new(1));
+
+        let (_g, handle) = HandleBuilder::new()
+            .with_permit(semaphore.try_acquire_owned().unwrap())
+            .build();
+
+        let (mut svc, _watch) = PeerSyncSvc::<TestNetZone<true, true, true>>::new();
+
+        svc.ready()
+            .await
+            .unwrap()
+            .call(PeerSyncRequest::IncomingCoreSyncData(
+                InternalPeerID::Unknown(0),
+                handle.clone(),
+                CoreSyncData {
+                    cumulative_difficulty: 1_000,
+                    cumulative_difficulty_top64: 0,
+                    current_height: 0,
+                    pruning_seed: 0,
+                    top_id: [0; 32],
+                    top_version: 0,
+                },
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(svc.peers.len(), 1);
+        assert_eq!(svc.cumulative_difficulties.len(), 1);
+
+        svc.ready()
+            .await
+            .unwrap()
+            .call(PeerSyncRequest::IncomingCoreSyncData(
+                InternalPeerID::Unknown(0),
+                handle.clone(),
+                CoreSyncData {
+                    cumulative_difficulty: 1_001,
+                    cumulative_difficulty_top64: 0,
+                    current_height: 0,
+                    pruning_seed: 0,
+                    top_id: [0; 32],
+                    top_version: 0,
+                },
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(svc.peers.len(), 1);
+        assert_eq!(svc.cumulative_difficulties.len(), 1);
+
+        svc.ready()
+            .await
+            .unwrap()
+            .call(PeerSyncRequest::IncomingCoreSyncData(
+                InternalPeerID::Unknown(1),
+                handle.clone(),
+                CoreSyncData {
+                    cumulative_difficulty: 10,
+                    cumulative_difficulty_top64: 0,
+                    current_height: 0,
+                    pruning_seed: 0,
+                    top_id: [0; 32],
+                    top_version: 0,
+                },
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(svc.peers.len(), 2);
+        assert_eq!(svc.cumulative_difficulties.len(), 2);
+
+        let PeerSyncResponse::PeersToSyncFrom(peers) = svc
+            .ready()
+            .await
+            .unwrap()
+            .call(PeerSyncRequest::PeersToSyncFrom {
+                block_needed: None,
+                current_cumulative_difficulty: 0,
+            })
+            .await
+            .unwrap()
+        else {
+            panic!("Wrong response for request.")
+        };
+
+        assert!(
+            peers.contains(&InternalPeerID::Unknown(0))
+                && peers.contains(&InternalPeerID::Unknown(1))
+        )
     }
 }
