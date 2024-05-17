@@ -12,7 +12,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::{info, instrument, warn};
+use tracing::instrument;
 
 use monero_p2p::{
     client::{Client, ConnectRequest, HandshakeError},
@@ -75,7 +75,7 @@ where
     C::Future: Send + 'static,
 {
     pub fn new(
-        config: &P2PConfig,
+        config: P2PConfig,
         client_pool: Arc<ClientPool<N>>,
         make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
         address_book_svc: A,
@@ -91,7 +91,7 @@ where
             connector_svc,
             outbound_semaphore: Arc::new(Semaphore::new(config.outbound_connections)),
             extra_peers: 0,
-            config: config.clone(),
+            config,
             peer_type_gen,
         }
     }
@@ -101,7 +101,9 @@ where
     async fn connect_to_random_seeds(&mut self) -> Result<(), OutboundConnectorError> {
         let seeds = N::SEEDS.choose_multiple(&mut thread_rng(), MAX_SEED_CONNECTIONS);
 
-        assert!(!seeds.is_empty(), "No seed nodes available to get peers from");
+        if seeds.len() == 0 {
+            panic!("No seed nodes available to get peers from");
+        }
 
         // This isn't really needed here to limit connections as the seed nodes will be dropped when we have got
         // peers from them.
@@ -112,7 +114,7 @@ where
         let mut handshake_futs = JoinSet::new();
 
         for seed in seeds {
-            info!("Getting peers from seed node: {}", seed);
+            tracing::info!("Getting peers from seed node: {}", seed);
 
             let fut = timeout(
                 HANDSHAKE_TIMEOUT,
@@ -175,7 +177,7 @@ where
             .try_acquire_owned()
             .or_else(|_| {
                 // if we can't get a permit add one if we are below the max number of connections.
-                if self.extra_peers >= self.config.allowed_extra_connections() {
+                if self.extra_peers >= self.config.extra_outbound_connections {
                     // If we can't add a permit return an error.
                     Err(OutboundConnectorError::MaxConnections)
                 } else {
@@ -199,7 +201,7 @@ where
         match peer {
             Err(_) => {
                 // TODO: We should probably send peer requests to our connected peers rather than go to seeds.
-                warn!("No peers in address book which are available and have the data we need. Getting peers from seed nodes.");
+                tracing::warn!("No peers in address book which are available and have the data we need. Getting peers from seed nodes.");
 
                 self.connect_to_random_seeds().await?;
                 Err(OutboundConnectorError::NoAvailablePeers)
@@ -246,7 +248,7 @@ where
             .call(req)
             .await
         else {
-            warn!("No peers in peer list to make connection to.");
+            tracing::warn!("No peers in peer list to make connection to.");
             self.connect_to_random_seeds().await?;
             return Err(OutboundConnectorError::NoAvailablePeers);
         };
@@ -257,7 +259,7 @@ where
 
     /// Runs the outbound connection count keeper.
     pub async fn run(mut self) {
-        info!(
+        tracing::info!(
             "Starting outbound connection maintainer, target outbound connections: {}",
             self.config.outbound_connections
         );
@@ -267,7 +269,7 @@ where
                 biased;
                 peer_req = self.make_connection_rx.recv() => {
                     let Some(peer_req) = peer_req else {
-                        info!("Shutting down outbound connector, make connection channel closed.");
+                        tracing::info!("Shutting down outbound connector, make connection channel closed.");
                         return;
                     };
                     // We can't really do much about errors in this function.
