@@ -32,10 +32,10 @@ pub use drop_guard_client::ClientPoolDropGuard;
 pub struct ClientPool<N: NetworkZone> {
     /// The connected [`Client`]s.
     clients: DashMap<InternalPeerID<N::Addr>, Client<N>>,
-    /// A set of outbound clients, as these allow accesses/ mutation from different threads
-    /// a peer ID in here does not mean the peer is in `clients` as it could have been removed
-    /// by another thread. However, if the peer is in both here and `clients` it is defiantly
-    /// an outbound peer,
+    /// A set of outbound clients, as these allow accesses/mutation from different threads,
+    /// a peer ID in here does not mean the peer is necessarily in `clients` as it could have been removed
+    /// by another thread. However, if the peer is in both here and `clients` it is definitely
+    /// an outbound peer.
     outbound_clients: DashSet<InternalPeerID<N::Addr>>,
 
     /// A channel to send new peer ids down to monitor for disconnect.
@@ -62,6 +62,9 @@ impl<N: NetworkZone> ClientPool<N> {
     /// pool.
     ///
     /// See [`ClientPool::add_new_client`] to add a [`Client`] which was not taken from the pool before.
+    ///
+    /// # Panics
+    /// This function panics if `client` already exists in the pool.
     fn add_client(&self, client: Client<N>) {
         let handle = client.info.handle.clone();
         let id = client.info.id;
@@ -88,6 +91,9 @@ impl<N: NetworkZone> ClientPool<N> {
 
     /// Adds a _new_ [`Client`] to the pool, this client should be a new connection, and not already
     /// from the pool.
+    ///
+    /// # Panics
+    /// This function panics if `client` already exists in the pool.
     pub fn add_new_client(&self, client: Client<N>) {
         self.new_connection_tx
             .send((client.info.handle.clone(), client.info.id))
@@ -97,14 +103,20 @@ impl<N: NetworkZone> ClientPool<N> {
     }
 
     /// Remove a [`Client`] from the pool.
+    ///
+    /// [`None`] is returned if the client did not exist in the pool.
     fn remove_client(&self, peer: &InternalPeerID<N::Addr>) -> Option<Client<N>> {
         self.outbound_clients.remove(peer);
 
         self.clients.remove(peer).map(|(_, client)| client)
     }
 
-    /// Borrows a [`Client`] from the pool, the [`Client`] is wrapped in [`ClientPoolDropGuard`] which
+    /// Borrows a [`Client`] from the pool.
+    ///
+    /// The [`Client`] is wrapped in [`ClientPoolDropGuard`] which
     /// will return the client to the pool when it's dropped.
+    ///
+    /// See [`Self::borrow_clients`] for borrowing multiple clients.
     pub fn borrow_client(
         self: &Arc<Self>,
         peer: &InternalPeerID<N::Addr>,
@@ -117,7 +129,9 @@ impl<N: NetworkZone> ClientPool<N> {
 
     /// Borrows multiple [`Client`]s from the pool.
     ///
-    /// The returned iterator is not guaranteed to contain ever peer asked for,
+    /// Note that the returned iterator is not guaranteed to contain every peer asked for.
+    ///
+    /// See [`Self::borrow_client`] for borrowing a single client.
     #[allow(private_interfaces)] // TODO: Remove me when 2024 Rust
     pub fn borrow_clients<'a, 'b>(
         self: &'a Arc<Self>,

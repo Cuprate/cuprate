@@ -1,7 +1,7 @@
 //! # Disconnect Monitor
 //!
 //! This module contains the [`disconnect_monitor`] task, which monitors connected peers for disconnection
-//! and the removes them from the [`ClientPool`] if they do.
+//! and then removes them from the [`ClientPool`] if they do.
 use std::{
     future::Future,
     pin::Pin,

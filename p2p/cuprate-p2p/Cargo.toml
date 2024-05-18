@@ -33,6 +33,4 @@ hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 
 [dev-dependencies]
-cuprate-test-utils = {path = "../../test-utils"}
-tracing-subscriber = { version = "0.3.18" }
-
+cuprate-test-utils = { path = "../../test-utils" }
