@@ -21,7 +21,7 @@ use monero_p2p::{
     ConnectionDirection, NetworkZone,
 };
 
-mod disconnect_monitor;
+pub(crate) mod disconnect_monitor;
 mod drop_guard_client;
 
 pub use drop_guard_client::ClientPoolDropGuard;

@@ -1,14 +1,16 @@
+//! # Sync States
+//!
+//! This module contains a [`PeerSyncSvc`] which keeps track of connected peers claimed chain states,
+//! to allow checking if we are behind and getting a list of peers who claim they are ahead.
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
-    future::{ready, Future, Ready},
-    pin::Pin,
+    future::{ready, Ready},
     task::{Context, Poll},
 };
 
 use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::sync::watch;
-use tokio_util::sync::WaitForCancellationFutureOwned;
 use tower::Service;
 
 use monero_p2p::{
@@ -20,7 +22,7 @@ use monero_p2p::{
 use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
 use monero_wire::CoreSyncData;
 
-use crate::constants::SHORT_BAN;
+use crate::{client_pool::disconnect_monitor::PeerDisconnectFut, constants::SHORT_BAN};
 
 /// The highest claimed sync info from our connected peers.
 #[derive(Debug)]
@@ -77,6 +79,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
         )
     }
 
+    /// This function checks if any peers have disconnected, removing them if they have.
     fn poll_disconnected(&mut self, cx: &mut Context<'_>) {
         while let Poll::Ready(Some(peer_id)) = self.closed_connections.poll_next_unpin(cx) {
             tracing::trace!("Peer {peer_id} disconnected, removing from peers sync info service.");
@@ -183,11 +186,13 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             .or_default()
             .insert(peer_id);
 
+        // If the claimed cumulative difficulty is higher than the current one in the watcher
+        // or if the peer in the watch has disconnected, update it.
         if self.new_height_watcher.borrow().cumulative_difficulty < new_cumulative_difficulty
-            || !self
+            || self
                 .last_peer_in_watcher_handle
                 .as_ref()
-                .is_some_and(|handle| !handle.is_closed())
+                .is_some_and(|handle| handle.is_closed())
         {
             tracing::debug!(
                 "Updating sync watcher channel with new highest seen cumulative difficulty."
@@ -230,25 +235,6 @@ impl<N: NetworkZone> Service<PeerSyncRequest<N>> for PeerSyncSvc<N> {
         };
 
         ready(res)
-    }
-}
-
-#[pin_project::pin_project]
-struct PeerDisconnectFut<N: NetworkZone> {
-    #[pin]
-    closed_fut: WaitForCancellationFutureOwned,
-    peer_id: Option<InternalPeerID<N::Addr>>,
-}
-
-impl<N: NetworkZone> Future for PeerDisconnectFut<N> {
-    type Output = InternalPeerID<N::Addr>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let this = self.project();
-
-        this.closed_fut
-            .poll(cx)
-            .map(|_| this.peer_id.take().unwrap())
     }
 }
 
