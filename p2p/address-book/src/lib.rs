@@ -2,7 +2,7 @@
 //!
 //! This module holds the logic for persistent peer storage.
 //! Cuprates address book is modeled as a [`tower::Service`]
-//! The request is [`AddressBookRequest`] and the response is
+//! The request is [`AddressBookRequest`](monero_p2p::services::AddressBookRequest) and the response is
 //! [`AddressBookResponse`](monero_p2p::services::AddressBookResponse).
 //!
 //! Cuprate, like monerod, actually has multiple address books, one
