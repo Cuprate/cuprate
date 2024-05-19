@@ -1,7 +1,7 @@
 //! # Inbound Server
 //!
 //! This module contains the inbound connection server, which listens for inbound connections, gives
-//! them to the handshake service and then adds them to the client pool.
+//! them to the handshaker service and then adds them to the client pool.
 use std::{pin::pin, sync::Arc};
 
 use futures::StreamExt;
@@ -12,18 +12,19 @@ use monero_p2p::{
 use tokio::time::sleep;
 use tokio::{sync::Semaphore, time::timeout};
 use tower::{Service, ServiceExt};
-use tracing::instrument;
+use tracing::{instrument, Instrument, Span};
 
 use crate::constants::INBOUND_CONNECTION_COOL_DOWN;
 use crate::{client_pool::ClientPool, constants::HANDSHAKE_TIMEOUT, P2PConfig};
 
 #[instrument(level = "info", skip_all)]
-pub async fn inbound_server<N: NetworkZone, HS>(
+pub async fn inbound_server<N, HS>(
     client_pool: Arc<ClientPool<N>>,
     mut handshaker: HS,
     config: P2PConfig<N>,
 ) -> Result<(), tower::BoxError>
 where
+    N: NetworkZone,
     HS: Service<DoHandshakeRequest<N>, Response = Client<N>, Error = HandshakeError>
         + Send
         + 'static,
@@ -67,11 +68,14 @@ where
 
             let cloned_pool = client_pool.clone();
 
-            tokio::spawn(async move {
-                if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, fut).await {
-                    cloned_pool.add_new_client(peer);
+            tokio::spawn(
+                async move {
+                    if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, fut).await {
+                        cloned_pool.add_new_client(peer);
+                    }
                 }
-            });
+                .instrument(Span::current()),
+            );
         } else {
             tracing::debug!("No permit free for incoming connection.");
             // TODO: listen for if the peer is just trying to ping us to see if we are reachable.

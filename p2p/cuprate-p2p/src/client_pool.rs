@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use dashmap::{DashMap, DashSet};
 use tokio::sync::mpsc;
+use tracing::{Instrument, Span};
 
 use monero_p2p::{
     client::{Client, InternalPeerID},
@@ -37,7 +38,6 @@ pub struct ClientPool<N: NetworkZone> {
     /// by another thread. However, if the peer is in both here and `clients` it is definitely
     /// an outbound peer.
     outbound_clients: DashSet<InternalPeerID<N::Addr>>,
-
     /// A channel to send new peer ids down to monitor for disconnect.
     new_connection_tx: mpsc::UnboundedSender<(ConnectionHandle, InternalPeerID<N::Addr>)>,
 }
@@ -53,7 +53,9 @@ impl<N: NetworkZone> ClientPool<N> {
             new_connection_tx: tx,
         });
 
-        tokio::spawn(disconnect_monitor::disconnect_monitor(rx, pool.clone()));
+        tokio::spawn(
+            disconnect_monitor::disconnect_monitor(rx, pool.clone()).instrument(Span::current()),
+        );
 
         pool
     }

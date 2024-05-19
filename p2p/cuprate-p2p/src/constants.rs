@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 /// The timeout we set on handshakes.
-pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
+pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// The maximum amount of connections to make to seed nodes for when we need peers.
 pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;

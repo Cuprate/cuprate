@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
 use tower::buffer::Buffer;
-use tracing::instrument;
+use tracing::{instrument, Instrument, Span};
 
 use monero_p2p::{CoreSyncSvc, NetworkZone, PeerRequestHandler};
 
@@ -21,7 +21,13 @@ use crate::connection_maintainer::MakeConnectionRequest;
 pub use config::P2PConfig;
 use monero_p2p::client::Connector;
 
-#[instrument(level="warn", name="net", skip_all, fields(zone=N::NAME))]
+/// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
+///
+/// This function starts all the tasks to maintain connections/ accept connections/ make connections.
+///
+/// To use you must provide, a peer request handler, which is given to each connection  and a core sync service
+/// which keeps track of the sync state of our node.
+#[instrument(level="debug", name="net", skip_all, fields(zone=N::NAME))]
 pub async fn initialize_network<N, R, CS>(
     peer_req_handler: R,
     core_sync_svc: CS,
@@ -88,12 +94,15 @@ where
         outbound_connector,
     );
 
-    tokio::spawn(outbound_connection_maintainer.run());
-    tokio::spawn(inbound_server::inbound_server(
-        client_pool.clone(),
-        inbound_handshaker,
-        config,
-    ));
+    tokio::spawn(
+        outbound_connection_maintainer
+            .run()
+            .instrument(Span::current()),
+    );
+    tokio::spawn(
+        inbound_server::inbound_server(client_pool.clone(), inbound_handshaker, config)
+            .instrument(Span::current()),
+    );
 
     Ok(NetworkInterface {
         pool: client_pool,
