@@ -28,11 +28,11 @@ use crate::{client_pool::disconnect_monitor::PeerDisconnectFut, constants::SHORT
 #[derive(Debug)]
 pub struct NewSyncInfo {
     /// The peers chain height.
-    chain_height: u64,
+    pub chain_height: u64,
     /// The peers top block's hash.
-    top_hash: [u8; 32],
+    pub top_hash: [u8; 32],
     /// The peers cumulative difficulty.
-    cumulative_difficulty: u128,
+    pub cumulative_difficulty: u128,
 }
 
 /// A service that keeps track of our peers blockchains.

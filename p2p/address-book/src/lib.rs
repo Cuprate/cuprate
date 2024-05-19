@@ -65,7 +65,7 @@ pub enum AddressBookError {
 /// Initializes the P2P address book for a specific network zone.
 pub async fn init_address_book<Z: NetworkZone>(
     cfg: AddressBookConfig,
-) -> Result<Buffer<book::AddressBook<Z>, AddressBookRequest<Z>>, std::io::Error> {
+) -> Result<book::AddressBook<Z>, std::io::Error> {
     tracing::info!(
         "Loading peers from file: {} ",
         cfg.peer_store_file.display()
@@ -82,5 +82,5 @@ pub async fn init_address_book<Z: NetworkZone>(
 
     let address_book = book::AddressBook::<Z>::new(cfg, white_list, gray_list, Vec::new());
 
-    Ok(Buffer::new(address_book, 150))
+    Ok(address_book)
 }

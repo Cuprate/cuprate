@@ -60,7 +60,7 @@ pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
     /// we add a permit to the semaphore and keep track here, upto a value in config.
     pub extra_peers: usize,
     /// The p2p config.
-    pub config: P2PConfig,
+    pub config: P2PConfig<N>,
     /// The [`Bernoulli`] distribution, when sampled will return true if we should connect to a gray peer or
     /// false if we should connect to a white peer.
     ///
@@ -76,7 +76,7 @@ where
     C::Future: Send + 'static,
 {
     pub fn new(
-        config: P2PConfig,
+        config: P2PConfig<N>,
         client_pool: Arc<ClientPool<N>>,
         make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
         address_book_svc: A,
