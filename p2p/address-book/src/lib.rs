@@ -13,9 +13,7 @@
 //!
 use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
-use tower::buffer::Buffer;
-
-use monero_p2p::{services::AddressBookRequest, NetworkZone};
+use monero_p2p::NetworkZone;
 
 mod book;
 mod peer_list;

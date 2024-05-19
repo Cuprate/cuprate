@@ -29,3 +29,9 @@ pub(crate) const MAX_TXS_IN_BROADCAST_CHANNEL: usize = 50;
 
 /// The durations of a short ban.
 pub(crate) const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
+
+/// The time to sleep after an inbound connection comes in.
+///
+/// This is a safety measure to prevent Cuprate from getting spammed with a load of inbound connections.
+/// TODO: it might be a good idea to make this configurable.
+pub(crate) const INBOUND_CONNECTION_COOL_DOWN: Duration = Duration::from_millis(750);

@@ -130,11 +130,11 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
     /// The sink (outgoing data) type for this network.
     type Sink: Sink<LevinMessage<Message>, Error = BucketError> + Unpin + Send + 'static;
     /// The inbound connection listener for this network.
-    type Listener: Stream<
-        Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>,
-    >;
+    type Listener: Stream<Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>>
+        + Send
+        + 'static;
     /// Config used to start a server which listens for incoming connections.
-    type ServerCfg;
+    type ServerCfg: Clone + Debug + Send + 'static;
 
     async fn connect_to_peer(
         addr: Self::Addr,
@@ -142,6 +142,7 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
 
     async fn incoming_connection_listener(
         config: Self::ServerCfg,
+        port: u16,
     ) -> Result<Self::Listener, std::io::Error>;
 }
 
