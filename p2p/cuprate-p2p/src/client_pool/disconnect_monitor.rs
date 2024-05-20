@@ -24,7 +24,7 @@ pub async fn disconnect_monitor<N: NetworkZone>(
     mut new_connection_rx: mpsc::UnboundedReceiver<(ConnectionHandle, InternalPeerID<N::Addr>)>,
     client_pool: Arc<ClientPool<N>>,
 ) {
-    // We need to hold a weak reference otherwise the client pool and this would cause a circular reference
+    // We need to hold a weak reference otherwise the client pool and this would be a circular reference
     // which means the pool would be leaked.
     let weak_client_pool = Arc::downgrade(&client_pool);
     drop(client_pool);
