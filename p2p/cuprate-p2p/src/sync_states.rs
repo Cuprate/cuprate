@@ -1,7 +1,7 @@
 //! # Sync States
 //!
-//! This module contains a [`PeerSyncSvc`] which keeps track of connected peers claimed chain states,
-//! to allow checking if we are behind and getting a list of peers who claim they are ahead.
+//! This module contains a [`PeerSyncSvc`], which keeps track of the claimed chain states of connected peers.
+//! This allows checking if we are behind and getting a list of peers who claim they are ahead.
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
@@ -37,8 +37,9 @@ pub struct NewSyncInfo {
 
 /// A service that keeps track of our peers blockchains.
 ///
-/// This is the service that handles finding out if we need to sync and giving the peers that should
-/// be synced from to the requester.
+/// This is the service that handles:
+/// 1. Finding out if we need to sync
+/// 1. Giving the peers that should be synced _from_, to the requester
 pub struct PeerSyncSvc<N: NetworkZone> {
     /// A map of cumulative difficulties to peers.
     cumulative_difficulties: BTreeMap<u128, HashSet<InternalPeerID<N::Addr>>>,
@@ -195,7 +196,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
                 .is_some_and(|handle| handle.is_closed())
         {
             tracing::debug!(
-                "Updating sync watcher channel with new highest seen cumulative difficulty."
+                "Updating sync watcher channel with new highest seen cumulative difficulty: {new_cumulative_difficulty}"
             );
             let _ = self.new_height_watcher.send(NewSyncInfo {
                 top_hash: core_sync_data.top_id,
