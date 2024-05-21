@@ -46,9 +46,6 @@ pub struct PeerSyncSvc<N: NetworkZone> {
     /// A map of peers to cumulative difficulties.
     peers: HashMap<InternalPeerID<N::Addr>, (u128, PruningSeed)>,
     /// A watch channel for *a* top synced peer info.
-    ///
-    /// This is guaranteed to hold the sync info of a peer with the highest cumulative difficulty seen,
-    /// this makes no guarantees about which peer will be chosen in case of a tie.
     new_height_watcher: watch::Sender<NewSyncInfo>,
     /// The handle to the peer that has data in `new_height_watcher`.
     last_peer_in_watcher_handle: Option<ConnectionHandle>,
@@ -58,7 +55,7 @@ pub struct PeerSyncSvc<N: NetworkZone> {
 
 impl<N: NetworkZone> PeerSyncSvc<N> {
     /// Creates a new [`PeerSyncSvc`] with a [`Receiver`](watch::Receiver) that will be updated with
-    /// the highest seen sync data.
+    /// the highest seen sync data, this makes no guarantees about which peer will be chosen in case of a tie.
     pub fn new() -> (Self, watch::Receiver<NewSyncInfo>) {
         let (watch_tx, mut watch_rx) = watch::channel(NewSyncInfo {
             chain_height: 0,
