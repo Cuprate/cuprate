@@ -34,7 +34,7 @@ use crate::constants::{
 };
 
 /// The configuration for the [`BroadcastSvc`].
-#[derive(Debug, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BroadcastConfig {
     /// The average number of seconds between diffusion flushes for outbound connections.
     pub diffusion_flush_average_seconds_outbound: Duration,
@@ -58,7 +58,7 @@ impl Default for BroadcastConfig {
 /// - A function that takes in [`InternalPeerID`]s and produces [`BroadcastMessageStream`]s to give to **outbound** peers.
 /// - A function that takes in [`InternalPeerID`]s and produces [`BroadcastMessageStream`]s to give to **inbound** peers.
 pub fn init_broadcast_channels<N: NetworkZone>(
-    config: &BroadcastConfig,
+    config: BroadcastConfig,
 ) -> (
     BroadcastSvc<N>,
     impl Fn(InternalPeerID<N::Addr>) -> BroadcastMessageStream<N> + Clone + Send + 'static,
@@ -173,8 +173,7 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
                 current_blockchain_height,
             } => {
                 tracing::debug!(
-                    "queuing block at chain height {} for broadcast",
-                    current_blockchain_height
+                    "queuing block at chain height {current_blockchain_height} for broadcast"
                 );
 
                 self.new_block_watch.send_replace(NewBlockInfo {
@@ -381,8 +380,7 @@ fn get_txs_to_broadcast<N: NetworkZone>(
                 }
                 TryRecvError::Lagged(lag) => {
                     tracing::debug!(
-                        "{} transaction broadcast messages were missed, continuing.",
-                        lag
+                        "{lag} transaction broadcast messages were missed, continuing."
                     );
                     continue;
                 }
