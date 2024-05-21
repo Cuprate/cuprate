@@ -95,9 +95,9 @@ pub fn init_broadcast_channels<N: NetworkZone>(
 
     // wrap the tx broadcast channels in a wrapper that impls Clone so the closures later on impl clone.
     let tx_channel_outbound_receiver_wrapped =
-        CloneableBroadcastRecover(tx_broadcast_channel_outbound_receiver);
+        CloneableBroadcastReceiver(tx_broadcast_channel_outbound_receiver);
     let tx_channel_inbound_receiver_wrapped =
-        CloneableBroadcastRecover(tx_broadcast_channel_inbound_receiver);
+        CloneableBroadcastReceiver(tx_broadcast_channel_inbound_receiver);
 
     // Create the closures that will be used to start the broadcast streams that the connection task will hold to listen
     // for messages to broadcast.
@@ -191,6 +191,7 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
                     received_from,
                 };
 
+                // An error here means _all_ receivers were dropped which we assume will never happen.
                 let _ = match direction {
                     Some(ConnectionDirection::InBound) => {
                         self.tx_broadcast_channel_inbound.send(nex_tx_info)
@@ -214,9 +215,9 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
 ///
 /// The clone impl just calls [`Receiver::resubscribe`](broadcast::Receiver::resubscribe), which isn't _exactly_
 /// a clone but is what we need for our use case.
-struct CloneableBroadcastRecover<T: Clone>(broadcast::Receiver<T>);
+struct CloneableBroadcastReceiver<T: Clone>(broadcast::Receiver<T>);
 
-impl<T: Clone> Clone for CloneableBroadcastRecover<T> {
+impl<T: Clone> Clone for CloneableBroadcastReceiver<T> {
     fn clone(&self) -> Self {
         Self(self.0.resubscribe())
     }
@@ -411,7 +412,7 @@ mod tests {
     #[tokio::test]
     async fn tx_broadcast_direction_correct() {
         let (mut brcst, outbound_mkr, inbound_mkr) =
-            init_broadcast_channels::<TestNetZone<true, true, true>>(&TEST_CONFIG);
+            init_broadcast_channels::<TestNetZone<true, true, true>>(TEST_CONFIG);
 
         let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
         let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
@@ -470,7 +471,7 @@ mod tests {
     #[tokio::test]
     async fn block_broadcast_sent_to_all() {
         let (mut brcst, outbound_mkr, inbound_mkr) =
-            init_broadcast_channels::<TestNetZone<true, true, true>>(&TEST_CONFIG);
+            init_broadcast_channels::<TestNetZone<true, true, true>>(TEST_CONFIG);
 
         let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
         let mut inbound_stream = pin!(inbound_mkr(InternalPeerID::Unknown(1)));
@@ -496,7 +497,7 @@ mod tests {
     #[tokio::test]
     async fn tx_broadcast_skipped_for_received_from_peer() {
         let (mut brcst, outbound_mkr, inbound_mkr) =
-            init_broadcast_channels::<TestNetZone<true, true, true>>(&TEST_CONFIG);
+            init_broadcast_channels::<TestNetZone<true, true, true>>(TEST_CONFIG);
 
         let mut outbound_stream = pin!(outbound_mkr(InternalPeerID::Unknown(1)));
         let mut outbound_stream_from = pin!(outbound_mkr(InternalPeerID::Unknown(0)));

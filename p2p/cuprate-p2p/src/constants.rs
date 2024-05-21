@@ -13,16 +13,26 @@ pub(crate) const OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_
 pub(crate) const DIFFUSION_FLUSH_AVERAGE_SECONDS_INBOUND: Duration = Duration::from_secs(5);
 
 /// The default amount of time between outbound diffusion flushes.
-///
-/// Shorter than inbound as we control these connections.
 pub(crate) const DIFFUSION_FLUSH_AVERAGE_SECONDS_OUTBOUND: Duration = Duration::from_millis(2500);
 
 /// This size limit on [`NewTransactions`](monero_wire::protocol::NewTransactions) messages that we create.
 pub(crate) const SOFT_TX_MESSAGE_SIZE_SIZE_LIMIT: usize = 10 * 1024 * 1024;
 
-/// The amount of transactions in the broadcast queue. When this value is hit old transactions will be dropped from
+/// The amount of transactions in the broadcast queue. When this value is hit, old transactions will be dropped from
 /// the queue.
 ///
-/// Because of internal implementation details this value is _always_ hit, i.e. transactions will not be dropped until
-/// 50 more after it are added.
+/// Because of internal implementation details this value is _always_ hit, i.e. a transaction will not be dropped until
+/// 50 more transactions after it are added to the queue.
 pub(crate) const MAX_TXS_IN_BROADCAST_CHANNEL: usize = 50;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Outbound diffusion flushes should be shorter than
+    /// inbound ones as we control these connections.
+    #[test]
+    fn outbound_diffusion_flush_shorter_than_inbound() {
+        assert!(DIFFUSION_FLUSH_AVERAGE_SECONDS_OUTBOUND < DIFFUSION_FLUSH_AVERAGE_SECONDS_INBOUND);
+    }
+}
