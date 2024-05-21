@@ -86,12 +86,12 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             tracing::trace!("Peer {peer_id} disconnected, removing from peers sync info service.");
             let (peer_cum_diff, _) = self.peers.remove(&peer_id).unwrap();
 
-            let cum_dif_peers = self
+            let cum_diff_peers = self
                 .cumulative_difficulties
                 .get_mut(&peer_cum_diff)
                 .unwrap();
-            cum_dif_peers.remove(&peer_id);
-            if cum_dif_peers.is_empty() {
+            cum_diff_peers.remove(&peer_id);
+            if cum_diff_peers.is_empty() {
                 // If this was the last peer remove the whole entry for this cumulative difficulty.
                 self.cumulative_difficulties.remove(&peer_cum_diff);
             }
@@ -157,9 +157,9 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             }
 
             // Remove the old cumulative difficulty entry for this peer
-            let old_cum_dif_peers = self.cumulative_difficulties.get_mut(old_cum_dif).unwrap();
-            old_cum_dif_peers.remove(&peer_id);
-            if old_cum_dif_peers.is_empty() {
+            let old_cum_diff_peers = self.cumulative_difficulties.get_mut(old_cum_dif).unwrap();
+            old_cum_diff_peers.remove(&peer_id);
+            if old_cum_diff_peers.is_empty() {
                 // If this was the last peer remove the whole entry for this cumulative difficulty.
                 self.cumulative_difficulties.remove(old_cum_dif);
             }
