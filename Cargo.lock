@@ -99,16 +99,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "async-buffer"
-version = "0.1.0"
-dependencies = [
- "futures",
- "pin-project",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "async-lock"
 version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
