@@ -126,7 +126,7 @@ impl PruningSeed {
         }
     }
 
-    /// Returns if a peer with this pruning seed should have a non-pruned version of a block.
+    /// Returns `true` if a peer with this pruning seed should have a non-pruned version of a block.
     pub fn has_full_block(&self, height: u64, blockchain_height: u64) -> bool {
         match self {
             PruningSeed::NotPruned => true,
