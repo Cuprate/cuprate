@@ -5,19 +5,26 @@
 use std::{pin::pin, sync::Arc};
 
 use futures::StreamExt;
+use tokio::{
+    sync::Semaphore,
+    time::{sleep, timeout},
+};
+use tower::{Service, ServiceExt};
+use tracing::{instrument, Instrument, Span};
+
 use monero_p2p::{
     client::{Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
     ConnectionDirection, NetworkZone,
 };
-use tokio::time::sleep;
-use tokio::{sync::Semaphore, time::timeout};
-use tower::{Service, ServiceExt};
-use tracing::{instrument, Instrument, Span};
 
-use crate::constants::INBOUND_CONNECTION_COOL_DOWN;
-use crate::{client_pool::ClientPool, constants::HANDSHAKE_TIMEOUT, P2PConfig};
+use crate::{
+    client_pool::ClientPool,
+    constants::{HANDSHAKE_TIMEOUT, INBOUND_CONNECTION_COOL_DOWN},
+    P2PConfig,
+};
 
-#[instrument(level = "info", skip_all)]
+/// The inbound server.
+#[instrument(level = "warn", skip_all)]
 pub async fn inbound_server<N, HS>(
     client_pool: Arc<ClientPool<N>>,
     mut handshaker: HS,
@@ -34,6 +41,9 @@ where
         tracing::warn!("No inbound server config provided, not listening for inbound connections.");
         return Ok(());
     };
+
+    // TODO: take in the address book and check if incoming peers are banned before adding them to our
+    // connections.
 
     tracing::info!("Starting inbound connection server");
 

@@ -1,12 +1,12 @@
 use cuprate_helper::network::Network;
 use monero_address_book::AddressBookConfig;
 use monero_p2p::NetworkZone;
-use monero_wire::common::PeerSupportFlags;
-use monero_wire::BasicNodeData;
+use monero_wire::{common::PeerSupportFlags, BasicNodeData};
 
 /// P2P config.
 #[derive(Clone, Debug)]
 pub struct P2PConfig<N: NetworkZone> {
+    /// The [`Network`] we should connect to.
     pub network: Network,
 
     /// The number of outbound connections to make and try keep.
@@ -29,6 +29,7 @@ pub struct P2PConfig<N: NetworkZone> {
     /// The public RPC port to tell peers about so wallets can use our node. `0` if we do not have a public RPC port.
     pub rpc_port: u16,
 
+    /// The [`AddressBookConfig`].
     pub address_book_config: AddressBookConfig,
 }
 
@@ -36,7 +37,7 @@ impl<N: NetworkZone> P2PConfig<N> {
     /// Returns the [`BasicNodeData`] for this [`P2PConfig`].
     ///
     /// [`BasicNodeData::peer_id`] is set to a random u64, so this function should only be called once
-    /// per [`NetworkZone`].
+    /// per [`NetworkZone`] per run.
     pub(crate) fn basic_node_data(&self) -> BasicNodeData {
         BasicNodeData {
             my_port: self.p2p_port as u32,
