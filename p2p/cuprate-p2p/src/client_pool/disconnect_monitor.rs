@@ -51,12 +51,12 @@ pub async fn disconnect_monitor<N: NetworkZone>(
 
 /// A [`Future`] that resolves when a peer disconnects.
 #[pin_project::pin_project]
-struct PeerDisconnectFut<N: NetworkZone> {
+pub(crate) struct PeerDisconnectFut<N: NetworkZone> {
     /// The inner [`Future`] that resolves when a peer disconnects.
     #[pin]
-    closed_fut: WaitForCancellationFutureOwned,
+    pub(crate) closed_fut: WaitForCancellationFutureOwned,
     /// The peers ID.
-    peer_id: Option<InternalPeerID<N::Addr>>,
+    pub(crate) peer_id: Option<InternalPeerID<N::Addr>>,
 }
 
 impl<N: NetworkZone> Future for PeerDisconnectFut<N> {

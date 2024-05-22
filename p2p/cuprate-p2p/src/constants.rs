@@ -9,6 +9,9 @@ pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
 /// The timeout for when we fail to find a peer to connect to.
 pub(crate) const OUTBOUND_CONNECTION_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// The durations of a short ban.
+pub(crate) const SHORT_BAN: Duration = Duration::from_secs(60 * 10);
+
 /// The default amount of time between inbound diffusion flushes.
 pub(crate) const DIFFUSION_FLUSH_AVERAGE_SECONDS_INBOUND: Duration = Duration::from_secs(5);
 
