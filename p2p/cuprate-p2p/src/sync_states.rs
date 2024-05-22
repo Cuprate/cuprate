@@ -1,7 +1,7 @@
 //! # Sync States
 //!
-//! This module contains a [`PeerSyncSvc`] which keeps track of connected peers claimed chain states,
-//! to allow checking if we are behind and getting a list of peers who claim they are ahead.
+//! This module contains a [`PeerSyncSvc`], which keeps track of the claimed chain states of connected peers.
+//! This allows checking if we are behind and getting a list of peers who claim they are ahead.
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
@@ -28,26 +28,24 @@ use crate::{client_pool::disconnect_monitor::PeerDisconnectFut, constants::SHORT
 #[derive(Debug)]
 pub struct NewSyncInfo {
     /// The peers chain height.
-    pub chain_height: u64,
+    chain_height: u64,
     /// The peers top block's hash.
-    pub top_hash: [u8; 32],
+    top_hash: [u8; 32],
     /// The peers cumulative difficulty.
-    pub cumulative_difficulty: u128,
+    cumulative_difficulty: u128,
 }
 
 /// A service that keeps track of our peers blockchains.
 ///
-/// This is the service that handles finding out if we need to sync and giving the peers that should
-/// be synced from to the requester.
+/// This is the service that handles:
+/// 1. Finding out if we need to sync
+/// 1. Giving the peers that should be synced _from_, to the requester
 pub struct PeerSyncSvc<N: NetworkZone> {
     /// A map of cumulative difficulties to peers.
     cumulative_difficulties: BTreeMap<u128, HashSet<InternalPeerID<N::Addr>>>,
     /// A map of peers to cumulative difficulties.
     peers: HashMap<InternalPeerID<N::Addr>, (u128, PruningSeed)>,
     /// A watch channel for *a* top synced peer info.
-    ///
-    /// This is guaranteed to hold the sync info of a peer with the highest cumulative difficulty seen,
-    /// this makes no guarantees about which peer will be chosen in case of a tie.
     new_height_watcher: watch::Sender<NewSyncInfo>,
     /// The handle to the peer that has data in `new_height_watcher`.
     last_peer_in_watcher_handle: Option<ConnectionHandle>,
@@ -57,7 +55,7 @@ pub struct PeerSyncSvc<N: NetworkZone> {
 
 impl<N: NetworkZone> PeerSyncSvc<N> {
     /// Creates a new [`PeerSyncSvc`] with a [`Receiver`](watch::Receiver) that will be updated with
-    /// the highest seen sync data.
+    /// the highest seen sync data, this makes no guarantees about which peer will be chosen in case of a tie.
     pub fn new() -> (Self, watch::Receiver<NewSyncInfo>) {
         let (watch_tx, mut watch_rx) = watch::channel(NewSyncInfo {
             chain_height: 0,
@@ -85,26 +83,26 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             tracing::trace!("Peer {peer_id} disconnected, removing from peers sync info service.");
             let (peer_cum_diff, _) = self.peers.remove(&peer_id).unwrap();
 
-            let cum_dif_peers = self
+            let cum_diff_peers = self
                 .cumulative_difficulties
                 .get_mut(&peer_cum_diff)
                 .unwrap();
-            cum_dif_peers.remove(&peer_id);
-            if cum_dif_peers.is_empty() {
+            cum_diff_peers.remove(&peer_id);
+            if cum_diff_peers.is_empty() {
                 // If this was the last peer remove the whole entry for this cumulative difficulty.
                 self.cumulative_difficulties.remove(&peer_cum_diff);
             }
         }
     }
 
-    /// Returns a list of peers that claim to have a higher cumulative difficulty than `current_cum_dif`.
+    /// Returns a list of peers that claim to have a higher cumulative difficulty than `current_cum_diff`.
     fn peers_to_sync_from(
         &self,
-        current_cum_dif: u128,
+        current_cum_diff: u128,
         block_needed: Option<u64>,
     ) -> Vec<InternalPeerID<N::Addr>> {
         self.cumulative_difficulties
-            .range((current_cum_dif + 1)..)
+            .range((current_cum_diff + 1)..)
             .flat_map(|(_, peers)| peers)
             .filter(|peer| {
                 if let Some(block_needed) = block_needed {
@@ -137,8 +135,8 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
 
         let new_cumulative_difficulty = core_sync_data.cumulative_difficulty();
 
-        if let Some((old_cum_dif, _)) = self.peers.get_mut(&peer_id) {
-            match (*old_cum_dif).cmp(&new_cumulative_difficulty) {
+        if let Some((old_cum_diff, _)) = self.peers.get_mut(&peer_id) {
+            match (*old_cum_diff).cmp(&new_cumulative_difficulty) {
                 Ordering::Equal => {
                     // If the cumulative difficulty of the peers chain hasn't changed then no need to update anything.
                     return Ok(());
@@ -156,14 +154,14 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             }
 
             // Remove the old cumulative difficulty entry for this peer
-            let old_cum_dif_peers = self.cumulative_difficulties.get_mut(old_cum_dif).unwrap();
-            old_cum_dif_peers.remove(&peer_id);
-            if old_cum_dif_peers.is_empty() {
+            let old_cum_diff_peers = self.cumulative_difficulties.get_mut(old_cum_diff).unwrap();
+            old_cum_diff_peers.remove(&peer_id);
+            if old_cum_diff_peers.is_empty() {
                 // If this was the last peer remove the whole entry for this cumulative difficulty.
-                self.cumulative_difficulties.remove(old_cum_dif);
+                self.cumulative_difficulties.remove(old_cum_diff);
             }
             // update the cumulative difficulty
-            *old_cum_dif = new_cumulative_difficulty;
+            *old_cum_diff = new_cumulative_difficulty;
         } else {
             // The peer is new so add it the list of peers.
             self.peers.insert(
@@ -195,7 +193,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
                 .is_some_and(|handle| handle.is_closed())
         {
             tracing::debug!(
-                "Updating sync watcher channel with new highest seen cumulative difficulty."
+                "Updating sync watcher channel with new highest seen cumulative difficulty: {new_cumulative_difficulty}"
             );
             let _ = self.new_height_watcher.send(NewSyncInfo {
                 top_hash: core_sync_data.top_id,
