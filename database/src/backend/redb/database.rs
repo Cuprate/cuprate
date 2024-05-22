@@ -1,12 +1,7 @@
 //! Implementation of `trait DatabaseR{o,w}` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::{Borrow, Cow},
-    fmt::Debug,
-    marker::PhantomData,
-    ops::{Bound, Deref, RangeBounds},
-};
+use std::ops::RangeBounds;
 
 use redb::ReadableTable;
 
@@ -17,7 +12,6 @@ use crate::{
     },
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::RuntimeError,
-    storable::Storable,
     table::Table,
 };
 
@@ -118,7 +112,8 @@ impl<T: Table + 'static> DatabaseIter<T> for RedbTableRo<T::Key, T::Value> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
+// SAFETY: Both `redb`'s transaction and table types are `Send + Sync`.
+unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)
@@ -146,7 +141,8 @@ impl<T: Table + 'static> DatabaseRo<T> for RedbTableRo<T::Key, T::Value> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw
-impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
+// SAFETY: Both `redb`'s transaction and table types are `Send + Sync`.
+unsafe impl<T: Table + 'static> DatabaseRo<T> for RedbTableRw<'_, T::Key, T::Value> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(self, key)
@@ -186,6 +182,15 @@ impl<T: Table + 'static> DatabaseRw<T> for RedbTableRw<'_, T::Key, T::Value> {
     fn delete(&mut self, key: &T::Key) -> Result<(), RuntimeError> {
         redb::Table::remove(self, key)?;
         Ok(())
+    }
+
+    #[inline]
+    fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+        if let Some(value) = redb::Table::remove(self, key)? {
+            Ok(value.value())
+        } else {
+            Err(RuntimeError::KeyNotFound)
+        }
     }
 
     #[inline]

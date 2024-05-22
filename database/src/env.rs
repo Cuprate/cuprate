@@ -1,7 +1,7 @@
 //! Abstracted database environment; `trait Env`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{fmt::Debug, ops::Deref};
+use std::num::NonZeroUsize;
 
 use crate::{
     config::Config,
@@ -9,6 +9,7 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
+    tables::{call_fn_on_all_tables_or_early_return, TablesIter, TablesMut},
     transaction::{TxRo, TxRw},
 };
 
@@ -23,8 +24,16 @@ use crate::{
 /// although, no invariant relies on this (yet).
 ///
 /// # Lifetimes
-/// TODO: Explain the very sequential lifetime pipeline:
-/// - `ConcreteEnv` -> `'env` -> `'tx` -> `impl DatabaseR{o,w}`
+/// The lifetimes associated with `Env` have a sequential flow:
+/// 1. `ConcreteEnv`
+/// 2. `'env`
+/// 3. `'tx`
+/// 4. `'db`
+///
+/// As in:
+/// - open database tables only live as long as...
+/// - transactions which only live as long as the...
+/// - environment ([`EnvInner`])
 pub trait Env: Sized {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
@@ -32,7 +41,7 @@ pub trait Env: Sized {
     ///
     /// # Invariant
     /// If this is `false`, that means this [`Env`]
-    /// can _never_ return a [`RuntimeError::ResizeNeeded`].
+    /// must _never_ return a [`RuntimeError::ResizeNeeded`].
     ///
     /// If this is `true`, [`Env::resize_map`] & [`Env::current_map_size`]
     /// _must_ be re-implemented, as it just panics by default.
@@ -50,10 +59,10 @@ pub trait Env: Sized {
     /// This is used as the `self` in [`EnvInner`] functions, so whatever
     /// this type is, is what will be accessible from those functions.
     ///
-    /// # Explanation (not needed for practical use)
-    /// For `heed`, this is just `heed::Env`, for `redb` this is
-    /// `(redb::Database, redb::Durability)` as each transaction
-    /// needs the sync mode set during creation.
+    // # HACK
+    // For `heed`, this is just `heed::Env`, for `redb` this is
+    // `(redb::Database, redb::Durability)` as each transaction
+    // needs the sync mode set during creation.
     type EnvInner<'env>: EnvInner<'env, Self::TxRo<'env>, Self::TxRw<'env>>
     where
         Self: 'env;
@@ -95,11 +104,11 @@ pub trait Env: Sized {
     /// I.e., after this function returns, there must be no doubts
     /// that the data isn't synced yet, it _must_ be synced.
     ///
-    /// TODO: either this invariant or `sync()` itself will most
-    /// likely be removed/changed after `SyncMode` is finalized.
+    // FIXME: either this invariant or `sync()` itself will most
+    // likely be removed/changed after `SyncMode` is finalized.
     ///
     /// # Errors
-    /// TODO
+    /// If there is a synchronization error, this should return an error.
     fn sync(&self) -> Result<(), RuntimeError>;
 
     /// Resize the database's memory map to a
@@ -109,11 +118,14 @@ pub trait Env: Sized {
     ///
     /// If `resize_algorithm` is `Some`, that will be used instead.
     ///
+    /// This function returns the _new_ memory map size in bytes.
+    ///
     /// # Invariant
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
-    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) {
+    #[allow(unused_variables)]
+    fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         unreachable!()
     }
 
@@ -164,7 +176,26 @@ pub trait Env: Sized {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-/// TODO
+/// Document errors when opening tables in [`EnvInner`].
+macro_rules! doc_table_error {
+    () => {
+        r"# Errors
+This will only return [`RuntimeError::Io`] if it errors.
+
+As all tables are created upon [`Env::open`],
+this function will never error because a table doesn't exist."
+    };
+}
+
+/// The inner [`Env`] type.
+///
+/// This type is created with [`Env::env_inner`] and represents
+/// the type able to generate transactions and open tables.
+///
+/// # Locking behavior
+/// As noted in `Env::env_inner`, this is a `RwLockReadGuard`
+/// when using the `heed` backend, be aware of this and do
+/// not hold onto an `EnvInner` for a long time.
 pub trait EnvInner<'env, Ro, Rw>
 where
     Self: 'env,
@@ -185,6 +216,9 @@ where
 
     /// Open a database in read-only mode.
     ///
+    /// The returned value can have [`DatabaseRo`]
+    /// & [`DatabaseIter`] functions called on it.
+    ///
     /// This will open the database [`Table`]
     /// passed as a generic to this function.
     ///
@@ -195,12 +229,7 @@ where
     /// //                      (name, key/value type)
     /// ```
     ///
-    /// # Errors
-    /// This function errors upon internal database/IO errors.
-    ///
-    /// As [`Table`] is `Sealed`, and all tables are created
-    /// upon [`Env::open`], this function will never error because
-    /// a table doesn't exist.
+    #[doc = doc_table_error!()]
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Ro,
@@ -211,16 +240,38 @@ where
     /// All [`DatabaseRo`] functions are also callable
     /// with the returned [`DatabaseRw`] structure.
     ///
+    /// Note that [`DatabaseIter`] functions are _not_
+    /// available to [`DatabaseRw`] structures.
+    ///
     /// This will open the database [`Table`]
     /// passed as a generic to this function.
     ///
-    /// # Errors
-    /// This function errors upon internal database/IO errors.
-    ///
-    /// As [`Table`] is `Sealed`, and all tables are created
-    /// upon [`Env::open`], this function will never error because
-    /// a table doesn't exist.
+    #[doc = doc_table_error!()]
     fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
+
+    /// Open all tables in read/iter mode.
+    ///
+    /// This calls [`EnvInner::open_db_ro`] on all database tables
+    /// and returns a structure that allows access to all tables.
+    ///
+    #[doc = doc_table_error!()]
+    fn open_tables(&self, tx_ro: &Ro) -> Result<impl TablesIter, RuntimeError> {
+        call_fn_on_all_tables_or_early_return! {
+            Self::open_db_ro(self, tx_ro)
+        }
+    }
+
+    /// Open all tables in read-write mode.
+    ///
+    /// This calls [`EnvInner::open_db_rw`] on all database tables
+    /// and returns a structure that allows access to all tables.
+    ///
+    #[doc = doc_table_error!()]
+    fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
+        call_fn_on_all_tables_or_early_return! {
+            Self::open_db_rw(self, tx_rw)
+        }
+    }
 
     /// Clear all `(key, value)`'s from a database table.
     ///
@@ -230,11 +281,6 @@ where
     /// Note that this operation is tied to `tx_rw`, as such this
     /// function's effects can be aborted using [`TxRw::abort`].
     ///
-    /// # Errors
-    /// This function errors upon internal database/IO errors.
-    ///
-    /// As [`Table`] is `Sealed`, and all tables are created
-    /// upon [`Env::open`], this function will never error because
-    /// a table doesn't exist.
+    #[doc = doc_table_error!()]
     fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
 }

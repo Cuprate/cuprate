@@ -1,39 +1,58 @@
+//! Connector
+//!
+//! This module handles connecting to peers and giving the sink/stream to the handshaker which will then
+//! perform a handshake and create a [`Client`].
+//!
+//! This is where outbound connections are created.
+//!
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
 
-use futures::FutureExt;
+use futures::{FutureExt, Stream};
 use tokio::sync::OwnedSemaphorePermit;
 use tower::{Service, ServiceExt};
 
 use crate::{
     client::{Client, DoHandshakeRequest, HandShaker, HandshakeError, InternalPeerID},
-    AddressBook, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerRequestHandler,
+    AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone,
+    PeerRequestHandler, PeerSyncSvc,
 };
 
+/// A request to connect to a peer.
 pub struct ConnectRequest<Z: NetworkZone> {
+    /// The peer's address.
     pub addr: Z::Addr,
+    /// A permit which will be held be the connection allowing you to set limits on the number of
+    /// connections.
     pub permit: OwnedSemaphorePermit,
 }
 
-pub struct Connector<Z: NetworkZone, AdrBook, CSync, ReqHdlr> {
-    handshaker: HandShaker<Z, AdrBook, CSync, ReqHdlr>,
+/// The connector service, this service connects to peer and returns the [`Client`].
+pub struct Connector<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr> {
+    handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> Connector<Z, AdrBook, CSync, ReqHdlr> {
-    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, ReqHdlr>) -> Self {
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+    Connector<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+{
+    /// Create a new connector from a handshaker.
+    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>) -> Self {
         Self { handshaker }
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ReqHdlr> Service<ConnectRequest<Z>>
-    for Connector<Z, AdrBook, CSync, ReqHdlr>
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr, BrdcstStrm>
+    Service<ConnectRequest<Z>> for Connector<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
+    PSync: PeerSyncSvc<Z> + Clone,
     ReqHdlr: PeerRequestHandler + Clone,
+    BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
+    BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
     type Response = Client<Z>;
     type Error = HandshakeError;

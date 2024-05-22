@@ -1,16 +1,10 @@
 //! Implementation of `trait Database` for `heed`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::{Borrow, Cow},
-    cell::RefCell,
-    fmt::Debug,
-    ops::RangeBounds,
-    sync::RwLockReadGuard,
-};
+use std::{cell::RefCell, ops::RangeBounds};
 
 use crate::{
-    backend::heed::{storable::StorableHeed, types::HeedDb},
+    backend::heed::types::HeedDb,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     error::RuntimeError,
     table::Table,
@@ -137,7 +131,8 @@ impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
-impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
+// SAFETY: `HeedTableRo: !Send` as it holds a reference to `heed::RoTxn: Send + !Sync`.
+unsafe impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(&self.db, self.tx_ro, key)
@@ -165,7 +160,9 @@ impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
-impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
+// SAFETY: The `Send` bound only applies to `HeedTableRo`.
+// `HeedTableRw`'s write transaction is `!Send`.
+unsafe impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         get::<T>(&self.db, &self.tx_rw.borrow(), key)
@@ -205,54 +202,55 @@ impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     }
 
     #[inline]
+    fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError> {
+        // LMDB/heed does not return the value on deletion.
+        // So, fetch it first - then delete.
+        let value = get::<T>(&self.db, &self.tx_rw.borrow(), key)?;
+        match self.db.delete(&mut self.tx_rw.borrow_mut(), key) {
+            Ok(true) => Ok(value),
+            Err(e) => Err(e.into()),
+            // We just `get()`'ed the value - it is
+            // incorrect for it to suddenly not exist.
+            Ok(false) => unreachable!(),
+        }
+    }
+
+    #[inline]
     fn pop_first(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         let tx_rw = &mut self.tx_rw.borrow_mut();
 
-        // Get the first value first...
-        let Some(first) = self.db.first(tx_rw)? else {
+        // Get the value first...
+        let Some((key, value)) = self.db.first(tx_rw)? else {
             return Err(RuntimeError::KeyNotFound);
         };
 
         // ...then remove it.
-        //
-        // We use an iterator because we want to semantically
-        // remove the _first_ and only the first `(key, value)`.
-        // `delete()` removes all keys including duplicates which
-        // is slightly different behavior.
-        let mut iter = self.db.iter_mut(tx_rw)?;
-
-        // SAFETY:
-        // It is undefined behavior to keep a reference of
-        // a value from this database while modifying it.
-        // We are deleting the value and never accessing
-        // the iterator again so this should be safe.
-        unsafe {
-            iter.del_current()?;
+        match self.db.delete(tx_rw, &key) {
+            Ok(true) => Ok((key, value)),
+            Err(e) => Err(e.into()),
+            // We just `get()`'ed the value - it is
+            // incorrect for it to suddenly not exist.
+            Ok(false) => unreachable!(),
         }
-
-        Ok(first)
     }
 
     #[inline]
     fn pop_last(&mut self) -> Result<(T::Key, T::Value), RuntimeError> {
         let tx_rw = &mut self.tx_rw.borrow_mut();
 
-        let Some(first) = self.db.last(tx_rw)? else {
+        // Get the value first...
+        let Some((key, value)) = self.db.last(tx_rw)? else {
             return Err(RuntimeError::KeyNotFound);
         };
 
-        let mut iter = self.db.rev_iter_mut(tx_rw)?;
-
-        // SAFETY:
-        // It is undefined behavior to keep a reference of
-        // a value from this database while modifying it.
-        // We are deleting the value and never accessing
-        // the iterator again so this should be safe.
-        unsafe {
-            iter.del_current()?;
+        // ...then remove it.
+        match self.db.delete(tx_rw, &key) {
+            Ok(true) => Ok((key, value)),
+            Err(e) => Err(e.into()),
+            // We just `get()`'ed the value - it is
+            // incorrect for it to suddenly not exist.
+            Ok(false) => unreachable!(),
         }
-
-        Ok(first)
     }
 }
 

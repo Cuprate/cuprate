@@ -2,8 +2,6 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
-    config::SyncMode,
-    env::Env,
     error::RuntimeError,
     transaction::{TxRo, TxRw},
 };

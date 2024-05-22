@@ -10,22 +10,24 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [features]
 # All features on by default.
-default   = ["std", "atomic", "asynch", "fs", "num", "time", "thread", "constants"]
+default   = ["std", "atomic", "asynch", "fs", "num", "map", "time", "thread", "constants"]
 std       = []
 atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
 constants = []
 fs        = ["dep:dirs"]
 num       = []
+map       = ["dep:monero-serai"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
 
 [dependencies]
-crossbeam = { workspace = true, optional = true }
-chrono    = { workspace = true, optional = true, features = ["std", "clock"] }
-dirs      = { workspace = true, optional = true }
-futures   = { workspace = true, optional = true, features = ["std"] }
-rayon     = { workspace = true, optional = true }
+crossbeam    = { workspace = true, optional = true }
+chrono       = { workspace = true, optional = true, features = ["std", "clock"] }
+dirs         = { workspace = true, optional = true }
+futures      = { workspace = true, optional = true, features = ["std"] }
+monero-serai = { workspace = true, optional = true }
+rayon        = { workspace = true, optional = true }
 
 # This is kinda a stupid work around.
 # [thread] needs to activate one of these libs (windows|libc)

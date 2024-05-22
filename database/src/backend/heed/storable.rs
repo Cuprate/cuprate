@@ -1,11 +1,11 @@
 //! `cuprate_database::Storable` <-> `heed` serde trait compatibility layer.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use std::{borrow::Cow, marker::PhantomData};
 
-use heed::{types::Bytes, BoxedError, BytesDecode, BytesEncode, Database};
+use heed::{BoxedError, BytesDecode, BytesEncode};
 
-use crate::{storable::Storable, storable::StorableVec};
+use crate::storable::Storable;
 
 //---------------------------------------------------------------------------------------------------- StorableHeed
 /// The glue struct that implements `heed`'s (de)serialization
@@ -47,6 +47,8 @@ where
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
+    use std::fmt::Debug;
+
     use super::*;
     use crate::{StorableBytes, StorableVec};
 

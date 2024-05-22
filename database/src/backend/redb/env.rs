@@ -1,18 +1,14 @@
 //! Implementation of `trait Env` for `redb`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{fmt::Debug, ops::Deref, path::Path, sync::Arc};
-
 use crate::{
-    backend::redb::{
-        storable::StorableRedb,
-        types::{RedbTableRo, RedbTableRw},
-    },
+    backend::redb::storable::StorableRedb,
     config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     table::Table,
+    tables::call_fn_on_all_tables_or_early_return,
     TxRw,
 };
 
@@ -36,7 +32,8 @@ impl Drop for ConcreteEnv {
     fn drop(&mut self) {
         // INVARIANT: drop(ConcreteEnv) must sync.
         if let Err(e) = self.sync() {
-            // TODO: log error?
+            // TODO: use tracing
+            println!("{e:#?}");
         }
 
         // TODO: log that we are dropping the database.
@@ -53,23 +50,22 @@ impl Env for ConcreteEnv {
 
     #[cold]
     #[inline(never)] // called once.
-    #[allow(clippy::items_after_statements)]
     fn open(config: Config) -> Result<Self, InitError> {
-        // TODO: dynamic syncs are not implemented.
+        // SOMEDAY: dynamic syncs are not implemented.
         let durability = match config.sync_mode {
-            // TODO: There's also `redb::Durability::Paranoid`:
+            // FIXME: There's also `redb::Durability::Paranoid`:
             // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
             // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
             SyncMode::Async => redb::Durability::Eventual,
             SyncMode::Fast => redb::Durability::None,
-            // TODO: dynamic syncs are not implemented.
+            // SOMEDAY: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
 
         let env_builder = redb::Builder::new();
 
-        // TODO: we can set cache sizes with:
+        // FIXME: we can set cache sizes with:
         // env_builder.set_cache(bytes);
 
         // Use the in-memory backend if the feature is enabled.
@@ -84,6 +80,7 @@ impl Env for ConcreteEnv {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(false)
                 .open(config.db_file())?;
 
             env_builder.create_file(db_file)?
@@ -95,8 +92,6 @@ impl Env for ConcreteEnv {
 
         /// Function that creates the tables based off the passed `T: Table`.
         fn create_table<T: Table>(tx_rw: &redb::WriteTransaction) -> Result<(), InitError> {
-            println!("create_table(): {}", T::NAME); // TODO: use tracing.
-
             let table: redb::TableDefinition<
                 'static,
                 StorableRedb<<T as Table>::Key>,
@@ -108,32 +103,20 @@ impl Env for ConcreteEnv {
             Ok(())
         }
 
-        use crate::tables::{
-            BlockBlobs, BlockHeights, BlockInfoV1s, BlockInfoV2s, BlockInfoV3s, KeyImages,
-            NumOutputs, Outputs, PrunableHashes, PrunableTxBlobs, PrunedTxBlobs, RctOutputs,
-            TxHeights, TxIds, TxUnlockTime,
-        };
-
-        let tx_rw = env.begin_write()?;
-        create_table::<BlockBlobs>(&tx_rw)?;
-        create_table::<BlockHeights>(&tx_rw)?;
-        create_table::<BlockInfoV1s>(&tx_rw)?;
-        create_table::<BlockInfoV2s>(&tx_rw)?;
-        create_table::<BlockInfoV3s>(&tx_rw)?;
-        create_table::<KeyImages>(&tx_rw)?;
-        create_table::<NumOutputs>(&tx_rw)?;
-        create_table::<Outputs>(&tx_rw)?;
-        create_table::<PrunableHashes>(&tx_rw)?;
-        create_table::<PrunableTxBlobs>(&tx_rw)?;
-        create_table::<PrunedTxBlobs>(&tx_rw)?;
-        create_table::<RctOutputs>(&tx_rw)?;
-        create_table::<TxHeights>(&tx_rw)?;
-        create_table::<TxIds>(&tx_rw)?;
-        create_table::<TxUnlockTime>(&tx_rw)?;
+        // Create all tables.
+        // FIXME: this macro is kinda awkward.
+        let mut tx_rw = env.begin_write()?;
+        {
+            let tx_rw = &mut tx_rw;
+            match call_fn_on_all_tables_or_early_return!(create_table(tx_rw)) {
+                Ok(_) => (),
+                Err(e) => return Err(e),
+            }
+        }
         tx_rw.commit()?;
 
         // Check for file integrity.
-        // TODO: should we do this? is it slow?
+        // FIXME: should we do this? is it slow?
         env.check_integrity()?;
 
         Ok(Self {

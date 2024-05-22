@@ -4,9 +4,12 @@
 //! this to test compatibility with monerod.
 //!
 use std::{
+    env::current_dir,
     ffi::OsStr,
+    fs::read_dir,
     io::Read,
     net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener},
+    path::PathBuf,
     process::{Child, Command, Stdio},
     str::from_utf8,
     thread::panicking,
@@ -15,13 +18,8 @@ use std::{
 
 use tokio::{task::yield_now, time::timeout};
 
-mod download;
-
 /// IPv4 local host.
 const LOCALHOST: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
-
-/// The `monerod` version to use.
-const MONEROD_VERSION: &str = "v0.18.3.1";
 
 /// The log line `monerod` emits indicated it has successfully started up.
 const MONEROD_STARTUP_TEXT: &str =
@@ -34,7 +32,7 @@ const MONEROD_SHUTDOWN_TEXT: &str = "Stopping cryptonote protocol";
 ///
 /// This function will set `regtest` and the P2P/ RPC ports so these can't be included in the flags.
 pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> SpawnedMoneroD {
-    let path_to_monerod = download::check_download_monerod().await.unwrap();
+    let path_to_monerod = find_root().join("monerod");
 
     let rpc_port = get_available_port(&[]);
     let p2p_port = get_available_port(&[rpc_port]);
@@ -54,7 +52,9 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
         .arg(format!("--data-dir={}", data_dir.path().display()))
         .arg("--non-interactive")
         .spawn()
-        .unwrap();
+        .expect(
+            "Failed to start monerod, you need to have the monerod binary in the root of the repo",
+        );
 
     let mut logs = String::new();
 
@@ -89,6 +89,20 @@ pub async fn monerod<T: AsRef<OsStr>>(flags: impl IntoIterator<Item = T>) -> Spa
         p2p_port,
         _data_dir: data_dir,
         start_up_logs: logs,
+    }
+}
+
+/// Finds the root of the repo by finding the `target` directory, this will work up from the current
+/// directory until it finds a `target` directory, then returns the directory that the target is contained
+/// in.
+fn find_root() -> PathBuf {
+    let mut current_dir = current_dir().unwrap();
+    loop {
+        if read_dir(current_dir.join("target")).is_ok() {
+            return current_dir;
+        } else if !current_dir.pop() {
+            panic!("Could not find ./target");
+        }
     }
 }
 

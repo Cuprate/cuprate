@@ -3,6 +3,18 @@
 //---------------------------------------------------------------------------------------------------- Import
 use cfg_if::cfg_if;
 
+//---------------------------------------------------------------------------------------------------- Version
+/// Current major version of the database.
+///
+/// Returned by [`crate::ops::property::db_version`].
+///
+/// This is incremented by 1 when `cuprate_database`'s
+/// structure/schema/tables change.
+///
+/// This is akin to `VERSION` in `monerod`:
+/// <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/blockchain_db/lmdb/db_lmdb.cpp#L57>
+pub const DATABASE_VERSION: u64 = 0;
+
 //---------------------------------------------------------------------------------------------------- Error Messages
 /// Corrupt database error message.
 ///
@@ -23,8 +35,8 @@ TODO: instructions on:
 ///
 /// | Backend | Value |
 /// |---------|-------|
-/// | `heed`  | "heed"
-/// | `redb`  | "redb"
+/// | `heed`  | `"heed"`
+/// | `redb`  | `"redb"`
 pub const DATABASE_BACKEND: &str = {
     cfg_if! {
         if #[cfg(all(feature = "redb", not(feature = "heed")))] {
@@ -41,8 +53,8 @@ pub const DATABASE_BACKEND: &str = {
 ///
 /// | Backend | Value |
 /// |---------|-------|
-/// | `heed`  | "data.mdb"
-/// | `redb`  | "data.redb"
+/// | `heed`  | `"data.mdb"`
+/// | `redb`  | `"data.redb"`
 pub const DATABASE_DATA_FILENAME: &str = {
     cfg_if! {
         if #[cfg(all(feature = "redb", not(feature = "heed")))] {
@@ -57,8 +69,8 @@ pub const DATABASE_DATA_FILENAME: &str = {
 ///
 /// | Backend | Value |
 /// |---------|-------|
-/// | `heed`  | Some("lock.mdb")
-/// | `redb`  | None (redb doesn't use a file lock)
+/// | `heed`  | `Some("lock.mdb")`
+/// | `redb`  | `None` (redb doesn't use a file lock)
 pub const DATABASE_LOCK_FILENAME: Option<&str> = {
     cfg_if! {
         if #[cfg(all(feature = "redb", not(feature = "heed")))] {

@@ -84,7 +84,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
         let connected_peers = HashMap::new();
 
         let mut peer_save_interval = interval(cfg.peer_save_period);
-        peer_save_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        peer_save_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         Self {
             white_list,
@@ -236,7 +236,9 @@ impl<Z: NetworkZone> AddressBook<Z> {
     ) {
         tracing::debug!("Received new peer list, length: {}", peer_list.len());
 
-        peer_list.retain(|peer| {
+        peer_list.retain_mut(|peer| {
+            peer.adr.make_canonical();
+
             if !peer.adr.should_add_to_peer_list() {
                 false
             } else {
@@ -259,7 +261,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random white peer");
         self.white_list
-            .take_random_peer(&mut rand::thread_rng(), block_needed)
+            .take_random_peer(&mut rand::thread_rng(), block_needed, &self.anchor_list)
     }
 
     fn take_random_gray_peer(
@@ -268,7 +270,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random gray peer");
         self.gray_list
-            .take_random_peer(&mut rand::thread_rng(), block_needed)
+            .take_random_peer(&mut rand::thread_rng(), block_needed, &HashSet::new())
     }
 
     fn get_white_peers(&self, len: usize) -> Vec<ZoneSpecificPeerListEntryBase<Z::Addr>> {

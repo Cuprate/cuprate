@@ -87,7 +87,7 @@ fn peer_list_remove_specific_peer() {
     let mut peer_list = make_fake_peer_list_with_random_pruning_seeds(100);
 
     let peer = peer_list
-        .take_random_peer(&mut rand::thread_rng(), None)
+        .take_random_peer(&mut rand::thread_rng(), None, &HashSet::new())
         .unwrap();
 
     let pruning_idxs = peer_list.pruning_seeds;
@@ -160,7 +160,7 @@ fn peer_list_get_peer_with_block() {
     peer_list.add_new_peer(make_fake_peer(101, Some(384)));
 
     let peer = peer_list
-        .take_random_peer(&mut r, Some(1))
+        .take_random_peer(&mut r, Some(1), &HashSet::new())
         .expect("We just added a peer with the correct seed");
 
     assert!(peer
@@ -173,7 +173,7 @@ fn peer_list_get_peer_with_block() {
 fn peer_list_ban_peers() {
     let mut peer_list = make_fake_peer_list_with_random_pruning_seeds(100);
     let peer = peer_list
-        .take_random_peer(&mut rand::thread_rng(), None)
+        .take_random_peer(&mut rand::thread_rng(), None, &HashSet::new())
         .unwrap();
     let ban_id = peer.adr.ban_id();
 
