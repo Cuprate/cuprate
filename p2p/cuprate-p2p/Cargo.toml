@@ -12,6 +12,7 @@ monero-p2p = { path = "../monero-p2p", features = ["borsh"] }
 monero-address-book = { path = "../address-book" }
 monero-pruning = { path = "../../pruning" }
 cuprate-helper = { path = "../../helper", features = ["asynch"] }
+async-buffer = { path = "../async-buffer" }
 
 monero-serai = { workspace = true, features = ["std"] }
 
