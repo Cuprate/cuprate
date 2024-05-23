@@ -1,6 +1,6 @@
 //! Cuprate's P2P Crate.
 //!
-//! This crate contains a [`ClientPool`](client_pool::ClientPool) which holds connected peers on a single [`NetworkZone`](monero_p2p::NetworkZone).
+//! This crate contains a [`ClientPool`](client_pool::ClientPool) which holds connected peers on a single [`NetworkZone`].
 //!
 //! This crate also contains the different routing methods that control how messages should be sent, i.e. broadcast to all,
 //! or send to a single peer.
