@@ -48,13 +48,12 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 | Labels       | Description | Example |
 |--------------|-------------|---------|
 | [A-]         | The **area** of the project an issue relates to. | `A-database`, `A-rpc`, `A-docs`
-| [C-]         | The **category** of an issue. | `C-cleanup`,  `C-enhancement`, `C-optimization`
+| [C-]         | The **category** of an issue. | `C-cleanup`,  `C-optimization`
 | [D-]         | Issues for **diagnostics**. | `D-confusing`, `D-verbose`
 | [E-]         | The **experience** level necessary to fix an issue. | `E-easy`, `E-hard`
-| [I-]         | The **importance** of the issue. | `I-crash`, `I-slow`,  `I-memleak`
-| [O-]         |  The **operating system** or platform that the issue is specific to. | `O-windows`, `O-macos`, `O-linux`
+| [I-]         | The **importance** of the issue. | `I-crash`, `I-memory`
+| [O-]         | The **operating system** or platform that the issue is specific to. | `O-windows`, `O-macos`, `O-linux`
 | [P-]         | The issue **priority**. These labels can be assigned by anyone that understand the issue and is able to prioritize it, and remove the [I-prioritize] label. | `P-high`, `P-low`
-| [regression] | Tracks regressions from a release. | |
 | [wontfix]    | Indicates an issue will not be fixed. | |
 
 [A-]: https://github.com/Cuprate/cuprate/labels?q=A
@@ -64,5 +63,4 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 [I-]: https://github.com/Cuprate/cuprate/labels?q=I
 [O-]: https://github.com/Cuprate/cuprate/labels?q=O
 [P-]: https://github.com/Cuprate/cuprate/labels?q=P
-[regression]: https://github.com/Cuprate/cuprate/labels?q=regression
 [wontfix]: https://github.com/Cuprate/cuprate/labels?q=wontfix
