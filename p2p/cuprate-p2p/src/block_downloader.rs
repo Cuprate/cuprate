@@ -1,29 +1,38 @@
 //! # Block Downloader
 //!
 
-use std::collections::VecDeque;
+mod chain_tracker;
+
+use std::collections::{BTreeMap, BinaryHeap, VecDeque};
 use std::sync::Arc;
+use std::time::Duration;
 
 use monero_serai::{block::Block, transaction::Transaction};
 use rand::prelude::*;
 use tokio::task::JoinSet;
+use tokio::time::{interval, MissedTickBehavior};
 use tower::{Service, ServiceExt};
 
+use crate::block_downloader::chain_tracker::{ChainEntry, ChainTracker};
 use async_buffer::{BufferAppender, BufferStream};
+use fixed_bytes::ByteArrayVec;
+use monero_p2p::client::InternalPeerID;
 use monero_p2p::{
     handles::ConnectionHandle,
     services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
 };
-use monero_wire::protocol::ChainRequest;
+use monero_wire::protocol::{ChainRequest, ChainResponse};
 
-use crate::client_pool::ClientPool;
-use crate::constants::INITIAL_CHAIN_REQUESTS_TO_SEND;
+use crate::client_pool::{ClientPool, ClientPoolDropGuard};
+use crate::constants::{INITIAL_CHAIN_REQUESTS_TO_SEND, MEDIUM_BAN};
 
 /// A downloaded batch of blocks.
 pub struct BlockBatch {
     /// The blocks.
-    blocks: (Block, Vec<Transaction>),
+    blocks: Vec<(Block, Vec<Transaction>)>,
+    /// The size of this batch in bytes.
+    size: usize,
     /// The peer that gave us this block.
     peer_handle: ConnectionHandle,
 }
@@ -36,12 +45,20 @@ pub struct BlockDownloaderConfig {
     buffer_size: usize,
     /// The size of the in progress queue at which we stop requesting more blocks.
     in_progress_queue_size: usize,
+    /// The [`Duration`] between checking the client pool for free peers.
+    check_client_pool_interval: Duration,
+    /// The target size of a single batch of blocks (in bytes).
+    target_batch_size: usize,
+    /// The initial amount of blocks to request (in number of blocks)
+    initial_batch_size: usize,
 }
 
-#[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Ord, Eq, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum BlockDownloadError {
     #[error("Failed to find a more advanced chain to follow")]
     FailedToFindAChainToFollow,
+    #[error("The peer did not send any overlapping blocks, unknown start height.")]
+    PeerSentNoOverlappingBlocks,
     #[error("Service error: {0}")]
     ServiceError(#[from] tower::BoxError),
 }
@@ -52,6 +69,8 @@ pub enum ChainSvcRequest {
     CompactHistory,
     /// A request to find the first unknown
     FindFirstUnknown(Vec<[u8; 32]>),
+
+    CumulativeDifficulty,
 }
 
 /// The response type for the chain service.
@@ -64,6 +83,8 @@ pub enum ChainSvcResponse {
     /// The response for [`ChainSvcRequest::FindFirstUnknown`], contains the index of the first unknown
     /// block.
     FindFirstUnknown(usize),
+
+    CumulativeDifficulty(u128),
 }
 
 /// # Block Downloader
@@ -83,6 +104,7 @@ pub fn download_blocks<N: NetworkZone, S>(
 ) -> BufferStream<BlockBatch> {
     let (buffer_appender, buffer_stream) = async_buffer::new_buffer(config.buffer_size);
 
+    /*
     tokio::spawn(block_downloader(
         client_pool,
         peer_sync_svc,
@@ -90,33 +112,89 @@ pub fn download_blocks<N: NetworkZone, S>(
         buffer_appender,
     ));
 
+     */
+
     buffer_stream
 }
 
-async fn block_downloader<N: NetworkZone, S>(
+struct BlockDownloader<N: NetworkZone, S, C> {
     client_pool: Arc<ClientPool<N>>,
+
     peer_sync_svc: S,
-    config: BlockDownloaderConfig,
+    our_chain_svc: C,
+
+    block_download_tasks: JoinSet<()>,
+    chain_entry_task: JoinSet<()>,
+
     buffer_appender: BufferAppender<BlockBatch>,
-) -> Result<(), tower::BoxError> {
-    todo!()
+
+    config: BlockDownloaderConfig,
 }
 
-struct BestChainFound {
-    common_ancestor: [u8; 32],
-    next_hashes: VecDeque<[u8; 32]>,
-    from_peer: ConnectionHandle,
+async fn block_downloader<N: NetworkZone, S, C>(
+    client_pool: Arc<ClientPool<N>>,
+    mut peer_sync_svc: S,
+    mut our_chain_svc: C,
+    config: BlockDownloaderConfig,
+    buffer_appender: BufferAppender<BlockBatch>,
+) -> Result<(), BlockDownloadError>
+where
+    S: PeerSyncSvc<N> + Clone,
+    C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+        + Send
+        + 'static,
+    C::Future: Send + 'static,
+{
+    let mut best_chain_found =
+        initial_chain_search(&client_pool, peer_sync_svc.clone(), &mut our_chain_svc).await?;
+
+    let tasks = JoinSet::new();
+
+    let mut ready_queue = BinaryHeap::new();
+    let mut inflight_queue = BTreeMap::new();
+
+    let mut next_request_id = 0;
+
+    // The request ID for which we updated `amount_of_blocks_to_request`
+    // `amount_of_blocks_to_request` will update for every new batch of blocks that come in.
+    let mut amount_of_blocks_to_request_updated_at = next_request_id;
+
+    // The amount of blocks to request in 1 batch, will dynamically update based on block size.
+    let mut amount_of_blocks_to_request = config.initial_batch_size;
+
+    let mut check_client_pool_interval = interval(config.check_client_pool_interval);
+    check_client_pool_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
+    loop {
+        tokio::select! {
+            _ = check_client_pool_interval.tick() => {
+                todo!()
+            }
+
+
+
+        }
+    }
+}
+
+async fn handle_free_peer<N: NetworkZone>(
+    peer: ClientPoolDropGuard<N>,
+    chain_tracker: &mut ChainTracker<N>,
+    next_batch_size: usize,
+) {
+    if chain_tracker.block_requests_queued(next_batch_size) < 15
+        && chain_tracker.should_ask_for_next_chain_entry(&peer.info.pruning_seed)
+    {}
 }
 
 async fn initial_chain_search<N: NetworkZone, S, C>(
-    client_pool: &ClientPool<N>,
+    client_pool: &Arc<ClientPool<N>>,
     mut peer_sync_svc: S,
     mut our_chain_svc: C,
-) -> Result<BestChainFound, BlockDownloadError>
+) -> Result<ChainTracker<N>, BlockDownloadError>
 where
     S: PeerSyncSvc<N>,
-    C: Service<ChainSvcRequest, Response = ChainSvcResponse> + Send + 'static,
-    C::Future: Send + 'static,
+    C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>,
 {
     let ChainSvcResponse::CompactHistory {
         block_ids,
@@ -129,6 +207,8 @@ where
     else {
         panic!("chain service sent wrong response.");
     };
+
+    let our_genesis = *block_ids.last().expect("Blockchain had no genesis block.");
 
     let PeerSyncResponse::PeersToSyncFrom(mut peers) = peer_sync_svc
         .ready()
@@ -165,14 +245,17 @@ where
                 panic!("connection task returned wrong response!");
             };
 
-            Ok((chain_res, next_peer.info.handle.clone()))
+            Ok((chain_res, next_peer.info.id, next_peer.info.handle.clone()))
         });
     }
 
-    let mut res = None;
+    let mut res: Option<(ChainResponse, InternalPeerID<_>, ConnectionHandle)> = None;
 
     while let Some(task_res) = futs.join_next().await {
-        let Ok(task_res) = task_res.unwrap() else {
+        let Ok(task_res): Result<
+            (ChainResponse, InternalPeerID<_>, ConnectionHandle),
+            tower::BoxError,
+        > = task_res.unwrap() else {
             continue;
         };
 
@@ -188,11 +271,14 @@ where
         }
     }
 
-    let Some((chain_res, peer_handle)) = res else {
+    let Some((chain_res, peer_id, peer_handle)) = res else {
         return Err(BlockDownloadError::FailedToFindAChainToFollow);
     };
 
-    let hashes: Vec<[u8; 32]> = chain_res.m_block_ids.into();
+    let hashes: Vec<[u8; 32]> = (&chain_res.m_block_ids).into();
+    let start_height = chain_res.start_height;
+    // drop this to deallocate the [`Bytes`].
+    drop(chain_res);
 
     let ChainSvcResponse::FindFirstUnknown(first_unknown) = our_chain_svc
         .ready()
@@ -202,7 +288,19 @@ where
     else {
         panic!("chain service sent wrong response.");
     };
-    
-    todo!()
-    
+
+    if first_unknown == 0 {
+        peer_handle.ban_peer(MEDIUM_BAN);
+        return Err(BlockDownloadError::PeerSentNoOverlappingBlocks);
+    }
+
+    let first_entry = ChainEntry {
+        ids: hashes[first_unknown..].to_vec(),
+        peer: peer_id,
+        handle: peer_handle,
+    };
+
+    let tracker = ChainTracker::new(first_entry, start_height, our_genesis);
+
+    Ok(tracker)
 }
