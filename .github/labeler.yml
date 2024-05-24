@@ -1,0 +1,32 @@
+A-consensus:
+- consensus/*
+
+A-cryptonight:
+- cryptonight/*
+
+A-database:
+- database/*
+
+A-helper:
+- helper/*
+
+A-net:
+- net/*
+
+A-net:
+- net/*
+
+A-p2p:
+- p2p/*
+
+A-pruning:
+- pruning/*
+
+A-test-utils:
+- test-utils/*
+
+A-types:
+- types/*
+
+A-workspace:
+- '*' # Any root file change
