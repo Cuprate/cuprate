@@ -85,8 +85,6 @@ impl Default for ResizeAlgorithm {
 }
 
 //---------------------------------------------------------------------------------------------------- Free functions
-/// Cached result of [`page_size()`].
-static PAGE_SIZE: OnceLock<NonZeroUsize> = OnceLock::new();
 /// This function retrieves the system’s memory page size.
 ///
 /// It is just [`page_size::get`](https://docs.rs/page_size) internally.
@@ -97,6 +95,8 @@ static PAGE_SIZE: OnceLock<NonZeroUsize> = OnceLock::new();
 /// This function will panic if the OS returns of page size of `0` (impossible?).
 #[inline]
 pub fn page_size() -> NonZeroUsize {
+    /// Cached result of [`page_size()`].
+    static PAGE_SIZE: OnceLock<NonZeroUsize> = OnceLock::new();
     *PAGE_SIZE
         .get_or_init(|| NonZeroUsize::new(page_size::get()).expect("page_size::get() returned 0"))
 }
