@@ -47,7 +47,7 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 
 | Labels       | Description | Example |
 |--------------|-------------|---------|
-| [A-]         | The **area** of the project an issue relates to. | `A-database`, `A-RPC`, `A-docs`
+| [A-]         | The **area** of the project an issue relates to. | `A-database`, `A-rpc`, `A-docs`
 | [C-]         | The **category** of an issue. | `C-cleanup`,  `C-enhancement`, `C-optimization`
 | [D-]         | Issues for **diagnostics**. | `D-confusing`, `D-verbose`
 | [E-]         | The **experience** level necessary to fix an issue. | `E-easy`, `E-hard`

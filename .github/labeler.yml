@@ -30,3 +30,10 @@ A-types:
 
 A-workspace:
 - '*' # Any root file change
+
+A-ci:
+- .github/*
+
+A-docs:
+- changed-files:
+  - any-glob-to-any-file: '**/*.md'
