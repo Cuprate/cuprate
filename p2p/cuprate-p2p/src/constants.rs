@@ -34,6 +34,9 @@ pub(crate) const MAX_TXS_IN_BROADCAST_CHANNEL: usize = 50;
 /// TODO: it might be a good idea to make this configurable.
 pub(crate) const INBOUND_CONNECTION_COOL_DOWN: Duration = Duration::from_millis(500);
 
+/// The initial amount of chain requests to send to find the best chain to sync from.
+pub(crate) const INITIAL_CHAIN_REQUESTS_TO_SEND: usize = 3;
+
 #[cfg(test)]
 mod tests {
     use super::*;
