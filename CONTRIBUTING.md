@@ -42,6 +42,8 @@ After that, ensure all lints, tests, and builds are successful by running:
 ## Keeping track of issues and PRs
 The Cuprate GitHub repository has a lot of issues and PRs to keep track of. Cuprate makes use of generic labels and labels grouped by a prefixes to help with this.
 
+Some labels will be [automatically added/removed](https://github.com/Cuprate/cuprate/tree/main/.github/labeler.yml) if certain file paths have been changed in a PR.
+
 The following section explains the meaning of various labels used.
 This section is primarily targeted at maintainers. Most contributors aren't able to set these labels.
 
