@@ -66,6 +66,11 @@ A-ci:
 - changed-files:
   - any-glob-to-any-file: .github/**
 
+A-dependency:
+- changed-files:
+  - any-glob-to-any-file: '**/Cargo.toml' # Any Cargo file in the entire repo
+  - any-glob-to-any-file: '**/Cargo.lock'
+
 A-workspace:
 - changed-files:
   - any-glob-to-any-file: '*' # Any root file change
