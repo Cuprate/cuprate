@@ -38,3 +38,31 @@ After that, ensure all lints, tests, and builds are successful by running:
 - Sort imports as core, std, third-party, Cuprate crates, current crate.
 - Follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines)
 - Break the above rules when it makes sense
+
+## Keeping track of issues and PRs
+The Cuprate GitHub repository has a lot of issues and PRs to keep track of. Cuprate makes use of generic labels and labels grouped by a prefixes to help with this.
+
+Some labels will be [automatically added/removed](https://github.com/Cuprate/cuprate/tree/main/.github/labeler.yml) if certain file paths have been changed in a PR.
+
+The following section explains the meaning of various labels used.
+This section is primarily targeted at maintainers. Most contributors aren't able to set these labels.
+
+| Labels       | Description | Example |
+|--------------|-------------|---------|
+| [A-]         | The **area** of the project an issue relates to. | `A-database`, `A-rpc`, `A-docs`
+| [C-]         | The **category** of an issue. | `C-cleanup`,  `C-optimization`
+| [D-]         | Issues for **diagnostics**. | `D-confusing`, `D-verbose`
+| [E-]         | The **experience** level necessary to fix an issue. | `E-easy`, `E-hard`
+| [I-]         | The **importance** of the issue. | `I-crash`, `I-memory`
+| [O-]         | The **operating system** or platform that the issue is specific to. | `O-windows`, `O-macos`, `O-linux`
+| [P-]         | The issue **priority**. These labels can be assigned by anyone that understand the issue and is able to prioritize it, and remove the [I-prioritize] label. | `P-high`, `P-low`
+| [wontfix]    | Indicates an issue will not be fixed. | |
+
+[A-]: https://github.com/Cuprate/cuprate/labels?q=A
+[C-]: https://github.com/Cuprate/cuprate/labels?q=C
+[D-]: https://github.com/Cuprate/cuprate/labels?q=D
+[E-]: https://github.com/Cuprate/cuprate/labels?q=E
+[I-]: https://github.com/Cuprate/cuprate/labels?q=I
+[O-]: https://github.com/Cuprate/cuprate/labels?q=O
+[P-]: https://github.com/Cuprate/cuprate/labels?q=P
+[wontfix]: https://github.com/Cuprate/cuprate/labels?q=wontfix

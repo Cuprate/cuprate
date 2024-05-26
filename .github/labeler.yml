@@ -1,0 +1,80 @@
+# This file consists of rules determining which labels the
+# `github-actions` bot should automatically label an issue/PR with.
+# The CI that actually applies labels is in `.github/workflows/labeler.yml`.
+#
+# The main one used is the "if a file changed" rule.
+# The format for this rule is:
+#
+# ```
+# $LABEL_NAME:
+# - changed-files:
+#   - any-glob-to-any-file: $PATH
+# ```
+#
+# where $PATH can be:
+#   $DIRECTORY/*
+# which means any file changed 1 level deep inside that directory or:
+#   $DIRECTORY/**
+# which means any file changed within that directory or:
+#   $DIRECTORY/$FILE_NAME
+# which means a specific file path or:
+#   $DIRECTORY/*.$FILE_EXTENSION
+# which means any file 1 level deep in that directory with a certain file extension.
+#
+# For a detailed guide, see: <https://github.com/actions/labeler>.
+#
+# For a real example:
+A-consensus: # This is the tag name
+- changed-files: # Any changed file...
+  - any-glob-to-any-file: consensus/** # ...within the `consensus/` directory
+                                       # will cause the `github-actions` bot
+                                       # to add the `A-consensus` tag.
+
+A-cryptonight:
+- changed-files:
+  - any-glob-to-any-file: cryptonight/**
+
+A-database:
+- changed-files:
+  - any-glob-to-any-file: database/**
+
+A-helper:
+- changed-files:
+  - any-glob-to-any-file: helper/**
+
+A-net:
+- changed-files:
+  - any-glob-to-any-file: net/**
+
+A-p2p:
+- changed-files:
+  - any-glob-to-any-file: p2p/**
+
+A-pruning:
+- changed-files:
+  - any-glob-to-any-file: pruning/**
+
+A-test-utils:
+- changed-files:
+  - any-glob-to-any-file: test-utils/**
+
+A-types:
+- changed-files:
+  - any-glob-to-any-file: types/**
+
+A-ci:
+- changed-files:
+  - any-glob-to-any-file: .github/**
+
+A-dependency:
+- changed-files:
+  - any-glob-to-any-file: '**/Cargo.toml' # Any Cargo file in the entire repo
+  - any-glob-to-any-file: '**/Cargo.lock'
+
+A-workspace:
+- changed-files:
+  - any-glob-to-any-file: '*' # Any root file change
+
+A-docs:
+- changed-files:
+  - any-glob-to-any-file: '**/*.md' # Any file in the entire repo ending in `.md`
