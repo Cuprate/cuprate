@@ -2,7 +2,7 @@
 # `github-actions` bot should automatically label an issue/PR with.
 # The CI that actually applies labels is in `.github/workflows/labeler.yml`.
 #
-# The one used is the "if a file changed" rule.
+# The main one used is the "if a file changed" rule.
 # The format for this rule is:
 #
 # ```
