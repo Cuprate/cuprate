@@ -1,5 +1,6 @@
 # This file consists of rules determining which labels the
 # `github-actions` bot should automatically label an issue/PR with.
+# The CI that actually applies labels is in `.github/workflows/labeler.yml`.
 #
 # The one used is the "if a file changed" rule.
 # The format for this rule is:
@@ -61,13 +62,13 @@ A-types:
 - changed-files:
   - any-glob-to-any-file: types/**
 
-A-workspace:
-- changed-files:
-  - any-glob-to-any-file: '*' # Any root file change
-
 A-ci:
 - changed-files:
   - any-glob-to-any-file: .github/**
+
+A-workspace:
+- changed-files:
+  - any-glob-to-any-file: '*' # Any root file change
 
 A-docs:
 - changed-files:
