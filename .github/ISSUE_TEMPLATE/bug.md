@@ -8,11 +8,9 @@ assignees: ''
 ---
 
 <!--
-
 Notes:
 - All these fields are optional, add as much or as little info as you like
 - Please search to see if an issue already exists for the bug you encountered
-
 -->
 
 ## Environment
