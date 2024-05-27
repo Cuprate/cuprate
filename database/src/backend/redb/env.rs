@@ -14,6 +14,7 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `redb`.
+#[derive(Debug)]
 pub struct ConcreteEnv {
     /// The actual database environment.
     env: redb::Database,

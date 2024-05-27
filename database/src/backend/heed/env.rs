@@ -31,6 +31,7 @@ const PANIC_MSG_MISSING_TABLE: &str =
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
+#[derive(Debug)]
 pub struct ConcreteEnv {
     /// The actual database environment.
     ///

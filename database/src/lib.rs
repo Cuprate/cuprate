@@ -58,6 +58,7 @@
 //!
 //! `ConcreteEnv` invariants you can rely on:
 //! - It implements [`Env`]
+//! - It implements [`Debug`]
 //! - Upon [`Drop::drop`], all database data will sync to disk
 //!
 //! Note that `ConcreteEnv` itself is not a clonable type,
@@ -78,8 +79,9 @@
 //!
 //! The default is `heed`.
 //!
-//! `tracing` is always enabled and cannot be disabled via feature-flag.
-//! <!-- FIXME: tracing should be behind a feature flag -->
+//! Logging with [`tracing`](https://docs.rs/tracing)
+//! can be enabled with the `tracing` feature flag,
+//! this is disabled by default.
 //!
 //! # Invariants when not using `service`
 //! `cuprate_database` can be used without the `service` feature enabled but
@@ -273,6 +275,8 @@ pub mod resize;
 
 mod key;
 pub use key::Key;
+
+mod macros;
 
 mod storable;
 pub use storable::{Storable, StorableBytes, StorableVec};
