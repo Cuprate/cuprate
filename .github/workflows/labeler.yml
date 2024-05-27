@@ -1,0 +1,25 @@
+# This action automatically applies GitHub labels
+# based on the rules in the `.github/labeler.yml` file.
+#
+# For more info:
+# - <https://github.com/actions/labeler>
+# - <https://github.com/tokio-rs/tokio/blob/6c42d286b343f498ce29de2aab9358a0aedb081c/.github/workflows/labeler.yml>
+
+name: "Labeler"
+on:
+- pull_request_target
+
+permissions:
+  contents: read
+
+jobs:
+  labeler:
+    permissions:
+      contents: read  # for actions/labeler to determine modified files
+      pull-requests: write  # for actions/labeler to add labels to PRs
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/labeler@v5
+      with:
+        repo-token: "${{ secrets.GITHUB_TOKEN }}"
+        sync-labels: true

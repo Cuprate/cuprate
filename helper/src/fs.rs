@@ -78,17 +78,16 @@ macro_rules! impl_path_oncelock_and_fn {
         $(#[$attr:meta])* // Documentation and any `derive`'s.
         $fn:ident,        // Name of the corresponding access function.
         $dirs_fn:ident,   // Name of the `dirs` function to use, the PATH prefix.
-        $once_lock:ident, // Name of the `OnceLock`.
         $sub_dirs:literal // Any sub-directories to add onto the PATH.
     ),* $(,)?) => {$(
-        /// Local `OnceLock` containing the Path.
-        static $once_lock: OnceLock<PathBuf> = OnceLock::new();
-
         // Create the `OnceLock` if needed, append
         // the Cuprate directory string and return.
         $(#[$attr])*
         pub fn $fn() -> &'static Path {
-            $once_lock.get_or_init(|| {
+            /// Local `OnceLock` containing the Path.
+            static ONCE_LOCK: OnceLock<PathBuf> = OnceLock::new();
+
+            ONCE_LOCK.get_or_init(|| {
                 // There's nothing we can do but panic if
                 // we cannot acquire critical system directories.
                 //
@@ -139,7 +138,6 @@ impl_path_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.cache/cuprate/`           |
     cuprate_cache_dir,
     cache_dir,
-    __CUPRATE_CACHE_DIR,
     "",
 
     /// Cuprate's config directory.
@@ -153,7 +151,6 @@ impl_path_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.config/cuprate/`                      |
     cuprate_config_dir,
     config_dir,
-    __CUPRATE_CONFIG_DIR,
     "",
 
     /// Cuprate's data directory.
@@ -167,7 +164,6 @@ impl_path_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.local/share/cuprate/`                 |
     cuprate_data_dir,
     data_dir,
-    __CUPRATE_DATA_DIR,
     "",
 
     /// Cuprate's database directory.
@@ -181,7 +177,6 @@ impl_path_oncelock_and_fn! {
     /// | Linux   | `/home/alice/.local/share/cuprate/database/`                 |
     cuprate_database_dir,
     data_dir,
-    __CUPRATE_DATABASE_DIR,
     "database",
 }
 
