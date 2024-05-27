@@ -50,7 +50,7 @@ chrono                = { version = "0.4.31", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
 crossbeam             = { version = "0.8.4", default-features = false }
 curve25519-dalek      = { version = "4.1.1", default-features = false }
-dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
+dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "d27d934", default-features = false }
 dashmap               = { version = "5.5.3", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
 futures               = { version = "0.3.29", default-features = false }
@@ -82,7 +82,6 @@ tempfile              = { version = "3" }
 pretty_assertions     = { version = "1.4.0" }
 proptest              = { version = "1" }
 proptest-derive       = { version = "0.4.0" }
-proptest-state-machine= { version = "0.3.0" }
 
 ## TODO:
 ## Potential dependencies.

@@ -1,5 +1,6 @@
 use crypto_bigint::{CheckedMul, U256};
 use monero_serai::block::Block;
+use std::collections::HashSet;
 
 use cryptonight_cuprate::*;
 
@@ -196,12 +197,13 @@ fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockErro
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#no-duplicate-transactions>
 fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
-    txs.windows(2).try_for_each(|window| {
-        if window[0] == window[1] {
-            Err(BlockError::DuplicateTransaction)?;
-        }
-        Ok(())
-    })
+    let set = txs.iter().collect::<HashSet<_>>();
+
+    if set.len() != txs.len() {
+        Err(BlockError::DuplicateTransaction)?;
+    }
+
+    Ok(())
 }
 
 /// This struct contains the data needed to verify a block, implementers MUST make sure
