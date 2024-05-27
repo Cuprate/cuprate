@@ -17,8 +17,5 @@ What is the feature you're requesting?
 ## Why
 Why should your feature be added?
 
-## How
-If possible, describe how the proposal could be added.
-
 ## Additional context
 Add any other context or screenshots about the feature request.
