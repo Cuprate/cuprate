@@ -34,9 +34,9 @@ A-cryptonight:
 - changed-files:
   - any-glob-to-any-file: cryptonight/**
 
-A-database:
+A-storage:
 - changed-files:
-  - any-glob-to-any-file: database/**
+  - any-glob-to-any-file: storage/**
 
 A-helper:
 - changed-files:
