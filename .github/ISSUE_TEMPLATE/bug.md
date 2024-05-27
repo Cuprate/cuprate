@@ -8,7 +8,11 @@ assignees: ''
 ---
 
 <!--
-Note: Please search to see if an issue already exists for the bug you encountered.
+
+Notes:
+- All these fields are optional, add as much or as little info as you like
+- Please search to see if an issue already exists for the bug you encountered
+
 -->
 
 ## Environment
@@ -35,5 +39,9 @@ Example:
 ## Log
 If possible, add any related logs to help explain the bug.
 
+Note: please remove any sensitive information from the logs (e.g. IP address).
+
 ## Screenshots
 If possible, add screenshots to help explain the bug.
+
+Note: please remove any sensitive information from the screenshot.
