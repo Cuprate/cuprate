@@ -9,7 +9,7 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [dependencies]
 cuprate-helper = { path = "../helper", default-features = false, features = ["std", "asynch", "num"] }
-cuprate-consensus-rules = {path = "./rules", features = ["rayon"]}
+cuprate-consensus-rules = { path = "./rules", features = ["rayon"] }
 
 thiserror = { workspace = true }
 tower = { workspace = true, features = ["util"] }

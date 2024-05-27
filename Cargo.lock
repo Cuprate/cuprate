@@ -409,7 +409,7 @@ dependencies = [
  "cuprate-helper",
  "cuprate-test-utils",
  "curve25519-dalek",
- "dalek-ff-group",
+ "dalek-ff-group 0.4.1 (git+https://github.com/Cuprate/serai.git?rev=347d4cf)",
  "futures",
  "hex",
  "hex-literal",
@@ -435,7 +435,7 @@ dependencies = [
  "cryptonight-cuprate",
  "cuprate-helper",
  "curve25519-dalek",
- "dalek-ff-group",
+ "dalek-ff-group 0.4.1 (git+https://github.com/Cuprate/serai.git?rev=347d4cf)",
  "hex",
  "hex-literal",
  "monero-serai",
@@ -588,6 +588,22 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.60",
+]
+
+[[package]]
+name = "dalek-ff-group"
+version = "0.4.1"
+source = "git+https://github.com/Cuprate/serai.git?rev=347d4cf#347d4cf4135c92bc5b0a3e3cb66fa3ff51b1c629"
+dependencies = [
+ "crypto-bigint",
+ "curve25519-dalek",
+ "digest",
+ "ff",
+ "group",
+ "rand_core",
+ "rustversion",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -1350,7 +1366,7 @@ version = "0.4.0"
 source = "git+https://github.com/Cuprate/serai.git?rev=d27d934#d27d93480aa8a849d84214ad4c71d83ce6fea0c1"
 dependencies = [
  "curve25519-dalek",
- "dalek-ff-group",
+ "dalek-ff-group 0.4.1 (git+https://github.com/Cuprate/serai.git?rev=d27d934)",
  "group",
  "sha3",
  "std-shims",
@@ -1395,7 +1411,7 @@ dependencies = [
  "async-trait",
  "base58-monero",
  "curve25519-dalek",
- "dalek-ff-group",
+ "dalek-ff-group 0.4.1 (git+https://github.com/Cuprate/serai.git?rev=d27d934)",
  "digest_auth",
  "flexible-transcript",
  "group",
