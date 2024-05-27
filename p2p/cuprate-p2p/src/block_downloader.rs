@@ -190,6 +190,27 @@ where
         else {
             return;
         };
+
+        let next_request_id = self
+            .inflight_requests
+            .last_key_value()
+            .map(|(id, _)| *id + 1)
+            .unwrap_or(0);
+
+        self.inflight_requests
+            .insert(next_request_id, block_entry_to_get.clone());
+
+        self.block_download_tasks.spawn(async move {
+            (
+                next_request_id,
+                request_batch_from_peer(
+                    client,
+                    block_entry_to_get.ids,
+                    block_entry_to_get.start_height,
+                )
+                .await,
+            )
+        });
     }
 
     async fn run(mut self) -> Result<(), BlockDownloadError> {
@@ -219,7 +240,7 @@ where
     }
 }
 
-async fn request_batch<N: NetworkZone>(
+async fn request_batch_from_peer<N: NetworkZone>(
     mut client: ClientPoolDropGuard<N>,
     ids: ByteArrayVec<32>,
     expected_start_height: u64,

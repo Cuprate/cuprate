@@ -19,6 +19,7 @@ pub(crate) struct ChainEntry<N: NetworkZone> {
 }
 
 /// A batch of blocks to retrieve.
+#[derive(Clone)]
 pub struct BlocksToRetrieve<N: NetworkZone> {
     /// The block IDs to get.
     pub ids: ByteArrayVec<32>,
