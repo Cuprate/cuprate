@@ -277,3 +277,28 @@ pub fn check_block(
 
     Ok((vote, generated_coins))
 }
+
+#[cfg(test)]
+mod tests {
+    use proptest::{collection::vec, prelude::*};
+
+    use super::*;
+
+    proptest! {
+        #[test]
+        fn test_check_unique_txs(
+            mut txs in vec(any::<[u8; 32]>(), 2..3000),
+            duplicate in any::<[u8; 32]>(),
+            dup_idx_1 in any::<usize>(),
+            dup_idx_2 in any::<usize>(),
+        ) {
+
+            prop_assert!(check_txs_unique(&txs).is_ok());
+
+            txs.insert(dup_idx_1 % txs.len(), duplicate);
+            txs.insert(dup_idx_2 % txs.len(), duplicate);
+
+            prop_assert!(check_txs_unique(&txs).is_err());
+        }
+    }
+}
