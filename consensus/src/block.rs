@@ -11,7 +11,6 @@ use cuprate_helper::asynch::rayon_spawn_async;
 use futures::FutureExt;
 use monero_serai::{block::Block, transaction::Input};
 use tower::{Service, ServiceExt};
-use tracing::trace;
 
 use cuprate_consensus_rules::{
     blocks::{calculate_pow_hash, check_block, check_block_pow, BlockError, RandomX},
@@ -24,57 +23,6 @@ use crate::{
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     Database, ExtendedConsensusError,
 };
-
-/// A pre-prepared block with all data except the proof of work hash.
-#[derive(Debug)]
-struct PrePreparedBlockExPOW {
-    /// The block
-    pub block: Block,
-    /// The serialised blocks bytes
-    pub block_blob: Vec<u8>,
-
-    /// The blocks hf vote
-    pub hf_vote: HardFork,
-    /// The blocks hf version
-    pub hf_version: HardFork,
-
-    /// The blocks hash
-    pub block_hash: [u8; 32],
-    /// The blocks height
-    pub height: u64,
-
-    /// The weight of the blocks miner transaction.
-    pub miner_tx_weight: usize,
-}
-
-impl PrePreparedBlockExPOW {
-    /// Creates a [`PrePreparedBlockExPOW`] from a [`Block`]
-    pub fn new(block: Block) -> Result<PrePreparedBlockExPOW, ConsensusError> {
-        let (hf_version, hf_vote) =
-            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
-
-        let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
-            Err(ConsensusError::Block(BlockError::MinerTxError(
-                MinerTxError::InputNotOfTypeGen,
-            )))?
-        };
-
-        // We can call this now we know the height.
-        trace!("Setting up PrePreparedBlockExPOW for block: {}", height);
-
-        Ok(PrePreparedBlockExPOW {
-            block_blob: block.serialize(),
-            hf_vote,
-            hf_version,
-
-            block_hash: block.hash(),
-            height: *height,
-
-            miner_tx_weight: block.miner_tx.weight(),
-            block,
-        })
-    }
-}
 
 /// A pre-prepared block with all data needed to verify it.
 #[derive(Debug)]
@@ -104,30 +52,33 @@ impl PrePreparedBlock {
     /// The randomX VM must be Some if RX is needed or this will panic.
     /// The randomX VM must also be initialised with the correct seed.
     fn new<R: RandomX>(
-        block: PrePreparedBlockExPOW,
+        block: Block,
         randomx_vm: Option<&R>,
     ) -> Result<PrePreparedBlock, ConsensusError> {
-        let Some(Input::Gen(height)) = block.block.miner_tx.prefix.inputs.first() else {
+        let (hf_version, hf_vote) =
+            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
+
+        let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
         };
 
         Ok(PrePreparedBlock {
-            block_blob: block.block_blob,
-            hf_vote: block.hf_vote,
-            hf_version: block.hf_version,
+            block_blob: block.serialize(),
+            hf_vote,
+            hf_version,
 
-            block_hash: block.block_hash,
+            block_hash: block.hash(),
             pow_hash: calculate_pow_hash(
                 randomx_vm,
-                &block.block.serialize_hashable(),
+                &block.serialize_hashable(),
                 *height,
-                &block.hf_version,
+                &hf_version,
             )?,
 
-            miner_tx_weight: block.miner_tx_weight,
-            block: block.block,
+            miner_tx_weight: block.miner_tx.weight(),
+            block,
         })
     }
 }
@@ -290,17 +241,12 @@ where
     // Set up the block and just pass it to [`verify_main_chain_block_prepared`]
 
     let rx_vms = context.rx_vms.clone();
-    let prepped_block = rayon_spawn_async(move || {
-        let prepped_block_ex_pow = PrePreparedBlockExPOW::new(block)?;
-        let height = prepped_block_ex_pow.height;
 
-        PrePreparedBlock::new(prepped_block_ex_pow, rx_vms.get(&height).map(AsRef::as_ref))
+    let height = context.chain_height;
+    let prepped_block = rayon_spawn_async(move || {
+        PrePreparedBlock::new(block, rx_vms.get(&height).map(AsRef::as_ref))
     })
     .await?;
-
-    // Although this is checked in [`verify_main_chain_block_prepared`], check it now, so we don't waste time setting up txs.
-    check_block_pow(&prepped_block.pow_hash, context.cumulative_difficulty)
-        .map_err(ConsensusError::Block)?;
 
     tracing::debug!("verifying block: {}", hex::encode(prepped_block.block_hash));
 

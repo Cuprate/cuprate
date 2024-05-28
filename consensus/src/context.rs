@@ -4,17 +4,16 @@
 //! This is used during contextual validation, this does not have all the data for contextual validation
 //! (outputs) for that you will need a [`Database`].
 //!
-use std::pin::Pin;
 use std::{
     cmp::min,
     collections::HashMap,
     future::Future,
+    pin::Pin,
     sync::Arc,
     task::{Context, Poll},
 };
 
-use futures::channel::oneshot;
-use futures::FutureExt;
+use futures::{channel::oneshot, FutureExt};
 use tokio::sync::mpsc;
 use tokio_util::sync::PollSender;
 use tower::Service;
@@ -106,7 +105,8 @@ where
 {
     let context_task = task::ContextTask::init_context(cfg, database).await?;
 
-    let (tx, rx) = mpsc::channel(5);
+    // TODO: make buffer size configurable.
+    let (tx, rx) = mpsc::channel(15);
 
     tokio::spawn(context_task.run(rx));
 

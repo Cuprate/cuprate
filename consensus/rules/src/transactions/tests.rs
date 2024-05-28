@@ -1,14 +1,16 @@
-use curve25519_dalek::constants::{ED25519_BASEPOINT_POINT, EIGHT_TORSION};
-use curve25519_dalek::edwards::CompressedEdwardsY;
-use curve25519_dalek::EdwardsPoint;
-use proptest::collection::vec;
-use proptest::prelude::*;
 use std::ops::Range;
 
-use crate::decomposed_amount::decomposed_amounts;
+use curve25519_dalek::{
+    constants::{ED25519_BASEPOINT_POINT, EIGHT_TORSION},
+    edwards::CompressedEdwardsY,
+    EdwardsPoint,
+};
+use proptest::{collection::vec, prelude::*};
+
 use monero_serai::transaction::Output;
 
 use super::*;
+use crate::decomposed_amount::decomposed_amounts;
 
 #[test]
 fn test_check_output_amount_v1() {
