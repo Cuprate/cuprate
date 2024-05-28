@@ -1,12 +1,12 @@
 [package]
-name        = "cuprate-database"
+name        = "cuprate-blockchain"
 version     = "0.0.0"
 edition     = "2021"
-description = "Cuprate's database abstraction"
+description = "Cuprate's blockchain database"
 license     = "MIT"
 authors     = ["hinto-janai"]
-repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
-keywords    = ["cuprate", "database"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/cuprate-blockchain"
+keywords    = ["cuprate", "blockchain", "database"]
 
 [features]
 default   = ["heed", "redb", "service"]
