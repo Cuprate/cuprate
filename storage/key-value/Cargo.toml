@@ -1,12 +1,12 @@
 [package]
-name        = "cuprate-database"
-version     = "0.0.0"
+name        = "key-value"
+version     = "0.1.0"
 edition     = "2021"
-description = "Cuprate's database abstraction"
+description = "Key-value database abstraction"
 license     = "MIT"
 authors     = ["hinto-janai"]
-repository  = "https://github.com/Cuprate/cuprate/tree/main/database"
-keywords    = ["cuprate", "database"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/storage"
+keywords    = ["storage", "database", "abstraction"]
 
 [features]
 default   = ["heed", "redb", "service"]
