@@ -48,17 +48,17 @@ Documentation for `database/` is split into 3 locations:
 
 | Documentation location    | Purpose |
 |---------------------------|---------|
-| `database/README.md`      | High level design of `cuprate-blockchain`
-| `cuprate-blockchain`        | Practical usage documentation/warnings/notes/etc
+| `database/README.md`      | High level design of `cuprate-database`
+| `cuprate-database`        | Practical usage documentation/warnings/notes/etc
 | Source file `// comments` | Implementation-specific details (e.g, how many reader threads to spawn?)
 
 This README serves as the implementation design document.
 
-For actual practical usage, `cuprate-blockchain`'s types and general usage are documented via standard Rust tooling.
+For actual practical usage, `cuprate-database`'s types and general usage are documented via standard Rust tooling.
 
 Run:
 ```bash
-cargo doc --package cuprate-blockchain --open
+cargo doc --package cuprate-database --open
 ```
 at the root of the repo to open/read the documentation.
 
@@ -77,7 +77,7 @@ The code within `src/` is also littered with some `grep`-able comments containin
 | `SOMEDAY`   | This should be implemented... someday
 
 ## 2. File structure
-A quick reference of the structure of the folders & files in `cuprate-blockchain`.
+A quick reference of the structure of the folders & files in `cuprate-database`.
 
 Note that `lib.rs/mod.rs` files are purely for re-exporting/visibility/lints, and contain no code. Each sub-directory has a corresponding `mod.rs`.
 
@@ -86,7 +86,7 @@ The top-level `src/` files.
 
 | File                   | Purpose |
 |------------------------|---------|
-| `constants.rs`         | General constants used throughout `cuprate-blockchain`
+| `constants.rs`         | General constants used throughout `cuprate-database`
 | `database.rs`          | Abstracted database; `trait DatabaseR{o,w}`
 | `env.rs`               | Abstracted database environment; `trait Env`
 | `error.rs`             | Database error types
@@ -95,14 +95,14 @@ The top-level `src/` files.
 | `resize.rs`            | Database resizing algorithms
 | `storable.rs`          | Data (de)serialization; `trait Storable`
 | `table.rs`             | Database table abstraction; `trait Table`
-| `tables.rs`            | All the table definitions used by `cuprate-blockchain`
-| `tests.rs`             | Utilities for `cuprate_blockchain` testing
+| `tables.rs`            | All the table definitions used by `cuprate-database`
+| `tests.rs`             | Utilities for `cuprate_database` testing
 | `transaction.rs`       | Database transaction abstraction; `trait TxR{o,w}`
 | `types.rs`             | Database-specific types
 | `unsafe_unsendable.rs` | Marker type to impl `Send` for objects not `Send`
 
 ### 2.2 `src/backend/`
-This folder contains the implementation for actual databases used as the backend for `cuprate-blockchain`.
+This folder contains the implementation for actual databases used as the backend for `cuprate-database`.
 
 Each backend has its own folder.
 
@@ -118,8 +118,8 @@ All backends follow the same file structure:
 |------------------|---------|
 | `database.rs`    | Implementation of `trait DatabaseR{o,w}`
 | `env.rs`         | Implementation of `trait Env`
-| `error.rs`       | Implementation of backend's errors to `cuprate_blockchain`'s error types
-| `storable.rs`    | Compatibility layer between `cuprate_blockchain::Storable` and backend-specific (de)serialization
+| `error.rs`       | Implementation of backend's errors to `cuprate_database`'s error types
+| `storable.rs`    | Compatibility layer between `cuprate_database::Storable` and backend-specific (de)serialization
 | `transaction.rs` | Implementation of `trait TxR{o,w}`
 | `types.rs`       | Type aliases for long backend-specific types
 
@@ -154,14 +154,14 @@ The `async`hronous request/response API other Cuprate crates use instead of mana
 
 | File           | Purpose |
 |----------------|---------|
-| `free.rs`      | General free functions used (related to `cuprate_blockchain::service`)
+| `free.rs`      | General free functions used (related to `cuprate_database::service`)
 | `read.rs`      | Read thread-pool definitions and logic
 | `tests.rs`     | Thread-pool tests and test helper functions
-| `types.rs`     | `cuprate_blockchain::service`-related type aliases
+| `types.rs`     | `cuprate_database::service`-related type aliases
 | `write.rs`     | Writer thread definitions and logic
 
 ## 3. Backends
-`cuprate-blockchain`'s `trait`s allow abstracting over the actual database, such that any backend in particular could be used.
+`cuprate-database`'s `trait`s allow abstracting over the actual database, such that any backend in particular could be used.
 
 Each database's implementation for those `trait`'s are located in its respective folder in `src/backend/${DATABASE_NAME}/`.
 
@@ -210,7 +210,7 @@ As such, it is not implemented.
 As such, it is not implemented (yet).
 
 ## 4. Layers
-`cuprate_blockchain` is logically abstracted into 5 layers, with each layer being built upon the last.
+`cuprate_database` is logically abstracted into 5 layers, with each layer being built upon the last.
 
 Starting from the lowest:
 1. Backend
@@ -228,7 +228,7 @@ Examples:
 - `heed` (LMDB)
 - `redb`
 
-`cuprate_blockchain` itself just uses a backend, it does not implement one.
+`cuprate_database` itself just uses a backend, it does not implement one.
 
 All backends have the following attributes:
 - [Embedded](https://en.wikipedia.org/wiki/Embedded_database)
@@ -239,7 +239,7 @@ All backends have the following attributes:
 - Allows concurrent readers
 
 ### 4.2 Trait
-`cuprate_blockchain` provides a set of `trait`s that abstract over the various database backends.
+`cuprate_database` provides a set of `trait`s that abstract over the various database backends.
 
 This allows the function signatures and behavior to stay the same but allows for swapping out databases in an easier fashion.
 
@@ -253,7 +253,7 @@ Examples:
 For example, instead of calling `LMDB` or `redb`'s `get()` function directly, `DatabaseRo::get()` is called.
 
 ### 4.3 ConcreteEnv
-This is the non-generic, concrete `struct` provided by `cuprate_blockchain` that contains all the data necessary to operate the database. The actual database backend `ConcreteEnv` will use internally depends on which backend feature is used.
+This is the non-generic, concrete `struct` provided by `cuprate_database` that contains all the data necessary to operate the database. The actual database backend `ConcreteEnv` will use internally depends on which backend feature is used.
 
 `ConcreteEnv` implements `trait Env`, which opens the door to all the other traits.
 
@@ -280,14 +280,14 @@ The final layer abstracts the database completely into a [Monero-specific `async
 For more information on this layer, see the next section: [`5. The service`](#5-the-service).
 
 ## 5. The service
-The main API `cuprate_blockchain` exposes for other crates to use is the `cuprate_blockchain::service` module.
+The main API `cuprate_database` exposes for other crates to use is the `cuprate_database::service` module.
 
 This module exposes an `async` request/response API with `tower::Service`, backed by a threadpool, that allows reading/writing Monero-related data from/to the database.
 
-`cuprate_blockchain::service` itself manages the database using a separate writer thread & reader thread-pool, and uses the previously mentioned [`4.4 ops`](#44-ops) functions when responding to requests.
+`cuprate_database::service` itself manages the database using a separate writer thread & reader thread-pool, and uses the previously mentioned [`4.4 ops`](#44-ops) functions when responding to requests.
 
 ### 5.1 Initialization
-The service is started simply by calling: [`cuprate_blockchain::service::init()`](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/service/free.rs#L23).
+The service is started simply by calling: [`cuprate_database::service::init()`](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/service/free.rs#L23).
 
 This function initializes the database, spawns threads, and returns a:
 - Read handle to the database (cloneable)
@@ -328,15 +328,15 @@ Both read/write requests variants match in name with `Response` variants, i.e.
 ### 5.4 Thread model
 As mentioned in the [`4. Layers`](#4-layers) section, the base database abstractions themselves are not concerned with parallelism, they are mostly functions to be called from a single-thread.
 
-However, the `cuprate_blockchain::service` API, _does_ have a thread model backing it.
+However, the `cuprate_database::service` API, _does_ have a thread model backing it.
 
-When [`cuprate_blockchain::service`'s initialization function](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/free.rs#L33-L44) is called, threads will be spawned and maintained until the user drops (disconnects) the returned handles.
+When [`cuprate_database::service`'s initialization function](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/free.rs#L33-L44) is called, threads will be spawned and maintained until the user drops (disconnects) the returned handles.
 
 The current behavior for thread count is:
 - [1 writer thread](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/write.rs#L52-L66)
 - [As many reader threads as there are system threads](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/read.rs#L104-L126)
 
-For example, on a system with 32-threads, `cuprate_blockchain` will spawn:
+For example, on a system with 32-threads, `cuprate_database` will spawn:
 - 1 writer thread
 - 32 reader threads
 
@@ -346,7 +346,7 @@ Note that the `1 system thread = 1 reader thread` model is only the default sett
 
 The reader threads are managed by [`rayon`](https://docs.rs/rayon).
 
-For an example of where multiple reader threads are used: given a request that asks if any key-image within a set already exists, `cuprate_blockchain` will [split that work between the threads with `rayon`](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/read.rs#L490-L503).
+For an example of where multiple reader threads are used: given a request that asks if any key-image within a set already exists, `cuprate_database` will [split that work between the threads with `rayon`](https://github.com/Cuprate/cuprate/blob/9c27ba5791377d639cb5d30d0f692c228568c122/database/src/service/read.rs#L490-L503).
 
 ### 5.5 Shutdown
 Once the read/write handles are `Drop`ed, the backing thread(pool) will gracefully exit, automatically.
@@ -354,7 +354,7 @@ Once the read/write handles are `Drop`ed, the backing thread(pool) will graceful
 Note the writer thread and reader threadpool aren't connected whatsoever; dropping the write handle will make the writer thread exit, however, the reader handle is free to be held onto and can be continued to be read from - and vice-versa for the write handle.
 
 ## 6. Syncing
-`cuprate_blockchain`'s database has 5 disk syncing modes.
+`cuprate_database`'s database has 5 disk syncing modes.
 
 1. FastThenSafe
 1. Safe
@@ -373,7 +373,7 @@ For more information on the other modes, read the documentation [here](https://g
 ## 7. Resizing
 Database backends that require manually resizing will, by default, use a similar algorithm as `monerod`'s.
 
-Note that this only relates to the `service` module, where the database is handled by `cuprate_blockchain` itself, not the user. In the case of a user directly using `cuprate_blockchain`, it is up to them on how to resize.
+Note that this only relates to the `service` module, where the database is handled by `cuprate_database` itself, not the user. In the case of a user directly using `cuprate_database`, it is up to them on how to resize.
 
 Within `service`, the resizing logic defined [here](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/service/write.rs#L139-L201) does the following:
 
@@ -392,7 +392,7 @@ The size & layout of types is stable across compiler versions, as they are set a
 
 Note that the data stored in the tables are still type-safe; we still refer to the key and values within our tables by the type.
 
-The main deserialization `trait` for database storage is: [`cuprate_blockchain::Storable`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L16-L115).
+The main deserialization `trait` for database storage is: [`cuprate_database::Storable`](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L16-L115).
 
 - Before storage, the type is [simply cast into bytes](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L125)
 - When fetching, the bytes are [simply cast into the type](https://github.com/Cuprate/cuprate/blob/2ac90420c658663564a71b7ecb52d74f3c2c9d0f/database/src/storable.rs#L130)
@@ -405,13 +405,13 @@ However, it is worth noting that when bytes are casted into the type, [it is cop
 
 Without this, `bytemuck` will panic with [`TargetAlignmentGreaterAndInputNotAligned`](https://docs.rs/bytemuck/latest/bytemuck/enum.PodCastError.html#variant.TargetAlignmentGreaterAndInputNotAligned) when casting.
 
-Copying the bytes fixes this problem, although it is more costly than necessary. However, in the main use-case for `cuprate_blockchain` (the `service` module) the bytes would need to be owned regardless as the `Request/Response` API uses owned data types (`T`, `Vec<T>`, `HashMap<K, V>`, etc).
+Copying the bytes fixes this problem, although it is more costly than necessary. However, in the main use-case for `cuprate_database` (the `service` module) the bytes would need to be owned regardless as the `Request/Response` API uses owned data types (`T`, `Vec<T>`, `HashMap<K, V>`, etc).
 
 Practically speaking, this means lower-level database functions that normally look like such:
 ```rust
 fn get(key: &Key) -> &Value;
 ```
-end up looking like this in `cuprate_blockchain`:
+end up looking like this in `cuprate_database`:
 ```rust
 fn get(key: &Key) -> Value;
 ```
@@ -430,11 +430,11 @@ Again, it's unfortunate that these must be owned, although in `service`'s use-ca
 This following section contains Cuprate's database schema, it may change throughout the development of Cuprate, as such, nothing here is final.
 
 ### 9.1 Tables
-The `CamelCase` names of the table headers documented here (e.g. `TxIds`) are the actual type name of the table within `cuprate_blockchain`.
+The `CamelCase` names of the table headers documented here (e.g. `TxIds`) are the actual type name of the table within `cuprate_database`.
 
-Note that words written within `code blocks` mean that it is a real type defined and usable within `cuprate_blockchain`. Other standard types like u64 and type aliases (TxId) are written normally.
+Note that words written within `code blocks` mean that it is a real type defined and usable within `cuprate_database`. Other standard types like u64 and type aliases (TxId) are written normally.
 
-Within `cuprate_blockchain::tables`, the below table is essentially defined as-is with [a macro](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/tables.rs#L369-L470).
+Within `cuprate_database::tables`, the below table is essentially defined as-is with [a macro](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/tables.rs#L369-L470).
 
 Many of the data types stored are the same data types, although are different semantically, as such, a map of aliases used and their real data types is also provided below.
 
@@ -461,7 +461,7 @@ Many of the data types stored are the same data types, although are different se
 | `TxOutputs`       | TxId                 | `StorableVec<u64>` | Gives the amount indices of a transaction's outputs
 | `TxUnlockTime`    | TxId                 | UnlockTime         | Stores the unlock time of a transaction (only if it has a non-zero lock time)
 
-The definitions for aliases and types (e.g. `RctOutput`) are within the [`cuprate_blockchain::types`](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/types.rs#L51) module.
+The definitions for aliases and types (e.g. `RctOutput`) are within the [`cuprate_database::types`](https://github.com/Cuprate/cuprate/blob/31ce89412aa174fc33754f22c9a6d9ef5ddeda28/database/src/types.rs#L51) module.
 
 <!-- TODO(Boog900): We could split this table again into `RingCT (non-miner) Outputs` and `RingCT (miner) Outputs` as for miner outputs we can store the amount instead of commitment saving 24 bytes per miner output. -->
 
@@ -496,7 +496,7 @@ Key = { KEY_PART_1, KEY_PART_2 }
 Value = VALUE
 ```
 
-Then the key type is simply used to look up the value; this is how `cuprate_blockchain` does it.
+Then the key type is simply used to look up the value; this is how `cuprate_database` does it.
 
 For example, the key/value pair for outputs is:
 ```rust
@@ -511,7 +511,7 @@ struct PreRctOutputId {
 ```
 
 ## 10. Known issues and tradeoffs
-`cuprate_blockchain` takes many tradeoffs, whether due to:
+`cuprate_database` takes many tradeoffs, whether due to:
 - Prioritizing certain values over others
 - Not having a better solution
 - Being "good enough"
@@ -519,9 +519,9 @@ struct PreRctOutputId {
 This is a list of the larger ones, along with issues that don't have answers yet.
 
 ### 10.1 Traits abstracting backends
-Although all database backends used are very similar, they have some crucial differences in small implementation details that must be worked around when conforming them to `cuprate_blockchain`'s traits.
+Although all database backends used are very similar, they have some crucial differences in small implementation details that must be worked around when conforming them to `cuprate_database`'s traits.
 
-Put simply: using `cuprate_blockchain`'s traits is less efficient and more awkward than using the backend directly.
+Put simply: using `cuprate_database`'s traits is less efficient and more awkward than using the backend directly.
 
 For example:
 - [Data types must be wrapped in compatibility layers when they otherwise wouldn't be](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/backend/heed/env.rs#L101-L116)
@@ -529,24 +529,24 @@ For example:
 - [There are extra layers of abstraction to smoothen the differences between all backends](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/env.rs#L62-L68)
 - [Existing functionality of backends must be taken away, as it isn't supported in the others](https://github.com/Cuprate/cuprate/blob/d0ac94a813e4cd8e0ed8da5e85a53b1d1ace2463/database/src/database.rs#L27-L34)
 
-This is a _tradeoff_ that `cuprate_blockchain` takes, as:
+This is a _tradeoff_ that `cuprate_database` takes, as:
 - The backend itself is usually not the source of bottlenecks in the greater system, as such, small inefficiencies are OK
 - None of the lost functionality is crucial for operation
 - The ability to use, test, and swap between multiple database backends is [worth it](https://github.com/Cuprate/cuprate/pull/35#issuecomment-1952804393)
 
 ### 10.2 Hot-swappable backends
-Using a different backend is really as simple as re-building `cuprate_blockchain` with a different feature flag:
+Using a different backend is really as simple as re-building `cuprate_database` with a different feature flag:
 ```bash
 # Use LMDB.
-cargo build --package cuprate-blockchain --features heed
+cargo build --package cuprate-database --features heed
 
 # Use redb.
-cargo build --package cuprate-blockchain --features redb
+cargo build --package cuprate-database --features redb
 ```
 
 This is "good enough" for now, however ideally, this hot-swapping of backends would be able to be done at _runtime_.
 
-As it is now, `cuprate_blockchain` cannot compile both backends and swap based on user input at runtime; it must be compiled with a certain backend, which will produce a binary with only that backend.
+As it is now, `cuprate_database` cannot compile both backends and swap based on user input at runtime; it must be compiled with a certain backend, which will produce a binary with only that backend.
 
 This also means things like [CI testing multiple backends is awkward](https://github.com/Cuprate/cuprate/blob/main/.github/workflows/ci.yml#L132-L136), as we must re-compile with different feature flags instead.
 
@@ -555,7 +555,7 @@ As mentioned in [`8. (De)serialization`](#8-deserialization), bytes are _copied_
 
 Using a regular reference cast results in an improperly aligned type `T`; [such a type even existing causes undefined behavior](https://doc.rust-lang.org/reference/behavior-considered-undefined.html). In our case, `bytemuck` saves us by panicking before this occurs. 
 
-Thus, when using `cuprate_blockchain`'s database traits, an _owned_ `T` is returned.
+Thus, when using `cuprate_database`'s database traits, an _owned_ `T` is returned.
 
 This is doubly unfortunately for `&[u8]` as this does not even need deserialization.
 
@@ -568,7 +568,7 @@ enum StorableBytes<'a, T: Storable> {
 ```
 but this would require supporting types that must be copied regardless with the occasional `&[u8]` that can be returned without casting. This was hard to do so in a generic way, thus all `[u8]`'s are copied and returned as owned `StorableVec`s.
 
-This is a _tradeoff_ `cuprate_blockchain` takes as:
+This is a _tradeoff_ `cuprate_database` takes as:
 - `bytemuck::pod_read_unaligned` is cheap enough
 - The main API, `service`, needs to return owned value anyway
 - Having no references removes a lot of lifetime complexity
@@ -578,14 +578,14 @@ The alternative is either:
 - Somehow fixing the alignment issues in the backends mentioned previously
 
 ### 10.4 Endianness
-`cuprate_blockchain`'s (de)serialization and storage of bytes are native-endian, as in, byte storage order will depend on the machine it is running on.
+`cuprate_database`'s (de)serialization and storage of bytes are native-endian, as in, byte storage order will depend on the machine it is running on.
 
 As Cuprate's build-targets are all little-endian ([big-endian by default machines barely exist](https://en.wikipedia.org/wiki/Endianness#Hardware)), this doesn't matter much and the byte ordering can be seen as a constant.
 
 Practically, this means `cuprated`'s database files can be transferred across computers, as can `monerod`'s.
 
 ### 10.5 Extra table data
-Some of `cuprate_blockchain`'s tables differ from `monerod`'s tables, for example, the way [`9.2 Multimap tables`](#92-multimap-tables) tables are done requires that the primary key is stored _for all_ entries, compared to `monerod` only needing to store it once.
+Some of `cuprate_database`'s tables differ from `monerod`'s tables, for example, the way [`9.2 Multimap tables`](#92-multimap-tables) tables are done requires that the primary key is stored _for all_ entries, compared to `monerod` only needing to store it once.
 
 For example:
 ```rust
@@ -597,4 +597,4 @@ struct PreRctOutputId { amount: 1, amount_index: 1 }
 
 This means `cuprated`'s database will be slightly larger than `monerod`'s.
 
-The current method `cuprate_blockchain` uses will be "good enough" until usage shows that it must be optimized as multimap tables are tricky to implement across all backends.
+The current method `cuprate_database` uses will be "good enough" until usage shows that it must be optimized as multimap tables are tricky to implement across all backends.
