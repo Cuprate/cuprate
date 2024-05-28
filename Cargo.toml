@@ -5,7 +5,6 @@ members = [
 	"consensus",
 	"consensus/rules",
 	"cryptonight",
-	"database",
 	"helper",
 	"net/epee-encoding",
 	"net/fixed-bytes",
@@ -15,9 +14,12 @@ members = [
 	"p2p/dandelion",
 	"p2p/monero-p2p",
 	"p2p/address-book",
+	"storage/cuprate-blockchain",
+	"storage/cuprate-txpool",
+	"storage/database",
 	"pruning",
 	"test-utils",
-	"types",
+	"types", "storage/cuprate-txpool",
 ]
 
 [profile.release]
