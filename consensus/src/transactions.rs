@@ -1,8 +1,9 @@
+use std::ops::Deref;
 use std::{
     collections::HashSet,
     future::Future,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, Mutex as StdMutex},
     task::{Context, Poll},
 };
 
@@ -75,7 +76,7 @@ pub struct TransactionVerificationData {
     pub tx_weight: usize,
     pub fee: u64,
     pub tx_hash: [u8; 32],
-    pub cached_verification_state: CachedVerificationState,
+    pub cached_verification_state: StdMutex<CachedVerificationState>,
 }
 
 impl TransactionVerificationData {
@@ -97,7 +98,7 @@ impl TransactionVerificationData {
             tx_blob,
             tx_weight,
             fee: tx.rct_signatures.base.fee,
-            cached_verification_state: CachedVerificationState::NotVerified,
+            cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
             version: TxVersion::from_raw(tx.prefix.version)
                 .ok_or(TransactionError::TransactionVersionInvalid)?,
             tx,
@@ -110,12 +111,14 @@ pub enum VerifyTxRequest {
     Prepped {
         txs: Vec<Arc<TransactionVerificationData>>,
         current_chain_height: u64,
+        top_hash: [u8; 32],
         time_for_time_lock: u64,
         hf: HardFork,
     },
     New {
         txs: Vec<Transaction>,
         current_chain_height: u64,
+        top_hash: [u8; 32],
         time_for_time_lock: u64,
         hf: HardFork,
     },
@@ -163,6 +166,7 @@ where
                 VerifyTxRequest::New {
                     txs,
                     current_chain_height,
+                    top_hash,
                     time_for_time_lock,
                     hf,
                 } => {
@@ -170,6 +174,7 @@ where
                         database,
                         txs,
                         current_chain_height,
+                        top_hash,
                         time_for_time_lock,
                         hf,
                     )
@@ -179,6 +184,7 @@ where
                 VerifyTxRequest::Prepped {
                     txs,
                     current_chain_height,
+                    top_hash,
                     time_for_time_lock,
                     hf,
                 } => {
@@ -186,6 +192,7 @@ where
                         database,
                         txs,
                         current_chain_height,
+                        top_hash,
                         time_for_time_lock,
                         hf,
                     )
@@ -201,6 +208,7 @@ async fn prep_and_verify_transactions<D>(
     database: D,
     txs: Vec<Transaction>,
     current_chain_height: u64,
+    top_hash: [u8; 32],
     time_for_time_lock: u64,
     hf: HardFork,
 ) -> Result<VerifyTxResponse, ExtendedConsensusError>
@@ -217,7 +225,15 @@ where
     })
     .await?;
 
-    verify_prepped_transactions(database, txs, current_chain_height, time_for_time_lock, hf).await
+    verify_prepped_transactions(
+        database,
+        txs,
+        current_chain_height,
+        top_hash,
+        time_for_time_lock,
+        hf,
+    )
+    .await
 }
 
 #[instrument(name = "verify_txs", skip_all, fields(amt = txs.len()) level = "info")]
@@ -225,6 +241,7 @@ async fn verify_prepped_transactions<D>(
     mut database: D,
     txs: Vec<Arc<TransactionVerificationData>>,
     current_chain_height: u64,
+    top_hash: [u8; 32],
     time_for_time_lock: u64,
     hf: HardFork,
 ) -> Result<VerifyTxResponse, ExtendedConsensusError>
@@ -266,7 +283,12 @@ where
 
     let mut verified_at_block_hashes = txs
         .iter()
-        .filter_map(|txs| txs.cached_verification_state.verified_at_block_hash())
+        .filter_map(|txs| {
+            txs.cached_verification_state
+                .lock()
+                .unwrap()
+                .verified_at_block_hash()
+        })
         .collect::<HashSet<_>>();
 
     tracing::trace!(
@@ -304,6 +326,7 @@ where
         verify_transactions(
             txs_needing_full_verification,
             current_chain_height,
+            top_hash,
             time_for_time_lock,
             hf,
             database
@@ -333,37 +356,44 @@ fn transactions_needing_verification(
     let mut partial_validation_transactions = Vec::new();
 
     for tx in txs.into_iter() {
-        match tx.cached_verification_state {
+        let guard = tx.cached_verification_state.lock().unwrap();
+
+        match guard.deref() {
             CachedVerificationState::NotVerified => {
+                drop(guard);
                 full_validation_transactions.push((tx, VerificationNeeded::SemanticAndContextual));
                 continue;
             }
             CachedVerificationState::ValidAtHashAndHF(hash, hf) => {
-                if current_hf != &hf {
+                if current_hf != hf {
+                    drop(guard);
                     full_validation_transactions
                         .push((tx, VerificationNeeded::SemanticAndContextual));
                     continue;
                 }
 
-                if !hashes_in_main_chain.contains(&hash) {
+                if !hashes_in_main_chain.contains(hash) {
+                    drop(guard);
                     full_validation_transactions.push((tx, VerificationNeeded::Contextual));
                     continue;
                 }
             }
             CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock(hash, hf, lock) => {
-                if current_hf != &hf {
+                if current_hf != hf {
+                    drop(guard);
                     full_validation_transactions
                         .push((tx, VerificationNeeded::SemanticAndContextual));
                     continue;
                 }
 
-                if !hashes_in_main_chain.contains(&hash) {
+                if !hashes_in_main_chain.contains(hash) {
+                    drop(guard);
                     full_validation_transactions.push((tx, VerificationNeeded::Contextual));
                     continue;
                 }
 
                 // If the time lock is still locked then the transaction is invalid.
-                if !output_unlocked(&lock, current_chain_height, time_for_time_lock, &hf) {
+                if !output_unlocked(lock, current_chain_height, time_for_time_lock, hf) {
                     return Err(ConsensusError::Transaction(
                         TransactionError::OneOrMoreRingMembersLocked,
                     ));
@@ -372,6 +402,7 @@ fn transactions_needing_verification(
         }
 
         if tx.version == TxVersion::RingSignatures {
+            drop(guard);
             partial_validation_transactions.push(tx);
             continue;
         }
@@ -401,6 +432,7 @@ where
 async fn verify_transactions<D>(
     txs: Vec<(Arc<TransactionVerificationData>, VerificationNeeded)>,
     current_chain_height: u64,
+    top_hash: [u8; 32],
     current_time_lock_timestamp: u64,
     hf: HardFork,
     database: D,
@@ -414,8 +446,9 @@ where
     rayon_spawn_async(move || {
         let batch_veriifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
 
-        txs.par_iter().zip(txs_ring_member_info).try_for_each(
-            |((tx, verification_needed), ring)| {
+        txs.par_iter()
+            .zip(txs_ring_member_info.par_iter())
+            .try_for_each(|((tx, verification_needed), ring)| {
                 // do semantic validation if needed.
                 if *verification_needed == VerificationNeeded::SemanticAndContextual {
                     batch_veriifier.queue_statement(|verifier| {
@@ -436,19 +469,47 @@ where
                 // Both variants of `VerificationNeeded` require contextual validation.
                 check_transaction_contextual(
                     &tx.tx,
-                    &ring,
+                    ring,
                     current_chain_height,
                     current_time_lock_timestamp,
                     &hf,
                 )?;
 
                 Ok::<_, ConsensusError>(())
-            },
-        )?;
+            })?;
 
         if !batch_veriifier.verify() {
             return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
         }
+
+        txs.iter()
+            .zip(txs_ring_member_info)
+            .for_each(|((tx, _), ring)| {
+                if ring.time_locked_outs.is_empty() {
+                    *tx.cached_verification_state.lock().unwrap() =
+                        CachedVerificationState::ValidAtHashAndHF(top_hash, hf);
+                } else {
+                    let youngest_timebased_lock = ring
+                        .time_locked_outs
+                        .iter()
+                        .filter_map(|lock| match lock {
+                            Timelock::Time(time) => Some(*time),
+                            _ => None,
+                        })
+                        .min();
+
+                    *tx.cached_verification_state.lock().unwrap() =
+                        if let Some(time) = youngest_timebased_lock {
+                            CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock(
+                                top_hash,
+                                hf,
+                                Timelock::Time(time),
+                            )
+                        } else {
+                            CachedVerificationState::ValidAtHashAndHF(top_hash, hf)
+                        };
+                }
+            });
 
         Ok(())
     })

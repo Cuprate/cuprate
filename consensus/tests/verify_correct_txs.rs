@@ -82,6 +82,7 @@ macro_rules! test_verify_valid_v2_tx {
                 VerifyTxRequest::New {
                     txs: vec![Transaction::read(&mut $tx).unwrap()],
                     current_chain_height: 10,
+                    top_hash: [0; 32],
                     hf: HardFork::$hf,
                     time_for_time_lock: u64::MAX
                 }
@@ -110,6 +111,7 @@ macro_rules! test_verify_valid_v2_tx {
                 VerifyTxRequest::New {
                     txs: vec![Transaction::read(&mut $tx).unwrap()],
                     current_chain_height: 10,
+                    top_hash: [0; 32],
                     hf: HardFork::$hf,
                     time_for_time_lock: u64::MAX
                 }

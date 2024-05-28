@@ -332,6 +332,7 @@ where
         .oneshot(VerifyTxRequest::Prepped {
             txs: txs.clone(),
             current_chain_height: context.chain_height,
+            top_hash: context.top_hash,
             time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
             hf: context.current_hf,
         })
