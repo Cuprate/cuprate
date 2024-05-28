@@ -19,7 +19,7 @@ members = [
 	"storage/database",
 	"pruning",
 	"test-utils",
-	"types", "storage/cuprate-txpool",
+	"types",
 ]
 
 [profile.release]
