@@ -364,7 +364,7 @@ where
     futures::try_join!(
         verify_transactions_decoy_info(txs_needing_partial_verification, hf, database.clone()),
         verify_transactions(
-            txs_needing_full_verification.into(),
+            txs_needing_full_verification,
             current_chain_height,
             top_hash,
             time_for_time_lock,
@@ -395,7 +395,7 @@ fn transactions_needing_verification(
     // txs needing partial _contextual_ validation, not semantic.
     let mut partial_validation_transactions = Vec::new();
 
-    for tx in txs.into_iter() {
+    for tx in txs.iter() {
         let guard = tx.cached_verification_state.lock().unwrap();
 
         match guard.deref() {
