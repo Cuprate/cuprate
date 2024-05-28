@@ -140,7 +140,7 @@ pub struct VerifiedBlockInformation {
     /// The block's hard-fork vote.
     pub hf_vote: HardFork,
     /// The txs in this block.
-    pub txs: Vec<Arc<TransactionVerificationData>>,
+    pub txs: Arc<[Arc<TransactionVerificationData>]>,
     /// The blocks hash.
     pub block_hash: [u8; 32],
     /// the blocks POW hash.
@@ -157,12 +157,12 @@ pub struct VerifiedBlockInformation {
     pub cumulative_difficulty: u128,
 }
 
-/// A request to verify a block, or to prepare a block for verification.
+/// A request to verify a block.
 pub enum VerifyBlockRequest {
     /// A request to verify a block.
     MainChain {
         block: Block,
-        prepared_txs: Vec<Arc<TransactionVerificationData>>,
+        prepared_txs: Arc<[Arc<TransactionVerificationData>]>,
     },
 }
 
@@ -260,7 +260,7 @@ where
 /// Verifies a prepared block.
 async fn verify_main_chain_block<C, TxV>(
     block: Block,
-    txs: Vec<Arc<TransactionVerificationData>>,
+    txs: Arc<[Arc<TransactionVerificationData>]>,
     context_svc: C,
     tx_verifier_svc: TxV,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>

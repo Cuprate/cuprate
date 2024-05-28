@@ -1,15 +1,21 @@
-use std::ops::Deref;
+//! # Transaction Verifier Service.
+//!
+//! This module contains the [`TxVerifierService`] which handles consensus validation of transactions.
+//!
 use std::{
     collections::HashSet,
     future::Future,
+    ops::Deref,
     pin::Pin,
     sync::{Arc, Mutex as StdMutex},
     task::{Context, Poll},
 };
 
 use futures::FutureExt;
-use monero_serai::ringct::RctType;
-use monero_serai::transaction::{Input, Timelock, Transaction};
+use monero_serai::{
+    ringct::RctType,
+    transaction::{Input, Timelock, Transaction},
+};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -23,17 +29,20 @@ use cuprate_consensus_rules::{
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 
-use crate::transactions::contextual_data::{batch_get_decoy_info, batch_get_ring_member_info};
 use crate::{
-    batch_verifier::MultiThreadedBatchVerifier, Database, DatabaseRequest, DatabaseResponse,
-    ExtendedConsensusError,
+    batch_verifier::MultiThreadedBatchVerifier,
+    transactions::contextual_data::{batch_get_decoy_info, batch_get_ring_member_info},
+    Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError,
 };
 
 pub mod contextual_data;
 
+/// A struct representing the type of validation that needs to be completed for this transaction.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum VerificationNeeded {
+    /// Both semantic validation and contextual validation are needed.
     SemanticAndContextual,
+    /// Only contextual validation is needed.
     Contextual,
 }
 
@@ -41,7 +50,7 @@ enum VerificationNeeded {
 /// the transaction is valid in the future.
 #[derive(Debug, Clone)]
 pub enum CachedVerificationState {
-    /// The transaction has not been fully validated.
+    /// The transaction has not been validated.
     NotVerified,
     /// The transaction is valid* if the block represented by this hash is in the blockchain and the [`HardFork`]
     /// is the same.
@@ -51,13 +60,14 @@ pub enum CachedVerificationState {
     /// The transaction is valid* if the block represented by this hash is in the blockchain _and_ this
     /// given time lock is unlocked. The time lock here will represent the youngest used time based lock
     /// (If the transaction uses any time based time locks). This is because time locks are not monotonic
-    /// so unlocked outputs cold become re-locked.
+    /// so unlocked outputs could become re-locked.
     ///
     /// *V1 transactions require checks on their ring-length even if this hash is in the blockchain.
     ValidAtHashAndHFWithTimeBasedLock([u8; 32], HardFork, Timelock),
 }
 
 impl CachedVerificationState {
+    /// Returns the block hash this is valid for if in state [`CachedVerificationState::ValidAtHashAndHF`] or [`CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock`].
     fn verified_at_block_hash(&self) -> Option<[u8; 32]> {
         match self {
             CachedVerificationState::NotVerified => None,
@@ -70,16 +80,24 @@ impl CachedVerificationState {
 /// Data needed to verify a transaction.
 #[derive(Debug)]
 pub struct TransactionVerificationData {
+    /// The transaction we are verifying
     pub tx: Transaction,
+    /// The [`TxVersion`] of this tx.
     pub version: TxVersion,
+    /// The serialised transaction.
     pub tx_blob: Vec<u8>,
+    /// The weight of the transaction.
     pub tx_weight: usize,
+    /// The fee this transaction has paid.
     pub fee: u64,
+    /// The hash of this transaction.
     pub tx_hash: [u8; 32],
+    /// The verification state of this transaction.
     pub cached_verification_state: StdMutex<CachedVerificationState>,
 }
 
 impl TransactionVerificationData {
+    /// Creates a new [`TransactionVerificationData`] from the given [`Transaction`].
     pub fn new(tx: Transaction) -> Result<TransactionVerificationData, ConsensusError> {
         let tx_hash = tx.hash();
         let tx_blob = tx.serialize();
@@ -106,31 +124,49 @@ impl TransactionVerificationData {
     }
 }
 
+/// A request to verify a transaction.
 pub enum VerifyTxRequest {
-    /// Verifies transactions in the context of a block.
+    /// Verifies a batch of prepared txs.
     Prepped {
-        txs: Vec<Arc<TransactionVerificationData>>,
+        /// The transactions to verify.
+        // TODO: Can we use references to remove the outer `Arc`? probably wont play nicely with rayon_spawn_async though
+        txs: Arc<[Arc<TransactionVerificationData>]>,
+        /// The current chain height.
         current_chain_height: u64,
+        /// The top hash.
         top_hash: [u8; 32],
+        /// The value for time to use to check time locked outputs.
         time_for_time_lock: u64,
+        /// The current [`HardFork`]
         hf: HardFork,
     },
+    /// Verifies a batch of new txs.
+    /// Returning [`VerifyTxResponse::OkPrepped`]
     New {
+        /// The transactions to verify.
         txs: Vec<Transaction>,
+        /// The current chain height.
         current_chain_height: u64,
+        /// The top hash.
         top_hash: [u8; 32],
+        /// The value for time to use to check time locked outputs.
         time_for_time_lock: u64,
+        /// The current [`HardFork`]
         hf: HardFork,
     },
 }
 
-#[derive(PartialEq, Eq, Debug)]
+/// A response from a verify transaction request.
+#[derive(Debug)]
 pub enum VerifyTxResponse {
+    OkPrepped(Arc<[Arc<TransactionVerificationData>]>),
     Ok,
 }
 
+/// The transaction verifier service.
 #[derive(Clone)]
-pub struct TxVerifierService<D: Clone> {
+pub struct TxVerifierService<D> {
+    /// The database.
     database: D,
 }
 
@@ -139,6 +175,7 @@ where
     D: Database + Clone + Send + 'static,
     D::Future: Send + 'static,
 {
+    /// Creates a new [`TxVerifierService`].
     pub fn new(database: D) -> TxVerifierService<D> {
         TxVerifierService { database }
     }
@@ -204,6 +241,7 @@ where
     }
 }
 
+/// Prepares transactions for verification, then verifies them.
 async fn prep_and_verify_transactions<D>(
     database: D,
     txs: Vec<Transaction>,
@@ -221,25 +259,27 @@ where
     let txs = rayon_spawn_async(|| {
         txs.into_par_iter()
             .map(|tx| TransactionVerificationData::new(tx).map(Arc::new))
-            .collect::<Result<_, _>>()
+            .collect::<Result<Arc<_>, _>>()
     })
     .await?;
 
     verify_prepped_transactions(
         database,
-        txs,
+        txs.clone(),
         current_chain_height,
         top_hash,
         time_for_time_lock,
         hf,
     )
-    .await
+    .await?;
+
+    Ok(VerifyTxResponse::OkPrepped(txs))
 }
 
 #[instrument(name = "verify_txs", skip_all, fields(amt = txs.len()) level = "info")]
 async fn verify_prepped_transactions<D>(
     mut database: D,
-    txs: Vec<Arc<TransactionVerificationData>>,
+    txs: Arc<[Arc<TransactionVerificationData>]>,
     current_chain_height: u64,
     top_hash: [u8; 32],
     time_for_time_lock: u64,
@@ -324,7 +364,7 @@ where
     futures::try_join!(
         verify_transactions_decoy_info(txs_needing_partial_verification, hf, database.clone()),
         verify_transactions(
-            txs_needing_full_verification,
+            txs_needing_full_verification.into(),
             current_chain_height,
             top_hash,
             time_for_time_lock,
@@ -338,7 +378,7 @@ where
 
 #[allow(clippy::type_complexity)] // I don't think the return is too complex
 fn transactions_needing_verification(
-    txs: Vec<Arc<TransactionVerificationData>>,
+    txs: Arc<[Arc<TransactionVerificationData>]>,
     hashes_in_main_chain: HashSet<[u8; 32]>,
     current_hf: &HardFork,
     current_chain_height: u64,
@@ -361,20 +401,21 @@ fn transactions_needing_verification(
         match guard.deref() {
             CachedVerificationState::NotVerified => {
                 drop(guard);
-                full_validation_transactions.push((tx, VerificationNeeded::SemanticAndContextual));
+                full_validation_transactions
+                    .push((tx.clone(), VerificationNeeded::SemanticAndContextual));
                 continue;
             }
             CachedVerificationState::ValidAtHashAndHF(hash, hf) => {
                 if current_hf != hf {
                     drop(guard);
                     full_validation_transactions
-                        .push((tx, VerificationNeeded::SemanticAndContextual));
+                        .push((tx.clone(), VerificationNeeded::SemanticAndContextual));
                     continue;
                 }
 
                 if !hashes_in_main_chain.contains(hash) {
                     drop(guard);
-                    full_validation_transactions.push((tx, VerificationNeeded::Contextual));
+                    full_validation_transactions.push((tx.clone(), VerificationNeeded::Contextual));
                     continue;
                 }
             }
@@ -382,13 +423,13 @@ fn transactions_needing_verification(
                 if current_hf != hf {
                     drop(guard);
                     full_validation_transactions
-                        .push((tx, VerificationNeeded::SemanticAndContextual));
+                        .push((tx.clone(), VerificationNeeded::SemanticAndContextual));
                     continue;
                 }
 
                 if !hashes_in_main_chain.contains(hash) {
                     drop(guard);
-                    full_validation_transactions.push((tx, VerificationNeeded::Contextual));
+                    full_validation_transactions.push((tx.clone(), VerificationNeeded::Contextual));
                     continue;
                 }
 
@@ -403,7 +444,7 @@ fn transactions_needing_verification(
 
         if tx.version == TxVersion::RingSignatures {
             drop(guard);
-            partial_validation_transactions.push(tx);
+            partial_validation_transactions.push(tx.clone());
             continue;
         }
     }

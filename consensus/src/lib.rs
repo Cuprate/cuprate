@@ -39,7 +39,7 @@ pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 pub enum ExtendedConsensusError {
     /// A consensus error.
     #[error("{0}")]
-    ConErr(#[from] cuprate_consensus_rules::ConsensusError),
+    ConErr(#[from] ConsensusError),
     /// A database error.
     #[error("Database error: {0}")]
     DBErr(#[from] tower::BoxError),

@@ -78,15 +78,15 @@ macro_rules! test_verify_valid_v2_tx {
 
             let mut tx_verifier = TxVerifierService::new(database);
 
-            assert_eq!(tx_verifier.ready().await.unwrap().call(
+            assert!(matches!(tx_verifier.ready().await.unwrap().call(
                 VerifyTxRequest::New {
-                    txs: vec![Transaction::read(&mut $tx).unwrap()],
+                    txs: vec![Transaction::read(&mut $tx).unwrap()].into(),
                     current_chain_height: 10,
                     top_hash: [0; 32],
                     hf: HardFork::$hf,
                     time_for_time_lock: u64::MAX
                 }
-            ).await.unwrap(), VerifyTxResponse::Ok);
+            ).await.unwrap(), VerifyTxResponse::OkPrepped(_)));
 
             // Check verification fails if we put random ring members
 
@@ -109,7 +109,7 @@ macro_rules! test_verify_valid_v2_tx {
 
             assert!(tx_verifier.ready().await.unwrap().call(
                 VerifyTxRequest::New {
-                    txs: vec![Transaction::read(&mut $tx).unwrap()],
+                    txs: vec![Transaction::read(&mut $tx).unwrap()].into(),
                     current_chain_height: 10,
                     top_hash: [0; 32],
                     hf: HardFork::$hf,

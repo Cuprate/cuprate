@@ -28,9 +28,7 @@ impl MultiThreadedBatchVerifier {
         let verifier_cell = self
             .internal
             .get_or(|| RefCell::new(InternalBatchVerifier::new(8)));
-        // SAFETY: This is safe for 2 reasons:
-        //  1. each thread gets a different batch verifier.
-        //  2. only this function `queue_statement` will get the inner batch verifier, it's private.
+        // TODO: this is not ok as a rayon par_iter could be called in stmt.
         stmt(verifier_cell.borrow_mut().deref_mut())
     }
 
