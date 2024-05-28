@@ -1,5 +1,5 @@
 [package]
-name = "cuprate-txpool"
+name = "database"
 version = "0.0.0"
 edition = "2021"
 
