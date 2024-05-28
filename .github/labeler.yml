@@ -111,4 +111,4 @@ A-workspace:
 A-docs:
 - changed-files:
   - any-glob-to-any-file: '**/*.md' # Any file in the entire repo ending in `.md`
-  - any-glob-to-any-file: books/** # Any change to `books/`
+  # `A-books` label is used for book documentation.
