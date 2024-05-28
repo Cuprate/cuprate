@@ -1,4 +1,4 @@
-//! Tests for `cuprate_database`'s backends.
+//! Tests for `cuprate_blockchain`'s backends.
 //!
 //! These tests are fully trait-based, meaning there
 //! is no reference to `backend/`-specific types.

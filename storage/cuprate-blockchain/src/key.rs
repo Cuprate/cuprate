@@ -23,7 +23,7 @@ pub trait Key: Storable + Sized {
     /// not a comparison of the key's value.
     ///
     /// ```rust
-    /// # use cuprate_database::*;
+    /// # use cuprate_blockchain::*;
     /// assert_eq!(
     ///     <u64 as Key>::compare([0].as_slice(), [1].as_slice()),
     ///     std::cmp::Ordering::Less,

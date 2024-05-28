@@ -25,10 +25,10 @@ cfg-if   = { workspace = true }
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.
 # Figure out how to enable features of an already pulled in dependency conditionally.
-cuprate-helper   = { path = "../helper", features = ["fs", "thread", "map"] }
-cuprate-types    = { path = "../types", features = ["service"] }
+cuprate-helper   = { path = "../../helper", features = ["fs", "thread", "map"] }
+cuprate-types    = { path = "../../types", features = ["service"] }
 curve25519-dalek = { workspace = true }
-monero-pruning   = { path = "../pruning" }
+monero-pruning   = { path = "../../pruning" }
 monero-serai     = { workspace = true, features = ["std"] }
 paste            = { workspace = true }
 page_size        = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
@@ -50,8 +50,8 @@ serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-cuprate-helper = { path = "../helper", features = ["thread"] }
-cuprate-test-utils = { path = "../test-utils" }
+cuprate-helper = { path = "../../helper", features = ["thread"] }
+cuprate-test-utils = { path = "../../test-utils" }
 page_size = { version = "0.6.0" }
 tempfile = { version = "3.10.0" }
 pretty_assertions = { workspace = true }

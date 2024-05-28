@@ -27,7 +27,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Consts
 /// Panic message when there's a table missing.
 const PANIC_MSG_MISSING_TABLE: &str =
-    "cuprate_database::Env should uphold the invariant that all tables are already created";
+    "cuprate_blockchain::Env should uphold the invariant that all tables are already created";
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.

@@ -12,7 +12,7 @@
 //!
 //! # Example
 //! ```rust
-//! use cuprate_database::{
+//! use cuprate_blockchain::{
 //!     Env,
 //!     config::{ConfigBuilder, ReaderThreads, SyncMode}
 //! };
@@ -31,7 +31,7 @@
 //!     .build();
 //!
 //! // Start a database `service` using this configuration.
-//! let (reader_handle, _) = cuprate_database::service::init(config.clone())?;
+//! let (reader_handle, _) = cuprate_blockchain::service::init(config.clone())?;
 //! // It's using the config we provided.
 //! assert_eq!(reader_handle.env().config(), &config);
 //! # Ok(()) }

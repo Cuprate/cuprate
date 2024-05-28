@@ -13,7 +13,7 @@ use crate::{error::RuntimeError, ops::macros::doc_error};
 ///
 /// # Example
 /// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
+/// # use cuprate_blockchain::{*, tables::*, ops::block::*, ops::tx::*};
 /// // SOMEDAY
 /// ```
 #[inline]
@@ -29,7 +29,7 @@ pub const fn get_blockchain_pruning_seed() -> Result<PruningSeed, RuntimeError> 
 ///
 /// # Example
 /// ```rust
-/// # use cuprate_database::{*, tables::*, ops::block::*, ops::tx::*};
+/// # use cuprate_blockchain::{*, tables::*, ops::block::*, ops::tx::*};
 /// // SOMEDAY
 /// ```
 #[inline]

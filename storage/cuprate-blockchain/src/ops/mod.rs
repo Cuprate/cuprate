@@ -56,7 +56,7 @@
 //!
 //! use cuprate_test_utils::data::block_v16_tx0;
 //!
-//! use cuprate_database::{
+//! use cuprate_blockchain::{
 //!     ConcreteEnv,
 //!     config::ConfigBuilder,
 //!     Env, EnvInner,

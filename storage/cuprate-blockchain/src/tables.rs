@@ -1,7 +1,7 @@
 //! Database tables.
 //!
 //! # Table marker structs
-//! This module contains all the table definitions used by `cuprate_database`.
+//! This module contains all the table definitions used by `cuprate_blockchain`.
 //!
 //! The zero-sized structs here represents the table type;
 //! they all are essentially marker types that implement [`Table`].
@@ -331,7 +331,7 @@ macro_rules! tables {
             ///
             /// ## Table Name
             /// ```rust
-            /// # use cuprate_database::{*,tables::*};
+            /// # use cuprate_blockchain::{*,tables::*};
             #[doc = concat!(
                 "assert_eq!(",
                 stringify!([<$table:camel>]),

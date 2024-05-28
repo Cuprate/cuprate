@@ -105,7 +105,7 @@ pub type UnlockTime = u64;
 ///
 /// ```rust
 /// # use std::borrow::*;
-/// # use cuprate_database::{*, types::*};
+/// # use cuprate_blockchain::{*, types::*};
 /// // Assert Storable is correct.
 /// let a = PreRctOutputId {
 ///     amount: 1,
@@ -118,7 +118,7 @@ pub type UnlockTime = u64;
 ///
 /// # Size & Alignment
 /// ```rust
-/// # use cuprate_database::types::*;
+/// # use cuprate_blockchain::types::*;
 /// # use std::mem::*;
 /// assert_eq!(size_of::<PreRctOutputId>(), 16);
 /// assert_eq!(align_of::<PreRctOutputId>(), 8);
@@ -148,7 +148,7 @@ pub struct PreRctOutputId {
 ///
 /// ```rust
 /// # use std::borrow::*;
-/// # use cuprate_database::{*, types::*};
+/// # use cuprate_blockchain::{*, types::*};
 /// // Assert Storable is correct.
 /// let a = BlockInfo {
 ///     timestamp: 1,
@@ -167,7 +167,7 @@ pub struct PreRctOutputId {
 ///
 /// # Size & Alignment
 /// ```rust
-/// # use cuprate_database::types::*;
+/// # use cuprate_blockchain::types::*;
 /// # use std::mem::*;
 /// assert_eq!(size_of::<BlockInfo>(), 88);
 /// assert_eq!(align_of::<BlockInfo>(), 8);
@@ -207,7 +207,7 @@ bitflags::bitflags! {
     ///
     /// ```rust
     /// # use std::borrow::*;
-    /// # use cuprate_database::{*, types::*};
+    /// # use cuprate_blockchain::{*, types::*};
     /// // Assert Storable is correct.
     /// let a = OutputFlags::NON_ZERO_UNLOCK_TIME;
     /// let b = Storable::as_bytes(&a);
@@ -217,7 +217,7 @@ bitflags::bitflags! {
     ///
     /// # Size & Alignment
     /// ```rust
-    /// # use cuprate_database::types::*;
+    /// # use cuprate_blockchain::types::*;
     /// # use std::mem::*;
     /// assert_eq!(size_of::<OutputFlags>(), 4);
     /// assert_eq!(align_of::<OutputFlags>(), 4);
@@ -236,7 +236,7 @@ bitflags::bitflags! {
 ///
 /// ```rust
 /// # use std::borrow::*;
-/// # use cuprate_database::{*, types::*};
+/// # use cuprate_blockchain::{*, types::*};
 /// // Assert Storable is correct.
 /// let a = Output {
 ///     key: [1; 32],
@@ -251,7 +251,7 @@ bitflags::bitflags! {
 ///
 /// # Size & Alignment
 /// ```rust
-/// # use cuprate_database::types::*;
+/// # use cuprate_blockchain::types::*;
 /// # use std::mem::*;
 /// assert_eq!(size_of::<Output>(), 48);
 /// assert_eq!(align_of::<Output>(), 8);
@@ -277,7 +277,7 @@ pub struct Output {
 ///
 /// ```rust
 /// # use std::borrow::*;
-/// # use cuprate_database::{*, types::*};
+/// # use cuprate_blockchain::{*, types::*};
 /// // Assert Storable is correct.
 /// let a = RctOutput {
 ///     key: [1; 32],
@@ -293,7 +293,7 @@ pub struct Output {
 ///
 /// # Size & Alignment
 /// ```rust
-/// # use cuprate_database::types::*;
+/// # use cuprate_blockchain::types::*;
 /// # use std::mem::*;
 /// assert_eq!(size_of::<RctOutput>(), 80);
 /// assert_eq!(align_of::<RctOutput>(), 8);

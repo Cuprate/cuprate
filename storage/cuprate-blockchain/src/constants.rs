@@ -1,4 +1,4 @@
-//! General constants used throughout `cuprate-database`.
+//! General constants used throughout `cuprate-blockchain`.
 
 //---------------------------------------------------------------------------------------------------- Import
 use cfg_if::cfg_if;
@@ -8,7 +8,7 @@ use cfg_if::cfg_if;
 ///
 /// Returned by [`crate::ops::property::db_version`].
 ///
-/// This is incremented by 1 when `cuprate_database`'s
+/// This is incremented by 1 when `cuprate_blockchain`'s
 /// structure/schema/tables change.
 ///
 /// This is akin to `VERSION` in `monerod`:

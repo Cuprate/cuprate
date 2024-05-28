@@ -66,7 +66,7 @@
 //! use cuprate_types::service::{ReadRequest, WriteRequest, Response};
 //! use cuprate_test_utils::data::block_v16_tx0;
 //!
-//! use cuprate_database::{ConcreteEnv, config::ConfigBuilder, Env};
+//! use cuprate_blockchain::{ConcreteEnv, config::ConfigBuilder, Env};
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -77,7 +77,7 @@
 //!     .build();
 //!
 //! // Initialize the database thread-pool.
-//! let (mut read_handle, mut write_handle) = cuprate_database::service::init(config)?;
+//! let (mut read_handle, mut write_handle) = cuprate_blockchain::service::init(config)?;
 //!
 //! // Prepare a request to write block.
 //! let mut block = block_v16_tx0().clone();

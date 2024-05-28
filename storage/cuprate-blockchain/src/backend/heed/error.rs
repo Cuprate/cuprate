@@ -1,4 +1,4 @@
-//! Conversion from `heed::Error` -> `cuprate_database`'s errors.
+//! Conversion from `heed::Error` -> `cuprate_blockchain`'s errors.
 
 //---------------------------------------------------------------------------------------------------- Use
 use crate::constants::DATABASE_CORRUPT_MSG;
@@ -85,7 +85,7 @@ impl From<heed::Error> for crate::RuntimeError {
                 E2::Corrupted | E2::PageNotFound => panic!("{mdb_error:#?}\n{DATABASE_CORRUPT_MSG}"),
 
                 // These errors should not occur, and if they do,
-                // the best thing `cuprate_database` can do for
+                // the best thing `cuprate_blockchain` can do for
                 // safety is to panic right here.
                 E2::Panic
                 | E2::PageFull

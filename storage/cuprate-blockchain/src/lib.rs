@@ -1,6 +1,6 @@
 //! Cuprate's database abstraction.
 //!
-//! This documentation is mostly for practical usage of `cuprate_database`.
+//! This documentation is mostly for practical usage of `cuprate_blockchain`.
 //!
 //! For a high-level overview,
 //! see [`database/README.md`](https://github.com/Cuprate/cuprate/blob/main/database/README.md).
@@ -13,7 +13,7 @@
 //!
 //! Each layer builds on-top of the previous.
 //!
-//! As a user of `cuprate_database`, consider using the higher-level [`service`] module,
+//! As a user of `cuprate_blockchain`, consider using the higher-level [`service`] module,
 //! or at the very least the [`ops`] module instead of interacting with the database traits directly.
 //!
 //! With that said, many database traits and internals (like [`DatabaseRo::get`]) are exposed.
@@ -82,7 +82,7 @@
 //! <!-- FIXME: tracing should be behind a feature flag -->
 //!
 //! # Invariants when not using `service`
-//! `cuprate_database` can be used without the `service` feature enabled but
+//! `cuprate_blockchain` can be used without the `service` feature enabled but
 //! there are some things that must be kept in mind when doing so.
 //!
 //! Failing to uphold these invariants may cause panics.
@@ -92,7 +92,7 @@
 //! 1. `LMDB` has [maximum key/value byte size](http://www.lmdb.tech/doc/group__internal.html#gac929399f5d93cef85f874b9e9b1d09e0) which must not be exceeded
 //!
 //! # Examples
-//! The below is an example of using `cuprate_database`'s
+//! The below is an example of using `cuprate_blockchain`'s
 //! lowest API, i.e. using the database directly.
 //!
 //! For examples of the higher-level APIs, see:
@@ -100,7 +100,7 @@
 //! - [`service`]
 //!
 //! ```rust
-//! use cuprate_database::{
+//! use cuprate_blockchain::{
 //!     ConcreteEnv,
 //!     config::ConfigBuilder,
 //!     Env, EnvInner,

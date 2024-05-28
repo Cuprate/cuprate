@@ -1,4 +1,4 @@
-//! General free functions used (related to `cuprate_database::service`).
+//! General free functions used (related to `cuprate_blockchain::service`).
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;

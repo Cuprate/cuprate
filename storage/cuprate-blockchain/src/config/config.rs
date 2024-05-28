@@ -9,7 +9,7 @@ use std::{
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_helper::fs::cuprate_database_dir;
+use cuprate_helper::fs::cuprate_blockchain_dir;
 
 use crate::{
     config::{ReaderThreads, SyncMode},
@@ -55,7 +55,7 @@ impl ConfigBuilder {
     ///
     /// # Default values
     /// If [`ConfigBuilder::db_directory`] was not called,
-    /// the default [`cuprate_database_dir`] will be used.
+    /// the default [`cuprate_blockchain_dir`] will be used.
     ///
     /// For all other values, [`Default::default`] is used.
     pub fn build(self) -> Config {
@@ -63,7 +63,7 @@ impl ConfigBuilder {
         // in `helper::fs`. No need to do them here.
         let db_directory = self
             .db_directory
-            .unwrap_or_else(|| Cow::Borrowed(cuprate_database_dir()));
+            .unwrap_or_else(|| Cow::Borrowed(cuprate_blockchain_dir()));
 
         // Add the database filename to the directory.
         let db_file = {
@@ -137,7 +137,7 @@ impl ConfigBuilder {
 impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
-            db_directory: Some(Cow::Borrowed(cuprate_database_dir())),
+            db_directory: Some(Cow::Borrowed(cuprate_blockchain_dir())),
             sync_mode: Some(SyncMode::default()),
             reader_threads: Some(ReaderThreads::default()),
             resize_algorithm: Some(ResizeAlgorithm::default()),
@@ -163,7 +163,7 @@ pub struct Config {
     /// The directory used to store all database files.
     ///
     /// By default, if no value is provided in the [`Config`]
-    /// constructor functions, this will be [`cuprate_database_dir`].
+    /// constructor functions, this will be [`cuprate_blockchain_dir`].
     ///
     // SOMEDAY: we should also support `/etc/cuprated.conf`.
     // This could be represented with an `enum DbPath { Default, Custom, Etc, }`
@@ -190,20 +190,20 @@ pub struct Config {
 impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
-    /// The [`Config::db_directory`] will be [`cuprate_database_dir`].
+    /// The [`Config::db_directory`] will be [`cuprate_blockchain_dir`].
     ///
     /// All other values will be [`Default::default`].
     ///
     /// Same as [`Config::default`].
     ///
     /// ```rust
-    /// use cuprate_database::{config::*, resize::*, DATABASE_DATA_FILENAME};
+    /// use cuprate_blockchain::{config::*, resize::*, DATABASE_DATA_FILENAME};
     /// use cuprate_helper::fs::*;
     ///
     /// let config = Config::new();
     ///
-    /// assert_eq!(config.db_directory(), cuprate_database_dir());
-    /// assert!(config.db_file().starts_with(cuprate_database_dir()));
+    /// assert_eq!(config.db_directory(), cuprate_blockchain_dir());
+    /// assert!(config.db_file().starts_with(cuprate_blockchain_dir()));
     /// assert!(config.db_file().ends_with(DATABASE_DATA_FILENAME));
     /// assert_eq!(config.sync_mode, SyncMode::default());
     /// assert_eq!(config.reader_threads, ReaderThreads::default());
@@ -228,7 +228,7 @@ impl Default for Config {
     /// Same as [`Config::new`].
     ///
     /// ```rust
-    /// # use cuprate_database::config::*;
+    /// # use cuprate_blockchain::config::*;
     /// assert_eq!(Config::default(), Config::new());
     /// ```
     fn default() -> Self {

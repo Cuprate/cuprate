@@ -1,4 +1,4 @@
-//! Conversion from `redb`'s errors -> `cuprate_database`'s errors.
+//! Conversion from `redb`'s errors -> `cuprate_blockchain`'s errors.
 //!
 //! HACK: There's a lot of `_ =>` usage here because
 //! `redb`'s errors are `#[non_exhaustive]`...
