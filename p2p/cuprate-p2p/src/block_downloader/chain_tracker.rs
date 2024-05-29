@@ -93,34 +93,29 @@ impl<N: NetworkZone> ChainTracker<N> {
             .sum()
     }
 
-    pub fn add_entry(
-        &mut self,
-        mut chain_entry: ChainResponse,
-        peer: InternalPeerID<N::Addr>,
-        handle: ConnectionHandle,
-    ) -> Result<(), ChainTrackerError> {
+    pub fn add_entry(&mut self, mut chain_entry: ChainEntry<N>) -> Result<(), ChainTrackerError> {
         // TODO: check chain entries length.
-        if chain_entry.m_block_ids.is_empty() {
+        if chain_entry.ids.is_empty() {
             // The peer must send at lest one overlapping block.
-            handle.ban_peer(MEDIUM_BAN);
+            chain_entry.handle.ban_peer(MEDIUM_BAN);
             return Err(ChainTrackerError::NewEntryIsInvalid);
         }
 
         if self
             .entries
             .back()
-            .is_some_and(|last_entry| last_entry.ids.last().unwrap() != &chain_entry.m_block_ids[0])
+            .is_some_and(|last_entry| last_entry.ids.last().unwrap() != &chain_entry.ids[0])
         {
             return Err(ChainTrackerError::NewEntryDoesNotFollowChain);
         }
 
-        tracing::warn!("len: {}", chain_entry.m_block_ids.len());
+        tracing::warn!("len: {}", chain_entry.ids.len());
 
         let new_entry = ChainEntry {
             // ignore the first block - we already know it.
-            ids: (&chain_entry.m_block_ids.split_off(1)).into(),
-            peer,
-            handle,
+            ids: chain_entry.ids.split_off(1),
+            peer: chain_entry.peer,
+            handle: chain_entry.handle,
         };
 
         self.top_seen_hash = *new_entry.ids.last().unwrap();
