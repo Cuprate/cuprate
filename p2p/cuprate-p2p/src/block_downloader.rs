@@ -34,11 +34,11 @@ use crate::constants::{INITIAL_CHAIN_REQUESTS_TO_SEND, MEDIUM_BAN};
 #[derive(Debug)]
 pub struct BlockBatch {
     /// The blocks.
-    blocks: Vec<(Block, Vec<Transaction>)>,
+    pub blocks: Vec<(Block, Vec<Transaction>)>,
     /// The size of this batch in bytes.
-    size: usize,
+    pub size: usize,
     /// The peer that gave us this block.
-    peer_handle: ConnectionHandle,
+    pub peer_handle: ConnectionHandle,
 }
 
 /// The block downloader config.
@@ -46,15 +46,15 @@ pub struct BlockBatch {
 pub struct BlockDownloaderConfig {
     /// The size of the buffer between the block downloader and the place which
     /// is consuming the downloaded blocks.
-    buffer_size: usize,
+    pub buffer_size: usize,
     /// The size of the in progress queue at which we stop requesting more blocks.
-    in_progress_queue_size: usize,
+    pub in_progress_queue_size: usize,
     /// The [`Duration`] between checking the client pool for free peers.
-    check_client_pool_interval: Duration,
+    pub check_client_pool_interval: Duration,
     /// The target size of a single batch of blocks (in bytes).
-    target_batch_size: usize,
+    pub target_batch_size: usize,
     /// The initial amount of blocks to request (in number of blocks)
-    initial_batch_size: usize,
+    pub initial_batch_size: usize,
 }
 
 #[derive(Debug, thiserror::Error)]

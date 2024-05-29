@@ -14,7 +14,7 @@ use tracing::{instrument, Instrument, Span};
 
 use monero_p2p::{CoreSyncSvc, NetworkZone, PeerRequestHandler};
 
-mod block_downloader;
+pub mod block_downloader;
 mod broadcast;
 mod client_pool;
 pub mod config;
@@ -26,6 +26,7 @@ mod sync_states;
 use crate::connection_maintainer::MakeConnectionRequest;
 pub use config::P2PConfig;
 use monero_p2p::client::Connector;
+use monero_p2p::services::PeerSyncRequest;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
@@ -80,7 +81,7 @@ where
 
     let inbound_handshaker = monero_p2p::client::HandShaker::new(
         address_book.clone(),
-        sync_states_svc,
+        sync_states_svc.clone(),
         core_sync_svc.clone(),
         peer_req_handler,
         inbound_mkr,
@@ -115,13 +116,14 @@ where
         broadcast_svc,
         top_block_watch,
         make_connection_tx,
+        sync_states_svc,
     })
 }
 
 /// The interface to Monero's P2P network on a certain [`NetworkZone`].
 pub struct NetworkInterface<N: NetworkZone> {
     /// A pool of free connected peers.
-    pool: Arc<client_pool::ClientPool<N>>,
+    pub pool: Arc<client_pool::ClientPool<N>>,
     /// A [`Service`](tower::Service) that allows broadcasting to all connected peers.
     broadcast_svc: broadcast::BroadcastSvc<N>,
     /// A [`watch`] channel that contains the highest seen cumulative difficulty and other info
@@ -129,4 +131,6 @@ pub struct NetworkInterface<N: NetworkZone> {
     top_block_watch: watch::Receiver<sync_states::NewSyncInfo>,
     /// A channel to request extra connections.
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
+
+    pub sync_states_svc: Buffer<sync_states::PeerSyncSvc<N>, PeerSyncRequest<N>>,
 }
