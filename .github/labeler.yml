@@ -30,13 +30,31 @@ A-consensus: # This is the tag name
                                        # will cause the `github-actions` bot
                                        # to add the `A-consensus` tag.
 
+# Cuprate's books.
+A-books:
+- changed-files:
+  - any-glob-to-any-file: books/**
+
+A-book-architecture:
+- changed-files:
+  - any-glob-to-any-file: books/architecture/**
+
+A-book-protocol:
+- changed-files:
+  - any-glob-to-any-file: books/protocol/**
+
+# Crate (sub-)directories.
+A-binaries:
+- changed-files:
+  - any-glob-to-any-file: binaries/**
+
 A-cryptonight:
 - changed-files:
   - any-glob-to-any-file: cryptonight/**
 
-A-database:
+A-storage:
 - changed-files:
-  - any-glob-to-any-file: database/**
+  - any-glob-to-any-file: storage/**
 
 A-helper:
 - changed-files:
@@ -62,9 +80,23 @@ A-types:
 - changed-files:
   - any-glob-to-any-file: types/**
 
+A-rpc:
+- changed-files:
+  - any-glob-to-any-file: rpc/**
+
+A-zmq:
+- changed-files:
+  - any-glob-to-any-file: zmq/**
+
+# CI files.
 A-ci:
 - changed-files:
   - any-glob-to-any-file: .github/**
+
+# Misc
+A-benches:
+- changed-files:
+  - any-glob-to-any-file: benches/** # Benchmarks
 
 A-dependency:
 - changed-files:
@@ -74,7 +106,9 @@ A-dependency:
 A-workspace:
 - changed-files:
   - any-glob-to-any-file: '*' # Any root file change
+  - any-glob-to-any-file: misc/**
 
 A-docs:
 - changed-files:
   - any-glob-to-any-file: '**/*.md' # Any file in the entire repo ending in `.md`
+  # `A-books` label is used for book documentation.
