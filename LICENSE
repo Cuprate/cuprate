@@ -4,4 +4,5 @@ depending on the crate in question. Each crate declares their license in their
 root of this repository for reference. These copies should be provided with
 any distribution of a crate, as per the respective license's terms.
 
-All documentation is licensed under MIT. This include the books in the `books/` directory.
+All documentation, including the books in the `books/` directory, is licensed
+under the MIT license.
