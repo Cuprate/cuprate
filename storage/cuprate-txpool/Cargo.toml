@@ -1,6 +1,15 @@
 [package]
-name = "cuprate-txpool"
-version = "0.0.0"
-edition = "2021"
+name        = "cuprate-txpool"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's transaction pool database"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/cuprate-txpool"
+keywords    = ["cuprate", "txpool", "transaction", "pool", "database"]
+
+[features]
 
 [dependencies]
+
+[dev-dependencies]
