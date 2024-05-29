@@ -158,6 +158,7 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             permit: Some(permit),
         };
 
+        // TODO: this can panic if the channel was closed between poll_ready and this.
         self.connection_tx
             .try_send(req)
             .map_err(|_| ())

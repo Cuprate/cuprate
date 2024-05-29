@@ -29,6 +29,8 @@ pub struct BlocksToRetrieve<N: NetworkZone> {
     pub peer_who_told_us: InternalPeerID<N::Addr>,
     /// The peer who told us about this batch's handle.
     pub peer_who_told_us_handle: ConnectionHandle,
+    /// The number of requests sent for this batch.
+    pub requests_sent: usize,
 }
 
 pub enum ChainTrackerError {
@@ -101,6 +103,11 @@ impl<N: NetworkZone> ChainTracker<N> {
             return Err(ChainTrackerError::NewEntryIsInvalid);
         }
 
+        if chain_entry.ids.len() == 1 {
+            // TODO: properly handle this
+            return Err(ChainTrackerError::NewEntryDoesNotFollowChain);
+        }
+
         if self
             .entries
             .back()
@@ -165,6 +172,7 @@ impl<N: NetworkZone> ChainTracker<N> {
             start_height: self.first_height,
             peer_who_told_us: entry.peer,
             peer_who_told_us_handle: entry.handle.clone(),
+            requests_sent: 0,
         };
 
         self.first_height += u64::try_from(end_idx).unwrap();

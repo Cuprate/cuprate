@@ -16,6 +16,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 use tower::Service;
 use tracing::Level;
+use tracing_subscriber::fmt::time::Uptime;
 
 #[derive(Clone)]
 pub struct DummyCoreSyncSvc;
@@ -104,6 +105,7 @@ impl Service<ChainSvcRequest> for OurChainSvc {
 async fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
+        .with_timer(Uptime::default())
         .init();
 
     let config = P2PConfig::<ClearNet> {
@@ -127,28 +129,28 @@ async fn main() {
         .await
         .unwrap();
 
-    sleep(Duration::from_secs(5)).await;
+    sleep(Duration::from_secs(55)).await;
 
-    let mut buffer = download_blocks(
-        net.pool.clone(),
-        net.sync_states_svc.clone(),
-        OurChainSvc,
-        BlockDownloaderConfig {
-            buffer_size: 50_000_000,
-            in_progress_queue_size: 5_000_000,
-            check_client_pool_interval: Duration::from_secs(30),
-            target_batch_size: 100_000,
-            initial_batch_size: 100,
-        },
-    );
+    loop {
+        let mut buffer = download_blocks(
+            net.pool.clone(),
+            net.sync_states_svc.clone(),
+            OurChainSvc,
+            BlockDownloaderConfig {
+                buffer_size: 50_000_000,
+                in_progress_queue_size: 30_000_000,
+                check_client_pool_interval: Duration::from_secs(15),
+                target_batch_size: 2_000_000,
+                initial_batch_size: 100,
+            },
+        );
 
-    while let Some(entry) = buffer.next().await {
-        tracing::info!(
-            "height: {}, amount{}",
-            entry.blocks[0].0.number().unwrap(),
-            entry.blocks.len()
-        )
+        while let Some(entry) = buffer.next().await {
+            tracing::info!(
+                "height: {}, amount{}",
+                entry.blocks[0].0.number().unwrap(),
+                entry.blocks.len()
+            )
+        }
     }
-
-    sleep(Duration::from_secs(999999999)).await;
 }
