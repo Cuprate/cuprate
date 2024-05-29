@@ -1,4 +1,4 @@
-# Cuprate's architecture (implementation) book
+## Cuprate's architecture (implementation) book
 This book documents Cuprate's architecture and implementation.
 
 See:
