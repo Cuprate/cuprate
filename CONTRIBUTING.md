@@ -1,12 +1,5 @@
 # Contributing to Cuprate
 
-- [Introduction](#introduction)
-- [Making a PR](#making-a-pr)
-- [Passing CI](#passing-ci)
-- [Coding guidelines](#coding-guidelines)
-- [Keeping track of issues and PRs](#keeping-track-of-issues-and-prs)
-- [Books](#books)
-
 ## Introduction
 
 Thank you for wanting to help out! Cuprate is in the stage where things are likely to change quickly, so it's recommend
