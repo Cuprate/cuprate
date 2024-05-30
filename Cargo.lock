@@ -644,6 +644,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprated"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "cuprate-blockchain",
+ "cuprate-consensus",
+ "cuprate-p2p",
+ "dandelion-tower",
+ "futures",
+ "monero-p2p",
+ "tokio",
+]
+
+[[package]]
 name = "curve25519-dalek"
 version = "4.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -690,7 +704,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dandelion_tower"
+name = "dandelion-tower"
 version = "0.1.0"
 dependencies = [
  "futures",

@@ -1,0 +1,26 @@
+[package]
+name = "cuprated"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3-only"
+authors = ["Boog900", "hinto-janai", "SyntheticBird45"]
+
+[dependencies]
+# P2P
+cuprate-p2p = { path = "../../p2p/cuprate-p2p" }
+monero-p2p = { path = "../../p2p/monero-p2p" }
+dandelion-tower = { path = "../../p2p/dandelion" }
+
+# Databases
+cuprate-blockchain = { path = "../../storage/cuprate-blockchain" }
+
+# Consensus
+cuprate-consensus = { path = "../../consensus" }
+
+# Async
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+futures = { workspace = true }
+
+# Utils
+bytes = { workspace = true }
+

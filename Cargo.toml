@@ -19,7 +19,7 @@ members = [
 	"storage/database",
 	"pruning",
 	"test-utils",
-	"types",
+	"types", "binaries/cuprated",
 ]
 
 [profile.release]
