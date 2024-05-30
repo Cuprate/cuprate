@@ -9,16 +9,12 @@ _(work-in-progress)_
 
 </div>
 
----
-
 ## Contents
 - [About](#about)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [Security](#security)
 - [License](#license)
-
----
 
 ## About
 Cuprate is an alternative [Monero](https://getmonero.org) node implementation, written in [Rust](http://rust-lang.org).
@@ -38,7 +34,7 @@ For crate documentation, see the `cargo doc`s of the crates inside the [workspac
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Security
-See [`SECURITY.md`](SECURITY.md).
+Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](SECURITY.md).
 
 ## License
 Cuprate components are licensed under either MIT or AGPL-3.0, see [`LICENSE`](LICENSE) for more details.
