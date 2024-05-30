@@ -1,9 +1,7 @@
-![Cuprate](misc/logo/wordmark/CuprateWordmark.svg)
-
+<div align="center">
+	<img src="misc/logo/wordmark/CuprateWordmark.svg" width="50%"/>
 
 ----
-
-> An up and coming Rust Monero node.
 
 [![Matrix](https://img.shields.io/badge/Matrix-Cuprate-white?logo=matrix&labelColor=grey&logoColor=white)](https://matrix.to/#/#cuprate:monero.social) [![CI](https://github.com/Cuprate/cuprate/actions/workflows/ci.yml/badge.svg)](https://github.com/Cuprate/cuprate/actions/workflows/ci.yml)
 
