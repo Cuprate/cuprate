@@ -36,7 +36,7 @@ Cuprate's crates (libraries) follows these naming patterns/rules:
 | Pattern                                               | Name             | Example |
 |-------------------------------------------------------|------------------|---------|
 | Crates defining Monero related behavior               | `monero` prefix  | `monero-consensus`
-| Crates specifically for Cuprate's implementation      | `cuprate` prefix | `cuprate-blockchain`
+| Crates specific to Cuprate's implementation      | `cuprate` prefix | `cuprate-blockchain`
 | Monero related code re-written for Cuprate purposes   | `cuprate` suffix | `levin-cuprate`, `cryptonight-cuprate`
 | General crate, not necessarily Monero/Cuprate related | No prefix/suffix | `database`, `async-buffer`
 
