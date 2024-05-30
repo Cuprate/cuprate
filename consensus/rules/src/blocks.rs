@@ -200,11 +200,11 @@ fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockErro
 fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
     let set = txs.iter().collect::<HashSet<_>>();
 
-    if set.len() != txs.len() {
-        Err(BlockError::DuplicateTransaction)?;
+    if set.len() == txs.len() {
+        Ok(())
+    } else {
+        Err(BlockError::DuplicateTransaction)
     }
-
-    Ok(())
 }
 
 /// This struct contains the data needed to verify a block, implementers MUST make sure

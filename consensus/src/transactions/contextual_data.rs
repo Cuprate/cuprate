@@ -94,6 +94,10 @@ pub async fn batch_get_ring_member_info<'a, 'b, D: Database>(
 }
 
 /// Refreshes the transactions [`TxRingMembersInfo`], if needed.
+///
+/// # Panics
+/// This functions panics if `hf == HardFork::V1` as decoy info
+/// should not be needed for V1.
 #[instrument(level = "debug", skip_all)]
 pub async fn batch_get_decoy_info<'a, 'b, D: Database + Clone + Send + 'static>(
     txs_verification_data: &'a [Arc<TransactionVerificationData>],

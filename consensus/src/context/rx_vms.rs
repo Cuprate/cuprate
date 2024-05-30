@@ -29,7 +29,7 @@ const RX_SEEDS_CACHED: usize = 2;
 /// A multithreaded randomX VM.
 #[derive(Debug)]
 pub struct RandomXVM {
-    /// Theses RandomX VMs all share the same cache.
+    /// These RandomX VMs all share the same cache.
     vms: ThreadLocal<VMInner>,
     /// The RandomX cache.
     cache: RandomXCache,
@@ -88,9 +88,7 @@ impl RandomXVMCache {
         let seed_hashes = get_block_hashes(seed_heights.clone(), database).await?;
 
         tracing::debug!(
-            "last {} randomX seed heights: {:?}",
-            RX_SEEDS_CACHED,
-            seed_heights
+            "last {RX_SEEDS_CACHED} randomX seed heights: {seed_heights:?}",
         );
 
         let seeds: VecDeque<(u64, [u8; 32])> = seed_heights.into_iter().zip(seed_hashes).collect();
@@ -158,8 +156,7 @@ impl RandomXVMCache {
 
         if is_randomx_seed_height(height) {
             tracing::debug!(
-                "Block {} is a randomX seed height, adding it to the cache.",
-                height
+                "Block {height} is a randomX seed height, adding it to the cache.",
             );
 
             self.seeds.push_front((height, *hash));

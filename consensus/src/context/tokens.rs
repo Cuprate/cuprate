@@ -21,7 +21,7 @@ impl ValidityToken {
         }
     }
 
-    /// Returns if the data is still valid.
+    /// Returns `true` if the data is still valid.
     pub fn is_data_valid(&self) -> bool {
         !self.token.is_cancelled()
     }

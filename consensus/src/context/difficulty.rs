@@ -1,10 +1,10 @@
 //! Difficulty Module
 //!
 //! This module handles keeping track of the data required to calculate block difficulty.
-//! This data is currently the cumulative difficulty of each block and it's timestamp.
+//! This data is currently the cumulative difficulty of each block and its timestamp.
 //!
-//! The timestamps are also used in other consensus rules so instead of duplicating te same
-//! data in a different cache the timestamps needed are got from here.
+//! The timestamps are also used in other consensus rules so instead of duplicating the same
+//! data in a different cache, the timestamps needed are retrieved from here.
 //!
 use std::{collections::VecDeque, ops::Range};
 
@@ -35,9 +35,10 @@ pub struct DifficultyCacheConfig {
 }
 
 impl DifficultyCacheConfig {
-    /// Create a new difficulty cache config, you probably do not need this.
+    /// Create a new difficulty cache config.
     ///
-    /// Used [`DifficultyCacheConfig::main_net`] instead.
+    /// # Notes
+    /// You probably do not need this, use [`DifficultyCacheConfig::main_net`] instead.
     pub const fn new(window: usize, cut: usize, lag: usize) -> DifficultyCacheConfig {
         DifficultyCacheConfig { window, cut, lag }
     }
@@ -54,7 +55,7 @@ impl DifficultyCacheConfig {
 
     /// Returns the config needed for [`Mainnet`](cuprate_helper::network::Network::Mainnet). This is also the
     /// config for all other current networks.
-    pub fn main_net() -> DifficultyCacheConfig {
+    pub const fn main_net() -> DifficultyCacheConfig {
         DifficultyCacheConfig {
             window: DIFFICULTY_WINDOW,
             cut: DIFFICULTY_CUT,
@@ -120,9 +121,7 @@ impl DifficultyCache {
         self.last_accounted_height += 1;
 
         tracing::debug!(
-            "Accounting for new blocks timestamp ({}) and cumulative_difficulty ({})",
-            timestamp,
-            cumulative_difficulty
+            "Accounting for new blocks timestamp ({timestamp}) and cumulative_difficulty ({cumulative_difficulty})",
         );
 
         self.timestamps.push_back(timestamp);
@@ -152,7 +151,7 @@ impl DifficultyCache {
     /// The first difficulty will be the same as the difficulty from [`DifficultyCache::next_difficulty`] after that the
     /// first timestamp and hf will be applied to the cache and the difficulty from that will be added to the list.
     ///
-    /// After all timestamps and hfs have been dealt with the cache will be returned back to it's original state and the
+    /// After all timestamps and hfs have been dealt with the cache will be returned back to its original state and the
     /// difficulties will be returned.
     pub fn next_difficulties(
         &self,
@@ -224,7 +223,7 @@ impl DifficultyCache {
         self.cumulative_difficulties.back().copied().unwrap_or(1)
     }
 
-    /// Returns the top blocks timestamp, returns [`None`] if the top block is genesis.
+    /// Returns the top block's timestamp, returns [`None`] if the top block is the genesis block.
     pub fn top_block_timestamp(&self) -> Option<u64> {
         self.timestamps.back().copied()
     }

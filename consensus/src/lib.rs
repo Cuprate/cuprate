@@ -116,7 +116,7 @@ pub struct ExtendedBlockHeader {
 
     /// The blocks weight.
     pub block_weight: usize,
-    /// The blocks long term.
+    /// The blocks long term weight.
     pub long_term_weight: usize,
 }
 
