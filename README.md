@@ -28,7 +28,7 @@ Cuprate maintains various documentation books:
 - [Cuprate's architecture book](https://github.com/Cuprate/architecture-book)
 - [Cuprate's protocol book](https://github.com/Cuprate/monero-book)
 
-For crate documentation, see the `cargo doc`s of the crates inside the [workspace](Cargo.toml), and the `README.md` of the crate's directory if applicable.
+For crate documentation, see the `cargo doc`s of the crates inside the [workspace](Cargo.toml), and the `README.md` inside the crate's directory if applicable, for example: [`storage/cuprate-blockchain/README.md`](storage/cuprate-blockchain/README.md).
 
 ## Contributing
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
@@ -37,4 +37,4 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](SECURITY.md).
 
 ## License
-Cuprate components are licensed under either MIT or AGPL-3.0, see [`LICENSE`](LICENSE) for more details.
+Cuprate's components are licensed under either MIT or AGPL-3.0, see [`LICENSE`](LICENSE) for more details.

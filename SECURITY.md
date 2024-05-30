@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 If you have discovered a vulnerability within Cuprate, please do not open a GitHub issue or announce it publicly.
 
-Please contact us by email directly using our PGP keys in the [`gpg_keys/`](misc/gpg_keys/) directory or via an encrypted Matrix channel.
+Please contact us directly by email using our PGP keys in the [`gpg_keys/`](misc/gpg_keys/) directory or via an encrypted Matrix channel.
 
 Thanks for being quiet.
 
