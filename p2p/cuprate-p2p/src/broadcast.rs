@@ -151,6 +151,7 @@ pub enum BroadcastRequest<N: NetworkZone> {
     },
 }
 
+#[derive(Clone)]
 pub struct BroadcastSvc<N: NetworkZone> {
     new_block_watch: watch::Sender<NewBlockInfo>,
     tx_broadcast_channel_outbound: broadcast::Sender<BroadcastTxInfo<N>>,

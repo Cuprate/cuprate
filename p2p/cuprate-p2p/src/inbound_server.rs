@@ -12,9 +12,9 @@ use tokio::{
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
-use monero_p2p::services::{AddressBookRequest, AddressBookResponse};
 use monero_p2p::{
     client::{Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
+    services::{AddressBookRequest, AddressBookResponse},
     AddressBook, ConnectionDirection, NetworkZone,
 };
 

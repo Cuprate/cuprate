@@ -5,14 +5,20 @@
 //! This crate also contains the different routing methods that control how messages should be sent, i.e. broadcast to all,
 //! or send to a single peer.
 //!
-#![allow(dead_code)]
 
 use std::sync::Arc;
+
 use tokio::sync::{mpsc, watch};
-use tower::buffer::Buffer;
+use tokio_stream::wrappers::WatchStream;
+use tower::{buffer::Buffer, util::BoxCloneService, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
-use monero_p2p::{CoreSyncSvc, NetworkZone, PeerRequestHandler};
+use monero_p2p::{
+    client::Connector,
+    client::InternalPeerID,
+    services::{AddressBookRequest, AddressBookResponse},
+    CoreSyncSvc, NetworkZone, PeerRequestHandler,
+};
 
 mod broadcast;
 mod client_pool;
@@ -22,9 +28,10 @@ mod constants;
 mod inbound_server;
 mod sync_states;
 
-use crate::connection_maintainer::MakeConnectionRequest;
+pub use broadcast::{BroadcastRequest, BroadcastSvc};
+use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
-use monero_p2p::client::Connector;
+use connection_maintainer::MakeConnectionRequest;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
@@ -108,7 +115,7 @@ where
         inbound_server::inbound_server(
             client_pool.clone(),
             inbound_handshaker,
-            address_book,
+            address_book.clone(),
             config,
         )
         .instrument(Span::current()),
@@ -119,6 +126,7 @@ where
         broadcast_svc,
         top_block_watch,
         make_connection_tx,
+        address_book: address_book.boxed_clone(),
     })
 }
 
@@ -126,11 +134,34 @@ where
 pub struct NetworkInterface<N: NetworkZone> {
     /// A pool of free connected peers.
     pool: Arc<client_pool::ClientPool<N>>,
-    /// A [`Service`](tower::Service) that allows broadcasting to all connected peers.
-    broadcast_svc: broadcast::BroadcastSvc<N>,
+    /// A [`Service`] that allows broadcasting to all connected peers.
+    broadcast_svc: BroadcastSvc<N>,
     /// A [`watch`] channel that contains the highest seen cumulative difficulty and other info
     /// on that claimed chain.
     top_block_watch: watch::Receiver<sync_states::NewSyncInfo>,
     /// A channel to request extra connections.
+    #[allow(dead_code)] // will be used eventually
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
+    /// The address book service.
+    address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
+}
+
+impl<N: NetworkZone> NetworkInterface<N> {
+    pub fn broadcast_svc(&self) -> BroadcastSvc<N> {
+        self.broadcast_svc.clone()
+    }
+
+    pub fn top_sync_stream(&self) -> WatchStream<sync_states::NewSyncInfo> {
+        WatchStream::from_changes(self.top_block_watch.clone())
+    }
+
+    pub fn address_book(
+        &self,
+    ) -> BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError> {
+        self.address_book.clone()
+    }
+
+    pub fn borrow_client(&self, peer: &InternalPeerID<N::Addr>) -> Option<ClientPoolDropGuard<N>> {
+        self.pool.borrow_client(peer)
+    }
 }
