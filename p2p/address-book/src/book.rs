@@ -409,6 +409,9 @@ impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             AddressBookRequest::GetWhitePeers(len) => {
                 Ok(AddressBookResponse::Peers(self.get_white_peers(len)))
             }
+            AddressBookRequest::IsPeerBanned(addr) => Ok(AddressBookResponse::IsPeerBanned(
+                self.is_peer_banned(&addr),
+            )),
         };
 
         ready(response)

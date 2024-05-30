@@ -12,9 +12,10 @@ use tokio::{
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
+use monero_p2p::services::{AddressBookRequest, AddressBookResponse};
 use monero_p2p::{
     client::{Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
-    ConnectionDirection, NetworkZone,
+    AddressBook, ConnectionDirection, NetworkZone,
 };
 
 use crate::{
@@ -25,9 +26,10 @@ use crate::{
 
 /// The inbound server.
 #[instrument(level = "warn", skip_all)]
-pub async fn inbound_server<N, HS>(
+pub async fn inbound_server<N, HS, A>(
     client_pool: Arc<ClientPool<N>>,
     mut handshaker: HS,
+    mut address_book: A,
     config: P2PConfig<N>,
 ) -> Result<(), tower::BoxError>
 where
@@ -36,14 +38,12 @@ where
         + Send
         + 'static,
     HS::Future: Send + 'static,
+    A: AddressBook<N>,
 {
     let Some(server_config) = config.server_config else {
         tracing::warn!("No inbound server config provided, not listening for inbound connections.");
         return Ok(());
     };
-
-    // TODO: take in the address book and check if incoming peers are banned before adding them to our
-    // connections.
 
     tracing::info!("Starting inbound connection server");
 
@@ -59,6 +59,21 @@ where
         let Ok((addr, peer_stream, peer_sink)) = connection else {
             continue;
         };
+
+        if let Some(addr) = &addr {
+            let AddressBookResponse::IsPeerBanned(banned) = address_book
+                .ready()
+                .await?
+                .call(AddressBookRequest::IsPeerBanned(*addr))
+                .await?
+            else {
+                panic!("Address book returned incorrect response!");
+            };
+
+            if banned {
+                continue;
+            }
+        }
 
         let addr = match addr {
             Some(addr) => InternalPeerID::KnownAddr(addr),

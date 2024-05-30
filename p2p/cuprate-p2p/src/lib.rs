@@ -56,7 +56,7 @@ where
         config.max_inbound_connections + config.outbound_connections,
     );
 
-    // Use the default config. Changing the defaults affects tx fluff times, which could effect D++ so for now don't allow changing
+    // Use the default config. Changing the defaults affects tx fluff times, which could affect D++ so for now don't allow changing
     // this.
     let (broadcast_svc, outbound_mkr, inbound_mkr) =
         broadcast::init_broadcast_channels(broadcast::BroadcastConfig::default());
@@ -105,8 +105,13 @@ where
             .instrument(Span::current()),
     );
     tokio::spawn(
-        inbound_server::inbound_server(client_pool.clone(), inbound_handshaker, config)
-            .instrument(Span::current()),
+        inbound_server::inbound_server(
+            client_pool.clone(),
+            inbound_handshaker,
+            address_book,
+            config,
+        )
+        .instrument(Span::current()),
     );
 
     Ok(NetworkInterface {
