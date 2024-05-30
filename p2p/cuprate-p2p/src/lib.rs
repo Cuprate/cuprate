@@ -1,10 +1,7 @@
 //! Cuprate's P2P Crate.
 //!
-//! This crate contains a [`ClientPool`](client_pool::ClientPool) which holds connected peers on a single [`NetworkZone`].
-//!
-//! This crate also contains the different routing methods that control how messages should be sent, i.e. broadcast to all,
-//! or send to a single peer.
-//!
+//! This crate contains a [`NetworkInterface`] which allows interacting with the Monero P2P network on
+//! a certain [`NetworkZone`]
 
 use std::sync::Arc;
 
@@ -147,20 +144,25 @@ pub struct NetworkInterface<N: NetworkZone> {
 }
 
 impl<N: NetworkZone> NetworkInterface<N> {
+    /// Returns a service which allows broadcasting messages to all the connected peers in a specific [`NetworkZone`].
     pub fn broadcast_svc(&self) -> BroadcastSvc<N> {
         self.broadcast_svc.clone()
     }
 
+    /// Returns a stream which yields the highest seen sync state from a connected peer.
     pub fn top_sync_stream(&self) -> WatchStream<sync_states::NewSyncInfo> {
         WatchStream::from_changes(self.top_block_watch.clone())
     }
 
+    /// Returns the address book service.
     pub fn address_book(
         &self,
     ) -> BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError> {
         self.address_book.clone()
     }
 
+    /// Pulls a client from the client pool, returning it in a guard that will return it there when it's
+    /// dropped.
     pub fn borrow_client(&self, peer: &InternalPeerID<N::Addr>) -> Option<ClientPoolDropGuard<N>> {
         self.pool.borrow_client(peer)
     }
