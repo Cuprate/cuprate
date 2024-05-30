@@ -35,9 +35,9 @@ use crate::{
 ///
 /// This function batch gets all the ring members for the inputted transactions and fills in data about
 /// them.
-pub async fn batch_get_ring_member_info<'a, 'b, D: Database>(
-    txs_verification_data: impl Iterator<Item = &'a Arc<TransactionVerificationData>> + Clone,
-    hf: &'b HardFork,
+pub async fn batch_get_ring_member_info<D: Database>(
+    txs_verification_data: impl Iterator<Item = &Arc<TransactionVerificationData>> + Clone,
+    hf: &HardFork,
     mut database: D,
 ) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
     let mut output_ids = HashMap::new();
@@ -99,16 +99,13 @@ pub async fn batch_get_ring_member_info<'a, 'b, D: Database>(
 /// This functions panics if `hf == HardFork::V1` as decoy info
 /// should not be needed for V1.
 #[instrument(level = "debug", skip_all)]
-pub async fn batch_get_decoy_info<'a, 'b, D: Database + Clone + Send + 'static>(
+pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
     txs_verification_data: &'a [Arc<TransactionVerificationData>],
-    hf: &'b HardFork,
+    hf: HardFork,
     mut database: D,
-) -> Result<
-    impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + Captures<(&'a (), &'b ())>,
-    ExtendedConsensusError,
-> {
+) -> Result<impl Iterator<Item = Result<DecoyInfo, ConsensusError>> + 'a, ExtendedConsensusError> {
     // decoy info is not needed for V1.
-    assert_ne!(hf, &HardFork::V1);
+    assert_ne!(hf, HardFork::V1);
 
     tracing::debug!(
         "Retrieving decoy info for {} txs.",
@@ -146,13 +143,8 @@ pub async fn batch_get_decoy_info<'a, 'b, D: Database + Clone + Send + 'static>(
         DecoyInfo::new(
             &tx_v_data.tx.prefix.inputs,
             |amt| outputs_with_amount.get(&amt).copied().unwrap_or(0),
-            hf,
+            &hf,
         )
         .map_err(ConsensusError::Transaction)
     }))
 }
-
-/// TODO: Remove Me .
-/// <https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick>
-pub(crate) trait Captures<U> {}
-impl<T: ?Sized, U> Captures<U> for T {}

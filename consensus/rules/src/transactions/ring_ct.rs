@@ -158,7 +158,7 @@ pub(crate) fn check_input_signatures(
         RctPrunable::MlsagBulletproofs { pseudo_outs, .. }
         | RctPrunable::Clsag { pseudo_outs, .. } => pseudo_outs.as_slice(),
         RctPrunable::MlsagBorromean { .. } => rct_sig.base.pseudo_outs.as_slice(),
-        _ => &[],
+        RctPrunable::AggregateMlsagBorromean { .. } | RctPrunable::Null => &[],
     };
 
     match &rct_sig.prunable {

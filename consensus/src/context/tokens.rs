@@ -1,7 +1,7 @@
 //! Tokens
 //!
 //! This module contains tokens which keep track of the validity of certain data.
-//! Currently there is 2 token:
+//! Currently, there is 1 token:
 //! - [`ValidityToken`]
 //!
 

@@ -48,7 +48,7 @@ enum VerificationNeeded {
 
 /// Represents if a transaction has been fully validated and under what conditions
 /// the transaction is valid in the future.
-#[derive(Debug, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum CachedVerificationState {
     /// The transaction has not been validated.
     NotVerified,
@@ -133,7 +133,7 @@ pub enum VerifyTxRequest {
         txs: Arc<[Arc<TransactionVerificationData>]>,
         /// The current chain height.
         current_chain_height: u64,
-        /// The top hash.
+        /// The top block hash.
         top_hash: [u8; 32],
         /// The value for time to use to check time locked outputs.
         time_for_time_lock: u64,
@@ -147,7 +147,7 @@ pub enum VerifyTxRequest {
         txs: Vec<Transaction>,
         /// The current chain height.
         current_chain_height: u64,
-        /// The top hash.
+        /// The top block hash.
         top_hash: [u8; 32],
         /// The value for time to use to check time locked outputs.
         time_for_time_lock: u64,
@@ -463,7 +463,7 @@ async fn verify_transactions_decoy_info<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
-    batch_get_decoy_info(&txs, &hf, database)
+    batch_get_decoy_info(&txs, hf, database)
         .await?
         .try_for_each(|decoy_info| decoy_info.and_then(|di| Ok(check_decoy_info(&di, &hf)?)))?;
 
