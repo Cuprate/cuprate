@@ -2,10 +2,13 @@
 //!
 //! This crate contains a [`NetworkInterface`] which allows interacting with the Monero P2P network on
 //! a certain [`NetworkZone`]
-
 use std::sync::Arc;
 
-use tokio::sync::{mpsc, watch};
+use futures::FutureExt;
+use tokio::{
+    sync::{mpsc, watch},
+    task::JoinSet,
+};
 use tokio_stream::wrappers::WatchStream;
 use tower::{buffer::Buffer, util::BoxCloneService, ServiceExt};
 use tracing::{instrument, Instrument, Span};
@@ -68,7 +71,6 @@ where
     let mut basic_node_data = config.basic_node_data();
 
     if !N::CHECK_NODE_ID {
-        // TODO: make sure this is the value monerod sets for anon networks.
         basic_node_data.peer_id = 1;
     }
 
@@ -103,18 +105,27 @@ where
         outbound_connector,
     );
 
-    tokio::spawn(
+    let mut background_tasks = JoinSet::new();
+
+    background_tasks.spawn(
         outbound_connection_maintainer
             .run()
             .instrument(Span::current()),
     );
-    tokio::spawn(
+    background_tasks.spawn(
         inbound_server::inbound_server(
             client_pool.clone(),
             inbound_handshaker,
             address_book.clone(),
             config,
         )
+        .map(|res| {
+            if let Err(e) = res {
+                tracing::error!("Error in inbound connection listener: {e}")
+            }
+
+            tracing::info!("Inbound connection listener shutdown")
+        })
         .instrument(Span::current()),
     );
 
@@ -124,10 +135,12 @@ where
         top_block_watch,
         make_connection_tx,
         address_book: address_book.boxed_clone(),
+        _background_tasks: Arc::new(background_tasks),
     })
 }
 
 /// The interface to Monero's P2P network on a certain [`NetworkZone`].
+#[derive(Clone)]
 pub struct NetworkInterface<N: NetworkZone> {
     /// A pool of free connected peers.
     pool: Arc<client_pool::ClientPool<N>>,
@@ -141,6 +154,8 @@ pub struct NetworkInterface<N: NetworkZone> {
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
+    /// Background tasks that will be aborted when this interface is dropped.
+    _background_tasks: Arc<JoinSet<()>>,
 }
 
 impl<N: NetworkZone> NetworkInterface<N> {
