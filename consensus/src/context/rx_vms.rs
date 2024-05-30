@@ -87,9 +87,7 @@ impl RandomXVMCache {
         let seed_heights = get_last_rx_seed_heights(chain_height - 1, RX_SEEDS_CACHED);
         let seed_hashes = get_block_hashes(seed_heights.clone(), database).await?;
 
-        tracing::debug!(
-            "last {RX_SEEDS_CACHED} randomX seed heights: {seed_heights:?}",
-        );
+        tracing::debug!("last {RX_SEEDS_CACHED} randomX seed heights: {seed_heights:?}",);
 
         let seeds: VecDeque<(u64, [u8; 32])> = seed_heights.into_iter().zip(seed_hashes).collect();
 
@@ -155,9 +153,7 @@ impl RandomXVMCache {
         }
 
         if is_randomx_seed_height(height) {
-            tracing::debug!(
-                "Block {height} is a randomX seed height, adding it to the cache.",
-            );
+            tracing::debug!("Block {height} is a randomX seed height, adding it to the cache.",);
 
             self.seeds.push_front((height, *hash));
 
