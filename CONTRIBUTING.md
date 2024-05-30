@@ -64,3 +64,8 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 [I-]: https://github.com/Cuprate/cuprate/labels?q=I
 [O-]: https://github.com/Cuprate/cuprate/labels?q=O
 [P-]: https://github.com/Cuprate/cuprate/labels?q=P
+
+## Books
+Cuprate has various documentation books whose source files live in [`books/`](https://github.com/Cuprate/cuprate/tree/main/books).
+
+Please contribute if you found a mistake! The files are mostly [markdown](https://wikipedia.org/wiki/Markdown) files and can be easily edited. See the `books/` directory for more information.
