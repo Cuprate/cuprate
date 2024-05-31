@@ -82,7 +82,7 @@ pub mod __private {
 
     use cuprate_types::service::{BCReadRequest, BCResponse};
 
-    /// An internal trait used to represent a database so we don't have to write [`tower::Service`] bounds
+    /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
     /// everywhere.
     ///
     /// Automatically implemented for:
