@@ -506,6 +506,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-blockchain"
+version = "0.0.0"
+dependencies = [
+ "bitflags 2.5.0",
+ "bytemuck",
+ "bytes",
+ "cfg-if",
+ "crossbeam",
+ "cuprate-helper",
+ "cuprate-test-utils",
+ "cuprate-types",
+ "curve25519-dalek",
+ "futures",
+ "heed",
+ "hex",
+ "hex-literal",
+ "monero-pruning",
+ "monero-serai",
+ "page_size",
+ "paste",
+ "pretty_assertions",
+ "rayon",
+ "redb",
+ "serde",
+ "tempfile",
+ "thiserror",
+ "thread_local",
+ "tokio",
+ "tokio-util",
+ "tower",
+]
+
+[[package]]
 name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
@@ -536,39 +569,6 @@ dependencies = [
  "tower",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "cuprate-database"
-version = "0.0.0"
-dependencies = [
- "bitflags 2.5.0",
- "bytemuck",
- "bytes",
- "cfg-if",
- "crossbeam",
- "cuprate-helper",
- "cuprate-test-utils",
- "cuprate-types",
- "curve25519-dalek",
- "futures",
- "heed",
- "hex",
- "hex-literal",
- "monero-pruning",
- "monero-serai",
- "page_size",
- "paste",
- "pretty_assertions",
- "rayon",
- "redb",
- "serde",
- "tempfile",
- "thiserror",
- "thread_local",
- "tokio",
- "tokio-util",
- "tower",
 ]
 
 [[package]]
@@ -641,6 +641,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-txpool"
+version = "0.0.0"
+
+[[package]]
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
@@ -698,7 +702,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "dandelion_tower"
+name = "dandelion-tower"
 version = "0.1.0"
 dependencies = [
  "futures",
@@ -724,6 +728,10 @@ dependencies = [
  "once_cell",
  "parking_lot_core",
 ]
+
+[[package]]
+name = "database"
+version = "0.0.0"
 
 [[package]]
 name = "diff"

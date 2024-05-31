@@ -68,7 +68,7 @@ pub const CUPRATE_DIR: &str = {
 /// - [`cuprate_cache_dir()`]
 /// - [`cuprate_config_dir()`]
 /// - [`cuprate_data_dir()`]
-/// - [`cuprate_database_dir()`]
+/// - [`cuprate_blockchain_dir()`]
 ///
 /// FIXME: Use `LazyLock` when stabilized.
 /// <https://github.com/rust-lang/rust/issues/109736>.
@@ -166,18 +166,18 @@ impl_path_oncelock_and_fn! {
     data_dir,
     "",
 
-    /// Cuprate's database directory.
+    /// Cuprate's blockchain directory.
     ///
-    /// This is the PATH used for any Cuprate database files.
+    /// This is the PATH used for any Cuprate blockchain files.
     ///
-    /// | OS      | PATH                                                         |
-    /// |---------|--------------------------------------------------------------|
-    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\database\`           |
-    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/database/` |
-    /// | Linux   | `/home/alice/.local/share/cuprate/database/`                 |
-    cuprate_database_dir,
+    /// | OS      | PATH                                                           |
+    /// |---------|----------------------------------------------------------------|
+    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\blockchain\`           |
+    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/blockchain/` |
+    /// | Linux   | `/home/alice/.local/share/cuprate/blockchain/`                 |
+    cuprate_blockchain_dir,
     data_dir,
-    "database",
+    "blockchain",
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
@@ -195,7 +195,7 @@ mod test {
         assert!(cuprate_cache_dir().is_absolute());
         assert!(cuprate_config_dir().is_absolute());
         assert!(cuprate_data_dir().is_absolute());
-        assert!(cuprate_database_dir().is_absolute());
+        assert!(cuprate_blockchain_dir().is_absolute());
 
         if cfg!(target_os = "windows") {
             let dir = cuprate_cache_dir();
@@ -210,9 +210,9 @@ mod test {
             println!("cuprate_data_dir: {dir:?}");
             assert!(dir.ends_with(r"AppData\Roaming\Cuprate"));
 
-            let dir = cuprate_database_dir();
-            println!("cuprate_database_dir: {dir:?}");
-            assert!(dir.ends_with(r"AppData\Roaming\Cuprate\database"));
+            let dir = cuprate_blockchain_dir();
+            println!("cuprate_blockchain_dir: {dir:?}");
+            assert!(dir.ends_with(r"AppData\Roaming\Cuprate\blockchain"));
         } else if cfg!(target_os = "macos") {
             let dir = cuprate_cache_dir();
             println!("cuprate_cache_dir: {dir:?}");
@@ -226,9 +226,9 @@ mod test {
             println!("cuprate_data_dir: {dir:?}");
             assert!(dir.ends_with("Library/Application Support/Cuprate"));
 
-            let dir = cuprate_database_dir();
-            println!("cuprate_database_dir: {dir:?}");
-            assert!(dir.ends_with("Library/Application Support/Cuprate/database"));
+            let dir = cuprate_blockchain_dir();
+            println!("cuprate_blockchain_dir: {dir:?}");
+            assert!(dir.ends_with("Library/Application Support/Cuprate/blockchain"));
         } else {
             // Assumes Linux.
             let dir = cuprate_cache_dir();
@@ -243,9 +243,9 @@ mod test {
             println!("cuprate_data_dir: {dir:?}");
             assert!(dir.ends_with(".local/share/cuprate"));
 
-            let dir = cuprate_database_dir();
-            println!("cuprate_database_dir: {dir:?}");
-            assert!(dir.ends_with(".local/share/cuprate/database"));
+            let dir = cuprate_blockchain_dir();
+            println!("cuprate_blockchain_dir: {dir:?}");
+            assert!(dir.ends_with(".local/share/cuprate/blockchain"));
         }
     }
 }

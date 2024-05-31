@@ -8,11 +8,22 @@
 #![allow(dead_code)]
 
 use std::sync::Arc;
-use tokio::sync::{mpsc, watch};
-use tower::buffer::Buffer;
+
+use futures::FutureExt;
+use tokio::{
+    sync::{mpsc, watch},
+    task::JoinSet,
+};
+use tokio_stream::wrappers::WatchStream;
+use tower::{buffer::Buffer, util::BoxCloneService, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
-use monero_p2p::{CoreSyncSvc, NetworkZone, PeerRequestHandler};
+use monero_p2p::{
+    client::Connector,
+    client::InternalPeerID,
+    services::{AddressBookRequest, AddressBookResponse},
+    CoreSyncSvc, NetworkZone, PeerRequestHandler,
+};
 
 pub mod block_downloader;
 mod broadcast;
@@ -23,9 +34,10 @@ mod constants;
 mod inbound_server;
 mod sync_states;
 
-use crate::connection_maintainer::MakeConnectionRequest;
+pub use broadcast::{BroadcastRequest, BroadcastSvc};
+use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
-use monero_p2p::client::Connector;
+use connection_maintainer::MakeConnectionRequest;
 use monero_p2p::services::PeerSyncRequest;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
@@ -58,7 +70,7 @@ where
         config.max_inbound_connections + config.outbound_connections,
     );
 
-    // Use the default config. Changing the defaults affects tx fluff times, which could effect D++ so for now don't allow changing
+    // Use the default config. Changing the defaults affects tx fluff times, which could affect D++ so for now don't allow changing
     // this.
     let (broadcast_svc, outbound_mkr, inbound_mkr) =
         broadcast::init_broadcast_channels(broadcast::BroadcastConfig::default());
@@ -66,7 +78,6 @@ where
     let mut basic_node_data = config.basic_node_data();
 
     if !N::CHECK_NODE_ID {
-        // TODO: make sure this is the value monerod sets for anon networks.
         basic_node_data.peer_id = 1;
     }
 
@@ -101,14 +112,28 @@ where
         outbound_connector,
     );
 
-    tokio::spawn(
+    let mut background_tasks = JoinSet::new();
+
+    background_tasks.spawn(
         outbound_connection_maintainer
             .run()
             .instrument(Span::current()),
     );
-    tokio::spawn(
-        inbound_server::inbound_server(client_pool.clone(), inbound_handshaker, config)
-            .instrument(Span::current()),
+    background_tasks.spawn(
+        inbound_server::inbound_server(
+            client_pool.clone(),
+            inbound_handshaker,
+            address_book.clone(),
+            config,
+        )
+        .map(|res| {
+            if let Err(e) = res {
+                tracing::error!("Error in inbound connection listener: {e}")
+            }
+
+            tracing::info!("Inbound connection listener shutdown")
+        })
+        .instrument(Span::current()),
     );
 
     Ok(NetworkInterface {
@@ -117,20 +142,52 @@ where
         top_block_watch,
         make_connection_tx,
         sync_states_svc,
+        address_book: address_book.boxed_clone(),
+        _background_tasks: Arc::new(background_tasks),
     })
 }
 
 /// The interface to Monero's P2P network on a certain [`NetworkZone`].
+#[derive(Clone)]
 pub struct NetworkInterface<N: NetworkZone> {
     /// A pool of free connected peers.
-    pub pool: Arc<client_pool::ClientPool<N>>,
-    /// A [`Service`](tower::Service) that allows broadcasting to all connected peers.
-    broadcast_svc: broadcast::BroadcastSvc<N>,
+    pool: Arc<client_pool::ClientPool<N>>,
+    /// A [`Service`] that allows broadcasting to all connected peers.
+    broadcast_svc: BroadcastSvc<N>,
     /// A [`watch`] channel that contains the highest seen cumulative difficulty and other info
     /// on that claimed chain.
     top_block_watch: watch::Receiver<sync_states::NewSyncInfo>,
     /// A channel to request extra connections.
+    #[allow(dead_code)] // will be used eventually
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
-
+    /// The address book service.
+    address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
     pub sync_states_svc: Buffer<sync_states::PeerSyncSvc<N>, PeerSyncRequest<N>>,
+    /// Background tasks that will be aborted when this interface is dropped.
+    _background_tasks: Arc<JoinSet<()>>,
+}
+
+impl<N: NetworkZone> NetworkInterface<N> {
+    /// Returns a service which allows broadcasting messages to all the connected peers in a specific [`NetworkZone`].
+    pub fn broadcast_svc(&self) -> BroadcastSvc<N> {
+        self.broadcast_svc.clone()
+    }
+
+    /// Returns a stream which yields the highest seen sync state from a connected peer.
+    pub fn top_sync_stream(&self) -> WatchStream<sync_states::NewSyncInfo> {
+        WatchStream::from_changes(self.top_block_watch.clone())
+    }
+
+    /// Returns the address book service.
+    pub fn address_book(
+        &self,
+    ) -> BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError> {
+        self.address_book.clone()
+    }
+
+    /// Pulls a client from the client pool, returning it in a guard that will return it there when it's
+    /// dropped.
+    pub fn borrow_client(&self, peer: &InternalPeerID<N::Addr>) -> Option<ClientPoolDropGuard<N>> {
+        self.pool.borrow_client(peer)
+    }
 }

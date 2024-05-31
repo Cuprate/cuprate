@@ -119,10 +119,13 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     TakeRandomPeer { height: Option<u64> },
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
+    /// Checks if the given peer is banned.
+    IsPeerBanned(Z::Addr),
 }
 
 pub enum AddressBookResponse<Z: NetworkZone> {
     Ok,
     Peer(ZoneSpecificPeerListEntryBase<Z::Addr>),
     Peers(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
+    IsPeerBanned(bool),
 }
