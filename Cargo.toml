@@ -20,6 +20,9 @@ members = [
 	"pruning",
 	"test-utils",
 	"types",
+	"rpc/monero-rpc-types",
+	"rpc/cuprate-rpc-interface",
+	"rpc/cuprate-rpc-server",
 ]
 
 [profile.release]

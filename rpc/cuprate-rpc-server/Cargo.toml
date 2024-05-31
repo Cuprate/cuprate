@@ -1,0 +1,15 @@
+[package]
+name        = "cuprate-rpc-server"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's RPC server library"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/cuprate-rpc-server"
+keywords    = ["cuprate", "rpc", "server"]
+
+[features]
+
+[dependencies]
+
+[dev-dependencies]
