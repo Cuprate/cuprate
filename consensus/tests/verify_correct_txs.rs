@@ -4,16 +4,16 @@ use std::{
     sync::Arc,
 };
 
-use cuprate_types::{
-    service::{BCReadRequest, BCResponse},
-    OutputOnChain,
-};
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY};
 use monero_serai::transaction::{Timelock, Transaction};
 use tower::{service_fn, Service, ServiceExt};
 
 use cuprate_consensus::{
     TxVerifierService, VerifyTxRequest, VerifyTxResponse, __private::Database,
+};
+use cuprate_types::{
+    service::{BCReadRequest, BCResponse},
+    OutputOnChain,
 };
 
 use cuprate_consensus_rules::HardFork;

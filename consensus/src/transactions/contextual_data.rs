@@ -19,10 +19,9 @@ use monero_serai::transaction::{Input, Timelock};
 use tower::ServiceExt;
 use tracing::instrument;
 
-use cuprate_consensus_rules::transactions::Rings;
 use cuprate_consensus_rules::{
     transactions::{
-        get_absolute_offsets, insert_ring_member_ids, DecoyInfo, TransactionError,
+        get_absolute_offsets, insert_ring_member_ids, DecoyInfo, Rings, TransactionError,
         TxRingMembersInfo,
     },
     ConsensusError, HardFork, TxVersion,

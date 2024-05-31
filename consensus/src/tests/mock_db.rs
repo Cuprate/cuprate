@@ -5,10 +5,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use cuprate_types::{
-    service::{BCReadRequest, BCResponse},
-    ExtendedBlockHeader,
-};
 use futures::FutureExt;
 use proptest::{
     arbitrary::{any, any_with},
@@ -18,6 +14,11 @@ use proptest::{
 };
 use proptest_derive::Arbitrary;
 use tower::{BoxError, Service};
+
+use cuprate_types::{
+    service::{BCReadRequest, BCResponse},
+    ExtendedBlockHeader,
+};
 
 use crate::HardFork;
 
