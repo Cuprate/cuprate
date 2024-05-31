@@ -7,6 +7,12 @@ use crate::hard_forks::{HFVotes, HardFork, NUMB_OF_HARD_FORKS};
 const TEST_WINDOW_SIZE: u64 = 25;
 
 #[test]
+fn target_block_time() {
+    assert_eq!(HardFork::V1.block_time().as_secs(), 60);
+    assert_eq!(HardFork::V2.block_time().as_secs(), 120);
+}
+
+#[test]
 fn next_hard_forks() {
     let mut prev = HardFork::V1;
     let mut next = HardFork::V2;

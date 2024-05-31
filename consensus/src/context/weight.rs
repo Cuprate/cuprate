@@ -16,12 +16,14 @@ use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
 
+use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 use cuprate_helper::{asynch::rayon_spawn_async, num::median};
-use monero_consensus::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 
 use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork};
 
+/// The short term block weight window.
 const SHORT_TERM_WINDOW: u64 = 100;
+/// The long term block weight window.
 const LONG_TERM_WINDOW: u64 = 100000;
 
 /// Configuration for the block weight cache.
@@ -33,6 +35,7 @@ pub struct BlockWeightsCacheConfig {
 }
 
 impl BlockWeightsCacheConfig {
+    /// Creates a new [`BlockWeightsCacheConfig`]
     pub const fn new(short_term_window: u64, long_term_window: u64) -> BlockWeightsCacheConfig {
         BlockWeightsCacheConfig {
             short_term_window,
@@ -40,6 +43,7 @@ impl BlockWeightsCacheConfig {
         }
     }
 
+    /// Returns the [`BlockWeightsCacheConfig`] for all networks (They are all the same as mainnet).
     pub fn main_net() -> BlockWeightsCacheConfig {
         BlockWeightsCacheConfig {
             short_term_window: SHORT_TERM_WINDOW,
@@ -55,7 +59,9 @@ impl BlockWeightsCacheConfig {
 /// this data it reduces the load on the database.
 #[derive(Clone)]
 pub struct BlockWeightsCache {
+    /// The short term block weights.
     short_term_block_weights: VecDeque<usize>,
+    /// The long term block weights.
     long_term_weights: VecDeque<usize>,
 
     /// The short term block weights sorted so we don't have to sort them every time we need
@@ -68,6 +74,7 @@ pub struct BlockWeightsCache {
     /// The height of the top block.
     tip_height: u64,
 
+    /// The block weight config.
     config: BlockWeightsCacheConfig,
 }
 
@@ -131,6 +138,7 @@ impl BlockWeightsCache {
             long_term_weight
         );
 
+        // add the new block to the `long_term_weights` list and the sorted `cached_sorted_long_term_weights` list.
         self.long_term_weights.push_back(long_term_weight);
         match self
             .cached_sorted_long_term_weights
@@ -141,6 +149,7 @@ impl BlockWeightsCache {
                 .insert(idx, long_term_weight),
         }
 
+        // If the list now has too many entries remove the oldest.
         if u64::try_from(self.long_term_weights.len()).unwrap() > self.config.long_term_window {
             let val = self
                 .long_term_weights
@@ -153,6 +162,7 @@ impl BlockWeightsCache {
             };
         }
 
+        // add the block to the short_term_block_weights and the sorted cached_sorted_short_term_weights list.
         self.short_term_block_weights.push_back(block_weight);
         match self
             .cached_sorted_short_term_weights
@@ -163,6 +173,7 @@ impl BlockWeightsCache {
                 .insert(idx, block_weight),
         }
 
+        // If there are now too many entries remove the oldest.
         if u64::try_from(self.short_term_block_weights.len()).unwrap()
             > self.config.short_term_window
         {
@@ -192,6 +203,7 @@ impl BlockWeightsCache {
         median(&self.cached_sorted_long_term_weights)
     }
 
+    /// Returns the median weight over the last [`SHORT_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
     pub fn median_short_term_weight(&self) -> usize {
         median(&self.cached_sorted_short_term_weights)
     }
@@ -221,6 +233,7 @@ impl BlockWeightsCache {
     }
 }
 
+/// Calculates the effective median with the long term and short term median.
 fn calculate_effective_median_block_weight(
     hf: &HardFork,
     median_short_term_weight: usize,
@@ -247,6 +260,7 @@ fn calculate_effective_median_block_weight(
     effective_median.max(penalty_free_zone(hf))
 }
 
+/// Calculates a blocks long term weight.
 pub fn calculate_block_long_term_weight(
     hf: &HardFork,
     block_weight: usize,
@@ -270,6 +284,7 @@ pub fn calculate_block_long_term_weight(
     min(short_term_constraint, adjusted_block_weight)
 }
 
+/// Gets the block weights from the blocks with heights in the range provided.
 #[instrument(name = "get_block_weights", skip(database))]
 async fn get_blocks_weight_in_range<D: Database + Clone>(
     range: Range<u64>,
@@ -290,6 +305,7 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
         .collect())
 }
 
+/// Gets the block long term weights from the blocks with heights in the range provided.
 #[instrument(name = "get_long_term_weights", skip(database), level = "info")]
 async fn get_long_term_weight_in_range<D: Database + Clone>(
     range: Range<u64>,

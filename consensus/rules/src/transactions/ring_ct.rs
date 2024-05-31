@@ -154,6 +154,13 @@ pub(crate) fn check_input_signatures(
         Err(RingCTError::RingInvalid)?;
     }
 
+    let pseudo_outs = match &rct_sig.prunable {
+        RctPrunable::MlsagBulletproofs { pseudo_outs, .. }
+        | RctPrunable::Clsag { pseudo_outs, .. } => pseudo_outs.as_slice(),
+        RctPrunable::MlsagBorromean { .. } => rct_sig.base.pseudo_outs.as_slice(),
+        RctPrunable::AggregateMlsagBorromean { .. } | RctPrunable::Null => &[],
+    };
+
     match &rct_sig.prunable {
         RctPrunable::Null => Err(RingCTError::TypeNotAllowed)?,
         RctPrunable::AggregateMlsagBorromean { mlsag, .. } => {
@@ -174,7 +181,7 @@ pub(crate) fn check_input_signatures(
         }
         RctPrunable::MlsagBorromean { mlsags, .. }
         | RctPrunable::MlsagBulletproofs { mlsags, .. } => try_par_iter(mlsags)
-            .zip(&rct_sig.base.pseudo_outs)
+            .zip(pseudo_outs)
             .zip(inputs)
             .zip(rings)
             .try_for_each(|(((mlsag, pseudo_out), input), ring)| {
@@ -189,7 +196,7 @@ pub(crate) fn check_input_signatures(
                 )?)
             }),
         RctPrunable::Clsag { clsags, .. } => try_par_iter(clsags)
-            .zip(&rct_sig.base.pseudo_outs)
+            .zip(pseudo_outs)
             .zip(inputs)
             .zip(rings)
             .try_for_each(|(((clsags, pseudo_out), input), ring)| {
