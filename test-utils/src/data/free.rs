@@ -20,14 +20,14 @@ use crate::data::constants::{
 };
 
 //---------------------------------------------------------------------------------------------------- Conversion
-/// Converts `monero_serai`'s `Block` into a
-/// `cuprate_types::VerifiedBlockInformation` (superset).
+/// Converts [`monero_serai::Block`] into a
+/// [`:VerifiedBlockInformation`] (superset).
 ///
 /// To prevent pulling other code in order to actually calculate things
 /// (e.g. `pow_hash`), some information must be provided statically,
 /// this struct represents that data that must be provided.
 ///
-/// Consider using `cuprate_test_utils::rpc` to get this data easily.
+/// Consider using [`cuprate_test_utils::rpc`] to get this data easily.
 struct VerifiedBlockMap {
     block_blob: &'static [u8],
     pow_hash: [u8; 32],
@@ -43,7 +43,7 @@ struct VerifiedBlockMap {
 }
 
 impl VerifiedBlockMap {
-    /// Turn the various static data bits in `self` into a `VerifiedBlockInformation`.
+    /// Turn the various static data bits in `self` into a [`VerifiedBlockInformation`].
     ///
     /// Transactions are verified that they at least match the block's,
     /// although the correctness of data (whether this block actually existed or not)
@@ -97,7 +97,7 @@ impl VerifiedBlockMap {
     }
 }
 
-// Same as [`VerifiedBlockMap`] but for [`TransactionVerificationData`].
+// Same as [`VerifiedBlockMap`] but for [`VerifiedTransactionInformation`].
 fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInformation {
     let tx_blob = tx_blob.as_ref().to_vec();
     let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
@@ -235,7 +235,7 @@ verified_block_information_fn! {
 
 //---------------------------------------------------------------------------------------------------- Transactions
 /// Generate a transaction accessor function with this signature:
-///     `fn() -> &'static TransactionVerificationData`
+///     `fn() -> &'static VerifiedTransactionInformation`
 ///
 /// Same as [`verified_block_information_fn`] but for transactions.
 macro_rules! transaction_verification_data_fn {
@@ -245,7 +245,7 @@ macro_rules! transaction_verification_data_fn {
         weight: $weight:literal, // Transaction weight
         hash: $hash:literal, // Transaction hash as a string literal
     ) => {
-        #[doc = concat!("Return [`", stringify!($tx_blob), "`] as a [`TransactionVerificationData`].")]
+        #[doc = concat!("Return [`", stringify!($tx_blob), "`] as a [`VerifiedTransactionInformation`].")]
         ///
         /// ```rust
         #[doc = "# use cuprate_test_utils::data::*;"]
