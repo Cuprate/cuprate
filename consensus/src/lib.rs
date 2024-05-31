@@ -7,8 +7,8 @@
 //! - [`TxVerifierService`] Which handles transaction verification.
 //!
 //! This crate is generic over the database which is implemented as a [`tower::Service`]. To
-//! implement a database you need to have a service which accepts [`DatabaseRequest`] and responds
-//! with [`DatabaseResponse`].
+//! implement a database you need to have a service which accepts [`BCReadRequest`] and responds
+//! with [`BCResponse`].
 //!
 use cuprate_consensus_rules::{ConsensusError, HardFork};
 
@@ -19,10 +19,7 @@ pub mod context;
 mod tests;
 pub mod transactions;
 
-pub use block::{
-    BlockVerifierService, PrePreparedBlock, VerifiedBlockInformation, VerifyBlockRequest,
-    VerifyBlockResponse,
-};
+pub use block::{BlockVerifierService, VerifyBlockRequest, VerifyBlockResponse};
 pub use context::{
     initialize_blockchain_context, BlockChainContext, BlockChainContextRequest,
     BlockChainContextResponse, BlockChainContextService, ContextConfig,

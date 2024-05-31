@@ -1,25 +1,16 @@
 //! Various shared data types in Cuprate.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::Arc;
-
 use curve25519_dalek::edwards::EdwardsPoint;
 use monero_serai::{
     block::Block,
     transaction::{Timelock, Transaction},
 };
 
-#[cfg(feature = "borsh")]
-use borsh::{BorshDeserialize, BorshSerialize};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 //---------------------------------------------------------------------------------------------------- ExtendedBlockHeader
 /// Extended header data of a block.
 ///
 /// This contains various metadata of a block, but not the block blob itself.
-///
-/// For more definitions, see also: <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header>.
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExtendedBlockHeader {
     /// The block's major version.
@@ -44,13 +35,12 @@ pub struct ExtendedBlockHeader {
     pub long_term_weight: usize,
 }
 
-//---------------------------------------------------------------------------------------------------- TransactionVerificationData
-/// Data needed to verify a transaction.
+//---------------------------------------------------------------------------------------------------- VerifiedTransactionInformation
+/// Verified information of a transaction.
 ///
-/// This represents data that allows verification of a transaction,
-/// although it doesn't mean it _has_ been verified.
+/// This represents a transaction in a valid block.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TransactionVerificationData {
+pub struct VerifiedTransactionInformation {
     /// The transaction itself.
     pub tx: Transaction,
     /// The serialized byte form of [`Self::tx`].
@@ -73,11 +63,7 @@ pub struct TransactionVerificationData {
 /// Verified information of a block.
 ///
 /// This represents a block that has already been verified to be correct.
-///
-/// For more definitions, see also: <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block>.
 #[derive(Clone, Debug, PartialEq, Eq)]
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))] // FIXME: monero_serai
-// #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub struct VerifiedBlockInformation {
     /// The block itself.
     pub block: Block,
@@ -86,7 +72,7 @@ pub struct VerifiedBlockInformation {
     /// [`Block::serialize`].
     pub block_blob: Vec<u8>,
     /// All the transactions in the block, excluding the [`Block::miner_tx`].
-    pub txs: Vec<Arc<TransactionVerificationData>>,
+    pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///
     /// [`Block::hash`].

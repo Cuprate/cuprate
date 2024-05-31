@@ -88,7 +88,7 @@
 
 mod types;
 pub use types::{
-    ExtendedBlockHeader, OutputOnChain, TransactionVerificationData, VerifiedBlockInformation,
+    ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
 //---------------------------------------------------------------------------------------------------- Feature-gated

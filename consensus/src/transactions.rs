@@ -130,8 +130,8 @@ pub enum VerifyTxRequest {
     /// Verifies a batch of prepared txs.
     Prepped {
         /// The transactions to verify.
-        // TODO: Can we use references to remove the outer `Arc`? probably wont play nicely with rayon_spawn_async though
-        txs: Arc<[Arc<TransactionVerificationData>]>,
+        // TODO: Can we use references to remove the Vec? wont play nicely with Service though
+        txs: Vec<Arc<TransactionVerificationData>>,
         /// The current chain height.
         current_chain_height: u64,
         /// The top block hash.
@@ -160,7 +160,7 @@ pub enum VerifyTxRequest {
 /// A response from a verify transaction request.
 #[derive(Debug)]
 pub enum VerifyTxResponse {
-    OkPrepped(Arc<[Arc<TransactionVerificationData>]>),
+    OkPrepped(Vec<Arc<TransactionVerificationData>>),
     Ok,
 }
 
@@ -228,7 +228,7 @@ where
                 } => {
                     verify_prepped_transactions(
                         database,
-                        txs,
+                        &txs,
                         current_chain_height,
                         top_hash,
                         time_for_time_lock,
@@ -260,13 +260,13 @@ where
     let txs = rayon_spawn_async(|| {
         txs.into_par_iter()
             .map(|tx| TransactionVerificationData::new(tx).map(Arc::new))
-            .collect::<Result<Arc<_>, _>>()
+            .collect::<Result<Vec<_>, _>>()
     })
     .await?;
 
     verify_prepped_transactions(
         database,
-        txs.clone(),
+        &txs,
         current_chain_height,
         top_hash,
         time_for_time_lock,
@@ -280,7 +280,7 @@ where
 #[instrument(name = "verify_txs", skip_all, fields(amt = txs.len()) level = "info")]
 async fn verify_prepped_transactions<D>(
     mut database: D,
-    txs: Arc<[Arc<TransactionVerificationData>]>,
+    txs: &[Arc<TransactionVerificationData>],
     current_chain_height: u64,
     top_hash: [u8; 32],
     time_for_time_lock: u64,
@@ -377,7 +377,7 @@ where
 
 #[allow(clippy::type_complexity)] // I don't think the return is too complex
 fn transactions_needing_verification(
-    txs: Arc<[Arc<TransactionVerificationData>]>,
+    txs: &[Arc<TransactionVerificationData>],
     hashes_in_main_chain: HashSet<[u8; 32]>,
     current_hf: &HardFork,
     current_chain_height: u64,
