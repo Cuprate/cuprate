@@ -16,6 +16,7 @@ cuprate-blockchain = { path = "../../storage/cuprate-blockchain" }
 
 # Consensus
 cuprate-consensus = { path = "../../consensus" }
+monero-serai = { workspace = true }
 
 # Async
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

@@ -2,6 +2,7 @@
 resolver = "2"
 
 members = [
+	"binaries/cuprated",
 	"consensus",
 	"consensus/rules",
 	"cryptonight",
@@ -19,7 +20,7 @@ members = [
 	"storage/database",
 	"pruning",
 	"test-utils",
-	"types", "binaries/cuprated",
+	"types",
 ]
 
 [profile.release]

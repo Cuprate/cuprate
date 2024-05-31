@@ -654,6 +654,7 @@ dependencies = [
  "dandelion-tower",
  "futures",
  "monero-p2p",
+ "monero-serai",
  "tokio",
 ]
 
