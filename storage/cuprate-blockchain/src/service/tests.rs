@@ -168,7 +168,7 @@ async fn test_template(
 
     // Contains a fake non-spent key-image.
     let ki_req = HashSet::from([[0; 32]]);
-    let ki_resp = Ok(BCResponse::CheckKIsNotSpent(true));
+    let ki_resp = Ok(BCResponse::KeyImagesSpent(true));
 
     //----------------------------------------------------------------------- Assert expected response
     // Assert read requests lead to the expected responses.
@@ -188,7 +188,7 @@ async fn test_template(
         (BCReadRequest::ChainHeight, chain_height),
         (BCReadRequest::GeneratedCoins, cumulative_generated_coins),
         (BCReadRequest::NumberOutputsWithAmount(num_req), num_resp),
-        (BCReadRequest::CheckKIsNotSpent(ki_req), ki_resp),
+        (BCReadRequest::KeyImagesSpent(ki_req), ki_resp),
     ] {
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, expected_response: {expected_response:#?}");
@@ -202,10 +202,10 @@ async fn test_template(
     // Assert each key image we inserted comes back as "spent".
     for key_image in tables.key_images_iter().keys().unwrap() {
         let key_image = key_image.unwrap();
-        let request = BCReadRequest::CheckKIsNotSpent(HashSet::from([key_image]));
+        let request = BCReadRequest::KeyImagesSpent(HashSet::from([key_image]));
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, key_image: {key_image:#?}");
-        assert_eq!(response.unwrap(), BCResponse::CheckKIsNotSpent(false));
+        assert_eq!(response.unwrap(), BCResponse::KeyImagesSpent(false));
     }
 
     //----------------------------------------------------------------------- Output checks

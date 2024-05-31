@@ -19,6 +19,8 @@ use cuprate_types::{
     ExtendedBlockHeader, OutputOnChain,
 };
 
+use crate::ops::block::block_exists;
+use crate::types::BlockHash;
 use crate::{
     config::ReaderThreads,
     error::RuntimeError,
@@ -202,12 +204,13 @@ fn map_request(
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block) => block_hash(env, block),
+        R::FilterUnknownHashes(hashes) => filter_unknown_hahses(env, hashes),
         R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(env, range),
         R::ChainHeight => chain_height(env),
         R::GeneratedCoins => generated_coins(env),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
-        R::CheckKIsNotSpent(set) => check_k_is_not_spent(env, set),
+        R::KeyImagesSpent(set) => key_image_spent(env, set),
     };
 
     if let Err(e) = response_sender.send(response) {
@@ -286,6 +289,9 @@ macro_rules! get_tables {
 // FIXME: implement multi-transaction read atomicity.
 // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576874589>.
 
+// TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
+// amount of parallelism.
+
 /// [`BCReadRequest::BlockExtendedHeader`].
 #[inline]
 fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
@@ -310,6 +316,34 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
     Ok(BCResponse::BlockHash(
         get_block_info(&block_height, &table_block_infos)?.block_hash,
     ))
+}
+
+/// [`BCReadRequest::FilterUnknownHashes`].
+#[inline]
+fn filter_unknown_hahses(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+
+    let mut err = None;
+
+    hashes.retain(
+        |block_hash| match block_exists(block_hash, &table_block_heights) {
+            Ok(exists) => exists,
+            Err(e) => {
+                err.get_or_insert(e);
+                false
+            }
+        },
+    );
+
+    if let Some(e) = err {
+        return Err(e);
+    }
+
+    Ok(BCResponse::FilterUnknownHashes(hashes))
 }
 
 /// [`BCReadRequest::BlockExtendedHeaderInRange`].
@@ -455,9 +489,9 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
     Ok(BCResponse::NumberOutputsWithAmount(map))
 }
 
-/// [`BCReadRequest::CheckKIsNotSpent`].
+/// [`BCReadRequest::KeyImagesSpent`].
 #[inline]
-fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+fn key_image_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -470,11 +504,6 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
         key_image_exists(&key_image, tables.key_images())
     };
 
-    // FIXME:
-    // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
-    // or similar instead of `bool` for clarity.
-    // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>
-    //
     // Collect results using `rayon`.
     match key_images
         .into_par_iter()
@@ -486,8 +515,8 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
         // Else, `Ok(false)` will continue the iterator.
         .find_any(|result| !matches!(result, Ok(false)))
     {
-        None | Some(Ok(false)) => Ok(BCResponse::CheckKIsNotSpent(true)), // Key image was NOT found.
-        Some(Ok(true)) => Ok(BCResponse::CheckKIsNotSpent(false)),        // Key image was found.
+        None | Some(Ok(false)) => Ok(BCResponse::KeyImagesSpent(true)), // Key image was NOT found.
+        Some(Ok(true)) => Ok(BCResponse::KeyImagesSpent(false)),        // Key image was found.
         Some(Err(e)) => Err(e), // A database error occurred.
     }
 }
