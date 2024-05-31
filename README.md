@@ -16,6 +16,18 @@ _(work-in-progress)_
 - [Security](#security)
 - [License](#license)
 
+<!--
+TODO: add these sections someday.
+
+- [Status](#status) // when we're near v1.0.0
+- [Getting help](#getting-help) // issue tracker, user book, matrix channels, etc
+- [Build](#build)
+	- [Windows](#windows)
+	- [macOS](#macOS)
+	- [Linux](#Linux)
+
+-->
+
 ## About
 Cuprate is an alternative [Monero](https://getmonero.org) node implementation, written in [Rust](http://rust-lang.org).
 
