@@ -9,13 +9,14 @@ use tower::ServiceExt;
 use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
+use cuprate_types::service::{BCReadRequest, BCResponse};
 
 use super::{
     difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
     BlockChainContextResponse, ContextConfig, RawBlockChainContext, ValidityToken,
     BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
 };
-use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
+use crate::{Database, ExtendedConsensusError};
 
 /// A request from the context service to the context task.
 pub(super) struct ContextTaskRequest {
@@ -69,19 +70,19 @@ impl ContextTask {
 
         tracing::debug!("Initialising blockchain context");
 
-        let DatabaseResponse::ChainHeight(chain_height, top_block_hash) = database
+        let BCResponse::ChainHeight(chain_height, top_block_hash) = database
             .ready()
             .await?
-            .call(DatabaseRequest::ChainHeight)
+            .call(BCReadRequest::ChainHeight)
             .await?
         else {
             panic!("Database sent incorrect response!");
         };
 
-        let DatabaseResponse::GeneratedCoins(already_generated_coins) = database
+        let BCResponse::GeneratedCoins(already_generated_coins) = database
             .ready()
             .await?
-            .call(DatabaseRequest::GeneratedCoins)
+            .call(BCReadRequest::GeneratedCoins)
             .await?
         else {
             panic!("Database sent incorrect response!");

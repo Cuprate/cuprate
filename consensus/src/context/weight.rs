@@ -18,8 +18,9 @@ use tracing::instrument;
 
 use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 use cuprate_helper::{asynch::rayon_spawn_async, num::median};
+use cuprate_types::service::{BCReadRequest, BCResponse};
 
-use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork};
+use crate::{Database, ExtendedConsensusError, HardFork};
 
 /// The short term block weight window.
 const SHORT_TERM_WINDOW: u64 = 100;
@@ -292,8 +293,8 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block weights.");
 
-    let DatabaseResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(range))
+    let BCResponse::BlockExtendedHeaderInRange(ext_headers) = database
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range))
         .await?
     else {
         panic!("Database sent incorrect response!")
@@ -313,8 +314,8 @@ async fn get_long_term_weight_in_range<D: Database + Clone>(
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block long term weights.");
 
-    let DatabaseResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(range))
+    let BCResponse::BlockExtendedHeaderInRange(ext_headers) = database
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range))
         .await?
     else {
         panic!("Database sent incorrect response!")

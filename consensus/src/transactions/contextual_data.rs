@@ -15,21 +15,128 @@ use std::{
     sync::Arc,
 };
 
-use monero_serai::transaction::Input;
+use monero_serai::transaction::{Input, Timelock};
 use tower::ServiceExt;
 use tracing::instrument;
 
+use cuprate_consensus_rules::transactions::Rings;
 use cuprate_consensus_rules::{
     transactions::{
-        get_ring_members_for_inputs, insert_ring_member_ids, DecoyInfo, TxRingMembersInfo,
+        get_absolute_offsets, insert_ring_member_ids, DecoyInfo, TransactionError,
+        TxRingMembersInfo,
     },
-    ConsensusError, HardFork,
+    ConsensusError, HardFork, TxVersion,
+};
+use cuprate_types::{
+    service::{BCReadRequest, BCResponse},
+    OutputOnChain,
 };
 
-use crate::{
-    transactions::TransactionVerificationData, Database, DatabaseRequest, DatabaseResponse,
-    ExtendedConsensusError,
-};
+use crate::{transactions::TransactionVerificationData, Database, ExtendedConsensusError};
+
+/// Get the ring members for the inputs from the outputs on the chain.
+///
+/// Will error if `outputs` does not contain the outputs needed.
+fn get_ring_members_for_inputs(
+    get_outputs: impl Fn(u64, u64) -> Option<OutputOnChain>,
+    inputs: &[Input],
+) -> Result<Vec<Vec<OutputOnChain>>, TransactionError> {
+    inputs
+        .iter()
+        .map(|inp| match inp {
+            Input::ToKey {
+                amount,
+                key_offsets,
+                ..
+            } => {
+                let offsets = get_absolute_offsets(key_offsets)?;
+                Ok(offsets
+                    .iter()
+                    .map(|offset| {
+                        get_outputs(amount.unwrap_or(0), *offset)
+                            .ok_or(TransactionError::RingMemberNotFoundOrInvalid)
+                    })
+                    .collect::<Result<_, TransactionError>>()?)
+            }
+            _ => Err(TransactionError::IncorrectInputType),
+        })
+        .collect::<Result<_, TransactionError>>()
+}
+
+/// Construct a [`TxRingMembersInfo`] struct.
+///
+/// The used outs must be all the ring members used in the transactions inputs.
+pub fn new_ring_member_info(
+    used_outs: Vec<Vec<OutputOnChain>>,
+    decoy_info: Option<DecoyInfo>,
+    tx_version: TxVersion,
+) -> Result<TxRingMembersInfo, TransactionError> {
+    Ok(TxRingMembersInfo {
+        youngest_used_out_height: used_outs
+            .iter()
+            .map(|inp_outs| {
+                inp_outs
+                    .iter()
+                    // the output with the highest height is the youngest
+                    .map(|out| out.height)
+                    .max()
+                    .expect("Input must have ring members")
+            })
+            .max()
+            .expect("Tx must have inputs"),
+        time_locked_outs: used_outs
+            .iter()
+            .flat_map(|inp_outs| {
+                inp_outs
+                    .iter()
+                    .filter_map(|out| match out.time_lock {
+                        Timelock::None => None,
+                        lock => Some(lock),
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect(),
+        rings: new_rings(used_outs, tx_version)?,
+        decoy_info,
+    })
+}
+
+/// Builds the [`Rings`] for the transaction inputs, from the given outputs.
+fn new_rings(
+    outputs: Vec<Vec<OutputOnChain>>,
+    tx_version: TxVersion,
+) -> Result<Rings, TransactionError> {
+    Ok(match tx_version {
+        TxVersion::RingSignatures => Rings::Legacy(
+            outputs
+                .into_iter()
+                .map(|inp_outs| {
+                    inp_outs
+                        .into_iter()
+                        .map(|out| out.key.ok_or(TransactionError::RingMemberNotFoundOrInvalid))
+                        .collect::<Result<Vec<_>, TransactionError>>()
+                })
+                .collect::<Result<Vec<_>, TransactionError>>()?,
+        ),
+        TxVersion::RingCT => Rings::RingCT(
+            outputs
+                .into_iter()
+                .map(|inp_outs| {
+                    inp_outs
+                        .into_iter()
+                        .map(|out| {
+                            Ok([
+                                out.key
+                                    .ok_or(TransactionError::RingMemberNotFoundOrInvalid)?,
+                                out.commitment,
+                            ])
+                        })
+                        .collect::<Result<_, TransactionError>>()
+                })
+                .collect::<Result<_, _>>()?,
+        ),
+    })
+}
 
 /// Retrieves the [`TxRingMembersInfo`] for the inputted [`TransactionVerificationData`].
 ///
@@ -47,19 +154,19 @@ pub async fn batch_get_ring_member_info<D: Database>(
             .map_err(ConsensusError::Transaction)?;
     }
 
-    let DatabaseResponse::Outputs(outputs) = database
+    let BCResponse::Outputs(outputs) = database
         .ready()
         .await?
-        .call(DatabaseRequest::Outputs(output_ids))
+        .call(BCReadRequest::Outputs(output_ids))
         .await?
     else {
         panic!("Database sent incorrect response!")
     };
 
-    let DatabaseResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+    let BCResponse::NumberOutputsWithAmount(outputs_with_amount) = database
         .ready()
         .await?
-        .call(DatabaseRequest::NumberOutputsWithAmount(
+        .call(BCReadRequest::NumberOutputsWithAmount(
             outputs.keys().copied().collect(),
         ))
         .await?
@@ -87,7 +194,7 @@ pub async fn batch_get_ring_member_info<D: Database>(
                 None
             };
 
-            TxRingMembersInfo::new(ring_members_for_tx, decoy_info, tx_v_data.version)
+            new_ring_member_info(ring_members_for_tx, decoy_info, tx_v_data.version)
                 .map_err(ConsensusError::Transaction)
         })
         .collect::<Result<_, _>>()?)
@@ -128,10 +235,10 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
         unique_input_amounts.len()
     );
 
-    let DatabaseResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+    let BCResponse::NumberOutputsWithAmount(outputs_with_amount) = database
         .ready()
         .await?
-        .call(DatabaseRequest::NumberOutputsWithAmount(
+        .call(BCReadRequest::NumberOutputsWithAmount(
             unique_input_amounts.into_iter().collect(),
         ))
         .await?

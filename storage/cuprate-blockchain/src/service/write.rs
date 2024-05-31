@@ -10,7 +10,7 @@ use futures::channel::oneshot;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::{
-    service::{Response, WriteRequest},
+    service::{BCResponse, BCWriteRequest},
     VerifiedBlockInformation,
 };
 
@@ -33,15 +33,15 @@ const WRITER_THREAD_NAME: &str = concat!(module_path!(), "::DatabaseWriter");
 /// it is not [`Clone`]able as there is only ever 1 place within Cuprate
 /// that writes.
 ///
-/// Calling [`tower::Service::call`] with a [`DatabaseWriteHandle`] & [`WriteRequest`]
+/// Calling [`tower::Service::call`] with a [`DatabaseWriteHandle`] & [`BCWriteRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
-/// to receive the corresponding [`Response`].
+/// to receive the corresponding [`BCResponse`].
 #[derive(Debug)]
 pub struct DatabaseWriteHandle {
     /// Sender channel to the database write thread-pool.
     ///
     /// We provide the response channel for the thread-pool.
-    pub(super) sender: crossbeam::channel::Sender<(WriteRequest, ResponseSender)>,
+    pub(super) sender: crossbeam::channel::Sender<(BCWriteRequest, ResponseSender)>,
 }
 
 impl DatabaseWriteHandle {
@@ -65,8 +65,8 @@ impl DatabaseWriteHandle {
     }
 }
 
-impl tower::Service<WriteRequest> for DatabaseWriteHandle {
-    type Response = Response;
+impl tower::Service<BCWriteRequest> for DatabaseWriteHandle {
+    type Response = BCResponse;
     type Error = RuntimeError;
     type Future = ResponseReceiver;
 
@@ -76,7 +76,7 @@ impl tower::Service<WriteRequest> for DatabaseWriteHandle {
     }
 
     #[inline]
-    fn call(&mut self, request: WriteRequest) -> Self::Future {
+    fn call(&mut self, request: BCWriteRequest) -> Self::Future {
         // Response channel we `.await` on.
         let (response_sender, receiver) = oneshot::channel();
 
@@ -95,7 +95,7 @@ pub(super) struct DatabaseWriter {
     /// Any caller can send some requests to this channel.
     /// They send them alongside another `Response` channel,
     /// which we will eventually send to.
-    receiver: crossbeam::channel::Receiver<(WriteRequest, ResponseSender)>,
+    receiver: crossbeam::channel::Receiver<(BCWriteRequest, ResponseSender)>,
 
     /// Access to the database.
     env: Arc<ConcreteEnv>,
@@ -153,7 +153,7 @@ impl DatabaseWriter {
                 // FIXME: will there be more than 1 write request?
                 // this won't have to be an enum.
                 let response = match &request {
-                    WriteRequest::WriteBlock(block) => write_block(&self.env, block),
+                    BCWriteRequest::WriteBlock(block) => write_block(&self.env, block),
                 };
 
                 // If the database needs to resize, do so.
@@ -218,7 +218,7 @@ impl DatabaseWriter {
 // Each function will return the [`Response`] that we
 // should send back to the caller in [`map_request()`].
 
-/// [`WriteRequest::WriteBlock`].
+/// [`BCWriteRequest::WriteBlock`].
 #[inline]
 fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
     let env_inner = env.env_inner();
@@ -232,7 +232,7 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
     match result {
         Ok(()) => {
             TxRw::commit(tx_rw)?;
-            Ok(Response::WriteBlockOk)
+            Ok(BCResponse::WriteBlockOk)
         }
         Err(e) => {
             // INVARIANT: ensure database atomicity by aborting

@@ -12,8 +12,9 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_helper::num::median;
+use cuprate_types::service::{BCReadRequest, BCResponse};
 
-use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError, HardFork};
+use crate::{Database, ExtendedConsensusError, HardFork};
 
 /// The amount of blocks we account for to calculate difficulty
 const DIFFICULTY_WINDOW: usize = 720;
@@ -301,8 +302,8 @@ async fn get_blocks_in_pow_info<D: Database + Clone>(
 ) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
-    let DatabaseResponse::BlockExtendedHeaderInRange(ext_header) = database
-        .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(block_heights))
+    let BCResponse::BlockExtendedHeaderInRange(ext_header) = database
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(block_heights))
         .await?
     else {
         panic!("Database sent incorrect response");

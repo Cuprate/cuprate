@@ -21,8 +21,6 @@ use serde::{Deserialize, Serialize};
 ///
 /// For more definitions, see also: <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_last_block_header>.
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub struct ExtendedBlockHeader {
     /// The block's major version.
     ///
@@ -52,8 +50,6 @@ pub struct ExtendedBlockHeader {
 /// This represents data that allows verification of a transaction,
 /// although it doesn't mean it _has_ been verified.
 #[derive(Clone, Debug, PartialEq, Eq)]
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))] // FIXME: monero_serai
-// #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
 pub struct TransactionVerificationData {
     /// The transaction itself.
     pub tx: Transaction,
@@ -111,9 +107,7 @@ pub struct VerifiedBlockInformation {
 
 //---------------------------------------------------------------------------------------------------- OutputOnChain
 /// An already existing transaction output.
-#[derive(Clone, Debug, PartialEq, Eq)]
-// #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))] // FIXME: monero_serai
-// #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OutputOnChain {
     /// The block height this output belongs to.
     pub height: u64,

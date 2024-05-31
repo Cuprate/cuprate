@@ -4,8 +4,9 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
+use cuprate_types::service::{BCReadRequest, BCResponse};
 
-use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
+use crate::{Database, ExtendedConsensusError};
 
 /// The default amount of hard-fork votes to track to decide on activation of a hard-fork.
 ///
@@ -86,16 +87,17 @@ impl HardForkState {
             debug_assert_eq!(votes.total_votes(), config.window)
         }
 
-        let DatabaseResponse::BlockExtendedHeader(ext_header) = database
+        let BCResponse::BlockExtendedHeader(ext_header) = database
             .ready()
             .await?
-            .call(DatabaseRequest::BlockExtendedHeader(chain_height - 1))
+            .call(BCReadRequest::BlockExtendedHeader(chain_height - 1))
             .await?
         else {
             panic!("Database sent incorrect response!");
         };
 
-        let current_hardfork = ext_header.version;
+        let current_hardfork =
+            HardFork::from_version(ext_header.version).expect("Stored block has invalid hardfork");
 
         let mut hfs = HardForkState {
             config,
@@ -165,15 +167,15 @@ async fn get_votes_in_range<D: Database>(
 ) -> Result<HFVotes, ExtendedConsensusError> {
     let mut votes = HFVotes::new(window_size);
 
-    let DatabaseResponse::BlockExtendedHeaderInRange(vote_list) = database
-        .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(block_heights))
+    let BCResponse::BlockExtendedHeaderInRange(vote_list) = database
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(block_heights))
         .await?
     else {
         panic!("Database sent incorrect response!");
     };
 
     for hf_info in vote_list.into_iter() {
-        votes.add_vote_for_hf(&hf_info.vote);
+        votes.add_vote_for_hf(&HardFork::from_vote(hf_info.vote));
     }
 
     Ok(votes)

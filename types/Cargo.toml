@@ -13,10 +13,7 @@ default = ["service"]
 service = []
 
 [dependencies]
-borsh            = { workspace = true, optional = true }
-cfg-if           = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
-serde            = { workspace = true, optional = true }
 
 [dev-dependencies]

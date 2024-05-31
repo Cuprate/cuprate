@@ -5,6 +5,10 @@ use std::{
     task::{Context, Poll},
 };
 
+use cuprate_types::{
+    service::{BCReadRequest, BCResponse},
+    ExtendedBlockHeader,
+};
 use futures::FutureExt;
 use proptest::{
     arbitrary::{any, any_with},
@@ -15,7 +19,7 @@ use proptest::{
 use proptest_derive::Arbitrary;
 use tower::{BoxError, Service};
 
-use crate::{DatabaseRequest, DatabaseResponse, ExtendedBlockHeader, HardFork};
+use crate::HardFork;
 
 prop_compose! {
     /// Generates an arbitrary full [`DummyDatabase`], it is not safe to do consensus checks on the returned database
@@ -56,8 +60,8 @@ pub struct DummyBlockExtendedHeader {
 impl From<DummyBlockExtendedHeader> for ExtendedBlockHeader {
     fn from(value: DummyBlockExtendedHeader) -> Self {
         ExtendedBlockHeader {
-            version: value.version.unwrap_or(HardFork::V1),
-            vote: value.vote.unwrap_or(HardFork::V1),
+            version: value.version.unwrap_or(HardFork::V1) as u8,
+            vote: value.vote.unwrap_or(HardFork::V1) as u8,
             timestamp: value.timestamp.unwrap_or_default(),
             cumulative_difficulty: value.cumulative_difficulty.unwrap_or_default(),
             block_weight: value.block_weight.unwrap_or_default(),
@@ -122,8 +126,8 @@ pub struct DummyDatabase {
     dummy_height: Option<usize>,
 }
 
-impl Service<DatabaseRequest> for DummyDatabase {
-    type Response = DatabaseResponse;
+impl Service<BCReadRequest> for DummyDatabase {
+    type Response = BCResponse;
     type Error = BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -132,13 +136,13 @@ impl Service<DatabaseRequest> for DummyDatabase {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: DatabaseRequest) -> Self::Future {
+    fn call(&mut self, req: BCReadRequest) -> Self::Future {
         let blocks = self.blocks.clone();
         let dummy_height = self.dummy_height;
 
         async move {
             Ok(match req {
-                DatabaseRequest::BlockExtendedHeader(id) => {
+                BCReadRequest::BlockExtendedHeader(id) => {
                     let mut id = usize::try_from(id).unwrap();
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();
@@ -146,7 +150,7 @@ impl Service<DatabaseRequest> for DummyDatabase {
                         id -= dummy_height - block_len;
                     }
 
-                    DatabaseResponse::BlockExtendedHeader(
+                    BCResponse::BlockExtendedHeader(
                         blocks
                             .read()
                             .unwrap()
@@ -156,12 +160,12 @@ impl Service<DatabaseRequest> for DummyDatabase {
                             .ok_or("block not in database!")?,
                     )
                 }
-                DatabaseRequest::BlockHash(id) => {
+                BCReadRequest::BlockHash(id) => {
                     let mut hash = [0; 32];
                     hash[0..8].copy_from_slice(&id.to_le_bytes());
-                    DatabaseResponse::BlockHash(hash)
+                    BCResponse::BlockHash(hash)
                 }
-                DatabaseRequest::BlockExtendedHeaderInRange(range) => {
+                BCReadRequest::BlockExtendedHeaderInRange(range) => {
                     let mut end = usize::try_from(range.end).unwrap();
                     let mut start = usize::try_from(range.start).unwrap();
 
@@ -172,7 +176,7 @@ impl Service<DatabaseRequest> for DummyDatabase {
                         start -= dummy_height - block_len;
                     }
 
-                    DatabaseResponse::BlockExtendedHeaderInRange(
+                    BCResponse::BlockExtendedHeaderInRange(
                         blocks
                             .read()
                             .unwrap()
@@ -184,7 +188,7 @@ impl Service<DatabaseRequest> for DummyDatabase {
                             .collect(),
                     )
                 }
-                DatabaseRequest::ChainHeight => {
+                BCReadRequest::ChainHeight => {
                     let height: u64 = dummy_height
                         .unwrap_or(blocks.read().unwrap().len())
                         .try_into()
@@ -193,9 +197,9 @@ impl Service<DatabaseRequest> for DummyDatabase {
                     let mut top_hash = [0; 32];
                     top_hash[0..8].copy_from_slice(&height.to_le_bytes());
 
-                    DatabaseResponse::ChainHeight(height, top_hash)
+                    BCResponse::ChainHeight(height, top_hash)
                 }
-                DatabaseRequest::GeneratedCoins => DatabaseResponse::GeneratedCoins(0),
+                BCReadRequest::GeneratedCoins => BCResponse::GeneratedCoins(0),
                 _ => unimplemented!("the context svc should not need these requests!"),
             })
         }
