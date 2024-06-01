@@ -151,7 +151,8 @@ where
 #[derive(Clone)]
 pub struct NetworkInterface<N: NetworkZone> {
     /// A pool of free connected peers.
-    pool: Arc<client_pool::ClientPool<N>>,
+    // TODO: remove pub
+    pub pool: Arc<client_pool::ClientPool<N>>,
     /// A [`Service`] that allows broadcasting to all connected peers.
     broadcast_svc: BroadcastSvc<N>,
     /// A [`watch`] channel that contains the highest seen cumulative difficulty and other info

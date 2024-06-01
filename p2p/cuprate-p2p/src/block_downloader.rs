@@ -363,7 +363,7 @@ where
         client: ClientPoolDropGuard<N>,
     ) {
         if self.chain_entry_task.len() < 2
-            && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request) < 15
+            && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request) < 30
             && chain_tracker.should_ask_for_next_chain_entry(&client.info.pruning_seed)
         {
             let history = chain_tracker.get_simple_history();
@@ -463,13 +463,30 @@ where
                 };
 
                 if start_height > self.amount_of_blocks_to_request_updated_at {
-                    let average_block_size =
+                    let old_amount_of_blocks_to_request = self.amount_of_blocks_to_request;
+
+                    // The average block size of the last batch of blocks, multiplied by 2 as a safety margin for
+                    // future blocks.
+                    let adjusted_average_block_size =
                         max((block_batch.size * 2) / block_batch.blocks.len(), 1);
 
+                    // Set the amount of blocks to request equal to our target batch size divided by the adjusted_average_block_size.
+                    // Capping the amount at the maximum allowed in a single request.
                     self.amount_of_blocks_to_request = min(
-                        max(self.config.target_batch_size / average_block_size, 1),
+                        max(
+                            self.config.target_batch_size / adjusted_average_block_size,
+                            1,
+                        ),
                         100,
                     );
+
+                    // Make sure the amount does not increase too quickly if we get some small blocks so limit the growth to 1.5x the last
+                    // batch size.
+                    self.amount_of_blocks_to_request = min(
+                        self.amount_of_blocks_to_request,
+                        (old_amount_of_blocks_to_request * 3).div_ceil(2),
+                    );
+
                     self.amount_of_blocks_to_request_updated_at = start_height;
                 }
 
