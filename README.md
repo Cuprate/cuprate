@@ -49,4 +49,6 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 Cuprate has a responsible vulnerability disclosure policy, see [`SECURITY.md`](SECURITY.md).
 
 ## License
-Cuprate's components are licensed under either MIT or AGPL-3.0, see [`LICENSE`](LICENSE) for more details.
+The `binaries/` directory is licensed under AGPL-3.0, everything else is licensed under MIT.
+
+See [`LICENSE`](LICENSE) for more details.
