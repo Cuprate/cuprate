@@ -1395,6 +1395,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "monero-rpc-types"
+version = "0.0.0"
+
+[[package]]
 name = "monero-serai"
 version = "0.1.4-alpha"
 source = "git+https://github.com/Cuprate/serai.git?rev=d27d934#d27d93480aa8a849d84214ad4c71d83ce6fea0c1"

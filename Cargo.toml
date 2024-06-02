@@ -18,6 +18,7 @@ members = [
 	"storage/cuprate-txpool",
 	"storage/database",
 	"pruning",
+	"rpc/monero-rpc-types",
 	"test-utils",
 	"types",
 ]
