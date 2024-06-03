@@ -123,7 +123,7 @@ pub enum BCResponse {
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
 
-    /// Response tp [`BCReadRequest::FilterUnknownHashes`].
+    /// Response to [`BCReadRequest::FilterUnknownHashes`].
     ///
     /// Inner value is the list of hashes that were in the main chain.
     FilterUnknownHashes(HashSet<[u8; 32]>),
