@@ -21,7 +21,7 @@ use crate::data::constants::{
 
 //---------------------------------------------------------------------------------------------------- Conversion
 /// Converts [`monero_serai::Block`] into a
-/// [`:VerifiedBlockInformation`] (superset).
+/// [`VerifiedBlockInformation`] (superset).
 ///
 /// To prevent pulling other code in order to actually calculate things
 /// (e.g. `pow_hash`), some information must be provided statically,

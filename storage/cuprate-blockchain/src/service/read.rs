@@ -19,9 +19,9 @@ use cuprate_types::{
     ExtendedBlockHeader, OutputOnChain,
 };
 
-use crate::ops::block::block_exists;
-use crate::types::BlockHash;
 use crate::{
+    ops::block::block_exists,
+    types::BlockHash,
     config::ReaderThreads,
     error::RuntimeError,
     ops::{
@@ -340,10 +340,10 @@ fn filter_unknown_hahses(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
     );
 
     if let Some(e) = err {
-        return Err(e);
+        Err(e)
+    } else {
+        Ok(BCResponse::FilterUnknownHashes(hashes))
     }
-
-    Ok(BCResponse::FilterUnknownHashes(hashes))
 }
 
 /// [`BCReadRequest::BlockExtendedHeaderInRange`].
@@ -491,7 +491,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 
 /// [`BCReadRequest::KeyImagesSpent`].
 #[inline]
-fn key_image_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
