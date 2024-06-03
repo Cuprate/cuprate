@@ -1,3 +1,11 @@
+//! Difficulty Module
+//!
+//! This module handles keeping track of the data required to calculate block difficulty.
+//! This data is currently the cumulative difficulty of each block and its timestamp.
+//!
+//! The timestamps are also used in other consensus rules so instead of duplicating the same
+//! data in a different cache, the timestamps needed are retrieved from here.
+//!
 use std::{collections::VecDeque, ops::Range};
 
 use tower::ServiceExt;
@@ -27,6 +35,10 @@ pub struct DifficultyCacheConfig {
 }
 
 impl DifficultyCacheConfig {
+    /// Create a new difficulty cache config.
+    ///
+    /// # Notes
+    /// You probably do not need this, use [`DifficultyCacheConfig::main_net`] instead.
     pub const fn new(window: usize, cut: usize, lag: usize) -> DifficultyCacheConfig {
         DifficultyCacheConfig { window, cut, lag }
     }
@@ -41,7 +53,9 @@ impl DifficultyCacheConfig {
         self.window - 2 * self.cut
     }
 
-    pub fn main_net() -> DifficultyCacheConfig {
+    /// Returns the config needed for [`Mainnet`](cuprate_helper::network::Network::Mainnet). This is also the
+    /// config for all other current networks.
+    pub const fn main_net() -> DifficultyCacheConfig {
         DifficultyCacheConfig {
             window: DIFFICULTY_WINDOW,
             cut: DIFFICULTY_CUT,
@@ -66,6 +80,7 @@ pub(crate) struct DifficultyCache {
 }
 
 impl DifficultyCache {
+    /// Initialize the difficulty cache from the specified chain height.
     #[instrument(name = "init_difficulty_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
@@ -100,13 +115,19 @@ impl DifficultyCache {
         Ok(diff)
     }
 
+    /// Add a new block to the difficulty cache.
     pub fn new_block(&mut self, height: u64, timestamp: u64, cumulative_difficulty: u128) {
         assert_eq!(self.last_accounted_height + 1, height);
         self.last_accounted_height += 1;
 
+        tracing::debug!(
+            "Accounting for new blocks timestamp ({timestamp}) and cumulative_difficulty ({cumulative_difficulty})",
+        );
+
         self.timestamps.push_back(timestamp);
         self.cumulative_difficulties
             .push_back(cumulative_difficulty);
+
         if u64::try_from(self.timestamps.len()).unwrap() > self.config.total_block_count() {
             self.timestamps.pop_front();
             self.cumulative_difficulties.pop_front();
@@ -117,47 +138,28 @@ impl DifficultyCache {
     ///
     /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/difficulty.html#calculating-difficulty
     pub fn next_difficulty(&self, hf: &HardFork) -> u128 {
-        if self.timestamps.len() <= 1 {
-            return 1;
-        }
-
-        let mut timestamps = self.timestamps.clone();
-        if timestamps.len() > self.config.window {
-            // remove the lag.
-            timestamps.drain(self.config.window..);
-        };
-        let timestamps_slice = timestamps.make_contiguous();
-
-        let (window_start, window_end) = get_window_start_and_end(
-            timestamps_slice.len(),
-            self.config.accounted_window_len(),
-            self.config.window,
-        );
-
-        // We don't sort the whole timestamp list
-        let mut time_span = u128::from(
-            *timestamps_slice.select_nth_unstable(window_end - 1).1
-                - *timestamps_slice.select_nth_unstable(window_start).1,
-        );
-
-        let windowed_work = self.cumulative_difficulties[window_end - 1]
-            - self.cumulative_difficulties[window_start];
-
-        if time_span == 0 {
-            time_span = 1;
-        }
-
-        // TODO: do checked operations here and unwrap so we don't silently overflow?
-        (windowed_work * hf.block_time().as_secs() as u128 + time_span - 1) / time_span
+        next_difficulty(
+            &self.config,
+            &self.timestamps,
+            &self.cumulative_difficulties,
+            hf,
+        )
     }
 
+    /// Returns the difficulties for multiple next blocks, using the provided timestamps and hard-forks when needed.
+    ///
+    /// The first difficulty will be the same as the difficulty from [`DifficultyCache::next_difficulty`] after that the
+    /// first timestamp and hf will be applied to the cache and the difficulty from that will be added to the list.
+    ///
+    /// After all timestamps and hfs have been dealt with the cache will be returned back to its original state and the
+    /// difficulties will be returned.
     pub fn next_difficulties(
-        &mut self,
+        &self,
         blocks: Vec<(u64, HardFork)>,
         current_hf: &HardFork,
     ) -> Vec<u128> {
-        let new_timestamps_len = blocks.len();
-        let initial_len = self.timestamps.len();
+        let mut timestamps = self.timestamps.clone();
+        let mut cumulative_difficulties = self.cumulative_difficulties.clone();
 
         let mut difficulties = Vec::with_capacity(blocks.len() + 1);
 
@@ -166,30 +168,24 @@ impl DifficultyCache {
         let mut diff_info_popped = Vec::new();
 
         for (new_timestamp, hf) in blocks {
-            self.timestamps.push_back(new_timestamp);
-            self.cumulative_difficulties
-                .push_back(self.cumulative_difficulty() + *difficulties.last().unwrap());
-            if u64::try_from(self.timestamps.len()).unwrap() > self.config.total_block_count() {
+            timestamps.push_back(new_timestamp);
+
+            let last_cum_diff = cumulative_difficulties.back().copied().unwrap_or(1);
+            cumulative_difficulties.push_back(last_cum_diff + *difficulties.last().unwrap());
+
+            if u64::try_from(timestamps.len()).unwrap() > self.config.total_block_count() {
                 diff_info_popped.push((
-                    self.timestamps.pop_front().unwrap(),
-                    self.cumulative_difficulties.pop_front().unwrap(),
+                    timestamps.pop_front().unwrap(),
+                    cumulative_difficulties.pop_front().unwrap(),
                 ));
             }
 
-            difficulties.push(self.next_difficulty(&hf));
-        }
-
-        self.cumulative_difficulties.drain(
-            self.cumulative_difficulties
-                .len()
-                .saturating_sub(new_timestamps_len)..,
-        );
-        self.timestamps
-            .drain(self.timestamps.len().saturating_sub(new_timestamps_len)..);
-
-        for (timestamp, cum_dif) in diff_info_popped.into_iter().take(initial_len).rev() {
-            self.timestamps.push_front(timestamp);
-            self.cumulative_difficulties.push_front(cum_dif);
+            difficulties.push(next_difficulty(
+                &self.config,
+                &timestamps,
+                &cumulative_difficulties,
+                &hf,
+            ));
         }
 
         difficulties
@@ -227,11 +223,55 @@ impl DifficultyCache {
         self.cumulative_difficulties.back().copied().unwrap_or(1)
     }
 
+    /// Returns the top block's timestamp, returns [`None`] if the top block is the genesis block.
     pub fn top_block_timestamp(&self) -> Option<u64> {
         self.timestamps.back().copied()
     }
 }
 
+/// Calculates the next difficulty with the inputted config/timestamps/cumulative_difficulties.
+fn next_difficulty(
+    config: &DifficultyCacheConfig,
+    timestamps: &VecDeque<u64>,
+    cumulative_difficulties: &VecDeque<u128>,
+    hf: &HardFork,
+) -> u128 {
+    if timestamps.len() <= 1 {
+        return 1;
+    }
+
+    let mut timestamps = timestamps.clone();
+
+    if timestamps.len() > config.window {
+        // remove the lag.
+        timestamps.drain(config.window..);
+    };
+    let timestamps_slice = timestamps.make_contiguous();
+
+    let (window_start, window_end) = get_window_start_and_end(
+        timestamps_slice.len(),
+        config.accounted_window_len(),
+        config.window,
+    );
+
+    // We don't sort the whole timestamp list
+    let mut time_span = u128::from(
+        *timestamps_slice.select_nth_unstable(window_end - 1).1
+            - *timestamps_slice.select_nth_unstable(window_start).1,
+    );
+
+    let windowed_work =
+        cumulative_difficulties[window_end - 1] - cumulative_difficulties[window_start];
+
+    if time_span == 0 {
+        time_span = 1;
+    }
+
+    // TODO: do checked operations here and unwrap so we don't silently overflow?
+    (windowed_work * hf.block_time().as_secs() as u128 + time_span - 1) / time_span
+}
+
+/// Get the start and end of the window to calculate difficulty.
 fn get_window_start_and_end(
     window_len: usize,
     accounted_window: usize,
@@ -253,6 +293,7 @@ fn get_window_start_and_end(
     }
 }
 
+/// Returns the timestamps and cumulative difficulty for the blocks with heights in the specified range.
 #[instrument(name = "get_blocks_timestamps", skip(database), level = "info")]
 async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,

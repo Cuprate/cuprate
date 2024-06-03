@@ -7,34 +7,14 @@ license = "MIT"
 authors = ["Boog900"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
-[features]
-default = []
-binaries = [
-    "tokio/rt-multi-thread",
-    "tokio/macros",
-    "tower/retry",
-    "tower/balance",
-    "tower/buffer",
-    "tower/timeout",
-    "monero-serai/http-rpc",
-    "dep:tracing-subscriber",
-    "dep:serde_json",
-    "dep:serde",
-    "dep:epee-encoding",
-    "dep:monero-wire",
-    "dep:borsh",
-    "dep:dirs",
-    "dep:clap"
-]
-
 [dependencies]
 cuprate-helper = { path = "../helper", default-features = false, features = ["std", "asynch", "num"] }
-monero-consensus = {path = "./rules", features = ["rayon"]}
+cuprate-consensus-rules = { path = "./rules", features = ["rayon"] }
 
 thiserror = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
-futures = { workspace = true, features = ["std"] }
+futures = { workspace = true, features = ["std", "async-await"] }
 
 randomx-rs = { workspace = true }
 monero-serai = { workspace = true, features = ["std"] }
@@ -47,23 +27,13 @@ thread_local = { workspace = true }
 tokio = { workspace = true, features = ["rt"] }
 tokio-util = { workspace = true }
 
-hex = "0.4"
-
-# used in binaries
-monero-wire = {path="../net/monero-wire", optional = true}
-epee-encoding = { path="../net/epee-encoding" , optional = true}
-serde_json = {version = "1", optional = true}
-serde = {version = "1", optional = true, features = ["derive"]}
-tracing-subscriber = {version = "0.3", optional = true}
-borsh = { workspace = true, optional = true}
-dirs = {version="5.0", optional = true}
-clap = { version = "4.4.8", optional = true, features = ["derive"] }
-# here to help cargo to pick a version - remove me
-syn = "2.0.37"
-
+hex = { workspace = true }
 
 [dev-dependencies]
-monero-consensus =  {path = "./rules", features = ["proptest"]}
+cuprate-test-utils = { path = "../test-utils" }
+cuprate-consensus-rules =  {path = "./rules", features = ["proptest"]}
+
+hex-literal = { workspace = true }
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
 proptest = { workspace = true }

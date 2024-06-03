@@ -3,3 +3,6 @@ depending on the crate in question. Each crate declares their license in their
 `Cargo.toml`. Additionally, a full copy of both licenses are included in the
 root of this repository for reference. These copies should be provided with
 any distribution of a crate, as per the respective license's terms.
+
+All documentation, including the books in the `books/` directory, is licensed
+under the MIT license.
