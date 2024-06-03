@@ -504,6 +504,12 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
         key_image_exists(&key_image, tables.key_images())
     };
 
+    // FIXME:
+    // Create/use `enum cuprate_types::Exist { Does, DoesNot }`
+    // or similar instead of `bool` for clarity.
+    // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>
+    //
+
     // Collect results using `rayon`.
     match key_images
         .into_par_iter()
