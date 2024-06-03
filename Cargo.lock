@@ -1397,6 +1397,12 @@ dependencies = [
 [[package]]
 name = "monero-rpc-types"
 version = "0.0.0"
+dependencies = [
+ "monero-serai",
+ "paste",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "monero-serai"
