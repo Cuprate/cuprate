@@ -20,10 +20,9 @@ use cuprate_types::{
 };
 
 use crate::{
-    ops::block::block_exists,
-    types::BlockHash,
     config::ReaderThreads,
     error::RuntimeError,
+    ops::block::block_exists,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::{cumulative_generated_coins, top_block_height},
@@ -32,6 +31,7 @@ use crate::{
     },
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
     tables::{BlockHeights, BlockInfos, Tables},
+    types::BlockHash,
     types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
     ConcreteEnv, DatabaseRo, Env, EnvInner,
 };
@@ -210,7 +210,7 @@ fn map_request(
         R::GeneratedCoins => generated_coins(env),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
-        R::KeyImagesSpent(set) => key_image_spent(env, set),
+        R::KeyImagesSpent(set) => key_images_spent(env, set),
     };
 
     if let Err(e) = response_sender.send(response) {
@@ -515,8 +515,8 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
         // Else, `Ok(false)` will continue the iterator.
         .find_any(|result| !matches!(result, Ok(false)))
     {
-        None | Some(Ok(false)) => Ok(BCResponse::KeyImagesSpent(true)), // Key image was NOT found.
-        Some(Ok(true)) => Ok(BCResponse::KeyImagesSpent(false)),        // Key image was found.
+        None | Some(Ok(false)) => Ok(BCResponse::KeyImagesSpent(false)), // Key image was NOT found.
+        Some(Ok(true)) => Ok(BCResponse::KeyImagesSpent(true)),          // Key image was found.
         Some(Err(e)) => Err(e), // A database error occurred.
     }
 }
