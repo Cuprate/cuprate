@@ -9,7 +9,7 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/monero-rpc-types
 keywords    = ["monero", "rpc", "types"]
 
 [features]
-default = ["dep:serde"]
+default = ["serde"]
 
 [dependencies]
 monero-serai = { workspace = true }

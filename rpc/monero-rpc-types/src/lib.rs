@@ -76,6 +76,9 @@
 	// FIXME: good lint but is less clear in most cases.
 	clippy::items_after_statements,
 
+	// TODO
+	rustdoc::bare_urls,
+
 	clippy::module_name_repetitions,
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
