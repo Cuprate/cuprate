@@ -656,6 +656,7 @@ dependencies = [
  "monero-p2p",
  "monero-serai",
  "tokio",
+ "tower",
 ]
 
 [[package]]

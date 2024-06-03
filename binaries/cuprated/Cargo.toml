@@ -21,6 +21,7 @@ monero-serai = { workspace = true }
 # Async
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 futures = { workspace = true }
+tower = { workspace = true }
 
 # Utils
 bytes = { workspace = true }
