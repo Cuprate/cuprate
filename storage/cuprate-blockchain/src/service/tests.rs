@@ -168,7 +168,7 @@ async fn test_template(
 
     // Contains a fake non-spent key-image.
     let ki_req = HashSet::from([[0; 32]]);
-    let ki_resp = Ok(BCResponse::KeyImagesSpent(true));
+    let ki_resp = Ok(BCResponse::KeyImagesSpent(false));
 
     //----------------------------------------------------------------------- Assert expected response
     // Assert read requests lead to the expected responses.
@@ -205,7 +205,7 @@ async fn test_template(
         let request = BCReadRequest::KeyImagesSpent(HashSet::from([key_image]));
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, key_image: {key_image:#?}");
-        assert_eq!(response.unwrap(), BCResponse::KeyImagesSpent(false));
+        assert_eq!(response.unwrap(), BCResponse::KeyImagesSpent(true));
     }
 
     //----------------------------------------------------------------------- Output checks
