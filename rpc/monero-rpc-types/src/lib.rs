@@ -102,4 +102,5 @@ pub mod binary;
 pub mod data;
 pub mod json;
 pub mod macros;
-pub mod mix;
+pub mod misc;
+pub mod other;
