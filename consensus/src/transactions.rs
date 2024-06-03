@@ -28,7 +28,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork, TxVersion,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::service::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,

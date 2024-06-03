@@ -12,7 +12,7 @@ use cuprate_consensus::{
     TxVerifierService, VerifyTxRequest, VerifyTxResponse, __private::Database,
 };
 use cuprate_types::{
-    service::{BCReadRequest, BCResponse},
+    blockchain::{BCReadRequest, BCResponse},
     OutputOnChain,
 };
 

@@ -16,7 +16,7 @@ use proptest_derive::Arbitrary;
 use tower::{BoxError, Service};
 
 use cuprate_types::{
-    service::{BCReadRequest, BCResponse},
+    blockchain::{BCReadRequest, BCResponse},
     ExtendedBlockHeader,
 };
 

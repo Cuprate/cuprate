@@ -50,11 +50,11 @@
 //! This channel can be `.await`ed upon to (eventually) receive
 //! the corresponding `Response` to your `Request`.
 //!
-//! [req_r]: cuprate_types::service::BCReadRequest
+//! [req_r]: cuprate_types::blockchain::BCReadRequest
 //!
-//! [req_w]: cuprate_types::service::BCWriteRequest
+//! [req_w]: cuprate_types::blockchain::BCWriteRequest
 //!
-//! [resp]: cuprate_types::service::BCResponse
+//! [resp]: cuprate_types::blockchain::BCResponse
 //!
 //! # Example
 //! Simple usage of `service`.
@@ -63,7 +63,7 @@
 //! use hex_literal::hex;
 //! use tower::{Service, ServiceExt};
 //!
-//! use cuprate_types::service::{BCReadRequest, BCWriteRequest, BCResponse};
+//! use cuprate_types::blockchain::{BCReadRequest, BCWriteRequest, BCResponse};
 //! use cuprate_test_utils::data::block_v16_tx0;
 //!
 //! use cuprate_blockchain::{ConcreteEnv, config::ConfigBuilder, Env};

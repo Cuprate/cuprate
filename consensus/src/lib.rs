@@ -27,7 +27,7 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
-pub use cuprate_types::service::{BCReadRequest, BCResponse};
+pub use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 /// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]
@@ -80,7 +80,7 @@ use __private::Database;
 pub mod __private {
     use std::future::Future;
 
-    use cuprate_types::service::{BCReadRequest, BCResponse};
+    use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
     /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
     /// everywhere.

@@ -15,7 +15,7 @@ use tokio_util::sync::PollSemaphore;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::{
-    service::{BCReadRequest, BCResponse},
+    blockchain::{BCReadRequest, BCResponse},
     ExtendedBlockHeader, OutputOnChain,
 };
 

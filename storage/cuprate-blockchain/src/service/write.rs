@@ -10,7 +10,7 @@ use futures::channel::oneshot;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::{
-    service::{BCResponse, BCWriteRequest},
+    blockchain::{BCResponse, BCWriteRequest},
     VerifiedBlockInformation,
 };
 

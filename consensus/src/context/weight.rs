@@ -18,7 +18,7 @@ use tracing::instrument;
 
 use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 use cuprate_helper::{asynch::rayon_spawn_async, num::median};
-use cuprate_types::service::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
 

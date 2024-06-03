@@ -20,7 +20,7 @@ use cuprate_consensus_rules::{
     HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::service::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use crate::{Database, ExtendedConsensusError};
 

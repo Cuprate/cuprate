@@ -4,7 +4,7 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
-use cuprate_types::service::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use crate::{Database, ExtendedConsensusError};
 

@@ -16,7 +16,7 @@ use tower::{Service, ServiceExt};
 
 use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 use cuprate_types::{
-    service::{BCReadRequest, BCResponse, BCWriteRequest},
+    blockchain::{BCReadRequest, BCResponse, BCWriteRequest},
     OutputOnChain, VerifiedBlockInformation,
 };
 

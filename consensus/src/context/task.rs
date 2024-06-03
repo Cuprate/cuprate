@@ -9,7 +9,7 @@ use tower::ServiceExt;
 use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
-use cuprate_types::service::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use super::{
     difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,

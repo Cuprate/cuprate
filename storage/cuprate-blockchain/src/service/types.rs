@@ -6,7 +6,7 @@
 use futures::channel::oneshot::Sender;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_types::service::BCResponse;
+use cuprate_types::blockchain::BCResponse;
 
 use crate::error::RuntimeError;
 

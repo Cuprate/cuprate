@@ -27,7 +27,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork, TxVersion,
 };
 use cuprate_types::{
-    service::{BCReadRequest, BCResponse},
+    blockchain::{BCReadRequest, BCResponse},
     OutputOnChain,
 };
 
