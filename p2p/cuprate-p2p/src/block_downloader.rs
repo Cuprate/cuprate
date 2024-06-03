@@ -363,7 +363,7 @@ where
         client: ClientPoolDropGuard<N>,
     ) {
         if self.chain_entry_task.len() < 2
-            && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request) < 30
+            && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request) < 500
             && chain_tracker.should_ask_for_next_chain_entry(&client.info.pruning_seed)
         {
             let history = chain_tracker.get_simple_history();
@@ -517,7 +517,7 @@ where
         let mut amount_of_blocks_to_request_updated_at = 0;
 
         let mut check_client_pool_interval = interval(self.config.check_client_pool_interval);
-        check_client_pool_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        check_client_pool_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
         loop {
             tokio::select! {

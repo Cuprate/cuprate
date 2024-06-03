@@ -10,7 +10,7 @@ default = ["borsh"]
 borsh = ["dep:borsh", "monero-pruning/borsh"]
 
 [dependencies]
-cuprate-helper = { path = "../../helper" }
+cuprate-helper = { path = "../../helper", features = ["asynch"] }
 monero-wire = { path = "../../net/monero-wire", features = ["tracing"] }
 monero-pruning = { path = "../../pruning" }
 

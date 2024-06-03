@@ -123,7 +123,7 @@ impl Service<ChainSvcRequest> for OurChainSvc {
     }
 }
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 12)]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() {
     tracing_subscriber::fmt()
         .with_max_level(Level::DEBUG)
@@ -151,7 +151,7 @@ async fn main() {
         .await
         .unwrap();
 
-    sleep(Duration::from_secs(15)).await;
+    sleep(Duration::from_secs(17)).await;
 
     loop {
         let mut buffer = download_blocks(
@@ -162,8 +162,8 @@ async fn main() {
                 buffer_size: 50_000_000,
                 in_progress_queue_size: 30_000_000,
                 check_client_pool_interval: Duration::from_secs(20),
-                target_batch_size: 1_000_000,
-                initial_batch_size: 100,
+                target_batch_size: 2_000_000,
+                initial_batch_size: 10,
             },
         );
 
@@ -174,6 +174,8 @@ async fn main() {
                 entry.blocks.len()
             )
         }
+
+        panic!();
 
         sleep(Duration::from_secs(2)).await;
     }
