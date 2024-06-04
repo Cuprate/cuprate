@@ -19,6 +19,7 @@ members = [
 	"storage/cuprate-txpool",
 	"storage/database",
 	"pruning",
+	"rpc/json-rpc",
 	"test-utils",
 	"types",
 ]
