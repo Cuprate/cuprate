@@ -1,4 +1,7 @@
 //! JSON-RPC 2.0 types.
+//!
+//! TODO: explain the `method/param` -> `body` field reasoning.
+//! <https://github.com/Cuprate/cuprate/pull/146#issuecomment-2145734838>.
 
 //---------------------------------------------------------------------------------------------------- Lints
 #![allow(clippy::len_zero, clippy::type_complexity, clippy::module_inception)]
