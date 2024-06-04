@@ -24,7 +24,7 @@ use crate::{
     P2PConfig,
 };
 
-/// The inbound server.
+/// Starts the inbound server.
 #[instrument(level = "warn", skip_all)]
 pub async fn inbound_server<N, HS, A>(
     client_pool: Arc<ClientPool<N>>,

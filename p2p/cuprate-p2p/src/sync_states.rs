@@ -25,7 +25,7 @@ use monero_wire::CoreSyncData;
 use crate::{client_pool::disconnect_monitor::PeerDisconnectFut, constants::SHORT_BAN};
 
 /// The highest claimed sync info from our connected peers.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NewSyncInfo {
     /// The peers chain height.
     pub chain_height: u64,
