@@ -38,7 +38,6 @@
 	overlapping_range_endpoints,
 	semicolon_in_expressions_from_macros,
 	noop_method_call,
-	unreachable_pub,
 )]
 // Deny lints.
 // Some of these are `#[allow]`'ed on a per-case basis.
@@ -57,7 +56,8 @@
     missing_docs,
     deprecated,
     unused_comparisons,
-    nonstandard_style
+    nonstandard_style,
+    unreachable_pub
 )]
 #![allow(
 	// FIXME: this lint affects crates outside of
@@ -98,9 +98,90 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Use
-pub mod binary;
-pub mod data;
-pub mod json;
-pub mod macros;
+mod binary;
+mod data;
+mod json;
+mod macros;
 pub mod misc;
-pub mod other;
+mod other;
+
+/// TODO
+macro_rules! re_export_request_and_response_types {
+    (
+		json {
+			$(
+				$json_type:ident,
+			)*
+		}
+		binary {
+			$(
+				$binary_type:ident,
+			)*
+		}
+		other {
+			$(
+				$other_type:ident,
+			)*
+		}
+	) => { paste::paste! {
+		/// TODO
+		pub mod req {
+			/// TODO
+			pub mod json {
+				$(
+					pub use $crate::json::[<Request $json_type>] as $json_type;
+				)*
+			}
+
+			/// TODO
+			pub mod binary {
+				$(
+					pub use $crate::binary::[<Request $binary_type>] as $binary_type;
+				)*
+			}
+
+			/// TODO
+			pub mod other {
+				$(
+					pub use $crate::other::[<Request $other_type>] as $other_type;
+				)*
+			}
+		}
+
+		/// TODO
+		pub mod resp {
+			/// TODO
+			pub mod json {
+				$(
+					pub use $crate::json::[<Response $json_type>] as $json_type;
+				)*
+			}
+
+			/// TODO
+			pub mod binary {
+				$(
+					pub use $crate::binary::[<Response $binary_type>] as $binary_type;
+				)*
+			}
+
+			/// TODO
+			pub mod other {
+				$(
+					pub use $crate::other::[<Response $other_type>] as $other_type;
+				)*
+			}
+		}
+	}};
+}
+
+re_export_request_and_response_types! {
+    json {
+        GetBlockCount,
+    }
+
+    binary {
+    }
+
+    other {
+    }
+}

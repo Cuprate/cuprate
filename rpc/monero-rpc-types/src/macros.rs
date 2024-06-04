@@ -20,23 +20,30 @@ macro_rules! define_monero_rpc_struct {
         $monero_code_filename:ident.$monero_code_filename_extension:ident =>
         $monero_code_line_start:literal..=$monero_code_line_end:literal,
 
-        // A real literal type expression, and its JSON string form.
-        // Used in example doc-test.
-        $type_literal:expr => $type_as_json:literal,
-
-        // The actual `struct` name and any doc comments, derives, etc.
-        $( #[$type_attr:meta] )*
-        $type_name:ident {
+        // The actual request `struct` name and any doc comments, derives, etc.
+        $( #[$request_type_attr:meta] )*
+        $type_name:ident,
+        Request {
             // And any fields.
             $(
-                $( #[$field_attr:meta] )*
-                $field:ident: $field_type:ty,
+                $( #[$request_field_attr:meta] )*
+                $request_field:ident: $request_field_type:ty,
+            )*
+        },
+
+        // The actual `struct` name and any doc comments, derives, etc.
+        $( #[$response_type_attr:meta] )*
+        Response {
+            // And any fields.
+            $(
+                $( #[$response_field_attr:meta] )*
+                $response_field:ident: $response_field_type:ty,
             )*
         }
-    ) => {
+    ) => { paste::paste! {
         #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        $( #[$type_attr] )*
+        $( #[$request_type_attr] )*
         #[doc = concat!(
             "",
             "Definition: [`",
@@ -61,26 +68,25 @@ macro_rules! define_monero_rpc_struct {
             "`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
             "#",
             stringify!($monero_daemon_rpc_doc_link),
-            ").",
+            ")."
         )]
-        ///
-        /// # `serde` example
-        /// ```rust
-        #[doc = "# use monero_rpc_types::{json::*, binary::*, data::*, misc::*, other::*};"]
-        #[doc = concat!("let t = ", stringify!($type_literal), ";")]
-        #[doc = "let string = serde_json::to_string(&t).unwrap();"]
-        #[doc = concat!("assert_eq!(string, ", stringify!($type_as_json), ");")]
-        #[doc = ""]
-        #[doc = "let t2 = serde_json::from_str(&string).unwrap();"]
-        #[doc = "assert_eq!(t, t2);"]
-        /// ```
-        pub struct $type_name {
+        #[allow(dead_code)]
+        pub struct [<Request $type_name>] {
             $(
-                $( #[$field_attr] )*
-                pub $field: $field_type,
+                $( #[$request_field_attr] )*
+                pub $request_field: $request_field_type,
             )*
         }
-    };
+
+        #[allow(dead_code)]
+        /// TODO
+        pub struct [<Response $type_name>] {
+            $(
+                $( #[$response_field_attr] )*
+                pub $response_field: $response_field_type,
+            )*
+        }
+    }};
 }
 pub(crate) use define_monero_rpc_struct;
 
