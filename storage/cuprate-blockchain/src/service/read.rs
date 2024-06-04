@@ -509,7 +509,6 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
     // or similar instead of `bool` for clarity.
     // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1581536526>
     //
-
     // Collect results using `rayon`.
     match key_images
         .into_par_iter()
