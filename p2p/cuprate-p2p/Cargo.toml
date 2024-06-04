@@ -15,8 +15,8 @@ cuprate-helper = { path = "../../helper", features = ["asynch"] }
 
 monero-serai = { workspace = true, features = ["std"] }
 
-tower = { workspace = true }
-tokio = { workspace = true, features = ["rt"] }
+tower = { workspace = true, features = ["buffer"] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 rayon = { workspace = true }
 tokio-util = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync", "time"] }
@@ -31,6 +31,8 @@ rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
+
+tracing-subscriber = "0.3.18"
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }

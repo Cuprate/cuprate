@@ -11,7 +11,7 @@ monero-pruning = { path = "../../pruning" }
 monero-wire = { path= "../../net/monero-wire" }
 monero-p2p = { path = "../monero-p2p" }
 
-tower = { workspace = true, features = ["util", "buffer"] }
+tower = { workspace = true, features = ["util"] }
 tokio = { workspace = true, features = ["time", "fs", "rt"]}
 tokio-util = { workspace = true, features = ["time"] }
 

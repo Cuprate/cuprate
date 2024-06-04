@@ -2,7 +2,7 @@
 //!
 //! This module holds the logic for persistent peer storage.
 //! Cuprates address book is modeled as a [`tower::Service`]
-//! The request is [`AddressBookRequest`] and the response is
+//! The request is [`AddressBookRequest`](monero_p2p::services::AddressBookRequest) and the response is
 //! [`AddressBookResponse`](monero_p2p::services::AddressBookResponse).
 //!
 //! Cuprate, like monerod, actually has multiple address books, one
@@ -13,9 +13,7 @@
 //!
 use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
-use tower::buffer::Buffer;
-
-use monero_p2p::{services::AddressBookRequest, NetworkZone};
+use monero_p2p::NetworkZone;
 
 mod book;
 mod peer_list;
@@ -65,7 +63,7 @@ pub enum AddressBookError {
 /// Initializes the P2P address book for a specific network zone.
 pub async fn init_address_book<Z: NetworkZone>(
     cfg: AddressBookConfig,
-) -> Result<Buffer<book::AddressBook<Z>, AddressBookRequest<Z>>, std::io::Error> {
+) -> Result<book::AddressBook<Z>, std::io::Error> {
     tracing::info!(
         "Loading peers from file: {} ",
         cfg.peer_store_file.display()
@@ -82,5 +80,5 @@ pub async fn init_address_book<Z: NetworkZone>(
 
     let address_book = book::AddressBook::<Z>::new(cfg, white_list, gray_list, Vec::new());
 
-    Ok(Buffer::new(address_book, 150))
+    Ok(address_book)
 }

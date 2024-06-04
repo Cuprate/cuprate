@@ -24,6 +24,11 @@ pub async fn disconnect_monitor<N: NetworkZone>(
     mut new_connection_rx: mpsc::UnboundedReceiver<(ConnectionHandle, InternalPeerID<N::Addr>)>,
     client_pool: Arc<ClientPool<N>>,
 ) {
+    // We need to hold a weak reference otherwise the client pool and this would hold a reference to
+    // each other causing the pool to be leaked.
+    let weak_client_pool = Arc::downgrade(&client_pool);
+    drop(client_pool);
+
     tracing::info!("Starting peer disconnect monitor.");
 
     let mut futs: FuturesUnordered<PeerDisconnectFut<N>> = FuturesUnordered::new();
@@ -39,7 +44,13 @@ pub async fn disconnect_monitor<N: NetworkZone>(
             }
             Some(peer_id) = futs.next() => {
                 tracing::debug!("{peer_id} has disconnected, removing from client pool.");
-                client_pool.remove_client(&peer_id);
+                let Some(pool) = weak_client_pool.upgrade() else {
+                    tracing::info!("Peer disconnect monitor shutting down.");
+                    return;
+                };
+
+                pool.remove_client(&peer_id);
+                drop(pool);
             }
             else => {
                 tracing::info!("Peer disconnect monitor shutting down.");
