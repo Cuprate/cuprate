@@ -9,23 +9,26 @@ use monero_serai::transaction::{Timelock, Transaction};
 use tower::{service_fn, Service, ServiceExt};
 
 use cuprate_consensus::{
-    Database, DatabaseRequest, DatabaseResponse, TxVerifierService, VerifyTxRequest,
-    VerifyTxResponse,
+    TxVerifierService, VerifyTxRequest, VerifyTxResponse, __private::Database,
+};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    OutputOnChain,
 };
 
-use cuprate_consensus_rules::{transactions::OutputOnChain, HardFork};
+use cuprate_consensus_rules::HardFork;
 
 use cuprate_test_utils::data::TX_E2D393;
 
 fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clone {
     let outputs = Arc::new(outputs);
 
-    service_fn(move |req: DatabaseRequest| {
+    service_fn(move |req: BCReadRequest| {
         ready(Ok(match req {
-            DatabaseRequest::NumberOutputsWithAmount(_) => {
-                DatabaseResponse::NumberOutputsWithAmount(HashMap::new())
+            BCReadRequest::NumberOutputsWithAmount(_) => {
+                BCResponse::NumberOutputsWithAmount(HashMap::new())
             }
-            DatabaseRequest::Outputs(outs) => {
+            BCReadRequest::Outputs(outs) => {
                 let idxs = outs.get(&0).unwrap();
 
                 let mut ret = HashMap::new();
@@ -37,9 +40,9 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
                         .collect::<HashMap<_, _>>(),
                 );
 
-                DatabaseResponse::Outputs(ret)
+                BCResponse::Outputs(ret)
             }
-            DatabaseRequest::KeyImagesSpent(_) => DatabaseResponse::KeyImagesSpent(false),
+            BCReadRequest::KeyImagesSpent(_) => BCResponse::KeyImagesSpent(false),
             _ => panic!("Database request not needed for this test"),
         }))
     })

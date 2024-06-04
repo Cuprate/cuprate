@@ -1,8 +1,6 @@
 //! HTTP RPC client.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::sync::Arc;
-
 use serde::Deserialize;
 use serde_json::json;
 use tokio::task::spawn_blocking;
@@ -12,7 +10,7 @@ use monero_serai::{
     rpc::{HttpRpc, Rpc},
 };
 
-use cuprate_types::{TransactionVerificationData, VerifiedBlockInformation};
+use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::rpc::constants::LOCALHOST_RPC_URL;
 
@@ -110,10 +108,9 @@ impl HttpRpcClient {
         .await
         .unwrap();
 
-        let txs: Vec<Arc<TransactionVerificationData>> = self
+        let txs: Vec<VerifiedTransactionInformation> = self
             .get_transaction_verification_data(&block.txs)
             .await
-            .map(Arc::new)
             .collect();
 
         let block_header = result.block_header;
@@ -152,7 +149,7 @@ impl HttpRpcClient {
         }
     }
 
-    /// Request data and map the response to a [`TransactionVerificationData`].
+    /// Request data and map the response to a [`VerifiedTransactionInformation`].
     ///
     /// # Panics
     /// This function will panic at any error point, e.g.,
@@ -160,7 +157,7 @@ impl HttpRpcClient {
     pub async fn get_transaction_verification_data<'a>(
         &self,
         tx_hashes: &'a [[u8; 32]],
-    ) -> impl Iterator<Item = TransactionVerificationData> + 'a {
+    ) -> impl Iterator<Item = VerifiedTransactionInformation> + 'a {
         self.rpc
             .get_transactions(tx_hashes)
             .await
@@ -170,7 +167,7 @@ impl HttpRpcClient {
             .map(|(i, tx)| {
                 let tx_hash = tx.hash();
                 assert_eq!(tx_hash, tx_hashes[i]);
-                TransactionVerificationData {
+                VerifiedTransactionInformation {
                     tx_blob: tx.serialize(),
                     tx_weight: tx.weight(),
                     tx_hash,

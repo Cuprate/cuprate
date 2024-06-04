@@ -28,11 +28,12 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork, TxVersion,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,
     transactions::contextual_data::{batch_get_decoy_info, batch_get_ring_member_info},
-    Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError,
+    Database, ExtendedConsensusError,
 };
 
 pub mod contextual_data;
@@ -129,8 +130,8 @@ pub enum VerifyTxRequest {
     /// Verifies a batch of prepared txs.
     Prepped {
         /// The transactions to verify.
-        // TODO: Can we use references to remove the outer `Arc`? probably wont play nicely with rayon_spawn_async though
-        txs: Arc<[Arc<TransactionVerificationData>]>,
+        // TODO: Can we use references to remove the Vec? wont play nicely with Service though
+        txs: Vec<Arc<TransactionVerificationData>>,
         /// The current chain height.
         current_chain_height: u64,
         /// The top block hash.
@@ -159,7 +160,7 @@ pub enum VerifyTxRequest {
 /// A response from a verify transaction request.
 #[derive(Debug)]
 pub enum VerifyTxResponse {
-    OkPrepped(Arc<[Arc<TransactionVerificationData>]>),
+    OkPrepped(Vec<Arc<TransactionVerificationData>>),
     Ok,
 }
 
@@ -227,7 +228,7 @@ where
                 } => {
                     verify_prepped_transactions(
                         database,
-                        txs,
+                        &txs,
                         current_chain_height,
                         top_hash,
                         time_for_time_lock,
@@ -259,13 +260,13 @@ where
     let txs = rayon_spawn_async(|| {
         txs.into_par_iter()
             .map(|tx| TransactionVerificationData::new(tx).map(Arc::new))
-            .collect::<Result<Arc<_>, _>>()
+            .collect::<Result<Vec<_>, _>>()
     })
     .await?;
 
     verify_prepped_transactions(
         database,
-        txs.clone(),
+        &txs,
         current_chain_height,
         top_hash,
         time_for_time_lock,
@@ -279,7 +280,7 @@ where
 #[instrument(name = "verify_txs", skip_all, fields(amt = txs.len()) level = "info")]
 async fn verify_prepped_transactions<D>(
     mut database: D,
-    txs: Arc<[Arc<TransactionVerificationData>]>,
+    txs: &[Arc<TransactionVerificationData>],
     current_chain_height: u64,
     top_hash: [u8; 32],
     time_for_time_lock: u64,
@@ -307,10 +308,10 @@ where
         })
     })?;
 
-    let DatabaseResponse::KeyImagesSpent(kis_spent) = database
+    let BCResponse::KeyImagesSpent(kis_spent) = database
         .ready()
         .await?
-        .call(DatabaseRequest::KeyImagesSpent(spent_kis))
+        .call(BCReadRequest::KeyImagesSpent(spent_kis))
         .await?
     else {
         panic!("Database sent incorrect response!");
@@ -339,12 +340,10 @@ where
     if !verified_at_block_hashes.is_empty() {
         tracing::trace!("Filtering block hashes not in the main chain.");
 
-        let DatabaseResponse::FilteredHashes(known_hashes) = database
+        let BCResponse::FilterUnknownHashes(known_hashes) = database
             .ready()
             .await?
-            .call(DatabaseRequest::FilterUnknownHashes(
-                verified_at_block_hashes,
-            ))
+            .call(BCReadRequest::FilterUnknownHashes(verified_at_block_hashes))
             .await?
         else {
             panic!("Database returned wrong response!");
@@ -378,7 +377,7 @@ where
 
 #[allow(clippy::type_complexity)] // I don't think the return is too complex
 fn transactions_needing_verification(
-    txs: Arc<[Arc<TransactionVerificationData>]>,
+    txs: &[Arc<TransactionVerificationData>],
     hashes_in_main_chain: HashSet<[u8; 32]>,
     current_hf: &HardFork,
     current_chain_height: u64,
