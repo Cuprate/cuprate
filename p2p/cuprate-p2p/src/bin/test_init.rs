@@ -132,7 +132,7 @@ async fn main() {
 
     let config = P2PConfig::<ClearNet> {
         network: Default::default(),
-        outbound_connections: 32,
+        outbound_connections: 64,
         extra_outbound_connections: 32,
         max_inbound_connections: 128,
         gray_peers_percent: 0.7,
@@ -143,7 +143,7 @@ async fn main() {
             max_white_list_length: 1000,
             max_gray_list_length: 5000,
             peer_store_file: PathBuf::from_str("p2p_store").unwrap(),
-            peer_save_period: Duration::from_secs(30),
+            peer_save_period: Duration::from_secs(300),
         },
     };
 
@@ -151,7 +151,7 @@ async fn main() {
         .await
         .unwrap();
 
-    sleep(Duration::from_secs(17)).await;
+    sleep(Duration::from_secs(15)).await;
 
     loop {
         let mut buffer = download_blocks(
@@ -161,8 +161,8 @@ async fn main() {
             BlockDownloaderConfig {
                 buffer_size: 50_000_000,
                 in_progress_queue_size: 30_000_000,
-                check_client_pool_interval: Duration::from_secs(20),
-                target_batch_size: 2_000_000,
+                check_client_pool_interval: Duration::from_secs(10),
+                target_batch_size: 5_000_000,
                 initial_batch_size: 10,
             },
         );
