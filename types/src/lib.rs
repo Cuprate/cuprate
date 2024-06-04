@@ -3,8 +3,8 @@
 //! This crate is a kitchen-sink for data types that are shared across `Cuprate`.
 //!
 //! # Features flags
-//! The `service` module, containing `cuprate_database` request/response
-//! types, must be enabled with the `service` feature (on by default).
+//! The [`blockchain`] module, containing the blockchain database request/response
+//! types, must be enabled with the `blockchain` feature (on by default).
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
