@@ -10,7 +10,7 @@
 /// generate which docs.
 ///
 /// See [`crate::json::GetHeight`] for example usage.
-macro_rules! define_monero_rpc_type_struct {
+macro_rules! define_monero_rpc_struct {
     (
         // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
         $monero_daemon_rpc_doc_link:ident,
@@ -34,10 +34,9 @@ macro_rules! define_monero_rpc_type_struct {
             )*
         }
     ) => {
-        $( #[$type_attr:meta] )*
         #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        ///
+        $( #[$type_attr] )*
         #[doc = concat!(
             "",
             "Definition: [`",
@@ -83,6 +82,6 @@ macro_rules! define_monero_rpc_type_struct {
         }
     };
 }
-pub(crate) use define_monero_rpc_type_struct;
+pub(crate) use define_monero_rpc_struct;
 
 //---------------------------------------------------------------------------------------------------- Documentation macros

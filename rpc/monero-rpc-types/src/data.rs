@@ -1,4 +1,4 @@
-//! Misc data structures within other types.
+//! Data structures that appear in other types.
 
 //---------------------------------------------------------------------------------------------------- Import
 
