@@ -235,25 +235,27 @@ where
 
     tracing::debug!("Checking we have correct transactions for block.");
 
-    for tx_hash in &prepped_block.block.txs {
-        let tx = txs
-            .remove(tx_hash)
-            .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
-        ordered_txs.push(Arc::new(tx));
+    if !prepped_block.block.txs.is_empty() {
+        for tx_hash in &prepped_block.block.txs {
+            let tx = txs
+                .remove(tx_hash)
+                .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
+            ordered_txs.push(Arc::new(tx));
+        }
+        drop(txs);
+
+        tracing::debug!("Verifying transactions for block.");
+
+        tx_verifier_svc
+            .oneshot(VerifyTxRequest::Prepped {
+                txs: ordered_txs.clone(),
+                current_chain_height: context.chain_height,
+                top_hash: context.top_hash,
+                time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
+                hf: context.current_hf,
+            })
+            .await?;
     }
-    drop(txs);
-
-    tracing::debug!("Verifying transactions for block.");
-
-    tx_verifier_svc
-        .oneshot(VerifyTxRequest::Prepped {
-            txs: ordered_txs.clone(),
-            current_chain_height: context.chain_height,
-            top_hash: context.top_hash,
-            time_for_time_lock: context.current_adjusted_timestamp_for_time_lock(),
-            hf: context.current_hf,
-        })
-        .await?;
 
     let block_weight =
         prepped_block.miner_tx_weight + ordered_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();

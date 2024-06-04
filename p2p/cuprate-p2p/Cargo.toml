@@ -6,6 +6,11 @@ license = "MIT"
 authors = ["Boog900"]
 
 [dependencies]
+cuprate-blockchain = { path = "../../storage/cuprate-blockchain" }
+cuprate-consensus = { path = "../../consensus" }
+cuprate-types = { path = "../../types" }
+
+
 fixed-bytes = { path = "../../net/fixed-bytes" }
 monero-wire = { path = "../../net/monero-wire" }
 monero-p2p = { path = "../monero-p2p", features = ["borsh"] }

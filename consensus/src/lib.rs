@@ -10,7 +10,7 @@
 //! implement a database you need to have a service which accepts [`BCReadRequest`] and responds
 //! with [`BCResponse`].
 //!
-use cuprate_consensus_rules::{ConsensusError, HardFork};
+use cuprate_consensus_rules::ConsensusError;
 
 mod batch_verifier;
 pub mod block;
@@ -27,6 +27,7 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
+pub use cuprate_consensus_rules::{genesis::generate_genesis_block, HardFork};
 pub use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 /// An Error returned from one of the consensus services.

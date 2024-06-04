@@ -429,7 +429,7 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
 
     // Collect results using `rayon`.
     let map = outputs
-        .into_par_iter()
+        .into_iter()
         .map(|(amount, amount_index_set)| {
             Ok((
                 amount,
@@ -511,14 +511,14 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
     //
     // Collect results using `rayon`.
     match key_images
-        .into_par_iter()
+        .into_iter()
         .map(key_image_exists)
         // If the result is either:
         // `Ok(true)` => a key image was found, return early
         // `Err` => an error was found, return early
         //
         // Else, `Ok(false)` will continue the iterator.
-        .find_any(|result| !matches!(result, Ok(false)))
+        .find(|result| !matches!(result, Ok(false)))
     {
         None | Some(Ok(false)) => Ok(BCResponse::KeyImagesSpent(false)), // Key image was NOT found.
         Some(Ok(true)) => Ok(BCResponse::KeyImagesSpent(true)),          // Key image was found.
