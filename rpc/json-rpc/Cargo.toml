@@ -1,0 +1,15 @@
+[package]
+name           = "json-rpc"
+version        = "0.1.2"
+edition        = "2021"
+authors        = ["hinto-janai <hinto.janai@protonmail.com>"]
+keywords       = ["json", "rpc"]
+categories     = ["encoding"]
+readme         = "README.md"
+license        = "MIT"
+description    = "JSON-RPC 2.0 types"
+
+[dependencies]
+serde      = { workspace = true }
+serde_json = { workspace = true }
+thiserror  = { workspace = true }
