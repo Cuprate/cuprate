@@ -6,22 +6,13 @@ use std::{
 use curve25519_dalek::EdwardsPoint;
 use monero_serai::transaction::{Input, Timelock};
 
-use crate::{transactions::TransactionError, HardFork, TxVersion};
-
-/// An already approved previous transaction output.
-#[derive(Debug)]
-pub struct OutputOnChain {
-    pub height: u64,
-    pub time_lock: Timelock,
-    pub key: Option<EdwardsPoint>,
-    pub commitment: EdwardsPoint,
-}
+use crate::{transactions::TransactionError, HardFork};
 
 /// Gets the absolute offsets from the relative offsets.
 ///
 /// This function will return an error if the relative offsets are empty.
 /// <https://cuprate.github.io/monero-book/consensus_rules/transactions.html#inputs-must-have-decoys>
-fn get_absolute_offsets(relative_offsets: &[u64]) -> Result<Vec<u64>, TransactionError> {
+pub fn get_absolute_offsets(relative_offsets: &[u64]) -> Result<Vec<u64>, TransactionError> {
     if relative_offsets.is_empty() {
         return Err(TransactionError::InputDoesNotHaveExpectedNumbDecoys);
     }
@@ -64,35 +55,6 @@ pub fn insert_ring_member_ids(
     Ok(())
 }
 
-/// Get the ring members for the inputs from the outputs on the chain.
-///
-/// Will error if `outputs` does not contain the outputs needed.
-pub fn get_ring_members_for_inputs<'a>(
-    get_outputs: impl Fn(u64, u64) -> Option<&'a OutputOnChain>,
-    inputs: &[Input],
-) -> Result<Vec<Vec<&'a OutputOnChain>>, TransactionError> {
-    inputs
-        .iter()
-        .map(|inp| match inp {
-            Input::ToKey {
-                amount,
-                key_offsets,
-                ..
-            } => {
-                let offsets = get_absolute_offsets(key_offsets)?;
-                Ok(offsets
-                    .iter()
-                    .map(|offset| {
-                        get_outputs(amount.unwrap_or(0), *offset)
-                            .ok_or(TransactionError::RingMemberNotFoundOrInvalid)
-                    })
-                    .collect::<Result<_, TransactionError>>()?)
-            }
-            _ => Err(TransactionError::IncorrectInputType),
-        })
-        .collect::<Result<_, TransactionError>>()
-}
-
 /// Represents the ring members of all the inputs.
 #[derive(Debug)]
 pub enum Rings {
@@ -102,46 +64,7 @@ pub enum Rings {
     RingCT(Vec<Vec<[EdwardsPoint; 2]>>),
 }
 
-impl Rings {
-    /// Builds the rings for the transaction inputs, from the given outputs.
-    fn new(
-        outputs: Vec<Vec<&OutputOnChain>>,
-        tx_version: TxVersion,
-    ) -> Result<Rings, TransactionError> {
-        Ok(match tx_version {
-            TxVersion::RingSignatures => Rings::Legacy(
-                outputs
-                    .into_iter()
-                    .map(|inp_outs| {
-                        inp_outs
-                            .into_iter()
-                            .map(|out| out.key.ok_or(TransactionError::RingMemberNotFoundOrInvalid))
-                            .collect::<Result<Vec<_>, TransactionError>>()
-                    })
-                    .collect::<Result<Vec<_>, TransactionError>>()?,
-            ),
-            TxVersion::RingCT => Rings::RingCT(
-                outputs
-                    .into_iter()
-                    .map(|inp_outs| {
-                        inp_outs
-                            .into_iter()
-                            .map(|out| {
-                                Ok([
-                                    out.key
-                                        .ok_or(TransactionError::RingMemberNotFoundOrInvalid)?,
-                                    out.commitment,
-                                ])
-                            })
-                            .collect::<Result<_, TransactionError>>()
-                    })
-                    .collect::<Result<_, _>>()?,
-            ),
-        })
-    }
-}
-
-/// Information on the outputs the transaction is is referencing for inputs (ring members).
+/// Information on the outputs the transaction is referencing for inputs (ring members).
 #[derive(Debug)]
 pub struct TxRingMembersInfo {
     pub rings: Rings,
@@ -149,49 +72,6 @@ pub struct TxRingMembersInfo {
     pub decoy_info: Option<DecoyInfo>,
     pub youngest_used_out_height: u64,
     pub time_locked_outs: Vec<Timelock>,
-    pub hf: HardFork,
-}
-
-impl TxRingMembersInfo {
-    /// Construct a [`TxRingMembersInfo`] struct.
-    ///
-    /// The used outs must be all the ring members used in the transactions inputs.
-    pub fn new(
-        used_outs: Vec<Vec<&OutputOnChain>>,
-        decoy_info: Option<DecoyInfo>,
-        tx_version: TxVersion,
-        hf: HardFork,
-    ) -> Result<TxRingMembersInfo, TransactionError> {
-        Ok(TxRingMembersInfo {
-            youngest_used_out_height: used_outs
-                .iter()
-                .map(|inp_outs| {
-                    inp_outs
-                        .iter()
-                        // the output with the highest height is the youngest
-                        .map(|out| out.height)
-                        .max()
-                        .expect("Input must have ring members")
-                })
-                .max()
-                .expect("Tx must have inputs"),
-            time_locked_outs: used_outs
-                .iter()
-                .flat_map(|inp_outs| {
-                    inp_outs
-                        .iter()
-                        .filter_map(|out| match out.time_lock {
-                            Timelock::None => None,
-                            lock => Some(lock),
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect(),
-            hf,
-            rings: Rings::new(used_outs, tx_version)?,
-            decoy_info,
-        })
-    }
 }
 
 /// A struct holding information about the inputs and their decoys. This data can vary by block so
@@ -202,7 +82,7 @@ impl TxRingMembersInfo {
 /// - The top block hash is the same as when this data was retrieved (the blockchain state is unchanged).
 ///
 /// <https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html>
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct DecoyInfo {
     /// The number of inputs that have enough outputs on the chain to mix with.
     pub mixable: usize,
@@ -229,7 +109,7 @@ impl DecoyInfo {
     ///
     pub fn new(
         inputs: &[Input],
-        outputs_with_amount: &HashMap<u64, usize>,
+        outputs_with_amount: impl Fn(u64) -> usize,
         hf: &HardFork,
     ) -> Result<DecoyInfo, TransactionError> {
         let mut min_decoys = usize::MAX;
@@ -247,9 +127,7 @@ impl DecoyInfo {
                     ..
                 } => {
                     if let Some(amount) = amount {
-                        let outs_with_amt = *outputs_with_amount
-                            .get(amount)
-                            .expect("outputs_with_amount does not include needed amount.");
+                        let outs_with_amt = outputs_with_amount(*amount);
 
                         // <https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html#mixable-and-unmixable-inputs>
                         if outs_with_amt <= minimum_decoys {

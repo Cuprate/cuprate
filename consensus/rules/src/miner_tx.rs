@@ -207,3 +207,17 @@ pub fn check_miner_tx(
 
     check_total_output_amt(total_outs, reward, total_fees, hf)
 }
+
+#[cfg(test)]
+mod tests {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    proptest! {
+        #[test]
+        fn tail_emission(generated_coins in any::<u64>(), hf in any::<HardFork>()) {
+            prop_assert!(calculate_base_reward(generated_coins, &hf) >= MINIMUM_REWARD_PER_MIN * hf.block_time().as_secs() / 60)
+        }
+    }
+}
