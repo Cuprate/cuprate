@@ -1,45 +1,93 @@
-# Contributing to Cuprate
+## Contributing to Cuprate
+Thank you for wanting to help out! Cuprate is in the stage where things are likely to change quickly,
+so it's recommended you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:monero.social).
 
-## Introduction
+- [1. Submitting a pull request](#1-submitting-a-pull-request)
+	- [1.1 Rust toolchain](#11-rust-toolchain)
+	- [1.2 Draft PR](#12-draft-pr)
+	- [1.3 Passing CI](#13-passing-ci)
+	- [1.4 Ready for review](#14-ready-for-review)
+- [2. Coding guidelines](#2-coding-guidelines)
+- [3. Keeping track of issues and PRs](#3-keeping-track-of-issues-and-prs)
+- [4. Books](#4-books)
+	- [4.1 Architecture book](#41-architecture-book)
+	- [4.2 Protocol book](#42-protocol-book)
 
-Thank you for wanting to help out! Cuprate is in the stage where things are likely to change quickly, so it's recommend
-you join our [Matrix room](https://matrix.to/#/#cuprate:monero.social).
+## 1. Submitting a pull request
+Once you have found something you would like to work on by either:
+- looking at the open [issues](https://github.com/Cuprate/cuprate/issues)
+- or joining Cuprate's [Matrix room](https://matrix.to/#/#cuprate:monero.social) and asking
 
-## Making a PR
+it is recommended to make your interest on working on that thing known so people don't duplicate work.
 
-Once you have found something you would like to work on by either looking at the open issues or joining Cuprate's [Matrix room](https://matrix.to/#/#cuprate:monero.social)
-and asking it's recommended to make your interest on working on that thing known so people don't duplicate work.
+Before starting, consider reading/using Cuprate's [`Books`](#4-books), they cover Cuprate's architecture and protocol.
 
-When you are at a stage where you would like feedback you can open a draft PR, keep in mind that feedback may take time especially if the change is large.
-Once your PR is at the stage where you feel it's ready to go, open it for review.
+These books may answer some questions you have, or may confirm an issue you would like to fix.
 
-## Passing CI
-The first 3 steps to CI are formatting, typo, and documentation checking.
+### 1.1 Rust toolchain
+Cuprate is written in [Rust](https://rust-lang.org).
 
-Check if your changes are formatted, typo-free, and documented correctly by running:
-- `cargo fmt --all --check`
-- `typos`
-- `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features`
+If you are editing code, you will need Rust's toolchain and package manager,
+[`cargo`](https://doc.rust-lang.org/cargo/index.html), to develop and submit PRs effectively.
+
+Get started with Rust here: <https://www.rust-lang.org/learn/get-started>.
+
+### 1.2 Draft PR
+Consider opening a draft PR until you have passed all CI.
+
+This is also the stage where you can ask for feedback from others. Keep in mind that feedback may take time especially if the change is large.
+
+### 1.3 Passing CI
+Each commit pushed in a PR will trigger our [lovely, yet pedantic CI](https://github.com/Cuprate/cuprate/blob/main/.github/workflows/ci.yml).
+
+It currently:
+- Checks code formatting
+- Checks documentation
+- Looks for typos
+- Runs [`clippy`](https://github.com/rust-lang/rust-clippy) (and fails on warnings)
+- Runs all tests
+- Builds all targets
+
+Before pushing your code, please run the following at the root of the repository:
+
+| Command           | Does what |
+|-------------------|-----------|
+| `cargo fmt --all` | Formats code
+| `typos -w`        | Fixes typos
 
 `typos` can be installed with `cargo` from: https://github.com/crate-ci/typos.
 
-After that, ensure all lints, tests, and builds are successful by running:
+After that, ensure all other CI passes by running:
 
-- `cargo clippy --workspace --all-features --all-targets -- -D warnings`
-- `cargo fmt --all`
-- `cargo test --all-features --workspace`
-- `cargo build --all-features --all-targets --workspace`
+| Command                                                                | Does what |
+|------------------------------------------------------------------------|-----------|
+| `RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features`      | Checks documentation is OK
+| `cargo clippy --workspace --all-features --all-targets -- -D warnings` | Checks clippy lints are satisfied
+| `cargo test --all-features --workspace`                                | Runs all tests
+| `cargo build --all-features --all-targets --workspace`                 | Builds all code
 
-## Coding guidelines
+### 1.4 Ready for review
+Once your PR has passed all CI and is ready to go, open it for review.
 
+Others will leave their thoughts and may ask for changes to be made.
+
+Finally, if everything looks good, we will merge your code! Thank you for contributing!
+
+## 2. Coding guidelines
+This is a list of rules that are not mandated by any automation, but contributors generally follow.
+
+You should keep these in mind when submitting code:
+
+- Separate and sort imports as core, std, third-party, Cuprate crates, current crate
+- Follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines)
 - `// Comment like this.` and not `//like this`
 - Use `TODO` instead of `FIXME`
 - Avoid `unsafe`
-- Sort imports as core, std, third-party, Cuprate crates, current crate.
-- Follow the [Rust API Guidelines](https://rust-lang.github.io/api-guidelines)
-- Break the above rules when it makes sense
 
-## Keeping track of issues and PRs
+And the most important rule:
+- Break any and all of the above rules when it makes sense
+
+## 3. Keeping track of issues and PRs
 The Cuprate GitHub repository has a lot of issues and PRs to keep track of. Cuprate makes use of generic labels and labels grouped by a prefixes to help with this.
 
 Some labels will be [automatically added/removed](https://github.com/Cuprate/cuprate/tree/main/.github/labeler.yml) if certain file paths have been changed in a PR.
@@ -65,7 +113,25 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 [O-]: https://github.com/Cuprate/cuprate/labels?q=O
 [P-]: https://github.com/Cuprate/cuprate/labels?q=P
 
-## Books
+## 4. Books
 Cuprate has various documentation books whose source files live in [`books/`](https://github.com/Cuprate/cuprate/tree/main/books).
 
 Please contribute if you found a mistake! The files are mostly [markdown](https://wikipedia.org/wiki/Markdown) files and can be easily edited. See the `books/` directory for more information.
+
+These books are also good resources to understand how Cuprate and Monero work.
+
+### 4.1 Architecture book
+This book documents Cuprate's architecture and implementation.
+
+See:
+- <https://architecture.cuprate.org>
+- <https://github.com/Cuprate/architecture-book>
+- <https://github.com/Cuprate/cuprate/tree/main/books/architecture>
+
+### 4.2 Protocl book
+This book documents the Monero protocol.
+
+See:
+- <https://monero-book.cuprate.org>
+- <https://github.com/Cuprate/monero-book>
+- <https://github.com/Cuprate/cuprate/tree/main/books/protocol>
