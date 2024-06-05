@@ -528,6 +528,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-rpc-interface"
+version = "0.0.0"
+
+[[package]]
 name = "cuprate-test-utils"
 version = "0.1.0"
 dependencies = [
@@ -1199,6 +1203,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "json-rpc"
+version = "0.0.0"
+
+[[package]]
 name = "keccak"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1391,6 +1399,10 @@ dependencies = [
  "borsh",
  "thiserror",
 ]
+
+[[package]]
+name = "monero-rpc-types"
+version = "0.0.0"
 
 [[package]]
 name = "monero-serai"
