@@ -2,6 +2,10 @@
 //!
 //! TODO: explain the `method/param` -> `body` field reasoning.
 //! <https://github.com/Cuprate/cuprate/pull/146#issuecomment-2145734838>.
+//!
+//! TODO: explain the lack of JSON-RPC 2.0's batching:
+//! <https://www.jsonrpc.org/specification#batch>
+//! (`monerod` doesn't support it)
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.

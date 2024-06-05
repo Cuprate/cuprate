@@ -4,40 +4,36 @@
 use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-//---------------------------------------------------------------------------------------------------- Constants
-/// TODO
-const VERSION: &str = "2.0";
-
 //---------------------------------------------------------------------------------------------------- Version
 /// JSON-RPC 2.0 Marker.
 ///
-/// Always gets (de)serialized as `"2.0"`.
+/// Always gets (de)serialized as [`Self::STR`].
+///
+/// TODO: <https://www.jsonrpc.org/specification#compatibility>.
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Version;
 
 impl Version {
     /// TODO
-    pub const fn as_str() -> &'static str {
-        VERSION
-    }
+    pub const STR: &'static str = "2.0";
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
 impl Serialize for Version {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(VERSION)
+        s.serialize_str(Self::STR)
     }
 }
 
 impl std::fmt::Display for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\"{VERSION}\"")
+        write!(f, "\"{}\"", Self::STR)
     }
 }
 
 impl std::fmt::Debug for Version {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "\"{VERSION}\"")
+        write!(f, "\"{}\"", Self::STR)
     }
 }
 
@@ -47,6 +43,7 @@ impl<'de> Deserialize<'de> for Version {
     }
 }
 
+//---------------------------------------------------------------------------------------------------- Serde impl
 /// TODO
 struct VersionVisitor;
 
@@ -59,7 +56,7 @@ impl Visitor<'_> for VersionVisitor {
 
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
         match v {
-            VERSION => Ok(Version),
+            Version::STR => Ok(Version),
             _ => Err(Error::invalid_value(serde::de::Unexpected::Str(v), &self)),
         }
     }

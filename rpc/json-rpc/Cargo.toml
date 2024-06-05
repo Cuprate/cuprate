@@ -13,7 +13,8 @@ categories  = ["encoding"]
 
 [dependencies]
 serde      = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true, features = ["std"] }
+serde_json = { workspace = true, features = ["std", "raw_value"] }
 thiserror  = { workspace = true }
 
 [dev-dependencies]
+pretty_assertions = { workspace = true }

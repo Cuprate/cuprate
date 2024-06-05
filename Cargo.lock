@@ -1217,6 +1217,7 @@ dependencies = [
 name = "json-rpc"
 version = "0.0.0"
 dependencies = [
+ "pretty_assertions",
  "serde",
  "serde_json",
  "thiserror",

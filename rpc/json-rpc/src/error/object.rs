@@ -13,7 +13,7 @@ use crate::error::{
 
 //---------------------------------------------------------------------------------------------------- ErrorObject
 /// [Error object](https://www.jsonrpc.org/specification)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ErrorObject<'a> {
     /// [`ErrorCode`]
     pub code: ErrorCode,
@@ -22,10 +22,8 @@ pub struct ErrorObject<'a> {
     /// Message
     pub message: Cow<'a, str>,
 
-    #[serde(borrow)]
-    #[serde(skip_serializing_if = "Option::is_none")]
     /// Optional data
-    pub data: Option<Cow<'a, Value>>,
+    pub data: Value,
 }
 
 impl ErrorObject<'_> {
@@ -35,17 +33,7 @@ impl ErrorObject<'_> {
         Self {
             code,
             message: Cow::Borrowed(code.msg()),
-            data: None,
-        }
-    }
-
-    #[inline]
-    /// Convert `ErrorObject<'a>` to `ErrorObject<'static>`
-    pub fn into_owned(self) -> ErrorObject<'static> {
-        ErrorObject {
-            code: self.code,
-            message: Cow::Owned(self.message.into_owned()),
-            data: self.data.map(|d| Cow::Owned(d.into_owned())),
+            data: Value::Null,
         }
     }
 
@@ -54,7 +42,7 @@ impl ErrorObject<'_> {
         Self {
             code: ErrorCode::ServerError(PARSE_ERROR.0),
             message: Cow::Borrowed(PARSE_ERROR.1),
-            data: None,
+            data: Value::Null,
         }
     }
 
@@ -63,7 +51,7 @@ impl ErrorObject<'_> {
         Self {
             code: ErrorCode::ServerError(INVALID_REQUEST.0),
             message: Cow::Borrowed(INVALID_REQUEST.1),
-            data: None,
+            data: Value::Null,
         }
     }
 
@@ -72,7 +60,7 @@ impl ErrorObject<'_> {
         Self {
             code: ErrorCode::ServerError(METHOD_NOT_FOUND.0),
             message: Cow::Borrowed(METHOD_NOT_FOUND.1),
-            data: None,
+            data: Value::Null,
         }
     }
 
@@ -81,7 +69,7 @@ impl ErrorObject<'_> {
         Self {
             code: ErrorCode::ServerError(INVALID_PARAMS.0),
             message: Cow::Borrowed(INVALID_PARAMS.1),
-            data: None,
+            data: Value::Null,
         }
     }
 
@@ -90,7 +78,7 @@ impl ErrorObject<'_> {
         Self {
             code: ErrorCode::ServerError(INTERNAL_ERROR.0),
             message: Cow::Borrowed(INTERNAL_ERROR.1),
-            data: None,
+            data: Value::Null,
         }
     }
 
@@ -162,13 +150,5 @@ impl ErrorObject<'_> {
 impl From<ErrorCode> for ErrorObject<'_> {
     fn from(code: ErrorCode) -> Self {
         Self::from_code(code)
-    }
-}
-
-impl PartialEq for ErrorObject<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        let this_v = self.data.as_ref();
-        let other_v = other.data.as_ref();
-        self.code == other.code && self.message == other.message && this_v == other_v
     }
 }
