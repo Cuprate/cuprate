@@ -1,6 +1,8 @@
 ## Contributing to Cuprate
-Thank you for wanting to help out! Cuprate is in the stage where things are likely to change quickly,
-so it's recommended you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:monero.social).
+Thank you for wanting to help out!
+
+Cuprate is in the stage where things are likely to change quickly, so it's recommended
+you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:monero.social).
 
 - [1. Submitting a pull request](#1-submitting-a-pull-request)
 	- [1.1 Rust toolchain](#11-rust-toolchain)
@@ -15,7 +17,7 @@ so it's recommended you ask questions in our public [Matrix room](https://matrix
 
 ## 1. Submitting a pull request
 Once you have found something you would like to work on by either:
-- looking at the open [issues](https://github.com/Cuprate/cuprate/issues)
+- Looking at the open [issues](https://github.com/Cuprate/cuprate/issues)
 - or joining Cuprate's [Matrix room](https://matrix.to/#/#cuprate:monero.social) and asking
 
 it is recommended to make your interest on working on that thing known so people don't duplicate work.
@@ -128,7 +130,7 @@ See:
 - <https://github.com/Cuprate/architecture-book>
 - <https://github.com/Cuprate/cuprate/tree/main/books/architecture>
 
-### 4.2 Protocl book
+### 4.2 Protocol book
 This book documents the Monero protocol.
 
 See:
