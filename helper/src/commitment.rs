@@ -1,7 +1,15 @@
-use std::sync::OnceLock;
+use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
+use std::{collections::HashMap, sync::OnceLock};
 
-/// Decomposed amount table.
-///
+use curve25519_dalek::edwards::{CompressedEdwardsY, VartimeEdwardsPrecomputation};
+use curve25519_dalek::traits::VartimePrecomputedMultiscalarMul;
+use curve25519_dalek::{EdwardsPoint, Scalar};
+use monero_serai::H;
+
+static H_PRECOMP: OnceLock<VartimeEdwardsPrecomputation> = OnceLock::new();
+
+static PRECOMPUTED_COMMITMENTS: OnceLock<HashMap<u64, EdwardsPoint>> = OnceLock::new();
+
 #[rustfmt::skip]
 const DECOMPOSED_AMOUNT: [u64; 172] = [
     1,                   2,                   3,                   4,                   5,                   6,                   7,                   8,                   9,
@@ -26,32 +34,29 @@ const DECOMPOSED_AMOUNT: [u64; 172] = [
     10000000000000000000
 ];
 
-/// Checks that an output amount is decomposed.
-///
-/// This is also used during miner tx verification.
-///
-/// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/ring_signatures.html#output-amount>
-/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#output-amounts>
-#[inline]
-pub fn is_decomposed_amount(amount: &u64) -> bool {
-    DECOMPOSED_AMOUNT.binary_search(amount).is_ok()
+fn h_precomp() -> &'static VartimeEdwardsPrecomputation {
+    H_PRECOMP.get_or_init(|| VartimeEdwardsPrecomputation::new([H(), ED25519_BASEPOINT_POINT]))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+fn precomputed_commitments() -> &'static HashMap<u64, EdwardsPoint> {
+    PRECOMPUTED_COMMITMENTS.get_or_init(|| {
+        DECOMPOSED_AMOUNT
+            .iter()
+            .map(|&amount| {
+                (
+                    amount,
+                    (ED25519_BASEPOINT_POINT + H() * Scalar::from(amount)),
+                )
+            })
+            .collect()
+    })
+}
 
-    #[test]
-    fn decomposed_amounts_return_decomposed() {
-        for amount in decomposed_amounts() {
-            assert!(is_decomposed_amount(amount))
-        }
-    }
-
-    #[test]
-    fn non_decomposed_amounts_return_not_decomposed() {
-        assert!(!is_decomposed_amount(&21));
-        assert!(!is_decomposed_amount(&345431));
-        assert!(!is_decomposed_amount(&20000001));
-    }
+pub fn compute_zero_commitment(amount: u64) -> EdwardsPoint {
+    precomputed_commitments()
+        .get(&amount)
+        .copied()
+        .unwrap_or_else(|| {
+            h_precomp().vartime_multiscalar_mul([Scalar::from(amount), Scalar::from(1_u8)])
+        })
 }

@@ -15,6 +15,7 @@ std       = []
 atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
 constants = []
+crypto    = ["dep:curve25519-dalek"]
 fs        = ["dep:dirs"]
 num       = []
 map       = ["dep:monero-serai"]
@@ -22,6 +23,7 @@ time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
 
 [dependencies]
+curve25519-dalek = { worspace = true, optional = true }
 crossbeam    = { workspace = true, optional = true }
 chrono       = { workspace = true, optional = true, features = ["std", "clock"] }
 dirs         = { workspace = true, optional = true }

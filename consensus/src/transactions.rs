@@ -289,7 +289,7 @@ async fn verify_prepped_transactions<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
-    tracing::debug!("Verifying transactions");
+    tracing::debug!("Verifying {} transactions", txs.len());
 
     tracing::trace!("Checking for duplicate key images");
 
@@ -462,7 +462,7 @@ async fn verify_transactions_decoy_info<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
-    if hf == HardFork::V1 {
+    if hf == HardFork::V1 || txs.is_empty() {
         return Ok(());
     }
 
@@ -484,6 +484,10 @@ async fn verify_transactions<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
+    if txs.is_empty() {
+        return Ok(());
+    }
+
     let txs_ring_member_info =
         batch_get_ring_member_info(txs.iter().map(|(tx, _)| tx), &hf, database).await?;
 

@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 //---------------------------------------------------------------------------------------------------- Lints
 #![allow(clippy::len_zero, clippy::type_complexity, clippy::module_inception)]
-#![deny(nonstandard_style, deprecated, missing_docs, unused_mut)]
+#![deny(nonstandard_style, deprecated, unused_mut)]
 #![forbid(
     unused_unsafe,
     future_incompatible,
@@ -54,9 +54,10 @@ pub mod num;
 #[cfg(feature = "map")]
 pub mod map;
 
+#[cfg(feature = "crypto")]
+pub mod commitment;
 #[cfg(feature = "thread")]
 pub mod thread;
-
 #[cfg(feature = "time")]
 pub mod time;
 

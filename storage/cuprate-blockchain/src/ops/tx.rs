@@ -2,6 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
+use cuprate_helper::commitment::compute_zero_commitment;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::transaction::{Input, Timelock, Transaction};
 
@@ -125,10 +126,7 @@ pub fn add_tx(
                 // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1559489302>
                 // FIXME: implement lookup table for common values:
                 // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
-                let commitment = (ED25519_BASEPOINT_POINT
-                    + monero_serai::H() * Scalar::from(amount))
-                .compress()
-                .to_bytes();
+                let commitment = compute_zero_commitment(amount).compress().to_bytes();
 
                 add_rct_output(
                     &RctOutput {

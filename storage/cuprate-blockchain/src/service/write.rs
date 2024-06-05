@@ -1,6 +1,7 @@
 //! Database writer thread definitions and logic.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::time::Instant;
 use std::{
     sync::Arc,
     task::{Context, Poll},
@@ -221,11 +222,14 @@ impl DatabaseWriter {
 /// [`BCWriteRequest::WriteBlock`].
 #[inline]
 fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
+    let time = Instant::now();
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+        println!("time to open table: {}", time.elapsed().as_nanos());
+
         crate::ops::block::add_block(block, &mut tables_mut)
     };
 

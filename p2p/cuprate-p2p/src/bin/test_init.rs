@@ -147,7 +147,7 @@ async fn main() {
     let (database_read, mut database_write) = cuprate_blockchain::service::init(
         cuprate_blockchain::config::ConfigBuilder::new()
             .fast()
-            .reader_threads(ReaderThreads::Number(4))
+            .reader_threads(ReaderThreads::Number(8))
             .build(),
     )
     .unwrap();
@@ -240,32 +240,32 @@ async fn main() {
             entry.blocks.len()
         );
 
-        for (block, txs) in entry.blocks {
-            let txs = if txs.is_empty() {
-                HashMap::new()
-            } else {
-                rayon_spawn_async(|| {
-                    txs.into_par_iter()
-                        .map(|tx| {
-                            let tx = TransactionVerificationData::new(tx).unwrap();
+        tracing::info!("Prepping {} blocks for verification", entry.blocks.len());
 
-                            (tx.tx_hash, tx)
-                        })
-                        .collect::<HashMap<_, _>>()
-                })
-                .await
-            };
+        let VerifyBlockResponse::MainChainBatchPrepped(blocks) = block_verifier
+            .ready()
+            .await
+            .unwrap()
+            .call(VerifyBlockRequest::MainChainBatchPrepareBlocks {
+                blocks: entry.blocks,
+            })
+            .await
+            .unwrap()
+        else {
+            panic!()
+        };
 
+        for (block, txs) in blocks {
             let VerifyBlockResponse::MainChain(block_info) = block_verifier
                 .ready()
                 .await
                 .unwrap()
-                .call(VerifyBlockRequest::MainChain {
-                    block,
-                    prepared_txs: txs,
-                })
+                .call(VerifyBlockRequest::MainChainPrepped { block, txs })
                 .await
-                .unwrap();
+                .unwrap()
+            else {
+                panic!()
+            };
 
             let height = block_info.height;
 

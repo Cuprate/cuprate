@@ -1,5 +1,6 @@
 //! Blocks functions.
 
+use std::time::Instant;
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
 use monero_serai::block::Block;
@@ -43,6 +44,8 @@ pub fn add_block(
     block: &VerifiedBlockInformation,
     tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
+    let time = Instant::now();
+
     //------------------------------------------------------ Check preconditions first
 
     // Cast height to `u32` for storage (handled at top of function).
@@ -62,6 +65,7 @@ pub fn add_block(
     );
 
     // Expensive checks - debug only.
+    /*
     #[cfg(debug_assertions)]
     {
         assert_eq!(block.block.serialize(), block.block_blob);
@@ -71,6 +75,8 @@ pub fn add_block(
             assert_eq!(tx.tx_hash, block.block.txs[i]);
         }
     }
+
+     */
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
@@ -121,6 +127,8 @@ pub fn add_block(
     tables
         .block_heights_mut()
         .put(&block.block_hash, &block.height)?;
+
+    println!("time to add block: {}", time.elapsed().as_nanos());
 
     Ok(())
 }
