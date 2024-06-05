@@ -2,13 +2,18 @@
 name        = "json-rpc"
 version     = "0.0.0"
 edition     = "2021"
-authors     = ["hinto-janai"]
-keywords    = ["json", "rpc", "2.0"]
-categories  = ["encoding"]
+description = "JSON-RPC 2.0 implementation"
 license     = "MIT"
-description = "JSON-RPC 2.0 types"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/json-rpc"
+keywords    = ["json", "rpc"]
+categories  = ["encoding"]
+
+[features]
 
 [dependencies]
 serde      = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true, features = ["std"] }
 thiserror  = { workspace = true }
+
+[dev-dependencies]

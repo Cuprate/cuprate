@@ -22,6 +22,9 @@ members = [
 	"rpc/json-rpc",
 	"test-utils",
 	"types",
+	"rpc/json-rpc",
+	"rpc/monero-rpc-types",
+	"rpc/cuprate-rpc-interface",
 ]
 
 [profile.release]

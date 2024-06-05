@@ -4,39 +4,98 @@
 //! <https://github.com/Cuprate/cuprate/pull/146#issuecomment-2145734838>.
 
 //---------------------------------------------------------------------------------------------------- Lints
-#![allow(clippy::len_zero, clippy::type_complexity, clippy::module_inception)]
-#![deny(nonstandard_style, unused_unsafe, unused_mut, deprecated)]
+// Forbid lints.
+// Our code, and code generated (e.g macros) cannot overrule these.
 #![forbid(
-	future_incompatible,
-	break_with_label_and_loop,
+	// `unsafe` is allowed but it _must_ be
+	// commented with `SAFETY: reason`.
+	clippy::undocumented_unsafe_blocks,
+
+	// Never.
+	unused_unsafe,
+	redundant_semicolons,
+	unused_allocation,
 	coherence_leak_check,
+	while_true,
+	clippy::missing_docs_in_private_items,
+
+	// Maybe can be put into `#[deny]`.
+	unconditional_recursion,
+	for_loops_over_fallibles,
+	unused_braces,
+	unused_labels,
+	keyword_idents,
+	non_ascii_idents,
+	variant_size_differences,
+    single_use_lifetimes,
+
+	// Probably can be put into `#[deny]`.
+	future_incompatible,
+	let_underscore,
+	break_with_label_and_loop,
 	duplicate_macro_attributes,
 	exported_private_dependencies,
-	for_loops_over_fallibles,
 	large_assignments,
 	overlapping_range_endpoints,
 	semicolon_in_expressions_from_macros,
-	redundant_semicolons,
-	unconditional_recursion,
-	unreachable_patterns,
-	unused_allocation,
-	unused_braces,
-	unused_comparisons,
-	unused_doc_comments,
-	unused_parens,
-	unused_labels,
-	while_true,
-	keyword_idents,
-//	missing_docs, // TODO(hinto): add docs
-	non_ascii_idents,
 	noop_method_call,
 	unreachable_pub,
-	single_use_lifetimes,
-	variant_size_differences,
+)]
+// Deny lints.
+// Some of these are `#[allow]`'ed on a per-case basis.
+#![deny(
+    clippy::all,
+    clippy::correctness,
+    clippy::suspicious,
+    clippy::style,
+    clippy::complexity,
+    clippy::perf,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::cargo,
+    unused_doc_comments,
+    unused_mut,
+    missing_docs,
+    deprecated,
+    unused_comparisons,
+    nonstandard_style
+)]
+#![allow(
+	// FIXME: this lint affects crates outside of
+	// `database/` for some reason, allow for now.
+	clippy::cargo_common_metadata,
+
+	// FIXME: adding `#[must_use]` onto everything
+	// might just be more annoying than useful...
+	// although it is sometimes nice.
+	clippy::must_use_candidate,
+
+	// FIXME: good lint but too many false positives
+	// with our `Env` + `RwLock` setup.
+	clippy::significant_drop_tightening,
+
+	// FIXME: good lint but is less clear in most cases.
+	clippy::items_after_statements,
+
+	clippy::module_name_repetitions,
+	clippy::module_inception,
+	clippy::redundant_pub_crate,
+	clippy::option_if_let_else,
+)]
+// Allow some lints when running in debug mode.
+#![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
+// Allow some lints in tests.
+#![cfg_attr(
+    test,
+    allow(
+        clippy::cognitive_complexity,
+        clippy::needless_pass_by_value,
+        clippy::cast_possible_truncation,
+        clippy::too_many_lines
+    )
 )]
 
 //---------------------------------------------------------------------------------------------------- Mod/Use
-/// Error codes and objects
 pub mod error;
 
 mod key;
