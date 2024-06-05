@@ -15,8 +15,10 @@ pub struct Response<'a, T>
 where
     T: Clone,
 {
+    /// TODO
     pub jsonrpc: Version,
 
+    /// TODO
     pub payload: Result<Cow<'a, T>, ErrorObject<'a>>,
 
     /// This field will always be serialized.
@@ -58,12 +60,12 @@ where
                 Ok(cow) => Ok(Cow::Owned(cow.into_owned())),
                 Err(obj) => Err(obj.into_owned()),
             },
-            id: self.id.map(|id| id.into_owned()),
+            id: self.id.map(Id::into_owned),
         }
     }
 
     #[inline]
-    /// [`PARSE_ERROR`]
+    /// [`ErrorObject::parse_error`]
     pub const fn parse_error(id: Option<Id<'a>>) -> Self {
         Self {
             jsonrpc: Version,
@@ -73,7 +75,7 @@ where
     }
 
     #[inline]
-    /// [`INVALID_REQUEST`]
+    /// [`ErrorObject::invalid_request`]
     pub const fn invalid_request(id: Option<Id<'a>>) -> Self {
         Self {
             jsonrpc: Version,
@@ -83,7 +85,7 @@ where
     }
 
     #[inline]
-    /// [`METHOD_NOT_FOUND`]
+    /// [`ErrorObject::method_not_found`]
     pub const fn method_not_found(id: Option<Id<'a>>) -> Self {
         Self {
             jsonrpc: Version,
@@ -93,7 +95,7 @@ where
     }
 
     #[inline]
-    /// [`INVALID_PARAMS`]
+    /// [`ErrorObject::invalid_params`]
     pub const fn invalid_params(id: Option<Id<'a>>) -> Self {
         Self {
             jsonrpc: Version,
@@ -103,7 +105,7 @@ where
     }
 
     #[inline]
-    /// [`INTERNAL_ERROR`]
+    /// [`ErrorObject::internal_error`]
     pub const fn internal_error(id: Option<Id<'a>>) -> Self {
         Self {
             jsonrpc: Version,
@@ -112,75 +114,75 @@ where
         }
     }
 
-    #[inline]
-    /// [`UNKNOWN_ERROR`]
-    pub const fn unknown_error(id: Option<Id<'a>>) -> Self {
-        Self {
-            jsonrpc: Version,
-            payload: Err(ErrorObject::unknown_error()),
-            id,
-        }
-    }
+    // #[inline]
+    // /// [`UNKNOWN_ERROR`]
+    // pub const fn unknown_error(id: Option<Id<'a>>) -> Self {
+    //     Self {
+    //         jsonrpc: Version,
+    //         payload: Err(ErrorObject::unknown_error()),
+    //         id,
+    //     }
+    // }
 
-    #[inline]
-    /// [`BATCH_NOT_SUPPORTED`]
-    pub const fn batch_not_supported(id: Option<Id<'a>>) -> Self {
-        Self {
-            jsonrpc: Version,
-            payload: Err(ErrorObject::batch_not_supported()),
-            id,
-        }
-    }
+    // #[inline]
+    // /// [`BATCH_NOT_SUPPORTED`]
+    // pub const fn batch_not_supported(id: Option<Id<'a>>) -> Self {
+    //     Self {
+    //         jsonrpc: Version,
+    //         payload: Err(ErrorObject::batch_not_supported()),
+    //         id,
+    //     }
+    // }
 
-    #[inline]
-    /// [`OVERSIZED_REQUEST`]
-    pub const fn oversized_request(id: Option<Id<'a>>) -> Self {
-        Self {
-            jsonrpc: Version,
-            payload: Err(ErrorObject::oversized_request()),
-            id,
-        }
-    }
+    // #[inline]
+    // /// [`OVERSIZED_REQUEST`]
+    // pub const fn oversized_request(id: Option<Id<'a>>) -> Self {
+    //     Self {
+    //         jsonrpc: Version,
+    //         payload: Err(ErrorObject::oversized_request()),
+    //         id,
+    //     }
+    // }
 
-    #[inline]
-    /// [`OVERSIZED_RESPONSE`]
-    pub const fn oversized_response(id: Option<Id<'a>>) -> Self {
-        Self {
-            jsonrpc: Version,
-            payload: Err(ErrorObject::oversized_response()),
-            id,
-        }
-    }
+    // #[inline]
+    // /// [`OVERSIZED_RESPONSE`]
+    // pub const fn oversized_response(id: Option<Id<'a>>) -> Self {
+    //     Self {
+    //         jsonrpc: Version,
+    //         payload: Err(ErrorObject::oversized_response()),
+    //         id,
+    //     }
+    // }
 
-    #[inline]
-    /// [`OVERSIZED_BATCH_REQUEST`]
-    pub const fn oversized_batch_request(id: Option<Id<'a>>) -> Self {
-        Self {
-            jsonrpc: Version,
-            payload: Err(ErrorObject::oversized_batch_request()),
-            id,
-        }
-    }
+    // #[inline]
+    // /// [`OVERSIZED_BATCH_REQUEST`]
+    // pub const fn oversized_batch_request(id: Option<Id<'a>>) -> Self {
+    //     Self {
+    //         jsonrpc: Version,
+    //         payload: Err(ErrorObject::oversized_batch_request()),
+    //         id,
+    //     }
+    // }
 
-    #[inline]
-    /// [`OVERSIZED_BATCH_REQUEST`]
-    pub const fn oversized_batch_response(id: Option<Id<'a>>) -> Self {
-        Self {
-            jsonrpc: Version,
-            payload: Err(ErrorObject::oversized_batch_response()),
-            id,
-        }
-    }
+    // #[inline]
+    // /// [`OVERSIZED_BATCH_REQUEST`]
+    // pub const fn oversized_batch_response(id: Option<Id<'a>>) -> Self {
+    //     Self {
+    //         jsonrpc: Version,
+    //         payload: Err(ErrorObject::oversized_batch_response()),
+    //         id,
+    //     }
+    // }
 
-    #[inline]
-    /// [`SERVER_IS_BUSY`]
-    pub const fn server_is_busy(id: Option<Id<'a>>) -> Self {
-        Self {
-            jsonrpc: Version,
-            payload: Err(ErrorObject::server_is_busy()),
-            id,
-        }
-    }
+    // #[inline]
+    // /// [`SERVER_IS_BUSY`]
+    // pub const fn server_is_busy(id: Option<Id<'a>>) -> Self {
+    //     Self {
+    //         jsonrpc: Version,
+    //         payload: Err(ErrorObject::server_is_busy()),
+    //         id,
+    //     }
+    // }
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
@@ -243,6 +245,7 @@ where
         use core::marker::PhantomData;
         use serde::de::{self, Visitor};
 
+        /// TODO
         struct MapVisit<T>(PhantomData<T>);
 
         impl<'de, T> Visitor<'de> for MapVisit<T>
@@ -308,6 +311,7 @@ where
             }
         }
 
+        /// TODO
         const FIELDS: &[&str] = &["jsonrpc", "payload", "id"];
         der.deserialize_struct("Response", FIELDS, MapVisit(PhantomData))
     }

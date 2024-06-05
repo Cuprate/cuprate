@@ -17,7 +17,6 @@
 	unused_allocation,
 	coherence_leak_check,
 	while_true,
-	clippy::missing_docs_in_private_items,
 
 	// Maybe can be put into `#[deny]`.
 	unconditional_recursion,
@@ -53,7 +52,7 @@
     clippy::pedantic,
     clippy::nursery,
     clippy::cargo,
-    unused_doc_comments,
+    clippy::missing_docs_in_private_items,
     unused_mut,
     missing_docs,
     deprecated,

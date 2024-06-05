@@ -5,6 +5,7 @@ use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 //---------------------------------------------------------------------------------------------------- Constants
+/// TODO
 const VERSION: &str = "2.0";
 
 //---------------------------------------------------------------------------------------------------- Version
@@ -15,6 +16,7 @@ const VERSION: &str = "2.0";
 pub struct Version;
 
 impl Version {
+    /// TODO
     pub const fn as_str() -> &'static str {
         VERSION
     }
@@ -45,6 +47,7 @@ impl<'de> Deserialize<'de> for Version {
     }
 }
 
+/// TODO
 struct VersionVisitor;
 
 impl Visitor<'_> for VersionVisitor {

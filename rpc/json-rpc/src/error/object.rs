@@ -1,14 +1,15 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Use
-use crate::error::{
-    ErrorCode, BATCH_NOT_SUPPORTED, INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST,
-    METHOD_NOT_FOUND, OVERSIZED_BATCH_REQUEST, OVERSIZED_BATCH_RESPONSE, OVERSIZED_REQUEST,
-    OVERSIZED_RESPONSE, PARSE_ERROR, SERVER_IS_BUSY, UNKNOWN_ERROR,
-};
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
-use std::borrow::Cow;
+
+use crate::error::{
+    constants::{INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR},
+    ErrorCode,
+};
 
 //---------------------------------------------------------------------------------------------------- ErrorObject
 /// [Error object](https://www.jsonrpc.org/specification)
@@ -93,68 +94,68 @@ impl ErrorObject<'_> {
         }
     }
 
-    /// [`UNKNOWN_ERROR`]
-    pub const fn unknown_error() -> Self {
-        Self {
-            code: ErrorCode::ServerError(UNKNOWN_ERROR.0),
-            message: Cow::Borrowed(UNKNOWN_ERROR.1),
-            data: None,
-        }
-    }
+    // /// [`UNKNOWN_ERROR`]
+    // pub const fn unknown_error() -> Self {
+    //     Self {
+    //         code: ErrorCode::ServerError(UNKNOWN_ERROR.0),
+    //         message: Cow::Borrowed(UNKNOWN_ERROR.1),
+    //         data: None,
+    //     }
+    // }
 
-    /// [`BATCH_NOT_SUPPORTED`]
-    pub const fn batch_not_supported() -> Self {
-        Self {
-            code: ErrorCode::ServerError(BATCH_NOT_SUPPORTED.0),
-            message: Cow::Borrowed(BATCH_NOT_SUPPORTED.1),
-            data: None,
-        }
-    }
+    // /// [`BATCH_NOT_SUPPORTED`]
+    // pub const fn batch_not_supported() -> Self {
+    //     Self {
+    //         code: ErrorCode::ServerError(BATCH_NOT_SUPPORTED.0),
+    //         message: Cow::Borrowed(BATCH_NOT_SUPPORTED.1),
+    //         data: None,
+    //     }
+    // }
 
-    /// [`OVERSIZED_REQUEST`]
-    pub const fn oversized_request() -> Self {
-        Self {
-            code: ErrorCode::ServerError(OVERSIZED_REQUEST.0),
-            message: Cow::Borrowed(OVERSIZED_REQUEST.1),
-            data: None,
-        }
-    }
+    // /// [`OVERSIZED_REQUEST`]
+    // pub const fn oversized_request() -> Self {
+    //     Self {
+    //         code: ErrorCode::ServerError(OVERSIZED_REQUEST.0),
+    //         message: Cow::Borrowed(OVERSIZED_REQUEST.1),
+    //         data: None,
+    //     }
+    // }
 
-    /// [`OVERSIZED_RESPONSE`]
-    pub const fn oversized_response() -> Self {
-        Self {
-            code: ErrorCode::ServerError(OVERSIZED_RESPONSE.0),
-            message: Cow::Borrowed(OVERSIZED_RESPONSE.1),
-            data: None,
-        }
-    }
+    // /// [`OVERSIZED_RESPONSE`]
+    // pub const fn oversized_response() -> Self {
+    //     Self {
+    //         code: ErrorCode::ServerError(OVERSIZED_RESPONSE.0),
+    //         message: Cow::Borrowed(OVERSIZED_RESPONSE.1),
+    //         data: None,
+    //     }
+    // }
 
-    /// [`OVERSIZED_BATCH_REQUEST`]
-    pub const fn oversized_batch_request() -> Self {
-        Self {
-            code: ErrorCode::ServerError(OVERSIZED_BATCH_REQUEST.0),
-            message: Cow::Borrowed(OVERSIZED_BATCH_REQUEST.1),
-            data: None,
-        }
-    }
+    // /// [`OVERSIZED_BATCH_REQUEST`]
+    // pub const fn oversized_batch_request() -> Self {
+    //     Self {
+    //         code: ErrorCode::ServerError(OVERSIZED_BATCH_REQUEST.0),
+    //         message: Cow::Borrowed(OVERSIZED_BATCH_REQUEST.1),
+    //         data: None,
+    //     }
+    // }
 
-    /// [`OVERSIZED_BATCH_RESPONSE`]
-    pub const fn oversized_batch_response() -> Self {
-        Self {
-            code: ErrorCode::ServerError(OVERSIZED_BATCH_RESPONSE.0),
-            message: Cow::Borrowed(OVERSIZED_BATCH_RESPONSE.1),
-            data: None,
-        }
-    }
+    // /// [`OVERSIZED_BATCH_RESPONSE`]
+    // pub const fn oversized_batch_response() -> Self {
+    //     Self {
+    //         code: ErrorCode::ServerError(OVERSIZED_BATCH_RESPONSE.0),
+    //         message: Cow::Borrowed(OVERSIZED_BATCH_RESPONSE.1),
+    //         data: None,
+    //     }
+    // }
 
-    /// [`SERVER_IS_BUSY`]
-    pub const fn server_is_busy() -> Self {
-        Self {
-            code: ErrorCode::ServerError(SERVER_IS_BUSY.0),
-            message: Cow::Borrowed(SERVER_IS_BUSY.1),
-            data: None,
-        }
-    }
+    // /// [`SERVER_IS_BUSY`]
+    // pub const fn server_is_busy() -> Self {
+    //     Self {
+    //         code: ErrorCode::ServerError(SERVER_IS_BUSY.0),
+    //         message: Cow::Borrowed(SERVER_IS_BUSY.1),
+    //         data: None,
+    //     }
+    // }
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl

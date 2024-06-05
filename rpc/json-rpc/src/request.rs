@@ -41,7 +41,7 @@ where
 {
     #[inline]
     /// Create a new [`Self`].
-    pub fn new(method: Cow<'a, M>, params: Option<Cow<'a, P>>, id: Option<Id<'a>>) -> Self {
+    pub const fn new(method: Cow<'a, M>, params: Option<Cow<'a, P>>, id: Option<Id<'a>>) -> Self {
         Self {
             jsonrpc: Version,
             method,
@@ -63,7 +63,7 @@ where
             jsonrpc: self.jsonrpc,
             method: Cow::Owned(self.method.into_owned()),
             params: self.params.map(|p| Cow::Owned(p.into_owned())),
-            id: self.id.map(|id| id.into_owned()),
+            id: self.id.map(Id::into_owned),
         }
     }
 }

@@ -6,13 +6,19 @@ use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer};
 
 //---------------------------------------------------------------------------------------------------- Key
+/// TODO
 pub(crate) enum Key {
+    /// TODO
     JsonRpc,
+    /// TODO
     Result,
+    /// TODO
     Error,
+    /// TODO
     Id,
 }
 
+/// TODO
 struct KeyVisitor;
 
 impl Visitor<'_> for KeyVisitor {

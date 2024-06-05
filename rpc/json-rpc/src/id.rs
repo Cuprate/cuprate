@@ -23,7 +23,7 @@ pub enum Id<'a> {
 impl Id<'_> {
     #[inline]
     /// Return inner [`u64`] if [`Id`] is a number
-    pub fn as_u64(&self) -> Option<u64> {
+    pub const fn as_u64(&self) -> Option<u64> {
         match self {
             Self::Num(n) => Some(*n),
             _ => None,
@@ -40,6 +40,7 @@ impl Id<'_> {
     }
 
     #[inline]
+    /// TODO
     pub fn is_null(&self) -> bool {
         *self == Self::Null
     }
@@ -66,6 +67,7 @@ impl Id<'_> {
 }
 
 impl Id<'static> {
+    /// TODO
     fn from_string(s: String) -> Id<'static> {
         if let Ok(u) = s.parse::<u64>() {
             return Self::Num(u);
@@ -98,6 +100,7 @@ impl From<&str> for Id<'static> {
     }
 }
 
+/// TODO
 macro_rules! impl_u {
 	($($u:ty),*) => {
 		$(

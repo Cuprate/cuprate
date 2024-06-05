@@ -7,3 +7,5 @@ mod object;
 
 pub use code::*;
 pub use object::*;
+
+pub mod constants;
