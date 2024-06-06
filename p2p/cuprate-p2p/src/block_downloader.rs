@@ -3,9 +3,8 @@
 
 mod chain_tracker;
 
-use futures::FutureExt;
 use std::cmp::{max, min, Ordering, Reverse};
-use std::collections::{BTreeMap, BinaryHeap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BinaryHeap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 

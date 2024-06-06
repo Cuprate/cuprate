@@ -153,30 +153,24 @@ async fn main() {
 
     sleep(Duration::from_secs(15)).await;
 
-    loop {
-        let mut buffer = download_blocks(
-            net.pool.clone(),
-            net.sync_states_svc.clone(),
-            OurChainSvc,
-            BlockDownloaderConfig {
-                buffer_size: 50_000_000,
-                in_progress_queue_size: 30_000_000,
-                check_client_pool_interval: Duration::from_secs(10),
-                target_batch_size: 5_000_000,
-                initial_batch_size: 10,
-            },
-        );
+    let mut buffer = download_blocks(
+        net.pool.clone(),
+        net.sync_states_svc.clone(),
+        OurChainSvc,
+        BlockDownloaderConfig {
+            buffer_size: 50_000_000,
+            in_progress_queue_size: 30_000_000,
+            check_client_pool_interval: Duration::from_secs(10),
+            target_batch_size: 5_000_000,
+            initial_batch_size: 10,
+        },
+    );
 
-        while let Some(entry) = buffer.next().await {
-            tracing::info!(
-                "height: {}, amount{}",
-                entry.blocks[0].0.number().unwrap(),
-                entry.blocks.len()
-            )
-        }
-
-        panic!();
-
-        sleep(Duration::from_secs(2)).await;
+    while let Some(entry) = buffer.next().await {
+        tracing::info!(
+            "height: {}, amount{}",
+            entry.blocks[0].0.number().unwrap(),
+            entry.blocks.len()
+        )
     }
 }
