@@ -15,7 +15,11 @@ pub struct Request<T> {
     /// An identifier established by the Client that MUST contain a String, Number, or NULL value if included.
     ///
     /// If it is not included it is assumed to be a notification.
-    pub id: Id,
+    ///
+    /// TODO: doc why `None` is different than `Some(Id::Null)`:
+    /// <https://www.jsonrpc.org/specification#request_object>.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<Id>,
 
     #[serde(flatten)]
     /// TODO
@@ -29,7 +33,7 @@ pub struct Request<T> {
 impl<T> Request<T> {
     #[inline]
     /// Create a new [`Self`].
-    pub const fn new(id: Id, body: T) -> Self {
+    pub const fn new(id: Option<Id>, body: T) -> Self {
         Self {
             jsonrpc: Version,
             id,
@@ -39,8 +43,8 @@ impl<T> Request<T> {
 
     #[inline]
     /// Returns whether request is notification.
-    pub fn is_notification(&self) -> bool {
-        self.id.is_null()
+    pub const fn is_notification(&self) -> bool {
+        self.id.is_none()
     }
 }
 
@@ -78,7 +82,7 @@ mod test {
             params: [0, 1, 2],
         };
 
-        let req = Request::new(id, body);
+        let req = Request::new(Some(id), body);
 
         assert!(!req.is_notification());
 
@@ -86,6 +90,45 @@ mod test {
         let de: Request<Body<[u8; 3]>> = serde_json::from_str(&ser).unwrap();
 
         assert_eq!(req, de);
+    }
+
+    /// Tests that null `id` shows when serializing.
+    #[test]
+    fn request_null_id() {
+        let req = Request::new(
+            Some(Id::Null),
+            Body {
+                method: "m".into(),
+                params: "p".to_string(),
+            },
+        );
+        let json = json!({
+            "jsonrpc": "2.0",
+            "id": null,
+            "method": "m",
+            "params": "p",
+        });
+
+        assert_serde(&req, &json);
+    }
+
+    /// Tests that a `None` `id` omits the field when serializing.
+    #[test]
+    fn request_none_id() {
+        let req = Request::new(
+            None,
+            Body {
+                method: "a".into(),
+                params: "b".to_string(),
+            },
+        );
+        let json = json!({
+            "jsonrpc": "2.0",
+            "method": "a",
+            "params": "b",
+        });
+
+        assert_serde(&req, &json);
     }
 
     /// Tests that omitting `params` omits the field when serializing.
@@ -97,7 +140,7 @@ mod test {
         }
 
         let req = Request::new(
-            Id::Num(123),
+            Some(Id::Num(123)),
             NoParamMethod {
                 method: "asdf".to_string(),
             },
@@ -126,7 +169,10 @@ mod test {
             GetHeight(/* param: */ GetHeight),
         }
 
-        let req = Request::new(Id::Num(123), Methods::GetHeight(GetHeight { height: 0 }));
+        let req = Request::new(
+            Some(Id::Num(123)),
+            Methods::GetHeight(GetHeight { height: 0 }),
+        );
         let json = json!({
             "jsonrpc": "2.0",
             "id": 123,
@@ -146,7 +192,7 @@ mod test {
         let array: [(Request<Body<[u8; 3]>>, Value); 3] = [
             (
                 Request::new(
-                    Id::Num(123),
+                    Some(Id::Num(123)),
                     Body {
                         method: "method_1".into(),
                         params: [0, 1, 2],
@@ -161,7 +207,7 @@ mod test {
             ),
             (
                 Request::new(
-                    Id::Null,
+                    Some(Id::Null),
                     Body {
                         method: "method_2".into(),
                         params: [3, 4, 5],
@@ -176,7 +222,7 @@ mod test {
             ),
             (
                 Request::new(
-                    Id::Str("string_id".into()),
+                    Some(Id::Str("string_id".into())),
                     Body {
                         method: "method_3".into(),
                         params: [6, 7, 8],
