@@ -14,19 +14,18 @@ use crate::error::{
 //---------------------------------------------------------------------------------------------------- ErrorObject
 /// [Error object](https://www.jsonrpc.org/specification)
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ErrorObject<'a> {
+pub struct ErrorObject {
     /// [`ErrorCode`]
     pub code: ErrorCode,
 
-    #[serde(borrow)]
     /// Message
-    pub message: Cow<'a, str>,
+    pub message: Cow<'static, str>,
 
     /// Optional data
     pub data: Value,
 }
 
-impl ErrorObject<'_> {
+impl ErrorObject {
     #[inline]
     /// Creates new error, deriving message from the code.
     pub const fn from_code(code: ErrorCode) -> Self {
@@ -147,7 +146,7 @@ impl ErrorObject<'_> {
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
-impl From<ErrorCode> for ErrorObject<'_> {
+impl From<ErrorCode> for ErrorObject {
     fn from(code: ErrorCode) -> Self {
         Self::from_code(code)
     }

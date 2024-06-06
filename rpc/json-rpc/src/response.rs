@@ -1,35 +1,30 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Use
-use crate::error::ErrorObject;
-use crate::id::Id;
-use crate::version::Version;
-use serde::ser::SerializeStruct;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::borrow::Cow;
+use serde::{Deserialize, Serialize};
+
+use crate::{error::ErrorObject, id::Id, version::Version};
 
 //---------------------------------------------------------------------------------------------------- Response
 /// JSON-RPC 2.0 Response object
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Response<'a, T> {
+pub struct Response<T> {
     /// TODO
     pub jsonrpc: Version,
 
-    #[serde(borrow)]
     /// This field will always be serialized.
     ///
     /// Both in the case of `None` and `Some(Id::Null)`, it will be serialized as `"id": null`.
-    pub id: Id<'a>,
+    pub id: Id,
 
-    #[serde(borrow)]
     /// TODO
-    pub payload: Result<T, ErrorObject<'a>>,
+    pub payload: Result<T, ErrorObject>,
 }
 
-impl<'a, T> Response<'a, T> {
+impl<T> Response<T> {
     #[inline]
     /// Creates a successful response.
-    pub const fn ok(id: Id<'a>, payload: T) -> Self {
+    pub const fn ok(id: Id, payload: T) -> Self {
         Self {
             jsonrpc: Version,
             id,
@@ -39,7 +34,7 @@ impl<'a, T> Response<'a, T> {
 
     #[inline]
     /// Creates an error response.
-    pub const fn err(id: Id<'a>, payload: ErrorObject<'a>) -> Self {
+    pub const fn err(id: Id, payload: ErrorObject) -> Self {
         Self {
             jsonrpc: Version,
             id,
@@ -49,7 +44,7 @@ impl<'a, T> Response<'a, T> {
 
     #[inline]
     /// [`ErrorObject::parse_error`]
-    pub const fn parse_error(id: Id<'a>) -> Self {
+    pub const fn parse_error(id: Id) -> Self {
         Self {
             jsonrpc: Version,
             payload: Err(ErrorObject::parse_error()),
@@ -59,7 +54,7 @@ impl<'a, T> Response<'a, T> {
 
     #[inline]
     /// [`ErrorObject::invalid_request`]
-    pub const fn invalid_request(id: Id<'a>) -> Self {
+    pub const fn invalid_request(id: Id) -> Self {
         Self {
             jsonrpc: Version,
             payload: Err(ErrorObject::invalid_request()),
@@ -69,7 +64,7 @@ impl<'a, T> Response<'a, T> {
 
     #[inline]
     /// [`ErrorObject::method_not_found`]
-    pub const fn method_not_found(id: Id<'a>) -> Self {
+    pub const fn method_not_found(id: Id) -> Self {
         Self {
             jsonrpc: Version,
             payload: Err(ErrorObject::method_not_found()),
@@ -79,7 +74,7 @@ impl<'a, T> Response<'a, T> {
 
     #[inline]
     /// [`ErrorObject::invalid_params`]
-    pub const fn invalid_params(id: Id<'a>) -> Self {
+    pub const fn invalid_params(id: Id) -> Self {
         Self {
             jsonrpc: Version,
             payload: Err(ErrorObject::invalid_params()),
@@ -89,7 +84,7 @@ impl<'a, T> Response<'a, T> {
 
     #[inline]
     /// [`ErrorObject::internal_error`]
-    pub const fn internal_error(id: Id<'a>) -> Self {
+    pub const fn internal_error(id: Id) -> Self {
         Self {
             jsonrpc: Version,
             payload: Err(ErrorObject::internal_error()),
@@ -99,7 +94,7 @@ impl<'a, T> Response<'a, T> {
 
     // #[inline]
     // /// [`UNKNOWN_ERROR`]
-    // pub const fn unknown_error(id: Option<Id<'a>>) -> Self {
+    // pub const fn unknown_error(id: Option<Id>) -> Self {
     //     Self {
     //         jsonrpc: Version,
     //         payload: Err(ErrorObject::unknown_error()),
@@ -109,7 +104,7 @@ impl<'a, T> Response<'a, T> {
 
     // #[inline]
     // /// [`BATCH_NOT_SUPPORTED`]
-    // pub const fn batch_not_supported(id: Option<Id<'a>>) -> Self {
+    // pub const fn batch_not_supported(id: Option<Id>) -> Self {
     //     Self {
     //         jsonrpc: Version,
     //         payload: Err(ErrorObject::batch_not_supported()),
@@ -119,7 +114,7 @@ impl<'a, T> Response<'a, T> {
 
     // #[inline]
     // /// [`OVERSIZED_REQUEST`]
-    // pub const fn oversized_request(id: Option<Id<'a>>) -> Self {
+    // pub const fn oversized_request(id: Option<Id>) -> Self {
     //     Self {
     //         jsonrpc: Version,
     //         payload: Err(ErrorObject::oversized_request()),
@@ -129,7 +124,7 @@ impl<'a, T> Response<'a, T> {
 
     // #[inline]
     // /// [`OVERSIZED_RESPONSE`]
-    // pub const fn oversized_response(id: Option<Id<'a>>) -> Self {
+    // pub const fn oversized_response(id: Option<Id>) -> Self {
     //     Self {
     //         jsonrpc: Version,
     //         payload: Err(ErrorObject::oversized_response()),
@@ -139,7 +134,7 @@ impl<'a, T> Response<'a, T> {
 
     // #[inline]
     // /// [`OVERSIZED_BATCH_REQUEST`]
-    // pub const fn oversized_batch_request(id: Option<Id<'a>>) -> Self {
+    // pub const fn oversized_batch_request(id: Option<Id>) -> Self {
     //     Self {
     //         jsonrpc: Version,
     //         payload: Err(ErrorObject::oversized_batch_request()),
@@ -149,7 +144,7 @@ impl<'a, T> Response<'a, T> {
 
     // #[inline]
     // /// [`OVERSIZED_BATCH_REQUEST`]
-    // pub const fn oversized_batch_response(id: Option<Id<'a>>) -> Self {
+    // pub const fn oversized_batch_response(id: Option<Id>) -> Self {
     //     Self {
     //         jsonrpc: Version,
     //         payload: Err(ErrorObject::oversized_batch_response()),
@@ -159,7 +154,7 @@ impl<'a, T> Response<'a, T> {
 
     // #[inline]
     // /// [`SERVER_IS_BUSY`]
-    // pub const fn server_is_busy(id: Option<Id<'a>>) -> Self {
+    // pub const fn server_is_busy(id: Option<Id>) -> Self {
     //     Self {
     //         jsonrpc: Version,
     //         payload: Err(ErrorObject::server_is_busy()),
@@ -169,7 +164,7 @@ impl<'a, T> Response<'a, T> {
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
-impl<T> std::fmt::Display for Response<'_, T>
+impl<T> std::fmt::Display for Response<T>
 where
     T: Clone + Serialize,
 {
@@ -293,6 +288,7 @@ mod test {
     use super::*;
     use crate::id::Id;
 
+    /// Basic serde tests.
     #[test]
     fn serde() {
         let result = String::from("result_ok");

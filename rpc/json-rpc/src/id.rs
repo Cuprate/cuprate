@@ -8,19 +8,18 @@ use std::borrow::Cow;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 /// [Request/Response object ID](https://www.jsonrpc.org/specification)
-pub enum Id<'a> {
+pub enum Id {
     /// `null`
     Null,
 
     /// Number ID
     Num(u64),
 
-    #[serde(borrow)]
     /// String ID
-    Str(Cow<'a, str>),
+    Str(Cow<'static, str>),
 }
 
-impl Id<'_> {
+impl Id {
     #[inline]
     /// Return inner [`u64`] if [`Id`] is a number
     pub const fn as_u64(&self) -> Option<u64> {
@@ -46,29 +45,17 @@ impl Id<'_> {
     }
 
     #[inline]
-    /// Convert `Id<'a>` to `Id<'static>`
-    pub fn into_owned(self) -> Id<'static> {
-        match self {
-            Id::Null => Id::Null,
-            Id::Num(u) => Id::Num(u),
-            Id::Str(s) => Id::Str(Cow::Owned(s.into_owned())),
-        }
-    }
-
-    #[inline]
     /// Extract the underlying number from the [`Id`].
     pub fn try_parse_num(&self) -> Option<u64> {
         match self {
-            Id::Null => None,
-            Id::Num(num) => Some(*num),
-            Id::Str(s) => s.parse().ok(),
+            Self::Null => None,
+            Self::Num(num) => Some(*num),
+            Self::Str(s) => s.parse().ok(),
         }
     }
-}
 
-impl Id<'static> {
     /// TODO
-    fn from_string(s: String) -> Id<'static> {
+    fn from_string(s: String) -> Self {
         if let Ok(u) = s.parse::<u64>() {
             return Self::Num(u);
         }
@@ -80,7 +67,7 @@ impl Id<'static> {
     }
 }
 
-impl std::str::FromStr for Id<'static> {
+impl std::str::FromStr for Id {
     type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, std::convert::Infallible> {
@@ -88,13 +75,13 @@ impl std::str::FromStr for Id<'static> {
     }
 }
 
-impl From<String> for Id<'static> {
+impl From<String> for Id {
     fn from(s: String) -> Self {
         Self::from_string(s)
     }
 }
 
-impl From<&str> for Id<'static> {
+impl From<&str> for Id {
     fn from(s: &str) -> Self {
         Self::from_string(s.to_string())
     }
@@ -104,12 +91,12 @@ impl From<&str> for Id<'static> {
 macro_rules! impl_u {
 	($($u:ty),*) => {
 		$(
-			impl From<$u> for Id<'static> {
+			impl From<$u> for Id {
 				fn from(u: $u) -> Self {
 					Self::Num(u as u64)
 				}
 			}
-			impl From<&$u> for Id<'static> {
+			impl From<&$u> for Id {
 				fn from(u: &$u) -> Self {
 					Self::Num(*u as u64)
 				}
