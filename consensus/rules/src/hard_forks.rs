@@ -163,6 +163,7 @@ impl HardFork {
     /// Returns the hard-fork for a blocks `major_version` field.
     ///
     /// <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
+    #[inline]
     pub fn from_version(version: u8) -> Result<HardFork, HardForkError> {
         Ok(match version {
             1 => HardFork::V1,
@@ -188,6 +189,7 @@ impl HardFork {
     /// Returns the hard-fork for a blocks `minor_version` (vote) field.
     ///
     /// <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
+    #[inline]
     pub fn from_vote(vote: u8) -> HardFork {
         if vote == 0 {
             // A vote of 0 is interpreted as 1 as that's what Monero used to default to.
@@ -197,6 +199,7 @@ impl HardFork {
         Self::from_version(vote).unwrap_or(HardFork::V16)
     }
 
+    #[inline]
     pub fn from_block_header(header: &BlockHeader) -> Result<(HardFork, HardFork), HardForkError> {
         Ok((
             HardFork::from_version(header.major_version)?,

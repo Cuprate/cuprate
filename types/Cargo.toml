@@ -9,14 +9,11 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
 keywords    = ["cuprate", "types"]
 
 [features]
-default = ["service"]
-service = []
+default = ["blockchain"]
+blockchain = []
 
 [dependencies]
-borsh            = { workspace = true, optional = true }
-cfg-if           = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
-serde            = { workspace = true, optional = true }
 
 [dev-dependencies]

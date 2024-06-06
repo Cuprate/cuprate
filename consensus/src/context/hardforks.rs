@@ -3,11 +3,14 @@ use std::ops::Range;
 use tower::ServiceExt;
 use tracing::instrument;
 
-use monero_consensus::{HFVotes, HFsInfo, HardFork};
+use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
-use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
+use crate::{Database, ExtendedConsensusError};
 
-// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
+/// The default amount of hard-fork votes to track to decide on activation of a hard-fork.
+///
+/// ref: <https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork>
 const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a week
 
 /// Configuration for hard-forks.
@@ -21,6 +24,7 @@ pub struct HardForkConfig {
 }
 
 impl HardForkConfig {
+    /// Config for main-net.
     pub const fn main_net() -> HardForkConfig {
         Self {
             info: HFsInfo::main_net(),
@@ -28,6 +32,7 @@ impl HardForkConfig {
         }
     }
 
+    /// Config for stage-net.
     pub const fn stage_net() -> HardForkConfig {
         Self {
             info: HFsInfo::stage_net(),
@@ -35,6 +40,7 @@ impl HardForkConfig {
         }
     }
 
+    /// Config for test-net.
     pub const fn test_net() -> HardForkConfig {
         Self {
             info: HFsInfo::test_net(),
@@ -46,15 +52,20 @@ impl HardForkConfig {
 /// A struct that keeps track of the current hard-fork and current votes.
 #[derive(Debug, Clone)]
 pub struct HardForkState {
+    /// The current active hard-fork.
     pub(crate) current_hardfork: HardFork,
 
+    /// The hard-fork config.
     pub(crate) config: HardForkConfig,
+    /// The votes in the current window.
     pub(crate) votes: HFVotes,
 
+    /// The last block height accounted for.
     pub(crate) last_height: u64,
 }
 
 impl HardForkState {
+    /// Initialize the [`HardForkState`] from the specified chain height.
     #[instrument(name = "init_hardfork_state", skip(config, database), level = "info")]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: u64,
@@ -76,16 +87,17 @@ impl HardForkState {
             debug_assert_eq!(votes.total_votes(), config.window)
         }
 
-        let DatabaseResponse::BlockExtendedHeader(ext_header) = database
+        let BCResponse::BlockExtendedHeader(ext_header) = database
             .ready()
             .await?
-            .call(DatabaseRequest::BlockExtendedHeader(chain_height - 1))
+            .call(BCReadRequest::BlockExtendedHeader(chain_height - 1))
             .await?
         else {
             panic!("Database sent incorrect response!");
         };
 
-        let current_hardfork = ext_header.version;
+        let current_hardfork =
+            HardFork::from_version(ext_header.version).expect("Stored block has invalid hardfork");
 
         let mut hfs = HardForkState {
             config,
@@ -105,7 +117,10 @@ impl HardForkState {
         Ok(hfs)
     }
 
+    /// Add a new block to the cache.
     pub fn new_block(&mut self, vote: HardFork, height: u64) {
+        // We don't _need_ to take in `height` but it's for safety, so we don't silently loose track
+        // of blocks.
         assert_eq!(self.last_height + 1, height);
         self.last_height += 1;
 
@@ -115,6 +130,7 @@ impl HardForkState {
             vote
         );
 
+        // This function remove votes outside the window as well.
         self.votes.add_vote_for_hf(&vote);
 
         if height > self.config.window {
@@ -136,11 +152,13 @@ impl HardForkState {
         );
     }
 
+    /// Returns the current hard-fork.
     pub fn current_hardfork(&self) -> HardFork {
         self.current_hardfork
     }
 }
 
+/// Returns the block votes for blocks in the specified range.
 #[instrument(name = "get_votes", skip(database))]
 async fn get_votes_in_range<D: Database>(
     database: D,
@@ -149,15 +167,15 @@ async fn get_votes_in_range<D: Database>(
 ) -> Result<HFVotes, ExtendedConsensusError> {
     let mut votes = HFVotes::new(window_size);
 
-    let DatabaseResponse::BlockExtendedHeaderInRange(vote_list) = database
-        .oneshot(DatabaseRequest::BlockExtendedHeaderInRange(block_heights))
+    let BCResponse::BlockExtendedHeaderInRange(vote_list) = database
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(block_heights))
         .await?
     else {
         panic!("Database sent incorrect response!");
     };
 
     for hf_info in vote_list.into_iter() {
-        votes.add_vote_for_hf(&hf_info.vote);
+        votes.add_vote_for_hf(&HardFork::from_vote(hf_info.vote));
     }
 
     Ok(votes)

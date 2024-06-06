@@ -19,10 +19,10 @@
 //! The free functions provide access to typed data found in `cuprate_types`:
 //! ```rust
 //! # use cuprate_test_utils::data::*;
-//! use cuprate_types::{VerifiedBlockInformation, TransactionVerificationData};
+//! use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 //!
 //! let block: VerifiedBlockInformation = block_v16_tx0().clone();
-//! let tx: TransactionVerificationData = tx_v1_sig0().clone();
+//! let tx: VerifiedTransactionInformation = tx_v1_sig0().clone();
 //! ```
 
 mod constants;

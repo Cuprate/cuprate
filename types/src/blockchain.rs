@@ -1,10 +1,7 @@
-//! Database [`ReadRequest`]s, [`WriteRequest`]s, and [`Response`]s.
-//!
-//! See [`cuprate_database`](https://github.com/Cuprate/cuprate/blob/00c3692eac6b2669e74cfd8c9b41c7e704c779ad/database/src/service/mod.rs#L1-L59)'s
-//! `service` module for more usage/documentation.
+//! Database [`BCReadRequest`]s, [`BCWriteRequest`]s, and [`BCResponse`]s.
 //!
 //! Tests that assert particular requests lead to particular
-//! responses are also tested in `cuprate_database`.
+//! responses are also tested in Cuprate's blockchain database crate.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
@@ -20,18 +17,16 @@ use serde::{Deserialize, Serialize};
 use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
-/// A read request to the database.
+/// A read request to the blockchain database.
 ///
-/// This pairs with [`Response`], where each variant here
-/// matches in name with a `Response` variant. For example,
-/// the proper response for a [`ReadRequest::BlockHash`]
-/// would be a [`Response::BlockHash`].
+/// This pairs with [`BCResponse`], where each variant here
+/// matches in name with a [`BCResponse`] variant. For example,
+/// the proper response for a [`BCReadRequest::BlockHash`]
+/// would be a [`BCResponse::BlockHash`].
 ///
 /// See `Response` for the expected responses per `Request`.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-pub enum ReadRequest {
+pub enum BCReadRequest {
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -41,6 +36,11 @@ pub enum ReadRequest {
     ///
     /// The input is the block's height.
     BlockHash(u64),
+
+    /// Removes the block hashes that are not in the _main_ chain.
+    ///
+    /// This should filter (remove) hashes in alt-blocks as well.
+    FilterUnknownHashes(HashSet<[u8; 32]>),
 
     /// Request a range of block extended headers.
     ///
@@ -86,18 +86,17 @@ pub enum ReadRequest {
     /// Check that all key images within a set arer not spent.
     ///
     /// Input is a set of key images.
-    CheckKIsNotSpent(HashSet<[u8; 32]>),
+    KeyImagesSpent(HashSet<[u8; 32]>),
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
-/// A write request to the database.
+/// A write request to the blockchain database.
 ///
 /// There is currently only 1 write request to the database,
-/// as such, the only valid [`Response`] to this request is
-/// the proper response for a [`Response::WriteBlockOk`].
+/// as such, the only valid [`BCResponse`] to this request is
+/// the proper response for a [`BCResponse::WriteBlockOk`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-// #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-pub enum WriteRequest {
+pub enum BCWriteRequest {
     /// Request that a block be written to the database.
     ///
     /// Input is an already verified block.
@@ -109,60 +108,64 @@ pub enum WriteRequest {
 ///
 /// These are the data types returned when using sending a `Request`.
 ///
-/// This pairs with [`ReadRequest`] and [`WriteRequest`],
+/// This pairs with [`BCReadRequest`] and [`BCWriteRequest`],
 /// see those two for more info.
 #[derive(Debug, Clone, PartialEq, Eq)]
-// #[cfg_attr(feature = "borsh", derive(BorshSerialize, BorshDeserialize))]
-pub enum Response {
+pub enum BCResponse {
     //------------------------------------------------------ Reads
-    /// Response to [`ReadRequest::BlockExtendedHeader`].
+    /// Response to [`BCReadRequest::BlockExtendedHeader`].
     ///
     /// Inner value is the extended headed of the requested block.
     BlockExtendedHeader(ExtendedBlockHeader),
 
-    /// Response to [`ReadRequest::BlockHash`].
+    /// Response to [`BCReadRequest::BlockHash`].
     ///
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
 
-    /// Response to [`ReadRequest::BlockExtendedHeaderInRange`].
+    /// Response to [`BCReadRequest::FilterUnknownHashes`].
+    ///
+    /// Inner value is the list of hashes that were in the main chain.
+    FilterUnknownHashes(HashSet<[u8; 32]>),
+
+    /// Response to [`BCReadRequest::BlockExtendedHeaderInRange`].
     ///
     /// Inner value is the list of extended header(s) of the requested block(s).
     BlockExtendedHeaderInRange(Vec<ExtendedBlockHeader>),
 
-    /// Response to [`ReadRequest::ChainHeight`].
+    /// Response to [`BCReadRequest::ChainHeight`].
     ///
     /// Inner value is the chain height, and the top block's hash.
     ChainHeight(u64, [u8; 32]),
 
-    /// Response to [`ReadRequest::GeneratedCoins`].
+    /// Response to [`BCReadRequest::GeneratedCoins`].
     ///
     /// Inner value is the total amount of generated coins so far, in atomic units.
     GeneratedCoins(u64),
 
-    /// Response to [`ReadRequest::Outputs`].
+    /// Response to [`BCReadRequest::Outputs`].
     ///
     /// Inner value is all the outputs requested,
     /// associated with their amount and amount index.
     Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
 
-    /// Response to [`ReadRequest::NumberOutputsWithAmount`].
+    /// Response to [`BCReadRequest::NumberOutputsWithAmount`].
     ///
     /// Inner value is a `HashMap` of all the outputs requested where:
     /// - Key = output amount
     /// - Value = count of outputs with the same amount
     NumberOutputsWithAmount(HashMap<u64, usize>),
 
-    /// Response to [`ReadRequest::CheckKIsNotSpent`].
+    /// Response to [`BCReadRequest::KeyImagesSpent`].
     ///
     /// The inner value is `true` if _any_ of the key images
-    /// were spent (exited in the database already).
+    /// were spent (existed in the database already).
     ///
     /// The inner value is `false` if _none_ of the key images were spent.
-    CheckKIsNotSpent(bool),
+    KeyImagesSpent(bool),
 
     //------------------------------------------------------ Writes
-    /// Response to [`WriteRequest::WriteBlock`].
+    /// Response to [`BCWriteRequest::WriteBlock`].
     ///
     /// This response indicates that the requested block has
     /// successfully been written to the database without error.

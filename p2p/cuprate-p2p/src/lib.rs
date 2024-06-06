@@ -1,12 +1,7 @@
 //! Cuprate's P2P Crate.
 //!
-//! This crate contains a [`ClientPool`](client_pool::ClientPool) which holds connected peers on a single [`NetworkZone`](monero_p2p::NetworkZone).
-//!
-//! This crate also contains the different routing methods that control how messages should be sent, i.e. broadcast to all,
-//! or send to a single peer.
-//!
-#![allow(dead_code)]
-
+//! This crate contains a [`NetworkInterface`] which allows interacting with the Monero P2P network on
+//! a certain [`NetworkZone`]
 use std::sync::Arc;
 
 use futures::FutureExt;
@@ -25,7 +20,6 @@ use monero_p2p::{
     CoreSyncSvc, NetworkZone, PeerRequestHandler,
 };
 
-pub mod block_downloader;
 mod broadcast;
 mod client_pool;
 pub mod config;

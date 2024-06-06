@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crypto_bigint::{CheckedMul, U256};
 use monero_serai::block::Block;
 
@@ -196,12 +198,13 @@ fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockErro
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#no-duplicate-transactions>
 fn check_txs_unique(txs: &[[u8; 32]]) -> Result<(), BlockError> {
-    txs.windows(2).try_for_each(|window| {
-        if window[0] == window[1] {
-            Err(BlockError::DuplicateTransaction)?;
-        }
+    let set = txs.iter().collect::<HashSet<_>>();
+
+    if set.len() == txs.len() {
         Ok(())
-    })
+    } else {
+        Err(BlockError::DuplicateTransaction)
+    }
 }
 
 /// This struct contains the data needed to verify a block, implementers MUST make sure
@@ -274,4 +277,29 @@ pub fn check_block(
     )?;
 
     Ok((vote, generated_coins))
+}
+
+#[cfg(test)]
+mod tests {
+    use proptest::{collection::vec, prelude::*};
+
+    use super::*;
+
+    proptest! {
+        #[test]
+        fn test_check_unique_txs(
+            mut txs in vec(any::<[u8; 32]>(), 2..3000),
+            duplicate in any::<[u8; 32]>(),
+            dup_idx_1 in any::<usize>(),
+            dup_idx_2 in any::<usize>(),
+        ) {
+
+            prop_assert!(check_txs_unique(&txs).is_ok());
+
+            txs.insert(dup_idx_1 % txs.len(), duplicate);
+            txs.insert(dup_idx_2 % txs.len(), duplicate);
+
+            prop_assert!(check_txs_unique(&txs).is_err());
+        }
+    }
 }

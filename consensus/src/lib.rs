@@ -1,65 +1,59 @@
-use std::{
-    collections::{HashMap, HashSet},
-    future::Future,
-};
-
-use monero_consensus::{transactions::OutputOnChain, ConsensusError, HardFork};
+//! Cuprate Consensus
+//!
+//! This crate contains 3 [`tower::Service`]s that implement Monero's consensus rules:
+//!
+//! - [`BlockChainContextService`] Which handles keeping the current state of the blockchain.
+//! - [`BlockVerifierService`] Which handles block verification.
+//! - [`TxVerifierService`] Which handles transaction verification.
+//!
+//! This crate is generic over the database which is implemented as a [`tower::Service`]. To
+//! implement a database you need to have a service which accepts [`BCReadRequest`] and responds
+//! with [`BCResponse`].
+//!
+use cuprate_consensus_rules::{ConsensusError, HardFork};
 
 mod batch_verifier;
 pub mod block;
 pub mod context;
-pub mod randomx;
-#[cfg(feature = "binaries")]
-pub mod rpc;
 #[cfg(test)]
 mod tests;
 pub mod transactions;
 
-pub use block::{
-    PrePreparedBlock, VerifiedBlockInformation, VerifyBlockRequest, VerifyBlockResponse,
-};
+pub use block::{BlockVerifierService, VerifyBlockRequest, VerifyBlockResponse};
 pub use context::{
     initialize_blockchain_context, BlockChainContext, BlockChainContextRequest,
-    BlockChainContextResponse, ContextConfig,
+    BlockChainContextResponse, BlockChainContextService, ContextConfig,
 };
-pub use transactions::{VerifyTxRequest, VerifyTxResponse};
+pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
+// re-export.
+pub use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+
+/// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]
 pub enum ExtendedConsensusError {
+    /// A consensus error.
     #[error("{0}")]
-    ConErr(#[from] monero_consensus::ConsensusError),
+    ConErr(#[from] ConsensusError),
+    /// A database error.
     #[error("Database error: {0}")]
     DBErr(#[from] tower::BoxError),
+    /// The transactions passed in with this block were not the ones needed.
     #[error("The transactions passed in with the block are incorrect.")]
     TxsIncludedWithBlockIncorrect,
+    /// One or more statements in the batch verifier was invalid.
+    #[error("One or more statements in the batch verifier was invalid.")]
+    OneOrMoreBatchVerificationStatementsInvalid,
 }
 
-// TODO: instead of (ab)using generic returns return the acc type
+/// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
 pub async fn initialize_verifier<D, Ctx>(
     database: D,
     ctx_svc: Ctx,
 ) -> Result<
     (
-        impl tower::Service<
-                VerifyBlockRequest,
-                Response = VerifyBlockResponse,
-                Error = ExtendedConsensusError,
-                Future = impl Future<Output = Result<VerifyBlockResponse, ExtendedConsensusError>>
-                             + Send
-                             + 'static,
-            > + Clone
-            + Send
-            + 'static,
-        impl tower::Service<
-                VerifyTxRequest,
-                Response = VerifyTxResponse,
-                Error = ExtendedConsensusError,
-                Future = impl Future<Output = Result<VerifyTxResponse, ExtendedConsensusError>>
-                             + Send
-                             + 'static,
-            > + Clone
-            + Send
-            + 'static,
+        BlockVerifierService<Ctx, TxVerifierService<D>, D>,
+        TxVerifierService<D>,
     ),
     ConsensusError,
 >
@@ -76,73 +70,41 @@ where
         + 'static,
     Ctx::Future: Send + 'static,
 {
-    let tx_svc = transactions::TxVerifierService::new(database.clone());
-    let block_svc = block::BlockVerifierService::new(ctx_svc, tx_svc.clone(), database);
+    let tx_svc = TxVerifierService::new(database.clone());
+    let block_svc = BlockVerifierService::new(ctx_svc, tx_svc.clone(), database);
     Ok((block_svc, tx_svc))
 }
 
-pub trait Database:
-    tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tower::BoxError>
-{
-}
+use __private::Database;
 
-impl<T: tower::Service<DatabaseRequest, Response = DatabaseResponse, Error = tower::BoxError>>
-    Database for T
-{
-}
+pub mod __private {
+    use std::future::Future;
 
-#[derive(Debug, Copy, Clone)]
-pub struct ExtendedBlockHeader {
-    pub version: HardFork,
-    pub vote: HardFork,
+    use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
-    pub timestamp: u64,
-    pub cumulative_difficulty: u128,
+    /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
+    /// everywhere.
+    ///
+    /// Automatically implemented for:
+    /// ```ignore
+    /// tower::Service<BCReadRequest, Response = BCResponse, Error = tower::BoxError>
+    /// ```
+    pub trait Database:
+        tower::Service<
+        BCReadRequest,
+        Response = BCResponse,
+        Error = tower::BoxError,
+        Future = Self::Future2,
+    >
+    {
+        type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
+    }
 
-    pub block_weight: usize,
-    pub long_term_weight: usize,
-}
-
-#[derive(Debug, Clone)]
-pub enum DatabaseRequest {
-    BlockExtendedHeader(u64),
-    BlockHash(u64),
-
-    BlockExtendedHeaderInRange(std::ops::Range<u64>),
-
-    ChainHeight,
-    GeneratedCoins,
-
-    Outputs(HashMap<u64, HashSet<u64>>),
-    NumberOutputsWithAmount(Vec<u64>),
-
-    CheckKIsNotSpent(HashSet<[u8; 32]>),
-
-    #[cfg(feature = "binaries")]
-    BlockBatchInRange(std::ops::Range<u64>),
-}
-
-#[derive(Debug)]
-pub enum DatabaseResponse {
-    BlockExtendedHeader(ExtendedBlockHeader),
-    BlockHash([u8; 32]),
-
-    BlockExtendedHeaderInRange(Vec<ExtendedBlockHeader>),
-
-    ChainHeight(u64, [u8; 32]),
-    GeneratedCoins(u64),
-
-    Outputs(HashMap<u64, HashMap<u64, OutputOnChain>>),
-    NumberOutputsWithAmount(HashMap<u64, usize>),
-
-    /// returns true if key images are spent
-    CheckKIsNotSpent(bool),
-
-    #[cfg(feature = "binaries")]
-    BlockBatchInRange(
-        Vec<(
-            monero_serai::block::Block,
-            Vec<monero_serai::transaction::Transaction>,
-        )>,
-    ),
+    impl<T: tower::Service<BCReadRequest, Response = BCResponse, Error = tower::BoxError>>
+        crate::Database for T
+    where
+        T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+    {
+        type Future2 = T::Future;
+    }
 }
