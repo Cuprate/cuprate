@@ -17,14 +17,6 @@ impl MultiThreadedBatchVerifier {
         }
     }
 
-    pub fn queue_worker(&self) -> QueueWorker<'_> {
-        let verifier = self
-            .internal
-            .get_or(|| RefCell::new(InternalBatchVerifier::new(8)));
-
-        QueueWorker { verifier }
-    }
-
     pub fn verify(self) -> bool {
         self.internal
             .into_iter()
@@ -35,16 +27,16 @@ impl MultiThreadedBatchVerifier {
     }
 }
 
-pub struct QueueWorker<'a> {
-    verifier: &'a RefCell<InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>>,
-}
-
-impl<'a> cuprate_consensus_rules::batch_verifier::BatchVerifier for QueueWorker<'a> {
+impl<'a> cuprate_consensus_rules::batch_verifier::BatchVerifier for &'a MultiThreadedBatchVerifier {
     fn queue_statement<R>(
         &mut self,
         stmt: impl FnOnce(&mut InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>) -> R,
     ) -> R {
-        let mut verifier = self.verifier.borrow_mut();
+        let mut verifier = self
+            .internal
+            .get_or(|| RefCell::new(InternalBatchVerifier::new(32)))
+            .borrow_mut();
+
         stmt(verifier.deref_mut())
     }
 }

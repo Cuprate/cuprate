@@ -491,15 +491,13 @@ where
             .try_for_each(|((tx, verification_needed), ring)| {
                 // do semantic validation if needed.
                 if *verification_needed == VerificationNeeded::SemanticAndContextual {
-                    let queue_worker = batch_verifier.queue_worker();
-
                     let fee = check_transaction_semantic(
                         &tx.tx,
                         tx.tx_blob.len(),
                         tx.tx_weight,
                         &tx.tx_hash,
                         &hf,
-                        queue_worker,
+                        &batch_verifier,
                     )?;
                     // make sure monero-serai calculated the same fee.
                     assert_eq!(fee, tx.fee);
