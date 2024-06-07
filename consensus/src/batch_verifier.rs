@@ -27,7 +27,7 @@ impl MultiThreadedBatchVerifier {
     }
 }
 
-impl<'a> cuprate_consensus_rules::batch_verifier::BatchVerifier for &'a MultiThreadedBatchVerifier {
+impl cuprate_consensus_rules::batch_verifier::BatchVerifier for &'_ MultiThreadedBatchVerifier {
     fn queue_statement<R>(
         &mut self,
         stmt: impl FnOnce(&mut InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>) -> R,
