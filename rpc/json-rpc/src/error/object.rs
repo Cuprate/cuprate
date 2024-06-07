@@ -1,153 +1,239 @@
-//! TODO
+//! Error object.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::borrow::Cow;
+use std::{borrow::Cow, error::Error, fmt::Display};
 
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
 
 use crate::error::{
-    constants::{INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR},
+    constants::{
+        INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR,
+        SERVER_ERROR,
+    },
     ErrorCode,
 };
 
 //---------------------------------------------------------------------------------------------------- ErrorObject
-/// [Error object](https://www.jsonrpc.org/specification).
+/// [The error object](https://www.jsonrpc.org/specification).
+///
+/// This is the object sent back in a [`Response`](crate::Response)
+/// if the method call errored.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ErrorObject {
-    /// [`ErrorCode`]
+    /// The error code.
     pub code: ErrorCode,
 
-    /// Message
+    /// A custom message for this error, distinct from [`ErrorCode::msg`].
+    ///
+    /// A JSON `string` value.
+    ///
+    /// This is a `Cow<'static, str>` to support both 0-allocation for
+    /// `const` string ID's commonly found in programs, as well as support
+    /// for runtime [`String`]'s.
     pub message: Cow<'static, str>,
 
-    /// Optional data
-    pub data: Value,
+    /// Optional data associated with the error.
+    ///
+    /// # `None` vs `Some(Value::Null)`
+    /// This field will be completely omitted during serialization if [`None`],
+    /// however if it is `Some(Value::Null)`, it will be serialized as `"data": null`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<Value>,
 }
 
 impl ErrorObject {
     #[inline]
-    /// Creates new error, deriving message from the code.
+    /// Creates a new error, deriving the message from the code.
+    ///
+    /// Same as `ErrorObject::from(ErrorCode)`.
+    ///
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    ///
+    /// for code in [
+    ///     ErrorCode::ParseError,
+    ///     ErrorCode::InvalidRequest,
+    ///     ErrorCode::MethodNotFound,
+    ///     ErrorCode::InvalidParams,
+    ///     ErrorCode::InternalError,
+    ///     ErrorCode::ServerError(0),
+    /// ] {
+    ///     let object = ErrorObject::from_code(code);
+    ///     assert_eq!(object, ErrorObject {
+    ///         code,
+    ///         message: Cow::Borrowed(code.msg()),
+    ///         data: None,
+    ///     });
+    ///
+    /// }
+    /// ```
     pub const fn from_code(code: ErrorCode) -> Self {
         Self {
             code,
             message: Cow::Borrowed(code.msg()),
-            data: Value::Null,
+            data: None,
         }
     }
 
-    /// [`PARSE_ERROR`]
+    /// Creates a new error using [`PARSE_ERROR`].
+    ///
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    ///
+    /// let code = ErrorCode::ParseError;
+    /// let object = ErrorObject::parse_error();
+    /// assert_eq!(object, ErrorObject {
+    ///     code,
+    ///     message: Cow::Borrowed(code.msg()),
+    ///     data: None,
+    /// });
+    /// ```
     pub const fn parse_error() -> Self {
         Self {
-            code: ErrorCode::ServerError(PARSE_ERROR.0),
+            code: ErrorCode::ParseError,
             message: Cow::Borrowed(PARSE_ERROR.1),
-            data: Value::Null,
+            data: None,
         }
     }
 
-    /// [`INVALID_REQUEST`]
+    /// Creates a new error using [`INVALID_REQUEST`].
+    ///
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    ///
+    /// let code = ErrorCode::InvalidRequest;
+    /// let object = ErrorObject::invalid_request();
+    /// assert_eq!(object, ErrorObject {
+    ///     code,
+    ///     message: Cow::Borrowed(code.msg()),
+    ///     data: None,
+    /// });
+    /// ```
     pub const fn invalid_request() -> Self {
         Self {
-            code: ErrorCode::ServerError(INVALID_REQUEST.0),
+            code: ErrorCode::InvalidRequest,
             message: Cow::Borrowed(INVALID_REQUEST.1),
-            data: Value::Null,
+            data: None,
         }
     }
 
-    /// [`METHOD_NOT_FOUND`]
+    /// Creates a new error using [`METHOD_NOT_FOUND`].
+    ///
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    ///
+    /// let code = ErrorCode::MethodNotFound;
+    /// let object = ErrorObject::method_not_found();
+    /// assert_eq!(object, ErrorObject {
+    ///     code,
+    ///     message: Cow::Borrowed(code.msg()),
+    ///     data: None,
+    /// });
+    /// ```
     pub const fn method_not_found() -> Self {
         Self {
-            code: ErrorCode::ServerError(METHOD_NOT_FOUND.0),
+            code: ErrorCode::MethodNotFound,
             message: Cow::Borrowed(METHOD_NOT_FOUND.1),
-            data: Value::Null,
+            data: None,
         }
     }
 
-    /// [`INVALID_PARAMS`]
+    /// Creates a new error using [`INVALID_PARAMS`].
+    ///
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    ///
+    /// let code = ErrorCode::InvalidParams;
+    /// let object = ErrorObject::invalid_params();
+    /// assert_eq!(object, ErrorObject {
+    ///     code,
+    ///     message: Cow::Borrowed(code.msg()),
+    ///     data: None,
+    /// });
+    /// ```
     pub const fn invalid_params() -> Self {
         Self {
-            code: ErrorCode::ServerError(INVALID_PARAMS.0),
+            code: ErrorCode::InvalidParams,
             message: Cow::Borrowed(INVALID_PARAMS.1),
-            data: Value::Null,
+            data: None,
         }
     }
 
-    /// [`INTERNAL_ERROR`]
+    /// Creates a new error using [`INTERNAL_ERROR`].
+    ///
+    ///
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    ///
+    /// let code = ErrorCode::InternalError;
+    /// let object = ErrorObject::internal_error();
+    /// assert_eq!(object, ErrorObject {
+    ///     code,
+    ///     message: Cow::Borrowed(code.msg()),
+    ///     data: None,
+    /// });
+    /// ```
     pub const fn internal_error() -> Self {
         Self {
-            code: ErrorCode::ServerError(INTERNAL_ERROR.0),
+            code: ErrorCode::InternalError,
             message: Cow::Borrowed(INTERNAL_ERROR.1),
-            data: Value::Null,
+            data: None,
         }
     }
 
-    // /// [`UNKNOWN_ERROR`]
-    // pub const fn unknown_error() -> Self {
-    //     Self {
-    //         code: ErrorCode::ServerError(UNKNOWN_ERROR.0),
-    //         message: Cow::Borrowed(UNKNOWN_ERROR.1),
-    //         data: None,
-    //     }
-    // }
-
-    // /// [`BATCH_NOT_SUPPORTED`]
-    // pub const fn batch_not_supported() -> Self {
-    //     Self {
-    //         code: ErrorCode::ServerError(BATCH_NOT_SUPPORTED.0),
-    //         message: Cow::Borrowed(BATCH_NOT_SUPPORTED.1),
-    //         data: None,
-    //     }
-    // }
-
-    // /// [`OVERSIZED_REQUEST`]
-    // pub const fn oversized_request() -> Self {
-    //     Self {
-    //         code: ErrorCode::ServerError(OVERSIZED_REQUEST.0),
-    //         message: Cow::Borrowed(OVERSIZED_REQUEST.1),
-    //         data: None,
-    //     }
-    // }
-
-    // /// [`OVERSIZED_RESPONSE`]
-    // pub const fn oversized_response() -> Self {
-    //     Self {
-    //         code: ErrorCode::ServerError(OVERSIZED_RESPONSE.0),
-    //         message: Cow::Borrowed(OVERSIZED_RESPONSE.1),
-    //         data: None,
-    //     }
-    // }
-
-    // /// [`OVERSIZED_BATCH_REQUEST`]
-    // pub const fn oversized_batch_request() -> Self {
-    //     Self {
-    //         code: ErrorCode::ServerError(OVERSIZED_BATCH_REQUEST.0),
-    //         message: Cow::Borrowed(OVERSIZED_BATCH_REQUEST.1),
-    //         data: None,
-    //     }
-    // }
-
-    // /// [`OVERSIZED_BATCH_RESPONSE`]
-    // pub const fn oversized_batch_response() -> Self {
-    //     Self {
-    //         code: ErrorCode::ServerError(OVERSIZED_BATCH_RESPONSE.0),
-    //         message: Cow::Borrowed(OVERSIZED_BATCH_RESPONSE.1),
-    //         data: None,
-    //     }
-    // }
-
-    // /// [`SERVER_IS_BUSY`]
-    // pub const fn server_is_busy() -> Self {
-    //     Self {
-    //         code: ErrorCode::ServerError(SERVER_IS_BUSY.0),
-    //         message: Cow::Borrowed(SERVER_IS_BUSY.1),
-    //         data: None,
-    //     }
-    // }
+    /// Creates a new error using [`SERVER_ERROR`].
+    ///
+    /// You must provide the custom [`i32`] error code.
+    ///
+    /// ```rust
+    /// use std::borrow::Cow;
+    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    ///
+    /// let code = ErrorCode::ServerError(0);
+    /// let object = ErrorObject::server_error(0);
+    /// assert_eq!(object, ErrorObject {
+    ///     code,
+    ///     message: Cow::Borrowed(code.msg()),
+    ///     data: None,
+    /// });
+    /// ```
+    pub const fn server_error(error_code: i32) -> Self {
+        Self {
+            code: ErrorCode::ServerError(error_code),
+            message: Cow::Borrowed(SERVER_ERROR),
+            data: None,
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
 impl From<ErrorCode> for ErrorObject {
     fn from(code: ErrorCode) -> Self {
         Self::from_code(code)
+    }
+}
+
+impl Display for ErrorObject {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Using `self.code`'s formatting will write the
+        // message twice, so prefer the built-in message.
+        write!(f, "{}: {}", self.code.code(), self.message)
+    }
+}
+
+impl Error for ErrorObject {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.code)
+    }
+
+    fn description(&self) -> &str {
+        &self.message
     }
 }

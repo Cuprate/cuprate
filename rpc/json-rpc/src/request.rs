@@ -20,7 +20,7 @@ pub struct Request<T> {
     /// If it is not included it is assumed to be a
     /// [notification](https://www.jsonrpc.org/specification#notification).
     ///
-    /// # `None` vs `Some(Id::Null)`
+    /// ### `None` vs `Some(Id::Null)`
     /// This field will be completely omitted during serialization if [`None`],
     /// however if it is `Some(Id::Null)`, it will be serialized as `"id": null`.
     ///
@@ -38,7 +38,7 @@ pub struct Request<T> {
     /// As mentioned in the library documentation, there are no `method/params` fields in [`Request`],
     /// they are both merged in this `body` field which is `#[serde(flatten)]`ed.
     ///
-    /// # Invariant
+    /// ### Invariant
     /// Your `T` must serialize as `method` and `params` to comply with the specification.
     pub body: T,
 }

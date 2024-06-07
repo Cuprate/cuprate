@@ -17,7 +17,7 @@ pub struct Response<T> {
 
     /// This field must always be present in serialized JSON.
     ///
-    /// # JSON-RPC 2.0 rules
+    /// ### JSON-RPC 2.0 rules
     /// - The [`Response`]'s ID must be the same as the [`Request`](crate::Request)
     /// - If the `Request` omitted the `id` field, there should be no `Response`
     /// - If there was an error in detecting the `Request`'s ID, the `Response` must contain an [`Id::Null`]
@@ -25,7 +25,7 @@ pub struct Response<T> {
 
     /// The response payload.
     ///
-    /// # JSON-RPC 2.0 rules
+    /// ### JSON-RPC 2.0 rules
     /// - This must be [`Ok`] upon success
     /// - This must be [`Err`] upon error
     /// - This can be any (de)serializable data `T` on success
@@ -61,7 +61,7 @@ impl<T> Response<T> {
     /// let err = ErrorObject {
     ///     code: 0.into(),
     ///     message: "m".into(),
-    ///     data: "d".into(),
+    ///     data: Some("d".into()),
     /// };
     ///
     /// let ok = Response::<()>::err(Id::Num(123), err);
@@ -84,7 +84,7 @@ impl<T> Response<T> {
     ///
     /// let ok = Response::<()>::parse_error(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
-    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32700,"message":"Parse error","data":null}}"#);
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32700,"message":"Parse error"}}"#);
     /// ```
     pub const fn parse_error(id: Id) -> Self {
         Self {
@@ -102,7 +102,7 @@ impl<T> Response<T> {
     ///
     /// let ok = Response::<()>::invalid_request(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
-    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32600,"message":"Invalid Request","data":null}}"#);
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32600,"message":"Invalid Request"}}"#);
     /// ```
     pub const fn invalid_request(id: Id) -> Self {
         Self {
@@ -120,7 +120,7 @@ impl<T> Response<T> {
     ///
     /// let ok = Response::<()>::method_not_found(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
-    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32601,"message":"Method not found","data":null}}"#);
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32601,"message":"Method not found"}}"#);
     /// ```
     pub const fn method_not_found(id: Id) -> Self {
         Self {
@@ -138,7 +138,7 @@ impl<T> Response<T> {
     ///
     /// let ok = Response::<()>::invalid_params(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
-    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32602,"message":"Invalid params","data":null}}"#);
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32602,"message":"Invalid params"}}"#);
     /// ```
     pub const fn invalid_params(id: Id) -> Self {
         Self {
@@ -156,7 +156,7 @@ impl<T> Response<T> {
     ///
     /// let ok = Response::<()>::internal_error(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
-    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32603,"message":"Internal error","data":null}}"#);
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32603,"message":"Internal error"}}"#);
     /// ```
     pub const fn internal_error(id: Id) -> Self {
         Self {

@@ -10,6 +10,14 @@
 //!
 //! This crate expects you to read the brief JSON-RPC 2.0 specification for context.
 //!
+//! ## Batching
+//! This crate does not have any types for [JSON-RPC 2.0 batching](https://www.jsonrpc.org/specification#batch).
+//!
+//! This is because `monerod` does not support this,
+//! as such, neither does Cuprate.
+//!
+//! TODO: citation needed on `monerod` not supporting batching.
+//!
 //! ## Response changes
 //! [JSON-RPC 2.0's `Response` object](https://www.jsonrpc.org/specification#response_object) usually contains these 2 fields:
 //! - `method`
@@ -65,14 +73,6 @@
 //! This is how the method/param types are done in Cuprate.
 //!
 //! For reasoning, see: <https://github.com/Cuprate/cuprate/pull/146#issuecomment-2145734838>.
-//!
-//! ## Batching
-//! This crate does not have any types for [JSON-RPC 2.0 batching](https://www.jsonrpc.org/specification#batch).
-//!
-//! This is because `monerod` does not support this,
-//! as such, neither does Cuprate.
-//!
-//! TODO: citation needed on `monerod` not supporting batching.
 
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
