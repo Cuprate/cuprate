@@ -181,19 +181,21 @@ where
 }
 
 //---------------------------------------------------------------------------------------------------- Key
-/// TODO
+/// This type represents the `"key"` values within [`Response`].
+///
+/// We need this since `Response` has a custom deserializer implementation.
 pub(crate) enum Key {
-    /// TODO
+    /// "jsonrpc" field.
     JsonRpc,
-    /// TODO
+    /// "result" field.
     Result,
-    /// TODO
+    /// "error" field.
     Error,
-    /// TODO
+    /// "id" field.
     Id,
 }
 
-/// TODO
+/// Serde [`Key`] visitor marker struct.
 struct KeyVisitor;
 
 impl serde::de::Visitor<'_> for KeyVisitor {
@@ -204,30 +206,30 @@ impl serde::de::Visitor<'_> for KeyVisitor {
     }
 
     fn visit_str<E: serde::de::Error>(self, text: &str) -> Result<Self::Value, E> {
-        if text.eq_ignore_ascii_case("jsonrpc") {
-            Ok(Key::JsonRpc)
-        } else if text.eq_ignore_ascii_case("result") {
-            Ok(Key::Result)
-        } else if text.eq_ignore_ascii_case("error") {
-            Ok(Key::Error)
-        } else if text.eq_ignore_ascii_case("id") {
-            Ok(Key::Id)
-        } else {
-            Err(serde::de::Error::invalid_value(
-                serde::de::Unexpected::Str(text),
-                &self,
-            ))
-        }
+        // FIXME: I don't think JSON-RPC 2.0 specifies
+        // case-sensitiveness so just be strict here.
+        Ok(match text {
+            "jsonrpc" => Key::JsonRpc,
+            "result" => Key::Result,
+            "error" => Key::Error,
+            "id" => Key::Id,
+            _ => {
+                return Err(serde::de::Error::invalid_value(
+                    serde::de::Unexpected::Str(text),
+                    &self,
+                ))
+            }
+        })
     }
 }
 
-//---------------------------------------------------------------------------------------------------- Serde impl
 impl<'a> Deserialize<'a> for Key {
     fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
         des.deserialize_str(KeyVisitor)
     }
 }
 
+//---------------------------------------------------------------------------------------------------- Serde impl
 impl<T> Serialize for Response<T>
 where
     T: Serialize + Clone,
@@ -254,6 +256,12 @@ where
     }
 }
 
+// [`Response`] has a manual deserialization implementation because
+// we need to confirm `result` and `error` don't both exist:
+//
+// > Either the result member or error member MUST be included, but both members MUST NOT be included.
+//
+// <https://www.jsonrpc.org/specification#error_object>
 impl<'de, T> Deserialize<'de> for Response<T>
 where
     T: Clone + Deserialize<'de> + 'de,
@@ -262,7 +270,7 @@ where
         use core::marker::PhantomData;
         use serde::de::{self, Visitor};
 
-        /// TODO
+        /// Serde visitor for the key-value map of [`Response`].
         struct MapVisit<T>(PhantomData<T>);
 
         impl<'de, T> Visitor<'de> for MapVisit<T>
@@ -329,8 +337,8 @@ where
             }
         }
 
-        /// TODO
-        const FIELDS: &[&str] = &["jsonrpc", "payload", "id"];
+        /// All expected fields of the [`Response`] type.
+        const FIELDS: &[&str] = &["jsonrpc", "id", "payload"];
         der.deserialize_struct("Response", FIELDS, MapVisit(PhantomData))
     }
 }
@@ -338,15 +346,16 @@ where
 //---------------------------------------------------------------------------------------------------- TESTS
 #[cfg(test)]
 mod test {
+    use serde_json::json;
+
     use super::*;
     use crate::id::Id;
 
-    /// Basic serde tests.
+    /// Basic serde test on OK results.
     #[test]
-    fn serde() {
+    fn serde_result() {
         let result = String::from("result_ok");
         let id = Id::Num(123);
-
         let req = Response::ok(id.clone(), result.clone());
 
         let ser: String = serde_json::to_string(&req).unwrap();
@@ -354,5 +363,35 @@ mod test {
 
         assert_eq!(de.payload.unwrap(), result);
         assert_eq!(de.id, id);
+    }
+
+    /// Basic serde test on errors.
+    #[test]
+    fn serde_error() {
+        let error = ErrorObject::internal_error();
+        let id = Id::Num(123);
+        let req: Response<String> = Response::err(id.clone(), error.clone());
+
+        let ser: String = serde_json::to_string(&req).unwrap();
+        let de: Response<String> = serde_json::from_str(&ser).unwrap();
+
+        assert_eq!(de.payload.unwrap_err(), error);
+        assert_eq!(de.id, id);
+    }
+
+    /// Test that the `result` and `error` fields are mutually exclusive.
+    #[test]
+    #[should_panic(
+        expected = "called `Result::unwrap()` on an `Err` value: Error(\"duplicate field `both result and error found`\", line: 0, column: 0)"
+    )]
+    fn result_error_mutually_exclusive() {
+        let e = ErrorObject::internal_error();
+        let j = json!({
+            "jsonrpc": "2.0",
+            "id": 0,
+            "result": "",
+            "error": e
+        });
+        serde_json::from_value::<Response<String>>(j).unwrap();
     }
 }

@@ -7,8 +7,6 @@ use crate::error::constants::{
     INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR, SERVER_ERROR,
 };
 
-//---------------------------------------------------------------------------------------------------- Constants
-
 //---------------------------------------------------------------------------------------------------- ErrorCode
 /// [Error object code](https://www.jsonrpc.org/specification#error_object).
 ///

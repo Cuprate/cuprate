@@ -111,7 +111,7 @@ mod test {
     use super::*;
     use crate::{
         id::Id,
-        tests::{assert_serde, Body},
+        tests::{assert_ser, Body},
     };
 
     use pretty_assertions::assert_eq;
@@ -153,7 +153,7 @@ mod test {
             "params": "p",
         });
 
-        assert_serde(&req, &json);
+        assert_ser(&req, &json);
     }
 
     /// Tests that a `None` `id` omits the field when serializing.
@@ -169,7 +169,7 @@ mod test {
             "params": "b",
         });
 
-        assert_serde(&req, &json);
+        assert_ser(&req, &json);
     }
 
     /// Tests that omitting `params` omits the field when serializing.
@@ -192,7 +192,7 @@ mod test {
             "method": "asdf",
         });
 
-        assert_serde(&req, &json);
+        assert_ser(&req, &json);
     }
 
     /// Tests that tagged enums serialize correctly.
@@ -220,7 +220,7 @@ mod test {
             },
         });
 
-        assert_serde(&req, &json);
+        assert_ser(&req, &json);
     }
 
     /// Tests that requests serialize into the expected JSON value.
@@ -276,7 +276,7 @@ mod test {
         ];
 
         for (request, expected_value) in array {
-            assert_serde(&request, &expected_value);
+            assert_ser(&request, &expected_value);
         }
     }
 }
