@@ -59,6 +59,12 @@ pub struct PrePreparedBlockExPOW {
 }
 
 impl PrePreparedBlockExPOW {
+    /// Prepare a new block.
+    ///
+    /// # Errors
+    /// This errors if either the `block`'s:
+    /// - Hard-fork values are invalid
+    /// - Miner transaction is missing a miner input
     pub fn new(block: Block) -> Result<PrePreparedBlockExPOW, ConsensusError> {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
@@ -143,8 +149,12 @@ impl PrePreparedBlock {
 
     /// Creates a new [`PrePreparedBlock`] from a [`PrePreparedBlockExPOW`].
     ///
-    /// The randomX VM must be Some if RX is needed or this will panic.
-    /// The randomX VM must also be initialised with the correct seed.
+    /// This function will give an invalid PoW hash if `randomx_vm is not initialised
+    /// with the correct seed.
+    ///
+    /// # Panics
+    /// This function will panic if `randomx_vm` is
+    /// [`None`] even though RandomX is needed.
     fn new_prepped<R: RandomX>(
         block: PrePreparedBlockExPOW,
         randomx_vm: Option<&R>,
@@ -179,12 +189,12 @@ pub enum VerifyBlockRequest {
     MainChainPrepped {
         /// The already prepared block.
         block: PrePreparedBlock,
-        /// The full list of transactions for this block, in order given in `block`.
+        /// The full list of transactions for this block, in the order given in `block`.
         txs: Vec<Arc<TransactionVerificationData>>,
     },
     /// Batch prepares a list of blocks and transactions for verification.
     MainChainBatchPrepareBlocks {
-        /// The list of blocks.
+        /// The list of blocks and their transactions (not necessarily in the order given in the block).
         blocks: Vec<(Block, Vec<Transaction>)>,
     },
 }
