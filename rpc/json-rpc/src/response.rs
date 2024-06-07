@@ -1,49 +1,91 @@
-//! TODO
+//! JSON-RPC 2.0 response object.
 
 //---------------------------------------------------------------------------------------------------- Use
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{error::ErrorObject, id::Id, version::Version};
 
 //---------------------------------------------------------------------------------------------------- Response
 /// [The response object](https://www.jsonrpc.org/specification#response_object).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// The generic `T` is the response payload, i.e. it is the
+/// type that holds both the `method` and `params`.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Response<T> {
-    /// TODO
+    /// JSON-RPC protocol version; always `2.0`.
     pub jsonrpc: Version,
 
-    /// This field will always be serialized.
+    /// This field must always be present in serialized JSON.
     ///
-    /// Both in the case of `None` and `Some(Id::Null)`, it will be serialized as `"id": null`.
+    /// # JSON-RPC 2.0 rules
+    /// - The [`Response`]'s ID must be the same as the [`Request`](crate::Request)
+    /// - If the `Request` omitted the `id` field, there should be no `Response`
+    /// - If there was an error in detecting the `Request`'s ID, the `Response` must contain an [`Id::Null`]
     pub id: Id,
 
-    /// TODO
+    /// The response payload.
+    ///
+    /// # JSON-RPC 2.0 rules
+    /// - This must be [`Ok`] upon success
+    /// - This must be [`Err`] upon error
+    /// - This can be any (de)serializable data `T` on success
+    /// - This must be [`ErrorObject`] on errors
     pub payload: Result<T, ErrorObject>,
 }
 
 impl<T> Response<T> {
     #[inline]
     /// Creates a successful response.
-    pub const fn ok(id: Id, payload: T) -> Self {
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Response};
+    ///
+    /// let ok = Response::ok(Id::Num(123), "OK");
+    /// let json = serde_json::to_string(&ok).unwrap();
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":123,"result":"OK"}"#);
+    /// ```
+    pub const fn ok(id: Id, result: T) -> Self {
         Self {
             jsonrpc: Version,
             id,
-            payload: Ok(payload),
+            payload: Ok(result),
         }
     }
 
     #[inline]
     /// Creates an error response.
-    pub const fn err(id: Id, payload: ErrorObject) -> Self {
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    ///
+    /// let err = ErrorObject {
+    ///     code: 0.into(),
+    ///     message: "m".into(),
+    ///     data: "d".into(),
+    /// };
+    ///
+    /// let ok = Response::<()>::err(Id::Num(123), err);
+    /// let json = serde_json::to_string(&ok).unwrap();
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":123,"error":{"code":0,"message":"m","data":"d"}}"#);
+    /// ```
+    pub const fn err(id: Id, error: ErrorObject) -> Self {
         Self {
             jsonrpc: Version,
             id,
-            payload: Err(payload),
+            payload: Err(error),
         }
     }
 
     #[inline]
-    /// [`ErrorObject::parse_error`]
+    /// Creates an error response using [`ErrorObject::parse_error`].
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    ///
+    /// let ok = Response::<()>::parse_error(Id::Num(0));
+    /// let json = serde_json::to_string(&ok).unwrap();
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32700,"message":"Parse error","data":null}}"#);
+    /// ```
     pub const fn parse_error(id: Id) -> Self {
         Self {
             jsonrpc: Version,
@@ -53,7 +95,15 @@ impl<T> Response<T> {
     }
 
     #[inline]
-    /// [`ErrorObject::invalid_request`]
+    /// Creates an error response using [`ErrorObject::invalid_request`].
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    ///
+    /// let ok = Response::<()>::invalid_request(Id::Num(0));
+    /// let json = serde_json::to_string(&ok).unwrap();
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32600,"message":"Invalid Request","data":null}}"#);
+    /// ```
     pub const fn invalid_request(id: Id) -> Self {
         Self {
             jsonrpc: Version,
@@ -63,7 +113,15 @@ impl<T> Response<T> {
     }
 
     #[inline]
-    /// [`ErrorObject::method_not_found`]
+    /// Creates an error response using [`ErrorObject::method_not_found`].
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    ///
+    /// let ok = Response::<()>::method_not_found(Id::Num(0));
+    /// let json = serde_json::to_string(&ok).unwrap();
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32601,"message":"Method not found","data":null}}"#);
+    /// ```
     pub const fn method_not_found(id: Id) -> Self {
         Self {
             jsonrpc: Version,
@@ -73,7 +131,15 @@ impl<T> Response<T> {
     }
 
     #[inline]
-    /// [`ErrorObject::invalid_params`]
+    /// Creates an error response using [`ErrorObject::invalid_params`].
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    ///
+    /// let ok = Response::<()>::invalid_params(Id::Num(0));
+    /// let json = serde_json::to_string(&ok).unwrap();
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32602,"message":"Invalid params","data":null}}"#);
+    /// ```
     pub const fn invalid_params(id: Id) -> Self {
         Self {
             jsonrpc: Version,
@@ -83,7 +149,15 @@ impl<T> Response<T> {
     }
 
     #[inline]
-    /// [`ErrorObject::internal_error`]
+    /// Creates an error response using [`ErrorObject::internal_error`].
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    ///
+    /// let ok = Response::<()>::internal_error(Id::Num(0));
+    /// let json = serde_json::to_string(&ok).unwrap();
+    /// assert_eq!(json, r#"{"jsonrpc":"2.0","id":0,"error":{"code":-32603,"message":"Internal error","data":null}}"#);
+    /// ```
     pub const fn internal_error(id: Id) -> Self {
         Self {
             jsonrpc: Version,
@@ -91,76 +165,6 @@ impl<T> Response<T> {
             id,
         }
     }
-
-    // #[inline]
-    // /// [`UNKNOWN_ERROR`]
-    // pub const fn unknown_error(id: Option<Id>) -> Self {
-    //     Self {
-    //         jsonrpc: Version,
-    //         payload: Err(ErrorObject::unknown_error()),
-    //         id,
-    //     }
-    // }
-
-    // #[inline]
-    // /// [`BATCH_NOT_SUPPORTED`]
-    // pub const fn batch_not_supported(id: Option<Id>) -> Self {
-    //     Self {
-    //         jsonrpc: Version,
-    //         payload: Err(ErrorObject::batch_not_supported()),
-    //         id,
-    //     }
-    // }
-
-    // #[inline]
-    // /// [`OVERSIZED_REQUEST`]
-    // pub const fn oversized_request(id: Option<Id>) -> Self {
-    //     Self {
-    //         jsonrpc: Version,
-    //         payload: Err(ErrorObject::oversized_request()),
-    //         id,
-    //     }
-    // }
-
-    // #[inline]
-    // /// [`OVERSIZED_RESPONSE`]
-    // pub const fn oversized_response(id: Option<Id>) -> Self {
-    //     Self {
-    //         jsonrpc: Version,
-    //         payload: Err(ErrorObject::oversized_response()),
-    //         id,
-    //     }
-    // }
-
-    // #[inline]
-    // /// [`OVERSIZED_BATCH_REQUEST`]
-    // pub const fn oversized_batch_request(id: Option<Id>) -> Self {
-    //     Self {
-    //         jsonrpc: Version,
-    //         payload: Err(ErrorObject::oversized_batch_request()),
-    //         id,
-    //     }
-    // }
-
-    // #[inline]
-    // /// [`OVERSIZED_BATCH_REQUEST`]
-    // pub const fn oversized_batch_response(id: Option<Id>) -> Self {
-    //     Self {
-    //         jsonrpc: Version,
-    //         payload: Err(ErrorObject::oversized_batch_response()),
-    //         id,
-    //     }
-    // }
-
-    // #[inline]
-    // /// [`SERVER_IS_BUSY`]
-    // pub const fn server_is_busy(id: Option<Id>) -> Self {
-    //     Self {
-    //         jsonrpc: Version,
-    //         payload: Err(ErrorObject::server_is_busy()),
-    //         id,
-    //     }
-    // }
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
@@ -176,111 +180,160 @@ where
     }
 }
 
-// impl<T> Serialize for Response<T>
-// where
-//     T: Serialize + Clone,
-// {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let mut s = serializer.serialize_struct("Response", 3)?;
+//---------------------------------------------------------------------------------------------------- Key
+/// TODO
+pub(crate) enum Key {
+    /// TODO
+    JsonRpc,
+    /// TODO
+    Result,
+    /// TODO
+    Error,
+    /// TODO
+    Id,
+}
 
-//         s.serialize_field("jsonrpc", &self.jsonrpc)?;
+/// TODO
+struct KeyVisitor;
 
-//         // This member is required.
-//         //
-//         // Even if `null`, or the client `Request` didn't include one.
-//         s.serialize_field("id", &self.id)?;
+impl serde::de::Visitor<'_> for KeyVisitor {
+    type Value = Key;
 
-//         match &self.payload {
-//             Ok(r) => s.serialize_field("result", r)?,
-//             Err(e) => s.serialize_field("error", e)?,
-//         }
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        formatter.write_str("Key field must be a string and one of the following values: ['jsonrpc', 'result', 'error', 'id']")
+    }
 
-//         s.end()
-//     }
-// }
+    fn visit_str<E: serde::de::Error>(self, text: &str) -> Result<Self::Value, E> {
+        if text.eq_ignore_ascii_case("jsonrpc") {
+            Ok(Key::JsonRpc)
+        } else if text.eq_ignore_ascii_case("result") {
+            Ok(Key::Result)
+        } else if text.eq_ignore_ascii_case("error") {
+            Ok(Key::Error)
+        } else if text.eq_ignore_ascii_case("id") {
+            Ok(Key::Id)
+        } else {
+            Err(serde::de::Error::invalid_value(
+                serde::de::Unexpected::Str(text),
+                &self,
+            ))
+        }
+    }
+}
 
-// impl<'de: 'a, 'a, T> Deserialize<'de> for Response<T>
-// where
-//     T: Clone + Deserialize<'de> + 'de,
-// {
-//     fn deserialize<D: Deserializer<'de>>(der: D) -> Result<Self, D::Error> {
-//         use core::marker::PhantomData;
-//         use serde::de::{self, Visitor};
+//---------------------------------------------------------------------------------------------------- Serde impl
+impl<'a> Deserialize<'a> for Key {
+    fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
+        des.deserialize_str(KeyVisitor)
+    }
+}
 
-//         /// TODO
-//         struct MapVisit<T>(PhantomData<T>);
+impl<T> Serialize for Response<T>
+where
+    T: Serialize + Clone,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Response", 3)?;
 
-//         impl<'de, T> Visitor<'de> for MapVisit<T>
-//         where
-//             T: Clone + Deserialize<'de> + 'de,
-//         {
-//             type Value = Response<'de, T>;
+        s.serialize_field("jsonrpc", &self.jsonrpc)?;
 
-//             #[inline]
-//             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-//                 formatter.write_str("JSON-RPC 2.0 Response")
-//             }
+        // This member is required.
+        //
+        // Even if `null`, or the client `Request` didn't include one.
+        s.serialize_field("id", &self.id)?;
 
-//             fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
-//                 let mut jsonrpc = None;
-//                 let mut payload = None;
-//                 let mut id = None;
+        match &self.payload {
+            Ok(r) => s.serialize_field("result", r)?,
+            Err(e) => s.serialize_field("error", e)?,
+        }
 
-//                 use crate::key::Key;
+        s.end()
+    }
+}
 
-//                 while let Some(key) = map.next_key::<Key>()? {
-//                     match key {
-//                         Key::JsonRpc => jsonrpc = Some(map.next_value::<Version>()?),
+impl<'de, T> Deserialize<'de> for Response<T>
+where
+    T: Clone + Deserialize<'de> + 'de,
+{
+    fn deserialize<D: Deserializer<'de>>(der: D) -> Result<Self, D::Error> {
+        use core::marker::PhantomData;
+        use serde::de::{self, Visitor};
 
-//                         Key::Result => {
-//                             if payload.is_none() {
-//                                 payload = Some(Ok(map.next_value::<Cow<'de, T>>()?));
-//                             } else {
-//                                 return Err(serde::de::Error::duplicate_field(
-//                                     "both result and error found",
-//                                 ));
-//                             }
-//                         }
+        /// TODO
+        struct MapVisit<T>(PhantomData<T>);
 
-//                         Key::Error => {
-//                             if payload.is_none() {
-//                                 payload = Some(Err(map.next_value::<ErrorObject<'de>>()?));
-//                             } else {
-//                                 return Err(serde::de::Error::duplicate_field(
-//                                     "both result and error found",
-//                                 ));
-//                             }
-//                         }
+        impl<'de, T> Visitor<'de> for MapVisit<T>
+        where
+            T: Clone + Deserialize<'de> + 'de,
+        {
+            type Value = Response<T>;
 
-//                         Key::Id => id = map.next_value::<Option<Id<'de>>>()?,
-//                     }
-//                 }
+            #[inline]
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
+                formatter.write_str("JSON-RPC 2.0 Response")
+            }
 
-//                 let response = match (jsonrpc, payload) {
-//                     (Some(jsonrpc), Some(payload)) => Response {
-//                         jsonrpc,
-//                         id,
-//                         payload,
-//                     },
-//                     (None, None) => {
-//                         return Err(serde::de::Error::missing_field("jsonrpc + result/error"))
-//                     }
-//                     (None, _) => return Err(serde::de::Error::missing_field("jsonrpc")),
-//                     (_, None) => return Err(serde::de::Error::missing_field("result/error")),
-//                 };
+            fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut jsonrpc = None;
+                let mut payload = None;
+                let mut id = None;
 
-//                 Ok(response)
-//             }
-//         }
+                while let Some(key) = map.next_key::<Key>()? {
+                    match key {
+                        Key::JsonRpc => jsonrpc = Some(map.next_value::<Version>()?),
 
-//         /// TODO
-//         const FIELDS: &[&str] = &["jsonrpc", "payload", "id"];
-//         der.deserialize_struct("Response", FIELDS, MapVisit(PhantomData))
-//     }
-// }
+                        Key::Result => {
+                            if payload.is_none() {
+                                payload = Some(Ok(map.next_value::<T>()?));
+                            } else {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "both result and error found",
+                                ));
+                            }
+                        }
+
+                        Key::Error => {
+                            if payload.is_none() {
+                                payload = Some(Err(map.next_value::<ErrorObject>()?));
+                            } else {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "both result and error found",
+                                ));
+                            }
+                        }
+
+                        Key::Id => id = map.next_value::<Option<Id>>()?,
+                    }
+                }
+
+                use serde::de::Error;
+
+                let response = match (jsonrpc, id, payload) {
+                    (Some(jsonrpc), Some(id), Some(payload)) => Response {
+                        jsonrpc,
+                        id,
+                        payload,
+                    },
+                    (None, None, None) => {
+                        return Err(Error::missing_field("jsonrpc + id + result/error"))
+                    }
+                    (None, _, _) => return Err(Error::missing_field("jsonrpc")),
+                    (_, None, _) => return Err(Error::missing_field("id")),
+                    (_, _, None) => return Err(Error::missing_field("result/error")),
+                };
+
+                Ok(response)
+            }
+        }
+
+        /// TODO
+        const FIELDS: &[&str] = &["jsonrpc", "payload", "id"];
+        der.deserialize_struct("Response", FIELDS, MapVisit(PhantomData))
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- TESTS
 #[cfg(test)]

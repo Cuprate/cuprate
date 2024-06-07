@@ -17,7 +17,8 @@ pub struct Request<T> {
 
     /// An identifier established by the Client.
     ///
-    /// If it is not included it is assumed to be a notification.
+    /// If it is not included it is assumed to be a
+    /// [notification](https://www.jsonrpc.org/specification#notification).
     ///
     /// # `None` vs `Some(Id::Null)`
     /// This field will be completely omitted during serialization if [`None`],
