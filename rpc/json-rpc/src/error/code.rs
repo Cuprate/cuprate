@@ -1,4 +1,4 @@
-//! TODO
+//! Error codes.
 
 //---------------------------------------------------------------------------------------------------- Use
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -10,33 +10,121 @@ use crate::error::constants::{
 //---------------------------------------------------------------------------------------------------- Constants
 
 //---------------------------------------------------------------------------------------------------- ErrorCode
-/// [5.1 Error object code](https://www.jsonrpc.org/specification)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, thiserror::Error)]
+/// [Error object code](https://www.jsonrpc.org/specification#error_object).
+///
+/// This `enum` encapsulates JSON-RPC 2.0's error codes
+/// found in [`ErrorObject`](crate::error::ErrorObject).
+///
+/// It associates the code integer ([`i32`]) with its defined message.
+///
+/// # Application defined errors
+/// The custom error codes past `-32099` (`-31000, -31001`, ...)
+/// defined in JSON-RPC 2.0 are not supported by this enum because:
+///
+/// 1. The `(i32, &'static str)` required makes the enum more than 3x larger
+/// 2. It is not used by Cuprate/Monero
+///
+/// # Display
+/// ```rust
+/// use json_rpc::error::ErrorCode;
+/// use serde_json::{to_value, from_value, Value};
+///
+/// for e in [
+///     ErrorCode::ParseError,
+///     ErrorCode::InvalidRequest,
+///     ErrorCode::MethodNotFound,
+///     ErrorCode::InvalidParams,
+///     ErrorCode::InternalError,
+///     ErrorCode::ServerError(0),
+/// ] {
+///     // The formatting is `$CODE: $MSG`.
+///     let expected_fmt = format!("{}: {}", e.code(), e.msg());
+///     assert_eq!(expected_fmt, format!("{e}"));
+/// }
+/// ```
+///
+/// # (De)serialization
+/// This type gets (de)serialized as the associated `i32`, for example:
+/// ```rust
+/// use json_rpc::error::ErrorCode;
+/// use serde_json::{to_value, from_value, Value};
+///
+/// for e in [
+///     ErrorCode::ParseError,
+///     ErrorCode::InvalidRequest,
+///     ErrorCode::MethodNotFound,
+///     ErrorCode::InvalidParams,
+///     ErrorCode::InternalError,
+///     ErrorCode::ServerError(0),
+///     ErrorCode::ServerError(1),
+///     ErrorCode::ServerError(2),
+/// ] {
+///     // Gets serialized into a JSON integer.
+///     let value = to_value(&e).unwrap();
+///     assert_eq!(value, Value::Number(e.code().into()));
+///
+///     // Expects a JSON integer when deserializing.
+///     assert_eq!(e, from_value(value).unwrap());
+/// }
+/// ```
+///
+/// ```rust,should_panic
+/// # use json_rpc::error::ErrorCode;
+/// # use serde_json::from_value;
+/// // A JSON string that contains an integer won't work.
+/// from_value::<ErrorCode>("-32700".into()).unwrap();
+/// ```
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, thiserror::Error)]
 pub enum ErrorCode {
-    #[error("{}", PARSE_ERROR.1)]
+    #[error("{}: {}", PARSE_ERROR.0, PARSE_ERROR.1)]
     /// Invalid JSON was received by the server.
     ///
     /// An error occurred on the server while parsing the JSON text.
     ParseError,
-    #[error("{}", INVALID_REQUEST.1)]
+
+    #[error("{}: {}", INVALID_REQUEST.0, INVALID_REQUEST.1)]
     /// The JSON sent is not a valid Request object.
     InvalidRequest,
-    #[error("{}", METHOD_NOT_FOUND.1)]
+
+    #[error("{}: {}", METHOD_NOT_FOUND.0, METHOD_NOT_FOUND.1)]
     /// The method does not exist / is not available.
     MethodNotFound,
-    #[error("{}", INVALID_PARAMS.1)]
+
+    #[error("{}: {}", INVALID_PARAMS.0, INVALID_PARAMS.1)]
     /// Invalid method parameters.
     InvalidParams,
-    #[error("{}", INTERNAL_ERROR.1)]
+
+    #[error("{}: {}", INTERNAL_ERROR.0, INTERNAL_ERROR.1)]
     /// Internal JSON-RPC error.
     InternalError,
-    #[error("{SERVER_ERROR} {0}")]
+
+    #[error("{0}: {SERVER_ERROR}")]
     /// Reserved for implementation-defined server-errors.
     ServerError(i32),
 }
 
 impl ErrorCode {
-    /// Creates [`Self`] from a code.
+    /// Creates [`Self`] from a [`i32`] code.
+    ///
+    /// [`From<i32>`] is the same as this function.
+    ///
+    /// ```rust
+    /// use json_rpc::error::{
+    ///     ErrorCode,
+    ///     INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR,
+    /// };
+    ///
+    /// assert_eq!(ErrorCode::from_code(PARSE_ERROR.0),      ErrorCode::ParseError);
+    /// assert_eq!(ErrorCode::from_code(INVALID_REQUEST.0),  ErrorCode::InvalidRequest);
+    /// assert_eq!(ErrorCode::from_code(METHOD_NOT_FOUND.0), ErrorCode::MethodNotFound);
+    /// assert_eq!(ErrorCode::from_code(INVALID_PARAMS.0),   ErrorCode::InvalidParams);
+    /// assert_eq!(ErrorCode::from_code(INTERNAL_ERROR.0),   ErrorCode::InternalError);
+    ///
+    /// // Non-defined code inputs will default to a custom `ServerError`.
+    /// assert_eq!(ErrorCode::from_code(0), ErrorCode::ServerError(0));
+    /// assert_eq!(ErrorCode::from_code(1), ErrorCode::ServerError(1));
+    /// assert_eq!(ErrorCode::from_code(2), ErrorCode::ServerError(2));
+    /// ```
     pub const fn from_code(code: i32) -> Self {
         /// HACK: you cannot `match` on tuple fields
         /// like `PARSE_ERROR.0 => /*...*/` so extract
@@ -63,7 +151,22 @@ impl ErrorCode {
         }
     }
 
-    /// Returns [`i32`] representation.
+    /// Returns `self`'s [`i32`] code representation.
+    ///
+    /// ```rust
+    /// use json_rpc::error::{
+    ///     ErrorCode,
+    ///     INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR,
+    /// };
+    ///
+    /// assert_eq!(ErrorCode::ParseError.code(),     PARSE_ERROR.0);
+    /// assert_eq!(ErrorCode::InvalidRequest.code(), INVALID_REQUEST.0);
+    /// assert_eq!(ErrorCode::MethodNotFound.code(), METHOD_NOT_FOUND.0);
+    /// assert_eq!(ErrorCode::InvalidParams.code(),  INVALID_PARAMS.0);
+    /// assert_eq!(ErrorCode::InternalError.code(),  INTERNAL_ERROR.0);
+    /// assert_eq!(ErrorCode::ServerError(0).code(), 0);
+    /// assert_eq!(ErrorCode::ServerError(1).code(), 1);
+    /// ```
     pub const fn code(&self) -> i32 {
         match self {
             Self::ParseError => PARSE_ERROR.0,
@@ -75,7 +178,21 @@ impl ErrorCode {
         }
     }
 
-    /// Returns human readable `str` version.
+    /// Returns `self`'s human readable [`str`] message.
+    ///
+    /// ```rust
+    /// use json_rpc::error::{
+    ///     ErrorCode,
+    ///     INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR, SERVER_ERROR,
+    /// };
+    ///
+    /// assert_eq!(ErrorCode::ParseError.msg(),     PARSE_ERROR.1);
+    /// assert_eq!(ErrorCode::InvalidRequest.msg(), INVALID_REQUEST.1);
+    /// assert_eq!(ErrorCode::MethodNotFound.msg(), METHOD_NOT_FOUND.1);
+    /// assert_eq!(ErrorCode::InvalidParams.msg(),  INVALID_PARAMS.1);
+    /// assert_eq!(ErrorCode::InternalError.msg(),  INTERNAL_ERROR.1);
+    /// assert_eq!(ErrorCode::ServerError(0).msg(), SERVER_ERROR);
+    /// ```
     pub const fn msg(&self) -> &'static str {
         match self {
             Self::ParseError => PARSE_ERROR.1,
@@ -89,27 +206,14 @@ impl ErrorCode {
 }
 
 //---------------------------------------------------------------------------------------------------- Trait impl
-/// Implements `From<N>` where N is any number that can fit inside `i32`.
-macro_rules! impl_from_num {
-    ($($num:ty),* $(,)?) => {
-        $(
-            impl From<$num> for ErrorCode {
-                #[inline]
-                fn from(code: $num) -> ErrorCode {
-                    Self::from_code(code as i32)
-                }
-            }
-            impl From<&$num> for ErrorCode {
-                #[inline]
-                fn from(code: &$num) -> ErrorCode {
-                    Self::from_code(*code as i32)
-                }
-            }
-        )*
-    };
+impl<N: Into<i32>> From<N> for ErrorCode {
+    #[inline]
+    fn from(code: N) -> Self {
+        Self::from_code(code.into())
+    }
 }
-impl_from_num!(i8, i16, i32, u8, u16);
 
+//---------------------------------------------------------------------------------------------------- Serde impl
 impl<'a> Deserialize<'a> for ErrorCode {
     fn deserialize<D: Deserializer<'a>>(deserializer: D) -> Result<Self, D::Error> {
         Ok(Self::from_code(Deserialize::deserialize(deserializer)?))
@@ -125,33 +229,5 @@ impl Serialize for ErrorCode {
 //---------------------------------------------------------------------------------------------------- TESTS
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    // Tests if constants being converted are correct.
-    fn convert() {
-        for i in [
-            PARSE_ERROR,
-            INVALID_REQUEST,
-            METHOD_NOT_FOUND,
-            INVALID_PARAMS,
-            INTERNAL_ERROR,
-        ] {
-            let err = ErrorCode::from_code(i.0);
-            let msg = err.to_string();
-            assert_eq!(err.code(), i.0);
-            assert_eq!(err.msg(), i.1);
-            assert_eq!(err.msg(), msg);
-        }
-    }
-
-    #[test]
-    // Tests custom server error works.
-    fn server_error() {
-        let code = -32000;
-
-        let err = ErrorCode::ServerError(code);
-        assert_eq!(err.code(), code);
-        assert_eq!(format!("Server error {code}"), err.to_string());
-    }
+    // use super::*;
 }

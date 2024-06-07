@@ -8,6 +8,8 @@
 //! necessarily a general purpose implementation of the specification
 //! (see below).
 //!
+//! This crate expects you to read the brief JSON-RPC 2.0 specification for context.
+//!
 //! ## Response changes
 //! [JSON-RPC 2.0's `Response` object](https://www.jsonrpc.org/specification#response_object) usually contains these 2 fields:
 //! - `method`
@@ -167,16 +169,16 @@
 pub mod error;
 
 mod id;
-pub use id::*;
+pub use id::Id;
 
 mod version;
-pub use version::*;
+pub use version::Version;
 
 mod request;
-pub use request::*;
+pub use request::Request;
 
 mod response;
-pub use response::*;
+pub use response::Response;
 
 //---------------------------------------------------------------------------------------------------- TESTS
 #[cfg(test)]

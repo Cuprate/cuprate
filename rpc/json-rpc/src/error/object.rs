@@ -12,7 +12,7 @@ use crate::error::{
 };
 
 //---------------------------------------------------------------------------------------------------- ErrorObject
-/// [Error object](https://www.jsonrpc.org/specification)
+/// [Error object](https://www.jsonrpc.org/specification).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ErrorObject {
     /// [`ErrorCode`]
