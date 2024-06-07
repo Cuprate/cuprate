@@ -39,22 +39,22 @@ use crate::{
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
 #[derive(Debug)]
 pub struct PrePreparedBlockExPOW {
-    /// The block
+    /// The block.
     pub block: Block,
-    /// The serialised blocks bytes
+    /// The serialised block's bytes.
     pub block_blob: Vec<u8>,
 
-    /// The blocks hf vote
+    /// The block's hard-fork vote.
     pub hf_vote: HardFork,
-    /// The blocks hf version
+    /// The block's hard-fork version.
     pub hf_version: HardFork,
 
-    /// The blocks hash
+    /// The block's hash.
     pub block_hash: [u8; 32],
     /// The height of the block.
     pub height: u64,
 
-    /// The weight of the blocks miner transaction.
+    /// The weight of the block's miner transaction.
     pub miner_tx_weight: usize,
 }
 
@@ -292,7 +292,7 @@ where
 }
 
 /// Batch prepares a list of blocks for verification.
-#[instrument(level="debug", name="batch_prep_blocks" skip_all, fields(amt=blocks.len()))]
+#[instrument(level = "debug", name = "batch_prep_blocks", skip_all, fields(amt = blocks.len()))]
 async fn batch_prepare_main_chain_block<C>(
     blocks: Vec<(Block, Vec<Transaction>)>,
     mut context_svc: C,
@@ -558,7 +558,7 @@ where
 
         let context = checked_context.unchecked_blockchain_context().clone();
 
-        tracing::debug!("got blockchain context: {:?}", context);
+        tracing::debug!("got blockchain context: {context:?}");
 
         context
     };
