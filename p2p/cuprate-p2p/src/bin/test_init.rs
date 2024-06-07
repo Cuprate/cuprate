@@ -193,7 +193,7 @@ async fn main() {
     .unwrap();
 
     tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
+        .with_max_level(Level::DEBUG)
         .with_timer(Uptime::default())
         .init();
 
