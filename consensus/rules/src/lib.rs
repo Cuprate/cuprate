@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub mod batch_verifier;
 pub mod blocks;
 mod decomposed_amount;
 pub mod genesis;

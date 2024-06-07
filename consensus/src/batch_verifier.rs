@@ -4,8 +4,6 @@ use multiexp::BatchVerifier as InternalBatchVerifier;
 use rayon::prelude::*;
 use thread_local::ThreadLocal;
 
-use crate::ConsensusError;
-
 /// A multithreaded batch verifier.
 pub struct MultiThreadedBatchVerifier {
     internal: ThreadLocal<RefCell<InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>>>,
@@ -19,19 +17,6 @@ impl MultiThreadedBatchVerifier {
         }
     }
 
-    pub fn queue_statement<R>(
-        &self,
-        stmt: impl FnOnce(
-            &mut InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>,
-        ) -> Result<R, ConsensusError>,
-    ) -> Result<R, ConsensusError> {
-        let verifier_cell = self
-            .internal
-            .get_or(|| RefCell::new(InternalBatchVerifier::new(8)));
-        // TODO: this is not ok as a rayon par_iter could be called in stmt.
-        stmt(verifier_cell.borrow_mut().deref_mut())
-    }
-
     pub fn verify(self) -> bool {
         self.internal
             .into_iter()
@@ -39,5 +24,19 @@ impl MultiThreadedBatchVerifier {
             .par_bridge()
             .find_any(|batch_verifier| !batch_verifier.verify_vartime())
             .is_none()
+    }
+}
+
+impl cuprate_consensus_rules::batch_verifier::BatchVerifier for &'_ MultiThreadedBatchVerifier {
+    fn queue_statement<R>(
+        &mut self,
+        stmt: impl FnOnce(&mut InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>) -> R,
+    ) -> R {
+        let mut verifier = self
+            .internal
+            .get_or(|| RefCell::new(InternalBatchVerifier::new(32)))
+            .borrow_mut();
+
+        stmt(verifier.deref_mut())
     }
 }

@@ -484,26 +484,23 @@ where
         batch_get_ring_member_info(txs.iter().map(|(tx, _)| tx), &hf, database).await?;
 
     rayon_spawn_async(move || {
-        let batch_veriifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
+        let batch_verifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
 
         txs.par_iter()
             .zip(txs_ring_member_info.par_iter())
             .try_for_each(|((tx, verification_needed), ring)| {
                 // do semantic validation if needed.
                 if *verification_needed == VerificationNeeded::SemanticAndContextual {
-                    batch_veriifier.queue_statement(|verifier| {
-                        let fee = check_transaction_semantic(
-                            &tx.tx,
-                            tx.tx_blob.len(),
-                            tx.tx_weight,
-                            &tx.tx_hash,
-                            &hf,
-                            verifier,
-                        )?;
-                        // make sure monero-serai calculated the same fee.
-                        assert_eq!(fee, tx.fee);
-                        Ok(())
-                    })?;
+                    let fee = check_transaction_semantic(
+                        &tx.tx,
+                        tx.tx_blob.len(),
+                        tx.tx_weight,
+                        &tx.tx_hash,
+                        &hf,
+                        &batch_verifier,
+                    )?;
+                    // make sure monero-serai calculated the same fee.
+                    assert_eq!(fee, tx.fee);
                 }
 
                 // Both variants of `VerificationNeeded` require contextual validation.
@@ -518,7 +515,7 @@ where
                 Ok::<_, ConsensusError>(())
             })?;
 
-        if !batch_veriifier.verify() {
+        if !batch_verifier.verify() {
             return Err(ExtendedConsensusError::OneOrMoreBatchVerificationStatementsInvalid);
         }
 
