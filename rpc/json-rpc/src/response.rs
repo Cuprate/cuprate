@@ -394,4 +394,17 @@ mod test {
         });
         serde_json::from_value::<Response<String>>(j).unwrap();
     }
+
+    /// Test that the `id` field must exist.
+    #[test]
+    #[should_panic(
+        expected = "called `Result::unwrap()` on an `Err` value: Error(\"missing field `id`\", line: 0, column: 0)"
+    )]
+    fn id_must_exist() {
+        let j = json!({
+            "jsonrpc": "2.0",
+            "result": "",
+        });
+        serde_json::from_value::<Response<String>>(j).unwrap();
+    }
 }
