@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{error::ErrorObject, id::Id, version::Version};
 
 //---------------------------------------------------------------------------------------------------- Response
-/// JSON-RPC 2.0 Response object
+/// [The response object](https://www.jsonrpc.org/specification#response_object).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Response<T> {
     /// TODO

@@ -40,8 +40,8 @@
 //! }
 //!
 //! // Create the request object.
-//! let request = Request::new(
-//!     Some(Id::Str("hello".into())),
+//! let request = Request::new_with_id(
+//!     Id::Str("hello".into()),
 //!     Methods::GetBlock(GetBlock { height: 123 }),
 //! );
 //!

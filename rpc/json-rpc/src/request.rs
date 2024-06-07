@@ -1,4 +1,4 @@
-//! TODO
+//! JSON-RPC 2.0 request object.
 
 //---------------------------------------------------------------------------------------------------- Use
 use serde::{Deserialize, Serialize};
@@ -6,43 +6,86 @@ use serde::{Deserialize, Serialize};
 use crate::{id::Id, version::Version};
 
 //---------------------------------------------------------------------------------------------------- Request
-/// JSON-RPC 2.0 Request object
+/// [The request object](https://www.jsonrpc.org/specification#request_object).
+///
+/// The generic `T` is the body type of the request, i.e. it is the
+/// type that holds both the `method` and `params`.
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Request<T> {
-    /// JSON-RPC 2.0
+    /// JSON-RPC protocol version; always `2.0`.
     pub jsonrpc: Version,
 
-    /// An identifier established by the Client that MUST contain a String, Number, or NULL value if included.
+    /// An identifier established by the Client.
     ///
     /// If it is not included it is assumed to be a notification.
     ///
-    /// TODO: doc why `None` is different than `Some(Id::Null)`:
-    /// <https://www.jsonrpc.org/specification#request_object>.
+    /// # `None` vs `Some(Id::Null)`
+    /// This field will be completely omitted during serialization if [`None`],
+    /// however if it is `Some(Id::Null)`, it will be serialized as `"id": null`.
+    ///
+    /// Note that the JSON-RPC 2.0 specification discourages the use of `Id::NUll`,
+    /// so if there is no ID needed, consider using `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Id>,
 
     #[serde(flatten)]
-    /// TODO
+    /// The `method` and `params` fields.
     ///
-    /// method: A type that serializes as the name of the method to be invoked.
+    /// - `method`: A type that serializes as the name of the method to be invoked.
+    /// - `params`: A structured value that holds the parameter values to be used during the invocation of the method.
     ///
-    /// params: A Structured value that holds the parameter values to be used during the invocation of the method.
+    /// As mentioned in the library documentation, there are no `method/params` fields in [`Request`],
+    /// they are both merged in this `body` field which is `#[serde(flatten)]`ed.
+    ///
+    /// # Invariant
+    /// Your `T` must serialize as `method` and `params` to comply with the specification.
     pub body: T,
 }
 
 impl<T> Request<T> {
     #[inline]
-    /// Create a new [`Self`].
-    pub const fn new(id: Option<Id>, body: T) -> Self {
+    /// Create a new [`Self`] with no [`Id`].
+    ///
+    /// ```rust
+    /// use json_rpc::Request;
+    ///
+    /// assert_eq!(Request::new("").id, None);
+    /// ```
+    pub const fn new(body: T) -> Self {
         Self {
             jsonrpc: Version,
-            id,
+            id: None,
             body,
         }
     }
 
     #[inline]
-    /// Returns whether request is notification.
+    /// Create a new [`Self`] with an [`Id`].
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Request};
+    ///
+    /// assert_eq!(Request::new_with_id(Id::Num(0), "").id, Some(Id::Num(0)));
+    /// ```
+    pub const fn new_with_id(id: Id, body: T) -> Self {
+        Self {
+            jsonrpc: Version,
+            id: Some(id),
+            body,
+        }
+    }
+
+    #[inline]
+    /// Returns `true` if the request is [notification](https://www.jsonrpc.org/specification#notification).
+    ///
+    /// In other words, if `id` is [`None`], this returns `true`.
+    ///
+    /// ```rust
+    /// use json_rpc::{Id, Request};
+    ///
+    /// assert!(Request::new("").is_notification());
+    /// assert!(!Request::new_with_id(Id::Null, "").is_notification());
+    /// ```
     pub const fn is_notification(&self) -> bool {
         self.id.is_none()
     }
@@ -82,7 +125,7 @@ mod test {
             params: [0, 1, 2],
         };
 
-        let req = Request::new(Some(id), body);
+        let req = Request::new_with_id(id, body);
 
         assert!(!req.is_notification());
 
@@ -95,8 +138,8 @@ mod test {
     /// Tests that null `id` shows when serializing.
     #[test]
     fn request_null_id() {
-        let req = Request::new(
-            Some(Id::Null),
+        let req = Request::new_with_id(
+            Id::Null,
             Body {
                 method: "m".into(),
                 params: "p".to_string(),
@@ -115,13 +158,10 @@ mod test {
     /// Tests that a `None` `id` omits the field when serializing.
     #[test]
     fn request_none_id() {
-        let req = Request::new(
-            None,
-            Body {
-                method: "a".into(),
-                params: "b".to_string(),
-            },
-        );
+        let req = Request::new(Body {
+            method: "a".into(),
+            params: "b".to_string(),
+        });
         let json = json!({
             "jsonrpc": "2.0",
             "method": "a",
@@ -139,8 +179,8 @@ mod test {
             method: String,
         }
 
-        let req = Request::new(
-            Some(Id::Num(123)),
+        let req = Request::new_with_id(
+            Id::Num(123),
             NoParamMethod {
                 method: "asdf".to_string(),
             },
@@ -169,10 +209,7 @@ mod test {
             GetHeight(/* param: */ GetHeight),
         }
 
-        let req = Request::new(
-            Some(Id::Num(123)),
-            Methods::GetHeight(GetHeight { height: 0 }),
-        );
+        let req = Request::new_with_id(Id::Num(123), Methods::GetHeight(GetHeight { height: 0 }));
         let json = json!({
             "jsonrpc": "2.0",
             "id": 123,
@@ -191,8 +228,8 @@ mod test {
         // Test values: (request, expected_value)
         let array: [(Request<Body<[u8; 3]>>, Value); 3] = [
             (
-                Request::new(
-                    Some(Id::Num(123)),
+                Request::new_with_id(
+                    Id::Num(123),
                     Body {
                         method: "method_1".into(),
                         params: [0, 1, 2],
@@ -206,8 +243,8 @@ mod test {
                 }),
             ),
             (
-                Request::new(
-                    Some(Id::Null),
+                Request::new_with_id(
+                    Id::Null,
                     Body {
                         method: "method_2".into(),
                         params: [3, 4, 5],
@@ -221,8 +258,8 @@ mod test {
                 }),
             ),
             (
-                Request::new(
-                    Some(Id::Str("string_id".into())),
+                Request::new_with_id(
+                    Id::Str("string_id".into()),
                     Body {
                         method: "method_3".into(),
                         params: [6, 7, 8],
