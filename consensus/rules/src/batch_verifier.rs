@@ -4,7 +4,7 @@ use multiexp::BatchVerifier as InternalBatchVerifier;
 ///
 /// A batch verifier is used to speed up verification by verifying multiple transactions together.
 ///
-/// Not all proofs can be batched and at it's core it's intended to verify a series of statements are
+/// Not all proofs can be batched and at its core it's intended to verify a series of statements are
 /// each equivalent to zero.
 pub trait BatchVerifier {
     /// Queue a statement for batch verification.
