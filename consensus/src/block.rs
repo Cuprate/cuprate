@@ -38,7 +38,7 @@ use crate::{
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
 #[derive(Debug)]
-pub struct PrePreparedBlockExPOW {
+pub struct PreparedBlockExPow {
     /// The block.
     pub block: Block,
     /// The serialised block's bytes.
@@ -58,14 +58,14 @@ pub struct PrePreparedBlockExPOW {
     pub miner_tx_weight: usize,
 }
 
-impl PrePreparedBlockExPOW {
+impl PreparedBlockExPow {
     /// Prepare a new block.
     ///
     /// # Errors
     /// This errors if either the `block`'s:
     /// - Hard-fork values are invalid
     /// - Miner transaction is missing a miner input
-    pub fn new(block: Block) -> Result<PrePreparedBlockExPOW, ConsensusError> {
+    pub fn new(block: Block) -> Result<PreparedBlockExPow, ConsensusError> {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
@@ -75,7 +75,7 @@ impl PrePreparedBlockExPOW {
             )))?
         };
 
-        Ok(PrePreparedBlockExPOW {
+        Ok(PreparedBlockExPow {
             block_blob: block.serialize(),
             hf_vote,
             hf_version,
@@ -91,7 +91,7 @@ impl PrePreparedBlockExPOW {
 
 /// A pre-prepared block with all data needed to verify it.
 #[derive(Debug)]
-pub struct PrePreparedBlock {
+pub struct PreparedBlock {
     /// The block
     pub block: Block,
     /// The serialised blocks bytes
@@ -111,15 +111,15 @@ pub struct PrePreparedBlock {
     pub miner_tx_weight: usize,
 }
 
-impl PrePreparedBlock {
-    /// Creates a new [`PrePreparedBlock`].
+impl PreparedBlock {
+    /// Creates a new [`PreparedBlock`].
     ///
     /// The randomX VM must be Some if RX is needed or this will panic.
     /// The randomX VM must also be initialised with the correct seed.
     fn new<R: RandomX>(
         block: Block,
         randomx_vm: Option<&R>,
-    ) -> Result<PrePreparedBlock, ConsensusError> {
+    ) -> Result<PreparedBlock, ConsensusError> {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
@@ -129,7 +129,7 @@ impl PrePreparedBlock {
             )))?
         };
 
-        Ok(PrePreparedBlock {
+        Ok(PreparedBlock {
             block_blob: block.serialize(),
             hf_vote,
             hf_version,
@@ -147,7 +147,7 @@ impl PrePreparedBlock {
         })
     }
 
-    /// Creates a new [`PrePreparedBlock`] from a [`PrePreparedBlockExPOW`].
+    /// Creates a new [`PreparedBlock`] from a [`PreparedBlockExPow`].
     ///
     /// This function will give an invalid PoW hash if `randomx_vm is not initialised
     /// with the correct seed.
@@ -156,10 +156,10 @@ impl PrePreparedBlock {
     /// This function will panic if `randomx_vm` is
     /// [`None`] even though RandomX is needed.
     fn new_prepped<R: RandomX>(
-        block: PrePreparedBlockExPOW,
+        block: PreparedBlockExPow,
         randomx_vm: Option<&R>,
-    ) -> Result<PrePreparedBlock, ConsensusError> {
-        Ok(PrePreparedBlock {
+    ) -> Result<PreparedBlock, ConsensusError> {
+        Ok(PreparedBlock {
             block_blob: block.block_blob,
             hf_vote: block.hf_vote,
             hf_version: block.hf_version,
@@ -188,7 +188,7 @@ pub enum VerifyBlockRequest {
     /// Verifies a prepared block.
     MainChainPrepped {
         /// The already prepared block.
-        block: PrePreparedBlock,
+        block: PreparedBlock,
         /// The full list of transactions for this block, in the order given in `block`.
         txs: Vec<Arc<TransactionVerificationData>>,
     },
@@ -206,7 +206,7 @@ pub enum VerifyBlockResponse {
     MainChain(VerifiedBlockInformation),
     /// A list of prepared blocks for verification, you should call [`VerifyBlockRequest::MainChainPrepped`] on each of the returned
     /// blocks to fully verify them.
-    MainChainBatchPrepped(Vec<(PrePreparedBlock, Vec<Arc<TransactionVerificationData>>)>),
+    MainChainBatchPrepped(Vec<(PreparedBlock, Vec<Arc<TransactionVerificationData>>)>),
 }
 
 /// The block verifier service.
@@ -319,10 +319,10 @@ where
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");
-    let blocks: Vec<PrePreparedBlockExPOW> = rayon_spawn_async(|| {
+    let blocks: Vec<PreparedBlockExPow> = rayon_spawn_async(|| {
         blocks
             .into_iter()
-            .map(PrePreparedBlockExPOW::new)
+            .map(PreparedBlockExPow::new)
             .collect::<Result<Vec<_>, _>>()
     })
     .await?;
@@ -335,19 +335,22 @@ where
 
     // For every block make sure they have the correct height and previous ID
     for window in blocks.windows(2) {
-        if window[0].block_hash != window[1].block.header.previous
-            || window[0].height != window[1].height - 1
+        let block_0 = &window[0];
+        let block_1 = &window[1];
+
+        if block_0.block_hash != block_1.block.header.previous
+            || block_0.height != block_1.height - 1
         {
             tracing::debug!("Blocks do not follow each other, verification failed.");
             Err(ConsensusError::Block(BlockError::PreviousIDIncorrect))?;
         }
 
         // Cache any potential RX VM seeds as we may need them for future blocks in the batch.
-        if is_randomx_seed_height(window[0].height) {
-            new_rx_vm = Some((window[0].height, window[0].block_hash));
+        if is_randomx_seed_height(block_0.height) {
+            new_rx_vm = Some((block_0.height, block_0.block_hash));
         }
 
-        timestamps_hfs.push((window[0].block.header.timestamp, window[0].hf_version))
+        timestamps_hfs.push((block_0.block.header.timestamp, block_0.hf_version))
     }
 
     // Get the current blockchain context.
@@ -426,7 +429,7 @@ where
             .map(|((block, difficultly), txs)| {
                 // Calculate the PoW for the block.
                 let height = block.height;
-                let block = PrePreparedBlock::new_prepped(
+                let block = PreparedBlock::new_prepped(
                     block,
                     rx_vms.get(&randomx_seed_height(height)).map(AsRef::as_ref),
                 )?;
@@ -502,7 +505,7 @@ where
 
     let height = context.chain_height;
     let prepped_block = rayon_spawn_async(move || {
-        PrePreparedBlock::new(
+        PreparedBlock::new(
             block,
             rx_vms.get(&randomx_seed_height(height)).map(AsRef::as_ref),
         )
@@ -539,7 +542,7 @@ where
 }
 
 async fn verify_prepped_main_chain_block<C, TxV>(
-    prepped_block: PrePreparedBlock,
+    prepped_block: PreparedBlock,
     txs: Vec<Arc<TransactionVerificationData>>,
     context_svc: C,
     tx_verifier_svc: TxV,
