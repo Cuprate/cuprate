@@ -1,4 +1,4 @@
-//! JSON-RPC 2.0 version marker.
+//! [`Version`]: JSON-RPC 2.0 version marker.
 
 //---------------------------------------------------------------------------------------------------- Use
 use serde::de::{Error, Visitor};
