@@ -175,6 +175,8 @@ impl From<Option<&str>> for Id {
 }
 
 /// Implement `From<unsigned integer>` for `Id`.
+///
+/// Not a generic since that clashes with `From<String>`.
 macro_rules! impl_u {
 	($($u:ty),*) => {
 		$(
@@ -209,6 +211,7 @@ impl_u!(u64);
 mod test {
     use super::*;
 
+    /// Basic [`Id::as_u64()`] tests.
     #[test]
     fn __as_u64() {
         let id = Id::Num(u64::MIN);
@@ -223,6 +226,7 @@ mod test {
         assert!(id.as_u64().is_none());
     }
 
+    /// Basic [`Id::as_str()`] tests.
     #[test]
     fn __as_str() {
         let id = Id::Str("str".into());

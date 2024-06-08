@@ -222,9 +222,3 @@ impl Serialize for ErrorCode {
         serializer.serialize_i32(self.code())
     }
 }
-
-//---------------------------------------------------------------------------------------------------- TESTS
-#[cfg(test)]
-mod tests {
-    // use super::*;
-}

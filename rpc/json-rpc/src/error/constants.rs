@@ -1,7 +1,5 @@
 //! [`JSON-RPC 2.0`](https://www.jsonrpc.org/specification#error_object) defined errors as constants.
 
-//---------------------------------------------------------------------------------------------------- Use
-
 //---------------------------------------------------------------------------------------------------- JSON-RPC spec errors.
 /// Code and message for [`ErrorCode::ParseError`](crate::error::ErrorCode::ParseError).
 pub const PARSE_ERROR: (i32, &str) = (-32700, "Parse error");
@@ -22,9 +20,3 @@ pub const INTERNAL_ERROR: (i32, &str) = (-32603, "Internal error");
 ///
 /// The [`i32`] error code is the caller's choice, this is only the message.
 pub const SERVER_ERROR: &str = "Server error";
-
-//---------------------------------------------------------------------------------------------------- TESTS
-#[cfg(test)]
-mod tests {
-    // use super::*;
-}

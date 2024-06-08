@@ -117,7 +117,3 @@ impl<'de> Deserialize<'de> for Version {
         d.deserialize_str(VersionVisitor)
     }
 }
-
-//---------------------------------------------------------------------------------------------------- TEST
-#[cfg(test)]
-mod test {}
