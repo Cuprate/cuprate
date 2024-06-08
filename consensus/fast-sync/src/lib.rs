@@ -1,4 +1,4 @@
 pub mod fast_sync;
-pub(crate) mod util;
+pub mod util;
 
-pub(crate) use util::{hash_of_hashes, BlockId, HashOfHashes};
+pub use util::{hash_of_hashes, BlockId, HashOfHashes};

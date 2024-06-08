@@ -519,9 +519,12 @@ dependencies = [
 name = "cuprate-fast-sync"
 version = "0.1.0"
 dependencies = [
+ "cuprate-blockchain",
+ "cuprate-types",
  "hex-literal",
  "rayon",
  "sha3",
+ "tokio",
  "tokio-test",
  "tower",
 ]
