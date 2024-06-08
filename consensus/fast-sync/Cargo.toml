@@ -8,6 +8,7 @@ name = "cuprate-fast-sync-create-hashes"
 path = "src/create.rs"
 
 [dependencies]
+clap = { workspace = true, features = ["derive", "std"] }
 cuprate-blockchain = { path = "../../storage/cuprate-blockchain" }
 cuprate-types = { path = "../../types" }
 hex-literal.workspace = true

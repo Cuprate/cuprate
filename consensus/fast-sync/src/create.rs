@@ -1,30 +1,29 @@
+use clap::Parser;
+
 use hex_literal::hex;
 use tower::{Service, ServiceExt};
 
 use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use cuprate_blockchain::{
-    ConcreteEnv,
-    config::ConfigBuilder,
-    Env,
-    service::DatabaseReadHandle,
+    config::ConfigBuilder, service::DatabaseReadHandle, ConcreteEnv, Env, RuntimeError,
 };
 
 use cuprate_fast_sync::{hash_of_hashes, BlockId, HashOfHashes};
-use std::{
-    fmt::Write,
-    fs::write,
-};
+use std::{fmt::Write, fs::write, process};
 
 const BATCH_SIZE: u64 = 512;
 
-async fn read_batch(handle: &mut DatabaseReadHandle, height_from: u64) -> Vec<BlockId> {
+async fn read_batch(
+    handle: &mut DatabaseReadHandle,
+    height_from: u64,
+) -> Result<Vec<BlockId>, RuntimeError> {
     let mut block_ids = Vec::<BlockId>::with_capacity(BATCH_SIZE as usize);
 
-    for height in height_from..(height_from + BATCH_SIZE)  {
+    for height in height_from..(height_from + BATCH_SIZE) {
         let request = BCReadRequest::BlockHash(height);
-        let response_channel = handle.ready().await.unwrap().call(request);
-        let response = response_channel.await.unwrap();
+        let response_channel = handle.ready().await?.call(request);
+        let response = response_channel.await?;
 
         match response {
             BCResponse::BlockHash(block_id) => block_ids.push(block_id),
@@ -32,7 +31,7 @@ async fn read_batch(handle: &mut DatabaseReadHandle, height_from: u64) -> Vec<Bl
         }
     }
 
-    block_ids
+    Ok(block_ids)
 }
 
 fn generate_hex(hashes: &[HashOfHashes]) -> String {
@@ -51,29 +50,46 @@ fn generate_hex(hashes: &[HashOfHashes]) -> String {
     writeln!(&mut s, "]").unwrap();
 
     s
-} 
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Args {
+    #[arg(short, long)]
+    height: u64,
+}
 
 #[tokio::main]
-async fn main() { 
+async fn main() {
+    let args = Args::parse();
+    let height_target = args.height;
+
     let config = ConfigBuilder::new().build();
 
     let (mut read_handle, _) = cuprate_blockchain::service::init(config).unwrap();
 
     let mut hashes_of_hashes = Vec::new();
 
-    let height_target = 5120u64; // TODO make a CLI option
-
     let mut height = 0u64;
 
     while height < height_target {
-        let block_ids = read_batch(&mut read_handle, height).await;
-        let hash = hash_of_hashes(block_ids.as_slice());
-        hashes_of_hashes.push(hash);
+        match read_batch(&mut read_handle, height).await {
+            Ok(block_ids) => {
+                let hash = hash_of_hashes(block_ids.as_slice());
+                hashes_of_hashes.push(hash);
+            }
+            Err(_) => {
+                println!("Failed to read next batch from database");
+                break;
+            }
+        }
         height += BATCH_SIZE;
     }
 
     drop(read_handle);
-    
+
     let generated = generate_hex(&hashes_of_hashes);
-    write("src/data/hashes_of_hashes", generated).unwrap();
+    write("src/data/hashes_of_hashes", generated).expect("Could not write file");
+
+    println!("Generated hashes up to block height {}", height);
 }
