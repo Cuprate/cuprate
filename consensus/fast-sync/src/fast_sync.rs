@@ -1,5 +1,8 @@
 use crate::{hash_of_hashes, BlockId, HashOfHashes};
+
+#[allow(unused_imports)]
 use hex_literal::hex;
+
 use std::{
     cmp,
     future::Future,
@@ -40,10 +43,7 @@ pub enum FastSyncRequest {
 pub struct ValidBlockId(BlockId);
 
 fn valid_block_ids(block_ids: &[BlockId]) -> Vec<ValidBlockId> {
-    block_ids
-        .into_iter()
-        .map(|b| ValidBlockId(b.clone()))
-        .collect()
+    block_ids.iter().map(|b| ValidBlockId(*b)).collect()
 }
 
 #[derive(Debug, PartialEq)]
@@ -62,6 +62,7 @@ pub enum FastSyncError {
     OutOfRange,         // start_height too high
 }
 
+#[allow(dead_code)]
 pub struct FastSyncService<C> {
     context_svc: C,
 }
@@ -73,6 +74,7 @@ where
         + Send
         + 'static,
 {
+    #[allow(dead_code)]
     pub(crate) fn new(context_svc: C) -> FastSyncService<C> {
         FastSyncService { context_svc }
     }
@@ -122,7 +124,7 @@ async fn validate_hashes(
     let stop_height = start_height as usize + block_ids.len();
 
     let batch_from = start_height as usize / BATCH_SIZE;
-    let batch_to = cmp::min(stop_height as usize / BATCH_SIZE, HASHES_OF_HASHES.len());
+    let batch_to = cmp::min(stop_height / BATCH_SIZE, HASHES_OF_HASHES.len());
     let n_batches = batch_to - batch_from;
 
     if n_batches == 0 {
