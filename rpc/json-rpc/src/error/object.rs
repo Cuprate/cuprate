@@ -19,6 +19,26 @@ use crate::error::{
 ///
 /// This is the object sent back in a [`Response`](crate::Response)
 /// if the method call errored.
+///
+/// # Display
+/// ```rust
+/// use json_rpc::error::ErrorObject;
+///
+/// // The format is `$CODE: $MESSAGE`.
+/// // If a message was not passed during construction,
+/// // the error code's message will be used.
+/// assert_eq!(format!("{}", ErrorObject::parse_error()),      "-32700: Parse error");
+/// assert_eq!(format!("{}", ErrorObject::invalid_request()),  "-32600: Invalid Request");
+/// assert_eq!(format!("{}", ErrorObject::method_not_found()), "-32601: Method not found");
+/// assert_eq!(format!("{}", ErrorObject::invalid_params()),   "-32602: Invalid params");
+/// assert_eq!(format!("{}", ErrorObject::internal_error()),   "-32603: Internal error");
+/// assert_eq!(format!("{}", ErrorObject::server_error(0)),    "0: Server error");
+///
+/// // Set a custom message.
+/// let mut e = ErrorObject::server_error(1);
+/// e.message = "hello".into();
+/// assert_eq!(format!("{e}"), "1: hello");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ErrorObject {
     /// The error code.
