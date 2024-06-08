@@ -1,26 +1,26 @@
 //! # Block Downloader
 //!
-
-mod chain_tracker;
-
-use std::cmp::{max, min, Ordering, Reverse};
-use std::collections::{BTreeMap, BinaryHeap, HashSet};
-use std::sync::Arc;
-use std::time::Duration;
+use std::{
+    cmp::{max, min, Ordering, Reverse},
+    collections::{BTreeMap, BinaryHeap, HashSet},
+    sync::Arc,
+    time::Duration,
+};
 
 use monero_serai::{block::Block, transaction::Transaction};
 use rand::prelude::*;
 use rayon::prelude::*;
-use tokio::task::JoinSet;
-use tokio::time::{interval, MissedTickBehavior};
+use tokio::{
+    task::JoinSet,
+    time::{interval, MissedTickBehavior},
+};
 use tower::{Service, ServiceExt};
 
-use crate::block_downloader::chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
 use async_buffer::{BufferAppender, BufferStream};
 use cuprate_helper::asynch::rayon_spawn_async;
 use fixed_bytes::ByteArrayVec;
-use monero_p2p::client::InternalPeerID;
 use monero_p2p::{
+    client::InternalPeerID,
     handles::ConnectionHandle,
     services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
@@ -28,8 +28,13 @@ use monero_p2p::{
 use monero_pruning::CRYPTONOTE_MAX_BLOCK_HEIGHT;
 use monero_wire::protocol::{ChainRequest, ChainResponse, GetObjectsRequest};
 
-use crate::client_pool::{ClientPool, ClientPoolDropGuard};
-use crate::constants::{INITIAL_CHAIN_REQUESTS_TO_SEND, LONG_BAN, MEDIUM_BAN};
+use crate::{
+    client_pool::{ClientPool, ClientPoolDropGuard},
+    constants::{INITIAL_CHAIN_REQUESTS_TO_SEND, LONG_BAN, MEDIUM_BAN},
+};
+
+mod chain_tracker;
+use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
 
 /// A downloaded batch of blocks.
 #[derive(Debug)]
