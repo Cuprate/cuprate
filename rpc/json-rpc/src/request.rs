@@ -44,7 +44,6 @@ pub struct Request<T> {
 }
 
 impl<T> Request<T> {
-    #[inline]
     /// Create a new [`Self`] with no [`Id`].
     ///
     /// ```rust
@@ -60,7 +59,6 @@ impl<T> Request<T> {
         }
     }
 
-    #[inline]
     /// Create a new [`Self`] with an [`Id`].
     ///
     /// ```rust
@@ -76,7 +74,6 @@ impl<T> Request<T> {
         }
     }
 
-    #[inline]
     /// Returns `true` if the request is [notification](https://www.jsonrpc.org/specification#notification).
     ///
     /// In other words, if `id` is [`None`], this returns `true`.

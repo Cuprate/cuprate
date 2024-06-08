@@ -34,7 +34,6 @@ pub struct Response<T> {
 }
 
 impl<T> Response<T> {
-    #[inline]
     /// Creates a successful response.
     ///
     /// ```rust
@@ -52,7 +51,6 @@ impl<T> Response<T> {
         }
     }
 
-    #[inline]
     /// Creates an error response.
     ///
     /// ```rust
@@ -76,7 +74,6 @@ impl<T> Response<T> {
         }
     }
 
-    #[inline]
     /// Creates an error response using [`ErrorObject::parse_error`].
     ///
     /// ```rust
@@ -94,7 +91,6 @@ impl<T> Response<T> {
         }
     }
 
-    #[inline]
     /// Creates an error response using [`ErrorObject::invalid_request`].
     ///
     /// ```rust
@@ -112,7 +108,6 @@ impl<T> Response<T> {
         }
     }
 
-    #[inline]
     /// Creates an error response using [`ErrorObject::method_not_found`].
     ///
     /// ```rust
@@ -130,7 +125,6 @@ impl<T> Response<T> {
         }
     }
 
-    #[inline]
     /// Creates an error response using [`ErrorObject::invalid_params`].
     ///
     /// ```rust
@@ -148,7 +142,6 @@ impl<T> Response<T> {
         }
     }
 
-    #[inline]
     /// Creates an error response using [`ErrorObject::internal_error`].
     ///
     /// ```rust
@@ -279,7 +272,6 @@ where
         {
             type Value = Response<T>;
 
-            #[inline]
             fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("JSON-RPC 2.0 Response")
             }

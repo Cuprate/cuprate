@@ -63,7 +63,6 @@ pub struct ErrorObject {
 }
 
 impl ErrorObject {
-    #[inline]
     /// Creates a new error, deriving the message from the code.
     ///
     /// Same as `ErrorObject::from(ErrorCode)`.

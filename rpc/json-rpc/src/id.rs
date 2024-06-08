@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
 //---------------------------------------------------------------------------------------------------- Id
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 /// [Request](crate::Request)/[Response](crate::Response) identification.
 ///
@@ -36,7 +36,6 @@ use std::borrow::Cow;
 /// assert_eq!(Id::from(None::<u64>), Id::Null);
 /// ```
 pub enum Id {
-    #[default]
     /// A JSON `null` value.
     ///
     /// This is the [`Default`] value.
@@ -73,7 +72,6 @@ pub enum Id {
 }
 
 impl Id {
-    #[inline]
     /// This returns `Some(u64)` if [`Id`] is a number.
     ///
     /// ```rust
@@ -90,7 +88,6 @@ impl Id {
         }
     }
 
-    #[inline]
     /// This returns `Some(&str)` if [`Id`] is a string.
     ///
     /// ```rust
@@ -107,7 +104,6 @@ impl Id {
         }
     }
 
-    #[inline]
     /// Returns `true` if `self` is [`Id::Null`].
     ///
     /// ```rust

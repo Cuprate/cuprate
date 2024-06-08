@@ -205,7 +205,6 @@ impl ErrorCode {
 
 //---------------------------------------------------------------------------------------------------- Trait impl
 impl<N: Into<i32>> From<N> for ErrorCode {
-    #[inline]
     fn from(code: N) -> Self {
         Self::from_code(code.into())
     }
