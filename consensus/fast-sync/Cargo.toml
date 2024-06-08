@@ -1,0 +1,13 @@
+[package]
+name = "cuprate-fast-sync"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+hex-literal.workspace = true
+rayon.workspace = true
+sha3 = "0.10.8"
+tower.workspace = true
+
+[dev-dependencies]
+tokio-test = "0.4.4"
