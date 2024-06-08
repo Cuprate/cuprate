@@ -38,11 +38,15 @@ use std::borrow::Cow;
 pub enum Id {
     /// A JSON `null` value.
     ///
-    /// This is the [`Default`] value.
     /// ```rust
     /// use json_rpc::Id;
+    /// use serde_json::{from_value,to_value,json,Value};
     ///
-    /// assert_eq!(Id::default(), Id::Null);
+    /// assert_eq!(from_value::<Id>(json!(null)).unwrap(), Id::Null);
+    /// assert_eq!(to_value(Id::Null).unwrap(), Value::Null);
+    ///
+    /// // Not a real `null`, but a string.
+    /// assert_eq!(from_value::<Id>(json!("null")).unwrap(), Id::Str("null".into()));
     /// ```
     Null,
 
