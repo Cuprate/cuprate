@@ -1,16 +1,15 @@
 use clap::Parser;
 
-use hex_literal::hex;
 use tower::{Service, ServiceExt};
 
 use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use cuprate_blockchain::{
-    config::ConfigBuilder, service::DatabaseReadHandle, ConcreteEnv, Env, RuntimeError,
+    config::ConfigBuilder, service::DatabaseReadHandle, RuntimeError,
 };
 
 use cuprate_fast_sync::{hash_of_hashes, BlockId, HashOfHashes};
-use std::{fmt::Write, fs::write, process};
+use std::{fmt::Write, fs::write};
 
 const BATCH_SIZE: u64 = 512;
 
