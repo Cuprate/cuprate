@@ -568,6 +568,7 @@ dependencies = [
  "cuprate-types",
  "hex",
  "hex-literal",
+ "monero-serai",
  "rayon",
  "sha3",
  "tokio",
