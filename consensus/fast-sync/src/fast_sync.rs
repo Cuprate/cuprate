@@ -66,8 +66,9 @@ pub enum FastSyncResponse {
 
 #[derive(Debug, PartialEq)]
 pub enum FastSyncError {
+    BlockHashMismatch,  // block does not match its expected hash
     InvalidStartHeight, // start_height not a multiple of BATCH_SIZE
-    Mismatch,           // hash does not match
+    Mismatch,           // hash of hashes for one batch does not match
     NothingToDo,        // no complete batch to check
     OutOfRange,         // start_height too high
 }
@@ -171,13 +172,20 @@ async fn validate_block(
     token: ValidBlockId,
 ) -> Result<FastSyncResponse, FastSyncError>
 {
-    //let block_blob = block.serialize();
+    let block_blob = block.serialize();
+    let block_hash = block.hash();
+
+    if block_hash != token.0 {
+        return Err(FastSyncError::BlockHashMismatch)
+    }
+
+    // TODO remaining fields, except pow_hash
 
     Ok(FastSyncResponse::ValidateBlock(VerifiedBlockInformation {
         block,
-        block_blob: vec![],
+        block_blob,
         txs: vec![],
-        block_hash: [0u8; 32],
+        block_hash,
         pow_hash: [0u8; 32],
         height: 0u64,
         generated_coins: 0u64,
