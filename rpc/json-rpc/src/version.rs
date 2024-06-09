@@ -61,7 +61,7 @@ pub struct Version;
 impl Version {
     /// The string `2.0`.
     ///
-    /// Note that this does not have etra quotes to mark
+    /// Note that this does not have extra quotes to mark
     /// that it's a JSON string and not a float.
     /// ```rust
     /// use json_rpc::Version;

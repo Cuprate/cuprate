@@ -12,7 +12,7 @@ use std::borrow::Cow;
 
 use pretty_assertions::assert_eq;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::{to_value, Value};
+use serde_json::{to_string, to_string_pretty, to_value, Value};
 
 use crate::{Id, Request, Response};
 
@@ -32,6 +32,24 @@ where
 {
     let value = to_value(t).unwrap();
     assert_eq!(value, *expected_value);
+}
+
+/// Assert input and output of string serialization are the same.
+pub(crate) fn assert_ser_string<T>(t: &T, expected_string: &str)
+where
+    T: Serialize + std::fmt::Debug + Clone + PartialEq,
+{
+    let string = to_string(t).unwrap();
+    assert_eq!(string, expected_string);
+}
+
+/// Assert input and output of (pretty) string serialization are the same.
+pub(crate) fn assert_ser_string_pretty<T>(t: &T, expected_string: &str)
+where
+    T: Serialize + std::fmt::Debug + Clone + PartialEq,
+{
+    let string = to_string_pretty(t).unwrap();
+    assert_eq!(string, expected_string);
 }
 
 /// Tests an input JSON string matches an expected type `T`.
@@ -60,61 +78,24 @@ enum Methods {
 }
 
 //---------------------------------------------------------------------------------------------------- TESTS
-/// Tests Monero's `get_block`.
+/// Tests that Monero's `get_block` request and response
+/// in JSON string form gets correctly (de)serialized.
 #[test]
 fn monero_jsonrpc_get_block() {
     //--- Request
-
-    let json = r#"{"jsonrpc":"2.0","id":"0","method":"get_block","params":{"height": 123}}"#;
+    const REQUEST: &str =
+        r#"{"jsonrpc":"2.0","id":"0","method":"get_block","params":{"height":123}}"#;
     let request = Request::new_with_id(
         Id::Str("0".into()),
         Methods::GetBlock(GetBlock { height: 123 }),
     );
-    assert_de(json, request);
+    assert_ser_string(&request, REQUEST);
+    assert_de(REQUEST, request);
 
     //--- Response
-
-    #[derive(Clone, Debug, Deserialize, PartialEq)]
-    struct Json {
-        blob: String,
-        block_header: BlockHeader,
-        credits: u64,
-        json: String,
-        miner_tx_hash: String,
-        status: String,
-        top_hash: String,
-        untrusted: bool,
-    }
-
-    #[derive(Clone, Debug, Deserialize, PartialEq)]
-    struct BlockHeader {
-        block_size: u64,
-        block_weight: u64,
-        cumulative_difficulty: u64,
-        cumulative_difficulty_top64: u64,
-        depth: u64,
-        difficulty: u64,
-        difficulty_top64: u64,
-        hash: String,
-        height: u64,
-        long_term_weight: u64,
-        major_version: u64,
-        miner_tx_hash: String,
-        minor_version: u64,
-        nonce: u64,
-        num_txes: u64,
-        orphan_status: bool,
-        pow_hash: String,
-        prev_hash: String,
-        reward: u64,
-        timestamp: u64,
-        wide_cumulative_difficulty: String,
-        wide_difficulty: String,
-    }
-
-    let json = r#"{
-  "id": "0",
+    const RESPONSE: &str = r#"{
   "jsonrpc": "2.0",
+  "id": "0",
   "result": {
     "blob": "01008cb1c49a0572244e0c8b2b8b99236e10c03eba53685b346aab525eb20b59a459b5935cd5a5aaa8f2ba01b70101ff7b08ebcc2202f917ac2dc38c0e0735f2c97df4a307a445b32abaf0ad528c385ae11a7e767d3880897a0215a39af4cf4c67136ecc048d9296b4cb7a6be61275a0ef207eb4cbb427cc216380dac40902dabddeaada9f4ed2512f9b9613a7ced79d3996ad5050ca542f31032bd638193380c2d72f02965651ab4a26264253bb8a4ccb9b33afbc8c8b4f3e331baf50537b8ee80364038088aca3cf020235a7367536243629560b8a40f104352c89a2d4719e86f54175c2e4e3ecfec9938090cad2c60e023b623a01eace71e9b37d2bfac84f9aafc85dbf62a0f452446c5de0ca50cf910580e08d84ddcb010258c370ee02069943e5440294aeafae29656f9782b0a565d26065bb7af07a6af980c0caf384a30202899a53eeb05852a912bcbc6fa78e4c85f0b059726b0b8f0753e7aa54fc9d7ce82101351af203765d1679e2a9458ab6737d289e18c49766d41fc31a2bf0fe32dd196200",
     "block_header": {
@@ -149,6 +130,44 @@ fn monero_jsonrpc_get_block() {
     "untrusted": false
   }
 }"#;
+
+    #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+    struct Json {
+        blob: String,
+        block_header: BlockHeader,
+        credits: u64,
+        json: String,
+        miner_tx_hash: String,
+        status: String,
+        top_hash: String,
+        untrusted: bool,
+    }
+
+    #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+    struct BlockHeader {
+        block_size: u64,
+        block_weight: u64,
+        cumulative_difficulty: u64,
+        cumulative_difficulty_top64: u64,
+        depth: u64,
+        difficulty: u64,
+        difficulty_top64: u64,
+        hash: String,
+        height: u64,
+        long_term_weight: u64,
+        major_version: u64,
+        miner_tx_hash: String,
+        minor_version: u64,
+        nonce: u64,
+        num_txes: u64,
+        orphan_status: bool,
+        pow_hash: String,
+        prev_hash: String,
+        reward: u64,
+        timestamp: u64,
+        wide_cumulative_difficulty: String,
+        wide_difficulty: String,
+    }
 
     let payload = Json {
         blob: "01008cb1c49a0572244e0c8b2b8b99236e10c03eba53685b346aab525eb20b59a459b5935cd5a5aaa8f2ba01b70101ff7b08ebcc2202f917ac2dc38c0e0735f2c97df4a307a445b32abaf0ad528c385ae11a7e767d3880897a0215a39af4cf4c67136ecc048d9296b4cb7a6be61275a0ef207eb4cbb427cc216380dac40902dabddeaada9f4ed2512f9b9613a7ced79d3996ad5050ca542f31032bd638193380c2d72f02965651ab4a26264253bb8a4ccb9b33afbc8c8b4f3e331baf50537b8ee80364038088aca3cf020235a7367536243629560b8a40f104352c89a2d4719e86f54175c2e4e3ecfec9938090cad2c60e023b623a01eace71e9b37d2bfac84f9aafc85dbf62a0f452446c5de0ca50cf910580e08d84ddcb010258c370ee02069943e5440294aeafae29656f9782b0a565d26065bb7af07a6af980c0caf384a30202899a53eeb05852a912bcbc6fa78e4c85f0b059726b0b8f0753e7aa54fc9d7ce82101351af203765d1679e2a9458ab6737d289e18c49766d41fc31a2bf0fe32dd196200".into(),
@@ -186,36 +205,37 @@ fn monero_jsonrpc_get_block() {
 
     let response = Response::ok(Id::Str("0".into()), payload);
 
-    assert_de(json, response);
+    assert_ser_string_pretty(&response, RESPONSE);
+    assert_de(RESPONSE, response);
 }
 
-/// Tests Monero's `get_block_count`.
+/// Tests that Monero's `get_block_count` request and response
+/// in JSON string form gets correctly (de)serialized.
 #[test]
 fn monero_jsonrpc_get_block_count() {
     //--- Request
-
-    let json = r#"{"jsonrpc":"2.0","id":0,"method":"get_block_count"}"#;
+    const REQUEST: &str = r#"{"jsonrpc":"2.0","id":0,"method":"get_block_count"}"#;
     let request = Request::new_with_id(Id::Num(0), Methods::GetBlockCount);
-    assert_de(json, request);
+    assert_ser_string(&request, REQUEST);
+    assert_de(REQUEST, request);
 
     //--- Response
-
-    #[derive(Clone, Debug, Deserialize, PartialEq)]
-    struct Json {
-        count: u64,
-        status: String,
-        untrusted: bool,
-    }
-
-    let json = r#"{
-  "id": 0,
+    const RESPONSE: &str = r#"{
   "jsonrpc": "2.0",
+  "id": 0,
   "result": {
     "count": 3166375,
     "status": "OK",
     "untrusted": false
   }
 }"#;
+
+    #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+    struct Json {
+        count: u64,
+        status: String,
+        untrusted: bool,
+    }
 
     let payload = Json {
         count: 3166375,
@@ -224,5 +244,7 @@ fn monero_jsonrpc_get_block_count() {
     };
 
     let response = Response::ok(Id::Num(0), payload);
-    assert_de(json, response);
+
+    assert_ser_string_pretty(&response, RESPONSE);
+    assert_de(RESPONSE, response);
 }
