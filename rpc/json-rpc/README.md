@@ -74,3 +74,64 @@ assert_eq!(json, expected_json);
 This is how the method/param types are done in Cuprate.
 
 For reasoning, see: <https://github.com/Cuprate/cuprate/pull/146#issuecomment-2145734838>.
+
+### Serialization changes
+This crate's serialized field order slightly differs compared to `monerod`.
+
+`monerod`'s JSON objects are serialized in alphabetically order, where as this crate serializes the fields in their defined order (due to [`serde`]).
+
+With that said, parsing should be not affected at all since a key-value map is used:
+```rust
+# use pretty_assertions::assert_eq;
+use json_rpc::{Id, Response};
+
+let response = Response::ok(Id::Num(123), "OK");
+let response_json = serde_json::to_string_pretty(&response).unwrap();
+
+// This crate's `Response` result type will _always_
+// serialize fields in the following order:
+let expected_json =
+r#"{
+  "jsonrpc": "2.0",
+  "id": 123,
+  "result": "OK"
+}"#;
+assert_eq!(response_json, expected_json);
+
+// Although, `monerod` will serialize like such:
+let monerod_json =
+r#"{
+  "id": 123,
+  "jsonrpc": "2.0",
+  "result": "OK"
+}"#;
+
+///---
+
+let response = Response::<()>::invalid_request(Id::Num(123));
+let response_json = serde_json::to_string_pretty(&response).unwrap();
+
+// This crate's `Response` error type will _always_
+// serialize fields in the following order:
+let expected_json =
+r#"{
+  "jsonrpc": "2.0",
+  "id": 123,
+  "error": {
+    "code": -32600,
+    "message": "Invalid Request"
+  }
+}"#;
+assert_eq!(response_json, expected_json);
+
+// Although, `monerod` will serialize like such:
+let monerod_json =
+r#"{
+  "error": {
+    "code": -32600,
+    "message": "Invalid Request"
+  },
+  "id": 123
+  "jsonrpc": "2.0",
+}"#;
+```
