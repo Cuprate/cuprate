@@ -43,6 +43,14 @@ pub(crate) const INBOUND_CONNECTION_COOL_DOWN: Duration = Duration::from_millis(
 /// The initial amount of chain requests to send to find the best chain to sync from.
 pub(crate) const INITIAL_CHAIN_REQUESTS_TO_SEND: usize = 3;
 
+/// The enforced maximum amount of blocks to request in a batch.
+///
+/// Requesting more than this will cause the peer to disconnect and potentially lead to bans.
+pub(crate) const MAX_BLOCK_BATCH_LEN: usize = 100;
+
+/// The timeout for a chain entry request.
+pub(crate) const CHIAN_ENTRY_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
 #[cfg(test)]
 mod tests {
     use super::*;
