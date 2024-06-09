@@ -133,6 +133,31 @@ mod test {
         assert_eq!(req, de);
     }
 
+    /// Asserts that fields must be `lowercase`.
+    #[test]
+    #[should_panic(
+        expected = "called `Result::unwrap()` on an `Err` value: Error(\"missing field `jsonrpc`\", line: 1, column: 63)"
+    )]
+    fn lowercase() {
+        let id = Id::Num(123);
+        let body = Body {
+            method: "a_method".into(),
+            params: [0, 1, 2],
+        };
+
+        let req = Request::new_with_id(id, body);
+
+        let ser: String = serde_json::to_string(&req).unwrap();
+        assert_eq!(
+            ser,
+            r#"{"jsonrpc":"2.0","id":123,"method":"a_method","params":[0,1,2]}"#,
+        );
+
+        let mixed_case = r#"{"jSoNRPC":"2.0","ID":123,"method":"a_method","params":[0,1,2]}"#;
+        let de: Request<Body<[u8; 3]>> = serde_json::from_str(mixed_case).unwrap();
+        assert_eq!(de, req);
+    }
+
     /// Tests that null `id` shows when serializing.
     #[test]
     fn request_null_id() {
