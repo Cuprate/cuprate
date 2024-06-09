@@ -19,8 +19,8 @@ as such, neither does Cuprate.
 
 TODO: citation needed on `monerod` not supporting batching.
 
-## Response changes
-[JSON-RPC 2.0's `Response` object](https://www.jsonrpc.org/specification#response_object) usually contains these 2 fields:
+## Request changes
+[JSON-RPC 2.0's `Request` object](https://www.jsonrpc.org/specification#request_object) usually contains these 2 fields:
 - `method`
 - `params`
 
