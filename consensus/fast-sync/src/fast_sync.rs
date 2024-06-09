@@ -1,5 +1,6 @@
 use std::{
     cmp,
+    collections::HashMap,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -7,9 +8,13 @@ use std::{
 
 #[allow(unused_imports)]
 use hex_literal::hex;
+use monero_serai::{block::Block, transaction::Transaction};
 use tower::Service;
 
+use cuprate_types::VerifiedBlockInformation;
+
 use crate::{hash_of_hashes, BlockId, HashOfHashes};
+
 #[cfg(not(test))]
 static HASHES_OF_HASHES: &[HashOfHashes] = &include!("./data/hashes_of_hashes");
 
@@ -31,18 +36,23 @@ fn max_height() -> u64 {
     (HASHES_OF_HASHES.len() * BATCH_SIZE) as u64
 }
 
-pub enum FastSyncRequest {
-    ValidateHashes {
-        start_height: u64,
-        block_ids: Vec<BlockId>,
-    },
-}
-
 #[derive(Debug, PartialEq)]
 pub struct ValidBlockId(BlockId);
 
 fn valid_block_ids(block_ids: &[BlockId]) -> Vec<ValidBlockId> {
     block_ids.iter().map(|b| ValidBlockId(*b)).collect()
+}
+
+pub enum FastSyncRequest {
+    ValidateHashes {
+        start_height: u64,
+        block_ids: Vec<BlockId>,
+    },
+    ValidateBlock {
+        block: Block,
+        txs: HashMap<[u8; 32], Transaction>,
+        token: ValidBlockId,
+    },
 }
 
 #[derive(Debug, PartialEq)]
@@ -51,6 +61,7 @@ pub enum FastSyncResponse {
         validated_hashes: Vec<ValidBlockId>,
         unknown_hashes: Vec<BlockId>,
     },
+    ValidateBlock(VerifiedBlockInformation),
 }
 
 #[derive(Debug, PartialEq)]
@@ -103,6 +114,11 @@ where
                     start_height,
                     block_ids,
                 } => validate_hashes(start_height, &block_ids).await,
+                FastSyncRequest::ValidateBlock {
+                    block,
+                    txs,
+                    token,
+                } => validate_block(block, txs, token).await,
             }
         })
     }
@@ -147,6 +163,28 @@ async fn validate_hashes(
         validated_hashes,
         unknown_hashes,
     })
+}
+
+async fn validate_block(
+    block: Block,
+    txs: HashMap<[u8; 32], Transaction>,
+    token: ValidBlockId,
+) -> Result<FastSyncResponse, FastSyncError>
+{
+    //let block_blob = block.serialize();
+
+    Ok(FastSyncResponse::ValidateBlock(VerifiedBlockInformation {
+        block,
+        block_blob: vec![],
+        txs: vec![],
+        block_hash: [0u8; 32],
+        pow_hash: [0u8; 32],
+        height: 0u64,
+        generated_coins: 0u64,
+        weight: 0usize,
+        long_term_weight: 0usize,
+        cumulative_difficulty: 0u128,
+    }))
 }
 
 #[cfg(test)]
