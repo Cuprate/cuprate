@@ -12,6 +12,7 @@ path = "src/create.rs"
 clap = { workspace = true, features = ["derive", "std"] }
 cuprate-blockchain = { path = "../../storage/cuprate-blockchain" }
 cuprate-types = { path = "../../types" }
+hex.workspace = true
 hex-literal.workspace = true
 rayon.workspace = true
 sha3 = "0.10.8"

@@ -3,8 +3,8 @@ use std::{fmt::Write, fs::write};
 use clap::Parser;
 use tower::{Service, ServiceExt};
 
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 use cuprate_blockchain::{config::ConfigBuilder, service::DatabaseReadHandle, RuntimeError};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use cuprate_fast_sync::{hash_of_hashes, BlockId, HashOfHashes};
 
@@ -36,11 +36,7 @@ fn generate_hex(hashes: &[HashOfHashes]) -> String {
     writeln!(&mut s, "[").unwrap();
 
     for hash in hashes {
-        write!(&mut s, "\thex!(\"").unwrap();
-        for byte in hash {
-            write!(&mut s, "{:02x}", byte).unwrap();
-        }
-        writeln!(&mut s, "\"),").unwrap();
+        writeln!(&mut s, "\thex!(\"{}\"),", hex::encode(hash)).unwrap();
     }
 
     writeln!(&mut s, "]").unwrap();

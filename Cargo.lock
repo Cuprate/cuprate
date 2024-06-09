@@ -566,6 +566,7 @@ dependencies = [
  "clap",
  "cuprate-blockchain",
  "cuprate-types",
+ "hex",
  "hex-literal",
  "rayon",
  "sha3",
