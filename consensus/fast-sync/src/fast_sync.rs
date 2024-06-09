@@ -1,16 +1,15 @@
-use crate::{hash_of_hashes, BlockId, HashOfHashes};
-
-#[allow(unused_imports)]
-use hex_literal::hex;
-
 use std::{
     cmp,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
+
+#[allow(unused_imports)]
+use hex_literal::hex;
 use tower::Service;
 
+use crate::{hash_of_hashes, BlockId, HashOfHashes};
 #[cfg(not(test))]
 static HASHES_OF_HASHES: &[HashOfHashes] = &include!("./data/hashes_of_hashes");
 
