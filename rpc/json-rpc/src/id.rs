@@ -178,28 +178,30 @@ impl From<Option<&str>> for Id {
 ///
 /// Not a generic since that clashes with `From<String>`.
 macro_rules! impl_u {
-	($($u:ty),*) => {
-		$(
-			impl From<$u> for Id {
-				fn from(u: $u) -> Self {
-					Self::Num(u as u64)
-				}
-			}
-			impl From<&$u> for Id {
-				fn from(u: &$u) -> Self {
-					Self::Num(*u as u64)
-				}
-			}
-			impl From<Option<$u>> for Id {
-				fn from(u: Option<$u>) -> Self {
+    ($($u:ty),*) => {
+        $(
+            impl From<$u> for Id {
+                fn from(u: $u) -> Self {
+                    Self::Num(u as u64)
+                }
+            }
+
+            impl From<&$u> for Id {
+                fn from(u: &$u) -> Self {
+                    Self::Num(*u as u64)
+                }
+            }
+
+            impl From<Option<$u>> for Id {
+                fn from(u: Option<$u>) -> Self {
                     match u {
                         Some(u) => Self::Num(u as u64),
                         None => Self::Null,
                     }
-				}
-			}
-		)*
-	}
+                }
+            }
+        )*
+    }
 }
 
 impl_u!(u8, u16, u32);
