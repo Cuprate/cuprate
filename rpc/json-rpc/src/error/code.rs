@@ -20,7 +20,9 @@ use crate::error::constants::{
 /// defined in JSON-RPC 2.0 are not supported by this enum because:
 ///
 /// 1. The `(i32, &'static str)` required makes the enum more than 3x larger
-/// 2. It is not used by Cuprate/Monero
+/// 2. It is not used by Cuprate/Monero[^1]
+///
+/// [^1]: Defined errors used by Monero (also excludes the last defined error `-32000 to -32099 Server error`): <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/contrib/epee/include/net/http_server_handlers_map2.h#L150>
 ///
 /// # Display
 /// ```rust
