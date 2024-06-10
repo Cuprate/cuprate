@@ -49,7 +49,19 @@ pub(crate) const INITIAL_CHAIN_REQUESTS_TO_SEND: usize = 3;
 pub(crate) const MAX_BLOCK_BATCH_LEN: usize = 100;
 
 /// The timeout for a chain entry request.
-pub(crate) const CHIAN_ENTRY_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const CHAIN_ENTRY_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The maximum size of a transaction, a sanity limit that all transactions across all hard-forks must
+/// be less than.
+///
+/// ref: <https://monero-book.cuprate.org/consensus_rules/transactions.html#transaction-size>
+pub(crate) const MAX_TRANSACTION_BLOB_SIZE: usize = 1_000_000;
+
+/// The maximum amount of block IDS allowed in a chain entry response.
+///
+/// ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_config.h#L97>
+// TODO: link to the protocol book when this section is added.
+pub(crate) const MAX_BLOCKS_IDS_IN_CHAIN_ENTRY: usize = 25_000;
 
 #[cfg(test)]
 mod tests {
