@@ -160,7 +160,7 @@ async fn main() {
         BlockDownloaderConfig {
             buffer_size: 50_000_000,
             in_progress_queue_size: 30_000_000,
-            check_client_pool_interval: Duration::from_secs(10),
+            check_client_pool_interval: Duration::from_secs(30),
             target_batch_size: 5_000_000,
             initial_batch_size: 10,
         },

@@ -31,6 +31,8 @@ pub struct BlocksToRetrieve<N: NetworkZone> {
     pub peer_who_told_us_handle: ConnectionHandle,
     /// The number of requests sent for this batch.
     pub requests_sent: usize,
+    /// The number of times this batch has been requested from a peer and failed.
+    pub failures: usize,
 }
 
 pub enum ChainTrackerError {
@@ -173,6 +175,7 @@ impl<N: NetworkZone> ChainTracker<N> {
             peer_who_told_us: entry.peer,
             peer_who_told_us_handle: entry.handle.clone(),
             requests_sent: 0,
+            failures: 0,
         };
 
         self.first_height += u64::try_from(end_idx).unwrap();

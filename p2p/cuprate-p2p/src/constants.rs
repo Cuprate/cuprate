@@ -63,6 +63,8 @@ pub(crate) const MAX_TRANSACTION_BLOB_SIZE: usize = 1_000_000;
 // TODO: link to the protocol book when this section is added.
 pub(crate) const MAX_BLOCKS_IDS_IN_CHAIN_ENTRY: usize = 25_000;
 
+pub(crate) const MAX_DOWNLOAD_FAILURES: usize = 3;
+
 #[cfg(test)]
 mod tests {
     use super::*;
