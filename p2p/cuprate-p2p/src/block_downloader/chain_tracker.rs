@@ -3,7 +3,6 @@ use std::{cmp::min, collections::VecDeque};
 
 use monero_p2p::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
 use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
-use monero_wire::protocol::ChainResponse;
 
 use crate::constants::MEDIUM_BAN;
 

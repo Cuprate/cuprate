@@ -1,6 +1,5 @@
 //! # Block Downloader
 //!
-use indexmap::IndexSet;
 use std::{
     cmp::{max, min, Ordering, Reverse},
     collections::{BTreeMap, BinaryHeap, HashSet},
@@ -691,7 +690,7 @@ where
 
                             self.check_pending_peers(&mut chain_tracker).await;
                         }
-                        Err(_) => {}
+                        Err(_) => self.amount_of_empty_chain_entries += 1
                     }
                 }
                 else => {
