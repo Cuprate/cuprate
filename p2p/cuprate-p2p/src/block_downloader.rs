@@ -468,7 +468,7 @@ where
         client: ClientPoolDropGuard<N>,
     ) -> Option<ClientPoolDropGuard<N>> {
         if self.chain_entry_task.len() < 2
-            && self.amount_of_empty_chain_entries < 2
+            && self.amount_of_empty_chain_entries <= 5
             && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request) < 500
             && chain_tracker.should_ask_for_next_chain_entry(&client.info.pruning_seed)
         {
@@ -666,11 +666,19 @@ where
             tokio::select! {
                 _ = check_client_pool_interval.tick() => {
                     self.check_for_free_clients(&mut chain_tracker).await?;
+
+                    if self.block_download_tasks.is_empty() && self.amount_of_empty_chain_entries > 5 {
+                        return Ok(())
+                    }
                 }
                 Some(res) = self.block_download_tasks.join_next() => {
                     let (start_height, res) = res.expect("Download batch future panicked");
 
                     self.handle_download_batch_res(start_height, res, &mut chain_tracker).await?;
+
+                    if self.block_download_tasks.is_empty() && self.amount_of_empty_chain_entries > 5 {
+                        return Ok(())
+                    }
                 }
                 Some(Ok(res)) = self.chain_entry_task.join_next() => {
                     match res {
@@ -692,9 +700,6 @@ where
                         }
                         Err(_) => self.amount_of_empty_chain_entries += 1
                     }
-                }
-                else => {
-                    self.check_for_free_clients(&mut chain_tracker).await?;
                 }
             }
         }
