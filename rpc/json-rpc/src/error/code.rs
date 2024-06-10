@@ -126,28 +126,21 @@ impl ErrorCode {
     /// assert_eq!(ErrorCode::from_code(2), ErrorCode::ServerError(2));
     /// ```
     pub const fn from_code(code: i32) -> Self {
-        /// HACK: you cannot `match` on tuple fields
-        /// like `PARSE_ERROR.0 => /*...*/` so extract
-        /// it out here.
-        #[allow(clippy::wildcard_imports, clippy::missing_docs_in_private_items)]
-        mod i32s {
-            use super::*;
-            pub(super) const PARSE_ERROR_I32: i32 = PARSE_ERROR.0;
-            pub(super) const INVALID_REQUEST_I32: i32 = INVALID_REQUEST.0;
-            pub(super) const METHOD_NOT_FOUND_I32: i32 = METHOD_NOT_FOUND.0;
-            pub(super) const INVALID_PARAMS_I32: i32 = INVALID_PARAMS.0;
-            pub(super) const INTERNAL_ERROR_I32: i32 = INTERNAL_ERROR.0;
-        }
-        #[allow(clippy::wildcard_imports)]
-        use i32s::*;
-
-        match code {
-            PARSE_ERROR_I32 => Self::ParseError,
-            INVALID_REQUEST_I32 => Self::InvalidRequest,
-            METHOD_NOT_FOUND_I32 => Self::MethodNotFound,
-            INVALID_PARAMS_I32 => Self::InvalidParams,
-            INTERNAL_ERROR_I32 => Self::InternalError,
-            code => Self::ServerError(code),
+        // FIXME: you cannot `match` on tuple fields
+        // so use `if` (seems to compile to the same
+        // assembly as matching directly on `i32`s).
+        if code == PARSE_ERROR.0 {
+            Self::ParseError
+        } else if code == INVALID_REQUEST.0 {
+            Self::InvalidRequest
+        } else if code == METHOD_NOT_FOUND.0 {
+            Self::MethodNotFound
+        } else if code == INVALID_PARAMS.0 {
+            Self::InvalidParams
+        } else if code == INTERNAL_ERROR.0 {
+            Self::InternalError
+        } else {
+            Self::ServerError(code)
         }
     }
 
