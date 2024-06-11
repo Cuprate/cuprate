@@ -325,8 +325,9 @@ mod test {
     }
 
     /// Tests that unknown fields are ignored, and deserialize continues.
+    /// Also that unicode and backslashes work.
     #[test]
-    fn unknown_fields() {
+    fn unknown_fields_and_unicode() {
         let expected = Request::new_with_id(
             Id::Str("id".into()),
             Body {
@@ -340,9 +341,9 @@ mod test {
             "method": "method",
             "unknown_field": 123,
             "id": "id",
-            "unknown_field": 123,
+            "\nhello": 123,
             "params": [0, 1, 2],
-            "unknown_field": 123,
+            "\u{00f8}": 123,
             "jsonrpc": "2.0",
             "unknown_field": 123,
         });

@@ -465,4 +465,21 @@ mod test {
         let mixed_case = r#"{"jSoNRPC":"2.0","id":123,"result":"OK"}"#;
         serde_json::from_str::<Response<String>>(mixed_case).unwrap();
     }
+
+    /// Tests that unknown fields are ignored, and deserialize continues.
+    /// Also that unicode and backslashes work.
+    #[test]
+    fn unknown_fields_and_unicode() {
+        let e = ErrorObject::internal_error();
+        let j = json!({
+            "error": e,
+            "\u{00f8}": 123,
+            "id": 0,
+            "unknown_field": 123,
+            "jsonrpc": "2.0",
+            "unknown_field": 123
+        });
+        let resp = serde_json::from_value::<Response<String>>(j).unwrap();
+        assert_eq!(resp, Response::internal_error(Id::Num(0)));
+    }
 }
