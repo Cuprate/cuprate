@@ -75,7 +75,7 @@ This is how the method/param types are done in Cuprate.
 
 For reasoning, see: <https://github.com/Cuprate/cuprate/pull/146#issuecomment-2145734838>.
 
-### Serialization changes
+## Serialization changes
 This crate's serialized field order slightly differs compared to `monerod`.
 
 `monerod`'s JSON objects are serialized in alphabetically order, where as this crate serializes the fields in their defined order (due to [`serde`]).
@@ -134,4 +134,59 @@ r#"{
   "id": 123
   "jsonrpc": "2.0",
 }"#;
+```
+
+## Compared to other implementations
+A quick table showing some small differences between this crate and other JSON-RPC 2.0 implementations.
+
+| Implementation | Allows any case for key fields excluding `method/params` | Allows unknown fields in main `{}`, and response/request objects | Allows overwriting previous values upon duplicate fields (except [`Response`]'s `result/error` field) |
+|------|--------------------------------|-------------------------------------------------------------|---|
+| [`monerod`](https://github.com/monero-project/monero) | ✅ | ✅ | ✅
+| [`jsonrpsee`](https://docs.rs/jsonrpsee)              | ❌ | ✅ | ❌
+| This crate | ❌ | ✅ | ✅
+
+Allows any case for key fields excluding `method/params`:
+```rust
+# use json_rpc::Response;
+# use serde_json::from_str;
+let json = r#"{"jsonrpc":"2.0","id":123,"result":"OK"}"#;
+from_str::<Response<String>>(&json).unwrap();
+
+// Only `lowercase` is allowed.
+let json = r#"{"jsonRPC":"2.0","id":123,"result":"OK"}"#;
+from_str::<Response<String>>(&json).unwrap_err();
+```
+
+Allows unknown fields in main `{}`, and response/request objects:
+```rust
+# use json_rpc::Response;
+# use serde_json::from_str;
+//     unknown fields are allowed in main `{}`
+//             v
+let json = r#"{"unknown_field":"asdf","jsonrpc":"2.0","id":123,"result":"OK"}"#;
+from_str::<Response<String>>(&json).unwrap();
+
+//                                                               and within objects
+//                                                                      v
+let json = r#"{"jsonrpc":"2.0","id":123,"error":{"code":-1,"message":"","unknown_field":"asdf"}}"#;
+from_str::<Response<String>>(&json).unwrap();
+```
+
+Allows overwriting previous values upon duplicate fields (except [`Response`]'s `result/error` field)
+```rust
+# use json_rpc::{Id, Response};
+# use serde_json::from_str;
+//          duplicate fields will get overwritten by the latest one
+//                             v        v
+let json = r#"{"jsonrpc":"2.0","id":123,"id":321,"result":"OK"}"#;
+let response = from_str::<Response<String>>(&json).unwrap();
+assert_eq!(response.id, Id::Num(321));
+
+// But 2 results are not allowed.
+let json = r#"{"jsonrpc":"2.0","id":123,"result":"OK","result":"OK"}"#;
+from_str::<Response<String>>(&json).unwrap_err();
+
+// Same with errors.
+let json = r#"{"jsonrpc":"2.0","id":123,"error":{"code":-1,"message":""},"error":{"code":-1,"message":""}}"#;
+from_str::<Response<String>>(&json).unwrap_err();
 ```
