@@ -153,9 +153,7 @@ async fn main() {
 
     sleep(Duration::from_secs(15)).await;
 
-    let mut buffer = download_blocks(
-        net.pool.clone(),
-        net.sync_states_svc.clone(),
+    let mut buffer = net.block_downloader(
         OurChainSvc,
         BlockDownloaderConfig {
             buffer_size: 50_000_000,

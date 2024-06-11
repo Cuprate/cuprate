@@ -4,13 +4,14 @@
 //! a certain [`NetworkZone`]
 use std::sync::Arc;
 
+use async_buffer::BufferStream;
 use futures::FutureExt;
 use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
 };
 use tokio_stream::wrappers::WatchStream;
-use tower::{buffer::Buffer, util::BoxCloneService, ServiceExt};
+use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use monero_p2p::{
@@ -29,6 +30,9 @@ mod constants;
 mod inbound_server;
 mod sync_states;
 
+use crate::block_downloader::{
+    BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse,
+};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
 use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
@@ -146,8 +150,7 @@ where
 #[derive(Clone)]
 pub struct NetworkInterface<N: NetworkZone> {
     /// A pool of free connected peers.
-    // TODO: remove pub
-    pub pool: Arc<client_pool::ClientPool<N>>,
+    pool: Arc<client_pool::ClientPool<N>>,
     /// A [`Service`] that allows broadcasting to all connected peers.
     broadcast_svc: BroadcastSvc<N>,
     /// A [`watch`] channel that contains the highest seen cumulative difficulty and other info
@@ -158,7 +161,8 @@ pub struct NetworkInterface<N: NetworkZone> {
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
-    pub sync_states_svc: Buffer<sync_states::PeerSyncSvc<N>, PeerSyncRequest<N>>,
+    /// The peers sync states service.
+    sync_states_svc: Buffer<sync_states::PeerSyncSvc<N>, PeerSyncRequest<N>>,
     /// Background tasks that will be aborted when this interface is dropped.
     _background_tasks: Arc<JoinSet<()>>,
 }
@@ -167,6 +171,26 @@ impl<N: NetworkZone> NetworkInterface<N> {
     /// Returns a service which allows broadcasting messages to all the connected peers in a specific [`NetworkZone`].
     pub fn broadcast_svc(&self) -> BroadcastSvc<N> {
         self.broadcast_svc.clone()
+    }
+
+    /// Starts the block downloader and returns a stream that will yield sequentially downloaded blocks.
+    pub fn block_downloader<C>(
+        &self,
+        our_chain_service: C,
+        config: BlockDownloaderConfig,
+    ) -> BufferStream<BlockBatch>
+    where
+        C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+            + Send
+            + 'static,
+        C::Future: Send + 'static,
+    {
+        block_downloader::download_blocks(
+            self.pool.clone(),
+            self.sync_states_svc.clone(),
+            our_chain_service,
+            config,
+        )
     }
 
     /// Returns a stream which yields the highest seen sync state from a connected peer.

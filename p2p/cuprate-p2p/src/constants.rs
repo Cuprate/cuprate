@@ -65,6 +65,9 @@ pub(crate) const MAX_BLOCKS_IDS_IN_CHAIN_ENTRY: usize = 25_000;
 
 pub(crate) const MAX_DOWNLOAD_FAILURES: usize = 3;
 
+/// The amount of empty chain entries to receive before we assume we have found the top of the chain.
+pub(crate) const EMPTY_CHAIN_ENTIES_BEFORE_TOP_ASSUMED: usize = 5;
+
 #[cfg(test)]
 mod tests {
     use super::*;
