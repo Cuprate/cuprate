@@ -20,6 +20,7 @@ use tokio::{
     time::{interval, timeout, MissedTickBehavior},
 };
 use tower::{Service, ServiceExt};
+use tracing::{instrument, Instrument, Span};
 
 use async_buffer::{BufferAppender, BufferStream};
 use cuprate_helper::asynch::rayon_spawn_async;
@@ -36,14 +37,13 @@ use monero_wire::protocol::{ChainRequest, ChainResponse, GetObjectsRequest};
 use crate::{
     client_pool::{ClientPool, ClientPoolDropGuard},
     constants::{
-        CHAIN_ENTRY_REQUEST_TIMEOUT, INITIAL_CHAIN_REQUESTS_TO_SEND, LONG_BAN,
-        MAX_BLOCKS_IDS_IN_CHAIN_ENTRY, MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES,
-        MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
+        BLOCK_DOWNLOADER_REQUEST_TIMEOUT, EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED,
+        INITIAL_CHAIN_REQUESTS_TO_SEND, LONG_BAN, MAX_BLOCKS_IDS_IN_CHAIN_ENTRY,
+        MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
     },
 };
 
 mod chain_tracker;
-use crate::constants::EMPTY_CHAIN_ENTIES_BEFORE_TOP_ASSUMED;
 use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
 
 /// A downloaded batch of blocks.
@@ -51,16 +51,16 @@ use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
 pub struct BlockBatch {
     /// The blocks.
     pub blocks: Vec<(Block, Vec<Transaction>)>,
-    /// The size of this batch in bytes.
+    /// The size in bytes of this batch.
     pub size: usize,
-    /// The peer that gave us this block.
+    /// The peer that gave us this batch.
     pub peer_handle: ConnectionHandle,
 }
 
 /// The block downloader config.
 #[derive(Debug, Copy, Clone, PartialOrd, PartialEq, Ord, Eq)]
 pub struct BlockDownloaderConfig {
-    /// The size of the buffer between the block downloader and the place which
+    /// The size in bytes of the buffer between the block downloader and the place which
     /// is consuming the downloaded blocks.
     pub buffer_size: usize,
     /// The size of the in progress queue (in bytes) at which we stop requesting more blocks.
@@ -97,7 +97,7 @@ pub enum BlockDownloadError {
 pub enum ChainSvcRequest {
     /// A request for the current chain history.
     CompactHistory,
-    /// A request to find the first unknown
+    /// A request to find the first unknown block ID in a list of block IDs.
     FindFirstUnknown(Vec<[u8; 32]>),
     /// A request for our current cumulative difficulty.
     CumulativeDifficulty,
@@ -109,8 +109,9 @@ pub enum ChainSvcResponse {
     CompactHistory {
         /// A list of blocks IDs in our chain, starting with the most recent block, all the way to the genesis block.
         ///
-        /// These blocks should be in reverse chronological order and not every block is needed.
+        /// These blocks should be in reverse chronological order, not every block is needed.
         block_ids: Vec<[u8; 32]>,
+        /// The current cumulative difficulty of the chain.
         cumulative_difficulty: u128,
     },
     /// The response for [`ChainSvcRequest::FindFirstUnknown`], contains the index of the first unknown
@@ -128,6 +129,7 @@ pub enum ChainSvcResponse {
 ///
 /// The block downloader may fail before the whole chain is downloaded. If this is the case you can
 /// call this function again, so it can start the search again.
+#[instrument(level = "error", skip_all, name = "block_downloader")]
 pub fn download_blocks<N: NetworkZone, S, C>(
     client_pool: Arc<ClientPool<N>>,
     peer_sync_svc: S,
@@ -152,7 +154,7 @@ where
         config,
     );
 
-    tokio::spawn(block_downloader.run());
+    tokio::spawn(block_downloader.run().instrument(Span::current()));
 
     buffer_stream
 }
@@ -280,6 +282,7 @@ where
         + 'static,
     C::Future: Send + 'static,
 {
+    /// Creates a new [`BlockDownloader`]
     fn new(
         client_pool: Arc<ClientPool<N>>,
 
@@ -310,11 +313,18 @@ where
 
     /// Checks if we can make use of any peers that are currently pending requests.
     async fn check_pending_peers(&mut self, chain_tracker: &mut ChainTracker<N>) {
+        tracing::debug!("Checking if we can give any work to pending peers.");
+
         // HACK: The borrow checker doesn't like the following code if we don't do this.
         let mut pending_peers = mem::take(&mut self.pending_peers);
 
         for (_, peers) in pending_peers.iter_mut() {
             while let Some(peer) = peers.pop() {
+                if peer.info.handle.is_closed() {
+                    // Peer has disconnected, drop it.
+                    continue;
+                }
+
                 if let Some(peer) = self.try_handle_free_client(chain_tracker, peer).await {
                     // This peer is ok however it does not have the data we currently need, this will only happen
                     // because of it's pruning seed so just skip over all peers with this pruning seed.
@@ -339,25 +349,39 @@ where
         &mut self,
         client: ClientPoolDropGuard<N>,
     ) -> Option<ClientPoolDropGuard<N>> {
+        tracing::debug!(
+            "Requesting an inflight batch, current ready queue size: {}",
+            self.ready_batches_size
+        );
+
         if self.inflight_requests.is_empty() {
             panic!("We need requests inflight to be able to send the request again")
         }
 
-        // The closure that checks if a peer has a batch according to it's pruning seed and either requests it or
-        // returns the peer.
-        let try_request_batch = |batch: &mut BlocksToRetrieve<N>| {
+        let oldest_ready_batch = self.ready_batches.peek().unwrap().start_height;
+
+        for (_, in_flight_batch) in self.inflight_requests.range_mut(0..oldest_ready_batch) {
+            if in_flight_batch.requests_sent >= 2 {
+                continue;
+            }
+
             if !client_has_block_in_range(
                 &client.info.pruning_seed,
-                batch.start_height,
-                batch.ids.len(),
+                in_flight_batch.start_height,
+                in_flight_batch.ids.len(),
             ) {
                 return Some(client);
             }
 
-            batch.requests_sent += 1;
+            in_flight_batch.requests_sent += 1;
 
-            let ids = batch.ids.clone();
-            let start_height = batch.start_height;
+            tracing::debug!(
+                "Sending request for batch, total requests sent for batch: {}",
+                in_flight_batch.requests_sent
+            );
+
+            let ids = in_flight_batch.ids.clone();
+            let start_height = in_flight_batch.start_height;
 
             self.block_download_tasks.spawn(async move {
                 (
@@ -366,43 +390,12 @@ where
                 )
             });
 
-            None
-        };
-
-        // The amount of requests sent for the oldest (lowest height) batch.
-        let first_batch_requests_sent = self
-            .inflight_requests
-            .first_key_value()
-            .unwrap()
-            .1
-            .requests_sent;
-
-        // If the first batch has the same amount of requests sent as the oldest batch then send another
-        // request for the first batch.
-        if first_batch_requests_sent
-            == self
-                .inflight_requests
-                .last_key_value()
-                .unwrap()
-                .1
-                .requests_sent
-        {
-            let mut first_batch = self.inflight_requests.first_entry().unwrap();
-
-            let first_batch_mut = first_batch.get_mut();
-
-            return try_request_batch(first_batch_mut);
+            return None;
         }
 
-        // Otherwise find the point where the split in number of requests sent happen.
-        let next_batch = self
-            .inflight_requests
-            .iter_mut()
-            .find(|(_, next_batch)| next_batch.requests_sent != first_batch_requests_sent)
-            .unwrap()
-            .1;
+        tracing::debug!("Could not find an inflight request applicable for this peer.");
 
-        try_request_batch(next_batch)
+        Some(client)
     }
 
     /// Spawns a task to request blocks from the given peer.
@@ -416,6 +409,7 @@ where
         chain_tracker: &mut ChainTracker<N>,
         client: ClientPoolDropGuard<N>,
     ) -> Option<ClientPoolDropGuard<N>> {
+        tracing::trace!("Using peer to request a batch of blocks.");
         // First look to see if we have any failed requests.
         while let Some(failed_request) = self.failed_batches.peek() {
             // Check if we still have the request that failed - another peer could have completed it after
@@ -427,6 +421,7 @@ where
                     request.start_height,
                     request.ids.len(),
                 ) {
+                    tracing::debug!("Using peer to request a failed batch");
                     // They should have the blocks so send the re-request to this peer.
                     let ids = request.ids.clone();
                     let start_height = request.start_height;
@@ -457,12 +452,16 @@ where
 
         // No failed requests that we can handle, request some new blocks.
 
-        let Some(block_entry_to_get) = chain_tracker
+        let Some(mut block_entry_to_get) = chain_tracker
             .blocks_to_get(&client.info.pruning_seed, self.amount_of_blocks_to_request)
         else {
+            tracing::debug!("Peer does not have next batch");
             return Some(client);
         };
 
+        tracing::debug!("Requesting a new batch of blocks");
+
+        block_entry_to_get.requests_sent = 1;
         self.inflight_requests
             .insert(block_entry_to_get.start_height, block_entry_to_get.clone());
 
@@ -496,23 +495,28 @@ where
         // We send 2 requests, so if one of them is slow/ doesn't have the next chain we still have a backup.
         if self.chain_entry_task.len() < 2
             // If we have had too many failures then assume the tip has been found so no more chain entries.
-            && self.amount_of_empty_chain_entries <= EMPTY_CHAIN_ENTIES_BEFORE_TOP_ASSUMED
+            && self.amount_of_empty_chain_entries <= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED
             // Check we have a nice buffer of pending block IDs to retrieve, we don't want to be waiting around
             // for a chain entry.
             && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request) < 500
             // Make sure this peer actually has the chain.
             && chain_tracker.should_ask_for_next_chain_entry(&client.info.pruning_seed)
         {
+            tracing::debug!("Requesting next chain entry");
+
             let history = chain_tracker.get_simple_history();
 
-            self.chain_entry_task.spawn(async move {
-                timeout(
-                    CHAIN_ENTRY_REQUEST_TIMEOUT,
-                    request_chain_entry_from_peer(client, history),
-                )
-                .await
-                .map_err(|_| BlockDownloadError::TimedOut)?
-            });
+            self.chain_entry_task.spawn(
+                async move {
+                    timeout(
+                        BLOCK_DOWNLOADER_REQUEST_TIMEOUT,
+                        request_chain_entry_from_peer(client, history),
+                    )
+                    .await
+                    .map_err(|_| BlockDownloadError::TimedOut)?
+                }
+                .instrument(Span::current()),
+            );
 
             return None;
         }
@@ -528,7 +532,7 @@ where
     ) -> Result<(), BlockDownloadError> {
         tracing::debug!("Checking for free peers");
 
-        // This value might be slightly behind but thats ok.
+        // This value might be slightly behind but that's ok.
         let ChainSvcResponse::CumulativeDifficulty(current_cumulative_difficulty) = self
             .our_chain_svc
             .ready()
@@ -591,6 +595,11 @@ where
             let size = ready_batch.block_batch.size;
             self.ready_batches_size -= size;
 
+            tracing::debug!(
+                "Pushing batch to buffer, new ready batches size: {}",
+                self.ready_batches_size
+            );
+
             self.buffer_appender
                 .send(ready_batch.block_batch, size)
                 .await
@@ -609,22 +618,33 @@ where
         res: Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError>,
         chain_tracker: &mut ChainTracker<N>,
     ) -> Result<(), BlockDownloadError> {
+        tracing::debug!("Handling block download response");
+
         match res {
             Err(e) => {
                 if matches!(e, BlockDownloadError::ChainInvalid) {
                     // If the chain was invalid ban the peer who told us about it and error here to stop the
                     // block downloader.
-                    self.inflight_requests
-                        .get(&start_height)
-                        .inspect(|entry| entry.peer_who_told_us_handle.ban_peer(LONG_BAN));
+                    self.inflight_requests.get(&start_height).inspect(|entry| {
+                        tracing::warn!(
+                            "Received an invalid chain from peer: {}, exiting block downloader (it will be restarted).",
+                            entry.peer_who_told_us
+                        );
+                        entry.peer_who_told_us_handle.ban_peer(LONG_BAN)
+                    });
 
                     return Err(e);
                 }
 
                 // Add the request to the failed list.
                 if let Some(batch) = self.inflight_requests.get_mut(&start_height) {
+                    tracing::debug!("Error downloading batch: {e}");
+
                     batch.failures += 1;
                     if batch.failures > MAX_DOWNLOAD_FAILURES {
+                        tracing::debug!(
+                            "Too many errors downloading blocks, stopping the block downloader."
+                        );
                         return Err(BlockDownloadError::TimedOut);
                     }
 
@@ -636,8 +656,8 @@ where
             Ok((client, block_batch)) => {
                 // Remove the batch from the inflight batches.
                 if self.inflight_requests.remove(&start_height).is_none() {
+                    tracing::debug!("Already retrieved batch");
                     // If it was already retrieved then there is nothing else to do.
-                    // TODO: should we drop this peer for being slow?
                     self.pending_peers
                         .entry(client.info.pruning_seed)
                         .or_default()
@@ -655,6 +675,11 @@ where
                         block_batch.size,
                         block_batch.blocks.len(),
                         self.config.target_batch_size,
+                    );
+
+                    tracing::debug!(
+                        "Updating batch size of new batches, new size: {}",
+                        self.amount_of_blocks_to_request
                     );
 
                     self.amount_of_blocks_to_request_updated_at = start_height;
@@ -682,6 +707,7 @@ where
         }
     }
 
+    /// Starts the main loop of the block downloader.
     async fn run(mut self) -> Result<(), BlockDownloadError> {
         let mut chain_tracker = initial_chain_search(
             &self.client_pool,
@@ -690,17 +716,22 @@ where
         )
         .await?;
 
+        tracing::info!("Attempting to download blocks from peers, this may take a while.");
+
         let mut check_client_pool_interval = interval(self.config.check_client_pool_interval);
-        check_client_pool_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+        check_client_pool_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         self.check_for_free_clients(&mut chain_tracker).await?;
 
         loop {
             tokio::select! {
                 _ = check_client_pool_interval.tick() => {
+                    tracing::debug!("Checking client pool for free peers, timer fired.");
                     self.check_for_free_clients(&mut chain_tracker).await?;
 
-                    if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTIES_BEFORE_TOP_ASSUMED {
+                     // If we have no inflight requests, and we have had too many empty chain entries in a row assume the top has been found.
+                    if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED {
+                        tracing::debug!("Failed to find any more chain entries, probably fround the top");
                         return Ok(())
                     }
                 }
@@ -709,19 +740,21 @@ where
 
                     self.handle_download_batch_res(start_height, res, &mut chain_tracker).await?;
 
-                    if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTIES_BEFORE_TOP_ASSUMED {
+                    // If we have no inflight requests, and we have had too many empty chain entries in a row assume the top has been found.
+                    if self.inflight_requests.is_empty() && self.amount_of_empty_chain_entries >= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED {
+                        tracing::debug!("Failed to find any more chain entries, probably fround the top");
                         return Ok(())
                     }
                 }
                 Some(Ok(res)) = self.chain_entry_task.join_next() => {
                     match res {
                         Ok((client, entry)) => {
-                            if entry.ids.len() == 1 {
-                                self.amount_of_empty_chain_entries += 1;
-                            }
-
                             if chain_tracker.add_entry(entry).is_ok() {
+                                tracing::debug!("Successfully added chain entry to chain tracker.");
                                 self.amount_of_empty_chain_entries = 0;
+                            } else {
+                                tracing::debug!("Failed to add incoming chain entry to chain tracker.");
+                                self.amount_of_empty_chain_entries += 1;
                             }
 
                             self.pending_peers
@@ -783,17 +816,23 @@ async fn request_batch_from_peer<N: NetworkZone>(
     expected_start_height: u64,
 ) -> Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError> {
     // Request the blocks.
-    let PeerResponse::GetObjects(blocks_response) = client
-        .ready()
-        .await?
-        .call(PeerRequest::GetObjects(GetObjectsRequest {
-            blocks: ids.clone(),
-            pruned: false,
-        }))
-        .await?
-    else {
-        panic!("Connection task returned wrong response.");
-    };
+    let blocks_response = timeout(BLOCK_DOWNLOADER_REQUEST_TIMEOUT, async {
+        let PeerResponse::GetObjects(blocks_response) = client
+            .ready()
+            .await?
+            .call(PeerRequest::GetObjects(GetObjectsRequest {
+                blocks: ids.clone(),
+                pruned: false,
+            }))
+            .await?
+        else {
+            panic!("Connection task returned wrong response.");
+        };
+
+        Ok::<_, BlockDownloadError>(blocks_response)
+    })
+    .await
+    .map_err(|_| BlockDownloadError::TimedOut)??;
 
     // Initial sanity checks
     if blocks_response.blocks.len() > ids.len() {
@@ -946,6 +985,7 @@ async fn request_chain_entry_from_peer<N: NetworkZone>(
 /// and sends chain requests to all of them.
 ///
 /// We then wait for their response and choose the peer who claims the highest cumulative difficulty.
+#[instrument(level = "error", skip_all)]
 async fn initial_chain_search<N: NetworkZone, S, C>(
     client_pool: &Arc<ClientPool<N>>,
     mut peer_sync_svc: S,
@@ -955,6 +995,7 @@ where
     S: PeerSyncSvc<N>,
     C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>,
 {
+    tracing::debug!("Getting our chain history");
     // Get our history.
     let ChainSvcResponse::CompactHistory {
         block_ids,
@@ -970,6 +1011,8 @@ where
 
     let our_genesis = *block_ids.last().expect("Blockchain had no genesis block.");
 
+    tracing::debug!("Getting a list of peers with higher cumulative difficulty");
+
     let PeerSyncResponse::PeersToSyncFrom(mut peers) = peer_sync_svc
         .ready()
         .await?
@@ -981,6 +1024,11 @@ where
     else {
         panic!("peer sync service sent wrong response.");
     };
+
+    tracing::debug!(
+        "{} peers claim they have a higher cumulative difficulty",
+        peers.len()
+    );
 
     // Shuffle the list to remove any possibility of peers being able to prioritize getting picked.
     peers.shuffle(&mut thread_rng());
@@ -994,6 +1042,8 @@ where
         prune: false,
     });
 
+    tracing::debug!("Sending requests for chain entries.");
+
     // Send the requests.
     while futs.len() < INITIAL_CHAIN_REQUESTS_TO_SEND {
         let Some(mut next_peer) = peers.next() else {
@@ -1001,15 +1051,23 @@ where
         };
 
         let cloned_req = req.clone();
-        futs.spawn(timeout(CHAIN_ENTRY_REQUEST_TIMEOUT, async move {
-            let PeerResponse::GetChain(chain_res) =
-                next_peer.ready().await?.call(cloned_req).await?
-            else {
-                panic!("connection task returned wrong response!");
-            };
+        futs.spawn(timeout(
+            BLOCK_DOWNLOADER_REQUEST_TIMEOUT,
+            async move {
+                let PeerResponse::GetChain(chain_res) =
+                    next_peer.ready().await?.call(cloned_req).await?
+                else {
+                    panic!("connection task returned wrong response!");
+                };
 
-            Ok::<_, tower::BoxError>((chain_res, next_peer.info.id, next_peer.info.handle.clone()))
-        }));
+                Ok::<_, tower::BoxError>((
+                    chain_res,
+                    next_peer.info.id,
+                    next_peer.info.handle.clone(),
+                ))
+            }
+            .instrument(Span::current()),
+        ));
     }
 
     let mut res: Option<(ChainResponse, InternalPeerID<_>, ConnectionHandle)> = None;
@@ -1042,6 +1100,8 @@ where
     // drop this to deallocate the [`Bytes`].
     drop(chain_res);
 
+    tracing::debug!("Highest chin entry contained {} block Ids", hashes.len());
+
     // Find the first unknown block in the batch.
     let ChainSvcResponse::FindFirstUnknown(first_unknown, expected_height) = our_chain_svc
         .ready()
@@ -1069,6 +1129,11 @@ where
         peer: peer_id,
         handle: peer_handle,
     };
+
+    tracing::debug!(
+        "Creating chain tracker with {} new block Ids",
+        first_entry.ids.len()
+    );
 
     let tracker = ChainTracker::new(first_entry, expected_height, our_genesis);
 

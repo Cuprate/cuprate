@@ -1,6 +1,4 @@
-use cuprate_p2p::block_downloader::{
-    download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse,
-};
+use cuprate_p2p::block_downloader::{BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 use cuprate_p2p::{initialize_network, P2PConfig};
 use futures::{FutureExt, StreamExt};
 use monero_address_book::AddressBookConfig;
@@ -115,7 +113,7 @@ impl Service<ChainSvcRequest> for OurChainSvc {
                     .unwrap()],
                     cumulative_difficulty: 1,
                 },
-                ChainSvcRequest::FindFirstUnknown(_) => ChainSvcResponse::FindFirstUnknown(1),
+                ChainSvcRequest::FindFirstUnknown(_) => ChainSvcResponse::FindFirstUnknown(1, 1),
                 ChainSvcRequest::CumulativeDifficulty => ChainSvcResponse::CumulativeDifficulty(1),
             })
         }
@@ -157,7 +155,7 @@ async fn main() {
         OurChainSvc,
         BlockDownloaderConfig {
             buffer_size: 50_000_000,
-            in_progress_queue_size: 30_000_000,
+            in_progress_queue_size: 200_000_000,
             check_client_pool_interval: Duration::from_secs(30),
             target_batch_size: 5_000_000,
             initial_batch_size: 10,

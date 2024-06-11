@@ -48,8 +48,8 @@ pub(crate) const INITIAL_CHAIN_REQUESTS_TO_SEND: usize = 3;
 /// Requesting more than this will cause the peer to disconnect and potentially lead to bans.
 pub(crate) const MAX_BLOCK_BATCH_LEN: usize = 100;
 
-/// The timeout for a chain entry request.
-pub(crate) const CHAIN_ENTRY_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// The timeout that the block downloader will use for requests.
+pub(crate) const BLOCK_DOWNLOADER_REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// The maximum size of a transaction, a sanity limit that all transactions across all hard-forks must
 /// be less than.
@@ -63,10 +63,11 @@ pub(crate) const MAX_TRANSACTION_BLOB_SIZE: usize = 1_000_000;
 // TODO: link to the protocol book when this section is added.
 pub(crate) const MAX_BLOCKS_IDS_IN_CHAIN_ENTRY: usize = 25_000;
 
-pub(crate) const MAX_DOWNLOAD_FAILURES: usize = 3;
+/// The amount of failures downloading a specific batch before we stop attempting to download it.
+pub(crate) const MAX_DOWNLOAD_FAILURES: usize = 5;
 
 /// The amount of empty chain entries to receive before we assume we have found the top of the chain.
-pub(crate) const EMPTY_CHAIN_ENTIES_BEFORE_TOP_ASSUMED: usize = 5;
+pub(crate) const EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED: usize = 5;
 
 #[cfg(test)]
 mod tests {
