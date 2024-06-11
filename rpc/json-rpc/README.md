@@ -140,21 +140,23 @@ r#"{
 A quick table showing some small differences between this crate and other JSON-RPC 2.0 implementations.
 
 | Implementation | Allows any case for key fields excluding `method/params` | Allows unknown fields in main `{}`, and response/request objects | Allows overwriting previous values upon duplicate fields (except [`Response`]'s `result/error` field) |
-|------|--------------------------------|-------------------------------------------------------------|---|
+|---|---|---|---|
 | [`monerod`](https://github.com/monero-project/monero) | ✅ | ✅ | ✅
-| [`jsonrpsee`](https://docs.rs/jsonrpsee)              | ❌ | ✅ | ❌
+| [`jsonrpsee`](https://docs.rs/jsonrpsee) | ❌ | ✅ | ❌
 | This crate | ❌ | ✅ | ✅
 
 Allows any case for key fields excluding `method/params`:
 ```rust
 # use json_rpc::Response;
 # use serde_json::from_str;
+# use pretty_assertions::assert_eq;
 let json = r#"{"jsonrpc":"2.0","id":123,"result":"OK"}"#;
 from_str::<Response<String>>(&json).unwrap();
 
 // Only `lowercase` is allowed.
 let json = r#"{"jsonRPC":"2.0","id":123,"result":"OK"}"#;
-from_str::<Response<String>>(&json).unwrap_err();
+let err = from_str::<Response<String>>(&json).unwrap_err();
+assert_eq!(format!("{err}"), "missing field `jsonrpc` at line 1 column 40");
 ```
 
 Allows unknown fields in main `{}`, and response/request objects:
@@ -176,6 +178,7 @@ Allows overwriting previous values upon duplicate fields (except [`Response`]'s 
 ```rust
 # use json_rpc::{Id, Response};
 # use serde_json::from_str;
+# use pretty_assertions::assert_eq;
 //          duplicate fields will get overwritten by the latest one
 //                             v        v
 let json = r#"{"jsonrpc":"2.0","id":123,"id":321,"result":"OK"}"#;
@@ -184,9 +187,11 @@ assert_eq!(response.id, Id::Num(321));
 
 // But 2 results are not allowed.
 let json = r#"{"jsonrpc":"2.0","id":123,"result":"OK","result":"OK"}"#;
-from_str::<Response<String>>(&json).unwrap_err();
+let err = from_str::<Response<String>>(&json).unwrap_err();
+assert_eq!(format!("{err}"), "duplicate field `result/error` at line 1 column 48");
 
 // Same with errors.
 let json = r#"{"jsonrpc":"2.0","id":123,"error":{"code":-1,"message":""},"error":{"code":-1,"message":""}}"#;
-from_str::<Response<String>>(&json).unwrap_err();
+let err = from_str::<Response<String>>(&json).unwrap_err();
+assert_eq!(format!("{err}"), "duplicate field `result/error` at line 1 column 66");
 ```
