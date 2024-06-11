@@ -8,10 +8,19 @@ use std::{
 
 #[allow(unused_imports)]
 use hex_literal::hex;
-use monero_serai::{block::Block, transaction::Transaction};
+use monero_serai::{
+    block::Block,
+    transaction::{Input, Transaction}
+};
 use tower::Service;
 
+use cuprate_consensus_rules::{
+    blocks::BlockError,
+    miner_tx::{check_miner_tx, MinerTxError},
+    ConsensusError,
+};
 use cuprate_types::VerifiedBlockInformation;
+use cuprate_types::VerifiedTransactionInformation;
 
 use crate::{hash_of_hashes, BlockId, HashOfHashes};
 
@@ -172,14 +181,35 @@ async fn validate_block(
     token: ValidBlockId,
 ) -> Result<FastSyncResponse, FastSyncError>
 {
-    let block_blob = block.serialize();
     let block_hash = block.hash();
-
     if block_hash != token.0 {
         return Err(FastSyncError::BlockHashMismatch)
     }
 
-    // TODO remaining fields, except pow_hash
+    let block_blob = block.serialize();
+    let txs_vec: Vec<Transaction> = txs.values().cloned().collect();
+    let verifi_data_txs: Vec<TransactionVerificationData> = txs_vec.into_iter()
+        .map(|tx| {
+            TransactionVerificationData(tx)
+        }).collect();
+    let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
+
+        Err(ConsensusError::Block(BlockError::MinerTxError(
+            MinerTxError::InputNotOfTypeGen,
+        )))?
+    };
+
+    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
+
+    let generated_coins = check_miner_tx(
+        &block.miner_tx,
+        total_fees,
+        block_chain_ctx.chain_height,
+        block_weight,
+        block_chain_ctx.median_weight_for_block_reward,
+        block_chain_ctx.already_generated_coins,
+        &block_chain_ctx.current_hf,
+    )?;
 
     Ok(FastSyncResponse::ValidateBlock(VerifiedBlockInformation {
         block,
@@ -187,7 +217,7 @@ async fn validate_block(
         txs: vec![],
         block_hash,
         pow_hash: [0u8; 32],
-        height: 0u64,
+        height: *height,
         generated_coins: 0u64,
         weight: 0usize,
         long_term_weight: 0usize,
