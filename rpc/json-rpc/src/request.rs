@@ -92,7 +92,7 @@ impl<T> Request<T> {
 //---------------------------------------------------------------------------------------------------- Trait impl
 impl<T> std::fmt::Display for Request<T>
 where
-    T: std::fmt::Display + Clone + Serialize,
+    T: std::fmt::Display + Serialize,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match serde_json::to_string_pretty(self) {

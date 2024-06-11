@@ -163,7 +163,7 @@ impl<T> Response<T> {
 //---------------------------------------------------------------------------------------------------- Trait impl
 impl<T> std::fmt::Display for Response<T>
 where
-    T: Clone + Serialize,
+    T: Serialize,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match serde_json::to_string_pretty(self) {
@@ -176,7 +176,7 @@ where
 //---------------------------------------------------------------------------------------------------- Serde impl
 impl<T> Serialize for Response<T>
 where
-    T: Serialize + Clone,
+    T: Serialize,
 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -208,7 +208,7 @@ where
 // <https://www.jsonrpc.org/specification#error_object>
 impl<'de, T> Deserialize<'de> for Response<T>
 where
-    T: Clone + Deserialize<'de> + 'de,
+    T: Deserialize<'de> + 'de,
 {
     fn deserialize<D: Deserializer<'de>>(der: D) -> Result<Self, D::Error> {
         use std::marker::PhantomData;
@@ -273,7 +273,7 @@ where
         // Deserialization for [`Response`]'s key and values (the JSON map).
         impl<'de, T> Visitor<'de> for MapVisit<T>
         where
-            T: Clone + Deserialize<'de> + 'de,
+            T: Deserialize<'de> + 'de,
         {
             type Value = Response<T>;
 
