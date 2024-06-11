@@ -323,4 +323,31 @@ mod test {
         let resp = serde_json::from_value::<Request<Body<[u8; 3]>>>(json).unwrap();
         assert_eq!(resp, expected);
     }
+
+    /// Tests that unknown fields are ignored, and deserialize continues.
+    #[test]
+    fn unknown_fields() {
+        let expected = Request::new_with_id(
+            Id::Str("id".into()),
+            Body {
+                method: "method".into(),
+                params: [0, 1, 2],
+            },
+        );
+
+        let json = json!({
+            "unknown_field": 123,
+            "method": "method",
+            "unknown_field": 123,
+            "id": "id",
+            "unknown_field": 123,
+            "params": [0, 1, 2],
+            "unknown_field": 123,
+            "jsonrpc": "2.0",
+            "unknown_field": 123,
+        });
+
+        let resp = serde_json::from_value::<Request<Body<[u8; 3]>>>(json).unwrap();
+        assert_eq!(resp, expected);
+    }
 }
