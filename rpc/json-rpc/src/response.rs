@@ -173,55 +173,6 @@ where
     }
 }
 
-//---------------------------------------------------------------------------------------------------- Key
-/// This type represents the `"key"` values within [`Response`].
-///
-/// We need this since `Response` has a custom deserializer implementation.
-pub(crate) enum Key {
-    /// "jsonrpc" field.
-    JsonRpc,
-    /// "result" field.
-    Result,
-    /// "error" field.
-    Error,
-    /// "id" field.
-    Id,
-}
-
-/// Serde [`Key`] visitor marker struct.
-struct KeyVisitor;
-
-impl serde::de::Visitor<'_> for KeyVisitor {
-    type Value = Key;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("Key field must be a string and one of the following values: ['jsonrpc', 'result', 'error', 'id']")
-    }
-
-    fn visit_str<E: serde::de::Error>(self, text: &str) -> Result<Self::Value, E> {
-        // FIXME: I don't think JSON-RPC 2.0 specifies
-        // case-sensitiveness so just be strict here.
-        Ok(match text {
-            "jsonrpc" => Key::JsonRpc,
-            "result" => Key::Result,
-            "error" => Key::Error,
-            "id" => Key::Id,
-            _ => {
-                return Err(serde::de::Error::invalid_value(
-                    serde::de::Unexpected::Str(text),
-                    &self,
-                ))
-            }
-        })
-    }
-}
-
-impl<'a> Deserialize<'a> for Key {
-    fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
-        des.deserialize_str(KeyVisitor)
-    }
-}
-
 //---------------------------------------------------------------------------------------------------- Serde impl
 impl<T> Serialize for Response<T>
 where
@@ -260,12 +211,66 @@ where
     T: Clone + Deserialize<'de> + 'de,
 {
     fn deserialize<D: Deserializer<'de>>(der: D) -> Result<Self, D::Error> {
-        use core::marker::PhantomData;
-        use serde::de::{self, Visitor};
+        use std::marker::PhantomData;
+
+        use serde::de::{Error, MapAccess, Visitor};
+
+        /// This type represents the key values within [`Response`].
+        enum Key {
+            /// "jsonrpc" field.
+            JsonRpc,
+            /// "result" field.
+            Result,
+            /// "error" field.
+            Error,
+            /// "id" field.
+            Id,
+            /// Any other unknown field (ignored).
+            Unknown,
+        }
+
+        // Deserialization for [`Response`]'s key fields.
+        //
+        // This ignores unknown keys.
+        impl<'de> Deserialize<'de> for Key {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                /// Serde visitor for [`Response`]'s key fields.
+                struct KeyVisitor;
+
+                impl Visitor<'_> for KeyVisitor {
+                    type Value = Key;
+
+                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        formatter.write_str("`jsonrpc`, `result`, `error`, `id`")
+                    }
+
+                    fn visit_str<E>(self, string: &str) -> Result<Key, E>
+                    where
+                        E: Error,
+                    {
+                        match string {
+                            "jsonrpc" => Ok(Key::JsonRpc),
+                            "id" => Ok(Key::Id),
+                            "result" => Ok(Key::Result),
+                            "error" => Ok(Key::Error),
+                            // Ignore any other keys that appear
+                            // and continue deserialization.
+                            _ => Ok(Key::Unknown),
+                        }
+                    }
+                }
+
+                deserializer.deserialize_identifier(KeyVisitor)
+            }
+        }
 
         /// Serde visitor for the key-value map of [`Response`].
         struct MapVisit<T>(PhantomData<T>);
 
+        // Deserialization for [`Response`]'s key and values (the JSON map).
         impl<'de, T> Visitor<'de> for MapVisit<T>
         where
             T: Clone + Deserialize<'de> + 'de,
@@ -276,61 +281,65 @@ where
                 formatter.write_str("JSON-RPC 2.0 Response")
             }
 
-            fn visit_map<A: de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+            /// This is a loop that goes over every key-value pair
+            /// and fills out the necessary fields.
+            ///
+            /// If both `result/error` appear then this
+            /// deserialization will error, as to
+            /// follow the JSON-RPC 2.0 specification.
+            fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                // Initialize values.
                 let mut jsonrpc = None;
                 let mut payload = None;
                 let mut id = None;
 
+                // Loop over map, filling values.
                 while let Some(key) = map.next_key::<Key>()? {
                     match key {
                         Key::JsonRpc => jsonrpc = Some(map.next_value::<Version>()?),
-
+                        Key::Id => id = Some(map.next_value::<Id>()?),
                         Key::Result => {
                             if payload.is_none() {
                                 payload = Some(Ok(map.next_value::<T>()?));
                             } else {
-                                return Err(serde::de::Error::duplicate_field(
-                                    "both result and error found",
-                                ));
+                                return Err(serde::de::Error::duplicate_field("result/error"));
                             }
                         }
-
                         Key::Error => {
                             if payload.is_none() {
                                 payload = Some(Err(map.next_value::<ErrorObject>()?));
                             } else {
-                                return Err(serde::de::Error::duplicate_field(
-                                    "both result and error found",
-                                ));
+                                return Err(serde::de::Error::duplicate_field("result/error"));
                             }
                         }
-
-                        Key::Id => id = map.next_value::<Option<Id>>()?,
+                        Key::Unknown => {
+                            map.next_value::<serde::de::IgnoredAny>()?;
+                        }
                     }
                 }
 
-                use serde::de::Error;
-
-                let response = match (jsonrpc, id, payload) {
-                    (Some(jsonrpc), Some(id), Some(payload)) => Response {
+                // Make sure all our key-value pairs are set and correct.
+                match (jsonrpc, id, payload) {
+                    // Response with a single `result` or `error`.
+                    (Some(jsonrpc), Some(id), Some(payload)) => Ok(Response {
                         jsonrpc,
                         id,
                         payload,
-                    },
-                    (None, None, None) => {
-                        return Err(Error::missing_field("jsonrpc + id + result/error"))
-                    }
-                    (None, _, _) => return Err(Error::missing_field("jsonrpc")),
-                    (_, None, _) => return Err(Error::missing_field("id")),
-                    (_, _, None) => return Err(Error::missing_field("result/error")),
-                };
+                    }),
 
-                Ok(response)
+                    // No fields existed.
+                    (None, None, None) => Err(Error::missing_field("jsonrpc + id + result/error")),
+
+                    // Some field was missing.
+                    (None, _, _) => Err(Error::missing_field("jsonrpc")),
+                    (_, None, _) => Err(Error::missing_field("id")),
+                    (_, _, None) => Err(Error::missing_field("result/error")),
+                }
             }
         }
 
         /// All expected fields of the [`Response`] type.
-        const FIELDS: &[&str] = &["jsonrpc", "id", "payload"];
+        const FIELDS: &[&str; 4] = &["jsonrpc", "id", "result", "error"];
         der.deserialize_struct("Response", FIELDS, MapVisit(PhantomData))
     }
 }
@@ -374,7 +383,7 @@ mod test {
     /// Test that the `result` and `error` fields are mutually exclusive.
     #[test]
     #[should_panic(
-        expected = "called `Result::unwrap()` on an `Err` value: Error(\"duplicate field `both result and error found`\", line: 0, column: 0)"
+        expected = "called `Result::unwrap()` on an `Err` value: Error(\"duplicate field `result/error`\", line: 0, column: 0)"
     )]
     fn result_error_mutually_exclusive() {
         let e = ErrorObject::internal_error();
@@ -385,6 +394,29 @@ mod test {
             "error": e
         });
         serde_json::from_value::<Response<String>>(j).unwrap();
+    }
+
+    /// Test that the `result` and `error` fields can repeat (and get overwritten).
+    #[test]
+    #[should_panic(
+        expected = "called `Result::unwrap()` on an `Err` value: Error(\"duplicate field `result/error`\", line: 1, column: 45)"
+    )]
+    fn result_repeat() {
+        // `result`
+        let json = r#"{"jsonrpc":"2.0","id":0,"result":"a","result":"b"}"#;
+        serde_json::from_str::<Response<String>>(json).unwrap();
+    }
+
+    /// Test that the `error` field cannot repeat.
+    #[test]
+    #[should_panic(
+        expected = "called `Result::unwrap()` on an `Err` value: Error(\"duplicate field `result/error`\", line: 1, column: 83)"
+    )]
+    fn error_repeat() {
+        let e = ErrorObject::invalid_request();
+        let e = serde_json::to_string(&e).unwrap();
+        let json = format!(r#"{{"jsonrpc":"2.0","id":0,"error":{e},"error":{e}}}"#);
+        serde_json::from_str::<Response<String>>(&json).unwrap();
     }
 
     /// Test that the `id` field must exist.
