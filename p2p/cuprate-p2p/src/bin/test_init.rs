@@ -130,7 +130,7 @@ async fn main() {
 
     let config = P2PConfig::<ClearNet> {
         network: Default::default(),
-        outbound_connections: 64,
+        outbound_connections: 1,
         extra_outbound_connections: 32,
         max_inbound_connections: 128,
         gray_peers_percent: 0.7,
