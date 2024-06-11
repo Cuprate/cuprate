@@ -301,4 +301,26 @@ mod test {
             assert_ser(&request, &expected_value);
         }
     }
+
+    /// Tests that non-ordered fields still deserialize okay.
+    #[test]
+    fn deserialize_out_of_order_keys() {
+        let expected = Request::new_with_id(
+            Id::Str("id".into()),
+            Body {
+                method: "method".into(),
+                params: [0, 1, 2],
+            },
+        );
+
+        let json = json!({
+            "method": "method",
+            "id": "id",
+            "params": [0, 1, 2],
+            "jsonrpc": "2.0",
+        });
+
+        let resp = serde_json::from_value::<Request<Body<[u8; 3]>>>(json).unwrap();
+        assert_eq!(resp, expected);
+    }
 }

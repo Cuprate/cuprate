@@ -244,13 +244,14 @@ where
                     type Value = Key;
 
                     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                        formatter.write_str("`jsonrpc`, `result`, `error`, `id`")
+                        formatter.write_str("`jsonrpc`, `id`, `result`, `error`")
                     }
 
                     fn visit_str<E>(self, string: &str) -> Result<Key, E>
                     where
                         E: Error,
                     {
+                        // PERF: this match is in order of how this library serializes fields.
                         match string {
                             "jsonrpc" => Ok(Key::JsonRpc),
                             "id" => Ok(Key::Id),
@@ -295,6 +296,7 @@ where
 
                 // Loop over map, filling values.
                 while let Some(key) = map.next_key::<Key>()? {
+                    // PERF: this match is in order of how this library serializes fields.
                     match key {
                         Key::JsonRpc => jsonrpc = Some(map.next_value::<Version>()?),
                         Key::Id => id = Some(map.next_value::<Id>()?),
@@ -430,5 +432,37 @@ mod test {
             "result": "",
         });
         serde_json::from_value::<Response<String>>(j).unwrap();
+    }
+
+    /// Tests that non-ordered fields still deserialize okay.
+    #[test]
+    fn deserialize_out_of_order_keys() {
+        let e = ErrorObject::internal_error();
+        let j = json!({
+            "error": e,
+            "id": 0,
+            "jsonrpc": "2.0"
+        });
+        let resp = serde_json::from_value::<Response<String>>(j).unwrap();
+        assert_eq!(resp, Response::internal_error(Id::Num(0)));
+
+        let ok = Response::ok(Id::Num(0), "OK".to_string());
+        let j = json!({
+            "result": "OK",
+            "id": 0,
+            "jsonrpc": "2.0"
+        });
+        let resp = serde_json::from_value::<Response<String>>(j).unwrap();
+        assert_eq!(resp, ok);
+    }
+
+    /// Asserts that fields must be `lowercase`.
+    #[test]
+    #[should_panic(
+        expected = "called `Result::unwrap()` on an `Err` value: Error(\"missing field `jsonrpc`\", line: 1, column: 40)"
+    )]
+    fn lowercase() {
+        let mixed_case = r#"{"jSoNRPC":"2.0","id":123,"result":"OK"}"#;
+        serde_json::from_str::<Response<String>>(mixed_case).unwrap();
     }
 }
