@@ -80,7 +80,8 @@ pub trait Env: Sized {
     /// Open the database environment, using the passed [`Config`].
     ///
     /// # Invariants
-    /// This function **must** create all tables listed in [`crate::tables`].
+    /// TODO: fix me
+    // This function **must** create all tables listed in [`crate::tables`].
     ///
     /// The rest of the functions depend on the fact
     /// they already exist, or else they will panic.

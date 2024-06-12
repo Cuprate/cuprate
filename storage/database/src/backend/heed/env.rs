@@ -7,12 +7,11 @@ use std::{
     sync::{RwLock, RwLockReadGuard},
 };
 
-use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
+use heed::{EnvFlags, EnvOpenOptions};
 
 use crate::{
     backend::heed::{
         database::{HeedTableRo, HeedTableRw},
-        storable::StorableHeed,
         types::HeedDb,
     },
     config::{Config, SyncMode},
@@ -26,7 +25,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Consts
 /// Panic message when there's a table missing.
 const PANIC_MSG_MISSING_TABLE: &str =
-    "cuprate_blockchain::Env should uphold the invariant that all tables are already created";
+    "database::Env should uphold the invariant that all tables are already created";
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -197,18 +196,6 @@ impl Env for ConcreteEnv {
         // SAFETY: LMDB uses a memory-map backed file.
         // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
         let env = unsafe { env_open_options.open(config.db_directory())? };
-
-        /// Function that creates the tables based off the passed `T: Table`.
-        fn create_table<T: Table>(
-            env: &heed::Env,
-            tx_rw: &mut heed::RwTxn<'_>,
-        ) -> Result<(), InitError> {
-            DatabaseOpenOptions::new(env)
-                .name(<T as Table>::NAME)
-                .types::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>()
-                .create(tx_rw)?;
-            Ok(())
-        }
 
         Ok(Self {
             env: RwLock::new(env),

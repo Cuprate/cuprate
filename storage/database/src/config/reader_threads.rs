@@ -15,7 +15,8 @@ use std::num::NonZeroUsize;
 use serde::{Deserialize, Serialize};
 
 //---------------------------------------------------------------------------------------------------- ReaderThreads
-/// Amount of database reader threads to spawn when using [`service`](crate::service).
+/// TODO: fix me
+// Amount of database reader threads to spawn when using [`service`](crate::service).
 ///
 /// This controls how many reader thread `service`'s
 /// thread-pool will spawn to receive and send requests/responses.

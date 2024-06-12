@@ -1,22 +1,15 @@
 //! Cuprate's database abstraction.
 //!
-//! This documentation is mostly for practical usage of `cuprate_blockchain`.
+//! This documentation is mostly for practical usage of `cuprate_database`.
 //!
-//! For a high-level overview,
-//! see [`database/README.md`](https://github.com/Cuprate/cuprate/blob/main/database/README.md).
+//! For a high-level overview, see the database section in
+//! [Cuprate's architecture book](https://architecture.cuprate.org).
 //!
 //! # Purpose
-//! This crate does 3 things:
-//! 1. Abstracts various database backends with traits
-//! 2. Implements various `Monero` related [operations](ops), [tables], and [types]
-//! 3. Exposes a [`tower::Service`] backed by a thread-pool
+//! This crate does 3 things abstracts various database backends with traits.
 //!
-//! Each layer builds on-top of the previous.
-//!
-//! As a user of `cuprate_blockchain`, consider using the higher-level [`service`] module,
-//! or at the very least the [`ops`] module instead of interacting with the database traits directly.
-//!
-//! With that said, many database traits and internals (like [`DatabaseRo::get`]) are exposed.
+//! If you need blockchain specific capabilities, consider using the higher-level
+//! `cuprate-blockchain` crate which builds upon this one.
 //!
 //! # Terminology
 //! To be more clear on some terms used in this crate:
@@ -81,30 +74,14 @@
 //! `tracing` is always enabled and cannot be disabled via feature-flag.
 //! <!-- FIXME: tracing should be behind a feature flag -->
 //!
-//! # Invariants when not using `service`
-//! `cuprate_blockchain` can be used without the `service` feature enabled but
-//! there are some things that must be kept in mind when doing so.
-//!
-//! Failing to uphold these invariants may cause panics.
-//!
-//! 1. `LMDB` requires the user to resize the memory map resizing (see [`RuntimeError::ResizeNeeded`]
-//! 1. `LMDB` has a maximum reader transaction count, currently it is set to `128`
-//! 1. `LMDB` has [maximum key/value byte size](http://www.lmdb.tech/doc/group__internal.html#gac929399f5d93cef85f874b9e9b1d09e0) which must not be exceeded
-//!
 //! # Examples
-//! The below is an example of using `cuprate_blockchain`'s
-//! lowest API, i.e. using the database directly.
-//!
-//! For examples of the higher-level APIs, see:
-//! - [`ops`]
-//! - [`service`]
+//! The below is an example of using `database`.
 //!
 //! ```rust
-//! use cuprate_blockchain::{
+//! use database::{
 //!     ConcreteEnv,
 //!     config::ConfigBuilder,
 //!     Env, EnvInner,
-//!     tables::{Tables, TablesMut},
 //!     DatabaseRo, DatabaseRw, TxRo, TxRw,
 //! };
 //!
@@ -119,24 +96,28 @@
 //! let env = ConcreteEnv::open(config)?;
 //!
 //! // Open up a transaction + tables for writing.
+//! struct Table;
+//! impl database::Table for Table {
+//!     const NAME: &'static str = "table"
+//!     type Key = u8;
+//!     type Value = u8;
+//! }
+//!
 //! let env_inner = env.env_inner();
 //! let tx_rw = env_inner.tx_rw()?;
-//! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
+//! let mut table = env_inner.open_db_rw::<Table>(&tx_rw)?;
 //!
-//! // ⚠️ Write data to the tables directly.
-//! // (not recommended, use `ops` or `service`).
-//! const KEY_IMAGE: [u8; 32] = [88; 32];
-//! tables.key_images_mut().put(&KEY_IMAGE, &())?;
+//! // Write data to the table.
+//! table.put(&0, &1)?;
 //!
 //! // Commit the data written.
-//! drop(tables);
+//! drop(table);
 //! TxRw::commit(tx_rw)?;
 //!
 //! // Read the data, assert it is correct.
 //! let tx_ro = env_inner.tx_ro()?;
-//! let tables = env_inner.open_tables(&tx_ro)?;
-//! let (key_image, _) = tables.key_images().first()?;
-//! assert_eq!(key_image, KEY_IMAGE);
+//! let table = env_inner.open_db_ro::<Table>(&tx_ro)?;
+//! assert_eq!(table.first()?, (0, 1));
 //! # Ok(()) }
 //! ```
 
@@ -245,7 +226,6 @@ pub mod config;
 mod constants;
 pub use constants::{
     DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_DATA_FILENAME, DATABASE_LOCK_FILENAME,
-    DATABASE_VERSION,
 };
 
 mod database;

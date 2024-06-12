@@ -24,7 +24,8 @@ use bytes::Bytes;
 ///
 /// This includes:
 /// - Most primitive types
-/// - All types in [`tables`](crate::tables)
+// TODO: fix me
+// - All types in [`tables`](crate::tables)
 ///
 /// See [`StorableVec`] & [`StorableBytes`] for storing slices of `T: Storable`.
 ///

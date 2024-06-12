@@ -1,4 +1,4 @@
-// //! Utilities for `cuprate_blockchain` testing.
+// //! Utilities for `database` testing.
 // //!
 // //! These types/fn's are only:
 // //! - enabled on #[cfg(test)]
