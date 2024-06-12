@@ -21,8 +21,8 @@ macro_rules! define_monero_rpc_struct {
         $monero_code_line_start:literal..=$monero_code_line_end:literal,
 
         // The actual request `struct` name and any doc comments, derives, etc.
-        $( #[$request_type_attr:meta] )*
         $type_name:ident,
+        $( #[$request_type_attr:meta] )*
         Request {
             // And any fields.
             $(
@@ -41,8 +41,10 @@ macro_rules! define_monero_rpc_struct {
             )*
         }
     ) => { paste::paste! {
-        #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[allow(dead_code)]
+        #[allow(missing_docs)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$request_type_attr] )*
         #[doc = concat!(
             "",
@@ -70,7 +72,6 @@ macro_rules! define_monero_rpc_struct {
             stringify!($monero_daemon_rpc_doc_link),
             ")."
         )]
-        #[allow(dead_code)]
         pub struct [<Request $type_name>] {
             $(
                 $( #[$request_field_attr] )*
@@ -79,7 +80,36 @@ macro_rules! define_monero_rpc_struct {
         }
 
         #[allow(dead_code)]
-        /// TODO
+        #[allow(missing_docs)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        $( #[$response_type_attr] )*
+        #[doc = concat!(
+            "",
+            "Definition: [`",
+            stringify!($monero_code_filename),
+            ".",
+            stringify!($monero_code_filename_extension),
+            " @ ",
+            stringify!($monero_code_line_start),
+            "..=",
+            stringify!($monero_code_line_end),
+            "`](",
+            "https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/",
+            stringify!($monero_code_filename),
+            ".",
+            stringify!($monero_code_filename_extension),
+            "#L",
+            stringify!($monero_code_line_start),
+            "-L",
+            stringify!($monero_code_line_end),
+            "), documentation: [`",
+            stringify!($monero_daemon_rpc_doc_link),
+            "`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
+            "#",
+            stringify!($monero_daemon_rpc_doc_link),
+            ")."
+        )]
         pub struct [<Response $type_name>] {
             $(
                 $( #[$response_field_attr] )*

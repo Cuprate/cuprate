@@ -98,7 +98,7 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Use
-mod binary;
+mod bin;
 mod data;
 mod json;
 mod macros;
@@ -106,6 +106,12 @@ pub mod misc;
 mod other;
 
 /// TODO
+///
+/// TODO: explain
+/// - how this works
+/// - where to add types
+/// - when to add
+/// - what to do when adding/editing types
 macro_rules! re_export_request_and_response_types {
     (
 		json {
@@ -113,7 +119,7 @@ macro_rules! re_export_request_and_response_types {
 				$json_type:ident,
 			)*
 		}
-		binary {
+		bin {
 			$(
 				$binary_type:ident,
 			)*
@@ -134,9 +140,9 @@ macro_rules! re_export_request_and_response_types {
 			}
 
 			/// TODO
-			pub mod binary {
+			pub mod bin {
 				$(
-					pub use $crate::binary::[<Request $binary_type>] as $binary_type;
+					pub use $crate::bin::[<Request $binary_type>] as $binary_type;
 				)*
 			}
 
@@ -158,9 +164,9 @@ macro_rules! re_export_request_and_response_types {
 			}
 
 			/// TODO
-			pub mod binary {
+			pub mod bin {
 				$(
-					pub use $crate::binary::[<Response $binary_type>] as $binary_type;
+					pub use $crate::bin::[<Response $binary_type>] as $binary_type;
 				)*
 			}
 
@@ -177,11 +183,14 @@ macro_rules! re_export_request_and_response_types {
 re_export_request_and_response_types! {
     json {
         GetBlockCount,
+        OnGetBlockHash,
+        GetBlockTemplate,
     }
 
-    binary {
+    bin {
     }
 
     other {
+        SaveBc,
     }
 }

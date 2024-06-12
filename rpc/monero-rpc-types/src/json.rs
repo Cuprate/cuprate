@@ -17,7 +17,13 @@ define_monero_rpc_struct! {
     // for the struct, they go here, e.g.:
     // #[derive(MyCustomDerive)]
     GetBlockCount, // <- The type name.
+    #[derive(Copy)]
     Request /* <- The request type */ {
+        // This request type requires no inputs,
+        // so it is left empty.
+    },
+    #[derive(Copy)]
+    Response /* <- The response type */ {
         // Within the `{}` is an infinite matching pattern of:
         // ```
         // $ATTRIBUTES
@@ -25,35 +31,48 @@ define_monero_rpc_struct! {
         // ```
         // The struct generated and all fields are `pub`.
 
-        /// How many blocks are in the longest chain known to the node.
         count: u64,
-        /// General RPC error code. "OK" means everything looks good.
         status: crate::misc::Status,
-        /// Whether the node is untrusted (see Monero docs).
-        untrusted: bool,
-    },
-    Response /* <- The response type */ {
-        /// How many blocks are in the longest chain known to the node.
-        count: u64,
-        /// General RPC error code. "OK" means everything looks good.
-        status: crate::misc::Status,
-        /// Whether the node is untrusted (see Monero docs).
         untrusted: bool,
     }
 }
 
-// define_monero_rpc_struct! {
-//     on_get_block_hash,
-//     core_rpc_server_commands_defs.h => 919..=933,
-//     OnGetBlockHash { height: [123] } =>
-//     r#"[123]"#,
-//     #[repr(transparent)]
-//     #[cfg_attr(feature = "serde", serde(transparent))]
-//     OnGetBlockHash {
-//         /// A block's height.
-//         height: [u64; 1],
-//     }
-// }
+define_monero_rpc_struct! {
+    on_get_block_hash,
+    core_rpc_server_commands_defs.h => 935..=939,
+    OnGetBlockHash,
+    #[derive(Copy)]
+    Request {
+        block_height: u64,
+    },
+    Response {
+        block_hash: String,
+    }
+}
+
+define_monero_rpc_struct! {
+    get_block_template,
+    core_rpc_server_commands_defs.h => 943..=994,
+    GetBlockTemplate,
+    Request {
+        reserve_size: u64,
+        wallet_address: String,
+    },
+    Response {
+        difficulty: u64,
+        wide_difficulty: String,
+        difficulty_top64: u64,
+        height: u64,
+        reserved_offset: u64,
+        expected_reward: u64,
+        prev_hash: String,
+        seed_height: u64,
+        seed_hash: String,
+        next_seed_hash: String,
+        blocktemplate_blob: String,
+        blockhashing_blob: String,
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
