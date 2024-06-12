@@ -626,7 +626,7 @@ where
                     // block downloader.
                     self.inflight_requests.get(&start_height).inspect(|entry| {
                         tracing::warn!(
-                            "Received an invalid chain from peer: {}, exiting block downloader (it will be restarted).",
+                            "Received an invalid chain from peer: {}, exiting block downloader (it should be restarted).",
                             entry.peer_who_told_us
                         );
                         entry.peer_who_told_us_handle.ban_peer(LONG_BAN)
@@ -867,6 +867,11 @@ async fn request_batch_from_peer<N: NetworkZone>(
                     .number()
                     .is_some_and(|height| height == expected_height)
                 {
+                    tracing::warn!(
+                        "Invalid chain, expected height: {expected_height}, got height: {:?}",
+                        block.number()
+                    );
+
                     // This peer probably did nothing wrong, it was the peer who told us this blockID which
                     // is misbehaving.
                     return Err(BlockDownloadError::ChainInvalid);

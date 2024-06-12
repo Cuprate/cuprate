@@ -30,9 +30,7 @@ mod constants;
 mod inbound_server;
 mod sync_states;
 
-use crate::block_downloader::{
-    BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse,
-};
+use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
 use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
@@ -41,11 +39,13 @@ use monero_p2p::services::PeerSyncRequest;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
-/// This function starts all the tasks to maintain connections/ accept connections/ make connections.
+/// This function starts all the tasks to maintain/accept/make connections.
 ///
-/// To use you must provide, a peer request handler, which is given to each connection  and a core sync service
-/// which keeps track of the sync state of our node.
-#[instrument(level="debug", name="net", skip_all, fields(zone=N::NAME))]
+/// # Usage
+/// You must provide:
+/// - A peer request handler, which is given to each connection
+/// - A core sync service, which keeps track of the sync state of our node
+#[instrument(level = "debug", name = "net", skip_all, fields(zone = N::NAME))]
 pub async fn initialize_network<N, R, CS>(
     peer_req_handler: R,
     core_sync_svc: CS,
