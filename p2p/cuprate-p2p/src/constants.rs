@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 /// The timeout we set on handshakes.
-pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(30);
+pub(crate) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// The maximum amount of connections to make to seed nodes for when we need peers.
 pub(crate) const MAX_SEED_CONNECTIONS: usize = 3;
@@ -27,6 +27,12 @@ pub(crate) const SOFT_TX_MESSAGE_SIZE_SIZE_LIMIT: usize = 10 * 1024 * 1024;
 /// Because of internal implementation details this value is _always_ hit, i.e. a transaction will not be dropped until
 /// 50 more transactions after it are added to the queue.
 pub(crate) const MAX_TXS_IN_BROADCAST_CHANNEL: usize = 50;
+
+/// The time to sleep after an inbound connection comes in.
+///
+/// This is a safety measure to prevent Cuprate from getting spammed with a load of inbound connections.
+/// TODO: it might be a good idea to make this configurable.
+pub(crate) const INBOUND_CONNECTION_COOL_DOWN: Duration = Duration::from_millis(500);
 
 #[cfg(test)]
 mod tests {

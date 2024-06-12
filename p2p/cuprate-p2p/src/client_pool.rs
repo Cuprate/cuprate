@@ -12,13 +12,14 @@
 //!
 use std::sync::Arc;
 
-use dashmap::{DashMap, DashSet};
+use dashmap::DashMap;
 use tokio::sync::mpsc;
+use tracing::{Instrument, Span};
 
 use monero_p2p::{
     client::{Client, InternalPeerID},
     handles::ConnectionHandle,
-    ConnectionDirection, NetworkZone,
+    NetworkZone,
 };
 
 pub(crate) mod disconnect_monitor;
@@ -32,12 +33,6 @@ pub use drop_guard_client::ClientPoolDropGuard;
 pub struct ClientPool<N: NetworkZone> {
     /// The connected [`Client`]s.
     clients: DashMap<InternalPeerID<N::Addr>, Client<N>>,
-    /// A set of outbound clients, as these allow accesses/mutation from different threads,
-    /// a peer ID in here does not mean the peer is necessarily in `clients` as it could have been removed
-    /// by another thread. However, if the peer is in both here and `clients` it is definitely
-    /// an outbound peer.
-    outbound_clients: DashSet<InternalPeerID<N::Addr>>,
-
     /// A channel to send new peer ids down to monitor for disconnect.
     new_connection_tx: mpsc::UnboundedSender<(ConnectionHandle, InternalPeerID<N::Addr>)>,
 }
@@ -49,11 +44,12 @@ impl<N: NetworkZone> ClientPool<N> {
 
         let pool = Arc::new(ClientPool {
             clients: DashMap::new(),
-            outbound_clients: DashSet::new(),
             new_connection_tx: tx,
         });
 
-        tokio::spawn(disconnect_monitor::disconnect_monitor(rx, pool.clone()));
+        tokio::spawn(
+            disconnect_monitor::disconnect_monitor(rx, pool.clone()).instrument(Span::current()),
+        );
 
         pool
     }
@@ -72,10 +68,6 @@ impl<N: NetworkZone> ClientPool<N> {
         // Fast path: if the client is disconnected don't add it to the peer set.
         if handle.is_closed() {
             return;
-        }
-
-        if client.info.direction == ConnectionDirection::OutBound {
-            self.outbound_clients.insert(id);
         }
 
         let res = self.clients.insert(id, client);
@@ -106,8 +98,6 @@ impl<N: NetworkZone> ClientPool<N> {
     ///
     /// [`None`] is returned if the client did not exist in the pool.
     fn remove_client(&self, peer: &InternalPeerID<N::Addr>) -> Option<Client<N>> {
-        self.outbound_clients.remove(peer);
-
         self.clients.remove(peer).map(|(_, client)| client)
     }
 

@@ -15,13 +15,14 @@ use tokio_util::sync::PollSemaphore;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::{
-    service::{ReadRequest, Response},
+    blockchain::{BCReadRequest, BCResponse},
     ExtendedBlockHeader, OutputOnChain,
 };
 
 use crate::{
     config::ReaderThreads,
     error::RuntimeError,
+    ops::block::block_exists,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::{cumulative_generated_coins, top_block_height},
@@ -30,6 +31,7 @@ use crate::{
     },
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
     tables::{BlockHeights, BlockInfos, Tables},
+    types::BlockHash,
     types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
     ConcreteEnv, DatabaseRo, Env, EnvInner,
 };
@@ -40,9 +42,9 @@ use crate::{
 /// This is cheaply [`Clone`]able handle that
 /// allows `async`hronously reading from the database.
 ///
-/// Calling [`tower::Service::call`] with a [`DatabaseReadHandle`] & [`ReadRequest`]
+/// Calling [`tower::Service::call`] with a [`DatabaseReadHandle`] & [`BCReadRequest`]
 /// will return an `async`hronous channel that can be `.await`ed upon
-/// to receive the corresponding [`Response`].
+/// to receive the corresponding [`BCResponse`].
 pub struct DatabaseReadHandle {
     /// Handle to the custom `rayon` DB reader thread-pool.
     ///
@@ -131,8 +133,8 @@ impl DatabaseReadHandle {
     }
 }
 
-impl tower::Service<ReadRequest> for DatabaseReadHandle {
-    type Response = Response;
+impl tower::Service<BCReadRequest> for DatabaseReadHandle {
+    type Response = BCResponse;
     type Error = RuntimeError;
     type Future = ResponseReceiver;
 
@@ -152,7 +154,7 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
     }
 
     #[inline]
-    fn call(&mut self, request: ReadRequest) -> Self::Future {
+    fn call(&mut self, request: BCReadRequest) -> Self::Future {
         let permit = self
             .permit
             .take()
@@ -189,25 +191,26 @@ impl tower::Service<ReadRequest> for DatabaseReadHandle {
 /// The basic structure is:
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
-/// 3. [`Response`] is sent
+/// 3. [`BCResponse`] is sent
 fn map_request(
     env: &ConcreteEnv,               // Access to the database
-    request: ReadRequest,            // The request we must fulfill
+    request: BCReadRequest,          // The request we must fulfill
     response_sender: ResponseSender, // The channel we must send the response back to
 ) {
-    use ReadRequest as R;
+    use BCReadRequest as R;
 
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block) => block_hash(env, block),
+        R::FilterUnknownHashes(hashes) => filter_unknown_hahses(env, hashes),
         R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(env, range),
         R::ChainHeight => chain_height(env),
         R::GeneratedCoins => generated_coins(env),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
-        R::CheckKIsNotSpent(set) => check_k_is_not_spent(env, set),
+        R::KeyImagesSpent(set) => key_images_spent(env, set),
     };
 
     if let Err(e) = response_sender.send(response) {
@@ -286,7 +289,10 @@ macro_rules! get_tables {
 // FIXME: implement multi-transaction read atomicity.
 // <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576874589>.
 
-/// [`ReadRequest::BlockExtendedHeader`].
+// TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
+// amount of parallelism.
+
+/// [`BCReadRequest::BlockExtendedHeader`].
 #[inline]
 fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -294,12 +300,12 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
 
-    Ok(Response::BlockExtendedHeader(
+    Ok(BCResponse::BlockExtendedHeader(
         get_block_extended_header_from_height(&block_height, &tables)?,
     ))
 }
 
-/// [`ReadRequest::BlockHash`].
+/// [`BCReadRequest::BlockHash`].
 #[inline]
 fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -307,12 +313,40 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    Ok(Response::BlockHash(
+    Ok(BCResponse::BlockHash(
         get_block_info(&block_height, &table_block_infos)?.block_hash,
     ))
 }
 
-/// [`ReadRequest::BlockExtendedHeaderInRange`].
+/// [`BCReadRequest::FilterUnknownHashes`].
+#[inline]
+fn filter_unknown_hahses(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+
+    let mut err = None;
+
+    hashes.retain(
+        |block_hash| match block_exists(block_hash, &table_block_heights) {
+            Ok(exists) => exists,
+            Err(e) => {
+                err.get_or_insert(e);
+                false
+            }
+        },
+    );
+
+    if let Some(e) = err {
+        Err(e)
+    } else {
+        Ok(BCResponse::FilterUnknownHashes(hashes))
+    }
+}
+
+/// [`BCReadRequest::BlockExtendedHeaderInRange`].
 #[inline]
 fn block_extended_header_in_range(
     env: &ConcreteEnv,
@@ -333,10 +367,10 @@ fn block_extended_header_in_range(
         })
         .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
 
-    Ok(Response::BlockExtendedHeaderInRange(vec))
+    Ok(BCResponse::BlockExtendedHeaderInRange(vec))
 }
 
-/// [`ReadRequest::ChainHeight`].
+/// [`BCReadRequest::ChainHeight`].
 #[inline]
 fn chain_height(env: &ConcreteEnv) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -349,10 +383,10 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
     let block_hash =
         get_block_info(&chain_height.saturating_sub(1), &table_block_infos)?.block_hash;
 
-    Ok(Response::ChainHeight(chain_height, block_hash))
+    Ok(BCResponse::ChainHeight(chain_height, block_hash))
 }
 
-/// [`ReadRequest::GeneratedCoins`].
+/// [`BCReadRequest::GeneratedCoins`].
 #[inline]
 fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -363,13 +397,13 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 
     let top_height = top_block_height(&table_block_heights)?;
 
-    Ok(Response::GeneratedCoins(cumulative_generated_coins(
+    Ok(BCResponse::GeneratedCoins(cumulative_generated_coins(
         &top_height,
         &table_block_infos,
     )?))
 }
 
-/// [`ReadRequest::Outputs`].
+/// [`BCReadRequest::Outputs`].
 #[inline]
 fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
@@ -407,10 +441,10 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
         })
         .collect::<Result<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>, RuntimeError>>()?;
 
-    Ok(Response::Outputs(map))
+    Ok(BCResponse::Outputs(map))
 }
 
-/// [`ReadRequest::NumberOutputsWithAmount`].
+/// [`BCReadRequest::NumberOutputsWithAmount`].
 #[inline]
 fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
@@ -452,12 +486,12 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         })
         .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
 
-    Ok(Response::NumberOutputsWithAmount(map))
+    Ok(BCResponse::NumberOutputsWithAmount(map))
 }
 
-/// [`ReadRequest::CheckKIsNotSpent`].
+/// [`BCReadRequest::KeyImagesSpent`].
 #[inline]
-fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -486,8 +520,8 @@ fn check_k_is_not_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Res
         // Else, `Ok(false)` will continue the iterator.
         .find_any(|result| !matches!(result, Ok(false)))
     {
-        None | Some(Ok(false)) => Ok(Response::CheckKIsNotSpent(true)), // Key image was NOT found.
-        Some(Ok(true)) => Ok(Response::CheckKIsNotSpent(false)),        // Key image was found.
+        None | Some(Ok(false)) => Ok(BCResponse::KeyImagesSpent(false)), // Key image was NOT found.
+        Some(Ok(true)) => Ok(BCResponse::KeyImagesSpent(true)),          // Key image was found.
         Some(Err(e)) => Err(e), // A database error occurred.
     }
 }

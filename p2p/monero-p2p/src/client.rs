@@ -29,13 +29,13 @@ pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
 use monero_pruning::PruningSeed;
 
 /// An internal identifier for a given peer, will be their address if known
-/// or a random u64 if not.
+/// or a random u128 if not.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum InternalPeerID<A> {
     /// A known address.
     KnownAddr(A),
     /// An unknown address (probably an inbound anonymity network connection).
-    Unknown(u64),
+    Unknown(u128),
 }
 
 impl<A: Display> Display for InternalPeerID<A> {

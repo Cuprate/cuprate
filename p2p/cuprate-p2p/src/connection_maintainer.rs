@@ -12,7 +12,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::instrument;
+use tracing::{instrument, Instrument, Span};
 
 use monero_p2p::{
     client::{Client, ConnectRequest, HandshakeError},
@@ -60,7 +60,7 @@ pub struct OutboundConnectionKeeper<N: NetworkZone, A, C> {
     /// we add a permit to the semaphore and keep track here, upto a value in config.
     pub extra_peers: usize,
     /// The p2p config.
-    pub config: P2PConfig,
+    pub config: P2PConfig<N>,
     /// The [`Bernoulli`] distribution, when sampled will return true if we should connect to a gray peer or
     /// false if we should connect to a white peer.
     ///
@@ -76,7 +76,7 @@ where
     C::Future: Send + 'static,
 {
     pub fn new(
-        config: P2PConfig,
+        config: P2PConfig<N>,
         client_pool: Arc<ClientPool<N>>,
         make_connection_rx: mpsc::Receiver<MakeConnectionRequest>,
         address_book_svc: A,
@@ -149,7 +149,7 @@ where
     }
 
     /// Connects to a given outbound peer.
-    #[instrument(level = "info", skip(self, permit), fields(%addr))]
+    #[instrument(level = "info", skip_all)]
     async fn connect_to_outbound_peer(&mut self, permit: OwnedSemaphorePermit, addr: N::Addr) {
         let client_pool = self.client_pool.clone();
         let connection_fut = self
@@ -159,11 +159,14 @@ where
             .expect("Connector had an error in `poll_ready`")
             .call(ConnectRequest { addr, permit });
 
-        tokio::spawn(async move {
-            if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
-                client_pool.add_new_client(peer);
+        tokio::spawn(
+            async move {
+                if let Ok(Ok(peer)) = timeout(HANDSHAKE_TIMEOUT, connection_fut).await {
+                    client_pool.add_new_client(peer);
+                }
             }
-        });
+            .instrument(Span::current()),
+        );
     }
 
     /// Handles a request from the peer set for more peers.

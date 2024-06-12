@@ -20,8 +20,9 @@ use cuprate_consensus_rules::{
     HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
-use crate::{Database, DatabaseRequest, DatabaseResponse, ExtendedConsensusError};
+use crate::{Database, ExtendedConsensusError};
 
 /// The amount of randomX VMs to keep in the cache.
 const RX_SEEDS_CACHED: usize = 2;
@@ -225,10 +226,8 @@ async fn get_block_hashes<D: Database + Clone>(
     for height in heights {
         let db = database.clone();
         fut.push_back(async move {
-            let DatabaseResponse::BlockHash(hash) = db
-                .clone()
-                .oneshot(DatabaseRequest::BlockHash(height))
-                .await?
+            let BCResponse::BlockHash(hash) =
+                db.clone().oneshot(BCReadRequest::BlockHash(height)).await?
             else {
                 panic!("Database sent incorrect response!");
             };

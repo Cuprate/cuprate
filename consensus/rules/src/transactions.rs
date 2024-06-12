@@ -3,10 +3,10 @@ use std::cmp::Ordering;
 use monero_serai::ringct::RctType;
 
 use monero_serai::transaction::{Input, Output, Timelock, Transaction};
-use multiexp::BatchVerifier;
 
 use crate::{
-    blocks::penalty_free_zone, check_point_canonically_encoded, is_decomposed_amount, HardFork,
+    batch_verifier::BatchVerifier, blocks::penalty_free_zone, check_point_canonically_encoded,
+    is_decomposed_amount, HardFork,
 };
 
 mod contextual_data;
@@ -606,7 +606,7 @@ pub fn check_transaction_semantic(
     tx_weight: usize,
     tx_hash: &[u8; 32],
     hf: &HardFork,
-    verifier: &mut BatchVerifier<(), dalek_ff_group::EdwardsPoint>,
+    verifier: impl BatchVerifier,
 ) -> Result<u64, TransactionError> {
     // <https://monero-book.cuprate.org/consensus_rules/transactions.html#transaction-size>
     if tx_blob_size > MAX_TX_BLOB_SIZE

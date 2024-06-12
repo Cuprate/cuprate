@@ -71,8 +71,9 @@ impl NetworkZone for FragNet {
 
     async fn incoming_connection_listener(
         config: Self::ServerCfg,
+        port: u16,
     ) -> Result<Self::Listener, std::io::Error> {
-        let listener = TcpListener::bind(config.addr).await?;
+        let listener = TcpListener::bind(SocketAddr::new(config.ip, port)).await?;
         Ok(InBoundStream { listener })
     }
 }
@@ -194,9 +195,9 @@ async fn fragmented_handshake_monerod_to_cuprate() {
         our_basic_node_data,
     );
 
-    let addr = "127.0.0.1:18081".parse().unwrap();
+    let ip = "127.0.0.1".parse().unwrap();
 
-    let mut listener = FragNet::incoming_connection_listener(ClearNetServerCfg { addr })
+    let mut listener = FragNet::incoming_connection_listener(ClearNetServerCfg { ip }, 18081)
         .await
         .unwrap();
 

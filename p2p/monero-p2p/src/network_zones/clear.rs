@@ -37,8 +37,9 @@ impl NetZoneAddress for SocketAddr {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ClearNetServerCfg {
-    pub addr: SocketAddr,
+    pub ip: IpAddr,
 }
 
 #[derive(Clone, Copy)]
@@ -80,8 +81,9 @@ impl NetworkZone for ClearNet {
 
     async fn incoming_connection_listener(
         config: Self::ServerCfg,
+        port: u16,
     ) -> Result<Self::Listener, std::io::Error> {
-        let listener = TcpListener::bind(config.addr).await?;
+        let listener = TcpListener::bind(SocketAddr::new(config.ip, port)).await?;
         Ok(InBoundStream { listener })
     }
 }

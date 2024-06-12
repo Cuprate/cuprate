@@ -13,6 +13,7 @@ members = [
 	"p2p/cuprate-p2p",
 	"p2p/dandelion",
 	"p2p/monero-p2p",
+	"p2p/async-buffer",
 	"p2p/address-book",
 	"storage/cuprate-blockchain",
 	"storage/cuprate-txpool",
@@ -21,6 +22,9 @@ members = [
 	"rpc/monero-rpc-types",
 	"test-utils",
 	"types",
+	"rpc/json-rpc",
+	"rpc/monero-rpc-types",
+	"rpc/cuprate-rpc-interface",
 ]
 
 [profile.release]
