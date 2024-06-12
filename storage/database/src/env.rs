@@ -9,7 +9,6 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    tables::{call_fn_on_all_tables_or_early_return, TablesIter, TablesMut},
     transaction::{TxRo, TxRw},
 };
 
@@ -249,29 +248,31 @@ where
     #[doc = doc_table_error!()]
     fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
 
-    /// Open all tables in read/iter mode.
-    ///
-    /// This calls [`EnvInner::open_db_ro`] on all database tables
-    /// and returns a structure that allows access to all tables.
-    ///
-    #[doc = doc_table_error!()]
-    fn open_tables(&self, tx_ro: &Ro) -> Result<impl TablesIter, RuntimeError> {
-        call_fn_on_all_tables_or_early_return! {
-            Self::open_db_ro(self, tx_ro)
-        }
-    }
+    // TODO: make equivalent in `cuprate-blockchain`.
 
-    /// Open all tables in read-write mode.
-    ///
-    /// This calls [`EnvInner::open_db_rw`] on all database tables
-    /// and returns a structure that allows access to all tables.
-    ///
-    #[doc = doc_table_error!()]
-    fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
-        call_fn_on_all_tables_or_early_return! {
-            Self::open_db_rw(self, tx_rw)
-        }
-    }
+    // /// Open all tables in read/iter mode.
+    // ///
+    // /// This calls [`EnvInner::open_db_ro`] on all database tables
+    // /// and returns a structure that allows access to all tables.
+    // ///
+    // #[doc = doc_table_error!()]
+    // fn open_tables(&self, tx_ro: &Ro) -> Result<impl TablesIter, RuntimeError> {
+    //     call_fn_on_all_tables_or_early_return! {
+    //         Self::open_db_ro(self, tx_ro)
+    //     }
+    // }
+
+    // /// Open all tables in read-write mode.
+    // ///
+    // /// This calls [`EnvInner::open_db_rw`] on all database tables
+    // /// and returns a structure that allows access to all tables.
+    // ///
+    // #[doc = doc_table_error!()]
+    // fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
+    //     call_fn_on_all_tables_or_early_return! {
+    //         Self::open_db_rw(self, tx_rw)
+    //     }
+    // }
 
     /// Clear all `(key, value)`'s from a database table.
     ///

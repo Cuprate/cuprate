@@ -21,7 +21,6 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    tables::call_fn_on_all_tables_or_early_return,
 };
 
 //---------------------------------------------------------------------------------------------------- Consts
@@ -210,22 +209,6 @@ impl Env for ConcreteEnv {
                 .create(tx_rw)?;
             Ok(())
         }
-
-        let mut tx_rw = env.write_txn()?;
-        // Create all tables.
-        // FIXME: this macro is kinda awkward.
-        {
-            let env = &env;
-            let tx_rw = &mut tx_rw;
-            match call_fn_on_all_tables_or_early_return!(create_table(env, tx_rw)) {
-                Ok(_) => (),
-                Err(e) => return Err(e),
-            }
-        }
-
-        // INVARIANT: this should never return `ResizeNeeded` due to adding
-        // some tables since we added some leeway to the memory map above.
-        tx_rw.commit()?;
 
         Ok(Self {
             env: RwLock::new(env),
