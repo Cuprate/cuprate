@@ -455,7 +455,6 @@ where
         let Some(mut block_entry_to_get) = chain_tracker
             .blocks_to_get(&client.info.pruning_seed, self.amount_of_blocks_to_request)
         else {
-            tracing::debug!("Peer does not have next batch");
             return Some(client);
         };
 
