@@ -341,8 +341,8 @@ where
 
     /// Attempts to send another request for an inflight batch
     ///
-    /// This function will find the oldest batch that has had the least amount of requests sent for it
-    /// and will then attempt to send another request for it.
+    /// This function will find the batch(es) that we are waiting on to clear our ready queue and sends another request
+    /// for them.
     ///
     /// Returns the [`ClientPoolDropGuard`] back if it doesn't have the batch according to it's pruning seed.
     async fn request_inflight_batch_again(
@@ -496,7 +496,7 @@ where
         if self.chain_entry_task.len() < 2
             // If we have had too many failures then assume the tip has been found so no more chain entries.
             && self.amount_of_empty_chain_entries <= EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED
-            // Check we have a nice buffer of pending block IDs to retrieve, we don't want to be waiting around
+            // Check we have a big buffer of pending block IDs to retrieve, we don't want to be waiting around
             // for a chain entry.
             && chain_tracker.block_requests_queued(self.amount_of_blocks_to_request) < 500
             // Make sure this peer actually has the chain.

@@ -11,7 +11,7 @@ monero-wire = { path = "../../net/monero-wire" }
 monero-p2p = { path = "../monero-p2p", features = ["borsh"] }
 monero-address-book = { path = "../address-book" }
 monero-pruning = { path = "../../pruning" }
-cuprate-helper = { path = "../../helper", features = ["asynch"] }
+cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
 async-buffer = { path = "../async-buffer" }
 
 monero-serai = { workspace = true, features = ["std"] }
