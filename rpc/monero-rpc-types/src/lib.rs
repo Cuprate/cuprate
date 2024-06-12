@@ -1,7 +1,4 @@
-//! Monero RPC types.
-//!
-//! TODO.
-
+#![doc = include_str!("../README.md")]
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
 // Our code, and code generated (e.g macros) cannot overrule these.
@@ -98,11 +95,16 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Use
-mod bin;
-mod data;
-mod json;
+// Misc types.
+mod status;
+pub use status::Status;
+
+// Internal modules.
 mod macros;
-pub mod misc;
+
+// Request/response JSON/binary/other types.
+mod bin;
+mod json;
 mod other;
 
 /// TODO
@@ -130,23 +132,23 @@ macro_rules! re_export_request_and_response_types {
 			)*
 		}
 	) => { paste::paste! {
-		/// TODO
+		/// RPC request types.
 		pub mod req {
-			/// TODO
+			/// JSON types from the [`/json_rpc`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#json-rpc-methods) endpoint.
 			pub mod json {
 				$(
 					pub use $crate::json::[<Request $json_type>] as $json_type;
 				)*
 			}
 
-			/// TODO
+			/// Binary types from [binary](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blocksbin) endpoints.
 			pub mod bin {
 				$(
 					pub use $crate::bin::[<Request $binary_type>] as $binary_type;
 				)*
 			}
 
-			/// TODO
+			/// JSON types from the [`other`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#other-daemon-rpc-calls) endpoints.
 			pub mod other {
 				$(
 					pub use $crate::other::[<Request $other_type>] as $other_type;
@@ -154,23 +156,23 @@ macro_rules! re_export_request_and_response_types {
 			}
 		}
 
-		/// TODO
+		/// RPC response types.
 		pub mod resp {
-			/// TODO
+			/// JSON types from the [`/json_rpc`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#json-rpc-methods) endpoint.
 			pub mod json {
 				$(
 					pub use $crate::json::[<Response $json_type>] as $json_type;
 				)*
 			}
 
-			/// TODO
+			/// Binary types from [binary](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blocksbin) endpoints.
 			pub mod bin {
 				$(
 					pub use $crate::bin::[<Response $binary_type>] as $binary_type;
 				)*
 			}
 
-			/// TODO
+			/// JSON types from the [`other`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#other-daemon-rpc-calls) endpoints.
 			pub mod other {
 				$(
 					pub use $crate::other::[<Response $other_type>] as $other_type;

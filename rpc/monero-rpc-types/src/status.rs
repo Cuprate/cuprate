@@ -1,19 +1,24 @@
-//! TODO.
+//! RPC response status type.
 
 //---------------------------------------------------------------------------------------------------- Import
+use serde::{Deserialize, Serialize};
 use strum::{
     AsRefStr, Display, EnumCount, EnumIs, EnumIter, EnumMessage, EnumProperty, EnumString,
     EnumTryAs, FromRepr, IntoStaticStr, VariantArray, VariantNames,
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
-/// TODO
+/// RPC response status.
 ///
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/message.cpp#L40-L44>.
+/// This type represents `monerod`'s frequently appearing string field, `status`.
 ///
-/// ## String formatting
+/// This field appears within RPC [JSON response](crate::resp::json) types.
+///
+/// Reference: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/message.cpp#L40-L44>.
+///
+/// ## Serialization and string formatting
 /// ```rust
-/// # use monero_rpc_types::misc::*;
+/// # use monero_rpc_types::*;
 /// use serde_json::to_string;
 /// use strum::AsRefStr;
 ///
@@ -70,30 +75,49 @@ use strum::{
     IntoStaticStr,
     VariantArray,
     VariantNames,
+    Serialize,
+    Deserialize,
 )]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Status {
-    /// TODO
+    /// Successful RPC response, everything is OK.
     #[strum(serialize = "OK")]
-    #[cfg_attr(feature = "serde", serde(rename = "OK"))]
+    #[serde(rename = "OK", alias = "Ok", alias = "ok")]
     #[default]
     Ok,
 
-    /// TODO
+    #[serde(alias = "Retry", alias = "RETRY", alias = "retry")]
+    /// The RPC call failed and should be retried.
+    ///
+    /// TODO: confirm this.
     Retry,
 
-    /// TODO
+    #[serde(alias = "failed", alias = "FAILED")]
+    /// The RPC call failed.
     Failed,
 
-    /// TODO
+    /// The RPC call contained bad input, unknown method, unknown params, etc.
     #[strum(serialize = "Invalid request type")]
-    #[cfg_attr(feature = "serde", serde(rename = "Invalid request type"))]
+    #[serde(
+        rename = "Invalid request type",
+        alias = "invalid request type",
+        alias = "INVALID REQUEST TYPE"
+    )]
     BadRequest,
 
-    /// TODO
+    /// The RPC call contained malformed JSON.
     #[strum(serialize = "Malformed json")]
-    #[cfg_attr(feature = "serde", serde(rename = "Malformed json"))]
+    #[serde(
+        rename = "Malformed json",
+        alias = "malformed json",
+        alias = "MALFORMED JSON",
+        alias = "Malformed JSON",
+        alias = "malformed JSON"
+    )]
     BadJson,
+    // TODO:
+    // This may not be all the string `monerod` uses.
+    // We could use an `Other(String)` here just in case,
+    // otherwise deserialization would fail.
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

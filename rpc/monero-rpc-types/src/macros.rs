@@ -43,7 +43,7 @@ macro_rules! define_monero_rpc_struct {
     ) => { paste::paste! {
         #[allow(dead_code)]
         #[allow(missing_docs)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[derive(serde::Serialize, serde::Deserialize)]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$request_type_attr] )*
         #[doc = concat!(
@@ -81,7 +81,7 @@ macro_rules! define_monero_rpc_struct {
 
         #[allow(dead_code)]
         #[allow(missing_docs)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[derive(serde::Serialize, serde::Deserialize)]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$response_type_attr] )*
         #[doc = concat!(

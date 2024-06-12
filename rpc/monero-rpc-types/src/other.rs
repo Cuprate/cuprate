@@ -13,7 +13,7 @@ define_monero_rpc_struct! {
     #[derive(Copy)]
     Request {},
     Response {
-        status: crate::misc::Status,
+        status: crate::Status,
         untrusted: bool,
     }
 }

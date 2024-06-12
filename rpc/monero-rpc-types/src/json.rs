@@ -32,7 +32,7 @@ define_monero_rpc_struct! {
         // The struct generated and all fields are `pub`.
 
         count: u64,
-        status: crate::misc::Status,
+        status: crate::Status,
         untrusted: bool,
     }
 }
