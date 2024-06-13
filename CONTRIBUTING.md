@@ -11,9 +11,11 @@ you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:moner
 	- [1.4 Ready for review](#14-ready-for-review)
 - [2. Coding guidelines](#2-coding-guidelines)
 - [3. Keeping track of issues and PRs](#3-keeping-track-of-issues-and-prs)
-- [4. Books](#4-books)
-	- [4.1 Architecture book](#41-architecture-book)
-	- [4.2 Protocol book](#42-protocol-book)
+- [4. Documentation](#4-documentation)
+- [5. Books](#5-books)
+	- [5.1 Architecture book](#51-architecture-book)
+	- [5.2 Protocol book](#52-protocol-book)
+	- [5.3 User book](#53-user-book)
 
 ## 1. Submitting a pull request
 Once you have found something you would like to work on by either:
@@ -22,9 +24,11 @@ Once you have found something you would like to work on by either:
 
 it is recommended to make your interest on working on that thing known so people don't duplicate work.
 
-Before starting, consider reading/using Cuprate's [`Books`](#4-books), they cover Cuprate's architecture and protocol.
+Before starting, consider reading/using Cuprate's:
+- [`Documentation`](#4-documentation) (practical `cargo` docs)
+- [`Books`](#5-books) (Cuprate's architecture and protocol)
 
-These books may answer some questions you have, or may confirm an issue you would like to fix.
+These may answer some questions you have, or may confirm an issue you would like to fix.
 
 ### 1.1 Rust toolchain
 Cuprate is written in [Rust](https://rust-lang.org).
@@ -115,14 +119,29 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 [O-]: https://github.com/Cuprate/cuprate/labels?q=O
 [P-]: https://github.com/Cuprate/cuprate/labels?q=P
 
-## 4. Books
+## 4. Documentation
+Cuprate's crates (libraries) have inline documentation.
+
+These can be built and viewed using the `cargo` tool. For example, to build and view a specific crate's documentation:
+```bash
+cargo doc --open --package $CRATE
+```
+`$CRATE` can be any package listed in the [root `Cargo.toml`](https://github.com/Cuprate/cuprate/tree/main/Cargo.toml)'s workspace members list, for example, `cuprate-blockchain`.
+
+You can also build all documentation at once:
+```bash
+cargo doc
+```
+and view by using a web-browser to open the `index.html` file within the build directory: `target/doc/$CRATE/index.html`, for example, `target/doc/cuprate_blockchain/index.html`.
+
+## 5. Books
 Cuprate has various documentation books whose source files live in [`books/`](https://github.com/Cuprate/cuprate/tree/main/books).
 
 Please contribute if you found a mistake! The files are mostly [markdown](https://wikipedia.org/wiki/Markdown) files and can be easily edited. See the `books/` directory for more information.
 
 These books are also good resources to understand how Cuprate and Monero work.
 
-### 4.1 Architecture book
+### 5.1 Architecture book
 This book documents Cuprate's architecture and implementation.
 
 See:
@@ -130,10 +149,18 @@ See:
 - <https://github.com/Cuprate/architecture-book>
 - <https://github.com/Cuprate/cuprate/tree/main/books/architecture>
 
-### 4.2 Protocol book
+### 5.2 Protocol book
 This book documents the Monero protocol.
 
 See:
 - <https://monero-book.cuprate.org>
 - <https://github.com/Cuprate/monero-book>
 - <https://github.com/Cuprate/cuprate/tree/main/books/protocol>
+
+### 5.3 User book
+This book is a user-guide for using Cuprate.
+
+See:
+- <https://user.cuprate.org>
+- <https://github.com/Cuprate/user-book>
+- <https://github.com/Cuprate/cuprate/tree/main/books/user>
