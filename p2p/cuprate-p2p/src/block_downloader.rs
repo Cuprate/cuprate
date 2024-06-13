@@ -4,7 +4,6 @@
 //! and downloads it.
 //!
 //! The block downloader is started by [`download_blocks`].
-use futures::{FutureExt, TryFutureExt};
 use std::{
     cmp::{max, min, Ordering, Reverse},
     collections::{BTreeMap, BinaryHeap, HashSet},
@@ -13,6 +12,7 @@ use std::{
     time::Duration,
 };
 
+use futures::TryFutureExt;
 use monero_serai::{block::Block, transaction::Transaction};
 use rand::prelude::*;
 use rayon::prelude::*;
