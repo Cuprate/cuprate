@@ -29,14 +29,16 @@ use tokio::sync::Semaphore;
 use tower::{service_fn, Service};
 
 prop_compose! {
-    fn dummy_transaction_stragtegy
-        (height: u64)
-        (extra in vec(any::<u8>(), 0..10_000))
+    fn dummy_transaction_stragtegy(height: u64)
+        (
+            extra in vec(any::<u8>(), 0..1_000),
+            timelock in any::<usize>(),
+        )
     -> Transaction {
         Transaction {
             prefix: TransactionPrefix {
                 version: 1,
-                timelock: Timelock::None,
+                timelock: Timelock::Block(timelock),
                 inputs: vec![Input::Gen(height)],
                 outputs: vec![],
                 extra,
@@ -94,7 +96,7 @@ impl Debug for MockBlockchain {
 
 prop_compose! {
     fn dummy_blockchain_stragtegy()(
-        blocks in vec(dummy_block_stragtegy(0, [0; 32]), 1..1_000),
+        blocks in vec(dummy_block_stragtegy(0, [0; 32]), 1..50_000),
     ) -> MockBlockchain {
         let mut blockchain = IndexMap::new();
 
@@ -115,8 +117,8 @@ prop_compose! {
 
 proptest! {
     #![proptest_config(ProptestConfig {
-        cases: 2,
-        max_shrink_iters: 0,
+        cases: 4,
+        max_shrink_iters: 10,
         timeout: 600 * 1_000,
         .. ProptestConfig::default()
     })]

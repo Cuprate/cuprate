@@ -196,24 +196,25 @@ where
     let task_handle = tokio::spawn(
         async move {
             let _guard = connection_guard;
+            loop {
+                let Some(req): Option<connection::ConnectionTaskRequest> = rx.recv().await else {
+                    tracing::debug!("Channel closed, closing mock connection");
+                    return;
+                };
 
-            let Some(req): Option<connection::ConnectionTaskRequest> = rx.recv().await else {
-                tracing::debug!("Channel closed, closing mock connection");
-                return;
-            };
+                tracing::debug!("Received new request: {:?}", req.request.id());
+                let res = request_handler
+                    .ready()
+                    .await
+                    .unwrap()
+                    .call(req.request)
+                    .await
+                    .unwrap();
 
-            tracing::debug!("Received new request: {:?}", req.request.id());
-            let res = request_handler
-                .ready()
-                .await
-                .unwrap()
-                .call(req.request)
-                .await
-                .unwrap();
+                tracing::debug!("Sending back response");
 
-            tracing::debug!("Sending back response");
-
-            let _ = req.response_channel.send(Ok(res));
+                let _ = req.response_channel.send(Ok(res));
+            }
         }
         .instrument(task_span),
     );
