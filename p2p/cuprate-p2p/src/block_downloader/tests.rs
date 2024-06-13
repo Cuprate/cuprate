@@ -50,41 +50,43 @@ proptest! {
 
         let tokio_pool = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 
-        tokio_pool.block_on(timeout(Duration::from_secs(600), async move {
-            let client_pool = ClientPool::new();
+        tokio_pool.block_on(async move {
+            timeout(Duration::from_secs(600), async move {
+                let client_pool = ClientPool::new();
 
-            let mut peer_ids = Vec::with_capacity(peers);
+                let mut peer_ids = Vec::with_capacity(peers);
 
-            for _ in 0..peers {
-                let client = mock_block_downloader_client(blockchain.clone());
+                for _ in 0..peers {
+                    let client = mock_block_downloader_client(blockchain.clone());
 
-                peer_ids.push(client.info.id);
+                    peer_ids.push(client.info.id);
 
-                client_pool.add_new_client(client);
-            }
+                    client_pool.add_new_client(client);
+                }
 
-            let stream = download_blocks(
-                client_pool,
-                SyncStateSvc(peer_ids) ,
-                OurChainSvc {
-                    genesis: *blockchain.blocks.first().unwrap().0
-                },
-                BlockDownloaderConfig {
-                    buffer_size: 1_000,
-                    in_progress_queue_size: 10_000,
-                    check_client_pool_interval: Duration::from_secs(5),
-                    target_batch_size: 5_000,
-                    initial_batch_size: 1,
-            });
+                let stream = download_blocks(
+                    client_pool,
+                    SyncStateSvc(peer_ids) ,
+                    OurChainSvc {
+                        genesis: *blockchain.blocks.first().unwrap().0
+                    },
+                    BlockDownloaderConfig {
+                        buffer_size: 1_000,
+                        in_progress_queue_size: 10_000,
+                        check_client_pool_interval: Duration::from_secs(5),
+                        target_batch_size: 5_000,
+                        initial_batch_size: 1,
+                });
 
-            let blocks = stream.map(|blocks| blocks.blocks).concat().await;
+                let blocks = stream.map(|blocks| blocks.blocks).concat().await;
 
-            assert_eq!(blocks.len() + 1, blockchain.blocks.len());
+                assert_eq!(blocks.len() + 1, blockchain.blocks.len());
 
-            for (i, block) in blocks.into_iter().enumerate() {
-                assert_eq!(&block, blockchain.blocks.get_index(i + 1).unwrap().1);
-            }
-        })).unwrap();
+                for (i, block) in blocks.into_iter().enumerate() {
+                    assert_eq!(&block, blockchain.blocks.get_index(i + 1).unwrap().1);
+                }
+            }).await
+        }).unwrap();
     }
 }
 
