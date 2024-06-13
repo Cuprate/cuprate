@@ -182,20 +182,20 @@ macro_rules! impl_u {
         $(
             impl From<$u> for Id {
                 fn from(u: $u) -> Self {
-                    Self::Num(u as u64)
+                    Self::Num(u64::from(u))
                 }
             }
 
             impl From<&$u> for Id {
                 fn from(u: &$u) -> Self {
-                    Self::Num(*u as u64)
+                    Self::Num(u64::from(*u))
                 }
             }
 
             impl From<Option<$u>> for Id {
                 fn from(u: Option<$u>) -> Self {
                     match u {
-                        Some(u) => Self::Num(u as u64),
+                        Some(u) => Self::Num(u64::from(u)),
                         None => Self::Null,
                     }
                 }
