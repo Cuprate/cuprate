@@ -199,6 +199,12 @@ Implementation detail you should NOT rely on:
 /// As noted in `Env::env_inner`, this is a `RwLockReadGuard`
 /// when using the `heed` backend, be aware of this and do
 /// not hold onto an `EnvInner` for a long time.
+///
+/// # Tables
+/// Note that when opening tables with [`EnvInner::open_db_ro`],
+/// they must be created first or else it will return error.
+///
+/// See [`EnvInner::open_db_rw`] and [`EnvInner::create_db`] for creating tables.
 pub trait EnvInner<'env, Ro, Rw>
 where
     Self: 'env,
