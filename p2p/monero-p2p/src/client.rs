@@ -10,7 +10,8 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_util::sync::PollSemaphore;
-use tower::Service;
+use tower::{Service, ServiceExt};
+use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
@@ -24,6 +25,7 @@ mod connector;
 pub mod handshaker;
 mod timeout_monitor;
 
+use crate::handles::ConnectionGuard;
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
 use monero_pruning::PruningSeed;
@@ -163,6 +165,8 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
 
             match e {
                 TrySendError::Closed(req) | TrySendError::Full(req) => {
+                    self.set_err(PeerError::ClientChannelClosed);
+
                     let _ = req
                         .response_channel
                         .send(Err(PeerError::ClientChannelClosed.into()));
@@ -172,4 +176,51 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
 
         rx.into()
     }
+}
+
+/// Creates a mock [`Client`] for testing purposes.
+///
+/// `request_handler` will be used to handle requests sent to the [`Client`]
+pub fn mock_client<Z: NetworkZone, S>(
+    info: PeerInformation<Z::Addr>,
+    connection_guard: ConnectionGuard,
+    mut request_handler: S,
+) -> Client<Z>
+where
+    S: crate::PeerRequestHandler,
+{
+    let (tx, mut rx) = mpsc::channel(1);
+
+    let task_span = tracing::error_span!("mock_connection", addr = %info.id);
+
+    let task_handle = tokio::spawn(
+        async move {
+            let _guard = connection_guard;
+
+            let Some(req): Option<connection::ConnectionTaskRequest> = rx.recv().await else {
+                tracing::debug!("Channel closed, closing mock connection");
+                return;
+            };
+
+            tracing::debug!("Received new request: {:?}", req.request.id());
+            let res = request_handler
+                .ready()
+                .await
+                .unwrap()
+                .call(req.request)
+                .await
+                .unwrap();
+
+            tracing::debug!("Sending back response");
+
+            let _ = req.response_channel.send(Ok(res));
+        }
+        .instrument(task_span),
+    );
+
+    let timeout_task = tokio::spawn(futures::future::pending());
+    let semaphore = Arc::new(Semaphore::new(1));
+    let error_slot = SharedError::new();
+
+    Client::new(info, tx, task_handle, timeout_task, semaphore, error_slot)
 }

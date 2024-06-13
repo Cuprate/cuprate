@@ -4,6 +4,7 @@
 //! and downloads it.
 //!
 //! The block downloader is started by [`download_blocks`].
+use futures::FutureExt;
 use std::{
     cmp::{max, min, Ordering, Reverse},
     collections::{BTreeMap, BinaryHeap, HashSet},
@@ -45,6 +46,9 @@ use crate::{
 
 mod chain_tracker;
 use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
+
+#[cfg(test)]
+mod tests;
 
 /// A downloaded batch of blocks.
 #[derive(Debug)]
@@ -154,7 +158,12 @@ where
         config,
     );
 
-    tokio::spawn(block_downloader.run().instrument(Span::current()));
+    tokio::spawn(
+        block_downloader
+            .run()
+            .instrument(Span::current())
+            .map(|res| panic!("{res:?}")),
+    );
 
     buffer_stream
 }
