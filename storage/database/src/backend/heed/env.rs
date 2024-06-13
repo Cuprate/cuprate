@@ -182,8 +182,7 @@ impl Env for ConcreteEnv {
         // For now:
         // - No other program using our DB exists
         // - Almost no-one has a 126+ thread CPU
-        let reader_threads =
-            u32::try_from(config.reader_threads.as_threads().get()).unwrap_or(u32::MAX);
+        let reader_threads = u32::try_from(config.reader_threads.get()).unwrap_or(u32::MAX);
         env_open_options.max_readers(if reader_threads < 110 {
             126
         } else {

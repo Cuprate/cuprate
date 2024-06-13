@@ -14,23 +14,19 @@
 //! ```rust
 //! use cuprate_database::{
 //!     ConcreteEnv, Env,
-//!     config::{ConfigBuilder, ReaderThreads, SyncMode}
+//!     config::{ConfigBuilder, SyncMode}
 //! };
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let db_dir = tempfile::tempdir()?;
 //!
-//! let config = ConfigBuilder::new()
-//!      // Use a custom database directory.
-//!     .db_directory(db_dir.path().to_path_buf())
-//!     // Use as many reader threads as possible (when using `service`).
-//!     .reader_threads(ReaderThreads::OnePerThread)
+//! let config = ConfigBuilder::new(db_dir.path().to_path_buf())
 //!     // Use the fastest sync mode.
 //!     .sync_mode(SyncMode::Fast)
 //!     // Build into `Config`
 //!     .build();
 //!
-//! // Open the database `service` using this configuration.
+//! // Open the database using this configuration.
 //! let env = ConcreteEnv::open(config.clone())?;
 //! // It's using the config we provided.
 //! assert_eq!(env.config(), &config);
@@ -38,10 +34,7 @@
 //! ```
 
 mod config;
-pub use config::{Config, ConfigBuilder};
-
-mod reader_threads;
-pub use reader_threads::ReaderThreads;
+pub use config::{Config, ConfigBuilder, READER_THREADS_DEFAULT};
 
 mod sync_mode;
 pub use sync_mode::SyncMode;

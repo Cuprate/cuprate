@@ -98,9 +98,7 @@ use cuprate_database::{
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 // Create a configuration for the database environment.
 let db_dir = tempfile::tempdir()?;
-let config = ConfigBuilder::new()
-    .db_directory(db_dir.path().to_path_buf())
-    .build();
+let config = ConfigBuilder::new(db_dir.path().to_path_buf()).build();
 
 // Initialize the database environment.
 let env = ConcreteEnv::open(config)?;

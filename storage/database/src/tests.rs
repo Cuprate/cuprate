@@ -24,8 +24,7 @@ impl Table for TestTable {
 /// FIXME: changing this to `-> impl Env` causes lifetime errors...
 pub(crate) fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
     let tempdir = tempfile::tempdir().unwrap();
-    let config = ConfigBuilder::new()
-        .db_directory(tempdir.path().into())
+    let config = ConfigBuilder::new(tempdir.path().into())
         .low_power()
         .build();
     let env = ConcreteEnv::open(config).unwrap();
