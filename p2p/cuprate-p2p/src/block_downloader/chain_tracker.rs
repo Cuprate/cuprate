@@ -1,9 +1,9 @@
-use fixed_bytes::ByteArrayVec;
 use std::{cmp::min, collections::VecDeque};
+
+use fixed_bytes::ByteArrayVec;
 
 use monero_p2p::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
 use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
-use monero_wire::protocol::ChainResponse;
 
 use crate::constants::MEDIUM_BAN;
 
@@ -31,6 +31,8 @@ pub struct BlocksToRetrieve<N: NetworkZone> {
     pub peer_who_told_us_handle: ConnectionHandle,
     /// The number of requests sent for this batch.
     pub requests_sent: usize,
+    /// The number of times this batch has been requested from a peer and failed.
+    pub failures: usize,
 }
 
 pub enum ChainTrackerError {
@@ -54,6 +56,7 @@ pub struct ChainTracker<N: NetworkZone> {
 }
 
 impl<N: NetworkZone> ChainTracker<N> {
+    /// Creates a new chain tracker.
     pub fn new(new_entry: ChainEntry<N>, first_height: u64, our_genesis: [u8; 32]) -> Self {
         let top_seen_hash = *new_entry.ids.last().unwrap();
         let mut entries = VecDeque::with_capacity(1);
@@ -95,8 +98,8 @@ impl<N: NetworkZone> ChainTracker<N> {
             .sum()
     }
 
+    /// Attempts to add an incoming [`ChainEntry`] to the chain tracker.
     pub fn add_entry(&mut self, mut chain_entry: ChainEntry<N>) -> Result<(), ChainTrackerError> {
-        // TODO: check chain entries length.
         if chain_entry.ids.is_empty() {
             // The peer must send at lest one overlapping block.
             chain_entry.handle.ban_peer(MEDIUM_BAN);
@@ -104,7 +107,6 @@ impl<N: NetworkZone> ChainTracker<N> {
         }
 
         if chain_entry.ids.len() == 1 {
-            // TODO: properly handle this
             return Err(ChainTrackerError::NewEntryDoesNotFollowChain);
         }
 
@@ -115,8 +117,6 @@ impl<N: NetworkZone> ChainTracker<N> {
         {
             return Err(ChainTrackerError::NewEntryDoesNotFollowChain);
         }
-
-        tracing::warn!("len: {}", chain_entry.ids.len());
 
         let new_entry = ChainEntry {
             // ignore the first block - we already know it.
@@ -132,6 +132,9 @@ impl<N: NetworkZone> ChainTracker<N> {
         Ok(())
     }
 
+    /// Returns a batch of blocks to request.
+    ///
+    /// The returned batches length will be less than or equal to `max_blocks`
     pub fn blocks_to_get(
         &mut self,
         pruning_seed: &PruningSeed,
@@ -140,8 +143,6 @@ impl<N: NetworkZone> ChainTracker<N> {
         if !pruning_seed.has_full_block(self.first_height, CRYPTONOTE_MAX_BLOCK_HEIGHT) {
             return None;
         }
-
-        // TODO: make sure max block height is enforced.
 
         let entry = self.entries.front_mut()?;
 
@@ -173,6 +174,7 @@ impl<N: NetworkZone> ChainTracker<N> {
             peer_who_told_us: entry.peer,
             peer_who_told_us_handle: entry.handle.clone(),
             requests_sent: 0,
+            failures: 0,
         };
 
         self.first_height += u64::try_from(end_idx).unwrap();

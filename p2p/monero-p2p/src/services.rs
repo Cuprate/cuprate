@@ -127,5 +127,6 @@ pub enum AddressBookResponse<Z: NetworkZone> {
     Ok,
     Peer(ZoneSpecificPeerListEntryBase<Z::Addr>),
     Peers(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
+    /// Contains `true` if the peer is banned.
     IsPeerBanned(bool),
 }

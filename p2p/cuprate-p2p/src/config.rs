@@ -40,7 +40,7 @@ impl<N: NetworkZone> P2PConfig<N> {
     /// per [`NetworkZone`] per run.
     pub(crate) fn basic_node_data(&self) -> BasicNodeData {
         BasicNodeData {
-            my_port: self.p2p_port as u32,
+            my_port: u32::from(self.p2p_port),
             network_id: self.network.network_id(),
             peer_id: rand::random(),
             support_flags: PeerSupportFlags::FLUFFY_BLOCKS,

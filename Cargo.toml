@@ -3,6 +3,7 @@ resolver = "2"
 
 members = [
 	"consensus",
+	"consensus/fast-sync",
 	"consensus/rules",
 	"cryptonight",
 	"helper",
@@ -21,6 +22,9 @@ members = [
 	"pruning",
 	"test-utils",
 	"types",
+	"rpc/json-rpc",
+	"rpc/monero-rpc-types",
+	"rpc/cuprate-rpc-interface",
 ]
 
 [profile.release]
