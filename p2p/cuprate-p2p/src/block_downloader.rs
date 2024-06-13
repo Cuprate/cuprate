@@ -476,13 +476,12 @@ where
         self.block_download_tasks.spawn(async move {
             (
                 block_entry_to_get.start_height,
-                Ok(request_batch_from_peer(
+                request_batch_from_peer(
                     client,
                     block_entry_to_get.ids,
                     block_entry_to_get.start_height,
                 )
-                .await
-                .unwrap()),
+                .await,
             )
         });
 
