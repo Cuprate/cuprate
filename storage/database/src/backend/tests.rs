@@ -71,7 +71,7 @@ fn open_db() {
 
 /// Assert that opening a read-only table before creating errors.
 #[test]
-fn open_uncreated_table() {
+fn open_ro_uncreated_table() {
     let (env, _tempdir) = tmp_concrete_env();
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro().unwrap();
@@ -79,6 +79,42 @@ fn open_uncreated_table() {
     // Open uncreated table.
     let error = env_inner.open_db_ro::<TestTable>(&tx_ro);
     assert!(matches!(error, Err(RuntimeError::TableNotFound)));
+}
+
+/// Assert that opening a read/write table before creating is OK.
+#[test]
+fn open_rw_uncreated_table() {
+    let (env, _tempdir) = tmp_concrete_env();
+    let env_inner = env.env_inner();
+    let tx_rw = env_inner.tx_rw().unwrap();
+
+    // Open uncreated table.
+    let _table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
+}
+
+/// Assert that opening a read-only table after creating is OK.
+#[test]
+fn open_ro_created_table() {
+    let (env, _tempdir) = tmp_concrete_env();
+    let env_inner = env.env_inner();
+
+    // Assert uncreated table errors.
+    {
+        let tx_ro = env_inner.tx_ro().unwrap();
+        let error = env_inner.open_db_ro::<TestTable>(&tx_ro);
+        assert!(matches!(error, Err(RuntimeError::TableNotFound)));
+    }
+
+    // Create table.
+    {
+        let tx_rw = env_inner.tx_rw().unwrap();
+        env_inner.create_db::<TestTable>(&tx_rw).unwrap();
+        TxRw::commit(tx_rw).unwrap();
+    }
+
+    // Assert created table is now OK.
+    let tx_ro = env_inner.tx_ro().unwrap();
+    let _table = env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap();
 }
 
 /// Test `Env` resizes.

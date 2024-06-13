@@ -32,6 +32,17 @@ Which reads as:
 1. You open a particular `Table` from that `Environment`, getting a `Database`
 1. You can now read/write data from/to that `Database`
 
+# Concrete types
+You should _not_ rely on the concrete type of any abstracted backend.
+
+For example, when using the `heed` backend, [`Env`]'s associated [`TxRw`] type
+is `RefCell<heed::RwTxn<'_>>`. In order to ensure compatibility with other backends
+and to not create backend-specific code, you should _not_ refer to that concrete type.
+
+Use generics and trait notation in these situations:
+- `impl<T: TxRw> Trait for Object`
+- `fn() -> impl TxRw`
+
 # `ConcreteEnv`
 This crate exposes [`ConcreteEnv`], which is a non-generic/non-dynamic,
 concrete object representing a database [`Env`]ironment.
@@ -108,7 +119,8 @@ impl cuprate_database::Table for Table {
 // Open up a transaction + tables for writing.
 let env_inner = env.env_inner();
 let tx_rw = env_inner.tx_rw()?;
-env_inner.create_db::<Table>(&tx_rw)?; // we must create it or the next line will panic.
+// We must create the table first or the next line will error.
+env_inner.create_db::<Table>(&tx_rw)?;
 let mut table = env_inner.open_db_rw::<Table>(&tx_rw)?;
 
 // Write data to the table.

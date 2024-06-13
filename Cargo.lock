@@ -560,6 +560,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-database"
+version = "0.0.1"
+dependencies = [
+ "bitflags 2.5.0",
+ "bytemuck",
+ "bytes",
+ "cfg-if",
+ "cuprate-helper",
+ "cuprate-test-utils",
+ "cuprate-types",
+ "curve25519-dalek",
+ "heed",
+ "hex",
+ "hex-literal",
+ "monero-pruning",
+ "monero-serai",
+ "page_size",
+ "paste",
+ "pretty_assertions",
+ "redb",
+ "serde",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
 name = "cuprate-fast-sync"
 version = "0.1.0"
 dependencies = [
@@ -731,32 +757,6 @@ dependencies = [
  "lock_api",
  "once_cell",
  "parking_lot_core",
-]
-
-[[package]]
-name = "database"
-version = "0.0.0"
-dependencies = [
- "bitflags 2.5.0",
- "bytemuck",
- "bytes",
- "cfg-if",
- "cuprate-helper",
- "cuprate-test-utils",
- "cuprate-types",
- "curve25519-dalek",
- "heed",
- "hex",
- "hex-literal",
- "monero-pruning",
- "monero-serai",
- "page_size",
- "paste",
- "pretty_assertions",
- "redb",
- "serde",
- "tempfile",
- "thiserror",
 ]
 
 [[package]]
