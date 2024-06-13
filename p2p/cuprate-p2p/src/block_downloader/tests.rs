@@ -1,3 +1,12 @@
+use std::{
+    fmt::{Debug, Formatter},
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+    time::Duration,
+};
+
 use futures::{FutureExt, StreamExt};
 use indexmap::IndexMap;
 use monero_serai::{
@@ -5,121 +14,33 @@ use monero_serai::{
     ringct::{RctBase, RctPrunable, RctSignatures},
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
-use std::fmt::{Debug, Formatter};
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-use std::time::Duration;
-
-use crate::block_downloader::{
-    download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse,
-};
-use crate::client_pool::ClientPool;
-use fixed_bytes::ByteArrayVec;
-use monero_p2p::client::{mock_client, Client, InternalPeerID, PeerInformation};
-use monero_p2p::network_zones::ClearNet;
-use monero_p2p::services::{PeerSyncRequest, PeerSyncResponse};
-use monero_p2p::{ConnectionDirection, NetworkZone, PeerRequest, PeerResponse};
-use monero_pruning::PruningSeed;
-use monero_wire::common::{BlockCompleteEntry, TransactionBlobs};
-use monero_wire::protocol::{ChainResponse, GetObjectsResponse};
 use proptest::{collection::vec, prelude::*};
 use tokio::sync::Semaphore;
 use tower::{service_fn, Service};
 
-prop_compose! {
-    fn dummy_transaction_stragtegy(height: u64)
-        (
-            extra in vec(any::<u8>(), 0..1_000),
-            timelock in any::<usize>(),
-        )
-    -> Transaction {
-        Transaction {
-            prefix: TransactionPrefix {
-                version: 1,
-                timelock: Timelock::Block(timelock),
-                inputs: vec![Input::Gen(height)],
-                outputs: vec![],
-                extra,
-            },
-            signatures: vec![],
-            rct_signatures: RctSignatures {
-                base: RctBase {
-                    fee: 0,
-                    pseudo_outs: vec![],
-                    encrypted_amounts: vec![],
-                    commitments: vec![],
-                },
-                prunable: RctPrunable::Null
-            },
-        }
-    }
-}
+use fixed_bytes::ByteArrayVec;
+use monero_p2p::{
+    client::{mock_client, Client, InternalPeerID, PeerInformation},
+    network_zones::ClearNet,
+    services::{PeerSyncRequest, PeerSyncResponse},
+    ConnectionDirection, NetworkZone, PeerRequest, PeerResponse,
+};
+use monero_pruning::PruningSeed;
+use monero_wire::{
+    common::{BlockCompleteEntry, TransactionBlobs},
+    protocol::{ChainResponse, GetObjectsResponse},
+};
 
-prop_compose! {
-    fn dummy_block_stragtegy(
-            height: u64,
-            previous: [u8; 32],
-        )
-        (
-            miner_tx in dummy_transaction_stragtegy(height),
-            txs in vec(dummy_transaction_stragtegy(height), 0..25)
-        )
-    -> (Block, Vec<Transaction>) {
-       (
-           Block {
-                header: BlockHeader {
-                    major_version: 0,
-                    minor_version: 0,
-                    timestamp: 0,
-                    previous,
-                    nonce: 0,
-                },
-                miner_tx,
-                txs: txs.iter().map(Transaction::hash).collect(),
-           },
-           txs
-       )
-    }
-}
-
-struct MockBlockchain {
-    blocks: IndexMap<[u8; 32], (Block, Vec<Transaction>)>,
-}
-
-impl Debug for MockBlockchain {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("MockBlockchain")
-    }
-}
-
-prop_compose! {
-    fn dummy_blockchain_stragtegy()(
-        blocks in vec(dummy_block_stragtegy(0, [0; 32]), 1..50_000),
-    ) -> MockBlockchain {
-        let mut blockchain = IndexMap::new();
-
-        for (height, mut block) in  blocks.into_iter().enumerate() {
-            if let Some(last) = blockchain.last() {
-                block.0.header.previous = *last.0;
-                block.0.miner_tx.prefix.inputs = vec![Input::Gen(height as u64)]
-            }
-
-            blockchain.insert(block.0.hash(), block);
-        }
-
-        MockBlockchain {
-            blocks: blockchain
-        }
-    }
-}
+use crate::{
+    block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
+    client_pool::ClientPool,
+};
 
 proptest! {
     #![proptest_config(ProptestConfig {
         cases: 4,
         max_shrink_iters: 10,
-        timeout: 600 * 1_000,
+        timeout: 60 * 1000,
         .. ProptestConfig::default()
     })]
 
@@ -149,17 +70,112 @@ proptest! {
                     genesis: *blockchain.blocks.first().unwrap().0
                 },
                 BlockDownloaderConfig {
-                    buffer_size: 100_000,
-                    in_progress_queue_size: 100_000,
+                    buffer_size: 1_000,
+                    in_progress_queue_size: 10_000,
                     check_client_pool_interval: Duration::from_secs(5),
-                    target_batch_size: 50_000,
+                    target_batch_size: 5_000,
                     initial_batch_size: 1,
             });
 
             let blocks = stream.map(|blocks| blocks.blocks).concat().await;
 
             assert_eq!(blocks.len() + 1, blockchain.blocks.len());
+
+            for (i, block) in blocks.into_iter().enumerate() {
+                assert_eq!(&block, blockchain.blocks.get_index(i + 1).unwrap().1);
+            }
         });
+    }
+}
+
+prop_compose! {
+    /// Returns a strategy to generate a [`Transaction`] that is valid for the block downloader.
+    fn dummy_transaction_stragtegy(height: u64)
+        (
+            extra in vec(any::<u8>(), 0..1_000),
+            timelock in 0_usize..50_000_000,
+        )
+    -> Transaction {
+        Transaction {
+            prefix: TransactionPrefix {
+                version: 1,
+                timelock: Timelock::Block(timelock),
+                inputs: vec![Input::Gen(height)],
+                outputs: vec![],
+                extra,
+            },
+            signatures: vec![],
+            rct_signatures: RctSignatures {
+                base: RctBase {
+                    fee: 0,
+                    pseudo_outs: vec![],
+                    encrypted_amounts: vec![],
+                    commitments: vec![],
+                },
+                prunable: RctPrunable::Null
+            },
+        }
+    }
+}
+
+prop_compose! {
+    /// Returns a strategy to generate a [`Block`] that is valid for the block downloader.
+    fn dummy_block_stragtegy(
+            height: u64,
+            previous: [u8; 32],
+        )
+        (
+            miner_tx in dummy_transaction_stragtegy(height),
+            txs in vec(dummy_transaction_stragtegy(height), 0..25)
+        )
+    -> (Block, Vec<Transaction>) {
+       (
+           Block {
+                header: BlockHeader {
+                    major_version: 0,
+                    minor_version: 0,
+                    timestamp: 0,
+                    previous,
+                    nonce: 0,
+                },
+                miner_tx,
+                txs: txs.iter().map(Transaction::hash).collect(),
+           },
+           txs
+       )
+    }
+}
+
+/// A mock blockchain.
+struct MockBlockchain {
+    blocks: IndexMap<[u8; 32], (Block, Vec<Transaction>)>,
+}
+
+impl Debug for MockBlockchain {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("MockBlockchain")
+    }
+}
+
+prop_compose! {
+    /// Returns a strategy to generate a [`MockBlockchain`].
+    fn dummy_blockchain_stragtegy()(
+        blocks in vec(dummy_block_stragtegy(0, [0; 32]), 1..50_000),
+    ) -> MockBlockchain {
+        let mut blockchain = IndexMap::new();
+
+        for (height, mut block) in  blocks.into_iter().enumerate() {
+            if let Some(last) = blockchain.last() {
+                block.0.header.previous = *last.0;
+                block.0.miner_tx.prefix.inputs = vec![Input::Gen(height as u64)]
+            }
+
+            blockchain.insert(block.0.hash(), block);
+        }
+
+        MockBlockchain {
+            blocks: blockchain
+        }
     }
 }
 

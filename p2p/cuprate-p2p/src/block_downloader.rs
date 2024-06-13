@@ -392,12 +392,19 @@ where
             let ids = in_flight_batch.ids.clone();
             let start_height = in_flight_batch.start_height;
 
-            self.block_download_tasks.spawn(async move {
-                (
+            self.block_download_tasks.spawn(
+                async move {
+                    (
+                        start_height,
+                        request_batch_from_peer(client, ids, start_height).await,
+                    )
+                }
+                .instrument(tracing::debug_span!(
+                    "download_batch",
                     start_height,
-                    request_batch_from_peer(client, ids, start_height).await,
-                )
-            });
+                    attempt = in_flight_batch.requests_sent
+                )),
+            );
 
             return None;
         }
@@ -423,7 +430,7 @@ where
         while let Some(failed_request) = self.failed_batches.peek() {
             // Check if we still have the request that failed - another peer could have completed it after
             // failure.
-            if let Some(request) = self.inflight_requests.get(&failed_request.0) {
+            if let Some(request) = self.inflight_requests.get_mut(&failed_request.0) {
                 // Check if this peer has the blocks according to their pruning seed.
                 if client_has_block_in_range(
                     &client.info.pruning_seed,
@@ -435,12 +442,22 @@ where
                     let ids = request.ids.clone();
                     let start_height = request.start_height;
 
-                    self.block_download_tasks.spawn(async move {
-                        (
+                    request.requests_sent += 1;
+
+                    self.block_download_tasks.spawn(
+                        async move {
+                            (
+                                start_height,
+                                request_batch_from_peer(client, ids, start_height).await,
+                            )
+                        }
+                        .instrument(tracing::debug_span!(
+                            "download_batch",
                             start_height,
-                            request_batch_from_peer(client, ids, start_height).await,
-                        )
-                    });
+                            attempt = request.requests_sent
+                        )),
+                    );
+
                     // Remove the failure, we have just handled it.
                     self.failed_batches.pop();
 
@@ -473,17 +490,24 @@ where
         self.inflight_requests
             .insert(block_entry_to_get.start_height, block_entry_to_get.clone());
 
-        self.block_download_tasks.spawn(async move {
-            (
-                block_entry_to_get.start_height,
-                request_batch_from_peer(
-                    client,
-                    block_entry_to_get.ids,
+        self.block_download_tasks.spawn(
+            async move {
+                (
                     block_entry_to_get.start_height,
+                    request_batch_from_peer(
+                        client,
+                        block_entry_to_get.ids,
+                        block_entry_to_get.start_height,
+                    )
+                    .await,
                 )
-                .await,
-            )
-        });
+            }
+            .instrument(tracing::debug_span!(
+                "download_batch",
+                block_entry_to_get.start_height,
+                attempt = block_entry_to_get.requests_sent
+            )),
+        );
 
         None
     }
@@ -523,7 +547,10 @@ where
                     .await
                     .map_err(|_| BlockDownloadError::TimedOut)?
                 }
-                .instrument(Span::current()),
+                .instrument(tracing::debug_span!(
+                    "request_chain_entry",
+                    current_height = chain_tracker.top_height()
+                )),
             );
 
             return None;

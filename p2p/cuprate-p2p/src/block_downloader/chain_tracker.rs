@@ -73,21 +73,23 @@ impl<N: NetworkZone> ChainTracker<N> {
     /// Returns `true` if the peer is expected to have the next block after our highest seen block
     /// according to their pruning seed.
     pub fn should_ask_for_next_chain_entry(&self, seed: &PruningSeed) -> bool {
+        seed.has_full_block(self.top_height(), CRYPTONOTE_MAX_BLOCK_HEIGHT)
+    }
+
+    /// Returns the simple history, the highest seen block and the genesis block.
+    pub fn get_simple_history(&self) -> [[u8; 32]; 2] {
+        [self.top_seen_hash, self.our_genesis]
+    }
+
+    /// Returns the height of the highest block we are tracking.
+    pub fn top_height(&self) -> u64 {
         let top_block_idx = self
             .entries
             .iter()
             .map(|entry| entry.ids.len())
             .sum::<usize>();
 
-        seed.has_full_block(
-            self.first_height + u64::try_from(top_block_idx).unwrap(),
-            CRYPTONOTE_MAX_BLOCK_HEIGHT,
-        )
-    }
-
-    /// Returns the simple history, the highest seen block and the genesis block.
-    pub fn get_simple_history(&self) -> [[u8; 32]; 2] {
-        [self.top_seen_hash, self.our_genesis]
+        self.first_height + u64::try_from(top_block_idx).unwrap()
     }
 
     /// Returns the total number of queued batches for a certain `batch_size`.
