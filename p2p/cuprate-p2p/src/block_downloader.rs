@@ -4,7 +4,7 @@
 //! and downloads it.
 //!
 //! The block downloader is started by [`download_blocks`].
-use futures::FutureExt;
+use futures::{FutureExt, TryFutureExt};
 use std::{
     cmp::{max, min, Ordering, Reverse},
     collections::{BTreeMap, BinaryHeap, HashSet},
@@ -161,8 +161,8 @@ where
     tokio::spawn(
         block_downloader
             .run()
-            .instrument(Span::current())
-            .map(|res| panic!("{res:?}")),
+            .inspect_err(|e| tracing::debug!("Error downloading blocks: {e}"))
+            .instrument(Span::current()),
     );
 
     buffer_stream
@@ -476,13 +476,12 @@ where
         self.block_download_tasks.spawn(async move {
             (
                 block_entry_to_get.start_height,
-                Ok(request_batch_from_peer(
+                request_batch_from_peer(
                     client,
                     block_entry_to_get.ids,
                     block_entry_to_get.start_height,
                 )
-                .await
-                .unwrap()),
+                .await,
             )
         });
 
