@@ -15,7 +15,7 @@ use monero_serai::{
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
 use proptest::{collection::vec, prelude::*};
-use tokio::sync::Semaphore;
+use tokio::{sync::Semaphore, time::timeout};
 use tower::{service_fn, Service};
 
 use fixed_bytes::ByteArrayVec;
@@ -50,7 +50,7 @@ proptest! {
 
         let tokio_pool = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 
-        tokio_pool.block_on(async move {
+        tokio_pool.block_on(timeout(Duration::from_secs(600), async move {
             let client_pool = ClientPool::new();
 
             let mut peer_ids = Vec::with_capacity(peers);
@@ -84,7 +84,7 @@ proptest! {
             for (i, block) in blocks.into_iter().enumerate() {
                 assert_eq!(&block, blockchain.blocks.get_index(i + 1).unwrap().1);
             }
-        });
+        })).unwrap();
     }
 }
 
