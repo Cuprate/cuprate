@@ -27,6 +27,7 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
+pub use cuprate_consensus_rules::genesis::generate_genesis_block;
 pub use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 /// An Error returned from one of the consensus services.

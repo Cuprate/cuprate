@@ -37,6 +37,8 @@ rand_distr = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 
+tracing-subscriber = "0.3.18"
+
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }
 indexmap = { workspace = true }
