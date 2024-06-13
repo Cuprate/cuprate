@@ -27,7 +27,9 @@ TODO: add these sections someday.
 -->
 
 ## About
-Cuprate is an effort to create an alternative [Monero](https://getmonero.org) node implementation in [Rust](http://rust-lang.org). It will be able to independently validate Monero consensus rules, providing a layer of security and redundancy for the Monero network.
+Cuprate is an effort to create an alternative [Monero](https://getmonero.org) node implementation in [Rust](http://rust-lang.org).
+
+It will be able to independently validate Monero consensus rules, providing a layer of security and redundancy for the Monero network.
 
 <!-- TOOD: add some details about what Cuprate is and is not, goals, status -->
 
@@ -35,11 +37,14 @@ Cuprate is an effort to create an alternative [Monero](https://getmonero.org) no
 _Cuprate is currently a work-in-progress; documentation will be changing/unfinished._
 
 Cuprate maintains various documentation books:
-- [Cuprate's architecture book](https://github.com/Cuprate/architecture-book)
-- [Cuprate's protocol book](https://github.com/Cuprate/monero-book)
-- [Cuprate's user book](https://github.com/Cuprate/user-book)
 
-For crate documentation, see the `cargo doc`s of the crates inside the [workspace](Cargo.toml), and the `README.md` inside the crate's directory if applicable, for example: [`storage/cuprate-blockchain/README.md`](storage/cuprate-blockchain/README.md).
+| Book                        | Description                                                | Link |
+|-----------------------------|------------------------------------------------------------|------|
+| Cuprate's architecture book | Documents Cuprate's internal architecture & implementation | https://github.com/Cuprate/architecture-book
+| Cuprate's protocol book     | Documents the Monero protocol                              | https://github.com/Cuprate/monero-book
+| Cuprate's user book         | Practical user-guide for using `cuprated`                  | https://github.com/Cuprate/user-book
+
+For crate documentation, see the `cargo doc`s of the crates inside the [workspace](Cargo.toml), and the `README.md` files inside the crate's directory if applicable, for example: [`storage/cuprate-blockchain/README.md`](storage/cuprate-blockchain/README.md).
 
 ## Contributing
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
