@@ -30,7 +30,7 @@ use bytes::Bytes;
 /// See [`StorableVec`] & [`StorableBytes`] for storing slices of `T: Storable`.
 ///
 /// ```rust
-/// # use cuprate_blockchain::*;
+/// # use database::*;
 /// # use std::borrow::*;
 /// let number: u64 = 0;
 ///
@@ -78,7 +78,7 @@ pub trait Storable: Debug {
     ///
     /// # Examples
     /// ```rust
-    /// # use cuprate_blockchain::*;
+    /// # use database::*;
     /// assert_eq!(<()>::BYTE_LENGTH, Some(0));
     /// assert_eq!(u8::BYTE_LENGTH, Some(1));
     /// assert_eq!(u16::BYTE_LENGTH, Some(2));
@@ -100,7 +100,7 @@ pub trait Storable: Debug {
     ///
     /// # Blanket implementation
     /// The blanket implementation that covers all types used
-    /// by `cuprate_blockchain` will simply bitwise copy `bytes`
+    /// by `database` will simply bitwise copy `bytes`
     /// into `Self`.
     ///
     /// The bytes do not have be correctly aligned.
@@ -137,7 +137,7 @@ where
 ///
 /// # Example
 /// ```rust
-/// # use cuprate_blockchain::*;
+/// # use database::*;
 /// //---------------------------------------------------- u8
 /// let vec: StorableVec<u8> = StorableVec(vec![0,1]);
 ///
@@ -203,7 +203,7 @@ impl<T> Borrow<[T]> for StorableVec<T> {
 /// A [`Storable`] version of [`Bytes`].
 ///
 /// ```rust
-/// # use cuprate_blockchain::*;
+/// # use database::*;
 /// # use bytes::Bytes;
 /// let bytes: StorableBytes = StorableBytes(Bytes::from_static(&[0,1]));
 ///

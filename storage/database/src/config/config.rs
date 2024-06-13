@@ -61,6 +61,7 @@ impl ConfigBuilder {
     pub fn build(self) -> Config {
         // INVARIANT: all PATH safety checks are done
         // in `helper::fs`. No need to do them here.
+        // TODO: fix me
         let db_directory = self
             .db_directory
             .unwrap_or_else(|| Cow::Borrowed(cuprate_blockchain_dir()));
@@ -137,6 +138,7 @@ impl ConfigBuilder {
 impl Default for ConfigBuilder {
     fn default() -> Self {
         Self {
+            // TODO: fix me
             db_directory: Some(Cow::Borrowed(cuprate_blockchain_dir())),
             sync_mode: Some(SyncMode::default()),
             reader_threads: Some(ReaderThreads::default()),
@@ -197,7 +199,7 @@ impl Config {
     /// Same as [`Config::default`].
     ///
     /// ```rust
-    /// use cuprate_blockchain::{config::*, resize::*, DATABASE_DATA_FILENAME};
+    /// use database::{config::*, resize::*, DATABASE_DATA_FILENAME};
     /// use cuprate_helper::fs::*;
     ///
     /// let config = Config::new();
@@ -228,7 +230,7 @@ impl Default for Config {
     /// Same as [`Config::new`].
     ///
     /// ```rust
-    /// # use cuprate_blockchain::config::*;
+    /// # use database::config::*;
     /// assert_eq!(Config::default(), Config::new());
     /// ```
     fn default() -> Self {

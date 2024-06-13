@@ -1,6 +1,6 @@
 //! Cuprate's database abstraction.
 //!
-//! This documentation is mostly for practical usage of `cuprate_database`.
+//! This documentation is mostly for practical usage of `database`.
 //!
 //! For a high-level overview, see the database section in
 //! [Cuprate's architecture book](https://architecture.cuprate.org).
@@ -98,13 +98,14 @@
 //! // Open up a transaction + tables for writing.
 //! struct Table;
 //! impl database::Table for Table {
-//!     const NAME: &'static str = "table"
+//!     const NAME: &'static str = "table";
 //!     type Key = u8;
 //!     type Value = u8;
 //! }
 //!
 //! let env_inner = env.env_inner();
 //! let tx_rw = env_inner.tx_rw()?;
+//! env_inner.create_db::<Table>(&tx_rw)?;
 //! let mut table = env_inner.open_db_rw::<Table>(&tx_rw)?;
 //!
 //! // Write data to the table.

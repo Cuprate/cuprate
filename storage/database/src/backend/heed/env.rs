@@ -293,6 +293,17 @@ where
         })
     }
 
+    fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
+        use crate::backend::heed::storable::StorableHeed;
+
+        self.create_database::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>(
+            &mut tx_rw.borrow_mut(),
+            Some(T::NAME),
+        )?;
+
+        Ok(())
+    }
+
     #[inline]
     fn clear_db<T: Table>(
         &self,

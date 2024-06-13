@@ -50,7 +50,7 @@ impl ResizeAlgorithm {
     /// Returns [`Self::Monero`].
     ///
     /// ```rust
-    /// # use cuprate_blockchain::resize::*;
+    /// # use database::resize::*;
     /// assert!(matches!(ResizeAlgorithm::new(), ResizeAlgorithm::Monero));
     /// ```
     #[inline]
@@ -75,7 +75,7 @@ impl Default for ResizeAlgorithm {
     /// Calls [`Self::new`].
     ///
     /// ```rust
-    /// # use cuprate_blockchain::resize::*;
+    /// # use database::resize::*;
     /// assert_eq!(ResizeAlgorithm::new(), ResizeAlgorithm::default());
     /// ```
     #[inline]
@@ -113,7 +113,7 @@ pub fn page_size() -> NonZeroUsize {
 /// [^2]: `1_073_745_920`
 ///
 /// ```rust
-/// # use cuprate_blockchain::resize::*;
+/// # use database::resize::*;
 /// // The value this function will increment by
 /// // (assuming page multiple of 4096).
 /// const N: usize = 1_073_741_824;
@@ -129,7 +129,7 @@ pub fn page_size() -> NonZeroUsize {
 /// This function will panic if adding onto `current_size_bytes` overflows [`usize::MAX`].
 ///
 /// ```rust,should_panic
-/// # use cuprate_blockchain::resize::*;
+/// # use database::resize::*;
 /// // Ridiculous large numbers panic.
 /// monero(usize::MAX);
 /// ```
@@ -166,7 +166,7 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
 /// and then round up to nearest OS page size.
 ///
 /// ```rust
-/// # use cuprate_blockchain::resize::*;
+/// # use database::resize::*;
 /// let page_size: usize = page_size().get();
 ///
 /// // Anything below the page size will round up to the page size.
@@ -185,7 +185,7 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
 /// This function will panic if adding onto `current_size_bytes` overflows [`usize::MAX`].
 ///
 /// ```rust,should_panic
-/// # use cuprate_blockchain::resize::*;
+/// # use database::resize::*;
 /// // Ridiculous large numbers panic.
 /// fixed_bytes(1, usize::MAX);
 /// ```
@@ -221,7 +221,7 @@ pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize 
 /// (rounded up to the OS page size).
 ///
 /// ```rust
-/// # use cuprate_blockchain::resize::*;
+/// # use database::resize::*;
 /// let page_size: usize = page_size().get();
 ///
 /// // Anything below the page size will round up to the page size.
@@ -247,7 +247,7 @@ pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize 
 /// is closer to [`usize::MAX`] than the OS page size.
 ///
 /// ```rust,should_panic
-/// # use cuprate_blockchain::resize::*;
+/// # use database::resize::*;
 /// // Ridiculous large numbers panic.
 /// percent(usize::MAX, 1.001);
 /// ```

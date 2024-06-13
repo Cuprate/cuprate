@@ -22,7 +22,7 @@ pub struct ConcreteEnv {
     /// (and in current use).
     config: Config,
 
-    /// A cached, redb version of `cuprate_blockchain::config::SyncMode`.
+    /// A cached, redb version of `database::config::SyncMode`.
     /// `redb` needs the sync mode to be set _per_ TX, so we
     /// will continue to use this value every `Env::tx_rw`.
     durability: redb::Durability,

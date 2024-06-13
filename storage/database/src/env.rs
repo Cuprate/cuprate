@@ -251,17 +251,12 @@ where
 
     // TODO: make equivalent in `cuprate-blockchain`.
 
-    // /// Open all tables in read/iter mode.
-    // ///
-    // /// This calls [`EnvInner::open_db_ro`] on all database tables
-    // /// and returns a structure that allows access to all tables.
-    // ///
-    // #[doc = doc_table_error!()]
-    // fn open_tables(&self, tx_ro: &Ro) -> Result<impl TablesIter, RuntimeError> {
-    //     call_fn_on_all_tables_or_early_return! {
-    //         Self::open_db_ro(self, tx_ro)
-    //     }
-    // }
+    /// Create a database table.
+    ///
+    /// This will create the database [`Table`]
+    /// passed as a generic to this function.
+    #[doc = doc_table_error!()]
+    fn create_db<T: Table>(&self, tx_rw: &Rw) -> Result<(), RuntimeError>;
 
     // /// Open all tables in read-write mode.
     // ///
