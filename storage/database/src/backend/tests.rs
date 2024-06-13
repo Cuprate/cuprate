@@ -1,149 +1,126 @@
-// //! Tests for `database`'s backends.
-// //!
-// //! These tests are fully trait-based, meaning there
-// //! is no reference to `backend/`-specific types.
-// //!
-// //! As such, which backend is tested is
-// //! dependant on the feature flags used.
-// //!
-// //! | Feature flag  | Tested backend |
-// //! |---------------|----------------|
-// //! | Only `redb`   | `redb`
-// //! | Anything else | `heed`
-// //!
-// //! `redb`, and it only must be enabled for it to be tested.
+//! Tests for `database`'s backends.
+//!
+//! These tests are fully trait-based, meaning there
+//! is no reference to `backend/`-specific types.
+//!
+//! As such, which backend is tested is
+//! dependant on the feature flags used.
+//!
+//! | Feature flag  | Tested backend |
+//! |---------------|----------------|
+//! | Only `redb`   | `redb`
+//! | Anything else | `heed`
+//!
+//! `redb`, and it only must be enabled for it to be tested.
 
-// //---------------------------------------------------------------------------------------------------- Import
+//---------------------------------------------------------------------------------------------------- Import
 
-// use crate::{
-//     database::{DatabaseIter, DatabaseRo, DatabaseRw},
-//     env::{Env, EnvInner},
-//     error::RuntimeError,
-//     resize::ResizeAlgorithm,
-//     storable::StorableVec,
-//     tables::{
-//         BlockBlobs, BlockHeights, BlockInfos, KeyImages, NumOutputs, Outputs, PrunableHashes,
-//         PrunableTxBlobs, PrunedTxBlobs, RctOutputs, TxBlobs, TxHeights, TxIds, TxOutputs,
-//         TxUnlockTime,
-//     },
-//     tables::{TablesIter, TablesMut},
-//     tests::tmp_concrete_env,
-//     transaction::{TxRo, TxRw},
-//     types::{
-//         Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
-//         Output, OutputFlags, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput,
-//         TxBlob, TxHash, TxId, UnlockTime,
-//     },
-//     ConcreteEnv,
-// };
+use crate::{
+    database::{DatabaseIter, DatabaseRo, DatabaseRw},
+    env::{Env, EnvInner},
+    error::RuntimeError,
+    resize::ResizeAlgorithm,
+    storable::StorableVec,
+    tests::{tmp_concrete_env, TestTable},
+    transaction::{TxRo, TxRw},
+    ConcreteEnv,
+};
 
-// //---------------------------------------------------------------------------------------------------- Tests
-// /// Simply call [`Env::open`]. If this fails, something is really wrong.
-// #[test]
-// fn open() {
-//     tmp_concrete_env();
-// }
+//---------------------------------------------------------------------------------------------------- Tests
+/// Simply call [`Env::open`]. If this fails, something is really wrong.
+#[test]
+fn open() {
+    tmp_concrete_env();
+}
 
-// /// Create database transactions, but don't write any data.
-// #[test]
-// fn tx() {
-//     let (env, _tempdir) = tmp_concrete_env();
-//     let env_inner = env.env_inner();
+/// Create database transactions, but don't write any data.
+#[test]
+fn tx() {
+    let (env, _tempdir) = tmp_concrete_env();
+    let env_inner = env.env_inner();
 
-//     TxRo::commit(env_inner.tx_ro().unwrap()).unwrap();
-//     TxRw::commit(env_inner.tx_rw().unwrap()).unwrap();
-//     TxRw::abort(env_inner.tx_rw().unwrap()).unwrap();
-// }
+    TxRo::commit(env_inner.tx_ro().unwrap()).unwrap();
+    TxRw::commit(env_inner.tx_rw().unwrap()).unwrap();
+    TxRw::abort(env_inner.tx_rw().unwrap()).unwrap();
+}
 
-// /// Open (and verify) that all database tables
-// /// exist already after calling [`Env::open`].
-// #[test]
-// fn open_db() {
-//     let (env, _tempdir) = tmp_concrete_env();
-//     let env_inner = env.env_inner();
-//     let tx_ro = env_inner.tx_ro().unwrap();
-//     let tx_rw = env_inner.tx_rw().unwrap();
+/// Test [`Env::open`] and creating/opening tables.
+#[test]
+fn open_db() {
+    let (env, _tempdir) = tmp_concrete_env();
+    let env_inner = env.env_inner();
 
-//     // Open all tables in read-only mode.
-//     // This should be updated when tables are modified.
-//     env_inner.open_db_ro::<BlockBlobs>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<BlockHeights>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<BlockInfos>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<KeyImages>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<NumOutputs>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<Outputs>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<PrunableHashes>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<PrunableTxBlobs>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<PrunedTxBlobs>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<RctOutputs>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<TxBlobs>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<TxHeights>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<TxIds>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<TxOutputs>(&tx_ro).unwrap();
-//     env_inner.open_db_ro::<TxUnlockTime>(&tx_ro).unwrap();
-//     TxRo::commit(tx_ro).unwrap();
+    // Create table.
+    {
+        let tx_rw = env_inner.tx_rw().unwrap();
+        env_inner.create_db::<TestTable>(&tx_rw).unwrap();
+        TxRw::commit(tx_rw).unwrap();
+    }
 
-//     // Open all tables in read/write mode.
-//     env_inner.open_db_rw::<BlockBlobs>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<BlockHeights>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<BlockInfos>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<KeyImages>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<NumOutputs>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<Outputs>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<PrunableHashes>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<PrunableTxBlobs>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<PrunedTxBlobs>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<RctOutputs>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<TxBlobs>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<TxHeights>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<TxIds>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<TxOutputs>(&tx_rw).unwrap();
-//     env_inner.open_db_rw::<TxUnlockTime>(&tx_rw).unwrap();
-//     TxRw::commit(tx_rw).unwrap();
-// }
+    let tx_ro = env_inner.tx_ro().unwrap();
+    let tx_rw = env_inner.tx_rw().unwrap();
 
-// /// Test `Env` resizes.
-// #[test]
-// fn resize() {
-//     // This test is only valid for `Env`'s that need to resize manually.
-//     if !ConcreteEnv::MANUAL_RESIZE {
-//         return;
-//     }
+    // Open table in read-only mode.
+    env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap();
+    TxRo::commit(tx_ro).unwrap();
 
-//     let (env, _tempdir) = tmp_concrete_env();
+    // Open table in read/write mode.
+    env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
+    TxRw::commit(tx_rw).unwrap();
+}
 
-//     // Resize by the OS page size.
-//     let page_size = crate::resize::page_size();
-//     let old_size = env.current_map_size();
-//     env.resize_map(Some(ResizeAlgorithm::FixedBytes(page_size)));
+/// Assert that opening a read-only table before creating errors.
+#[test]
+fn open_uncreated_table() {
+    let (env, _tempdir) = tmp_concrete_env();
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro().unwrap();
 
-//     // Assert it resized exactly by the OS page size.
-//     let new_size = env.current_map_size();
-//     assert_eq!(new_size, old_size + page_size.get());
-// }
+    // Open uncreated table.
+    let error = env_inner.open_db_ro::<TestTable>(&tx_ro);
+    assert!(matches!(error, Err(RuntimeError::TableNotFound)));
+}
 
-// /// Test that `Env`'s that don't manually resize.
-// #[test]
-// #[should_panic = "unreachable"]
-// fn non_manual_resize_1() {
-//     if ConcreteEnv::MANUAL_RESIZE {
-//         unreachable!();
-//     } else {
-//         let (env, _tempdir) = tmp_concrete_env();
-//         env.resize_map(None);
-//     }
-// }
+/// Test `Env` resizes.
+#[test]
+fn resize() {
+    // This test is only valid for `Env`'s that need to resize manually.
+    if !ConcreteEnv::MANUAL_RESIZE {
+        return;
+    }
 
-// #[test]
-// #[should_panic = "unreachable"]
-// fn non_manual_resize_2() {
-//     if ConcreteEnv::MANUAL_RESIZE {
-//         unreachable!();
-//     } else {
-//         let (env, _tempdir) = tmp_concrete_env();
-//         env.current_map_size();
-//     }
-// }
+    let (env, _tempdir) = tmp_concrete_env();
+
+    // Resize by the OS page size.
+    let page_size = crate::resize::page_size();
+    let old_size = env.current_map_size();
+    env.resize_map(Some(ResizeAlgorithm::FixedBytes(page_size)));
+
+    // Assert it resized exactly by the OS page size.
+    let new_size = env.current_map_size();
+    assert_eq!(new_size, old_size + page_size.get());
+}
+
+/// Test that `Env`'s that don't manually resize.
+#[test]
+#[should_panic = "unreachable"]
+fn non_manual_resize_1() {
+    if ConcreteEnv::MANUAL_RESIZE {
+        unreachable!();
+    }
+    let (env, _tempdir) = tmp_concrete_env();
+    env.resize_map(None);
+}
+
+#[test]
+#[should_panic = "unreachable"]
+fn non_manual_resize_2() {
+    if ConcreteEnv::MANUAL_RESIZE {
+        unreachable!();
+    }
+    let (env, _tempdir) = tmp_concrete_env();
+    env.current_map_size();
+}
 
 // /// Test all `DatabaseR{o,w}` operations.
 // #[test]

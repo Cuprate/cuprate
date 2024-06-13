@@ -88,6 +88,10 @@ pub enum RuntimeError {
     #[error("database memory map must be resized")]
     ResizeNeeded,
 
+    /// The given table did not exist in the database.
+    #[error("database table did not exist")]
+    TableNotFound,
+
     /// A [`std::io::Error`].
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),

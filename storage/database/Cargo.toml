@@ -1,6 +1,6 @@
 [package]
-name        = "database"
-version     = "0.0.0"
+name        = "cuprate-database"
+version     = "0.0.1"
 edition     = "2021"
 description = "Cuprate's database abstraction"
 license     = "MIT"
@@ -9,8 +9,8 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-# default   = ["heed", "redb"]
-default   = ["redb"]
+default   = ["heed"]
+# default   = ["redb"]
 # default   = ["redb-memory"]
 heed       = ["dep:heed"]
 redb       = ["dep:redb"]

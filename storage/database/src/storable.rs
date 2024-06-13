@@ -30,7 +30,7 @@ use bytes::Bytes;
 /// See [`StorableVec`] & [`StorableBytes`] for storing slices of `T: Storable`.
 ///
 /// ```rust
-/// # use database::*;
+/// # use cuprate_database::*;
 /// # use std::borrow::*;
 /// let number: u64 = 0;
 ///
@@ -78,7 +78,7 @@ pub trait Storable: Debug {
     ///
     /// # Examples
     /// ```rust
-    /// # use database::*;
+    /// # use cuprate_database::*;
     /// assert_eq!(<()>::BYTE_LENGTH, Some(0));
     /// assert_eq!(u8::BYTE_LENGTH, Some(1));
     /// assert_eq!(u16::BYTE_LENGTH, Some(2));
@@ -137,7 +137,7 @@ where
 ///
 /// # Example
 /// ```rust
-/// # use database::*;
+/// # use cuprate_database::*;
 /// //---------------------------------------------------- u8
 /// let vec: StorableVec<u8> = StorableVec(vec![0,1]);
 ///
@@ -203,7 +203,7 @@ impl<T> Borrow<[T]> for StorableVec<T> {
 /// A [`Storable`] version of [`Bytes`].
 ///
 /// ```rust
-/// # use database::*;
+/// # use cuprate_database::*;
 /// # use bytes::Bytes;
 /// let bytes: StorableBytes = StorableBytes(Bytes::from_static(&[0,1]));
 ///

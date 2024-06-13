@@ -80,14 +80,13 @@ pub trait Env: Sized {
     /// Open the database environment, using the passed [`Config`].
     ///
     /// # Invariants
-    /// TODO: fix me
-    // This function **must** create all tables listed in [`crate::tables`].
+    /// This function does not create any tables.
     ///
-    /// The rest of the functions depend on the fact
-    /// they already exist, or else they will panic.
+    /// You must create all possible tables with [`EnvInner::create_db`]
+    /// before attempting to open any.
     ///
     /// # Errors
-    /// This will error if the database could not be opened.
+    /// This will error if the database file could not be opened.
     ///
     /// This is the only [`Env`] function that will return
     /// an [`InitError`] instead of a [`RuntimeError`].
@@ -180,10 +179,14 @@ pub trait Env: Sized {
 macro_rules! doc_table_error {
     () => {
         r"# Errors
-This will only return [`RuntimeError::Io`] if it errors.
+This will only return [`RuntimeError::Io`] on normal errors.
 
-As all tables are created upon [`Env::open`],
-this function will never error because a table doesn't exist."
+If the specified table is not created upon before this function is called,
+this will return an error.
+
+Implementation detail you should NOT rely on:
+- This only panics on `heed`
+- `redb` will create the table if it does not exist"
     };
 }
 
@@ -229,7 +232,11 @@ where
     /// //                      (name, key/value type)
     /// ```
     ///
-    #[doc = doc_table_error!()]
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] on normal errors.
+    ///
+    /// If the specified table is not created upon before this function is called,
+    /// this will return [`RuntimeError::TableNotFound`].
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Ro,
@@ -246,29 +253,22 @@ where
     /// This will open the database [`Table`]
     /// passed as a generic to this function.
     ///
-    #[doc = doc_table_error!()]
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] on errors.
+    ///
+    /// Implementation details: Both `heed` & `redb` backends create
+    /// the table with this function if it does not already exist. For safety and
+    /// clear intent, you should still consider using [`EnvInner::create_db`] instead.
     fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
-
-    // TODO: make equivalent in `cuprate-blockchain`.
 
     /// Create a database table.
     ///
     /// This will create the database [`Table`]
     /// passed as a generic to this function.
-    #[doc = doc_table_error!()]
+    ///
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] on errors.
     fn create_db<T: Table>(&self, tx_rw: &Rw) -> Result<(), RuntimeError>;
-
-    // /// Open all tables in read-write mode.
-    // ///
-    // /// This calls [`EnvInner::open_db_rw`] on all database tables
-    // /// and returns a structure that allows access to all tables.
-    // ///
-    // #[doc = doc_table_error!()]
-    // fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
-    //     call_fn_on_all_tables_or_early_return! {
-    //         Self::open_db_rw(self, tx_rw)
-    //     }
-    // }
 
     /// Clear all `(key, value)`'s from a database table.
     ///

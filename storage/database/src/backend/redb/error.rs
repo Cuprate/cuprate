@@ -12,13 +12,13 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- InitError
 impl From<redb::DatabaseError> for InitError {
     /// Created by `redb` in:
-    /// - [`redb::Database::open`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.open).
+    /// - [`redb::cuprate_database::open`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.open).
     fn from(error: redb::DatabaseError) -> Self {
         use redb::DatabaseError as E;
         use redb::StorageError as E2;
 
         // Reference of all possible errors `redb` will return
-        // upon using `redb::Database::open`:
+        // upon using `redb::cuprate_database::open`:
         // <https://docs.rs/redb/1.5.0/src/redb/db.rs.html#908-923>
         match error {
             E::RepairAborted => Self::Corrupt,
@@ -39,7 +39,7 @@ impl From<redb::DatabaseError> for InitError {
 
 impl From<redb::StorageError> for InitError {
     /// Created by `redb` in:
-    /// - [`redb::Database::open`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.check_integrity)
+    /// - [`redb::cuprate_database::open`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.check_integrity)
     fn from(error: redb::StorageError) -> Self {
         use redb::StorageError as E;
 
@@ -54,7 +54,7 @@ impl From<redb::StorageError> for InitError {
 
 impl From<redb::TransactionError> for InitError {
     /// Created by `redb` in:
-    /// - [`redb::Database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
+    /// - [`redb::cuprate_database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
     fn from(error: redb::TransactionError) -> Self {
         match error {
             redb::TransactionError::Storage(error) => error.into(),
@@ -94,8 +94,8 @@ impl From<redb::CommitError> for InitError {
 #[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
 impl From<redb::TransactionError> for RuntimeError {
     /// Created by `redb` in:
-    /// - [`redb::Database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
-    /// - [`redb::Database::begin_read`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_read)
+    /// - [`redb::cuprate_database::begin_write`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_write)
+    /// - [`redb::cuprate_database::begin_read`](https://docs.rs/redb/1.5.0/redb/struct.Database.html#method.begin_read)
     fn from(error: redb::TransactionError) -> Self {
         match error {
             redb::TransactionError::Storage(error) => error.into(),
@@ -131,12 +131,13 @@ impl From<redb::TableError> for RuntimeError {
         match error {
             E::Storage(error) => error.into(),
 
+            E::TableDoesNotExist(_) => Self::TableNotFound,
+
             // Only if we write incorrect code.
             E::TableTypeMismatch { .. }
             | E::TableIsMultimap(_)
             | E::TableIsNotMultimap(_)
             | E::TypeDefinitionChanged { .. }
-            | E::TableDoesNotExist(_)
             | E::TableAlreadyOpen(..) => panic!("fix the database code! {error:#?}"),
 
             // HACK: Handle new errors as `redb` adds them.

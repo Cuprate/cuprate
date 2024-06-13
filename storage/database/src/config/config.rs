@@ -199,7 +199,7 @@ impl Config {
     /// Same as [`Config::default`].
     ///
     /// ```rust
-    /// use database::{config::*, resize::*, DATABASE_DATA_FILENAME};
+    /// use cuprate_database::{config::*, resize::*, DATABASE_DATA_FILENAME};
     /// use cuprate_helper::fs::*;
     ///
     /// let config = Config::new();
@@ -230,7 +230,7 @@ impl Default for Config {
     /// Same as [`Config::new`].
     ///
     /// ```rust
-    /// # use database::config::*;
+    /// # use cuprate_database::config::*;
     /// assert_eq!(Config::default(), Config::new());
     /// ```
     fn default() -> Self {

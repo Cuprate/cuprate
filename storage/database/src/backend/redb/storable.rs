@@ -1,4 +1,4 @@
-//! `database::Storable` <-> `redb` serde trait compatibility layer.
+//! `cuprate_database::Storable` <-> `redb` serde trait compatibility layer.
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{cmp::Ordering, fmt::Debug, marker::PhantomData};
@@ -9,7 +9,7 @@ use crate::{key::Key, storable::Storable};
 
 //---------------------------------------------------------------------------------------------------- StorableRedb
 /// The glue structs that implements `redb`'s (de)serialization
-/// traits on any type that implements `database::Key`.
+/// traits on any type that implements `cuprate_database::Key`.
 ///
 /// Never actually get constructed, just used for trait bound translations.
 #[derive(Debug)]

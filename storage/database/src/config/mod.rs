@@ -12,7 +12,7 @@
 //!
 //! # Example
 //! ```rust
-//! use database::{
+//! use cuprate_database::{
 //!     ConcreteEnv, Env,
 //!     config::{ConfigBuilder, ReaderThreads, SyncMode}
 //! };

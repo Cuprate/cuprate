@@ -50,7 +50,7 @@ pub enum ReaderThreads {
     /// as such, it is equal to [`ReaderThreads::OnePerThread`].
     ///
     /// ```rust
-    /// # use database::config::*;
+    /// # use cuprate_database::config::*;
     /// let reader_threads = ReaderThreads::from(0_usize);
     /// assert!(matches!(reader_threads, ReaderThreads::OnePerThread));
     /// ```
@@ -82,7 +82,7 @@ pub enum ReaderThreads {
     /// non-zero, but not 1 thread, the minimum value 1 will be returned.
     ///
     /// ```rust
-    /// # use database::config::*;
+    /// # use cuprate_database::config::*;
     /// assert_eq!(ReaderThreads::Percent(0.000000001).as_threads().get(), 1);
     /// ```
     Percent(f32),
@@ -98,7 +98,7 @@ impl ReaderThreads {
     ///
     /// # Example
     /// ```rust
-    /// use database::config::ReaderThreads as Rt;
+    /// use cuprate_database::config::ReaderThreads as Rt;
     ///
     /// let total_threads: std::num::NonZeroUsize =
     ///     cuprate_helper::thread::threads();

@@ -25,7 +25,7 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Consts
 /// Panic message when there's a table missing.
 const PANIC_MSG_MISSING_TABLE: &str =
-    "database::Env should uphold the invariant that all tables are already created";
+    "cuprate_database::Env should uphold the invariant that all tables are already created";
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -272,7 +272,7 @@ where
         Ok(HeedTableRo {
             db: self
                 .open_database(tx_ro, Some(T::NAME))?
-                .expect(PANIC_MSG_MISSING_TABLE),
+                .ok_or(RuntimeError::TableNotFound)?,
             tx_ro,
         })
     }
@@ -282,25 +282,16 @@ where
         &self,
         tx_rw: &RefCell<heed::RwTxn<'env>>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
-        let tx_ro = tx_rw.borrow();
-
         // Open up a read/write database using our table's const metadata.
         Ok(HeedTableRw {
-            db: self
-                .open_database(&tx_ro, Some(T::NAME))?
-                .expect(PANIC_MSG_MISSING_TABLE),
+            db: self.create_database(&mut tx_rw.borrow_mut(), Some(T::NAME))?,
             tx_rw,
         })
     }
 
     fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
-        use crate::backend::heed::storable::StorableHeed;
-
-        self.create_database::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>(
-            &mut tx_rw.borrow_mut(),
-            Some(T::NAME),
-        )?;
-
+        // INVARIANT: `heed` creates tables with `open_database` if they don't exist.
+        self.open_db_rw::<T>(tx_rw)?;
         Ok(())
     }
 

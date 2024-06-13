@@ -8,7 +8,7 @@ For a high-level overview, see the database section in
 [Cuprate's architecture book](https://architecture.cuprate.org).
 
 # Purpose
-This crate does 3 things abstracts various database backends with traits.
+This crate abstracts various database backends with traits.
 
 If you need blockchain specific capabilities, consider using the higher-level
 `cuprate-blockchain` crate which builds upon this one.
@@ -64,9 +64,6 @@ generic-backed dynamic runtime selection of the database backend, i.e.
 the user can select which database backend they use. -->
 
 # Feature flags
-The `service` module requires the `service` feature to be enabled.
-See the module for more documentation.
-
 Different database backends are enabled by the feature flags:
 - `heed` (LMDB)
 - `redb`
@@ -77,10 +74,10 @@ The default is `heed`.
 <!-- FIXME: tracing should be behind a feature flag -->
 
 # Examples
-The below is an example of using `database`.
+The below is an example of using `cuprate-database`.
 
 ```rust
-use database::{
+use cuprate_database::{
     ConcreteEnv,
     config::ConfigBuilder,
     Env, EnvInner,
@@ -97,17 +94,21 @@ let config = ConfigBuilder::new()
 // Initialize the database environment.
 let env = ConcreteEnv::open(config)?;
 
-// Open up a transaction + tables for writing.
+// Define metadata for a table.
 struct Table;
-impl database::Table for Table {
+impl cuprate_database::Table for Table {
+    // The name of the table is "table".
     const NAME: &'static str = "table";
+    // The key type is a `u8`.
     type Key = u8;
-    type Value = u8;
+    // The key type is a `u64`.
+    type Value = u64;
 }
 
+// Open up a transaction + tables for writing.
 let env_inner = env.env_inner();
 let tx_rw = env_inner.tx_rw()?;
-env_inner.create_db::<Table>(&tx_rw)?;
+env_inner.create_db::<Table>(&tx_rw)?; // we must create it or the next line will panic.
 let mut table = env_inner.open_db_rw::<Table>(&tx_rw)?;
 
 // Write data to the table.

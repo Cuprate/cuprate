@@ -134,12 +134,12 @@ impl From<heed::Error> for crate::RuntimeError {
                 // Don't use a key that is `>511` bytes.
                 // <http://www.lmdb.tech/doc/group__mdb.html#gaaf0be004f33828bf2fb09d77eb3cef94>
                 | E2::BadValSize
-                    => panic!("fix the database code! {mdb_error:#?}"),
+                    => panic!("E2: fix the database code! {mdb_error:#?}"),
             },
 
             // Only if we write incorrect code.
             E1::DatabaseClosing | E1::BadOpenOptions { .. } | E1::Encoding(_) | E1::Decoding(_) => {
-                panic!("fix the database code! {error:#?}")
+                panic!("E1: fix the database code! {error:#?}")
             }
         }
     }

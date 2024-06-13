@@ -21,7 +21,7 @@ pub struct ConcreteEnv {
     /// (and in current use).
     config: Config,
 
-    /// A cached, redb version of `database::config::SyncMode`.
+    /// A cached, redb version of `cuprate_database::config::SyncMode`.
     /// `redb` needs the sync mode to be set _per_ TX, so we
     /// will continue to use this value every `Env::tx_rw`.
     durability: redb::Durability,
@@ -148,7 +148,6 @@ where
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
 
-        // INVARIANT: Our `?` error conversion will panic if the table does not exist.
         Ok(tx_ro.open_table(table)?)
     }
 
@@ -161,13 +160,13 @@ where
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
 
-        // `redb` creates tables if they don't exist, so this should never panic.
+        // `redb` creates tables if they don't exist, so this shouldn't return `RuntimeError::TableNotFound`.
         // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
         Ok(tx_rw.open_table(table)?)
     }
 
     fn create_db<T: Table>(&self, tx_rw: &redb::WriteTransaction) -> Result<(), RuntimeError> {
-        // `redb` creates tables if they don't exist.
+        // INVARIANT: `redb` creates tables if they don't exist.
         self.open_db_rw::<T>(tx_rw)?;
         Ok(())
     }

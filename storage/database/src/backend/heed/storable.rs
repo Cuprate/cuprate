@@ -1,4 +1,4 @@
-//! `database::Storable` <-> `heed` serde trait compatibility layer.
+//! `cuprate_database::Storable` <-> `heed` serde trait compatibility layer.
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{borrow::Cow, marker::PhantomData};
@@ -9,7 +9,7 @@ use crate::storable::Storable;
 
 //---------------------------------------------------------------------------------------------------- StorableHeed
 /// The glue struct that implements `heed`'s (de)serialization
-/// traits on any type that implements `database::Storable`.
+/// traits on any type that implements `cuprate_database::Storable`.
 ///
 /// Never actually gets constructed, just used for trait bound translations.
 pub(super) struct StorableHeed<T>(PhantomData<T>)
