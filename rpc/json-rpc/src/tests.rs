@@ -1,6 +1,5 @@
 //! Tests and utilities.
 
-#![cfg(test)]
 #![allow(
     clippy::unreadable_literal,
     clippy::manual_string_new,
