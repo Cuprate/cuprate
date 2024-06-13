@@ -31,14 +31,15 @@ After that, ensure all lints, tests, and builds are successful by running:
 - `cargo build --all-features --all-targets --workspace`
 
 ## Crate names
-Cuprate's crates (libraries) follows these naming patterns/rules:
+All of Cuprate's crates (libraries) are prefixed with `cuprate-`.
 
-| Pattern                                               | Name             | Example |
-|-------------------------------------------------------|------------------|---------|
-| Crates defining Monero related behavior               | `monero` prefix  | `monero-consensus`
-| Crates specific to Cuprate's implementation      | `cuprate` prefix | `cuprate-blockchain`
-| Monero related code re-written for Cuprate purposes   | `cuprate` suffix | `levin-cuprate`, `cryptonight-cuprate`
-| General crate, not necessarily Monero/Cuprate related | No prefix/suffix | `database`, `async-buffer`
+All directories containing crates however, are not. For example:
+
+| Crate Directory                                       | Crate Name            |
+|-------------------------------------------------------|-----------------------|
+| `storage/database`                                    | `cuprate-database`    |
+| `net/levin`                                           | `cuprate-levin`       |
+| `net/monero-wire`                                     | `cuprate-monero-wire` |
 
 ## Coding guidelines
 
