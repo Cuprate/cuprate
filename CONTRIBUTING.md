@@ -19,8 +19,9 @@ you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:moner
 	- [6.3 User book](#63-user-book)
 
 ## 1. Submitting a pull request
-Once you have found something you would like to work on by either:
-- Looking at the open [issues](https://github.com/Cuprate/cuprate/issues)
+Once you have found something you would like to work on by:
+- Looking at the [open issues](https://github.com/Cuprate/cuprate/issues)
+- Looking at issues with the [`A-help-wanted`](https://github.com/Cuprate/cuprate/issues?q=is%3Aissue+is%3Aopen+label%3AE-help-wanted) label
 - or joining Cuprate's [Matrix room](https://matrix.to/#/#cuprate:monero.social) and asking
 
 it is recommended to make your interest on working on that thing known so people don't duplicate work.
