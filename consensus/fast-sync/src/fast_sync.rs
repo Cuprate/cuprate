@@ -282,7 +282,6 @@ where
         block.miner_tx.weight() + verified_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
 
     Ok(FastSyncResponse::ValidateBlock(VerifiedBlockInformation {
-        block,
         block_blob,
         txs: verified_txs,
         block_hash,
@@ -293,6 +292,7 @@ where
         long_term_weight: block_chain_ctx.next_block_long_term_weight(weight),
         cumulative_difficulty: block_chain_ctx.cumulative_difficulty
             + block_chain_ctx.next_difficulty,
+        block,
     }))
 }
 
