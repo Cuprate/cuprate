@@ -35,11 +35,11 @@ All of Cuprate's crates (libraries) are prefixed with `cuprate-`.
 
 All directories containing crates however, are not. For example:
 
-| Crate Directory                                       | Crate Name            |
-|-------------------------------------------------------|-----------------------|
-| `storage/database`                                    | `cuprate-database`    |
-| `net/levin`                                           | `cuprate-levin`       |
-| `net/monero-wire`                                     | `cuprate-monero-wire` |
+| Crate Directory    | Crate Name         |
+|--------------------|--------------------|
+| `storage/database` | `cuprate-database` |
+| `net/levin`        | `cuprate-levin`    |
+| `net/wire`         | `cuprate-wire`     |
 
 ## Coding guidelines
 
