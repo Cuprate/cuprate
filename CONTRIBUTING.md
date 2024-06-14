@@ -9,13 +9,14 @@ you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:moner
 	- [1.2 Draft PR](#12-draft-pr)
 	- [1.3 Passing CI](#13-passing-ci)
 	- [1.4 Ready for review](#14-ready-for-review)
-- [2. Coding guidelines](#2-coding-guidelines)
-- [3. Keeping track of issues and PRs](#3-keeping-track-of-issues-and-prs)
-- [4. Documentation](#4-documentation)
-- [5. Books](#5-books)
-	- [5.1 Architecture book](#51-architecture-book)
-	- [5.2 Protocol book](#52-protocol-book)
-	- [5.3 User book](#53-user-book)
+- [2. Crate names](#2-crate-names)
+- [3. Coding guidelines](#3-coding-guidelines)
+- [4. Keeping track of issues and PRs](#4-keeping-track-of-issues-and-prs)
+- [5. Documentation](#5-documentation)
+- [6. Books](#6-books)
+	- [6.1 Architecture book](#61-architecture-book)
+	- [6.2 Protocol book](#62-protocol-book)
+	- [6.3 User book](#63-user-book)
 
 ## 1. Submitting a pull request
 Once you have found something you would like to work on by either:
@@ -29,6 +30,8 @@ Before starting, consider reading/using Cuprate's:
 - [`Books`](#5-books) (Cuprate's architecture and protocol)
 
 These may answer some questions you have, or may confirm an issue you would like to fix.
+
+_Note: Cuprate is currently a work-in-progress; documentation will be changing/unfinished._
 
 ### 1.1 Rust toolchain
 Cuprate is written in [Rust](https://rust-lang.org).
@@ -79,7 +82,18 @@ Others will leave their thoughts and may ask for changes to be made.
 
 Finally, if everything looks good, we will merge your code! Thank you for contributing!
 
-## 2. Coding guidelines
+## 2. Crate names
+All of Cuprate's crates (libraries) are prefixed with `cuprate-`.
+
+All directories containing crates however, are not. For example:
+
+| Crate Directory    | Crate Name         |
+|--------------------|--------------------|
+| `storage/database` | `cuprate-database` |
+| `net/levin`        | `cuprate-levin`    |
+| `net/wire`         | `cuprate-wire`     |
+
+## 3. Coding guidelines
 This is a list of rules that are not mandated by any automation, but contributors generally follow.
 
 You should keep these in mind when submitting code:
@@ -93,7 +107,7 @@ You should keep these in mind when submitting code:
 And the most important rule:
 - Break any and all of the above rules when it makes sense
 
-## 3. Keeping track of issues and PRs
+## 4. Keeping track of issues and PRs
 The Cuprate GitHub repository has a lot of issues and PRs to keep track of. Cuprate makes use of generic labels and labels grouped by a prefixes to help with this.
 
 Some labels will be [automatically added/removed](https://github.com/Cuprate/cuprate/tree/main/.github/labeler.yml) if certain file paths have been changed in a PR.
@@ -119,7 +133,7 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 [O-]: https://github.com/Cuprate/cuprate/labels?q=O
 [P-]: https://github.com/Cuprate/cuprate/labels?q=P
 
-## 4. Documentation
+## 5. Documentation
 Cuprate's crates (libraries) have inline documentation.
 
 These can be built and viewed using the `cargo` tool. For example, to build and view a specific crate's documentation:
@@ -134,14 +148,14 @@ cargo doc
 ```
 and view by using a web-browser to open the `index.html` file within the build directory: `target/doc/$CRATE/index.html`, for example, `target/doc/cuprate_blockchain/index.html`.
 
-## 5. Books
+## 6. Books
 Cuprate has various documentation books whose source files live in [`books/`](https://github.com/Cuprate/cuprate/tree/main/books).
 
 Please contribute if you found a mistake! The files are mostly [markdown](https://wikipedia.org/wiki/Markdown) files and can be easily edited. See the `books/` directory for more information.
 
 These books are also good resources to understand how Cuprate and Monero work.
 
-### 5.1 Architecture book
+### 6.1 Architecture book
 This book documents Cuprate's architecture and implementation.
 
 See:
@@ -149,7 +163,7 @@ See:
 - <https://github.com/Cuprate/architecture-book>
 - <https://github.com/Cuprate/cuprate/tree/main/books/architecture>
 
-### 5.2 Protocol book
+### 6.2 Protocol book
 This book documents the Monero protocol.
 
 See:
@@ -157,7 +171,7 @@ See:
 - <https://github.com/Cuprate/monero-book>
 - <https://github.com/Cuprate/cuprate/tree/main/books/protocol>
 
-### 5.3 User book
+### 6.3 User book
 This book is a user-guide for using Cuprate.
 
 See:
