@@ -25,11 +25,11 @@
 pub mod network_address;
 pub mod p2p;
 
-pub use levin_cuprate::BucketError;
+pub use cuprate_levin::BucketError;
 pub use network_address::{NetZone, NetworkAddress};
 pub use p2p::*;
 
 // re-export.
-pub use levin_cuprate as levin;
+pub use cuprate_levin as levin;
 
-pub type MoneroWireCodec = levin_cuprate::codec::LevinMessageCodec<Message>;
+pub type MoneroWireCodec = cuprate_levin::codec::LevinMessageCodec<Message>;

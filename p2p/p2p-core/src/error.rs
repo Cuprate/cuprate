@@ -45,7 +45,7 @@ pub enum PeerError {
     #[error("inner service error: {0}")]
     ServiceError(#[from] tower::BoxError),
     #[error("bucket error: {0}")]
-    BucketError(#[from] monero_wire::BucketError),
+    BucketError(#[from] cuprate_wire::BucketError),
     #[error("handshake error: {0}")]
     Handshake(#[from] crate::client::HandshakeError),
     #[error("i/o error: {0}")]

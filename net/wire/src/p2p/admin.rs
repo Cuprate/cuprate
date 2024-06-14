@@ -19,7 +19,7 @@
 //! protocol messages.   
 
 use bytes::Bytes;
-use epee_encoding::epee_object;
+use cuprate_epee_encoding::epee_object;
 
 use super::common::{BasicNodeData, CoreSyncData, PeerListEntryBase, PeerSupportFlags};
 
@@ -134,7 +134,8 @@ mod tests {
             186, 15, 178, 70, 173, 170, 187, 31, 70, 50, 227, 11, 116, 111, 112, 95, 118, 101, 114,
             115, 105, 111, 110, 8, 1,
         ];
-        let handshake: HandshakeRequest = epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
+        let handshake: HandshakeRequest =
+            cuprate_epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
         let basic_node_data = BasicNodeData {
             my_port: 0,
             network_id: [
@@ -161,8 +162,9 @@ mod tests {
         assert_eq!(basic_node_data, handshake.node_data);
         assert_eq!(core_sync_data, handshake.payload_data);
 
-        let mut encoded_bytes = epee_encoding::to_bytes(handshake.clone()).unwrap();
-        let handshake_2: HandshakeRequest = epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
+        let mut encoded_bytes = cuprate_epee_encoding::to_bytes(handshake.clone()).unwrap();
+        let handshake_2: HandshakeRequest =
+            cuprate_epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);
     }
@@ -938,7 +940,8 @@ mod tests {
             181, 216, 193, 135, 23, 186, 168, 207, 119, 86, 235, 11, 116, 111, 112, 95, 118, 101,
             114, 115, 105, 111, 110, 8, 16,
         ];
-        let handshake: HandshakeResponse = epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
+        let handshake: HandshakeResponse =
+            cuprate_epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
 
         let basic_node_data = BasicNodeData {
             my_port: 18080,
@@ -967,9 +970,10 @@ mod tests {
         assert_eq!(core_sync_data, handshake.payload_data);
         assert_eq!(250, handshake.local_peerlist_new.len());
 
-        let mut encoded_bytes = epee_encoding::to_bytes(handshake.clone()).unwrap();
+        let mut encoded_bytes = cuprate_epee_encoding::to_bytes(handshake.clone()).unwrap();
 
-        let handshake_2: HandshakeResponse = epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
+        let handshake_2: HandshakeResponse =
+            cuprate_epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(handshake, handshake_2);
     }

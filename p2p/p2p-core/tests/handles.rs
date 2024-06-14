@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use tokio::sync::Semaphore;
 
-use monero_p2p::handles::HandleBuilder;
+use cuprate_p2p_core::handles::HandleBuilder;
 
 #[test]
 fn send_ban_signal() {

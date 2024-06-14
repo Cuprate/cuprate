@@ -17,7 +17,7 @@ use tokio::{
 use tokio_stream::wrappers::ReceiverStream;
 use tower::ServiceExt;
 
-use monero_wire::{LevinCommand, Message, ProtocolMessage};
+use cuprate_wire::{LevinCommand, Message, ProtocolMessage};
 
 use crate::{
     constants::{REQUEST_TIMEOUT, SENDING_TIMEOUT},
@@ -241,7 +241,7 @@ where
     /// The main-loop for when we are in [`State::WaitingForRequest`].
     async fn state_waiting_for_request<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
     where
-        Str: FusedStream<Item = Result<Message, monero_wire::BucketError>> + Unpin,
+        Str: FusedStream<Item = Result<Message, cuprate_wire::BucketError>> + Unpin,
     {
         tracing::debug!("waiting for peer/client request.");
 
@@ -274,7 +274,7 @@ where
     /// The main-loop for when we are in [`State::WaitingForResponse`].
     async fn state_waiting_for_response<Str>(&mut self, stream: &mut Str) -> Result<(), PeerError>
     where
-        Str: FusedStream<Item = Result<Message, monero_wire::BucketError>> + Unpin,
+        Str: FusedStream<Item = Result<Message, cuprate_wire::BucketError>> + Unpin,
     {
         tracing::debug!("waiting for peer response.");
 
@@ -306,7 +306,7 @@ where
     /// `eager_protocol_messages` are protocol messages that we received during a handshake.
     pub async fn run<Str>(mut self, mut stream: Str, eager_protocol_messages: Vec<ProtocolMessage>)
     where
-        Str: FusedStream<Item = Result<Message, monero_wire::BucketError>> + Unpin,
+        Str: FusedStream<Item = Result<Message, cuprate_wire::BucketError>> + Unpin,
     {
         tracing::debug!(
             "Handling eager messages len: {}",

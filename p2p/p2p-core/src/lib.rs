@@ -16,7 +16,7 @@ use std::{fmt::Debug, future::Future, hash::Hash, pin::Pin};
 
 use futures::{Sink, Stream};
 
-use monero_wire::{
+use cuprate_wire::{
     levin::LevinMessage, network_address::NetworkAddressIncorrectZone, BucketError, Message,
     NetworkAddress,
 };

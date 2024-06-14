@@ -1,5 +1,5 @@
-use monero_pruning::{PruningError, PruningSeed};
-use monero_wire::{CoreSyncData, PeerListEntryBase};
+use cuprate_pruning::{PruningError, PruningSeed};
+use cuprate_wire::{CoreSyncData, PeerListEntryBase};
 
 use crate::{
     client::InternalPeerID, handles::ConnectionHandle, NetZoneAddress, NetworkAddressIncorrectZone,
@@ -44,7 +44,7 @@ pub struct ZoneSpecificPeerListEntryBase<A: NetZoneAddress> {
     pub rpc_credits_per_hash: u32,
 }
 
-impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for monero_wire::PeerListEntryBase {
+impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for cuprate_wire::PeerListEntryBase {
     fn from(value: ZoneSpecificPeerListEntryBase<A>) -> Self {
         Self {
             adr: value.adr.into(),
@@ -65,7 +65,7 @@ pub enum PeerListConversionError {
     PruningSeed(#[from] PruningError),
 }
 
-impl<A: NetZoneAddress> TryFrom<monero_wire::PeerListEntryBase>
+impl<A: NetZoneAddress> TryFrom<cuprate_wire::PeerListEntryBase>
     for ZoneSpecificPeerListEntryBase<A>
 {
     type Error = PeerListConversionError;

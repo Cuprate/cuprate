@@ -1,7 +1,7 @@
 //! This module contains the implementations of [`TryFrom`] and [`From`] to convert between
 //! [`Message`], [`PeerRequest`] and [`PeerResponse`].
 
-use monero_wire::{Message, ProtocolMessage, RequestMessage, ResponseMessage};
+use cuprate_wire::{Message, ProtocolMessage, RequestMessage, ResponseMessage};
 
 use super::{PeerRequest, PeerResponse};
 

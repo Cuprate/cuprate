@@ -11,7 +11,7 @@ use tokio::net::{
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
 
-use monero_wire::MoneroWireCodec;
+use cuprate_wire::MoneroWireCodec;
 
 use crate::{NetZoneAddress, NetworkZone};
 

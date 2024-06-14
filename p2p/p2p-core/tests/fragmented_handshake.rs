@@ -23,12 +23,12 @@ use tokio_util::{
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
-use monero_p2p::{
+use cuprate_p2p_core::{
     client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
     network_zones::ClearNetServerCfg,
     ConnectionDirection, NetworkZone,
 };
-use monero_wire::{
+use cuprate_wire::{
     common::PeerSupportFlags,
     levin::{message::make_fragmented_messages, LevinMessage, Protocol},
     BasicNodeData, Message, MoneroWireCodec,

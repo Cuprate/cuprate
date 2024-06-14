@@ -18,8 +18,8 @@
 use bitflags::bitflags;
 use bytes::{Buf, BufMut, Bytes};
 
-use epee_encoding::{epee_object, EpeeValue, InnerMarker};
-use fixed_bytes::ByteArray;
+use cuprate_epee_encoding::{epee_object, EpeeValue, InnerMarker};
+use cuprate_fixed_bytes::ByteArray;
 
 use crate::NetworkAddress;
 
@@ -241,12 +241,12 @@ epee_object!(
     txs: TransactionBlobs = TransactionBlobs::None => tx_blob_read, tx_blob_write, should_write_tx_blobs,
 );
 
-fn tx_blob_read<B: Buf>(b: &mut B) -> epee_encoding::Result<TransactionBlobs> {
-    let marker = epee_encoding::read_marker(b)?;
+fn tx_blob_read<B: Buf>(b: &mut B) -> cuprate_epee_encoding::Result<TransactionBlobs> {
+    let marker = cuprate_epee_encoding::read_marker(b)?;
     match marker.inner_marker {
         InnerMarker::Object => Ok(TransactionBlobs::Pruned(Vec::read(b, &marker)?)),
         InnerMarker::String => Ok(TransactionBlobs::Normal(Vec::read(b, &marker)?)),
-        _ => Err(epee_encoding::Error::Value(
+        _ => Err(cuprate_epee_encoding::Error::Value(
             "Invalid marker for tx blobs".to_string(),
         )),
     }
@@ -256,11 +256,15 @@ fn tx_blob_write<B: BufMut>(
     val: TransactionBlobs,
     field_name: &str,
     w: &mut B,
-) -> epee_encoding::Result<()> {
+) -> cuprate_epee_encoding::Result<()> {
     if should_write_tx_blobs(&val) {
         match val {
-            TransactionBlobs::Normal(bytes) => epee_encoding::write_field(bytes, field_name, w)?,
-            TransactionBlobs::Pruned(obj) => epee_encoding::write_field(obj, field_name, w)?,
+            TransactionBlobs::Normal(bytes) => {
+                cuprate_epee_encoding::write_field(bytes, field_name, w)?
+            }
+            TransactionBlobs::Pruned(obj) => {
+                cuprate_epee_encoding::write_field(obj, field_name, w)?
+            }
             TransactionBlobs::None => (),
         }
     }

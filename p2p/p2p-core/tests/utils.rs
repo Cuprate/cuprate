@@ -7,7 +7,7 @@ use std::{
 use futures::FutureExt;
 use tower::Service;
 
-use monero_p2p::{
+use cuprate_p2p_core::{
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
         PeerSyncRequest, PeerSyncResponse,
@@ -54,7 +54,7 @@ impl Service<CoreSyncDataRequest> for DummyCoreSyncSvc {
 
     fn call(&mut self, _: CoreSyncDataRequest) -> Self::Future {
         async move {
-            Ok(CoreSyncDataResponse(monero_wire::CoreSyncData {
+            Ok(CoreSyncDataResponse(cuprate_wire::CoreSyncData {
                 cumulative_difficulty: 1,
                 cumulative_difficulty_top64: 0,
                 current_height: 1,

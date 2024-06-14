@@ -1,7 +1,7 @@
 use bytes::Buf;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
-use epee_encoding::{epee_object, EpeeObjectBuilder};
+use cuprate_epee_encoding::{epee_object, EpeeObjectBuilder};
 use thiserror::Error;
 
 use crate::NetworkAddress;
@@ -19,19 +19,28 @@ epee_object!(
 );
 
 impl EpeeObjectBuilder<NetworkAddress> for TaggedNetworkAddress {
-    fn add_field<B: Buf>(&mut self, name: &str, b: &mut B) -> epee_encoding::Result<bool> {
+    fn add_field<B: Buf>(&mut self, name: &str, b: &mut B) -> cuprate_epee_encoding::Result<bool> {
         match name {
             "type" => {
-                if std::mem::replace(&mut self.ty, Some(epee_encoding::read_epee_value(b)?))
-                    .is_some()
+                if std::mem::replace(
+                    &mut self.ty,
+                    Some(cuprate_epee_encoding::read_epee_value(b)?),
+                )
+                .is_some()
                 {
-                    return Err(epee_encoding::Error::Format("Duplicate field in data."));
+                    return Err(cuprate_epee_encoding::Error::Format(
+                        "Duplicate field in data.",
+                    ));
                 }
                 Ok(true)
             }
             "addr" => {
-                if std::mem::replace(&mut self.addr, epee_encoding::read_epee_value(b)?).is_some() {
-                    return Err(epee_encoding::Error::Format("Duplicate field in data."));
+                if std::mem::replace(&mut self.addr, cuprate_epee_encoding::read_epee_value(b)?)
+                    .is_some()
+                {
+                    return Err(cuprate_epee_encoding::Error::Format(
+                        "Duplicate field in data.",
+                    ));
                 }
                 Ok(true)
             }
@@ -39,9 +48,9 @@ impl EpeeObjectBuilder<NetworkAddress> for TaggedNetworkAddress {
         }
     }
 
-    fn finish(self) -> epee_encoding::Result<NetworkAddress> {
+    fn finish(self) -> cuprate_epee_encoding::Result<NetworkAddress> {
         self.try_into()
-            .map_err(|_| epee_encoding::Error::Value("Invalid network address".to_string()))
+            .map_err(|_| cuprate_epee_encoding::Error::Value("Invalid network address".to_string()))
     }
 }
 

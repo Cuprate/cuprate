@@ -13,14 +13,14 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::sync::watch;
 use tower::Service;
 
-use monero_p2p::{
+use cuprate_p2p_core::{
     client::InternalPeerID,
     handles::ConnectionHandle,
     services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone,
 };
-use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
-use monero_wire::CoreSyncData;
+use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_wire::CoreSyncData;
 
 use crate::{client_pool::disconnect_monitor::PeerDisconnectFut, constants::SHORT_BAN};
 
@@ -243,11 +243,13 @@ mod tests {
     use tokio::sync::Semaphore;
     use tower::{Service, ServiceExt};
 
-    use monero_p2p::{client::InternalPeerID, handles::HandleBuilder, services::PeerSyncRequest};
-    use monero_wire::CoreSyncData;
+    use cuprate_p2p_core::{
+        client::InternalPeerID, handles::HandleBuilder, services::PeerSyncRequest,
+    };
+    use cuprate_wire::CoreSyncData;
 
+    use cuprate_p2p_core::services::PeerSyncResponse;
     use cuprate_test_utils::test_netzone::TestNetZone;
-    use monero_p2p::services::PeerSyncResponse;
 
     use super::PeerSyncSvc;
 

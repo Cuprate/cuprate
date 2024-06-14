@@ -20,8 +20,8 @@ use std::fmt::Formatter;
 
 use bytes::{Buf, BytesMut};
 
-use epee_encoding::epee_object;
-use levin_cuprate::{
+use cuprate_epee_encoding::epee_object;
+use cuprate_levin::{
     BucketBuilder, BucketError, LevinBody, LevinCommand as LevinCommandTrait, MessageType,
 };
 
@@ -154,22 +154,23 @@ impl From<LevinCommand> for u32 {
     }
 }
 
-fn decode_message<B: Buf, T: epee_encoding::EpeeObject, Ret>(
+fn decode_message<B: Buf, T: cuprate_epee_encoding::EpeeObject, Ret>(
     ret: impl FnOnce(T) -> Ret,
     buf: &mut B,
 ) -> Result<Ret, BucketError> {
-    let t = epee_encoding::from_bytes(buf).map_err(|e| BucketError::BodyDecodingError(e.into()))?;
+    let t = cuprate_epee_encoding::from_bytes(buf)
+        .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
     Ok(ret(t))
 }
 
-fn build_message<T: epee_encoding::EpeeObject>(
+fn build_message<T: cuprate_epee_encoding::EpeeObject>(
     id: LevinCommand,
     val: T,
     builder: &mut BucketBuilder<LevinCommand>,
 ) -> Result<(), BucketError> {
     builder.set_command(id);
     builder.set_body(
-        epee_encoding::to_bytes(val)
+        cuprate_epee_encoding::to_bytes(val)
             .map(BytesMut::freeze)
             .map_err(|e| BucketError::BodyDecodingError(e.into()))?,
     );
@@ -280,13 +281,13 @@ impl RequestMessage {
             C::Handshake => decode_message(RequestMessage::Handshake, buf)?,
             C::TimedSync => decode_message(RequestMessage::TimedSync, buf)?,
             C::Ping => {
-                epee_encoding::from_bytes::<EmptyMessage, _>(buf)
+                cuprate_epee_encoding::from_bytes::<EmptyMessage, _>(buf)
                     .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
 
                 RequestMessage::Ping
             }
             C::SupportFlags => {
-                epee_encoding::from_bytes::<EmptyMessage, _>(buf)
+                cuprate_epee_encoding::from_bytes::<EmptyMessage, _>(buf)
                     .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
 
                 RequestMessage::SupportFlags

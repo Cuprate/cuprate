@@ -6,7 +6,7 @@ use core::fmt::Debug;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use sealed::sealed;
 
-use fixed_bytes::{ByteArray, ByteArrayVec};
+use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 
 use crate::{
     io::*, varint::*, EpeeObject, Error, InnerMarker, Marker, Result, MAX_STRING_LEN_POSSIBLE,

@@ -1,7 +1,7 @@
+use cuprate_address_book::AddressBookConfig;
 use cuprate_helper::network::Network;
-use monero_address_book::AddressBookConfig;
-use monero_p2p::NetworkZone;
-use monero_wire::{common::PeerSupportFlags, BasicNodeData};
+use cuprate_p2p_core::NetworkZone;
+use cuprate_wire::{common::PeerSupportFlags, BasicNodeData};
 
 /// P2P config.
 #[derive(Clone, Debug)]

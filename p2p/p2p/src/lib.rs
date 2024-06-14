@@ -13,7 +13,7 @@ use tokio_stream::wrappers::WatchStream;
 use tower::{buffer::Buffer, util::BoxCloneService, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
-use monero_p2p::{
+use cuprate_p2p_core::{
     client::Connector,
     client::InternalPeerID,
     services::{AddressBookRequest, AddressBookResponse},
@@ -53,7 +53,7 @@ where
     CS: CoreSyncSvc + Clone,
 {
     let address_book =
-        monero_address_book::init_address_book(config.address_book_config.clone()).await?;
+        cuprate_address_book::init_address_book(config.address_book_config.clone()).await?;
     let address_book = Buffer::new(
         address_book,
         config.max_inbound_connections + config.outbound_connections,
@@ -76,7 +76,7 @@ where
         basic_node_data.peer_id = 1;
     }
 
-    let outbound_handshaker = monero_p2p::client::HandShaker::new(
+    let outbound_handshaker = cuprate_p2p_core::client::HandShaker::new(
         address_book.clone(),
         sync_states_svc.clone(),
         core_sync_svc.clone(),
@@ -85,7 +85,7 @@ where
         basic_node_data.clone(),
     );
 
-    let inbound_handshaker = monero_p2p::client::HandShaker::new(
+    let inbound_handshaker = cuprate_p2p_core::client::HandShaker::new(
         address_book.clone(),
         sync_states_svc,
         core_sync_svc.clone(),

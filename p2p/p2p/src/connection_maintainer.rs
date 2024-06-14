@@ -14,7 +14,7 @@ use tokio::{
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
-use monero_p2p::{
+use cuprate_p2p_core::{
     client::{Client, ConnectRequest, HandshakeError},
     services::{AddressBookRequest, AddressBookResponse},
     AddressBook, NetworkZone,

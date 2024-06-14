@@ -10,9 +10,9 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
-use monero_wire::{common::PeerSupportFlags, BasicNodeData, MoneroWireCodec};
+use cuprate_wire::{common::PeerSupportFlags, BasicNodeData, MoneroWireCodec};
 
-use monero_p2p::{
+use cuprate_p2p_core::{
     client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
     network_zones::{ClearNet, ClearNetServerCfg},
     ConnectionDirection, NetworkZone,

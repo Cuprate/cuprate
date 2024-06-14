@@ -4,8 +4,8 @@
 //! sure the connection is still active.
 use std::sync::Arc;
 
+use cuprate_wire::admin::TimedSyncRequest;
 use futures::channel::oneshot;
-use monero_wire::admin::TimedSyncRequest;
 use tokio::{
     sync::{mpsc, Semaphore},
     time::{interval, MissedTickBehavior},

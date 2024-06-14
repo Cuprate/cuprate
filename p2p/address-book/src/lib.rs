@@ -13,7 +13,7 @@
 //!
 use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
-use monero_p2p::NetworkZone;
+use cuprate_p2p_core::NetworkZone;
 
 mod book;
 mod peer_list;

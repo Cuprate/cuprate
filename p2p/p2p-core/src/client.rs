@@ -25,8 +25,8 @@ pub mod handshaker;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
+use cuprate_pruning::PruningSeed;
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
-use monero_pruning::PruningSeed;
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.

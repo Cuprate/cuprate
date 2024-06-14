@@ -20,8 +20,8 @@ use tokio::{
 use tower::{Service, ServiceExt};
 use tracing::{info_span, Instrument};
 
-use monero_pruning::{PruningError, PruningSeed};
-use monero_wire::{
+use cuprate_pruning::{PruningError, PruningSeed};
+use cuprate_wire::{
     admin::{
         HandshakeRequest, HandshakeResponse, PingResponse, SupportFlagsResponse,
         PING_OK_RESPONSE_STATUS_TEXT,
@@ -586,7 +586,7 @@ async fn wait_for_message<Z: NetworkZone>(
     peer_sink: &mut Z::Sink,
     peer_stream: &mut Z::Stream,
 
-    eager_protocol_messages: &mut Vec<monero_wire::ProtocolMessage>,
+    eager_protocol_messages: &mut Vec<cuprate_wire::ProtocolMessage>,
 
     our_basic_node_data: &BasicNodeData,
 ) -> Result<Message, HandshakeError> {

@@ -3,7 +3,7 @@
 //! SOMEDAY: the database `properties` table is not yet implemented.
 
 //---------------------------------------------------------------------------------------------------- Import
-use monero_pruning::PruningSeed;
+use cuprate_pruning::PruningSeed;
 
 use crate::{error::RuntimeError, ops::macros::doc_error};
 //---------------------------------------------------------------------------------------------------- Free Functions

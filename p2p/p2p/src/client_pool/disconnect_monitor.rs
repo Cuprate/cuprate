@@ -14,7 +14,7 @@ use tokio::sync::mpsc;
 use tokio_util::sync::WaitForCancellationFutureOwned;
 use tracing::instrument;
 
-use monero_p2p::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
+use cuprate_p2p_core::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
 
 use super::ClientPool;
 

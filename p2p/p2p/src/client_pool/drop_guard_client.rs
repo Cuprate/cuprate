@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use monero_p2p::{client::Client, NetworkZone};
+use cuprate_p2p_core::{client::Client, NetworkZone};
 
 use crate::client_pool::ClientPool;
 

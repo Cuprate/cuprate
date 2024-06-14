@@ -22,8 +22,10 @@ use tokio::{
 use tokio_stream::wrappers::WatchStream;
 use tower::Service;
 
-use monero_p2p::{client::InternalPeerID, BroadcastMessage, ConnectionDirection, NetworkZone};
-use monero_wire::{
+use cuprate_p2p_core::{
+    client::InternalPeerID, BroadcastMessage, ConnectionDirection, NetworkZone,
+};
+use cuprate_wire::{
     common::{BlockCompleteEntry, TransactionBlobs},
     protocol::{NewFluffyBlock, NewTransactions},
 };
@@ -128,7 +130,7 @@ pub fn init_broadcast_channels<N: NetworkZone>(
 /// Only certain P2P messages are supported here: [`NewFluffyBlock`] and [`NewTransactions`]. These are the only
 /// P2P messages that make sense to broadcast to multiple peers.
 ///
-/// [`NewBlock`](monero_wire::protocol::NewBlock) has been excluded as monerod has had fluffy blocks for a while and
+/// [`NewBlock`](cuprate_wire::protocol::NewBlock) has been excluded as monerod has had fluffy blocks for a while and
 /// Cuprate sets fluffy blocks as a requirement during handshakes.
 pub enum BroadcastRequest<N: NetworkZone> {
     /// Broadcast a block to the network. The block will be broadcast as a fluffy block to all peers.
@@ -400,8 +402,8 @@ mod tests {
     use tokio::time::timeout;
     use tower::{Service, ServiceExt};
 
+    use cuprate_p2p_core::{client::InternalPeerID, BroadcastMessage, ConnectionDirection};
     use cuprate_test_utils::test_netzone::TestNetZone;
-    use monero_p2p::{client::InternalPeerID, BroadcastMessage, ConnectionDirection};
 
     use super::{init_broadcast_channels, BroadcastConfig, BroadcastRequest};
 

@@ -16,7 +16,7 @@ use dashmap::DashMap;
 use tokio::sync::mpsc;
 use tracing::{Instrument, Span};
 
-use monero_p2p::{
+use cuprate_p2p_core::{
     client::{Client, InternalPeerID},
     handles::ConnectionHandle,
     NetworkZone,

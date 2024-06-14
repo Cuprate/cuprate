@@ -20,8 +20,8 @@
 
 use bytes::Bytes;
 
-use epee_encoding::{container_as_blob::ContainerAsBlob, epee_object};
-use fixed_bytes::{ByteArray, ByteArrayVec};
+use cuprate_epee_encoding::{container_as_blob::ContainerAsBlob, epee_object};
+use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 
 use super::common::BlockCompleteEntry;
 
@@ -705,13 +705,14 @@ mod tests {
             248, 248, 91, 110, 107, 144, 12, 175, 253, 21, 121, 28,
         ];
 
-        let new_transactions: NewTransactions = epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
+        let new_transactions: NewTransactions =
+            cuprate_epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
 
         assert_eq!(4, new_transactions.txs.len());
 
-        let mut encoded_bytes = epee_encoding::to_bytes(new_transactions.clone()).unwrap();
+        let mut encoded_bytes = cuprate_epee_encoding::to_bytes(new_transactions.clone()).unwrap();
         let new_transactions_2: NewTransactions =
-            epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
+            cuprate_epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(new_transactions, new_transactions_2);
     }
@@ -1057,10 +1058,12 @@ mod tests {
             101, 110, 116, 95, 98, 108, 111, 99, 107, 99, 104, 97, 105, 110, 95, 104, 101, 105,
             103, 104, 116, 5, 209, 45, 42, 0, 0, 0, 0, 0,
         ];
-        let fluffy_block: NewFluffyBlock = epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
+        let fluffy_block: NewFluffyBlock =
+            cuprate_epee_encoding::from_bytes(&mut &bytes[..]).unwrap();
 
-        let mut encoded_bytes = epee_encoding::to_bytes(fluffy_block.clone()).unwrap();
-        let fluffy_block_2: NewFluffyBlock = epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
+        let mut encoded_bytes = cuprate_epee_encoding::to_bytes(fluffy_block.clone()).unwrap();
+        let fluffy_block_2: NewFluffyBlock =
+            cuprate_epee_encoding::from_bytes(&mut encoded_bytes).unwrap();
 
         assert_eq!(fluffy_block, fluffy_block_2);
     }
