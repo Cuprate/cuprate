@@ -1,7 +1,6 @@
 //! General constants used throughout `cuprate-blockchain`.
 
 //---------------------------------------------------------------------------------------------------- Import
-use cfg_if::cfg_if;
 
 //---------------------------------------------------------------------------------------------------- Version
 /// Current major version of the database.

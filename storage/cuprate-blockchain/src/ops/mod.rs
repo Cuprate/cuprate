@@ -20,7 +20,7 @@
 //! it is up to the caller to decide what happens if one them return
 //! an error.
 //!
-//! To maintain atomicity, transactions should be [`abort`](crate::transaction::TxRw::abort)ed
+//! To maintain atomicity, transactions should be [`abort`](cuprate_database::TxRw::abort)ed
 //! if one of the functions failed.
 //!
 //! For example, if [`add_block()`](block::add_block) is called and returns an [`Err`],

@@ -1,14 +1,16 @@
-//! Database [`Env`](crate::Env) configuration.
+//! Database configuration.
 //!
 //! This module contains the main [`Config`]uration struct
-//! for the database [`Env`](crate::Env)ironment, and types
-//! related to configuration settings.
+//! for the database [`Env`](cuprate_database::Env)ironment, and blockchain-
+//! specific configuration.
+//!
+//! It also contains types related to configuration settings.
 //!
 //! The main constructor is the [`ConfigBuilder`].
 //!
 //! These configurations are processed at runtime, meaning
-//! the `Env` can/will dynamically adjust its behavior
-//! based on these values.
+//! the `Env` can/will dynamically adjust its behavior based
+//! on these values.
 //!
 //! # Example
 //! ```rust
@@ -42,6 +44,3 @@ pub use config::{Config, ConfigBuilder};
 
 mod reader_threads;
 pub use reader_threads::ReaderThreads;
-
-mod sync_mode;
-pub use sync_mode::SyncMode;

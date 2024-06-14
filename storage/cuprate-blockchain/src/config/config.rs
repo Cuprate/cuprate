@@ -147,7 +147,8 @@ pub struct Config {
 impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
-    /// The [`Config::db_directory`] will be [`cuprate_blockchain_dir`].
+    /// The [`cuprate_database::config::Config::db_directory`]
+    /// will be set to [`cuprate_blockchain_dir`].
     ///
     /// All other values will be [`Default::default`].
     ///

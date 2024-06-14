@@ -15,7 +15,7 @@
 //! This module also contains a set of traits for
 //! accessing _all_ tables defined here at once.
 //!
-//! For example, this is the object returned by [`EnvInner::open_tables`](crate::EnvInner::open_tables).
+//! For example, this is the object returned by [`OpenTables::open_tables`](crate::OpenTables::open_tables).
 
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database::{DatabaseIter, DatabaseRo, DatabaseRw, Table};
@@ -59,7 +59,7 @@ macro_rules! define_trait_tables {
         /// `(tuple, containing, all, table, types, ...)`.
         ///
         /// This is used to return a _single_ object from functions like
-        /// [`EnvInner::open_tables`](crate::EnvInner::open_tables) rather
+        /// [`OpenTables::open_tables`](crate::OpenTables::open_tables) rather
         /// than the tuple containing the tables itself.
         ///
         /// To replace `tuple.0` style indexing, `field_accessor_functions()`

@@ -1,11 +1,7 @@
 //! The main [`Config`] struct, holding all configurable values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::Cow,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-};
+use std::{borrow::Cow, num::NonZeroUsize, path::Path};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
