@@ -282,7 +282,7 @@ where
         block.miner_tx.weight() + verified_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
 
     Ok(FastSyncResponse::ValidateBlock(VerifiedBlockInformation {
-        block: block.clone(),
+        block,
         block_blob,
         txs: verified_txs,
         block_hash,
