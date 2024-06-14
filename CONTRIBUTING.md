@@ -77,6 +77,8 @@ After that, ensure all other CI passes by running:
 | `cargo test --all-features --workspace`                                | Runs all tests
 | `cargo build --all-features --all-targets --workspace`                 | Builds all code
 
+**Note: in order for some tests to work, you will need to place a [`monerod`](https://www.getmonero.org/downloads/) binary at the root of the repository.**
+
 ### 1.4 Ready for review
 Once your PR has passed all CI and is ready to go, open it for review. Others will leave their thoughts and may ask for changes to be made.
 
