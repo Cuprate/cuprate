@@ -670,10 +670,13 @@ dependencies = [
  "cuprate-p2p",
  "dandelion-tower",
  "futures",
+ "hex",
  "monero-p2p",
  "monero-serai",
+ "thiserror",
  "tokio",
  "tower",
+ "tracing",
 ]
 
 [[package]]

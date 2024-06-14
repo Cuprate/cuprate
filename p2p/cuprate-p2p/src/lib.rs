@@ -36,6 +36,7 @@ use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
 use connection_maintainer::MakeConnectionRequest;
 use monero_p2p::services::PeerSyncRequest;
+pub use sync_states::NewSyncInfo;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
@@ -194,7 +195,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
     }
 
     /// Returns a stream which yields the highest seen sync state from a connected peer.
-    pub fn top_sync_stream(&self) -> WatchStream<sync_states::NewSyncInfo> {
+    pub fn top_sync_stream(&self) -> WatchStream<NewSyncInfo> {
         WatchStream::from_changes(self.top_block_watch.clone())
     }
 
