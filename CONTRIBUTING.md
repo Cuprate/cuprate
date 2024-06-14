@@ -26,8 +26,8 @@ Once you have found something you would like to work on by either:
 it is recommended to make your interest on working on that thing known so people don't duplicate work.
 
 Before starting, consider reading/using Cuprate's:
-- [`Documentation`](#4-documentation) (practical `cargo` docs)
-- [`Books`](#5-books) (Cuprate's architecture and protocol)
+- [`Documentation`](#5-documentation) (practical `cargo` docs)
+- [`Books`](#6-books) (Cuprate's architecture and protocol)
 
 These may answer some questions you have, or may confirm an issue you would like to fix.
 
@@ -56,6 +56,7 @@ It currently:
 - Runs [`clippy`](https://github.com/rust-lang/rust-clippy) (and fails on warnings)
 - Runs all tests
 - Builds all targets
+- Automatically add approriate [labels](#4-keeping-track-of-issues-and-prs) to your PR
 
 Before pushing your code, please run the following at the root of the repository:
 
@@ -76,16 +77,14 @@ After that, ensure all other CI passes by running:
 | `cargo build --all-features --all-targets --workspace`                 | Builds all code
 
 ### 1.4 Ready for review
-Once your PR has passed all CI and is ready to go, open it for review.
-
-Others will leave their thoughts and may ask for changes to be made.
+Once your PR has passed all CI and is ready to go, open it for review. Others will leave their thoughts and may ask for changes to be made.
 
 Finally, if everything looks good, we will merge your code! Thank you for contributing!
 
 ## 2. Crate names
-All of Cuprate's crates (libraries) are prefixed with `cuprate-`.
+All of Cuprate's crates (libraries) are prefixed with `cuprate-`. All directories containing crates however, are not.
 
-All directories containing crates however, are not. For example:
+For example:
 
 | Crate Directory    | Crate Name         |
 |--------------------|--------------------|
@@ -136,7 +135,7 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 ## 5. Documentation
 Cuprate's crates (libraries) have inline documentation.
 
-These can be built and viewed using the `cargo` tool. For example, to build and view a specific crate's documentation:
+These can be built and viewed using the `cargo` tool. For example, to build and view a specific crate's documentation, run the following command at the repository's root:
 ```bash
 cargo doc --open --package $CRATE
 ```
@@ -158,7 +157,6 @@ These books are also good resources to understand how Cuprate and Monero work.
 ### 6.1 Architecture book
 This book documents Cuprate's architecture and implementation.
 
-See:
 - <https://architecture.cuprate.org>
 - <https://github.com/Cuprate/architecture-book>
 - <https://github.com/Cuprate/cuprate/tree/main/books/architecture>
@@ -166,7 +164,6 @@ See:
 ### 6.2 Protocol book
 This book documents the Monero protocol.
 
-See:
 - <https://monero-book.cuprate.org>
 - <https://github.com/Cuprate/monero-book>
 - <https://github.com/Cuprate/cuprate/tree/main/books/protocol>
@@ -174,7 +171,6 @@ See:
 ### 6.3 User book
 This book is a user-guide for using Cuprate.
 
-See:
 - <https://user.cuprate.org>
 - <https://github.com/Cuprate/user-book>
 - <https://github.com/Cuprate/cuprate/tree/main/books/user>
