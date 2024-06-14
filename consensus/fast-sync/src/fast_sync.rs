@@ -244,11 +244,14 @@ where
         return Err(FastSyncError::MinerTx(MinerTxError::InputNotOfTypeGen));
     };
 
-    let txs_vec: Vec<Transaction> = txs.values().cloned().collect();
-    let mut txs = Vec::<VerifiedTransactionInformation>::with_capacity(txs_vec.len());
-    for tx in txs_vec {
+    let mut verified_txs = Vec::with_capacity(txs.len());
+    for tx in &block.txs {
+        let tx = txs
+            .remove(tx)
+            .ok_or(FastSyncError::TxsIncludedWithBlockIncorrect)?;
+
         let data = TransactionVerificationData::new(tx)?;
-        txs.push(VerifiedTransactionInformation {
+        verified_txs.push(VerifiedTransactionInformation {
             tx_blob: data.tx_blob,
             tx_weight: data.tx_weight,
             fee: data.fee,
@@ -258,18 +261,17 @@ where
     }
 
     let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
+    let total_outputs = block
+        .miner_tx
+        .prefix
+        .outputs
+        .iter()
+        .map(|output| output.amount.unwrap_or(0))
+        .sum::<u64>();
+
+    let generated_coins = total_outputs - total_fees;
 
     let weight = block.miner_tx.weight() + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
-
-    let generated_coins = check_miner_tx(
-        &block.miner_tx,
-        total_fees,
-        block_chain_ctx.chain_height,
-        weight,
-        block_chain_ctx.median_weight_for_block_reward,
-        block_chain_ctx.already_generated_coins,
-        &block_chain_ctx.current_hf,
-    )?;
 
     Ok(FastSyncResponse::ValidateBlock(Box::new(
         VerifiedBlockInformation {
