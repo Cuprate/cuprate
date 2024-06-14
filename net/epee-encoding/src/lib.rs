@@ -8,7 +8,7 @@
 //!
 //! example without macro:
 //! ```rust
-//! # use epee_encoding::{EpeeObject, EpeeObjectBuilder, read_epee_value, write_field, to_bytes, from_bytes};
+//! # use cuprate_epee_encoding::{EpeeObject, EpeeObjectBuilder, read_epee_value, write_field, to_bytes, from_bytes};
 //! # use bytes::{Buf, BufMut};
 //!
 //! pub struct Test {
@@ -21,7 +21,7 @@
 //! }
 //!
 //! impl EpeeObjectBuilder<Test> for __TestEpeeBuilder {
-//!     fn add_field<B: Buf>(&mut self, name: &str, r: &mut B) -> epee_encoding::error::Result<bool> {
+//!     fn add_field<B: Buf>(&mut self, name: &str, r: &mut B) -> cuprate_epee_encoding::error::Result<bool> {
 //!         match name {
 //!             "val" => {self.val = Some(read_epee_value(r)?);}
 //!             _ => return Ok(false),
@@ -29,10 +29,10 @@
 //!         Ok(true)
 //!     }
 //!
-//!     fn finish(self) -> epee_encoding::error::Result<Test> {
+//!     fn finish(self) -> cuprate_epee_encoding::error::Result<Test> {
 //!         Ok(
 //!             Test {
-//!                 val: self.val.ok_or_else(|| epee_encoding::error::Error::Format("Required field was not found!"))?
+//!                 val: self.val.ok_or_else(|| cuprate_epee_encoding::error::Error::Format("Required field was not found!"))?
 //!             }
 //!         )
 //!     }
@@ -45,7 +45,7 @@
 //!         1
 //!     }
 //!
-//!     fn write_fields<B: BufMut>(self, w: &mut B) -> epee_encoding::error::Result<()> {
+//!     fn write_fields<B: BufMut>(self, w: &mut B) -> cuprate_epee_encoding::error::Result<()> {
 //!        // write the fields
 //!        write_field(self.val, "val", w)
 //!    }
