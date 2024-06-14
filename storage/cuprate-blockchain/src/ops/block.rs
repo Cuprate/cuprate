@@ -4,12 +4,13 @@
 use bytemuck::TransparentWrapper;
 use monero_serai::block::Block;
 
+use cuprate_database::{
+    RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
+};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{ExtendedBlockHeader, VerifiedBlockInformation};
 
 use crate::{
-    database::{DatabaseRo, DatabaseRw},
-    error::RuntimeError,
     ops::{
         blockchain::{chain_height, cumulative_generated_coins},
         macros::doc_error,
@@ -18,7 +19,6 @@ use crate::{
     },
     tables::{BlockHeights, BlockInfos, Tables, TablesMut},
     types::{BlockHash, BlockHeight, BlockInfo},
-    StorableVec,
 };
 
 //---------------------------------------------------------------------------------------------------- `add_block_*`
@@ -265,14 +265,15 @@ pub fn block_exists(
 mod test {
     use pretty_assertions::assert_eq;
 
+    use cuprate_database::{Env, EnvInner, TxRw};
     use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 
     use super::*;
+
     use crate::{
+        open_tables::OpenTables,
         ops::tx::{get_tx, tx_exists},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        transaction::TxRw,
-        Env, EnvInner,
     };
 
     /// Tests all above block functions.

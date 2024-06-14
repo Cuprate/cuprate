@@ -7,6 +7,7 @@
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
@@ -14,6 +15,7 @@ use std::{
 use pretty_assertions::assert_eq;
 use tower::{Service, ServiceExt};
 
+use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse, BCWriteRequest},
@@ -22,6 +24,7 @@ use cuprate_types::{
 
 use crate::{
     config::ConfigBuilder,
+    open_tables::OpenTables,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::chain_height,
@@ -31,7 +34,6 @@ use crate::{
     tables::{Tables, TablesIter},
     tests::AssertTableLen,
     types::{Amount, AmountIndex, PreRctOutputId},
-    ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError,
 };
 
 //---------------------------------------------------------------------------------------------------- Helper functions
@@ -44,7 +46,7 @@ fn init_service() -> (
 ) {
     let tempdir = tempfile::tempdir().unwrap();
     let config = ConfigBuilder::new()
-        .db_directory(tempdir.path().into())
+        .db_directory(Cow::Owned(tempdir.path().into()))
         .low_power()
         .build();
     let (reader, writer) = init(config).unwrap();

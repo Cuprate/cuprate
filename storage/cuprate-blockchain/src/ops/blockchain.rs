@@ -1,9 +1,9 @@
 //! Blockchain functions - chain height, generated coins, etc.
 
 //---------------------------------------------------------------------------------------------------- Import
+use cuprate_database::{DatabaseRo, RuntimeError};
+
 use crate::{
-    database::DatabaseRo,
-    error::RuntimeError,
     ops::macros::doc_error,
     tables::{BlockHeights, BlockInfos},
     types::BlockHeight,
@@ -81,15 +81,16 @@ pub fn cumulative_generated_coins(
 mod test {
     use pretty_assertions::assert_eq;
 
+    use cuprate_database::{Env, EnvInner, TxRw};
     use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 
     use super::*;
+
     use crate::{
+        open_tables::OpenTables,
         ops::block::add_block,
         tables::Tables,
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        transaction::TxRw,
-        Env, EnvInner,
     };
 
     /// Tests all above functions.

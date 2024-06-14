@@ -46,7 +46,7 @@ use bytemuck::{Pod, Zeroable};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::storable::StorableVec;
+use cuprate_database::StorableVec;
 
 //---------------------------------------------------------------------------------------------------- Aliases
 // These type aliases exist as many Monero-related types are the exact same.

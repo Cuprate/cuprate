@@ -13,6 +13,7 @@ use thread_local::ThreadLocal;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
@@ -21,7 +22,7 @@ use cuprate_types::{
 
 use crate::{
     config::ReaderThreads,
-    error::RuntimeError,
+    open_tables::OpenTables,
     ops::block::block_exists,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
@@ -33,7 +34,6 @@ use crate::{
     tables::{BlockHeights, BlockInfos, Tables},
     types::BlockHash,
     types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
-    ConcreteEnv, DatabaseRo, Env, EnvInner,
 };
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
@@ -233,7 +233,7 @@ fn map_request(
 /// <https://github.com/Cuprate/cuprate/pull/113#discussion_r1576762346>
 #[inline]
 fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
-    ThreadLocal::with_capacity(env.config().reader_threads.as_threads().get())
+    ThreadLocal::with_capacity(env.config().reader_threads.get())
 }
 
 /// Take in a `ThreadLocal<impl Tables>` and return an `&impl Tables + Send`.

@@ -3,11 +3,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
+use cuprate_database::{ConcreteEnv, Env, InitError};
+
 use crate::{
     config::Config,
-    error::InitError,
     service::{DatabaseReadHandle, DatabaseWriteHandle},
-    ConcreteEnv, Env,
 };
 
 //---------------------------------------------------------------------------------------------------- Init
@@ -21,10 +21,13 @@ use crate::{
 /// # Errors
 /// This will forward the error if [`Env::open`] failed.
 pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle), InitError> {
-    let reader_threads = config.reader_threads;
+    let Config {
+        db_config,
+        reader_threads,
+    } = config;
 
     // Initialize the database itself.
-    let db = Arc::new(ConcreteEnv::open(config)?);
+    let db = Arc::new(ConcreteEnv::open(db_config)?);
 
     // Spawn the Reader thread pool and Writer.
     let readers = DatabaseReadHandle::init(&db, reader_threads);

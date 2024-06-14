@@ -1,21 +1,15 @@
 //! The main [`Config`] struct, holding all configurable values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{
-    borrow::Cow,
-    path::{Path, PathBuf},
-};
+use std::{borrow::Cow, path::Path};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
 use cuprate_helper::fs::cuprate_blockchain_dir;
 
-use crate::{
-    config::{ReaderThreads, SyncMode},
-    constants::DATABASE_DATA_FILENAME,
-    resize::ResizeAlgorithm,
-};
+use crate::config::ReaderThreads;
 
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
@@ -27,14 +21,11 @@ pub struct ConfigBuilder {
     /// [`Config::db_directory`].
     db_directory: Option<Cow<'static, Path>>,
 
-    /// [`Config::sync_mode`].
-    sync_mode: Option<SyncMode>,
+    /// [`Config::cuprate_database_config`].
+    db_config: cuprate_database::config::ConfigBuilder,
 
     /// [`Config::reader_threads`].
     reader_threads: Option<ReaderThreads>,
-
-    /// [`Config::resize_algorithm`].
-    resize_algorithm: Option<ResizeAlgorithm>,
 }
 
 impl ConfigBuilder {
@@ -42,12 +33,13 @@ impl ConfigBuilder {
     ///
     /// [`ConfigBuilder::build`] can be called immediately
     /// after this function to use default values.
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             db_directory: None,
-            sync_mode: None,
+            db_config: cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(
+                cuprate_blockchain_dir(),
+            )),
             reader_threads: None,
-            resize_algorithm: None,
         }
     }
 
@@ -65,26 +57,23 @@ impl ConfigBuilder {
             .db_directory
             .unwrap_or_else(|| Cow::Borrowed(cuprate_blockchain_dir()));
 
-        // Add the database filename to the directory.
-        let db_file = {
-            let mut db_file = db_directory.to_path_buf();
-            db_file.push(DATABASE_DATA_FILENAME);
-            Cow::Owned(db_file)
-        };
+        let reader_threads = self.reader_threads.unwrap_or_default();
+        let db_config = self
+            .db_config
+            .db_directory(db_directory)
+            .reader_threads(reader_threads.as_threads())
+            .build();
 
         Config {
-            db_directory,
-            db_file,
-            sync_mode: self.sync_mode.unwrap_or_default(),
-            reader_threads: self.reader_threads.unwrap_or_default(),
-            resize_algorithm: self.resize_algorithm.unwrap_or_default(),
+            db_config,
+            reader_threads,
         }
     }
 
     /// Set a custom database directory (and file) [`Path`].
     #[must_use]
-    pub fn db_directory(mut self, db_directory: PathBuf) -> Self {
-        self.db_directory = Some(Cow::Owned(db_directory));
+    pub fn db_directory(mut self, db_directory: Cow<'static, Path>) -> Self {
+        self.db_directory = Some(db_directory);
         self
     }
 
@@ -94,9 +83,12 @@ impl ConfigBuilder {
     /// Good default for testing, and resource-available machines.
     #[must_use]
     pub fn fast(mut self) -> Self {
-        self.sync_mode = Some(SyncMode::Fast);
+        self.db_config =
+            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_blockchain_dir()))
+                .sync_mode(SyncMode::Fast)
+                .resize_algorithm(ResizeAlgorithm::default());
+
         self.reader_threads = Some(ReaderThreads::OnePerThread);
-        self.resize_algorithm = Some(ResizeAlgorithm::default());
         self
     }
 
@@ -106,16 +98,12 @@ impl ConfigBuilder {
     /// Good default for resource-limited machines, e.g. a cheap VPS.
     #[must_use]
     pub fn low_power(mut self) -> Self {
-        self.sync_mode = Some(SyncMode::default());
-        self.reader_threads = Some(ReaderThreads::One);
-        self.resize_algorithm = Some(ResizeAlgorithm::default());
-        self
-    }
+        self.db_config =
+            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_blockchain_dir()))
+                .sync_mode(SyncMode::default())
+                .resize_algorithm(ResizeAlgorithm::default());
 
-    /// Set a custom [`SyncMode`].
-    #[must_use]
-    pub const fn sync_mode(mut self, sync_mode: SyncMode) -> Self {
-        self.sync_mode = Some(sync_mode);
+        self.reader_threads = Some(ReaderThreads::One);
         self
     }
 
@@ -125,66 +113,35 @@ impl ConfigBuilder {
         self.reader_threads = Some(reader_threads);
         self
     }
-
-    /// Set a custom [`ResizeAlgorithm`].
-    #[must_use]
-    pub const fn resize_algorithm(mut self, resize_algorithm: ResizeAlgorithm) -> Self {
-        self.resize_algorithm = Some(resize_algorithm);
-        self
-    }
 }
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
+        let db_directory = Cow::Borrowed(cuprate_blockchain_dir());
         Self {
-            db_directory: Some(Cow::Borrowed(cuprate_blockchain_dir())),
-            sync_mode: Some(SyncMode::default()),
+            db_directory: Some(db_directory.clone()),
+            db_config: cuprate_database::config::ConfigBuilder::new(db_directory),
             reader_threads: Some(ReaderThreads::default()),
-            resize_algorithm: Some(ResizeAlgorithm::default()),
         }
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Config
-/// Database [`Env`](crate::Env) configuration.
+/// `cuprate_blockchain` configuration.
 ///
-/// This is the struct passed to [`Env::open`](crate::Env::open) that
-/// allows the database to be configured in various ways.
+/// This is a configuration built on-top of [`cuprate_database::config::Config`].
+///
+/// It contains configuration specific to this crate, plus the database config.
 ///
 /// For construction, either use [`ConfigBuilder`] or [`Config::default`].
-///
-// SOMEDAY: there's are many more options to add in the future.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
-    //------------------------ Database PATHs
-    // These are private since we don't want
-    // users messing with them after construction.
-    /// The directory used to store all database files.
-    ///
-    /// By default, if no value is provided in the [`Config`]
-    /// constructor functions, this will be [`cuprate_blockchain_dir`].
-    ///
-    // SOMEDAY: we should also support `/etc/cuprated.conf`.
-    // This could be represented with an `enum DbPath { Default, Custom, Etc, }`
-    pub(crate) db_directory: Cow<'static, Path>,
-    /// The actual database data file.
-    ///
-    /// This is private, and created from the above `db_directory`.
-    pub(crate) db_file: Cow<'static, Path>,
-
-    /// Disk synchronization mode.
-    pub sync_mode: SyncMode,
+    /// The database configuration.
+    pub db_config: cuprate_database::config::Config,
 
     /// Database reader thread count.
     pub reader_threads: ReaderThreads,
-
-    /// Database memory map resizing algorithm.
-    ///
-    /// This is used as the default fallback, but
-    /// custom algorithms can be used as well with
-    /// [`Env::resize_map`](crate::Env::resize_map).
-    pub resize_algorithm: ResizeAlgorithm,
 }
 
 impl Config {
@@ -211,16 +168,6 @@ impl Config {
     /// ```
     pub fn new() -> Self {
         ConfigBuilder::default().build()
-    }
-
-    /// Return the absolute [`Path`] to the database directory.
-    pub const fn db_directory(&self) -> &Cow<'_, Path> {
-        &self.db_directory
-    }
-
-    /// Return the absolute [`Path`] to the database data file.
-    pub const fn db_file(&self) -> &Cow<'_, Path> {
-        &self.db_file
     }
 }
 

@@ -18,14 +18,12 @@
 //! For example, this is the object returned by [`EnvInner::open_tables`](crate::EnvInner::open_tables).
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{
-    database::{DatabaseIter, DatabaseRo, DatabaseRw},
-    table::Table,
-    types::{
-        Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
-        Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash,
-        TxId, UnlockTime,
-    },
+use cuprate_database::{DatabaseIter, DatabaseRo, DatabaseRw, Table};
+
+use crate::types::{
+    Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
+    Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash,
+    TxId, UnlockTime,
 };
 
 //---------------------------------------------------------------------------------------------------- Sealed
@@ -98,7 +96,7 @@ macro_rules! define_trait_tables {
             ///
             /// # Errors
             /// This returns errors on regular database errors.
-            fn all_tables_empty(&self) -> Result<bool, $crate::error::RuntimeError>;
+            fn all_tables_empty(&self) -> Result<bool, cuprate_database::RuntimeError>;
         }
 
         /// Object containing all opened [`Table`]s in read + iter mode.
@@ -183,7 +181,7 @@ macro_rules! define_trait_tables {
                 }
             )*
 
-            fn all_tables_empty(&self) -> Result<bool, $crate::error::RuntimeError> {
+            fn all_tables_empty(&self) -> Result<bool, cuprate_database::RuntimeError> {
                 $(
                      if !DatabaseRo::is_empty(&self.$index)? {
                         return Ok(false);
@@ -264,44 +262,6 @@ define_trait_tables! {
     TxOutputs => 13,
     TxUnlockTime => 14,
 }
-
-//---------------------------------------------------------------------------------------------------- Table function macro
-/// `crate`-private macro for callings functions on all tables.
-///
-/// This calls the function `$fn` with the optional
-/// arguments `$args` on all tables - returning early
-/// (within whatever scope this is called) if any
-/// of the function calls error.
-///
-/// Else, it evaluates to an `Ok((tuple, of, all, table, types, ...))`,
-/// i.e., an `impl Table[Mut]` wrapped in `Ok`.
-macro_rules! call_fn_on_all_tables_or_early_return {
-    (
-        $($fn:ident $(::)?)*
-        (
-            $($arg:ident),* $(,)?
-        )
-    ) => {{
-        Ok((
-            $($fn ::)*<$crate::tables::BlockInfos>($($arg),*)?,
-            $($fn ::)*<$crate::tables::BlockBlobs>($($arg),*)?,
-            $($fn ::)*<$crate::tables::BlockHeights>($($arg),*)?,
-            $($fn ::)*<$crate::tables::KeyImages>($($arg),*)?,
-            $($fn ::)*<$crate::tables::NumOutputs>($($arg),*)?,
-            $($fn ::)*<$crate::tables::PrunedTxBlobs>($($arg),*)?,
-            $($fn ::)*<$crate::tables::PrunableHashes>($($arg),*)?,
-            $($fn ::)*<$crate::tables::Outputs>($($arg),*)?,
-            $($fn ::)*<$crate::tables::PrunableTxBlobs>($($arg),*)?,
-            $($fn ::)*<$crate::tables::RctOutputs>($($arg),*)?,
-            $($fn ::)*<$crate::tables::TxBlobs>($($arg),*)?,
-            $($fn ::)*<$crate::tables::TxIds>($($arg),*)?,
-            $($fn ::)*<$crate::tables::TxHeights>($($arg),*)?,
-            $($fn ::)*<$crate::tables::TxOutputs>($($arg),*)?,
-            $($fn ::)*<$crate::tables::TxUnlockTime>($($arg),*)?,
-        ))
-    }};
-}
-pub(crate) use call_fn_on_all_tables_or_early_return;
 
 //---------------------------------------------------------------------------------------------------- Table macro
 /// Create all tables, should be used _once_.

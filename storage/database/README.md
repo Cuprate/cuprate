@@ -1,5 +1,3 @@
-# `database`
-
 Cuprate's database abstraction.
 
 This documentation is mostly for practical usage of `database`.

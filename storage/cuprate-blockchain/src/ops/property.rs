@@ -5,7 +5,10 @@
 //---------------------------------------------------------------------------------------------------- Import
 use monero_pruning::PruningSeed;
 
-use crate::{error::RuntimeError, ops::macros::doc_error};
+use cuprate_database::RuntimeError;
+
+use crate::ops::macros::doc_error;
+
 //---------------------------------------------------------------------------------------------------- Free Functions
 /// SOMEDAY
 ///

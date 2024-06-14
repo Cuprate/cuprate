@@ -49,9 +49,9 @@ impl ConfigBuilder {
     ///
     /// [`ConfigBuilder::build`] can be called immediately
     /// after this function to use default values.
-    pub const fn new(db_directory: PathBuf) -> Self {
+    pub const fn new(db_directory: Cow<'static, Path>) -> Self {
         Self {
-            db_directory: Cow::Owned(db_directory),
+            db_directory,
             sync_mode: None,
             reader_threads: Some(READER_THREADS_DEFAULT),
             resize_algorithm: None,
@@ -61,7 +61,7 @@ impl ConfigBuilder {
     /// Build into a [`Config`].
     ///
     /// # Default values
-    /// - [`READER_THREADS_DEFAULT`] is used ofr [`Config::reader_threads`]
+    /// - [`READER_THREADS_DEFAULT`] is used for [`Config::reader_threads`]
     /// - [`Default::default`] is used for all other values (except the `db_directory`)
     pub fn build(self) -> Config {
         // Add the database filename to the directory.
@@ -78,6 +78,13 @@ impl ConfigBuilder {
             reader_threads: self.reader_threads.unwrap_or(READER_THREADS_DEFAULT),
             resize_algorithm: self.resize_algorithm.unwrap_or_default(),
         }
+    }
+
+    /// Set a custom database directory (and file) [`Path`].
+    #[must_use]
+    pub fn db_directory(mut self, db_directory: Cow<'static, Path>) -> Self {
+        self.db_directory = db_directory;
+        self
     }
 
     /// Tune the [`ConfigBuilder`] for the highest performing,
@@ -193,7 +200,7 @@ impl Config {
     /// assert_eq!(config.reader_threads, READER_THREADS_DEFAULT);
     /// assert_eq!(config.resize_algorithm, ResizeAlgorithm::default());
     /// ```
-    pub fn new(db_directory: PathBuf) -> Self {
+    pub fn new(db_directory: Cow<'static, Path>) -> Self {
         ConfigBuilder::new(db_directory).build()
     }
 

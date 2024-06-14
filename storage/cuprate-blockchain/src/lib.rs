@@ -247,47 +247,18 @@ compile_error!("Cuprate is only compatible with 64-bit CPUs");
 //
 // Documentation for each module is located in the respective file.
 
-mod backend;
-pub use backend::ConcreteEnv;
-
 pub mod config;
 
 mod constants;
-pub use constants::{
-    DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_DATA_FILENAME, DATABASE_LOCK_FILENAME,
-    DATABASE_VERSION,
-};
+pub use constants::{DATABASE_CORRUPT_MSG, DATABASE_VERSION};
 
-mod database;
-pub use database::{DatabaseIter, DatabaseRo, DatabaseRw};
+mod open_tables;
+pub use open_tables::OpenTables;
 
-mod env;
-pub use env::{Env, EnvInner};
-
-mod error;
-pub use error::{InitError, RuntimeError};
-
-pub(crate) mod free;
-
-pub mod resize;
-
-mod key;
-pub use key::Key;
-
-mod storable;
-pub use storable::{Storable, StorableBytes, StorableVec};
-
+pub mod free;
 pub mod ops;
-
-mod table;
-pub use table::Table;
-
 pub mod tables;
-
 pub mod types;
-
-mod transaction;
-pub use transaction::{TxRo, TxRw};
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]

@@ -5,6 +5,8 @@
 //! - only used internally
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::borrow::Cow;
+
 use crate::{config::ConfigBuilder, table::Table, ConcreteEnv, Env};
 
 //---------------------------------------------------------------------------------------------------- struct
@@ -24,7 +26,7 @@ impl Table for TestTable {
 /// FIXME: changing this to `-> impl Env` causes lifetime errors...
 pub(crate) fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
     let tempdir = tempfile::tempdir().unwrap();
-    let config = ConfigBuilder::new(tempdir.path().into())
+    let config = ConfigBuilder::new(Cow::Owned(tempdir.path().into()))
         .low_power()
         .build();
     let env = ConcreteEnv::open(config).unwrap();
