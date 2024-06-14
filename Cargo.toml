@@ -13,7 +13,7 @@ members = [
 	"net/wire",
 	"p2p/p2p",
 	"p2p/p2p-core",
-	"p2p/dandelion",
+	"p2p/dandelion-tower",
 	"p2p/async-buffer",
 	"p2p/address-book",
 	"storage/blockchain",
