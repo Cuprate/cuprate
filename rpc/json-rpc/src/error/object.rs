@@ -22,7 +22,7 @@ use crate::error::{
 ///
 /// # Display
 /// ```rust
-/// use json_rpc::error::ErrorObject;
+/// use cuprate_json_rpc::error::ErrorObject;
 ///
 /// // The format is `$CODE: $MESSAGE`.
 /// // If a message was not passed during construction,
@@ -69,7 +69,7 @@ impl ErrorObject {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    /// use cuprate_json_rpc::error::{ErrorCode, ErrorObject};
     ///
     /// for code in [
     ///     ErrorCode::ParseError,
@@ -100,7 +100,7 @@ impl ErrorObject {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    /// use cuprate_json_rpc::error::{ErrorCode, ErrorObject};
     ///
     /// let code = ErrorCode::ParseError;
     /// let object = ErrorObject::parse_error();
@@ -122,7 +122,7 @@ impl ErrorObject {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    /// use cuprate_json_rpc::error::{ErrorCode, ErrorObject};
     ///
     /// let code = ErrorCode::InvalidRequest;
     /// let object = ErrorObject::invalid_request();
@@ -144,7 +144,7 @@ impl ErrorObject {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    /// use cuprate_json_rpc::error::{ErrorCode, ErrorObject};
     ///
     /// let code = ErrorCode::MethodNotFound;
     /// let object = ErrorObject::method_not_found();
@@ -166,7 +166,7 @@ impl ErrorObject {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    /// use cuprate_json_rpc::error::{ErrorCode, ErrorObject};
     ///
     /// let code = ErrorCode::InvalidParams;
     /// let object = ErrorObject::invalid_params();
@@ -189,7 +189,7 @@ impl ErrorObject {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    /// use cuprate_json_rpc::error::{ErrorCode, ErrorObject};
     ///
     /// let code = ErrorCode::InternalError;
     /// let object = ErrorObject::internal_error();
@@ -213,7 +213,7 @@ impl ErrorObject {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use json_rpc::error::{ErrorCode, ErrorObject};
+    /// use cuprate_json_rpc::error::{ErrorCode, ErrorObject};
     ///
     /// let code = ErrorCode::ServerError(0);
     /// let object = ErrorObject::server_error(0);
