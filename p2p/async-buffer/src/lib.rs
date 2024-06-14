@@ -48,7 +48,7 @@ pub fn new_buffer<T>(max_item_weight: usize) -> (BufferAppender<T>, BufferStream
             queue: tx,
             sink_waker: sink_waker.clone(),
             capacity: capacity_atomic.clone(),
-            max_item_weight: capacity,
+            max_item_weight,
         },
         BufferStream {
             queue: rx,

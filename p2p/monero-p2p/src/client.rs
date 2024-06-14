@@ -10,7 +10,8 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_util::sync::PollSemaphore;
-use tower::Service;
+use tower::{Service, ServiceExt};
+use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
@@ -24,18 +25,19 @@ mod connector;
 pub mod handshaker;
 mod timeout_monitor;
 
+use crate::handles::ConnectionGuard;
 pub use connector::{ConnectRequest, Connector};
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
 use monero_pruning::PruningSeed;
 
 /// An internal identifier for a given peer, will be their address if known
-/// or a random u64 if not.
+/// or a random u128 if not.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum InternalPeerID<A> {
     /// A known address.
     KnownAddr(A),
     /// An unknown address (probably an inbound anonymity network connection).
-    Unknown(u64),
+    Unknown(u128),
 }
 
 impl<A: Display> Display for InternalPeerID<A> {
@@ -158,11 +160,68 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
             permit: Some(permit),
         };
 
-        self.connection_tx
-            .try_send(req)
-            .map_err(|_| ())
-            .expect("poll_ready should have been called");
+        if let Err(e) = self.connection_tx.try_send(req) {
+            use mpsc::error::TrySendError;
+
+            match e {
+                TrySendError::Closed(req) | TrySendError::Full(req) => {
+                    self.set_err(PeerError::ClientChannelClosed);
+
+                    let _ = req
+                        .response_channel
+                        .send(Err(PeerError::ClientChannelClosed.into()));
+                }
+            }
+        }
 
         rx.into()
     }
+}
+
+/// Creates a mock [`Client`] for testing purposes.
+///
+/// `request_handler` will be used to handle requests sent to the [`Client`]
+pub fn mock_client<Z: NetworkZone, S>(
+    info: PeerInformation<Z::Addr>,
+    connection_guard: ConnectionGuard,
+    mut request_handler: S,
+) -> Client<Z>
+where
+    S: crate::PeerRequestHandler,
+{
+    let (tx, mut rx) = mpsc::channel(1);
+
+    let task_span = tracing::error_span!("mock_connection", addr = %info.id);
+
+    let task_handle = tokio::spawn(
+        async move {
+            let _guard = connection_guard;
+            loop {
+                let Some(req): Option<connection::ConnectionTaskRequest> = rx.recv().await else {
+                    tracing::debug!("Channel closed, closing mock connection");
+                    return;
+                };
+
+                tracing::debug!("Received new request: {:?}", req.request.id());
+                let res = request_handler
+                    .ready()
+                    .await
+                    .unwrap()
+                    .call(req.request)
+                    .await
+                    .unwrap();
+
+                tracing::debug!("Sending back response");
+
+                let _ = req.response_channel.send(Ok(res));
+            }
+        }
+        .instrument(task_span),
+    );
+
+    let timeout_task = tokio::spawn(futures::future::pending());
+    let semaphore = Arc::new(Semaphore::new(1));
+    let error_slot = SharedError::new();
+
+    Client::new(info, tx, task_handle, timeout_task, semaphore, error_slot)
 }

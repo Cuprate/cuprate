@@ -174,9 +174,9 @@ async fn handshake_monerod_to_cuprate() {
         our_basic_node_data,
     );
 
-    let addr = "127.0.0.1:18081".parse().unwrap();
+    let ip = "127.0.0.1".parse().unwrap();
 
-    let mut listener = ClearNet::incoming_connection_listener(ClearNetServerCfg { addr })
+    let mut listener = ClearNet::incoming_connection_listener(ClearNetServerCfg { ip }, 18081)
         .await
         .unwrap();
 

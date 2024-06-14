@@ -6,13 +6,13 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 use hex_literal::hex;
 use monero_serai::{block::Block, transaction::Transaction};
 
 use cuprate_helper::map::combine_low_high_bits_to_u128;
-use cuprate_types::{TransactionVerificationData, VerifiedBlockInformation};
+use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::data::constants::{
     BLOCK_43BD1F, BLOCK_5ECB7E, BLOCK_F91043, TX_2180A8, TX_3BC7FF, TX_84D48D, TX_9E3F73,
@@ -20,14 +20,14 @@ use crate::data::constants::{
 };
 
 //---------------------------------------------------------------------------------------------------- Conversion
-/// Converts `monero_serai`'s `Block` into a
-/// `cuprate_types::VerifiedBlockInformation` (superset).
+/// Converts [`monero_serai::Block`] into a
+/// [`VerifiedBlockInformation`] (superset).
 ///
 /// To prevent pulling other code in order to actually calculate things
 /// (e.g. `pow_hash`), some information must be provided statically,
 /// this struct represents that data that must be provided.
 ///
-/// Consider using `cuprate_test_utils::rpc` to get this data easily.
+/// Consider using [`cuprate_test_utils::rpc`] to get this data easily.
 struct VerifiedBlockMap {
     block_blob: &'static [u8],
     pow_hash: [u8; 32],
@@ -43,7 +43,7 @@ struct VerifiedBlockMap {
 }
 
 impl VerifiedBlockMap {
-    /// Turn the various static data bits in `self` into a `VerifiedBlockInformation`.
+    /// Turn the various static data bits in `self` into a [`VerifiedBlockInformation`].
     ///
     /// Transactions are verified that they at least match the block's,
     /// although the correctness of data (whether this block actually existed or not)
@@ -64,11 +64,7 @@ impl VerifiedBlockMap {
         let block_blob = block_blob.to_vec();
         let block = Block::read(&mut block_blob.as_slice()).unwrap();
 
-        let txs: Vec<Arc<TransactionVerificationData>> = txs
-            .iter()
-            .map(to_tx_verification_data)
-            .map(Arc::new)
-            .collect();
+        let txs = txs.iter().map(to_tx_verification_data).collect::<Vec<_>>();
 
         assert_eq!(
             txs.len(),
@@ -101,11 +97,11 @@ impl VerifiedBlockMap {
     }
 }
 
-// Same as [`VerifiedBlockMap`] but for [`TransactionVerificationData`].
-fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> TransactionVerificationData {
+// Same as [`VerifiedBlockMap`] but for [`VerifiedTransactionInformation`].
+fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInformation {
     let tx_blob = tx_blob.as_ref().to_vec();
     let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
-    TransactionVerificationData {
+    VerifiedTransactionInformation {
         tx_weight: tx.weight(),
         fee: tx.rct_signatures.base.fee,
         tx_hash: tx.hash(),
@@ -239,7 +235,7 @@ verified_block_information_fn! {
 
 //---------------------------------------------------------------------------------------------------- Transactions
 /// Generate a transaction accessor function with this signature:
-///     `fn() -> &'static TransactionVerificationData`
+///     `fn() -> &'static VerifiedTransactionInformation`
 ///
 /// Same as [`verified_block_information_fn`] but for transactions.
 macro_rules! transaction_verification_data_fn {
@@ -249,7 +245,7 @@ macro_rules! transaction_verification_data_fn {
         weight: $weight:literal, // Transaction weight
         hash: $hash:literal, // Transaction hash as a string literal
     ) => {
-        #[doc = concat!("Return [`", stringify!($tx_blob), "`] as a [`TransactionVerificationData`].")]
+        #[doc = concat!("Return [`", stringify!($tx_blob), "`] as a [`VerifiedTransactionInformation`].")]
         ///
         /// ```rust
         #[doc = "# use cuprate_test_utils::data::*;"]
@@ -261,8 +257,8 @@ macro_rules! transaction_verification_data_fn {
         #[doc = concat!("assert_eq!(tx.tx_hash, hex!(\"", $hash, "\"));")]
         #[doc = "assert_eq!(tx.fee, tx.tx.rct_signatures.base.fee);"]
         /// ```
-        pub fn $fn_name() -> &'static TransactionVerificationData {
-            static TX: OnceLock<TransactionVerificationData> = OnceLock::new();
+        pub fn $fn_name() -> &'static VerifiedTransactionInformation {
+            static TX: OnceLock<VerifiedTransactionInformation> = OnceLock::new();
             TX.get_or_init(|| to_tx_verification_data($tx_blob))
         }
     };
@@ -319,8 +315,8 @@ mod tests {
 
         let mut txs = [block_v1_tx2(), block_v9_tx3(), block_v16_tx0()]
             .into_iter()
-            .flat_map(|block| block.txs.iter().map(|arc| (**arc).clone()))
-            .collect::<Vec<TransactionVerificationData>>();
+            .flat_map(|block| block.txs.iter().cloned())
+            .collect::<Vec<VerifiedTransactionInformation>>();
 
         txs.extend([
             tx_v1_sig0().clone(),
@@ -333,7 +329,7 @@ mod tests {
             let tx_rpc = rpc
                 .get_transaction_verification_data(&[tx.tx_hash])
                 .await
-                .collect::<Vec<TransactionVerificationData>>()
+                .collect::<Vec<VerifiedTransactionInformation>>()
                 .pop()
                 .unwrap();
             assert_eq!(tx, tx_rpc);

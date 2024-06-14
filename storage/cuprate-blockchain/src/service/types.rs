@@ -6,15 +6,15 @@
 use futures::channel::oneshot::Sender;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_types::service::Response;
+use cuprate_types::blockchain::BCResponse;
 
 use crate::error::RuntimeError;
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
 ///
-/// Either our [`Response`], or a database error occurred.
-pub(super) type ResponseResult = Result<Response, RuntimeError>;
+/// Either our [`BCResponse`], or a database error occurred.
+pub(super) type ResponseResult = Result<BCResponse, RuntimeError>;
 
 /// The `Receiver` channel that receives the read response.
 ///

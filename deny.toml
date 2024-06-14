@@ -120,6 +120,7 @@ allow = [
 
     # Font licenses.
     "Unicode-DFS-2016",     # https://spdx.org/licenses/Unicode-DFS-2016.html
+    "Unicode-3.0",          # https://spdx.org/licenses/Unicode-3.0.html
     # "LicenseRef-UFL-1.0", # https://tldrlegal.com/license/ubuntu-font-license,-1.0
     # "OFL-1.1",            # https://spdx.org/licenses/OFL-1.1.html
 ]

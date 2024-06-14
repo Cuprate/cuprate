@@ -4,6 +4,7 @@ resolver = "2"
 members = [
 	"binaries/cuprated",
 	"consensus",
+	"consensus/fast-sync",
 	"consensus/rules",
 	"cryptonight",
 	"helper",
@@ -14,6 +15,7 @@ members = [
 	"p2p/cuprate-p2p",
 	"p2p/dandelion",
 	"p2p/monero-p2p",
+	"p2p/async-buffer",
 	"p2p/address-book",
 	"storage/cuprate-blockchain",
 	"storage/cuprate-txpool",
@@ -21,6 +23,9 @@ members = [
 	"pruning",
 	"test-utils",
 	"types",
+	"rpc/json-rpc",
+	"rpc/monero-rpc-types",
+	"rpc/cuprate-rpc-interface",
 ]
 
 [profile.release]
@@ -53,15 +58,15 @@ chrono                = { version = "0.4.31", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
 crossbeam             = { version = "0.8.4", default-features = false }
 curve25519-dalek      = { version = "4.1.1", default-features = false }
-dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
+dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "d27d934", default-features = false }
 dashmap               = { version = "5.5.3", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
 futures               = { version = "0.3.29", default-features = false }
 hex                   = { version = "0.4.3", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
 indexmap              = { version = "2.2.5", default-features = false }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
-multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "347d4cf", default-features = false }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "d27d934", default-features = false }
+multiexp              = { git = "https://github.com/Cuprate/serai.git", rev = "d27d934", default-features = false }
 paste                 = { version = "1.0.14", default-features = false }
 pin-project           = { version = "1.1.3", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
@@ -85,7 +90,6 @@ tempfile              = { version = "3" }
 pretty_assertions     = { version = "1.4.0" }
 proptest              = { version = "1" }
 proptest-derive       = { version = "0.4.0" }
-
 
 ## TODO:
 ## Potential dependencies.

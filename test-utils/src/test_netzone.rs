@@ -87,8 +87,9 @@ impl<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool
     type Listener = Pin<
         Box<
             dyn Stream<
-                Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>,
-            >,
+                    Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>,
+                > + Send
+                + 'static,
         >,
     >;
     type ServerCfg = ();
@@ -97,7 +98,10 @@ impl<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool
         unimplemented!()
     }
 
-    async fn incoming_connection_listener(_: Self::ServerCfg) -> Result<Self::Listener, Error> {
+    async fn incoming_connection_listener(
+        _: Self::ServerCfg,
+        _: u16,
+    ) -> Result<Self::Listener, Error> {
         unimplemented!()
     }
 }

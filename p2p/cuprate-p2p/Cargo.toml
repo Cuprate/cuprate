@@ -11,12 +11,13 @@ monero-wire = { path = "../../net/monero-wire" }
 monero-p2p = { path = "../monero-p2p", features = ["borsh"] }
 monero-address-book = { path = "../address-book" }
 monero-pruning = { path = "../../pruning" }
-cuprate-helper = { path = "../../helper", features = ["asynch"] }
+cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
+async-buffer = { path = "../async-buffer" }
 
 monero-serai = { workspace = true, features = ["std"] }
 
-tower = { workspace = true }
-tokio = { workspace = true, features = ["rt"] }
+tower = { workspace = true, features = ["buffer"] }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 rayon = { workspace = true }
 tokio-util = { workspace = true }
 tokio-stream = { workspace = true, features = ["sync", "time"] }
@@ -26,7 +27,6 @@ dashmap = { workspace = true }
 
 thiserror = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
-indexmap = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
@@ -34,3 +34,5 @@ tracing = { workspace = true, features = ["std", "attributes"] }
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }
+indexmap = { workspace = true }
+proptest = { workspace = true }

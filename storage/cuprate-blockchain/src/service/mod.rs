@@ -50,11 +50,11 @@
 //! This channel can be `.await`ed upon to (eventually) receive
 //! the corresponding `Response` to your `Request`.
 //!
-//! [req_r]: cuprate_types::service::ReadRequest
+//! [req_r]: cuprate_types::blockchain::BCReadRequest
 //!
-//! [req_w]: cuprate_types::service::WriteRequest
+//! [req_w]: cuprate_types::blockchain::BCWriteRequest
 //!
-//! [resp]: cuprate_types::service::Response
+//! [resp]: cuprate_types::blockchain::BCResponse
 //!
 //! # Example
 //! Simple usage of `service`.
@@ -63,7 +63,7 @@
 //! use hex_literal::hex;
 //! use tower::{Service, ServiceExt};
 //!
-//! use cuprate_types::service::{ReadRequest, WriteRequest, Response};
+//! use cuprate_types::blockchain::{BCReadRequest, BCWriteRequest, BCResponse};
 //! use cuprate_test_utils::data::block_v16_tx0;
 //!
 //! use cuprate_blockchain::{ConcreteEnv, config::ConfigBuilder, Env};
@@ -82,7 +82,7 @@
 //! // Prepare a request to write block.
 //! let mut block = block_v16_tx0().clone();
 //! # block.height = 0 as u64; // must be 0th height or panic in `add_block()`
-//! let request = WriteRequest::WriteBlock(block);
+//! let request = BCWriteRequest::WriteBlock(block);
 //!
 //! // Send the request.
 //! // We receive back an `async` channel that will
@@ -92,16 +92,16 @@
 //!
 //! // Block write was OK.
 //! let response = response_channel.await?;
-//! assert_eq!(response, Response::WriteBlockOk);
+//! assert_eq!(response, BCResponse::WriteBlockOk);
 //!
 //! // Now, let's try getting the block hash
 //! // of the block we just wrote.
-//! let request = ReadRequest::BlockHash(0);
+//! let request = BCReadRequest::BlockHash(0);
 //! let response_channel = read_handle.ready().await?.call(request);
 //! let response = response_channel.await?;
 //! assert_eq!(
 //!     response,
-//!     Response::BlockHash(
+//!     BCResponse::BlockHash(
 //!         hex!("43bd1f2b6556dcafa413d8372974af59e4e8f37dbf74dc6b2a9b7212d0577428")
 //!     )
 //! );

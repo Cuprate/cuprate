@@ -1,14 +1,12 @@
-use std::cell::UnsafeCell;
+use std::{cell::RefCell, ops::DerefMut};
 
 use multiexp::BatchVerifier as InternalBatchVerifier;
 use rayon::prelude::*;
 use thread_local::ThreadLocal;
 
-use crate::ConsensusError;
-
-/// A multi threaded batch verifier.
+/// A multithreaded batch verifier.
 pub struct MultiThreadedBatchVerifier {
-    internal: ThreadLocal<UnsafeCell<InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>>>,
+    internal: ThreadLocal<RefCell<InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>>>,
 }
 
 impl MultiThreadedBatchVerifier {
@@ -19,29 +17,26 @@ impl MultiThreadedBatchVerifier {
         }
     }
 
-    pub fn queue_statement<R>(
-        &self,
-        stmt: impl FnOnce(
-            &mut InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>,
-        ) -> Result<R, ConsensusError>,
-    ) -> Result<R, ConsensusError> {
-        let verifier_cell = self
-            .internal
-            .get_or(|| UnsafeCell::new(InternalBatchVerifier::new(0)));
-        // SAFETY: This is safe for 2 reasons:
-        //  1. each thread gets a different batch verifier.
-        //  2. only this function `queue_statement` will get the inner batch verifier, it's private.
-        //
-        // TODO: it's probably ok to just use RefCell
-        stmt(unsafe { &mut *verifier_cell.get() })
-    }
-
     pub fn verify(self) -> bool {
         self.internal
             .into_iter()
-            .map(UnsafeCell::into_inner)
+            .map(RefCell::into_inner)
             .par_bridge()
             .find_any(|batch_verifier| !batch_verifier.verify_vartime())
             .is_none()
+    }
+}
+
+impl cuprate_consensus_rules::batch_verifier::BatchVerifier for &'_ MultiThreadedBatchVerifier {
+    fn queue_statement<R>(
+        &mut self,
+        stmt: impl FnOnce(&mut InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>) -> R,
+    ) -> R {
+        let mut verifier = self
+            .internal
+            .get_or(|| RefCell::new(InternalBatchVerifier::new(32)))
+            .borrow_mut();
+
+        stmt(verifier.deref_mut())
     }
 }
