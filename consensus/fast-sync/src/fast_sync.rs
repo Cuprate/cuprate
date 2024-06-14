@@ -1,5 +1,4 @@
 use std::{
-    boxed::Box,
     cmp,
     collections::HashMap,
     future::Future,
@@ -19,10 +18,7 @@ use cuprate_consensus::{
     context::{BlockChainContextRequest, BlockChainContextResponse},
     transactions::TransactionVerificationData,
 };
-use cuprate_consensus_rules::{
-    miner_tx::{check_miner_tx, MinerTxError},
-    ConsensusError,
-};
+use cuprate_consensus_rules::{miner_tx::MinerTxError, ConsensusError};
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::{hash_of_hashes, BlockId, HashOfHashes};
@@ -55,25 +51,27 @@ fn valid_block_ids(block_ids: &[BlockId]) -> Vec<ValidBlockId> {
     block_ids.iter().map(|b| ValidBlockId(*b)).collect()
 }
 
+#[allow(clippy::large_enum_variant)]
 pub enum FastSyncRequest {
     ValidateHashes {
         start_height: u64,
         block_ids: Vec<BlockId>,
     },
     ValidateBlock {
-        block: Box<Block>,
+        block: Block,
         txs: HashMap<[u8; 32], Transaction>,
         token: ValidBlockId,
     },
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, PartialEq)]
 pub enum FastSyncResponse {
     ValidateHashes {
         validated_hashes: Vec<ValidBlockId>,
         unknown_hashes: Vec<BlockId>,
     },
-    ValidateBlock(Box<VerifiedBlockInformation>),
+    ValidateBlock(VerifiedBlockInformation),
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]
@@ -92,6 +90,12 @@ pub enum FastSyncError {
 
     #[error("Start height too high for fast sync")]
     OutOfRange,
+
+    #[error("Block does not have the expected height entry")]
+    BlockHeightMismatch,
+
+    #[error("Block does not contain the expected transaction list")]
+    TxsIncludedWithBlockIncorrect,
 
     #[error(transparent)]
     Consensus(#[from] ConsensusError),
@@ -209,8 +213,8 @@ async fn validate_hashes(
 
 async fn validate_block<C>(
     mut context_svc: C,
-    block: Box<Block>,
-    txs: HashMap<[u8; 32], Transaction>,
+    block: Block,
+    mut txs: HashMap<[u8; 32], Transaction>,
     token: ValidBlockId,
 ) -> Result<FastSyncResponse, FastSyncError>
 where
@@ -243,6 +247,9 @@ where
     let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
         return Err(FastSyncError::MinerTx(MinerTxError::InputNotOfTypeGen));
     };
+    if *height != block_chain_ctx.chain_height {
+        return Err(FastSyncError::BlockHeightMismatch);
+    }
 
     let mut verified_txs = Vec::with_capacity(txs.len());
     for tx in &block.txs {
@@ -260,7 +267,7 @@ where
         });
     }
 
-    let total_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
+    let total_fees = verified_txs.iter().map(|tx| tx.fee).sum::<u64>();
     let total_outputs = block
         .miner_tx
         .prefix
@@ -271,23 +278,22 @@ where
 
     let generated_coins = total_outputs - total_fees;
 
-    let weight = block.miner_tx.weight() + txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
+    let weight =
+        block.miner_tx.weight() + verified_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
 
-    Ok(FastSyncResponse::ValidateBlock(Box::new(
-        VerifiedBlockInformation {
-            block: *block.clone(),
-            block_blob,
-            txs,
-            block_hash,
-            pow_hash: [0u8; 32],
-            height: *height,
-            generated_coins,
-            weight,
-            long_term_weight: block_chain_ctx.next_block_long_term_weight(weight),
-            cumulative_difficulty: block_chain_ctx.cumulative_difficulty
-                + block_chain_ctx.next_difficulty,
-        },
-    )))
+    Ok(FastSyncResponse::ValidateBlock(VerifiedBlockInformation {
+        block: block.clone(),
+        block_blob,
+        txs: verified_txs,
+        block_hash,
+        pow_hash: [0u8; 32],
+        height: *height,
+        generated_coins,
+        weight,
+        long_term_weight: block_chain_ctx.next_block_long_term_weight(weight),
+        cumulative_difficulty: block_chain_ctx.cumulative_difficulty
+            + block_chain_ctx.next_difficulty,
+    }))
 }
 
 #[cfg(test)]
