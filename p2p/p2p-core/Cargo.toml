@@ -1,5 +1,5 @@
 [package]
-name = "monero-p2p"
+name = "cuprate-p2p-core"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
@@ -7,12 +7,12 @@ authors = ["Boog900"]
 
 [features]
 default = ["borsh"]
-borsh = ["dep:borsh", "monero-pruning/borsh"]
+borsh = ["dep:borsh", "cuprate-pruning/borsh"]
 
 [dependencies]
 cuprate-helper = { path = "../../helper" }
-monero-wire = { path = "../../net/monero-wire", features = ["tracing"] }
-monero-pruning = { path = "../../pruning" }
+cuprate-wire = { path = "../../net/wire", features = ["tracing"] }
+cuprate-pruning = { path = "../../pruning" }
 
 tokio = { workspace = true, features = ["net", "sync", "macros", "time"]}
 tokio-util = { workspace = true, features = ["codec"] }

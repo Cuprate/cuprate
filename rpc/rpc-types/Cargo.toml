@@ -1,5 +1,5 @@
 [package]
-name        = "monero-rpc-types"
+name        = "cuprate-rpc-types"
 version     = "0.0.0"
 edition     = "2021"
 description = "Monero RPC types"

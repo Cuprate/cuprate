@@ -1,5 +1,5 @@
 [package]
-name        = "json-rpc"
+name        = "cuprate-json-rpc"
 version     = "0.0.0"
 edition     = "2021"
 description = "JSON-RPC 2.0 implementation"

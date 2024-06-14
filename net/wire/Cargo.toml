@@ -1,5 +1,5 @@
 [package]
-name = "monero-wire"
+name = "cuprate-wire"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
@@ -8,12 +8,12 @@ repository = "https://github.com/SyntheticBird45/cuprate/tree/main/net/monero-wi
 
 [features]
 default = []
-tracing = ["levin-cuprate/tracing"]
+tracing = ["cuprate-levin/tracing"]
 
 [dependencies]
-levin-cuprate = {path="../levin"}
-epee-encoding = { path = "../epee-encoding" }
-fixed-bytes = { path = "../fixed-bytes" }
+cuprate-levin = { path = "../levin" }
+cuprate-epee-encoding = { path = "../epee-encoding" }
+cuprate-fixed-bytes = { path = "../fixed-bytes" }
 
 bitflags = { workspace = true, features = ["std"] }
 bytes = { workspace = true, features = ["std"] }

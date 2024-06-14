@@ -28,7 +28,7 @@ cfg-if   = { workspace = true }
 cuprate-helper   = { path = "../../helper", features = ["fs", "thread", "map"] }
 cuprate-types    = { path = "../../types", features = ["blockchain"] }
 curve25519-dalek = { workspace = true }
-monero-pruning   = { path = "../../pruning" }
+cuprate-pruning  = { path = "../../pruning" }
 monero-serai     = { workspace = true, features = ["std"] }
 paste            = { workspace = true }
 page_size        = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
