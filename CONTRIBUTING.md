@@ -30,6 +30,17 @@ After that, ensure all lints, tests, and builds are successful by running:
 - `cargo test --all-features --workspace`
 - `cargo build --all-features --all-targets --workspace`
 
+## Crate names
+All of Cuprate's crates (libraries) are prefixed with `cuprate-`.
+
+All directories containing crates however, are not. For example:
+
+| Crate Directory    | Crate Name         |
+|--------------------|--------------------|
+| `storage/database` | `cuprate-database` |
+| `net/levin`        | `cuprate-levin`    |
+| `net/wire`         | `cuprate-wire`     |
+
 ## Coding guidelines
 
 - `// Comment like this.` and not `//like this`
