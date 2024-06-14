@@ -43,6 +43,10 @@ A-book-protocol:
 - changed-files:
   - any-glob-to-any-file: books/protocol/**
 
+A-book-user:
+- changed-files:
+  - any-glob-to-any-file: books/user/**
+
 # Crate (sub-)directories.
 A-binaries:
 - changed-files:

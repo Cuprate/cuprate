@@ -9,12 +9,11 @@ use monero_serai::{
     transaction::{Input, Transaction},
     H,
 };
-use multiexp::BatchVerifier;
 use rand::thread_rng;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-use crate::{transactions::Rings, try_par_iter, HardFork};
+use crate::{batch_verifier::BatchVerifier, transactions::Rings, try_par_iter, HardFork};
 
 /// This constant contains the IDs of 2 transactions that should be allowed after the fork the ringCT
 /// type they used should be banned.
@@ -91,7 +90,7 @@ fn simple_type_balances(rct_sig: &RctSignatures) -> Result<(), RingCTError> {
 /// <https://monero-book.cuprate.org/consensus_rules/ring_ct/bulletproofs+.html>
 fn check_output_range_proofs(
     rct_sig: &RctSignatures,
-    verifier: &mut BatchVerifier<(), dalek_ff_group::EdwardsPoint>,
+    mut verifier: impl BatchVerifier,
 ) -> Result<(), RingCTError> {
     let commitments = &rct_sig.base.commitments;
 
@@ -109,7 +108,9 @@ fn check_output_range_proofs(
             }),
         RctPrunable::MlsagBulletproofs { bulletproofs, .. }
         | RctPrunable::Clsag { bulletproofs, .. } => {
-            if bulletproofs.batch_verify(&mut thread_rng(), verifier, (), commitments) {
+            if verifier.queue_statement(|verifier| {
+                bulletproofs.batch_verify(&mut thread_rng(), verifier, (), commitments)
+            }) {
                 Ok(())
             } else {
                 Err(RingCTError::BulletproofsRangeInvalid)
@@ -121,7 +122,7 @@ fn check_output_range_proofs(
 pub(crate) fn ring_ct_semantic_checks(
     tx: &Transaction,
     tx_hash: &[u8; 32],
-    verifier: &mut BatchVerifier<(), dalek_ff_group::EdwardsPoint>,
+    verifier: impl BatchVerifier,
     hf: &HardFork,
 ) -> Result<(), RingCTError> {
     let rct_type = tx.rct_signatures.rct_type();

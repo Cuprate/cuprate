@@ -1,11 +1,15 @@
 # Security Policy
 
-## Supported Versions
+## Reporting a vulnerability
+If you have discovered a vulnerability within Cuprate, please do not open a GitHub issue or announce it publicly.
 
-We only support the latest version available as it follows monero specifications and older client is therefore prohibited by the network.
+Please contact us directly by email using our PGP keys in the [`gpg_keys/`](misc/gpg_keys/) directory or via an encrypted Matrix channel.
 
-## Reporting a Vulnerability
+Thanks for being quiet.
 
-If you ever discover a vulnerability, please do not open a github issue. Contact us by mail directly using our pgp keys under the gpg_keys folder in the repository. We're also available on Matrix.
-You can also alert us using the *Report a Vulnerability* feature of Github. Thanks for being quiet. We'll always disclose the vulnerability after patching it and encourage everyone to fetch the
-security update.
+## Contact
+Please disclose vulnerabilities to one of the trusted maintainers below:
+
+| Trusted maintainer | PGP key | Email address | Matrix ID |
+|--------------------|---------|---------------|-----------|
+| [Boog900](https://github.com/Boog900) | [`boog900.asc`](misc/gpg_keys/boog900.asc) | `boog900@tutanota.com` | `@boog900:monero.social`
