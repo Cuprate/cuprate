@@ -48,15 +48,7 @@ macro_rules! define_monero_rpc_struct {
         $( #[$request_type_attr] )*
         #[doc = concat!(
             "",
-            "Definition: [`",
-            stringify!($monero_code_filename),
-            ".",
-            stringify!($monero_code_filename_extension),
-            " @ ",
-            stringify!($monero_code_line_start),
-            "..=",
-            stringify!($monero_code_line_end),
-            "`](",
+            "[Definition](",
             "https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/",
             stringify!($monero_code_filename),
             ".",
@@ -65,14 +57,15 @@ macro_rules! define_monero_rpc_struct {
             stringify!($monero_code_line_start),
             "-L",
             stringify!($monero_code_line_end),
-            "), documentation: [`",
-            stringify!($monero_daemon_rpc_doc_link),
-            "`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
+            "), [documentation](",
+            "https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
             "#",
             stringify!($monero_daemon_rpc_doc_link),
+            "), [response](",
+            stringify!([<$type_name Response>]),
             ")."
         )]
-        pub struct [<Request $type_name>] {
+        pub struct [<$type_name Request>] {
             $(
                 $( #[$request_field_attr] )*
                 pub $request_field: $request_field_type,
@@ -86,15 +79,7 @@ macro_rules! define_monero_rpc_struct {
         $( #[$response_type_attr] )*
         #[doc = concat!(
             "",
-            "Definition: [`",
-            stringify!($monero_code_filename),
-            ".",
-            stringify!($monero_code_filename_extension),
-            " @ ",
-            stringify!($monero_code_line_start),
-            "..=",
-            stringify!($monero_code_line_end),
-            "`](",
+            "[Definition](",
             "https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/",
             stringify!($monero_code_filename),
             ".",
@@ -103,14 +88,15 @@ macro_rules! define_monero_rpc_struct {
             stringify!($monero_code_line_start),
             "-L",
             stringify!($monero_code_line_end),
-            "), documentation: [`",
-            stringify!($monero_daemon_rpc_doc_link),
-            "`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
+            "), [documentation](",
+            "https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
             "#",
             stringify!($monero_daemon_rpc_doc_link),
+            "), [request](",
+            stringify!([<$type_name Request>]),
             ")."
         )]
-        pub struct [<Response $type_name>] {
+        pub struct [<$type_name Response>] {
             $(
                 $( #[$response_field_attr] )*
                 pub $response_field: $response_field_type,

@@ -12,7 +12,7 @@ use strum::{
 ///
 /// This type represents `monerod`'s frequently appearing string field, `status`.
 ///
-/// This field appears within RPC [JSON response](crate::resp::json) types.
+/// This field appears within RPC [JSON response](crate::json) types.
 ///
 /// Reference: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/message.cpp#L40-L44>.
 ///

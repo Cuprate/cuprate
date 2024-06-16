@@ -1,4 +1,4 @@
-//! Binary types.
+//! Binary types from [binary](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blocksbin) endpoints.
 
 //---------------------------------------------------------------------------------------------------- Import
 
