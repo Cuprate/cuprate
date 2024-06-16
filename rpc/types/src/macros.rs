@@ -15,10 +15,94 @@ macro_rules! define_monero_rpc_struct {
         // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
         $monero_daemon_rpc_doc_link:ident,
 
-        // The `$file.$extension` in which this type is defined in the Monero
-        // codebase in the `rpc/` directory, followed by the specific lines.
-        $monero_code_filename:ident.$monero_code_filename_extension:ident =>
-        $monero_code_line_start:literal..=$monero_code_line_end:literal,
+        // The commit hash and  `$file.$extension` in which this type is defined in
+        // the Monero codebase in the `rpc/` directory, followed by the specific lines.
+        $monero_code_commit:ident =>
+        $monero_code_filename:ident.
+        $monero_code_filename_extension:ident =>
+        $monero_code_line_start:literal..=
+        $monero_code_line_end:literal,
+
+        // The actual request `struct` name and any doc comments, derives, etc.
+        $type_name:ident,
+        Request {},
+        // The actual `struct` name and any doc comments, derives, etc.
+        $( #[$response_type_attr:meta] )*
+        Response {
+            // And any fields.
+            $(
+                $( #[$response_field_attr:meta] )*
+                $response_field:ident: $response_field_type:ty,
+            )*
+        }
+    ) => { paste::paste! {
+        #[doc = concat!(
+            "",
+            "[Definition](",
+            "https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/",
+            stringify!($monero_code_filename),
+            ".",
+            stringify!($monero_code_filename_extension),
+            "#L",
+            stringify!($monero_code_line_start),
+            "-L",
+            stringify!($monero_code_line_end),
+            "), [documentation](",
+            "https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
+            "#",
+            stringify!($monero_daemon_rpc_doc_link),
+            "), [response](",
+            stringify!([<$type_name Response>]),
+            ")."
+        )]
+        ///
+        /// This request has no inputs.
+        pub type [<$type_name Request>] = ();
+
+        #[allow(dead_code)]
+        #[allow(missing_docs)]
+        #[derive(serde::Serialize, serde::Deserialize)]
+        #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        $( #[$response_type_attr] )*
+        #[doc = concat!(
+            "",
+            "[Definition](",
+            "https://github.com/monero-project/monero/blob/",
+            stringify!($monero_code_commit),
+            "/src/rpc/",
+            stringify!($monero_code_filename),
+            ".",
+            stringify!($monero_code_filename_extension),
+            "#L",
+            stringify!($monero_code_line_start),
+            "-L",
+            stringify!($monero_code_line_end),
+            "), [documentation](",
+            "https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
+            "#",
+            stringify!($monero_daemon_rpc_doc_link),
+            "), [request](",
+            stringify!([<$type_name Request>]),
+            ")."
+        )]
+        pub struct [<$type_name Response>] {
+            $(
+                $( #[$response_field_attr] )*
+                pub $response_field: $response_field_type,
+            )*
+        }
+    }};
+    (
+        // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
+        $monero_daemon_rpc_doc_link:ident,
+
+        // The commit hash and  `$file.$extension` in which this type is defined in
+        // the Monero codebase in the `rpc/` directory, followed by the specific lines.
+        $monero_code_commit:ident =>
+        $monero_code_filename:ident.
+        $monero_code_filename_extension:ident =>
+        $monero_code_line_start:literal..=
+        $monero_code_line_end:literal,
 
         // The actual request `struct` name and any doc comments, derives, etc.
         $type_name:ident,
@@ -49,7 +133,9 @@ macro_rules! define_monero_rpc_struct {
         #[doc = concat!(
             "",
             "[Definition](",
-            "https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/",
+            "https://github.com/monero-project/monero/blob/",
+            stringify!($monero_code_commit),
+            "/src/rpc/",
             stringify!($monero_code_filename),
             ".",
             stringify!($monero_code_filename_extension),
@@ -80,7 +166,9 @@ macro_rules! define_monero_rpc_struct {
         #[doc = concat!(
             "",
             "[Definition](",
-            "https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/",
+            "https://github.com/monero-project/monero/blob/",
+            stringify!($monero_code_commit),
+            "/src/rpc/",
             stringify!($monero_code_filename),
             ".",
             stringify!($monero_code_filename_extension),

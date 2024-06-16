@@ -8,9 +8,9 @@ use crate::macros::define_monero_rpc_struct;
 //---------------------------------------------------------------------------------------------------- TODO
 define_monero_rpc_struct! {
     save_bc,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 898..=916,
     SaveBc,
-    #[derive(Copy)]
     Request {},
     Response {
         status: crate::Status,

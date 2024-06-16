@@ -9,21 +9,26 @@ use crate::macros::define_monero_rpc_struct;
 define_monero_rpc_struct! {
     // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
     get_block_count,
-    // The `$file.$extension` in which this type is defined in the Monero
-    // codebase in the `rpc/` directory, followed by the specific lines.
-    core_rpc_server_commands_defs.h => 919..=933,
+
+    // The commit hash and `$file.$extension` in which this type is defined in
+    // the Monero codebase in the `rpc/` directory, followed by the specific lines.
+    cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 919..=933,
+
     // The actual type definitions.
     // If there are any additional attributes (`/// docs` or `#[derive]`s)
     // for the struct, they go here, e.g.:
     // #[derive(MyCustomDerive)]
-    GetBlockCount, // <- The type name.
-    #[derive(Copy)]
-    Request /* <- The request type */ {
+    GetBlockCount, // The type name.
+
+    Request /* The request type */ {
         // This request type requires no inputs,
-        // so it is left empty.
+        // so it is left empty. Leaving this empty
+        // will cause the macro to generate a type
+        // alias to `()` instead of a `struct`.
     },
+
     #[derive(Copy)]
-    Response /* <- The response type */ {
+    Response /* The response type */ {
         // Within the `{}` is an infinite matching pattern of:
         // ```
         // $ATTRIBUTES
@@ -39,6 +44,7 @@ define_monero_rpc_struct! {
 
 define_monero_rpc_struct! {
     on_get_block_hash,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 935..=939,
     OnGetBlockHash,
     #[derive(Copy)]
@@ -52,6 +58,7 @@ define_monero_rpc_struct! {
 
 define_monero_rpc_struct! {
     get_block_template,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 943..=994,
     GetBlockTemplate,
     Request {
