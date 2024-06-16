@@ -25,6 +25,7 @@ members = [
 	"rpc/json-rpc",
 	"rpc/monero-rpc-types",
 	"rpc/cuprate-rpc-interface",
+	"benches/cuprate-json-rpc",
 ]
 
 [profile.release]
@@ -85,6 +86,8 @@ tracing-subscriber    = { version = "0.3.17", default-features = false }
 tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
+criterion             = { version = "0.5.1" }
+function_name         = { version = "0.3.0" }
 tempfile              = { version = "3" }
 pretty_assertions     = { version = "1.4.0" }
 proptest              = { version = "1" }
