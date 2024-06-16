@@ -543,6 +543,17 @@ name = "cuprate-rpc-interface"
 version = "0.0.0"
 
 [[package]]
+name = "cuprate-rpc-types"
+version = "0.0.0"
+dependencies = [
+ "monero-serai",
+ "paste",
+ "serde",
+ "serde_json",
+ "strum",
+]
+
+[[package]]
 name = "cuprate-test-utils"
 version = "0.1.0"
 dependencies = [
@@ -1552,17 +1563,6 @@ version = "0.1.0"
 dependencies = [
  "borsh",
  "thiserror",
-]
-
-[[package]]
-name = "monero-rpc-types"
-version = "0.0.0"
-dependencies = [
- "monero-serai",
- "paste",
- "serde",
- "serde_json",
- "strum",
 ]
 
 [[package]]

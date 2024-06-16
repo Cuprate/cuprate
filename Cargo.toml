@@ -19,12 +19,11 @@ members = [
 	"storage/cuprate-txpool",
 	"storage/database",
 	"pruning",
-	"rpc/monero-rpc-types",
 	"test-utils",
 	"types",
 	"rpc/json-rpc",
-	"rpc/monero-rpc-types",
-	"rpc/cuprate-rpc-interface",
+	"rpc/types",
+	"rpc/interface",
 ]
 
 [profile.release]

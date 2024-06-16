@@ -18,7 +18,7 @@ use strum::{
 ///
 /// ## Serialization and string formatting
 /// ```rust
-/// # use monero_rpc_types::*;
+/// # use cuprate_rpc_types::*;
 /// use serde_json::to_string;
 /// use strum::AsRefStr;
 ///

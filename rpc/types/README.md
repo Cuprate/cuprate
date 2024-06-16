@@ -11,7 +11,7 @@ This crate ports the types used in Monero's RPC interface, including:
 This crate's types are split in the following manner:
 
 1. This crate has 3 modules:
-    - The root module (`monero_rpc_types`)
+    - The root module (`cuprate_rpc_types`)
     - [`req`] (request types)
     - [`resp`] (response types)
 1. Miscellaneous types are found in the root module, e.g. [`Status`]
