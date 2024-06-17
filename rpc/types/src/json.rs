@@ -3,10 +3,16 @@
 //! <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/daemon_messages.h>.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::macros::define_monero_rpc_struct;
+use crate::macros::define_request_and_response;
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
-define_monero_rpc_struct! {
+// This generates 2 structs:
+//
+// - `GetBlockCountRequest`
+// - `GetBlockCountResponse`
+//
+// with some interconnected documentation.
+define_request_and_response! {
     // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
     get_block_count,
 
@@ -14,35 +20,36 @@ define_monero_rpc_struct! {
     // the Monero codebase in the `rpc/` directory, followed by the specific lines.
     cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 919..=933,
 
-    // The actual type definitions.
-    // If there are any additional attributes (`/// docs` or `#[derive]`s)
-    // for the struct, they go here, e.g.:
-    // #[derive(MyCustomDerive)]
-    GetBlockCount, // The type name.
+    // The base type name.
+    GetBlockCount,
 
-    Request /* The request type */ {
+    // The request type.
+    Request {
         // This request type requires no inputs,
         // so it is left empty. Leaving this empty
         // will cause the macro to generate a type
         // alias to `()` instead of a `struct`.
     },
 
+    // The response type.
+    //
+    // If there are any additional attributes (`/// docs` or `#[derive]`s)
+    // for the struct, they go here, e.g.:
     #[derive(Copy)]
-    Response /* The response type */ {
+    Response {
         // Within the `{}` is an infinite matching pattern of:
         // ```
         // $ATTRIBUTES
         // $FIELD_NAME: $FIELD_TYPE,
         // ```
         // The struct generated and all fields are `pub`.
-
         count: u64,
         status: crate::Status,
         untrusted: bool,
     }
 }
 
-define_monero_rpc_struct! {
+define_request_and_response! {
     on_get_block_hash,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 935..=939,
@@ -56,7 +63,7 @@ define_monero_rpc_struct! {
     }
 }
 
-define_monero_rpc_struct! {
+define_request_and_response! {
     get_block_template,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 943..=994,

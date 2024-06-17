@@ -1,16 +1,46 @@
 //! Macros.
-//!
-//! These generate repetitive documentation, tests, etc.
 
 //---------------------------------------------------------------------------------------------------- Struct definition
-/// A template for generating a `struct` with a bunch of information filled out.
+/// A template for generating 2 `struct`s with a bunch of information filled out.
+///
+/// These are the RPC request and response `struct`s.
 ///
 /// It's best to see the output of this macro via the documentation
 /// of the generated structs via `cargo doc`s to see which parts
 /// generate which docs.
 ///
-/// See [`crate::json::GetHeight`] for example usage.
-macro_rules! define_monero_rpc_struct {
+/// See the [`crate::json`] module for example usage.
+///
+/// # Macro internals
+/// This macro has 2 branches with almost the same output:
+/// 1. An empty `Request` type
+/// 2. An `Request` type with fields
+///
+/// The first branch is the same as the second with the exception
+/// that if the caller of this macro provides no fields, it will
+/// generate:
+/// ```
+/// pub type Request = ();
+/// ```
+/// instead of:
+/// ```
+/// pub struct Request {/* fields */}
+/// ```
+///
+/// This is because having a bunch of types that are all empty structs
+/// means they are not compatible and it makes it cumbersome for end-users.
+/// Really, they semantically are empty types, so `()` is used.
+///
+/// Again, other than this, the 2 branches do (should) not differ.
+///
+/// FIXME: there's probably a less painful way to branch here on input
+/// without having to duplicate 80% of the macro. Sub-macros were attempted
+/// but they ended up unreadable. So for now, make sure to fix the other
+/// branch as well when making changes. The only de-duplicated part is
+/// the doc generation with [`define_request_and_response_doc`].
+macro_rules! define_request_and_response {
+    //------------------------------------------------------------------------------
+    // This version of the macro expects a `Request` type with no fields, i.e. `Request {}`.
     (
         // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
         $monero_daemon_rpc_doc_link:ident,
@@ -23,10 +53,13 @@ macro_rules! define_monero_rpc_struct {
         $monero_code_line_start:literal..=
         $monero_code_line_end:literal,
 
-        // The actual request `struct` name and any doc comments, derives, etc.
+        // The base `struct` name.
         $type_name:ident,
+
+        // The empty unit request type.
         Request {},
-        // The actual `struct` name and any doc comments, derives, etc.
+
+        // The response type (and any doc comments, derives, etc).
         $( #[$response_type_attr:meta] )*
         Response {
             // And any fields.
@@ -36,24 +69,15 @@ macro_rules! define_monero_rpc_struct {
             )*
         }
     ) => { paste::paste! {
-        #[doc = concat!(
-            "",
-            "[Definition](",
-            "https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/",
-            stringify!($monero_code_filename),
-            ".",
-            stringify!($monero_code_filename_extension),
-            "#L",
-            stringify!($monero_code_line_start),
-            "-L",
-            stringify!($monero_code_line_end),
-            "), [documentation](",
-            "https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
-            "#",
-            stringify!($monero_daemon_rpc_doc_link),
-            "), [response](",
-            stringify!([<$type_name Response>]),
-            ")."
+        #[doc = $crate::macros::define_request_and_response_doc!(
+            "response",
+            $monero_daemon_rpc_doc_link,
+            $monero_code_commit,
+            $monero_code_filename,
+            $monero_code_filename_extension,
+            $monero_code_line_start,
+            $monero_code_line_end,
+            [<$type_name Request>],
         )]
         ///
         /// This request has no inputs.
@@ -64,26 +88,15 @@ macro_rules! define_monero_rpc_struct {
         #[derive(serde::Serialize, serde::Deserialize)]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$response_type_attr] )*
-        #[doc = concat!(
-            "",
-            "[Definition](",
-            "https://github.com/monero-project/monero/blob/",
-            stringify!($monero_code_commit),
-            "/src/rpc/",
-            stringify!($monero_code_filename),
-            ".",
-            stringify!($monero_code_filename_extension),
-            "#L",
-            stringify!($monero_code_line_start),
-            "-L",
-            stringify!($monero_code_line_end),
-            "), [documentation](",
-            "https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
-            "#",
-            stringify!($monero_daemon_rpc_doc_link),
-            "), [request](",
-            stringify!([<$type_name Request>]),
-            ")."
+        #[doc = $crate::macros::define_request_and_response_doc!(
+            "request",
+            $monero_daemon_rpc_doc_link,
+            $monero_code_commit,
+            $monero_code_filename,
+            $monero_code_filename_extension,
+            $monero_code_line_start,
+            $monero_code_line_end,
+            [<$type_name Response>],
         )]
         pub struct [<$type_name Response>] {
             $(
@@ -92,6 +105,9 @@ macro_rules! define_monero_rpc_struct {
             )*
         }
     }};
+
+    //------------------------------------------------------------------------------
+    // This version of the macro expects a `Request` type with fields.
     (
         // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
         $monero_daemon_rpc_doc_link:ident,
@@ -104,8 +120,10 @@ macro_rules! define_monero_rpc_struct {
         $monero_code_line_start:literal..=
         $monero_code_line_end:literal,
 
-        // The actual request `struct` name and any doc comments, derives, etc.
+        // The base `struct` name.
         $type_name:ident,
+
+        // The request type (and any doc comments, derives, etc).
         $( #[$request_type_attr:meta] )*
         Request {
             // And any fields.
@@ -115,7 +133,7 @@ macro_rules! define_monero_rpc_struct {
             )*
         },
 
-        // The actual `struct` name and any doc comments, derives, etc.
+        // The response type (and any doc comments, derives, etc).
         $( #[$response_type_attr:meta] )*
         Response {
             // And any fields.
@@ -130,26 +148,15 @@ macro_rules! define_monero_rpc_struct {
         #[derive(serde::Serialize, serde::Deserialize)]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$request_type_attr] )*
-        #[doc = concat!(
-            "",
-            "[Definition](",
-            "https://github.com/monero-project/monero/blob/",
-            stringify!($monero_code_commit),
-            "/src/rpc/",
-            stringify!($monero_code_filename),
-            ".",
-            stringify!($monero_code_filename_extension),
-            "#L",
-            stringify!($monero_code_line_start),
-            "-L",
-            stringify!($monero_code_line_end),
-            "), [documentation](",
-            "https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
-            "#",
-            stringify!($monero_daemon_rpc_doc_link),
-            "), [response](",
-            stringify!([<$type_name Response>]),
-            ")."
+        #[doc = $crate::macros::define_request_and_response_doc!(
+            "response",
+            $monero_daemon_rpc_doc_link,
+            $monero_code_commit,
+            $monero_code_filename,
+            $monero_code_filename_extension,
+            $monero_code_line_start,
+            $monero_code_line_end,
+            [<$type_name Request>],
         )]
         pub struct [<$type_name Request>] {
             $(
@@ -163,7 +170,51 @@ macro_rules! define_monero_rpc_struct {
         #[derive(serde::Serialize, serde::Deserialize)]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$response_type_attr] )*
-        #[doc = concat!(
+        #[doc = $crate::macros::define_request_and_response_doc!(
+            "request",
+            $monero_daemon_rpc_doc_link,
+            $monero_code_commit,
+            $monero_code_filename,
+            $monero_code_filename_extension,
+            $monero_code_line_start,
+            $monero_code_line_end,
+            [<$type_name Response>],
+        )]
+        pub struct [<$type_name Response>] {
+            $(
+                $( #[$response_field_attr] )*
+                pub $response_field: $response_field_type,
+            )*
+        }
+    }};
+}
+pub(crate) use define_request_and_response;
+
+/// Generate documentation for the types generated
+/// by the [`define_request_and_response`] macro.
+///
+/// See it for more info on inputs.
+macro_rules! define_request_and_response_doc {
+    (
+        // This labels the last `[request]` or `[response]`
+        // hyperlink in documentation. Input is either:
+        // - "request"
+        // - "response"
+        //
+        // Remember this is linking to the _other_ type,
+        // so if defining a `Request` type, input should
+        // be "response".
+        $request_or_response:literal,
+
+        $monero_daemon_rpc_doc_link:ident,
+        $monero_code_commit:ident,
+        $monero_code_filename:ident,
+        $monero_code_filename_extension:ident,
+        $monero_code_line_start:literal,
+        $monero_code_line_end:literal,
+        $type_name:ident,
+    ) => {
+        concat!(
             "",
             "[Definition](",
             "https://github.com/monero-project/monero/blob/",
@@ -180,18 +231,12 @@ macro_rules! define_monero_rpc_struct {
             "https://www.getmonero.org/resources/developer-guides/daemon-rpc.html",
             "#",
             stringify!($monero_daemon_rpc_doc_link),
-            "), [request](",
-            stringify!([<$type_name Request>]),
+            "), [",
+            $request_or_response,
+            "](",
+            stringify!($type_name),
             ")."
-        )]
-        pub struct [<$type_name Response>] {
-            $(
-                $( #[$response_field_attr] )*
-                pub $response_field: $response_field_type,
-            )*
-        }
-    }};
+        )
+    };
 }
-pub(crate) use define_monero_rpc_struct;
-
-//---------------------------------------------------------------------------------------------------- Documentation macros
+pub(crate) use define_request_and_response_doc;

@@ -3,10 +3,10 @@
 //! <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/daemon_messages.h>.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::macros::define_monero_rpc_struct;
+use crate::macros::define_request_and_response;
 
 //---------------------------------------------------------------------------------------------------- TODO
-define_monero_rpc_struct! {
+define_request_and_response! {
     save_bc,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 898..=916,
