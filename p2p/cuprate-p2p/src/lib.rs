@@ -49,6 +49,7 @@ pub async fn initialize_network<N, R, CS>(
 ) -> Result<NetworkInterface<N>, tower::BoxError>
 where
     N: NetworkZone,
+    N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
     R: PeerRequestHandler + Clone,
     CS: CoreSyncSvc + Clone,
 {

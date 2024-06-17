@@ -1,22 +1,29 @@
+use std::{
+    future::{ready, Ready},
+    marker::PhantomData,
+    task::{Context, Poll},
+};
+
 use futures::{stream, Stream};
-use std::future::{ready, Ready};
-use std::marker::PhantomData;
-use std::task::{Context, Poll};
 use tower::Service;
 use tracing::Span;
 
 use monero_wire::{BasicNodeData, CoreSyncData};
 
-use crate::client::{handshaker::HandShaker, InternalPeerID};
-use crate::services::{
-    AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
-    PeerSyncRequest, PeerSyncResponse,
-};
 use crate::{
+    client::{handshaker::HandShaker, InternalPeerID},
+    services::{
+        AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
+        PeerSyncRequest, PeerSyncResponse,
+    },
     AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerRequest, PeerRequestHandler,
     PeerResponse, PeerSyncSvc,
 };
 
+/// A [`HandShaker`] [`Service`] builder.
+///
+///
+///
 #[derive(Debug, Clone)]
 pub struct HandshakerBuilder<
     N: NetworkZone,

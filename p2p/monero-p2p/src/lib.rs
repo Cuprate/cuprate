@@ -39,43 +39,10 @@ pub enum ConnectionDirection {
     OutBound,
 }
 
-#[cfg(not(feature = "borsh"))]
 pub trait NetZoneAddress:
     TryFrom<NetworkAddress, Error = NetworkAddressIncorrectZone>
     + Into<NetworkAddress>
     + std::fmt::Display
-    + Hash
-    + Eq
-    + Copy
-    + Send
-    + Sync
-    + Unpin
-    + 'static
-{
-    /// Cuprate needs to be able to ban peers by IP addresses and not just by SocketAddr as
-    /// that include the port, to be able to facilitate this network addresses must have a ban ID
-    /// which for hidden services could just be the address it self but for clear net addresses will
-    /// be the IP address.
-    /// TODO: IP zone banning?
-    type BanID: Debug + Hash + Eq + Clone + Copy + Send + 'static;
-
-    /// Changes the port of this address to `port`.
-    fn set_port(&mut self, port: u16);
-
-    fn make_canonical(&mut self);
-
-    fn ban_id(&self) -> Self::BanID;
-
-    fn should_add_to_peer_list(&self) -> bool;
-}
-
-#[cfg(feature = "borsh")]
-pub trait NetZoneAddress:
-    TryFrom<NetworkAddress, Error = NetworkAddressIncorrectZone>
-    + Into<NetworkAddress>
-    + std::fmt::Display
-    + borsh::BorshSerialize
-    + borsh::BorshDeserialize
     + Hash
     + Eq
     + Copy

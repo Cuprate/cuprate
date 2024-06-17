@@ -31,8 +31,7 @@ rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
-
-tracing-subscriber = "0.3.18"
+borsh = { workspace = true, features = ["derive", "std"] }
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }

@@ -13,7 +13,7 @@
 //!
 use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
-use monero_p2p::NetworkZone;
+use monero_p2p::{NetZoneAddress, NetworkZone};
 
 mod book;
 mod peer_list;
@@ -61,7 +61,7 @@ pub enum AddressBookError {
 }
 
 /// Initializes the P2P address book for a specific network zone.
-pub async fn init_address_book<Z: NetworkZone>(
+pub async fn init_address_book<Z: BorshNetworkZone>(
     cfg: AddressBookConfig,
 ) -> Result<book::AddressBook<Z>, std::io::Error> {
     tracing::info!(
@@ -81,4 +81,20 @@ pub async fn init_address_book<Z: NetworkZone>(
     let address_book = book::AddressBook::<Z>::new(cfg, white_list, gray_list, Vec::new());
 
     Ok(address_book)
+}
+
+use sealed::*;
+mod sealed {
+    use super::*;
+
+    pub trait BorshNetworkZone: NetworkZone<Addr = Self::BorshAddr> {
+        type BorshAddr: NetZoneAddress + borsh::BorshDeserialize + borsh::BorshSerialize;
+    }
+
+    impl<T: NetworkZone> BorshNetworkZone for T
+    where
+        T::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
+    {
+        type BorshAddr = T::Addr;
+    }
 }
