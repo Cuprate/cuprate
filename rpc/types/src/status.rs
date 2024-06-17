@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use strum::{
     AsRefStr, Display, EnumCount, EnumIs, EnumIter, EnumMessage, EnumProperty, EnumString,
-    EnumTryAs, FromRepr, IntoStaticStr, VariantArray, VariantNames,
+    FromRepr, IntoStaticStr, VariantNames,
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -22,38 +22,44 @@ use strum::{
 /// use serde_json::to_string;
 /// use strum::AsRefStr;
 ///
+/// let other = Status::Other("hello".into());
+///
 /// assert_eq!(to_string(&Status::Ok).unwrap(),         r#""OK""#);
 /// assert_eq!(to_string(&Status::Retry).unwrap(),      r#""Retry""#);
 /// assert_eq!(to_string(&Status::Failed).unwrap(),     r#""Failed""#);
 /// assert_eq!(to_string(&Status::BadRequest).unwrap(), r#""Invalid request type""#);
 /// assert_eq!(to_string(&Status::BadJson).unwrap(),    r#""Malformed json""#);
+/// assert_eq!(to_string(&other).unwrap(),              r#""hello""#);
 ///
 /// assert_eq!(Status::Ok.as_ref(),         "OK");
 /// assert_eq!(Status::Retry.as_ref(),      "Retry");
 /// assert_eq!(Status::Failed.as_ref(),     "Failed");
 /// assert_eq!(Status::BadRequest.as_ref(), "Invalid request type");
 /// assert_eq!(Status::BadJson.as_ref(),    "Malformed json");
+/// assert_eq!(other.as_ref(),              "Other");
 ///
 /// assert_eq!(format!("{}", Status::Ok),         "OK");
 /// assert_eq!(format!("{}", Status::Retry),      "Retry");
 /// assert_eq!(format!("{}", Status::Failed),     "Failed");
 /// assert_eq!(format!("{}", Status::BadRequest), "Invalid request type");
 /// assert_eq!(format!("{}", Status::BadJson),    "Malformed json");
+/// assert_eq!(format!("{}", other),              "Other");
 ///
 /// assert_eq!(format!("{:?}", Status::Ok),         "Ok");
 /// assert_eq!(format!("{:?}", Status::Retry),      "Retry");
 /// assert_eq!(format!("{:?}", Status::Failed),     "Failed");
 /// assert_eq!(format!("{:?}", Status::BadRequest), "BadRequest");
 /// assert_eq!(format!("{:?}", Status::BadJson),    "BadJson");
+/// assert_eq!(format!("{:?}", other),              "Other(\"hello\")");
 ///
 /// assert_eq!(format!("{:#?}", Status::Ok),         "Ok");
 /// assert_eq!(format!("{:#?}", Status::Retry),      "Retry");
 /// assert_eq!(format!("{:#?}", Status::Failed),     "Failed");
 /// assert_eq!(format!("{:#?}", Status::BadRequest), "BadRequest");
 /// assert_eq!(format!("{:#?}", Status::BadJson),    "BadJson");
+/// assert_eq!(format!("{:#?}", other),              "Other(\n    \"hello\",\n)");
 /// ```
 #[derive(
-    Copy,
     Clone,
     Debug,
     Default,
@@ -70,10 +76,8 @@ use strum::{
     EnumMessage,
     EnumProperty,
     EnumString,
-    EnumTryAs,
     FromRepr,
     IntoStaticStr,
-    VariantArray,
     VariantNames,
     Serialize,
     Deserialize,
@@ -114,10 +118,13 @@ pub enum Status {
         alias = "malformed JSON"
     )]
     BadJson,
-    // TODO:
-    // This may not be all the string `monerod` uses.
-    // We could use an `Other(String)` here just in case,
-    // otherwise deserialization would fail.
+
+    #[serde(untagged)]
+    /// Some unknown other string.
+    ///
+    /// This exists to act as a catch-all if `monerod` adds
+    /// a string and a Cuprate node hasn't updated yet.
+    Other(String),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

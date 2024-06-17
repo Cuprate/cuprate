@@ -35,7 +35,7 @@ define_request_and_response! {
     //
     // If there are any additional attributes (`/// docs` or `#[derive]`s)
     // for the struct, they go here, e.g.:
-    #[derive(Copy)]
+    // #[derive(Copy)]
     Response {
         // Within the `{}` is an infinite matching pattern of:
         // ```
