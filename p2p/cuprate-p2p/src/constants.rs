@@ -57,7 +57,7 @@ pub(crate) const BLOCK_DOWNLOADER_REQUEST_TIMEOUT: Duration = Duration::from_sec
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions.html#transaction-size>
 pub(crate) const MAX_TRANSACTION_BLOB_SIZE: usize = 1_000_000;
 
-/// The maximum amount of block IDS allowed in a chain entry response.
+/// The maximum amount of block IDs allowed in a chain entry response.
 ///
 /// ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_config.h#L97>
 // TODO: link to the protocol book when this section is added.
@@ -78,5 +78,11 @@ mod tests {
     #[test]
     fn outbound_diffusion_flush_shorter_than_inbound() {
         assert!(DIFFUSION_FLUSH_AVERAGE_SECONDS_OUTBOUND < DIFFUSION_FLUSH_AVERAGE_SECONDS_INBOUND);
+    }
+
+    /// Checks that the ban time increases from short to long.
+    #[test]
+    fn ban_times_sanity_check() {
+        assert!(SHORT_BAN < MEDIUM_BAN && MEDIUM_BAN < LONG_BAN);
     }
 }

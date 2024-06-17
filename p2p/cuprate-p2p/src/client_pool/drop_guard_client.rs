@@ -36,10 +36,6 @@ impl<N: NetworkZone> Drop for ClientPoolDropGuard<N> {
     fn drop(&mut self) {
         let client = self.client.take().unwrap();
 
-        if !client.info.handle.is_closed() {
-            tracing::warn!("peer dropped");
-        }
-
         self.pool.add_client(client);
     }
 }

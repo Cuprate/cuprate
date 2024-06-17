@@ -35,8 +35,12 @@ pub struct BlocksToRetrieve<N: NetworkZone> {
     pub failures: usize,
 }
 
+/// An error returned from the [`ChainTracker`].
+#[derive(Debug, Clone)]
 pub enum ChainTrackerError {
+    /// The new chain entry is invalid.
     NewEntryIsInvalid,
+    /// The new chain entry does not follow from the top of our chain tracker.
     NewEntryDoesNotFollowChain,
 }
 
@@ -155,8 +159,7 @@ impl<N: NetworkZone> ChainTracker<N> {
             usize::try_from(
                 pruning_seed
                     .get_next_pruned_block(self.first_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
-                    // We check the first height is less than CRYPTONOTE_MAX_BLOCK_HEIGHT in response task.
-                    .unwrap()
+                    .expect("We use local values to calculate height which should be below the sanity limit")
                     // Use a big value as a fallback if the seed does no pruning.
                     .unwrap_or(CRYPTONOTE_MAX_BLOCK_HEIGHT)
                     - self.first_height,

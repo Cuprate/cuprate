@@ -17,7 +17,7 @@ use tracing::{instrument, Instrument, Span};
 use monero_p2p::{
     client::Connector,
     client::InternalPeerID,
-    services::{AddressBookRequest, AddressBookResponse},
+    services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
     CoreSyncSvc, NetworkZone, PeerRequestHandler,
 };
 
@@ -35,7 +35,6 @@ pub use broadcast::{BroadcastRequest, BroadcastSvc};
 use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
 use connection_maintainer::MakeConnectionRequest;
-use monero_p2p::services::PeerSyncRequest;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
@@ -161,7 +160,7 @@ pub struct NetworkInterface<N: NetworkZone> {
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
-    /// The peers sync states service.
+    /// The peer's sync states service.
     sync_states_svc: Buffer<sync_states::PeerSyncSvc<N>, PeerSyncRequest<N>>,
     /// Background tasks that will be aborted when this interface is dropped.
     _background_tasks: Arc<JoinSet<()>>,
