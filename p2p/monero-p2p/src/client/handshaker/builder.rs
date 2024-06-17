@@ -353,7 +353,7 @@ impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
     type Future = Ready<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Pending
+        Poll::Ready(Ok(()))
     }
 
     fn call(&mut self, req: AddressBookRequest<N>) -> Self::Future {
