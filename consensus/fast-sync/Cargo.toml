@@ -10,7 +10,7 @@ path = "src/create.rs"
 
 [dependencies]
 clap = { workspace = true, features = ["derive", "std"] }
-cuprate-blockchain = { path = "../../storage/cuprate-blockchain" }
+cuprate-blockchain = { path = "../../storage/blockchain" }
 cuprate-types = { path = "../../types" }
 hex.workspace = true
 hex-literal.workspace = true

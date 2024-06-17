@@ -186,10 +186,11 @@ impl Config {
     /// ```rust
     /// use cuprate_database::{config::*, resize::*, DATABASE_DATA_FILENAME};
     ///
-    /// let db_directory = tempfile::tempdir().unwrap();
-    /// let config = Config::new(db_directory.path().into());
+    /// let tmp_dir = tempfile::tempdir().unwrap();
+    /// let db_directory = tmp_dir.path().to_owned();
+    /// let config = Config::new(db_directory.clone().into());
     ///
-    /// assert_eq!(config.db_directory(), db_directory.path());
+    /// assert_eq!(*config.db_directory(), db_directory);
     /// assert!(config.db_file().starts_with(db_directory));
     /// assert!(config.db_file().ends_with(DATABASE_DATA_FILENAME));
     /// assert_eq!(config.sync_mode, SyncMode::default());

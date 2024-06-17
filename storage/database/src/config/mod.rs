@@ -20,7 +20,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let db_dir = tempfile::tempdir()?;
 //!
-//! let config = ConfigBuilder::new(db_dir.path().to_path_buf())
+//! let config = ConfigBuilder::new(db_dir.path().to_path_buf().into())
 //!     // Use the fastest sync mode.
 //!     .sync_mode(SyncMode::Fast)
 //!     // Build into `Config`
