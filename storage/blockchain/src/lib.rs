@@ -121,6 +121,8 @@ pub mod ops;
 pub mod tables;
 pub mod types;
 
+pub use cuprate_database;
+
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]
 pub mod service;

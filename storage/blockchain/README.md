@@ -19,6 +19,14 @@ or at the very least the [`ops`] module instead of interacting with the `cuprate
 # `cuprate_database`
 Consider reading `cuprate_database`'s crate documentation before this crate, as it is the first layer.
 
+If/when this crate needs is used, be sure to use the version that this crate re-exports, e.g.:
+```rust
+use cuprate_blockchain::{
+    cuprate_database::RuntimeError,
+};
+```
+This ensures the types/traits used from `cuprate_database` are the same ones used by `cuprate_blockchain` internally.
+
 # Feature flags
 The `service` module requires the `service` feature to be enabled.
 See the module for more documentation.
@@ -52,13 +60,12 @@ For examples of the higher-level APIs, see:
 - [`service`]
 
 ```rust
-use cuprate_database::{
-    ConcreteEnv,
-    Env, EnvInner,
-    DatabaseRo, DatabaseRw, TxRo, TxRw,
-};
-
 use cuprate_blockchain::{
+    cuprate_database::{
+        ConcreteEnv,
+        Env, EnvInner,
+        DatabaseRo, DatabaseRw, TxRo, TxRw,
+    },
     config::ConfigBuilder,
     tables::{Tables, TablesMut},
 	OpenTables,

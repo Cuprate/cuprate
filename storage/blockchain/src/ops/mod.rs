@@ -55,13 +55,12 @@
 //! use hex_literal::hex;
 //!
 //! use cuprate_test_utils::data::block_v16_tx0;
-//! use cuprate_database::{
-//!     ConcreteEnv,
-//!     Env, EnvInner,
-//!     DatabaseRo, DatabaseRw, TxRo, TxRw,
-//! };
-//!
 //! use cuprate_blockchain::{
+//!     cuprate_database::{
+//!         ConcreteEnv,
+//!         Env, EnvInner,
+//!         DatabaseRo, DatabaseRw, TxRo, TxRw,
+//!     },
 //!     OpenTables,
 //!     config::ConfigBuilder,
 //!     tables::{Tables, TablesMut},

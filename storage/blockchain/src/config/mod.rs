@@ -14,9 +14,10 @@
 //!
 //! # Example
 //! ```rust
-//! use cuprate_database::{Env, config::SyncMode};
-//!
-//! use cuprate_blockchain::config::{ConfigBuilder, ReaderThreads};
+//! use cuprate_blockchain::{
+//!     cuprate_database::{Env, config::SyncMode},
+//!     config::{ConfigBuilder, ReaderThreads},
+//! };
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let tmp_dir = tempfile::tempdir()?;

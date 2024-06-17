@@ -65,9 +65,11 @@
 //!
 //! use cuprate_types::blockchain::{BCReadRequest, BCWriteRequest, BCResponse};
 //! use cuprate_test_utils::data::block_v16_tx0;
-//! use cuprate_database::Env;
 //!
-//! use cuprate_blockchain::config::ConfigBuilder;
+//! use cuprate_blockchain::{
+//!     cuprate_database::Env,
+//!     config::ConfigBuilder,
+//! };
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
