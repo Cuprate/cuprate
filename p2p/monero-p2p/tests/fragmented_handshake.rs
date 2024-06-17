@@ -24,7 +24,10 @@ use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
 use monero_p2p::{
-    client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
+    client::{
+        handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
+        InternalPeerID,
+    },
     network_zones::ClearNetServerCfg,
     ConnectionDirection, NetworkZone,
 };
@@ -35,9 +38,6 @@ use monero_wire::{
 };
 
 use cuprate_test_utils::monerod::monerod;
-
-mod utils;
-use utils::*;
 
 /// A network zone equal to clear net where every message sent is turned into a fragmented message.
 /// Does not support sending fragmented or dummy messages manually.
@@ -149,14 +149,7 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<FragNet, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data,
-    );
+    let handshaker = HandshakerBuilder::<FragNet>::new(our_basic_node_data).build();
 
     let mut connector = Connector::new(handshaker);
 
@@ -186,14 +179,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandShaker::<FragNet, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data,
-    );
+    let mut handshaker = HandshakerBuilder::<FragNet>::new(our_basic_node_data).build();
 
     let ip = "127.0.0.1".parse().unwrap();
 

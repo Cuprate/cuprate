@@ -4,8 +4,6 @@
 //! to complete a handshake with them.
 //!
 //! This module also contains a [`ping`] function that can be used to check if an address is reachable.
-mod builder;
-
 use std::{
     future::Future,
     marker::PhantomData,
@@ -47,6 +45,9 @@ use crate::{
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
     PeerRequestHandler, PeerSyncSvc, SharedError,
 };
+
+pub mod builder;
+pub use builder::HandshakerBuilder;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HandshakeError {
@@ -102,6 +103,8 @@ pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrm
     /// A function that returns a stream that will give items to be broadcast by a connection.
     broadcast_stream_maker: BrdcstStrmMkr,
 
+    connection_parent_span: Span,
+
     /// The network zone.
     _zone: PhantomData<Z>,
 }
@@ -110,14 +113,14 @@ impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
     HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
 {
     /// Creates a new handshaker.
-    pub fn new(
+    fn new(
         address_book: AdrBook,
         peer_sync_svc: PSync,
         core_sync_svc: CSync,
         peer_request_svc: ReqHdlr,
         broadcast_stream_maker: BrdcstStrmMkr,
-
         our_basic_node_data: BasicNodeData,
+        connection_parent_span: Span,
     ) -> Self {
         Self {
             address_book,
@@ -126,6 +129,7 @@ impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
             peer_request_svc,
             broadcast_stream_maker,
             our_basic_node_data,
+            connection_parent_span,
             _zone: PhantomData,
         }
     }
@@ -159,7 +163,9 @@ where
         let peer_sync_svc = self.peer_sync_svc.clone();
         let our_basic_node_data = self.our_basic_node_data.clone();
 
-        let span = info_span!(parent: &tracing::Span::current(), "handshaker", addr=%req.addr);
+        let connection_parent_span = self.connection_parent_span.clone();
+
+        let span = info_span!(parent: &Span::current(), "handshaker", addr=%req.addr);
 
         async move {
             timeout(
@@ -172,6 +178,7 @@ where
                     peer_sync_svc,
                     peer_request_svc,
                     our_basic_node_data,
+                    connection_parent_span,
                 ),
             )
             .await?
@@ -232,6 +239,7 @@ async fn handshake<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr
     mut peer_sync_svc: PSync,
     peer_request_svc: ReqHdlr,
     our_basic_node_data: BasicNodeData,
+    connection_parent_span: Span,
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z>,
@@ -440,7 +448,8 @@ where
         error_slot.clone(),
     );
 
-    let connection_span = tracing::error_span!(parent: &tracing::Span::none(), "connection", %addr);
+    let connection_span =
+        tracing::error_span!(parent: &connection_parent_span, "connection", %addr);
     let connection_handle = tokio::spawn(
         connection
             .run(peer_stream.fuse(), eager_protocol_messages)

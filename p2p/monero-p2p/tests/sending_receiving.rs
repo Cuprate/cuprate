@@ -7,15 +7,12 @@ use cuprate_helper::network::Network;
 use monero_wire::{common::PeerSupportFlags, protocol::GetObjectsRequest, BasicNodeData};
 
 use monero_p2p::{
-    client::{ConnectRequest, Connector, HandShaker},
+    client::{handshaker::HandshakerBuilder, ConnectRequest, Connector},
     network_zones::ClearNet,
     protocol::{PeerRequest, PeerResponse},
 };
 
 use cuprate_test_utils::monerod::monerod;
-
-mod utils;
-use utils::*;
 
 #[tokio::test]
 async fn get_single_block_from_monerod() {
@@ -33,14 +30,7 @@ async fn get_single_block_from_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data,
-    );
+    let handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
 
     let mut connector = Connector::new(handshaker);
 

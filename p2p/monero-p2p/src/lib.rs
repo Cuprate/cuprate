@@ -12,7 +12,7 @@
 //!
 //! TODO
 //!
-use std::{fmt::Debug, future::Future, hash::Hash, pin::Pin};
+use std::{fmt::Debug, future::Future, hash::Hash};
 
 use futures::{Sink, Stream};
 
@@ -206,31 +206,26 @@ pub trait CoreSyncSvc:
         CoreSyncDataRequest,
         Response = CoreSyncDataResponse,
         Error = tower::BoxError,
-        Future = Pin<
-            Box<
-                dyn Future<Output = Result<CoreSyncDataResponse, tower::BoxError>> + Send + 'static,
-            >,
-        >,
+        Future = Self::Future2,
     > + Send
     + 'static
 {
+    // This allows us to put more restrictive bounds on the future without defining the future here
+    // explicitly.
+    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
 }
 
-impl<T> CoreSyncSvc for T where
+impl<T> CoreSyncSvc for T
+where
     T: tower::Service<
             CoreSyncDataRequest,
             Response = CoreSyncDataResponse,
             Error = tower::BoxError,
-            Future = Pin<
-                Box<
-                    dyn Future<Output = Result<CoreSyncDataResponse, tower::BoxError>>
-                        + Send
-                        + 'static,
-                >,
-            >,
         > + Send
-        + 'static
+        + 'static,
+    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
 {
+    type Future2 = T::Future;
 }
 
 pub trait PeerRequestHandler:
@@ -238,23 +233,21 @@ pub trait PeerRequestHandler:
         PeerRequest,
         Response = PeerResponse,
         Error = tower::BoxError,
-        Future = Pin<
-            Box<dyn Future<Output = Result<PeerResponse, tower::BoxError>> + Send + 'static>,
-        >,
+        Future = Self::Future2,
     > + Send
     + 'static
 {
+    // This allows us to put more restrictive bounds on the future without defining the future here
+    // explicitly.
+    type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
 }
 
-impl<T> PeerRequestHandler for T where
-    T: tower::Service<
-            PeerRequest,
-            Response = PeerResponse,
-            Error = tower::BoxError,
-            Future = Pin<
-                Box<dyn Future<Output = Result<PeerResponse, tower::BoxError>> + Send + 'static>,
-            >,
-        > + Send
-        + 'static
+impl<T> PeerRequestHandler for T
+where
+    T: tower::Service<PeerRequest, Response = PeerResponse, Error = tower::BoxError>
+        + Send
+        + 'static,
+    T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
 {
+    type Future2 = T::Future;
 }

@@ -76,23 +76,20 @@ where
         basic_node_data.peer_id = 1;
     }
 
-    let outbound_handshaker = monero_p2p::client::HandShaker::new(
-        address_book.clone(),
-        sync_states_svc.clone(),
-        core_sync_svc.clone(),
-        peer_req_handler.clone(),
-        outbound_mkr,
-        basic_node_data.clone(),
-    );
+    let outbound_handshaker_builder = monero_p2p::client::HandshakerBuilder::new(basic_node_data)
+        .with_address_book(address_book.clone())
+        .with_peer_sync_svc(sync_states_svc)
+        .with_core_sync_svc(core_sync_svc)
+        .with_peer_request_handler(peer_req_handler)
+        .with_broadcast_stream_maker(outbound_mkr)
+        .with_connection_parent_span(Span::current());
 
-    let inbound_handshaker = monero_p2p::client::HandShaker::new(
-        address_book.clone(),
-        sync_states_svc,
-        core_sync_svc.clone(),
-        peer_req_handler,
-        inbound_mkr,
-        basic_node_data,
-    );
+    let inbound_handshaker = outbound_handshaker_builder
+        .clone()
+        .with_broadcast_stream_maker(inbound_mkr)
+        .build();
+
+    let outbound_handshaker = outbound_handshaker_builder.build();
 
     let client_pool = client_pool::ClientPool::new();
 

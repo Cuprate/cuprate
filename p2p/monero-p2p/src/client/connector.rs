@@ -16,7 +16,7 @@ use tokio::sync::OwnedSemaphorePermit;
 use tower::{Service, ServiceExt};
 
 use crate::{
-    client::{Client, DoHandshakeRequest, HandShaker, HandshakeError, InternalPeerID},
+    client::{handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
     AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone,
     PeerRequestHandler, PeerSyncSvc,
 };

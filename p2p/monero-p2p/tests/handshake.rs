@@ -13,7 +13,10 @@ use cuprate_helper::network::Network;
 use monero_wire::{common::PeerSupportFlags, BasicNodeData, MoneroWireCodec};
 
 use monero_p2p::{
-    client::{ConnectRequest, Connector, DoHandshakeRequest, HandShaker, InternalPeerID},
+    client::{
+        handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
+        InternalPeerID,
+    },
     network_zones::{ClearNet, ClearNetServerCfg},
     ConnectionDirection, NetworkZone,
 };
@@ -22,9 +25,6 @@ use cuprate_test_utils::{
     monerod::monerod,
     test_netzone::{TestNetZone, TestNetZoneAddr},
 };
-
-mod utils;
-use utils::*;
 
 #[tokio::test]
 async fn handshake_cuprate_to_cuprate() {
@@ -48,23 +48,11 @@ async fn handshake_cuprate_to_cuprate() {
     let mut our_basic_node_data_2 = our_basic_node_data_1.clone();
     our_basic_node_data_2.peer_id = 2344;
 
-    let mut handshaker_1 = HandShaker::<TestNetZone<true, true, true>, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data_1,
-    );
+    let mut handshaker_1 =
+        HandshakerBuilder::<TestNetZone<true, true, true>>::new(our_basic_node_data_1).build();
 
-    let mut handshaker_2 = HandShaker::<TestNetZone<true, true, true>, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data_2,
-    );
+    let mut handshaker_2 =
+        HandshakerBuilder::<TestNetZone<true, true, true>>::new(our_basic_node_data_2).build();
 
     let (p1, p2) = duplex(50_000);
 
@@ -128,14 +116,7 @@ async fn handshake_cuprate_to_monerod() {
         rpc_credits_per_hash: 0,
     };
 
-    let handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data,
-    );
+    let handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
 
     let mut connector = Connector::new(handshaker);
 
@@ -165,14 +146,7 @@ async fn handshake_monerod_to_cuprate() {
         rpc_credits_per_hash: 0,
     };
 
-    let mut handshaker = HandShaker::<ClearNet, _, _, _, _, _>::new(
-        DummyAddressBook,
-        DummyPeerSyncSvc,
-        DummyCoreSyncSvc,
-        DummyPeerRequestHandlerSvc,
-        |_| futures::stream::pending(),
-        our_basic_node_data,
-    );
+    let mut handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
 
     let ip = "127.0.0.1".parse().unwrap();
 
