@@ -41,6 +41,7 @@ macro_rules! call_fn_on_all_tables_or_early_return {
         ))
     }};
 }
+pub(crate) use call_fn_on_all_tables_or_early_return;
 
 //---------------------------------------------------------------------------------------------------- OpenTables
 /// TODO
@@ -61,6 +62,12 @@ where
     /// # Errors
     /// TODO
     fn open_tables_mut(&'env self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError>;
+
+    /// TODO
+    ///
+    /// # Errors
+    /// TODO
+    fn create_tables(&'env self, tx_rw: &Rw) -> Result<(), RuntimeError>;
 }
 
 impl<'env, Ei, Ro, Rw> OpenTables<'env, Ro, Rw> for Ei
@@ -78,6 +85,15 @@ where
     fn open_tables_mut(&'env self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
         call_fn_on_all_tables_or_early_return! {
             Self::open_db_rw(self, tx_rw)
+        }
+    }
+
+    fn create_tables(&'env self, tx_rw: &Rw) -> Result<(), RuntimeError> {
+        match call_fn_on_all_tables_or_early_return! {
+            Self::create_db(self, tx_rw)
+        } {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 }

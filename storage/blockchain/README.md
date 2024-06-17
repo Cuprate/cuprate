@@ -45,7 +45,7 @@ Failing to uphold these invariants may cause panics.
 # Examples
 The below is an example of using `cuprate_blockchain`
 lowest API, i.e. using a mix of this crate and `cuprate_database`'s traits directly -
-this is not recommended.
+**this is NOT recommended.**
 
 For examples of the higher-level APIs, see:
 - [`ops`]
