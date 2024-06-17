@@ -1,0 +1,27 @@
+[package]
+name = "cuprate-fast-sync"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[[bin]]
+name = "cuprate-fast-sync-create-hashes"
+path = "src/create.rs"
+
+[dependencies]
+clap = { workspace = true, features = ["derive", "std"] }
+cuprate-blockchain = { path = "../../storage/cuprate-blockchain" }
+cuprate-consensus = { path = ".." }
+cuprate-consensus-rules = { path = "../rules" }
+cuprate-types = { path = "../../types" }
+hex.workspace = true
+hex-literal.workspace = true
+monero-serai.workspace = true
+rayon.workspace = true
+sha3 = "0.10.8"
+thiserror.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tower.workspace = true
+
+[dev-dependencies]
+tokio-test = "0.4.4"

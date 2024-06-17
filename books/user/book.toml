@@ -1,0 +1,19 @@
+[book]
+authors = ["hinto-janai"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Cuprate's user book"
+git-repository-url = "https://github.com/Cuprate/user-book"
+
+# TODO: fix after importing real files.
+#
+# [preprocessor.last-changed]
+# command = "mdbook-last-changed"
+# renderer = ["html"]
+#
+# [output.html]
+# default-theme = "ayu"
+# preferred-dark-theme = "ayu"
+# git-repository-url = "https://github.com/hinto-janai/cuprate-user"
+# additional-css = ["last-changed.css"]

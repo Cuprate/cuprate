@@ -7,9 +7,14 @@ license     = "MIT"
 authors     = ["hinto-janai"]
 repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/json-rpc"
 keywords    = ["json", "rpc"]
+categories  = ["encoding"]
 
 [features]
 
 [dependencies]
+serde      = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["std"] }
+thiserror  = { workspace = true }
 
 [dev-dependencies]
+pretty_assertions = { workspace = true }
