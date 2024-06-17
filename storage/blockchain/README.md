@@ -66,13 +66,14 @@ use cuprate_blockchain::{
 
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 // Create a configuration for the database environment.
-let db_dir = tempfile::tempdir()?;
+let tmp_dir = tempfile::tempdir()?;
+let db_dir = tmp_dir.path().to_owned();
 let config = ConfigBuilder::new()
-    .db_directory(db_dir.path().to_path_buf())
+    .db_directory(db_dir.into())
     .build();
 
 // Initialize the database environment.
-let env = ConcreteEnv::open(config)?;
+let env = cuprate_blockchain::open(config)?;
 
 // Open up a transaction + tables for writing.
 let env_inner = env.env_inner();

@@ -77,6 +77,27 @@ impl ConfigBuilder {
         self
     }
 
+    /// Calls [`cuprate_database::config::ConfigBuilder::sync_mode`].
+    #[must_use]
+    pub fn sync_mode(mut self, sync_mode: SyncMode) -> Self {
+        self.db_config = self.db_config.sync_mode(sync_mode);
+        self
+    }
+
+    /// Calls [`cuprate_database::config::ConfigBuilder::resize_algorithm`].
+    #[must_use]
+    pub fn resize_algorithm(mut self, resize_algorithm: ResizeAlgorithm) -> Self {
+        self.db_config = self.db_config.resize_algorithm(resize_algorithm);
+        self
+    }
+
+    /// Set a custom [`ReaderThreads`].
+    #[must_use]
+    pub const fn reader_threads(mut self, reader_threads: ReaderThreads) -> Self {
+        self.reader_threads = Some(reader_threads);
+        self
+    }
+
     /// Tune the [`ConfigBuilder`] for the highest performing,
     /// but also most resource-intensive & maybe risky settings.
     ///
@@ -85,8 +106,7 @@ impl ConfigBuilder {
     pub fn fast(mut self) -> Self {
         self.db_config =
             cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_blockchain_dir()))
-                .sync_mode(SyncMode::Fast)
-                .resize_algorithm(ResizeAlgorithm::default());
+                .fast();
 
         self.reader_threads = Some(ReaderThreads::OnePerThread);
         self
@@ -100,17 +120,9 @@ impl ConfigBuilder {
     pub fn low_power(mut self) -> Self {
         self.db_config =
             cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_blockchain_dir()))
-                .sync_mode(SyncMode::default())
-                .resize_algorithm(ResizeAlgorithm::default());
+                .low_power();
 
         self.reader_threads = Some(ReaderThreads::One);
-        self
-    }
-
-    /// Set a custom [`ReaderThreads`].
-    #[must_use]
-    pub const fn reader_threads(mut self, reader_threads: ReaderThreads) -> Self {
-        self.reader_threads = Some(reader_threads);
         self
     }
 }
@@ -155,17 +167,23 @@ impl Config {
     /// Same as [`Config::default`].
     ///
     /// ```rust
-    /// use cuprate_blockchain::{config::*, resize::*, DATABASE_DATA_FILENAME};
+    /// use cuprate_database::{
+    ///     config::SyncMode,
+    ///     resize::ResizeAlgorithm,
+    ///     DATABASE_DATA_FILENAME,
+    /// };
     /// use cuprate_helper::fs::*;
+    ///
+    /// use cuprate_blockchain::config::*;
     ///
     /// let config = Config::new();
     ///
-    /// assert_eq!(config.db_directory(), cuprate_blockchain_dir());
-    /// assert!(config.db_file().starts_with(cuprate_blockchain_dir()));
-    /// assert!(config.db_file().ends_with(DATABASE_DATA_FILENAME));
-    /// assert_eq!(config.sync_mode, SyncMode::default());
+    /// assert_eq!(config.db_config.db_directory(), cuprate_blockchain_dir());
+    /// assert!(config.db_config.db_file().starts_with(cuprate_blockchain_dir()));
+    /// assert!(config.db_config.db_file().ends_with(DATABASE_DATA_FILENAME));
+    /// assert_eq!(config.db_config.sync_mode, SyncMode::default());
+    /// assert_eq!(config.db_config.resize_algorithm, ResizeAlgorithm::default());
     /// assert_eq!(config.reader_threads, ReaderThreads::default());
-    /// assert_eq!(config.resize_algorithm, ResizeAlgorithm::default());
     /// ```
     pub fn new() -> Self {
         ConfigBuilder::default().build()

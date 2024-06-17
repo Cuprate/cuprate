@@ -65,15 +65,17 @@
 //!
 //! use cuprate_types::blockchain::{BCReadRequest, BCWriteRequest, BCResponse};
 //! use cuprate_test_utils::data::block_v16_tx0;
+//! use cuprate_database::Env;
 //!
-//! use cuprate_blockchain::{ConcreteEnv, config::ConfigBuilder, Env};
+//! use cuprate_blockchain::config::ConfigBuilder;
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
-//! let db_dir = tempfile::tempdir()?;
+//! let tmp_dir = tempfile::tempdir()?;
+//! let db_dir = tmp_dir.path().to_owned();
 //! let config = ConfigBuilder::new()
-//!     .db_directory(db_dir.path().to_path_buf())
+//!     .db_directory(db_dir.into())
 //!     .build();
 //!
 //! // Initialize the database thread-pool.

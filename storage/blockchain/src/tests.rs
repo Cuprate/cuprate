@@ -72,7 +72,7 @@ pub(crate) fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
         .db_directory(Cow::Owned(tempdir.path().into()))
         .low_power()
         .build();
-    let env = ConcreteEnv::open(config.db_config).unwrap();
+    let env = crate::open(config).unwrap();
 
     (env, tempdir)
 }

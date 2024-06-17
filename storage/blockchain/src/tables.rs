@@ -292,6 +292,7 @@ macro_rules! tables {
             /// ## Table Name
             /// ```rust
             /// # use cuprate_blockchain::{*,tables::*};
+            /// use cuprate_database::Table;
             #[doc = concat!(
                 "assert_eq!(",
                 stringify!([<$table:camel>]),

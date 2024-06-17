@@ -10,6 +10,8 @@ use crate::{config::Config, open_tables::OpenTables};
 ///
 /// # Errors
 /// TODO
+#[cold]
+#[inline(never)] // only called once
 pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
     // Attempt to open the database environment.
     let env = <ConcreteEnv as Env>::open(config.db_config)?;

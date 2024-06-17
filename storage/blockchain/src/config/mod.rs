@@ -14,17 +14,17 @@
 //!
 //! # Example
 //! ```rust
-//! use cuprate_blockchain::{
-//!     Env,
-//!     config::{ConfigBuilder, ReaderThreads, SyncMode}
-//! };
+//! use cuprate_database::{Env, config::SyncMode};
+//!
+//! use cuprate_blockchain::config::{ConfigBuilder, ReaderThreads};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let db_dir = tempfile::tempdir()?;
+//! let tmp_dir = tempfile::tempdir()?;
+//! let db_dir = tmp_dir.path().to_owned();
 //!
 //! let config = ConfigBuilder::new()
 //!      // Use a custom database directory.
-//!     .db_directory(db_dir.path().to_path_buf())
+//!     .db_directory(db_dir.into())
 //!     // Use as many reader threads as possible (when using `service`).
 //!     .reader_threads(ReaderThreads::OnePerThread)
 //!     // Use the fastest sync mode.
@@ -35,7 +35,7 @@
 //! // Start a database `service` using this configuration.
 //! let (reader_handle, _) = cuprate_blockchain::service::init(config.clone())?;
 //! // It's using the config we provided.
-//! assert_eq!(reader_handle.env().config(), &config);
+//! assert_eq!(reader_handle.env().config(), &config.db_config);
 //! # Ok(()) }
 //! ```
 
