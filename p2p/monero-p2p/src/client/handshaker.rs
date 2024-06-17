@@ -4,6 +4,8 @@
 //! to complete a handshake with them.
 //!
 //! This module also contains a [`ping`] function that can be used to check if an address is reachable.
+mod builder;
+
 use std::{
     future::Future,
     marker::PhantomData,
@@ -18,7 +20,7 @@ use tokio::{
     time::{error::Elapsed, timeout},
 };
 use tower::{Service, ServiceExt};
-use tracing::{info_span, Instrument};
+use tracing::{info_span, Instrument, Span};
 
 use monero_pruning::{PruningError, PruningSeed};
 use monero_wire::{
