@@ -17,8 +17,7 @@ use monero_p2p::{
         handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
         InternalPeerID,
     },
-    network_zones::{ClearNet, ClearNetServerCfg},
-    ConnectionDirection, NetworkZone,
+    ClearNet, ClearNetServerCfg, ConnectionDirection, NetworkZone,
 };
 
 use cuprate_test_utils::{
@@ -30,11 +29,6 @@ use cuprate_test_utils::{
 async fn handshake_cuprate_to_cuprate() {
     // Tests a Cuprate <-> Cuprate handshake by making 2 handshake services and making them talk to
     // each other.
-
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit_1 = semaphore.clone().acquire_owned().await.unwrap();
-    let permit_2 = semaphore.acquire_owned().await.unwrap();
-
     let our_basic_node_data_1 = BasicNodeData {
         my_port: 0,
         network_id: Network::Mainnet.network_id(),
@@ -64,7 +58,7 @@ async fn handshake_cuprate_to_cuprate() {
         peer_stream: FramedRead::new(p2_receiver, MoneroWireCodec::default()),
         peer_sink: FramedWrite::new(p2_sender, MoneroWireCodec::default()),
         direction: ConnectionDirection::OutBound,
-        permit: permit_1,
+        permit: None,
     };
 
     let p2_handshake_req = DoHandshakeRequest {
@@ -72,7 +66,7 @@ async fn handshake_cuprate_to_cuprate() {
         peer_stream: FramedRead::new(p1_receiver, MoneroWireCodec::default()),
         peer_sink: FramedWrite::new(p1_sender, MoneroWireCodec::default()),
         direction: ConnectionDirection::InBound,
-        permit: permit_2,
+        permit: None,
     };
 
     let p1 = tokio::spawn(async move {
@@ -102,9 +96,6 @@ async fn handshake_cuprate_to_cuprate() {
 
 #[tokio::test]
 async fn handshake_cuprate_to_monerod() {
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit = semaphore.acquire_owned().await.unwrap();
-
     let monerod = monerod(["--fixed-difficulty=1", "--out-peers=0"]).await;
 
     let our_basic_node_data = BasicNodeData {
@@ -126,7 +117,7 @@ async fn handshake_cuprate_to_monerod() {
         .unwrap()
         .call(ConnectRequest {
             addr: monerod.p2p_addr(),
-            permit,
+            permit: None,
         })
         .await
         .unwrap();
@@ -134,9 +125,6 @@ async fn handshake_cuprate_to_monerod() {
 
 #[tokio::test]
 async fn handshake_monerod_to_cuprate() {
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit = semaphore.acquire_owned().await.unwrap();
-
     let our_basic_node_data = BasicNodeData {
         my_port: 18081,
         network_id: Network::Mainnet.network_id(),
@@ -169,7 +157,7 @@ async fn handshake_monerod_to_cuprate() {
                 peer_stream: stream,
                 peer_sink: sink,
                 direction: ConnectionDirection::InBound,
-                permit,
+                permit: None,
             })
             .await
             .unwrap();

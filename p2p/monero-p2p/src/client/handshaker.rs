@@ -81,8 +81,8 @@ pub struct DoHandshakeRequest<Z: NetworkZone> {
     pub peer_sink: Z::Sink,
     /// The direction of the connection.
     pub direction: ConnectionDirection,
-    /// A permit for this connection.
-    pub permit: OwnedSemaphorePermit,
+    /// An [`Option`]al permit for this connection.
+    pub permit: Option<OwnedSemaphorePermit>,
 }
 
 /// The peer handshaking service.

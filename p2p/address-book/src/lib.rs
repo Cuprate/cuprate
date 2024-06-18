@@ -10,7 +10,6 @@
 //! clear net peers getting linked to their dark counterparts
 //! and so peers will only get told about peers they can
 //! connect to.
-//!
 use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
 use monero_p2p::{NetZoneAddress, NetworkZone};

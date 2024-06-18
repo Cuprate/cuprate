@@ -15,7 +15,7 @@ pub enum PeerSyncRequest<N: NetworkZone> {
         current_cumulative_difficulty: u128,
         block_needed: Option<u64>,
     },
-    /// Add/update a peers core sync data to the sync state service.
+    /// Add/update a peers core sync data.
     IncomingCoreSyncData(InternalPeerID<N::Addr>, ConnectionHandle, CoreSyncData),
 }
 

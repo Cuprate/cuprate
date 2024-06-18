@@ -21,7 +21,6 @@
 //!     Request: NewBlock,                          Response: None,
 //!     Request: NewFluffyBlock,                    Response: None,
 //!     Request: NewTransactions,                   Response: None
-//!
 use monero_wire::{
     admin::{
         HandshakeRequest, HandshakeResponse, PingResponse, SupportFlagsResponse, TimedSyncRequest,

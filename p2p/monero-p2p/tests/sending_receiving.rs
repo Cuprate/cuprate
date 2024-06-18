@@ -8,17 +8,14 @@ use monero_wire::{common::PeerSupportFlags, protocol::GetObjectsRequest, BasicNo
 
 use monero_p2p::{
     client::{handshaker::HandshakerBuilder, ConnectRequest, Connector},
-    network_zones::ClearNet,
     protocol::{PeerRequest, PeerResponse},
+    ClearNet,
 };
 
 use cuprate_test_utils::monerod::monerod;
 
 #[tokio::test]
 async fn get_single_block_from_monerod() {
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit = semaphore.acquire_owned().await.unwrap();
-
     let monerod = monerod(["--out-peers=0"]).await;
 
     let our_basic_node_data = BasicNodeData {
@@ -40,7 +37,7 @@ async fn get_single_block_from_monerod() {
         .unwrap()
         .call(ConnectRequest {
             addr: monerod.p2p_addr(),
-            permit,
+            permit: None,
         })
         .await
         .unwrap();

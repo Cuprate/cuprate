@@ -4,7 +4,6 @@
 //! perform a handshake and create a [`Client`].
 //!
 //! This is where outbound connections are created.
-//!
 use std::{
     future::Future,
     pin::Pin,
@@ -27,7 +26,9 @@ pub struct ConnectRequest<Z: NetworkZone> {
     pub addr: Z::Addr,
     /// A permit which will be held be the connection allowing you to set limits on the number of
     /// connections.
-    pub permit: OwnedSemaphorePermit,
+    ///
+    /// This doesn't have to be set.
+    pub permit: Option<OwnedSemaphorePermit>,
 }
 
 /// The connector service, this service connects to peer and returns the [`Client`].

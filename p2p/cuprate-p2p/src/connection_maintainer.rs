@@ -106,10 +106,6 @@ where
             panic!("No seed nodes available to get peers from");
         }
 
-        // This isn't really needed here to limit connections as the seed nodes will be dropped when we have got
-        // peers from them.
-        let semaphore = Arc::new(Semaphore::new(seeds.len()));
-
         let mut allowed_errors = seeds.len();
 
         let mut handshake_futs = JoinSet::new();
@@ -125,10 +121,7 @@ where
                     .expect("Connector had an error in `poll_ready`")
                     .call(ConnectRequest {
                         addr: *seed,
-                        permit: semaphore
-                            .clone()
-                            .try_acquire_owned()
-                            .expect("This must have enough permits as we just set the amount."),
+                        permit: None,
                     }),
             );
             // Spawn the handshake on a separate task with a timeout, so we don't get stuck connecting to a peer.
@@ -157,7 +150,10 @@ where
             .ready()
             .await
             .expect("Connector had an error in `poll_ready`")
-            .call(ConnectRequest { addr, permit });
+            .call(ConnectRequest {
+                addr,
+                permit: Some(permit),
+            });
 
         tokio::spawn(
             async move {

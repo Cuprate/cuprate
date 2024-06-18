@@ -28,8 +28,7 @@ use monero_p2p::{
         handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
         InternalPeerID,
     },
-    network_zones::ClearNetServerCfg,
-    ConnectionDirection, NetworkZone,
+    ClearNetServerCfg, ConnectionDirection, NetworkZone,
 };
 use monero_wire::{
     common::PeerSupportFlags,
@@ -135,9 +134,6 @@ impl Encoder<LevinMessage<Message>> for FragmentCodec {
 
 #[tokio::test]
 async fn fragmented_handshake_cuprate_to_monerod() {
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit = semaphore.acquire_owned().await.unwrap();
-
     let monerod = monerod(["--fixed-difficulty=1", "--out-peers=0"]).await;
 
     let our_basic_node_data = BasicNodeData {
@@ -159,7 +155,7 @@ async fn fragmented_handshake_cuprate_to_monerod() {
         .unwrap()
         .call(ConnectRequest {
             addr: monerod.p2p_addr(),
-            permit,
+            permit: None,
         })
         .await
         .unwrap();
@@ -167,9 +163,6 @@ async fn fragmented_handshake_cuprate_to_monerod() {
 
 #[tokio::test]
 async fn fragmented_handshake_monerod_to_cuprate() {
-    let semaphore = Arc::new(Semaphore::new(10));
-    let permit = semaphore.acquire_owned().await.unwrap();
-
     let our_basic_node_data = BasicNodeData {
         my_port: 18081,
         network_id: Network::Mainnet.network_id(),
@@ -202,7 +195,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
                 peer_stream: stream,
                 peer_sink: sink,
                 direction: ConnectionDirection::InBound,
-                permit,
+                permit: None,
             })
             .await
             .unwrap();

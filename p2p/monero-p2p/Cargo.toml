@@ -32,4 +32,5 @@ cuprate-test-utils = {path = "../../test-utils"}
 
 hex = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "rt", "macros"]}
+tokio-test = { workspace = true }
 tracing-subscriber = { workspace = true }
