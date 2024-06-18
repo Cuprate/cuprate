@@ -21,7 +21,7 @@ use monero_p2p::{
     CoreSyncSvc, NetworkZone, PeerRequestHandler,
 };
 
-pub mod block_downloader;
+mod block_downloader;
 mod broadcast;
 mod client_pool;
 pub mod config;

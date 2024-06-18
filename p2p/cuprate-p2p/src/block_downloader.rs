@@ -230,7 +230,7 @@ impl Ord for ReadyQueueBatch {
 /// - request the next chain entry
 /// - download an already requested batch of blocks (this might happen due to an error in the previous request
 /// or because the queue of ready blocks is too large, so we need the oldest block to clear it).
-pub struct BlockDownloader<N: NetworkZone, S, C> {
+struct BlockDownloader<N: NetworkZone, S, C> {
     /// The client pool.
     client_pool: Arc<ClientPool<N>>,
 
@@ -1039,7 +1039,7 @@ async fn request_chain_entry_from_peer<N: NetworkZone>(
 ///
 /// We then wait for their response and choose the peer who claims the highest cumulative difficulty.
 #[instrument(level = "error", skip_all)]
-pub async fn initial_chain_search<N: NetworkZone, S, C>(
+async fn initial_chain_search<N: NetworkZone, S, C>(
     client_pool: &Arc<ClientPool<N>>,
     mut peer_sync_svc: S,
     mut our_chain_svc: C,
