@@ -1,9 +1,8 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use futures::StreamExt;
 use tokio::{
     io::{duplex, split},
-    sync::Semaphore,
     time::timeout,
 };
 use tokio_util::codec::{FramedRead, FramedWrite};

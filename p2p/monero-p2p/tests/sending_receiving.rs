@@ -1,6 +1,3 @@
-use std::sync::Arc;
-
-use tokio::sync::Semaphore;
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
