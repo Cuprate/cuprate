@@ -1,4 +1,5 @@
-## Cuprate's protocol book
+## Monero protocol book
+
 This book documents the Monero protocol.
 
 See:
