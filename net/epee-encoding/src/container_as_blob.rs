@@ -1,3 +1,5 @@
+use alloc::{string::ToString, vec, vec::Vec};
+
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use ref_cast::RefCast;
 use sealed::sealed;
@@ -72,7 +74,7 @@ pub trait Containerable {
 macro_rules! int_container_able {
     ($int:ty ) => {
         impl Containerable for $int {
-            const SIZE: usize = std::mem::size_of::<$int>();
+            const SIZE: usize = core::mem::size_of::<$int>();
 
             fn from_bytes(bytes: &[u8]) -> Self {
                 <$int>::from_le_bytes(bytes.try_into().unwrap())

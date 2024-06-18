@@ -1,6 +1,6 @@
-use alloc::{string::String, vec::Vec};
-/// This module contains a `sealed` [`EpeeValue`] trait and different impls for
-/// the different possible base epee values.
+//! This module contains a `sealed` [`EpeeValue`] trait and different impls for
+//! the different possible base epee values.
+use alloc::{string::String, vec, vec::Vec};
 use core::fmt::Debug;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};

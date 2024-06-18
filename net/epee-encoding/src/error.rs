@@ -1,3 +1,4 @@
+use alloc::string::{String, ToString};
 use core::{
     fmt::{Debug, Formatter},
     num::TryFromIntError,

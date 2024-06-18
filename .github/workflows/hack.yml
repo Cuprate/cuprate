@@ -27,5 +27,6 @@ jobs:
 
       - name: Install dependencies
         run: cargo install cargo-hack --locked
-      - name: Deny
-        run: cargo deny check
+      - name: Hack Check
+        # TODO: remove the exclude when `cuprate-blockchain` errors are fixed
+        run: argo hack --workspace --exclude cuprate-blockchain  check --feature-powerset --no-dev-deps
