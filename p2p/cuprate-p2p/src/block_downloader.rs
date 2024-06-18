@@ -1039,7 +1039,7 @@ async fn request_chain_entry_from_peer<N: NetworkZone>(
 ///
 /// We then wait for their response and choose the peer who claims the highest cumulative difficulty.
 #[instrument(level = "error", skip_all)]
-async fn initial_chain_search<N: NetworkZone, S, C>(
+pub async fn initial_chain_search<N: NetworkZone, S, C>(
     client_pool: &Arc<ClientPool<N>>,
     mut peer_sync_svc: S,
     mut our_chain_svc: C,
