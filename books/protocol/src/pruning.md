@@ -138,12 +138,12 @@ uint32_t get_pruning_seed(uint64_t block_height, uint64_t blockchain_height, uin
 }
 ```
 
-This is simple, a call to [`get_pruning_stripe`](#geting-a-blocks-pruning-stripe) and passing that stripe into [`make_pruning_seed`](#generating-pruning-seeds)
+This is simple, a call to [`get_pruning_stripe`](#getting-a-blocks-pruning-stripe) and passing that stripe into [`make_pruning_seed`](#generating-pruning-seeds)
 
 ## Getting The Next UnPruned Block
 
 For a particular seed and block height we can calculate what the height of the next un-pruned block will
-be. The function to fo this in Monero is:
+be. The function to do this in Monero is:
 
 ```c++
 uint64_t get_next_unpruned_block_height(uint64_t block_height, uint64_t blockchain_height, uint32_t pruning_seed)
@@ -305,7 +305,7 @@ the tip blocks we can just return the calculated height. Yay, we are done!
 ## Getting The Next Pruned Block
 
 For a particular seed and block height we can calculate what the height of the next pruned block will
-be. The function to fo this in Monero is:
+be. The function to do this in Monero is:
 
 ```c++
 uint64_t get_next_pruned_block_height(uint64_t block_height, uint64_t blockchain_height, uint32_t pruning_seed)

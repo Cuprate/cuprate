@@ -18,7 +18,7 @@ Support flags specify any protocol extensions the peer supports, currently only 
 
 | Fields                 | Type (Epee Type)                      | Description                                                                              |
 | ---------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `network_id`           | A UUID (String)                       | A fixed constant value for a specifc network (mainnet,testnet,stagenet)                  |
+| `network_id`           | A UUID (String)                       | A fixed constant value for a specific network (mainnet,testnet,stagenet)                  |
 | `my_port`              | u32 (u32)                             | The peers inbound port, if the peer does not want inbound connections this should be `0` |
 | `rpc_port`             | u16 (u16)                             | The peers RPC port, if the peer does not want inbound connections this should be `0`     |
 | `rpc_credits_per_hash` | u32 (u32)                             | TODO                                                                                     |

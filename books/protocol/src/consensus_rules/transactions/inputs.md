@@ -37,7 +37,7 @@ So if this was our transactions:
 | --------- | -- | - | -- |
 | Ring size | 12 | 8 | 16 |
 
-The minium and maximum amount of decoys would be 7 and 15 respectively.
+The minimum and maximum amount of decoys would be 7 and 15 respectively.
 
 ### Mixable And Un-Mixable Inputs
 
