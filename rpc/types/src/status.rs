@@ -7,7 +7,11 @@ use strum::{
     FromRepr, IntoStaticStr, VariantNames,
 };
 
-//---------------------------------------------------------------------------------------------------- TODO
+// TODO(hinto):
+// Do we need `strum`? Are there other types
+// (maybe outside of this crate) that will use it?
+
+//---------------------------------------------------------------------------------------------------- Status
 /// RPC response status.
 ///
 /// This type represents `monerod`'s frequently appearing string field, `status`.
