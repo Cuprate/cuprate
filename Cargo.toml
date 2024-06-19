@@ -25,6 +25,7 @@ members = [
 	"rpc/json-rpc",
 	"rpc/monero-rpc-types",
 	"rpc/cuprate-rpc-interface",
+	"benches/cuprate-benchmark-harness",
 ]
 
 [profile.release]

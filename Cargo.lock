@@ -478,6 +478,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-benchmark-harness"
+version = "0.1.0"
+
+[[package]]
 name = "cuprate-blockchain"
 version = "0.0.0"
 dependencies = [
