@@ -21,6 +21,7 @@ use monero_p2p::{PeerRequest, PeerResponse};
 use monero_wire::admin::TimedSyncResponse;
 use rayon::iter::IntoParallelIterator;
 use rayon::prelude::*;
+use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
@@ -192,9 +193,13 @@ async fn main() {
     .await
     .unwrap();
 
+    let file_appender = RollingFileAppender::new(Rotation::NEVER, "/var/log/cuprate/", "cuprate.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    
     tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
+        .with_max_level(Level::INFO)
         .with_timer(Uptime::default())
+        .with_writer(non_blocking)
         .init();
 
     let config = P2PConfig::<ClearNet> {
