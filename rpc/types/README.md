@@ -46,15 +46,17 @@ TODO: fix doc links when types are ready.
 # Mixed types
 Note that some types within [`other`] mix JSON & binary together, i.e.,
 the message overall is JSON, however some fields contain binary
-values, for example:
+values inside JSON strings, for example:
 
 ```json
 {
   "string": "",
   "float": 30.0,
   "integer": 30,
-  "binary": /* serialized binary */
+  "binary": "<serialized binary>"
 }
 ```
+
+`binary` here is (de)serialized as a normal [`String`]. In order to be clear on which fields contain binary data, the struct fields that have them will use [`crate::data::BinaryString`] instead of [`String`].
 
 TODO: list the specific types.

@@ -95,14 +95,12 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Use
-// Misc types.
+mod macros;
 mod status;
+
 pub use status::Status;
 
-// Internal modules.
-mod macros;
-
-// Request/response JSON/binary/other types.
 pub mod bin;
+pub mod data;
 pub mod json;
 pub mod other;
