@@ -23,7 +23,7 @@ pub(crate) struct ChainEntry<N: NetworkZone> {
 pub struct BlocksToRetrieve<N: NetworkZone> {
     /// The block IDs to get.
     pub ids: ByteArrayVec<32>,
-    /// The expected height of the first block in `ids`.
+    /// The expected height of the first block in [`BlocksToRetrieve::ids`].
     pub start_height: u64,
     /// The peer who told us about this batch.
     pub peer_who_told_us: InternalPeerID<N::Addr>,
@@ -97,6 +97,9 @@ impl<N: NetworkZone> ChainTracker<N> {
     }
 
     /// Returns the total number of queued batches for a certain `batch_size`.
+    ///
+    /// # Panics
+    /// This functions panics if `batch_size` is `0`.
     pub fn block_requests_queued(&self, batch_size: usize) -> usize {
         self.entries
             .iter()
@@ -152,8 +155,10 @@ impl<N: NetworkZone> ChainTracker<N> {
 
         let entry = self.entries.front_mut()?;
 
-        // Calculate the ending index for us to get in this batch, will be the smallest out of `max_blocks`, the length of the batch or
-        // the index of the next pruned block for this seed.
+        // Calculate the ending index for us to get in this batch, it will be one of these:
+        // - smallest out of `max_blocks`
+        // - length of the batch
+        // - index of the next pruned block for this seed
         let end_idx = min(
             min(entry.ids.len(), max_blocks),
             usize::try_from(

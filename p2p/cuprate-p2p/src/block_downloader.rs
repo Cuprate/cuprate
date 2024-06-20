@@ -78,6 +78,7 @@ pub struct BlockDownloaderConfig {
     pub initial_batch_size: usize,
 }
 
+/// An error that occurred in the [`BlockDownloader`].
 #[derive(Debug, thiserror::Error)]
 pub enum BlockDownloadError {
     #[error("A request to a peer timed out.")]
@@ -110,7 +111,7 @@ pub enum ChainSvcRequest {
 
 /// The response type for the chain service.
 pub enum ChainSvcResponse {
-    /// The response for [`ChainSvcRequest::CompactHistory`]
+    /// The response for [`ChainSvcRequest::CompactHistory`].
     CompactHistory {
         /// A list of blocks IDs in our chain, starting with the most recent block, all the way to the genesis block.
         ///
@@ -119,9 +120,12 @@ pub enum ChainSvcResponse {
         /// The current cumulative difficulty of the chain.
         cumulative_difficulty: u128,
     },
-    /// The response for [`ChainSvcRequest::FindFirstUnknown`], contains the index of the first unknown
-    /// block and its expected height.
+    /// The response for [`ChainSvcRequest::FindFirstUnknown`].
+    ///
+    /// Contains the index of the first unknown block and its expected height.
     FindFirstUnknown(usize, u64),
+    /// The response for [`ChainSvcRequest::CumulativeDifficulty`].
+    ///
     /// The current cumulative difficulty of our chain.
     CumulativeDifficulty(u128),
 }
@@ -241,7 +245,7 @@ struct BlockDownloader<N: NetworkZone, S, C> {
 
     /// The amount of blocks to request in the next batch.
     amount_of_blocks_to_request: usize,
-    /// The height at which `amount_of_blocks_to_request` was updated.
+    /// The height at which [`Self::amount_of_blocks_to_request`] was updated.
     amount_of_blocks_to_request_updated_at: u64,
 
     /// The amount of consecutive empty chain entries we received.
@@ -268,10 +272,10 @@ struct BlockDownloader<N: NetworkZone, S, C> {
 
     /// A queue of ready batches.
     ready_batches: BinaryHeap<ReadyQueueBatch>,
-    /// The size, in bytes, of all the batches in `ready_batches`.
+    /// The size, in bytes, of all the batches in [`Self::ready_batches`].
     ready_batches_size: usize,
 
-    /// A queue of start heights from failed batches that should be retried.    
+    /// A queue of start heights from failed batches that should be retried.
     ///
     /// Wrapped in [`Reverse`] so we prioritize early batches.
     failed_batches: BinaryHeap<Reverse<u64>>,
@@ -359,9 +363,10 @@ where
             self.ready_batches_size
         );
 
-        if self.inflight_requests.is_empty() {
-            panic!("We need requests inflight to be able to send the request again");
-        }
+        assert!(
+            !self.inflight_requests.is_empty(),
+            "We need requests inflight to be able to send the request again",
+        );
 
         let oldest_ready_batch = self.ready_batches.peek().unwrap().start_height;
 
