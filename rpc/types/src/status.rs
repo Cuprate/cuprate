@@ -11,6 +11,9 @@ use strum::{
 // Do we need `strum`? Are there other types
 // (maybe outside of this crate) that will use it?
 
+// TODO:
+// These may be JSON-RPC 2.0 messages.
+
 //---------------------------------------------------------------------------------------------------- Status
 /// RPC response status.
 ///

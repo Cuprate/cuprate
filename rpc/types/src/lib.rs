@@ -93,11 +93,19 @@
         clippy::too_many_lines
     )
 )]
+// TODO: remove me after finishing impl
+#![allow(dead_code)]
 
 //---------------------------------------------------------------------------------------------------- Use
+mod constants;
 mod macros;
 mod status;
 
+pub use constants::{
+    CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
+    CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_VERSION, CORE_RPC_VERSION_MAJOR,
+    CORE_RPC_VERSION_MINOR,
+};
 pub use status::Status;
 
 pub mod bin;
