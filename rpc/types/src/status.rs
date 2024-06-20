@@ -5,6 +5,9 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
+// TODO: impl epee
+// use epee_encoding::{EpeeObject, EpeeObjectBuilder};
+
 use crate::constants::{
     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
     CORE_RPC_STATUS_PAYMENT_REQUIRED,

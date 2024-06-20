@@ -632,6 +632,7 @@ version = "0.0.0"
 name = "cuprate-rpc-types"
 version = "0.0.0"
 dependencies = [
+ "epee-encoding",
  "monero-serai",
  "paste",
  "serde",

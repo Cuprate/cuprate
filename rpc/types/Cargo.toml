@@ -12,6 +12,8 @@ keywords    = ["cuprate", "rpc", "types", "monero"]
 default = []
 
 [dependencies]
+epee-encoding = { path = "../../net/epee-encoding" }
+
 monero-serai = { workspace = true }
 paste        = { workspace = true }
 serde        = { workspace = true }
