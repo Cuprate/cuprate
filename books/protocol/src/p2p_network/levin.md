@@ -32,7 +32,7 @@ Format:
 
 The signature field is fixed for every bucket and is used to tell apart peers running different protocols.
 
-It's value should be `0x0101010101012101`
+Its value should be `0x0101010101012101`
 
 #### Size
 

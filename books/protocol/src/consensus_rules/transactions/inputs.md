@@ -28,7 +28,7 @@ This is the default number of decoys an input must at least have.
 
 ### Minimum And Maximum Decoys Used
 
-To check a transaction inputs `ring` size we must first get the minimum and maximum number of `decoys`
+To check a transaction input's `ring` size we must first get the minimum and maximum number of `decoys`
 used in the transactions inputs[^min-max-decoys].
 
 So if this was our transactions:
@@ -46,7 +46,7 @@ minimum amount of decoys needed.
 
 A ringCT input, aka an output with 0 amount, is always considered mixable[^0-amt-mixable].
 
-For other inputs you first get the amount of outputs on chain with that amount and check if thats less than or equal
+For other inputs you first get the amount of outputs on chain with that amount and check if that's less than or equal
 to the [default minimum amount of decoys](#default-minimum-decoys) if it is then the input is un-mixable otherwise it is
 mixable[^check-mixability].
 
@@ -66,11 +66,11 @@ All inputs must be of type `txin_to_key`[^input-types].
 
 ### Inputs Must Not Overflow
 
-The inputs when summed must not overflow a u64 and the outputs when summed must not either[^amount-overflow].
+The inputs when summed must not overflow a `u64` and the outputs when summed must not either[^amount-overflow].
 
 ### Unique Ring Members
 
-From hard-fork 6 all ring members in an input must be unique, this is done by checking that
+From hard-fork 6, all ring members in an input must be unique, this is done by checking that
 no `key_offset` after the first is 0[^unique-ring].
 
 ### Unique Key Image
@@ -98,20 +98,20 @@ If there is an un-mixable then the transaction is not allowed to have more than 
 
 Special rules[^min-decoys-special-rules]:
 
-- For hard-fork 15 both 10 and 15 decoys are allowed.
-- From hard-fork 8 upwards the minimum amount of decoys used in a transaction must be equal to the minimum allowed.
+- For hard-fork 15, both 10 and 15 decoys are allowed.
+- From hard-fork 8 upwards, the minimum amount of decoys used in a transaction must be equal to the minimum allowed.
 
 ### Equal Number Of Decoys
 
-From hard-fork 12 all inputs must have the same number of decoys[^equal-decoys].
+From hard-fork 12, all inputs must have the same number of decoys[^equal-decoys].
 
 ### Sorted Inputs
 
-From hard-fork 7 the inputs must be sorted by key image, in descending lexicographic order[^sorted-kis].
+From hard-fork 7, the inputs must be sorted by key image, in descending lexicographic order[^sorted-kis].
 
 ### 10 Block Lock
 
-From hard-fork 12 all ring members must be at least 10 blocks old[^minimum-out-age].
+From hard-fork 12, all ring members must be at least 10 blocks old[^minimum-out-age].
 
 ### The Output Must Exist
 

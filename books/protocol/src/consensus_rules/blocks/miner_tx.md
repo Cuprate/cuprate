@@ -55,11 +55,11 @@ The output type allowed depends on the hard-fork[^output-types]:
 ### Zero Amount V1 Output
 
 Monero does not explicitly ban zero amount V1 outputs on miner transactions but the database throws an error if a 0 amount output doesn't have a commitment
-[^zero-output] meaning they are baned.
+[^zero-output] meaning they are banned.
 
 ### V2 Output Pool
 
-When adding version 2 miner transactions to the blockchain put the outputs into the 0 amount pool and create dummy commitments of:[^v2-output]
+When adding version 2 miner transactions to the blockchain, put the outputs into the 0 amount pool and create dummy commitments of:[^v2-output]
 
 \\(commitment = G + amount * H \\)
 

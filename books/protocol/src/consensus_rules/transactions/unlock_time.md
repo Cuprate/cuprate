@@ -1,10 +1,10 @@
 # Unlock Time
 
-To spend an output the outputs unlock time must have passed.
+To spend an output the output's unlock time must have passed.
 
 ## Interpreting An Unlock Time
 
-The unlock time is just a 64 bit unsigned number. It is interpreted as a block height if less than 500000000 otherwise it's a Unix timestamp[^interpreting-unlock-time].
+The unlock time is just a 64 bit unsigned number. It is interpreted as a block height if less than 500,000,000 otherwise it's a Unix timestamp[^interpreting-unlock-time].
 
 ## Checking The Output Is Unlocked
 
@@ -20,13 +20,13 @@ accept the block[^height-accepting].
 
 #### Getting The Current Time
 
-Pre hard-fork 13 this was done by just getting the computers time, from hf 13 we use
+Before hard-fork 13, this was done by just getting the computer's time, from hf 13 onwards, we use
 an average over the last blocks[^getting-time].
 
 Monero uses the last 60 blocks to get an average, if the `chain height` is less than
-60 just use the current time[^height-less-60].
+60, just use the current time[^height-less-60].
 
-First you get the median timestamp of the last 60 blocks we then project this
+First you get the median timestamp of the last 60 blocks. We then project this
 timestamp to match approximately when the block being validated will appear, to do
 this we do[^median-timestamp]:
 
@@ -38,7 +38,7 @@ where:
 
 \\(DifficultyTarget = 120\\)
 
-You then get the top blocks timestamp and add the target seconds per block[^adjusting-top-block].
+You then get the top block's timestamp and add the target seconds per block[^adjusting-top-block].
 
 The timestamp we use is then the minimum out of the adjusted median and adjusted most
 recent timestamp[^minimum-timestamp].

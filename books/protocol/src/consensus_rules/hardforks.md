@@ -1,6 +1,6 @@
 # Hard Forks
 
-Monero makes use of hard-forks to update it's protocol. Although it has never been used, Monero has a system in it's codebase to
+Monero makes use of hard-forks to update its protocol. Although it has never been used, Monero has a system in it's codebase to
 allow voting for activation of a hard-fork[^hardfork-class]. It works by using the blocks `minor version` field as a voting field,
 when enough blocks vote for a hard fork the fork is activated.
 
@@ -9,10 +9,10 @@ is included here.
 
 ## Blocks version and vote
 
-Monero uses the blocks `major version` field as an indicator of hard-fork and the `minor version` field as an indicator of the blocks
+Monero uses the block's `major version` field as an indicator of hard-fork and the `minor version` field as an indicator of the blocks
 vote. A minor version of 0 is treated as a vote for 1 as legacy blocks use to just set this field to 0[^minor-v-0].
 
-The blocks vote must be greater than or equal to the version, a vote higher than the maximum known hard-fork is interpreted
+The block's vote must be greater than or equal to the version, a vote higher than the maximum known hard-fork is interpreted
 as a vote for the latest hard-fork[^minor-v-too-large]. So if a block is at V2 then the vote must be V2 or higher.
 
 ## Accepting a fork
@@ -21,7 +21,7 @@ When a hard-fork is added to Monero's protocol it must specify a `threshold`, a 
 blocks in the window that must vote for this fork (or a later one) for it to activate. For all current forks the threshold is 0 meaning
 that no votes are needed for the fork to activate.
 
-Monero keeps track of a week (10080 blocks) worth of votes[^window-size], when a new block is added Monero works backwards through the
+Monero keeps track of a week (10,080 blocks) worth of votes[^window-size], when a new block is added Monero works backwards through the
 list of hard-forks (latest to oldest) tallying the votes and checking if the number of votes is bigger than the amount needed[^accepting-hfs],
 votes for later hardforks are also votes for previous hard-forks. The amount needed is calculated:
 

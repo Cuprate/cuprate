@@ -72,13 +72,13 @@ You then get the block hash at `seedHeight` which is then the RandomX seed.[^rx-
 
 ### Version And Vote
 
-The blocks major version must equal the current hard-fork and the vote must be equal to or greater than the current hard-fork[^version-vote].
+The block's major version must equal the current hard-fork and the vote must be equal to or greater than the current hard-fork[^version-vote].
 
 > Vote is not always the same as the minor version, see [here](./hardforks.md#blocks-version-and-vote).
 
 ### Timestamp
 
-The blocks timestamp must not be more than the current UNIX time + 2 hours[^timestamp-upper-limit] and the timestamp must not be less than
+The block's timestamp must not be more than the current UNIX time + 2 hours[^timestamp-upper-limit] and the timestamp must not be less than
 the median timestamp over the last 60 blocks[^timestamp-lower-limit], if there are less than 60 blocks in the chain then the timestamp is always valid.
 
 ---

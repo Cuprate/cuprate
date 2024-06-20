@@ -21,7 +21,7 @@ Version 0 is never allowed[^tx-v0].
 
 The max transaction version is 1 up to hard fork 4 then the max is 2[^max-tx-version].
 
-The minimum tx version is 1 up till version 6 then if the [number of un-mixable inputs](#minimum-decoys)
+The minimum tx version is 1 up until version 6 then if the [number of un-mixable inputs](#minimum-decoys)
 is 0 the minimum is 2 otherwise 1[^min-tx-version] so a version 1 transaction is allowed if the amount
 it's spending does not have enough outputs with the same amount to mix with.
 
@@ -29,7 +29,7 @@ it's spending does not have enough outputs with the same amount to mix with.
 
 The size of the `transaction blob` must not be bigger than 1 million bytes[^tx-size-limit].
 
-From v8 the transactions _weight_ must not be bigger than half of the [block penalty free zone](./blocks/weights.md#penalty-free-zone) minus 600[^tx-weight_limit].
+From v8, the transaction's _weight_ must not be bigger than half of the [block penalty free zone](./blocks/weights.md#penalty-free-zone) minus 600[^tx-weight_limit].
 
 #### Calculating Transaction Weight
 

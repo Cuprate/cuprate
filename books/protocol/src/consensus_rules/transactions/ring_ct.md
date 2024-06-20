@@ -46,7 +46,7 @@ were not being checked for new fork rules they are:
 
 ### OutPKs Valid Points
 
-All outPKs must be conically encoded points[^outPKs-valid-points].
+All outPKs must be canonically encoded points[^outPKs-valid-points].
 
 ## Simple Types Rules
 
@@ -56,7 +56,7 @@ These rules apply to all RCT "simple" types, which are all except type "FULL".
 
 This rule applies to the pseudo-outs, from type 3 (Bulletproof) the pseudo-outs field moved to the prunable RCT section from the non-prunable section.
 
-The pseudo-outs must all be conically encoded points[^pseudo-outs-valid-points].
+The pseudo-outs must all be canonically encoded points[^pseudo-outs-valid-points].
 
 ### Pseudo-outs OutPKs Balance
 

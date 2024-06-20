@@ -18,7 +18,7 @@ The `baseReward` is then calculated by:
 
 [^base-reward] \\(baseReward = (moneySupply - alreadyGeneratedCoins) >> emissionSpeedFactor \\)
 
-If `baseReward` falls below the final subsidy (0.3 XMR/ minute) them set the `baseReward` to that instead [^final-base-reward].
+If `baseReward` falls below the final subsidy (0.3 XMR / minute) them set the `baseReward` to that instead [^final-base-reward].
 
 ## Calculating Block Reward
 

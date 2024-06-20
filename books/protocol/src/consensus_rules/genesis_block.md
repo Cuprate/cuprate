@@ -4,7 +4,7 @@ Monero has a hardcoded genesis block that gets added to the blockchain on the fi
 are different depending on the network.
 
 For all networks the timestamp is set to 0, the major and minor version of the block are set to `CURRENT_BLOCK_MAJOR_VERSION` and
-`CURRENT_BLOCK_MINOR_VERSION`[^version-set], These two constants are set to 1 and 0 respectively[^version-defined]. The transaction
+`CURRENT_BLOCK_MINOR_VERSION`[^version-set]. These two constants are set to 1 and 0 respectively[^version-defined]. The transaction
 field is empty, and the previous block hash is not set so that field is zeroed.
 
 ## Mainnet

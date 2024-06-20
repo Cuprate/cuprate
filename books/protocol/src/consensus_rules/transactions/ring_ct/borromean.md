@@ -21,7 +21,7 @@ For a range proof at a certain index the sum of each Ci must equal the outPK at 
 ### Borromean Scalar Encoding
 
 Monero does not check that the scalars `s0` and `s1` are reduced this leads to them, if not reduced, being interpreted as a different scalar by the `slide` function
-which calculates the 5-NAF of the number. The `slide` function restricts it's output to 256 bytes however if the last bit is set on the input this could lead to the
+which calculates the 5-NAF of the number. The `slide` function restricts its output to 256 bytes however if the last bit is set on the input this could lead to the
 5-NAF of the scalar being 257 bytes long. There are scalars on the chain which have this behavior.[^scalar-report]
 
 The scalar `ee` must be a fully reduced scalar as it is compared against the raw bytes of an output from the `hash_to_scalar` function.[^s0-s1-ee-encoding]

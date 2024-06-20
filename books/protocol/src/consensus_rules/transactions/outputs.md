@@ -8,17 +8,17 @@ These rules apply to transaction outputs, excluding miner transaction outputs.
 
 ### Outputs Must Not Overflow
 
-The and the outputs when summed must not overflow a u64[^amount-overflow].
+The outputs when summed must not overflow a u64[^amount-overflow].
 
 ### Output Amount
 
-For version 1 txs sum of the outputs must be less than the sum of the inputs, the difference between the
-inputs and the outputs is then the fee.[^more-in-than-out] The amount of each outputs must also not be zero.[^zero-output]
+For version 1, txs sum of the outputs must be less than the sum of the inputs, the difference between the
+inputs and the outputs is then the fee.[^more-in-than-out] The amount of each output must also not be zero.[^zero-output]
 
-From hard-fork 2 version 1 transaction output amounts also must be validly decomposed[^decomposed-amounts].
+From hard-fork 2, version 1 transaction output amounts also must be validly decomposed[^decomposed-amounts].
 A valid decomposed amount is an amount contained in [this table](https://github.com/monero-project/monero/blob/eac1b86bb2818ac552457380c9dd421fb8935e5b/src/cryptonote_basic/cryptonote_format_utils.cpp#L52)
 
-For version 2 txs all outputs must have a zero amount.[^v2-output-amount]
+For version 2, txs all outputs must have a zero amount.[^v2-output-amount]
 
 ### Output Keys Canonical
 
@@ -37,11 +37,11 @@ The output type allowed depends on the hard-fork[^output-types]:
 | 15         | txout_to_key and txout_to_tagged_key |
 | 16 onwards | txout_to_tagged_key                  |
 
-> For hard-fork 15 both are allowed but the transactions outputs must all be the same type[^same-output-type].
+> For hard-fork 15, both are allowed but the transactions outputs must all be the same type[^same-output-type].
 
 ### 2 Outputs
 
-From hard-fork 12 version (RCT) 2 transactions must have 2 outputs[^minimum-2-outs].
+From hard-fork 12, version 2 transactions (RCT) must have 2 outputs[^minimum-2-outs].
 
 ---
 

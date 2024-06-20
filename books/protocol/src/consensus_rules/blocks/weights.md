@@ -25,13 +25,13 @@ and transaction hashes are not included[^calculating-bw].
 
 ## Long Term Block Weight
 
-The blocks long term weight is the blocks weight adjusted with previous blocks weights.
+The block's long term weight is the block's weight adjusted with previous block's weights.
 
 ### Calculating A Blocks Long Term Weight
 
-Up till hard-fork 10 the blocks long term weight is just the blocks weight[^pre-hf-10-long-weight].
+Up until hard-fork 10, the blocks long term weight is just the block's weight[^pre-hf-10-long-weight].
 
-From hard-fork 10 onwards we first get the median long term weight over the last 100000 blocks, if this is less than
+From hard-fork 10 onwards we first get the median long term weight over the last 100,000 blocks, if this is less than
 the [penalty free zone](#penalty-free-zone) then set the median long term weight to this instead[^ltw-median].
 
 Now we need to set a shot term constraint and adjusted block weight, the way we do this is different depending on the hard-fork.
@@ -58,10 +58,10 @@ The effective median weight is used to calculate block reward and to limit block
 
 For any hard-fork the minimum this can be is the [penalty free zone](#penalty-free-zone)[^minimum-effective-median].
 
-Up till hard-fork 10 this is done by just getting the median **block weight** over the last 100 blocks[^pre-hf-10-effective-median], if
+Up until hard-fork 10, this is done by just getting the median **block weight** over the last 100 blocks[^pre-hf-10-effective-median], if
 there are less than 100 blocks just get the median over all the blocks.
 
-For hf 10 onwards we first get the median **long term weight** over the last 100000 blocks[^hf-10+-effective-median-step-1], if this median
+For hf 10 onwards, we first get the median **long term weight** over the last 100,000 blocks[^hf-10+-effective-median-step-1], if this median
 is less than the hf 5 [penalty free zone](#penalty-free-zone) set the median to that, this is the long term median.
 
 Now get the median **block weight** over the last 100 blocks, this is the short term median.

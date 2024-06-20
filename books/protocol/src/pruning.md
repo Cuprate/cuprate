@@ -1,14 +1,14 @@
 # Pruning
 
-Monero pruning works by having 8 possible pruning seeds, the seed chosen will decide what part of the blockchains signing data your node will keep. Each pruned peer generates their pruning seed randomly.
+Monero pruning works by having 8 possible pruning seeds, the seed chosen will decide what part of the blockchain's signing data your node will keep. Each pruned peer generates their pruning seed randomly.
 
 ## Stripes
 
-This is the amount of different blockchain portions that a pruned peer could keep. For Monero this is currently 8 that means the blockchain's signing data is split into 8 portions.
+This is the amount of different blockchain portions that a pruned peer could keep. For Monero this is currently 8, this means the blockchain's signing data is split into 8 portions.
 
 ## Stripes Size
 
-Depending on your stripe, and therefore your seed, monerod will store, in a cyclic manner, a portion of blocks while discarding the ones that are out of your stripe. The stripes size is amount of blocks before another stripe will have to store their portion of blocks, it is set at 4096. That means that in terms of block's height, the first pruning stripe will store blocks 0 to 4095, the second stripes will store blocks 4096 to 8191, the third stripe will store blocks 8192 to 12288... etc. While a specific stripe is storing portion of the blockchain, nodes with another stripe can just discard them. This is shown in the table below:
+Depending on your stripe (and therefore your seed) `monerod` will store, in a cyclic manner, a portion of blocks while discarding the ones that are out of your stripe. The stripe's size is amount of blocks before another stripe will have to store their portion of blocks, it is set at 4096. That means that in terms of a block's height, the first pruning stripe will store blocks 0 to 4095, the second stripes will store blocks 4096 to 8191, the third stripe will store blocks 8192 to 12288... etc. While a specific stripe is storing a portion of the blockchain, nodes with another stripe can just discard them. This is shown in the table below:
 
 | stripe           | 1             | 2           | 3            | 4  | 5  | 6  | 7  | 8  |
 | ---------------- | ------------- | ----------- | ------------ | -- | -- | -- | -- | -- |
@@ -43,7 +43,7 @@ static constexpr uint32_t PRUNING_SEED_LOG_STRIPES_MASK = 0x7;
 static constexpr uint32_t PRUNING_SEED_STRIPE_SHIFT = 0;
 ```
 
-The possible inputs/ outputs of this function (`log_stripes` is always 3)
+The possible inputs/outputs of this function (`log_stripes` is always 3)
 
 | input (stripe) | output (seed) |
 | -------------- | ------------- |
@@ -56,9 +56,9 @@ The possible inputs/ outputs of this function (`log_stripes` is always 3)
 | 7              | 390           |
 | 8              | 391           |
 
-## Getting A Seeds Log Stripes
+## Getting A Seed's Log Stripes
 
-Monero currently only accepts a log stripes value of 3 and will reject any peers that use a different value. The function to calculate a seeds log stripes is:
+Monero currently only accepts a log stripes value of 3 and will reject any peers that use a different value. The function to calculate a seed's log stripes is:
 
 ```c++
 constexpr inline uint32_t get_pruning_log_stripes(uint32_t pruning_seed) { 
@@ -68,7 +68,7 @@ constexpr inline uint32_t get_pruning_log_stripes(uint32_t pruning_seed) {
 
 This will only return 3 for all currently valid Monero seeds.
 
-## Getting A Seeds Pruning Stripe
+## Getting A Seed's Pruning Stripe
 
 The seed's pruning stripe corresponds, as explain earlier, to the range of blocks we keep. This is the function that gets the stripe from the pruning seed:
 
@@ -78,11 +78,11 @@ inline uint32_t get_pruning_stripe(uint32_t pruning_seed) {
   return 1 + ((pruning_seed >> PRUNING_SEED_STRIPE_SHIFT) & PRUNING_SEED_STRIPE_MASK); }
 ```
 
-A pruning seed of 0 means no pruning. This function is just the inverse of [Generating Pruning Seeds](#generating-pruning-seeds) so the inputs/ outputs of this will just be the other way round.
+A pruning seed of 0 means no pruning. This function is just the inverse of [Generating Pruning Seeds](#generating-pruning-seeds) so the inputs/outputs of this will just be the other way round.
 
-## Getting A Blocks Pruning Stripe
+## Getting A Block's Pruning Stripe
 
-A Blocks pruning stripe is the stripe that corresponds to keeping that block so for blocks 0 to 4095 this will be 1, for blocks 4096 to 8191 this will be 2.
+A Block's pruning stripe is the stripe that corresponds to keeping that block so for blocks 0 to 4095 this will be 1, for blocks 4096 to 8191 this will be 2.
 The function in Monero to get the pruning stripe that corresponds to keeping that block is:
 
 ```c++
@@ -116,7 +116,7 @@ Here's an issue, we need the strips to be cyclic. A result of 8 should give an o
 To do so we just use the modulo operation. (8 mod 8 = 1, 455 mod 8 = 5) In binary operation, if the divisor is a power of two, then this is
 equivalent to bitand the value with the divisor -1:
 
-This is why if we bitand this with 7 (0000 0111) this then becomes:
+This is why if we bitand this with 7 (0000 0111), this then becomes:
 
 - 0 to 4095 would be 0
 - 4096 to 8191 would be 1
@@ -124,9 +124,9 @@ This is why if we bitand this with 7 (0000 0111) this then becomes:
 
 now we are close, all we have to do now to get the stripe is add 1
 
-## Getting A Blocks Pruning Seed
+## Getting A Block's Pruning Seed
 
-The Blocks pruning seed is the seed that will keep that block. This is the function in Monero:
+The Block's pruning seed is the seed that will keep that block. This is the function in Monero:
 
 ```c++
 uint32_t get_pruning_seed(uint64_t block_height, uint64_t blockchain_height, uint32_t log_stripes)
@@ -140,7 +140,7 @@ uint32_t get_pruning_seed(uint64_t block_height, uint64_t blockchain_height, uin
 
 This is simple, a call to [`get_pruning_stripe`](#getting-a-blocks-pruning-stripe) and passing that stripe into [`make_pruning_seed`](#generating-pruning-seeds)
 
-## Getting The Next UnPruned Block
+## Getting The Next Un-pruned Block
 
 For a particular seed and block height we can calculate what the height of the next un-pruned block will
 be. The function to do this in Monero is:
@@ -184,7 +184,7 @@ if (block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height)
 ```
 
 This is calculating the [stripe](#getting-a-seeds-pruning-stripe) of the inputted pruning seed, remember if the seed/stripe is `0` that means no pruning so we can return the current
-height as the next un-pruned height and similarly if the blocks height is within [Tip Blocks](#tip-blocks) of the blockchains height that also means the block won't be pruned.
+height as the next un-pruned height and similarly if the block's height is within [Tip Blocks](#tip-blocks) of the blockchain's height that also means the block won't be pruned.
 
 ```c++
 const uint32_t seed_log_stripes = get_pruning_log_stripes(pruning_seed);
@@ -194,7 +194,7 @@ const uint64_t mask = (1ul << log_stripes) - 1;
 
 This is calculating the [log stripes](#getting-a-seeds-log-stripes) of the seed, although Monero currently only allows a log stripes of 3 in the future a higher number could be allowed so this function accounts for that.
 
-If the seeds log stripes is zero this will set it to `CRYPTONOTE_PRUNING_LOG_STRIPES` which is currently `3`.
+If the seed's log stripes are zero this will set it to `CRYPTONOTE_PRUNING_LOG_STRIPES` which is currently `3`.
 
 Then this sets the value of `mask` to one less than the amount of [stripes](#stripes), for Monero the amount of stripes is 8 so `mask` will be 7.
 
@@ -204,9 +204,9 @@ if (block_pruning_stripe == stripe)
   return block_height;
 ```
 
-This calculates the [blocks pruning stripe](#getting-a-blocks-pruning-stripe) using the same method that we saw in [this](#getting-a-blocks-pruning-stripe) function.
+This calculates the [block's pruning stripe](#getting-a-blocks-pruning-stripe) using the same method that we saw in [this](#getting-a-blocks-pruning-stripe) function.
 
-This then checks if the blocks stripe is the same as the seed stripe, if you remember if a seed and block have the same stripe that means the seed will keep the block, so we can just return the entered `block_height`.
+This then checks if the block's stripe is the same as the seed stripe, if you remember if a seed and block have the same stripe that means the seed will keep the block, so we can just return the entered `block_height`.
 
 ```c++
 const uint64_t cycles = ((block_height / CRYPTONOTE_PRUNING_STRIPE_SIZE) >> log_stripes);
@@ -241,7 +241,7 @@ stripe will next be storing blocks in.
 const uint64_t h = cycle_start * (CRYPTONOTE_PRUNING_STRIPE_SIZE << log_stripes) + (stripe - 1) * CRYPTONOTE_PRUNING_STRIPE_SIZE;
 ```
 
-If you remember from the table [here](#stripes-size) each stripe will keep a part of the blockchain in a cyclic manner, which replates every 32768.
+If you remember from the table [here](#stripes-size) each stripe will keep a part of the blockchain in a cyclic manner, which replates every 32,768.
 
 - so stripe 1 will keep `numb_of_cycles * 32768 + 0 * 4096`
 - so stripe 2 will keep `numb_of_cycles * 32768 + 1 * 4096`
@@ -257,7 +257,7 @@ which also equals:
 
 `numb_of_cycles * (stripe_size * amt_of_stripes) + (stripe - 1) * stripe_size`
 
-Knowing this lets split this into 2 parts:
+Knowing this, let's split this into 2 parts:
 
 #### Part 1:
 
@@ -282,7 +282,7 @@ For normal Monero pruning: `numb_of_cycles * (4096 * 8)`
 
 This gets how many blocks from the start of a cycle until the seeds stripe starts.
 
-For example if the seeds stripe was:
+For example if the seed's stripe was:
 
 - `1` the amount of blocks would be `0`
 - `2` the amount of blocks would be `4096`
@@ -290,7 +290,7 @@ For example if the seeds stripe was:
 
 which is: `(stripe-1) * stripe_size`
 
-As you can see if we add the amount of blocks until the start of a cycle (`numb_of_cycles * blocks_in_a_cycle`) to the amount of blocks into a cycle the until the seeds stripe "kicks in" (`(stripe-1) * stripe_size`) we will get the next un-pruned height.
+As you can see if we add the amount of blocks until the start of a cycle (`numb_of_cycles * blocks_in_a_cycle`) to the amount of blocks into a cycle the until the seed's stripe "kicks in" (`(stripe-1) * stripe_size`) we will get the next un-pruned height.
 
 ```c++
 if (h + CRYPTONOTE_PRUNING_TIP_BLOCKS > blockchain_height)
@@ -336,9 +336,9 @@ if (block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height)
   return blockchain_height;
 ```
 
-This is calculating the [stripe](#getting-a-seeds-pruning-stripe) of the inputted pruning seed, remember if the seed/stripe is `0` that means no pruning so we can return the blockchain height as the next un-pruned height and similarly if the blocks height is within [Tip Blocks](#tip-blocks) of the blockchains height that also means the block won't be pruned.
+This is calculating the [stripe](#getting-a-seeds-pruning-stripe) of the inputted pruning seed, remember if the seed/stripe is `0` that means no pruning so we can return the blockchain height as the next un-pruned height and similarly if the block's height is within [Tip Blocks](#tip-blocks) of the blockchain's height that also means the block won't be pruned.
 
-Returning the blockchains height means the next pruned block doesn't currently exist, its bigger than or equal to blockchain_height - CRYPTONOTE_PRUNING_TIP_BLOCKS or it means it
+Returning the blockchain's height means the next pruned block doesn't currently exist, its bigger than or equal to blockchain_height - CRYPTONOTE_PRUNING_TIP_BLOCKS or it means it
 will never exist in the case of a zero pruning seed.
 
 ```c++
@@ -349,7 +349,7 @@ const uint64_t mask = (1ul << log_stripes) - 1;
 
 This is calculating the [log stripes](#getting-a-seeds-log-stripes) of the seed, although Monero currently only allows a log stripes of 3 in the future a higher number could be allowed so this function accounts for that.
 
-If the seeds log stripes is zero this will set it to `CRYPTONOTE_PRUNING_LOG_STRIPES` which is currently `3`.
+If the seed's log stripes are zero this will set it to `CRYPTONOTE_PRUNING_LOG_STRIPES` which is currently `3`.
 
 Then this sets the value of `mask` to one less than the amount of [stripes](#stripes), for Monero the amount of stripes is 8 so `mask` will be 7.
 
@@ -363,12 +363,11 @@ if (block_pruning_seed != stripe)
 
 This calculates the [blocks pruning ~~seed~~ STRIPE](#getting-a-blocks-pruning-stripe) using the same method that we saw in [this](#getting-a-blocks-pruning-stripe) function.
 
-This then checks if the blocks stripe is NOT the same as the seed stripe, if you remember if a seed and block don't have the same stripe that means the seed will prune that block, so we can just return the entered `block_height`.
+This then checks if the block's stripe is NOT the same as the seed stripe, if you remember if a seed and block don't have the same stripe that means the seed will prune that block, so we can just return the entered `block_height`.
 
 ```c++
 const uint32_t next_stripe = 1 + (block_pruning_seed & mask);
 return get_next_unpruned_block_height(block_height, blockchain_height, tools::make_pruning_seed(next_stripe, log_stripes));
 ```
 
-Because the seeds stripe == the blocks stripe we need to work out when our stripe ends/
-when the next stripe starts to get the next pruned block. To do this we can simply calculate the next stripe, make a [new pruning seed](#generating-pruning-seeds) and pass in that seed, which has a stripe one more than ours, into [get next un-pruned block](#getting-the-next-unpruned-block) to get the start of the next stripes un-pruned set and therefore the start of our next pruned set.
+Because the seed's stripe == the block's stripe we need to work out when our stripe ends (when the next stripe starts to get the next pruned block). To do this we can simply calculate the next stripe, make a [new pruning seed](#generating-pruning-seeds) and pass in that seed, which has a stripe one more than ours, into [get next un-pruned block](#getting-the-next-unpruned-block) to get the start of the next stripe's un-pruned set and therefore the start of our next pruned set.

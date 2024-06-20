@@ -3,19 +3,19 @@
 Difficulty is a measure used to keep block production at a constant rate, it is the average amount of hashes before a solution
 is found.
 
-## Checking A Blocks Proof Of Work
+## Checking A Block's Proof Of Work
 
-To check a blocks `POW hash` you interpret the hash as a little endian integer and multiply it by the difficulty, if the result
+To check a block's `POW hash` you interpret the hash as a little endian integer and multiply it by the difficulty, if the result
 does not overflow the hash is valid[^check-pow]:
 
 \\(Hash * difficulty <= MAXu256 \\)
 
 ## Calculating Difficulty
 
-To calculate difficulty, Monero keeps a window of that last 735[^diff-blocks-count] timestamps and cumulative difficulties,
+To calculate difficulty, Monero keeps a window of the last 735[^diff-blocks-count] timestamps and cumulative difficulties,
 if there are not enough blocks, then you just use as many as possible.
 
-> The genesis block is skipped for these calculations[^skip-genesis] so should not be included in the timestamp/ CD list but it is
+> The genesis block is skipped for these calculations[^skip-genesis] so should not be included in the timestamp / CD list but it is
 > included in the cumulative difficulty of the chain.
 
 If the amount of blocks is less than or equal to 1 then 1 is returned as the difficulty[^amt-blocks-1].
