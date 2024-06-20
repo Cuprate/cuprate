@@ -26,7 +26,6 @@ impl<'a, T: Containerable + EpeeValue> From<&'a Vec<T>> for &'a ContainerAsBlob<
     }
 }
 
-#[sealed]
 impl<T: Containerable + EpeeValue> EpeeValue for ContainerAsBlob<T> {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
