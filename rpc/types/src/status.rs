@@ -1,18 +1,14 @@
 //! RPC response status type.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
-use strum::{
-    AsRefStr, Display, EnumCount, EnumIs, EnumIter, EnumMessage, EnumProperty, EnumString,
-    FromRepr, IntoStaticStr, VariantNames,
+
+use crate::constants::{
+    CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
+    CORE_RPC_STATUS_PAYMENT_REQUIRED,
 };
-
-// TODO(hinto):
-// Do we need `strum`? Are there other types
-// (maybe outside of this crate) that will use it?
-
-// TODO:
-// These may be JSON-RPC 2.0 messages.
 
 //---------------------------------------------------------------------------------------------------- Status
 /// RPC response status.
@@ -21,110 +17,65 @@ use strum::{
 ///
 /// This field appears within RPC [JSON response](crate::json) types.
 ///
-/// Reference: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/message.cpp#L40-L44>.
+/// Reference: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L78-L81>.
 ///
 /// ## Serialization and string formatting
 /// ```rust
-/// # use cuprate_rpc_types::*;
+/// use cuprate_rpc_types::{
+///     Status,
+///     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
+///     CORE_RPC_STATUS_PAYMENT_REQUIRED,
+/// };
 /// use serde_json::to_string;
 /// use strum::AsRefStr;
 ///
 /// let other = Status::Other("hello".into());
 ///
-/// assert_eq!(to_string(&Status::Ok).unwrap(),         r#""OK""#);
-/// assert_eq!(to_string(&Status::Retry).unwrap(),      r#""Retry""#);
-/// assert_eq!(to_string(&Status::Failed).unwrap(),     r#""Failed""#);
-/// assert_eq!(to_string(&Status::BadRequest).unwrap(), r#""Invalid request type""#);
-/// assert_eq!(to_string(&Status::BadJson).unwrap(),    r#""Malformed json""#);
-/// assert_eq!(to_string(&other).unwrap(),              r#""hello""#);
+/// assert_eq!(to_string(&Status::Ok).unwrap(),              r#""OK""#);
+/// assert_eq!(to_string(&Status::Busy).unwrap(),            r#""BUSY""#);
+/// assert_eq!(to_string(&Status::NotMining).unwrap(),       r#""NOT MINING""#);
+/// assert_eq!(to_string(&Status::PaymentRequired).unwrap(), r#""PAYMENT REQUIRED""#);
+/// assert_eq!(to_string(&other).unwrap(),                   r#""hello""#);
 ///
-/// assert_eq!(Status::Ok.as_ref(),         "OK");
-/// assert_eq!(Status::Retry.as_ref(),      "Retry");
-/// assert_eq!(Status::Failed.as_ref(),     "Failed");
-/// assert_eq!(Status::BadRequest.as_ref(), "Invalid request type");
-/// assert_eq!(Status::BadJson.as_ref(),    "Malformed json");
-/// assert_eq!(other.as_ref(),              "Other");
+/// assert_eq!(Status::Ok.as_ref(),              CORE_RPC_STATUS_OK);
+/// assert_eq!(Status::Busy.as_ref(),            CORE_RPC_STATUS_BUSY);
+/// assert_eq!(Status::NotMining.as_ref(),       CORE_RPC_STATUS_NOT_MINING);
+/// assert_eq!(Status::PaymentRequired.as_ref(), CORE_RPC_STATUS_PAYMENT_REQUIRED);
+/// assert_eq!(other.as_ref(),                   "hello");
 ///
-/// assert_eq!(format!("{}", Status::Ok),         "OK");
-/// assert_eq!(format!("{}", Status::Retry),      "Retry");
-/// assert_eq!(format!("{}", Status::Failed),     "Failed");
-/// assert_eq!(format!("{}", Status::BadRequest), "Invalid request type");
-/// assert_eq!(format!("{}", Status::BadJson),    "Malformed json");
-/// assert_eq!(format!("{}", other),              "Other");
+/// assert_eq!(format!("{}", Status::Ok),              CORE_RPC_STATUS_OK);
+/// assert_eq!(format!("{}", Status::Busy),            CORE_RPC_STATUS_BUSY);
+/// assert_eq!(format!("{}", Status::NotMining),       CORE_RPC_STATUS_NOT_MINING);
+/// assert_eq!(format!("{}", Status::PaymentRequired), CORE_RPC_STATUS_PAYMENT_REQUIRED);
+/// assert_eq!(format!("{}", other),                   "hello");
 ///
-/// assert_eq!(format!("{:?}", Status::Ok),         "Ok");
-/// assert_eq!(format!("{:?}", Status::Retry),      "Retry");
-/// assert_eq!(format!("{:?}", Status::Failed),     "Failed");
-/// assert_eq!(format!("{:?}", Status::BadRequest), "BadRequest");
-/// assert_eq!(format!("{:?}", Status::BadJson),    "BadJson");
-/// assert_eq!(format!("{:?}", other),              "Other(\"hello\")");
-///
-/// assert_eq!(format!("{:#?}", Status::Ok),         "Ok");
-/// assert_eq!(format!("{:#?}", Status::Retry),      "Retry");
-/// assert_eq!(format!("{:#?}", Status::Failed),     "Failed");
-/// assert_eq!(format!("{:#?}", Status::BadRequest), "BadRequest");
-/// assert_eq!(format!("{:#?}", Status::BadJson),    "BadJson");
-/// assert_eq!(format!("{:#?}", other),              "Other(\n    \"hello\",\n)");
+/// assert_eq!(format!("{:?}", Status::Ok),              "Ok");
+/// assert_eq!(format!("{:?}", Status::Busy),            "Busy");
+/// assert_eq!(format!("{:?}", Status::NotMining),       "NotMining");
+/// assert_eq!(format!("{:?}", Status::PaymentRequired), "PaymentRequired");
+/// assert_eq!(format!("{:?}", other),                   "Other(\"hello\")");
 /// ```
-#[derive(
-    Clone,
-    Debug,
-    Default,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    AsRefStr,
-    Display,
-    EnumCount,
-    EnumIs,
-    EnumIter,
-    EnumMessage,
-    EnumProperty,
-    EnumString,
-    FromRepr,
-    IntoStaticStr,
-    VariantNames,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Status {
-    /// Successful RPC response, everything is OK.
-    #[strum(serialize = "OK")]
-    #[serde(rename = "OK", alias = "Ok", alias = "ok")]
+    // FIXME:
+    // `#[serde(rename = "")]` onlys takes raw string literals?
+    // We have to re-type the constants here...
+    /// Successful RPC response, everything is OK; [`CORE_RPC_STATUS_OK`].
+    #[serde(rename = "OK")]
     #[default]
     Ok,
 
-    #[serde(alias = "Retry", alias = "RETRY", alias = "retry")]
-    /// The RPC call failed and should be retried.
-    ///
-    /// TODO: confirm this.
-    Retry,
+    /// The daemon is busy, try later; [`CORE_RPC_STATUS_BUSY`].
+    #[serde(rename = "BUSY")]
+    Busy,
 
-    #[serde(alias = "failed", alias = "FAILED")]
-    /// The RPC call failed.
-    Failed,
+    /// The daemon is not mining; [`CORE_RPC_STATUS_NOT_MINING`].
+    #[serde(rename = "NOT MINING")]
+    NotMining,
 
-    /// The RPC call contained bad input, unknown method, unknown params, etc.
-    #[strum(serialize = "Invalid request type")]
-    #[serde(
-        rename = "Invalid request type",
-        alias = "invalid request type",
-        alias = "INVALID REQUEST TYPE"
-    )]
-    BadRequest,
-
-    /// The RPC call contained malformed JSON.
-    #[strum(serialize = "Malformed json")]
-    #[serde(
-        rename = "Malformed json",
-        alias = "malformed json",
-        alias = "MALFORMED JSON",
-        alias = "Malformed JSON",
-        alias = "malformed JSON"
-    )]
-    BadJson,
+    /// Payment is required for RPC; [`CORE_RPC_STATUS_PAYMENT_REQUIRED`].
+    #[serde(rename = "PAYMENT REQUIRED")]
+    PaymentRequired,
 
     #[serde(untagged)]
     /// Some unknown other string.
@@ -132,6 +83,24 @@ pub enum Status {
     /// This exists to act as a catch-all if `monerod` adds
     /// a string and a Cuprate node hasn't updated yet.
     Other(String),
+}
+
+impl AsRef<str> for Status {
+    fn as_ref(&self) -> &str {
+        match self {
+            Self::Ok => CORE_RPC_STATUS_OK,
+            Self::Busy => CORE_RPC_STATUS_BUSY,
+            Self::NotMining => CORE_RPC_STATUS_NOT_MINING,
+            Self::PaymentRequired => CORE_RPC_STATUS_PAYMENT_REQUIRED,
+            Self::Other(s) => s,
+        }
+    }
+}
+
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_ref())
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
