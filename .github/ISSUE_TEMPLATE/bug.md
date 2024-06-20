@@ -24,7 +24,7 @@ Example:
 ## Bug
 What is the bug?
 
-### Expected behavior
+## Expected behavior
 What correct beahvior was expected to happen?
 
 ## Steps to reproduce
