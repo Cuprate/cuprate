@@ -201,7 +201,7 @@ For example:
 | `net/wire`         | `cuprate-wire`     |
 
 ### 4.3 Pull request title and description
-In general, pull requests follow this syntax:
+In general, pull request titles should follow this syntax:
 ```
 <AREA>: <SHORT_DESCRIPTION>
 ```
