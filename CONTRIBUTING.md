@@ -6,8 +6,8 @@ you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:moner
 
 - [1. Submitting an issue](#1-submitting-an-issue)
 	- [1.1 Discussion](#11-discussion)
-	- [1.2 Proposal](#11-proposal)
-	- [1.3 Tracking issue](#11-tracking-issue)
+	- [1.2 Proposal](#12-proposal)
+	- [1.3 Tracking issue](#13-tracking-issue)
 - [2. Submitting a pull request](#2-submitting-a-pull-request)
 	- [2.1 Rust toolchain](#21-rust-toolchain)
 	- [2.2 Draft PR](#22-draft-pr)
