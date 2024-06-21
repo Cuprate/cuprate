@@ -15,10 +15,10 @@ you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:moner
 	- [2.4 Ready for review](#24-ready-for-review)
 - [3. Keeping track of issues and PRs](#3-keeping-track-of-issues-and-prs)
 	- [3.1 Labels](#31-labels)
-	- [3.2 Tracking issues](#32-tracking-issues)s
+	- [3.2 Tracking issues](#32-tracking-issues)
 - [4. Coding guidelines](#4-coding-guidelines)
-	- [4.1 General guidelines](#41-crate-names)
-	- [4.2 Crate names](#43-crate-names)
+	- [4.1 General guidelines](#41-general-guidelines)
+	- [4.2 Crate names](#42-crate-names)
 - [5. Documentation](#5-documentation)
 - [6. Books](#6-books)
 	- [6.1 Architecture book](#61-architecture-book)
@@ -188,7 +188,7 @@ General guidelines you should keep these in mind when submitting code:
 And the most important rule:
 - Break any and all of the above rules when it makes sense
 
-## 4.2 Crate names
+### 4.2 Crate names
 All of Cuprate's crates (libraries) are prefixed with `cuprate-`. All directories containing crates however, are not.
 
 For example:
