@@ -19,6 +19,7 @@ you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:moner
 - [4. Coding guidelines](#4-coding-guidelines)
 	- [4.1 General guidelines](#41-general-guidelines)
 	- [4.2 Crate names](#42-crate-names)
+	- [4.3 Pull request title and description](#43-pull-request-title-and-description)
 - [5. Documentation](#5-documentation)
 - [6. Books](#6-books)
 	- [6.1 Architecture book](#61-architecture-book)
@@ -53,7 +54,7 @@ These should answer some basic questions:
 
 If you have a close to fully fleshed out idea, consider [opening a proposal](https://github.com/Cuprate/cuprate/issues/new/choose).
 
-Opening a PR with the `A-proposal` tag and writing the proposal in the PR description is also viable.
+Opening a PR and writing the proposal in the PR description is also viable.
 
 Examples:
 - https://github.com/Cuprate/cuprate/pull/146
@@ -198,6 +199,21 @@ For example:
 | `storage/database` | `cuprate-database` |
 | `net/levin`        | `cuprate-levin`    |
 | `net/wire`         | `cuprate-wire`     |
+
+### 4.3 Pull request title and description
+In general, pull requests follow this syntax:
+```
+<AREA>: <SHORT_DESCRIPTION>
+```
+
+For example:
+```
+books: fix typo
+```
+
+The description of pull requests should generally follow the template laid out in [`.github/pull_request_template.md`](.github/pull_request_template.md).
+
+If your pull request is long and/or has sections that need clarifying, consider leaving a review on your own PR with comments explaining the changes.
 
 ## 5. Documentation
 Cuprate's crates (libraries) have inline documentation.
