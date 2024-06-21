@@ -227,6 +227,17 @@ fn write_epee_value<T: EpeeValue, B: BufMut>(val: T, w: &mut B) -> Result<()> {
 /// This will error if:
 /// - [`write_varint`] fails
 /// - `w` does not have enough capacity
+///
+/// # Example
+/// ```rust
+/// let t: [u8; 8] = [3, 0, 0, 0, 1, 0, 0, 0];
+/// let mut w = vec![];
+///
+/// epee_encoding::write_bytes(t, &mut w).unwrap();
+///
+/// assert_eq!(w.len(), 9); // length of bytes + bytes
+/// assert_eq!(w[1..], t);
+/// ```
 pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
     let bytes = t.as_ref();
     let len = bytes.len();
@@ -255,6 +266,20 @@ pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
 /// This will error if:
 /// - [`write_varint`] fails
 /// - [`EpeeValue::<T>::write`] fails
+///
+/// # Example
+/// ```rust
+/// let t: u64 = 3;
+/// let vec: Vec<u64> = vec![t, t];
+/// let mut w = vec![];
+///
+/// let iter: std::vec::IntoIter<u64> = vec.into_iter();
+/// epee_encoding::write_iterator(iter, &mut w).unwrap();
+///
+/// assert_eq!(w.len(), 17);
+/// assert_eq!(w[1..9], [3, 0, 0, 0, 0, 0, 0, 0]);
+/// assert_eq!(w[9..], [3, 0, 0, 0, 0, 0, 0, 0]);
+/// ```
 pub fn write_iterator<T, I, B>(iterator: I, w: &mut B) -> Result<()>
 where
     T: EpeeValue,
