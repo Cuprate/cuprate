@@ -68,7 +68,7 @@ impl BlockQueue {
         self.ready_batches.peek().map(|batch| batch.start_height)
     }
 
-    /// Returns the size of all the batches that hav not been put into the [`async_buffer`] yet.
+    /// Returns the size of all the batches that have not been put into the [`async_buffer`] yet.
     pub fn size(&self) -> usize {
         self.ready_batches_size
     }
@@ -125,7 +125,7 @@ mod tests {
     use super::*;
 
     prop_compose! {
-        fn read_batch_stratergy()(start_height in 0_u64..500_000_000) -> ReadyQueueBatch {
+        fn ready_batch_strategy()(start_height in 0_u64..500_000_000) -> ReadyQueueBatch {
             // TODO: The permit will not be needed here when
             let (_, peer_handle)  = HandleBuilder::new().with_permit(Arc::new(Semaphore::new(1)).try_acquire_owned().unwrap()).build();
 
@@ -142,7 +142,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn block_queue_returns_items_in_order(batches in vec(read_batch_stratergy(), 0..10_000)) {
+        fn block_queue_returns_items_in_order(batches in vec(ready_batch_strategy(), 0..10_000)) {
             block_on(async move {
                 let (buffer_tx, mut buffer_rx) = async_buffer::new_buffer(usize::MAX);
 
