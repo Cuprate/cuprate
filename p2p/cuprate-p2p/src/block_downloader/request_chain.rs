@@ -219,6 +219,8 @@ where
         return Err(BlockDownloadError::FailedToFindAChainToFollow);
     }
 
+    let previous_id = hashes[first_unknown - 1];
+
     let first_entry = ChainEntry {
         ids: hashes[first_unknown..].to_vec(),
         peer: peer_id,
@@ -230,7 +232,7 @@ where
         first_entry.ids.len()
     );
 
-    let tracker = ChainTracker::new(first_entry, expected_height, our_genesis);
+    let tracker = ChainTracker::new(first_entry, expected_height, our_genesis, previous_id);
 
     Ok(tracker)
 }

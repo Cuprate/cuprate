@@ -6,10 +6,10 @@ use tokio::time::timeout;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use monero_p2p::{NetworkZone, PeerRequest, PeerResponse, handles::ConnectionHandle};
-use monero_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 use cuprate_helper::asynch::rayon_spawn_async;
 use fixed_bytes::ByteArrayVec;
+use monero_p2p::{handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse};
+use monero_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 
 use crate::{
     block_downloader::{BlockBatch, BlockDownloadError, BlockDownloadTaskResponse},
@@ -17,26 +17,26 @@ use crate::{
     constants::{BLOCK_DOWNLOADER_REQUEST_TIMEOUT, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN},
 };
 
-
 /// Attempts to request a batch of blocks from a peer, returning [`BlockDownloadTaskResponse`].
 #[instrument(
-    level = "debug", 
-    name = "download_batch", 
+    level = "debug",
+    name = "download_batch",
     skip_all,
     fields(
-        start_height = expected_start_height, 
+        start_height = expected_start_height,
         attempt = _attempt
     )
 )]
 pub async fn download_batch_task<N: NetworkZone>(
     client: ClientPoolDropGuard<N>,
     ids: ByteArrayVec<32>,
+    previous_id: [u8; 32],
     expected_start_height: u64,
     _attempt: usize,
 ) -> BlockDownloadTaskResponse<N> {
     BlockDownloadTaskResponse {
         start_height: expected_start_height,
-        result: request_batch_from_peer(client, ids, expected_start_height).await,
+        result: request_batch_from_peer(client, ids, previous_id, expected_start_height).await,
     }
 }
 
@@ -47,6 +47,7 @@ pub async fn download_batch_task<N: NetworkZone>(
 async fn request_batch_from_peer<N: NetworkZone>(
     mut client: ClientPoolDropGuard<N>,
     ids: ByteArrayVec<32>,
+    previous_id: [u8; 32],
     expected_start_height: u64,
 ) -> Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError> {
     // Request the blocks.
@@ -80,7 +81,13 @@ async fn request_batch_from_peer<N: NetworkZone>(
     let peer_handle = client.info.handle.clone();
 
     let blocks = rayon_spawn_async(move || {
-        deserialize_batch(blocks_response, expected_start_height, ids, peer_handle)
+        deserialize_batch(
+            blocks_response,
+            expected_start_height,
+            ids,
+            previous_id,
+            peer_handle,
+        )
     })
     .await;
 
@@ -98,6 +105,7 @@ fn deserialize_batch(
     blocks_response: GetObjectsResponse,
     expected_start_height: u64,
     requested_ids: ByteArrayVec<32>,
+    previous_id: [u8; 32],
     peer_handle: ConnectionHandle,
 ) -> Result<BlockBatch, BlockDownloadError> {
     let blocks = blocks_response
@@ -112,9 +120,24 @@ fn deserialize_batch(
             let block = Block::read(&mut block_entry.block.as_ref())
                 .map_err(|_| BlockDownloadError::PeersResponseWasInvalid)?;
 
+            let block_hash = block.hash();
+
             // Check the block matches the one requested and the peer sent enough transactions.
-            if requested_ids[i] != block.hash() || block.txs.len() != block_entry.txs.len() {
+            if requested_ids[i] != block_hash || block.txs.len() != block_entry.txs.len() {
                 return Err(BlockDownloadError::PeersResponseWasInvalid);
+            }
+
+            // Check that the previous ID is correct for the first block.
+            // This is to protect use against banning the wrong peer.
+            // This must happen after the hash check.
+            if i == 0 && block.header.previous != previous_id {
+                tracing::warn!(
+                    "Invalid chain, peer told us a block follows the chain when it doesn't."
+                );
+
+                // This peer probably did nothing wrong, it was the peer who told us this blockID which
+                // is misbehaving.
+                return Err(BlockDownloadError::ChainInvalid);
             }
 
             // Check the height lines up as expected.

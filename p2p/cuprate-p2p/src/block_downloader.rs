@@ -39,18 +39,15 @@ use crate::{
 
 mod block_queue;
 mod chain_tracker;
-
-use crate::block_downloader::request_chain::{initial_chain_search, request_chain_entry_from_peer};
-use block_queue::{BlockQueue, ReadyQueueBatch};
-use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
-use download_batch::download_batch_task;
-
-// TODO: check first block in batch prev_id
-
 mod download_batch;
 mod request_chain;
 #[cfg(test)]
 mod tests;
+
+use block_queue::{BlockQueue, ReadyQueueBatch};
+use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
+use download_batch::download_batch_task;
+use request_chain::{initial_chain_search, request_chain_entry_from_peer};
 
 /// A downloaded batch of blocks.
 #[derive(Debug, Clone)]
@@ -218,10 +215,6 @@ struct BlockDownloader<N: NetworkZone, S, C> {
     amount_of_empty_chain_entries: usize,
 
     /// The running block download tasks.
-    ///
-    /// Returns:
-    /// - The start height of the batch
-    /// - A result containing the batch or an error.
     block_download_tasks: JoinSet<BlockDownloadTaskResponse<N>>,
     /// The running chain entry tasks.
     ///
@@ -342,6 +335,7 @@ where
             self.block_download_tasks.spawn(download_batch_task(
                 client,
                 in_flight_batch.ids.clone(),
+                in_flight_batch.prev_id,
                 in_flight_batch.start_height,
                 in_flight_batch.requests_sent,
             ));
@@ -383,15 +377,14 @@ where
             ) {
                 tracing::debug!("Using peer to request a failed batch");
                 // They should have the blocks so send the re-request to this peer.
-                let ids = request.ids.clone();
-                let start_height = request.start_height;
 
                 request.requests_sent += 1;
 
                 self.block_download_tasks.spawn(download_batch_task(
                     client,
-                    ids,
-                    start_height,
+                    request.ids.clone(),
+                    request.prev_id,
+                    request.start_height,
                     request.requests_sent,
                 ));
 
@@ -426,6 +419,7 @@ where
         self.block_download_tasks.spawn(download_batch_task(
             client,
             block_entry_to_get.ids.clone(),
+            block_entry_to_get.prev_id,
             block_entry_to_get.start_height,
             block_entry_to_get.requests_sent,
         ));

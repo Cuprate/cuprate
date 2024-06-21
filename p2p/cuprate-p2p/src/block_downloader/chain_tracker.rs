@@ -23,6 +23,8 @@ pub(crate) struct ChainEntry<N: NetworkZone> {
 pub struct BlocksToRetrieve<N: NetworkZone> {
     /// The block IDs to get.
     pub ids: ByteArrayVec<32>,
+    /// The hash of the last block before this batch.
+    pub prev_id: [u8; 32],
     /// The expected height of the first block in [`BlocksToRetrieve::ids`].
     pub start_height: u64,
     /// The peer who told us about this batch.
@@ -51,17 +53,24 @@ pub enum ChainTrackerError {
 pub struct ChainTracker<N: NetworkZone> {
     /// A list of [`ChainEntry`]s, in order.
     entries: VecDeque<ChainEntry<N>>,
-    /// The height of the first block, in the first entry in entries.
+    /// The height of the first block, in the first entry in [`Self::entries`].
     first_height: u64,
     /// The hash of the last block in the last entry.
     top_seen_hash: [u8; 32],
+    /// The hash of the block one below [`Self::first_height`].
+    previous_hash: [u8; 32],
     /// The hash of the genesis block.
     our_genesis: [u8; 32],
 }
 
 impl<N: NetworkZone> ChainTracker<N> {
     /// Creates a new chain tracker.
-    pub fn new(new_entry: ChainEntry<N>, first_height: u64, our_genesis: [u8; 32]) -> Self {
+    pub fn new(
+        new_entry: ChainEntry<N>,
+        first_height: u64,
+        our_genesis: [u8; 32],
+        previous_hash: [u8; 32],
+    ) -> Self {
         let top_seen_hash = *new_entry.ids.last().unwrap();
         let mut entries = VecDeque::with_capacity(1);
         entries.push_back(new_entry);
@@ -70,6 +79,7 @@ impl<N: NetworkZone> ChainTracker<N> {
             top_seen_hash,
             entries,
             first_height,
+            previous_hash,
             our_genesis,
         }
     }
@@ -180,6 +190,7 @@ impl<N: NetworkZone> ChainTracker<N> {
 
         let blocks = BlocksToRetrieve {
             ids: ids_to_get.into(),
+            prev_id: self.previous_hash,
             start_height: self.first_height,
             peer_who_told_us: entry.peer,
             peer_who_told_us_handle: entry.handle.clone(),
@@ -188,6 +199,8 @@ impl<N: NetworkZone> ChainTracker<N> {
         };
 
         self.first_height += u64::try_from(end_idx).unwrap();
+        // TODO: improve ByteArrayVec API.
+        self.previous_hash = blocks.ids[blocks.ids.len() - 1];
 
         if entry.ids.is_empty() {
             self.entries.pop_front();

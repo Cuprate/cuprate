@@ -160,6 +160,8 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
         };
 
         if let Err(e) = self.connection_tx.try_send(req) {
+            // The connection task could have closed between a call to `poll_ready` and the call to
+            // `call`, which means if we don't handle the error here the receiver would panic.
             use mpsc::error::TrySendError;
 
             match e {
