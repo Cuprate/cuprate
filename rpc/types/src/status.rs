@@ -6,7 +6,10 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 // TODO: impl epee
-// use epee_encoding::{EpeeObject, EpeeObjectBuilder};
+use epee_encoding::{
+    macros::bytes::{Buf, BufMut},
+    EpeeValue, Marker,
+};
 
 use crate::constants::{
     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
@@ -88,6 +91,18 @@ pub enum Status {
     Other(String),
 }
 
+impl From<String> for Status {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            CORE_RPC_STATUS_OK => Self::Ok,
+            CORE_RPC_STATUS_BUSY => Self::Busy,
+            CORE_RPC_STATUS_NOT_MINING => Self::NotMining,
+            CORE_RPC_STATUS_PAYMENT_REQUIRED => Self::PaymentRequired,
+            _ => Self::Other(s),
+        }
+    }
+}
+
 impl AsRef<str> for Status {
     fn as_ref(&self) -> &str {
         match self {
@@ -103,6 +118,37 @@ impl AsRef<str> for Status {
 impl Display for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_ref())
+    }
+}
+
+// [`Status`] is essentially a [`String`] when it comes to
+// (de)serialization, except when writing we usually have
+// access to a `&'static str` and don't need to allocate.
+//
+// See below for more impl info:
+// <https://github.com/Cuprate/cuprate/blob/bef2a2cbd4e1194991751d1fbc96603cba8c7a51/net/epee-encoding/src/value.rs#L366-L392>.
+impl EpeeValue for Status {
+    const MARKER: Marker = <String as EpeeValue>::MARKER;
+
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> epee_encoding::Result<Self> {
+        let string = <String as EpeeValue>::read(r, marker)?;
+        Ok(Self::from(string))
+    }
+
+    fn should_write(&self) -> bool {
+        match self {
+            Self::Ok | Self::Busy | Self::NotMining | Self::PaymentRequired => true,
+            Self::Other(s) => !s.is_empty(),
+        }
+    }
+
+    fn epee_default_value() -> Option<Self> {
+        // TODO: what is the default here?
+        Some(Self::default())
+    }
+
+    fn write<B: BufMut>(self, w: &mut B) -> epee_encoding::Result<()> {
+        epee_encoding::write_bytes(self.as_ref(), w)
     }
 }
 
