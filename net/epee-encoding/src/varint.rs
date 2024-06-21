@@ -7,6 +7,7 @@ const FITS_IN_ONE_BYTE: u64 = 2_u64.pow(8 - SIZE_OF_SIZE_MARKER) - 1;
 const FITS_IN_TWO_BYTES: u64 = 2_u64.pow(16 - SIZE_OF_SIZE_MARKER) - 1;
 const FITS_IN_FOUR_BYTES: u64 = 2_u64.pow(32 - SIZE_OF_SIZE_MARKER) - 1;
 
+/// Read a variable sized integer from `r`.
 pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
     if !r.has_remaining() {
         Err(Error::IO("Not enough bytes to build VarInt"))?
@@ -26,6 +27,7 @@ pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
     Ok(vi)
 }
 
+/// Write a variable sized integer into `w`.
 pub fn write_varint<B: BufMut>(number: u64, w: &mut B) -> Result<()> {
     let size_marker = match number {
         0..=FITS_IN_ONE_BYTE => 0,
