@@ -7,7 +7,18 @@ const FITS_IN_ONE_BYTE: u64 = 2_u64.pow(8 - SIZE_OF_SIZE_MARKER) - 1;
 const FITS_IN_TWO_BYTES: u64 = 2_u64.pow(16 - SIZE_OF_SIZE_MARKER) - 1;
 const FITS_IN_FOUR_BYTES: u64 = 2_u64.pow(32 - SIZE_OF_SIZE_MARKER) - 1;
 
-/// Read a variable sized integer from `r`.
+/// Read an epee variable sized number from `r`.
+///
+/// ```rust
+/// use epee_encoding::read_varint;
+///
+/// assert_eq!(read_varint(&mut [252].as_slice()).unwrap(), 63);
+/// assert_eq!(read_varint(&mut [1, 1].as_slice()).unwrap(), 64);
+/// assert_eq!(read_varint(&mut [253, 255].as_slice()).unwrap(), 16_383);
+/// assert_eq!(read_varint(&mut [2, 0, 1, 0].as_slice()).unwrap(), 16_384);
+/// assert_eq!(read_varint(&mut [254, 255, 255, 255].as_slice()).unwrap(), 1_073_741_823);
+/// assert_eq!(read_varint(&mut [3, 0, 0, 0, 1, 0, 0, 0].as_slice()).unwrap(), 1_073_741_824);
+/// ```
 pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
     if !r.has_remaining() {
         Err(Error::IO("Not enough bytes to build VarInt"))?
@@ -27,7 +38,26 @@ pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
     Ok(vi)
 }
 
-/// Write a variable sized integer into `w`.
+/// Write an epee variable sized number into `w`.
+///
+/// ```rust
+/// use epee_encoding::write_varint;
+///
+/// let mut buf = vec![];
+///
+/// for (number, expected_bytes) in [
+///     (63, [252].as_slice()),
+///     (64, [1, 1].as_slice()),
+///     (16_383, [253, 255].as_slice()),
+///     (16_384, [2, 0, 1, 0].as_slice()),
+///     (1_073_741_823, [254, 255, 255, 255].as_slice()),
+///     (1_073_741_824, [3, 0, 0, 0, 1, 0, 0, 0].as_slice()),
+/// ] {
+///     buf.clear();
+///     write_varint(number, &mut buf);
+///     assert_eq!(buf.as_slice(), expected_bytes);
+/// }
+/// ```
 pub fn write_varint<B: BufMut>(number: u64, w: &mut B) -> Result<()> {
     let size_marker = match number {
         0..=FITS_IN_ONE_BYTE => 0,
