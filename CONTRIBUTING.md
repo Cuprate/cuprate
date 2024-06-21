@@ -12,6 +12,8 @@ you ask questions in our public [Matrix room](https://matrix.to/#/#cuprate:moner
 - [2. Crate names](#2-crate-names)
 - [3. Coding guidelines](#3-coding-guidelines)
 - [4. Keeping track of issues and PRs](#4-keeping-track-of-issues-and-prs)
+	- [4.1 Labels](#41-labels)
+	- [4.2 Tracking issues](#42-tracking-issues)
 - [5. Documentation](#5-documentation)
 - [6. Books](#6-books)
 	- [6.1 Architecture book](#61-architecture-book)
@@ -110,7 +112,12 @@ And the most important rule:
 - Break any and all of the above rules when it makes sense
 
 ## 4. Keeping track of issues and PRs
-The Cuprate GitHub repository has a lot of issues and PRs to keep track of. Cuprate makes use of generic labels and labels grouped by a prefixes to help with this.
+The Cuprate GitHub repository has a lot of issues and PRs to keep track of.
+
+This section documents tools used to help with this.
+
+### 4.1 Labels
+Cuprate makes use of generic labels and labels grouped by a prefixes.
 
 Some labels will be [automatically added/removed](https://github.com/Cuprate/cuprate/tree/main/.github/labeler.yml) if certain file paths have been changed in a PR.
 
@@ -134,6 +141,9 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 [I-]: https://github.com/Cuprate/cuprate/labels?q=I
 [O-]: https://github.com/Cuprate/cuprate/labels?q=O
 [P-]: https://github.com/Cuprate/cuprate/labels?q=P
+
+### 4.2 Tracking issues
+TODO
 
 ## 5. Documentation
 Cuprate's crates (libraries) have inline documentation.
