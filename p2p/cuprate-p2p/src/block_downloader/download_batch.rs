@@ -1,37 +1,38 @@
-use cuprate_helper::asynch::rayon_spawn_async;
-use fixed_bytes::ByteArrayVec;
-use monero_p2p::handles::ConnectionHandle;
-use monero_p2p::{NetworkZone, PeerRequest, PeerResponse};
-use monero_serai::block::Block;
-use monero_serai::transaction::Transaction;
-use monero_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
-use rayon::prelude::*;
 use std::collections::HashSet;
+
+use monero_serai::{block::Block, transaction::Transaction};
+use rayon::prelude::*;
 use tokio::time::timeout;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use crate::block_downloader::BlockDownloadTaskResponse;
+use monero_p2p::{NetworkZone, PeerRequest, PeerResponse, handles::ConnectionHandle};
+use monero_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
+use cuprate_helper::asynch::rayon_spawn_async;
+use fixed_bytes::ByteArrayVec;
+
 use crate::{
-    block_downloader::{BlockBatch, BlockDownloadError},
+    block_downloader::{BlockBatch, BlockDownloadError, BlockDownloadTaskResponse},
     client_pool::ClientPoolDropGuard,
     constants::{BLOCK_DOWNLOADER_REQUEST_TIMEOUT, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN},
 };
 
+
+/// Attempts to request a batch of blocks from a peer, returning [`BlockDownloadTaskResponse`].
 #[instrument(
     level = "debug", 
     name = "download_batch", 
     skip_all,
     fields(
         start_height = expected_start_height, 
-        attempt
+        attempt = _attempt
     )
 )]
 pub async fn download_batch_task<N: NetworkZone>(
     client: ClientPoolDropGuard<N>,
     ids: ByteArrayVec<32>,
     expected_start_height: u64,
-    attempt: usize,
+    _attempt: usize,
 ) -> BlockDownloadTaskResponse<N> {
     BlockDownloadTaskResponse {
         start_height: expected_start_height,

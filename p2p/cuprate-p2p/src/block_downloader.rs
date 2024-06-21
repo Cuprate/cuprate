@@ -22,23 +22,18 @@ use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use async_buffer::{BufferAppender, BufferStream};
-use cuprate_helper::asynch::rayon_spawn_async;
-use fixed_bytes::ByteArrayVec;
 use monero_p2p::{
-    client::InternalPeerID,
     handles::ConnectionHandle,
     services::{PeerSyncRequest, PeerSyncResponse},
-    NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
+    NetworkZone, PeerSyncSvc,
 };
 use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
-use monero_wire::protocol::{ChainRequest, ChainResponse};
 
 use crate::{
     client_pool::{ClientPool, ClientPoolDropGuard},
     constants::{
-        BLOCK_DOWNLOADER_REQUEST_TIMEOUT, EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED,
-        INITIAL_CHAIN_REQUESTS_TO_SEND, LONG_BAN, MAX_BLOCKS_IDS_IN_CHAIN_ENTRY,
-        MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES, MEDIUM_BAN,
+        BLOCK_DOWNLOADER_REQUEST_TIMEOUT, EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED, LONG_BAN,
+        MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES,
     },
 };
 
