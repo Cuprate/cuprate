@@ -11,7 +11,7 @@ use fixed_bytes::{ByteArray, ByteArrayVec};
 use crate::{
     io::{checked_read_primitive, checked_write_primitive},
     varint::{read_varint, write_varint},
-    write_bytes, write_container, EpeeObject, Error, InnerMarker, Marker, Result,
+    write_bytes, write_iterator, EpeeObject, Error, InnerMarker, Marker, Result,
     MAX_STRING_LEN_POSSIBLE,
 };
 
@@ -86,7 +86,7 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_container(self.into_iter(), w)
+        write_iterator(self.into_iter(), w)
     }
 }
 
@@ -104,7 +104,7 @@ impl<T: EpeeObject + Debug, const N: usize> EpeeValue for [T; N] {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_container(self.into_iter(), w)
+        write_iterator(self.into_iter(), w)
     }
 }
 
@@ -390,7 +390,7 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_container(self.into_iter(), w)
+        write_iterator(self.into_iter(), w)
     }
 }
 
@@ -426,7 +426,7 @@ macro_rules! epee_seq {
             }
 
             fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-                write_container(self.into_iter(), w)
+                write_iterator(self.into_iter(), w)
             }
         }
 
@@ -444,7 +444,7 @@ macro_rules! epee_seq {
             }
 
             fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-                write_container(self.into_iter(), w)
+                write_iterator(self.into_iter(), w)
             }
         }
     };

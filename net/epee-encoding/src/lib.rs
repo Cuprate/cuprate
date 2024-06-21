@@ -242,7 +242,7 @@ pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
     Ok(())
 }
 
-/// Write a container of [`EpeeValue`]s to `w` with [`write_varint`].
+/// Write an [`Iterator`] of [`EpeeValue`]s to `w` with [`write_varint`].
 ///
 /// This function:
 /// - Writes the length of `i`'s bytes into `w` using [`write_varint`]
@@ -255,7 +255,7 @@ pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
 /// This will error if:
 /// - [`write_varint`] fails
 /// - [`EpeeValue::<T>::write`] fails
-pub fn write_container<T, I, B>(iterator: I, w: &mut B) -> Result<()>
+pub fn write_iterator<T, I, B>(iterator: I, w: &mut B) -> Result<()>
 where
     T: EpeeValue,
     I: Iterator<Item = T> + ExactSizeIterator,
