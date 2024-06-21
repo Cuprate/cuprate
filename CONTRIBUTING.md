@@ -143,7 +143,13 @@ This section is primarily targeted at maintainers. Most contributors aren't able
 [P-]: https://github.com/Cuprate/cuprate/labels?q=P
 
 ### 4.2 Tracking issues
-TODO
+If you are working on a larger effort, consider opening a [tracking issue](https://github.com/Cuprate/cuprate/issues/new?assignees=&labels=C-tracking-issue&projects=&template=tracking_issue.md&title=Tracking+Issue+for+...)!
+
+The main purpose of these are to track efforts that may contain multiple PRs and/or are generally spread out. These don't usually contain the "why", but if they do, they are brief. These contain no implementation details or the how, as those are for the issues/PRs that are being tracked.
+
+For examples, see here:
+- https://github.com/Cuprate/cuprate/issues/187
+- https://github.com/Cuprate/cuprate/issues/183
 
 ## 5. Documentation
 Cuprate's crates (libraries) have inline documentation.
