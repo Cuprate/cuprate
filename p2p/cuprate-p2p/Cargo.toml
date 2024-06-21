@@ -36,3 +36,4 @@ tracing = { workspace = true, features = ["std", "attributes"] }
 cuprate-test-utils = { path = "../../test-utils" }
 indexmap = { workspace = true }
 proptest = { workspace = true }
+tokio-test = { workspace = true }

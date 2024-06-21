@@ -6,7 +6,7 @@
 //!
 //! The block downloader is started by [`download_blocks`].
 use std::{
-    cmp::{max, min, Ordering, Reverse},
+    cmp::{max, min, Reverse},
     collections::{BTreeMap, BinaryHeap, HashSet},
     mem,
     sync::Arc,
@@ -34,25 +34,32 @@ use monero_p2p::{
     NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
 };
 use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
-use monero_wire::protocol::{ChainRequest, ChainResponse, GetObjectsRequest};
+use monero_wire::protocol::{ChainRequest, ChainResponse};
 
 use crate::{
     client_pool::{ClientPool, ClientPoolDropGuard},
     constants::{
         BLOCK_DOWNLOADER_REQUEST_TIMEOUT, EMPTY_CHAIN_ENTRIES_BEFORE_TOP_ASSUMED,
         INITIAL_CHAIN_REQUESTS_TO_SEND, LONG_BAN, MAX_BLOCKS_IDS_IN_CHAIN_ENTRY,
-        MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES, MAX_TRANSACTION_BLOB_SIZE, MEDIUM_BAN,
+        MAX_BLOCK_BATCH_LEN, MAX_DOWNLOAD_FAILURES, MEDIUM_BAN,
     },
 };
 
+mod block_queue;
 mod chain_tracker;
-use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
 
+use block_queue::{BlockQueue, ReadyQueueBatch};
+use chain_tracker::{BlocksToRetrieve, ChainEntry, ChainTracker};
+use download_batch::download_batch_task;
+
+// TODO: check first block in batch prev_id
+
+mod download_batch;
 #[cfg(test)]
 mod tests;
 
 /// A downloaded batch of blocks.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockBatch {
     /// The blocks.
     pub blocks: Vec<(Block, Vec<Transaction>)>,
@@ -172,43 +179,6 @@ where
     buffer_stream
 }
 
-/// A batch of blocks in the ready queue, waiting for previous blocks to come in, so they can
-/// be passed into the buffer.
-///
-/// The [`Eq`] and [`Ord`] impl on this type will only take into account the `start_height`, this
-/// is because the block downloader will only download one chain at once so no 2 batches can have
-/// the same `start_height`.
-///
-/// Also, the [`Ord`] impl is reversed so older blocks (lower height) come first in a [`BinaryHeap`].
-#[derive(Debug)]
-struct ReadyQueueBatch {
-    /// The start height of the batch.
-    start_height: u64,
-    /// The batch of blocks.
-    block_batch: BlockBatch,
-}
-
-impl Eq for ReadyQueueBatch {}
-
-impl PartialEq<Self> for ReadyQueueBatch {
-    fn eq(&self, other: &Self) -> bool {
-        self.start_height.eq(&other.start_height)
-    }
-}
-
-impl PartialOrd<Self> for ReadyQueueBatch {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ReadyQueueBatch {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // reverse the ordering so older blocks (lower height) come first in a [`BinaryHeap`]
-        self.start_height.cmp(&other.start_height).reverse()
-    }
-}
-
 /// # Block Downloader
 ///
 /// This is the block downloader, which finds a chain to follow and attempts to follow it, adding the
@@ -223,7 +193,7 @@ impl Ord for ReadyQueueBatch {
 /// to download blocks from.
 ///
 /// For each peer we will then allocate a batch of blocks for them to retrieve, as these blocks come in
-/// we add them to queue for pushing into the [`async_buffer`], once we have the oldest block downloaded
+/// we add them to the [`BlockQueue`] for pushing into the [`async_buffer`], once we have the oldest block downloaded
 /// we send it into the buffer, repeating this until the oldest current block is still being downloaded.
 ///
 /// When a peer has finished downloading blocks we add it to our list of ready peers, so it can be used to
@@ -270,18 +240,12 @@ struct BlockDownloader<N: NetworkZone, S, C> {
     /// This is a map of batch start heights to block IDs and related information of the batch.
     inflight_requests: BTreeMap<u64, BlocksToRetrieve<N>>,
 
-    /// A queue of ready batches.
-    ready_batches: BinaryHeap<ReadyQueueBatch>,
-    /// The size, in bytes, of all the batches in [`Self::ready_batches`].
-    ready_batches_size: usize,
-
     /// A queue of start heights from failed batches that should be retried.
     ///
     /// Wrapped in [`Reverse`] so we prioritize early batches.
     failed_batches: BinaryHeap<Reverse<u64>>,
 
-    /// The [`BufferAppender`] that gives blocks to Cuprate.
-    buffer_appender: BufferAppender<BlockBatch>,
+    block_queue: BlockQueue,
 
     /// The [`BlockDownloaderConfig`].
     config: BlockDownloaderConfig,
@@ -315,10 +279,8 @@ where
             block_download_tasks: JoinSet::new(),
             chain_entry_task: JoinSet::new(),
             inflight_requests: BTreeMap::new(),
-            ready_batches: BinaryHeap::new(),
-            ready_batches_size: 0,
+            block_queue: BlockQueue::new(buffer_appender),
             failed_batches: BinaryHeap::new(),
-            buffer_appender,
             config,
         }
     }
@@ -360,7 +322,7 @@ where
     ) -> Option<ClientPoolDropGuard<N>> {
         tracing::debug!(
             "Requesting an inflight batch, current ready queue size: {}",
-            self.ready_batches_size
+            self.block_queue.size()
         );
 
         assert!(
@@ -368,7 +330,7 @@ where
             "We need requests inflight to be able to send the request again",
         );
 
-        let oldest_ready_batch = self.ready_batches.peek().unwrap().start_height;
+        let oldest_ready_batch = self.block_queue.oldest_ready_batch().unwrap();
 
         for (_, in_flight_batch) in self.inflight_requests.range_mut(0..oldest_ready_batch) {
             if in_flight_batch.requests_sent >= 2 {
@@ -383,29 +345,12 @@ where
                 return Some(client);
             }
 
-            in_flight_batch.requests_sent += 1;
-
-            tracing::debug!(
-                "Sending request for batch, total requests sent for batch: {}",
-                in_flight_batch.requests_sent
-            );
-
-            let ids = in_flight_batch.ids.clone();
-            let start_height = in_flight_batch.start_height;
-
-            self.block_download_tasks.spawn(
-                async move {
-                    BlockDownloadTaskResponse {
-                        start_height,
-                        result: request_batch_from_peer(client, ids, start_height).await,
-                    }
-                }
-                .instrument(tracing::debug_span!(
-                    "download_batch",
-                    start_height,
-                    attempt = in_flight_batch.requests_sent
-                )),
-            );
+            self.block_download_tasks.spawn(download_batch_task(
+                client,
+                in_flight_batch.ids.clone(),
+                in_flight_batch.start_height,
+                in_flight_batch.requests_sent,
+            ));
 
             return None;
         }
@@ -449,19 +394,12 @@ where
 
                 request.requests_sent += 1;
 
-                self.block_download_tasks.spawn(
-                    async move {
-                        BlockDownloadTaskResponse {
-                            start_height,
-                            result: request_batch_from_peer(client, ids, start_height).await,
-                        }
-                    }
-                    .instrument(tracing::debug_span!(
-                        "download_batch",
-                        start_height,
-                        attempt = request.requests_sent
-                    )),
-                );
+                self.block_download_tasks.spawn(download_batch_task(
+                    client,
+                    ids,
+                    start_height,
+                    request.requests_sent,
+                ));
 
                 // Remove the failure, we have just handled it.
                 self.failed_batches.pop();
@@ -473,7 +411,7 @@ where
         }
 
         // If our ready queue is too large send duplicate requests for the blocks we are waiting on.
-        if self.ready_batches_size >= self.config.in_progress_queue_size {
+        if self.block_queue.size() >= self.config.in_progress_queue_size {
             return self.request_inflight_batch_again(client).await;
         }
 
@@ -491,24 +429,12 @@ where
         self.inflight_requests
             .insert(block_entry_to_get.start_height, block_entry_to_get.clone());
 
-        self.block_download_tasks.spawn(
-            async move {
-                BlockDownloadTaskResponse {
-                    start_height: block_entry_to_get.start_height,
-                    result: request_batch_from_peer(
-                        client,
-                        block_entry_to_get.ids,
-                        block_entry_to_get.start_height,
-                    )
-                    .await,
-                }
-            }
-            .instrument(tracing::debug_span!(
-                "download_batch",
-                block_entry_to_get.start_height,
-                attempt = block_entry_to_get.requests_sent
-            )),
-        );
+        self.block_download_tasks.spawn(download_batch_task(
+            client,
+            block_entry_to_get.ids.clone(),
+            block_entry_to_get.start_height,
+            block_entry_to_get.requests_sent,
+        ));
 
         None
     }
@@ -607,47 +533,6 @@ where
         Ok(())
     }
 
-    /// Checks if we have batches ready to send down the [`BufferAppender`].
-    ///
-    /// We guarantee that blocks sent down the buffer are sent in the correct order.
-    async fn push_new_blocks(&mut self) -> Result<(), BlockDownloadError> {
-        while let Some(ready_batch) = self.ready_batches.peek() {
-            // Check if this ready batch's start height is higher than the lowest in flight request.
-            // If there is a lower start height in the inflight requests then this is _not_ the next batch
-            // to send down the buffer.
-            if self
-                .inflight_requests
-                .first_key_value()
-                .is_some_and(|(&lowest_start_height, _)| {
-                    ready_batch.start_height > lowest_start_height
-                })
-            {
-                break;
-            }
-
-            // Our next ready batch is older (lower height) than the oldest in flight, push it down the
-            // buffer.
-            let ready_batch = self.ready_batches.pop().unwrap();
-
-            let size = ready_batch.block_batch.size;
-            self.ready_batches_size -= size;
-
-            tracing::debug!(
-                "Pushing batch to buffer, new ready batches size: {}",
-                self.ready_batches_size
-            );
-
-            self.buffer_appender
-                .send(ready_batch.block_batch, size)
-                .await
-                .map_err(|_| BlockDownloadError::BufferWasClosed)?;
-
-            // Loops back to check the next oldest ready batch.
-        }
-
-        Ok(())
-    }
-
     /// Handles a response to a request to get blocks from a peer.
     async fn handle_download_batch_res(
         &mut self,
@@ -723,15 +608,15 @@ where
                     self.amount_of_blocks_to_request_updated_at = start_height;
                 }
 
-                // Add the batch to the queue of ready batches.
-                self.ready_batches_size += block_batch.size;
-                self.ready_batches.push(ReadyQueueBatch {
-                    start_height,
-                    block_batch,
-                });
-
-                // Attempt to push new batches to the buffer.
-                self.push_new_blocks().await?;
+                self.block_queue
+                    .add_incoming_batch(
+                        ReadyQueueBatch {
+                            start_height,
+                            block_batch,
+                        },
+                        self.inflight_requests.first_key_value().map(|(k, _)| *k),
+                    )
+                    .await?;
 
                 pending_peers
                     .entry(client.info.pruning_seed)
@@ -857,136 +742,6 @@ fn calculate_next_block_batch_size(
 
     // Cap the length to the maximum allowed.
     min(next_batch_len, MAX_BLOCK_BATCH_LEN)
-}
-
-/// Requests a sequential batch of blocks from a peer.
-///
-/// This function will validate the blocks that were downloaded were the ones asked for and that they match
-/// the expected height.
-async fn request_batch_from_peer<N: NetworkZone>(
-    mut client: ClientPoolDropGuard<N>,
-    ids: ByteArrayVec<32>,
-    expected_start_height: u64,
-) -> Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError> {
-    // Request the blocks.
-    let blocks_response = timeout(BLOCK_DOWNLOADER_REQUEST_TIMEOUT, async {
-        let PeerResponse::GetObjects(blocks_response) = client
-            .ready()
-            .await?
-            .call(PeerRequest::GetObjects(GetObjectsRequest {
-                blocks: ids.clone(),
-                pruned: false,
-            }))
-            .await?
-        else {
-            panic!("Connection task returned wrong response.");
-        };
-
-        Ok::<_, BlockDownloadError>(blocks_response)
-    })
-    .await
-    .map_err(|_| BlockDownloadError::TimedOut)??;
-
-    // Initial sanity checks
-    if blocks_response.blocks.len() > ids.len() {
-        client.info.handle.ban_peer(MEDIUM_BAN);
-        return Err(BlockDownloadError::PeersResponseWasInvalid);
-    }
-
-    if blocks_response.blocks.len() != ids.len() {
-        return Err(BlockDownloadError::PeerDidNotHaveRequestedData);
-    }
-
-    let blocks = rayon_spawn_async(move || {
-        let blocks = blocks_response
-            .blocks
-            .into_par_iter()
-            .enumerate()
-            .map(|(i, block_entry)| {
-                let expected_height = u64::try_from(i).unwrap() + expected_start_height;
-
-                let mut size = block_entry.block.len();
-
-                let block = Block::read(&mut block_entry.block.as_ref())
-                    .map_err(|_| BlockDownloadError::PeersResponseWasInvalid)?;
-
-                // Check the block matches the one requested and the peer sent enough transactions.
-                if ids[i] != block.hash() || block.txs.len() != block_entry.txs.len() {
-                    return Err(BlockDownloadError::PeersResponseWasInvalid);
-                }
-
-                // Check the height lines up as expected.
-                // This must happen after the hash check.
-                if !block
-                    .number()
-                    .is_some_and(|height| height == expected_height)
-                {
-                    tracing::warn!(
-                        "Invalid chain, expected height: {expected_height}, got height: {:?}",
-                        block.number()
-                    );
-
-                    // This peer probably did nothing wrong, it was the peer who told us this blockID which
-                    // is misbehaving.
-                    return Err(BlockDownloadError::ChainInvalid);
-                }
-
-                // Deserialize the transactions.
-                let txs = block_entry
-                    .txs
-                    .take_normal()
-                    .ok_or(BlockDownloadError::PeersResponseWasInvalid)?
-                    .into_iter()
-                    .map(|tx_blob| {
-                        size += tx_blob.len();
-
-                        if tx_blob.len() > MAX_TRANSACTION_BLOB_SIZE {
-                            return Err(BlockDownloadError::PeersResponseWasInvalid);
-                        }
-
-                        Transaction::read(&mut tx_blob.as_ref())
-                            .map_err(|_| BlockDownloadError::PeersResponseWasInvalid)
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                // Make sure the transactions in the block were the ones the peer sent.
-                let mut expected_txs = block.txs.iter().collect::<HashSet<_>>();
-
-                for tx in &txs {
-                    if !expected_txs.remove(&tx.hash()) {
-                        return Err(BlockDownloadError::PeersResponseWasInvalid);
-                    }
-                }
-
-                if !expected_txs.is_empty() {
-                    return Err(BlockDownloadError::PeersResponseWasInvalid);
-                }
-
-                Ok(((block, txs), size))
-            })
-            .collect::<Result<(Vec<_>, Vec<_>), _>>();
-
-        blocks
-    })
-    .await;
-
-    let (blocks, sizes) = blocks.inspect_err(|e| {
-        // If the peers response was invalid, ban it.
-        if matches!(e, BlockDownloadError::PeersResponseWasInvalid) {
-            client.info.handle.ban_peer(MEDIUM_BAN);
-        }
-    })?;
-
-    let peer_handle = client.info.handle.clone();
-
-    Ok((
-        client,
-        BlockBatch {
-            blocks,
-            size: sizes.iter().sum(),
-            peer_handle,
-        },
-    ))
 }
 
 /// Request a chain entry from a peer.
