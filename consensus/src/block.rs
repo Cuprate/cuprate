@@ -16,6 +16,7 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
+use cuprate_consensus_rules::hard_forks::HardForkError;
 use cuprate_consensus_rules::{
     blocks::{
         calculate_pow_hash, check_block, check_block_pow, is_randomx_seed_height,
@@ -316,6 +317,10 @@ where
         + 'static,
     C::Future: Send + 'static,
 {
+    if blocks.is_empty() {
+        return Err(ExtendedConsensusError::NoBlocksToVerify);
+    }
+
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");
@@ -326,6 +331,10 @@ where
             .collect::<Result<Vec<_>, _>>()
     })
     .await?;
+
+    // hard-forks cannot be reversed, so the last block will contain the highest hard fork (provided the
+    // batch is valid).
+    let top_hf_in_batch = blocks.last().unwrap().hf_version;
 
     // A Vec of (timestamp, HF) for each block to calculate the expected difficulty for each block.
     let mut timestamps_hfs = Vec::with_capacity(blocks.len());
@@ -338,6 +347,13 @@ where
         let block_0 = &window[0];
         let block_1 = &window[1];
 
+        // Make sure no blocks in the batch have a higher hard fork than the last block.
+        if block_0.hf_version > top_hf_in_batch {
+            Err(ConsensusError::Block(BlockError::HardForkError(
+                HardForkError::VersionIncorrect,
+            )))?;
+        }
+
         if block_0.block_hash != block_1.block.header.previous
             || block_0.height != block_1.height - 1
         {
@@ -346,7 +362,7 @@ where
         }
 
         // Cache any potential RX VM seeds as we may need them for future blocks in the batch.
-        if is_randomx_seed_height(block_0.height) {
+        if is_randomx_seed_height(block_0.height) && top_hf_in_batch >= HardFork::V12 {
             new_rx_vm = Some((block_0.height, block_0.block_hash));
         }
 
@@ -395,7 +411,20 @@ where
         Err(ConsensusError::Block(BlockError::PreviousIDIncorrect))?;
     }
 
-    let mut rx_vms = context.rx_vms;
+    let mut rx_vms = if top_hf_in_batch < HardFork::V12 {
+        HashMap::new()
+    } else {
+        let BlockChainContextResponse::RxVms(rx_vms) = context_svc
+            .ready()
+            .await?
+            .call(BlockChainContextRequest::GetCurrentRxVm)
+            .await?
+        else {
+            panic!("Blockchain context service returned wrong response!");
+        };
+
+        rx_vms
+    };
 
     // If we have a RX seed in the batch calculate it.
     if let Some((new_vm_height, new_vm_seed)) = new_rx_vm {
@@ -407,9 +436,7 @@ where
         .await;
 
         context_svc
-            .ready()
-            .await?
-            .call(BlockChainContextRequest::NewRXVM((
+            .oneshot(BlockChainContextRequest::NewRXVM((
                 new_vm_seed,
                 new_vm.clone(),
             )))
@@ -501,7 +528,21 @@ where
 
     // Set up the block and just pass it to [`verify_prepped_main_chain_block`]
 
-    let rx_vms = context.rx_vms.clone();
+    // We just use the raw `major_version` here, no need to turn it into a `HardFork`.
+    let rx_vms = if block.header.major_version < 12 {
+        HashMap::new()
+    } else {
+        let BlockChainContextResponse::RxVms(rx_vms) = context_svc
+            .ready()
+            .await?
+            .call(BlockChainContextRequest::GetCurrentRxVm)
+            .await?
+        else {
+            panic!("Blockchain context service returned wrong response!");
+        };
+
+        rx_vms
+    };
 
     let height = context.chain_height;
     let prepped_block = rayon_spawn_async(move || {
