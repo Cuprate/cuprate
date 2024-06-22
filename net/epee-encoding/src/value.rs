@@ -9,7 +9,10 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use fixed_bytes::{ByteArray, ByteArrayVec};
 
 use crate::{
-    io::*, varint::*, EpeeObject, Error, InnerMarker, Marker, Result, MAX_STRING_LEN_POSSIBLE,
+    io::{checked_read_primitive, checked_write_primitive},
+    varint::{read_varint, write_varint},
+    write_bytes, write_iterator, EpeeObject, Error, InnerMarker, Marker, Result,
+    MAX_STRING_LEN_POSSIBLE,
 };
 
 /// A trait for epee values.
@@ -83,11 +86,7 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-        for item in self.into_iter() {
-            item.write(w)?;
-        }
-        Ok(())
+        write_iterator(self.into_iter(), w)
     }
 }
 
@@ -105,11 +104,7 @@ impl<T: EpeeObject + Debug, const N: usize> EpeeValue for [T; N] {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-        for item in self.into_iter() {
-            item.write(w)?;
-        }
-        Ok(())
+        write_iterator(self.into_iter(), w)
     }
 }
 
@@ -191,14 +186,7 @@ impl EpeeValue for Vec<u8> {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put_slice(&self);
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
@@ -231,14 +219,7 @@ impl EpeeValue for Bytes {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put(self);
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
@@ -274,14 +255,7 @@ impl EpeeValue for BytesMut {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put(self);
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
@@ -316,15 +290,7 @@ impl<const N: usize> EpeeValue for ByteArrayVec<N> {
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
         let bytes = self.take_bytes();
-
-        write_varint(bytes.len().try_into()?, w)?;
-
-        if w.remaining_mut() < bytes.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put(bytes);
-        Ok(())
+        write_bytes(bytes, w)
     }
 }
 
@@ -351,15 +317,7 @@ impl<const N: usize> EpeeValue for ByteArray<N> {
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
         let bytes = self.take_bytes();
-
-        write_varint(N.try_into().unwrap(), w)?;
-
-        if w.remaining_mut() < N {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put(bytes);
-        Ok(())
+        write_bytes(bytes, w)
     }
 }
 
@@ -380,14 +338,7 @@ impl EpeeValue for String {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put_slice(self.as_bytes());
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
@@ -405,14 +356,7 @@ impl<const N: usize> EpeeValue for [u8; N] {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put_slice(&self);
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
@@ -446,11 +390,7 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-        for item in self.into_iter() {
-            item.write(w)?;
-        }
-        Ok(())
+        write_iterator(self.into_iter(), w)
     }
 }
 
@@ -486,11 +426,7 @@ macro_rules! epee_seq {
             }
 
             fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-                write_varint(self.len().try_into()?, w)?;
-                for item in self.into_iter() {
-                    item.write(w)?;
-                }
-                Ok(())
+                write_iterator(self.into_iter(), w)
             }
         }
 
@@ -508,11 +444,7 @@ macro_rules! epee_seq {
             }
 
             fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-                write_varint(self.len().try_into()?, w)?;
-                for item in self.into_iter() {
-                    item.write(w)?;
-                }
-                Ok(())
+                write_iterator(self.into_iter(), w)
             }
         }
     };
