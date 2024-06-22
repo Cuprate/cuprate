@@ -256,7 +256,7 @@ pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
 /// Write an [`Iterator`] of [`EpeeValue`]s to `w` with [`write_varint`].
 ///
 /// This function:
-/// - Writes the length of `i`'s bytes into `w` using [`write_varint`]
+/// - Writes the length of the `iterator`, into `w` using [`write_varint`]
 /// - [`EpeeValue::write`]s each `T` of the iterator into `w`
 ///
 /// It is used as the internal [`EpeeValue::write`]
