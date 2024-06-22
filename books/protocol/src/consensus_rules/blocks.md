@@ -2,7 +2,8 @@
 
 ## Introduction
 
-This chapter contains all the rules that apply to a block. Miner transactions are included in this section as the rules that apply to them
+This chapter contains all the rules that apply to a block. Miner transactions are included in this section as the rules
+that apply to them
 are different to normal transactions.
 
 ## Index
@@ -17,14 +18,16 @@ are different to normal transactions.
 
 ### Block Weight And Size
 
-The `block blob` must not be bigger than (2 * the [effective median weight](./blocks/weights.md#effective-median-weight) + 100)[^block-size-check].
+The `block blob` must not be bigger than (2 *
+the [effective median weight](./blocks/weights.md#effective-median-weight) + 100)[^block-size-check].
 
 The [block weight](./blocks/weights.md#block-weights) must not be more than 2 *
 [the median weight for coinbase checks](./blocks/weights.md#median-weight-for-coinbase-checks)[^block-weight-limit].
 
 ### Amount Of Transactions
 
-The amount of transactions in a block (including the miner transaction) must be less than `0x10000000`[^max-amount-of-txs].
+The amount of transactions in a block (including the miner transaction) must be less
+than `0x10000000`[^max-amount-of-txs].
 
 ### No Duplicate Transactions
 
@@ -43,7 +46,7 @@ The blocks `prev_id` must equal the `block hash` of the last block[^prev_id].
 The proof of work function used depends on the hard-fork[^pow-func]:
 
 | hard-fork  | POW function   |
-| ---------- | -------------- |
+|------------|----------------|
 | 1 to 6     | CryptoNight v0 |
 | 7          | CryptoNight v1 |
 | 8 to 9     | CryptoNight v2 |
@@ -72,14 +75,17 @@ You then get the block hash at `seedHeight` which is then the RandomX seed.[^rx-
 
 ### Version And Vote
 
-The block's major version must equal the current hard-fork and the vote must be equal to or greater than the current hard-fork[^version-vote].
+The block's major version must equal to the current hard-fork and the vote must be greater than or equal to the current
+hard-fork[^version-vote].
 
 > Vote is not always the same as the minor version, see [here](./hardforks.md#blocks-version-and-vote).
 
 ### Timestamp
 
-The block's timestamp must not be more than the current UNIX time + 2 hours[^timestamp-upper-limit] and the timestamp must not be less than
-the median timestamp over the last 60 blocks[^timestamp-lower-limit], if there are less than 60 blocks in the chain then the timestamp is always valid.
+The block's timestamp must not be more than the current UNIX time + 2 hours[^timestamp-upper-limit] and the timestamp
+must not be less than
+the median timestamp over the last 60 blocks[^timestamp-lower-limit], if there are less than 60 blocks in the chain then
+the timestamp is always valid.
 
 ---
 
