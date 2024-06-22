@@ -24,8 +24,7 @@ an Ed25519 point which is not the negative identity and with y coordinate fully 
 
 Prime Order Point:
 a point in the prime subgroup.
-
-POW Hash:
+PoW Hash:
 the hash calculated by using the active proof of work function.
 
 Block Hash:

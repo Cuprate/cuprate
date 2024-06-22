@@ -41,11 +41,11 @@ There must be no duplicate key images in the block[^no-duplicate-ki], or the who
 
 The blocks `prev_id` must equal the `block hash` of the last block[^prev_id].
 
-### POW Function
+### PoW Function
 
 The proof of work function used depends on the hard-fork[^pow-func]:
 
-| hard-fork  | POW function   |
+| hard-fork  | PoW function   |
 |------------|----------------|
 | 1 to 6     | CryptoNight v0 |
 | 7          | CryptoNight v1 |
@@ -53,13 +53,13 @@ The proof of work function used depends on the hard-fork[^pow-func]:
 | 10 to 11   | CryptoNight R  |
 | 12 onwards | RandomX        |
 
-> For block 202612 always return the same POW hash, no matter the network[^202612-pow-hash].
+> For block 202612 always return the same PoW hash, no matter the network[^202612-pow-hash].
 >
-> POW hash: `84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000`
+> PoW hash: `84f64766475d51837ac9efbef1926486e58563c95a19fef4aec3254f03000000`
 
-### Checking POW Hash
+### Checking PoW Hash
 
-See [checking POW in the difficulty chapter](./blocks/difficulty.md#checking-a-blocks-proof-of-work).
+See [checking PoW in the difficulty chapter](./blocks/difficulty.md#checking-a-blocks-proof-of-work).
 
 ### RandomX Seed
 

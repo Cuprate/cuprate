@@ -5,7 +5,7 @@ is found.
 
 ## Checking A Block's Proof Of Work
 
-To check a block's `POW hash` you interpret the hash as a little endian integer and multiply it by the difficulty, if the result
+To check a block's `PoW hash` you interpret the hash as a little endian integer and multiply it by the difficulty, if the result
 does not overflow the hash is valid[^check-pow]:
 
 \\(Hash * difficulty <= MAXu256 \\)
