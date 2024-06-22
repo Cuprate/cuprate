@@ -16,12 +16,12 @@ use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
-use cuprate_consensus_rules::hard_forks::HardForkError;
 use cuprate_consensus_rules::{
     blocks::{
         calculate_pow_hash, check_block, check_block_pow, is_randomx_seed_height,
         randomx_seed_height, BlockError, RandomX,
     },
+    hard_forks::HardForkError,
     miner_tx::MinerTxError,
     ConsensusError, HardFork,
 };
