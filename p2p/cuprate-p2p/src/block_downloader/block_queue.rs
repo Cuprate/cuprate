@@ -75,7 +75,7 @@ impl BlockQueue {
 
     /// Adds an incoming batch to the queue and checks if we can push any batches into the [`async_buffer`].
     ///
-    /// `oldest_in_flight_start_height` Should be the start height of the oldest batch that is still inflight, if
+    /// `oldest_in_flight_start_height` should be the start height of the oldest batch that is still inflight, if
     /// there are no batches inflight then this should be [`None`].
     pub async fn add_incoming_batch(
         &mut self,

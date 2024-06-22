@@ -109,7 +109,7 @@ impl<N: NetworkZone> ChainTracker<N> {
     /// Returns the total number of queued batches for a certain `batch_size`.
     ///
     /// # Panics
-    /// This functions panics if `batch_size` is `0`.
+    /// This function panics if `batch_size` is `0`.
     pub fn block_requests_queued(&self, batch_size: usize) -> usize {
         self.entries
             .iter()
