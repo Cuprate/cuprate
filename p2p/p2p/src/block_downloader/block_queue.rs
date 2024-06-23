@@ -144,7 +144,7 @@ mod tests {
         #[test]
         fn block_queue_returns_items_in_order(batches in vec(ready_batch_strategy(), 0..10_000)) {
             block_on(async move {
-                let (buffer_tx, mut buffer_rx) = async_buffer::new_buffer(usize::MAX);
+                let (buffer_tx, mut buffer_rx) = cuprate_async_buffer::new_buffer(usize::MAX);
 
                 let mut queue = BlockQueue::new(buffer_tx);
 

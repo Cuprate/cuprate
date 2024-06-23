@@ -184,7 +184,7 @@ prop_compose! {
 fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<ClearNet> {
     let semaphore = Arc::new(Semaphore::new(1));
 
-    let (connection_guard, connection_handle) = monero_p2p::handles::HandleBuilder::new()
+    let (connection_guard, connection_handle) = cuprate_p2p_core::handles::HandleBuilder::new()
         .with_permit(semaphore.try_acquire_owned().unwrap())
         .build();
 

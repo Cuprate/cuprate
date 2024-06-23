@@ -150,7 +150,7 @@ where
         + 'static,
     C::Future: Send + 'static,
 {
-    let (buffer_appender, buffer_stream) = async_buffer::new_buffer(config.buffer_size);
+    let (buffer_appender, buffer_stream) = cuprate_async_buffer::new_buffer(config.buffer_size);
 
     let block_downloader = BlockDownloader::new(
         client_pool,

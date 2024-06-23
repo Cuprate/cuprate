@@ -6,7 +6,7 @@ license = "MIT"
 authors = ["Boog900"]
 
 [dependencies]
-fixed-bytes = { path = "../../net/fixed-bytes" }
+cuprate-fixed-bytes = { path = "../../net/fixed-bytes" }
 cuprate-wire = { path = "../../net/wire" }
 cuprate-p2p-core = { path = "../p2p-core", features = ["borsh"] }
 cuprate-address-book = { path = "../address-book" }

@@ -606,7 +606,6 @@ dependencies = [
  "hex",
  "paste",
  "ref-cast",
- "sealed",
  "thiserror",
 ]
 
@@ -682,9 +681,9 @@ dependencies = [
 name = "cuprate-p2p"
 version = "0.1.0"
 dependencies = [
- "async-buffer",
  "bytes",
  "cuprate-address-book",
+ "cuprate-async-buffer",
  "cuprate-fixed-bytes",
  "cuprate-helper",
  "cuprate-p2p-core",
@@ -920,35 +919,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3dca9240753cf90908d7e4aac30f630662b02aebaa1b58a3cadabdb23385b58b"
 
 [[package]]
-<<<<<<< HEAD
-||||||| c837f2f
-name = "epee-encoding"
-version = "0.5.0"
-dependencies = [
- "bytes",
- "fixed-bytes",
- "hex",
- "paste",
- "ref-cast",
- "sealed",
- "thiserror",
-]
-
-[[package]]
-=======
-name = "epee-encoding"
-version = "0.5.0"
-dependencies = [
- "bytes",
- "fixed-bytes",
- "hex",
- "paste",
- "ref-cast",
- "thiserror",
-]
-
-[[package]]
->>>>>>> main
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

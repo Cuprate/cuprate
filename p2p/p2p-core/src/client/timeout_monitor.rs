@@ -4,7 +4,6 @@
 //! sure the connection is still active.
 use std::sync::Arc;
 
-use cuprate_wire::admin::TimedSyncRequest;
 use futures::channel::oneshot;
 use tokio::{
     sync::{mpsc, Semaphore},
@@ -12,6 +11,8 @@ use tokio::{
 };
 use tower::ServiceExt;
 use tracing::instrument;
+
+use cuprate_wire::admin::TimedSyncRequest;
 
 use crate::{
     client::{connection::ConnectionTaskRequest, InternalPeerID},
