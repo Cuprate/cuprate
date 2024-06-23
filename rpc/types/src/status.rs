@@ -60,10 +60,12 @@ use crate::constants::{
 /// assert_eq!(format!("{:?}", Status::PaymentRequired), "PaymentRequired");
 /// assert_eq!(format!("{:?}", other),                   "Other(\"hello\")");
 /// ```
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub enum Status {
     // FIXME:
-    // `#[serde(rename = "")]` onlys takes raw string literals?
+    // `#[serde(rename = "")]` only takes raw string literals?
     // We have to re-type the constants here...
     /// Successful RPC response, everything is OK; [`CORE_RPC_STATUS_OK`].
     #[serde(rename = "OK")]
@@ -82,12 +84,12 @@ pub enum Status {
     #[serde(rename = "PAYMENT REQUIRED")]
     PaymentRequired,
 
-    #[serde(untagged)]
+    #[serde(other)]
     /// Some unknown other string.
     ///
     /// This exists to act as a catch-all if `monerod` adds
     /// a string and a Cuprate node hasn't updated yet.
-    Other(String),
+    Unknown,
 }
 
 impl From<String> for Status {
@@ -97,7 +99,7 @@ impl From<String> for Status {
             CORE_RPC_STATUS_BUSY => Self::Busy,
             CORE_RPC_STATUS_NOT_MINING => Self::NotMining,
             CORE_RPC_STATUS_PAYMENT_REQUIRED => Self::PaymentRequired,
-            _ => Self::Other(s),
+            _ => Self::Unknown,
         }
     }
 }
@@ -109,7 +111,7 @@ impl AsRef<str> for Status {
             Self::Busy => CORE_RPC_STATUS_BUSY,
             Self::NotMining => CORE_RPC_STATUS_NOT_MINING,
             Self::PaymentRequired => CORE_RPC_STATUS_PAYMENT_REQUIRED,
-            Self::Other(s) => s,
+            Self::Unknown => "UNKNOWN",
         }
     }
 }
@@ -135,10 +137,7 @@ impl EpeeValue for Status {
     }
 
     fn should_write(&self) -> bool {
-        match self {
-            Self::Ok | Self::Busy | Self::NotMining | Self::PaymentRequired => true,
-            Self::Other(s) => !s.is_empty(),
-        }
+        true
     }
 
     fn epee_default_value() -> Option<Self> {
