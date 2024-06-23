@@ -233,7 +233,7 @@ fn write_epee_value<T: EpeeValue, B: BufMut>(val: T, w: &mut B) -> Result<()> {
 /// let t: [u8; 8] = [3, 0, 0, 0, 1, 0, 0, 0];
 /// let mut w = vec![];
 ///
-/// epee_encoding::write_bytes(t, &mut w).unwrap();
+/// cuprate_epee_encoding::write_bytes(t, &mut w).unwrap();
 ///
 /// assert_eq!(w.len(), 9); // length of bytes + bytes
 /// assert_eq!(w[1..], t);
@@ -274,7 +274,7 @@ pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
 /// let mut w = vec![];
 ///
 /// let iter: std::vec::IntoIter<u64> = vec.into_iter();
-/// epee_encoding::write_iterator(iter, &mut w).unwrap();
+/// cuprate_epee_encoding::write_iterator(iter, &mut w).unwrap();
 ///
 /// assert_eq!(w.len(), 17);
 /// assert_eq!(w[1..9], [3, 0, 0, 0, 0, 0, 0, 0]);
