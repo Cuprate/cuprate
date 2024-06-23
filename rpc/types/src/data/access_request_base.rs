@@ -17,6 +17,11 @@ pub struct AccessRequestBase {
     client: String,
 }
 
+epee_encoding::epee_object! {
+    AccessRequestBase,
+    client: String,
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

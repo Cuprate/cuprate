@@ -3,8 +3,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 use serde::{Deserialize, Serialize};
 
-use crate::Status;
-
 //---------------------------------------------------------------------------------------------------- ResponseBase
 /// TODO
 ///
@@ -12,17 +10,10 @@ use crate::Status;
 #[derive(
     Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
-pub struct ResponseBase {
-    /// TODO
-    status: Status,
-    /// TODO
-    untrusted: bool,
-}
+pub struct EmptyResponseBase;
 
 epee_encoding::epee_object! {
-    ResponseBase,
-    status: Status,
-    untrusted: bool,
+    EmptyResponseBase,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -20,6 +20,13 @@ pub struct AccessResponseBase {
     top_hash: String,
 }
 
+epee_encoding::epee_object! {
+    AccessResponseBase,
+    credits: u64,
+    top_hash: String,
+    !flatten: response_base: ResponseBase,
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

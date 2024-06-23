@@ -88,6 +88,10 @@ pub enum Status {
     ///
     /// This exists to act as a catch-all if `monerod` adds
     /// a string and a Cuprate node hasn't updated yet.
+    ///
+    /// The reason this isn't `Unknown(String)` is because that
+    /// disallows [`Status`] to be [`Copy`], and thus other types
+    /// that contain it.
     #[serde(other)]
     #[serde(rename = "UNKNOWN")]
     Unknown,

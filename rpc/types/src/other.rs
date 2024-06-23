@@ -3,7 +3,7 @@
 //! <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/daemon_messages.h>.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::macros::define_request_and_response;
+use crate::{data::ResponseBase, macros::define_request_and_response};
 
 //---------------------------------------------------------------------------------------------------- TODO
 define_request_and_response! {
@@ -12,10 +12,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 898..=916,
     SaveBc,
     Request {},
-    Response {
-        status: crate::Status,
-        untrusted: bool,
-    }
+    ResponseBase {}
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

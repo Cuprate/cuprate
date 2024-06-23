@@ -3,7 +3,10 @@
 //! <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/daemon_messages.h>.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::macros::define_request_and_response;
+use crate::{
+    data::{EmptyRequestBase, EmptyResponseBase, ResponseBase},
+    macros::define_request_and_response,
+};
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
 // This generates 2 structs:
@@ -24,7 +27,7 @@ define_request_and_response! {
     GetBlockCount,
 
     // The request type.
-    Request {
+    RequestBase {
         // This request type requires no inputs,
         // so it is left empty. Leaving this empty
         // will cause the macro to generate a type
@@ -36,7 +39,7 @@ define_request_and_response! {
     // If there are any additional attributes (`/// docs` or `#[derive]`s)
     // for the struct, they go here, e.g.:
     // #[derive(Copy)]
-    Response {
+    ResponseBase {
         // Within the `{}` is an infinite matching pattern of:
         // ```
         // $ATTRIBUTES
@@ -44,8 +47,6 @@ define_request_and_response! {
         // ```
         // The struct generated and all fields are `pub`.
         count: u64,
-        status: crate::Status,
-        untrusted: bool,
     }
 }
 
@@ -55,10 +56,12 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 935..=939,
     OnGetBlockHash,
     #[derive(Copy)]
-    Request {
+    EmptyRequestBase {
+        #[serde(flatten)]
         block_height: u64,
     },
-    Response {
+    EmptyResponseBase {
+        #[serde(flatten)]
         block_hash: String,
     }
 }
@@ -68,11 +71,11 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 943..=994,
     GetBlockTemplate,
-    Request {
+    EmptyRequestBase {
         reserve_size: u64,
         wallet_address: String,
     },
-    Response {
+    ResponseBase {
         difficulty: u64,
         wide_difficulty: String,
         difficulty_top64: u64,

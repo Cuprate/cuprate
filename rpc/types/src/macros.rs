@@ -61,11 +61,11 @@ macro_rules! define_request_and_response {
         $type_name:ident,
 
         // The empty unit request type.
-        Request {},
+        $request_base_type:ty {},
 
         // The response type (and any doc comments, derives, etc).
         $( #[$response_type_attr:meta] )*
-        Response {
+        $response_base_type:ty {
             // And any fields.
             $(
                 $( #[$response_field_attr:meta] )*
@@ -103,6 +103,9 @@ macro_rules! define_request_and_response {
             [<$type_name Response>],
         )]
         pub struct [<$type_name Response>] {
+            #[serde(flatten)]
+            base: $response_base_type,
+
             $(
                 $( #[$response_field_attr] )*
                 pub $response_field: $response_field_type,
@@ -114,6 +117,7 @@ macro_rules! define_request_and_response {
             $(
                 $response_field: $response_field_type,
             )*
+            !flatten: base: $response_base_type,
         }
     }};
 
@@ -136,7 +140,7 @@ macro_rules! define_request_and_response {
 
         // The request type (and any doc comments, derives, etc).
         $( #[$request_type_attr:meta] )*
-        Request {
+        $request_base_type:ty {
             // And any fields.
             $(
                 $( #[$request_field_attr:meta] )*
@@ -146,7 +150,7 @@ macro_rules! define_request_and_response {
 
         // The response type (and any doc comments, derives, etc).
         $( #[$response_type_attr:meta] )*
-        Response {
+        $response_base_type:ty {
             // And any fields.
             $(
                 $( #[$response_field_attr:meta] )*
@@ -170,6 +174,9 @@ macro_rules! define_request_and_response {
             [<$type_name Request>],
         )]
         pub struct [<$type_name Request>] {
+            #[serde(flatten)]
+            base: $request_base_type,
+
             $(
                 $( #[$request_field_attr] )*
                 pub $request_field: $request_field_type,
@@ -181,6 +188,7 @@ macro_rules! define_request_and_response {
             $(
                 $request_field: $request_field_type,
             )*
+            !flatten: base: $request_base_type,
         }
 
         #[allow(dead_code)]
@@ -199,6 +207,9 @@ macro_rules! define_request_and_response {
             [<$type_name Response>],
         )]
         pub struct [<$type_name Response>] {
+            #[serde(flatten)]
+            base: $response_base_type,
+
             $(
                 $( #[$response_field_attr] )*
                 pub $response_field: $response_field_type,
@@ -210,6 +221,7 @@ macro_rules! define_request_and_response {
             $(
                 $response_field: $response_field_type,
             )*
+            !flatten: base: $response_base_type,
         }
     }};
 }
