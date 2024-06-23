@@ -4,7 +4,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
-    data::{EmptyRequestBase, EmptyResponseBase, ResponseBase},
+    base::{EmptyRequestBase, EmptyResponseBase, ResponseBase},
     macros::define_request_and_response,
 };
 

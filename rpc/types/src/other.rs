@@ -3,7 +3,7 @@
 //! <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/daemon_messages.h>.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{data::ResponseBase, macros::define_request_and_response};
+use crate::{base::ResponseBase, macros::define_request_and_response};
 
 //---------------------------------------------------------------------------------------------------- TODO
 define_request_and_response! {

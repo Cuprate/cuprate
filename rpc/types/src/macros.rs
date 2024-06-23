@@ -104,7 +104,7 @@ macro_rules! define_request_and_response {
         )]
         pub struct [<$type_name Response>] {
             #[serde(flatten)]
-            base: $response_base_type,
+            pub base: $response_base_type,
 
             $(
                 $( #[$response_field_attr] )*
@@ -175,7 +175,7 @@ macro_rules! define_request_and_response {
         )]
         pub struct [<$type_name Request>] {
             #[serde(flatten)]
-            base: $request_base_type,
+            pub base: $request_base_type,
 
             $(
                 $( #[$request_field_attr] )*
@@ -208,7 +208,7 @@ macro_rules! define_request_and_response {
         )]
         pub struct [<$type_name Response>] {
             #[serde(flatten)]
-            base: $response_base_type,
+            pub base: $response_base_type,
 
             $(
                 $( #[$response_field_attr] )*

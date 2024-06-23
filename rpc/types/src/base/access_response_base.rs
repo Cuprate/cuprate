@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use serde::{Deserialize, Serialize};
 
-use crate::data::ResponseBase;
+use crate::base::ResponseBase;
 
 //---------------------------------------------------------------------------------------------------- ResponseBase
 /// TODO
@@ -13,11 +13,11 @@ use crate::data::ResponseBase;
 pub struct AccessResponseBase {
     /// TODO
     #[serde(flatten)]
-    response_base: ResponseBase,
+    pub response_base: ResponseBase,
     /// TODO
-    credits: u64,
+    pub credits: u64,
     /// TODO
-    top_hash: String,
+    pub top_hash: String,
 }
 
 epee_encoding::epee_object! {

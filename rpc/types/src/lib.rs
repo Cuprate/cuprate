@@ -108,6 +108,7 @@ pub use constants::{
 };
 pub use status::Status;
 
+pub mod base;
 pub mod bin;
 pub mod data;
 pub mod json;
