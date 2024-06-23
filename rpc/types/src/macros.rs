@@ -4,6 +4,10 @@
 /// A template for generating 2 `struct`s with a bunch of information filled out.
 ///
 /// These are the RPC request and response `struct`s.
+/// These `struct`s automatically implement:
+/// - `Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash`
+/// - `serde::{Serialize, Deserialize}`
+/// - `epee_encoding::EpeeObject`
 ///
 /// It's best to see the output of this macro via the documentation
 /// of the generated structs via `cargo doc`s to see which parts
@@ -104,6 +108,13 @@ macro_rules! define_request_and_response {
                 pub $response_field: $response_field_type,
             )*
         }
+
+        ::epee_encoding::epee_object! {
+            [<$type_name Response>],
+            $(
+                $response_field: $response_field_type,
+            )*
+        }
     }};
 
     //------------------------------------------------------------------------------
@@ -165,6 +176,13 @@ macro_rules! define_request_and_response {
             )*
         }
 
+        ::epee_encoding::epee_object! {
+            [<$type_name Request>],
+            $(
+                $request_field: $request_field_type,
+            )*
+        }
+
         #[allow(dead_code)]
         #[allow(missing_docs)]
         #[derive(serde::Serialize, serde::Deserialize)]
@@ -184,6 +202,13 @@ macro_rules! define_request_and_response {
             $(
                 $( #[$response_field_attr] )*
                 pub $response_field: $response_field_type,
+            )*
+        }
+
+        ::epee_encoding::epee_object! {
+            [<$type_name Response>],
+            $(
+                $response_field: $response_field_type,
             )*
         }
     }};
