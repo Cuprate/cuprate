@@ -60,9 +60,6 @@ macro_rules! define_request_and_response {
         // The base `struct` name.
         $type_name:ident,
 
-        // The empty unit request type.
-        $request_base_type:ty {},
-
         // The response type (and any doc comments, derives, etc).
         $( #[$response_type_attr:meta] )*
         $response_base_type:ty {

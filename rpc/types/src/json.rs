@@ -11,30 +11,41 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Struct definitions
 // This generates 2 structs:
 //
-// - `GetBlockCountRequest`
-// - `GetBlockCountResponse`
+// - `GetBlockTemplateRequest`
+// - `GetBlockTemplateResponse`
 //
 // with some interconnected documentation.
 define_request_and_response! {
     // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
-    get_block_count,
+    get_block_template,
 
     // The commit hash and `$file.$extension` in which this type is defined in
     // the Monero codebase in the `rpc/` directory, followed by the specific lines.
-    cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 919..=933,
+    cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 943..=994,
 
     // The base type name.
-    GetBlockCount,
+    GetBlockTemplate,
 
-    // The request type.
-    RequestBase {
-        // This request type requires no inputs,
-        // so it is left empty. Leaving this empty
-        // will cause the macro to generate a type
-        // alias to `()` instead of a `struct`.
+    // The base request type.
+    //
+    // This must be a type found in [`crate::base`].
+    // It acts as a "base" that gets flattened into
+    // the actually request type.
+    //
+    // For example here, we're using [`crate::base::EmptyRequestBase`],
+    // which means that there is no extra fields flattened.
+    //
+    // If a request is not specified here, it will create a `type alias YOUR_REQUEST_TYPE = ()`
+    // instead of a `struct`, see below in other macro definitions for an example.
+    EmptyRequestBase {
+        reserve_size: u64,
+        wallet_address: String,
     },
 
-    // The response type.
+    // The base response type.
+    //
+    // This is the same as the request base type,
+    // it must be a type found in [`crate::base`].
     //
     // If there are any additional attributes (`/// docs` or `#[derive]`s)
     // for the struct, they go here, e.g.:
@@ -46,6 +57,32 @@ define_request_and_response! {
         // $FIELD_NAME: $FIELD_TYPE,
         // ```
         // The struct generated and all fields are `pub`.
+        difficulty: u64,
+        wide_difficulty: String,
+        difficulty_top64: u64,
+        height: u64,
+        reserved_offset: u64,
+        expected_reward: u64,
+        prev_hash: String,
+        seed_height: u64,
+        seed_hash: String,
+        next_seed_hash: String,
+        blocktemplate_blob: String,
+        blockhashing_blob: String,
+    }
+}
+
+define_request_and_response! {
+    get_block_count,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 919..=933,
+    GetBlockCount,
+
+    // There is no request type specified,
+    // this will cause the macro to generate a
+    // type alias to `()` instead of a `struct`.
+
+    ResponseBase {
         count: u64,
     }
 }
@@ -63,31 +100,6 @@ define_request_and_response! {
     EmptyResponseBase {
         #[serde(flatten)]
         block_hash: String,
-    }
-}
-
-define_request_and_response! {
-    get_block_template,
-    cc73fe71162d564ffda8e549b79a350bca53c454 =>
-    core_rpc_server_commands_defs.h => 943..=994,
-    GetBlockTemplate,
-    EmptyRequestBase {
-        reserve_size: u64,
-        wallet_address: String,
-    },
-    ResponseBase {
-        difficulty: u64,
-        wide_difficulty: String,
-        difficulty_top64: u64,
-        height: u64,
-        reserved_offset: u64,
-        expected_reward: u64,
-        prev_hash: String,
-        seed_height: u64,
-        seed_hash: String,
-        next_seed_hash: String,
-        blocktemplate_blob: String,
-        blockhashing_blob: String,
     }
 }
 
