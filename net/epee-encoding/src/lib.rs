@@ -77,7 +77,7 @@ pub use error::*;
 use io::*;
 pub use marker::{InnerMarker, Marker};
 pub use value::EpeeValue;
-use varint::*;
+pub use varint::{read_varint, write_varint};
 
 /// Header that needs to be at the beginning of every binary blob that follows
 /// this binary serialization format.
@@ -210,6 +210,87 @@ pub fn read_epee_value<T: EpeeValue, B: Buf>(r: &mut B) -> Result<T> {
 fn write_epee_value<T: EpeeValue, B: BufMut>(val: T, w: &mut B) -> Result<()> {
     checked_write_primitive(w, BufMut::put_u8, T::MARKER.as_u8())?;
     val.write(w)
+}
+
+/// Write a byte array to `w` with [`write_varint`].
+///
+/// This function:
+/// - Writes the length of `t`'s bytes into `w` using [`write_varint`]
+/// - Writes `t`'s bytes into `w`
+///
+/// It is used as the internal [`EpeeValue::write`]
+/// implementation of byte-like containers such as:
+/// - [`EpeeValue::<Vec<u8>>::write`]
+/// - [`EpeeValue::<String>::write`]
+///
+/// # Errors
+/// This will error if:
+/// - [`write_varint`] fails
+/// - `w` does not have enough capacity
+///
+/// # Example
+/// ```rust
+/// let t: [u8; 8] = [3, 0, 0, 0, 1, 0, 0, 0];
+/// let mut w = vec![];
+///
+/// epee_encoding::write_bytes(t, &mut w).unwrap();
+///
+/// assert_eq!(w.len(), 9); // length of bytes + bytes
+/// assert_eq!(w[1..], t);
+/// ```
+pub fn write_bytes<T: AsRef<[u8]>, B: BufMut>(t: T, w: &mut B) -> Result<()> {
+    let bytes = t.as_ref();
+    let len = bytes.len();
+
+    write_varint(len.try_into()?, w)?;
+
+    if w.remaining_mut() < len {
+        return Err(Error::IO("Not enough capacity to write bytes"));
+    }
+
+    w.put_slice(bytes);
+
+    Ok(())
+}
+
+/// Write an [`Iterator`] of [`EpeeValue`]s to `w` with [`write_varint`].
+///
+/// This function:
+/// - Writes the length of the `iterator`, into `w` using [`write_varint`]
+/// - [`EpeeValue::write`]s each `T` of the iterator into `w`
+///
+/// It is used as the internal [`EpeeValue::write`]
+/// implementation of containers such as [`EpeeValue::<Vec<T>>::write`].
+///
+/// # Errors
+/// This will error if:
+/// - [`write_varint`] fails
+/// - [`EpeeValue::<T>::write`] fails
+///
+/// # Example
+/// ```rust
+/// let t: u64 = 3;
+/// let vec: Vec<u64> = vec![t, t];
+/// let mut w = vec![];
+///
+/// let iter: std::vec::IntoIter<u64> = vec.into_iter();
+/// epee_encoding::write_iterator(iter, &mut w).unwrap();
+///
+/// assert_eq!(w.len(), 17);
+/// assert_eq!(w[1..9], [3, 0, 0, 0, 0, 0, 0, 0]);
+/// assert_eq!(w[9..], [3, 0, 0, 0, 0, 0, 0, 0]);
+/// ```
+pub fn write_iterator<T, I, B>(iterator: I, w: &mut B) -> Result<()>
+where
+    T: EpeeValue,
+    I: Iterator<Item = T> + ExactSizeIterator,
+    B: BufMut,
+{
+    write_varint(iterator.len().try_into()?, w)?;
+    for item in iterator.into_iter() {
+        item.write(w)?;
+    }
+    Ok(())
 }
 
 /// A helper object builder that just skips every field.

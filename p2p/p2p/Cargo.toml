@@ -6,12 +6,13 @@ license = "MIT"
 authors = ["Boog900"]
 
 [dependencies]
-cuprate-fixed-bytes = { path = "../../net/fixed-bytes" }
+fixed-bytes = { path = "../../net/fixed-bytes" }
 cuprate-wire = { path = "../../net/wire" }
 cuprate-p2p-core = { path = "../p2p-core", features = ["borsh"] }
 cuprate-address-book = { path = "../address-book" }
 cuprate-pruning = { path = "../../pruning" }
-cuprate-helper = { path = "../../helper", features = ["asynch"] }
+cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
+cuprate-async-buffer = { path = "../async-buffer" }
 
 monero-serai = { workspace = true, features = ["std"] }
 
@@ -26,13 +27,13 @@ dashmap = { workspace = true }
 
 thiserror = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
-indexmap = { workspace = true, features = ["std"] }
 rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
 
-tracing-subscriber = "0.3.18"
-
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }
+indexmap = { workspace = true }
+proptest = { workspace = true }
+tokio-test = { workspace = true }

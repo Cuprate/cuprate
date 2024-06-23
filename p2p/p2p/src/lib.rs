@@ -4,22 +4,24 @@
 //! a certain [`NetworkZone`]
 use std::sync::Arc;
 
+use async_buffer::BufferStream;
 use futures::FutureExt;
 use tokio::{
     sync::{mpsc, watch},
     task::JoinSet,
 };
 use tokio_stream::wrappers::WatchStream;
-use tower::{buffer::Buffer, util::BoxCloneService, ServiceExt};
+use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_p2p_core::{
     client::Connector,
     client::InternalPeerID,
-    services::{AddressBookRequest, AddressBookResponse},
+    services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
     CoreSyncSvc, NetworkZone, PeerRequestHandler,
 };
 
+mod block_downloader;
 mod broadcast;
 mod client_pool;
 pub mod config;
@@ -28,6 +30,7 @@ mod constants;
 mod inbound_server;
 mod sync_states;
 
+use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
 use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
@@ -87,7 +90,7 @@ where
 
     let inbound_handshaker = cuprate_p2p_core::client::HandShaker::new(
         address_book.clone(),
-        sync_states_svc,
+        sync_states_svc.clone(),
         core_sync_svc.clone(),
         peer_req_handler,
         inbound_mkr,
@@ -136,6 +139,7 @@ where
         broadcast_svc,
         top_block_watch,
         make_connection_tx,
+        sync_states_svc,
         address_book: address_book.boxed_clone(),
         _background_tasks: Arc::new(background_tasks),
     })
@@ -156,6 +160,8 @@ pub struct NetworkInterface<N: NetworkZone> {
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
+    /// The peer's sync states service.
+    sync_states_svc: Buffer<sync_states::PeerSyncSvc<N>, PeerSyncRequest<N>>,
     /// Background tasks that will be aborted when this interface is dropped.
     _background_tasks: Arc<JoinSet<()>>,
 }
@@ -164,6 +170,26 @@ impl<N: NetworkZone> NetworkInterface<N> {
     /// Returns a service which allows broadcasting messages to all the connected peers in a specific [`NetworkZone`].
     pub fn broadcast_svc(&self) -> BroadcastSvc<N> {
         self.broadcast_svc.clone()
+    }
+
+    /// Starts the block downloader and returns a stream that will yield sequentially downloaded blocks.
+    pub fn block_downloader<C>(
+        &self,
+        our_chain_service: C,
+        config: BlockDownloaderConfig,
+    ) -> BufferStream<BlockBatch>
+    where
+        C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>
+            + Send
+            + 'static,
+        C::Future: Send + 'static,
+    {
+        block_downloader::download_blocks(
+            self.pool.clone(),
+            self.sync_states_svc.clone(),
+            our_chain_service,
+            config,
+        )
     }
 
     /// Returns a stream which yields the highest seen sync state from a connected peer.

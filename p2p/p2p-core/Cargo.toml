@@ -10,7 +10,7 @@ default = ["borsh"]
 borsh = ["dep:borsh", "cuprate-pruning/borsh"]
 
 [dependencies]
-cuprate-helper = { path = "../../helper" }
+cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
 cuprate-wire = { path = "../../net/wire", features = ["tracing"] }
 cuprate-pruning = { path = "../../pruning" }
 

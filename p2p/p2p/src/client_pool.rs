@@ -126,13 +126,16 @@ impl<N: NetworkZone> ClientPool<N> {
     pub fn borrow_clients<'a, 'b>(
         self: &'a Arc<Self>,
         peers: &'b [InternalPeerID<N::Addr>],
-    ) -> impl Iterator<Item = ClientPoolDropGuard<N>> + Captures<(&'a (), &'b ())> {
+    ) -> impl Iterator<Item = ClientPoolDropGuard<N>> + sealed::Captures<(&'a (), &'b ())> {
         peers.iter().filter_map(|peer| self.borrow_client(peer))
     }
 }
 
-/// TODO: Remove me when 2024 Rust
-///
-/// https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick
-trait Captures<U> {}
-impl<T: ?Sized, U> Captures<U> for T {}
+mod sealed {
+    /// TODO: Remove me when 2024 Rust
+    ///
+    /// https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick
+    pub trait Captures<U> {}
+
+    impl<T: ?Sized, U> Captures<U> for T {}
+}
