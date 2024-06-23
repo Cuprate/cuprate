@@ -639,7 +639,6 @@ dependencies = [
  "paste",
  "serde",
  "serde_json",
- "strum",
 ]
 
 [[package]]
@@ -2295,28 +2294,6 @@ source = "git+https://github.com/Cuprate/serai.git?rev=d27d934#d27d93480aa8a849d
 dependencies = [
  "hashbrown 0.14.5",
  "spin",
-]
-
-[[package]]
-name = "strum"
-version = "0.26.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
-dependencies = [
- "strum_macros",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.26.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
-dependencies = [
- "heck",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 2.0.66",
 ]
 
 [[package]]

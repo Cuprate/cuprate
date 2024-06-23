@@ -33,7 +33,6 @@ use crate::constants::{
 ///     CORE_RPC_STATUS_PAYMENT_REQUIRED,
 /// };
 /// use serde_json::to_string;
-/// use strum::AsRefStr;
 ///
 /// let other = Status::Other("hello".into());
 ///
