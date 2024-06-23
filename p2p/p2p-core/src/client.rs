@@ -14,7 +14,7 @@ use tower::{Service, ServiceExt};
 use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use monero_pruning::PruningSeed;
+use cuprate_pruning::PruningSeed;
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
@@ -27,7 +27,6 @@ pub mod handshaker;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
-use cuprate_pruning::PruningSeed;
 pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
 
 /// An internal identifier for a given peer, will be their address if known

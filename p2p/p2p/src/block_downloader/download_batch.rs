@@ -6,10 +6,10 @@ use tokio::time::timeout;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
+use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::asynch::rayon_spawn_async;
-use fixed_bytes::ByteArrayVec;
-use monero_p2p::{handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse};
-use monero_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
+use cuprate_p2p_core::{handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse};
+use cuprate_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 
 use crate::{
     block_downloader::{BlockBatch, BlockDownloadError, BlockDownloadTaskResponse},

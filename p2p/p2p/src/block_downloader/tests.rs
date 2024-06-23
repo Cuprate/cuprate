@@ -18,15 +18,15 @@ use proptest::{collection::vec, prelude::*};
 use tokio::{sync::Semaphore, time::timeout};
 use tower::{service_fn, Service};
 
-use fixed_bytes::ByteArrayVec;
-use monero_p2p::{
+use cuprate_fixed_bytes::ByteArrayVec;
+use cuprate_p2p_core::{
     client::{mock_client, Client, InternalPeerID, PeerInformation},
     network_zones::ClearNet,
     services::{PeerSyncRequest, PeerSyncResponse},
     ConnectionDirection, NetworkZone, PeerRequest, PeerResponse,
 };
-use monero_pruning::PruningSeed;
-use monero_wire::{
+use cuprate_pruning::PruningSeed;
+use cuprate_wire::{
     common::{BlockCompleteEntry, TransactionBlobs},
     protocol::{ChainResponse, GetObjectsResponse},
 };

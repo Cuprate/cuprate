@@ -21,13 +21,13 @@ use tokio::{
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
-use async_buffer::{BufferAppender, BufferStream};
-use monero_p2p::{
+use cuprate_async_buffer::{BufferAppender, BufferStream};
+use cuprate_p2p_core::{
     handles::ConnectionHandle,
     services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone, PeerSyncSvc,
 };
-use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
 
 use crate::{
     client_pool::{ClientPool, ClientPoolDropGuard},

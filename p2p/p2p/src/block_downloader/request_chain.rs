@@ -6,13 +6,13 @@ use tokio::{task::JoinSet, time::timeout};
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
-use monero_p2p::{
+use cuprate_p2p_core::{
     client::InternalPeerID,
     handles::ConnectionHandle,
     services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
 };
-use monero_wire::protocol::{ChainRequest, ChainResponse};
+use cuprate_wire::protocol::{ChainRequest, ChainResponse};
 
 use crate::{
     block_downloader::{

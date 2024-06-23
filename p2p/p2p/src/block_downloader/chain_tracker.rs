@@ -1,9 +1,9 @@
 use std::{cmp::min, collections::VecDeque};
 
-use fixed_bytes::ByteArrayVec;
+use cuprate_fixed_bytes::ByteArrayVec;
 
-use monero_p2p::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
-use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_p2p_core::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
+use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
 
 use crate::constants::MEDIUM_BAN;
 

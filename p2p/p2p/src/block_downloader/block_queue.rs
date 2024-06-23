@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::BinaryHeap};
 
-use async_buffer::BufferAppender;
+use cuprate_async_buffer::BufferAppender;
 
 use super::{BlockBatch, BlockDownloadError};
 
@@ -120,7 +120,7 @@ mod tests {
     use tokio::sync::Semaphore;
     use tokio_test::block_on;
 
-    use monero_p2p::handles::HandleBuilder;
+    use cuprate_p2p_core::handles::HandleBuilder;
 
     use super::*;
 

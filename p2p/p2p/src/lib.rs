@@ -4,7 +4,7 @@
 //! a certain [`NetworkZone`]
 use std::sync::Arc;
 
-use async_buffer::BufferStream;
+use cuprate_async_buffer::BufferStream;
 use futures::FutureExt;
 use tokio::{
     sync::{mpsc, watch},
