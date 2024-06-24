@@ -324,9 +324,8 @@ macro_rules! tables {
 // - Keep this sorted A-Z (by table name)
 // - Tables are defined in plural to avoid name conflicts with types
 // - If adding/changing a table also edit:
-//   a) the tests in `src/backend/tests.rs`
-//   b) `Env::open` to make sure it creates the table (for all backends)
-//   c) `call_fn_on_all_tables_or_early_return!()` macro defined in this file
+//   - the tests in `src/backend/tests.rs`
+//   - `call_fn_on_all_tables_or_early_return!()` macro in `src/open_tables.rs`
 tables! {
     /// Serialized block blobs (bytes).
     ///

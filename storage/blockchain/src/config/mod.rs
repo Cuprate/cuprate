@@ -1,8 +1,8 @@
 //! Database configuration.
 //!
 //! This module contains the main [`Config`]uration struct
-//! for the database [`Env`](cuprate_database::Env)ironment, and blockchain-
-//! specific configuration.
+//! for the database [`Env`](cuprate_database::Env)ironment,
+//! and blockchain-specific configuration.
 //!
 //! It also contains types related to configuration settings.
 //!

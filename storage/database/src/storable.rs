@@ -22,11 +22,6 @@ use bytes::Bytes;
 ///
 /// will automatically implement [`Storable`].
 ///
-/// This includes:
-/// - Most primitive types
-// TODO: fix me
-// - All types in [`tables`](crate::tables)
-///
 /// See [`StorableVec`] & [`StorableBytes`] for storing slices of `T: Storable`.
 ///
 /// ```rust

@@ -1,15 +1,23 @@
 Cuprate's database abstraction.
 
-This documentation is mostly for practical usage of `database`.
+This documentation is mostly for practical usage of `cuprate-database`.
 
 For a high-level overview, see the database section in
 [Cuprate's architecture book](https://architecture.cuprate.org).
 
-# Purpose
-This crate abstracts various database backends with traits.
-
 If you need blockchain specific capabilities, consider using the higher-level
 `cuprate-blockchain` crate which builds upon this one.
+
+# Purpose
+This crate abstracts various database backends with traits. The databases are:
+
+All backends have the following attributes:
+- [Embedded](https://en.wikipedia.org/wiki/Embedded_database)
+- [Multiversion concurrency control](https://en.wikipedia.org/wiki/Multiversion_concurrency_control)
+- [ACID](https://en.wikipedia.org/wiki/ACID)
+- Are `(key, value)` oriented and have the expected API (`get()`, `insert()`, `delete()`)
+- Are table oriented (`"table_name" -> (key, value)`)
+- Allows concurrent readers
 
 # Terminology
 To be more clear on some terms used in this crate:
