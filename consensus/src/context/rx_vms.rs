@@ -163,12 +163,10 @@ impl RandomXVMCache {
                     seeds_clone
                         .par_iter()
                         .map(|(height, seed)| {
-                            (
-                                *height,
-                                Arc::new(
-                                    RandomXVM::new(seed).expect("Failed to create RandomX VM!"),
-                                ),
-                            )
+                            let vm = RandomXVM::new(seed).expect("Failed to create RandomX VM!");
+                            let vm = Arc::new(vm);
+                            (*height, vm)
+                        })
                         })
                         .collect()
                 })

@@ -317,9 +317,9 @@ where
         + 'static,
     C::Future: Send + 'static,
 {
-    if blocks.is_empty() {
+    let Some(last_block) = blocks.last() else {
         return Err(ExtendedConsensusError::NoBlocksToVerify);
-    }
+    };
 
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
@@ -334,7 +334,7 @@ where
 
     // hard-forks cannot be reversed, so the last block will contain the highest hard fork (provided the
     // batch is valid).
-    let top_hf_in_batch = blocks.last().unwrap().hf_version;
+    let top_hf_in_batch = last_block.hf_version;
 
     // A Vec of (timestamp, HF) for each block to calculate the expected difficulty for each block.
     let mut timestamps_hfs = Vec::with_capacity(blocks.len());
