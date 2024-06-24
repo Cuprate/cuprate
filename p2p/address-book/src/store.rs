@@ -3,7 +3,7 @@ use std::fs;
 use borsh::{from_slice, to_vec, BorshDeserialize, BorshSerialize};
 use tokio::task::{spawn_blocking, JoinHandle};
 
-use monero_p2p::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress};
+use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress};
 
 use crate::{peer_list::PeerList, AddressBookConfig, BorshNetworkZone};
 

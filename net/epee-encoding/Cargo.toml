@@ -1,5 +1,5 @@
 [package]
-name = "epee-encoding"
+name = "cuprate-epee-encoding"
 version = "0.5.0"
 edition = "2021"
 license = "MIT"
@@ -12,12 +12,11 @@ rust-version = "1.60"
 
 [features]
 default = ["std"]
-std = ["dep:thiserror", "bytes/std", "fixed-bytes/std"]
+std = ["dep:thiserror", "bytes/std", "cuprate-fixed-bytes/std"]
 
 [dependencies]
-fixed-bytes = { path = "../fixed-bytes", default-features = false }
+cuprate-fixed-bytes = { path = "../fixed-bytes", default-features = false }
 
-sealed = "0.5.0"
 paste = "1.0.14"
 ref-cast = "1.0.22"
 bytes = { workspace = true }

@@ -3,8 +3,8 @@ use std::{path::PathBuf, time::Duration};
 use futures::StreamExt;
 use tokio::time::interval;
 
-use monero_p2p::handles::HandleBuilder;
-use monero_pruning::PruningSeed;
+use cuprate_p2p_core::handles::HandleBuilder;
+use cuprate_pruning::PruningSeed;
 
 use super::{AddressBook, ConnectionPeerEntry, InternalPeerID};
 use crate::{peer_list::tests::make_fake_peer_list, AddressBookConfig, AddressBookError};

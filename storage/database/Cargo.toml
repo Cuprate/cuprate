@@ -1,5 +1,5 @@
 [package]
-name        = "database"
+name        = "cuprate-database"
 version     = "0.0.0"
 edition     = "2021"
 description = "Cuprate's database abstraction"

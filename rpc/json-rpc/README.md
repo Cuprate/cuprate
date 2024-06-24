@@ -30,7 +30,7 @@ and assumes the type within that `body` field is tagged properly, for example:
 ```rust
 # use pretty_assertions::assert_eq;
 use serde::{Deserialize, Serialize};
-use json_rpc::{Id, Request};
+use cuprate_json_rpc::{Id, Request};
 
 // Parameter type.
 #[derive(Deserialize, Serialize)]
@@ -83,7 +83,7 @@ This crate's serialized field order slightly differs compared to `monerod`.
 With that said, parsing should be not affected at all since a key-value map is used:
 ```rust
 # use pretty_assertions::assert_eq;
-use json_rpc::{Id, Response};
+use cuprate_json_rpc::{Id, Response};
 
 let response = Response::ok(Id::Num(123), "OK");
 let response_json = serde_json::to_string_pretty(&response).unwrap();
@@ -147,7 +147,7 @@ A quick table showing some small differences between this crate and other JSON-R
 
 Allows any case for key fields excluding `method/params`:
 ```rust
-# use json_rpc::Response;
+# use cuprate_json_rpc::Response;
 # use serde_json::from_str;
 # use pretty_assertions::assert_eq;
 let json = r#"{"jsonrpc":"2.0","id":123,"result":"OK"}"#;
@@ -161,7 +161,7 @@ assert_eq!(format!("{err}"), "missing field `jsonrpc` at line 1 column 40");
 
 Allows unknown fields in main `{}`, and response/request objects:
 ```rust
-# use json_rpc::Response;
+# use cuprate_json_rpc::Response;
 # use serde_json::from_str;
 //     unknown fields are allowed in main `{}`
 //             v
@@ -176,7 +176,7 @@ from_str::<Response<String>>(&json).unwrap();
 
 Allows overwriting previous values upon duplicate fields (except [`Response`]'s `result/error` field)
 ```rust
-# use json_rpc::{Id, Response};
+# use cuprate_json_rpc::{Id, Response};
 # use serde_json::from_str;
 # use pretty_assertions::assert_eq;
 //          duplicate fields will get overwritten by the latest one

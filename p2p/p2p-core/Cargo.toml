@@ -1,0 +1,36 @@
+[package]
+name = "cuprate-p2p-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+
+[features]
+default = ["borsh"]
+borsh = ["dep:borsh", "cuprate-pruning/borsh"]
+
+[dependencies]
+cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
+cuprate-wire = { path = "../../net/wire", features = ["tracing"] }
+cuprate-pruning = { path = "../../pruning" }
+
+tokio = { workspace = true, features = ["net", "sync", "macros", "time"]}
+tokio-util = { workspace = true, features = ["codec"] }
+tokio-stream = { workspace = true, features = ["sync"]}
+futures = { workspace = true, features = ["std"] }
+async-trait = { workspace = true }
+tower = { workspace = true, features = ["util", "tracing"] }
+
+thiserror = { workspace = true }
+tracing = { workspace = true, features = ["std", "attributes"] }
+hex-literal = { workspace = true }
+
+borsh = { workspace = true, features = ["derive", "std"], optional = true }
+
+[dev-dependencies]
+cuprate-test-utils = {path = "../../test-utils"}
+
+hex = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["net", "rt-multi-thread", "rt", "macros"]}
+tokio-test = { workspace = true }
+tracing-subscriber = { workspace = true }

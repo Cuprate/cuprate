@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crypto_bigint::{CheckedMul, U256};
 use monero_serai::block::Block;
 
-use cryptonight_cuprate::*;
+use cuprate_cryptonight::*;
 
 use crate::{
     current_unix_timestamp,

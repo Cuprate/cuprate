@@ -8,7 +8,7 @@
 //! split into 8 parts):
 //!
 //! ```rust
-//! use monero_pruning::PruningSeed;
+//! use cuprate_pruning::PruningSeed;
 //!
 //! let seed: u32 = 386; // the seed you want to check is valid
 //! match PruningSeed::decompress_p2p_rules(seed) {

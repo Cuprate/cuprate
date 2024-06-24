@@ -1,5 +1,5 @@
 [package]
-name = "monero-address-book"
+name = "cuprate-address-book"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
@@ -7,9 +7,9 @@ authors = ["Boog900"]
 
 
 [dependencies]
-monero-pruning = { path = "../../pruning" }
-monero-wire = { path= "../../net/monero-wire" }
-monero-p2p = { path = "../monero-p2p" }
+cuprate-pruning = { path = "../../pruning" }
+cuprate-wire = { path= "../../net/wire" }
+cuprate-p2p-core = { path = "../p2p-core" }
 
 tower = { workspace = true, features = ["util"] }
 tokio = { workspace = true, features = ["time", "fs", "rt"]}

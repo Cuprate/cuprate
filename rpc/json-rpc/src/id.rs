@@ -26,7 +26,7 @@ use std::borrow::Cow;
 /// (or just manually create the `Cow`) for a non-allocating `Id`.
 ///
 /// ```rust
-/// use json_rpc::Id;
+/// use cuprate_json_rpc::Id;
 ///
 /// assert_eq!(Id::from(String::new()), Id::Str("".into()));
 /// assert_eq!(Id::from(Some(String::new())), Id::Str("".into()));
@@ -39,7 +39,7 @@ pub enum Id {
     /// A JSON `null` value.
     ///
     /// ```rust
-    /// use json_rpc::Id;
+    /// use cuprate_json_rpc::Id;
     /// use serde_json::{from_value,to_value,json,Value};
     ///
     /// assert_eq!(from_value::<Id>(json!(null)).unwrap(), Id::Null);
@@ -61,7 +61,7 @@ pub enum Id {
     ///
     /// ```rust
     /// use std::borrow::Cow;
-    /// use json_rpc::Id;
+    /// use cuprate_json_rpc::Id;
     ///
     /// /// A program's static ID.
     /// const ID: &'static str = "my_id";
@@ -79,7 +79,7 @@ impl Id {
     /// This returns `Some(u64)` if [`Id`] is a number.
     ///
     /// ```rust
-    /// use json_rpc::Id;
+    /// use cuprate_json_rpc::Id;
     ///
     /// assert_eq!(Id::Num(0).as_u64(), Some(0));
     /// assert_eq!(Id::Str("0".into()).as_u64(), None);
@@ -95,7 +95,7 @@ impl Id {
     /// This returns `Some(&str)` if [`Id`] is a string.
     ///
     /// ```rust
-    /// use json_rpc::Id;
+    /// use cuprate_json_rpc::Id;
     ///
     /// assert_eq!(Id::Str("0".into()).as_str(), Some("0"));
     /// assert_eq!(Id::Num(0).as_str(), None);
@@ -111,7 +111,7 @@ impl Id {
     /// Returns `true` if `self` is [`Id::Null`].
     ///
     /// ```rust
-    /// use json_rpc::Id;
+    /// use cuprate_json_rpc::Id;
     ///
     /// assert!(Id::Null.is_null());
     /// assert!(!Id::Num(0).is_null());
@@ -124,7 +124,7 @@ impl Id {
     /// Create a new [`Id::Str`] from a static string.
     ///
     /// ```rust
-    /// use json_rpc::Id;
+    /// use cuprate_json_rpc::Id;
     ///
     /// assert_eq!(Id::from_static_str("hi"), Id::Str("hi".into()));
     /// ```
