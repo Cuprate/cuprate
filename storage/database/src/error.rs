@@ -66,7 +66,7 @@ pub enum InitError {
 /// 2. (De)serialization
 /// 3. Shutdown errors
 ///
-/// as `database` upholds the invariant that:
+/// as `cuprate_database` upholds the invariant that:
 ///
 /// 1. All tables exist
 /// 2. (De)serialization never fails

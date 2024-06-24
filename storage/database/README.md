@@ -26,17 +26,17 @@ To be more clear on some terms used in this crate:
 |------------------|--------------------------------------|
 | `Env`            | The 1 database environment, the "whole" thing
 | `DatabaseR{o,w}` | A _actively open_ readable/writable `key/value` store
-| `Table`          | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
+| `Table`          | Solely the metadata of a `cuprate_database` (the `key` and `value` types, and the name)
 | `TxR{o,w}`       | A read/write transaction
 | `Storable`       | A data that type can be stored in the database
 
-The dataflow is `Env` -> `Tx` -> `Database`
+The dataflow is `Env` -> `Tx` -> `cuprate_database`
 
 Which reads as:
 1. You have a database `Environment`
 1. You open up a `Transaction`
-1. You open a particular `Table` from that `Environment`, getting a `Database`
-1. You can now read/write data from/to that `Database`
+1. You open a particular `Table` from that `Environment`, getting a `cuprate_database`
+1. You can now read/write data from/to that `cuprate_database`
 
 # Concrete types
 You should _not_ rely on the concrete type of any abstracted backend.

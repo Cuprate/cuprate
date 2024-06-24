@@ -144,9 +144,6 @@ pub struct Config {
     // users messing with them after construction.
     /// The directory used to store all database files.
     ///
-    /// By default, if no value is provided in the [`Config`]
-    /// constructor functions, this will be [`cuprate_blockchain_dir`].
-    ///
     // SOMEDAY: we should also support `/etc/cuprated.conf`.
     // This could be represented with an `enum DbPath { Default, Custom, Etc, }`
     pub(crate) db_directory: Cow<'static, Path>,

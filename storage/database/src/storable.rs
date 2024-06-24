@@ -95,7 +95,7 @@ pub trait Storable: Debug {
     ///
     /// # Blanket implementation
     /// The blanket implementation that covers all types used
-    /// by `database` will simply bitwise copy `bytes`
+    /// by `cuprate_database` will simply bitwise copy `bytes`
     /// into `Self`.
     ///
     /// The bytes do not have be correctly aligned.
