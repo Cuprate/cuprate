@@ -9,25 +9,26 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-default   = ["heed"]
-# default   = ["redb"]
-# default   = ["redb-memory"]
-heed       = ["dep:heed"]
-redb       = ["dep:redb"]
+default     = ["heed"]
+# default     = ["redb"]
+# default     = ["redb-memory"]
+heed        = ["dep:heed"]
+redb        = ["dep:redb"]
 redb-memory = ["redb"]
 
 [dependencies]
-bitflags = { workspace = true, features = ["serde", "bytemuck"] }
-bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-bytes    = { workspace = true }
-cfg-if   = { workspace = true }
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.
 # Figure out how to enable features of an already pulled in dependency conditionally.
-cuprate-helper   = { path = "../../helper", features = ["fs", "map"] }
-cuprate-types    = { path = "../../types", features = ["blockchain"] }
+cuprate-helper  = { path = "../../helper", features = ["fs", "map"] }
+cuprate-types   = { path = "../../types", features = ["blockchain"] }
+cuprate-pruning = { path = "../../pruning" }
+
+bitflags         = { workspace = true, features = ["serde", "bytemuck"] }
+bytemuck         = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bytes            = { workspace = true }
+cfg-if           = { workspace = true }
 curve25519-dalek = { workspace = true }
-monero-pruning   = { path = "../../pruning" }
 monero-serai     = { workspace = true, features = ["std"] }
 paste            = { workspace = true }
 page_size        = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
@@ -39,11 +40,12 @@ redb  = { version = "2.1.0", optional = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
-bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-cuprate-helper = { path = "../../helper", features = ["thread"] }
+cuprate-helper     = { path = "../../helper", features = ["thread"] }
 cuprate-test-utils = { path = "../../test-utils" }
-page_size = { version = "0.6.0" }
-tempfile = { version = "3.10.0" }
+
+bytemuck          = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+page_size         = { version = "0.6.0" }
+tempfile          = { version = "3.10.0" }
 pretty_assertions = { workspace = true }
-hex = { workspace = true }
-hex-literal = { workspace = true }
+hex               = { workspace = true }
+hex-literal       = { workspace = true }

@@ -18,16 +18,17 @@ redb-memory = ["cuprate-database/redb-memory"]
 service     = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon"]
 
 [dependencies]
-bitflags = { workspace = true, features = ["serde", "bytemuck"] }
-bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-bytes    = { workspace = true }
-cfg-if   = { workspace = true }
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.
 # Figure out how to enable features of an already pulled in dependency conditionally.
 cuprate-database = { path = "../database" }
 cuprate-helper   = { path = "../../helper", features = ["fs", "thread", "map"] }
 cuprate-types    = { path = "../../types", features = ["blockchain"] }
+
+bitflags         = { workspace = true, features = ["serde", "bytemuck"] }
+bytemuck         = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bytes            = { workspace = true }
+cfg-if           = { workspace = true }
 curve25519-dalek = { workspace = true }
 cuprate-pruning  = { path = "../../pruning" }
 monero-serai     = { workspace = true, features = ["std"] }
@@ -45,11 +46,12 @@ thread_local = { workspace = true }
 rayon        = { workspace = true, optional = true }
 
 [dev-dependencies]
-bytemuck = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-cuprate-helper = { path = "../../helper", features = ["thread"] }
+cuprate-helper     = { path = "../../helper", features = ["thread"] }
 cuprate-test-utils = { path = "../../test-utils" }
-page_size = { version = "0.6.0" }
-tempfile = { version = "3.10.0" }
+
+bytemuck          = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+page_size         = { version = "0.6.0" }
+tempfile          = { version = "3.10.0" }
 pretty_assertions = { workspace = true }
-hex = { workspace = true }
-hex-literal = { workspace = true }
+hex               = { workspace = true }
+hex-literal       = { workspace = true }
