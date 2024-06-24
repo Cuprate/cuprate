@@ -2,8 +2,7 @@
 
 ## Introduction
 
-This chapter contains all the rules that apply to a block. Miner transactions are included in this section as the rules
-that apply to them
+This chapter contains all the rules that apply to a block. Miner transactions are included in this section as the rules that apply to them
 are different to normal transactions.
 
 ## Index
@@ -18,16 +17,14 @@ are different to normal transactions.
 
 ### Block Weight And Size
 
-The `block blob` must not be bigger than (2 *
-the [effective median weight](./blocks/weights.md#effective-median-weight) + 100)[^block-size-check].
+The `block blob` must not be bigger than (2 * the [effective median weight](./blocks/weights.md#effective-median-weight) + 100)[^block-size-check].
 
 The [block weight](./blocks/weights.md#block-weights) must not be more than 2 *
 [the median weight for coinbase checks](./blocks/weights.md#median-weight-for-coinbase-checks)[^block-weight-limit].
 
 ### Amount Of Transactions
 
-The amount of transactions in a block (including the miner transaction) must be less
-than `0x10000000`[^max-amount-of-txs].
+The amount of transactions in a block (including the miner transaction) must be less than `0x10000000`[^max-amount-of-txs].
 
 ### No Duplicate Transactions
 
