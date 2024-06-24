@@ -1,4 +1,4 @@
-//! # Monero P2P
+//! # Cuprate P2P Core
 //!
 //! This crate is general purpose P2P networking library for working with Monero. This is a low level
 //! crate, which means it may seem verbose for a lot of use cases, if you want a crate that handles
@@ -17,11 +17,11 @@
 //! #
 //! # use tower::ServiceExt;
 //! #
-//! # use monero_p2p::{
+//! # use cuprate_p2p_core::{
 //! #    client::{ConnectRequest, Connector, HandshakerBuilder},
 //! #    ClearNet, Network,
 //! # };
-//! # use monero_wire::{common::PeerSupportFlags, BasicNodeData};
+//! # use cuprate_wire::{common::PeerSupportFlags, BasicNodeData};
 //! # use cuprate_test_utils::monerod::monerod;
 //! #
 //! # tokio_test::block_on(async move {

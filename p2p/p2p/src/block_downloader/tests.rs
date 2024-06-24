@@ -15,7 +15,7 @@ use monero_serai::{
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
 use proptest::{collection::vec, prelude::*};
-use tokio::{sync::Semaphore, time::timeout};
+use tokio::time::timeout;
 use tower::{service_fn, Service};
 
 use cuprate_fixed_bytes::ByteArrayVec;
