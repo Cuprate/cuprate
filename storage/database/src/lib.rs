@@ -49,6 +49,7 @@
     clippy::pedantic,
     clippy::nursery,
     clippy::cargo,
+    unused_crate_dependencies,
     unused_doc_comments,
     unused_mut,
     missing_docs,
@@ -79,7 +80,14 @@
 	clippy::option_if_let_else,
 )]
 // Allow some lints when running in debug mode.
-#![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
+#![cfg_attr(
+    debug_assertions,
+    allow(
+        clippy::todo,
+        clippy::multiple_crate_versions,
+        // unused_crate_dependencies,
+    )
+)]
 // Allow some lints in tests.
 #![cfg_attr(
     test,
@@ -132,3 +140,13 @@ pub use transaction::{TxRo, TxRw};
 //---------------------------------------------------------------------------------------------------- Private
 #[cfg(test)]
 pub(crate) mod tests;
+
+//----------------------------------------------------------------------------------------------------
+// HACK: needed to satisfy the `unused_crate_dependencies` lint.
+cfg_if::cfg_if! {
+    if #[cfg(feature = "redb")]  {
+        use redb as _;
+    } else {
+        use heed as _;
+    }
+}

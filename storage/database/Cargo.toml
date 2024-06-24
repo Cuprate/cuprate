@@ -17,22 +17,11 @@ redb        = ["dep:redb"]
 redb-memory = ["redb"]
 
 [dependencies]
-# FIXME:
-# We only need the `thread` feature if `service` is enabled.
-# Figure out how to enable features of an already pulled in dependency conditionally.
-cuprate-helper  = { path = "../../helper", features = ["fs", "map"] }
-cuprate-types   = { path = "../../types", features = ["blockchain"] }
-cuprate-pruning = { path = "../../pruning" }
-
-bitflags         = { workspace = true, features = ["serde", "bytemuck"] }
-bytemuck         = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-bytes            = { workspace = true }
-cfg-if           = { workspace = true }
-curve25519-dalek = { workspace = true }
-monero-serai     = { workspace = true, features = ["std"] }
-paste            = { workspace = true }
-page_size        = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
-thiserror        = { workspace = true }
+bytemuck  = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bytes     = { workspace = true }
+cfg-if    = { workspace = true }
+page_size = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
+thiserror = { workspace = true }
 
 # Optional features.
 heed  = { version = "0.20.0", features = ["read-txn-no-tls"], optional = true }
@@ -40,12 +29,6 @@ redb  = { version = "2.1.0", optional = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
-cuprate-helper     = { path = "../../helper", features = ["thread"] }
-cuprate-test-utils = { path = "../../test-utils" }
-
-bytemuck          = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-page_size         = { version = "0.6.0" }
-tempfile          = { version = "3.10.0" }
-pretty_assertions = { workspace = true }
-hex               = { workspace = true }
-hex-literal       = { workspace = true }
+bytemuck  = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+page_size = { version = "0.6.0" }
+tempfile  = { version = "3.10.0" }

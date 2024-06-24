@@ -9,9 +9,9 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/cuprate-bloc
 keywords    = ["cuprate", "blockchain", "database"]
 
 [features]
-default   = ["heed", "redb", "service"]
-# default   = ["redb", "service"]
-# default   = ["redb-memory", "service"]
+default     = ["heed", "service"]
+# default     = ["redb", "service"]
+# default     = ["redb-memory", "service"]
 heed        = ["cuprate-database/heed"]
 redb        = ["cuprate-database/redb"]
 redb-memory = ["cuprate-database/redb-memory"]
@@ -27,14 +27,10 @@ cuprate-types    = { path = "../../types", features = ["blockchain"] }
 
 bitflags         = { workspace = true, features = ["serde", "bytemuck"] }
 bytemuck         = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-bytes            = { workspace = true }
-cfg-if           = { workspace = true }
 curve25519-dalek = { workspace = true }
 cuprate-pruning  = { path = "../../pruning" }
 monero-serai     = { workspace = true, features = ["std"] }
 paste            = { workspace = true }
-page_size        = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
-thiserror        = { workspace = true }
 
 # `service` feature.
 crossbeam    = { workspace = true, features = ["std"], optional = true }
@@ -50,7 +46,6 @@ cuprate-helper     = { path = "../../helper", features = ["thread"] }
 cuprate-test-utils = { path = "../../test-utils" }
 
 bytemuck          = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
-page_size         = { version = "0.6.0" }
 tempfile          = { version = "3.10.0" }
 pretty_assertions = { workspace = true }
 hex               = { workspace = true }
