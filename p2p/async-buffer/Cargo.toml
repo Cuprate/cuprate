@@ -1,5 +1,5 @@
 [package]
-name = "async-buffer"
+name = "cuprate-async-buffer"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"

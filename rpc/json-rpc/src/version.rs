@@ -26,7 +26,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 ///
 /// # Example
 /// ```rust
-/// use json_rpc::Version;
+/// use cuprate_json_rpc::Version;
 /// use serde_json::{to_string, to_string_pretty, from_str};
 ///
 /// assert_eq!(Version::TWO, "2.0");
@@ -64,7 +64,7 @@ impl Version {
     /// Note that this does not have extra quotes to mark
     /// that it's a JSON string and not a float.
     /// ```rust
-    /// use json_rpc::Version;
+    /// use cuprate_json_rpc::Version;
     ///
     /// let string = format!("{}", Version);
     /// assert_eq!(string, "2.0");

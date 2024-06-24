@@ -6,7 +6,7 @@ use core::fmt::Debug;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use fixed_bytes::{ByteArray, ByteArrayVec};
+use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 
 use crate::{
     io::{checked_read_primitive, checked_write_primitive},

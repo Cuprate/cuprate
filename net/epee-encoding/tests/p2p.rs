@@ -1,4 +1,4 @@
-use epee_encoding::{epee_object, from_bytes, to_bytes};
+use cuprate_epee_encoding::{epee_object, from_bytes, to_bytes};
 
 #[derive(Eq, PartialEq, Debug, Clone)]
 pub struct SupportFlags(u32);

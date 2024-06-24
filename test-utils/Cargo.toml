@@ -8,8 +8,8 @@ authors = ["Boog900", "hinto-janai"]
 [dependencies]
 cuprate-types = { path = "../types" }
 cuprate-helper = { path = "../helper", features = ["map"] }
-monero-wire = { path = "../net/monero-wire" }
-monero-p2p = { path = "../p2p/monero-p2p", features = ["borsh"] }
+cuprate-wire = { path = "../net/wire" }
+cuprate-p2p-core = { path = "../p2p/p2p-core", features = ["borsh"] }
 
 hex = { workspace = true }
 hex-literal = { workspace = true }

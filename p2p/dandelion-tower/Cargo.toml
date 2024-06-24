@@ -1,0 +1,27 @@
+[package]
+name = "cuprate-dandelion-tower"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Boog900"]
+
+[features]
+default = ["txpool"]
+txpool = ["dep:rand_distr", "dep:tokio-util", "dep:tokio"]
+
+[dependencies]
+tower = { workspace = true, features = ["discover", "util"] }
+tracing = { workspace = true, features = ["std"] }
+
+futures = { workspace = true, features = ["std"] }
+tokio = { workspace = true, features = ["rt", "sync", "macros"], optional = true}
+tokio-util = { workspace = true, features = ["time"], optional = true }
+
+rand = { workspace = true, features = ["std", "std_rng"] }
+rand_distr = { workspace = true, features = ["std"], optional = true }
+
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync"] }
+proptest = { workspace = true, features = ["default"] }
