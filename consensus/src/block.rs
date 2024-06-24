@@ -317,10 +317,6 @@ where
         + 'static,
     C::Future: Send + 'static,
 {
-    let Some(last_block) = blocks.last() else {
-        return Err(ExtendedConsensusError::NoBlocksToVerify);
-    };
-
     let (blocks, txs): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
 
     tracing::debug!("Calculating block hashes.");
@@ -331,6 +327,10 @@ where
             .collect::<Result<Vec<_>, _>>()
     })
     .await?;
+
+    let Some(last_block) = blocks.last() else {
+        return Err(ExtendedConsensusError::NoBlocksToVerify);
+    };
 
     // hard-forks cannot be reversed, so the last block will contain the highest hard fork (provided the
     // batch is valid).

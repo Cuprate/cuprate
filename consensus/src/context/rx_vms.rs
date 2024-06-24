@@ -126,11 +126,11 @@ impl RandomXVMCache {
 
     /// Get the RandomX VMs.
     pub async fn get_vms(&mut self) -> HashMap<u64, Arc<RandomXVM>> {
-        match self.seeds.len() - self.vms.len() {
+        match self.seeds.len().checked_sub(self.vms.len()) {
             // No difference in the amount of seeds to VMs.
-            0 => (),
+            Some(0) => (),
             // One more seed than VM.
-            1 => {
+            Some(1) => {
                 let (seed_height, next_seed_hash) = *self.seeds.front().unwrap();
 
                 let new_vm = 'new_vm_block: {
@@ -166,7 +166,6 @@ impl RandomXVMCache {
                             let vm = RandomXVM::new(seed).expect("Failed to create RandomX VM!");
                             let vm = Arc::new(vm);
                             (*height, vm)
-                        })
                         })
                         .collect()
                 })
