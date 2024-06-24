@@ -113,7 +113,7 @@ impl BlockQueue {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeSet};
+    use std::collections::BTreeSet;
 
     use futures::StreamExt;
     use proptest::{collection::vec, prelude::*};
