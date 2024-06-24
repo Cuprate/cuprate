@@ -47,7 +47,7 @@ impl<T> Request<T> {
     /// Create a new [`Self`] with no [`Id`].
     ///
     /// ```rust
-    /// use json_rpc::Request;
+    /// use cuprate_json_rpc::Request;
     ///
     /// assert_eq!(Request::new("").id, None);
     /// ```
@@ -62,7 +62,7 @@ impl<T> Request<T> {
     /// Create a new [`Self`] with an [`Id`].
     ///
     /// ```rust
-    /// use json_rpc::{Id, Request};
+    /// use cuprate_json_rpc::{Id, Request};
     ///
     /// assert_eq!(Request::new_with_id(Id::Num(0), "").id, Some(Id::Num(0)));
     /// ```
@@ -79,7 +79,7 @@ impl<T> Request<T> {
     /// In other words, if `id` is [`None`], this returns `true`.
     ///
     /// ```rust
-    /// use json_rpc::{Id, Request};
+    /// use cuprate_json_rpc::{Id, Request};
     ///
     /// assert!(Request::new("").is_notification());
     /// assert!(!Request::new_with_id(Id::Null, "").is_notification());

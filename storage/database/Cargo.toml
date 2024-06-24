@@ -1,6 +1,14 @@
 [package]
+<<<<<<< HEAD
 name        = "cuprate-database"
 version     = "0.0.1"
+||||||| c837f2f
+name        = "database"
+version     = "0.0.0"
+=======
+name        = "cuprate-database"
+version     = "0.0.0"
+>>>>>>> main
 edition     = "2021"
 description = "Cuprate's database abstraction"
 license     = "MIT"

@@ -1,21 +1,23 @@
+//! This module contains a [`EpeeValue`] trait and
+//! impls for some possible base epee values.
+
 use alloc::{string::String, vec::Vec};
-/// This module contains a `sealed` [`EpeeValue`] trait and different impls for
-/// the different possible base epee values.
 use core::fmt::Debug;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
-use sealed::sealed;
 
-use fixed_bytes::{ByteArray, ByteArrayVec};
+use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 
 use crate::{
-    io::*, varint::*, EpeeObject, Error, InnerMarker, Marker, Result, MAX_STRING_LEN_POSSIBLE,
+    io::{checked_read_primitive, checked_write_primitive},
+    varint::{read_varint, write_varint},
+    write_bytes, write_iterator, EpeeObject, Error, InnerMarker, Marker, Result,
+    MAX_STRING_LEN_POSSIBLE,
 };
 
-/// A trait for epee values, this trait is sealed as all possible epee values are
-/// defined in the lib, to make an [`EpeeValue`] outside the lib you will need to
-/// use the trait [`EpeeObject`].
-#[sealed(pub(crate))]
+/// A trait for epee values.
+///
+/// All [`EpeeObject`] objects automatically implement [`EpeeValue`].
 pub trait EpeeValue: Sized {
     const MARKER: Marker;
 
@@ -37,7 +39,6 @@ pub trait EpeeValue: Sized {
     fn write<B: BufMut>(self, w: &mut B) -> Result<()>;
 }
 
-#[sealed]
 impl<T: EpeeObject> EpeeValue for T {
     const MARKER: Marker = Marker::new(InnerMarker::Object);
 
@@ -56,7 +57,6 @@ impl<T: EpeeObject> EpeeValue for T {
     }
 }
 
-#[sealed]
 impl<T: EpeeObject> EpeeValue for Vec<T> {
     const MARKER: Marker = T::MARKER.into_seq();
 
@@ -86,15 +86,10 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-        for item in self.into_iter() {
-            item.write(w)?;
-        }
-        Ok(())
+        write_iterator(self.into_iter(), w)
     }
 }
 
-#[sealed]
 impl<T: EpeeObject + Debug, const N: usize> EpeeValue for [T; N] {
     const MARKER: Marker = <T>::MARKER.into_seq();
 
@@ -109,17 +104,12 @@ impl<T: EpeeObject + Debug, const N: usize> EpeeValue for [T; N] {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-        for item in self.into_iter() {
-            item.write(w)?;
-        }
-        Ok(())
+        write_iterator(self.into_iter(), w)
     }
 }
 
 macro_rules! epee_numb {
     ($numb:ty, $marker:ident, $read_fn:ident, $write_fn:ident) => {
-        #[sealed]
         impl EpeeValue for $numb {
             const MARKER: Marker = Marker::new(InnerMarker::$marker);
 
@@ -148,7 +138,6 @@ epee_numb!(u32, U32, get_u32_le, put_u32_le);
 epee_numb!(u64, U64, get_u64_le, put_u64_le);
 epee_numb!(f64, F64, get_f64_le, put_f64_le);
 
-#[sealed]
 impl EpeeValue for bool {
     const MARKER: Marker = Marker::new(InnerMarker::Bool);
 
@@ -165,7 +154,6 @@ impl EpeeValue for bool {
     }
 }
 
-#[sealed]
 impl EpeeValue for Vec<u8> {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
@@ -198,18 +186,10 @@ impl EpeeValue for Vec<u8> {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put_slice(&self);
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
-#[sealed::sealed]
 impl EpeeValue for Bytes {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
@@ -239,18 +219,10 @@ impl EpeeValue for Bytes {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put(self);
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
-#[sealed::sealed]
 impl EpeeValue for BytesMut {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
@@ -283,18 +255,10 @@ impl EpeeValue for BytesMut {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put(self);
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
-#[sealed::sealed]
 impl<const N: usize> EpeeValue for ByteArrayVec<N> {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
@@ -326,19 +290,10 @@ impl<const N: usize> EpeeValue for ByteArrayVec<N> {
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
         let bytes = self.take_bytes();
-
-        write_varint(bytes.len().try_into()?, w)?;
-
-        if w.remaining_mut() < bytes.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put(bytes);
-        Ok(())
+        write_bytes(bytes, w)
     }
 }
 
-#[sealed::sealed]
 impl<const N: usize> EpeeValue for ByteArray<N> {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
@@ -362,19 +317,10 @@ impl<const N: usize> EpeeValue for ByteArray<N> {
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
         let bytes = self.take_bytes();
-
-        write_varint(N.try_into().unwrap(), w)?;
-
-        if w.remaining_mut() < N {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put(bytes);
-        Ok(())
+        write_bytes(bytes, w)
     }
 }
 
-#[sealed]
 impl EpeeValue for String {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
@@ -392,18 +338,10 @@ impl EpeeValue for String {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put_slice(self.as_bytes());
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
-#[sealed]
 impl<const N: usize> EpeeValue for [u8; N] {
     const MARKER: Marker = Marker::new(InnerMarker::String);
 
@@ -418,18 +356,10 @@ impl<const N: usize> EpeeValue for [u8; N] {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-
-        if w.remaining_mut() < self.len() {
-            return Err(Error::IO("Not enough capacity to write bytes"));
-        }
-
-        w.put_slice(&self);
-        Ok(())
+        write_bytes(self, w)
     }
 }
 
-#[sealed]
 impl<const N: usize> EpeeValue for Vec<[u8; N]> {
     const MARKER: Marker = <[u8; N]>::MARKER.into_seq();
 
@@ -460,17 +390,12 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-        write_varint(self.len().try_into()?, w)?;
-        for item in self.into_iter() {
-            item.write(w)?;
-        }
-        Ok(())
+        write_iterator(self.into_iter(), w)
     }
 }
 
 macro_rules! epee_seq {
     ($val:ty) => {
-        #[sealed]
         impl EpeeValue for Vec<$val> {
             const MARKER: Marker = <$val>::MARKER.into_seq();
 
@@ -501,15 +426,10 @@ macro_rules! epee_seq {
             }
 
             fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-                write_varint(self.len().try_into()?, w)?;
-                for item in self.into_iter() {
-                    item.write(w)?;
-                }
-                Ok(())
+                write_iterator(self.into_iter(), w)
             }
         }
 
-        #[sealed]
         impl<const N: usize> EpeeValue for [$val; N] {
             const MARKER: Marker = <$val>::MARKER.into_seq();
 
@@ -524,11 +444,7 @@ macro_rules! epee_seq {
             }
 
             fn write<B: BufMut>(self, w: &mut B) -> Result<()> {
-                write_varint(self.len().try_into()?, w)?;
-                for item in self.into_iter() {
-                    item.write(w)?;
-                }
-                Ok(())
+                write_iterator(self.into_iter(), w)
             }
         }
     };
@@ -548,7 +464,6 @@ epee_seq!(String);
 epee_seq!(Bytes);
 epee_seq!(BytesMut);
 
-#[sealed]
 impl<T: EpeeValue> EpeeValue for Option<T> {
     const MARKER: Marker = T::MARKER;
 

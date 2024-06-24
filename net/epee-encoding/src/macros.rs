@@ -10,7 +10,7 @@ pub use paste::paste;
 /// // see: <https://github.com/rust-lang/rust/issues/64079>
 /// mod visibility {
 ///
-///     use epee_encoding::epee_object;
+///     use cuprate_epee_encoding::epee_object;
 ///
 ///     struct Example {
 ///         a: u8
@@ -30,7 +30,7 @@ pub use paste::paste;
 /// // see: <https://github.com/rust-lang/rust/issues/64079>
 /// mod visibility {
 ///
-///     use epee_encoding::epee_object;
+///     use cuprate_epee_encoding::epee_object;
 ///
 ///     struct Example {
 ///         a: u8,
@@ -60,7 +60,7 @@ pub use paste::paste;
 ///         c: u8 as u8,
 ///         // `=> read_fn, write_fn, should_write_fn,` allows you to specify alt field encoding functions.
 ///         //  for the required args see the default functions, which are used here:
-///         d: u8 => epee_encoding::read_epee_value, epee_encoding::write_field, <u8 as epee_encoding::EpeeValue>::should_write,
+///         d: u8 => cuprate_epee_encoding::read_epee_value, cuprate_epee_encoding::write_field, <u8 as cuprate_epee_encoding::EpeeValue>::should_write,
 ///         // `!flatten` can be used on fields which are epee objects, and it flattens the fields of that object into this object.
 ///         // So for this example `e_f` will not appear in the data but e will.
 ///         // You can't use the other options with this.
@@ -126,25 +126,25 @@ macro_rules! epee_object {
         $(!flatten: $flat_field: ident: $flat_ty:ty ,)*
 
     ) => {
-        epee_encoding::macros::paste!(
+        cuprate_epee_encoding::macros::paste!(
             #[allow(non_snake_case)]
             mod [<__epee_builder_ $obj>] {
                 use super::*;
 
                 #[derive(Default)]
                 pub struct [<__Builder $obj>] {
-                    $($field: Option<epee_encoding::epee_object!(@internal_field_type $ty, $($ty_as)?)>,)*
-                    $($flat_field: <$flat_ty as epee_encoding::EpeeObject>::Builder,)*
+                    $($field: Option<cuprate_epee_encoding::epee_object!(@internal_field_type $ty, $($ty_as)?)>,)*
+                    $($flat_field: <$flat_ty as cuprate_epee_encoding::EpeeObject>::Builder,)*
                 }
 
-                impl epee_encoding::EpeeObjectBuilder<$obj> for [<__Builder $obj>] {
-                    fn add_field<B: epee_encoding::macros::bytes::Buf>(&mut self, name: &str, b: &mut B) -> epee_encoding::error::Result<bool> {
+                impl cuprate_epee_encoding::EpeeObjectBuilder<$obj> for [<__Builder $obj>] {
+                    fn add_field<B: cuprate_epee_encoding::macros::bytes::Buf>(&mut self, name: &str, b: &mut B) -> cuprate_epee_encoding::error::Result<bool> {
                         match name {
-                            $(epee_encoding::epee_object!(@internal_field_name $field, $($alt_name)?) => {
+                            $(cuprate_epee_encoding::epee_object!(@internal_field_name $field, $($alt_name)?) => {
                                 if core::mem::replace(&mut self.$field, Some(
-                                    epee_encoding::epee_object!(@internal_try_right_then_left epee_encoding::read_epee_value(b)?, $($read_fn(b)?)?)
+                                    cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::read_epee_value(b)?, $($read_fn(b)?)?)
                                 )).is_some() {
-                                    Err(epee_encoding::error::Error::Value(format!("Duplicate field in data: {}", epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?))))?;
+                                    Err(cuprate_epee_encoding::error::Error::Value(format!("Duplicate field in data: {}", cuprate_epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?))))?;
                                 }
                                 Ok(true)
                             },)*
@@ -159,12 +159,12 @@ macro_rules! epee_object {
                         }
                     }
 
-                    fn finish(self) -> epee_encoding::error::Result<$obj> {
+                    fn finish(self) -> cuprate_epee_encoding::error::Result<$obj> {
                         Ok(
                             $obj {
                                 $(
                                   $field: {
-                                      let epee_default_value = epee_encoding::epee_object!(@internal_try_right_then_left epee_encoding::EpeeValue::epee_default_value(), $({
+                                      let epee_default_value = cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::EpeeValue::epee_default_value(), $({
                                             let _ = $should_write_fn;
                                             None
                                       })?);
@@ -173,7 +173,7 @@ macro_rules! epee_object {
                                             $(.or(Some($default)))?
                                             .or(epee_default_value)
                                             $(.map(<$ty_as>::into))?
-                                              .ok_or(epee_encoding::error::Error::Value(format!("Missing field in data: {}", epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?))))?
+                                              .ok_or(cuprate_epee_encoding::error::Error::Value(format!("Missing field in data: {}", cuprate_epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?))))?
                                   },
                                 )*
 
@@ -187,16 +187,16 @@ macro_rules! epee_object {
                 }
             }
 
-            impl epee_encoding::EpeeObject for $obj {
+            impl cuprate_epee_encoding::EpeeObject for $obj {
                 type Builder = [<__epee_builder_ $obj>]::[<__Builder $obj>];
 
                 fn number_of_fields(&self) -> u64 {
                     let mut fields = 0;
 
                     $(
-                    let field = epee_encoding::epee_object!(@internal_try_right_then_left &self.$field, $(<&$ty_as>::from(&self.$field))? );
+                    let field = cuprate_epee_encoding::epee_object!(@internal_try_right_then_left &self.$field, $(<&$ty_as>::from(&self.$field))? );
 
-                      if $((field) != &$default &&)? epee_encoding::epee_object!(@internal_try_right_then_left epee_encoding::EpeeValue::should_write, $($should_write_fn)?)(field )
+                      if $((field) != &$default &&)? cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::EpeeValue::should_write, $($should_write_fn)?)(field )
                       {
                           fields += 1;
                       }
@@ -209,13 +209,13 @@ macro_rules! epee_object {
                     fields
                 }
 
-                fn write_fields<B: epee_encoding::macros::bytes::BufMut>(self, w: &mut B) -> epee_encoding::error::Result<()> {
+                fn write_fields<B: cuprate_epee_encoding::macros::bytes::BufMut>(self, w: &mut B) -> cuprate_epee_encoding::error::Result<()> {
                     $(
-                    let field = epee_encoding::epee_object!(@internal_try_right_then_left self.$field, $(<$ty_as>::from(self.$field))? );
+                    let field = cuprate_epee_encoding::epee_object!(@internal_try_right_then_left self.$field, $(<$ty_as>::from(self.$field))? );
 
-                      if $(field != $default &&)? epee_encoding::epee_object!(@internal_try_right_then_left epee_encoding::EpeeValue::should_write, $($should_write_fn)?)(&field )
+                      if $(field != $default &&)? cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::EpeeValue::should_write, $($should_write_fn)?)(&field )
                         {
-                         epee_encoding::epee_object!(@internal_try_right_then_left epee_encoding::write_field, $($write_fn)?)((field), epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?), w)?;
+                         cuprate_epee_encoding::epee_object!(@internal_try_right_then_left cuprate_epee_encoding::write_field, $($write_fn)?)((field), cuprate_epee_encoding::epee_object!(@internal_field_name$field, $($alt_name)?), w)?;
                       }
                     )*
 

@@ -26,7 +26,7 @@ use crate::error::constants::{
 ///
 /// # Display
 /// ```rust
-/// use json_rpc::error::ErrorCode;
+/// use cuprate_json_rpc::error::ErrorCode;
 /// use serde_json::{to_value, from_value, Value};
 ///
 /// for e in [
@@ -46,7 +46,7 @@ use crate::error::constants::{
 /// # (De)serialization
 /// This type gets (de)serialized as the associated `i32`, for example:
 /// ```rust
-/// use json_rpc::error::ErrorCode;
+/// use cuprate_json_rpc::error::ErrorCode;
 /// use serde_json::{to_value, from_value, Value};
 ///
 /// for e in [
@@ -69,7 +69,7 @@ use crate::error::constants::{
 /// ```
 ///
 /// ```rust,should_panic
-/// # use json_rpc::error::ErrorCode;
+/// # use cuprate_json_rpc::error::ErrorCode;
 /// # use serde_json::from_value;
 /// // A JSON string that contains an integer won't work.
 /// from_value::<ErrorCode>("-32700".into()).unwrap();
@@ -109,7 +109,7 @@ impl ErrorCode {
     /// [`From<i32>`] is the same as this function.
     ///
     /// ```rust
-    /// use json_rpc::error::{
+    /// use cuprate_json_rpc::error::{
     ///     ErrorCode,
     ///     INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR,
     /// };
@@ -147,7 +147,7 @@ impl ErrorCode {
     /// Returns `self`'s [`i32`] code representation.
     ///
     /// ```rust
-    /// use json_rpc::error::{
+    /// use cuprate_json_rpc::error::{
     ///     ErrorCode,
     ///     INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR,
     /// };
@@ -174,7 +174,7 @@ impl ErrorCode {
     /// Returns `self`'s human readable [`str`] message.
     ///
     /// ```rust
-    /// use json_rpc::error::{
+    /// use cuprate_json_rpc::error::{
     ///     ErrorCode,
     ///     INTERNAL_ERROR, INVALID_PARAMS, INVALID_REQUEST, METHOD_NOT_FOUND, PARSE_ERROR, SERVER_ERROR,
     /// };

@@ -10,10 +10,10 @@ members = [
 	"net/epee-encoding",
 	"net/fixed-bytes",
 	"net/levin",
-	"net/monero-wire",
-	"p2p/cuprate-p2p",
-	"p2p/dandelion",
-	"p2p/monero-p2p",
+	"net/wire",
+	"p2p/p2p",
+	"p2p/p2p-core",
+	"p2p/dandelion-tower",
 	"p2p/async-buffer",
 	"p2p/address-book",
 	"storage/blockchain",
@@ -23,8 +23,8 @@ members = [
 	"test-utils",
 	"types",
 	"rpc/json-rpc",
-	"rpc/monero-rpc-types",
-	"rpc/cuprate-rpc-interface",
+	"rpc/rpc-types",
+	"rpc/rpc-interface",
 ]
 
 [profile.release]
@@ -89,6 +89,7 @@ tempfile              = { version = "3" }
 pretty_assertions     = { version = "1.4.0" }
 proptest              = { version = "1" }
 proptest-derive       = { version = "0.4.0" }
+tokio-test            = { version = "0.4.4" }
 
 ## TODO:
 ## Potential dependencies.
