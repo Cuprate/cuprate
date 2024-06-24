@@ -27,7 +27,7 @@ pub mod handshaker;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
-pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
+pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.

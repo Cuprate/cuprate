@@ -80,13 +80,14 @@ where
         basic_node_data.peer_id = 1;
     }
 
-    let outbound_handshaker_builder = cuprate_p2p_core::client::HandshakerBuilder::new(basic_node_data)
-        .with_address_book(address_book.clone())
-        .with_peer_sync_svc(sync_states_svc)
-        .with_core_sync_svc(core_sync_svc)
-        .with_peer_request_handler(peer_req_handler)
-        .with_broadcast_stream_maker(outbound_mkr)
-        .with_connection_parent_span(Span::current());
+    let outbound_handshaker_builder =
+        cuprate_p2p_core::client::HandshakerBuilder::new(basic_node_data)
+            .with_address_book(address_book.clone())
+            .with_peer_sync_svc(sync_states_svc.clone())
+            .with_core_sync_svc(core_sync_svc)
+            .with_peer_request_handler(peer_req_handler)
+            .with_broadcast_stream_maker(outbound_mkr)
+            .with_connection_parent_span(Span::current());
 
     let inbound_handshaker = outbound_handshaker_builder
         .clone()

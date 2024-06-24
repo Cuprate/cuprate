@@ -113,11 +113,10 @@ impl BlockQueue {
 
 #[cfg(test)]
 mod tests {
-    use futures::StreamExt;
     use std::{collections::BTreeSet, sync::Arc};
 
+    use futures::StreamExt;
     use proptest::{collection::vec, prelude::*};
-    use tokio::sync::Semaphore;
     use tokio_test::block_on;
 
     use cuprate_p2p_core::handles::HandleBuilder;
@@ -126,8 +125,7 @@ mod tests {
 
     prop_compose! {
         fn ready_batch_strategy()(start_height in 0_u64..500_000_000) -> ReadyQueueBatch {
-            // TODO: The permit will not be needed here when
-            let (_, peer_handle)  = HandleBuilder::new().with_permit(Arc::new(Semaphore::new(1)).try_acquire_owned().unwrap()).build();
+            let (_, peer_handle)  = HandleBuilder::new().build();
 
             ReadyQueueBatch {
                 start_height,

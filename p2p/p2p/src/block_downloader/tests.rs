@@ -21,9 +21,8 @@ use tower::{service_fn, Service};
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
     client::{mock_client, Client, InternalPeerID, PeerInformation},
-    network_zones::ClearNet,
     services::{PeerSyncRequest, PeerSyncResponse},
-    ConnectionDirection, NetworkZone, PeerRequest, PeerResponse,
+    ClearNet, ConnectionDirection, NetworkZone, PeerRequest, PeerResponse,
 };
 use cuprate_pruning::PruningSeed;
 use cuprate_wire::{
@@ -182,11 +181,8 @@ prop_compose! {
 }
 
 fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<ClearNet> {
-    let semaphore = Arc::new(Semaphore::new(1));
-
-    let (connection_guard, connection_handle) = cuprate_p2p_core::handles::HandleBuilder::new()
-        .with_permit(semaphore.try_acquire_owned().unwrap())
-        .build();
+    let (connection_guard, connection_handle) =
+        cuprate_p2p_core::handles::HandleBuilder::new().build();
 
     let request_handler = service_fn(move |req: PeerRequest| {
         let bc = blockchain.clone();

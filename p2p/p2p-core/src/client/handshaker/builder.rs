@@ -8,7 +8,7 @@ use futures::{stream, Stream};
 use tower::Service;
 use tracing::Span;
 
-use monero_wire::{BasicNodeData, CoreSyncData};
+use cuprate_wire::{BasicNodeData, CoreSyncData};
 
 use crate::{
     client::{handshaker::HandShaker, InternalPeerID},
