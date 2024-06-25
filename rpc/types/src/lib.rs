@@ -97,10 +97,12 @@
 #![allow(dead_code)]
 
 //---------------------------------------------------------------------------------------------------- Use
+mod binary_string;
 mod constants;
 mod macros;
 mod status;
 
+pub use binary_string::BinaryString;
 pub use constants::{
     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN, CORE_RPC_VERSION,
@@ -110,6 +112,5 @@ pub use status::Status;
 
 pub mod base;
 pub mod bin;
-pub mod data;
 pub mod json;
 pub mod other;
