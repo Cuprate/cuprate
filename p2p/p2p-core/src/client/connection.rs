@@ -2,6 +2,8 @@
 //!
 //! This module handles routing requests from a [`Client`](crate::client::Client) or a broadcast channel to
 //! a peer. This module also handles routing requests from the connected peer to a request handler.
+mod request_handler;
+
 use std::pin::Pin;
 
 use futures::{
@@ -22,7 +24,7 @@ use crate::{
     constants::{REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
     BroadcastMessage, MessageID, NetworkZone, PeerError, PeerRequest, PeerRequestHandler,
-    PeerResponse, SharedError,
+    PeerResponse, ProtocolResponse, SharedError,
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
@@ -174,7 +176,9 @@ where
             return Err(e);
         } else {
             // We still need to respond even if the response is this.
-            let _ = req.response_channel.send(Ok(PeerResponse::NA));
+            let _ = req
+                .response_channel
+                .send(Ok(PeerResponse::Protocol(ProtocolResponse::NA)));
         }
 
         Ok(())
@@ -186,15 +190,13 @@ where
 
         let ready_svc = self.peer_request_handler.ready().await?;
         let res = ready_svc.call(req).await?;
-        if matches!(res, PeerResponse::NA) {
-            return Ok(());
+
+        // This will be an error if a response does not need to be sent
+        if let Ok(res) = res.try_into() {
+            self.send_message_to_peer(res).await?;
         }
 
-        self.send_message_to_peer(
-            res.try_into()
-                .expect("We just checked if the response was `NA`"),
-        )
-        .await
+        Ok(())
     }
 
     /// Handles a message from a peer when we are in [`State::WaitingForResponse`].

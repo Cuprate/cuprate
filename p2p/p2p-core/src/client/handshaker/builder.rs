@@ -17,7 +17,7 @@ use crate::{
         PeerSyncRequest, PeerSyncResponse,
     },
     AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerRequest, PeerRequestHandler,
-    PeerResponse, PeerSyncSvc,
+    PeerResponse, PeerSyncSvc, ProtocolResponse,
 };
 
 /// A [`HandShaker`] [`Service`] builder.
@@ -313,7 +313,7 @@ impl Service<PeerRequest> for DummyPeerRequestHdlr {
     }
 
     fn call(&mut self, _: PeerRequest) -> Self::Future {
-        ready(Ok(PeerResponse::NA))
+        ready(Ok(PeerResponse::Protocol(ProtocolResponse::NA)))
     }
 }
 

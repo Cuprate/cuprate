@@ -27,7 +27,7 @@ use cuprate_wire::{
         PING_OK_RESPONSE_STATUS_TEXT,
     },
     common::PeerSupportFlags,
-    BasicNodeData, BucketError, LevinCommand, Message, RequestMessage, ResponseMessage,
+    AdminRequestMessage, AdminResponseMessage, BasicNodeData, BucketError, LevinCommand, Message,
 };
 
 use crate::{
@@ -199,11 +199,11 @@ pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> 
     tracing::debug!("Made outbound connection to peer, sending ping.");
 
     peer_sink
-        .send(Message::Request(RequestMessage::Ping).into())
+        .send(Message::Request(AdminRequestMessage::Ping).into())
         .await?;
 
     if let Some(res) = peer_stream.next().await {
-        if let Message::Response(ResponseMessage::Ping(ping)) = res? {
+        if let Message::Response(AdminResponseMessage::Ping(ping)) = res? {
             if ping.status == PING_OK_RESPONSE_STATUS_TEXT {
                 tracing::debug!("Ping successful.");
                 return Ok(ping.peer_id);
@@ -267,15 +267,16 @@ where
             // Inbound handshake the peer sends the request.
             tracing::debug!("waiting for handshake request.");
 
-            let Message::Request(RequestMessage::Handshake(handshake_req)) = wait_for_message::<Z>(
-                LevinCommand::Handshake,
-                true,
-                &mut peer_sink,
-                &mut peer_stream,
-                &mut eager_protocol_messages,
-                &our_basic_node_data,
-            )
-            .await?
+            let Message::Request(AdminRequestMessage::Handshake(handshake_req)) =
+                wait_for_message::<Z>(
+                    LevinCommand::Handshake,
+                    true,
+                    &mut peer_sink,
+                    &mut peer_stream,
+                    &mut eager_protocol_messages,
+                    &our_basic_node_data,
+                )
+                .await?
             else {
                 panic!("wait_for_message returned ok with wrong message.");
             };
@@ -294,7 +295,7 @@ where
             .await?;
 
             // Wait for the handshake response.
-            let Message::Response(ResponseMessage::Handshake(handshake_res)) =
+            let Message::Response(AdminResponseMessage::Handshake(handshake_res)) =
                 wait_for_message::<Z>(
                     LevinCommand::Handshake,
                     false,
@@ -514,7 +515,7 @@ where
     Ok(client)
 }
 
-/// Sends a [`RequestMessage::Handshake`] down the peer sink.
+/// Sends a [`AdminRequestMessage::Handshake`] down the peer sink.
 async fn send_hs_request<Z: NetworkZone, CSync>(
     peer_sink: &mut Z::Sink,
     core_sync_svc: &mut CSync,
@@ -537,13 +538,13 @@ where
     tracing::debug!("Sending handshake request.");
 
     peer_sink
-        .send(Message::Request(RequestMessage::Handshake(req)).into())
+        .send(Message::Request(AdminRequestMessage::Handshake(req)).into())
         .await?;
 
     Ok(())
 }
 
-/// Sends a [`ResponseMessage::Handshake`] down the peer sink.
+/// Sends a [`AdminResponseMessage::Handshake`] down the peer sink.
 async fn send_hs_response<Z: NetworkZone, CSync, AdrBook>(
     peer_sink: &mut Z::Sink,
     core_sync_svc: &mut CSync,
@@ -580,7 +581,7 @@ where
     tracing::debug!("Sending handshake response.");
 
     peer_sink
-        .send(Message::Response(ResponseMessage::Handshake(res)).into())
+        .send(Message::Response(AdminResponseMessage::Handshake(res)).into())
         .await?;
 
     Ok(())
@@ -631,7 +632,7 @@ async fn wait_for_message<Z: NetworkZone>(
                 }
 
                 match req_message {
-                    RequestMessage::SupportFlags => {
+                    AdminRequestMessage::SupportFlags => {
                         if !allow_support_flag_req {
                             return Err(HandshakeError::PeerSentInvalidMessage(
                                 "Peer sent 2 support flag requests",
@@ -643,7 +644,7 @@ async fn wait_for_message<Z: NetworkZone>(
                         allow_support_flag_req = false;
                         continue;
                     }
-                    RequestMessage::Ping => {
+                    AdminRequestMessage::Ping => {
                         if !allow_ping {
                             return Err(HandshakeError::PeerSentInvalidMessage(
                                 "Peer sent 2 ping requests",
@@ -686,7 +687,7 @@ async fn wait_for_message<Z: NetworkZone>(
     )))?
 }
 
-/// Sends a [`ResponseMessage::SupportFlags`] down the peer sink.
+/// Sends a [`AdminResponseMessage::SupportFlags`] down the peer sink.
 async fn send_support_flags<Z: NetworkZone>(
     peer_sink: &mut Z::Sink,
     support_flags: PeerSupportFlags,
@@ -694,7 +695,7 @@ async fn send_support_flags<Z: NetworkZone>(
     tracing::debug!("Sending support flag response.");
     Ok(peer_sink
         .send(
-            Message::Response(ResponseMessage::SupportFlags(SupportFlagsResponse {
+            Message::Response(AdminResponseMessage::SupportFlags(SupportFlagsResponse {
                 support_flags,
             }))
             .into(),
@@ -702,7 +703,7 @@ async fn send_support_flags<Z: NetworkZone>(
         .await?)
 }
 
-/// Sends a [`ResponseMessage::Ping`] down the peer sink.
+/// Sends a [`AdminResponseMessage::Ping`] down the peer sink.
 async fn send_ping_response<Z: NetworkZone>(
     peer_sink: &mut Z::Sink,
     peer_id: u64,
@@ -710,7 +711,7 @@ async fn send_ping_response<Z: NetworkZone>(
     tracing::debug!("Sending ping response.");
     Ok(peer_sink
         .send(
-            Message::Response(ResponseMessage::Ping(PingResponse {
+            Message::Response(AdminResponseMessage::Ping(PingResponse {
                 status: PING_OK_RESPONSE_STATUS_TEXT,
                 peer_id,
             }))

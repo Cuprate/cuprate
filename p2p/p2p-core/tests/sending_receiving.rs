@@ -6,7 +6,7 @@ use cuprate_wire::{common::PeerSupportFlags, protocol::GetObjectsRequest, BasicN
 use cuprate_p2p_core::{
     client::{handshaker::HandshakerBuilder, ConnectRequest, Connector},
     protocol::{PeerRequest, PeerResponse},
-    ClearNet,
+    ClearNet, ProtocolRequest, ProtocolResponse,
 };
 
 use cuprate_test_utils::monerod::monerod;
@@ -39,17 +39,21 @@ async fn get_single_block_from_monerod() {
         .await
         .unwrap();
 
-    let PeerResponse::GetObjects(obj) = connected_peer
+    let PeerResponse::Protocol(ProtocolResponse::GetObjects(obj)) = connected_peer
         .ready()
         .await
         .unwrap()
-        .call(PeerRequest::GetObjects(GetObjectsRequest {
-            blocks: hex::decode("418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3")
+        .call(PeerRequest::Protocol(ProtocolRequest::GetObjects(
+            GetObjectsRequest {
+                blocks: hex::decode(
+                    "418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3",
+                )
                 .unwrap()
                 .try_into()
                 .unwrap(),
-            pruned: false,
-        }))
+                pruned: false,
+            },
+        )))
         .await
         .unwrap()
     else {

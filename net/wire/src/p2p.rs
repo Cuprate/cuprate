@@ -177,6 +177,7 @@ fn build_message<T: cuprate_epee_encoding::EpeeObject>(
     Ok(())
 }
 
+#[derive(Debug, Clone)]
 pub enum ProtocolMessage {
     NewBlock(NewBlock),
     NewFluffyBlock(NewFluffyBlock),
@@ -255,22 +256,23 @@ impl ProtocolMessage {
     }
 }
 
-pub enum RequestMessage {
+#[derive(Debug, Clone)]
+pub enum AdminRequestMessage {
     Handshake(HandshakeRequest),
     Ping,
     SupportFlags,
     TimedSync(TimedSyncRequest),
 }
 
-impl RequestMessage {
+impl AdminRequestMessage {
     pub fn command(&self) -> LevinCommand {
         use LevinCommand as C;
 
         match self {
-            RequestMessage::Handshake(_) => C::Handshake,
-            RequestMessage::Ping => C::Ping,
-            RequestMessage::SupportFlags => C::SupportFlags,
-            RequestMessage::TimedSync(_) => C::TimedSync,
+            AdminRequestMessage::Handshake(_) => C::Handshake,
+            AdminRequestMessage::Ping => C::Ping,
+            AdminRequestMessage::SupportFlags => C::SupportFlags,
+            AdminRequestMessage::TimedSync(_) => C::TimedSync,
         }
     }
 
@@ -278,19 +280,19 @@ impl RequestMessage {
         use LevinCommand as C;
 
         Ok(match command {
-            C::Handshake => decode_message(RequestMessage::Handshake, buf)?,
-            C::TimedSync => decode_message(RequestMessage::TimedSync, buf)?,
+            C::Handshake => decode_message(AdminRequestMessage::Handshake, buf)?,
+            C::TimedSync => decode_message(AdminRequestMessage::TimedSync, buf)?,
             C::Ping => {
                 cuprate_epee_encoding::from_bytes::<EmptyMessage, _>(buf)
                     .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
 
-                RequestMessage::Ping
+                AdminRequestMessage::Ping
             }
             C::SupportFlags => {
                 cuprate_epee_encoding::from_bytes::<EmptyMessage, _>(buf)
                     .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
 
-                RequestMessage::SupportFlags
+                AdminRequestMessage::SupportFlags
             }
             _ => return Err(BucketError::UnknownCommand),
         })
@@ -300,31 +302,34 @@ impl RequestMessage {
         use LevinCommand as C;
 
         match self {
-            RequestMessage::Handshake(val) => build_message(C::Handshake, val, builder)?,
-            RequestMessage::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
-            RequestMessage::Ping => build_message(C::Ping, EmptyMessage, builder)?,
-            RequestMessage::SupportFlags => build_message(C::SupportFlags, EmptyMessage, builder)?,
+            AdminRequestMessage::Handshake(val) => build_message(C::Handshake, val, builder)?,
+            AdminRequestMessage::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
+            AdminRequestMessage::Ping => build_message(C::Ping, EmptyMessage, builder)?,
+            AdminRequestMessage::SupportFlags => {
+                build_message(C::SupportFlags, EmptyMessage, builder)?
+            }
         }
         Ok(())
     }
 }
 
-pub enum ResponseMessage {
+#[derive(Debug, Clone)]
+pub enum AdminResponseMessage {
     Handshake(HandshakeResponse),
     Ping(PingResponse),
     SupportFlags(SupportFlagsResponse),
     TimedSync(TimedSyncResponse),
 }
 
-impl ResponseMessage {
+impl AdminResponseMessage {
     pub fn command(&self) -> LevinCommand {
         use LevinCommand as C;
 
         match self {
-            ResponseMessage::Handshake(_) => C::Handshake,
-            ResponseMessage::Ping(_) => C::Ping,
-            ResponseMessage::SupportFlags(_) => C::SupportFlags,
-            ResponseMessage::TimedSync(_) => C::TimedSync,
+            AdminResponseMessage::Handshake(_) => C::Handshake,
+            AdminResponseMessage::Ping(_) => C::Ping,
+            AdminResponseMessage::SupportFlags(_) => C::SupportFlags,
+            AdminResponseMessage::TimedSync(_) => C::TimedSync,
         }
     }
 
@@ -332,10 +337,10 @@ impl ResponseMessage {
         use LevinCommand as C;
 
         Ok(match command {
-            C::Handshake => decode_message(ResponseMessage::Handshake, buf)?,
-            C::TimedSync => decode_message(ResponseMessage::TimedSync, buf)?,
-            C::Ping => decode_message(ResponseMessage::Ping, buf)?,
-            C::SupportFlags => decode_message(ResponseMessage::SupportFlags, buf)?,
+            C::Handshake => decode_message(AdminResponseMessage::Handshake, buf)?,
+            C::TimedSync => decode_message(AdminResponseMessage::TimedSync, buf)?,
+            C::Ping => decode_message(AdminResponseMessage::Ping, buf)?,
+            C::SupportFlags => decode_message(AdminResponseMessage::SupportFlags, buf)?,
             _ => return Err(BucketError::UnknownCommand),
         })
     }
@@ -344,18 +349,21 @@ impl ResponseMessage {
         use LevinCommand as C;
 
         match self {
-            ResponseMessage::Handshake(val) => build_message(C::Handshake, val, builder)?,
-            ResponseMessage::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
-            ResponseMessage::Ping(val) => build_message(C::Ping, val, builder)?,
-            ResponseMessage::SupportFlags(val) => build_message(C::SupportFlags, val, builder)?,
+            AdminResponseMessage::Handshake(val) => build_message(C::Handshake, val, builder)?,
+            AdminResponseMessage::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
+            AdminResponseMessage::Ping(val) => build_message(C::Ping, val, builder)?,
+            AdminResponseMessage::SupportFlags(val) => {
+                build_message(C::SupportFlags, val, builder)?
+            }
         }
         Ok(())
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum Message {
-    Request(RequestMessage),
-    Response(ResponseMessage),
+    Request(AdminRequestMessage),
+    Response(AdminResponseMessage),
     Protocol(ProtocolMessage),
 }
 
@@ -390,8 +398,10 @@ impl LevinBody for Message {
         command: LevinCommand,
     ) -> Result<Self, BucketError> {
         Ok(match typ {
-            MessageType::Request => Message::Request(RequestMessage::decode(body, command)?),
-            MessageType::Response => Message::Response(ResponseMessage::decode(body, command)?),
+            MessageType::Request => Message::Request(AdminRequestMessage::decode(body, command)?),
+            MessageType::Response => {
+                Message::Response(AdminResponseMessage::decode(body, command)?)
+            }
             MessageType::Notification => Message::Protocol(ProtocolMessage::decode(body, command)?),
         })
     }
