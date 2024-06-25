@@ -10,7 +10,7 @@ const FITS_IN_FOUR_BYTES: u64 = 2_u64.pow(32 - SIZE_OF_SIZE_MARKER) - 1;
 /// Read an epee variable sized number from `r`.
 ///
 /// ```rust
-/// use epee_encoding::read_varint;
+/// use cuprate_epee_encoding::read_varint;
 ///
 /// assert_eq!(read_varint(&mut [252].as_slice()).unwrap(), 63);
 /// assert_eq!(read_varint(&mut [1, 1].as_slice()).unwrap(), 64);
@@ -41,7 +41,7 @@ pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
 /// Write an epee variable sized number into `w`.
 ///
 /// ```rust
-/// use epee_encoding::write_varint;
+/// use cuprate_epee_encoding::write_varint;
 ///
 /// let mut buf = vec![];
 ///

@@ -2,11 +2,9 @@ use std::collections::HashSet;
 
 use rand::Rng;
 
-use monero_p2p::services::ZoneSpecificPeerListEntryBase;
-use monero_pruning::PruningSeed;
-
+use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress};
+use cuprate_pruning::PruningSeed;
 use cuprate_test_utils::test_netzone::{TestNetZone, TestNetZoneAddr};
-use monero_p2p::NetZoneAddress;
 
 use super::PeerList;
 

@@ -15,12 +15,12 @@ use futures::Stream;
 use tokio::io::{DuplexStream, ReadHalf, WriteHalf};
 use tokio_util::codec::{FramedRead, FramedWrite};
 
-use monero_wire::{
+use cuprate_wire::{
     network_address::{NetworkAddress, NetworkAddressIncorrectZone},
     MoneroWireCodec,
 };
 
-use monero_p2p::{NetZoneAddress, NetworkZone};
+use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
 
 /// An address on the test network
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, BorshSerialize, BorshDeserialize)]

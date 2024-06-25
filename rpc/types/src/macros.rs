@@ -109,7 +109,7 @@ macro_rules! define_request_and_response {
             )*
         }
 
-        ::epee_encoding::epee_object! {
+        ::cuprate_epee_encoding::epee_object! {
             [<$type_name Response>],
             $(
                 $response_field: $response_field_type,
@@ -180,7 +180,7 @@ macro_rules! define_request_and_response {
             )*
         }
 
-        ::epee_encoding::epee_object! {
+        ::cuprate_epee_encoding::epee_object! {
             [<$type_name Request>],
             $(
                 $request_field: $request_field_type,
@@ -213,7 +213,7 @@ macro_rules! define_request_and_response {
             )*
         }
 
-        ::epee_encoding::epee_object! {
+        ::cuprate_epee_encoding::epee_object! {
             [<$type_name Response>],
             $(
                 $response_field: $response_field_type,

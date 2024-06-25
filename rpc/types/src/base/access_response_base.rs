@@ -20,7 +20,7 @@ pub struct AccessResponseBase {
     pub top_hash: String,
 }
 
-epee_encoding::epee_object! {
+cuprate_epee_encoding::epee_object! {
     AccessResponseBase,
     credits: u64,
     top_hash: String,

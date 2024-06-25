@@ -19,7 +19,7 @@ pub struct ResponseBase {
     pub untrusted: bool,
 }
 
-epee_encoding::epee_object! {
+cuprate_epee_encoding::epee_object! {
     ResponseBase,
     status: Status,
     untrusted: bool,

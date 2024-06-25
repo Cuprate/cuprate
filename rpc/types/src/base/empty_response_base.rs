@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub struct EmptyResponseBase;
 
-epee_encoding::epee_object! {
+cuprate_epee_encoding::epee_object! {
     EmptyResponseBase,
 }
 

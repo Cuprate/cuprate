@@ -5,8 +5,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-// TODO: impl epee
-use epee_encoding::{
+use cuprate_epee_encoding::{
     macros::bytes::{Buf, BufMut},
     EpeeValue, Marker,
 };
@@ -136,7 +135,7 @@ impl Display for Status {
 impl EpeeValue for Status {
     const MARKER: Marker = <String as EpeeValue>::MARKER;
 
-    fn read<B: Buf>(r: &mut B, marker: &Marker) -> epee_encoding::Result<Self> {
+    fn read<B: Buf>(r: &mut B, marker: &Marker) -> cuprate_epee_encoding::Result<Self> {
         let string = <String as EpeeValue>::read(r, marker)?;
         Ok(Self::from(string))
     }
@@ -150,8 +149,8 @@ impl EpeeValue for Status {
         Some(Self::default())
     }
 
-    fn write<B: BufMut>(self, w: &mut B) -> epee_encoding::Result<()> {
-        epee_encoding::write_bytes(self.as_ref(), w)
+    fn write<B: BufMut>(self, w: &mut B) -> cuprate_epee_encoding::Result<()> {
+        cuprate_epee_encoding::write_bytes(self.as_ref(), w)
     }
 }
 
