@@ -7,12 +7,11 @@ use std::{
     sync::{RwLock, RwLockReadGuard},
 };
 
-use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
+use heed::{EnvFlags, EnvOpenOptions};
 
 use crate::{
     backend::heed::{
         database::{HeedTableRo, HeedTableRw},
-        storable::StorableHeed,
         types::HeedDb,
     },
     config::{Config, SyncMode},
@@ -21,13 +20,12 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    tables::call_fn_on_all_tables_or_early_return,
 };
 
 //---------------------------------------------------------------------------------------------------- Consts
 /// Panic message when there's a table missing.
 const PANIC_MSG_MISSING_TABLE: &str =
-    "cuprate_blockchain::Env should uphold the invariant that all tables are already created";
+    "cuprate_database::Env should uphold the invariant that all tables are already created";
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -184,8 +182,7 @@ impl Env for ConcreteEnv {
         // For now:
         // - No other program using our DB exists
         // - Almost no-one has a 126+ thread CPU
-        let reader_threads =
-            u32::try_from(config.reader_threads.as_threads().get()).unwrap_or(u32::MAX);
+        let reader_threads = u32::try_from(config.reader_threads.get()).unwrap_or(u32::MAX);
         env_open_options.max_readers(if reader_threads < 110 {
             126
         } else {
@@ -198,34 +195,6 @@ impl Env for ConcreteEnv {
         // SAFETY: LMDB uses a memory-map backed file.
         // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
         let env = unsafe { env_open_options.open(config.db_directory())? };
-
-        /// Function that creates the tables based off the passed `T: Table`.
-        fn create_table<T: Table>(
-            env: &heed::Env,
-            tx_rw: &mut heed::RwTxn<'_>,
-        ) -> Result<(), InitError> {
-            DatabaseOpenOptions::new(env)
-                .name(<T as Table>::NAME)
-                .types::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>()
-                .create(tx_rw)?;
-            Ok(())
-        }
-
-        let mut tx_rw = env.write_txn()?;
-        // Create all tables.
-        // FIXME: this macro is kinda awkward.
-        {
-            let env = &env;
-            let tx_rw = &mut tx_rw;
-            match call_fn_on_all_tables_or_early_return!(create_table(env, tx_rw)) {
-                Ok(_) => (),
-                Err(e) => return Err(e),
-            }
-        }
-
-        // INVARIANT: this should never return `ResizeNeeded` due to adding
-        // some tables since we added some leeway to the memory map above.
-        tx_rw.commit()?;
 
         Ok(Self {
             env: RwLock::new(env),
@@ -302,7 +271,7 @@ where
         Ok(HeedTableRo {
             db: self
                 .open_database(tx_ro, Some(T::NAME))?
-                .expect(PANIC_MSG_MISSING_TABLE),
+                .ok_or(RuntimeError::TableNotFound)?,
             tx_ro,
         })
     }
@@ -312,15 +281,17 @@ where
         &self,
         tx_rw: &RefCell<heed::RwTxn<'env>>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
-        let tx_ro = tx_rw.borrow();
-
         // Open up a read/write database using our table's const metadata.
         Ok(HeedTableRw {
-            db: self
-                .open_database(&tx_ro, Some(T::NAME))?
-                .expect(PANIC_MSG_MISSING_TABLE),
+            db: self.create_database(&mut tx_rw.borrow_mut(), Some(T::NAME))?,
             tx_rw,
         })
+    }
+
+    fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
+        // INVARIANT: `heed` creates tables with `open_database` if they don't exist.
+        self.open_db_rw::<T>(tx_rw)?;
+        Ok(())
     }
 
     #[inline]

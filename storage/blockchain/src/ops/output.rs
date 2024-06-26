@@ -4,12 +4,13 @@
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
 use monero_serai::{transaction::Timelock, H};
 
+use cuprate_database::{
+    RuntimeError, {DatabaseRo, DatabaseRw},
+};
 use cuprate_helper::map::u64_to_timelock;
 use cuprate_types::OutputOnChain;
 
 use crate::{
-    database::{DatabaseRo, DatabaseRw},
-    error::RuntimeError,
     ops::macros::{doc_add_block_inner_invariant, doc_error},
     tables::{Outputs, RctOutputs, Tables, TablesMut, TxUnlockTime},
     types::{Amount, AmountIndex, Output, OutputFlags, PreRctOutputId, RctOutput},
@@ -247,14 +248,17 @@ pub fn id_to_output_on_chain(
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use pretty_assertions::assert_eq;
+
+    use cuprate_database::{Env, EnvInner};
+
     use crate::{
+        open_tables::OpenTables,
         tables::{Tables, TablesMut},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         types::OutputFlags,
-        Env, EnvInner,
     };
-
-    use pretty_assertions::assert_eq;
 
     /// Dummy `Output`.
     const OUTPUT: Output = Output {

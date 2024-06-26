@@ -5,10 +5,9 @@
 //---------------------------------------------------------------------------------------------------- Use
 use futures::channel::oneshot::Sender;
 
+use cuprate_database::RuntimeError;
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::blockchain::BCResponse;
-
-use crate::error::RuntimeError;
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.

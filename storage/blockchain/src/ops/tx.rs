@@ -5,9 +5,9 @@ use bytemuck::TransparentWrapper;
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, Scalar};
 use monero_serai::transaction::{Input, Timelock, Transaction};
 
+use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
+
 use crate::{
-    database::{DatabaseRo, DatabaseRw},
-    error::RuntimeError,
     ops::{
         key_image::{add_key_image, remove_key_image},
         macros::{doc_add_block_inner_invariant, doc_error},
@@ -17,7 +17,6 @@ use crate::{
     },
     tables::{TablesMut, TxBlobs, TxIds},
     types::{BlockHeight, Output, OutputFlags, PreRctOutputId, RctOutput, TxHash, TxId},
-    StorableVec,
 };
 
 //---------------------------------------------------------------------------------------------------- Private
@@ -325,14 +324,17 @@ pub fn tx_exists(
 #[cfg(test)]
 mod test {
     use super::*;
+
+    use pretty_assertions::assert_eq;
+
+    use cuprate_database::{Env, EnvInner, TxRw};
+    use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
+
     use crate::{
+        open_tables::OpenTables,
         tables::Tables,
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
-        transaction::TxRw,
-        Env, EnvInner,
     };
-    use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
-    use pretty_assertions::assert_eq;
 
     /// Tests all above tx functions when only inputting `Transaction` data (no Block).
     #[test]

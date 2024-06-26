@@ -36,9 +36,9 @@
 //! - The last [`DatabaseReadHandle`] is dropped => reader thread-pool exits
 //! - The last [`DatabaseWriteHandle`] is dropped => writer thread exits
 //!
-//! Upon dropping the [`crate::ConcreteEnv`]:
+//! Upon dropping the [`cuprate_database::ConcreteEnv`]:
 //! - All un-processed database transactions are completed
-//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on [`crate::ConcreteEnv`])
+//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),
@@ -66,14 +66,18 @@
 //! use cuprate_types::blockchain::{BCReadRequest, BCWriteRequest, BCResponse};
 //! use cuprate_test_utils::data::block_v16_tx0;
 //!
-//! use cuprate_blockchain::{ConcreteEnv, config::ConfigBuilder, Env};
+//! use cuprate_blockchain::{
+//!     cuprate_database::Env,
+//!     config::ConfigBuilder,
+//! };
 //!
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
-//! let db_dir = tempfile::tempdir()?;
+//! let tmp_dir = tempfile::tempdir()?;
+//! let db_dir = tmp_dir.path().to_owned();
 //! let config = ConfigBuilder::new()
-//!     .db_directory(db_dir.path().to_path_buf())
+//!     .db_directory(db_dir.into())
 //!     .build();
 //!
 //! // Initialize the database thread-pool.

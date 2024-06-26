@@ -8,12 +8,7 @@ use crate::{key::Key, storable::Storable};
 /// Database table metadata.
 ///
 /// Purely compile time information for database tables.
-///
-/// ## Sealed
-/// This trait is [`Sealed`](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed).
-///
-/// It is only implemented on the types inside [`tables`][crate::tables].
-pub trait Table: crate::tables::private::Sealed + 'static {
+pub trait Table: 'static {
     /// Name of the database table.
     const NAME: &'static str;
 

@@ -46,7 +46,7 @@ use bytemuck::{Pod, Zeroable};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::storable::StorableVec;
+use cuprate_database::StorableVec;
 
 //---------------------------------------------------------------------------------------------------- Aliases
 // These type aliases exist as many Monero-related types are the exact same.
@@ -106,6 +106,8 @@ pub type UnlockTime = u64;
 /// ```rust
 /// # use std::borrow::*;
 /// # use cuprate_blockchain::{*, types::*};
+/// use cuprate_database::Storable;
+///
 /// // Assert Storable is correct.
 /// let a = PreRctOutputId {
 ///     amount: 1,
@@ -149,6 +151,8 @@ pub struct PreRctOutputId {
 /// ```rust
 /// # use std::borrow::*;
 /// # use cuprate_blockchain::{*, types::*};
+/// use cuprate_database::Storable;
+///
 /// // Assert Storable is correct.
 /// let a = BlockInfo {
 ///     timestamp: 1,
@@ -208,6 +212,8 @@ bitflags::bitflags! {
     /// ```rust
     /// # use std::borrow::*;
     /// # use cuprate_blockchain::{*, types::*};
+    /// use cuprate_database::Storable;
+    ///
     /// // Assert Storable is correct.
     /// let a = OutputFlags::NON_ZERO_UNLOCK_TIME;
     /// let b = Storable::as_bytes(&a);
@@ -237,6 +243,8 @@ bitflags::bitflags! {
 /// ```rust
 /// # use std::borrow::*;
 /// # use cuprate_blockchain::{*, types::*};
+/// use cuprate_database::Storable;
+///
 /// // Assert Storable is correct.
 /// let a = Output {
 ///     key: [1; 32],
@@ -278,6 +286,8 @@ pub struct Output {
 /// ```rust
 /// # use std::borrow::*;
 /// # use cuprate_blockchain::{*, types::*};
+/// use cuprate_database::Storable;
+///
 /// // Assert Storable is correct.
 /// let a = RctOutput {
 ///     key: [1; 32],

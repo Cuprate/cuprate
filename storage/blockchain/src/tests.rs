@@ -5,11 +5,13 @@
 //! - only used internally
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::fmt::Debug;
+use std::{borrow::Cow, fmt::Debug};
 
 use pretty_assertions::assert_eq;
 
-use crate::{config::ConfigBuilder, tables::Tables, ConcreteEnv, DatabaseRo, Env, EnvInner};
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
+
+use crate::{config::ConfigBuilder, open_tables::OpenTables, tables::Tables};
 
 //---------------------------------------------------------------------------------------------------- Struct
 /// Named struct to assert the length of all tables.
@@ -67,10 +69,10 @@ impl AssertTableLen {
 pub(crate) fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
     let tempdir = tempfile::tempdir().unwrap();
     let config = ConfigBuilder::new()
-        .db_directory(tempdir.path().into())
+        .db_directory(Cow::Owned(tempdir.path().into()))
         .low_power()
         .build();
-    let env = ConcreteEnv::open(config).unwrap();
+    let env = crate::open(config).unwrap();
 
     (env, tempdir)
 }
