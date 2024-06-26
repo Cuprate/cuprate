@@ -157,5 +157,26 @@ impl EpeeValue for Status {
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use super::*;
+
+    // Test epee (de)serialization works.
+    #[test]
+    fn epee() {
+        for status in [
+            Status::Ok,
+            Status::Busy,
+            Status::NotMining,
+            Status::PaymentRequired,
+            Status::Unknown,
+        ] {
+            let mut buf = vec![];
+
+            <Status as EpeeValue>::write(status, &mut buf).unwrap();
+            let status2 =
+                <Status as EpeeValue>::read(&mut buf.as_slice(), &<Status as EpeeValue>::MARKER)
+                    .unwrap();
+
+            assert_eq!(status, status2);
+        }
+    }
 }

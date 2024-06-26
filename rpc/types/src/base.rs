@@ -1,6 +1,15 @@
 //! The base data that appear in many RPC request/responses.
 //!
-//! TODO
+//! These are the common "headers" or "base" types that are
+//! [`flattened`](https://serde.rs/field-attrs.html#flatten)
+//! into many of Monero's RPC types.
+//!
+//! The `Access*` structs (e.g. [`AccessResponseBase`]
+//! are pseudo-deprecated structs for the RPC payment system, see:
+//!
+//! - <https://github.com/monero-project/monero/commit/2899379791b7542e4eb920b5d9d58cf232806937>
+//! - <https://github.com/monero-project/monero/issues/8722>
+//! - <https://github.com/monero-project/monero/pull/8843>
 
 //---------------------------------------------------------------------------------------------------- Import
 use serde::{Deserialize, Serialize};
@@ -10,22 +19,23 @@ use cuprate_epee_encoding::epee_object;
 use crate::Status;
 
 //---------------------------------------------------------------------------------------------------- Macro
-/// TODO
-macro_rules! doc_monero_base_rpc_link {
+/// Link the original `monerod` definition for RPC base types.
+macro_rules! monero_rpc_base_link {
     ($start:literal..=$end:literal) => {
         concat!(
-            "https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L",
+            "[Definition](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L",
             stringify!($start),
             "-L",
             stringify!($end),
+            ")."
         )
     };
 }
 
 //---------------------------------------------------------------------------------------------------- Requests
-/// TODO
+/// The most common base for responses (nothing).
 ///
-#[doc = doc_monero_base_rpc_link!(95..=99)]
+#[doc = monero_rpc_base_link!(95..=99)]
 #[derive(
     Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
@@ -35,12 +45,12 @@ cuprate_epee_encoding::epee_object! {
     EmptyRequestBase,
 }
 
-/// TODO
+/// A base for RPC request types that support RPC payment.
 ///
-#[doc = doc_monero_base_rpc_link!(114..=122)]
+#[doc = monero_rpc_base_link!(114..=122)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AccessRequestBase {
-    /// TODO
+    /// The RPC payment client.
     pub client: String,
 }
 
@@ -50,9 +60,11 @@ cuprate_epee_encoding::epee_object! {
 }
 
 //---------------------------------------------------------------------------------------------------- Responses
-/// TODO
+/// An empty response base.
 ///
-#[doc = doc_monero_base_rpc_link!(101..=112)]
+/// This is for response types that do not contain
+/// any extra fields, e.g. TODO.
+// [`CalcPowResponse`](crate::json::CalcPowResponse).
 #[derive(
     Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
@@ -62,16 +74,18 @@ cuprate_epee_encoding::epee_object! {
     EmptyResponseBase,
 }
 
-/// TODO
+/// The most common base for responses.
 ///
-#[doc = doc_monero_base_rpc_link!(101..=112)]
+#[doc = monero_rpc_base_link!(101..=112)]
 #[derive(
     Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
 )]
 pub struct ResponseBase {
-    /// TODO
+    /// General RPC error code. [`Status::Ok`] means everything looks good.
     pub status: Status,
-    /// TODO
+    /// States if the result is obtained using the bootstrap mode,
+    /// and is therefore not trusted (`true`), or when the daemon
+    /// is fully synced and thus handles the RPC locally (`false`).
     pub untrusted: bool,
 }
 
@@ -81,17 +95,19 @@ epee_object! {
     untrusted: bool,
 }
 
-/// TODO
+/// A base for RPC response types that support RPC payment.
 ///
-#[doc = doc_monero_base_rpc_link!(124..=136)]
+#[doc = monero_rpc_base_link!(124..=136)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AccessResponseBase {
-    /// TODO
+    /// A flattened [`ResponseBase`].
     #[serde(flatten)]
     pub response_base: ResponseBase,
-    /// TODO
+    /// If payment for RPC is enabled, the number of credits
+    /// available to the requesting client. Otherwise, `0`.
     pub credits: u64,
-    /// TODO
+    /// If payment for RPC is enabled, the hash of the
+    /// highest block in the chain. Otherwise, empty.
     pub top_hash: String,
 }
 

@@ -32,6 +32,10 @@ define_request_and_response! {
     // It acts as a "base" that gets flattened into
     // the actually request type.
     //
+    // "Flatten" means the field(s) of a struct gets inlined
+    // directly into the struct during (de)serialization, see:
+    // <https://serde.rs/field-attrs.html#flatten>.
+    //
     // For example here, we're using [`crate::base::EmptyRequestBase`],
     // which means that there is no extra fields flattened.
     //
@@ -51,6 +55,19 @@ define_request_and_response! {
     // for the struct, they go here, e.g.:
     // #[derive(Copy)]
     ResponseBase {
+        // This is using `crate::base::ResponseBase`,
+        // so the type we generate will contain this field:
+        // ```
+        // base: crate::base::ResponseBase,
+        // ```
+        //
+        // This is flattened with serde and epee, so during
+        // (de)serialization, it will act as if there are 2 extra fields here:
+        // ```
+        // status: crate::Status,
+        // untrusted: bool,
+        // ```
+
         // Within the `{}` is an infinite matching pattern of:
         // ```
         // $ATTRIBUTES

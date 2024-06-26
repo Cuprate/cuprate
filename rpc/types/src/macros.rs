@@ -4,6 +4,7 @@
 /// A template for generating 2 `struct`s with a bunch of information filled out.
 ///
 /// These are the RPC request and response `struct`s.
+///
 /// These `struct`s automatically implement:
 /// - `Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash`
 /// - `serde::{Serialize, Deserialize}`
