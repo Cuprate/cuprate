@@ -1,0 +1,23 @@
+[package]
+name        = "cuprate-harness"
+version     = "0.0.0"
+edition     = "2021"
+description = "Cuprate's benchmarking harness binary"
+license     = "MIT"
+authors     = ["hinto-janai"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/benches/harness"
+keywords    = ["cuprate", "benchmarking", "harness", "binary"]
+
+[features]
+default  = ["test"]
+test     = ["dep:cuprate-harness-test"]
+database = ["dep:cuprate-database"]
+
+[dependencies]
+cuprate-harness-lib  = { path = "lib" }
+cuprate-harness-test = { path = "harness-test", optional = true }
+cuprate-database     = { path = "../../storage/database", optional = true }
+
+cfg-if = { workspace = true }
+
+[dev-dependencies]
