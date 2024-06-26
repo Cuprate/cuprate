@@ -152,5 +152,37 @@ where
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use std::borrow::Cow;
+
+    use cuprate_database::{Env, EnvInner};
+
+    use crate::{config::ConfigBuilder, tests::tmp_concrete_env};
+
+    use super::*;
+
+    /// Tests that [`crate::open`] creates all tables.
+    #[test]
+    fn test_all_tables_are_created() {
+        let (env, _tmp) = tmp_concrete_env();
+        let env_inner = env.env_inner();
+        let tx_ro = env_inner.tx_ro().unwrap();
+        env_inner.open_tables(&tx_ro).unwrap();
+    }
+
+    /// Tests that directory [`cuprate_database::ConcreteEnv`]
+    /// usage does NOT create all tables.
+    #[test]
+    #[should_panic(expected = "`Result::unwrap()` on an `Err` value: TableNotFound")]
+    fn test_no_tables_are_created() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let config = ConfigBuilder::new()
+            .db_directory(Cow::Owned(tempdir.path().into()))
+            .low_power()
+            .build();
+        let env = cuprate_database::ConcreteEnv::open(config.db_config).unwrap();
+
+        let env_inner = env.env_inner();
+        let tx_ro = env_inner.tx_ro().unwrap();
+        env_inner.open_tables(&tx_ro).unwrap();
+    }
 }

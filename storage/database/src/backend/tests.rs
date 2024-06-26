@@ -14,7 +14,6 @@
 //! `redb`, and it only must be enabled for it to be tested.
 
 //---------------------------------------------------------------------------------------------------- Import
-
 use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
