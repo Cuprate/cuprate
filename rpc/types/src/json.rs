@@ -44,6 +44,8 @@ define_request_and_response! {
     EmptyRequestBase {
         reserve_size: u64,
         wallet_address: String,
+        prev_block: String,
+        extra_nonce: String,
     },
 
     // The base response type.
