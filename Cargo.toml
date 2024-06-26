@@ -23,8 +23,8 @@ members = [
 	"test-utils",
 	"types",
 	"rpc/json-rpc",
-	"rpc/rpc-types",
-	"rpc/rpc-interface",
+	"rpc/types",
+	"rpc/interface",
 ]
 
 [profile.release]
