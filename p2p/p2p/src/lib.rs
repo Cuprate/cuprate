@@ -18,7 +18,7 @@ use cuprate_p2p_core::{
     client::Connector,
     client::InternalPeerID,
     services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
-    CoreSyncSvc, NetworkZone, PeerRequestHandler,
+    CoreSyncSvc, NetworkZone, ProtocolRequestHandler,
 };
 
 mod block_downloader;
@@ -42,18 +42,18 @@ use connection_maintainer::MakeConnectionRequest;
 ///
 /// # Usage
 /// You must provide:
-/// - A peer request handler, which is given to each connection
+/// - A protocol request handler, which is given to each connection
 /// - A core sync service, which keeps track of the sync state of our node
 #[instrument(level = "debug", name = "net", skip_all, fields(zone = N::NAME))]
-pub async fn initialize_network<N, R, CS>(
-    peer_req_handler: R,
+pub async fn initialize_network<N, PR, CS>(
+    protocol_request_handler: PR,
     core_sync_svc: CS,
     config: P2PConfig<N>,
 ) -> Result<NetworkInterface<N>, tower::BoxError>
 where
     N: NetworkZone,
     N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
-    R: PeerRequestHandler + Clone,
+    PR: ProtocolRequestHandler + Clone,
     CS: CoreSyncSvc + Clone,
 {
     let address_book =
@@ -85,7 +85,7 @@ where
             .with_address_book(address_book.clone())
             .with_peer_sync_svc(sync_states_svc.clone())
             .with_core_sync_svc(core_sync_svc)
-            .with_peer_request_handler(peer_req_handler)
+            .with_protocol_request_handler(protocol_request_handler)
             .with_broadcast_stream_maker(outbound_mkr)
             .with_connection_parent_span(Span::current());
 

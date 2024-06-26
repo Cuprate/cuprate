@@ -2,7 +2,6 @@
 //!
 //! This module handles routing requests from a [`Client`](crate::client::Client) or a broadcast channel to
 //! a peer. This module also handles routing requests from the connected peer to a request handler.
-mod request_handler;
 
 use std::pin::Pin;
 
@@ -16,15 +15,15 @@ use tokio::{
     time::{sleep, timeout, Sleep},
 };
 use tokio_stream::wrappers::ReceiverStream;
-use tower::ServiceExt;
 
 use cuprate_wire::{LevinCommand, Message, ProtocolMessage};
 
+use crate::client::request_handler::RequestHandler;
 use crate::{
     constants::{REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
-    BroadcastMessage, MessageID, NetworkZone, PeerError, PeerRequest, PeerRequestHandler,
-    PeerResponse, ProtocolResponse, SharedError,
+    AddressBook, BroadcastMessage, CoreSyncSvc, MessageID, NetworkZone, PeerError, PeerRequest,
+    PeerResponse, PeerSyncSvc, ProtocolRequestHandler, ProtocolResponse, SharedError,
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
@@ -73,7 +72,7 @@ fn levin_command_response(message_id: &MessageID, command: LevinCommand) -> bool
 }
 
 /// This represents a connection to a peer.
-pub struct Connection<Z: NetworkZone, ReqHndlr, BrdcstStrm> {
+pub struct Connection<Z: NetworkZone, A, CS, PS, PR, BrdcstStrm> {
     /// The peer sink - where we send messages to the peer.
     peer_sink: Z::Sink,
 
@@ -88,7 +87,7 @@ pub struct Connection<Z: NetworkZone, ReqHndlr, BrdcstStrm> {
     broadcast_stream: Pin<Box<BrdcstStrm>>,
 
     /// The inner handler for any requests that come from the requested peer.
-    peer_request_handler: ReqHndlr,
+    peer_request_handler: RequestHandler<Z, A, CS, PS, PR>,
 
     /// The connection guard which will send signals to other parts of Cuprate when this connection is dropped.
     connection_guard: ConnectionGuard,
@@ -96,9 +95,13 @@ pub struct Connection<Z: NetworkZone, ReqHndlr, BrdcstStrm> {
     error: SharedError<PeerError>,
 }
 
-impl<Z: NetworkZone, ReqHndlr, BrdcstStrm> Connection<Z, ReqHndlr, BrdcstStrm>
+impl<Z, A, CS, PS, PR, BrdcstStrm> Connection<Z, A, CS, PS, PR, BrdcstStrm>
 where
-    ReqHndlr: PeerRequestHandler,
+    Z: NetworkZone,
+    A: AddressBook<Z>,
+    CS: CoreSyncSvc,
+    PS: PeerSyncSvc<Z>,
+    PR: ProtocolRequestHandler,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
 {
     /// Create a new connection struct.
@@ -106,10 +109,10 @@ where
         peer_sink: Z::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
         broadcast_stream: BrdcstStrm,
-        peer_request_handler: ReqHndlr,
+        peer_request_handler: RequestHandler<Z, A, CS, PS, PR>,
         connection_guard: ConnectionGuard,
         error: SharedError<PeerError>,
-    ) -> Connection<Z, ReqHndlr, BrdcstStrm> {
+    ) -> Connection<Z, A, CS, PS, PR, BrdcstStrm> {
         Connection {
             peer_sink,
             state: State::WaitingForRequest,
@@ -188,8 +191,7 @@ where
     async fn handle_peer_request(&mut self, req: PeerRequest) -> Result<(), PeerError> {
         tracing::debug!("Received peer request: {:?}", req.id());
 
-        let ready_svc = self.peer_request_handler.ready().await?;
-        let res = ready_svc.call(req).await?;
+        let res = self.peer_request_handler.handle_peer_request(req).await?;
 
         // This will be an error if a response does not need to be sent
         if let Ok(res) = res.try_into() {

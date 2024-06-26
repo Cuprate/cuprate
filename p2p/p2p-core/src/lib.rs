@@ -258,10 +258,10 @@ where
     type Future2 = T::Future;
 }
 
-pub trait PeerRequestHandler:
+pub trait ProtocolRequestHandler:
     tower::Service<
-        PeerRequest,
-        Response = PeerResponse,
+        ProtocolRequest,
+        Response = ProtocolResponse,
         Error = tower::BoxError,
         Future = Self::Future2,
     > + Send
@@ -272,9 +272,9 @@ pub trait PeerRequestHandler:
     type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
 }
 
-impl<T> PeerRequestHandler for T
+impl<T> ProtocolRequestHandler for T
 where
-    T: tower::Service<PeerRequest, Response = PeerResponse, Error = tower::BoxError>
+    T: tower::Service<ProtocolRequest, Response = ProtocolResponse, Error = tower::BoxError>
         + Send
         + 'static,
     T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,

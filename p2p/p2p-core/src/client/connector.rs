@@ -16,8 +16,8 @@ use tower::{Service, ServiceExt};
 
 use crate::{
     client::{handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
-    AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone,
-    PeerRequestHandler, PeerSyncSvc,
+    AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerSyncSvc,
+    ProtocolRequestHandler,
 };
 
 /// A request to connect to a peer.
@@ -32,26 +32,26 @@ pub struct ConnectRequest<Z: NetworkZone> {
 }
 
 /// The connector service, this service connects to peer and returns the [`Client`].
-pub struct Connector<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr> {
-    handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>,
+pub struct Connector<Z: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr> {
+    handshaker: HandShaker<Z, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
-    Connector<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
+    Connector<Z, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
 {
     /// Create a new connector from a handshaker.
-    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>) -> Self {
+    pub fn new(handshaker: HandShaker<Z, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>) -> Self {
         Self { handshaker }
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr, BrdcstStrm>
-    Service<ConnectRequest<Z>> for Connector<Z, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+impl<Z: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr, BrdcstStrm>
+    Service<ConnectRequest<Z>> for Connector<Z, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
     PSync: PeerSyncSvc<Z> + Clone,
-    ReqHdlr: PeerRequestHandler + Clone,
+    ProtoHdlr: ProtocolRequestHandler + Clone,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {

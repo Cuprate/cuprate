@@ -24,6 +24,7 @@ use crate::{
 mod connection;
 mod connector;
 pub mod handshaker;
+mod request_handler;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
@@ -188,7 +189,8 @@ pub fn mock_client<Z: NetworkZone, S>(
     mut request_handler: S,
 ) -> Client<Z>
 where
-    S: crate::PeerRequestHandler,
+    S: Service<PeerRequest, Response = PeerResponse, Error = tower::BoxError> + Send + 'static,
+    S::Future: Send + 'static,
 {
     let (tx, mut rx) = mpsc::channel(1);
 

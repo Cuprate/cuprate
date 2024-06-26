@@ -16,8 +16,8 @@ use crate::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
         PeerSyncRequest, PeerSyncResponse,
     },
-    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerRequest, PeerRequestHandler,
-    PeerResponse, PeerSyncSvc, ProtocolResponse,
+    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc, ProtocolRequest,
+    ProtocolResponse,
 };
 
 /// A [`HandShaker`] [`Service`] builder.
@@ -33,7 +33,7 @@ pub struct HandshakerBuilder<
     AdrBook = DummyAddressBook,
     CSync = DummyCoreSyncSvc,
     PSync = DummyPeerSyncSvc,
-    ReqHdlr = DummyPeerRequestHdlr,
+    ProtoHdlr = DummyProtocolRequestHandler,
     BrdcstStrmMkr = fn(
         InternalPeerID<<N as NetworkZone>::Addr>,
     ) -> stream::Pending<BroadcastMessage>,
@@ -44,8 +44,8 @@ pub struct HandshakerBuilder<
     core_sync_svc: CSync,
     /// The peer sync service.
     peer_sync_svc: PSync,
-    /// The peer request handler service.
-    peer_request_svc: ReqHdlr,
+
+    protocol_request_svc: ProtoHdlr,
 
     /// Our [`BasicNodeData`]
     our_basic_node_data: BasicNodeData,
@@ -66,7 +66,7 @@ impl<N: NetworkZone> HandshakerBuilder<N> {
             address_book: DummyAddressBook,
             core_sync_svc: DummyCoreSyncSvc::static_mainnet_genesis(),
             peer_sync_svc: DummyPeerSyncSvc,
-            peer_request_svc: DummyPeerRequestHdlr,
+            protocol_request_svc: DummyProtocolRequestHandler,
             our_basic_node_data,
             broadcast_stream_maker: |_| stream::pending(),
             connection_parent_span: None,
@@ -75,8 +75,8 @@ impl<N: NetworkZone> HandshakerBuilder<N> {
     }
 }
 
-impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
-    HandshakerBuilder<N, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
+    HandshakerBuilder<N, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
 {
     /// Changes the address book to the provided one.
     ///
@@ -89,14 +89,14 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
     pub fn with_address_book<NAdrBook>(
         self,
         new_address_book: NAdrBook,
-    ) -> HandshakerBuilder<N, NAdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
+    ) -> HandshakerBuilder<N, NAdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NAdrBook: AddressBook<N> + Clone,
     {
         let HandshakerBuilder {
             core_sync_svc,
             peer_sync_svc,
-            peer_request_svc,
+            protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -108,7 +108,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
             address_book: new_address_book,
             core_sync_svc,
             peer_sync_svc,
-            peer_request_svc,
+            protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -132,14 +132,14 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
     pub fn with_core_sync_svc<NCSync>(
         self,
         new_core_sync_svc: NCSync,
-    ) -> HandshakerBuilder<N, AdrBook, NCSync, PSync, ReqHdlr, BrdcstStrmMkr>
+    ) -> HandshakerBuilder<N, AdrBook, NCSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NCSync: CoreSyncSvc + Clone,
     {
         let HandshakerBuilder {
             address_book,
             peer_sync_svc,
-            peer_request_svc,
+            protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -151,7 +151,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc: new_core_sync_svc,
             peer_sync_svc,
-            peer_request_svc,
+            protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -169,14 +169,14 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
     pub fn with_peer_sync_svc<NPSync>(
         self,
         new_peer_sync_svc: NPSync,
-    ) -> HandshakerBuilder<N, AdrBook, CSync, NPSync, ReqHdlr, BrdcstStrmMkr>
+    ) -> HandshakerBuilder<N, AdrBook, CSync, NPSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NPSync: PeerSyncSvc<N> + Clone,
     {
         let HandshakerBuilder {
             address_book,
             core_sync_svc,
-            peer_request_svc,
+            protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -188,7 +188,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc,
             peer_sync_svc: new_peer_sync_svc,
-            peer_request_svc,
+            protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -196,22 +196,17 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
         }
     }
 
-    /// Changes the peer request handler.
+    /// Changes the protocol request handler, which handles [`ProtocolRequest`]s to our node.
     ///
-    /// ## Default Peer Request Handler
+    ///  ## Default Protocol Request Handler
     ///
-    /// The default peer request handler will be used if this method is not called.
-    ///
-    /// The default request handler does not respond to requests, which means connections will probably be
-    /// dropped within a couple of minutes after handshaking. This will be alright for some purposes, but
-    /// you will need to if you want to hold connections for longer than a few minutes.
-    pub fn with_peer_request_handler<NReqHdlr>(
+    /// The default protocol request handler will not respond to any protocol requests, this should not
+    /// be an issue as long as peers do not think we are ahead of them, if they do they will send requests
+    /// for our blocks.
+    pub fn with_protocol_request_handler<NProtoHdlr>(
         self,
-        new_peer_request_svc: NReqHdlr,
-    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, NReqHdlr, BrdcstStrmMkr>
-    where
-        NReqHdlr: PeerRequestHandler + Clone,
-    {
+        new_protocol_handler: NProtoHdlr,
+    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, NProtoHdlr, BrdcstStrmMkr> {
         let HandshakerBuilder {
             address_book,
             core_sync_svc,
@@ -227,7 +222,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc,
             peer_sync_svc,
-            peer_request_svc: new_peer_request_svc,
+            protocol_request_svc: new_protocol_handler,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -245,7 +240,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
     pub fn with_broadcast_stream_maker<NBrdcstStrmMkr, BrdcstStrm>(
         self,
         new_broadcast_stream_maker: NBrdcstStrmMkr,
-    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, ReqHdlr, NBrdcstStrmMkr>
+    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, ProtoHdlr, NBrdcstStrmMkr>
     where
         BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
         NBrdcstStrmMkr: Fn(InternalPeerID<N::Addr>) -> BrdcstStrm + Clone + Send + 'static,
@@ -254,7 +249,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc,
             peer_sync_svc,
-            peer_request_svc,
+            protocol_request_svc,
             our_basic_node_data,
             connection_parent_span,
             _zone,
@@ -265,7 +260,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc,
             peer_sync_svc,
-            peer_request_svc,
+            protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker: new_broadcast_stream_maker,
             connection_parent_span,
@@ -286,34 +281,16 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr>
     }
 
     /// Builds the [`HandShaker`].
-    pub fn build(self) -> HandShaker<N, AdrBook, CSync, PSync, ReqHdlr, BrdcstStrmMkr> {
+    pub fn build(self) -> HandShaker<N, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr> {
         HandShaker::new(
             self.address_book,
             self.peer_sync_svc,
             self.core_sync_svc,
-            self.peer_request_svc,
+            self.protocol_request_svc,
             self.broadcast_stream_maker,
             self.our_basic_node_data,
             self.connection_parent_span.unwrap_or(Span::none()),
         )
-    }
-}
-
-/// A dummy peer request handler, that doesn't respond to any requests.
-#[derive(Debug, Clone)]
-pub struct DummyPeerRequestHdlr;
-
-impl Service<PeerRequest> for DummyPeerRequestHdlr {
-    type Response = PeerResponse;
-    type Error = tower::BoxError;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, _: PeerRequest) -> Self::Future {
-        ready(Ok(PeerResponse::Protocol(ProtocolResponse::NA)))
     }
 }
 
@@ -431,5 +408,22 @@ impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
             }
             AddressBookRequest::IsPeerBanned(_) => AddressBookResponse::IsPeerBanned(false),
         }))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DummyProtocolRequestHandler;
+
+impl Service<ProtocolRequest> for DummyProtocolRequestHandler {
+    type Response = ProtocolResponse;
+    type Error = tower::BoxError;
+    type Future = Ready<Result<Self::Response, Self::Error>>;
+
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, _: ProtocolRequest) -> Self::Future {
+        ready(Ok(ProtocolResponse::NA))
     }
 }
