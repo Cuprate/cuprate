@@ -145,8 +145,8 @@ impl EpeeValue for Status {
     }
 
     fn epee_default_value() -> Option<Self> {
-        // TODO: what is the default here?
-        Some(Self::default())
+        // <https://github.com/Cuprate/cuprate/pull/147#discussion_r1654992559>
+        Some(Self::Unknown)
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> cuprate_epee_encoding::Result<()> {
