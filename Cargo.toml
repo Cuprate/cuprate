@@ -1,30 +1,40 @@
 [workspace]
 resolver = "2"
-
 members = [
+	# Benchmarks
+	"benches/harness",
+	"benches/harness/lib",
+	"benches/harness/harness-test",
+	"benches/criterion/cuprate-json-rpc",
+	# Consensus
 	"consensus",
 	"consensus/fast-sync",
 	"consensus/rules",
-	"cryptonight",
-	"helper",
+	# Net
 	"net/epee-encoding",
 	"net/fixed-bytes",
 	"net/levin",
 	"net/wire",
+	# P2P
 	"p2p/p2p",
 	"p2p/p2p-core",
 	"p2p/dandelion-tower",
 	"p2p/async-buffer",
 	"p2p/address-book",
+	# Storage
 	"storage/blockchain",
 	"storage/txpool",
 	"storage/database",
-	"pruning",
-	"test-utils",
-	"types",
+	# RPC
 	"rpc/json-rpc",
 	"rpc/rpc-types",
 	"rpc/rpc-interface",
+	# Misc
+	"cryptonight",
+	"helper",
+	"pruning",
+	"test-utils",
+	"types",
 ]
 
 [profile.release]
@@ -85,6 +95,8 @@ tracing-subscriber    = { version = "0.3.17", default-features = false }
 tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
+criterion             = { version = "0.5.1" }
+function_name         = { version = "0.3.0" }
 tempfile              = { version = "3" }
 pretty_assertions     = { version = "1.4.0" }
 proptest              = { version = "1" }
@@ -100,8 +112,3 @@ tokio-test            = { version = "0.4.4" }
 # open      = { version = "5.0.0" }  # Open PATH/URL, probably for binaries | https://github.com/byron/open-rs
 # regex     = { version = "1.10.2" } # Regular expressions                  | https://github.com/rust-lang/regex
 # ryu       = { version = "1.0.15" } # Fast float to string formatting      | https://github.com/dtolnay/ryu
-
-# Maybe one day.
-# disk     = { version = "*" } # (De)serialization to/from disk with various file formats | https://github.com/hinto-janai/disk
-# readable = { version = "*" } # Stack-based string formatting utilities                  | https://github.com/hinto-janai/readable
-# json-rpc = { git = "https://github.com/hinto-janai/json-rpc" }                          # JSON-RPC 2.0 types
