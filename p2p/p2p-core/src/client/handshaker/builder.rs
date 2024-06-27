@@ -23,7 +23,7 @@ use crate::{
 /// A [`HandShaker`] [`Service`] builder.
 ///
 /// This builder applies default values to make usage easier, behaviour and drawbacks of the defaults are documented
-/// on the `with_*` method to change it, for example [`HandshakerBuilder::with_peer_request_handler`].
+/// on the `with_*` method to change it, for example [`HandshakerBuilder::with_protocol_request_handler`].
 ///
 /// If you want to use any network other than mainnet you will need to change the core sync service with
 /// [`HandshakerBuilder::with_core_sync_svc`], see that method for details.
