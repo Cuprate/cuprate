@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use indexmap::IndexMap;
 use rand::prelude::*;
 
-use monero_p2p::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
-use monero_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_p2p_core::{services::ZoneSpecificPeerListEntryBase, NetZoneAddress, NetworkZone};
+use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
 
 #[cfg(test)]
 pub mod tests;

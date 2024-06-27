@@ -1,6 +1,6 @@
 use futures::{FutureExt, StreamExt};
 
-use async_buffer::new_buffer;
+use cuprate_async_buffer::new_buffer;
 
 #[tokio::test]
 async fn async_buffer_send_rec() {

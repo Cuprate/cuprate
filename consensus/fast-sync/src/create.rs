@@ -3,7 +3,9 @@ use std::{fmt::Write, fs::write};
 use clap::Parser;
 use tower::{Service, ServiceExt};
 
-use cuprate_blockchain::{config::ConfigBuilder, service::DatabaseReadHandle, RuntimeError};
+use cuprate_blockchain::{
+    config::ConfigBuilder, cuprate_database::RuntimeError, service::DatabaseReadHandle,
+};
 use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use cuprate_fast_sync::{hash_of_hashes, BlockId, HashOfHashes};

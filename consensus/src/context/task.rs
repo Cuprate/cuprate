@@ -158,12 +158,14 @@ impl ContextTask {
                             next_difficulty: self.difficulty_cache.next_difficulty(&current_hf),
                             already_generated_coins: self.already_generated_coins,
                         },
-                        rx_vms: self.rx_vm_cache.get_vms(),
                         cumulative_difficulty: self.difficulty_cache.cumulative_difficulty(),
                         median_long_term_weight: self.weight_cache.median_long_term_weight(),
                         top_block_timestamp: self.difficulty_cache.top_block_timestamp(),
                     },
                 })
+            }
+            BlockChainContextRequest::GetCurrentRxVm => {
+                BlockChainContextResponse::RxVms(self.rx_vm_cache.get_vms().await)
             }
             BlockChainContextRequest::BatchGetDifficulties(blocks) => {
                 tracing::debug!("Getting batch difficulties len: {}", blocks.len() + 1);
@@ -199,15 +201,7 @@ impl ContextTask {
 
                 self.hardfork_state.new_block(new.vote, new.height);
 
-                self.rx_vm_cache
-                    .new_block(
-                        new.height,
-                        &new.block_hash,
-                        // We use the current hf and not the hf of the top block as when syncing we need to generate VMs
-                        // on the switch to RX not after it.
-                        &self.hardfork_state.current_hardfork(),
-                    )
-                    .await;
+                self.rx_vm_cache.new_block(new.height, &new.block_hash);
 
                 self.chain_height = new.height + 1;
                 self.top_block_hash = new.block_hash;

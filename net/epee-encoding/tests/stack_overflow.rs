@@ -1,4 +1,4 @@
-use epee_encoding::{epee_object, from_bytes};
+use cuprate_epee_encoding::{epee_object, from_bytes};
 
 struct D {
     val: u8,

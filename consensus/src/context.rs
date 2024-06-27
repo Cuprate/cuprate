@@ -85,20 +85,7 @@ impl ContextConfig {
 pub async fn initialize_blockchain_context<D>(
     cfg: ContextConfig,
     database: D,
-) -> Result<
-    impl Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-            Future = impl Future<Output = Result<BlockChainContextResponse, tower::BoxError>>
-                         + Send
-                         + 'static,
-        > + Clone
-        + Send
-        + Sync
-        + 'static,
-    ExtendedConsensusError,
->
+) -> Result<BlockChainContextService, ExtendedConsensusError>
 where
     D: Database + Clone + Send + Sync + 'static,
     D::Future: Send + 'static,
@@ -121,9 +108,6 @@ where
 pub struct RawBlockChainContext {
     /// The current cumulative difficulty.
     pub cumulative_difficulty: u128,
-    /// RandomX VMs, this maps seeds height to VM. Will definitely contain the VM required to calculate the current blocks
-    /// POW hash (if a RX VM is required), may contain more.
-    pub rx_vms: HashMap<u64, Arc<RandomXVM>>,
     /// Context to verify a block, as needed by [`cuprate-consensus-rules`]
     pub context_to_verify_block: ContextToVerifyBlock,
     /// The median long term block weight.
@@ -162,7 +146,7 @@ impl RawBlockChainContext {
         }
     }
 
-    /// Returns the next blocks long term weight from it's block weight.
+    /// Returns the next blocks long term weight from its block weight.
     pub fn next_block_long_term_weight(&self, block_weight: usize) -> usize {
         weight::calculate_block_long_term_weight(
             &self.current_hf,
@@ -232,6 +216,8 @@ pub struct NewBlockData {
 pub enum BlockChainContextRequest {
     /// Get the current blockchain context.
     GetContext,
+    /// Gets the current RandomX VM.
+    GetCurrentRxVm,
     /// Get the next difficulties for these blocks.
     ///
     /// Inputs: a list of block timestamps and hfs
@@ -252,6 +238,8 @@ pub enum BlockChainContextRequest {
 pub enum BlockChainContextResponse {
     /// Blockchain context response.
     Context(BlockChainContext),
+    /// A map of seed height to RandomX VMs.
+    RxVms(HashMap<u64, Arc<RandomXVM>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
     /// Ok response.
