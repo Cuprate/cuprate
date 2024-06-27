@@ -175,21 +175,6 @@ pub trait Env: Sized {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-/// Document errors when opening tables in [`EnvInner`].
-macro_rules! doc_table_error {
-    () => {
-        r"# Errors
-This will only return [`RuntimeError::Io`] on normal errors.
-
-If the specified table is not created upon before this function is called,
-this will return an error.
-
-Implementation detail you should NOT rely on:
-- This only panics on `heed`
-- `redb` will create the table if it does not exist"
-    };
-}
-
 /// The inner [`Env`] type.
 ///
 /// This type is created with [`Env::env_inner`] and represents
@@ -284,6 +269,10 @@ where
     /// Note that this operation is tied to `tx_rw`, as such this
     /// function's effects can be aborted using [`TxRw::abort`].
     ///
-    #[doc = doc_table_error!()]
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] on normal errors.
+    ///
+    /// If the specified table is not created upon before this function is called,
+    /// this will return [`RuntimeError::TableNotFound`].
     fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
 }

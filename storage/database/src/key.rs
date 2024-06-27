@@ -3,20 +3,33 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::cmp::Ordering;
 
-use crate::{storable::Storable, StorableBytes, StorableVec};
+use crate::{storable::Storable, StorableBytes, StorableStr, StorableVec};
 
 //---------------------------------------------------------------------------------------------------- Table
 /// Database [`Table`](crate::table::Table) key metadata.
 ///
 /// Purely compile time information for database table keys.
-//
-// FIXME: this doesn't need to exist right now but
-// may be used if we implement getting values using ranges.
+///
+/// ## Comparison
+/// There are 2 differences between [`Key`] and [`Storable`]:
+/// 1. [`Key`] must be [`Sized`]
+/// 2. [`Key`] represents a [`Storable`] type that defines a comparison function
+///
+/// The database backends will use [`Key::compare`] to sort the keys
+/// within database tables.
+///
+/// [`Key::compare`] is pre-implemented as a straight byte comparison.
+///
+/// This default is overridden for numbers, which use a number comparison.
+/// For example, [`u64`] keys are sorted as `{0, 1, 2 ... 999_998, 999_999, 1_000_000}`.
+///
+/// If you would like to re-define this for number types, consider creating a
+/// wrapper type around primitives like a `struct SortU8(pub u8)` and implement
+/// [`Storable`], [`Key`], and define a custom [`Key::compare`] function.
+// FIXME:
+// implement getting values using ranges.
 // <https://github.com/Cuprate/cuprate/pull/117#discussion_r1589378104>
 pub trait Key: Storable + Sized {
-    /// The primary key type.
-    type Primary: Storable;
-
     /// Compare 2 [`Key`]'s against each other.
     ///
     /// # Defaults
@@ -29,22 +42,30 @@ pub trait Key: Storable + Sized {
     /// In the number case, functions like [`u8::from_ne_bytes`] are used,
     /// since [`Storable`] doesn't give any guarantees about endianness.
     ///
+    /// For [`StorableStr`], this will use [`str::cmp`], i.e. it is the same as the default behavior; it is a
+    /// [lexicographical comparison](https://doc.rust-lang.org/std/cmp/trait.Ord.html#lexicographical-comparison)
+    ///
     /// # Example
     /// ```rust
     /// # use cuprate_database::*;
     /// // Normal byte comparison.
-    /// let vec1 = StorableVec(vec![0]);
-    /// let vec2 = StorableVec(vec![2]);
+    /// let vec1 = StorableVec(vec![0, 1]);
+    /// let vec2 = StorableVec(vec![255, 0]);
     /// assert_eq!(
     ///     <StorableVec<u8> as Key>::compare(&vec1, &vec2),
     ///     std::cmp::Ordering::Less,
     /// );
     ///
     /// // Integer comparison.
-    /// let num1 = i8::to_ne_bytes(1);
-    /// let num2 = i8::to_ne_bytes(-1);
+    /// let byte1 = [0, 1]; // 256
+    /// let byte2 = [255, 0]; // 255
+    /// let num1 = u16::from_le_bytes(byte1);
+    /// let num2 = u16::from_le_bytes(byte2);
+    /// assert_eq!(num1, 256);
+    /// assert_eq!(num2, 255);
     /// assert_eq!(
-    ///     <i8 as Key>::compare(&num1, &num2),
+    ///     //                    256 > 255
+    ///     <u16 as Key>::compare(&byte1, &byte2),
     ///     std::cmp::Ordering::Greater,
     /// );
     /// ```
@@ -56,20 +77,13 @@ pub trait Key: Storable + Sized {
 
 //---------------------------------------------------------------------------------------------------- Free
 // [`Ord`] comparison for arrays.
-impl<const N: usize, T> Key for [T; N]
-where
-    T: Key + Storable + Sized + bytemuck::Pod,
-{
-    type Primary = Self;
-}
+impl<const N: usize, T> Key for [T; N] where T: Key + Storable + Sized + bytemuck::Pod {}
 
 /// [`Ord`] comparison for vectors.
 macro_rules! impl_key_cmp {
     ($($t:ty),* $(,)?) => {
         $(
-            impl Key for $t {
-                type Primary = Self;
-            }
+            impl Key for $t {}
         )*
     };
 }
@@ -80,13 +94,15 @@ impl_key_cmp! {
     StorableVec<f32>,StorableVec<f64>,
 }
 
+/// [`Ord`] (lexicographical) comparison for [`StorableStr`].
+/// See the [`Ord`] impl on [`str`] for more info.
+impl Key for StorableStr {}
+
 /// Integer comparison for numbers.
 macro_rules! impl_key_ne_bytes {
     ($($t:ident),* $(,)?) => {
         $(
             impl Key for $t {
-                type Primary = Self;
-
                 fn compare(left: &[u8], right: &[u8]) -> Ordering {
                     let left = $t::from_ne_bytes(left.try_into().unwrap());
                     let right = $t::from_ne_bytes(right.try_into().unwrap());
@@ -98,8 +114,8 @@ macro_rules! impl_key_ne_bytes {
 }
 
 impl_key_ne_bytes! {
-    u8,u16,u32,u64,u128,
-    i8,i16,i32,i64,i128,
+    u8,u16,u32,u64,u128,usize,
+    i8,i16,i32,i64,i128,isize,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

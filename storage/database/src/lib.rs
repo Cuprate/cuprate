@@ -129,7 +129,7 @@ mod key;
 pub use key::Key;
 
 mod storable;
-pub use storable::{Storable, StorableBytes, StorableVec};
+pub use storable::{Storable, StorableBytes, StorableStr, StorableVec};
 
 mod table;
 pub use table::Table;
