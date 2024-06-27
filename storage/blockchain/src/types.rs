@@ -143,9 +143,8 @@ pub struct PreRctOutputId {
     pub amount_index: AmountIndex,
 }
 
-impl Key for PreRctOutputId {
-    type Primary = Self;
-}
+// TODO: impl dupkey. [`cuprate_database::Key`] allows this.
+impl Key for PreRctOutputId {}
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
 /// Block information.
