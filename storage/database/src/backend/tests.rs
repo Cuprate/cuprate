@@ -323,6 +323,8 @@ fn db_read_write() {
 
 /// Assert that `key`'s in database tables are sorted in
 /// an ordered B-Tree fashion, i.e. `min_value -> max_value`.
+///
+/// And that it is true for integers, e.g. `0` -> `10`.
 #[test]
 fn tables_are_sorted() {
     let (env, _tmp) = tmp_concrete_env();
@@ -330,9 +332,9 @@ fn tables_are_sorted() {
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
 
-    // Insert `{5, 4, 3, 2, 1, 0}`, assert each new
+    // Insert `{10, 9, 8 ... 0}`, assert each new
     // number inserted is the minimum `first()` value.
-    for key in (0..6).rev() {
+    for key in (0..120).rev() {
         table.put(&key, &123).unwrap();
         let (first, _) = table.first().unwrap();
         assert_eq!(first, key);
@@ -348,7 +350,7 @@ fn tables_are_sorted() {
         let table = env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap();
         let iter = table.iter().unwrap();
         let keys = table.keys().unwrap();
-        for ((i, iter), key) in (0..6).zip(iter).zip(keys) {
+        for ((i, iter), key) in (0..120).zip(iter).zip(keys) {
             let (iter, _) = iter.unwrap();
             let key = key.unwrap();
             assert_eq!(i, iter);
@@ -365,8 +367,8 @@ fn tables_are_sorted() {
         table.delete(&key).unwrap();
     }
 
-    // Assert the `last()` values are the maximum, i.e. `{5, 4, 3}`
-    for key in (3..6).rev() {
+    // Assert the `last()` values are the maximum, i.e. `{10, 9, 8}`
+    for key in (117..120).rev() {
         let (last, _) = table.last().unwrap();
         assert_eq!(last, key);
         table.delete(&key).unwrap();

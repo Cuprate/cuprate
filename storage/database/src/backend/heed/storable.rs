@@ -1,11 +1,11 @@
 //! `cuprate_database::Storable` <-> `heed` serde trait compatibility layer.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, cmp::Ordering, marker::PhantomData};
 
 use heed::{BoxedError, BytesDecode, BytesEncode};
 
-use crate::storable::Storable;
+use crate::{storable::Storable, Key};
 
 //---------------------------------------------------------------------------------------------------- StorableHeed
 /// The glue struct that implements `heed`'s (de)serialization
@@ -15,6 +15,23 @@ use crate::storable::Storable;
 pub(super) struct StorableHeed<T>(PhantomData<T>)
 where
     T: Storable + ?Sized;
+
+//---------------------------------------------------------------------------------------------------- KeyHeed
+/// This is the same as [`StorableHeed`], but the `T`
+/// implements [`crate::Key`]. This is to set a (potential)
+/// custom sort order.
+pub(super) struct KeyHeed<T>(PhantomData<T>)
+where
+    T: Storable + ?Sized;
+
+impl<T> heed::Comparator for KeyHeed<T>
+where
+    T: Key + ?Sized,
+{
+    fn compare(a: &[u8], b: &[u8]) -> Ordering {
+        <T as Key>::compare(a, b)
+    }
+}
 
 //---------------------------------------------------------------------------------------------------- BytesDecode
 impl<'a, T> BytesDecode<'a> for StorableHeed<T>
@@ -30,6 +47,18 @@ where
     }
 }
 
+impl<'a, T> BytesDecode<'a> for KeyHeed<T>
+where
+    T: Storable + 'static,
+{
+    type DItem = T;
+
+    #[inline]
+    fn bytes_decode(bytes: &'a [u8]) -> Result<Self::DItem, BoxedError> {
+        <StorableHeed<T> as BytesDecode>::bytes_decode(bytes)
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- BytesEncode
 impl<'a, T> BytesEncode<'a> for StorableHeed<T>
 where
@@ -41,6 +70,19 @@ where
     /// This function is infallible (will always return `Ok`).
     fn bytes_encode(item: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
         Ok(Cow::Borrowed(item.as_bytes()))
+    }
+}
+
+impl<'a, T> BytesEncode<'a> for KeyHeed<T>
+where
+    T: Storable + ?Sized + 'a,
+{
+    type EItem = T;
+
+    #[inline]
+    /// This function is infallible (will always return `Ok`).
+    fn bytes_encode(item: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
+        <StorableHeed<T> as BytesEncode>::bytes_encode(item)
     }
 }
 
