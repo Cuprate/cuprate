@@ -1,7 +1,7 @@
 //! This module contains a [`EpeeValue`] trait and
 //! impls for some possible base epee values.
 
-use alloc::{string::String, vec::Vec};
+use alloc::{string::String, vec, vec::Vec};
 use core::fmt::Debug;
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};

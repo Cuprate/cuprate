@@ -31,5 +31,5 @@ jobs:
           cargo install cargo-hack --locked
 
       - name: Hack Check
-        # TODO: remove the exclude when `cuprate-blockchain` errors are fixed
-        run: cargo hack --workspace --exclude cuprate-blockchain  check --feature-powerset --no-dev-deps
+        # TODO: remove the exclude when `cuprate-database` errors are fixed
+        run: cargo hack --workspace --exclude cuprate-database check --feature-powerset --no-dev-deps
