@@ -44,15 +44,13 @@ pub struct HandshakerBuilder<
     core_sync_svc: CSync,
     /// The peer sync service.
     peer_sync_svc: PSync,
-
+    /// The protocol request service.
     protocol_request_svc: ProtoHdlr,
-
     /// Our [`BasicNodeData`]
     our_basic_node_data: BasicNodeData,
-
     /// A function that returns a stream that will give items to be broadcast by a connection.
     broadcast_stream_maker: BrdcstStrmMkr,
-
+    /// The [`Span`] that will set as the parent to the connection [`Span`].
     connection_parent_span: Option<Span>,
 
     /// The network zone.
