@@ -22,11 +22,11 @@ where
 /// custom sort order.
 pub(super) struct KeyHeed<T>(PhantomData<T>)
 where
-    T: Storable + ?Sized;
+    T: Key;
 
 impl<T> heed::Comparator for KeyHeed<T>
 where
-    T: Key + ?Sized,
+    T: Key,
 {
     fn compare(a: &[u8], b: &[u8]) -> Ordering {
         <T as Key>::compare(a, b)
@@ -49,7 +49,7 @@ where
 
 impl<'a, T> BytesDecode<'a> for KeyHeed<T>
 where
-    T: Storable + 'static,
+    T: Key + 'static,
 {
     type DItem = T;
 
@@ -75,7 +75,7 @@ where
 
 impl<'a, T> BytesEncode<'a> for KeyHeed<T>
 where
-    T: Storable + ?Sized + 'a,
+    T: Key + ?Sized + 'a,
 {
     type EItem = T;
 

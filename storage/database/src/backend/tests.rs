@@ -165,11 +165,11 @@ fn db_read_write() {
     let mut table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
 
     /// The (1st) key.
-    const KEY: u8 = 0;
+    const KEY: u16 = 0;
     /// The expected value.
     const VALUE: u64 = 0;
     /// How many `(key, value)` pairs will be inserted.
-    const N: u8 = 100;
+    const N: u16 = 100;
 
     /// Assert a u64 is the same as `VALUE`.
     fn assert_value(value: u64) {
@@ -332,12 +332,18 @@ fn tables_are_sorted() {
     let tx_rw = env_inner.tx_rw().unwrap();
     let mut table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
 
-    // Insert `{10, 9, 8 ... 0}`, assert each new
-    // number inserted is the minimum `first()` value.
-    for key in (0..120).rev() {
+    /// Range of keys to insert, `{0, 1, 2 ... 256}`.
+    const RANGE: std::ops::Range<u16> = 0..257;
+
+    // Insert range, assert each new
+    // number inserted is the minimum `last()` value.
+    for key in RANGE {
         table.put(&key, &123).unwrap();
+        table.contains(&key).unwrap();
         let (first, _) = table.first().unwrap();
-        assert_eq!(first, key);
+        let (last, _) = table.last().unwrap();
+        println!("{key}, {first}, {last}");
+        assert_eq!(last, key);
     }
 
     drop(table);
@@ -350,7 +356,7 @@ fn tables_are_sorted() {
         let table = env_inner.open_db_ro::<TestTable>(&tx_ro).unwrap();
         let iter = table.iter().unwrap();
         let keys = table.keys().unwrap();
-        for ((i, iter), key) in (0..120).zip(iter).zip(keys) {
+        for ((i, iter), key) in RANGE.zip(iter).zip(keys) {
             let (iter, _) = iter.unwrap();
             let key = key.unwrap();
             assert_eq!(i, iter);
@@ -361,14 +367,14 @@ fn tables_are_sorted() {
     let mut table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
 
     // Assert the `first()` values are the minimum, i.e. `{0, 1, 2}`
-    for key in 0..3 {
+    for key in [0, 1, 2] {
         let (first, _) = table.first().unwrap();
         assert_eq!(first, key);
         table.delete(&key).unwrap();
     }
 
-    // Assert the `last()` values are the maximum, i.e. `{10, 9, 8}`
-    for key in (117..120).rev() {
+    // Assert the `last()` values are the maximum, i.e. `{256, 255, 254}`
+    for key in [256, 255, 254] {
         let (last, _) = table.last().unwrap();
         assert_eq!(last, key);
         table.delete(&key).unwrap();

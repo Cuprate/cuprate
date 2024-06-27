@@ -22,10 +22,7 @@ use crate::{
     table::Table,
 };
 
-//---------------------------------------------------------------------------------------------------- Consts
-/// Panic message when there's a table missing.
-const PANIC_MSG_MISSING_TABLE: &str =
-    "cuprate_database::Env should uphold the invariant that all tables are already created";
+use super::storable::{KeyHeed, StorableHeed};
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -247,6 +244,40 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
+/// This is used in the below [`EnvInner`]
+/// impl when opening/creating tables.
+///
+/// Specifying the types (with our compatibility wrapper types)
+/// is very verbose, so it is done with this macro, once.
+///
+/// If this were a function, it would be something like:
+///
+/// ```rust,ignore
+/// fn set_heed_table_types(self: heed::Env) -> heed::DatabaseOpenOptions<K, V, COMPARATOR> {
+///     // - set the key/value type
+///     // - set the key comparison function
+///     // - set the table name
+/// }
+/// ```
+///
+/// It is up to the caller of this macro to
+/// finish this builder, i.e. open/create the table.
+macro_rules! set_heed_table_types {
+    ($self:ident) => {{
+        $self
+            .database_options()
+            //   Key wrapper type        Value wrapper types
+            //       v                           v
+            .types::<KeyHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>()
+            //       The key wrapper type (that implements [`heed::Comparator`])
+            //                v
+            .key_comparator::<KeyHeed<<T as Table>::Key>>()
+            // The table's static string name
+            //    v
+            .name(T::NAME)
+    }};
+}
+
 impl<'env> EnvInner<'env, heed::RoTxn<'env>, RefCell<heed::RwTxn<'env>>>
     for RwLockReadGuard<'env, heed::Env>
 where
@@ -268,12 +299,13 @@ where
         tx_ro: &heed::RoTxn<'env>,
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
-        Ok(HeedTableRo {
-            db: self
-                .open_database(tx_ro, Some(T::NAME))?
-                .ok_or(RuntimeError::TableNotFound)?,
-            tx_ro,
-        })
+        let db = {
+            set_heed_table_types!(self)
+                .open(tx_ro)?
+                .ok_or(RuntimeError::TableNotFound)?
+        };
+
+        Ok(HeedTableRo { db, tx_ro })
     }
 
     #[inline]
@@ -282,10 +314,12 @@ where
         tx_rw: &RefCell<heed::RwTxn<'env>>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
-        Ok(HeedTableRw {
-            db: self.create_database(&mut tx_rw.borrow_mut(), Some(T::NAME))?,
-            tx_rw,
-        })
+        let db = {
+            let mut tx_rw = tx_rw.borrow_mut();
+            set_heed_table_types!(self).create(&mut tx_rw)?
+        };
+
+        Ok(HeedTableRw { db, tx_rw })
     }
 
     fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
@@ -302,9 +336,9 @@ where
         let tx_rw = tx_rw.get_mut();
 
         // Open the table first...
-        let db: HeedDb<T::Key, T::Value> = self
-            .open_database(tx_rw, Some(T::NAME))?
-            .expect(PANIC_MSG_MISSING_TABLE);
+        let db: HeedDb<T::Key, T::Value> = set_heed_table_types!(self)
+            .open(tx_rw)?
+            .ok_or(RuntimeError::TableNotFound)?;
 
         // ...then clear it.
         Ok(db.clear(tx_rw)?)
