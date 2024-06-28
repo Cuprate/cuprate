@@ -32,8 +32,8 @@ use cuprate_wire::{
 
 use crate::{
     client::{
-        connection::Connection, timeout_monitor::connection_timeout_monitor_task, Client,
-        InternalPeerID, PeerInformation,
+        connection::Connection, request_handler::PeerRequestHandler,
+        timeout_monitor::connection_timeout_monitor_task, Client, InternalPeerID, PeerInformation,
     },
     constants::{
         HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE,
@@ -47,7 +47,6 @@ use crate::{
 };
 
 pub mod builder;
-use crate::client::request_handler::PeerRequestHandler;
 pub use builder::HandshakerBuilder;
 
 #[derive(Debug, thiserror::Error)]

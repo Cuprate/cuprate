@@ -86,6 +86,8 @@ use sealed::*;
 mod sealed {
     use super::*;
 
+    /// An internal trait for the address book for a [`NetworkZone`] that adds the requirement of [`borsh`] traits
+    /// onto the network address.
     pub trait BorshNetworkZone: NetworkZone<Addr = Self::BorshAddr> {
         type BorshAddr: NetZoneAddress + borsh::BorshDeserialize + borsh::BorshSerialize;
     }

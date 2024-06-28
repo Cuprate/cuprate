@@ -9,9 +9,9 @@ use cuprate_wire::{
     AdminRequestMessage, AdminResponseMessage, BasicNodeData,
 };
 
-use crate::constants::MAX_PEERS_IN_PEER_LIST_MESSAGE;
 use crate::{
     client::PeerInformation,
+    constants::MAX_PEERS_IN_PEER_LIST_MESSAGE,
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
         PeerSyncRequest,

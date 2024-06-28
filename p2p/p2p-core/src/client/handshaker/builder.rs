@@ -82,8 +82,8 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     ///
     /// The default address book is used if this function is not called.
     ///
-    /// The default address book's only drawback is that it does not keep track of peers. Which means
-    /// connections should not be terminated early.
+    /// The default address book's only drawback is that it does not keep track of peers and therefore
+    /// bans.
     pub fn with_address_book<NAdrBook>(
         self,
         new_address_book: NAdrBook,
@@ -200,7 +200,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     ///
     /// The default protocol request handler will not respond to any protocol requests, this should not
     /// be an issue as long as peers do not think we are ahead of them, if they do they will send requests
-    /// for our blocks.
+    /// for our blocks, and we won't respond which will cause them to disconnect.
     pub fn with_protocol_request_handler<NProtoHdlr>(
         self,
         new_protocol_handler: NProtoHdlr,
