@@ -7,7 +7,7 @@ use std::{
     sync::{RwLock, RwLockReadGuard},
 };
 
-use heed::{EnvFlags, EnvOpenOptions};
+use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions};
 
 use crate::{
     backend::heed::{
@@ -18,6 +18,7 @@ use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
+    key::{Key, KeyCompare},
     resize::ResizeAlgorithm,
     table::Table,
 };
@@ -263,12 +264,13 @@ where
         tx_ro: &heed::RoTxn<'env>,
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
+        //
+        // INVARIANT:
+        // We only care about setting the flags and/or comparison functions
+        // on write tables, read tables can't/don't add data so it doesn't matter.
+        // The sorted data from write tables will appear for read tables regardless.
         let db = self
-            .database_options()
-            .types()
-            .key_comparator()
-            .name(T::NAME)
-            .open(tx_ro)?
+            .open_database(tx_ro, Some(T::NAME))?
             .ok_or(RuntimeError::TableNotFound)?;
 
         Ok(HeedTableRo { db, tx_ro })
@@ -282,11 +284,27 @@ where
         // Open up a read/write database using our table's const metadata.
         let db = {
             let mut tx_rw = tx_rw.borrow_mut();
-            self.database_options()
-                .types()
-                .key_comparator()
-                .name(T::NAME)
-                .create(&mut tx_rw)?
+            let mut db = self.database_options();
+
+            // Set the key comparison behavior.
+            match <T::Key>::KEY_COMPARE {
+                // Already the default for LMDB, setting
+                // a custom comparison function is slower.
+                KeyCompare::Lexicographic => (),
+
+                // Instead of setting a custom [`heed::Comparator`],
+                // use this LMDB flag; it is ~10% faster.
+                KeyCompare::Number => {
+                    db.flags(DatabaseFlags::INTEGER_KEY);
+                }
+
+                // Use a custom comparison function if specified.
+                KeyCompare::Custom(_) => {
+                    db.key_comparator::<T::Key>();
+                }
+            }
+
+            db.types().name(T::NAME).create(&mut tx_rw)?
         };
 
         Ok(HeedTableRw { db, tx_rw })
@@ -306,12 +324,8 @@ where
         let tx_rw = tx_rw.get_mut();
 
         // Open the table first...
-        let db: HeedDb<T::Key, T::Value> = self
-            .database_options()
-            .types()
-            .key_comparator()
-            .name(T::NAME)
-            .open(tx_rw)?
+        let db: HeedDb<T::Key, T::Value, _> = self
+            .open_database(tx_rw, Some(T::NAME))?
             .ok_or(RuntimeError::TableNotFound)?;
 
         // ...then clear it.

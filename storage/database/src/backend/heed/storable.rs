@@ -20,11 +20,11 @@ where
 // If `Key` is also implemented, this can act as the comparison function.
 impl<T> heed::Comparator for StorableHeed<T>
 where
-    T: Key,
+    T: Key + Ord,
 {
     #[inline]
     fn compare(a: &[u8], b: &[u8]) -> Ordering {
-        <T as Key>::compare(a, b)
+        <T as Key>::KEY_COMPARE.as_compare_fn::<T>()(a, b)
     }
 }
 
@@ -67,6 +67,29 @@ mod test {
     // - log
     // - simplify trait bounds
     // - make sure the right function is being called
+
+    #[test]
+    /// Assert key comparison behavior is correct.
+    fn compare() {
+        fn test<T>(left: T, right: T, expected: Ordering)
+        where
+            T: Key + Ord + 'static,
+        {
+            println!("left: {left:?}, right: {right:?}, expected: {expected:?}");
+            assert_eq!(
+                <StorableHeed::<T> as heed::Comparator>::compare(
+                    &<StorableHeed::<T> as heed::BytesEncode>::bytes_encode(&left).unwrap(),
+                    &<StorableHeed::<T> as heed::BytesEncode>::bytes_encode(&right).unwrap()
+                ),
+                expected
+            );
+        }
+
+        test::<i64>(-1, 2, Ordering::Less); // value comparison
+        test::<u16>(0, 256, Ordering::Less);
+        test::<[u8; 2]>([1, 1], [1, 0], Ordering::Greater);
+        test::<[u8; 3]>([1, 2, 3], [1, 2, 3], Ordering::Equal);
+    }
 
     #[test]
     /// Assert `BytesEncode::bytes_encode` is accurate.

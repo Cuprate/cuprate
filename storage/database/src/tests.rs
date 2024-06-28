@@ -15,7 +15,7 @@ pub(crate) struct TestTable;
 
 impl Table for TestTable {
     const NAME: &'static str = "test_table";
-    type Key = u16;
+    type Key = u32;
     type Value = u64;
 }
 

@@ -25,7 +25,7 @@ where
 {
     #[inline]
     fn compare(left: &[u8], right: &[u8]) -> Ordering {
-        <T as Key>::compare(left, right)
+        <T as Key>::KEY_COMPARE.as_compare_fn::<T>()(left, right)
     }
 }
 
@@ -93,8 +93,8 @@ mod test {
             );
         }
 
-        test::<i64>(-1, 2, Ordering::Greater); // bytes are greater, not the value
-        test::<u64>(0, 1, Ordering::Less);
+        test::<i64>(-1, 2, Ordering::Less); // value comparison
+        test::<u16>(0, 256, Ordering::Less);
         test::<[u8; 2]>([1, 1], [1, 0], Ordering::Greater);
         test::<[u8; 3]>([1, 2, 3], [1, 2, 3], Ordering::Equal);
     }

@@ -15,17 +15,18 @@ use crate::{storable::Storable, StorableBytes, StorableStr, StorableVec};
 /// 1. [`Key`] must be [`Sized`]
 /// 2. [`Key`] represents a [`Storable`] type that defines a comparison function
 ///
-/// The database backends will use [`Key::compare`] to sort the keys
-/// within database tables.
+/// The database backends will use [`Key::KEY_COMPARE`]
+/// to sort the keys within database tables.
 ///
-/// [`Key::compare`] is pre-implemented as a straight byte comparison.
+/// [`Key::KEY_COMPARE`] is pre-implemented as a straight byte comparison.
 ///
 /// This default is overridden for numbers, which use a number comparison.
 /// For example, [`u64`] keys are sorted as `{0, 1, 2 ... 999_998, 999_999, 1_000_000}`.
 ///
-/// If you would like to re-define this for number types, consider creating a
-/// wrapper type around primitives like a `struct SortU8(pub u8)` and implement
-/// [`Storable`], [`Key`], and define a custom [`Key::compare`] function.
+/// If you would like to re-define this for number types, consider;
+/// 1. Creating a wrapper type around primitives like a `struct SortU8(pub u8)`
+/// 2. Implement [`Key`] on that wrapper
+/// 3. Define a custom [`Key::KEY_COMPARE`]
 // FIXME:
 // implement getting values using ranges.
 // <https://github.com/Cuprate/cuprate/pull/117#discussion_r1589378104>
@@ -39,11 +40,9 @@ pub trait Key: Storable + Sized {
     /// For [`StorableStr`], this will use [`str::cmp`], i.e. it is the same as the default behavior; it is a
     /// [lexicographical comparison](https://doc.rust-lang.org/std/cmp/trait.Ord.html#lexicographical-comparison)
     ///
-    /// For numbers ([`u8`], [`i128`], etc), this will attempt to decode
-    /// the number from the bytes, then do a number comparison.
-    ///
-    /// In the number case, functions like [`u8::from_ne_bytes`] are used,
-    /// since [`Storable`] doesn't give any guarantees about endianness.
+    /// For all primitive number types ([`u8`], [`i128`], etc), this will
+    /// convert the bytes to the number using [`Storable::from_bytes`],
+    /// then do a number comparison.
     ///
     /// # Example
     /// ```rust
@@ -52,7 +51,8 @@ pub trait Key: Storable + Sized {
     /// let vec1 = StorableVec(vec![0, 1]);
     /// let vec2 = StorableVec(vec![255, 0]);
     /// assert_eq!(
-    ///     <StorableVec<u8> as Key>::compare(&vec1, &vec2),
+    ///     <StorableVec<u8> as Key>::KEY_COMPARE
+    ///         .as_compare_fn::<StorableVec<u8>>()(&vec1, &vec2),
     ///     std::cmp::Ordering::Less,
     /// );
     ///
@@ -64,23 +64,20 @@ pub trait Key: Storable + Sized {
     /// assert_eq!(num1, 256);
     /// assert_eq!(num2, 255);
     /// assert_eq!(
-    ///     //                    256 > 255
-    ///     <u16 as Key>::compare(&byte1, &byte2),
+    ///     //                                               256 > 255
+    ///     <u16 as Key>::KEY_COMPARE.as_compare_fn::<u16>()(&byte1, &byte2),
     ///     std::cmp::Ordering::Greater,
     /// );
     /// ```
-    #[inline]
-    fn compare(left: &[u8], right: &[u8]) -> Ordering {
-        left.cmp(right)
-    }
+    const KEY_COMPARE: KeyCompare = KeyCompare::Lexicographic;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
 /// [`Ord`] comparison for arrays/vectors.
 impl<const N: usize, T> Key for [T; N] where T: Key + Storable + Sized + bytemuck::Pod {}
-impl<T: bytemuck::Pod + Debug> Key for StorableVec<T> {}
+impl<T: bytemuck::Pod + Debug + Ord> Key for StorableVec<T> {}
 
-/// [`Ord`] comparison for any `T`.
+/// [`Ord`] comparison for misc types.
 ///
 /// This is not a blanket implementation because
 /// it allows outer crates to define their own
@@ -89,28 +86,88 @@ impl Key for () {}
 impl Key for StorableBytes {}
 impl Key for StorableStr {}
 
-/// Integer comparison for numbers.
-macro_rules! impl_key_ne_bytes {
+/// Number comparison.
+///
+/// # Invariant
+/// This must _only_ be implemented for [`u32`], [`u64`], [`usize`].
+///
+/// This is because:
+/// 1. We use LMDB's `INTEGER_KEY`[^1] flag when this enum variant is used
+/// 2. LMDB only supports these types when using that flag[^2]
+///
+/// See: <https://docs.rs/heed/0.20.0-alpha.9/heed/struct.DatabaseFlags.html#associatedconstant.INTEGER_KEY>
+///
+/// Other numbers will still have the same behavior, but they use
+/// [`impl_custom_numbers_key`] and essentially pass LMDB a "custom"
+/// number compare function.
+macro_rules! impl_number_key {
     ($($t:ident),* $(,)?) => {
         $(
             impl Key for $t {
-                #[inline]
-                fn compare(left: &[u8], right: &[u8]) -> Ordering {
-                    // INVARIANT:
-                    // This is native endian since [`Storable`] (bytemuck, really)
-                    // (de)serializes bytes with native endian.
-                    let left = $t::from_ne_bytes(left.try_into().unwrap());
-                    let right = $t::from_ne_bytes(right.try_into().unwrap());
-                    std::cmp::Ord::cmp(&left, &right)
-                }
+                const KEY_COMPARE: KeyCompare = KeyCompare::Number;
             }
         )*
     };
 }
 
-impl_key_ne_bytes! {
-    u8,u16,u32,u64,u128,usize,
-    i8,i16,i32,i64,i128,isize,
+impl_number_key!(u32, u64, usize);
+
+/// Custom number comparison for other numbers.
+macro_rules! impl_custom_numbers_key {
+    ($($t:ident),* $(,)?) => {
+        $(
+            impl Key for $t {
+                // Just forward the the number comparison function.
+                const KEY_COMPARE: KeyCompare = KeyCompare::Custom(|left, right| {
+                    KeyCompare::Number.as_compare_fn::<$t>()(left, right)
+                });
+            }
+        )*
+    };
+}
+
+impl_custom_numbers_key!(u8, u16, u128, i8, i16, i32, i64, i128, isize);
+
+//---------------------------------------------------------------------------------------------------- KeyCompare
+/// Comparison behavior for [`Key`]s.
+///
+/// This determines how the database sorts [`Key`]s inside a database [`Table`](crate::Table).
+///
+/// See [`Key`] for more info.
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum KeyCompare {
+    /// [Lexicographical comparison](https://doc.rust-lang.org/1.79.0/std/cmp/trait.Ord.html#lexicographical-comparison),
+    /// i.e. a straight byte comparison.
+    ///
+    /// This is the default.
+    #[default]
+    Lexicographic,
+
+    /// A by-value number comparison, i.e. `255 < 256`.
+    ///
+    /// This _behavior_ is implemented as the default for all number primitives,
+    /// although some implementations on numbers use [`KeyCompare::Custom`] due
+    /// to internal implementation details of LMDB.
+    Number,
+
+    /// A custom sorting function.
+    Custom(fn(&[u8], &[u8]) -> Ordering),
+}
+
+impl KeyCompare {
+    /// Return [`Self`] as a pure comparison function.
+    #[inline]
+    pub const fn as_compare_fn<K: Key + Ord>(self) -> fn(&[u8], &[u8]) -> Ordering {
+        match self {
+            Self::Lexicographic => std::cmp::Ord::cmp,
+            Self::Number => |left, right| {
+                let left = <K as Storable>::from_bytes(left);
+                let right = <K as Storable>::from_bytes(right);
+                std::cmp::Ord::cmp(&left, &right)
+            },
+            Self::Custom(f) => f,
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -165,11 +165,11 @@ fn db_read_write() {
     let mut table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
 
     /// The (1st) key.
-    const KEY: u16 = 0;
+    const KEY: u32 = 0;
     /// The expected value.
     const VALUE: u64 = 0;
     /// How many `(key, value)` pairs will be inserted.
-    const N: u16 = 100;
+    const N: u32 = 100;
 
     /// Assert a u64 is the same as `VALUE`.
     fn assert_value(value: u64) {
@@ -333,16 +333,16 @@ fn tables_are_sorted() {
     let mut table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
 
     /// Range of keys to insert, `{0, 1, 2 ... 256}`.
-    const RANGE: std::ops::Range<u16> = 0..257;
+    const RANGE: std::ops::Range<u32> = 0..257;
 
     // Insert range, assert each new
     // number inserted is the minimum `last()` value.
     for key in RANGE {
-        table.put(&key, &123).unwrap();
+        table.put(&key, &0).unwrap();
         table.contains(&key).unwrap();
         let (first, _) = table.first().unwrap();
         let (last, _) = table.last().unwrap();
-        println!("{key}, {first}, {last}");
+        println!("first: {first}, last: {last}, key: {key}");
         assert_eq!(last, key);
     }
 
