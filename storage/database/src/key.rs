@@ -83,7 +83,7 @@ impl<T: bytemuck::Pod + Debug> Key for StorableVec<T> {}
 /// [`Ord`] comparison for any `T`.
 ///
 /// This is not a blanket implementation because
-/// it allowa outer crates to define their own
+/// it allows outer crates to define their own
 /// comparison functions for their `T: Storable` types.
 impl Key for () {}
 impl Key for StorableBytes {}

@@ -143,7 +143,6 @@ pub struct PreRctOutputId {
     pub amount_index: AmountIndex,
 }
 
-// TODO: impl dupkey. [`cuprate_database::Key`] allows this.
 impl Key for PreRctOutputId {}
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
