@@ -42,7 +42,6 @@ pub enum Graph {
 ///  `(-k*(k-1)*hop)/(2*log(1-ep))`
 ///
 /// Where `k` is calculated from the fluff probability, `hop` is `time_between_hop` and `ep` is fixed at `0.1`.
-///
 #[derive(Debug, Clone, Copy)]
 pub struct DandelionConfig {
     /// The time it takes for a stem transaction to pass through a node, including network latency.

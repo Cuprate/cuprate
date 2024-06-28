@@ -8,7 +8,10 @@ use tracing::instrument;
 
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_p2p_core::{handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse};
+use cuprate_p2p_core::{
+    handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse, ProtocolRequest,
+    ProtocolResponse,
+};
 use cuprate_wire::protocol::{GetObjectsRequest, GetObjectsResponse};
 
 use crate::{
@@ -50,16 +53,15 @@ async fn request_batch_from_peer<N: NetworkZone>(
     previous_id: [u8; 32],
     expected_start_height: u64,
 ) -> Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError> {
-    // Request the blocks.
+    let request = PeerRequest::Protocol(ProtocolRequest::GetObjects(GetObjectsRequest {
+        blocks: ids.clone(),
+        pruned: false,
+    }));
+
+    // Request the blocks and add a timeout to the request
     let blocks_response = timeout(BLOCK_DOWNLOADER_REQUEST_TIMEOUT, async {
-        let PeerResponse::GetObjects(blocks_response) = client
-            .ready()
-            .await?
-            .call(PeerRequest::GetObjects(GetObjectsRequest {
-                blocks: ids.clone(),
-                pruned: false,
-            }))
-            .await?
+        let PeerResponse::Protocol(ProtocolResponse::GetObjects(blocks_response)) =
+            client.ready().await?.call(request).await?
         else {
             panic!("Connection task returned wrong response.");
         };

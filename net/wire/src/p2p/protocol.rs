@@ -61,7 +61,7 @@ epee_object!(
 /// A Request For Blocks
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetObjectsRequest {
-    /// Block hashes we want
+    /// Block hashes wanted.
     pub blocks: ByteArrayVec<32>,
     /// Pruned
     pub pruned: bool,

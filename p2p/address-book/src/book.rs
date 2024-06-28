@@ -27,7 +27,10 @@ use cuprate_p2p_core::{
 };
 use cuprate_pruning::PruningSeed;
 
-use crate::{peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError};
+use crate::{
+    peer_list::PeerList, store::save_peers_to_disk, AddressBookConfig, AddressBookError,
+    BorshNetworkZone,
+};
 
 #[cfg(test)]
 mod tests;
@@ -45,7 +48,7 @@ pub struct ConnectionPeerEntry<Z: NetworkZone> {
     rpc_credits_per_hash: u32,
 }
 
-pub struct AddressBook<Z: NetworkZone> {
+pub struct AddressBook<Z: BorshNetworkZone> {
     /// Our white peers - the peers we have previously connected to.
     white_list: PeerList<Z>,
     /// Our gray peers - the peers we have been told about but haven't connected to.
@@ -66,7 +69,7 @@ pub struct AddressBook<Z: NetworkZone> {
     cfg: AddressBookConfig,
 }
 
-impl<Z: NetworkZone> AddressBook<Z> {
+impl<Z: BorshNetworkZone> AddressBook<Z> {
     pub fn new(
         cfg: AddressBookConfig,
         white_peers: Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>,
@@ -351,7 +354,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
     }
 }
 
-impl<Z: NetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
+impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
     type Response = AddressBookResponse<Z>;
     type Error = AddressBookError;
     type Future = Ready<Result<Self::Response, Self::Error>>;

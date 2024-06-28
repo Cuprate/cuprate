@@ -23,10 +23,8 @@ impl HandleBuilder {
     }
 
     /// Sets the permit for this connection.
-    ///
-    /// This must be called at least once.
-    pub fn with_permit(mut self, permit: OwnedSemaphorePermit) -> Self {
-        self.permit = Some(permit);
+    pub fn with_permit(mut self, permit: Option<OwnedSemaphorePermit>) -> Self {
+        self.permit = permit;
         self
     }
 
@@ -39,7 +37,7 @@ impl HandleBuilder {
         (
             ConnectionGuard {
                 token: token.clone(),
-                _permit: self.permit.expect("connection permit was not set!"),
+                _permit: self.permit,
             },
             ConnectionHandle {
                 token: token.clone(),
@@ -56,7 +54,7 @@ pub struct BanPeer(pub Duration);
 /// A struct given to the connection task.
 pub struct ConnectionGuard {
     token: CancellationToken,
-    _permit: OwnedSemaphorePermit,
+    _permit: Option<OwnedSemaphorePermit>,
 }
 
 impl ConnectionGuard {
