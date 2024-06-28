@@ -94,6 +94,7 @@ macro_rules! impl_key_ne_bytes {
     ($($t:ident),* $(,)?) => {
         $(
             impl Key for $t {
+                #[inline]
                 fn compare(left: &[u8], right: &[u8]) -> Ordering {
                     // INVARIANT:
                     // This is native endian since [`Storable`] (bytemuck, really)

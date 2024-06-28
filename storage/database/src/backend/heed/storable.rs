@@ -16,24 +16,19 @@ pub(super) struct StorableHeed<T>(PhantomData<T>)
 where
     T: Storable + ?Sized;
 
-//---------------------------------------------------------------------------------------------------- KeyHeed
-/// This is the same as [`StorableHeed`], but the `T`
-/// implements [`crate::Key`]. This is to set a (potential)
-/// custom sort order.
-pub(super) struct KeyHeed<T>(PhantomData<T>)
-where
-    T: Key;
-
-impl<T> heed::Comparator for KeyHeed<T>
+//---------------------------------------------------------------------------------------------------- Key
+// If `Key` is also implemented, this can act as the comparison function.
+impl<T> heed::Comparator for StorableHeed<T>
 where
     T: Key,
 {
+    #[inline]
     fn compare(a: &[u8], b: &[u8]) -> Ordering {
         <T as Key>::compare(a, b)
     }
 }
 
-//---------------------------------------------------------------------------------------------------- BytesDecode
+//---------------------------------------------------------------------------------------------------- BytesDecode/Encode
 impl<'a, T> BytesDecode<'a> for StorableHeed<T>
 where
     T: Storable + 'static,
@@ -47,19 +42,6 @@ where
     }
 }
 
-impl<'a, T> BytesDecode<'a> for KeyHeed<T>
-where
-    T: Key + 'static,
-{
-    type DItem = T;
-
-    #[inline]
-    fn bytes_decode(bytes: &'a [u8]) -> Result<Self::DItem, BoxedError> {
-        <StorableHeed<T> as BytesDecode>::bytes_decode(bytes)
-    }
-}
-
-//---------------------------------------------------------------------------------------------------- BytesEncode
 impl<'a, T> BytesEncode<'a> for StorableHeed<T>
 where
     T: Storable + ?Sized + 'a,
@@ -70,19 +52,6 @@ where
     /// This function is infallible (will always return `Ok`).
     fn bytes_encode(item: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
         Ok(Cow::Borrowed(item.as_bytes()))
-    }
-}
-
-impl<'a, T> BytesEncode<'a> for KeyHeed<T>
-where
-    T: Key + ?Sized + 'a,
-{
-    type EItem = T;
-
-    #[inline]
-    /// This function is infallible (will always return `Ok`).
-    fn bytes_encode(item: &'a Self::EItem) -> Result<Cow<'a, [u8]>, BoxedError> {
-        <StorableHeed<T> as BytesEncode>::bytes_encode(item)
     }
 }
 
