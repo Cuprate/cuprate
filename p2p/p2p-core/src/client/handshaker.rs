@@ -47,7 +47,7 @@ use crate::{
 };
 
 pub mod builder;
-use crate::client::request_handler::RequestHandler;
+use crate::client::request_handler::PeerRequestHandler;
 pub use builder::HandshakerBuilder;
 
 #[derive(Debug, thiserror::Error)]
@@ -477,7 +477,7 @@ where
         pruning_seed,
     };
 
-    let request_handler = RequestHandler {
+    let request_handler = PeerRequestHandler {
         address_book_svc: address_book.clone(),
         our_sync_svc: core_sync_svc.clone(),
         peer_sync_svc: peer_sync_svc.clone(),

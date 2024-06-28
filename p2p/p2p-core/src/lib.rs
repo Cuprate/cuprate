@@ -39,8 +39,8 @@
 //!     rpc_credits_per_hash: 0,
 //! };
 //!
-//! // See [`HandshakerBuilder`] for information about the default values set but the
-//! // [`HandshakerBuilder`], they may not be appropriate for every use case.
+//! // See [`HandshakerBuilder`] for information about the default values set, they may not be
+//! // appropriate for every use case.
 //! let handskaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
 //!
 //! // The outbound connector.

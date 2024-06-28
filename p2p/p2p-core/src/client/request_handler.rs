@@ -9,6 +9,7 @@ use cuprate_wire::{
     AdminRequestMessage, AdminResponseMessage, BasicNodeData,
 };
 
+use crate::constants::MAX_PEERS_IN_PEER_LIST_MESSAGE;
 use crate::{
     client::PeerInformation,
     services::{
@@ -25,19 +26,27 @@ enum PeerRequestHandlerError {
     ReceivedHandshakeDuringConnection,
 }
 
+/// The peer request handler, handles incoming [`PeerRequest`]s to our node.
 #[derive(Debug, Clone)]
-pub(crate) struct RequestHandler<Z: NetworkZone, A, CS, PS, PR> {
+pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PS, PR> {
+    /// The address book service.
     pub address_book_svc: A,
+    /// Our core sync service.
     pub our_sync_svc: CS,
+    /// The peer sync service.
     pub peer_sync_svc: PS,
 
+    /// The handler for [`ProtocolRequest`](crate::ProtocolRequest)s to our node.
     pub protocol_request_handler: PR,
 
+    /// The basic node data of our node.
     pub our_basic_node_data: BasicNodeData,
+
+    /// The information on the connected peer.
     pub peer_info: PeerInformation<Z::Addr>,
 }
 
-impl<Z: NetworkZone, A, CS, PS, PR> RequestHandler<Z, A, CS, PS, PR>
+impl<Z: NetworkZone, A, CS, PS, PR> PeerRequestHandler<Z, A, CS, PS, PR>
 where
     Z: NetworkZone,
     A: AddressBook<Z>,
@@ -45,6 +54,7 @@ where
     PS: PeerSyncSvc<Z>,
     PR: ProtocolRequestHandler,
 {
+    /// Handles an incoming [`PeerRequest`] to our node.
     pub async fn handle_peer_request(
         &mut self,
         req: PeerRequest,
@@ -87,10 +97,13 @@ where
         }
     }
 
+    /// Handles a [`TimedSyncRequest`] to our node.
     async fn handle_timed_sync_request(
         &mut self,
         req: TimedSyncRequest,
     ) -> Result<TimedSyncResponse, tower::BoxError> {
+        // TODO: add a limit on the amount of these requests in a certain time period.
+
         let peer_id = self.peer_info.id;
         let handle = self.peer_info.handle.clone();
 
@@ -108,7 +121,9 @@ where
             .address_book_svc
             .ready()
             .await?
-            .call(AddressBookRequest::GetWhitePeers(20))
+            .call(AddressBookRequest::GetWhitePeers(
+                MAX_PEERS_IN_PEER_LIST_MESSAGE,
+            ))
             .await?
         else {
             panic!("Address book sent incorrect response!");

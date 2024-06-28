@@ -2,7 +2,6 @@
 //!
 //! This module handles routing requests from a [`Client`](crate::client::Client) or a broadcast channel to
 //! a peer. This module also handles routing requests from the connected peer to a request handler.
-
 use std::pin::Pin;
 
 use futures::{
@@ -18,7 +17,7 @@ use tokio_stream::wrappers::ReceiverStream;
 
 use cuprate_wire::{LevinCommand, Message, ProtocolMessage};
 
-use crate::client::request_handler::RequestHandler;
+use crate::client::request_handler::PeerRequestHandler;
 use crate::{
     constants::{REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
@@ -87,7 +86,7 @@ pub struct Connection<Z: NetworkZone, A, CS, PS, PR, BrdcstStrm> {
     broadcast_stream: Pin<Box<BrdcstStrm>>,
 
     /// The inner handler for any requests that come from the requested peer.
-    peer_request_handler: RequestHandler<Z, A, CS, PS, PR>,
+    peer_request_handler: PeerRequestHandler<Z, A, CS, PS, PR>,
 
     /// The connection guard which will send signals to other parts of Cuprate when this connection is dropped.
     connection_guard: ConnectionGuard,
@@ -109,7 +108,7 @@ where
         peer_sink: Z::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
         broadcast_stream: BrdcstStrm,
-        peer_request_handler: RequestHandler<Z, A, CS, PS, PR>,
+        peer_request_handler: PeerRequestHandler<Z, A, CS, PS, PR>,
         connection_guard: ConnectionGuard,
         error: SharedError<PeerError>,
     ) -> Connection<Z, A, CS, PS, PR, BrdcstStrm> {
