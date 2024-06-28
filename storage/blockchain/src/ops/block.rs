@@ -200,8 +200,8 @@ pub fn get_block_extended_header_from_height(
     #[allow(clippy::cast_possible_truncation)]
     Ok(ExtendedBlockHeader {
         cumulative_difficulty,
-        version: block.header.major_version,
-        vote: block.header.minor_version,
+        version: block.header.hardfork_version,
+        vote: block.header.hardfork_signal,
         timestamp: block.header.timestamp,
         block_weight: block_info.weight as usize,
         long_term_weight: block_info.long_term_weight as usize,
@@ -369,8 +369,8 @@ mod test {
                 let b1 = block_header_from_hash;
                 let b2 = block;
                 assert_eq!(b1, block_header_from_height);
-                assert_eq!(b1.version, b2.block.header.major_version);
-                assert_eq!(b1.vote, b2.block.header.minor_version);
+                assert_eq!(b1.version, b2.block.header.hardfork_version);
+                assert_eq!(b1.vote, b2.block.header.hardfork_signal);
                 assert_eq!(b1.timestamp, b2.block.header.timestamp);
                 assert_eq!(b1.cumulative_difficulty, b2.cumulative_difficulty);
                 assert_eq!(b1.block_weight, b2.weight);

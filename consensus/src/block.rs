@@ -70,7 +70,7 @@ impl PreparedBlockExPow {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
-        let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
+        let Some(Input::Gen(height)) = block.miner_tx.prefix().inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
@@ -124,7 +124,7 @@ impl PreparedBlock {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
-        let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
+        let Some(Input::Gen(height)) = block.miner_tx.prefix().inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
@@ -138,7 +138,7 @@ impl PreparedBlock {
             block_hash: block.hash(),
             pow_hash: calculate_pow_hash(
                 randomx_vm,
-                &block.serialize_hashable(),
+                &block.serialize_pow_hash(),
                 *height,
                 &hf_version,
             )?,
@@ -168,7 +168,7 @@ impl PreparedBlock {
             block_hash: block.block_hash,
             pow_hash: calculate_pow_hash(
                 randomx_vm,
-                &block.block.serialize_hashable(),
+                &block.block.serialize_pow_hash(),
                 block.height,
                 &block.hf_version,
             )?,
@@ -527,9 +527,8 @@ where
     );
 
     // Set up the block and just pass it to [`verify_prepped_main_chain_block`]
-
-    // We just use the raw `major_version` here, no need to turn it into a `HardFork`.
-    let rx_vms = if block.header.major_version < 12 {
+    // We just use the raw `hardfork_version` here, no need to turn it into a `HardFork`.
+    let rx_vms = if block.header.hardfork_version < 12 {
         HashMap::new()
     } else {
         let BlockChainContextResponse::RxVms(rx_vms) = context_svc

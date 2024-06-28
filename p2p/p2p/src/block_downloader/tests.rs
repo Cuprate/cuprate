@@ -11,7 +11,6 @@ use futures::{FutureExt, StreamExt};
 use indexmap::IndexMap;
 use monero_serai::{
     block::{Block, BlockHeader},
-    ringct::{RctBase, RctPrunable, RctSignatures},
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
 use proptest::{collection::vec, prelude::*};
@@ -98,24 +97,14 @@ prop_compose! {
             timelock in 0_usize..50_000_000,
         )
     -> Transaction {
-        Transaction {
+        Transaction::V1 {
             prefix: TransactionPrefix {
-                version: 1,
                 timelock: Timelock::Block(timelock),
                 inputs: vec![Input::Gen(height)],
                 outputs: vec![],
                 extra,
             },
             signatures: vec![],
-            rct_signatures: RctSignatures {
-                base: RctBase {
-                    fee: 0,
-                    pseudo_outs: vec![],
-                    encrypted_amounts: vec![],
-                    commitments: vec![],
-                },
-                prunable: RctPrunable::Null
-            },
         }
     }
 }
@@ -134,8 +123,8 @@ prop_compose! {
        (
            Block {
                 header: BlockHeader {
-                    major_version: 0,
-                    minor_version: 0,
+                    hardfork_version: 0,
+                    hardfork_signal: 0,
                     timestamp: 0,
                     previous,
                     nonce: 0,
@@ -169,7 +158,7 @@ prop_compose! {
         for (height, mut block) in  blocks.into_iter().enumerate() {
             if let Some(last) = blockchain.last() {
                 block.0.header.previous = *last.0;
-                block.0.miner_tx.prefix.inputs = vec![Input::Gen(height as u64)]
+                block.0.miner_tx.prefix_mut().inputs = vec![Input::Gen(height as u64)]
             }
 
             blockchain.insert(block.0.hash(), block);

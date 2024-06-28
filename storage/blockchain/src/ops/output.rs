@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT, edwards::CompressedEdwardsY, Scalar};
-use monero_serai::{transaction::Timelock, H};
+use monero_serai::{generators::H, transaction::Timelock};
 
 use cuprate_database::{
     RuntimeError, {DatabaseRo, DatabaseRw},
