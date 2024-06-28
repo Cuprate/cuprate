@@ -236,8 +236,6 @@ impl Storable for StorableStr {
         self.0.as_bytes()
     }
 
-    /// This always allocates a new `Vec<T>`,
-    /// casting `bytes` into a vector of type `T`.
     #[inline]
     fn from_bytes(bytes: &[u8]) -> Self {
         Self(Cow::Owned(std::str::from_utf8(bytes).unwrap().to_string()))
