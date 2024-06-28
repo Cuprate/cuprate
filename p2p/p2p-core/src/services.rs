@@ -34,9 +34,9 @@ pub struct CoreSyncDataRequest;
 /// A response from the core sync service containing our [`CoreSyncData`].
 pub struct CoreSyncDataResponse(pub CoreSyncData);
 
-/// A [`NetworkZone`] specific [`PeerListEntryBase`](cuprate_wire::PeerListEntryBase).
+/// A [`NetworkZone`] specific [`PeerListEntryBase`].
 ///
-/// Using this type instead of [`PeerListEntryBase`](cuprate_wire::PeerListEntryBase) in the address book makes
+/// Using this type instead of [`PeerListEntryBase`] in the address book makes
 /// usage easier for the rest of the P2P code as we can guarantee only the correct addresses will be stored and returned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(
@@ -65,7 +65,7 @@ impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for cuprate_wire:
     }
 }
 
-/// An error converting a [`PeerListEntryBase`](cuprate_wire::PeerListEntryBase) into a [`ZoneSpecificPeerListEntryBase`].
+/// An error converting a [`PeerListEntryBase`] into a [`ZoneSpecificPeerListEntryBase`].
 #[derive(Debug, thiserror::Error)]
 pub enum PeerListConversionError {
     #[error("Address is in incorrect zone")]
