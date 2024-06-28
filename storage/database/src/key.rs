@@ -89,7 +89,7 @@ impl Key for StorableStr {}
 /// Number comparison.
 ///
 /// # Invariant
-/// This must _only_ be implemented for [`u32`], [`u64`], [`usize`].
+/// This must _only_ be implemented for [`u32`], [`u64`] (and maybe [`usize`]).
 ///
 /// This is because:
 /// 1. We use LMDB's `INTEGER_KEY`[^1] flag when this enum variant is used
@@ -111,6 +111,8 @@ macro_rules! impl_number_key {
 }
 
 impl_number_key!(u32, u64, usize);
+#[cfg(not(any(target_pointer_width = "32", target_pointer_width = "64")))]
+compile_error!("`cuprate_database`: `usize` must be equal to `u32` or `u64` for LMDB's `usize` key sorting to function correctly");
 
 /// Custom number comparison for other numbers.
 macro_rules! impl_custom_numbers_key {

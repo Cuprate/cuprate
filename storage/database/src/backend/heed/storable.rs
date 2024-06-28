@@ -85,8 +85,21 @@ mod test {
             );
         }
 
-        test::<i64>(-1, 2, Ordering::Less); // value comparison
+        // Value comparison
+        test::<u8>(0, 255, Ordering::Less);
         test::<u16>(0, 256, Ordering::Less);
+        test::<u32>(0, 256, Ordering::Less);
+        test::<u64>(0, 256, Ordering::Less);
+        test::<u128>(0, 256, Ordering::Less);
+        test::<usize>(0, 256, Ordering::Less);
+        test::<i8>(-1, 2, Ordering::Less);
+        test::<i16>(-1, 2, Ordering::Less);
+        test::<i32>(-1, 2, Ordering::Less);
+        test::<i64>(-1, 2, Ordering::Less);
+        test::<i128>(-1, 2, Ordering::Less);
+        test::<isize>(-1, 2, Ordering::Less);
+
+        // Byte comparison
         test::<[u8; 2]>([1, 1], [1, 0], Ordering::Greater);
         test::<[u8; 3]>([1, 2, 3], [1, 2, 3], Ordering::Equal);
     }
