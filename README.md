@@ -49,7 +49,7 @@ Cuprate maintains various documentation books:
 | [Monero's protocol book](https://monero-book.cuprate.org)       | Documents the Monero protocol                              |
 | [Cuprate's user book](https://user.cuprate.org)                 | Practical user-guide for using `cuprated`                  |
 
-For crate (library) documentation, see the `Documentation` section in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+For crate (library) documentation, see: https://doc.cuprate.org. This site holds documentation for Cuprate's crates and all of of its dependencies. All Cuprate crates start with `cuprate_`, for example: https://doc.cuprate.org/cuprate_database.
 
 ## Contributing
 
