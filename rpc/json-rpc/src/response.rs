@@ -37,7 +37,7 @@ impl<T> Response<T> {
     /// Creates a successful response.
     ///
     /// ```rust
-    /// use json_rpc::{Id, Response};
+    /// use cuprate_json_rpc::{Id, Response};
     ///
     /// let ok = Response::ok(Id::Num(123), "OK");
     /// let json = serde_json::to_string(&ok).unwrap();
@@ -54,7 +54,7 @@ impl<T> Response<T> {
     /// Creates an error response.
     ///
     /// ```rust
-    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    /// use cuprate_json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
     ///
     /// let err = ErrorObject {
     ///     code: 0.into(),
@@ -77,7 +77,7 @@ impl<T> Response<T> {
     /// Creates an error response using [`ErrorObject::parse_error`].
     ///
     /// ```rust
-    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    /// use cuprate_json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
     ///
     /// let ok = Response::<()>::parse_error(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
@@ -94,7 +94,7 @@ impl<T> Response<T> {
     /// Creates an error response using [`ErrorObject::invalid_request`].
     ///
     /// ```rust
-    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    /// use cuprate_json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
     ///
     /// let ok = Response::<()>::invalid_request(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
@@ -111,7 +111,7 @@ impl<T> Response<T> {
     /// Creates an error response using [`ErrorObject::method_not_found`].
     ///
     /// ```rust
-    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    /// use cuprate_json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
     ///
     /// let ok = Response::<()>::method_not_found(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
@@ -128,7 +128,7 @@ impl<T> Response<T> {
     /// Creates an error response using [`ErrorObject::invalid_params`].
     ///
     /// ```rust
-    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    /// use cuprate_json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
     ///
     /// let ok = Response::<()>::invalid_params(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();
@@ -145,7 +145,7 @@ impl<T> Response<T> {
     /// Creates an error response using [`ErrorObject::internal_error`].
     ///
     /// ```rust
-    /// use json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
+    /// use cuprate_json_rpc::{Id, Response, error::{ErrorObject, ErrorCode}};
     ///
     /// let ok = Response::<()>::internal_error(Id::Num(0));
     /// let json = serde_json::to_string(&ok).unwrap();

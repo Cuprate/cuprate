@@ -47,7 +47,9 @@ async fn rx_vm_created_on_hf_12() {
         .unwrap();
 
     assert!(cache.vms.is_empty());
-    cache.new_block(11, &[30; 32], &HardFork::V12).await;
+    cache.new_block(11, &[30; 32]);
+    cache.get_vms().await;
+
     assert!(!cache.vms.is_empty());
 }
 

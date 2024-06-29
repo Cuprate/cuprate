@@ -1,5 +1,5 @@
 [package]
-name = "cryptonight-cuprate"
+name = "cuprate-cryptonight"
 version = "0.1.0"
 edition = "2021"
 description = "A wrapper around Monero's CryptoNight hash function."

@@ -57,16 +57,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "038dfcf04a5feb68e9c60b21c9625a54c2c0616e79b72b0fd87075a056ae1d1b"
 
 [[package]]
-name = "async-buffer"
-version = "0.1.0"
-dependencies = [
- "futures",
- "pin-project",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "async-lock"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -341,7 +331,7 @@ version = "4.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c780290ccf4fb26629baa7a1081e68ced113f1d3ec302fa5948f1c381ebf06c6"
 dependencies = [
- "heck 0.5.0",
+ "heck",
  "proc-macro2",
  "quote",
  "syn 2.0.66",
@@ -469,12 +459,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "cryptonight-cuprate"
+name = "cuprate-address-book"
 version = "0.1.0"
 dependencies = [
- "cc",
- "hex",
+ "borsh",
+ "cuprate-p2p-core",
+ "cuprate-pruning",
+ "cuprate-test-utils",
+ "cuprate-wire",
+ "futures",
+ "indexmap 2.2.6",
+ "rand",
  "thiserror",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "cuprate-async-buffer"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "pin-project",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -483,27 +493,21 @@ version = "0.0.0"
 dependencies = [
  "bitflags 2.5.0",
  "bytemuck",
- "bytes",
- "cfg-if",
  "crossbeam",
+ "cuprate-database",
  "cuprate-helper",
+ "cuprate-pruning",
  "cuprate-test-utils",
  "cuprate-types",
  "curve25519-dalek",
  "futures",
- "heed",
  "hex",
  "hex-literal",
- "monero-pruning",
  "monero-serai",
- "page_size",
  "paste",
  "pretty_assertions",
  "rayon",
- "redb",
- "serde",
  "tempfile",
- "thiserror",
  "thread_local",
  "tokio",
  "tokio-util",
@@ -542,7 +546,7 @@ name = "cuprate-consensus-rules"
 version = "0.1.0"
 dependencies = [
  "crypto-bigint",
- "cryptonight-cuprate",
+ "cuprate-cryptonight",
  "cuprate-helper",
  "curve25519-dalek",
  "dalek-ff-group",
@@ -560,19 +564,82 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-cryptonight"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "hex",
+ "thiserror",
+]
+
+[[package]]
+name = "cuprate-dandelion-tower"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "proptest",
+ "rand",
+ "rand_distr",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "cuprate-database"
+version = "0.0.1"
+dependencies = [
+ "bytemuck",
+ "bytes",
+ "cfg-if",
+ "heed",
+ "page_size",
+ "redb",
+ "serde",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "cuprate-epee-encoding"
+version = "0.5.0"
+dependencies = [
+ "bytes",
+ "cuprate-fixed-bytes",
+ "hex",
+ "paste",
+ "ref-cast",
+ "thiserror",
+]
+
+[[package]]
 name = "cuprate-fast-sync"
 version = "0.1.0"
 dependencies = [
  "clap",
  "cuprate-blockchain",
+ "cuprate-consensus",
+ "cuprate-consensus-rules",
  "cuprate-types",
  "hex",
  "hex-literal",
+ "monero-serai",
  "rayon",
  "sha3",
+ "thiserror",
  "tokio",
  "tokio-test",
  "tower",
+]
+
+[[package]]
+name = "cuprate-fixed-bytes"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "thiserror",
 ]
 
 [[package]]
@@ -591,23 +658,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-json-rpc"
+version = "0.0.0"
+dependencies = [
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "cuprate-levin"
+version = "0.1.0"
+dependencies = [
+ "bitflags 2.5.0",
+ "bytes",
+ "futures",
+ "proptest",
+ "rand",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "cuprate-p2p"
 version = "0.1.0"
 dependencies = [
- "async-buffer",
  "bytes",
+ "cuprate-address-book",
+ "cuprate-async-buffer",
+ "cuprate-fixed-bytes",
  "cuprate-helper",
+ "cuprate-p2p-core",
+ "cuprate-pruning",
  "cuprate-test-utils",
+ "cuprate-wire",
  "dashmap",
- "fixed-bytes",
  "futures",
  "hex",
  "indexmap 2.2.6",
- "monero-address-book",
- "monero-p2p",
- "monero-pruning",
  "monero-serai",
- "monero-wire",
  "pin-project",
  "proptest",
  "rand",
@@ -616,14 +708,55 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tokio-test",
  "tokio-util",
  "tower",
  "tracing",
 ]
 
 [[package]]
+name = "cuprate-p2p-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "borsh",
+ "cuprate-helper",
+ "cuprate-pruning",
+ "cuprate-test-utils",
+ "cuprate-wire",
+ "futures",
+ "hex",
+ "thiserror",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "cuprate-pruning"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "thiserror",
+]
+
+[[package]]
 name = "cuprate-rpc-interface"
 version = "0.0.0"
+
+[[package]]
+name = "cuprate-rpc-types"
+version = "0.0.0"
+dependencies = [
+ "cuprate-epee-encoding",
+ "monero-serai",
+ "paste",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "cuprate-test-utils"
@@ -633,13 +766,13 @@ dependencies = [
  "borsh",
  "bytes",
  "cuprate-helper",
+ "cuprate-p2p-core",
  "cuprate-types",
+ "cuprate-wire",
  "futures",
  "hex",
  "hex-literal",
- "monero-p2p",
  "monero-serai",
- "monero-wire",
  "pretty_assertions",
  "serde",
  "serde_json",
@@ -661,29 +794,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "cuprated"
+name = "cuprate-wire"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.5.0",
  "bytes",
- "cuprate-blockchain",
- "cuprate-consensus",
- "cuprate-p2p",
- "dandelion-tower",
- "futures",
+ "cuprate-epee-encoding",
+ "cuprate-fixed-bytes",
+ "cuprate-levin",
  "hex",
- "monero-p2p",
- "monero-serai",
  "thiserror",
- "tokio",
- "tower",
- "tracing",
 ]
 
 [[package]]
 name = "curve25519-dalek"
-version = "4.1.2"
+version = "4.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a677b8922c94e01bdbb12126b0bc852f00447528dee1782229af9c720c3f348"
+checksum = "97fb8b7c4503de7d6ae7b42ab72a5a59857b4c937ec27a3d4539dba95b5ab2be"
 dependencies = [
  "cfg-if",
  "cpufeatures",
@@ -691,7 +818,6 @@ dependencies = [
  "digest",
  "fiat-crypto",
  "group",
- "platforms",
  "rand_core",
  "rustc_version",
  "subtle",
@@ -726,21 +852,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dandelion-tower"
-version = "0.1.0"
-dependencies = [
- "futures",
- "proptest",
- "rand",
- "rand_distr",
- "thiserror",
- "tokio",
- "tokio-util",
- "tower",
- "tracing",
-]
-
-[[package]]
 name = "dashmap"
 version = "5.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -752,10 +863,6 @@ dependencies = [
  "once_cell",
  "parking_lot_core",
 ]
-
-[[package]]
-name = "database"
-version = "0.0.0"
 
 [[package]]
 name = "diff"
@@ -835,19 +942,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3dca9240753cf90908d7e4aac30f630662b02aebaa1b58a3cadabdb23385b58b"
 
 [[package]]
-name = "epee-encoding"
-version = "0.5.0"
-dependencies = [
- "bytes",
- "fixed-bytes",
- "hex",
- "paste",
- "ref-cast",
- "sealed",
- "thiserror",
-]
-
-[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -906,14 +1000,6 @@ name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
-
-[[package]]
-name = "fixed-bytes"
-version = "0.1.0"
-dependencies = [
- "bytes",
- "thiserror",
-]
 
 [[package]]
 name = "flexible-transcript"
@@ -1089,12 +1175,6 @@ dependencies = [
  "byteorder",
  "num-traits",
 ]
-
-[[package]]
-name = "heck"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
 
 [[package]]
 name = "heck"
@@ -1453,16 +1533,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "json-rpc"
-version = "0.0.0"
-dependencies = [
- "pretty_assertions",
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "keccak"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1476,21 +1546,6 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
-
-[[package]]
-name = "levin-cuprate"
-version = "0.1.0"
-dependencies = [
- "bitflags 2.5.0",
- "bytes",
- "futures",
- "proptest",
- "rand",
- "thiserror",
- "tokio",
- "tokio-util",
- "tracing",
-]
 
 [[package]]
 name = "libc"
@@ -1602,25 +1657,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "monero-address-book"
-version = "0.1.0"
-dependencies = [
- "borsh",
- "cuprate-test-utils",
- "futures",
- "indexmap 2.2.6",
- "monero-p2p",
- "monero-pruning",
- "monero-wire",
- "rand",
- "thiserror",
- "tokio",
- "tokio-util",
- "tower",
- "tracing",
-]
-
-[[package]]
 name = "monero-generators"
 version = "0.4.0"
 source = "git+https://github.com/Cuprate/serai.git?rev=d27d934#d27d93480aa8a849d84214ad4c71d83ce6fea0c1"
@@ -1632,39 +1668,6 @@ dependencies = [
  "std-shims",
  "subtle",
 ]
-
-[[package]]
-name = "monero-p2p"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "borsh",
- "cuprate-helper",
- "cuprate-test-utils",
- "futures",
- "hex",
- "monero-pruning",
- "monero-wire",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tower",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "monero-pruning"
-version = "0.1.0"
-dependencies = [
- "borsh",
- "thiserror",
-]
-
-[[package]]
-name = "monero-rpc-types"
-version = "0.0.0"
 
 [[package]]
 name = "monero-serai"
@@ -1697,19 +1700,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "zeroize",
-]
-
-[[package]]
-name = "monero-wire"
-version = "0.1.0"
-dependencies = [
- "bitflags 2.5.0",
- "bytes",
- "epee-encoding",
- "fixed-bytes",
- "hex",
- "levin-cuprate",
- "thiserror",
 ]
 
 [[package]]
@@ -1919,12 +1909,6 @@ name = "pin-utils"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
-
-[[package]]
-name = "platforms"
-version = "3.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db23d408679286588f4d4644f965003d056e3dd5abcaaa938116871d7ce2fee7"
 
 [[package]]
 name = "ppv-lite86"
@@ -2304,18 +2288,6 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
-
-[[package]]
-name = "sealed"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4a8caec23b7800fb97971a1c6ae365b6239aaeddfb934d6265f8505e795699d"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2",
- "quote",
- "syn 2.0.66",
-]
 
 [[package]]
 name = "security-framework"

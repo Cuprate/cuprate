@@ -12,7 +12,7 @@ rayon = ["dep:rayon"]
 
 [dependencies]
 cuprate-helper = { path = "../../helper", default-features = false, features = ["std"] }
-cryptonight-cuprate = {path = "../../cryptonight"}
+cuprate-cryptonight = {path = "../../cryptonight"}
 
 monero-serai = { workspace = true, features = ["std"] }
 multiexp = { workspace = true, features = ["std", "batch"] }

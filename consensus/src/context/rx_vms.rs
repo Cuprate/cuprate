@@ -125,64 +125,69 @@ impl RandomXVMCache {
     }
 
     /// Get the RandomX VMs.
-    pub fn get_vms(&self) -> HashMap<u64, Arc<RandomXVM>> {
+    pub async fn get_vms(&mut self) -> HashMap<u64, Arc<RandomXVM>> {
+        match self.seeds.len().checked_sub(self.vms.len()) {
+            // No difference in the amount of seeds to VMs.
+            Some(0) => (),
+            // One more seed than VM.
+            Some(1) => {
+                let (seed_height, next_seed_hash) = *self.seeds.front().unwrap();
+
+                let new_vm = 'new_vm_block: {
+                    tracing::debug!(
+                        "Initializing RandomX VM for seed: {}",
+                        hex::encode(next_seed_hash)
+                    );
+
+                    // Check if we have been given the RX VM from another part of Cuprate.
+                    if let Some((cached_hash, cached_vm)) = self.cached_vm.take() {
+                        if cached_hash == next_seed_hash {
+                            tracing::debug!("VM was already created.");
+                            break 'new_vm_block cached_vm;
+                        }
+                    };
+
+                    rayon_spawn_async(move || Arc::new(RandomXVM::new(&next_seed_hash).unwrap()))
+                        .await
+                };
+
+                self.vms.insert(seed_height, new_vm);
+            }
+            // More than one more seed than VM.
+            _ => {
+                // this will only happen when syncing and rx activates.
+                tracing::debug!("RandomX has activated, initialising VMs");
+
+                let seeds_clone = self.seeds.clone();
+                self.vms = rayon_spawn_async(move || {
+                    seeds_clone
+                        .par_iter()
+                        .map(|(height, seed)| {
+                            let vm = RandomXVM::new(seed).expect("Failed to create RandomX VM!");
+                            let vm = Arc::new(vm);
+                            (*height, vm)
+                        })
+                        .collect()
+                })
+                .await
+            }
+        }
+
         self.vms.clone()
     }
 
     /// Add a new block to the VM cache.
     ///
     /// hash is the block hash not the blocks PoW hash.
-    pub async fn new_block(&mut self, height: u64, hash: &[u8; 32], hf: &HardFork) {
-        let should_make_vms = hf >= &HardFork::V12;
-        if should_make_vms && self.vms.len() != self.seeds.len() {
-            // this will only happen when syncing and rx activates.
-            tracing::debug!("RandomX has activated, initialising VMs");
-
-            let seeds_clone = self.seeds.clone();
-            self.vms = rayon_spawn_async(move || {
-                seeds_clone
-                    .par_iter()
-                    .map(|(height, seed)| {
-                        (
-                            *height,
-                            Arc::new(RandomXVM::new(seed).expect("Failed to create RandomX VM!")),
-                        )
-                    })
-                    .collect()
-            })
-            .await
-        }
-
+    pub fn new_block(&mut self, height: u64, hash: &[u8; 32]) {
         if is_randomx_seed_height(height) {
             tracing::debug!("Block {height} is a randomX seed height, adding it to the cache.",);
 
             self.seeds.push_front((height, *hash));
 
-            if should_make_vms {
-                let new_vm = 'new_vm_block: {
-                    tracing::debug!(
-                        "Past hard-fork 12 initializing VM for seed: {}",
-                        hex::encode(hash)
-                    );
-
-                    // Check if we have been given the RX VM from another part of Cuprate.
-                    if let Some((cached_hash, cached_vm)) = self.cached_vm.take() {
-                        if &cached_hash == hash {
-                            tracing::debug!("VM was already created.");
-                            break 'new_vm_block cached_vm;
-                        }
-                    };
-
-                    let hash_clone = *hash;
-                    rayon_spawn_async(move || Arc::new(RandomXVM::new(&hash_clone).unwrap())).await
-                };
-
-                self.vms.insert(height, new_vm);
-            }
-
             if self.seeds.len() > RX_SEEDS_CACHED {
                 self.seeds.pop_back();
-                // TODO: This is really not efficient but the amount of VMs cached is not a lot.
+                // HACK: This is really inefficient but the amount of VMs cached is not a lot.
                 self.vms.retain(|height, _| {
                     self.seeds
                         .iter()

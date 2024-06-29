@@ -1,0 +1,22 @@
+[book]
+authors = ["Boog900"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Monero Book"
+
+[build]
+create-missing = false
+
+[output.html]
+mathjax-support = true
+additional-css = ["svgbob.css"]
+git-repository-url = "https://github.com/Cuprate/cuprate/tree/main/books/protocol"
+git-repository-icon = "fa-github"
+no-section-label = true
+
+[output.html.fold]
+enable = true
+level = 2
+
+[preprocessor.svgbob]

@@ -44,6 +44,9 @@ pub enum ExtendedConsensusError {
     /// One or more statements in the batch verifier was invalid.
     #[error("One or more statements in the batch verifier was invalid.")]
     OneOrMoreBatchVerificationStatementsInvalid,
+    /// A request to verify a batch of blocks had no blocks in the batch.
+    #[error("A request to verify a batch of blocks had no blocks in the batch.")]
+    NoBlocksToVerify,
 }
 
 /// Initialize the 2 verifier [`tower::Service`]s (block and transaction).
