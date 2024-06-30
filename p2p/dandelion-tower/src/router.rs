@@ -18,8 +18,7 @@ use std::{
     time::Instant,
 };
 
-use futures::future::BoxFuture;
-use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStream};
+use futures::{future::BoxFuture, FutureExt, Stream, StreamExt, TryFutureExt, TryStream};
 use rand::{distributions::Bernoulli, prelude::*, thread_rng};
 use tower::{
     discover::{Change, Discover},
