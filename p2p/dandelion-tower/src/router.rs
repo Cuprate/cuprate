@@ -40,9 +40,9 @@ pub enum DandelionRouterError {
     /// The broadcast service returned an error.
     #[error("Broadcast service returned an err: {0}.")]
     BroadcastError(tower::BoxError),
-    /// The outbound peer discoverer returned an error, this is critical.
-    #[error("The outbound peer discoverer returned an err: {0}.")]
-    OutboundPeerDiscoverError(tower::BoxError),
+    /// The outbound peer stream returned an error, this is critical.
+    #[error("The outbound peer stream returned an err: {0}.")]
+    OutboundPeerStreamError(tower::BoxError),
     /// The outbound peer discoverer returned [`None`].
     #[error("The outbound peer discoverer exited.")]
     OutboundPeerDiscoverExited,
@@ -177,7 +177,7 @@ where
                 .outbound_peer_discover
                 .as_mut()
                 .try_poll_next(cx)
-                .map_err(DandelionRouterError::OutboundPeerDiscoverError))
+                .map_err(DandelionRouterError::OutboundPeerStreamError))
             .ok_or(DandelionRouterError::OutboundPeerDiscoverExited)??
             {
                 OutboundPeer::Peer(key, svc) => {
