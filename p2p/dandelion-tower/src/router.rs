@@ -6,7 +6,7 @@
 //! ### What The Router Does Not Do
 //!
 //! It does not handle anything to do with keeping transactions long term, i.e. embargo timers and handling
-//! loops in the stem. It is up to implementers to do this if they decide not top use [`DandelionPool`](crate::pool::DandelionPool)
+//! loops in the stem. It is up to implementers to do this if they decide not to use [`DandelionPool`](crate::pool::DandelionPool)
 //!
 use std::{
     collections::HashMap,
@@ -18,7 +18,8 @@ use std::{
     time::Instant,
 };
 
-use futures::TryFutureExt;
+use futures::future::BoxFuture;
+use futures::{FutureExt, Stream, StreamExt, TryFutureExt, TryStream};
 use rand::{distributions::Bernoulli, prelude::*, thread_rng};
 use tower::{
     discover::{Change, Discover},
@@ -45,6 +46,14 @@ pub enum DandelionRouterError {
     /// The outbound peer discoverer returned [`None`].
     #[error("The outbound peer discoverer exited.")]
     OutboundPeerDiscoverExited,
+}
+
+/// A response from an attempt to retrieve an outbound peer.
+pub enum OutboundPeer<ID, T> {
+    /// A peer.
+    Peer(ID, T),
+    /// The peer store is exhausted and has no more to return.
+    Exhausted,
 }
 
 /// The dandelion++ state.
@@ -116,9 +125,11 @@ pub struct DandelionRouter<P, B, ID, S, Tx> {
 impl<Tx, ID, P, B, S> DandelionRouter<P, B, ID, S, Tx>
 where
     ID: Hash + Eq + Clone,
-    P: Discover<Key = ID, Service = S, Error = tower::BoxError>,
+    P: TryStream<Ok = OutboundPeer<ID, S>, Error = tower::BoxError>,
     B: Service<DiffuseRequest<Tx>, Error = tower::BoxError>,
+    B::Future: Send + 'static,
     S: Service<StemRequest<Tx>, Error = tower::BoxError>,
+    S::Future: Send + 'static,
 {
     /// Creates a new [`DandelionRouter`], with the provided services and config.
     ///
@@ -165,15 +176,16 @@ where
             match ready!(self
                 .outbound_peer_discover
                 .as_mut()
-                .poll_discover(cx)
+                .try_poll_next(cx)
                 .map_err(DandelionRouterError::OutboundPeerDiscoverError))
             .ok_or(DandelionRouterError::OutboundPeerDiscoverExited)??
             {
-                Change::Insert(key, svc) => {
+                OutboundPeer::Peer(key, svc) => {
                     self.stem_peers.insert(key, svc);
                 }
-                Change::Remove(key) => {
-                    self.stem_peers.remove(&key);
+                OutboundPeer::Exhausted => {
+                    tracing::warn!("Failed to retrieve enough outbound peers for optimal dandelion++, privacy may be degraded.");
+                    return Poll::Ready(Ok(()));
                 }
             }
         }
@@ -181,11 +193,24 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn fluff_tx(&mut self, tx: Tx) -> B::Future {
-        self.broadcast_svc.call(DiffuseRequest(tx))
+    fn fluff_tx(&mut self, tx: Tx) -> BoxFuture<'static, Result<State, DandelionRouterError>> {
+        self.broadcast_svc
+            .call(DiffuseRequest(tx))
+            .map_ok(|_| State::Fluff)
+            .map_err(DandelionRouterError::BroadcastError)
+            .boxed()
     }
 
-    fn stem_tx(&mut self, tx: Tx, from: ID) -> S::Future {
+    fn stem_tx(
+        &mut self,
+        tx: Tx,
+        from: ID,
+    ) -> BoxFuture<'static, Result<State, DandelionRouterError>> {
+        if self.stem_peers.is_empty() {
+            tracing::debug!("Stem peers are empty, fluffing stem transaction.");
+            return self.fluff_tx(tx);
+        }
+
         loop {
             let stem_route = self.stem_routes.entry(from.clone()).or_insert_with(|| {
                 self.stem_peers
@@ -201,11 +226,20 @@ where
                 continue;
             };
 
-            return peer.call(StemRequest(tx));
+            return peer
+                .call(StemRequest(tx))
+                .map_ok(|_| State::Stem)
+                .map_err(DandelionRouterError::PeerError)
+                .boxed();
         }
     }
 
-    fn stem_local_tx(&mut self, tx: Tx) -> S::Future {
+    fn stem_local_tx(&mut self, tx: Tx) -> BoxFuture<'static, Result<State, DandelionRouterError>> {
+        if self.stem_peers.is_empty() {
+            tracing::warn!("Stem peers are empty, no outbound connections to stem local tx to, fluffing instead, privacy will be degraded.");
+            return self.fluff_tx(tx);
+        }
+
         loop {
             let stem_route = self.local_route.get_or_insert_with(|| {
                 self.stem_peers
@@ -221,7 +255,11 @@ where
                 continue;
             };
 
-            return peer.call(StemRequest(tx));
+            return peer
+                .call(StemRequest(tx))
+                .map_ok(|_| State::Stem)
+                .map_err(DandelionRouterError::PeerError)
+                .boxed();
         }
     }
 }
@@ -238,7 +276,7 @@ S: The Peer service - handles routing messages to a single node.
 impl<Tx, ID, P, B, S> Service<DandelionRouteReq<Tx, ID>> for DandelionRouter<P, B, ID, S, Tx>
 where
     ID: Hash + Eq + Clone,
-    P: Discover<Key = ID, Service = S, Error = tower::BoxError>,
+    P: TryStream<Ok = OutboundPeer<ID, S>, Error = tower::BoxError>,
     B: Service<DiffuseRequest<Tx>, Error = tower::BoxError>,
     B::Future: Send + 'static,
     S: Service<StemRequest<Tx>, Error = tower::BoxError>,
@@ -246,8 +284,7 @@ where
 {
     type Response = State;
     type Error = DandelionRouterError;
-    type Future =
-        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future = BoxFuture<'static, Result<State, DandelionRouterError>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         if self.epoch_start.elapsed() > self.config.epoch_duration {
@@ -309,39 +346,23 @@ where
         tracing::trace!(parent: &self.span,  "Handling route request.");
 
         match req.state {
-            TxState::Fluff => Box::pin(
-                self.fluff_tx(req.tx)
-                    .map_ok(|_| State::Fluff)
-                    .map_err(DandelionRouterError::BroadcastError),
-            ),
+            TxState::Fluff => self.fluff_tx(req.tx),
             TxState::Stem { from } => match self.current_state {
                 State::Fluff => {
                     tracing::debug!(parent: &self.span, "Fluffing stem tx.");
 
-                    Box::pin(
-                        self.fluff_tx(req.tx)
-                            .map_ok(|_| State::Fluff)
-                            .map_err(DandelionRouterError::BroadcastError),
-                    )
+                    self.fluff_tx(req.tx)
                 }
                 State::Stem => {
                     tracing::trace!(parent: &self.span, "Steming transaction");
 
-                    Box::pin(
-                        self.stem_tx(req.tx, from)
-                            .map_ok(|_| State::Stem)
-                            .map_err(DandelionRouterError::PeerError),
-                    )
+                    self.stem_tx(req.tx, from)
                 }
             },
             TxState::Local => {
                 tracing::debug!(parent: &self.span, "Steming local tx.");
 
-                Box::pin(
-                    self.stem_local_tx(req.tx)
-                        .map_ok(|_| State::Stem)
-                        .map_err(DandelionRouterError::PeerError),
-                )
+                self.stem_local_tx(req.tx)
             }
         }
     }
