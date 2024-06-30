@@ -10,7 +10,6 @@
 //!
 use std::{
     collections::HashMap,
-    future::Future,
     hash::Hash,
     marker::PhantomData,
     pin::Pin,
@@ -18,12 +17,9 @@ use std::{
     time::Instant,
 };
 
-use futures::{future::BoxFuture, FutureExt, Stream, StreamExt, TryFutureExt, TryStream};
+use futures::{future::BoxFuture, FutureExt, TryFutureExt, TryStream};
 use rand::{distributions::Bernoulli, prelude::*, thread_rng};
-use tower::{
-    discover::{Change, Discover},
-    Service,
-};
+use tower::Service;
 
 use crate::{
     traits::{DiffuseRequest, StemRequest},
