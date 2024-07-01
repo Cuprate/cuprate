@@ -1,0 +1,74 @@
+# This builds `cargo doc` and uploads it to the repo's GitHub Pages.
+
+name: Doc
+
+on:
+  push:
+    branches: [ "main" ] # Only deploy if `main` changes.
+  workflow_dispatch:
+
+env:
+  # Show colored output in CI.
+  CARGO_TERM_COLOR: always
+  # Fail on documentation warnings, generate an index page.
+  RUSTDOCFLAGS: '-D warnings --cfg docsrs --show-type-layout --enable-index-page -Zunstable-options'
+
+jobs:
+  # Build documentation.
+  build:
+    # FIXME: how to build and merge Windows + macOS docs
+    # with Linux's? Similar to the OS toggle on docs.rs.
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        # Nightly required for some `cargo doc` settings.
+        toolchain: nightly
+
+    - name: Cache
+      uses: actions/cache@v4
+      with:
+        # Don't cache actual doc files, just build files.
+        # This is so that removed crates don't show up.
+        path: target/debug
+        key: doc
+
+    # Packages other than `Boost` used by `Monero` are listed here.
+    # https://github.com/monero-project/monero/blob/c444a7e002036e834bfb4c68f04a121ce1af5825/.github/workflows/build.yml#L71
+
+    - name: Install dependencies (Linux)
+      run: sudo apt install -y libboost-dev
+
+    - name: Documentation
+      run: cargo +nightly doc --workspace --all-features
+
+    - name: Upload documentation
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: target/doc/
+
+  # Deployment job.
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+
+    # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
