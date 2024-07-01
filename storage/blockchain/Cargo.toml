@@ -45,8 +45,8 @@ rayon        = { workspace = true, optional = true }
 cuprate-helper     = { path = "../../helper", features = ["thread"] }
 cuprate-test-utils = { path = "../../test-utils" }
 
-bytemuck          = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 tempfile          = { version = "3.10.0" }
 pretty_assertions = { workspace = true }
+proptest          = { workspace = true }
 hex               = { workspace = true }
 hex-literal       = { workspace = true }

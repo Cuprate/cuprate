@@ -15,11 +15,13 @@ use tokio_util::sync::PollSemaphore;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
     ExtendedBlockHeader, OutputOnChain,
 };
 
+use crate::ops::block::get_block_height;
 use crate::{
     config::ReaderThreads,
     open_tables::OpenTables,
@@ -30,7 +32,10 @@ use crate::{
         key_image::key_image_exists,
         output::id_to_output_on_chain,
     },
-    service::types::{ResponseReceiver, ResponseResult, ResponseSender},
+    service::{
+        free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
+        types::{ResponseReceiver, ResponseResult, ResponseSender},
+    },
     tables::{BlockHeights, BlockInfos, Tables},
     types::BlockHash,
     types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
@@ -211,6 +216,8 @@ fn map_request(
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
+        R::CompactChainHistory => compact_chain_history(env),
+        R::FindFirstUnknown(block_ids) => find_first_unknown(env, block_ids),
     };
 
     if let Err(e) = response_sender.send(response) {
@@ -524,4 +531,61 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
         Some(Ok(true)) => Ok(BCResponse::KeyImagesSpent(true)),          // Key image was found.
         Some(Err(e)) => Err(e), // A database error occurred.
     }
+}
+
+/// [`BCReadRequest::CompactChainHistory`]
+fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+    let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+
+    let top_block_height = top_block_height(&table_block_heights)?;
+
+    let top_block_info = get_block_info(&top_block_height, &table_block_infos)?;
+    let cumulative_difficulty = combine_low_high_bits_to_u128(
+        top_block_info.cumulative_difficulty_low,
+        top_block_info.cumulative_difficulty_high,
+    );
+
+    /// The amount of top block IDs in the compact chain.
+    const INITIAL_BLOCKS: u64 = 11;
+
+    let mut block_ids = (0_u64..)
+        .map(compact_history_index_to_height_offset::<INITIAL_BLOCKS>)
+        .map_while(|i| top_block_height.checked_sub(i))
+        .map(|height| Ok(get_block_info(&height, &table_block_infos)?.block_hash))
+        .collect::<Result<Vec<_>, RuntimeError>>()?;
+
+    if compact_history_genesis_not_included::<INITIAL_BLOCKS>(top_block_height) {
+        block_ids.push(get_block_info(&0, &table_block_infos)?.block_hash);
+    }
+
+    Ok(BCResponse::CompactChainHistory {
+        cumulative_difficulty,
+        block_ids,
+    })
+}
+
+/// [`BCReadRequest::FindFirstUnknown`]
+fn find_first_unknown(env: &ConcreteEnv, block_ids: Vec<BlockHash>) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+
+    let mut last_height = 0;
+
+    for (i, block_id) in block_ids.into_iter().enumerate() {
+        match get_block_height(&block_id, &table_block_heights) {
+            Ok(height) => last_height = height,
+            Err(RuntimeError::KeyNotFound) => {
+                return Ok(BCResponse::FindFirstUnknown(Some((i, last_height + 1))))
+            }
+            Err(e) => return Err(e),
+        }
+    }
+
+    Ok(BCResponse::FindFirstUnknown(None))
 }

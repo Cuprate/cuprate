@@ -83,10 +83,16 @@ pub enum BCReadRequest {
     /// The input is a list of output amounts.
     NumberOutputsWithAmount(Vec<u64>),
 
-    /// Check that all key images within a set arer not spent.
+    /// Check that all key images within a set are not spent.
     ///
     /// Input is a set of key images.
     KeyImagesSpent(HashSet<[u8; 32]>),
+
+    /// A request for the compact chain history
+    CompactChainHistory,
+
+    /// A request to find the first unknown block ID in a list of block IDs.
+    FindFirstUnknown(Vec<[u8; 32]>),
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -163,6 +169,21 @@ pub enum BCResponse {
     ///
     /// The inner value is `false` if _none_ of the key images were spent.
     KeyImagesSpent(bool),
+
+    /// Response to [`BCReadRequest::CompactChainHistory`].
+    CompactChainHistory {
+        /// A list of blocks IDs in our chain, starting with the most recent block, all the way to the genesis block.
+        ///
+        /// These blocks should be in reverse chronological order, not every block is needed.
+        block_ids: Vec<[u8; 32]>,
+        /// The current cumulative difficulty of the chain.
+        cumulative_difficulty: u128,
+    },
+
+    /// The response for [`BCReadRequest::FindFirstUnknown`].
+    ///
+    /// Contains the index of the first unknown block and its expected height.
+    FindFirstUnknown(Option<(usize, u64)>),
 
     //------------------------------------------------------ Writes
     /// Response to [`BCWriteRequest::WriteBlock`].
