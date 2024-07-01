@@ -69,7 +69,7 @@ pub trait Key: Storable + Sized + Ord {
     ///     std::cmp::Ordering::Greater,
     /// );
     /// ```
-    const KEY_COMPARE: KeyCompare = KeyCompare::Lexicographic;
+    const KEY_COMPARE: KeyCompare = KeyCompare::Default;
 }
 
 //---------------------------------------------------------------------------------------------------- Impl
@@ -138,12 +138,13 @@ impl_custom_numbers_key!(u8, u16, u128, i8, i16, i32, i64, i128, isize);
 /// See [`Key`] for more info.
 #[derive(Default, Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum KeyCompare {
-    /// [Lexicographical comparison](https://doc.rust-lang.org/1.79.0/std/cmp/trait.Ord.html#lexicographical-comparison),
-    /// i.e. a straight byte comparison.
+    /// Use the default comparison behavior of the backend.
     ///
-    /// This is the default.
+    /// Currently, both `heed` and `redb` use
+    /// [lexicographical comparison](https://doc.rust-lang.org/1.79.0/std/cmp/trait.Ord.html#lexicographical-comparison)
+    /// by default, i.e. a straight byte comparison.
     #[default]
-    Lexicographic,
+    Default,
 
     /// A by-value number comparison, i.e. `255 < 256`.
     ///
@@ -165,7 +166,7 @@ impl KeyCompare {
     #[inline]
     pub const fn as_compare_fn<K: Key>(self) -> fn(&[u8], &[u8]) -> Ordering {
         match self {
-            Self::Lexicographic => std::cmp::Ord::cmp,
+            Self::Default => std::cmp::Ord::cmp,
             Self::Number => |left, right| {
                 let left = <K as Storable>::from_bytes(left);
                 let right = <K as Storable>::from_bytes(right);

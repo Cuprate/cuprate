@@ -303,9 +303,8 @@ where
 
         // Set the key comparison behavior.
         match <T::Key>::KEY_COMPARE {
-            // Already the default for LMDB, setting
-            // a custom comparison function is slower.
-            KeyCompare::Lexicographic => {
+            // Use LMDB's default comparison function.
+            KeyCompare::Default => {
                 db.create(&mut tx_rw)?;
             }
 
