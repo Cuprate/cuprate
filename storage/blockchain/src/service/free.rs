@@ -59,10 +59,10 @@ pub(crate) fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u64>(
     // Otherwise, we use the fact that to reach the genesis block this statement must be true (for a
     // single `i`):
     //
-    // `chain_height - INITIAL_BLOCKS - 2^i + 2 = 0`
+    // `top_block_height - INITIAL_BLOCKS - 2^i + 2 == 0`
     // which then means:
-    // `chain_height - INITIAL_BLOCKS + 2 = 2^i`
-    // So if `chain_height - INITIAL_BLOCKS + 2` is a power of 2 then the genesis block is in
+    // `top_block_height - INITIAL_BLOCKS + 2 == 2^i`
+    // So if `top_block_height - INITIAL_BLOCKS + 2` is a power of 2 then the genesis block is in
     // the compact history already.
     top_block_height > INITIAL_BLOCKS && !(top_block_height - INITIAL_BLOCKS + 2).is_power_of_two()
 }
@@ -71,13 +71,13 @@ pub(crate) fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u64>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use proptest::prelude::*;
+
+    use super::*;
 
     proptest! {
         #[test]
-        fn compact_history_always_includes_genesis(top_height in 0_u64..500_000_000) {
+        fn compact_history(top_height in 0_u64..500_000_000) {
             let mut heights = (0..)
                 .map(compact_history_index_to_height_offset::<11>)
                 .map_while(|i| top_height.checked_sub(i))
@@ -87,6 +87,7 @@ mod tests {
                 heights.push(0);
             }
 
+            // Make sure the genesis and top block are always included.
             assert_eq!(*heights.last().unwrap(), 0);
             assert_eq!(*heights.first().unwrap(), top_height);
 

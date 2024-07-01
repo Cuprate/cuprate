@@ -14,20 +14,19 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_helper::map::combine_low_high_bits_to_u128;
+use cuprate_helper::{asynch::InfallibleOneshotReceiver, map::combine_low_high_bits_to_u128};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
     ExtendedBlockHeader, OutputOnChain,
 };
 
-use crate::ops::block::get_block_height;
 use crate::{
     config::ReaderThreads,
     open_tables::OpenTables,
-    ops::block::block_exists,
     ops::{
-        block::{get_block_extended_header_from_height, get_block_info},
+        block::{
+            block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
+        },
         blockchain::{cumulative_generated_coins, top_block_height},
         key_image::key_image_exists,
         output::id_to_output_on_chain,
@@ -37,8 +36,7 @@ use crate::{
         types::{ResponseReceiver, ResponseResult, ResponseSender},
     },
     tables::{BlockHeights, BlockInfos, Tables},
-    types::BlockHash,
-    types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
+    types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
@@ -552,7 +550,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
     /// The amount of top block IDs in the compact chain.
     const INITIAL_BLOCKS: u64 = 11;
 
-    let mut block_ids = (0_u64..)
+    let mut block_ids = (0..)
         .map(compact_history_index_to_height_offset::<INITIAL_BLOCKS>)
         .map_while(|i| top_block_height.checked_sub(i))
         .map(|height| Ok(get_block_info(&height, &table_block_infos)?.block_hash))
