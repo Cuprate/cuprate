@@ -169,8 +169,9 @@ mod test {
         env_inner.open_tables(&tx_ro).unwrap();
     }
 
-    /// Tests that directory [`cuprate_database::ConcreteEnv`]
-    /// usage does NOT create all tables.
+    /// Tests that direct usage of
+    /// [`cuprate_database::ConcreteEnv`]
+    /// does NOT create all tables.
     #[test]
     #[should_panic(expected = "`Result::unwrap()` on an `Err` value: TableNotFound")]
     fn test_no_tables_are_created() {

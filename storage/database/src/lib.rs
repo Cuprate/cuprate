@@ -126,10 +126,10 @@ pub use error::{InitError, RuntimeError};
 pub mod resize;
 
 mod key;
-pub use key::Key;
+pub use key::{Key, KeyCompare};
 
 mod storable;
-pub use storable::{Storable, StorableBytes, StorableVec};
+pub use storable::{Storable, StorableBytes, StorableStr, StorableVec};
 
 mod table;
 pub use table::Table;

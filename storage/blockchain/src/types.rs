@@ -46,7 +46,7 @@ use bytemuck::{Pod, Zeroable};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_database::StorableVec;
+use cuprate_database::{Key, StorableVec};
 
 //---------------------------------------------------------------------------------------------------- Aliases
 // These type aliases exist as many Monero-related types are the exact same.
@@ -142,6 +142,8 @@ pub struct PreRctOutputId {
     /// global index of _all_ `RctOutput`s
     pub amount_index: AmountIndex,
 }
+
+impl Key for PreRctOutputId {}
 
 //---------------------------------------------------------------------------------------------------- BlockInfoV3
 /// Block information.
