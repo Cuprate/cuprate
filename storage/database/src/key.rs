@@ -27,9 +27,6 @@ use crate::{storable::Storable, StorableBytes, StorableStr, StorableVec};
 /// 1. Creating a wrapper type around primitives like a `struct SortU8(pub u8)`
 /// 2. Implement [`Key`] on that wrapper
 /// 3. Define a custom [`Key::KEY_COMPARE`]
-// FIXME:
-// implement getting values using ranges.
-// <https://github.com/Cuprate/cuprate/pull/117#discussion_r1589378104>
 pub trait Key: Storable + Sized + Ord {
     /// Compare 2 [`Key`]'s against each other.
     ///
@@ -162,7 +159,7 @@ pub enum KeyCompare {
 impl KeyCompare {
     /// Return [`Self`] as a pure comparison function.
     ///
-    /// This function's expects 2 [`Key`]s in byte form as input.
+    /// The returned function expects 2 [`Key`]s in byte form as input.
     #[inline]
     pub const fn as_compare_fn<K: Key>(self) -> fn(&[u8], &[u8]) -> Ordering {
         match self {
