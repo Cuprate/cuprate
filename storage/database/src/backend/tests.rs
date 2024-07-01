@@ -156,6 +156,20 @@ fn non_manual_resize_2() {
     env.current_map_size();
 }
 
+/// Tests that [`EnvInner::clear_db`] will return
+/// [`RuntimeError::TableNotFound`] if the table doesn't exist.
+#[test]
+fn clear_db_table_not_found() {
+    let (env, _tmpdir) = tmp_concrete_env();
+    let env_inner = env.env_inner();
+    let mut tx_rw = env_inner.tx_rw().unwrap();
+    let err = env_inner.clear_db::<TestTable>(&mut tx_rw).unwrap_err();
+    assert!(matches!(err, RuntimeError::TableNotFound));
+
+    env_inner.create_db::<TestTable>(&tx_rw).unwrap();
+    env_inner.clear_db::<TestTable>(&mut tx_rw).unwrap();
+}
+
 /// Test all `DatabaseR{o,w}` operations.
 #[test]
 fn db_read_write() {

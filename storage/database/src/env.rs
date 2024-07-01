@@ -293,7 +293,7 @@ where
     /// function's effects can be aborted using [`TxRw::abort`].
     ///
     /// # Errors
-    /// This will only return [`RuntimeError::Io`] on normal errors.
+    /// This will return [`RuntimeError::Io`] on normal errors.
     ///
     /// If the specified table is not created upon before this function is called,
     /// this will return [`RuntimeError::TableNotFound`].
