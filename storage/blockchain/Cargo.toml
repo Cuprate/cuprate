@@ -15,7 +15,7 @@ default     = ["heed", "service"]
 heed        = ["cuprate-database/heed"]
 redb        = ["cuprate-database/redb"]
 redb-memory = ["cuprate-database/redb-memory"]
-service     = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon"]
+service     = ["dep:crossbeam", "dep:futures", "dep:tokio", "dep:tokio-util", "dep:tower", "dep:rayon", "dep:thread_local"]
 
 [dependencies]
 # FIXME:
@@ -38,7 +38,7 @@ futures      = { workspace = true, optional = true }
 tokio        = { workspace = true, features = ["full"], optional = true }
 tokio-util   = { workspace = true, features = ["full"], optional = true }
 tower        = { workspace = true, features = ["full"], optional = true }
-thread_local = { workspace = true }
+thread_local = { workspace = true, optional = true }
 rayon        = { workspace = true, optional = true }
 
 [dev-dependencies]

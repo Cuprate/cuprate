@@ -61,6 +61,7 @@
 
 extern crate alloc;
 
+use alloc::string::ToString;
 use core::{ops::Deref, str::from_utf8 as str_from_utf8};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
