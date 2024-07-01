@@ -3,8 +3,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{cell::RefCell, ops::RangeBounds};
 
-use heed::{Comparator, DefaultComparator};
-
 use crate::{
     backend::heed::types::HeedDb,
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
@@ -28,9 +26,9 @@ use crate::{
 /// An opened read-only database associated with a transaction.
 ///
 /// Matches `redb::ReadOnlyTable`.
-pub(super) struct HeedTableRo<'tx, T: Table, C: Comparator = DefaultComparator> {
+pub(super) struct HeedTableRo<'tx, T: Table> {
     /// An already opened database table.
-    pub(super) db: HeedDb<T::Key, T::Value, C>,
+    pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read-only transaction that opened this table.
     pub(super) tx_ro: &'tx heed::RoTxn<'tx>,
 }
@@ -38,9 +36,9 @@ pub(super) struct HeedTableRo<'tx, T: Table, C: Comparator = DefaultComparator> 
 /// An opened read/write database associated with a transaction.
 ///
 /// Matches `redb::Table` (read & write).
-pub(super) struct HeedTableRw<'env, 'tx, T: Table, C: Comparator = DefaultComparator> {
+pub(super) struct HeedTableRw<'env, 'tx, T: Table> {
     /// An already opened database table.
-    pub(super) db: HeedDb<T::Key, T::Value, C>,
+    pub(super) db: HeedDb<T::Key, T::Value>,
     /// The associated read/write transaction that opened this table.
     pub(super) tx_rw: &'tx RefCell<heed::RwTxn<'env>>,
 }
@@ -52,8 +50,8 @@ pub(super) struct HeedTableRw<'env, 'tx, T: Table, C: Comparator = DefaultCompar
 
 /// Shared [`DatabaseRo::get()`].
 #[inline]
-fn get<T: Table, C: Comparator>(
-    db: &HeedDb<T::Key, T::Value, C>,
+fn get<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
     key: &T::Key,
 ) -> Result<T::Value, RuntimeError> {
@@ -62,8 +60,8 @@ fn get<T: Table, C: Comparator>(
 
 /// Shared [`DatabaseRo::len()`].
 #[inline]
-fn len<T: Table, C: Comparator>(
-    db: &HeedDb<T::Key, T::Value, C>,
+fn len<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
 ) -> Result<u64, RuntimeError> {
     Ok(db.len(tx_ro)?)
@@ -71,8 +69,8 @@ fn len<T: Table, C: Comparator>(
 
 /// Shared [`DatabaseRo::first()`].
 #[inline]
-fn first<T: Table, C: Comparator>(
-    db: &HeedDb<T::Key, T::Value, C>,
+fn first<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
 ) -> Result<(T::Key, T::Value), RuntimeError> {
     db.first(tx_ro)?.ok_or(RuntimeError::KeyNotFound)
@@ -80,8 +78,8 @@ fn first<T: Table, C: Comparator>(
 
 /// Shared [`DatabaseRo::last()`].
 #[inline]
-fn last<T: Table, C: Comparator>(
-    db: &HeedDb<T::Key, T::Value, C>,
+fn last<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
 ) -> Result<(T::Key, T::Value), RuntimeError> {
     db.last(tx_ro)?.ok_or(RuntimeError::KeyNotFound)
@@ -89,8 +87,8 @@ fn last<T: Table, C: Comparator>(
 
 /// Shared [`DatabaseRo::is_empty()`].
 #[inline]
-fn is_empty<T: Table, C: Comparator>(
-    db: &HeedDb<T::Key, T::Value, C>,
+fn is_empty<T: Table>(
+    db: &HeedDb<T::Key, T::Value>,
     tx_ro: &heed::RoTxn<'_>,
 ) -> Result<bool, RuntimeError> {
     Ok(db.is_empty(tx_ro)?)
@@ -134,64 +132,64 @@ impl<T: Table> DatabaseIter<T> for HeedTableRo<'_, T> {
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo Impl
 // SAFETY: `HeedTableRo: !Send` as it holds a reference to `heed::RoTxn: Send + !Sync`.
-unsafe impl<T: Table, C: Comparator> DatabaseRo<T> for HeedTableRo<'_, T, C> {
+unsafe impl<T: Table> DatabaseRo<T> for HeedTableRo<'_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
-        get::<T, C>(&self.db, self.tx_ro, key)
+        get::<T>(&self.db, self.tx_ro, key)
     }
 
     #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
-        len::<T, C>(&self.db, self.tx_ro)
+        len::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        first::<T, C>(&self.db, self.tx_ro)
+        first::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        last::<T, C>(&self.db, self.tx_ro)
+        last::<T>(&self.db, self.tx_ro)
     }
 
     #[inline]
     fn is_empty(&self) -> Result<bool, RuntimeError> {
-        is_empty::<T, C>(&self.db, self.tx_ro)
+        is_empty::<T>(&self.db, self.tx_ro)
     }
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRw Impl
 // SAFETY: The `Send` bound only applies to `HeedTableRo`.
 // `HeedTableRw`'s write transaction is `!Send`.
-unsafe impl<T: Table, C: Comparator> DatabaseRo<T> for HeedTableRw<'_, '_, T, C> {
+unsafe impl<T: Table> DatabaseRo<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn get(&self, key: &T::Key) -> Result<T::Value, RuntimeError> {
-        get::<T, C>(&self.db, &self.tx_rw.borrow(), key)
+        get::<T>(&self.db, &self.tx_rw.borrow(), key)
     }
 
     #[inline]
     fn len(&self) -> Result<u64, RuntimeError> {
-        len::<T, C>(&self.db, &self.tx_rw.borrow())
+        len::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn first(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        first::<T, C>(&self.db, &self.tx_rw.borrow())
+        first::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn last(&self) -> Result<(T::Key, T::Value), RuntimeError> {
-        last::<T, C>(&self.db, &self.tx_rw.borrow())
+        last::<T>(&self.db, &self.tx_rw.borrow())
     }
 
     #[inline]
     fn is_empty(&self) -> Result<bool, RuntimeError> {
-        is_empty::<T, C>(&self.db, &self.tx_rw.borrow())
+        is_empty::<T>(&self.db, &self.tx_rw.borrow())
     }
 }
 
-impl<T: Table, C: Comparator> DatabaseRw<T> for HeedTableRw<'_, '_, T, C> {
+impl<T: Table> DatabaseRw<T> for HeedTableRw<'_, '_, T> {
     #[inline]
     fn put(&mut self, key: &T::Key, value: &T::Value) -> Result<(), RuntimeError> {
         Ok(self.db.put(&mut self.tx_rw.borrow_mut(), key, value)?)
@@ -207,7 +205,7 @@ impl<T: Table, C: Comparator> DatabaseRw<T> for HeedTableRw<'_, '_, T, C> {
     fn take(&mut self, key: &T::Key) -> Result<T::Value, RuntimeError> {
         // LMDB/heed does not return the value on deletion.
         // So, fetch it first - then delete.
-        let value = get::<T, C>(&self.db, &self.tx_rw.borrow(), key)?;
+        let value = get::<T>(&self.db, &self.tx_rw.borrow(), key)?;
         match self.db.delete(&mut self.tx_rw.borrow_mut(), key) {
             Ok(true) => Ok(value),
             Err(e) => Err(e.into()),

@@ -30,7 +30,7 @@ use crate::{storable::Storable, StorableBytes, StorableStr, StorableVec};
 // FIXME:
 // implement getting values using ranges.
 // <https://github.com/Cuprate/cuprate/pull/117#discussion_r1589378104>
-pub trait Key: Storable + Sized {
+pub trait Key: Storable + Sized + Ord {
     /// Compare 2 [`Key`]'s against each other.
     ///
     /// # Defaults for types
@@ -92,8 +92,8 @@ impl Key for StorableStr {}
 /// This must _only_ be implemented for [`u32`], [`u64`] (and maybe [`usize`]).
 ///
 /// This is because:
-/// 1. We use LMDB's `INTEGER_KEY`[^1] flag when this enum variant is used
-/// 2. LMDB only supports these types when using that flag[^2]
+/// 1. We use LMDB's `INTEGER_KEY` flag when this enum variant is used
+/// 2. LMDB only supports these types when using that flag
 ///
 /// See: <https://docs.rs/heed/0.20.0-alpha.9/heed/struct.DatabaseFlags.html#associatedconstant.INTEGER_KEY>
 ///
@@ -153,13 +153,17 @@ pub enum KeyCompare {
     Number,
 
     /// A custom sorting function.
+    ///
+    /// The input of the function is 2 [`Key`]s in byte form.
     Custom(fn(&[u8], &[u8]) -> Ordering),
 }
 
 impl KeyCompare {
     /// Return [`Self`] as a pure comparison function.
+    ///
+    /// This function's expects 2 [`Key`]s in byte form as input.
     #[inline]
-    pub const fn as_compare_fn<K: Key + Ord>(self) -> fn(&[u8], &[u8]) -> Ordering {
+    pub const fn as_compare_fn<K: Key>(self) -> fn(&[u8], &[u8]) -> Ordering {
         match self {
             Self::Lexicographic => std::cmp::Ord::cmp,
             Self::Number => |left, right| {

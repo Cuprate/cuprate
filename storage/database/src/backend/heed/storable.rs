@@ -20,7 +20,7 @@ where
 // If `Key` is also implemented, this can act as the comparison function.
 impl<T> heed::Comparator for StorableHeed<T>
 where
-    T: Key + Ord,
+    T: Key,
 {
     #[inline]
     fn compare(a: &[u8], b: &[u8]) -> Ordering {

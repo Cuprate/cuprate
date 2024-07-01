@@ -329,11 +329,19 @@ fn db_read_write() {
 fn tables_are_sorted() {
     let (env, _tmp) = tmp_concrete_env();
     let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw().unwrap();
-    let mut table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
 
     /// Range of keys to insert, `{0, 1, 2 ... 256}`.
     const RANGE: std::ops::Range<u32> = 0..257;
+
+    // Create tables and set flags / comparison flags.
+    {
+        let tx_rw = env_inner.tx_rw().unwrap();
+        env_inner.create_db::<TestTable>(&tx_rw).unwrap();
+        TxRw::commit(tx_rw).unwrap();
+    }
+
+    let tx_rw = env_inner.tx_rw().unwrap();
+    let mut table = env_inner.open_db_rw::<TestTable>(&tx_rw).unwrap();
 
     // Insert range, assert each new
     // number inserted is the minimum `last()` value.

@@ -12,6 +12,7 @@ use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions};
 use crate::{
     backend::heed::{
         database::{HeedTableRo, HeedTableRw},
+        storable::StorableHeed,
         types::HeedDb,
     },
     config::{Config, SyncMode},
@@ -265,15 +266,15 @@ where
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         //
-        // INVARIANT:
-        // We only care about setting the flags and/or comparison functions
-        // on write tables, read tables can't/don't add data so it doesn't matter.
-        // The sorted data from write tables will appear for read tables regardless.
-        let db = self
-            .open_database(tx_ro, Some(T::NAME))?
-            .ok_or(RuntimeError::TableNotFound)?;
-
-        Ok(HeedTableRo { db, tx_ro })
+        // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
+        // and we're relying on that since we aren't setting that here.
+        // <https://github.com/Cuprate/cuprate/pull/198#discussion_r1659422277>
+        Ok(HeedTableRo {
+            db: self
+                .open_database(tx_ro, Some(T::NAME))?
+                .ok_or(RuntimeError::TableNotFound)?,
+            tx_ro,
+        })
     }
 
     #[inline]
@@ -282,37 +283,45 @@ where
         tx_rw: &RefCell<heed::RwTxn<'env>>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
-        let db = {
-            let mut tx_rw = tx_rw.borrow_mut();
-            let mut db = self.database_options();
-
-            // Set the key comparison behavior.
-            match <T::Key>::KEY_COMPARE {
-                // Already the default for LMDB, setting
-                // a custom comparison function is slower.
-                KeyCompare::Lexicographic => (),
-
-                // Instead of setting a custom [`heed::Comparator`],
-                // use this LMDB flag; it is ~10% faster.
-                KeyCompare::Number => {
-                    db.flags(DatabaseFlags::INTEGER_KEY);
-                }
-
-                // Use a custom comparison function if specified.
-                KeyCompare::Custom(_) => {
-                    db.key_comparator::<T::Key>();
-                }
-            }
-
-            db.types().name(T::NAME).create(&mut tx_rw)?
-        };
-
-        Ok(HeedTableRw { db, tx_rw })
+        //
+        // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
+        // and we're relying on that since we aren't setting that here.
+        // <https://github.com/Cuprate/cuprate/pull/198#discussion_r1659422277>
+        Ok(HeedTableRw {
+            db: self.create_database(&mut tx_rw.borrow_mut(), Some(T::NAME))?,
+            tx_rw,
+        })
     }
 
     fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
-        // INVARIANT: `heed` creates tables with `open_database` if they don't exist.
-        self.open_db_rw::<T>(tx_rw)?;
+        // Create a database using our:
+        // - [`Table`]'s const metadata.
+        // - (potentially) our [`Key`] comparison function
+        let mut tx_rw = tx_rw.borrow_mut();
+        let mut db = self.database_options();
+        db.name(T::NAME);
+
+        // Set the key comparison behavior.
+        match <T::Key>::KEY_COMPARE {
+            // Already the default for LMDB, setting
+            // a custom comparison function is slower.
+            KeyCompare::Lexicographic => {
+                db.create(&mut tx_rw)?;
+            }
+
+            // Instead of setting a custom [`heed::Comparator`],
+            // use this LMDB flag; it is ~10% faster.
+            KeyCompare::Number => {
+                db.flags(DatabaseFlags::INTEGER_KEY).create(&mut tx_rw)?;
+            }
+
+            // Use a custom comparison function if specified.
+            KeyCompare::Custom(_) => {
+                db.key_comparator::<StorableHeed<T::Key>>()
+                    .create(&mut tx_rw)?;
+            }
+        }
+
         Ok(())
     }
 
@@ -323,18 +332,105 @@ where
     ) -> Result<(), RuntimeError> {
         let tx_rw = tx_rw.get_mut();
 
-        // Open the table first...
-        let db: HeedDb<T::Key, T::Value, _> = self
+        // Open the table. We don't care about flags or key
+        // comparison behavior since we're clearing it anyway.
+        let db: HeedDb<T::Key, T::Value> = self
             .open_database(tx_rw, Some(T::NAME))?
             .ok_or(RuntimeError::TableNotFound)?;
 
-        // ...then clear it.
-        Ok(db.clear(tx_rw)?)
+        db.clear(tx_rw)?;
+
+        Ok(())
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use crate::{
+        tests::tmp_concrete_env, DatabaseIter, DatabaseRo, DatabaseRw, Env, EnvInner, Table, TxRw,
+    };
+
+    /// Default table type for testing below.
+    struct TableDefault;
+    impl Table for TableDefault {
+        const NAME: &'static str = "default";
+        type Key = u64;
+        type Value = ();
+    }
+
+    /// Table type with the custom number comparator.
+    struct TableCustom;
+    impl Table for TableCustom {
+        const NAME: &'static str = "custom";
+        /// LMDB does not support [`u16`], so it
+        /// will use a custom comparison function.
+        type Key = u16;
+        type Value = ();
+    }
+
+    /// This tests that when opening a read table with `heed`,
+    /// it will maintain the previous flags / comparison functions
+    /// set by write tables **even if the read table is not set with them**.
+    ///
+    /// [`EnvInner::open_db_ro`] relies on this behavior.
+    #[test]
+    fn tables_are_still_sorted_with_no_flags_or_custom_cmp_fn() {
+        let (env, _tmpdir) = tmp_concrete_env();
+
+        // Create tables and set flags / comparison flags.
+        {
+            let env_inner = env.env_inner();
+            let tx_rw = env_inner.tx_rw().unwrap();
+
+            // `INTEGER_KEY` flag set.
+            env_inner.create_db::<TableDefault>(&tx_rw).unwrap();
+            // Custom comparator set.
+            env_inner.create_db::<TableCustom>(&tx_rw).unwrap();
+
+            TxRw::commit(tx_rw).unwrap();
+        }
+
+        // Write table - Insert {0 ... 256}.
+        {
+            let env_inner = env.env_inner();
+            let tx_rw = env_inner.tx_rw().unwrap();
+
+            let mut default = env_inner.open_db_rw::<TableDefault>(&tx_rw).unwrap();
+            let mut custom = env_inner.open_db_rw::<TableCustom>(&tx_rw).unwrap();
+
+            for i in 0..257 {
+                default.put(&i, &()).unwrap();
+                custom.put(&u16::try_from(i).unwrap(), &()).unwrap();
+            }
+
+            drop((default, custom));
+            TxRw::commit(tx_rw).unwrap();
+        }
+
+        // Read table - Assert integers are in value order.
+        {
+            let env_inner = env.env_inner();
+            let tx_ro = env_inner.tx_ro().unwrap();
+
+            let default = env_inner.open_db_ro::<TableDefault>(&tx_ro).unwrap();
+            let custom = env_inner.open_db_ro::<TableCustom>(&tx_ro).unwrap();
+
+            for i in default.iter().unwrap() {
+                let i = i.unwrap();
+                println!("{i:?}");
+            }
+
+            for i in custom.iter().unwrap() {
+                let i = i.unwrap();
+                println!("{i:?}");
+            }
+
+            // Integers are in order, even without comparator set.
+            assert_eq!(default.first().unwrap().0, 0);
+            assert_eq!(default.last().unwrap().0, 256);
+            assert_eq!(custom.first().unwrap().0, 0);
+            assert_eq!(custom.last().unwrap().0, 256);
+        }
+    }
 }

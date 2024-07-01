@@ -175,6 +175,19 @@ pub trait Env: Sized {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
+/// Document the INVARIANT that the `heed` backend
+/// must use [`EnvInner::create_db`] when initially
+/// opening/creating tables.
+macro_rules! doc_heed_create_db_invariant {
+    () => {
+        r#"The first time you open/create tables, you _must_ use [`EnvInner::create_db`]
+to set the proper flags / [`Key`](crate::Key) comparison for the `heed` backend.
+
+Subsequent table opens will follow the flags/ordering, but only if
+[`EnvInner::create_db`] was the _first_ function to open/create it."#
+    };
+}
+
 /// The inner [`Env`] type.
 ///
 /// This type is created with [`Env::env_inner`] and represents
@@ -189,7 +202,13 @@ pub trait Env: Sized {
 /// Note that when opening tables with [`EnvInner::open_db_ro`],
 /// they must be created first or else it will return error.
 ///
-/// See [`EnvInner::open_db_rw`] and [`EnvInner::create_db`] for creating tables.
+/// Note that when opening tables with [`EnvInner::open_db_ro`],
+/// they must be created first or else it will return error.
+///
+/// See [`EnvInner::create_db`] for creating tables.
+///
+/// # Invariant
+#[doc = doc_heed_create_db_invariant!()]
 pub trait EnvInner<'env, Ro, Rw>
 where
     Self: 'env,
@@ -228,6 +247,9 @@ where
     ///
     /// If the specified table is not created upon before this function is called,
     /// this will return [`RuntimeError::TableNotFound`].
+    ///
+    /// # Invariant
+    #[doc = doc_heed_create_db_invariant!()]
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Ro,
@@ -247,18 +269,19 @@ where
     /// # Errors
     /// This will only return [`RuntimeError::Io`] on errors.
     ///
-    /// Implementation details: Both `heed` & `redb` backends create
-    /// the table with this function if it does not already exist. For safety and
-    /// clear intent, you should still consider using [`EnvInner::create_db`] instead.
+    /// # Invariant
+    #[doc = doc_heed_create_db_invariant!()]
     fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
 
     /// Create a database table.
     ///
-    /// This will create the database [`Table`]
-    /// passed as a generic to this function.
+    /// This will create the database [`Table`] passed as a generic to this function.
     ///
     /// # Errors
     /// This will only return [`RuntimeError::Io`] on errors.
+    ///
+    /// # Invariant
+    #[doc = doc_heed_create_db_invariant!()]
     fn create_db<T: Table>(&self, tx_rw: &Rw) -> Result<(), RuntimeError>;
 
     /// Clear all `(key, value)`'s from a database table.
