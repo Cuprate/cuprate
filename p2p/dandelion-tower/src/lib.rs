@@ -40,7 +40,7 @@
 //! TryStream. This should immediately send the transaction to the peer when requested, it should _not_ set
 //! a timer.
 //!
-//! The peer service should have a request of [`StemRequest`](traits::StemRequest) and it's error
+//! The peer service should have a request of [`StemRequest`](traits::StemRequest) and its error
 //! should be [`tower::BoxError`].
 //!
 //! ## Backing Pool
