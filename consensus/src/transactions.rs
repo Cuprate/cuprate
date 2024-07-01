@@ -12,6 +12,7 @@ use std::{
 };
 
 use futures::FutureExt;
+use monero_serai::ringct::bulletproofs::Bulletproof;
 use monero_serai::{
     ringct::RctType,
     transaction::{Input, Timelock, Transaction},
@@ -104,21 +105,62 @@ impl TransactionVerificationData {
         let tx_blob = tx.serialize();
 
         // the tx weight is only different from the blobs length for bp(+) txs.
-        let tx_weight = match tx.rct_signatures.rct_type() {
-            RctType::Bulletproofs
-            | RctType::BulletproofsCompactAmount
-            | RctType::Clsag
-            | RctType::BulletproofsPlus => tx.weight(),
-            _ => tx_blob.len(),
+        let tx_weight = match &tx {
+            Transaction::V1 { .. } | Transaction::V2 { proofs: None, .. } => tx_blob.len(),
+            Transaction::V2 {
+                proofs: Some(proofs),
+                ..
+            } => match proofs.rct_type() {
+                RctType::AggregateMlsagBorromean | RctType::MlsagBorromean => tx_blob.len(),
+                RctType::MlsagBulletproofs
+                | RctType::MlsagBulletproofsCompactAmount
+                | RctType::ClsagBulletproof => {
+                    tx_blob.len()
+                        + Bulletproof::calculate_bp_clawback(false, tx.prefix().outputs.len()).0
+                }
+                RctType::ClsagBulletproofPlus => {
+                    tx_blob.len()
+                        + Bulletproof::calculate_bp_clawback(true, tx.prefix().outputs.len()).0
+                }
+            },
+        };
+
+        let mut fee = 0_u64;
+
+        match &tx {
+            Transaction::V1 { prefix, .. } => {
+                for input in &prefix.inputs {
+                    match input {
+                        Input::ToKey { amount, .. } => {
+                            fee = fee
+                                .checked_add(amount.unwrap_or(0))
+                                .ok_or(TransactionError::InputsOverflow)?;
+                        }
+                        _ => (),
+                    }
+                }
+
+                for output in &prefix.outputs {
+                    fee.checked_sub(output.amount.unwrap_or(0))
+                        .ok_or(TransactionError::OutputsTooHigh)?;
+                }
+            }
+            Transaction::V2 { proofs, .. } => {
+                fee = proofs
+                    .as_ref()
+                    .ok_or(TransactionError::TransactionVersionInvalid)?
+                    .base
+                    .fee;
+            }
         };
 
         Ok(TransactionVerificationData {
             tx_hash,
             tx_blob,
             tx_weight,
-            fee: tx.rct_signatures.base.fee,
+            fee,
             cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
-            version: TxVersion::from_raw(tx.prefix.version)
+            version: TxVersion::from_raw(tx.version())
                 .ok_or(TransactionError::TransactionVersionInvalid)?,
             tx,
         })
@@ -296,7 +338,7 @@ where
     let mut spent_kis = HashSet::with_capacity(txs.len());
 
     txs.iter().try_for_each(|tx| {
-        tx.tx.prefix.inputs.iter().try_for_each(|input| {
+        tx.tx.prefix().inputs.iter().try_for_each(|input| {
             if let Input::ToKey { key_image, .. } = input {
                 if !spent_kis.insert(key_image.compress().0) {
                     tracing::debug!("Duplicate key image found in batch.");
@@ -499,7 +541,7 @@ where
                         &hf,
                         &batch_verifier,
                     )?;
-                    // make sure monero-serai calculated the same fee.
+                    // make sure we calculated the right fee.
                     assert_eq!(fee, tx.fee);
                 }
 

@@ -29,8 +29,8 @@ fn genesis_miner_tx(network: &Network) -> Transaction {
 pub fn generate_genesis_block(network: &Network) -> Block {
     Block {
         header: BlockHeader {
-            major_version: 1,
-            minor_version: 0,
+            hardfork_version: 1,
+            hardfork_signal: 0,
             timestamp: 0,
             previous: [0; 32],
             nonce: genesis_nonce(network),

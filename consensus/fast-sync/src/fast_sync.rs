@@ -244,7 +244,7 @@ where
 
     let block_blob = block.serialize();
 
-    let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
+    let Some(Input::Gen(height)) = block.miner_tx.prefix().inputs.first() else {
         return Err(FastSyncError::MinerTx(MinerTxError::InputNotOfTypeGen));
     };
     if *height != block_chain_ctx.chain_height {
@@ -270,7 +270,7 @@ where
     let total_fees = verified_txs.iter().map(|tx| tx.fee).sum::<u64>();
     let total_outputs = block
         .miner_tx
-        .prefix
+        .prefix()
         .outputs
         .iter()
         .map(|output| output.amount.unwrap_or(0))

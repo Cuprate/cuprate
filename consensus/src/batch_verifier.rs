@@ -1,12 +1,14 @@
 use std::{cell::RefCell, ops::DerefMut};
 
-use multiexp::BatchVerifier as InternalBatchVerifier;
+use monero_serai::ringct::bulletproofs::BatchVerifier as InternalBatchVerifier;
 use rayon::prelude::*;
 use thread_local::ThreadLocal;
 
+use cuprate_consensus_rules::batch_verifier::BatchVerifier;
+
 /// A multithreaded batch verifier.
 pub struct MultiThreadedBatchVerifier {
-    internal: ThreadLocal<RefCell<InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>>>,
+    internal: ThreadLocal<RefCell<InternalBatchVerifier>>,
 }
 
 impl MultiThreadedBatchVerifier {
@@ -22,19 +24,22 @@ impl MultiThreadedBatchVerifier {
             .into_iter()
             .map(RefCell::into_inner)
             .par_bridge()
-            .find_any(|batch_verifier| !batch_verifier.verify_vartime())
-            .is_none()
+            .try_for_each(|batch_verifier| {
+                if batch_verifier.verify() {
+                    Ok(())
+                } else {
+                    Err(())
+                }
+            })
+            .is_ok()
     }
 }
 
-impl cuprate_consensus_rules::batch_verifier::BatchVerifier for &'_ MultiThreadedBatchVerifier {
-    fn queue_statement<R>(
-        &mut self,
-        stmt: impl FnOnce(&mut InternalBatchVerifier<(), dalek_ff_group::EdwardsPoint>) -> R,
-    ) -> R {
+impl BatchVerifier for &'_ MultiThreadedBatchVerifier {
+    fn queue_statement<R>(&mut self, stmt: impl FnOnce(&mut InternalBatchVerifier) -> R) -> R {
         let mut verifier = self
             .internal
-            .get_or(|| RefCell::new(InternalBatchVerifier::new(32)))
+            .get_or(|| RefCell::new(InternalBatchVerifier::new()))
             .borrow_mut();
 
         stmt(verifier.deref_mut())

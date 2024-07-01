@@ -5,10 +5,9 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::task::spawn_blocking;
 
-use monero_serai::{
-    block::Block,
-    rpc::{HttpRpc, Rpc},
-};
+use monero_rpc::Rpc;
+use monero_serai::block::Block;
+use monero_simple_request_rpc::SimpleRequestRpc;
 
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
@@ -18,7 +17,7 @@ use crate::rpc::constants::LOCALHOST_RPC_URL;
 /// An HTTP RPC client for Monero.
 pub struct HttpRpcClient {
     address: String,
-    rpc: Rpc<HttpRpc>,
+    rpc: SimpleRequestRpc,
 }
 
 impl HttpRpcClient {
@@ -38,7 +37,7 @@ impl HttpRpcClient {
         let address = address.unwrap_or_else(|| LOCALHOST_RPC_URL.to_string());
 
         Self {
-            rpc: HttpRpc::new(address.clone()).await.unwrap(),
+            rpc: SimpleRequestRpc::new(address.clone()).await.unwrap(),
             address,
         }
     }
@@ -51,7 +50,7 @@ impl HttpRpcClient {
 
     /// Access to the inner RPC client for other usage.
     #[allow(dead_code)]
-    const fn rpc(&self) -> &Rpc<HttpRpc> {
+    const fn rpc(&self) -> &SimpleRequestRpc {
         &self.rpc
     }
 
@@ -123,7 +122,7 @@ impl HttpRpcClient {
         let total_tx_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
         let generated_coins = block
             .miner_tx
-            .prefix
+            .prefix()
             .outputs
             .iter()
             .map(|output| output.amount.expect("miner_tx amount was None"))
@@ -171,7 +170,8 @@ impl HttpRpcClient {
                     tx_blob: tx.serialize(),
                     tx_weight: tx.weight(),
                     tx_hash,
-                    fee: tx.rct_signatures.base.fee,
+                    // TODO: fix this.
+                    fee: 0,
                     tx,
                 }
             })

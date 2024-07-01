@@ -202,8 +202,8 @@ impl HardFork {
     #[inline]
     pub fn from_block_header(header: &BlockHeader) -> Result<(HardFork, HardFork), HardForkError> {
         Ok((
-            HardFork::from_version(header.major_version)?,
-            HardFork::from_vote(header.minor_version),
+            HardFork::from_version(header.hardfork_version)?,
+            HardFork::from_vote(header.hardfork_signal),
         ))
     }
 

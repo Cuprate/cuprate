@@ -1,7 +1,4 @@
-use monero_serai::{
-    ringct::RctType,
-    transaction::{Input, Output, Timelock, Transaction},
-};
+use monero_serai::transaction::{Input, Output, Timelock, Transaction};
 
 use crate::{is_decomposed_amount, transactions::check_output_types, HardFork, TxVersion};
 
@@ -188,22 +185,27 @@ pub fn check_miner_tx(
     already_generated_coins: u64,
     hf: &HardFork,
 ) -> Result<u64, MinerTxError> {
-    let tx_version = TxVersion::from_raw(tx.prefix.version).ok_or(MinerTxError::VersionInvalid)?;
+    let tx_version = TxVersion::from_raw(tx.version()).ok_or(MinerTxError::VersionInvalid)?;
     check_miner_tx_version(&tx_version, hf)?;
 
     // ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#ringct-type>
-    if hf >= &HardFork::V12 && tx.rct_signatures.rct_type() != RctType::Null {
-        return Err(MinerTxError::RCTTypeNotNULL);
+    match tx {
+        Transaction::V1 { .. } => (),
+        Transaction::V2 { proofs, .. } => {
+            if hf >= &HardFork::V12 && proofs.is_some() {
+                return Err(MinerTxError::RCTTypeNotNULL);
+            }
+        }
     }
 
-    check_time_lock(&tx.prefix.timelock, chain_height)?;
+    check_time_lock(&tx.prefix().timelock, chain_height)?;
 
-    check_inputs(&tx.prefix.inputs, chain_height)?;
+    check_inputs(&tx.prefix().inputs, chain_height)?;
 
-    check_output_types(&tx.prefix.outputs, hf).map_err(|_| MinerTxError::InvalidOutputType)?;
+    check_output_types(&tx.prefix().outputs, hf).map_err(|_| MinerTxError::InvalidOutputType)?;
 
     let reward = calculate_block_reward(block_weight, median_bw, already_generated_coins, hf);
-    let total_outs = sum_outputs(&tx.prefix.outputs, hf, &tx_version)?;
+    let total_outs = sum_outputs(&tx.prefix().outputs, hf, &tx_version)?;
 
     check_total_output_amt(total_outs, reward, total_fees, hf)
 }
