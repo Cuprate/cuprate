@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
 // Our code, and code generated (e.g macros) cannot overrule these.
@@ -111,6 +112,12 @@ pub use constants::{
 pub use status::Status;
 
 pub mod base;
+#[cfg(feature = "bin")]
+#[cfg_attr(docsrs, doc(cfg(feature = "bin")))]
 pub mod bin;
+#[cfg(feature = "json")]
+#[cfg_attr(docsrs, doc(cfg(feature = "json")))]
 pub mod json;
+#[cfg(feature = "other")]
+#[cfg_attr(docsrs, doc(cfg(feature = "other")))]
 pub mod other;

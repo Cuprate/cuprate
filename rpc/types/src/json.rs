@@ -113,11 +113,11 @@ define_request_and_response! {
     OnGetBlockHash,
     #[derive(Copy)]
     EmptyRequestBase {
-        #[serde(flatten)]
+        #[cfg_attr(feature = "serde", serde(flatten))]
         block_height: u64,
     },
     EmptyResponseBase {
-        #[serde(flatten)]
+        #[cfg_attr(feature = "serde", serde(flatten))]
         block_hash: String,
     }
 }
