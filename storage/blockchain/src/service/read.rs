@@ -215,7 +215,7 @@ fn map_request(
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
-        R::FindFirstUnknown(block_ids) => find_first_unknown(env, block_ids),
+        R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
     };
 
     if let Err(e) = response_sender.send(response) {
@@ -567,7 +567,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
 }
 
 /// [`BCReadRequest::FindFirstUnknown`]
-fn find_first_unknown(env: &ConcreteEnv, block_ids: Vec<BlockHash>) -> ResponseResult {
+fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
