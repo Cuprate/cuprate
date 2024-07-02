@@ -47,6 +47,7 @@ pub(super) const fn compact_history_index_to_height_offset<const INITIAL_BLOCKS:
     } else {
         // Otherwise we go with power of 2 offsets, the same as monerod.
         // So (INITIAL_BLOCKS + 2), (INITIAL_BLOCKS + 2 + 4), (INITIAL_BLOCKS + 2 + 4 + 8)
+        // ref: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_core/blockchain.cpp#L727>
         INITIAL_BLOCKS + (2 << (i - INITIAL_BLOCKS)) - 2
     }
 }

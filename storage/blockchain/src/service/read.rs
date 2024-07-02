@@ -207,7 +207,7 @@ fn map_request(
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block) => block_hash(env, block),
-        R::FilterUnknownHashes(hashes) => filter_unknown_hahses(env, hashes),
+        R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
         R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(env, range),
         R::ChainHeight => chain_height(env),
         R::GeneratedCoins => generated_coins(env),
@@ -325,7 +325,7 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
 
 /// [`BCReadRequest::FilterUnknownHashes`].
 #[inline]
-fn filter_unknown_hahses(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
+fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
