@@ -92,6 +92,11 @@ pub enum BCReadRequest {
     CompactChainHistory,
 
     /// A request to find the first unknown block ID in a list of block IDs.
+    ////
+    /// # Invariant
+    /// The [`Vec`] containing the block IDs must be sorted in chronological block
+    /// order, or else the returned response is unspecified and meaningless,
+    /// as this request performs a binary search.
     FindFirstUnknown(Vec<[u8; 32]>),
 }
 

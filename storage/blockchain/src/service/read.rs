@@ -567,6 +567,11 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
 }
 
 /// [`BCReadRequest::FindFirstUnknown`]
+///
+/// # Invariant
+/// `block_ids` must be sorted in chronological block order, or else
+/// the returned result is unspecified and meaningless, as this function
+/// performs a binary search.
 fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
