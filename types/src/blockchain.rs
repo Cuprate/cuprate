@@ -88,7 +88,7 @@ pub enum BCReadRequest {
     /// Input is a set of key images.
     KeyImagesSpent(HashSet<[u8; 32]>),
 
-    /// A request for the compact chain history
+    /// A request for the compact chain history.
     CompactChainHistory,
 
     /// A request to find the first unknown block ID in a list of block IDs.
@@ -183,6 +183,8 @@ pub enum BCResponse {
     /// The response for [`BCReadRequest::FindFirstUnknown`].
     ///
     /// Contains the index of the first unknown block and its expected height.
+    ///
+    /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, u64)>),
 
     //------------------------------------------------------ Writes

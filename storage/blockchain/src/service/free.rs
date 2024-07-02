@@ -33,11 +33,14 @@ pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle),
     Ok((readers, writer))
 }
 
+//---------------------------------------------------------------------------------------------------- Compact history
 /// Given a position in the compact history, returns the height offset that should be in that position.
 ///
 /// The height offset is the difference between the top block's height and the block height that should be in that position.
 #[inline]
-pub(crate) fn compact_history_index_to_height_offset<const INITIAL_BLOCKS: u64>(i: u64) -> u64 {
+pub(super) const fn compact_history_index_to_height_offset<const INITIAL_BLOCKS: u64>(
+    i: u64,
+) -> u64 {
     // If the position is below the initial blocks just return the position back
     if i <= INITIAL_BLOCKS {
         i
@@ -52,7 +55,7 @@ pub(crate) fn compact_history_index_to_height_offset<const INITIAL_BLOCKS: u64>(
 ///
 /// The genesis must always be included in the compact history.
 #[inline]
-pub(crate) fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u64>(
+pub(super) const fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u64>(
     top_block_height: u64,
 ) -> bool {
     // If the top block height is less than the initial blocks then it will always be included.

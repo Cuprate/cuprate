@@ -573,17 +573,32 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: Vec<BlockHash>) -> ResponseR
 
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
 
-    let mut last_height = 0;
+    let mut err = None;
 
-    for (i, block_id) in block_ids.into_iter().enumerate() {
-        match get_block_height(&block_id, &table_block_heights) {
-            Ok(height) => last_height = height,
-            Err(RuntimeError::KeyNotFound) => {
-                return Ok(BCResponse::FindFirstUnknown(Some((i, last_height + 1))))
-            }
-            Err(e) => return Err(e),
-        }
+    // Do a binary search to find the first unknown block in the batch.
+    let idx =
+        block_ids.partition_point(
+            |block_id| match block_exists(block_id, &table_block_heights) {
+                Ok(exists) => exists,
+                Err(e) => {
+                    err.get_or_insert(e);
+                    // if this happens the search is scrapped, just return `false` back.
+                    false
+                }
+            },
+        );
+
+    if let Some(e) = err {
+        return Err(e);
     }
 
-    Ok(BCResponse::FindFirstUnknown(None))
+    Ok(if idx == block_ids.len() {
+        BCResponse::FindFirstUnknown(None)
+    } else if idx == 0 {
+        BCResponse::FindFirstUnknown(Some((0, 0)))
+    } else {
+        let last_known_height = get_block_height(&block_ids[idx - 1], &table_block_heights)?;
+
+        BCResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
+    })
 }
