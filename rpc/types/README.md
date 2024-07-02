@@ -68,8 +68,8 @@ All are enabled by default.
 
 | Feature flag | Does what |
 |--------------|-----------|
-| `json`       | Enables the [`crate::json`] module
-| `bin`        | Enables the [`crate::bin`] module
-| `other`      | Enables the [`crate::other`] module
+| `json`       | Enables the `crate::json` module
+| `bin`        | Enables the `crate::bin` module
+| `other`      | Enables the `crate::other` module
 | `serde`      | Implements `serde` on all types
-| `epee`       | Implements `epee_encoding` on all types
+| `epee`       | Implements `cuprate_epee_encoding` on all types
