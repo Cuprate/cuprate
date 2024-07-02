@@ -550,6 +550,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
     /// The amount of top block IDs in the compact chain.
     const INITIAL_BLOCKS: u64 = 11;
 
+    // rayon is not used here because the amount of block IDs is expected to be small.
     let mut block_ids = (0..)
         .map(compact_history_index_to_height_offset::<INITIAL_BLOCKS>)
         .map_while(|i| top_block_height.checked_sub(i))
