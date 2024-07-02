@@ -12,8 +12,10 @@
 //! - <https://github.com/monero-project/monero/pull/8843>
 
 //---------------------------------------------------------------------------------------------------- Import
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "epee")]
 use cuprate_epee_encoding::epee_object;
 
 use crate::Status;
@@ -36,25 +38,27 @@ macro_rules! monero_rpc_base_link {
 /// The most common base for responses (nothing).
 ///
 #[doc = monero_rpc_base_link!(95..=99)]
-#[derive(
-    Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EmptyRequestBase;
 
-cuprate_epee_encoding::epee_object! {
+#[cfg(feature = "epee")]
+epee_object! {
     EmptyRequestBase,
 }
 
 /// A base for RPC request types that support RPC payment.
 ///
 #[doc = monero_rpc_base_link!(114..=122)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AccessRequestBase {
     /// The RPC payment client.
     pub client: String,
 }
 
-cuprate_epee_encoding::epee_object! {
+#[cfg(feature = "epee")]
+epee_object! {
     AccessRequestBase,
     client: String,
 }
@@ -65,21 +69,20 @@ cuprate_epee_encoding::epee_object! {
 /// This is for response types that do not contain
 /// any extra fields, e.g. TODO.
 // [`CalcPowResponse`](crate::json::CalcPowResponse).
-#[derive(
-    Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EmptyResponseBase;
 
-cuprate_epee_encoding::epee_object! {
+#[cfg(feature = "epee")]
+epee_object! {
     EmptyResponseBase,
 }
 
 /// The most common base for responses.
 ///
 #[doc = monero_rpc_base_link!(101..=112)]
-#[derive(
-    Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ResponseBase {
     /// General RPC error code. [`Status::Ok`] means everything looks good.
     pub status: Status,
@@ -89,6 +92,7 @@ pub struct ResponseBase {
     pub untrusted: bool,
 }
 
+#[cfg(feature = "epee")]
 epee_object! {
     ResponseBase,
     status: Status,
@@ -98,10 +102,11 @@ epee_object! {
 /// A base for RPC response types that support RPC payment.
 ///
 #[doc = monero_rpc_base_link!(124..=136)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AccessResponseBase {
     /// A flattened [`ResponseBase`].
-    #[serde(flatten)]
+    #[cfg_attr(feature = "serde", serde(flatten))]
     pub response_base: ResponseBase,
     /// If payment for RPC is enabled, the number of credits
     /// available to the requesting client. Otherwise, `0`.
@@ -111,6 +116,7 @@ pub struct AccessResponseBase {
     pub top_hash: String,
 }
 
+#[cfg(feature = "epee")]
 epee_object! {
     AccessResponseBase,
     credits: u64,
