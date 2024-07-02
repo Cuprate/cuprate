@@ -62,7 +62,7 @@ use crate::constants::{
 /// assert_eq!(format!("{:?}", unknown),                 "Unknown");
 /// ```
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Status {
     // FIXME:
     // `#[serde(rename = "")]` only takes raw string literals?

@@ -39,7 +39,7 @@ macro_rules! monero_rpc_base_link {
 ///
 #[doc = monero_rpc_base_link!(95..=99)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EmptyRequestBase;
 
 #[cfg(feature = "epee")]
@@ -51,7 +51,7 @@ epee_object! {
 ///
 #[doc = monero_rpc_base_link!(114..=122)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AccessRequestBase {
     /// The RPC payment client.
     pub client: String,
@@ -70,7 +70,7 @@ epee_object! {
 /// any extra fields, e.g. TODO.
 // [`CalcPowResponse`](crate::json::CalcPowResponse).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EmptyResponseBase;
 
 #[cfg(feature = "epee")]
@@ -82,7 +82,7 @@ epee_object! {
 ///
 #[doc = monero_rpc_base_link!(101..=112)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResponseBase {
     /// General RPC error code. [`Status::Ok`] means everything looks good.
     pub status: Status,
@@ -103,7 +103,7 @@ epee_object! {
 ///
 #[doc = monero_rpc_base_link!(124..=136)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AccessResponseBase {
     /// A flattened [`ResponseBase`].
     #[cfg_attr(feature = "serde", serde(flatten))]
