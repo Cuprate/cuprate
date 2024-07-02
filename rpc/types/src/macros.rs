@@ -87,7 +87,7 @@ macro_rules! define_request_and_response {
 
         #[allow(dead_code)]
         #[allow(missing_docs)]
-        #[derive(serde::Serialize, serde::Deserialize)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$response_type_attr] )*
         #[doc = $crate::macros::define_request_and_response_doc!(
@@ -101,7 +101,7 @@ macro_rules! define_request_and_response {
             [<$type_name Response>],
         )]
         pub struct [<$type_name Response>] {
-            #[serde(flatten)]
+            #[cfg_attr(feature = "serde", serde(flatten))]
             pub base: $response_base_type,
 
             $(
@@ -110,6 +110,7 @@ macro_rules! define_request_and_response {
             )*
         }
 
+        #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
             [<$type_name Response>],
             $(
@@ -158,7 +159,7 @@ macro_rules! define_request_and_response {
     ) => { paste::paste! {
         #[allow(dead_code)]
         #[allow(missing_docs)]
-        #[derive(serde::Serialize, serde::Deserialize)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$request_type_attr] )*
         #[doc = $crate::macros::define_request_and_response_doc!(
@@ -172,7 +173,7 @@ macro_rules! define_request_and_response {
             [<$type_name Request>],
         )]
         pub struct [<$type_name Request>] {
-            #[serde(flatten)]
+            #[cfg_attr(feature = "serde", serde(flatten))]
             pub base: $request_base_type,
 
             $(
@@ -181,6 +182,7 @@ macro_rules! define_request_and_response {
             )*
         }
 
+        #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
             [<$type_name Request>],
             $(
@@ -191,7 +193,7 @@ macro_rules! define_request_and_response {
 
         #[allow(dead_code)]
         #[allow(missing_docs)]
-        #[derive(serde::Serialize, serde::Deserialize)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         $( #[$response_type_attr] )*
         #[doc = $crate::macros::define_request_and_response_doc!(
@@ -205,7 +207,7 @@ macro_rules! define_request_and_response {
             [<$type_name Response>],
         )]
         pub struct [<$type_name Response>] {
-            #[serde(flatten)]
+            #[cfg_attr(feature = "serde", serde(flatten))]
             pub base: $response_base_type,
 
             $(
@@ -214,6 +216,7 @@ macro_rules! define_request_and_response {
             )*
         }
 
+        #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
             [<$type_name Response>],
             $(
