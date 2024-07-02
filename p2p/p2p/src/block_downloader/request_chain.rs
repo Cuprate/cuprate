@@ -198,7 +198,7 @@ where
     tracing::debug!("Highest chin entry contained {} block Ids", hashes.len());
 
     // Find the first unknown block in the batch.
-    let ChainSvcResponse::FindFirstUnknown(first_unknown, expected_height) = our_chain_svc
+    let ChainSvcResponse::FindFirstUnknown(first_unknown_ret) = our_chain_svc
         .ready()
         .await?
         .call(ChainSvcRequest::FindFirstUnknown(hashes.clone()))
@@ -207,16 +207,16 @@ where
         panic!("chain service sent wrong response.");
     };
 
+    // We know all the blocks already
+    // TODO: The peer could still be on a different chain, however the chain might just be too far split.
+    let Some((first_unknown, expected_height)) = first_unknown_ret else {
+        return Err(BlockDownloadError::FailedToFindAChainToFollow);
+    };
+
     // The peer must send at least one block we already know.
     if first_unknown == 0 {
         peer_handle.ban_peer(MEDIUM_BAN);
         return Err(BlockDownloadError::PeerSentNoOverlappingBlocks);
-    }
-
-    // We know all the blocks already
-    // TODO: The peer could still be on a different chain, however the chain might just be too far split.
-    if first_unknown == hashes.len() {
-        return Err(BlockDownloadError::FailedToFindAChainToFollow);
     }
 
     let previous_id = hashes[first_unknown - 1];

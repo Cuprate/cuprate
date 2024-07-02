@@ -121,7 +121,7 @@ pub enum ChainSvcResponse {
     /// The response for [`ChainSvcRequest::FindFirstUnknown`].
     ///
     /// Contains the index of the first unknown block and its expected height.
-    FindFirstUnknown(usize, u64),
+    FindFirstUnknown(Option<(usize, u64)>),
     /// The response for [`ChainSvcRequest::CumulativeDifficulty`].
     ///
     /// The current cumulative difficulty of our chain.

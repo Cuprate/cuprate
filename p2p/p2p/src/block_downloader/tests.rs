@@ -314,7 +314,9 @@ impl Service<ChainSvcRequest> for OurChainSvc {
                     block_ids: vec![genesis],
                     cumulative_difficulty: 1,
                 },
-                ChainSvcRequest::FindFirstUnknown(_) => ChainSvcResponse::FindFirstUnknown(1, 1),
+                ChainSvcRequest::FindFirstUnknown(_) => {
+                    ChainSvcResponse::FindFirstUnknown(Some((1, 1)))
+                }
                 ChainSvcRequest::CumulativeDifficulty => ChainSvcResponse::CumulativeDifficulty(1),
             })
         }
