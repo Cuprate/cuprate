@@ -60,3 +60,16 @@ values inside JSON strings, for example:
 `binary` here is (de)serialized as a normal [`String`]. In order to be clear on which fields contain binary data, the struct fields that have them will use [`crate::BinaryString`] instead of [`String`].
 
 TODO: list the specific types.
+
+# Feature flags
+List of feature flags for `cuprate-rpc-types`.
+
+All are enabled by default.
+
+| Feature flag | Does what |
+|--------------|-----------|
+| `json`       | Enables the [`crate::json`] module
+| `bin`        | Enables the [`crate::bin`] module
+| `other`      | Enables the [`crate::other`] module
+| `serde`      | Implements `serde` on all types
+| `epee`       | Implements `epee_encoding` on all types
