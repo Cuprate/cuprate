@@ -63,7 +63,7 @@ macro_rules! define_request_and_response {
             // And any fields.
             $(
                 $( #[$request_field_attr:meta] )*
-                $request_field:ident: $request_field_type:ty,
+                $request_field:ident: $request_field_type:ty $(= $request_field_type_default:expr)?,
             )*
         },
 
@@ -73,7 +73,7 @@ macro_rules! define_request_and_response {
             // And any fields.
             $(
                 $( #[$response_field_attr:meta] )*
-                $response_field:ident: $response_field_type:ty,
+                $response_field:ident: $response_field_type:ty $(= $response_field_type_default:expr)?,
             )*
         }
     ) => { paste::paste! {
@@ -91,7 +91,7 @@ macro_rules! define_request_and_response {
             [<$type_name Request>] {
                 $(
                     $( #[$request_field_attr] )*
-                    $request_field: $request_field_type,
+                    $request_field: $request_field_type $(= $request_field_type_default)?,
                 )*
             }
         }
@@ -114,7 +114,7 @@ macro_rules! define_request_and_response {
             $response_base_type => [<$type_name Response>] {
                 $(
                     $( #[$response_field_attr] )*
-                    $response_field: $response_field_type,
+                    $response_field: $response_field_type $(= $response_field_type_default)?,
                 )*
             }
         }
@@ -145,7 +145,7 @@ macro_rules! define_request {
             // And any fields.
             $(
                 $( #[$request_field_attr:meta] )*
-                $request_field:ident: $request_field_type:ty,
+                $request_field:ident: $request_field_type:ty $(= $request_field_type_default:expr)?,
             )*
         }
     ) => {
@@ -164,7 +164,7 @@ macro_rules! define_request {
         ::cuprate_epee_encoding::epee_object! {
             $request_type_name,
             $(
-                $request_field: $request_field_type,
+                $request_field: $request_field_type $(= $request_field_type_default)?,
             )*
         }
     };
@@ -181,7 +181,7 @@ macro_rules! define_response {
             // And any fields.
             $(
                 $( #[$response_field_attr:meta] )*
-                $response_field:ident: $response_field_type:ty,
+                $response_field:ident: $response_field_type:ty $(= $response_field_type_default:expr)?,
             )*
         }
     ) => {
@@ -197,7 +197,7 @@ macro_rules! define_response {
         ::cuprate_epee_encoding::epee_object! {
             $response_type_name,
             $(
-                $response_field: $response_field_type,
+                $response_field: $response_field_type $($response_field_type_default)?,
             )*
         }
     };
@@ -211,7 +211,7 @@ macro_rules! define_response {
             // And any fields.
             $(
                 $( #[$response_field_attr:meta] )*
-                $response_field:ident: $response_field_type:ty,
+                $response_field:ident: $response_field_type:ty $(= $response_field_type_default:expr)?,
             )*
         }
     ) => {
@@ -230,7 +230,7 @@ macro_rules! define_response {
         ::cuprate_epee_encoding::epee_object! {
             $response_type_name,
             $(
-                $response_field: $response_field_type,
+                $response_field: $response_field_type $(= $response_field_type_default)?,
             )*
             !flatten: base: $response_base_type,
         }

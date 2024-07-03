@@ -3,7 +3,12 @@
 //! <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/daemon_messages.h>.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{base::ResponseBase, macros::define_request_and_response};
+use crate::{
+    base::{AccessResponseBase, ResponseBase},
+    defaults::bool,
+    macros::define_request_and_response,
+    misc::BlockHeader,
+};
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
 // This generates 2 structs:
@@ -109,12 +114,32 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 935..=939,
     OnGetBlockHash,
     #[derive(Copy)]
+    /// ```rust
+    /// use serde_json::*;
+    /// use cuprate_rpc_types::json::*;
+    ///
+    /// let x = OnGetBlockHashRequest { block_height: [3] };
+    /// let x = to_string(&x).unwrap();
+    /// assert_eq!(x, "[3]");
+    /// ```
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
     Request {
-        #[cfg_attr(feature = "serde", serde(flatten))]
-        block_height: u64,
+        // This is `std::vector<uint64_t>` in `monerod` but
+        // it must be a 1 length array or else it will error.
+        block_height: [u64; 1],
     },
+    /// ```rust
+    /// use serde_json::*;
+    /// use cuprate_rpc_types::json::*;
+    ///
+    /// let x = OnGetBlockHashResponse { block_hash: String::from("asdf") };
+    /// let x = to_string(&x).unwrap();
+    /// assert_eq!(x, "\"asdf\"");
+    /// ```
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
     Response {
-        #[cfg_attr(feature = "serde", serde(flatten))]
         block_hash: String,
     }
 }
@@ -149,6 +174,69 @@ define_request_and_response! {
     #[repr(transparent)]
     Response {
         status: String,
+    }
+}
+
+define_request_and_response! {
+    generateblocks,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1130..=1161,
+    GenerateBlocks,
+    Request {
+        amount_of_blocks: u64,
+        wallet_address: String,
+        prev_block: String,
+        starting_nonce: u32,
+    },
+    ResponseBase {
+        height: u64,
+        blocks: Vec<String>,
+    }
+}
+
+define_request_and_response! {
+    get_last_block_header,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1214..=1238,
+    GetLastBlockHeader,
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "bool"))]
+        fill_pow_hash: bool = bool(),
+    },
+    AccessResponseBase {
+        block_header: BlockHeader,
+    }
+}
+
+define_request_and_response! {
+    get_block_header_by_hash,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1240..=1269,
+    GetBlockHeaderByHash,
+    Request {
+        hash: String,
+        hashes: Vec<String>,
+        #[cfg_attr(feature = "serde", serde(default = "bool"))]
+        fill_pow_hash: bool = bool(),
+    },
+    AccessResponseBase {
+        block_header: BlockHeader,
+        block_headers: Vec<BlockHeader>,
+    }
+}
+
+define_request_and_response! {
+    get_block_header_by_height,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1271..=1296,
+    GetBlockHeaderByHeight,
+    Request {
+        height: u64,
+        #[cfg_attr(feature = "serde", serde(default = "bool"))]
+        fill_pow_hash: bool = bool(),
+    },
+    AccessResponseBase {
+        block_header: BlockHeader,
     }
 }
 

@@ -99,6 +99,7 @@
 //---------------------------------------------------------------------------------------------------- Use
 mod binary_string;
 mod constants;
+mod defaults;
 mod macros;
 mod status;
 
