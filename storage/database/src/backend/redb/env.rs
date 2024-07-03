@@ -189,7 +189,10 @@ where
         // 3. So it's not being used to open a table since that needs `&tx_rw`
         //
         // Reader-open tables do not affect this, if they're open the below is still OK.
-        redb::WriteTransaction::delete_table(tx_rw, table)?;
+        if !redb::WriteTransaction::delete_table(tx_rw, table)? {
+            return Err(RuntimeError::TableNotFound);
+        }
+
         // Re-create the table.
         // `redb` creates tables if they don't exist, so this should never panic.
         redb::WriteTransaction::open_table(tx_rw, table)?;
@@ -200,6 +203,4 @@ where
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {
-    // use super::*;
-}
+mod tests {}

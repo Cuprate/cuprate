@@ -1,11 +1,11 @@
 //! `cuprate_database::Storable` <-> `heed` serde trait compatibility layer.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{borrow::Cow, marker::PhantomData};
+use std::{borrow::Cow, cmp::Ordering, marker::PhantomData};
 
 use heed::{BoxedError, BytesDecode, BytesEncode};
 
-use crate::storable::Storable;
+use crate::{storable::Storable, Key};
 
 //---------------------------------------------------------------------------------------------------- StorableHeed
 /// The glue struct that implements `heed`'s (de)serialization
@@ -16,7 +16,19 @@ pub(super) struct StorableHeed<T>(PhantomData<T>)
 where
     T: Storable + ?Sized;
 
-//---------------------------------------------------------------------------------------------------- BytesDecode
+//---------------------------------------------------------------------------------------------------- Key
+// If `Key` is also implemented, this can act as the comparison function.
+impl<T> heed::Comparator for StorableHeed<T>
+where
+    T: Key,
+{
+    #[inline]
+    fn compare(a: &[u8], b: &[u8]) -> Ordering {
+        <T as Key>::KEY_COMPARE.as_compare_fn::<T>()(a, b)
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- BytesDecode/Encode
 impl<'a, T> BytesDecode<'a> for StorableHeed<T>
 where
     T: Storable + 'static,
@@ -30,7 +42,6 @@ where
     }
 }
 
-//---------------------------------------------------------------------------------------------------- BytesEncode
 impl<'a, T> BytesEncode<'a> for StorableHeed<T>
 where
     T: Storable + ?Sized + 'a,
@@ -56,6 +67,42 @@ mod test {
     // - log
     // - simplify trait bounds
     // - make sure the right function is being called
+
+    #[test]
+    /// Assert key comparison behavior is correct.
+    fn compare() {
+        fn test<T>(left: T, right: T, expected: Ordering)
+        where
+            T: Key + Ord + 'static,
+        {
+            println!("left: {left:?}, right: {right:?}, expected: {expected:?}");
+            assert_eq!(
+                <StorableHeed::<T> as heed::Comparator>::compare(
+                    &<StorableHeed::<T> as heed::BytesEncode>::bytes_encode(&left).unwrap(),
+                    &<StorableHeed::<T> as heed::BytesEncode>::bytes_encode(&right).unwrap()
+                ),
+                expected
+            );
+        }
+
+        // Value comparison
+        test::<u8>(0, 255, Ordering::Less);
+        test::<u16>(0, 256, Ordering::Less);
+        test::<u32>(0, 256, Ordering::Less);
+        test::<u64>(0, 256, Ordering::Less);
+        test::<u128>(0, 256, Ordering::Less);
+        test::<usize>(0, 256, Ordering::Less);
+        test::<i8>(-1, 2, Ordering::Less);
+        test::<i16>(-1, 2, Ordering::Less);
+        test::<i32>(-1, 2, Ordering::Less);
+        test::<i64>(-1, 2, Ordering::Less);
+        test::<i128>(-1, 2, Ordering::Less);
+        test::<isize>(-1, 2, Ordering::Less);
+
+        // Byte comparison
+        test::<[u8; 2]>([1, 1], [1, 0], Ordering::Greater);
+        test::<[u8; 3]>([1, 2, 3], [1, 2, 3], Ordering::Equal);
+    }
 
     #[test]
     /// Assert `BytesEncode::bytes_encode` is accurate.
