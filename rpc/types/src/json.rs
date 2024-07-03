@@ -5,7 +5,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::bool,
+    defaults::default_bool,
     macros::define_request_and_response,
     misc::BlockHeader,
 };
@@ -200,8 +200,8 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 1214..=1238,
     GetLastBlockHeader,
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "bool"))]
-        fill_pow_hash: bool = bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        fill_pow_hash: bool = default_bool(),
     },
     AccessResponseBase {
         block_header: BlockHeader,
@@ -216,8 +216,8 @@ define_request_and_response! {
     Request {
         hash: String,
         hashes: Vec<String>,
-        #[cfg_attr(feature = "serde", serde(default = "bool"))]
-        fill_pow_hash: bool = bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        fill_pow_hash: bool = default_bool(),
     },
     AccessResponseBase {
         block_header: BlockHeader,
@@ -232,11 +232,50 @@ define_request_and_response! {
     GetBlockHeaderByHeight,
     Request {
         height: u64,
-        #[cfg_attr(feature = "serde", serde(default = "bool"))]
-        fill_pow_hash: bool = bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        fill_pow_hash: bool = default_bool(),
     },
     AccessResponseBase {
         block_header: BlockHeader,
+    }
+}
+
+define_request_and_response! {
+    get_block_headers_range,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1756..=1783,
+    GetBlockHeadersRange,
+    Request {
+        start_height: u64,
+        end_height: u64,
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        fill_pow_hash: bool = default_bool(),
+    },
+    AccessResponseBase {
+        headers: Vec<BlockHeader>,
+    }
+}
+
+define_request_and_response! {
+    get_block,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1298..=1313,
+    GetBlock,
+    Request {
+        // `monerod` has both `hash` and `height` fields.
+        // In the RPC handler, if `hash.is_empty()`, it will use it, else, it uses `height`.
+        // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2674>
+        hash: String,
+        height: u64,
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        fill_pow_hash: bool = default_bool(),
+    },
+    AccessResponseBase {
+        block_header: BlockHeader,
+        miner_tx_hash: String,
+        tx_hashes: Vec<String>,
+        blob: String,
+        json: String, // TODO: this should be defined in a struct, it has many fields.
     }
 }
 

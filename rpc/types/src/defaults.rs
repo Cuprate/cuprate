@@ -5,7 +5,7 @@
 //---------------------------------------------------------------------------------------------------- TODO
 /// TODO
 #[inline]
-pub(crate) const fn bool() -> bool {
+pub(crate) const fn default_bool() -> bool {
     false
 }
 
