@@ -14,7 +14,6 @@
 	unused_allocation,
 	coherence_leak_check,
 	while_true,
-	clippy::missing_docs_in_private_items,
 
 	// Maybe can be put into `#[deny]`.
 	unconditional_recursion,
@@ -121,3 +120,6 @@ pub mod json;
 #[cfg(feature = "other")]
 #[cfg_attr(docsrs, doc(cfg(feature = "other")))]
 pub mod other;
+
+mod misc;
+pub use misc::BlockHeader;

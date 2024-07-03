@@ -18,28 +18,13 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::epee_object;
 
-use crate::Status;
-
-//---------------------------------------------------------------------------------------------------- Macro
-/// Link the original `monerod` definition for RPC base types.
-macro_rules! monero_rpc_base_link {
-    ($start:literal..=$end:literal) => {
-        concat!(
-            "[Definition](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L",
-            stringify!($start),
-            "-L",
-            stringify!($end),
-            ")."
-        )
-    };
-}
+use crate::{macros::monero_definition_link, Status};
 
 //---------------------------------------------------------------------------------------------------- Requests
 
 //---------------------------------------------------------------------------------------------------- Responses
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 101..=112)]
 /// The most common base for responses.
-///
-#[doc = monero_rpc_base_link!(101..=112)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResponseBase {
@@ -58,9 +43,8 @@ epee_object! {
     untrusted: bool,
 }
 
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 124..=136)]
 /// A base for RPC response types that support RPC payment.
-///
-#[doc = monero_rpc_base_link!(124..=136)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AccessResponseBase {
