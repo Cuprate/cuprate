@@ -506,6 +506,7 @@ dependencies = [
  "monero-serai",
  "paste",
  "pretty_assertions",
+ "proptest",
  "rayon",
  "serde",
  "tempfile",
