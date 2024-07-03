@@ -35,49 +35,8 @@ macro_rules! monero_rpc_base_link {
 }
 
 //---------------------------------------------------------------------------------------------------- Requests
-/// The most common base for responses (nothing).
-///
-#[doc = monero_rpc_base_link!(95..=99)]
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct EmptyRequestBase;
-
-#[cfg(feature = "epee")]
-epee_object! {
-    EmptyRequestBase,
-}
-
-/// A base for RPC request types that support RPC payment.
-///
-#[doc = monero_rpc_base_link!(114..=122)]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct AccessRequestBase {
-    /// The RPC payment client.
-    pub client: String,
-}
-
-#[cfg(feature = "epee")]
-epee_object! {
-    AccessRequestBase,
-    client: String,
-}
 
 //---------------------------------------------------------------------------------------------------- Responses
-/// An empty response base.
-///
-/// This is for response types that do not contain
-/// any extra fields, e.g. TODO.
-// [`CalcPowResponse`](crate::json::CalcPowResponse).
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct EmptyResponseBase;
-
-#[cfg(feature = "epee")]
-epee_object! {
-    EmptyResponseBase,
-}
-
 /// The most common base for responses.
 ///
 #[doc = monero_rpc_base_link!(101..=112)]
