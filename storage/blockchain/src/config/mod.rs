@@ -1,28 +1,31 @@
-//! Database [`Env`](crate::Env) configuration.
+//! Database configuration.
 //!
 //! This module contains the main [`Config`]uration struct
-//! for the database [`Env`](crate::Env)ironment, and types
-//! related to configuration settings.
+//! for the database [`Env`](cuprate_database::Env)ironment,
+//! and blockchain-specific configuration.
+//!
+//! It also contains types related to configuration settings.
 //!
 //! The main constructor is the [`ConfigBuilder`].
 //!
 //! These configurations are processed at runtime, meaning
-//! the `Env` can/will dynamically adjust its behavior
-//! based on these values.
+//! the `Env` can/will dynamically adjust its behavior based
+//! on these values.
 //!
 //! # Example
 //! ```rust
 //! use cuprate_blockchain::{
-//!     Env,
-//!     config::{ConfigBuilder, ReaderThreads, SyncMode}
+//!     cuprate_database::{Env, config::SyncMode},
+//!     config::{ConfigBuilder, ReaderThreads},
 //! };
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let db_dir = tempfile::tempdir()?;
+//! let tmp_dir = tempfile::tempdir()?;
+//! let db_dir = tmp_dir.path().to_owned();
 //!
 //! let config = ConfigBuilder::new()
 //!      // Use a custom database directory.
-//!     .db_directory(db_dir.path().to_path_buf())
+//!     .db_directory(db_dir.into())
 //!     // Use as many reader threads as possible (when using `service`).
 //!     .reader_threads(ReaderThreads::OnePerThread)
 //!     // Use the fastest sync mode.
@@ -33,7 +36,7 @@
 //! // Start a database `service` using this configuration.
 //! let (reader_handle, _) = cuprate_blockchain::service::init(config.clone())?;
 //! // It's using the config we provided.
-//! assert_eq!(reader_handle.env().config(), &config);
+//! assert_eq!(reader_handle.env().config(), &config.db_config);
 //! # Ok(()) }
 //! ```
 
@@ -42,6 +45,3 @@ pub use config::{Config, ConfigBuilder};
 
 mod reader_threads;
 pub use reader_threads::ReaderThreads;
-
-mod sync_mode;
-pub use sync_mode::SyncMode;

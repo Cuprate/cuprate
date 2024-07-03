@@ -20,7 +20,7 @@
 //! it is up to the caller to decide what happens if one them return
 //! an error.
 //!
-//! To maintain atomicity, transactions should be [`abort`](crate::transaction::TxRw::abort)ed
+//! To maintain atomicity, transactions should be [`abort`](cuprate_database::TxRw::abort)ed
 //! if one of the functions failed.
 //!
 //! For example, if [`add_block()`](block::add_block) is called and returns an [`Err`],
@@ -55,25 +55,28 @@
 //! use hex_literal::hex;
 //!
 //! use cuprate_test_utils::data::block_v16_tx0;
-//!
 //! use cuprate_blockchain::{
-//!     ConcreteEnv,
+//!     cuprate_database::{
+//!         ConcreteEnv,
+//!         Env, EnvInner,
+//!         DatabaseRo, DatabaseRw, TxRo, TxRw,
+//!     },
+//!     OpenTables,
 //!     config::ConfigBuilder,
-//!     Env, EnvInner,
 //!     tables::{Tables, TablesMut},
-//!     DatabaseRo, DatabaseRw, TxRo, TxRw,
 //!     ops::block::{add_block, pop_block},
 //! };
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
-//! let db_dir = tempfile::tempdir()?;
+//! let tmp_dir = tempfile::tempdir()?;
+//! let db_dir = tmp_dir.path().to_owned();
 //! let config = ConfigBuilder::new()
-//!     .db_directory(db_dir.path().to_path_buf())
+//!     .db_directory(db_dir.into())
 //!     .build();
 //!
 //! // Initialize the database environment.
-//! let env = ConcreteEnv::open(config)?;
+//! let env = cuprate_blockchain::open(config)?;
 //!
 //! // Open up a transaction + tables for writing.
 //! let env_inner = env.env_inner();

@@ -7,7 +7,7 @@ use std::{
     sync::{RwLock, RwLockReadGuard},
 };
 
-use heed::{DatabaseOpenOptions, EnvFlags, EnvOpenOptions};
+use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions};
 
 use crate::{
     backend::heed::{
@@ -19,15 +19,10 @@ use crate::{
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
+    key::{Key, KeyCompare},
     resize::ResizeAlgorithm,
     table::Table,
-    tables::call_fn_on_all_tables_or_early_return,
 };
-
-//---------------------------------------------------------------------------------------------------- Consts
-/// Panic message when there's a table missing.
-const PANIC_MSG_MISSING_TABLE: &str =
-    "cuprate_blockchain::Env should uphold the invariant that all tables are already created";
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -184,8 +179,7 @@ impl Env for ConcreteEnv {
         // For now:
         // - No other program using our DB exists
         // - Almost no-one has a 126+ thread CPU
-        let reader_threads =
-            u32::try_from(config.reader_threads.as_threads().get()).unwrap_or(u32::MAX);
+        let reader_threads = u32::try_from(config.reader_threads.get()).unwrap_or(u32::MAX);
         env_open_options.max_readers(if reader_threads < 110 {
             126
         } else {
@@ -198,34 +192,6 @@ impl Env for ConcreteEnv {
         // SAFETY: LMDB uses a memory-map backed file.
         // <https://docs.rs/heed/0.20.0/heed/struct.EnvOpenOptions.html#method.open>
         let env = unsafe { env_open_options.open(config.db_directory())? };
-
-        /// Function that creates the tables based off the passed `T: Table`.
-        fn create_table<T: Table>(
-            env: &heed::Env,
-            tx_rw: &mut heed::RwTxn<'_>,
-        ) -> Result<(), InitError> {
-            DatabaseOpenOptions::new(env)
-                .name(<T as Table>::NAME)
-                .types::<StorableHeed<<T as Table>::Key>, StorableHeed<<T as Table>::Value>>()
-                .create(tx_rw)?;
-            Ok(())
-        }
-
-        let mut tx_rw = env.write_txn()?;
-        // Create all tables.
-        // FIXME: this macro is kinda awkward.
-        {
-            let env = &env;
-            let tx_rw = &mut tx_rw;
-            match call_fn_on_all_tables_or_early_return!(create_table(env, tx_rw)) {
-                Ok(_) => (),
-                Err(e) => return Err(e),
-            }
-        }
-
-        // INVARIANT: this should never return `ResizeNeeded` due to adding
-        // some tables since we added some leeway to the memory map above.
-        tx_rw.commit()?;
 
         Ok(Self {
             env: RwLock::new(env),
@@ -299,10 +265,14 @@ where
         tx_ro: &heed::RoTxn<'env>,
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
+        //
+        // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
+        // and we're relying on that since we aren't setting that here.
+        // <https://github.com/Cuprate/cuprate/pull/198#discussion_r1659422277>
         Ok(HeedTableRo {
             db: self
                 .open_database(tx_ro, Some(T::NAME))?
-                .expect(PANIC_MSG_MISSING_TABLE),
+                .ok_or(RuntimeError::TableNotFound)?,
             tx_ro,
         })
     }
@@ -312,15 +282,46 @@ where
         &self,
         tx_rw: &RefCell<heed::RwTxn<'env>>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
-        let tx_ro = tx_rw.borrow();
-
         // Open up a read/write database using our table's const metadata.
+        //
+        // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
+        // and we're relying on that since we aren't setting that here.
+        // <https://github.com/Cuprate/cuprate/pull/198#discussion_r1659422277>
         Ok(HeedTableRw {
-            db: self
-                .open_database(&tx_ro, Some(T::NAME))?
-                .expect(PANIC_MSG_MISSING_TABLE),
+            db: self.create_database(&mut tx_rw.borrow_mut(), Some(T::NAME))?,
             tx_rw,
         })
+    }
+
+    fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
+        // Create a database using our:
+        // - [`Table`]'s const metadata.
+        // - (potentially) our [`Key`] comparison function
+        let mut tx_rw = tx_rw.borrow_mut();
+        let mut db = self.database_options();
+        db.name(T::NAME);
+
+        // Set the key comparison behavior.
+        match <T::Key>::KEY_COMPARE {
+            // Use LMDB's default comparison function.
+            KeyCompare::Default => {
+                db.create(&mut tx_rw)?;
+            }
+
+            // Instead of setting a custom [`heed::Comparator`],
+            // use this LMDB flag; it is ~10% faster.
+            KeyCompare::Number => {
+                db.flags(DatabaseFlags::INTEGER_KEY).create(&mut tx_rw)?;
+            }
+
+            // Use a custom comparison function if specified.
+            KeyCompare::Custom(_) => {
+                db.key_comparator::<StorableHeed<T::Key>>()
+                    .create(&mut tx_rw)?;
+            }
+        }
+
+        Ok(())
     }
 
     #[inline]
@@ -330,18 +331,18 @@ where
     ) -> Result<(), RuntimeError> {
         let tx_rw = tx_rw.get_mut();
 
-        // Open the table first...
+        // Open the table. We don't care about flags or key
+        // comparison behavior since we're clearing it anyway.
         let db: HeedDb<T::Key, T::Value> = self
             .open_database(tx_rw, Some(T::NAME))?
-            .expect(PANIC_MSG_MISSING_TABLE);
+            .ok_or(RuntimeError::TableNotFound)?;
 
-        // ...then clear it.
-        Ok(db.clear(tx_rw)?)
+        db.clear(tx_rw)?;
+
+        Ok(())
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {
-    // use super::*;
-}
+mod tests {}

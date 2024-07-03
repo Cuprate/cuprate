@@ -66,7 +66,7 @@ pub enum InitError {
 /// 2. (De)serialization
 /// 3. Shutdown errors
 ///
-/// as `cuprate_blockchain` upholds the invariant that:
+/// as `cuprate_database` upholds the invariant that:
 ///
 /// 1. All tables exist
 /// 2. (De)serialization never fails
@@ -87,6 +87,10 @@ pub enum RuntimeError {
     /// This error can only occur if [`Env::MANUAL_RESIZE`](crate::Env::MANUAL_RESIZE) is `true`.
     #[error("database memory map must be resized")]
     ResizeNeeded,
+
+    /// The given table did not exist in the database.
+    #[error("database table did not exist")]
+    TableNotFound,
 
     /// A [`std::io::Error`].
     #[error("I/O error: {0}")]

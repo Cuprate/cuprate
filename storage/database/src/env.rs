@@ -9,7 +9,6 @@ use crate::{
     error::{InitError, RuntimeError},
     resize::ResizeAlgorithm,
     table::Table,
-    tables::{call_fn_on_all_tables_or_early_return, TablesIter, TablesMut},
     transaction::{TxRo, TxRw},
 };
 
@@ -81,13 +80,13 @@ pub trait Env: Sized {
     /// Open the database environment, using the passed [`Config`].
     ///
     /// # Invariants
-    /// This function **must** create all tables listed in [`crate::tables`].
+    /// This function does not create any tables.
     ///
-    /// The rest of the functions depend on the fact
-    /// they already exist, or else they will panic.
+    /// You must create all possible tables with [`EnvInner::create_db`]
+    /// before attempting to open any.
     ///
     /// # Errors
-    /// This will error if the database could not be opened.
+    /// This will error if the database file could not be opened.
     ///
     /// This is the only [`Env`] function that will return
     /// an [`InitError`] instead of a [`RuntimeError`].
@@ -176,14 +175,16 @@ pub trait Env: Sized {
 }
 
 //---------------------------------------------------------------------------------------------------- DatabaseRo
-/// Document errors when opening tables in [`EnvInner`].
-macro_rules! doc_table_error {
+/// Document the INVARIANT that the `heed` backend
+/// must use [`EnvInner::create_db`] when initially
+/// opening/creating tables.
+macro_rules! doc_heed_create_db_invariant {
     () => {
-        r"# Errors
-This will only return [`RuntimeError::Io`] if it errors.
+        r#"The first time you open/create tables, you _must_ use [`EnvInner::create_db`]
+to set the proper flags / [`Key`](crate::Key) comparison for the `heed` backend.
 
-As all tables are created upon [`Env::open`],
-this function will never error because a table doesn't exist."
+Subsequent table opens will follow the flags/ordering, but only if
+[`EnvInner::create_db`] was the _first_ function to open/create it."#
     };
 }
 
@@ -196,6 +197,18 @@ this function will never error because a table doesn't exist."
 /// As noted in `Env::env_inner`, this is a `RwLockReadGuard`
 /// when using the `heed` backend, be aware of this and do
 /// not hold onto an `EnvInner` for a long time.
+///
+/// # Tables
+/// Note that when opening tables with [`EnvInner::open_db_ro`],
+/// they must be created first or else it will return error.
+///
+/// Note that when opening tables with [`EnvInner::open_db_ro`],
+/// they must be created first or else it will return error.
+///
+/// See [`EnvInner::create_db`] for creating tables.
+///
+/// # Invariant
+#[doc = doc_heed_create_db_invariant!()]
 pub trait EnvInner<'env, Ro, Rw>
 where
     Self: 'env,
@@ -229,7 +242,14 @@ where
     /// //                      (name, key/value type)
     /// ```
     ///
-    #[doc = doc_table_error!()]
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] on normal errors.
+    ///
+    /// If the specified table is not created upon before this function is called,
+    /// this will return [`RuntimeError::TableNotFound`].
+    ///
+    /// # Invariant
+    #[doc = doc_heed_create_db_invariant!()]
     fn open_db_ro<T: Table>(
         &self,
         tx_ro: &Ro,
@@ -246,32 +266,23 @@ where
     /// This will open the database [`Table`]
     /// passed as a generic to this function.
     ///
-    #[doc = doc_table_error!()]
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] on errors.
+    ///
+    /// # Invariant
+    #[doc = doc_heed_create_db_invariant!()]
     fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
 
-    /// Open all tables in read/iter mode.
+    /// Create a database table.
     ///
-    /// This calls [`EnvInner::open_db_ro`] on all database tables
-    /// and returns a structure that allows access to all tables.
+    /// This will create the database [`Table`] passed as a generic to this function.
     ///
-    #[doc = doc_table_error!()]
-    fn open_tables(&self, tx_ro: &Ro) -> Result<impl TablesIter, RuntimeError> {
-        call_fn_on_all_tables_or_early_return! {
-            Self::open_db_ro(self, tx_ro)
-        }
-    }
-
-    /// Open all tables in read-write mode.
+    /// # Errors
+    /// This will only return [`RuntimeError::Io`] on errors.
     ///
-    /// This calls [`EnvInner::open_db_rw`] on all database tables
-    /// and returns a structure that allows access to all tables.
-    ///
-    #[doc = doc_table_error!()]
-    fn open_tables_mut(&self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
-        call_fn_on_all_tables_or_early_return! {
-            Self::open_db_rw(self, tx_rw)
-        }
-    }
+    /// # Invariant
+    #[doc = doc_heed_create_db_invariant!()]
+    fn create_db<T: Table>(&self, tx_rw: &Rw) -> Result<(), RuntimeError>;
 
     /// Clear all `(key, value)`'s from a database table.
     ///
@@ -281,6 +292,10 @@ where
     /// Note that this operation is tied to `tx_rw`, as such this
     /// function's effects can be aborted using [`TxRw::abort`].
     ///
-    #[doc = doc_table_error!()]
+    /// # Errors
+    /// This will return [`RuntimeError::Io`] on normal errors.
+    ///
+    /// If the specified table is not created upon before this function is called,
+    /// this will return [`RuntimeError::TableNotFound`].
     fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
 }

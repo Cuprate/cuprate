@@ -1,7 +1,10 @@
 //! (De)serialization for table keys & values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Borrow, fmt::Debug};
+use std::{
+    borrow::{Borrow, Cow},
+    fmt::Debug,
+};
 
 use bytemuck::Pod;
 use bytes::Bytes;
@@ -22,14 +25,10 @@ use bytes::Bytes;
 ///
 /// will automatically implement [`Storable`].
 ///
-/// This includes:
-/// - Most primitive types
-/// - All types in [`tables`](crate::tables)
-///
 /// See [`StorableVec`] & [`StorableBytes`] for storing slices of `T: Storable`.
 ///
 /// ```rust
-/// # use cuprate_blockchain::*;
+/// # use cuprate_database::*;
 /// # use std::borrow::*;
 /// let number: u64 = 0;
 ///
@@ -77,7 +76,7 @@ pub trait Storable: Debug {
     ///
     /// # Examples
     /// ```rust
-    /// # use cuprate_blockchain::*;
+    /// # use cuprate_database::*;
     /// assert_eq!(<()>::BYTE_LENGTH, Some(0));
     /// assert_eq!(u8::BYTE_LENGTH, Some(1));
     /// assert_eq!(u16::BYTE_LENGTH, Some(2));
@@ -99,7 +98,7 @@ pub trait Storable: Debug {
     ///
     /// # Blanket implementation
     /// The blanket implementation that covers all types used
-    /// by `cuprate_blockchain` will simply bitwise copy `bytes`
+    /// by `cuprate_database` will simply bitwise copy `bytes`
     /// into `Self`.
     ///
     /// The bytes do not have be correctly aligned.
@@ -136,7 +135,7 @@ where
 ///
 /// # Example
 /// ```rust
-/// # use cuprate_blockchain::*;
+/// # use cuprate_database::*;
 /// //---------------------------------------------------- u8
 /// let vec: StorableVec<u8> = StorableVec(vec![0,1]);
 ///
@@ -198,11 +197,71 @@ impl<T> Borrow<[T]> for StorableVec<T> {
     }
 }
 
+//---------------------------------------------------------------------------------------------------- StorableVec
+/// A [`Storable`] string.
+///
+/// This is a wrapper around a `Cow<'static, str>`
+/// that can be stored in the database.
+///
+/// # Invariant
+/// [`StorableStr::from_bytes`] will panic
+/// if the bytes are not UTF-8. This should normally
+/// not be possible in database operations, although technically
+/// you can call this function yourself and input bad data.
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::*;
+/// # use std::borrow::Cow;
+/// let string: StorableStr = StorableStr(Cow::Borrowed("a"));
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&string);
+/// assert_eq!(into, &[97]);
+///
+/// // From bytes.
+/// let from: StorableStr = Storable::from_bytes(&into);
+/// assert_eq!(from, string);
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::TransparentWrapper)]
+#[repr(transparent)]
+pub struct StorableStr(pub Cow<'static, str>);
+
+impl Storable for StorableStr {
+    const BYTE_LENGTH: Option<usize> = None;
+
+    /// [`String::as_bytes`].
+    #[inline]
+    fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+
+    #[inline]
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self(Cow::Owned(std::str::from_utf8(bytes).unwrap().to_string()))
+    }
+}
+
+impl std::ops::Deref for StorableStr {
+    type Target = Cow<'static, str>;
+    #[inline]
+    fn deref(&self) -> &Cow<'static, str> {
+        &self.0
+    }
+}
+
+impl Borrow<Cow<'static, str>> for StorableStr {
+    #[inline]
+    fn borrow(&self) -> &Cow<'static, str> {
+        &self.0
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- StorableBytes
 /// A [`Storable`] version of [`Bytes`].
 ///
 /// ```rust
-/// # use cuprate_blockchain::*;
+/// # use cuprate_database::*;
 /// # use bytes::Bytes;
 /// let bytes: StorableBytes = StorableBytes(Bytes::from_static(&[0,1]));
 ///

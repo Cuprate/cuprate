@@ -95,7 +95,7 @@ prop_compose! {
     fn dummy_transaction_stragtegy(height: u64)
         (
             extra in vec(any::<u8>(), 0..1_000),
-            timelock in 0_usize..50_000_000,
+            timelock in 1_usize..50_000_000,
         )
     -> Transaction {
         Transaction {
@@ -315,7 +315,9 @@ impl Service<ChainSvcRequest> for OurChainSvc {
                     block_ids: vec![genesis],
                     cumulative_difficulty: 1,
                 },
-                ChainSvcRequest::FindFirstUnknown(_) => ChainSvcResponse::FindFirstUnknown(1, 1),
+                ChainSvcRequest::FindFirstUnknown(_) => {
+                    ChainSvcResponse::FindFirstUnknown(Some((1, 1)))
+                }
                 ChainSvcRequest::CumulativeDifficulty => ChainSvcResponse::CumulativeDifficulty(1),
             })
         }

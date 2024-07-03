@@ -8,7 +8,6 @@ use crate::{
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
     table::Table,
-    tables::call_fn_on_all_tables_or_early_return,
     TxRw,
 };
 
@@ -22,7 +21,7 @@ pub struct ConcreteEnv {
     /// (and in current use).
     config: Config,
 
-    /// A cached, redb version of `cuprate_blockchain::config::SyncMode`.
+    /// A cached, redb version of `cuprate_database::config::SyncMode`.
     /// `redb` needs the sync mode to be set _per_ TX, so we
     /// will continue to use this value every `Env::tx_rw`.
     durability: redb::Durability,
@@ -90,31 +89,6 @@ impl Env for ConcreteEnv {
         // `redb` creates tables if they don't exist.
         // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
 
-        /// Function that creates the tables based off the passed `T: Table`.
-        fn create_table<T: Table>(tx_rw: &redb::WriteTransaction) -> Result<(), InitError> {
-            let table: redb::TableDefinition<
-                'static,
-                StorableRedb<<T as Table>::Key>,
-                StorableRedb<<T as Table>::Value>,
-            > = redb::TableDefinition::new(<T as Table>::NAME);
-
-            // `redb` creates tables on open if not already created.
-            tx_rw.open_table(table)?;
-            Ok(())
-        }
-
-        // Create all tables.
-        // FIXME: this macro is kinda awkward.
-        let mut tx_rw = env.begin_write()?;
-        {
-            let tx_rw = &mut tx_rw;
-            match call_fn_on_all_tables_or_early_return!(create_table(tx_rw)) {
-                Ok(_) => (),
-                Err(e) => return Err(e),
-            }
-        }
-        tx_rw.commit()?;
-
         // Check for file integrity.
         // FIXME: should we do this? is it slow?
         env.check_integrity()?;
@@ -174,7 +148,6 @@ where
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
 
-        // INVARIANT: Our `?` error conversion will panic if the table does not exist.
         Ok(tx_ro.open_table(table)?)
     }
 
@@ -187,9 +160,15 @@ where
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
             redb::TableDefinition::new(T::NAME);
 
-        // `redb` creates tables if they don't exist, so this should never panic.
+        // `redb` creates tables if they don't exist, so this shouldn't return `RuntimeError::TableNotFound`.
         // <https://docs.rs/redb/latest/redb/struct.WriteTransaction.html#method.open_table>
         Ok(tx_rw.open_table(table)?)
+    }
+
+    fn create_db<T: Table>(&self, tx_rw: &redb::WriteTransaction) -> Result<(), RuntimeError> {
+        // INVARIANT: `redb` creates tables if they don't exist.
+        self.open_db_rw::<T>(tx_rw)?;
+        Ok(())
     }
 
     #[inline]
@@ -210,7 +189,10 @@ where
         // 3. So it's not being used to open a table since that needs `&tx_rw`
         //
         // Reader-open tables do not affect this, if they're open the below is still OK.
-        redb::WriteTransaction::delete_table(tx_rw, table)?;
+        if !redb::WriteTransaction::delete_table(tx_rw, table)? {
+            return Err(RuntimeError::TableNotFound);
+        }
+
         // Re-create the table.
         // `redb` creates tables if they don't exist, so this should never panic.
         redb::WriteTransaction::open_table(tx_rw, table)?;
@@ -221,6 +203,4 @@ where
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {
-    // use super::*;
-}
+mod tests {}

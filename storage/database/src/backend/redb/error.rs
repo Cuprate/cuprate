@@ -1,4 +1,4 @@
-//! Conversion from `redb`'s errors -> `cuprate_blockchain`'s errors.
+//! Conversion from `redb`'s errors -> `cuprate_database`'s errors.
 //!
 //! HACK: There's a lot of `_ =>` usage here because
 //! `redb`'s errors are `#[non_exhaustive]`...
@@ -131,12 +131,13 @@ impl From<redb::TableError> for RuntimeError {
         match error {
             E::Storage(error) => error.into(),
 
+            E::TableDoesNotExist(_) => Self::TableNotFound,
+
             // Only if we write incorrect code.
             E::TableTypeMismatch { .. }
             | E::TableIsMultimap(_)
             | E::TableIsNotMultimap(_)
             | E::TypeDefinitionChanged { .. }
-            | E::TableDoesNotExist(_)
             | E::TableAlreadyOpen(..) => panic!("fix the database code! {error:#?}"),
 
             // HACK: Handle new errors as `redb` adds them.

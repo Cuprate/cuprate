@@ -23,8 +23,8 @@ members = [
 	"test-utils",
 	"types",
 	"rpc/json-rpc",
-	"rpc/rpc-types",
-	"rpc/rpc-interface",
+	"rpc/types",
+	"rpc/interface",
 ]
 
 [profile.release]
@@ -56,7 +56,7 @@ clap                  = { version = "4.4.7", default-features = false }
 chrono                = { version = "0.4.31", default-features = false }
 crypto-bigint         = { version = "0.5.5", default-features = false }
 crossbeam             = { version = "0.8.4", default-features = false }
-curve25519-dalek      = { version = "4.1.1", default-features = false }
+curve25519-dalek      = { version = "4.1.3", default-features = false }
 dalek-ff-group        = { git = "https://github.com/Cuprate/serai.git", rev = "d27d934", default-features = false }
 dashmap               = { version = "5.5.3", default-features = false }
 dirs                  = { version = "5.0.1", default-features = false }
