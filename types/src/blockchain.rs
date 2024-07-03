@@ -9,11 +9,6 @@ use std::{
     ops::Range,
 };
 
-#[cfg(feature = "borsh")]
-use borsh::{BorshDeserialize, BorshSerialize};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
 use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
