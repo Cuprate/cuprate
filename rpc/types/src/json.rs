@@ -7,7 +7,7 @@ use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_bool, default_height, default_string},
     macros::define_request_and_response,
-    misc::{BlockHeader, ConnectionInfo},
+    misc::{BlockHeader, ConnectionInfo, GetBan, SetBan},
 };
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
@@ -50,10 +50,10 @@ define_request_and_response! {
         // $FIELD_NAME: $FIELD_TYPE,
         // ```
         // The struct generated and all fields are `pub`.
+        extra_nonce: String,
+        prev_block: String,
         reserve_size: u64,
         wallet_address: String,
-        prev_block: String,
-        extra_nonce: String,
     },
 
     // The base response type.
@@ -77,18 +77,18 @@ define_request_and_response! {
         // status: crate::Status,
         // untrusted: bool,
         // ```
-        difficulty: u64,
-        wide_difficulty: String,
-        difficulty_top64: u64,
-        height: u64,
-        reserved_offset: u64,
-        expected_reward: u64,
-        prev_hash: String,
-        seed_height: u64,
-        seed_hash: String,
-        next_seed_hash: String,
-        blocktemplate_blob: String,
         blockhashing_blob: String,
+        blocktemplate_blob: String,
+        difficulty_top64: u64,
+        difficulty: u64,
+        expected_reward: u64,
+        height: u64,
+        next_seed_hash: String,
+        prev_hash: String,
+        reserved_offset: u64,
+        seed_hash: String,
+        seed_height: u64,
+        wide_difficulty: String,
     }
 }
 
@@ -125,7 +125,7 @@ define_request_and_response! {
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Request {
-        // This is `std::vector<uint64_t>` in `monerod` but
+        // This is `std::vector<u64>` in `monerod` but
         // it must be a 1 length array or else it will error.
         block_height: [u64; 1],
     },
@@ -184,13 +184,13 @@ define_request_and_response! {
     GenerateBlocks,
     Request {
         amount_of_blocks: u64,
-        wallet_address: String,
         prev_block: String,
         starting_nonce: u32,
+        wallet_address: String,
     },
     ResponseBase {
-        height: u64,
         blocks: Vec<String>,
+        height: u64,
     }
 }
 
@@ -273,11 +273,11 @@ define_request_and_response! {
         fill_pow_hash: bool = default_bool(),
     },
     AccessResponseBase {
+        blob: String,
         block_header: BlockHeader,
+        json: String, // TODO: this should be defined in a struct, it has many fields.
         miner_tx_hash: String,
         tx_hashes: Vec<String>,
-        blob: String,
-        json: String, // TODO: this should be defined in a struct, it has many fields.
     }
 }
 
@@ -290,6 +290,95 @@ define_request_and_response! {
     ResponseBase {
         // TODO: This is a `std::list` in `monerod` because...?
         connections: Vec<ConnectionInfo>,
+    }
+}
+
+define_request_and_response! {
+    get_info,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 693..=789,
+    GetInfo,
+    Request {},
+    AccessResponseBase {
+        adjusted_time: u64,
+        alt_blocks_count: u64,
+        block_size_limit: u64,
+        block_size_median: u64,
+        block_weight_limit: u64,
+        block_weight_median: u64,
+        bootstrap_daemon_address: String,
+        busy_syncing: bool,
+        cumulative_difficulty_top64: u64,
+        cumulative_difficulty: u64,
+        database_size: u64,
+        difficulty_top64: u64,
+        difficulty: u64,
+        free_space: u64,
+        grey_peerlist_size: u64,
+        height: u64,
+        height_without_bootstrap: u64,
+        incoming_connections_count: u64,
+        mainnet: bool,
+        nettype: String,
+        offline: bool,
+        outgoing_connections_count: u64,
+        restricted: bool,
+        rpc_connections_count: u64,
+        stagenet: bool,
+        start_time: u64,
+        synchronized: bool,
+        target_height: u64,
+        target: u64,
+        testnet: bool,
+        top_block_hash: String,
+        tx_count: u64,
+        tx_pool_size: u64,
+        update_available: bool,
+        version: String,
+        was_bootstrap_ever_used: bool,
+        white_peerlist_size: u64,
+        wide_cumulative_difficulty: String,
+        wide_difficulty: String,
+    }
+}
+
+define_request_and_response! {
+    hard_fork_info,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1958..=1995,
+    HardForkInfo,
+    Request {},
+    AccessResponseBase {
+        earliest_height: u64,
+        enabled: bool,
+        state: u32,
+        threshold: u32,
+        version: u8,
+        votes: u32,
+        voting: u8,
+        window: u32,
+    }
+}
+
+define_request_and_response! {
+    set_bans,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2032..=2067,
+    SetBans,
+    Request {
+        bans: Vec<SetBan>,
+    },
+    ResponseBase {}
+}
+
+define_request_and_response! {
+    get_bans,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2032..=2067,
+    GetBans,
+    Request {},
+    ResponseBase {
+        bans: Vec<GetBan>,
     }
 }
 

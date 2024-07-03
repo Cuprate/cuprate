@@ -54,7 +54,13 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         1163..=1212
     )]
-    /// TODO.
+    ///
+    /// Used in:
+    /// - [`crate::json::GetLastBlockHeaderResponse`]
+    /// - [`crate::json::GetBlockHeaderByHashResponse`]
+    /// - [`crate::json::GetBlockHeaderByHeightResponse`]
+    /// - [`crate::json::GetBlockHeadersRangeResponse`]
+    /// - [`crate::json::GetBlockResponse`]
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     BlockHeader {
@@ -90,7 +96,7 @@ define_struct_and_impl_epee! {
         "cryptonote_protocol/cryptonote_protocol_defs.h",
         47..=116
     )]
-    /// TODO.
+    /// Used in [`crate::json::GetConnectionsResponse`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     ConnectionInfo {
@@ -120,6 +126,40 @@ define_struct_and_impl_epee! {
         ssl: bool,
         state: String,
         support_flags: u32,
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Ban
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        2034..=2047
+    )]
+    /// Used in [`crate::json::SetBansRequest`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    SetBan {
+        host: String,
+        ip: u32,
+        ban: bool,
+        seconds: u32,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1999..=2010
+    )]
+    /// Used in [`crate::json::GetBansResponse`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    GetBan {
+        host: String,
+        ip: u32,
+        seconds: u32,
     }
 }
 
