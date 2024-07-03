@@ -82,7 +82,7 @@ pub async fn init_address_book<Z: BorshNetworkZone>(
     Ok(address_book)
 }
 
-use sealed::*;
+use sealed::BorshNetworkZone;
 mod sealed {
     use super::*;
 

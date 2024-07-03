@@ -75,7 +75,7 @@ where
                 permit: req.permit,
                 peer_stream,
                 peer_sink,
-                direction: ConnectionDirection::OutBound,
+                direction: ConnectionDirection::Outbound,
             };
             handshaker.ready().await?.call(req).await
         }

@@ -192,7 +192,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
                 addr: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
                 peer_stream: stream,
                 peer_sink: sink,
-                direction: ConnectionDirection::InBound,
+                direction: ConnectionDirection::Inbound,
                 permit: None,
             })
             .await

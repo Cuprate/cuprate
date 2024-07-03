@@ -3,7 +3,7 @@
 
 use cuprate_wire::{Message, ProtocolMessage};
 
-use super::*;
+use crate::{PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse};
 
 #[derive(Debug)]
 pub struct MessageConversionError;
@@ -38,7 +38,9 @@ impl TryFrom<ProtocolMessage> for ProtocolRequest {
             ProtocolMessage::NewBlock(val) => ProtocolRequest::NewBlock(val),
             ProtocolMessage::NewFluffyBlock(val) => ProtocolRequest::NewFluffyBlock(val),
             ProtocolMessage::NewTransactions(val) => ProtocolRequest::NewTransactions(val),
-            _ => return Err(MessageConversionError),
+            ProtocolMessage::GetObjectsResponse(_) | ProtocolMessage::ChainEntryResponse(_) => {
+                return Err(MessageConversionError)
+            }
         })
     }
 }
@@ -59,7 +61,7 @@ impl TryFrom<Message> for PeerRequest {
         match value {
             Message::Request(req) => Ok(PeerRequest::Admin(req)),
             Message::Protocol(pro) => Ok(PeerRequest::Protocol(pro.try_into()?)),
-            _ => Err(MessageConversionError),
+            Message::Response(_) => Err(MessageConversionError),
         }
     }
 }
@@ -87,7 +89,11 @@ impl TryFrom<ProtocolMessage> for ProtocolResponse {
             ProtocolMessage::NewFluffyBlock(val) => ProtocolResponse::NewFluffyBlock(val),
             ProtocolMessage::ChainEntryResponse(val) => ProtocolResponse::GetChain(val),
             ProtocolMessage::GetObjectsResponse(val) => ProtocolResponse::GetObjects(val),
-            _ => return Err(MessageConversionError),
+            ProtocolMessage::ChainRequest(_)
+            | ProtocolMessage::FluffyMissingTransactionsRequest(_)
+            | ProtocolMessage::GetObjectsRequest(_)
+            | ProtocolMessage::GetTxPoolCompliment(_)
+            | ProtocolMessage::NewBlock(_) => return Err(MessageConversionError),
         })
     }
 }
@@ -99,7 +105,7 @@ impl TryFrom<Message> for PeerResponse {
         match value {
             Message::Response(res) => Ok(PeerResponse::Admin(res)),
             Message::Protocol(pro) => Ok(PeerResponse::Protocol(pro.try_into()?)),
-            _ => Err(MessageConversionError),
+            Message::Request(_) => Err(MessageConversionError),
         }
     }
 }

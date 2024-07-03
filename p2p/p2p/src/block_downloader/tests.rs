@@ -265,7 +265,7 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
     let info = PeerInformation {
         id: InternalPeerID::Unknown(rand::random()),
         handle: connection_handle,
-        direction: ConnectionDirection::InBound,
+        direction: ConnectionDirection::Inbound,
         pruning_seed: PruningSeed::NotPruned,
     };
 

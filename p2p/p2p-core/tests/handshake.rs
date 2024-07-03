@@ -56,7 +56,7 @@ async fn handshake_cuprate_to_cuprate() {
         addr: InternalPeerID::KnownAddr(TestNetZoneAddr(888)),
         peer_stream: FramedRead::new(p2_receiver, MoneroWireCodec::default()),
         peer_sink: FramedWrite::new(p2_sender, MoneroWireCodec::default()),
-        direction: ConnectionDirection::OutBound,
+        direction: ConnectionDirection::Outbound,
         permit: None,
     };
 
@@ -64,7 +64,7 @@ async fn handshake_cuprate_to_cuprate() {
         addr: InternalPeerID::KnownAddr(TestNetZoneAddr(444)),
         peer_stream: FramedRead::new(p1_receiver, MoneroWireCodec::default()),
         peer_sink: FramedWrite::new(p1_sender, MoneroWireCodec::default()),
-        direction: ConnectionDirection::InBound,
+        direction: ConnectionDirection::Inbound,
         permit: None,
     };
 
@@ -155,7 +155,7 @@ async fn handshake_monerod_to_cuprate() {
                 addr: InternalPeerID::KnownAddr(addr.unwrap()), // This is clear net all addresses are known.
                 peer_stream: stream,
                 peer_sink: sink,
-                direction: ConnectionDirection::InBound,
+                direction: ConnectionDirection::Inbound,
                 permit: None,
             })
             .await

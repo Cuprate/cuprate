@@ -264,7 +264,7 @@ where
     let mut eager_protocol_messages = Vec::new();
 
     let (peer_core_sync, peer_node_data) = match direction {
-        ConnectionDirection::InBound => {
+        ConnectionDirection::Inbound => {
             // Inbound handshake the peer sends the request.
             tracing::debug!("waiting for handshake request.");
 
@@ -286,7 +286,7 @@ where
             // We will respond to the handshake request later.
             (handshake_req.payload_data, handshake_req.node_data)
         }
-        ConnectionDirection::OutBound => {
+        ConnectionDirection::Outbound => {
             // Outbound handshake, we send the request.
             send_hs_request::<Z, _>(
                 &mut peer_sink,
@@ -386,7 +386,7 @@ where
     // public_address, if Some, is the reachable address of the node.
     let public_address = 'check_out_addr: {
         match direction {
-            ConnectionDirection::InBound => {
+            ConnectionDirection::Inbound => {
                 // First send the handshake response.
                 send_hs_response::<Z, _, _>(
                     &mut peer_sink,
@@ -424,7 +424,7 @@ where
                 // The peer did not specify a reachable port or the ping was not successful.
                 None
             }
-            ConnectionDirection::OutBound => {
+            ConnectionDirection::Outbound => {
                 let InternalPeerID::KnownAddr(outbound_addr) = addr else {
                     unreachable!("How could we make an outbound connection to an unknown address");
                 };

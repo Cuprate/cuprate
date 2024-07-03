@@ -87,7 +87,7 @@ where
                 addr,
                 peer_stream,
                 peer_sink,
-                direction: ConnectionDirection::InBound,
+                direction: ConnectionDirection::Inbound,
                 permit: Some(permit),
             });
 

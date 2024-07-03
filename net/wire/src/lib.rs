@@ -16,7 +16,7 @@
 //! # Cuprate Wire
 //!
 //! A crate defining Monero network messages and network addresses,
-//! built on top of the cuprate-levin crate.
+//! built on top of the [`cuprate_levin`] crate.
 //!
 //! ## License
 //!

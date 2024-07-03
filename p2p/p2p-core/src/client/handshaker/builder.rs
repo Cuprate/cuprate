@@ -1,23 +1,18 @@
-use std::{
-    future::{ready, Ready},
-    marker::PhantomData,
-    task::{Context, Poll},
-};
+use std::marker::PhantomData;
 
 use futures::{stream, Stream};
-use tower::Service;
 use tracing::Span;
 
-use cuprate_wire::{BasicNodeData, CoreSyncData};
+use cuprate_wire::BasicNodeData;
 
 use crate::{
     client::{handshaker::HandShaker, InternalPeerID},
-    services::{
-        AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
-        PeerSyncRequest, PeerSyncResponse,
-    },
-    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc, ProtocolRequest,
-    ProtocolResponse,
+    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc,
+};
+
+mod dummy;
+pub use dummy::{
+    DummyAddressBook, DummyCoreSyncSvc, DummyPeerSyncSvc, DummyProtocolRequestHandler,
 };
 
 /// A [`HandShaker`] [`Service`] builder.
@@ -25,8 +20,9 @@ use crate::{
 /// This builder applies default values to make usage easier, behaviour and drawbacks of the defaults are documented
 /// on the `with_*` method to change it, for example [`HandshakerBuilder::with_protocol_request_handler`].
 ///
-/// If you want to use any network other than mainnet you will need to change the core sync service with
-/// [`HandshakerBuilder::with_core_sync_svc`], see that method for details.
+/// If you want to use any network other than [`Mainnet`](crate::Network::Mainnet)
+/// you will need to change the core sync service with [`HandshakerBuilder::with_core_sync_svc`],
+/// see that method for details.
 #[derive(Debug, Clone)]
 pub struct HandshakerBuilder<
     N: NetworkZone,
@@ -58,7 +54,7 @@ pub struct HandshakerBuilder<
 }
 
 impl<N: NetworkZone> HandshakerBuilder<N> {
-    /// Creates a new builder with our nodes basic node data.
+    /// Creates a new builder with our node's basic node data.
     pub fn new(our_basic_node_data: BasicNodeData) -> Self {
         Self {
             address_book: DummyAddressBook,
@@ -196,7 +192,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
 
     /// Changes the protocol request handler, which handles [`ProtocolRequest`]s to our node.
     ///
-    ///  ## Default Protocol Request Handler
+    /// ## Default Protocol Request Handler
     ///
     /// The default protocol request handler will not respond to any protocol requests, this should not
     /// be an issue as long as peers do not think we are ahead of them, if they do they will send requests
@@ -234,7 +230,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     ///
     /// The default broadcast stream maker just returns [`stream::Pending`], i.e. the returned stream will not
     /// produce any messages to broadcast, this is not a problem if your use case does not require broadcasting
-    /// message.
+    /// messages.
     pub fn with_broadcast_stream_maker<NBrdcstStrmMkr, BrdcstStrm>(
         self,
         new_broadcast_stream_maker: NBrdcstStrmMkr,
@@ -268,7 +264,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
 
     /// Changes the parent [`Span`] of the connection task to the one provided.
     ///
-    /// ## Default Broadcast Stream Maker
+    /// ## Default Connection Parent Span
     ///
     /// The default connection span will be [`Span::none`].
     pub fn with_connection_parent_span(self, connection_parent_span: Span) -> Self {
@@ -289,139 +285,5 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             self.our_basic_node_data,
             self.connection_parent_span.unwrap_or(Span::none()),
         )
-    }
-}
-
-/// A dummy peer sync service, that doesn't actually keep track of peers sync states.
-#[derive(Debug, Clone)]
-pub struct DummyPeerSyncSvc;
-
-impl<N: NetworkZone> Service<PeerSyncRequest<N>> for DummyPeerSyncSvc {
-    type Response = PeerSyncResponse<N>;
-    type Error = tower::BoxError;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, req: PeerSyncRequest<N>) -> Self::Future {
-        ready(Ok(match req {
-            PeerSyncRequest::PeersToSyncFrom { .. } => PeerSyncResponse::PeersToSyncFrom(vec![]),
-            PeerSyncRequest::IncomingCoreSyncData(_, _, _) => PeerSyncResponse::Ok,
-        }))
-    }
-}
-
-/// A dummy core sync service that just returns static [`CoreSyncData`].
-#[derive(Debug, Clone)]
-pub struct DummyCoreSyncSvc(CoreSyncData);
-
-impl DummyCoreSyncSvc {
-    /// Returns a [`DummyCoreSyncSvc`] that will just return the mainnet genesis [`CoreSyncData`].
-    pub fn static_mainnet_genesis() -> DummyCoreSyncSvc {
-        DummyCoreSyncSvc(CoreSyncData {
-            cumulative_difficulty: 1,
-            cumulative_difficulty_top64: 0,
-            current_height: 1,
-            pruning_seed: 0,
-            top_id: hex_literal::hex!(
-                "418015bb9ae982a1975da7d79277c2705727a56894ba0fb246adaabb1f4632e3"
-            ),
-            top_version: 1,
-        })
-    }
-
-    /// Returns a [`DummyCoreSyncSvc`] that will just return the testnet genesis [`CoreSyncData`].
-    pub fn static_testnet_genesis() -> DummyCoreSyncSvc {
-        DummyCoreSyncSvc(CoreSyncData {
-            cumulative_difficulty: 1,
-            cumulative_difficulty_top64: 0,
-            current_height: 1,
-            pruning_seed: 0,
-            top_id: hex_literal::hex!(
-                "48ca7cd3c8de5b6a4d53d2861fbdaedca141553559f9be9520068053cda8430b"
-            ),
-            top_version: 1,
-        })
-    }
-
-    /// Returns a [`DummyCoreSyncSvc`] that will just return the stagenet genesis [`CoreSyncData`].
-    pub fn static_stagenet_genesis() -> DummyCoreSyncSvc {
-        DummyCoreSyncSvc(CoreSyncData {
-            cumulative_difficulty: 1,
-            cumulative_difficulty_top64: 0,
-            current_height: 1,
-            pruning_seed: 0,
-            top_id: hex_literal::hex!(
-                "76ee3cc98646292206cd3e86f74d88b4dcc1d937088645e9b0cbca84b7ce74eb"
-            ),
-            top_version: 1,
-        })
-    }
-
-    /// Returns a [`DummyCoreSyncSvc`] that will return the provided [`CoreSyncData`].
-    pub fn static_custom(data: CoreSyncData) -> DummyCoreSyncSvc {
-        DummyCoreSyncSvc(data)
-    }
-}
-
-impl Service<CoreSyncDataRequest> for DummyCoreSyncSvc {
-    type Response = CoreSyncDataResponse;
-    type Error = tower::BoxError;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, _: CoreSyncDataRequest) -> Self::Future {
-        ready(Ok(CoreSyncDataResponse(self.0.clone())))
-    }
-}
-
-/// A dummy address book that doesn't actually keep track of peers.
-#[derive(Debug, Clone)]
-pub struct DummyAddressBook;
-
-impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
-    type Response = AddressBookResponse<N>;
-    type Error = tower::BoxError;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, req: AddressBookRequest<N>) -> Self::Future {
-        ready(Ok(match req {
-            AddressBookRequest::GetWhitePeers(_) => AddressBookResponse::Peers(vec![]),
-            AddressBookRequest::TakeRandomGrayPeer { .. }
-            | AddressBookRequest::TakeRandomPeer { .. }
-            | AddressBookRequest::TakeRandomWhitePeer { .. } => {
-                return ready(Err("dummy address book does not hold peers".into()));
-            }
-            AddressBookRequest::NewConnection { .. } | AddressBookRequest::IncomingPeerList(_) => {
-                AddressBookResponse::Ok
-            }
-            AddressBookRequest::IsPeerBanned(_) => AddressBookResponse::IsPeerBanned(false),
-        }))
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct DummyProtocolRequestHandler;
-
-impl Service<ProtocolRequest> for DummyProtocolRequestHandler {
-    type Response = ProtocolResponse;
-    type Error = tower::BoxError;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, _: ProtocolRequest) -> Self::Future {
-        ready(Ok(ProtocolResponse::NA))
     }
 }

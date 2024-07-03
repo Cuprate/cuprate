@@ -41,10 +41,10 @@
 //!
 //! // See [`HandshakerBuilder`] for information about the default values set, they may not be
 //! // appropriate for every use case.
-//! let handskaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
+//! let handshaker = HandshakerBuilder::<ClearNet>::new(our_basic_node_data).build();
 //!
 //! // The outbound connector.
-//! let mut connector = Connector::new(handskaker);
+//! let mut connector = Connector::new(handshaker);
 //!
 //! // The connection.
 //! let connection = connector
@@ -84,9 +84,9 @@ pub use cuprate_helper::network::Network;
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ConnectionDirection {
     /// An inbound connection to our node.
-    InBound,
+    Inbound,
     /// An outbound connection from our node.
-    OutBound,
+    Outbound,
 }
 
 /// An address on a specific [`NetworkZone`].
@@ -106,8 +106,10 @@ pub trait NetZoneAddress:
     /// that include the port, to be able to facilitate this network addresses must have a ban ID
     /// which for hidden services could just be the address it self but for clear net addresses will
     /// be the IP address.
-    /// TODO: IP zone banning?
-    /// TODO: rename this to Host.
+    ///
+    /// - TODO: IP zone banning?
+    /// - TODO: rename this to Host.
+
     type BanID: Debug + Hash + Eq + Clone + Copy + Send + 'static;
 
     /// Changes the port of this address to `port`.
