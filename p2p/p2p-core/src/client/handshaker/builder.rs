@@ -7,7 +7,7 @@ use cuprate_wire::BasicNodeData;
 
 use crate::{
     client::{handshaker::HandShaker, InternalPeerID},
-    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc,
+    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc, ProtocolRequestHandler,
 };
 
 mod dummy;
@@ -15,7 +15,7 @@ pub use dummy::{
     DummyAddressBook, DummyCoreSyncSvc, DummyPeerSyncSvc, DummyProtocolRequestHandler,
 };
 
-/// A [`HandShaker`] [`Service`] builder.
+/// A [`HandShaker`] [`Service`](tower::Service) builder.
 ///
 /// This builder applies default values to make usage easier, behaviour and drawbacks of the defaults are documented
 /// on the `with_*` method to change it, for example [`HandshakerBuilder::with_protocol_request_handler`].
@@ -190,7 +190,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         }
     }
 
-    /// Changes the protocol request handler, which handles [`ProtocolRequest`]s to our node.
+    /// Changes the protocol request handler, which handles [`ProtocolRequest`](crate::ProtocolRequest)s to our node.
     ///
     /// ## Default Protocol Request Handler
     ///
@@ -200,7 +200,10 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     pub fn with_protocol_request_handler<NProtoHdlr>(
         self,
         new_protocol_handler: NProtoHdlr,
-    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, NProtoHdlr, BrdcstStrmMkr> {
+    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, NProtoHdlr, BrdcstStrmMkr>
+    where
+        NProtoHdlr: ProtocolRequestHandler + Clone,
+    {
         let HandshakerBuilder {
             address_book,
             core_sync_svc,
