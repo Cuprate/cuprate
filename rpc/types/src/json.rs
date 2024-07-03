@@ -3,10 +3,7 @@
 //! <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/daemon_messages.h>.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::{
-    base::{EmptyRequestBase, EmptyResponseBase, ResponseBase},
-    macros::define_request_and_response,
-};
+use crate::{base::ResponseBase, macros::define_request_and_response};
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
 // This generates 2 structs:
@@ -30,7 +27,7 @@ define_request_and_response! {
     //
     // This must be a type found in [`crate::base`].
     // It acts as a "base" that gets flattened into
-    // the actually request type.
+    // the actual request type.
     //
     // "Flatten" means the field(s) of a struct gets inlined
     // directly into the struct during (de)serialization, see:
@@ -39,9 +36,15 @@ define_request_and_response! {
     // For example here, we're using [`crate::base::EmptyRequestBase`],
     // which means that there is no extra fields flattened.
     //
-    // If a request is not specified here, it will create a `type alias YOUR_REQUEST_TYPE = ()`
+    // If a request is not specified here, it will create a `type YOUR_REQUEST_TYPE = ()`
     // instead of a `struct`, see below in other macro definitions for an example.
-    EmptyRequestBase {
+    Request {
+        // Within the `{}` is an infinite matching pattern of:
+        // ```
+        // $ATTRIBUTES
+        // $FIELD_NAME: $FIELD_TYPE,
+        // ```
+        // The struct generated and all fields are `pub`.
         reserve_size: u64,
         wallet_address: String,
         prev_block: String,
@@ -69,13 +72,6 @@ define_request_and_response! {
         // status: crate::Status,
         // untrusted: bool,
         // ```
-
-        // Within the `{}` is an infinite matching pattern of:
-        // ```
-        // $ATTRIBUTES
-        // $FIELD_NAME: $FIELD_TYPE,
-        // ```
-        // The struct generated and all fields are `pub`.
         difficulty: u64,
         wide_difficulty: String,
         difficulty_top64: u64,
@@ -100,6 +96,7 @@ define_request_and_response! {
     // There is no request type specified,
     // this will cause the macro to generate a
     // type alias to `()` instead of a `struct`.
+    Request {},
 
     ResponseBase {
         count: u64,
@@ -112,13 +109,46 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 935..=939,
     OnGetBlockHash,
     #[derive(Copy)]
-    EmptyRequestBase {
+    Request {
         #[cfg_attr(feature = "serde", serde(flatten))]
         block_height: u64,
     },
-    EmptyResponseBase {
+    Response {
         #[cfg_attr(feature = "serde", serde(flatten))]
         block_hash: String,
+    }
+}
+
+define_request_and_response! {
+    submit_block,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1114..=1128,
+    SubmitBlock,
+    /// ```rust
+    /// use serde_json::*;
+    /// use cuprate_rpc_types::json::*;
+    ///
+    /// let x = SubmitBlockRequest { block_id: String::from("asdf") };
+    /// let x = to_string(&x).unwrap();
+    /// assert_eq!(x, "\"asdf\"");
+    /// ```
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
+    Request {
+        block_id: String,
+    },
+    /// ```rust
+    /// use serde_json::*;
+    /// use cuprate_rpc_types::json::*;
+    ///
+    /// let x = SubmitBlockResponse { status: String::from("asdf") };
+    /// let x = to_string(&x).unwrap();
+    /// assert_eq!(x, "\"asdf\"");
+    /// ```
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
+    Response {
+        status: String,
     }
 }
 
