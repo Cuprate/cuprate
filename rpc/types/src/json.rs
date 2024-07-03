@@ -5,9 +5,9 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::default_bool,
+    defaults::{default_bool, default_height, default_string},
     macros::define_request_and_response,
-    misc::BlockHeader,
+    misc::{BlockHeader, ConnectionInfo},
 };
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
@@ -265,8 +265,10 @@ define_request_and_response! {
         // `monerod` has both `hash` and `height` fields.
         // In the RPC handler, if `hash.is_empty()`, it will use it, else, it uses `height`.
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2674>
-        hash: String,
-        height: u64,
+        #[cfg_attr(feature = "serde", serde(default = "default_string"))]
+        hash: String = default_string(),
+        #[cfg_attr(feature = "serde", serde(default = "default_height"))]
+        height: u64 = default_height(),
         #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
         fill_pow_hash: bool = default_bool(),
     },
@@ -276,6 +278,18 @@ define_request_and_response! {
         tx_hashes: Vec<String>,
         blob: String,
         json: String, // TODO: this should be defined in a struct, it has many fields.
+    }
+}
+
+define_request_and_response! {
+    get_connections,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1734..=1754,
+    GetConnections,
+    Request {},
+    ResponseBase {
+        // TODO: This is a `std::list` in `monerod` because...?
+        connections: Vec<ConnectionInfo>,
     }
 }
 
