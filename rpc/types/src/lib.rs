@@ -123,4 +123,4 @@ pub mod json;
 pub mod other;
 
 mod misc;
-pub use misc::BlockHeader;
+pub use misc::{BlockHeader, ConnectionInfo};

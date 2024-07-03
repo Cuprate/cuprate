@@ -292,14 +292,12 @@ pub(crate) use define_request_and_response_doc;
 //---------------------------------------------------------------------------------------------------- Macro
 /// Link the original `monerod` definition for RPC base types.
 macro_rules! monero_definition_link {
-    ($commit:ident => $file:ident.$file_extension:ident => $start:literal..=$end:literal) => {
+    ($commit:ident, $file_path:literal, $start:literal..=$end:literal) => {
         concat!(
             "[Definition](https://github.com/monero-project/monero/blob/",
             stringify!($commit),
-            "/src/rpc/",
-            stringify!($file),
-            ".",
-            stringify!($file_extension),
+            "/src/",
+            stringify!($file_path),
             "#L",
             stringify!($start),
             "-L",
