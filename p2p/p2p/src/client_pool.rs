@@ -9,7 +9,6 @@
 //!
 //! Internally the pool is a [`DashMap`] which means care should be taken in `async` code
 //! as internally this uses blocking RwLocks.
-//!
 use std::sync::Arc;
 
 use dashmap::DashMap;

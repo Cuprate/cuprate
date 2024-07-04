@@ -10,10 +10,9 @@
 //! clear net peers getting linked to their dark counterparts
 //! and so peers will only get told about peers they can
 //! connect to.
-//!
 use std::{io::ErrorKind, path::PathBuf, time::Duration};
 
-use cuprate_p2p_core::NetworkZone;
+use cuprate_p2p_core::{NetZoneAddress, NetworkZone};
 
 mod book;
 mod peer_list;
@@ -61,7 +60,7 @@ pub enum AddressBookError {
 }
 
 /// Initializes the P2P address book for a specific network zone.
-pub async fn init_address_book<Z: NetworkZone>(
+pub async fn init_address_book<Z: BorshNetworkZone>(
     cfg: AddressBookConfig,
 ) -> Result<book::AddressBook<Z>, std::io::Error> {
     tracing::info!(
@@ -81,4 +80,22 @@ pub async fn init_address_book<Z: NetworkZone>(
     let address_book = book::AddressBook::<Z>::new(cfg, white_list, gray_list, Vec::new());
 
     Ok(address_book)
+}
+
+use sealed::BorshNetworkZone;
+mod sealed {
+    use super::*;
+
+    /// An internal trait for the address book for a [`NetworkZone`] that adds the requirement of [`borsh`] traits
+    /// onto the network address.
+    pub trait BorshNetworkZone: NetworkZone<Addr = Self::BorshAddr> {
+        type BorshAddr: NetZoneAddress + borsh::BorshDeserialize + borsh::BorshSerialize;
+    }
+
+    impl<T: NetworkZone> BorshNetworkZone for T
+    where
+        T::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
+    {
+        type BorshAddr = T::Addr;
+    }
 }

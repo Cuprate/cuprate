@@ -12,7 +12,7 @@ use tokio::{
 use tower::ServiceExt;
 use tracing::instrument;
 
-use cuprate_wire::admin::TimedSyncRequest;
+use cuprate_wire::{admin::TimedSyncRequest, AdminRequestMessage, AdminResponseMessage};
 
 use crate::{
     client::{connection::ConnectionTaskRequest, InternalPeerID},
@@ -87,15 +87,15 @@ where
         tracing::debug!(parent: &ping_span, "Sending timed sync to peer");
         connection_tx
             .send(ConnectionTaskRequest {
-                request: PeerRequest::TimedSync(TimedSyncRequest {
+                request: PeerRequest::Admin(AdminRequestMessage::TimedSync(TimedSyncRequest {
                     payload_data: core_sync_data,
-                }),
+                })),
                 response_channel: tx,
                 permit: Some(permit),
             })
             .await?;
 
-        let PeerResponse::TimedSync(timed_sync) = rx.await?? else {
+        let PeerResponse::Admin(AdminResponseMessage::TimedSync(timed_sync)) = rx.await?? else {
             panic!("Connection task returned wrong response!");
         };
 
