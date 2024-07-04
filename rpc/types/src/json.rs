@@ -8,7 +8,10 @@ use crate::{
     defaults::{default_bool, default_height, default_string, default_u64, default_vec},
     free::{is_one, is_zero},
     macros::define_request_and_response,
-    misc::{BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, SetBan},
+    misc::{
+        BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, Peer,
+        SetBan, Span,
+    },
     Status,
 };
 
@@ -508,6 +511,24 @@ define_request_and_response! {
     #[repr(transparent)]
     Response {
         status: Status,
+    }
+}
+
+define_request_and_response! {
+    sync_info,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2383..=2443,
+    SyncInfo,
+    Request {},
+    Response {
+        height: u64,
+        next_needed_pruning_seed: u32,
+        overview: String,
+        // TODO: This is a `std::list` in `monerod` because...?
+        peers: Vec<Peer>,
+        // TODO: This is a `std::list` in `monerod` because...?
+        spans: Vec<Span>,
+        target_height: u64,
     }
 }
 

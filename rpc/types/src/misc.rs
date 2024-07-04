@@ -214,6 +214,40 @@ define_struct_and_impl_epee! {
     }
 }
 
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        2393..=2400
+    )]
+    /// Used in [`crate::json::SyncInfoResponse`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    Peer {
+        info: ConnectionInfo,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        2402..=2421
+    )]
+    /// Used in [`crate::json::SyncInfoResponse`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    Span {
+        connection_id: String,
+        nblocks: u64,
+        rate: u32,
+        remote_address: String,
+        size: u64,
+        speed: u32,
+        start_block_height: u64,
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
