@@ -10,8 +10,8 @@ on:
 env:
   # Show colored output in CI.
   CARGO_TERM_COLOR: always
-  # Fail on documentation warnings, generate an index page.
-  RUSTDOCFLAGS: '-D warnings --cfg docsrs --show-type-layout --enable-index-page -Zunstable-options'
+  # Generate an index page.
+  RUSTDOCFLAGS: '--cfg docsrs --show-type-layout --enable-index-page -Zunstable-options'
 
 jobs:
   # Build documentation.

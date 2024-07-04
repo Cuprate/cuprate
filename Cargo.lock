@@ -508,6 +508,7 @@ dependencies = [
  "pretty_assertions",
  "proptest",
  "rayon",
+ "serde",
  "tempfile",
  "thread_local",
  "tokio",
