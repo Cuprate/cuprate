@@ -124,4 +124,6 @@ pub mod json;
 pub mod other;
 
 mod misc;
-pub use misc::{BlockHeader, ConnectionInfo};
+pub use misc::{
+    BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, SetBan,
+};

@@ -47,7 +47,7 @@ macro_rules! define_struct_and_impl_epee {
     };
 }
 
-//---------------------------------------------------------------------------------------------------- BlockHeader
+//---------------------------------------------------------------------------------------------------- Type Definitions
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
         cc73fe71162d564ffda8e549b79a350bca53c454,
@@ -89,7 +89,6 @@ define_struct_and_impl_epee! {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- ConnectionInfo
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
         cc73fe71162d564ffda8e549b79a350bca53c454,
@@ -129,7 +128,6 @@ define_struct_and_impl_epee! {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- Ban
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
         cc73fe71162d564ffda8e549b79a350bca53c454,
@@ -163,7 +161,6 @@ define_struct_and_impl_epee! {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- HistogramEntry
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
         cc73fe71162d564ffda8e549b79a350bca53c454,
@@ -181,7 +178,6 @@ define_struct_and_impl_epee! {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- HardforkEntry
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
         cc73fe71162d564ffda8e549b79a350bca53c454,
@@ -194,6 +190,27 @@ define_struct_and_impl_epee! {
     HardforkEntry {
         height: u64,
         hf_version: u8,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        2289..=2310
+    )]
+    /// Used in [`crate::json::GetAlternateChainsResponse`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    ChainInfo {
+        block_hash: String,
+        block_hashes: Vec<String>,
+        difficulty: u64,
+        difficulty_top64: u64,
+        height: u64,
+        length: u64,
+        main_chain_parent_block: String,
+        wide_difficulty: String,
     }
 }
 

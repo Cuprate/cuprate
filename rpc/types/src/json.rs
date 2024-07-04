@@ -6,9 +6,9 @@
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_bool, default_height, default_string, default_u64, default_vec},
-    free::is_zero,
+    free::{is_one, is_zero},
     macros::define_request_and_response,
-    misc::{BlockHeader, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, SetBan},
+    misc::{BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, SetBan},
     Status,
 };
 
@@ -468,6 +468,46 @@ define_request_and_response! {
         target_height: u64 = default_u64(),
         #[serde(skip_serializing_if = "Vec::is_empty", default = "default_vec")]
         hard_forks: Vec<HardforkEntry> = default_vec(),
+    }
+}
+
+define_request_and_response! {
+    get_fee_estimate,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2250..=2277,
+    GetFeeEstimate,
+    Request {},
+    AccessResponseBase {
+        fee: u64,
+        fees: Vec<u64>,
+        #[serde(skip_serializing_if = "is_one")]
+        quantization_mask: u64,
+    }
+}
+
+define_request_and_response! {
+    get_alternate_chains,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2279..=2310,
+    GetAlternateChains,
+    Request {},
+    ResponseBase {
+        chains: Vec<ChainInfo>,
+    }
+}
+
+define_request_and_response! {
+    relay_tx,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2361..=2381,
+    RelayTx,
+    Request {
+        txids: Vec<String>,
+    },
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
+    Response {
+        status: Status,
     }
 }
 
