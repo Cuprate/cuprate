@@ -5,9 +5,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{default_bool, default_height, default_string},
+    defaults::{default_bool, default_height, default_string, default_u64, default_vec},
+    free::is_zero,
     macros::define_request_and_response,
-    misc::{BlockHeader, ConnectionInfo, GetBan, SetBan},
+    misc::{BlockHeader, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, SetBan},
+    Status,
 };
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
@@ -374,11 +376,98 @@ define_request_and_response! {
 define_request_and_response! {
     get_bans,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
-    core_rpc_server_commands_defs.h => 2032..=2067,
+    core_rpc_server_commands_defs.h => 1997..=2030,
     GetBans,
     Request {},
     ResponseBase {
         bans: Vec<GetBan>,
+    }
+}
+
+define_request_and_response! {
+    banned,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2069..=2094,
+    Banned,
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
+    Request {
+        address: String,
+    },
+    Response {
+        banned: bool,
+        seconds: u32,
+        status: Status,
+    }
+}
+
+define_request_and_response! {
+    flush_txpool,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2096..=2116,
+    FlushTransactionPool,
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "default_vec"))]
+        txids: Vec<String> = default_vec::<String>(),
+    },
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
+    Response {
+        status: Status,
+    }
+}
+
+define_request_and_response! {
+    get_output_histogram,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2118..=2168,
+    GetOutputHistogram,
+    Request {
+        amounts: Vec<u64>,
+        min_count: u64,
+        max_count: u64,
+        unlocked: bool,
+        recent_cutoff: u64,
+    },
+    AccessResponseBase {
+        histogram: Vec<HistogramEntry>,
+    }
+}
+
+define_request_and_response! {
+    get_coinbase_tx_sum,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2213..=2248,
+    GetCoinbaseTxSum,
+    Request {
+        height: u64,
+        count: u64,
+    },
+    AccessResponseBase {
+        emission_amount: u64,
+        emission_amount_top64: u64,
+        fee_amount: u64,
+        fee_amount_top64: u64,
+        wide_emission_amount: String,
+        wide_fee_amount: String,
+    }
+}
+
+define_request_and_response! {
+    get_version,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2170..=2211,
+    GetVersion,
+    Request {},
+    ResponseBase {
+        version: u32,
+        release: bool,
+        #[serde(skip_serializing_if = "is_zero", default = "default_u64")]
+        current_height: u64 = default_u64(),
+        #[serde(skip_serializing_if = "is_zero", default = "default_u64")]
+        target_height: u64 = default_u64(),
+        #[serde(skip_serializing_if = "Vec::is_empty", default = "default_vec")]
+        hard_forks: Vec<HardforkEntry> = default_vec(),
     }
 }
 

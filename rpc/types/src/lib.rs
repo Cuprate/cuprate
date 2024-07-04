@@ -100,6 +100,7 @@
 mod binary_string;
 mod constants;
 mod defaults;
+mod free;
 mod macros;
 mod status;
 
