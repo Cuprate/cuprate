@@ -10,9 +10,9 @@ use crate::{
     macros::define_request_and_response,
     misc::{
         BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, Peer,
-        SetBan, Span,
+        SetBan, Span, TxBacklogEntry,
     },
-    Status,
+    OutputDistributionData, Status,
 };
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
@@ -520,7 +520,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 2383..=2443,
     SyncInfo,
     Request {},
-    Response {
+    AccessResponseBase {
         height: u64,
         next_needed_pruning_seed: u32,
         overview: String,
@@ -529,6 +529,37 @@ define_request_and_response! {
         // TODO: This is a `std::list` in `monerod` because...?
         spans: Vec<Span>,
         target_height: u64,
+    }
+}
+
+define_request_and_response! {
+    get_txpool_backlog,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1637..=1664,
+    GetTransactionPoolBacklog,
+    Request {},
+    ResponseBase {
+        backlog: Vec<TxBacklogEntry>,
+    }
+}
+
+define_request_and_response! {
+    get_output_distribution,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2445..=2520,
+    GetOutputDistribution,
+    Request {
+      amounts: Vec<u64>,
+      binary: bool,
+      compress: bool,
+      cumulative: bool,
+      from_height: u64,
+      to_height: u64,
+    },
+    /// TODO: this request has custom serde:
+    /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L2468-L2508>
+    AccessResponseBase {
+        distributions: Vec<OutputDistributionData>,
     }
 }
 

@@ -125,5 +125,6 @@ pub mod other;
 
 mod misc;
 pub use misc::{
-    BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, SetBan, Peer, Span,
+    BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry,
+    OutputDistributionData, Peer, SetBan, Span, TxBacklogEntry,
 };

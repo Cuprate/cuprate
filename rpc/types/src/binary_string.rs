@@ -3,7 +3,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 
 //---------------------------------------------------------------------------------------------------- BinaryString
-/// TODO
+/// TODO: we need to figure out a type that (de)serializes correctly, `String` errors with `serde_json`
 ///
 /// ```rust
 /// use serde::Deserialize;

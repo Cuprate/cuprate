@@ -248,6 +248,41 @@ define_struct_and_impl_epee! {
     }
 }
 
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1637..=1642
+    )]
+    /// Used in [`crate::json::GetTransactionPoolBacklog`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    TxBacklogEntry {
+        weight: u64,
+        fee: u64,
+        time_in_pool: u64,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/rpc_handler.h",
+        45..=50
+    )]
+    /// Used in [`crate::json::GetOutputDistribution`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    OutputDistributionData {
+        distribution: Vec<u64>,
+        start_height: u64,
+        base: u64,
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Custom serde
+// This section is for `struct`s that have custom (de)serialization code.
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
