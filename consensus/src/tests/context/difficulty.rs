@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use proptest::collection::size_range;
+use proptest::collection::{size_range, vec};
 use proptest::{prelude::*, prop_assert_eq, prop_compose, proptest};
 
 use cuprate_helper::num::median;
@@ -207,5 +207,53 @@ proptest! {
             diff_cache.new_block(diff_cache.last_accounted_height +1, timestamp.0, diff +  diff_cache.cumulative_difficulty());
         }
 
+    }
+
+    #[test]
+    fn pop_blocks_below_total_blocks(
+        mut database in arb_dummy_database(20),
+        new_blocks in vec(any::<(u64, u128)>(), 0..500)
+    ) {
+        tokio_test::block_on(async move {
+            let old_cache = DifficultyCache::init_from_chain_height(19, TEST_DIFFICULTY_CONFIG, database.clone()).await.unwrap();
+
+            let blocks_to_pop = new_blocks.len();
+
+            let mut new_cache = old_cache.clone();
+            for (timestamp, cumulative_difficulty) in new_blocks.into_iter() {
+                database.add_block(DummyBlockExtendedHeader::default().with_difficulty_info(timestamp, cumulative_difficulty));
+                new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
+            }
+
+            new_cache.pop_blocks(blocks_to_pop as u64, database).await?;
+
+            prop_assert_eq!(new_cache, old_cache);
+
+            Ok::<_, TestCaseError>(())
+        })?;
+    }
+
+    #[test]
+    fn pop_blocks_above_total_blocks(
+        mut database in arb_dummy_database(2000),
+        new_blocks in vec(any::<(u64, u128)>(), 0..5_000)
+    ) {
+        tokio_test::block_on(async move {
+            let old_cache = DifficultyCache::init_from_chain_height(1999, TEST_DIFFICULTY_CONFIG, database.clone()).await.unwrap();
+
+            let blocks_to_pop = new_blocks.len();
+
+            let mut new_cache = old_cache.clone();
+            for (timestamp, cumulative_difficulty) in new_blocks.into_iter() {
+                database.add_block(DummyBlockExtendedHeader::default().with_difficulty_info(timestamp, cumulative_difficulty));
+                new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
+            }
+
+            new_cache.pop_blocks(blocks_to_pop as u64, database).await?;
+
+            prop_assert_eq!(new_cache, old_cache);
+
+            Ok::<_, TestCaseError>(())
+        })?;
     }
 }

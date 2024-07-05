@@ -127,6 +127,12 @@ pub struct DummyDatabase {
     dummy_height: Option<usize>,
 }
 
+impl DummyDatabase {
+    pub fn add_block(&mut self, block: DummyBlockExtendedHeader) {
+        self.blocks.write().unwrap().push(block)
+    }
+}
+
 impl Service<BCReadRequest> for DummyDatabase {
     type Response = BCResponse;
     type Error = BoxError;
