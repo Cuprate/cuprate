@@ -210,9 +210,9 @@ Subsequent table opens will follow the flags/ordering, but only if
 /// # Invariant
 #[doc = doc_heed_create_db_invariant!()]
 pub trait EnvInner<'env> {
-    /// TODO
+    /// The read-only transaction type of the backend.
     type Ro<'a>: TxRo<'a>;
-    /// TODO
+    /// The read-write transaction type of the backend.
     type Rw<'a>: TxRw<'a>;
 
     /// Create a read-only transaction.

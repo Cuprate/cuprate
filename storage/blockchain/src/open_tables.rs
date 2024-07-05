@@ -85,9 +85,9 @@ pub(crate) use call_fn_on_all_tables_or_early_return;
 /// # Ok(()) }
 /// ```
 pub trait OpenTables<'env> {
-    /// TODO
+    /// The read-only transaction type of the backend.
     type Ro<'a>;
-    /// TODO
+    /// The read-write transaction type of the backend.
     type Rw<'a>;
 
     /// Open all tables in read/iter mode.
