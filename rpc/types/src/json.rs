@@ -108,6 +108,7 @@ define_request_and_response! {
     // type alias to `()` instead of a `struct`.
     Request {},
 
+    #[derive(Copy)]
     ResponseBase {
         count: u64,
     }
@@ -118,7 +119,6 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 935..=939,
     OnGetBlockHash,
-    #[derive(Copy)]
     /// ```rust
     /// use serde_json::*;
     /// use cuprate_rpc_types::json::*;
@@ -129,6 +129,7 @@ define_request_and_response! {
     /// ```
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
+    #[derive(Copy)]
     Request {
         // This is `std::vector<u64>` in `monerod` but
         // it must be a 1 length array or else it will error.
@@ -204,6 +205,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1214..=1238,
     GetLastBlockHeader,
+    #[derive(Copy)]
     Request {
         #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
         fill_pow_hash: bool = default_bool(),
@@ -235,6 +237,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1271..=1296,
     GetBlockHeaderByHeight,
+    #[derive(Copy)]
     Request {
         height: u64,
         #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
@@ -250,6 +253,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1756..=1783,
     GetBlockHeadersRange,
+    #[derive(Copy)]
     Request {
         start_height: u64,
         end_height: u64,
@@ -397,6 +401,7 @@ define_request_and_response! {
     Request {
         address: String,
     },
+    #[derive(Copy)]
     Response {
         banned: bool,
         seconds: u32,
@@ -413,6 +418,7 @@ define_request_and_response! {
         #[cfg_attr(feature = "serde", serde(default = "default_vec"))]
         txids: Vec<String> = default_vec::<String>(),
     },
+    #[derive(Copy)]
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Response {
@@ -507,6 +513,7 @@ define_request_and_response! {
     Request {
         txids: Vec<String>,
     },
+    #[derive(Copy)]
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Response {
@@ -549,17 +556,69 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 2445..=2520,
     GetOutputDistribution,
     Request {
-      amounts: Vec<u64>,
-      binary: bool,
-      compress: bool,
-      cumulative: bool,
-      from_height: u64,
-      to_height: u64,
+        amounts: Vec<u64>,
+        binary: bool,
+        compress: bool,
+        cumulative: bool,
+        from_height: u64,
+        to_height: u64,
     },
     /// TODO: this request has custom serde:
     /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L2468-L2508>
     AccessResponseBase {
         distributions: Vec<OutputDistributionData>,
+    }
+}
+
+define_request_and_response! {
+    get_miner_data,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 996..=1044,
+    GetMinerData,
+    Request {},
+    ResponseBase {
+        major_version: u8,
+        height: u64,
+        prev_id: String,
+        seed_hash: String,
+        difficulty: String,
+        median_weight: u64,
+        already_generated_coins: u64,
+    }
+}
+
+define_request_and_response! {
+    prune_blockchain,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2747..=2772,
+    PruneBlockchain,
+    #[derive(Copy)]
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        check: bool = default_bool(),
+    },
+    #[derive(Copy)]
+    ResponseBase {
+        pruned: bool,
+        pruning_seed: u32,
+    }
+}
+
+define_request_and_response! {
+    calc_pow,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1046..=1066,
+    CalcPow,
+    Request {
+        major_version: u8,
+        height: u64,
+        block_blob: String,
+        seed_hash: String,
+    },
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
+    Response {
+        pow_hash: String,
     }
 }
 
