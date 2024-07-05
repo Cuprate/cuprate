@@ -244,25 +244,28 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, heed::RoTxn<'env>, RefCell<heed::RwTxn<'env>>>
-    for RwLockReadGuard<'env, heed::Env>
+impl<'env> EnvInner<'env> for RwLockReadGuard<'env, heed::Env>
 where
     Self: 'env,
 {
+    type Ro<'a> = heed::RoTxn<'a>;
+
+    type Rw<'a> = RefCell<heed::RwTxn<'a>>;
+
     #[inline]
-    fn tx_ro(&'env self) -> Result<heed::RoTxn<'env>, RuntimeError> {
+    fn tx_ro(&self) -> Result<Self::Ro<'_>, RuntimeError> {
         Ok(self.read_txn()?)
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<RefCell<heed::RwTxn<'env>>, RuntimeError> {
+    fn tx_rw(&self) -> Result<Self::Rw<'_>, RuntimeError> {
         Ok(RefCell::new(self.write_txn()?))
     }
 
     #[inline]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &heed::RoTxn<'env>,
+        tx_ro: &Self::Ro<'_>,
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
         //
@@ -280,7 +283,7 @@ where
     #[inline]
     fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &RefCell<heed::RwTxn<'env>>,
+        tx_rw: &Self::Rw<'_>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
         //
@@ -293,7 +296,7 @@ where
         })
     }
 
-    fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
+    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> Result<(), RuntimeError> {
         // Create a database using our:
         // - [`Table`]'s const metadata.
         // - (potentially) our [`Key`] comparison function
@@ -325,10 +328,7 @@ where
     }
 
     #[inline]
-    fn clear_db<T: Table>(
-        &self,
-        tx_rw: &mut RefCell<heed::RwTxn<'env>>,
-    ) -> Result<(), RuntimeError> {
+    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> Result<(), RuntimeError> {
         let tx_rw = tx_rw.get_mut();
 
         // Open the table. We don't care about flags or key

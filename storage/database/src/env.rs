@@ -62,17 +62,17 @@ pub trait Env: Sized {
     // For `heed`, this is just `heed::Env`, for `redb` this is
     // `(redb::Database, redb::Durability)` as each transaction
     // needs the sync mode set during creation.
-    type EnvInner<'env>: EnvInner<'env, Self::TxRo<'env>, Self::TxRw<'env>>
+    type EnvInner<'env>: EnvInner<'env>
     where
         Self: 'env;
 
     /// The read-only transaction type of the backend.
-    type TxRo<'env>: TxRo<'env> + 'env
+    type TxRo<'env>: TxRo<'env>
     where
         Self: 'env;
 
     /// The read/write transaction type of the backend.
-    type TxRw<'env>: TxRw<'env> + 'env
+    type TxRw<'env>: TxRw<'env>
     where
         Self: 'env;
 
@@ -209,23 +209,23 @@ Subsequent table opens will follow the flags/ordering, but only if
 ///
 /// # Invariant
 #[doc = doc_heed_create_db_invariant!()]
-pub trait EnvInner<'env, Ro, Rw>
-where
-    Self: 'env,
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-{
+pub trait EnvInner<'env> {
+    /// TODO
+    type Ro<'a>: TxRo<'a>;
+    /// TODO
+    type Rw<'a>: TxRw<'a>;
+
     /// Create a read-only transaction.
     ///
     /// # Errors
     /// This will only return [`RuntimeError::Io`] if it errors.
-    fn tx_ro(&'env self) -> Result<Ro, RuntimeError>;
+    fn tx_ro(&self) -> Result<Self::Ro<'_>, RuntimeError>;
 
     /// Create a read/write transaction.
     ///
     /// # Errors
     /// This will only return [`RuntimeError::Io`] if it errors.
-    fn tx_rw(&'env self) -> Result<Rw, RuntimeError>;
+    fn tx_rw(&self) -> Result<Self::Rw<'_>, RuntimeError>;
 
     /// Open a database in read-only mode.
     ///
@@ -252,7 +252,7 @@ where
     #[doc = doc_heed_create_db_invariant!()]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &Ro,
+        tx_ro: &Self::Ro<'_>,
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError>;
 
     /// Open a database in read/write mode.
@@ -271,7 +271,10 @@ where
     ///
     /// # Invariant
     #[doc = doc_heed_create_db_invariant!()]
-    fn open_db_rw<T: Table>(&self, tx_rw: &Rw) -> Result<impl DatabaseRw<T>, RuntimeError>;
+    fn open_db_rw<T: Table>(
+        &self,
+        tx_rw: &Self::Rw<'_>,
+    ) -> Result<impl DatabaseRw<T>, RuntimeError>;
 
     /// Create a database table.
     ///
@@ -282,7 +285,7 @@ where
     ///
     /// # Invariant
     #[doc = doc_heed_create_db_invariant!()]
-    fn create_db<T: Table>(&self, tx_rw: &Rw) -> Result<(), RuntimeError>;
+    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> Result<(), RuntimeError>;
 
     /// Clear all `(key, value)`'s from a database table.
     ///
@@ -297,5 +300,5 @@ where
     ///
     /// If the specified table is not created upon before this function is called,
     /// this will return [`RuntimeError::TableNotFound`].
-    fn clear_db<T: Table>(&self, tx_rw: &mut Rw) -> Result<(), RuntimeError>;
+    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> Result<(), RuntimeError>;
 }
