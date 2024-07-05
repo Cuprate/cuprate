@@ -238,9 +238,6 @@ impl<N: NetworkZone> Service<PeerSyncRequest<N>> for PeerSyncSvc<N> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
-    use tokio::sync::Semaphore;
     use tower::{Service, ServiceExt};
 
     use cuprate_p2p_core::{
@@ -255,11 +252,7 @@ mod tests {
 
     #[tokio::test]
     async fn top_sync_channel_updates() {
-        let semaphore = Arc::new(Semaphore::new(1));
-
-        let (_g, handle) = HandleBuilder::new()
-            .with_permit(semaphore.try_acquire_owned().unwrap())
-            .build();
+        let (_g, handle) = HandleBuilder::new().build();
 
         let (mut svc, mut watch) = PeerSyncSvc::<TestNetZone<true, true, true>>::new();
 
@@ -336,11 +329,7 @@ mod tests {
 
     #[tokio::test]
     async fn peer_sync_info_updates() {
-        let semaphore = Arc::new(Semaphore::new(1));
-
-        let (_g, handle) = HandleBuilder::new()
-            .with_permit(semaphore.try_acquire_owned().unwrap())
-            .build();
+        let (_g, handle) = HandleBuilder::new().build();
 
         let (mut svc, _watch) = PeerSyncSvc::<TestNetZone<true, true, true>>::new();
 

@@ -508,6 +508,7 @@ dependencies = [
  "pretty_assertions",
  "proptest",
  "rayon",
+ "serde",
  "tempfile",
  "thread_local",
  "tokio",
@@ -687,6 +688,7 @@ dependencies = [
 name = "cuprate-p2p"
 version = "0.1.0"
 dependencies = [
+ "borsh",
  "bytes",
  "cuprate-address-book",
  "cuprate-async-buffer",
@@ -727,9 +729,11 @@ dependencies = [
  "cuprate-wire",
  "futures",
  "hex",
+ "hex-literal",
  "thiserror",
  "tokio",
  "tokio-stream",
+ "tokio-test",
  "tokio-util",
  "tower",
  "tracing",

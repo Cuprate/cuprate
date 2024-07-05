@@ -24,10 +24,11 @@ use crate::{
 mod connection;
 mod connector;
 pub mod handshaker;
+mod request_handler;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
-pub use handshaker::{DoHandshakeRequest, HandShaker, HandshakeError};
+pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
 /// An internal identifier for a given peer, will be their address if known
 /// or a random u128 if not.
@@ -188,7 +189,8 @@ pub fn mock_client<Z: NetworkZone, S>(
     mut request_handler: S,
 ) -> Client<Z>
 where
-    S: crate::PeerRequestHandler,
+    S: Service<PeerRequest, Response = PeerResponse, Error = tower::BoxError> + Send + 'static,
+    S::Future: Send + 'static,
 {
     let (tx, mut rx) = mpsc::channel(1);
 

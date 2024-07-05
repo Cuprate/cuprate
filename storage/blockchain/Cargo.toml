@@ -31,6 +31,7 @@ curve25519-dalek = { workspace = true }
 cuprate-pruning  = { path = "../../pruning" }
 monero-serai     = { workspace = true, features = ["std"] }
 paste            = { workspace = true }
+serde            = { workspace = true, optional = true }
 
 # `service` feature.
 crossbeam    = { workspace = true, features = ["std"], optional = true }

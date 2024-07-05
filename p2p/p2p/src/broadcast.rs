@@ -196,10 +196,10 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
 
                 // An error here means _all_ receivers were dropped which we assume will never happen.
                 let _ = match direction {
-                    Some(ConnectionDirection::InBound) => {
+                    Some(ConnectionDirection::Inbound) => {
                         self.tx_broadcast_channel_inbound.send(nex_tx_info)
                     }
-                    Some(ConnectionDirection::OutBound) => {
+                    Some(ConnectionDirection::Outbound) => {
                         self.tx_broadcast_channel_outbound.send(nex_tx_info)
                     }
                     None => {
@@ -428,7 +428,7 @@ mod tests {
             .unwrap()
             .call(BroadcastRequest::Transaction {
                 tx_bytes: Bytes::from_static(&[1]),
-                direction: Some(ConnectionDirection::OutBound),
+                direction: Some(ConnectionDirection::Outbound),
                 received_from: None,
             })
             .await
@@ -440,7 +440,7 @@ mod tests {
             .unwrap()
             .call(BroadcastRequest::Transaction {
                 tx_bytes: Bytes::from_static(&[2]),
-                direction: Some(ConnectionDirection::InBound),
+                direction: Some(ConnectionDirection::Inbound),
                 received_from: None,
             })
             .await

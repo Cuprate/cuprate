@@ -1,7 +1,7 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use futures::StreamExt;
-use tokio::{sync::Semaphore, time::interval};
+use tokio::time::interval;
 
 use cuprate_p2p_core::handles::HandleBuilder;
 use cuprate_pruning::PruningSeed;
@@ -78,11 +78,7 @@ async fn get_white_peers() {
 async fn add_new_peer_already_connected() {
     let mut address_book = make_fake_address_book(0, 0);
 
-    let semaphore = Arc::new(Semaphore::new(10));
-
-    let (_, handle) = HandleBuilder::default()
-        .with_permit(semaphore.clone().try_acquire_owned().unwrap())
-        .build();
+    let (_, handle) = HandleBuilder::default().build();
 
     address_book
         .handle_new_connection(
@@ -98,9 +94,7 @@ async fn add_new_peer_already_connected() {
         )
         .unwrap();
 
-    let (_, handle) = HandleBuilder::default()
-        .with_permit(semaphore.try_acquire_owned().unwrap())
-        .build();
+    let (_, handle) = HandleBuilder::default().build();
 
     assert_eq!(
         address_book.handle_new_connection(
