@@ -254,7 +254,7 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         1637..=1642
     )]
-    /// Used in [`crate::json::GetTransactionPoolBacklog`].
+    /// Used in [`crate::json::GetTransactionPoolBacklogResponse`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     TxBacklogEntry {
@@ -270,7 +270,7 @@ define_struct_and_impl_epee! {
         "rpc/rpc_handler.h",
         45..=50
     )]
-    /// Used in [`crate::json::GetOutputDistribution`].
+    /// Used in [`crate::json::GetOutputDistributionResponse`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     OutputDistributionData {
@@ -288,7 +288,7 @@ define_struct_and_impl_epee! {
     )]
     /// Used in [`crate::json::GetMinerDataResponse`].
     ///
-    /// Note that this is different than [`crate::misc::TxbacklogEntry`].
+    /// Note that this is different than [`crate::misc::TxBacklogEntry`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     GetMinerDataTxBacklogEntry {
@@ -304,7 +304,7 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         1070..=1079
     )]
-    /// Used in [`crate::json::GetAuxPowRequest`].
+    /// Used in [`crate::json::AddAuxPowRequest`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     AuxPow {
