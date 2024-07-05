@@ -298,6 +298,21 @@ define_struct_and_impl_epee! {
     }
 }
 
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1070..=1079
+    )]
+    /// Used in [`crate::json::GetAuxPowRequest`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    AuxPow {
+        id: String,
+        hash: String,
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Custom serde
 // This section is for `struct`s that have custom (de)serialization code.
 

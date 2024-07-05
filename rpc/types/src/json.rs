@@ -9,8 +9,8 @@ use crate::{
     free::{is_one, is_zero},
     macros::define_request_and_response,
     misc::{
-        BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry, Peer,
-        SetBan, Span, TxBacklogEntry,
+        AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry,
+        Peer, SetBan, Span, TxBacklogEntry,
     },
     OutputDistributionData, Status,
 };
@@ -619,6 +619,38 @@ define_request_and_response! {
     #[repr(transparent)]
     Response {
         pow_hash: String,
+    }
+}
+
+define_request_and_response! {
+    flush_cache,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2774..=2796,
+    FlushCache,
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        bad_txs: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        bad_blocks: bool = default_bool(),
+    },
+    ResponseBase {}
+}
+
+define_request_and_response! {
+    add_aux_pow,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1068..=1112,
+    AddAuxPow,
+    Request {
+        blocktemplate_blob: String,
+        aux_pow: Vec<AuxPow>,
+    },
+    ResponseBase {
+      blocktemplate_blob: String,
+      blockhashing_blob: String,
+      merkle_root: String,
+      merkle_tree_depth: u64,
+      aux_pow: Vec<AuxPow>,
     }
 }
 
