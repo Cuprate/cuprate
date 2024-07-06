@@ -80,7 +80,7 @@ where
     ///
     /// This will pop the oldest item in the window if the target length has been exceeded.
     pub fn push(&mut self, item: T) {
-        if self.window.len() > self.target_window {
+        if self.window.len() >= self.target_window {
             self.pop_front();
         }
 

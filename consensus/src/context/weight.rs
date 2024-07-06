@@ -8,16 +8,14 @@
 //!
 use std::{
     cmp::{max, min},
-    collections::VecDeque,
     ops::Range,
 };
 
-use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
-use cuprate_helper::{asynch::rayon_spawn_async, num::median};
+use cuprate_helper::{asynch::rayon_spawn_async, num::RollingMedian};
 use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
@@ -29,7 +27,7 @@ const LONG_TERM_WINDOW: u64 = 100000;
 
 /// Configuration for the block weight cache.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct BlockWeightsCacheConfig {
     short_term_window: u64,
     long_term_window: u64,
@@ -61,22 +59,12 @@ impl BlockWeightsCacheConfig {
 #[derive(Clone)]
 pub struct BlockWeightsCache {
     /// The short term block weights.
-    short_term_block_weights: VecDeque<usize>,
+    short_term_block_weights: RollingMedian<usize>,
     /// The long term block weights.
-    long_term_weights: VecDeque<usize>,
-
-    /// The short term block weights sorted so we don't have to sort them every time we need
-    /// the median.
-    cached_sorted_long_term_weights: Vec<usize>,
-    /// The long term block weights sorted so we don't have to sort them every time we need
-    /// the median.
-    cached_sorted_short_term_weights: Vec<usize>,
+    long_term_weights: RollingMedian<usize>,
 
     /// The height of the top block.
     tip_height: u64,
-
-    /// The block weight config.
-    config: BlockWeightsCacheConfig,
 }
 
 impl BlockWeightsCache {
@@ -103,25 +91,22 @@ impl BlockWeightsCache {
 
         tracing::info!("Initialized block weight cache, chain-height: {:?}, long term weights length: {:?}, short term weights length: {:?}", chain_height, long_term_weights.len(), short_term_block_weights.len());
 
-        let mut cloned_short_term_weights = short_term_block_weights.clone();
-        let mut cloned_long_term_weights = long_term_weights.clone();
         Ok(BlockWeightsCache {
-            short_term_block_weights: short_term_block_weights.into(),
-            long_term_weights: long_term_weights.into(),
-
-            cached_sorted_long_term_weights: rayon_spawn_async(|| {
-                cloned_long_term_weights.par_sort_unstable();
-                cloned_long_term_weights
+            short_term_block_weights: rayon_spawn_async(move || {
+                RollingMedian::from_vec(
+                    short_term_block_weights,
+                    usize::try_from(config.short_term_window).unwrap(),
+                )
             })
             .await,
-            cached_sorted_short_term_weights: rayon_spawn_async(|| {
-                cloned_short_term_weights.par_sort_unstable();
-                cloned_short_term_weights
+            long_term_weights: rayon_spawn_async(move || {
+                RollingMedian::from_vec(
+                    long_term_weights,
+                    usize::try_from(config.long_term_window).unwrap(),
+                )
             })
             .await,
-
             tip_height: chain_height - 1,
-            config,
         })
     }
 
@@ -139,74 +124,19 @@ impl BlockWeightsCache {
             long_term_weight
         );
 
-        // add the new block to the `long_term_weights` list and the sorted `cached_sorted_long_term_weights` list.
-        self.long_term_weights.push_back(long_term_weight);
-        match self
-            .cached_sorted_long_term_weights
-            .binary_search(&long_term_weight)
-        {
-            Ok(idx) | Err(idx) => self
-                .cached_sorted_long_term_weights
-                .insert(idx, long_term_weight),
-        }
+        self.long_term_weights.push(long_term_weight);
 
-        // If the list now has too many entries remove the oldest.
-        if u64::try_from(self.long_term_weights.len()).unwrap() > self.config.long_term_window {
-            let val = self
-                .long_term_weights
-                .pop_front()
-                .expect("long term window can't be negative");
-
-            match self.cached_sorted_long_term_weights.binary_search(&val) {
-                Ok(idx) => self.cached_sorted_long_term_weights.remove(idx),
-                Err(_) => panic!("Long term cache has incorrect values!"),
-            };
-        }
-
-        // add the block to the short_term_block_weights and the sorted cached_sorted_short_term_weights list.
-        self.short_term_block_weights.push_back(block_weight);
-        match self
-            .cached_sorted_short_term_weights
-            .binary_search(&block_weight)
-        {
-            Ok(idx) | Err(idx) => self
-                .cached_sorted_short_term_weights
-                .insert(idx, block_weight),
-        }
-
-        // If there are now too many entries remove the oldest.
-        if u64::try_from(self.short_term_block_weights.len()).unwrap()
-            > self.config.short_term_window
-        {
-            let val = self
-                .short_term_block_weights
-                .pop_front()
-                .expect("short term window can't be negative");
-
-            match self.cached_sorted_short_term_weights.binary_search(&val) {
-                Ok(idx) => self.cached_sorted_short_term_weights.remove(idx),
-                Err(_) => panic!("Short term cache has incorrect values"),
-            };
-        }
-
-        debug_assert_eq!(
-            self.cached_sorted_long_term_weights.len(),
-            self.long_term_weights.len()
-        );
-        debug_assert_eq!(
-            self.cached_sorted_short_term_weights.len(),
-            self.short_term_block_weights.len()
-        );
+        self.short_term_block_weights.push(block_weight);
     }
 
     /// Returns the median long term weight over the last [`LONG_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
     pub fn median_long_term_weight(&self) -> usize {
-        median(&self.cached_sorted_long_term_weights)
+        self.long_term_weights.median()
     }
 
     /// Returns the median weight over the last [`SHORT_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
     pub fn median_short_term_weight(&self) -> usize {
-        median(&self.cached_sorted_short_term_weights)
+        self.short_term_block_weights.median()
     }
 
     /// Returns the effective median weight, used for block reward calculations and to calculate
