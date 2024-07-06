@@ -1,40 +1,47 @@
-//! TODO
+//! These functions define the default values
+//! of optional fields in request/response types.
+//!
+//! For example, [`crate::json::GetBlockRequest`]
+//! has a [`crate::json::GetBlockRequest::height`]
+//! field and a [`crate::json::GetBlockRequest::hash`]
+//! field, when the RPC interface reads JSON without
+//! `height`, it will use [`default_height`] to fill that in.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::borrow::Cow;
 
 //---------------------------------------------------------------------------------------------------- TODO
-/// TODO
+/// Default [`bool`] type used in request/response types.
 #[inline]
 pub(crate) const fn default_bool() -> bool {
     false
 }
 
-/// TODO
+/// Default `Cow<'static, str` type used in request/response types.
 #[inline]
 pub(crate) const fn default_cow_str() -> Cow<'static, str> {
     Cow::Borrowed("")
 }
 
-/// TODO
+/// Default [`String`] type used in request/response types.
 #[inline]
 pub(crate) const fn default_string() -> String {
     String::new()
 }
 
-/// TODO
+/// Default block height used in request/response types.
 #[inline]
 pub(crate) const fn default_height() -> u64 {
     0
 }
 
-/// TODO
+/// Default [`Vec`] used in request/response types.
 #[inline]
 pub(crate) const fn default_vec<T>() -> Vec<T> {
     Vec::new()
 }
 
-/// TODO
+/// Default [`u64`] used in request/response types.
 #[inline]
 pub(crate) const fn default_u64() -> u64 {
     0

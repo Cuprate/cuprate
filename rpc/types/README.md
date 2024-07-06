@@ -10,15 +10,16 @@ This crate ports the types used in Monero's RPC interface, including:
 # Modules
 This crate's types are split in the following manner:
 
-This crate has 4 modules:
-- The root module; `cuprate_rpc_types`
-- [`json`] module; JSON types from the `/json_rpc` endpoint
-- [`bin`] module; Binary types from the binary endpoints
-- [`other`] module; Misc JSON types from other endpoints
-
-Miscellaneous types are found in the root module, e.g. [`crate::Status`].
+This crate has 5 modules:
+- The root module - miscellaneous items
+- [`json`] - JSON types from the `/json_rpc` endpoint
+- [`bin`] - Binary types from the binary endpoints
+- [`other`] - Misc JSON types from other endpoints
+- [`base`] - Base response types
 
 Each type in `{json,bin,other}` come in pairs and have identical names, but are suffixed with either `Request` or `Response`. e.g. [`GetBlockCountRequest`](crate::json::GetBlockCountRequest) & [`GetBlockCountResponse`](crate::json::GetBlockCountResponse).
+
+Miscellaneous types are found in the root module, e.g. [`crate::Status`]. Many of types here are found and used in request/response types, for example, [`crate::BlockHeader`] is used in [`crate::json::GetLastBlockHeaderResponse`].
 
 # Documentation
 The documentation for types within `{json,bin,other}` are omitted, as they can be found in [Monero's RPC documentation](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html).

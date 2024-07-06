@@ -1,6 +1,7 @@
 //! JSON types from the [`/json_rpc`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#json-rpc-methods) endpoint.
 //!
-//! <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/daemon_messages.h>.
+//! Most (if not all) of these types are defined here:
+//! - <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h>
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
@@ -33,21 +34,16 @@ define_request_and_response! {
     // The base type name.
     GetBlockTemplate,
 
-    // The base request type.
+    // The request type.
     //
-    // This must be a type found in [`crate::base`].
-    // It acts as a "base" that gets flattened into
-    // the actual request type.
+    // If `Request {/* fields */}` is provided, a struct is generate as-is.
     //
-    // "Flatten" means the field(s) of a struct gets inlined
-    // directly into the struct during (de)serialization, see:
-    // <https://serde.rs/field-attrs.html#flatten>.
-    //
-    // For example here, we're using [`crate::base::EmptyRequestBase`],
-    // which means that there is no extra fields flattened.
-    //
-    // If a request is not specified here, it will create a `type YOUR_REQUEST_TYPE = ()`
+    // If `Request {}` is specified here, it will create a `pub type YOUR_REQUEST_TYPE = ()`
     // instead of a `struct`, see below in other macro definitions for an example.
+    //
+    // If there are any additional attributes (`/// docs` or `#[derive]`s)
+    // for the struct, they go here, e.g.:
+    // #[derive(Copy)]
     Request {
         // Within the `{}` is an infinite matching pattern of:
         // ```
@@ -61,16 +57,20 @@ define_request_and_response! {
         wallet_address: String,
     },
 
-    // The base response type.
+    // The response type.
     //
-    // This is the same as the request base type,
-    // it must be a type found in [`crate::base`].
+    // If `Response {/* fields */}` is used,
+    // this will generate a struct as-is.
     //
-    // If there are any additional attributes (`/// docs` or `#[derive]`s)
-    // for the struct, they go here, e.g.:
-    // #[derive(Copy)]
+    // If a type found in [`crate::base`] is used,
+    // It acts as a "base" that gets flattened into
+    // the actual request type.
+    //
+    // "Flatten" means the field(s) of a struct gets inlined
+    // directly into the struct during (de)serialization, see:
+    // <https://serde.rs/field-attrs.html#flatten>.
     ResponseBase {
-        // This is using `crate::base::ResponseBase`,
+        // This is using [`crate::base::ResponseBase`],
         // so the type we generate will contain this field:
         // ```
         // base: crate::base::ResponseBase,
@@ -103,7 +103,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 919..=933,
     GetBlockCount,
 
-    // There is no request type specified,
+    // There are no request fields specified,
     // this will cause the macro to generate a
     // type alias to `()` instead of a `struct`.
     Request {},

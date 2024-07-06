@@ -15,32 +15,34 @@
 /// See the [`crate::json`] module for example usage.
 ///
 /// # Macro internals
-/// This macro has 2 branches with almost the same output:
-/// 1. An empty `Request` type
-/// 2. An `Request` type with fields
+/// This macro uses:
+/// - [`__define_request`]
+/// - [`__define_response`]
+/// - [`__define_request_and_response_doc`]
 ///
-/// The first branch is the same as the second with the exception
-/// that if the caller of this macro provides no `Request` type,
-/// it will generate:
+/// # `__define_request`
+/// This macro has 2 branches. If the caller provides
+/// `Request {}`, i.e. no fields, it will generate:
 /// ```
 /// pub type Request = ();
 /// ```
-/// instead of:
+/// If they _did_ specify fields, it will generate:
 /// ```
 /// pub struct Request {/* fields */}
 /// ```
-///
 /// This is because having a bunch of types that are all empty structs
 /// means they are not compatible and it makes it cumbersome for end-users.
 /// Really, they semantically are empty types, so `()` is used.
 ///
-/// Again, other than this, the 2 branches do (should) not differ.
+/// # `__define_response`
+/// This macro has 2 branches. If the caller provides `Response`
+/// it will generate a normal struct with no additional fields.
 ///
-/// FIXME: there's probably a less painful way to branch here on input
-/// without having to duplicate 80% of the macro. Sub-macros were attempted
-/// but they ended up unreadable. So for now, make sure to fix the other
-/// branch as well when making changes. The only de-duplicated part is
-/// the doc generation with [`define_request_and_response_doc`].
+/// If the caller provides a base type from [`crate::base`], it will
+/// flatten that into the request type automatically.
+///
+/// E.g. `Response {/*...*/}` and `ResponseBase {/*...*/}`
+/// would trigger the different branches.
 macro_rules! define_request_and_response {
     (
         // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
@@ -77,8 +79,8 @@ macro_rules! define_request_and_response {
             )*
         }
     ) => { paste::paste! {
-        $crate::macros::define_request! {
-            #[doc = $crate::macros::define_request_and_response_doc!(
+        $crate::macros::__define_request! {
+            #[doc = $crate::macros::__define_request_and_response_doc!(
                 "response" => [<$type_name Response>],
                 $monero_daemon_rpc_doc_link,
                 $monero_code_commit,
@@ -96,12 +98,12 @@ macro_rules! define_request_and_response {
             }
         }
 
-        $crate::macros::define_response! {
+        $crate::macros::__define_response! {
             #[allow(dead_code)]
             #[allow(missing_docs)]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-            #[doc = $crate::macros::define_request_and_response_doc!(
+            #[doc = $crate::macros::__define_request_and_response_doc!(
                 "request" => [<$type_name Request>],
                 $monero_daemon_rpc_doc_link,
                 $monero_code_commit,
@@ -123,127 +125,157 @@ macro_rules! define_request_and_response {
 pub(crate) use define_request_and_response;
 
 //---------------------------------------------------------------------------------------------------- define_request
-/// TODO
-macro_rules! define_request {
+/// Define a request type.
+///
+/// This is only used in [`define_request_and_response`], see it for docs.
+///
+/// `__` is used to notate that this shouldn't be called directly.
+macro_rules! __define_request {
+    //------------------------------------------------------------------------------
+    // This branch will generate a type alias to `()` if only given `{}` as input.
     (
-        // The response type (and any doc comments, derives, etc).
-        $( #[$request_type_attr:meta] )*
-        $request_type_name:ident {}
+        // Any doc comments, derives, etc.
+        $( #[$attr:meta] )*
+        // The response type.
+        $t:ident {}
     ) => {
-        $( #[$request_type_attr] )*
+        $( #[$attr] )*
         ///
         /// This request has no inputs.
-        pub type $request_type_name = ();
+        pub type $t = ();
     };
 
     //------------------------------------------------------------------------------
-    // This version of the macro expects a `Request` base type.
+    // This branch of the macro expects fields within the `{}`,
+    // and will generate a `struct`
     (
-        // The response type (and any doc comments, derives, etc).
-        $( #[$request_type_attr:meta] )*
-        $request_type_name:ident {
+        // Any doc comments, derives, etc.
+        $( #[$attr:meta] )*
+        // The response type.
+        $t:ident {
             // And any fields.
             $(
-                $( #[$request_field_attr:meta] )*
-                $request_field:ident: $request_field_type:ty $(= $request_field_type_default:expr)?,
+                $( #[$field_attr:meta] )* // field attributes
+                // field_name: FieldType
+                $field:ident: $field_type:ty $(= $field_default:expr)?,
+                // The $field_default is an optional extra token that represents
+                // a default value to pass to [`cuprate_epee_encoding::epee_object`],
+                // see it for usage.
             )*
         }
     ) => {
         #[allow(dead_code, missing_docs)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        $( #[$request_type_attr] )*
-        pub struct $request_type_name {
+        $( #[$attr] )*
+        pub struct $t {
             $(
-                $( #[$request_field_attr] )*
-                pub $request_field: $request_field_type,
+                $( #[$field_attr] )*
+                pub $field: $field_type,
             )*
         }
 
         #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
-            $request_type_name,
+            $t,
             $(
-                $request_field: $request_field_type $(= $request_field_type_default)?,
+                $field: $field_type $(= $field_default)?,
             )*
         }
     };
 }
-pub(crate) use define_request;
+pub(crate) use __define_request;
 
 //---------------------------------------------------------------------------------------------------- define_response
-/// TODO
-macro_rules! define_response {
+/// Define a response type.
+///
+/// This is only used in [`define_request_and_response`], see it for docs.
+///
+/// `__` is used to notate that this shouldn't be called directly.
+macro_rules! __define_response {
+    //------------------------------------------------------------------------------
+    // This version of the macro expects the literal ident
+    // `Response` => $response_type_name.
+    //
+    // It will create a `struct` that _doesn't_ use a base from [`crate::base`],
+    // for example, [`crate::json::BannedResponse`] doesn't use a base, so it
+    // uses this branch.
     (
-        // The response type (and any doc comments, derives, etc).
-        $( #[$response_type_attr:meta] )*
-        Response => $response_type_name:ident {
+        // Any doc comments, derives, etc.
+        $( #[$attr:meta] )*
+        // The response type.
+        Response => $t:ident {
             // And any fields.
+            // See [`__define_request`] for docs, this does the same thing.
             $(
-                $( #[$response_field_attr:meta] )*
-                $response_field:ident: $response_field_type:ty $(= $response_field_type_default:expr)?,
+                $( #[$field_attr:meta] )*
+                $field:ident: $field_type:ty $(= $field_default:expr)?,
             )*
         }
     ) => {
-        $( #[$response_type_attr] )*
-        pub struct $response_type_name {
+        $( #[$attr] )*
+        pub struct $t {
             $(
-                $( #[$response_field_attr] )*
-                pub $response_field: $response_field_type,
+                $( #[$field_attr] )*
+                pub $field: $field_type,
             )*
         }
 
         #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
-            $response_type_name,
+            $t,
             $(
-                $response_field: $response_field_type $($response_field_type_default)?,
+                $field: $field_type $($field_default)?,
             )*
         }
     };
 
     //------------------------------------------------------------------------------
-    // This version of the macro expects a `Request` base type.
+    // This version of the macro expects a `Request` base type from [`crate::bases`].
     (
-        // The response type (and any doc comments, derives, etc).
-        $( #[$response_type_attr:meta] )*
-        $response_base_type:ty => $response_type_name:ident {
+        // Any doc comments, derives, etc.
+        $( #[$attr:meta] )*
+        // The response base type => actual name of the struct
+        $base:ty => $t:ident {
             // And any fields.
+            // See [`__define_request`] for docs, this does the same thing.
             $(
-                $( #[$response_field_attr:meta] )*
-                $response_field:ident: $response_field_type:ty $(= $response_field_type_default:expr)?,
+                $( #[$field_attr:meta] )*
+                $field:ident: $field_type:ty $(= $field_default:expr)?,
             )*
         }
     ) => {
-        $( #[$response_type_attr] )*
-        pub struct $response_type_name {
+        $( #[$attr] )*
+        pub struct $t {
             #[cfg_attr(feature = "serde", serde(flatten))]
-            pub base: $response_base_type,
+            pub base: $base,
 
             $(
-                $( #[$response_field_attr] )*
-                pub $response_field: $response_field_type,
+                $( #[$field_attr] )*
+                pub $field: $field_type,
             )*
         }
 
         #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
-            $response_type_name,
+            $t,
             $(
-                $response_field: $response_field_type $(= $response_field_type_default)?,
+                $field: $field_type $(= $field_default)?,
             )*
-            !flatten: base: $response_base_type,
+            !flatten: base: $base,
         }
     };
 }
-pub(crate) use define_response;
+pub(crate) use __define_response;
 
 //---------------------------------------------------------------------------------------------------- define_request_and_response_doc
 /// Generate documentation for the types generated
-/// by the [`define_request_and_response`] macro.
+/// by the [`__define_request_and_response`] macro.
 ///
 /// See it for more info on inputs.
-macro_rules! define_request_and_response_doc {
+///
+/// `__` is used to notate that this shouldn't be called directly.
+macro_rules! __define_request_and_response_doc {
     (
         // This labels the last `[request]` or `[response]`
         // hyperlink in documentation. Input is either:
@@ -287,21 +319,27 @@ macro_rules! define_request_and_response_doc {
         )
     };
 }
-pub(crate) use define_request_and_response_doc;
+pub(crate) use __define_request_and_response_doc;
 
 //---------------------------------------------------------------------------------------------------- Macro
-/// Link the original `monerod` definition for RPC base types.
+/// Output a string link to `monerod` source code.
 macro_rules! monero_definition_link {
-    ($commit:ident, $file_path:literal, $start:literal..=$end:literal) => {
+    (
+        $commit:ident, // Git commit hash
+        $file_path:literal, // File path within `monerod`'s `src/`, e.g. `rpc/core_rpc_server_commands_defs.h`
+        $start:literal$(..=$end:literal)? // File lines, e.g. `0..=123` or `0`
+    ) => {
         concat!(
             "[Definition](https://github.com/monero-project/monero/blob/",
             stringify!($commit),
             "/src/",
-            stringify!($file_path),
+            $file_path,
             "#L",
             stringify!($start),
-            "-L",
-            stringify!($end),
+            $(
+                "-L",
+                stringify!($end),
+            )?
             ")."
         )
     };

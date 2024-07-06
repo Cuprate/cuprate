@@ -1,4 +1,10 @@
-//! TODO
+//! Miscellaneous types.
+//!
+//! These are `struct`s that appear in request/response types.
+//! For example, [`crate::json::GetConnectionsResponse`] contains
+//! the [`crate::misc::ConnectionInfo`] struct defined here.
+//!
+//! These types are re-exported to the root module.
 
 //---------------------------------------------------------------------------------------------------- Lints
 #![allow(
@@ -16,14 +22,24 @@ use cuprate_epee_encoding::epee_object;
 use crate::macros::monero_definition_link;
 
 //---------------------------------------------------------------------------------------------------- Macros
-/// TODO
+/// This macro (local to this file) defines all the misc types.
+///
+/// This macro:
+/// 1. Defines a `pub struct` with all `pub` fields
+/// 2. Implements `epee` on the struct
+///
+/// When using, consider documenting:
+/// - The original Monero definition site with [`monero_definition_link`]
+/// - The request/responses where the `struct` is used
 macro_rules! define_struct_and_impl_epee {
     (
+        // Optional `struct` attributes.
         $( #[$struct_attr:meta] )*
+        // The `struct`'s name.
         $struct_name:ident {
             // And any fields.
             $(
-                $( #[$field_attr:meta] )*
+                $( #[$field_attr:meta] )* // Field attributes
                 $field_name:ident: $field_type:ty,
             )*
         }
@@ -35,7 +51,6 @@ macro_rules! define_struct_and_impl_epee {
                 pub $field_name: $field_type,
             )*
         }
-
 
         #[cfg(feature = "epee")]
         epee_object! {
@@ -312,9 +327,6 @@ define_struct_and_impl_epee! {
         hash: String,
     }
 }
-
-//---------------------------------------------------------------------------------------------------- Custom serde
-// This section is for `struct`s that have custom (de)serialization code.
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
