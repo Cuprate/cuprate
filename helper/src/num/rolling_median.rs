@@ -76,7 +76,19 @@ where
         }
     }
 
-    /// Push an item to the back of the window.
+    /// Pops the back of the window, i.e. the youngest item.
+    pub fn pop_back(&mut self) {
+        if let Some(item) = self.window.pop_back() {
+            match self.sorted_window.binary_search(&item) {
+                Ok(idx) => {
+                    self.sorted_window.remove(idx);
+                }
+                Err(_) => panic!("Value expected to be in sorted_window was not there"),
+            }
+        }
+    }
+
+    /// Push an item to the _back_ of the window.
     ///
     /// This will pop the oldest item in the window if the target length has been exceeded.
     pub fn push(&mut self, item: T) {
@@ -88,6 +100,28 @@ where
         match self.sorted_window.binary_search(&item) {
             Ok(idx) | Err(idx) => self.sorted_window.insert(idx, item),
         }
+    }
+
+    /// Append some values to the _front_ of the window.
+    ///
+    /// These new values will be the oldest items in the window. The order of the inputted items will be
+    /// kept, i.e. the first item in the [`Vec`] will be the oldest item in the queue.
+    pub fn append_front(&mut self, items: Vec<T>) {
+        for item in items.into_iter().rev() {
+            self.window.push_front(item);
+            match self.sorted_window.binary_search(&item) {
+                Ok(idx) | Err(idx) => self.sorted_window.insert(idx, item),
+            }
+
+            if self.window.len() > self.target_window {
+                self.pop_back();
+            }
+        }
+    }
+
+    /// Returns the number of items currently in the [`RollingMedian`].
+    pub fn window_len(&self) -> usize {
+        self.window.len()
     }
 
     /// Calculated the median of the values currently in the [`RollingMedian`].

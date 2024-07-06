@@ -38,6 +38,60 @@ async fn blocks_out_of_window_not_counted() -> Result<(), tower::BoxError> {
 }
 
 #[tokio::test]
+async fn pop_blocks_greater_than_window() -> Result<(), tower::BoxError> {
+    let mut db_builder = DummyDatabaseBuilder::default();
+    for weight in 1..=5000 {
+        let block = DummyBlockExtendedHeader::default().with_weight_into(weight, weight);
+        db_builder.add_block(block);
+    }
+
+    let database = db_builder.finish(None);
+
+    let mut weight_cache =
+        BlockWeightsCache::init_from_chain_height(5000, TEST_WEIGHT_CONFIG, database.clone())
+            .await?;
+
+    let old_cache = weight_cache.clone();
+
+    weight_cache.new_block(5000, 0, 0);
+    weight_cache.new_block(5001, 0, 0);
+    weight_cache.new_block(5002, 0, 0);
+
+    weight_cache.pop_blocks(3, database).await.unwrap();
+
+    assert_eq!(weight_cache, old_cache);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn pop_blocks_less_than_window() -> Result<(), tower::BoxError> {
+    let mut db_builder = DummyDatabaseBuilder::default();
+    for weight in 1..=500 {
+        let block = DummyBlockExtendedHeader::default().with_weight_into(weight, weight);
+        db_builder.add_block(block);
+    }
+
+    let database = db_builder.finish(None);
+
+    let mut weight_cache =
+        BlockWeightsCache::init_from_chain_height(500, TEST_WEIGHT_CONFIG, database.clone())
+            .await?;
+
+    let old_cache = weight_cache.clone();
+
+    weight_cache.new_block(500, 0, 0);
+    weight_cache.new_block(501, 0, 0);
+    weight_cache.new_block(502, 0, 0);
+
+    weight_cache.pop_blocks(3, database).await.unwrap();
+
+    assert_eq!(weight_cache, old_cache);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn weight_cache_calculates_correct_median() -> Result<(), tower::BoxError> {
     let mut db_builder = DummyDatabaseBuilder::default();
     // add an initial block as otherwise this will panic.

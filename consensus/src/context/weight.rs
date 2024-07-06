@@ -27,7 +27,7 @@ const LONG_TERM_WINDOW: u64 = 100000;
 
 /// Configuration for the block weight cache.
 ///
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct BlockWeightsCacheConfig {
     short_term_window: u64,
     long_term_window: u64,
@@ -56,7 +56,7 @@ impl BlockWeightsCacheConfig {
 ///
 /// These calculations require a lot of data from the database so by caching
 /// this data it reduces the load on the database.
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BlockWeightsCache {
     /// The short term block weights.
     short_term_block_weights: RollingMedian<usize>,
@@ -65,6 +65,8 @@ pub struct BlockWeightsCache {
 
     /// The height of the top block.
     tip_height: u64,
+
+    config: BlockWeightsCacheConfig,
 }
 
 impl BlockWeightsCache {
@@ -107,7 +109,68 @@ impl BlockWeightsCache {
             })
             .await,
             tip_height: chain_height - 1,
+            config,
         })
+    }
+
+    /// Pop some blocks from the top of the cache.
+    ///
+    /// The cache will be returned to the state it would have been in `numb_blocks` ago.
+    #[instrument(name = "pop_blocks_weight_cache", skip_all, fields(numb_blocks = numb_blocks))]
+    pub async fn pop_blocks<D: Database + Clone>(
+        &mut self,
+        numb_blocks: u64,
+        database: D,
+    ) -> Result<(), ExtendedConsensusError> {
+        if self.long_term_weights.window_len() <= usize::try_from(numb_blocks).unwrap() {
+            // More blocks to pop than we have in the cache, so just restart a new cache.
+            *self = Self::init_from_chain_height(
+                self.tip_height - numb_blocks + 1,
+                self.config,
+                database,
+            )
+            .await?;
+
+            return Ok(());
+        }
+
+        let chain_height = self.tip_height + 1;
+
+        let new_long_term_start_height = chain_height
+            .saturating_sub(self.config.long_term_window)
+            .saturating_sub(numb_blocks);
+
+        let old_long_term_weights = get_long_term_weight_in_range(
+            new_long_term_start_height
+                // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
+                ..(chain_height - u64::try_from(self.long_term_weights.window_len()).unwrap()),
+            database.clone(),
+        )
+        .await?;
+
+        let new_short_term_start_height = chain_height
+            .saturating_sub(self.config.short_term_window)
+            .saturating_sub(numb_blocks);
+
+        let old_short_term_weights = get_blocks_weight_in_range(
+            new_short_term_start_height
+                // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
+                ..(chain_height - u64::try_from(self.short_term_block_weights.window_len()).unwrap()),
+            database,
+        )
+            .await?;
+
+        for _ in 0..numb_blocks {
+            self.short_term_block_weights.pop_back();
+            self.long_term_weights.pop_back();
+        }
+
+        self.long_term_weights.append_front(old_long_term_weights);
+        self.short_term_block_weights
+            .append_front(old_short_term_weights);
+        self.tip_height -= numb_blocks;
+
+        Ok(())
     }
 
     /// Add a new block to the cache.
