@@ -118,18 +118,20 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, redb::ReadTransaction, redb::WriteTransaction>
-    for (&'env redb::Database, redb::Durability)
+impl<'env> EnvInner<'env> for (&'env redb::Database, redb::Durability)
 where
     Self: 'env,
 {
+    type Ro<'a> = redb::ReadTransaction;
+    type Rw<'a> = redb::WriteTransaction;
+
     #[inline]
-    fn tx_ro(&'env self) -> Result<redb::ReadTransaction, RuntimeError> {
+    fn tx_ro(&self) -> Result<redb::ReadTransaction, RuntimeError> {
         Ok(self.0.begin_read()?)
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<redb::WriteTransaction, RuntimeError> {
+    fn tx_rw(&self) -> Result<redb::WriteTransaction, RuntimeError> {
         // `redb` has sync modes on the TX level, unlike heed,
         // which sets it at the Environment level.
         //
@@ -142,7 +144,7 @@ where
     #[inline]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &redb::ReadTransaction,
+        tx_ro: &Self::Ro<'_>,
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
@@ -154,7 +156,7 @@ where
     #[inline]
     fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &redb::WriteTransaction,
+        tx_rw: &Self::Rw<'_>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =

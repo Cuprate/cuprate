@@ -50,20 +50,12 @@ pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
     // we want since it is agnostic, so we are responsible for this.
     {
         let env_inner = env.env_inner();
-        let tx_rw = env_inner.tx_rw();
-        let tx_rw = match tx_rw {
-            Ok(tx_rw) => tx_rw,
-            Err(e) => return Err(runtime_to_init_error(e)),
-        };
+        let tx_rw = env_inner.tx_rw().map_err(runtime_to_init_error)?;
 
         // Create all tables.
-        if let Err(e) = OpenTables::create_tables(&env_inner, &tx_rw) {
-            return Err(runtime_to_init_error(e));
-        };
+        OpenTables::create_tables(&env_inner, &tx_rw).map_err(runtime_to_init_error)?;
 
-        if let Err(e) = tx_rw.commit() {
-            return Err(runtime_to_init_error(e));
-        }
+        TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
     }
 
     Ok(env)
