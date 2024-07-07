@@ -11,7 +11,7 @@
 use std::borrow::Cow;
 
 //---------------------------------------------------------------------------------------------------- TODO
-/// Default [`bool`] type used in request/response types.
+/// Default [`bool`] type used in request/response types, `false`.
 #[inline]
 pub(crate) const fn default_bool() -> bool {
     false
