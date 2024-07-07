@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::epee_object;
 
-use crate::{macros::monero_definition_link, Status};
+use crate::{macros::monero_definition_link, misc::Status};
 
 //---------------------------------------------------------------------------------------------------- Requests
 /* no types here... yet */

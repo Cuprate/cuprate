@@ -47,6 +47,12 @@ pub(crate) const fn default_u64() -> u64 {
     0
 }
 
+/// Default [`u8`] used in request/response types.
+#[inline]
+pub(crate) const fn default_u8() -> u8 {
+    0
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

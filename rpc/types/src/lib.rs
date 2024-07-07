@@ -82,7 +82,15 @@
 	clippy::option_if_let_else,
 )]
 // Allow some lints when running in debug mode.
-#![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
+#![cfg_attr(
+    debug_assertions,
+    allow(
+        clippy::todo,
+        clippy::multiple_crate_versions,
+        unused_imports,
+        unused_variables
+    )
+)]
 // Allow some lints in tests.
 #![cfg_attr(
     test,
@@ -102,7 +110,6 @@ mod constants;
 mod defaults;
 mod free;
 mod macros;
-mod status;
 
 pub use binary_string::BinaryString;
 pub use constants::{
@@ -110,7 +117,6 @@ pub use constants::{
     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN, CORE_RPC_VERSION,
     CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR,
 };
-pub use status::Status;
 
 pub mod base;
 #[cfg(feature = "bin")]
@@ -119,12 +125,7 @@ pub mod bin;
 #[cfg(feature = "json")]
 #[cfg_attr(docsrs, doc(cfg(feature = "json")))]
 pub mod json;
+pub mod misc;
 #[cfg(feature = "other")]
 #[cfg_attr(docsrs, doc(cfg(feature = "other")))]
 pub mod other;
-
-mod misc;
-pub use misc::{
-    AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, GetMinerDataTxBacklogEntry,
-    HardforkEntry, HistogramEntry, OutputDistributionData, Peer, SetBan, Span, TxBacklogEntry,
-};

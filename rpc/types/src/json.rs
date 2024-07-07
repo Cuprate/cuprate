@@ -11,9 +11,8 @@ use crate::{
     macros::define_request_and_response,
     misc::{
         AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry,
-        Peer, SetBan, Span, TxBacklogEntry,
+        OutputDistributionData, Peer, SetBan, Span, Status, TxBacklogEntry,
     },
-    OutputDistributionData, Status,
 };
 
 //---------------------------------------------------------------------------------------------------- Struct definitions

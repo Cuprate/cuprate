@@ -10,16 +10,16 @@ This crate ports the types used in Monero's RPC interface, including:
 # Modules
 This crate's types are split in the following manner:
 
-This crate has 5 modules:
-- The root module - miscellaneous items
-- [`json`] - JSON types from the `/json_rpc` endpoint
-- [`bin`] - Binary types from the binary endpoints
-- [`other`] - Misc JSON types from other endpoints
-- [`base`] - Base response types
+| Module | Purpose |
+|--------|---------|
+| The root module | Miscellaneous items, e.g. constants.
+| [`json`] | Contains JSON request/response (some mixed with binary) that all share the common `/json_rpc` endpoint. |
+| [`bin`] | Contains request/response types that are expected to be fully in binary (`cuprate_epee_encoding`) in `monerod` and `cuprated`'s RPC interface. These are called at a custom endpoint instead of `/json_rpc`, e.g. `/get_blocks.bin`. |
+| [`other`] | Contains request/response types that are JSON, but aren't called at `/json_rpc` (e.g. [`crate::other::GetHeightRequest`]). |
+| [`misc`] | Contains miscellaneous types, e.g. [`crate::misc::Status`]. Many of types here are found and used in request/response types, for example, [`crate::misc::BlockHeader`] is used in [`crate::json::GetLastBlockHeaderResponse`]. |
+| [`base`] | Contains base types flattened into many request/response types.
 
 Each type in `{json,bin,other}` come in pairs and have identical names, but are suffixed with either `Request` or `Response`. e.g. [`GetBlockCountRequest`](crate::json::GetBlockCountRequest) & [`GetBlockCountResponse`](crate::json::GetBlockCountResponse).
-
-Miscellaneous types are found in the root module, e.g. [`crate::Status`]. Many of types here are found and used in request/response types, for example, [`crate::BlockHeader`] is used in [`crate::json::GetLastBlockHeaderResponse`].
 
 # Documentation
 The documentation for types within `{json,bin,other}` are omitted, as they can be found in [Monero's RPC documentation](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html).
@@ -45,9 +45,8 @@ For example:
 TODO: fix doc links when types are ready.
 
 # Mixed types
-Note that some types within [`other`] mix JSON & binary together, i.e.,
-the message overall is JSON, however some fields contain binary
-values inside JSON strings, for example:
+Note that some types mix JSON & binary together, i.e., the message overall is JSON,
+however some fields contain binary values inside JSON strings, for example:
 
 ```json
 {
