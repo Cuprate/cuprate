@@ -13,8 +13,8 @@ use crate::{
     macros::define_request_and_response,
     misc::{
         AuxPow, BlockCompleteEntry, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo,
-        GetBan, HardforkEntry, HistogramEntry, OutputDistributionData, Peer, PoolTxInfo, SetBan,
-        Span, Status, TxBacklogEntry,
+        GetBan, GetOutputsOut, HardforkEntry, HistogramEntry, OutKey, OutputDistributionData, Peer,
+        PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
     },
 };
 
@@ -86,10 +86,25 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 487..=510,
     GetOutputIndexes,
     Request {
-        txid: Vec<[u8; 32]>,
+        txid: [u8; 32],
     },
     AccessResponseBase {
         o_indexes: Vec<u64>,
+    }
+}
+
+define_request_and_response! {
+    get_outsbin,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 512..=565,
+    GetOuts,
+    Request {
+        outputs: Vec<GetOutputsOut>,
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        get_txid: bool = default_bool(),
+    },
+    AccessResponseBase {
+        outs: Vec<OutKey>,
     }
 }
 

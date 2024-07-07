@@ -397,6 +397,39 @@ define_struct_and_impl_epee! {
     }
 }
 
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        512..=521
+    )]
+    /// Used in [`crate::bin::GetOutsRequest`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    GetOutputsOut {
+        amount: u64,
+        index: u64,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        512..=521
+    )]
+    /// Used in [`crate::bin::GetOutsRequest`].
+    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+    OutKey {
+        key: u8, // TODO: crypto::public_key,
+        mask: u8, // TODO: rct::key,
+        unlocked: bool,
+        height: u64,
+        txid: [u8; 32],
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- TODO
 // TODO - weird types.
 
