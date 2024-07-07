@@ -39,7 +39,7 @@ For example:
 | Endpoint/method | Crate location and name |
 |-----------------|-------------------------|
 | [`get_block_count`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block_count) | [`json::GetBlockCountRequest`] & [`json::GetBlockCountResponse`]
-| [`/get_blocks.bin`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blockbin) | `bin::GetBlocksRequest` & `bin::GetBlocksResponse`
+| [`/get_blocks.bin`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blockbin) | [`bin::GetBlocksRequest`] & [`bin::GetBlocksResponse`]
 | [`/get_height`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_height) | `other::GetHeightRequest` & `other::GetHeightResponse`
 
 TODO: fix doc links when types are ready.

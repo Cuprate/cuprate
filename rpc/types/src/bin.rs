@@ -20,10 +20,10 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- TODO
 define_request_and_response! {
-    get_blocks_bin,
+    get_blocksbin,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 162..=262,
-    GetBlocksBin,
+    GetBlocks,
     Request {
         #[cfg_attr(feature = "serde", serde(default = "default_u8"))]
         requested_info: u8 = default_u8(),
@@ -36,34 +36,60 @@ define_request_and_response! {
         #[cfg_attr(feature = "serde", serde(default = "default_u64"))]
         pool_info_since: u64 = default_u64(),
     },
+    // TODO: this has custom epee (de)serialization.
+    // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L242-L259>
     ResponseBase {
-      blocks: Vec<BlockCompleteEntry>,
-      start_height: u64,
-      current_height: u64,
-      output_indices: Vec<BlockOutputIndices>,
-      daemon_time: u64,
-      pool_info_extent: u8,
-      added_pool_txs: Vec<PoolTxInfo>,
-      remaining_added_pool_txids: Vec<[u8; 32]>,
-      removed_pool_txids: Vec<[u8; 32]>,
+        blocks: Vec<BlockCompleteEntry>,
+        start_height: u64,
+        current_height: u64,
+        output_indices: Vec<BlockOutputIndices>,
+        daemon_time: u64,
+        pool_info_extent: u8,
+        added_pool_txs: Vec<PoolTxInfo>,
+        remaining_added_pool_txids: Vec<[u8; 32]>,
+        removed_pool_txids: Vec<[u8; 32]>,
     }
 }
 
 define_request_and_response! {
-    add_aux_pow,
+    get_blocks_by_heightbin,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
-    core_rpc_server_commands_defs.h => 1068..=1112,
-    AddAuxPow,
+    core_rpc_server_commands_defs.h => 264..=286,
+    GetBlocksByHeight,
     Request {
-        blocktemplate_blob: String,
-        aux_pow: Vec<AuxPow>,
+        heights: Vec<u64>,
     },
-    ResponseBase {
-        blocktemplate_blob: String,
-        blockhashing_blob: String,
-        merkle_root: String,
-        merkle_tree_depth: u64,
-        aux_pow: Vec<AuxPow>,
+    AccessResponseBase {
+        blocks: Vec<BlockCompleteEntry>,
+    }
+}
+
+define_request_and_response! {
+    get_hashesbin,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 309..=338,
+    GetHashes,
+    Request {
+        block_ids: Vec<[u8; 32]>,
+        start_height: u64,
+    },
+    AccessResponseBase {
+        m_blocks_ids: Vec<[u8; 32]>,
+        start_height: u64,
+        current_height: u64,
+    }
+}
+
+define_request_and_response! {
+    get_o_indexesbin,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 487..=510,
+    GetOutputIndexes,
+    Request {
+        txid: Vec<[u8; 32]>,
+    },
+    AccessResponseBase {
+        o_indexes: Vec<u64>,
     }
 }
 

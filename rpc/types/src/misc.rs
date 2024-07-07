@@ -344,7 +344,7 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         192..=199
     )]
-    /// Used in [`crate::bin::GetBlocksBinResponse`].
+    /// Used in [`crate::bin::GetBlocksResponse`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     TxOutputIndices {
@@ -358,7 +358,7 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         201..=208
     )]
-    /// Used in [`crate::bin::GetBlocksBinResponse`].
+    /// Used in [`crate::bin::GetBlocksResponse`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     BlockOutputIndices {
@@ -372,7 +372,7 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         210..=221
     )]
-    /// Used in [`crate::bin::GetBlocksBinResponse`].
+    /// Used in [`crate::bin::GetBlocksResponse`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     PoolTxInfo {
@@ -388,7 +388,7 @@ define_struct_and_impl_epee! {
         "cryptonote_protocol/cryptonote_protocol_defs.h",
         121..=131
     )]
-    /// Used in [`crate::bin::GetBlocksBinResponse`].
+    /// Used in [`crate::bin::GetBlocksResponse`].
     #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     TxBlobEntry {
@@ -405,7 +405,7 @@ define_struct_and_impl_epee! {
     "rpc/core_rpc_server_commands_defs.h",
     210..=221
 )]
-/// Used in [`crate::bin::GetBlocksBinResponse`].
+/// Used in [`crate::bin::GetBlocksResponse`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BlockCompleteEntry {
@@ -426,7 +426,7 @@ epee_object! {
     txs: Vec<TxBlobEntry>,
 }
 
-/// Used in [`crate::bin::GetBlocksBinResponse`].
+/// Used in [`crate::bin::GetBlocksResponse`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(u8)]
