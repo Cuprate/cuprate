@@ -5,7 +5,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
-    base::ResponseBase, defaults::default_bool, macros::define_request_and_response, misc::TxEntry,
+    base::{AccessResponseBase, ResponseBase},
+    defaults::{default_bool, default_bool_true},
+    macros::define_request_and_response,
+    misc::TxEntry,
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -38,11 +41,64 @@ define_request_and_response! {
         #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
         split: bool = default_bool(),
     },
-    ResponseBase {
+    AccessResponseBase {
         txs_as_hex: Vec<String>,
         txs_as_json: Vec<String>,
         missed_tx: Vec<String>,
         txs: Vec<TxEntry>,
+    }
+}
+
+define_request_and_response! {
+    get_alt_blocks_hashes,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 370..=451,
+    GetAltBlocksHashes,
+    Request {},
+    AccessResponseBase {
+        blks_hashes: Vec<String>,
+    }
+}
+
+define_request_and_response! {
+    is_key_image_spent,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 370..=451,
+    IsKeyImageSpent,
+    Request {
+        key_images: Vec<String>,
+    },
+    AccessResponseBase {
+        spent_status: Vec<u8>, // TODO: should be `KeyImageSpentStatus`.
+    }
+}
+
+define_request_and_response! {
+    send_raw_transaction,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 370..=451,
+    SendRawTransaction,
+    Request {
+        tx_as_hex: String,
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        do_not_relay: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
+        do_sanity_checks: bool = default_bool_true(),
+    },
+    AccessResponseBase {
+        double_spend: bool,
+        fee_too_low: bool,
+        invalid_input: bool,
+        invalid_output: bool,
+        low_mixin: bool,
+        nonzero_unlock_time: bool,
+        not_relayed: bool,
+        overspend: bool,
+        reason: String,
+        sanity_check_failed: bool,
+        too_big: bool,
+        too_few_outputs: bool,
+        tx_extra_too_big: bool,
     }
 }
 

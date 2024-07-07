@@ -17,6 +17,12 @@ pub(crate) const fn default_bool() -> bool {
     false
 }
 
+/// Default [`bool`] type used in _some_ request/response types, `true`.
+#[inline]
+pub(crate) const fn default_bool_true() -> bool {
+    true
+}
+
 /// Default `Cow<'static, str` type used in request/response types.
 #[inline]
 pub(crate) const fn default_cow_str() -> Cow<'static, str> {
