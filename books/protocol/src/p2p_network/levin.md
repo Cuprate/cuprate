@@ -10,16 +10,16 @@ of buckets that will be combined into a single message.
 ### Bucket Format
 
 | Field  | Type                          | Size (bytes) |
-| ------ | ----------------------------- | ------------ |
+|--------|-------------------------------|--------------|
 | Header | [BucketHeader](#bucketheader) | 33           |
 | Body   | bytes                         | dynamic      |
 
 ### BucketHeader
 
-Format:
+Format[^header-format]:
 
 | Field            | Type   | Size (bytes) |
-| ---------------- | ------ | ------------ |
+|------------------|--------|--------------|
 | Signature        | LE u64 | 8            |
 | Size             | LE u64 | 8            |
 | Expect Response  | bool   | 1            |
@@ -32,7 +32,7 @@ Format:
 
 The signature field is fixed for every bucket and is used to tell apart peers running different protocols.
 
-Its value should be `0x0101010101012101`
+Its value should be `0x0101010101012101` [^signature]
 
 #### Size
 
@@ -53,7 +53,7 @@ responses should be `1`.
 
 #### Flags
 
-This is a bit-flag field that determines what type of bucket this is:
+This is a bit-flag field that determines what type of bucket this is[^flags]:
 
 | Type           | Bits set    |
 | -------------- | ----------- |
@@ -66,3 +66,11 @@ This is a bit-flag field that determines what type of bucket this is:
 #### Protocol Version
 
 This is a fixed value of 1.
+
+---
+
+[^header-format]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/contrib/epee/include/net/levin_base.h#L62>
+
+[^signature]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/contrib/epee/include/net/levin_base.h#L38>
+
+[^flags]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/contrib/epee/include/net/levin_base.h#L79-L82>
