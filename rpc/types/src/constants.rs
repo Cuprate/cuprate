@@ -15,6 +15,7 @@
 // What this means for Cuprate: just follow `monerod`.
 
 //---------------------------------------------------------------------------------------------------- Import
+use crate::macros::monero_definition_link;
 
 //---------------------------------------------------------------------------------------------------- Status
 // Common RPC status strings:
@@ -23,39 +24,32 @@
 // Note that these are _distinct_ from the ones in ZMQ:
 // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/message.cpp#L40-L44>.
 
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L78>
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 78)]
 pub const CORE_RPC_STATUS_OK: &str = "OK";
 
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L79>
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 79)]
 pub const CORE_RPC_STATUS_BUSY: &str = "BUSY";
 
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L80>
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 80)]
 pub const CORE_RPC_STATUS_NOT_MINING: &str = "NOT MINING";
 
-/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L81>
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 81)]
 pub const CORE_RPC_STATUS_PAYMENT_REQUIRED: &str = "PAYMENT REQUIRED";
 
 /// Custom `CORE_RPC_STATUS` for usage in Cuprate.
 pub const CORE_RPC_STATUS_UNKNOWN: &str = "UNKNOWN";
 
 //---------------------------------------------------------------------------------------------------- Versions
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 90)]
 /// RPC major version.
-///
-/// See: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L90>.
 pub const CORE_RPC_VERSION_MAJOR: u32 = 3;
 
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 91)]
 /// RPC miror version.
-///
-/// See: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L91>.
 pub const CORE_RPC_VERSION_MINOR: u32 = 14;
 
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 92..=93)]
 /// RPC version.
-///
-/// See: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L92-L93>.
-///
-/// ```rust
-/// assert_eq!(cuprate_rpc_types::CORE_RPC_VERSION, 196_622);
-/// ```
 pub const CORE_RPC_VERSION: u32 = (CORE_RPC_VERSION_MAJOR << 16) | CORE_RPC_VERSION_MINOR;
 
 //---------------------------------------------------------------------------------------------------- Tests
