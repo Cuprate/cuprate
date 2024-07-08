@@ -28,7 +28,7 @@ use crate::{
         CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
         CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN,
     },
-    defaults::{default_u16, default_u32},
+    defaults::{default_u16, default_u32, default_u64},
     macros::monero_definition_link,
 };
 
@@ -435,6 +435,47 @@ define_struct_and_impl_epee! {
         last_seen: u64,
         rpc_port: u16,
         rpc_credits_per_hash: u32,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1519..=1556
+    )]
+    /// Used in [`crate::other::GetTransactionPoolResponse`].
+    TxInfo {
+        id_hash: String,
+        tx_json: String,
+        blob_size: u64,
+        #[cfg_attr(feature = "serde", serde(default = "default_u64"))]
+        weight: u64 = default_u64(),
+        fee: u64,
+        max_used_block_id_hash: String,
+        max_used_block_height: u64,
+        kept_by_block: bool,
+        last_failed_height: u64,
+        last_failed_id_hash: String,
+        receive_time: u64,
+        relayed: bool,
+        last_relayed_time: u64,
+        do_not_relay: bool,
+        double_spend_seen: bool,
+        tx_blob: String,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1558..=1567
+    )]
+    /// Used in [`crate::other::GetTransactionPoolResponse`].
+    SpentKeyImageInfo {
+        id_hash: String,
+        txs_hashes: Vec<String>,
     }
 }
 

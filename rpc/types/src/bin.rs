@@ -85,6 +85,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 487..=510,
     GetOutputIndexes,
+    #[derive(Copy)]
     Request {
         txid: [u8; 32],
     },

@@ -6,9 +6,9 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{default_bool, default_bool_true},
+    defaults::{default_bool, default_bool_true, default_string},
     macros::define_request_and_response,
-    misc::{Peer, TxEntry},
+    misc::{Peer, SpentKeyImageInfo, Status, TxEntry, TxInfo},
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -181,6 +181,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1450..=1470,
     SetLogHashRate,
+    #[derive(Copy)]
     Request {
         visible: bool,
     },
@@ -192,10 +193,54 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1450..=1470,
     SetLogLevel,
+    #[derive(Copy)]
     Request {
         level: u8,
     },
     ResponseBase {}
+}
+
+define_request_and_response! {
+    set_log_categories,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1494..=1517,
+    SetLogCategories,
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "default_string"))]
+        categories: String = default_string(),
+    },
+    ResponseBase {
+        categories: String,
+    }
+}
+
+define_request_and_response! {
+    set_bootstrap_daemon,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1785..=1812,
+    SetBootstrapDaemon,
+    Request {
+        address: String,
+        username: String,
+        password: String,
+        proxy: String,
+    },
+    #[derive(Copy)]
+    Response {
+        status: Status,
+    }
+}
+
+define_request_and_response! {
+    get_transaction_pool,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1569..=1591,
+    GetTransactionPool,
+    Request {},
+    AccessResponseBase {
+        transactions: Vec<TxInfo>,
+        spent_key_images: Vec<SpentKeyImageInfo>,
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

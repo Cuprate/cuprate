@@ -626,6 +626,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2774..=2796,
     FlushCache,
+    #[derive(Copy)]
     Request {
         #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
         bad_txs: bool = default_bool(),
