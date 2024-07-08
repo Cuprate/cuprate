@@ -57,6 +57,9 @@ macro_rules! define_request_and_response {
         $monero_code_line_end:literal,
 
         // The base `struct` name.
+        // Attributes added here will apply to _both_
+        // request and response types.
+        $( #[$type_attr:meta] )*
         $type_name:ident,
 
         // The request type (and any doc comments, derives, etc).
@@ -89,6 +92,9 @@ macro_rules! define_request_and_response {
                 $monero_code_line_start,
                 $monero_code_line_end,
             )]
+            ///
+            $( #[$type_attr] )*
+            ///
             $( #[$request_type_attr] )*
             [<$type_name Request>] {
                 $(
@@ -112,6 +118,9 @@ macro_rules! define_request_and_response {
                 $monero_code_line_start,
                 $monero_code_line_end,
             )]
+            ///
+            $( #[$type_attr] )*
+            ///
             $( #[$response_type_attr] )*
             $response_base_type => [<$type_name Response>] {
                 $(
