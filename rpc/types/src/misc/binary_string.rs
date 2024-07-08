@@ -8,7 +8,7 @@
 /// ```rust
 /// use serde::Deserialize;
 /// use serde_json::from_str;
-/// use cuprate_rpc_types::BinaryString;
+/// use cuprate_rpc_types::misc::BinaryString;
 ///
 /// #[derive(Deserialize)]
 /// struct Key {

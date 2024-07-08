@@ -40,9 +40,7 @@ For example:
 |-----------------|-------------------------|
 | [`get_block_count`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block_count) | [`json::GetBlockCountRequest`] & [`json::GetBlockCountResponse`]
 | [`/get_blocks.bin`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blockbin) | [`bin::GetBlocksRequest`] & [`bin::GetBlocksResponse`]
-| [`/get_height`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_height) | `other::GetHeightRequest` & `other::GetHeightResponse`
-
-TODO: fix doc links when types are ready.
+| [`/get_height`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_height) | [`other::GetHeightRequest`] & [`other::GetHeightResponse`]
 
 # Mixed types
 Note that some types mix JSON & binary together, i.e., the message overall is JSON,
@@ -57,7 +55,7 @@ however some fields contain binary values inside JSON strings, for example:
 }
 ```
 
-`binary` here is (de)serialized as a normal [`String`]. In order to be clear on which fields contain binary data, the struct fields that have them will use [`crate::BinaryString`] instead of [`String`].
+`binary` here is (de)serialized as a normal [`String`]. In order to be clear on which fields contain binary data, the struct fields that have them will use [`crate::misc::BinaryString`] instead of [`String`].
 
 - TODO: list the specific types.
 - TODO: we need to figure out a type that (de)serializes correctly, `String` errors with `serde_json`
@@ -69,8 +67,5 @@ All are enabled by default.
 
 | Feature flag | Does what |
 |--------------|-----------|
-| `json`       | Enables the `crate::json` module
-| `bin`        | Enables the `crate::bin` module
-| `other`      | Enables the `crate::other` module
 | `serde`      | Implements `serde` on all types
 | `epee`       | Implements `cuprate_epee_encoding` on all types

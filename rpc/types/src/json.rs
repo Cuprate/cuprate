@@ -545,6 +545,7 @@ define_request_and_response! {
     GetTransactionPoolBacklog,
     Request {},
     ResponseBase {
+        // TODO: this is a [`BinaryString`].
         backlog: Vec<TxBacklogEntry>,
     }
 }

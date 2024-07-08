@@ -9,10 +9,7 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/types"
 keywords    = ["cuprate", "rpc", "types", "monero"]
 
 [features]
-default = ["json", "bin", "other", "serde", "epee"]
-json    = []
-bin     = []
-other   = []
+default = ["serde", "epee"]
 serde   = ["dep:serde"]
 epee    = ["dep:cuprate-epee-encoding"]
 

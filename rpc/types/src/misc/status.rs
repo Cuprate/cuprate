@@ -18,6 +18,10 @@ use crate::constants::{
 };
 
 //---------------------------------------------------------------------------------------------------- Status
+// TODO: this type needs to expand more.
+// There are a lot of RPC calls that will return a random
+// string inside, which isn't compatible with [`Status`].
+
 /// RPC response status.
 ///
 /// This type represents `monerod`'s frequently appearing string field, `status`.
@@ -29,7 +33,7 @@ use crate::constants::{
 /// ## Serialization and string formatting
 /// ```rust
 /// use cuprate_rpc_types::{
-///     Status,
+///     misc::Status,
 ///     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
 ///     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN
 /// };
