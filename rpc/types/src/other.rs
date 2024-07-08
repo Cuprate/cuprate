@@ -265,6 +265,63 @@ define_request_and_response! {
     }
 }
 
+define_request_and_response! {
+    get_limit,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1852..=1874,
+    GetLimit,
+    Request {},
+    ResponseBase {
+        limit_down: u64,
+        limit_up: u64,
+    }
+}
+
+define_request_and_response! {
+    set_limit,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1876..=1903,
+    SetLimit,
+    Request {
+        limit_down: i64,
+        limit_up: i64,
+    },
+    ResponseBase {
+        limit_down: i64,
+        limit_up: i64,
+    }
+}
+
+define_request_and_response! {
+    out_peers,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1876..=1903,
+    OutPeers,
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
+        set: bool = default_bool_true(),
+        out_peers: u32,
+    },
+    ResponseBase {
+        out_peers: u32,
+    }
+}
+
+define_request_and_response! {
+    in_peers,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1932..=1956,
+    InPeers,
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
+        set: bool = default_bool_true(),
+        in_peers: u32,
+    },
+    ResponseBase {
+        in_peers: u32,
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
