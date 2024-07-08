@@ -31,8 +31,9 @@ However, each type will document:
 
 # Naming
 The naming for types within `{json,bin,other}` follow the following scheme:
-- Convert the endpoint or method name into `UpperCamelCase`
-- Remove any suffix extension
+1. Convert the endpoint or method name into `UpperCamelCase`
+1. Remove any suffix extension
+1. Add `Request/Response` suffix
 
 For example:
 
@@ -57,8 +58,11 @@ however some fields contain binary values inside JSON strings, for example:
 
 `binary` here is (de)serialized as a normal [`String`]. In order to be clear on which fields contain binary data, the struct fields that have them will use [`crate::misc::BinaryString`] instead of [`String`].
 
-- TODO: list the specific types.
-- TODO: we need to figure out a type that (de)serializes correctly, `String` errors with `serde_json`
+These mixed types are:
+- [`crate::json::GetTransactionPoolBacklogResponse`]
+- [`crate::json::GetOutputDistributionResponse`]
+
+TODO: we need to figure out a type that (de)serializes correctly, `String` errors with `serde_json`
 
 # Feature flags
 List of feature flags for `cuprate-rpc-types`.

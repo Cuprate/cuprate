@@ -11,6 +11,11 @@ use cuprate_epee_encoding::{
 };
 
 //---------------------------------------------------------------------------------------------------- KeyImageSpentStatus
+#[doc = crate::macros::monero_definition_link!(
+    cc73fe71162d564ffda8e549b79a350bca53c454,
+    "rpc/core_rpc_server_commands_defs.h",
+    456..=460
+)]
 /// Used in [`crate::other::IsKeyImageSpentResponse`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

@@ -26,8 +26,6 @@ use crate::constants::{
 ///
 /// This type represents `monerod`'s frequently appearing string field, `status`.
 ///
-/// This field appears within RPC [JSON response](crate::json) types.
-///
 /// Reference: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L78-L81>.
 ///
 /// ## Serialization and string formatting

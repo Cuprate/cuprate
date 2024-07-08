@@ -31,7 +31,8 @@ use crate::{
 ///
 /// This macro:
 /// 1. Defines a `pub struct` with all `pub` fields
-/// 2. Implements `epee` on the struct
+/// 2. Implements `serde` on the struct
+/// 3. Implements `epee` on the struct
 ///
 /// When using, consider documenting:
 /// - The original Monero definition site with [`monero_definition_link`]

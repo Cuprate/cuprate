@@ -1,6 +1,7 @@
 //! Miscellaneous types.
 //!
-//! These are `struct`s that appear in request/response types.
+//! These are data types that appear in request/response types.
+//!
 //! For example, [`crate::json::GetConnectionsResponse`] contains
 //! the [`crate::misc::ConnectionInfo`] struct defined here.
 

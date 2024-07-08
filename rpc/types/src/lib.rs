@@ -102,7 +102,10 @@
     )
 )]
 // TODO: remove me after finishing impl
-#![allow(dead_code)]
+#![allow(
+	dead_code,
+    rustdoc::broken_intra_doc_links // TODO: remove after `{bin,json,other}.rs` gets merged
+)]
 
 //---------------------------------------------------------------------------------------------------- Mod
 mod constants;
