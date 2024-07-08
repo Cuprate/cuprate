@@ -446,23 +446,23 @@ define_struct_and_impl_epee! {
     )]
     /// Used in [`crate::other::GetTransactionPoolResponse`].
     TxInfo {
-        id_hash: String,
-        tx_json: String,
         blob_size: u64,
-        #[cfg_attr(feature = "serde", serde(default = "default_u64"))]
-        weight: u64 = default_u64(),
+        do_not_relay: bool,
+        double_spend_seen: bool,
         fee: u64,
-        max_used_block_id_hash: String,
-        max_used_block_height: u64,
+        id_hash: String,
         kept_by_block: bool,
         last_failed_height: u64,
         last_failed_id_hash: String,
+        last_relayed_time: u64,
+        max_used_block_height: u64,
+        max_used_block_id_hash: String,
         receive_time: u64,
         relayed: bool,
-        last_relayed_time: u64,
-        do_not_relay: bool,
-        double_spend_seen: bool,
         tx_blob: String,
+        tx_json: String, // TODO: this should be another struct
+        #[cfg_attr(feature = "serde", serde(default = "default_u64"))]
+        weight: u64 = default_u64(),
     }
 }
 

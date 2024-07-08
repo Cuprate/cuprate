@@ -109,6 +109,17 @@ define_request_and_response! {
     }
 }
 
+define_request_and_response! {
+    get_transaction_pool_hashesbin,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1593..=1613,
+    GetTransactionPoolHashes,
+    Request {},
+    AccessResponseBase {
+        tx_hashes: Vec<[u8; 32]>,
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
