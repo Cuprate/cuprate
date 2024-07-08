@@ -28,6 +28,7 @@ use crate::{
         CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
         CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN,
     },
+    defaults::{default_u16, default_u32},
     macros::monero_definition_link,
 };
 
@@ -50,11 +51,14 @@ macro_rules! define_struct_and_impl_epee {
             // And any fields.
             $(
                 $( #[$field_attr:meta] )* // Field attributes
-                $field_name:ident: $field_type:ty,
+                // Field name => the type => optional `epee_object` default value.
+                $field_name:ident: $field_type:ty $(= $field_default:expr)?,
             )*
         }
     ) => {
         $( #[$struct_attr] )*
+        #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
         pub struct $struct_name {
             $(
                 $( #[$field_attr] )*
@@ -66,7 +70,7 @@ macro_rules! define_struct_and_impl_epee {
         epee_object! {
             $struct_name,
             $(
-                $field_name: $field_type,
+                $field_name: $field_type $(= $field_default)?,
             )*
         }
     };
@@ -86,8 +90,6 @@ define_struct_and_impl_epee! {
     /// - [`crate::json::GetBlockHeaderByHeightResponse`]
     /// - [`crate::json::GetBlockHeadersRangeResponse`]
     /// - [`crate::json::GetBlockResponse`]
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     BlockHeader {
         block_size: u64,
         block_weight: u64,
@@ -121,8 +123,6 @@ define_struct_and_impl_epee! {
         47..=116
     )]
     /// Used in [`crate::json::GetConnectionsResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     ConnectionInfo {
         address: String,
         address_type: u8,
@@ -160,8 +160,6 @@ define_struct_and_impl_epee! {
         2034..=2047
     )]
     /// Used in [`crate::json::SetBansRequest`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     SetBan {
         host: String,
         ip: u32,
@@ -177,8 +175,6 @@ define_struct_and_impl_epee! {
         1999..=2010
     )]
     /// Used in [`crate::json::GetBansResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     GetBan {
         host: String,
         ip: u32,
@@ -192,9 +188,8 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         2139..=2156
     )]
+    #[derive(Copy)]
     /// Used in [`crate::json::GetOutputHistogramResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     HistogramEntry {
         amount: u64,
         total_instances: u64,
@@ -209,9 +204,8 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         2180..=2191
     )]
+    #[derive(Copy)]
     /// Used in [`crate::json::GetVersionResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     HardforkEntry {
         height: u64,
         hf_version: u8,
@@ -225,8 +219,6 @@ define_struct_and_impl_epee! {
         2289..=2310
     )]
     /// Used in [`crate::json::GetAlternateChainsResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     ChainInfo {
         block_hash: String,
         block_hashes: Vec<String>,
@@ -246,9 +238,7 @@ define_struct_and_impl_epee! {
         2393..=2400
     )]
     /// Used in [`crate::json::SyncInfoResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-    Peer {
+    SyncInfoPeer {
         info: ConnectionInfo,
     }
 }
@@ -260,8 +250,6 @@ define_struct_and_impl_epee! {
         2402..=2421
     )]
     /// Used in [`crate::json::SyncInfoResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     Span {
         connection_id: String,
         nblocks: u64,
@@ -279,9 +267,8 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         1637..=1642
     )]
+    #[derive(Copy)]
     /// Used in [`crate::json::GetTransactionPoolBacklogResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     TxBacklogEntry {
         weight: u64,
         fee: u64,
@@ -296,8 +283,6 @@ define_struct_and_impl_epee! {
         45..=50
     )]
     /// Used in [`crate::json::GetOutputDistributionResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     OutputDistributionData {
         distribution: Vec<u64>,
         start_height: u64,
@@ -314,8 +299,6 @@ define_struct_and_impl_epee! {
     /// Used in [`crate::json::GetMinerDataResponse`].
     ///
     /// Note that this is different than [`crate::misc::TxBacklogEntry`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     GetMinerDataTxBacklogEntry {
         id: String,
         weight: u64,
@@ -330,8 +313,6 @@ define_struct_and_impl_epee! {
         1070..=1079
     )]
     /// Used in [`crate::json::AddAuxPowRequest`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     AuxPow {
         id: String,
         hash: String,
@@ -345,8 +326,6 @@ define_struct_and_impl_epee! {
         192..=199
     )]
     /// Used in [`crate::bin::GetBlocksResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     TxOutputIndices {
         indices: Vec<u64>,
     }
@@ -359,8 +338,6 @@ define_struct_and_impl_epee! {
         201..=208
     )]
     /// Used in [`crate::bin::GetBlocksResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     BlockOutputIndices {
         indices: Vec<TxOutputIndices>,
     }
@@ -373,8 +350,6 @@ define_struct_and_impl_epee! {
         210..=221
     )]
     /// Used in [`crate::bin::GetBlocksResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     PoolTxInfo {
         tx_hash: [u8; 32],
         tx_blob: String,
@@ -389,8 +364,6 @@ define_struct_and_impl_epee! {
         121..=131
     )]
     /// Used in [`crate::bin::GetBlocksResponse`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     TxBlobEntry {
         blob: String,
         prunable_hash: [u8; 32],
@@ -403,9 +376,8 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         512..=521
     )]
+    #[derive(Copy)]
     /// Used in [`crate::bin::GetOutsRequest`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     GetOutputsOut {
         amount: u64,
         index: u64,
@@ -418,15 +390,51 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         538..=553
     )]
+    #[derive(Copy)]
     /// Used in [`crate::bin::GetOutsRequest`].
-    #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     OutKey {
         key: u8, // TODO: crypto::public_key,
         mask: u8, // TODO: rct::key,
         unlocked: bool,
         height: u64,
         txid: [u8; 32],
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1335..=1367
+    )]
+    /// Used in [`crate::other::GetPeerListResponse`].
+    Peer {
+        id: u64,
+        host: String,
+        ip: u32,
+        port: u16,
+        #[cfg_attr(feature = "serde", serde(default = "default_u16"))]
+        rpc_port: u16 = default_u16(),
+        #[cfg_attr(feature = "serde", serde(default = "default_u32"))]
+        rpc_credits_per_hash: u32 = default_u32(),
+        last_seen: u64,
+        #[cfg_attr(feature = "serde", serde(default = "default_u32"))]
+        pruning_seed: u32 = default_u32(),
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1398..=1417
+    )]
+    /// Used in [`crate::other::GetPeerListResponse`].
+    PublicNode {
+        host: String,
+        last_seen: u64,
+        rpc_port: u16,
+        rpc_credits_per_hash: u32,
     }
 }
 

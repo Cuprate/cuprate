@@ -11,7 +11,7 @@ use crate::{
     macros::define_request_and_response,
     misc::{
         AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry,
-        OutputDistributionData, Peer, SetBan, Span, Status, TxBacklogEntry,
+        OutputDistributionData, SetBan, Span, Status, SyncInfoPeer, TxBacklogEntry,
     },
 };
 
@@ -531,7 +531,7 @@ define_request_and_response! {
         next_needed_pruning_seed: u32,
         overview: String,
         // TODO: This is a `std::list` in `monerod` because...?
-        peers: Vec<Peer>,
+        peers: Vec<SyncInfoPeer>,
         // TODO: This is a `std::list` in `monerod` because...?
         spans: Vec<Span>,
         target_height: u64,

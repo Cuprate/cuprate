@@ -55,6 +55,18 @@ pub(crate) const fn default_u64() -> u64 {
 
 /// Default [`u8`] used in request/response types.
 #[inline]
+pub(crate) const fn default_u32() -> u32 {
+    0
+}
+
+/// Default [`u8`] used in request/response types.
+#[inline]
+pub(crate) const fn default_u16() -> u16 {
+    0
+}
+
+/// Default [`u8`] used in request/response types.
+#[inline]
 pub(crate) const fn default_u8() -> u8 {
     0
 }

@@ -8,7 +8,7 @@ use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_bool, default_bool_true},
     macros::define_request_and_response,
-    misc::TxEntry,
+    misc::{Peer, TxEntry},
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -103,11 +103,98 @@ define_request_and_response! {
 }
 
 define_request_and_response! {
+    start_mining,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 665..=691,
+    StartMining,
+    Request {
+        miner_address: String,
+        threads_count: u64,
+        do_background_mining: bool,
+        ignore_battery: bool,
+    },
+    ResponseBase {}
+}
+
+define_request_and_response! {
+    stop_mining,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 825..=843,
+    StopMining,
+    Request {},
+    ResponseBase {}
+}
+
+define_request_and_response! {
+    mining_status,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 846..=895,
+    MiningStatus,
+    Request {},
+    ResponseBase {
+        active: bool,
+        address: String,
+        bg_idle_threshold: u8,
+        bg_ignore_battery: bool,
+        bg_min_idle_seconds: u8,
+        bg_target: u8,
+        block_reward: u64,
+        block_target: u32,
+        difficulty: u64,
+        difficulty_top64: u64,
+        is_background_mining_enabled: bool,
+        pow_algorithm: String,
+        speed: u64,
+        threads_count: u32,
+        wide_difficulty: String,
+    }
+}
+
+define_request_and_response! {
     save_bc,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 898..=916,
     SaveBc,
     Request {},
+    ResponseBase {}
+}
+
+define_request_and_response! {
+    get_peer_list,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1369..=1417,
+    GetPeerList,
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
+        public_only: bool = default_bool_true(),
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        include_blocked: bool = default_bool(),
+    },
+    ResponseBase {
+        white_list: Vec<Peer>,
+        gray_list: Vec<Peer>,
+    }
+}
+
+define_request_and_response! {
+    set_log_hash_rate,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1450..=1470,
+    SetLogHashRate,
+    Request {
+        visible: bool,
+    },
+    ResponseBase {}
+}
+
+define_request_and_response! {
+    set_log_level,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1450..=1470,
+    SetLogLevel,
+    Request {
+        level: u8,
+    },
     ResponseBase {}
 }
 
