@@ -254,6 +254,17 @@ define_request_and_response! {
     }
 }
 
+define_request_and_response! {
+    stop_daemon,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1814..=1831,
+    StopDaemon,
+    Request {},
+    ResponseBase {
+        status: Status,
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
