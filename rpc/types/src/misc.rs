@@ -479,6 +479,44 @@ define_struct_and_impl_epee! {
     }
 }
 
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1666..=1675
+    )]
+    #[derive(Copy)]
+    /// Used in [`crate::other::GetTransactionPoolStatsResponse`].
+    TxpoolHisto {
+        txs: u32,
+        bytes: u64,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        1677..=1710
+    )]
+    /// Used in [`crate::other::GetTransactionPoolStatsResponse`].
+    TxpoolStats {
+        bytes_max: u32,
+        bytes_med: u32,
+        bytes_min: u32,
+        bytes_total: u64,
+        fee_total: u64,
+        histo_98pc: u64,
+        histo: Vec<TxpoolHisto>,
+        num_10m: u32,
+        num_double_spends: u32,
+        num_failing: u32,
+        num_not_relayed: u32,
+        oldest: u64,
+        txs_total: u32,
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- TODO
 // TODO - weird types.
 

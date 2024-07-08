@@ -8,7 +8,7 @@ use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_bool, default_bool_true, default_string},
     macros::define_request_and_response,
-    misc::{Peer, SpentKeyImageInfo, Status, TxEntry, TxInfo},
+    misc::{Peer, SpentKeyImageInfo, Status, TxEntry, TxInfo, TxpoolStats},
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -240,6 +240,17 @@ define_request_and_response! {
     AccessResponseBase {
         transactions: Vec<TxInfo>,
         spent_key_images: Vec<SpentKeyImageInfo>,
+    }
+}
+
+define_request_and_response! {
+    get_transaction_pool_stats,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1712..=1732,
+    GetTransactionPoolStats,
+    Request {},
+    AccessResponseBase {
+        pool_stats: TxpoolStats,
     }
 }
 
