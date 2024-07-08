@@ -8,7 +8,7 @@ use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_bool, default_bool_true, default_string},
     macros::define_request_and_response,
-    misc::{Peer, SpentKeyImageInfo, Status, TxEntry, TxInfo, TxpoolStats},
+    misc::{GetOutputsOut, OutKey, Peer, SpentKeyImageInfo, Status, TxEntry, TxInfo, TxpoolStats},
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -308,17 +308,64 @@ define_request_and_response! {
 }
 
 define_request_and_response! {
-    in_peers,
+    get_net_stats,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
-    core_rpc_server_commands_defs.h => 1932..=1956,
-    InPeers,
+    core_rpc_server_commands_defs.h => 793..=822,
+    GetNetStats,
+    Request {},
+    ResponseBase {
+        start_time: u64,
+        total_packets_in: u64,
+        total_bytes_in: u64,
+        total_packets_out: u64,
+        total_bytes_out: u64,
+    }
+}
+
+define_request_and_response! {
+    get_outs,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 567..=609,
+    GetOuts,
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
-        set: bool = default_bool_true(),
-        in_peers: u32,
+        outputs: Vec<GetOutputsOut>,
+        get_txid: bool,
     },
     ResponseBase {
-        in_peers: u32,
+        outs: Vec<OutKey>,
+    }
+}
+
+define_request_and_response! {
+    update,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2324..=2359,
+    Update,
+    Request {
+        command: String,
+        #[cfg_attr(feature = "serde", serde(default = "default_string"))]
+        path: String = default_string(),
+    },
+    ResponseBase {
+        auto_uri: String,
+        hash: String,
+        path: String,
+        update: bool,
+        user_uri: String,
+        version: String,
+    }
+}
+
+define_request_and_response! {
+    pop_blocks,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2722..=2745,
+    PopBlocks,
+    Request {
+        nblocks: u64,
+    },
+    ResponseBase {
+        height: u64,
     }
 }
 

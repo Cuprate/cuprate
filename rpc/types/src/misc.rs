@@ -377,7 +377,10 @@ define_struct_and_impl_epee! {
         512..=521
     )]
     #[derive(Copy)]
-    /// Used in [`crate::bin::GetOutsRequest`].
+    ///
+    /// Used in:
+    /// - [`crate::bin::GetOutsRequest`]
+    /// - [`crate::other::GetOutsRequest`]
     GetOutputsOut {
         amount: u64,
         index: u64,
@@ -392,7 +395,7 @@ define_struct_and_impl_epee! {
     )]
     #[derive(Copy)]
     /// Used in [`crate::bin::GetOutsRequest`].
-    OutKey {
+    OutKeyBin {
         key: u8, // TODO: crypto::public_key,
         mask: u8, // TODO: rct::key,
         unlocked: bool,
@@ -514,6 +517,22 @@ define_struct_and_impl_epee! {
         num_not_relayed: u32,
         oldest: u64,
         txs_total: u32,
+    }
+}
+
+define_struct_and_impl_epee! {
+    #[doc = monero_definition_link!(
+        cc73fe71162d564ffda8e549b79a350bca53c454,
+        "rpc/core_rpc_server_commands_defs.h",
+        582..=597
+    )]
+    /// Used in [`crate::other::GetOutsResponse`].
+    OutKey {
+        key: String,
+        mask: String,
+        unlocked: bool,
+        height: u64,
+        txid: String,
     }
 }
 

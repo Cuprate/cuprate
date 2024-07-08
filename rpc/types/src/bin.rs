@@ -13,8 +13,8 @@ use crate::{
     macros::define_request_and_response,
     misc::{
         AuxPow, BlockCompleteEntry, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo,
-        GetBan, GetOutputsOut, HardforkEntry, HistogramEntry, OutKey, OutputDistributionData, Peer,
-        PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
+        GetBan, GetOutputsOut, HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData,
+        Peer, PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
     },
 };
 
@@ -105,7 +105,7 @@ define_request_and_response! {
         get_txid: bool = default_bool(),
     },
     AccessResponseBase {
-        outs: Vec<OutKey>,
+        outs: Vec<OutKeyBin>,
     }
 }
 
