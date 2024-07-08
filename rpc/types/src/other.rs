@@ -8,7 +8,10 @@ use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_bool, default_bool_true, default_string},
     macros::define_request_and_response,
-    misc::{GetOutputsOut, OutKey, Peer, SpentKeyImageInfo, Status, TxEntry, TxInfo, TxpoolStats},
+    misc::{
+        GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
+        TxpoolStats,
+    },
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -366,6 +369,50 @@ define_request_and_response! {
     },
     ResponseBase {
         height: u64,
+    }
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_ENDPOINT,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2798..=2823,
+    GetTxIdsLoose,
+    Request {
+        txid_template: String,
+        num_matching_bits: u32,
+    },
+    ResponseBase {
+        txids: Vec<String>,
+    }
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_ENDPOINT,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1615..=1635,
+    GetTransactionPoolHashes,
+    Request {},
+    ResponseBase {
+        tx_hashes: Vec<String>,
+    }
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_ENDPOINT,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1419..=1448,
+    GetPublicNodes,
+    Request {
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        gray: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
+        white: bool = default_bool_true(),
+        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
+        include_blocked: bool = default_bool(),
+    },
+    ResponseBase {
+        gray: Vec<PublicNode>,
+        white: Vec<PublicNode>,
     }
 }
 

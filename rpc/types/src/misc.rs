@@ -432,7 +432,10 @@ define_struct_and_impl_epee! {
         "rpc/core_rpc_server_commands_defs.h",
         1398..=1417
     )]
-    /// Used in [`crate::other::GetPeerListResponse`].
+    ///
+    /// Used in:
+    /// - [`crate::other::GetPeerListResponse`]
+    /// - [`crate::other::GetPublicNodesResponse`]
     PublicNode {
         host: String,
         last_seen: u64,
