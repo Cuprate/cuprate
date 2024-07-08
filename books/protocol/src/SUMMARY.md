@@ -24,5 +24,6 @@
 - [P2P Network](./p2p_network.md)
   - [Levin Protocol](./p2p_network/levin.md)
     - [Admin Messages](./p2p_network/levin/admin.md)
+    - [Protocol Messages](./p2p_network/levin/protocol.md)
   - [Common Types](./p2p_network/common_types.md)
 - [Pruning](./pruning.md)

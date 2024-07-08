@@ -77,6 +77,30 @@ TODO:
 | `rpc_port`             | u16                                 | This nodes RPC port, `0` if this peer has no public RPC port.                                         |
 | `rpc_credits_per_hash` | u32                                   | States how much it costs to use this node in credits per hashes, `0` being free           |
 
+### Tx Blob Entry [^tb-entry] { #tx-blob-entry }
+
+| Fields          | Type                   | Description                             |
+| --------------- | ---------------------- | --------------------------------------- |
+| `blob`          | bytes (epee string)    | The pruned tx blob                      |
+| `prunable_hash` | [u8; 32] (epee string) | The hash of the prunable part of the tx |
+
+### Block Complete Entry [^bc-entry] { #bc-entry }
+
+| Fields         | Type                | Description                                               |
+| -------------- | ------------------- | --------------------------------------------------------- |
+| `pruned`       | bool                | A bool for it the block is pruned                         |
+| `block`        | bytes (epee string) | The block blob                                            |
+| `block_weight` | u64                 | The blocks weight                                         |
+| `txs`          | depends on `pruned` | The transaction blobs, the exact type depends on `pruned` |
+
+If `pruned` is true:
+
+`txs` is a vector of [Tx Blob Entry](#tx-blob-entry)
+
+If `pruned` is false:
+
+`txs` is a vector of bytes.
+
 ---
 
 [^b-n-d]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/p2p/p2p_protocol_defs.h#L185>
@@ -86,3 +110,7 @@ TODO:
 [^network-addr]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/contrib/epee/include/net/net_utils_base.h#L320>
 
 [^pl-entry-base]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/p2p/p2p_protocol_defs.h#L72>
+
+[^tb-entry]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_protocol/cryptonote_protocol_defs.h#L121>
+
+[^bc-entry]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_protocol/cryptonote_protocol_defs.h#L132>
