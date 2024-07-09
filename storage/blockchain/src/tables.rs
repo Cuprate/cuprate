@@ -14,12 +14,8 @@
 //! # Traits
 //! This module also contains a set of traits for
 //! accessing _all_ tables defined here at once.
-//!
-//! For example, this is the object returned by [`OpenTables::open_tables`].
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{DatabaseIter, DatabaseRo, DatabaseRw};
-
 use crate::types::{
     Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
     Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash,

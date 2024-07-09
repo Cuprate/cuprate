@@ -1,58 +1,156 @@
-//! Database tables.
-//!
-//! # Table marker structs
-//! This module contains all the table definitions used by `cuprate_blockchain`.
-//!
-//! The zero-sized structs here represents the table type;
-//! they all are essentially marker types that implement `Table`.
-//!
-//! Table structs are `CamelCase`, and their static string
-//! names used by the actual database backend are `snake_case`.
-//!
-//! For example: `BlockBlobs` -> `block_blobs`.
-//!
-//! # Traits
-//! This module also contains a set of traits for
-//! accessing _all_ tables defined here at once.
-//!
-//! For example, this is the object returned by `OpenTables::open_tables`.
+//! Database table definition macro.
 
 //---------------------------------------------------------------------------------------------------- Import
 
 //---------------------------------------------------------------------------------------------------- Table macro
-/// Create all tables, should be used _once_.
+/// Define all table types.
 ///
-/// Generating this macro once and using `$()*` is probably
-/// faster for compile times than calling the macro _per_ table.
+/// # Purpose
+/// This macro allows you to define all database tables in one place.
 ///
-/// All tables are zero-sized table structs, and implement the `Table` trait.
+/// A by-product of this macro is that it defines some
+/// convenient traits specific to _your_ tables
+/// (see [Output](#output)).
 ///
-/// Table structs are automatically `CamelCase`,
-/// and their static string names are automatically `snake_case`.
+/// # Inputs
+/// This macro expects a list of tables, and their key/value types.
 ///
-/// // --- TODO
+/// This syntax is as follows:
 ///
-/// Creates:
-/// - `pub trait Tables`
-/// - `pub trait TablesIter`
-/// - `pub trait TablesMut`
-/// - Blanket implementation for `(tuples, containing, all, open, database, tables, ...)`
+/// ```rust
+/// cuprate_database::define_tables! {
+///     /// Any extra attributes you'd like to add to
+///     /// this table type, e.g. docs or derives.
 ///
-/// For why this exists, see: <https://github.com/Cuprate/cuprate/pull/102#pullrequestreview-1978348871>.
+///     0 => TableName,
+/// //  ▲    ▲
+/// //  │    └─ Table struct name. The macro generates this for you.
+/// //  │
+/// // Incrementing index. This must start at 0
+/// // and increment by 1 per table added.
+///
+///     u8 => u64,
+/// //  ▲    ▲
+/// //  │    └─ Table value type.
+/// //  │
+/// // Table key type.
+///
+///    // Another table.
+///    1 => TableName2,
+///    i8 => i64,
+/// }
+/// ```
+///
+/// An example:
+/// ```rust
+/// use cuprate_database::{
+///     ConcreteEnv, Table,
+///     config::ConfigBuilder,
+///     Env, EnvInner,
+///     DatabaseRo, DatabaseRw, TxRo, TxRw,
+/// };
+///
+/// // This generates `pub struct Table{1,2,3}`
+/// // where all those implement `Table` with
+/// // the defined name and key/value types.
+/// //
+/// // It also generate traits specific to our tables.
+/// cuprate_database::define_tables! {
+///     0 => Table1,
+///     u32 => i32,
+///
+///     /// This one has extra docs.
+///     1 => Table2,
+///     u64 => (),
+///
+///     2 => Table3,
+///     i32 => i32,
+/// }
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let tmp_dir = tempfile::tempdir()?;
+/// # let db_dir = tmp_dir.path().to_owned();
+/// # let config = ConfigBuilder::new(db_dir.into()).build();
+/// // Open the database.
+/// let env = ConcreteEnv::open(config)?;
+/// let env_inner = env.env_inner();
+///
+/// // Open the table we just defined.
+/// {
+///     let tx_rw = env_inner.tx_rw()?;
+///     env_inner.create_db::<Table1>(&tx_rw)?;
+///     let mut table = env_inner.open_db_rw::<Table1>(&tx_rw)?;
+///
+///     // Write data to the table.
+///     table.put(&0, &1)?;
+///
+///     drop(table);
+///     TxRw::commit(tx_rw)?;
+/// }
+///
+/// // Read the data, assert it is correct.
+/// {
+///     let tx_ro = env_inner.tx_ro()?;
+///     let table = env_inner.open_db_ro::<Table1>(&tx_ro)?;
+///     assert_eq!(table.first()?, (0, 1));
+/// }
+///
+/// // Create all tables at once using the
+/// // `OpenTables` trait generated with the
+/// // macro above.
+/// {
+///     let tx_rw = env_inner.tx_rw()?;
+///     env_inner.create_tables(&tx_rw)?;
+///     TxRw::commit(tx_rw)?;
+/// }
+///
+/// // Open all tables at once.
+/// {
+///     let tx_ro = env_inner.tx_ro()?;
+///     let all_tables = env_inner.open_tables(&tx_ro)?;
+/// }
+/// # Ok(()) }
+/// ```
+///
+/// # Output
+/// This macro:
+/// 1. Implements [`Table`](crate::Table) on all your table types
+/// 1. Creates a `pub trait Tables` trait (in scope)
+/// 1. Creates a `pub trait TablesIter` trait (in scope)
+/// 1. Creates a `pub trait TablesMut` trait (in scope)
+/// 1. Blanket implements a `(tuples, containing, all, open, database, tables, ...)` for the above traits
+/// 1. Creates a `pub trait OpenTables` trait (in scope)
+///
+/// All table types are zero-sized structs that implement the `Table` trait.
+///
+/// Table structs are automatically `CamelCase`, and their
+/// static string names are automatically `snake_case`.
+///
+/// For why the table traits + blanket implementation on the tuple exists, see:
+/// <https://github.com/Cuprate/cuprate/pull/102#pullrequestreview-1978348871>.
+///
+/// The `OpenTables` trait lets you open all tables you've defined, at once.
+///
+/// # Example
+/// For examples of usage & output, see
+/// [`cuprate_blockchain::tables`](https://github.com/Cuprate/cuprate/blob/main/storage/blockchain/src/tables.rs).
 #[macro_export]
 macro_rules! define_tables {
     (
         $(
-            $(#[$attr:meta])* // Documentation and any `derive`'s.
-            $index:literal => $table:ident, // The table name + doubles as the table struct name.
-            $key:ty =>        // Key type.
-            $value:ty         // Value type.
+            // Documentation and any `derive`'s.
+            $(#[$attr:meta])*
+
+            // The table name + doubles as the table struct name.
+            $index:literal => $table:ident,
+
+            // Key type => Value type.
+            $key:ty => $value:ty
         ),* $(,)?
     ) => { $crate::paste::paste! {
         $(
             // Table struct.
             $(#[$attr])*
-            // The below test show the `snake_case` table name in cargo docs.
             #[doc = concat!("- Key: [`", stringify!($key), "`]")]
             #[doc = concat!("- Value: [`", stringify!($value), "`]")]
             #[doc = concat!("- Name: `", stringify!([<$table:snake>]), "`")]
@@ -68,17 +166,16 @@ macro_rules! define_tables {
             }
         )*
 
-        /// Object containing all opened [`Table`]s in read-only mode.
+        /// Object containing all opened [`Table`](cuprate_database::Table)s in read-only mode.
         ///
         /// This is an encapsulated object that contains all
-        /// available [`Table`]'s in read-only mode.
+        /// available `Table`'s in read-only mode.
         ///
         /// It is a `Sealed` trait and is only implemented on a
         /// `(tuple, containing, all, table, types, ...)`.
         ///
         /// This is used to return a _single_ object from functions like
-        /// [`OpenTables::open_tables`](crate::OpenTables::open_tables) rather
-        /// than the tuple containing the tables itself.
+        /// [`OpenTables::open_tables`] rather than the tuple containing the tables itself.
         ///
         /// To replace `tuple.0` style indexing, `field_accessor_functions()`
         /// are provided on this trait, which essentially map the object to
@@ -107,17 +204,17 @@ macro_rules! define_tables {
                 /// Access an opened
                 #[doc = concat!("[`", stringify!($table), "`]")]
                 /// database.
-                fn [<$table:snake>](&self) -> &impl DatabaseRo<$table>;
+                fn [<$table:snake>](&self) -> &impl $crate::DatabaseRo<$table>;
             )*
 
             /// This returns `true` if all tables are empty.
             ///
             /// # Errors
             /// This returns errors on regular database errors.
-            fn all_tables_empty(&self) -> Result<bool, cuprate_database::RuntimeError>;
+            fn all_tables_empty(&self) -> Result<bool, $crate::RuntimeError>;
         }
 
-        /// Object containing all opened [`Table`]s in read + iter mode.
+        /// Object containing all opened [`Table`](cuprate_database::Table)s in read + iter mode.
         ///
         /// This is the same as [`Tables`] but includes `_iter()` variants.
         ///
@@ -130,11 +227,11 @@ macro_rules! define_tables {
                 /// Access an opened read-only + iterable
                 #[doc = concat!("[`", stringify!($table), "`]")]
                 /// database.
-                fn [<$table:snake _iter>](&self) -> &(impl DatabaseRo<$table> + DatabaseIter<$table>);
+                fn [<$table:snake _iter>](&self) -> &(impl $crate::DatabaseRo<$table> + $crate::DatabaseIter<$table>);
             )*
         }
 
-        /// Object containing all opened [`Table`]s in write mode.
+        /// Object containing all opened [`Table`](cuprate_database::Table)s in write mode.
         ///
         /// This is the same as [`Tables`] but for mutable accesses.
         ///
@@ -147,7 +244,7 @@ macro_rules! define_tables {
                 /// Access an opened
                 #[doc = concat!("[`", stringify!($table), "`]")]
                 /// database.
-                fn [<$table:snake _mut>](&mut self) -> &mut impl DatabaseRw<$table>;
+                fn [<$table:snake _mut>](&mut self) -> &mut impl $crate::DatabaseRw<$table>;
             )*
         }
 
@@ -182,23 +279,23 @@ macro_rules! define_tables {
             // [...]
             // ```
             $(
-                [<$table:upper>]: DatabaseRo<$table>,
+                [<$table:upper>]: $crate::DatabaseRo<$table>,
             )*
         {
             $(
                 // The function name of the accessor function is
                 // the table type in `snake_case`, e.g., `block_info_v1s()`.
                 #[inline]
-                fn [<$table:snake>](&self) -> &impl DatabaseRo<$table> {
+                fn [<$table:snake>](&self) -> &impl $crate::DatabaseRo<$table> {
                     // The index of the database table in
                     // the tuple implements the table trait.
                     &self.$index
                 }
             )*
 
-            fn all_tables_empty(&self) -> Result<bool, cuprate_database::RuntimeError> {
+            fn all_tables_empty(&self) -> Result<bool, $crate::RuntimeError> {
                 $(
-                     if !DatabaseRo::is_empty(&self.$index)? {
+                     if !$crate::DatabaseRo::is_empty(&self.$index)? {
                         return Ok(false);
                      }
                 )*
@@ -212,14 +309,14 @@ macro_rules! define_tables {
             for ($([<$table:upper>]),*)
         where
             $(
-                [<$table:upper>]: DatabaseRo<$table> + DatabaseIter<$table>,
+                [<$table:upper>]: $crate::DatabaseRo<$table> + $crate::DatabaseIter<$table>,
             )*
         {
             $(
                 // The function name of the accessor function is
                 // the table type in `snake_case` + `_iter`, e.g., `block_info_v1s_iter()`.
                 #[inline]
-                fn [<$table:snake _iter>](&self) -> &(impl DatabaseRo<$table> + DatabaseIter<$table>) {
+                fn [<$table:snake _iter>](&self) -> &(impl $crate::DatabaseRo<$table> + $crate::DatabaseIter<$table>) {
                     &self.$index
                 }
             )*
@@ -231,14 +328,14 @@ macro_rules! define_tables {
             for ($([<$table:upper>]),*)
         where
             $(
-                [<$table:upper>]: DatabaseRw<$table>,
+                [<$table:upper>]: $crate::DatabaseRw<$table>,
             )*
         {
             $(
                 // The function name of the mutable accessor function is
                 // the table type in `snake_case` + `_mut`, e.g., `block_info_v1s_mut()`.
                 #[inline]
-                fn [<$table:snake _mut>](&mut self) -> &mut impl DatabaseRw<$table> {
+                fn [<$table:snake _mut>](&mut self) -> &mut impl $crate::DatabaseRw<$table> {
                     &mut self.$index
                 }
             )*
@@ -247,7 +344,7 @@ macro_rules! define_tables {
         /// Open all tables at once.
         ///
         /// This trait encapsulates the functionality of opening all tables at once.
-        /// It can be seen as the "constructor" for the `Tables` object.
+        /// It can be seen as the "constructor" for the [`Tables`] object.
         ///
         /// Note that this is already implemented on [`cuprate_database::EnvInner`], thus:
         /// - You don't need to implement this
@@ -260,7 +357,7 @@ macro_rules! define_tables {
 
             /// Open all tables in read/iter mode.
             ///
-            /// This calls [`EnvInner::open_db_ro`] on all database tables
+            /// This calls [`cuprate_database::EnvInner::open_db_ro`] on all database tables
             /// and returns a structure that allows access to all tables.
             ///
             /// # Errors

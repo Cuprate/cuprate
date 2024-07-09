@@ -80,6 +80,15 @@ and use `<E: Env>` everywhere it is stored instead. This would allow
 generic-backed dynamic runtime selection of the database backend, i.e.
 the user can select which database backend they use. -->
 
+# Defining tables
+Most likely, your crate building on-top of `cuprate_database` will
+want to define all tables used at compile time.
+
+If this is the case, consider using the [`define_tables`] macro
+to bulk generate zero-sized marker types that implement [`Table`].
+
+This macro also generates other convenient traits specific to _your_ tables.
+
 # Feature flags
 Different database backends are enabled by the feature flags:
 - `heed` (LMDB)
