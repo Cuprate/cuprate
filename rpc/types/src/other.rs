@@ -7,11 +7,15 @@ use crate::{base::ResponseBase, macros::define_request_and_response};
 
 //---------------------------------------------------------------------------------------------------- TODO
 define_request_and_response! {
-    save_bc,
+    get_height,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
-    core_rpc_server_commands_defs.h => 898..=916,
-    SaveBc,
-    ResponseBase {}
+    core_rpc_server_commands_defs.h => 138..=160,
+    GetHeight,
+    Request {},
+    ResponseBase {
+        hash: String,
+        height: u64,
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

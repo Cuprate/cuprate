@@ -1,14 +1,14 @@
-//! TODO
+//! JSON string containing binary data.
 
 //---------------------------------------------------------------------------------------------------- Import
 
 //---------------------------------------------------------------------------------------------------- BinaryString
-/// TODO
+/// TODO: we need to figure out a type that (de)serializes correctly, `String` errors with `serde_json`
 ///
 /// ```rust
 /// use serde::Deserialize;
 /// use serde_json::from_str;
-/// use cuprate_rpc_types::BinaryString;
+/// use cuprate_rpc_types::misc::BinaryString;
 ///
 /// #[derive(Deserialize)]
 /// struct Key {
