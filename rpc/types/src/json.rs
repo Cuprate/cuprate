@@ -137,14 +137,13 @@ define_request_and_response! {
     /// use serde_json::*;
     /// use cuprate_rpc_types::json::*;
     ///
-    /// let x = OnGetBlockHashResponse { block_hash: String::from("asdf") };
+    /// let x = OnGetBlockHashResponse { result: String::from("asdf") };
     /// let x = to_string(&x).unwrap();
-    /// assert_eq!(x, "\"asdf\"");
+    /// assert_eq!(x, r#"{"result":"asdf"}"#);
     /// ```
-    #[cfg_attr(feature = "serde", serde(transparent))]
-    #[repr(transparent)]
     Response {
-        block_hash: String,
+        /// This is a block hash.
+        result: String,
     }
 }
 
@@ -153,18 +152,8 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1114..=1128,
     SubmitBlock,
-    /// ```rust
-    /// use serde_json::*;
-    /// use cuprate_rpc_types::json::*;
-    ///
-    /// let x = SubmitBlockRequest { block_id: String::from("asdf") };
-    /// let x = to_string(&x).unwrap();
-    /// assert_eq!(x, "\"asdf\"");
-    /// ```
-    #[cfg_attr(feature = "serde", serde(transparent))]
-    #[repr(transparent)]
     Request {
-        block_id: String,
+        request: Vec<String>,
     },
     /// ```rust
     /// use serde_json::*;
@@ -172,11 +161,10 @@ define_request_and_response! {
     ///
     /// let x = SubmitBlockResponse { status: String::from("asdf") };
     /// let x = to_string(&x).unwrap();
-    /// assert_eq!(x, "\"asdf\"");
+    /// assert_eq!(x, r#"{"status":"asdf"}"#);
     /// ```
-    #[cfg_attr(feature = "serde", serde(transparent))]
-    #[repr(transparent)]
     Response {
+        /// This is a block hash.
         status: String,
     }
 }
