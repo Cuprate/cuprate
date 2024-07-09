@@ -107,38 +107,29 @@
 // Documentation for each module is located in the respective file.
 
 mod backend;
-pub use backend::ConcreteEnv;
+mod constants;
+mod database;
+mod env;
+mod error;
+mod key;
+mod storable;
+mod table;
+mod tables;
+mod transaction;
 
 pub mod config;
+pub mod resize;
 
-mod constants;
+pub use backend::ConcreteEnv;
 pub use constants::{
     DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_DATA_FILENAME, DATABASE_LOCK_FILENAME,
 };
-
-mod database;
 pub use database::{DatabaseIter, DatabaseRo, DatabaseRw};
-
-mod env;
 pub use env::{Env, EnvInner};
-
-mod error;
 pub use error::{InitError, RuntimeError};
-
-pub mod resize;
-
-mod key;
 pub use key::{Key, KeyCompare};
-
-mod storable;
 pub use storable::{Storable, StorableBytes, StorableStr, StorableVec};
-
-mod table;
 pub use table::Table;
-
-mod tables;
-
-mod transaction;
 pub use transaction::{TxRo, TxRw};
 
 //---------------------------------------------------------------------------------------------------- Private

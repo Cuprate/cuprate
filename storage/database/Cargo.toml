@@ -9,7 +9,7 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-default     = ["heed"]
+# default     = ["heed"]
 # default     = ["redb"]
 # default     = ["redb-memory"]
 heed        = ["dep:heed"]
