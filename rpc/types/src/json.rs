@@ -152,8 +152,18 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1114..=1128,
     SubmitBlock,
+    /// ```rust
+    /// use serde_json::*;
+    /// use cuprate_rpc_types::json::*;
+    ///
+    /// let x = SubmitBlockRequest { block_ids: vec!["a".into(),"b".into()] };
+    /// let x = to_string(&x).unwrap();
+    /// assert_eq!(x, r#"["a","b"]"#);
+    /// ```
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
     Request {
-        request: Vec<String>,
+        block_ids: Vec<String>,
     },
     /// ```rust
     /// use serde_json::*;
