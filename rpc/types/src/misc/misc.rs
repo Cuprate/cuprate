@@ -22,7 +22,7 @@ use crate::{
         CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
         CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN,
     },
-    defaults::{default_u16, default_u32, default_u64},
+    defaults::default_zero,
     macros::monero_definition_link,
 };
 
@@ -391,8 +391,8 @@ define_struct_and_impl_epee! {
     #[derive(Copy)]
     /// Used in [`crate::bin::GetOutsRequest`].
     OutKeyBin {
-        key: u8, // TODO: crypto::public_key,
-        mask: u8, // TODO: rct::key,
+        key: [u8; 32],
+        mask: [u8; 32],
         unlocked: bool,
         height: u64,
         txid: [u8; 32],
@@ -411,13 +411,13 @@ define_struct_and_impl_epee! {
         host: String,
         ip: u32,
         port: u16,
-        #[cfg_attr(feature = "serde", serde(default = "default_u16"))]
-        rpc_port: u16 = default_u16(),
-        #[cfg_attr(feature = "serde", serde(default = "default_u32"))]
-        rpc_credits_per_hash: u32 = default_u32(),
+        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
+        rpc_port: u16 = default_zero::<u16>(),
+        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
+        rpc_credits_per_hash: u32 = default_zero::<u32>(),
         last_seen: u64,
-        #[cfg_attr(feature = "serde", serde(default = "default_u32"))]
-        pruning_seed: u32 = default_u32(),
+        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
+        pruning_seed: u32 = default_zero::<u32>(),
     }
 }
 
@@ -462,8 +462,8 @@ define_struct_and_impl_epee! {
         relayed: bool,
         tx_blob: String,
         tx_json: String, // TODO: this should be another struct
-        #[cfg_attr(feature = "serde", serde(default = "default_u64"))]
-        weight: u64 = default_u64(),
+        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
+        weight: u64 = default_zero::<u64>(),
     }
 }
 
