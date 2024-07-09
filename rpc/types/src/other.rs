@@ -5,7 +5,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{default_bool, default_bool_true, default_string},
+    defaults::{default_false, default_string, default_true},
     macros::define_request_and_response,
     misc::{
         GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
@@ -36,12 +36,12 @@ define_request_and_response! {
         // FIXME: this is documented as optional but it isn't serialized as an optional
         // but it is set _somewhere_ to false in `monerod`
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L382>
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        decode_as_json: bool = default_bool(),
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        prune: bool = default_bool(),
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        split: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        decode_as_json: bool = default_false(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        prune: bool = default_false(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        split: bool = default_false(),
     },
     AccessResponseBase {
         txs_as_hex: Vec<String>,
@@ -82,10 +82,10 @@ define_request_and_response! {
     SendRawTransaction,
     Request {
         tx_as_hex: String,
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        do_not_relay: bool = default_bool(),
-        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
-        do_sanity_checks: bool = default_bool_true(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        do_not_relay: bool = default_false(),
+        #[cfg_attr(feature = "serde", serde(default = "default_true"))]
+        do_sanity_checks: bool = default_true(),
     },
     AccessResponseBase {
         double_spend: bool,
@@ -167,10 +167,10 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 1369..=1417,
     GetPeerList,
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
-        public_only: bool = default_bool_true(),
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        include_blocked: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_true"))]
+        public_only: bool = default_true(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        include_blocked: bool = default_false(),
     },
     ResponseBase {
         white_list: Vec<Peer>,
@@ -300,8 +300,8 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 1876..=1903,
     OutPeers,
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
-        set: bool = default_bool_true(),
+        #[cfg_attr(feature = "serde", serde(default = "default_true"))]
+        set: bool = default_true(),
         out_peers: u32,
     },
     ResponseBase {
@@ -402,12 +402,12 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 1419..=1448,
     GetPublicNodes,
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        gray: bool = default_bool(),
-        #[cfg_attr(feature = "serde", serde(default = "default_bool_true"))]
-        white: bool = default_bool_true(),
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        include_blocked: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        gray: bool = default_false(),
+        #[cfg_attr(feature = "serde", serde(default = "default_true"))]
+        white: bool = default_true(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        include_blocked: bool = default_false(),
     },
     ResponseBase {
         gray: Vec<PublicNode>,
