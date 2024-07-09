@@ -38,7 +38,7 @@ pub struct TxEntry {
 }
 
 // TODO: custom epee
-// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/cryptonote_protocol/cryptonote_protocol_defs.h#L406-427>
+// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L406-L427>
 #[cfg(feature = "epee")]
 epee_object! {
     TxEntry,
