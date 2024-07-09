@@ -84,7 +84,7 @@ TODO:
 | `blob`          | bytes (epee string)    | The pruned tx blob                      |
 | `prunable_hash` | [u8; 32] (epee string) | The hash of the prunable part of the tx |
 
-### Block Complete Entry [^bc-entry] { #bc-entry }
+### Block Complete Entry [^bc-entry] { #block-complete-entry }
 
 | Fields         | Type                | Description                                               |
 | -------------- | ------------------- | --------------------------------------------------------- |
