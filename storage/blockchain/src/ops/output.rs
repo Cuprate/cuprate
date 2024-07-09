@@ -254,8 +254,7 @@ mod test {
     use cuprate_database::{Env, EnvInner};
 
     use crate::{
-        open_tables::OpenTables,
-        tables::{Tables, TablesMut},
+        tables::{OpenTables, Tables, TablesMut},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
         types::OutputFlags,
     };

@@ -24,14 +24,13 @@ use cuprate_types::{
 
 use crate::{
     config::ConfigBuilder,
-    open_tables::OpenTables,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::chain_height,
         output::id_to_output_on_chain,
     },
     service::{init, DatabaseReadHandle, DatabaseWriteHandle},
-    tables::{Tables, TablesIter},
+    tables::{OpenTables, Tables, TablesIter},
     tests::AssertTableLen,
     types::{Amount, AmountIndex, PreRctOutputId},
 };

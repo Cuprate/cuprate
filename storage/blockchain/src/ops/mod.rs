@@ -61,9 +61,8 @@
 //!         Env, EnvInner,
 //!         DatabaseRo, DatabaseRw, TxRo, TxRw,
 //!     },
-//!     OpenTables,
 //!     config::ConfigBuilder,
-//!     tables::{Tables, TablesMut},
+//!     tables::{Tables, TablesMut, OpenTables},
 //!     ops::block::{add_block, pop_block},
 //! };
 //!
