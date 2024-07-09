@@ -78,6 +78,8 @@
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
 	clippy::option_if_let_else,
+
+	// unused_crate_dependencies, // false-positive with `paste`
 )]
 // Allow some lints when running in debug mode.
 #![cfg_attr(
@@ -134,12 +136,18 @@ pub use storable::{Storable, StorableBytes, StorableStr, StorableVec};
 mod table;
 pub use table::Table;
 
+mod tables;
+
 mod transaction;
 pub use transaction::{TxRo, TxRw};
 
 //---------------------------------------------------------------------------------------------------- Private
 #[cfg(test)]
 pub(crate) mod tests;
+
+// Used inside public facing macros.
+#[doc(hidden)]
+pub use paste;
 
 //----------------------------------------------------------------------------------------------------
 // HACK: needed to satisfy the `unused_crate_dependencies` lint.

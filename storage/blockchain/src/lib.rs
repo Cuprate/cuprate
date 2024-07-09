@@ -119,9 +119,6 @@ pub mod config;
 mod constants;
 pub use constants::{DATABASE_CORRUPT_MSG, DATABASE_VERSION};
 
-mod open_tables;
-pub use open_tables::OpenTables;
-
 mod free;
 pub use free::open;
 

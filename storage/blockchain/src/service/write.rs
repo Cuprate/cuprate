@@ -16,8 +16,8 @@ use cuprate_types::{
 };
 
 use crate::{
-    open_tables::OpenTables,
     service::types::{ResponseReceiver, ResponseResult, ResponseSender},
+    tables::OpenTables,
 };
 
 //---------------------------------------------------------------------------------------------------- Constants
