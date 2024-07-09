@@ -5,9 +5,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{
-        default_bool, default_height, default_string, default_u64, default_u8, default_vec,
-    },
+    defaults::{default_false, default_height, default_string, default_vec, default_zero},
     free::{is_one, is_zero},
     macros::define_request_and_response,
     misc::{
@@ -24,16 +22,16 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 162..=262,
     GetBlocks,
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_u8"))]
-        requested_info: u8 = default_u8(),
+        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
+        requested_info: u8 = default_zero(),
         // TODO: This is a `std::list` in `monerod` because...?
         block_ids: Vec<[u8; 32]>,
         start_height: u64,
         prune: bool,
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        no_miner_tx: bool = default_bool(),
-        #[cfg_attr(feature = "serde", serde(default = "default_u64"))]
-        pool_info_since: u64 = default_u64(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        no_miner_tx: bool = default_false(),
+        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
+        pool_info_since: u64 = default_zero(),
     },
     // TODO: this has custom epee (de)serialization.
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L242-L259>
@@ -100,8 +98,8 @@ define_request_and_response! {
     GetOuts,
     Request {
         outputs: Vec<GetOutputsOut>,
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        get_txid: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        get_txid: bool = default_false(),
     },
     AccessResponseBase {
         outs: Vec<OutKeyBin>,
