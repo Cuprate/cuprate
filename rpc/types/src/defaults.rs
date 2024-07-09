@@ -13,13 +13,13 @@ use std::borrow::Cow;
 //---------------------------------------------------------------------------------------------------- TODO
 /// Default [`bool`] type used in request/response types, `false`.
 #[inline]
-pub(crate) const fn default_bool() -> bool {
+pub(crate) const fn default_false() -> bool {
     false
 }
 
 /// Default [`bool`] type used in _some_ request/response types, `true`.
 #[inline]
-pub(crate) const fn default_bool_true() -> bool {
+pub(crate) const fn default_true() -> bool {
     true
 }
 
@@ -47,32 +47,24 @@ pub(crate) const fn default_vec<T>() -> Vec<T> {
     Vec::new()
 }
 
-/// Default [`u64`] used in request/response types.
+/// Default `0` value used in request/response types.
 #[inline]
-pub(crate) const fn default_u64() -> u64 {
-    0
-}
-
-/// Default [`u8`] used in request/response types.
-#[inline]
-pub(crate) const fn default_u32() -> u32 {
-    0
-}
-
-/// Default [`u8`] used in request/response types.
-#[inline]
-pub(crate) const fn default_u16() -> u16 {
-    0
-}
-
-/// Default [`u8`] used in request/response types.
-#[inline]
-pub(crate) const fn default_u8() -> u8 {
-    0
+pub(crate) fn default_zero<T: From<u8>>() -> T {
+    T::from(0)
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use super::*;
+
+    /// Tests that [`default_zero`] returns `0` on all unsigned numbers.
+    #[test]
+    fn zero() {
+        assert_eq!(default_zero::<usize>(), 0);
+        assert_eq!(default_zero::<u64>(), 0);
+        assert_eq!(default_zero::<u32>(), 0);
+        assert_eq!(default_zero::<u16>(), 0);
+        assert_eq!(default_zero::<u8>(), 0);
+    }
 }
