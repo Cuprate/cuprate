@@ -5,7 +5,7 @@
 //---------------------------------------------------------------------------------------------------- Import
 use crate::{
     base::{AccessResponseBase, ResponseBase},
-    defaults::{default_bool, default_height, default_string, default_u64, default_vec},
+    defaults::{default_false, default_height, default_string, default_vec, default_zero},
     free::{is_one, is_zero},
     macros::define_request_and_response,
     misc::{
@@ -205,8 +205,8 @@ define_request_and_response! {
     GetLastBlockHeader,
     #[derive(Copy)]
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        fill_pow_hash: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        fill_pow_hash: bool = default_false(),
     },
     AccessResponseBase {
         block_header: BlockHeader,
@@ -221,8 +221,8 @@ define_request_and_response! {
     Request {
         hash: String,
         hashes: Vec<String>,
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        fill_pow_hash: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        fill_pow_hash: bool = default_false(),
     },
     AccessResponseBase {
         block_header: BlockHeader,
@@ -238,8 +238,8 @@ define_request_and_response! {
     #[derive(Copy)]
     Request {
         height: u64,
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        fill_pow_hash: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        fill_pow_hash: bool = default_false(),
     },
     AccessResponseBase {
         block_header: BlockHeader,
@@ -255,8 +255,8 @@ define_request_and_response! {
     Request {
         start_height: u64,
         end_height: u64,
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        fill_pow_hash: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        fill_pow_hash: bool = default_false(),
     },
     AccessResponseBase {
         headers: Vec<BlockHeader>,
@@ -276,8 +276,8 @@ define_request_and_response! {
         hash: String = default_string(),
         #[cfg_attr(feature = "serde", serde(default = "default_height"))]
         height: u64 = default_height(),
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        fill_pow_hash: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        fill_pow_hash: bool = default_false(),
     },
     AccessResponseBase {
         blob: String,
@@ -469,10 +469,10 @@ define_request_and_response! {
     ResponseBase {
         version: u32,
         release: bool,
-        #[serde(skip_serializing_if = "is_zero", default = "default_u64")]
-        current_height: u64 = default_u64(),
-        #[serde(skip_serializing_if = "is_zero", default = "default_u64")]
-        target_height: u64 = default_u64(),
+        #[serde(skip_serializing_if = "is_zero", default = "default_zero")]
+        current_height: u64 = default_zero(),
+        #[serde(skip_serializing_if = "is_zero", default = "default_zero")]
+        target_height: u64 = default_zero(),
         #[serde(skip_serializing_if = "Vec::is_empty", default = "default_vec")]
         hard_forks: Vec<HardforkEntry> = default_vec(),
     }
@@ -596,8 +596,8 @@ define_request_and_response! {
     PruneBlockchain,
     #[derive(Copy)]
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        check: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        check: bool = default_false(),
     },
     #[derive(Copy)]
     ResponseBase {
@@ -631,10 +631,10 @@ define_request_and_response! {
     FlushCache,
     #[derive(Copy)]
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        bad_txs: bool = default_bool(),
-        #[cfg_attr(feature = "serde", serde(default = "default_bool"))]
-        bad_blocks: bool = default_bool(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        bad_txs: bool = default_false(),
+        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
+        bad_blocks: bool = default_false(),
     },
     ResponseBase {}
 }
