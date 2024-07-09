@@ -137,13 +137,14 @@ define_request_and_response! {
     /// use serde_json::*;
     /// use cuprate_rpc_types::json::*;
     ///
-    /// let x = OnGetBlockHashResponse { result: String::from("asdf") };
+    /// let x = OnGetBlockHashResponse { block_hash: String::from("asdf") };
     /// let x = to_string(&x).unwrap();
-    /// assert_eq!(x, r#"{"result":"asdf"}"#);
+    /// assert_eq!(x, "\"asdf\"");
     /// ```
+    #[cfg_attr(feature = "serde", serde(transparent))]
+    #[repr(transparent)]
     Response {
-        /// This is a block hash.
-        result: String,
+        block_hash: String,
     }
 }
 
