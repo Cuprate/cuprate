@@ -159,13 +159,12 @@ define_request_and_response! {
     /// use serde_json::*;
     /// use cuprate_rpc_types::json::*;
     ///
-    /// let x = SubmitBlockResponse { status: String::from("asdf") };
+    /// let x = SubmitBlockResponse { block_id: String::from("asdf") };
     /// let x = to_string(&x).unwrap();
-    /// assert_eq!(x, r#"{"status":"asdf"}"#);
+    /// assert_eq!(x, r#"{"block_id":"asdf"}"#);
     /// ```
     Response {
-        /// This is a block hash.
-        status: String,
+        block_id: String,
     }
 }
 
