@@ -11,8 +11,8 @@
 //! - <https://github.com/monero-project/monero/issues/8722>
 //! - <https://github.com/monero-project/monero/pull/8843>
 //!
-//! This library doesn't contain [`rpc_access_request_base`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L114-L122)
-//! found in `monerod` as the type is practically deprecated.
+//! Note that this library doesn't use [`AccessRequestBase`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L114-L122) found in `monerod`
+//! as the type is practically deprecated.
 //!
 //! Although, [`AccessResponseBase`] still exists as to allow
 //! outputting the same JSON fields as `monerod` (even if deprecated).
@@ -27,7 +27,21 @@ use cuprate_epee_encoding::epee_object;
 use crate::{macros::monero_definition_link, misc::Status};
 
 //---------------------------------------------------------------------------------------------------- Requests
-/* no types here... yet */
+/// A base for RPC request types that support RPC payment.
+///
+#[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "rpc/core_rpc_server_commands_defs.h", 114..=122)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct AccessRequestBase {
+    /// The RPC payment client.
+    pub client: String,
+}
+
+#[cfg(feature = "epee")]
+epee_object! {
+    AccessRequestBase,
+    client: String,
+}
 
 //---------------------------------------------------------------------------------------------------- Responses
 #[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "rpc/core_rpc_server_commands_defs.h", 101..=112)]
