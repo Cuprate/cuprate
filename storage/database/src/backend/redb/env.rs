@@ -57,7 +57,10 @@ impl Env for ConcreteEnv {
             // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
             SyncMode::Async => redb::Durability::Eventual,
-            SyncMode::Fast => redb::Durability::None,
+            // FIXME: This is `redb::Durability::Eventual`
+            // instead of `redb::Durability::None` because of:
+            // <https://github.com/Cuprate/cuprate/issues/149>
+            SyncMode::Fast => redb::Durability::Eventual,
             // SOMEDAY: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
