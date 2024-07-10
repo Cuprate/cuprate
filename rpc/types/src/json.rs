@@ -164,7 +164,9 @@ define_request_and_response! {
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Request {
-        block_ids: Vec<String>,
+        // This is `std::vector<std::string>` in `monerod` but
+        // it must be a 1 length array or else it will error.
+        block_blob: [String; 1],
     },
     ResponseBase {
         block_id: String,
