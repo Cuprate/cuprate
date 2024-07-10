@@ -65,7 +65,7 @@ define_request_and_response! {
 define_request_and_response! {
     is_key_image_spent,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
-    core_rpc_server_commands_defs.h => 370..=451,
+    core_rpc_server_commands_defs.h => 454..=484,
     IsKeyImageSpent,
     Request {
         key_images: Vec<String>,
