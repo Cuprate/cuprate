@@ -70,7 +70,7 @@ pub async fn request_chain_entry_from_peer<N: NetworkZone>(
     }
 
     let entry = ChainEntry {
-        ids: (&chain_res.m_block_ids).into(),
+        ids: chain_res.m_block_ids.into(),
         peer: client.info.id,
         handle: client.info.handle.clone(),
     };
@@ -193,7 +193,8 @@ where
         return Err(BlockDownloadError::FailedToFindAChainToFollow);
     };
 
-    let hashes: Vec<[u8; 32]> = (&chain_res.m_block_ids).into();
+    // .clone here is not a full clone as the underlying data is [`Bytes`].
+    let hashes: Vec<[u8; 32]> = chain_res.m_block_ids.clone().into();
     // drop this to deallocate the [`Bytes`].
     drop(chain_res);
 
