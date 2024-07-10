@@ -56,8 +56,9 @@ impl Env for ConcreteEnv {
             // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
             // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
-            SyncMode::Async => redb::Durability::Eventual,
-            SyncMode::Fast => redb::Durability::None,
+            // FIXME: `Fast` maps to `Eventual` instead of `None` because of:
+            // <https://github.com/Cuprate/cuprate/issues/149>
+            SyncMode::Async | SyncMode::Fast => redb::Durability::Eventual,
             // SOMEDAY: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
