@@ -157,9 +157,9 @@ define_request_and_response! {
     /// use serde_json::*;
     /// use cuprate_rpc_types::json::*;
     ///
-    /// let x = SubmitBlockRequest { block_ids: vec!["a".into(),"b".into()] };
+    /// let x = SubmitBlockRequest { block_blob: ["a".into()] };
     /// let x = to_string(&x).unwrap();
-    /// assert_eq!(x, r#"["a","b"]"#);
+    /// assert_eq!(x, r#"["a"]"#);
     /// ```
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
