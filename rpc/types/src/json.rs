@@ -166,15 +166,7 @@ define_request_and_response! {
     Request {
         block_ids: Vec<String>,
     },
-    /// ```rust
-    /// use serde_json::*;
-    /// use cuprate_rpc_types::json::*;
-    ///
-    /// let x = SubmitBlockResponse { block_id: String::from("asdf") };
-    /// let x = to_string(&x).unwrap();
-    /// assert_eq!(x, r#"{"block_id":"asdf"}"#);
-    /// ```
-    Response {
+    ResponseBase {
         block_id: String,
     }
 }
