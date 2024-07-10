@@ -3,8 +3,10 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::fmt::Display;
 
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
     macros::bytes::{Buf, BufMut},
     EpeeValue, Marker,
@@ -16,18 +18,20 @@ use crate::constants::{
 };
 
 //---------------------------------------------------------------------------------------------------- Status
+// TODO: this type needs to expand more.
+// There are a lot of RPC calls that will return a random
+// string inside, which isn't compatible with [`Status`].
+
 /// RPC response status.
 ///
 /// This type represents `monerod`'s frequently appearing string field, `status`.
-///
-/// This field appears within RPC [JSON response](crate::json) types.
 ///
 /// Reference: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L78-L81>.
 ///
 /// ## Serialization and string formatting
 /// ```rust
 /// use cuprate_rpc_types::{
-///     Status,
+///     misc::Status,
 ///     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
 ///     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN
 /// };
@@ -59,28 +63,27 @@ use crate::constants::{
 /// assert_eq!(format!("{:?}", Status::PaymentRequired), "PaymentRequired");
 /// assert_eq!(format!("{:?}", unknown),                 "Unknown");
 /// ```
-#[derive(
-    Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
-)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Status {
     // FIXME:
     // `#[serde(rename = "")]` only takes raw string literals?
     // We have to re-type the constants here...
     /// Successful RPC response, everything is OK; [`CORE_RPC_STATUS_OK`].
-    #[serde(rename = "OK")]
+    #[cfg_attr(feature = "serde", serde(rename = "OK"))]
     #[default]
     Ok,
 
     /// The daemon is busy, try later; [`CORE_RPC_STATUS_BUSY`].
-    #[serde(rename = "BUSY")]
+    #[cfg_attr(feature = "serde", serde(rename = "BUSY"))]
     Busy,
 
     /// The daemon is not mining; [`CORE_RPC_STATUS_NOT_MINING`].
-    #[serde(rename = "NOT MINING")]
+    #[cfg_attr(feature = "serde", serde(rename = "NOT MINING"))]
     NotMining,
 
     /// Payment is required for RPC; [`CORE_RPC_STATUS_PAYMENT_REQUIRED`].
-    #[serde(rename = "PAYMENT REQUIRED")]
+    #[cfg_attr(feature = "serde", serde(rename = "PAYMENT REQUIRED"))]
     PaymentRequired,
 
     /// Some unknown other string; [`CORE_RPC_STATUS_UNKNOWN`].
@@ -91,8 +94,8 @@ pub enum Status {
     /// The reason this isn't `Unknown(String)` is because that
     /// disallows [`Status`] to be [`Copy`], and thus other types
     /// that contain it.
-    #[serde(other)]
-    #[serde(rename = "UNKNOWN")]
+    #[cfg_attr(feature = "serde", serde(other))]
+    #[cfg_attr(feature = "serde", serde(rename = "UNKNOWN"))]
     Unknown,
 }
 
@@ -132,6 +135,7 @@ impl Display for Status {
 //
 // See below for more impl info:
 // <https://github.com/Cuprate/cuprate/blob/bef2a2cbd4e1194991751d1fbc96603cba8c7a51/net/epee-encoding/src/value.rs#L366-L392>.
+#[cfg(feature = "epee")]
 impl EpeeValue for Status {
     const MARKER: Marker = <String as EpeeValue>::MARKER;
 
@@ -161,6 +165,7 @@ mod test {
 
     // Test epee (de)serialization works.
     #[test]
+    #[cfg(feature = "epee")]
     fn epee() {
         for status in [
             Status::Ok,

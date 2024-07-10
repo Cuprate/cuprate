@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
 // Our code, and code generated (e.g macros) cannot overrule these.
@@ -13,7 +14,6 @@
 	unused_allocation,
 	coherence_leak_check,
 	while_true,
-	clippy::missing_docs_in_private_items,
 
 	// Maybe can be put into `#[deny]`.
 	unconditional_recursion,
@@ -82,7 +82,15 @@
 	clippy::option_if_let_else,
 )]
 // Allow some lints when running in debug mode.
-#![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
+#![cfg_attr(
+    debug_assertions,
+    allow(
+        clippy::todo,
+        clippy::multiple_crate_versions,
+        unused_imports,
+        unused_variables
+    )
+)]
 // Allow some lints in tests.
 #![cfg_attr(
     test,
@@ -94,23 +102,25 @@
     )
 )]
 // TODO: remove me after finishing impl
-#![allow(dead_code)]
+#![allow(
+	dead_code,
+    rustdoc::broken_intra_doc_links // TODO: remove after `{bin,json,other}.rs` gets merged
+)]
 
-//---------------------------------------------------------------------------------------------------- Use
-mod binary_string;
+//---------------------------------------------------------------------------------------------------- Mod
 mod constants;
+mod defaults;
+mod free;
 mod macros;
-mod status;
 
-pub use binary_string::BinaryString;
+pub mod base;
+pub mod bin;
+pub mod json;
+pub mod misc;
+pub mod other;
+
 pub use constants::{
     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN, CORE_RPC_VERSION,
     CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR,
 };
-pub use status::Status;
-
-pub mod base;
-pub mod bin;
-pub mod json;
-pub mod other;

@@ -1,7 +1,7 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{EnvInner, RuntimeError, TxRo, TxRw};
+use cuprate_database::{EnvInner, RuntimeError};
 
 use crate::tables::{TablesIter, TablesMut};
 
@@ -84,12 +84,12 @@ pub(crate) use call_fn_on_all_tables_or_early_return;
 /// let mut tables = env_inner.open_tables_mut(&tx_rw)?;
 /// # Ok(()) }
 /// ```
-pub trait OpenTables<'env, Ro, Rw>
-where
-    Self: 'env,
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
-{
+pub trait OpenTables<'env> {
+    /// The read-only transaction type of the backend.
+    type Ro<'a>;
+    /// The read-write transaction type of the backend.
+    type Rw<'a>;
+
     /// Open all tables in read/iter mode.
     ///
     /// This calls [`EnvInner::open_db_ro`] on all database tables
@@ -100,7 +100,7 @@ where
     ///
     /// As all tables are created upon [`crate::open`],
     /// this function will never error because a table doesn't exist.
-    fn open_tables(&'env self, tx_ro: &Ro) -> Result<impl TablesIter, RuntimeError>;
+    fn open_tables(&self, tx_ro: &Self::Ro<'_>) -> Result<impl TablesIter, RuntimeError>;
 
     /// Open all tables in read-write mode.
     ///
@@ -109,7 +109,7 @@ where
     ///
     /// # Errors
     /// This will only return [`RuntimeError::Io`] on errors.
-    fn open_tables_mut(&'env self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError>;
+    fn open_tables_mut(&self, tx_rw: &Self::Rw<'_>) -> Result<impl TablesMut, RuntimeError>;
 
     /// Create all database tables.
     ///
@@ -118,28 +118,29 @@ where
     ///
     /// # Errors
     /// This will only return [`RuntimeError::Io`] on errors.
-    fn create_tables(&'env self, tx_rw: &Rw) -> Result<(), RuntimeError>;
+    fn create_tables(&self, tx_rw: &Self::Rw<'_>) -> Result<(), RuntimeError>;
 }
 
-impl<'env, Ei, Ro, Rw> OpenTables<'env, Ro, Rw> for Ei
+impl<'env, Ei> OpenTables<'env> for Ei
 where
-    Ei: EnvInner<'env, Ro, Rw>,
-    Ro: TxRo<'env>,
-    Rw: TxRw<'env>,
+    Ei: EnvInner<'env>,
 {
-    fn open_tables(&'env self, tx_ro: &Ro) -> Result<impl TablesIter, RuntimeError> {
+    type Ro<'a> = <Ei as EnvInner<'env>>::Ro<'a>;
+    type Rw<'a> = <Ei as EnvInner<'env>>::Rw<'a>;
+
+    fn open_tables(&self, tx_ro: &Self::Ro<'_>) -> Result<impl TablesIter, RuntimeError> {
         call_fn_on_all_tables_or_early_return! {
             Self::open_db_ro(self, tx_ro)
         }
     }
 
-    fn open_tables_mut(&'env self, tx_rw: &Rw) -> Result<impl TablesMut, RuntimeError> {
+    fn open_tables_mut(&self, tx_rw: &Self::Rw<'_>) -> Result<impl TablesMut, RuntimeError> {
         call_fn_on_all_tables_or_early_return! {
             Self::open_db_rw(self, tx_rw)
         }
     }
 
-    fn create_tables(&'env self, tx_rw: &Rw) -> Result<(), RuntimeError> {
+    fn create_tables(&self, tx_rw: &Self::Rw<'_>) -> Result<(), RuntimeError> {
         match call_fn_on_all_tables_or_early_return! {
             Self::create_db(self, tx_rw)
         } {
