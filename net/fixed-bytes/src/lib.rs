@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum FixedByteError {
     #[cfg_attr(
         feature = "std",
@@ -48,7 +49,7 @@ impl Debug for FixedByteError {
 ///
 /// Internally this is just a wrapper around [`Bytes`], with the constructors checking that the length is equal to `N`.
 /// This implements [`Deref`] with the target being `[u8; N]`.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct ByteArray<const N: usize>(Bytes);
 
@@ -94,7 +95,7 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteArray<N> {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct ByteArrayVec<const N: usize>(Bytes);
 
