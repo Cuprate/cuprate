@@ -127,8 +127,8 @@ pub enum SyncMode {
     /// In the case of a system crash, the database
     /// may become corrupted when using this option.
     ///
-    /// [^1]:
-    /// Semantically, this variant would actually map to
+    ///
+    /// [^1]: Semantically, this variant would actually map to
     /// [`redb::Durability::None`](https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.None),
     /// however due to [`#149`](https://github.com/Cuprate/cuprate/issues/149),
     /// this is not possible. As such, when using the `redb` backend,

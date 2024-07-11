@@ -6,10 +6,10 @@ For a high-level overview, see the database section in
 [Cuprate's architecture book](https://architecture.cuprate.org).
 
 If you need blockchain specific capabilities, consider using the higher-level
-`cuprate-blockchain` crate which builds upon this one.
+[`cuprate-blockchain`](https://doc.cuprate.org/cuprate_blockchain) crate which builds upon this one.
 
 # Purpose
-This crate abstracts various database backends with traits. The databases are:
+This crate abstracts various database backends with traits.
 
 All backends have the following attributes:
 - [Embedded](https://en.wikipedia.org/wiki/Embedded_database)
@@ -19,6 +19,10 @@ All backends have the following attributes:
 - Are table oriented (`"table_name" -> (key, value)`)
 - Allows concurrent readers
 
+The currently implemented backends are:
+- [`heed`](https://github.com/meilisearch/heed) (LMDB)
+- [`redb`](https://github.com/cberner/redb)
+
 # Terminology
 To be more clear on some terms used in this crate:
 
@@ -26,17 +30,17 @@ To be more clear on some terms used in this crate:
 |------------------|--------------------------------------|
 | `Env`            | The 1 database environment, the "whole" thing
 | `DatabaseR{o,w}` | A _actively open_ readable/writable `key/value` store
-| `Table`          | Solely the metadata of a `cuprate_database` (the `key` and `value` types, and the name)
+| `Table`          | Solely the metadata of a `Table` (the `key` and `value` types, and the name)
 | `TxR{o,w}`       | A read/write transaction
 | `Storable`       | A data that type can be stored in the database
 
-The dataflow is `Env` -> `Tx` -> `cuprate_database`
+The flow is `Env` -> `Tx` -> `Database`
 
 Which reads as:
 1. You have a database `Environment`
 1. You open up a `Transaction`
-1. You open a particular `Table` from that `Environment`, getting a `cuprate_database`
-1. You can now read/write data from/to that `cuprate_database`
+1. You open a particular `Table` from that `Environment`, getting a `Database`
+1. You can now read/write data from/to that `Database`
 
 # Concrete types
 You should _not_ rely on the concrete type of any abstracted backend.
