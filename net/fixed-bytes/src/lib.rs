@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use core::{
     fmt::{Debug, Formatter},
     ops::{Deref, Index},
@@ -5,7 +7,11 @@ use core::{
 
 use bytes::{BufMut, Bytes, BytesMut};
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize};
+
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum FixedByteError {
     #[cfg_attr(
         feature = "std",
@@ -43,7 +49,29 @@ impl Debug for FixedByteError {
 /// Internally this is just a wrapper around [`Bytes`], with the constructors checking that the length is equal to `N`.
 /// This implements [`Deref`] with the target being `[u8; N]`.
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
+#[repr(transparent)]
 pub struct ByteArray<const N: usize>(Bytes);
+
+#[cfg(feature = "serde")]
+impl<'de, const N: usize> Deserialize<'de> for ByteArray<N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = Bytes::deserialize(deserializer)?;
+        let len = bytes.len();
+        if len == N {
+            Ok(Self(bytes))
+        } else {
+            Err(serde::de::Error::invalid_length(
+                len,
+                &N.to_string().as_str(),
+            ))
+        }
+    }
+}
 
 impl<const N: usize> ByteArray<N> {
     pub fn take_bytes(self) -> Bytes {
@@ -88,7 +116,29 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteArray<N> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
+#[repr(transparent)]
 pub struct ByteArrayVec<const N: usize>(Bytes);
+
+#[cfg(feature = "serde")]
+impl<'de, const N: usize> Deserialize<'de> for ByteArrayVec<N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = Bytes::deserialize(deserializer)?;
+        let len = bytes.len();
+        if len % N == 0 {
+            Ok(Self(bytes))
+        } else {
+            Err(serde::de::Error::invalid_length(
+                len,
+                &N.to_string().as_str(),
+            ))
+        }
+    }
+}
 
 impl<const N: usize> ByteArrayVec<N> {
     pub fn len(&self) -> usize {
@@ -197,6 +247,8 @@ impl<const N: usize> Index<usize> for ByteArrayVec<N> {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::{from_str, to_string};
+
     use super::*;
 
     #[test]
@@ -206,5 +258,47 @@ mod tests {
 
         assert_eq!(bytes.len(), 100);
         let _ = bytes[99];
+    }
+
+    /// Tests that `serde` works on [`ByteArray`].
+    #[test]
+    #[cfg(feature = "serde")]
+    fn byte_array_serde() {
+        let b = ByteArray::from([1, 0, 0, 0, 1]);
+        let string = to_string(&b).unwrap();
+        assert_eq!(string, "[1,0,0,0,1]");
+        let b2 = from_str::<ByteArray<5>>(&string).unwrap();
+        assert_eq!(b, b2);
+    }
+
+    /// Tests that `serde` works on [`ByteArrayVec`].
+    #[test]
+    #[cfg(feature = "serde")]
+    fn byte_array_vec_serde() {
+        let b = ByteArrayVec::from([1, 0, 0, 0, 1]);
+        let string = to_string(&b).unwrap();
+        assert_eq!(string, "[1,0,0,0,1]");
+        let b2 = from_str::<ByteArrayVec<5>>(&string).unwrap();
+        assert_eq!(b, b2);
+    }
+
+    /// Tests that bad input `serde` fails on [`ByteArray`].
+    #[test]
+    #[cfg(feature = "serde")]
+    #[should_panic(
+        expected = r#"called `Result::unwrap()` on an `Err` value: Error("invalid length 4, expected 5", line: 0, column: 0)"#
+    )]
+    fn byte_array_bad_deserialize() {
+        from_str::<ByteArray<5>>("[1,0,0,0]").unwrap();
+    }
+
+    /// Tests that bad input `serde` fails on [`ByteArrayVec`].
+    #[test]
+    #[cfg(feature = "serde")]
+    #[should_panic(
+        expected = r#"called `Result::unwrap()` on an `Err` value: Error("invalid length 4, expected 5", line: 0, column: 0)"#
+    )]
+    fn byte_array_vec_bad_deserialize() {
+        from_str::<ByteArrayVec<5>>("[1,0,0,0]").unwrap();
     }
 }
