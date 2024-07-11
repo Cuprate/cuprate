@@ -8,7 +8,7 @@ use core::{
 use bytes::{BufMut, Bytes, BytesMut};
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -49,8 +49,29 @@ impl Debug for FixedByteError {
 /// Internally this is just a wrapper around [`Bytes`], with the constructors checking that the length is equal to `N`.
 /// This implements [`Deref`] with the target being `[u8; N]`.
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
+#[repr(transparent)]
 pub struct ByteArray<const N: usize>(Bytes);
+
+#[cfg(feature = "serde")]
+impl<'de, const N: usize> Deserialize<'de> for ByteArray<N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = Bytes::deserialize(deserializer)?;
+        let len = bytes.len();
+        if len == N {
+            Ok(Self(bytes))
+        } else {
+            Err(serde::de::Error::invalid_length(
+                len,
+                &N.to_string().as_str(),
+            ))
+        }
+    }
+}
 
 impl<const N: usize> ByteArray<N> {
     pub fn take_bytes(self) -> Bytes {
@@ -95,8 +116,29 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteArray<N> {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", derive(Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
+#[repr(transparent)]
 pub struct ByteArrayVec<const N: usize>(Bytes);
+
+#[cfg(feature = "serde")]
+impl<'de, const N: usize> Deserialize<'de> for ByteArrayVec<N> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = Bytes::deserialize(deserializer)?;
+        let len = bytes.len();
+        if len % N == 0 {
+            Ok(Self(bytes))
+        } else {
+            Err(serde::de::Error::invalid_length(
+                len,
+                &N.to_string().as_str(),
+            ))
+        }
+    }
+}
 
 impl<const N: usize> ByteArrayVec<N> {
     pub fn len(&self) -> usize {

@@ -13,4 +13,4 @@ serde = ["bytes/serde", "dep:serde"]
 [dependencies]
 thiserror = { workspace = true, optional = true }
 bytes = { workspace = true }
-serde = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
