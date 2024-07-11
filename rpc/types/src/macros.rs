@@ -68,7 +68,9 @@ macro_rules! define_request_and_response {
             // And any fields.
             $(
                 $( #[$request_field_attr:meta] )*
-                $request_field:ident: $request_field_type:ty $(= $request_field_type_default:expr)?,
+                $request_field:ident: $request_field_type:ty
+                $(as $request_field_type_as:ty)?
+                $(= $request_field_type_default:expr)?,
             )*
         },
 
@@ -78,7 +80,9 @@ macro_rules! define_request_and_response {
             // And any fields.
             $(
                 $( #[$response_field_attr:meta] )*
-                $response_field:ident: $response_field_type:ty $(= $response_field_type_default:expr)?,
+                $response_field:ident: $response_field_type:ty
+                $(as $response_field_type_as:ty)?
+                $(= $response_field_type_default:expr)?,
             )*
         }
     ) => { paste::paste! {
@@ -99,7 +103,9 @@ macro_rules! define_request_and_response {
             [<$type_name Request>] {
                 $(
                     $( #[$request_field_attr] )*
-                    $request_field: $request_field_type $(= $request_field_type_default)?,
+                    $request_field: $request_field_type
+                    $(as $request_field_type_as)?
+                    $(= $request_field_type_default)?,
                 )*
             }
         }
@@ -125,7 +131,9 @@ macro_rules! define_request_and_response {
             $response_base_type => [<$type_name Response>] {
                 $(
                     $( #[$response_field_attr] )*
-                    $response_field: $response_field_type $(= $response_field_type_default)?,
+                    $response_field: $response_field_type
+                    $(as $response_field_type_as)?
+                    $(= $response_field_type_default)?,
                 )*
             }
         }
@@ -166,7 +174,9 @@ macro_rules! __define_request {
             $(
                 $( #[$field_attr:meta] )* // field attributes
                 // field_name: FieldType
-                $field:ident: $field_type:ty $(= $field_default:expr)?,
+                $field:ident: $field_type:ty
+                $(as $field_as:ty)?
+                $(= $field_default:expr)?,
                 // The $field_default is an optional extra token that represents
                 // a default value to pass to [`cuprate_epee_encoding::epee_object`],
                 // see it for usage.
@@ -188,7 +198,9 @@ macro_rules! __define_request {
         ::cuprate_epee_encoding::epee_object! {
             $t,
             $(
-                $field: $field_type $(= $field_default)?,
+                $field: $field_type
+                $(as $field_as)?
+                $(= $field_default)?,
             )*
         }
     };
@@ -218,7 +230,9 @@ macro_rules! __define_response {
             // See [`__define_request`] for docs, this does the same thing.
             $(
                 $( #[$field_attr:meta] )*
-                $field:ident: $field_type:ty $(= $field_default:expr)?,
+                $field:ident: $field_type:ty
+                $(as $field_as:ty)?
+                $(= $field_default:expr)?,
             )*
         }
     ) => {
@@ -234,7 +248,9 @@ macro_rules! __define_response {
         ::cuprate_epee_encoding::epee_object! {
             $t,
             $(
-                $field: $field_type $($field_default)?,
+                $field: $field_type
+                $(as $field_as)?
+                $(= $field_default)?,
             )*
         }
     };
@@ -250,7 +266,9 @@ macro_rules! __define_response {
             // See [`__define_request`] for docs, this does the same thing.
             $(
                 $( #[$field_attr:meta] )*
-                $field:ident: $field_type:ty $(= $field_default:expr)?,
+                $field:ident: $field_type:ty
+                $(as $field_as:ty)?
+                $(= $field_default:expr)?,
             )*
         }
     ) => {
@@ -269,7 +287,9 @@ macro_rules! __define_response {
         ::cuprate_epee_encoding::epee_object! {
             $t,
             $(
-                $field: $field_type $(= $field_default)?,
+                $field: $field_type
+                $(as $field_as)?
+                $(= $field_default)?,
             )*
             !flatten: base: $base,
         }
