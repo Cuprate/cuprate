@@ -331,8 +331,7 @@ mod test {
     use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
 
     use crate::{
-        open_tables::OpenTables,
-        tables::Tables,
+        tables::{OpenTables, Tables},
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
     };
 
