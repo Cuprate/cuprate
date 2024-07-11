@@ -49,8 +49,33 @@ define_request_and_response! {
         // $FIELD_NAME: $FIELD_TYPE,
         // ```
         // The struct generated and all fields are `pub`.
-        extra_nonce: String,
-        prev_block: String,
+
+        // This optional expression can be placed after
+        // a `field: field_type`. this indicates to the
+        // macro to (de)serialize this field using this
+        // default expression if it doesn't exist in epee.
+        //
+        // See `cuprate_epee_encoding::epee_object` for info.
+        //
+        // The default function must be specified twice:
+        //
+        // 1. As an expression
+        // 2. As a string literal
+        //
+        // For example: `extra_nonce: String /* = default_string(), "default_string" */,`
+        //
+        // This is a HACK since `serde`'s default attribute only takes in
+        // string literals and macros (stringify) within attributes do not work.
+        extra_nonce: String /* = default_expression, "default_literal" */,
+
+        // Another optional expression:
+        // This indicates to the macro to (de)serialize
+        // this field as another type in epee.
+        //
+        // See `cuprate_epee_encoding::epee_object` for info.
+        prev_block: String /* as Type */,
+
+        // Regular fields.
         reserve_size: u64,
         wallet_address: String,
     },
@@ -197,8 +222,7 @@ define_request_and_response! {
     GetLastBlockHeader,
     #[derive(Copy)]
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        fill_pow_hash: bool = default_false(),
+        fill_pow_hash: bool = default_false(), "default_false",
     },
     AccessResponseBase {
         block_header: BlockHeader,
@@ -213,8 +237,7 @@ define_request_and_response! {
     Request {
         hash: String,
         hashes: Vec<String>,
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        fill_pow_hash: bool = default_false(),
+        fill_pow_hash: bool = default_false(), "default_false",
     },
     AccessResponseBase {
         block_header: BlockHeader,
@@ -230,8 +253,7 @@ define_request_and_response! {
     #[derive(Copy)]
     Request {
         height: u64,
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        fill_pow_hash: bool = default_false(),
+        fill_pow_hash: bool = default_false(), "default_false",
     },
     AccessResponseBase {
         block_header: BlockHeader,
@@ -247,8 +269,7 @@ define_request_and_response! {
     Request {
         start_height: u64,
         end_height: u64,
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        fill_pow_hash: bool = default_false(),
+        fill_pow_hash: bool = default_false(), "default_false",
     },
     AccessResponseBase {
         headers: Vec<BlockHeader>,
@@ -264,12 +285,9 @@ define_request_and_response! {
         // `monerod` has both `hash` and `height` fields.
         // In the RPC handler, if `hash.is_empty()`, it will use it, else, it uses `height`.
         // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2674>
-        #[cfg_attr(feature = "serde", serde(default = "default_string"))]
-        hash: String = default_string(),
-        #[cfg_attr(feature = "serde", serde(default = "default_height"))]
-        height: u64 = default_height(),
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        fill_pow_hash: bool = default_false(),
+        hash: String = default_string(), "default_string",
+        height: u64 = default_height(), "default_height",
+        fill_pow_hash: bool = default_false(), "default_false",
     },
     AccessResponseBase {
         blob: String,
@@ -287,7 +305,7 @@ define_request_and_response! {
     GetConnections,
     Request {},
     ResponseBase {
-        // TODO: This is a `std::list` in `monerod` because...?
+        // FIXME: This is a `std::list` in `monerod` because...?
         connections: Vec<ConnectionInfo>,
     }
 }
@@ -405,8 +423,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 2096..=2116,
     FlushTransactionPool,
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_vec"))]
-        txids: Vec<String> = default_vec::<String>(),
+        txids: Vec<String> = default_vec::<String>(), "default_vec",
     },
     #[derive(Copy)]
     #[cfg_attr(feature = "serde", serde(transparent))]
@@ -461,12 +478,12 @@ define_request_and_response! {
     ResponseBase {
         version: u32,
         release: bool,
-        #[serde(skip_serializing_if = "is_zero", default = "default_zero")]
-        current_height: u64 = default_zero(),
-        #[serde(skip_serializing_if = "is_zero", default = "default_zero")]
-        target_height: u64 = default_zero(),
-        #[serde(skip_serializing_if = "Vec::is_empty", default = "default_vec")]
-        hard_forks: Vec<HardforkEntry> = default_vec(),
+        #[serde(skip_serializing_if = "is_zero")]
+        current_height: u64 = default_zero(), "default_zero",
+        #[serde(skip_serializing_if = "is_zero")]
+        target_height: u64 = default_zero(), "default_zero",
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        hard_forks: Vec<HardforkEntry> = default_vec(), "default_vec",
     }
 }
 
@@ -521,9 +538,9 @@ define_request_and_response! {
         height: u64,
         next_needed_pruning_seed: u32,
         overview: String,
-        // TODO: This is a `std::list` in `monerod` because...?
+        // FIXME: This is a `std::list` in `monerod` because...?
         peers: Vec<SyncInfoPeer>,
-        // TODO: This is a `std::list` in `monerod` because...?
+        // FIXME: This is a `std::list` in `monerod` because...?
         spans: Vec<Span>,
         target_height: u64,
     }
@@ -588,8 +605,7 @@ define_request_and_response! {
     PruneBlockchain,
     #[derive(Copy)]
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        check: bool = default_false(),
+        check: bool = default_false(), "default_false",
     },
     #[derive(Copy)]
     ResponseBase {
@@ -623,10 +639,8 @@ define_request_and_response! {
     FlushCache,
     #[derive(Copy)]
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        bad_txs: bool = default_false(),
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        bad_blocks: bool = default_false(),
+        bad_txs: bool = default_false(), "default_false",
+        bad_blocks: bool = default_false(), "default_false",
     },
     ResponseBase {}
 }

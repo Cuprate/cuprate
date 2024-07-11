@@ -45,7 +45,7 @@
 /// would trigger the different branches.
 macro_rules! define_request_and_response {
     (
-        // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
+        // The markdown tag for Monero daemon RPC documentation. Not necessarily the endpoint.
         $monero_daemon_rpc_doc_link:ident,
 
         // The commit hash and  `$file.$extension` in which this type is defined in
@@ -67,10 +67,10 @@ macro_rules! define_request_and_response {
         Request {
             // And any fields.
             $(
-                $( #[$request_field_attr:meta] )*
-                $request_field:ident: $request_field_type:ty
-                $(as $request_field_type_as:ty)?
-                $(= $request_field_type_default:expr)?,
+                $( #[$request_field_attr:meta] )* // Field attribute.
+                $request_field:ident: $request_field_type:ty // field_name: field type
+                $(as $request_field_type_as:ty)? // (optional) alternative type (de)serialization
+                $(= $request_field_type_default:expr, $request_field_type_default_string:literal)?, // (optional) default value
             )*
         },
 
@@ -82,7 +82,7 @@ macro_rules! define_request_and_response {
                 $( #[$response_field_attr:meta] )*
                 $response_field:ident: $response_field_type:ty
                 $(as $response_field_type_as:ty)?
-                $(= $response_field_type_default:expr)?,
+                $(= $response_field_type_default:expr, $response_field_type_default_string:literal)?,
             )*
         }
     ) => { paste::paste! {
@@ -105,7 +105,7 @@ macro_rules! define_request_and_response {
                     $( #[$request_field_attr] )*
                     $request_field: $request_field_type
                     $(as $request_field_type_as)?
-                    $(= $request_field_type_default)?,
+                    $(= $request_field_type_default, $request_field_type_default_string)?,
                 )*
             }
         }
@@ -133,7 +133,7 @@ macro_rules! define_request_and_response {
                     $( #[$response_field_attr] )*
                     $response_field: $response_field_type
                     $(as $response_field_type_as)?
-                    $(= $response_field_type_default)?,
+                    $(= $response_field_type_default, $response_field_type_default_string)?,
                 )*
             }
         }
@@ -176,7 +176,7 @@ macro_rules! __define_request {
                 // field_name: FieldType
                 $field:ident: $field_type:ty
                 $(as $field_as:ty)?
-                $(= $field_default:expr)?,
+                $(= $field_default:expr, $field_default_string:literal)?,
                 // The $field_default is an optional extra token that represents
                 // a default value to pass to [`cuprate_epee_encoding::epee_object`],
                 // see it for usage.
@@ -190,6 +190,7 @@ macro_rules! __define_request {
         pub struct $t {
             $(
                 $( #[$field_attr] )*
+                $(#[cfg_attr(feature = "serde", serde(default = $field_default_string))])?
                 pub $field: $field_type,
             )*
         }
@@ -232,7 +233,7 @@ macro_rules! __define_response {
                 $( #[$field_attr:meta] )*
                 $field:ident: $field_type:ty
                 $(as $field_as:ty)?
-                $(= $field_default:expr)?,
+                $(= $field_default:expr, $field_default_string:literal)?,
             )*
         }
     ) => {
@@ -240,6 +241,7 @@ macro_rules! __define_response {
         pub struct $t {
             $(
                 $( #[$field_attr] )*
+                $(#[cfg_attr(feature = "serde", serde(default = $field_default_string))])?
                 pub $field: $field_type,
             )*
         }
@@ -268,7 +270,7 @@ macro_rules! __define_response {
                 $( #[$field_attr:meta] )*
                 $field:ident: $field_type:ty
                 $(as $field_as:ty)?
-                $(= $field_default:expr)?,
+                $(= $field_default:expr, $field_default_string:literal)?,
             )*
         }
     ) => {
@@ -279,6 +281,7 @@ macro_rules! __define_response {
 
             $(
                 $( #[$field_attr] )*
+                $(#[cfg_attr(feature = "serde", serde(default = $field_default_string))])?
                 pub $field: $field_type,
             )*
         }
