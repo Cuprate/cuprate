@@ -4,7 +4,7 @@ This chapter describes protocol messages, and documents the current protocol mes
 
 ## Levin
 
-All protocol messages are in the notification levin format. Altough there are some messages that fall under requests/responses
+All protocol messages are in the notification levin format. Although there are some messages that fall under requests/responses
 levin will treat them as notifications
 
 

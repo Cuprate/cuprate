@@ -22,7 +22,7 @@ The receiving peer will check:
 
 ### Handshake Response Checks
 
-Teh initiating peer will check:
+The initiating peer will check:
 
 - The `network_id` is network ID expected.[^res-network-id]
 - The number of peers in the peer list is less than `250`.[^max-peer-list-res]
