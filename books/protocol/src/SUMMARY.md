@@ -32,4 +32,5 @@
     - [New Block](./p2p_network/message_flows/new_block.md)
     - [New Transactions](./p2p_network/message_flows/new_transactions.md)
     - [Chain Sync](./p2p_network/message_flows/chain_sync.md)
+    - [Get Blocks](./p2p_network/message_flows/get_blocks.md)
 - [Pruning](./pruning.md)
