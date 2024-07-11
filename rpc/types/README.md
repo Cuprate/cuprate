@@ -64,6 +64,20 @@ These mixed types are:
 
 TODO: we need to figure out a type that (de)serializes correctly, `String` errors with `serde_json`
 
+# Fixed byte containers
+TODO
+
+<!--
+
+Some fields within requests/responses are containers, but fixed in size.
+
+For example, [`crate::json::GetBlockTemplateResponse::prev_hash`] is always a 32-byte hash.
+
+In these cases, stack allocated types like `cuprate_fixed_bytes::StrArray`
+will be used instead of a more typical [`String`] for optimization reasons.
+
+-->
+
 # Feature flags
 List of feature flags for `cuprate-rpc-types`.
 
