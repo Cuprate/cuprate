@@ -247,6 +247,8 @@ impl<const N: usize> Index<usize> for ByteArrayVec<N> {
 
 #[cfg(test)]
 mod tests {
+    use serde_json::{from_str, to_string};
+
     use super::*;
 
     #[test]
@@ -256,5 +258,47 @@ mod tests {
 
         assert_eq!(bytes.len(), 100);
         let _ = bytes[99];
+    }
+
+    /// Tests that `serde` works on [`ByteArray`].
+    #[test]
+    #[cfg(feature = "serde")]
+    fn byte_array_serde() {
+        let b = ByteArray::from([1, 0, 0, 0, 1]);
+        let string = to_string(&b).unwrap();
+        assert_eq!(string, "[1,0,0,0,1]");
+        let b2 = from_str::<ByteArray<5>>(&string).unwrap();
+        assert_eq!(b, b2);
+    }
+
+    /// Tests that `serde` works on [`ByteArrayVec`].
+    #[test]
+    #[cfg(feature = "serde")]
+    fn byte_array_vec_serde() {
+        let b = ByteArrayVec::from([1, 0, 0, 0, 1]);
+        let string = to_string(&b).unwrap();
+        assert_eq!(string, "[1,0,0,0,1]");
+        let b2 = from_str::<ByteArrayVec<5>>(&string).unwrap();
+        assert_eq!(b, b2);
+    }
+
+    /// Tests that bad input `serde` fails on [`ByteArray`].
+    #[test]
+    #[cfg(feature = "serde")]
+    #[should_panic(
+        expected = r#"called `Result::unwrap()` on an `Err` value: Error("invalid length 4, expected 5", line: 0, column: 0)"#
+    )]
+    fn byte_array_bad_deserialize() {
+        from_str::<ByteArray<5>>("[1,0,0,0]").unwrap();
+    }
+
+    /// Tests that bad input `serde` fails on [`ByteArrayVec`].
+    #[test]
+    #[cfg(feature = "serde")]
+    #[should_panic(
+        expected = r#"called `Result::unwrap()` on an `Err` value: Error("invalid length 4, expected 5", line: 0, column: 0)"#
+    )]
+    fn byte_array_vec_bad_deserialize() {
+        from_str::<ByteArrayVec<5>>("[1,0,0,0]").unwrap();
     }
 }
