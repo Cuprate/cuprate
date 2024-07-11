@@ -67,6 +67,12 @@ This is a bit-flag field that determines what type of bucket this is[^flags]:
 
 This is a fixed value of 1.
 
+## Bucket Body
+
+All bucket bodies are serialized in the epee binary format which is described here: https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/docs/PORTABLE_STORAGE.md
+
+Exact message types are described in the next chapters.
+
 ---
 
 [^header-format]: <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/contrib/epee/include/net/levin_base.h#L62>
