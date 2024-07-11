@@ -22,7 +22,6 @@ use cuprate_types::{
 
 use crate::{
     config::ReaderThreads,
-    open_tables::OpenTables,
     ops::{
         block::{
             block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
@@ -35,6 +34,7 @@ use crate::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         types::{ResponseReceiver, ResponseResult, ResponseSender},
     },
+    tables::OpenTables,
     tables::{BlockHeights, BlockInfos, Tables},
     types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };

@@ -67,8 +67,7 @@ use cuprate_blockchain::{
         DatabaseRo, DatabaseRw, TxRo, TxRw,
     },
     config::ConfigBuilder,
-    tables::{Tables, TablesMut},
-	OpenTables,
+    tables::{Tables, TablesMut, OpenTables},
 };
 
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
