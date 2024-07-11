@@ -10,11 +10,12 @@ keywords    = ["cuprate", "rpc", "types", "monero"]
 
 [features]
 default = ["serde", "epee"]
-serde   = ["dep:serde"]
+serde   = ["dep:serde", "cuprate-fixed-bytes/serde"]
 epee    = ["dep:cuprate-epee-encoding"]
 
 [dependencies]
 cuprate-epee-encoding = { path = "../../net/epee-encoding", optional = true }
+cuprate-fixed-bytes   = { path = "../../net/fixed-bytes" }
 
 monero-serai = { workspace = true }
 paste        = { workspace = true }
