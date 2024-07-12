@@ -131,7 +131,6 @@ define_request_and_response! {
     // type alias to `()` instead of a `struct`.
     Request {},
 
-    #[derive(Copy)]
     ResponseBase {
         count: u64,
     }
@@ -409,7 +408,6 @@ define_request_and_response! {
     Request {
         address: String,
     },
-    #[derive(Copy)]
     Response {
         banned: bool,
         seconds: u32,
@@ -425,7 +423,6 @@ define_request_and_response! {
     Request {
         txids: Vec<String> = default_vec::<String>(), "default_vec",
     },
-    #[derive(Copy)]
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Response {
@@ -479,9 +476,9 @@ define_request_and_response! {
         version: u32,
         release: bool,
         #[serde(skip_serializing_if = "is_zero")]
-        current_height: u64 = default_zero(), "default_zero",
+        current_height: u64 = default_zero::<u64>(), "default_zero",
         #[serde(skip_serializing_if = "is_zero")]
-        target_height: u64 = default_zero(), "default_zero",
+        target_height: u64 = default_zero::<u64>(), "default_zero",
         #[serde(skip_serializing_if = "Vec::is_empty")]
         hard_forks: Vec<HardforkEntry> = default_vec(), "default_vec",
     }
@@ -520,7 +517,6 @@ define_request_and_response! {
     Request {
         txids: Vec<String>,
     },
-    #[derive(Copy)]
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Response {
@@ -607,7 +603,6 @@ define_request_and_response! {
     Request {
         check: bool = default_false(), "default_false",
     },
-    #[derive(Copy)]
     ResponseBase {
         pruned: bool,
         pruning_seed: u32,

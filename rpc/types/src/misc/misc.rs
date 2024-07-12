@@ -20,7 +20,7 @@ use cuprate_epee_encoding::{
 use crate::{
     constants::{
         CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
-        CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN,
+        CORE_RPC_STATUS_PAYMENT_REQUIRED,
     },
     defaults::default_zero,
     macros::monero_definition_link,

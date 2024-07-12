@@ -219,7 +219,6 @@ define_request_and_response! {
         password: String,
         proxy: String,
     },
-    #[derive(Copy)]
     Response {
         status: Status,
     }

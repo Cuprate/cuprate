@@ -14,7 +14,7 @@ use cuprate_epee_encoding::{
 
 use crate::constants::{
     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
-    CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN,
+    CORE_RPC_STATUS_PAYMENT_REQUIRED,
 };
 
 //---------------------------------------------------------------------------------------------------- Status
@@ -33,37 +33,37 @@ use crate::constants::{
 /// use cuprate_rpc_types::{
 ///     misc::Status,
 ///     CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
-///     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_STATUS_UNKNOWN
+///     CORE_RPC_STATUS_PAYMENT_REQUIRED
 /// };
 /// use serde_json::to_string;
 ///
-/// let unknown = Status::Unknown;
+/// let other = Status::Other("OTHER".into());
 ///
 /// assert_eq!(to_string(&Status::Ok).unwrap(),              r#""OK""#);
 /// assert_eq!(to_string(&Status::Busy).unwrap(),            r#""BUSY""#);
 /// assert_eq!(to_string(&Status::NotMining).unwrap(),       r#""NOT MINING""#);
 /// assert_eq!(to_string(&Status::PaymentRequired).unwrap(), r#""PAYMENT REQUIRED""#);
-/// assert_eq!(to_string(&unknown).unwrap(),                 r#""UNKNOWN""#);
+/// assert_eq!(to_string(&other).unwrap(),                   r#""OTHER""#);
 ///
 /// assert_eq!(Status::Ok.as_ref(),              CORE_RPC_STATUS_OK);
 /// assert_eq!(Status::Busy.as_ref(),            CORE_RPC_STATUS_BUSY);
 /// assert_eq!(Status::NotMining.as_ref(),       CORE_RPC_STATUS_NOT_MINING);
 /// assert_eq!(Status::PaymentRequired.as_ref(), CORE_RPC_STATUS_PAYMENT_REQUIRED);
-/// assert_eq!(unknown.as_ref(),                 CORE_RPC_STATUS_UNKNOWN);
+/// assert_eq!(other.as_ref(),                   "OTHER");
 ///
 /// assert_eq!(format!("{}", Status::Ok),              CORE_RPC_STATUS_OK);
 /// assert_eq!(format!("{}", Status::Busy),            CORE_RPC_STATUS_BUSY);
 /// assert_eq!(format!("{}", Status::NotMining),       CORE_RPC_STATUS_NOT_MINING);
 /// assert_eq!(format!("{}", Status::PaymentRequired), CORE_RPC_STATUS_PAYMENT_REQUIRED);
-/// assert_eq!(format!("{}", unknown),                 CORE_RPC_STATUS_UNKNOWN);
+/// assert_eq!(format!("{}", other),                   "OTHER");
 ///
 /// assert_eq!(format!("{:?}", Status::Ok),              "Ok");
 /// assert_eq!(format!("{:?}", Status::Busy),            "Busy");
 /// assert_eq!(format!("{:?}", Status::NotMining),       "NotMining");
 /// assert_eq!(format!("{:?}", Status::PaymentRequired), "PaymentRequired");
-/// assert_eq!(format!("{:?}", unknown),                 "Unknown");
+/// assert_eq!(format!("{:?}", other),                   r#"Other("OTHER")"#);
 /// ```
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum Status {
     // FIXME:
@@ -86,17 +86,12 @@ pub enum Status {
     #[cfg_attr(feature = "serde", serde(rename = "PAYMENT REQUIRED"))]
     PaymentRequired,
 
-    /// Some unknown other string; [`CORE_RPC_STATUS_UNKNOWN`].
+    /// Some unknown other string.
     ///
-    /// This exists to act as a catch-all if `monerod` adds
-    /// a string and a Cuprate node hasn't updated yet.
-    ///
-    /// The reason this isn't `Unknown(String)` is because that
-    /// disallows [`Status`] to be [`Copy`], and thus other types
-    /// that contain it.
-    #[cfg_attr(feature = "serde", serde(other))]
-    #[cfg_attr(feature = "serde", serde(rename = "UNKNOWN"))]
-    Unknown,
+    /// This exists to act as a catch-all for all of
+    /// `monerod`'s other strings it puts in the `status` field.
+    #[cfg_attr(feature = "serde", serde(rename = "OTHER"), serde(untagged))]
+    Other(String),
 }
 
 impl From<String> for Status {
@@ -106,7 +101,7 @@ impl From<String> for Status {
             CORE_RPC_STATUS_BUSY => Self::Busy,
             CORE_RPC_STATUS_NOT_MINING => Self::NotMining,
             CORE_RPC_STATUS_PAYMENT_REQUIRED => Self::PaymentRequired,
-            _ => Self::Unknown,
+            _ => Self::Other(s),
         }
     }
 }
@@ -118,7 +113,7 @@ impl AsRef<str> for Status {
             Self::Busy => CORE_RPC_STATUS_BUSY,
             Self::NotMining => CORE_RPC_STATUS_NOT_MINING,
             Self::PaymentRequired => CORE_RPC_STATUS_PAYMENT_REQUIRED,
-            Self::Unknown => CORE_RPC_STATUS_UNKNOWN,
+            Self::Other(s) => s,
         }
     }
 }
@@ -150,7 +145,7 @@ impl EpeeValue for Status {
 
     fn epee_default_value() -> Option<Self> {
         // <https://github.com/Cuprate/cuprate/pull/147#discussion_r1654992559>
-        Some(Self::Unknown)
+        Some(Self::Other(String::new()))
     }
 
     fn write<B: BufMut>(self, w: &mut B) -> cuprate_epee_encoding::Result<()> {
@@ -172,11 +167,11 @@ mod test {
             Status::Busy,
             Status::NotMining,
             Status::PaymentRequired,
-            Status::Unknown,
+            Status::Other(String::new()),
         ] {
             let mut buf = vec![];
 
-            <Status as EpeeValue>::write(status, &mut buf).unwrap();
+            <Status as EpeeValue>::write(status.clone(), &mut buf).unwrap();
             let status2 =
                 <Status as EpeeValue>::read(&mut buf.as_slice(), &<Status as EpeeValue>::MARKER)
                     .unwrap();
