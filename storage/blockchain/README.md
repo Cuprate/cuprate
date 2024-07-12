@@ -5,6 +5,10 @@ This documentation is mostly for practical usage of `cuprate_blockchain`.
 For a high-level overview, see the database section in
 [Cuprate's architecture book](https://architecture.cuprate.org).
 
+If you're looking for a lower-level database, consider using
+[`cuprate-database`](https://doc.cuprate.org/cuprate_database)
+crate that this crate is built on-top of.
+
 # Purpose
 This crate does 3 things:
 1. Uses [`cuprate_database`] as a base database layer
@@ -47,11 +51,11 @@ there are some things that must be kept in mind when doing so.
 Failing to uphold these invariants may cause panics.
 
 1. `LMDB` requires the user to resize the memory map resizing (see [`cuprate_database::RuntimeError::ResizeNeeded`]
-1. `LMDB` has a maximum reader transaction count, currently it is set to `128`
+1. `LMDB` has a maximum reader transaction count, currently, [it is set to `126`](https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/mdb.c#L794-L799)
 1. `LMDB` has [maximum key/value byte size](http://www.lmdb.tech/doc/group__internal.html#gac929399f5d93cef85f874b9e9b1d09e0) which must not be exceeded
 
 # Examples
-The below is an example of using `cuprate_blockchain`
+The below is an example of using `cuprate_blockchain`'s
 lowest API, i.e. using a mix of this crate and `cuprate_database`'s traits directly -
 **this is NOT recommended.**
 

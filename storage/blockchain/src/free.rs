@@ -6,7 +6,7 @@ use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw
 use crate::{config::Config, tables::OpenTables};
 
 //---------------------------------------------------------------------------------------------------- Free functions
-/// Open the blockchain database, using the passed [`Config`].
+/// Open the blockchain database using the passed [`Config`].
 ///
 /// This calls [`cuprate_database::Env::open`] and prepares the
 /// database to be ready for blockchain-related usage, e.g.

@@ -349,11 +349,18 @@ macro_rules! define_tables {
         /// Note that this is already implemented on [`cuprate_database::EnvInner`], thus:
         /// - You don't need to implement this
         /// - It can be called using `env_inner.open_tables()` notation
+        ///
+        /// # Creation before opening
+        /// As [`cuprate_database::EnvInner`] documentation states,
+        /// tables must be created before they are opened.
+        ///
+        /// I.e. [`OpenTables::create_tables`] must be called before
+        /// [`OpenTables::open_tables`] or else panics may occur.
         pub trait OpenTables<'env> {
             /// The read-only transaction type of the backend.
-            type Ro<'a>;
+            type Ro<'tx>;
             /// The read-write transaction type of the backend.
-            type Rw<'a>;
+            type Rw<'tx>;
 
             /// Open all tables in read/iter mode.
             ///
@@ -362,11 +369,6 @@ macro_rules! define_tables {
             ///
             /// # Errors
             /// This will only return [`cuprate_database::RuntimeError::Io`] if it errors.
-            ///
-            /// # Invariant
-            /// All tables should be created with a crate-specific open function.
-            ///
-            /// TODO: explain why
             fn open_tables(&self, tx_ro: &Self::Ro<'_>) -> Result<impl TablesIter, $crate::RuntimeError>;
 
             /// Open all tables in read-write mode.
@@ -391,8 +393,8 @@ macro_rules! define_tables {
         where
             Ei: $crate::EnvInner<'env>,
         {
-            type Ro<'a> = <Ei as $crate::EnvInner<'env>>::Ro<'a>;
-            type Rw<'a> = <Ei as $crate::EnvInner<'env>>::Rw<'a>;
+            type Ro<'tx> = <Ei as $crate::EnvInner<'env>>::Ro<'tx>;
+            type Rw<'tx> = <Ei as $crate::EnvInner<'env>>::Rw<'tx>;
 
             fn open_tables(&self, tx_ro: &Self::Ro<'_>) -> Result<impl TablesIter, $crate::RuntimeError> {
                 Ok(($(

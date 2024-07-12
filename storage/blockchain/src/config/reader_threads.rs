@@ -20,12 +20,11 @@ use serde::{Deserialize, Serialize};
 /// This controls how many reader thread `service`'s
 /// thread-pool will spawn to receive and send requests/responses.
 ///
-/// It does nothing outside of `service`.
-///
-/// It will always be at least 1, up until the amount of threads on the machine.
-///
+/// # Invariant
 /// The main function used to extract an actual
 /// usable thread count out of this is [`ReaderThreads::as_threads`].
+///
+/// This will always return at least 1, up until the amount of threads on the machine.
 #[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ReaderThreads {
@@ -97,30 +96,30 @@ impl ReaderThreads {
     ///
     /// # Example
     /// ```rust
-    /// use cuprate_blockchain::config::ReaderThreads as Rt;
+    /// use cuprate_blockchain::config::ReaderThreads as R;
     ///
     /// let total_threads: std::num::NonZeroUsize =
     ///     cuprate_helper::thread::threads();
     ///
-    /// assert_eq!(Rt::OnePerThread.as_threads(), total_threads);
+    /// assert_eq!(R::OnePerThread.as_threads(), total_threads);
     ///
-    /// assert_eq!(Rt::One.as_threads().get(), 1);
+    /// assert_eq!(R::One.as_threads().get(), 1);
     ///
-    /// assert_eq!(Rt::Number(0).as_threads(), total_threads);
-    /// assert_eq!(Rt::Number(1).as_threads().get(), 1);
-    /// assert_eq!(Rt::Number(usize::MAX).as_threads(), total_threads);
+    /// assert_eq!(R::Number(0).as_threads(), total_threads);
+    /// assert_eq!(R::Number(1).as_threads().get(), 1);
+    /// assert_eq!(R::Number(usize::MAX).as_threads(), total_threads);
     ///
-    /// assert_eq!(Rt::Percent(0.01).as_threads().get(), 1);
-    /// assert_eq!(Rt::Percent(0.0).as_threads(), total_threads);
-    /// assert_eq!(Rt::Percent(1.0).as_threads(), total_threads);
-    /// assert_eq!(Rt::Percent(f32::NAN).as_threads(), total_threads);
-    /// assert_eq!(Rt::Percent(f32::INFINITY).as_threads(), total_threads);
-    /// assert_eq!(Rt::Percent(f32::NEG_INFINITY).as_threads(), total_threads);
+    /// assert_eq!(R::Percent(0.01).as_threads().get(), 1);
+    /// assert_eq!(R::Percent(0.0).as_threads(), total_threads);
+    /// assert_eq!(R::Percent(1.0).as_threads(), total_threads);
+    /// assert_eq!(R::Percent(f32::NAN).as_threads(), total_threads);
+    /// assert_eq!(R::Percent(f32::INFINITY).as_threads(), total_threads);
+    /// assert_eq!(R::Percent(f32::NEG_INFINITY).as_threads(), total_threads);
     ///
     /// // Percentage only works on more than 1 thread.
     /// if total_threads.get() > 1 {
     ///     assert_eq!(
-    ///         Rt::Percent(0.5).as_threads().get(),
+    ///         R::Percent(0.5).as_threads().get(),
     ///         (total_threads.get() as f32 / 2.0) as usize,
     ///     );
     /// }
