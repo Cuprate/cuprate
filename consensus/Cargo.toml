@@ -29,6 +29,7 @@ tokio = { workspace = true, features = ["rt"] }
 tokio-util = { workspace = true }
 
 hex = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../test-utils" }

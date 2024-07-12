@@ -11,6 +11,15 @@ use std::{
 
 use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub struct ChainID(pub u64);
+
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub enum Chain {
+    Main,
+    Alt(ChainID),
+}
+
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.
 ///
@@ -32,6 +41,11 @@ pub enum BCReadRequest {
     /// The input is the block's height.
     BlockHash(u64),
 
+    /// Request to check if we have a block and where it is.
+    ///
+    /// The input is the block's hash.
+    FindBlock([u8; 32]),
+
     /// Removes the block hashes that are not in the _main_ chain.
     ///
     /// This should filter (remove) hashes in alt-blocks as well.
@@ -40,7 +54,7 @@ pub enum BCReadRequest {
     /// Request a range of block extended headers.
     ///
     /// The input is a range of block heights.
-    BlockExtendedHeaderInRange(Range<u64>),
+    BlockExtendedHeaderInRange(Range<u64>, Chain),
 
     /// Request the current chain height.
     ///
@@ -128,6 +142,8 @@ pub enum BCResponse {
     ///
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
+
+    FindBlock(Option<(Chain, u64)>),
 
     /// Response to [`BCReadRequest::FilterUnknownHashes`].
     ///

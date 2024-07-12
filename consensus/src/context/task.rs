@@ -9,7 +9,7 @@ use tower::ServiceExt;
 use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
 
 use super::{
     difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
@@ -95,14 +95,24 @@ impl ContextTask {
 
         let db = database.clone();
         let difficulty_cache_handle = tokio::spawn(async move {
-            difficulty::DifficultyCache::init_from_chain_height(chain_height, difficulty_cfg, db)
-                .await
+            difficulty::DifficultyCache::init_from_chain_height(
+                chain_height,
+                difficulty_cfg,
+                db,
+                Chain::Main,
+            )
+            .await
         });
 
         let db = database.clone();
         let weight_cache_handle = tokio::spawn(async move {
-            weight::BlockWeightsCache::init_from_chain_height(chain_height, weights_config, db)
-                .await
+            weight::BlockWeightsCache::init_from_chain_height(
+                chain_height,
+                weights_config,
+                db,
+                Chain::Main,
+            )
+            .await
         });
 
         // Wait for the hardfork state to finish first as we need it to start the randomX VM cache.

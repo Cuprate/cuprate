@@ -15,6 +15,7 @@ use tokio_util::sync::PollSemaphore;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_helper::{asynch::InfallibleOneshotReceiver, map::combine_low_high_bits_to_u128};
+use cuprate_types::blockchain::Chain;
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
     ExtendedBlockHeader, OutputOnChain,
@@ -207,8 +208,11 @@ fn map_request(
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block) => block_hash(env, block),
+        BCReadRequest::FindBlock(_) => todo!("Add alt blocks to DB"),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
-        R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(env, range),
+        R::BlockExtendedHeaderInRange(range, chain) => {
+            block_extended_header_in_range(env, range, chain)
+        }
         R::ChainHeight => chain_height(env),
         R::GeneratedCoins => generated_coins(env),
         R::Outputs(map) => outputs(env, map),
@@ -356,6 +360,7 @@ fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
 fn block_extended_header_in_range(
     env: &ConcreteEnv,
     range: std::ops::Range<BlockHeight>,
+    chain: Chain,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
@@ -363,14 +368,17 @@ fn block_extended_header_in_range(
     let tables = thread_local(env);
 
     // Collect results using `rayon`.
-    let vec = range
-        .into_par_iter()
-        .map(|block_height| {
-            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-            get_block_extended_header_from_height(&block_height, tables)
-        })
-        .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
+    let vec = match chain {
+        Chain::Main => range
+            .into_par_iter()
+            .map(|block_height| {
+                let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+                let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+                get_block_extended_header_from_height(&block_height, tables)
+            })
+            .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
+        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+    };
 
     Ok(BCResponse::BlockExtendedHeaderInRange(vec))
 }

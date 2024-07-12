@@ -16,7 +16,7 @@ use tracing::instrument;
 
 use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 use cuprate_helper::{asynch::rayon_spawn_async, num::RollingMedian};
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
 
@@ -66,7 +66,7 @@ pub struct BlockWeightsCache {
     /// The height of the top block.
     tip_height: u64,
 
-    config: BlockWeightsCacheConfig,
+    pub(crate) config: BlockWeightsCacheConfig,
 }
 
 impl BlockWeightsCache {
@@ -76,18 +76,21 @@ impl BlockWeightsCache {
         chain_height: u64,
         config: BlockWeightsCacheConfig,
         database: D,
+        chain: Chain,
     ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing weight cache this may take a while.");
 
         let long_term_weights = get_long_term_weight_in_range(
             chain_height.saturating_sub(config.long_term_window)..chain_height,
             database.clone(),
+            chain,
         )
         .await?;
 
         let short_term_block_weights = get_blocks_weight_in_range(
             chain_height.saturating_sub(config.short_term_window)..chain_height,
             database,
+            chain,
         )
         .await?;
 
@@ -128,6 +131,7 @@ impl BlockWeightsCache {
                 self.tip_height - numb_blocks + 1,
                 self.config,
                 database,
+                Chain::Main,
             )
             .await?;
 
@@ -145,6 +149,7 @@ impl BlockWeightsCache {
                 // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
                 ..(chain_height - u64::try_from(self.long_term_weights.window_len()).unwrap()),
             database.clone(),
+            Chain::Main,
         )
         .await?;
 
@@ -157,6 +162,7 @@ impl BlockWeightsCache {
                 // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
                 ..(chain_height - u64::try_from(self.short_term_block_weights.window_len()).unwrap()),
             database,
+            Chain::Main
         )
             .await?;
 
@@ -283,11 +289,12 @@ pub fn calculate_block_long_term_weight(
 async fn get_blocks_weight_in_range<D: Database + Clone>(
     range: Range<u64>,
     database: D,
+    chain: Chain,
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block weights.");
 
     let BCResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range))
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range, chain))
         .await?
     else {
         panic!("Database sent incorrect response!")
@@ -304,11 +311,12 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
 async fn get_long_term_weight_in_range<D: Database + Clone>(
     range: Range<u64>,
     database: D,
+    chain: Chain,
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block long term weights.");
 
     let BCResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range))
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range, chain))
         .await?
     else {
         panic!("Database sent incorrect response!")

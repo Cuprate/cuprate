@@ -12,7 +12,7 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_helper::num::median;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
 
@@ -87,6 +87,7 @@ impl DifficultyCache {
         chain_height: u64,
         config: DifficultyCacheConfig,
         database: D,
+        chain: Chain,
     ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
@@ -98,7 +99,7 @@ impl DifficultyCache {
         }
 
         let (timestamps, cumulative_difficulties) =
-            get_blocks_in_pow_info(database.clone(), block_start..chain_height).await?;
+            get_blocks_in_pow_info(database.clone(), block_start..chain_height, chain).await?;
 
         debug_assert_eq!(timestamps.len() as u64, chain_height - block_start);
 
@@ -121,8 +122,12 @@ impl DifficultyCache {
     /// Pop some blocks from the top of the cache.
     ///
     /// The cache will be returned to the state it would have been in `numb_blocks` ago.
+    ///
+    /// # Invariant
+    ///
+    /// This _must_ only be used on a main-chain cache.
     #[instrument(name = "pop_blocks_diff_cache", skip_all, fields(numb_blocks = numb_blocks))]
-    pub async fn pop_blocks<D: Database + Clone>(
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
         &mut self,
         numb_blocks: u64,
         database: D,
@@ -137,6 +142,7 @@ impl DifficultyCache {
                 self.last_accounted_height - numb_blocks + 1,
                 self.config,
                 database,
+                Chain::Main,
             )
             .await?;
 
@@ -159,6 +165,7 @@ impl DifficultyCache {
             new_start_height
                 // current_chain_height - self.timestamps.len() blocks are already in the cache.
                 ..(current_chain_height - u64::try_from(self.timestamps.len()).unwrap()),
+            Chain::Main,
         )
         .await?;
 
@@ -359,11 +366,15 @@ fn get_window_start_and_end(
 async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
+    chain: Chain,
 ) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
     let BCResponse::BlockExtendedHeaderInRange(ext_header) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(block_heights))
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(
+            block_heights,
+            chain,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response");

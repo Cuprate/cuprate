@@ -533,6 +533,7 @@ dependencies = [
  "multiexp",
  "proptest",
  "proptest-derive",
+ "rand",
  "randomx-rs",
  "rayon",
  "thiserror",

@@ -27,6 +27,7 @@ pub(crate) mod hardforks;
 pub(crate) mod rx_vms;
 pub(crate) mod weight;
 
+mod alt_chains;
 mod task;
 mod tokens;
 

@@ -4,7 +4,7 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
 
 use crate::{Database, ExtendedConsensusError};
 
@@ -168,7 +168,10 @@ async fn get_votes_in_range<D: Database>(
     let mut votes = HFVotes::new(window_size);
 
     let BCResponse::BlockExtendedHeaderInRange(vote_list) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(block_heights))
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(
+            block_heights,
+            Chain::Main,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response!");
