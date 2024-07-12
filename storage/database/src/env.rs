@@ -258,7 +258,7 @@ pub trait EnvInner<'env> {
     /// # let env_inner = env.env_inner();
     /// # let tx_rw = env_inner.tx_rw()?;
     /// # env_inner.create_db::<Table>(&tx_rw)?;
-    /// # tx_rw.commit()?;
+    /// # TxRw::commit(tx_rw);
     /// #
     /// # let tx_ro = env_inner.tx_ro()?;
     /// let db = env_inner.open_db_ro::<Table>(&tx_ro);
