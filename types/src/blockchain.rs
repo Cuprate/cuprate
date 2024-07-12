@@ -38,8 +38,8 @@ pub enum BCReadRequest {
 
     /// Request a block's hash.
     ///
-    /// The input is the block's height.
-    BlockHash(u64),
+    /// The input is the block's height and the chain it is on.
+    BlockHash(u64, Chain),
 
     /// Request to check if we have a block and where it is.
     ///

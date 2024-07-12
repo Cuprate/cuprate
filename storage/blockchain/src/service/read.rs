@@ -207,7 +207,7 @@ fn map_request(
 
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
-        R::BlockHash(block) => block_hash(env, block),
+        R::BlockHash(block, chain) => block_hash(env, block, chain),
         BCReadRequest::FindBlock(_) => todo!("Add alt blocks to DB"),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
         R::BlockExtendedHeaderInRange(range, chain) => {
@@ -316,15 +316,18 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 
 /// [`BCReadRequest::BlockHash`].
 #[inline]
-fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    Ok(BCResponse::BlockHash(
-        get_block_info(&block_height, &table_block_infos)?.block_hash,
-    ))
+    let block_hash = match chain {
+        Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
+        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+    };
+
+    Ok(BCResponse::BlockHash(block_hash))
 }
 
 /// [`BCReadRequest::FilterUnknownHashes`].

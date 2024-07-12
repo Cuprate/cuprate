@@ -3,6 +3,7 @@
 //! This module keeps track of the RandomX VM to calculate the next blocks PoW, if the block needs a randomX VM and potentially
 //! more VMs around this height.
 //!
+use std::collections::HashSet;
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
@@ -12,15 +13,16 @@ use futures::{stream::FuturesOrdered, StreamExt};
 use randomx_rs::{RandomXCache, RandomXError, RandomXFlag, RandomXVM as VMInner};
 use rayon::prelude::*;
 use thread_local::ThreadLocal;
-use tower::ServiceExt;
+use tower::{Service, ServiceExt};
 use tracing::instrument;
 
+use cuprate_consensus_rules::blocks::randomx_seed_height;
 use cuprate_consensus_rules::{
     blocks::{is_randomx_seed_height, RandomX, RX_SEEDHASH_EPOCH_BLOCKS},
     HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
 
 use crate::{Database, ExtendedConsensusError};
 
@@ -74,6 +76,9 @@ pub struct RandomXVMCache {
     /// The VMs for `seeds` (if after hf 12, otherwise this will be empty).
     pub(crate) vms: HashMap<u64, Arc<RandomXVM>>,
 
+    /// VMs for alt chains.
+    pub(crate) alt_vms: HashMap<[u8; 32], Arc<RandomXVM>>,
+
     /// A single cached VM that was given to us from a part of Cuprate.
     pub(crate) cached_vm: Option<([u8; 32], Arc<RandomXVM>)>,
 }
@@ -114,6 +119,7 @@ impl RandomXVMCache {
 
         Ok(RandomXVMCache {
             seeds,
+            alt_vms: HashMap::new(),
             vms,
             cached_vm: None,
         })
@@ -124,7 +130,44 @@ impl RandomXVMCache {
         self.cached_vm.replace(vm);
     }
 
-    /// Get the RandomX VMs.
+    pub async fn get_alt_vm<D: Database>(
+        &mut self,
+        height: u64,
+        chain: Chain,
+        database: D,
+    ) -> Result<Arc<RandomXVM>, ExtendedConsensusError> {
+        let seed_height = randomx_seed_height(height);
+
+        let BCResponse::BlockHash(seed_hash) = database
+            .oneshot(BCReadRequest::BlockHash(seed_height, chain))
+            .await?
+        else {
+            panic!("Database returned wrong response!");
+        };
+
+        if let Some(vm) = self.alt_vms.get(&seed_hash) {
+            return Ok(vm.clone());
+        };
+
+        for (vm_main_chain_height, vm_seed_hash) in &self.seeds {
+            if vm_seed_hash == &seed_hash {
+                let Some(vm) = self.vms.get(&vm_main_chain_height) else {
+                    break;
+                };
+
+                self.alt_vms.insert(seed_hash, vm.clone());
+                return Ok(vm.clone());
+            }
+        }
+
+        let alt_vm = rayon_spawn_async(move || Arc::new(RandomXVM::new(&seed_hash).unwrap())).await;
+
+        self.alt_vms.insert(seed_hash, alt_vm.clone());
+
+        Ok(alt_vm)
+    }
+
+    /// Get the main-chain RandomX VMs.
     pub async fn get_vms(&mut self) -> HashMap<u64, Arc<RandomXVM>> {
         match self.seeds.len().checked_sub(self.vms.len()) {
             // No difference in the amount of seeds to VMs.
@@ -231,8 +274,10 @@ async fn get_block_hashes<D: Database + Clone>(
     for height in heights {
         let db = database.clone();
         fut.push_back(async move {
-            let BCResponse::BlockHash(hash) =
-                db.clone().oneshot(BCReadRequest::BlockHash(height)).await?
+            let BCResponse::BlockHash(hash) = db
+                .clone()
+                .oneshot(BCReadRequest::BlockHash(height, Chain::Main))
+                .await?
             else {
                 panic!("Database sent incorrect response!");
             };
