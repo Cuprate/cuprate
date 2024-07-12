@@ -12,7 +12,7 @@
 //! As such, the responsibility of
 //! transactions, tables, etc, are on the caller.
 //!
-//! Notably, this means that these functions as lean
+//! Notably, this means that these functions are as lean
 //! as possible, so calling them in a loop should be okay.
 //!
 //! # Atomicity
