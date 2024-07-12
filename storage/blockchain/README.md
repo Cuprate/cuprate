@@ -5,7 +5,7 @@ This documentation is mostly for practical usage of `cuprate_blockchain`.
 For a high-level overview, see the database section in
 [Cuprate's architecture book](https://architecture.cuprate.org).
 
-If you're looking for a lower-level database, consider using
+If you're looking for a database crate, consider using the lower-level
 [`cuprate-database`](https://doc.cuprate.org/cuprate_database)
 crate that this crate is built on-top of.
 
