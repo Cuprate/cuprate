@@ -1,4 +1,4 @@
-//! Blocks functions.
+//! Block functions.
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;

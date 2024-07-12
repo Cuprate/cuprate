@@ -129,7 +129,7 @@ where
 ///
 /// Slice types are owned both:
 /// - when returned from the database
-/// - in `put()`
+/// - in [`crate::DatabaseRw::put()`]
 ///
 /// This is needed as `impl Storable for Vec<T>` runs into impl conflicts.
 ///
