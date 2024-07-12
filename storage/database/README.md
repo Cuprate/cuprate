@@ -30,9 +30,9 @@ To be more clear on some terms used in this crate:
 |------------------|--------------------------------------|
 | `Env`            | The 1 database environment, the "whole" thing
 | `DatabaseR{o,w}` | A _actively open_ readable/writable `key/value` store
-| `Table`          | Solely the metadata of a `Table` (the `key` and `value` types, and the name)
+| `Table`          | Solely the metadata of a `Database` (the `key` and `value` types, and the name)
 | `TxR{o,w}`       | A read/write transaction
-| `Storable`       | A data that type can be stored in the database
+| `Storable`       | A data type that can be stored in the database
 
 The flow is `Env` -> `Tx` -> `Database`
 
