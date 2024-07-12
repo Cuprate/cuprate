@@ -46,13 +46,24 @@ pub struct __BlockCompleteEntryEpeeBuilder {
 #[cfg(feature = "epee")]
 impl EpeeObjectBuilder<BlockCompleteEntry> for __BlockCompleteEntryEpeeBuilder {
     fn add_field<B: Buf>(&mut self, name: &str, r: &mut B) -> error::Result<bool> {
-        match name {
-            "pruned" => self.pruned = Some(read_epee_value(r)?),
-            "block" => self.block = Some(read_epee_value(r)?),
-            "block_weight" => self.block_weight = Some(read_epee_value(r)?),
-            "txs" => self.txs = Some(read_epee_value(r)?),
-            _ => return Ok(false),
+        macro_rules! read_epee_field {
+            ($($field:ident),*) => {
+                match name {
+                    $(
+                        stringify!($field) => { self.$field = Some(read_epee_value(r)?); },
+                    )*
+                    _ => return Ok(false),
+                }
+            };
         }
+
+        read_epee_field! {
+            pruned,
+            block,
+            block_weight,
+            txs
+        }
+
         Ok(true)
     }
 
