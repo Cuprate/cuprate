@@ -3,6 +3,11 @@
 //! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
+use cuprate_fixed_bytes::ByteArrayVec;
+
+#[cfg(feature = "epee")]
+use cuprate_epee_encoding::container_as_blob::ContainerAsBlob;
+
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_false, default_height, default_string, default_vec, default_zero},
@@ -22,16 +27,13 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 162..=262,
     GetBlocks,
     Request {
-        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        requested_info: u8 = default_zero(),
-        // TODO: This is a `std::list` in `monerod` because...?
-        block_ids: Vec<[u8; 32]>,
+        requested_info: u8 = default_zero(), "default_zero",
+        // FIXME: This is a `std::list` in `monerod` because...?
+        block_ids: ByteArrayVec<32>,
         start_height: u64,
         prune: bool,
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        no_miner_tx: bool = default_false(),
-        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
-        pool_info_since: u64 = default_zero(),
+        no_miner_tx: bool = default_false(), "default_false",
+        pool_info_since: u64 = default_zero(), "default_zero",
     },
     // TODO: this has custom epee (de)serialization.
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L242-L259>
@@ -67,16 +69,17 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 309..=338,
     GetHashes,
     Request {
-        block_ids: Vec<[u8; 32]>,
+        block_ids: ByteArrayVec<32>,
         start_height: u64,
     },
     AccessResponseBase {
-        m_blocks_ids: Vec<[u8; 32]>,
+        m_blocks_ids: ByteArrayVec<32>,
         start_height: u64,
         current_height: u64,
     }
 }
 
+#[cfg(not(feature = "epee"))]
 define_request_and_response! {
     get_o_indexesbin,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
@@ -91,6 +94,21 @@ define_request_and_response! {
     }
 }
 
+#[cfg(feature = "epee")]
+define_request_and_response! {
+    get_o_indexesbin,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 487..=510,
+    GetOutputIndexes,
+    #[derive(Copy)]
+    Request {
+        txid: [u8; 32],
+    },
+    AccessResponseBase {
+        o_indexes: Vec<u64> as ContainerAsBlob<u64>,
+    }
+}
+
 define_request_and_response! {
     get_outsbin,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
@@ -98,8 +116,7 @@ define_request_and_response! {
     GetOuts,
     Request {
         outputs: Vec<GetOutputsOut>,
-        #[cfg_attr(feature = "serde", serde(default = "default_false"))]
-        get_txid: bool = default_false(),
+        get_txid: bool = default_false(), "default_false",
     },
     AccessResponseBase {
         outs: Vec<OutKeyBin>,
@@ -113,7 +130,7 @@ define_request_and_response! {
     GetTransactionPoolHashes,
     Request {},
     AccessResponseBase {
-        tx_hashes: Vec<[u8; 32]>,
+        tx_hashes: ByteArrayVec<32>,
     }
 }
 
