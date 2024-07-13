@@ -18,10 +18,11 @@ use cuprate_epee_encoding::{
     223..=228
 )]
 /// Used in [`crate::bin::GetBlocksResponse`].
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[repr(u8)]
 pub enum PoolInfoExtent {
+    #[default]
     None = 0,
     Incremental = 1,
     Full = 2,
