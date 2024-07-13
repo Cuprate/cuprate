@@ -24,15 +24,14 @@ use crate::{
 ///
 /// # Lifetimes
 /// The lifetimes associated with `Env` have a sequential flow:
-/// 1. `ConcreteEnv`
-/// 2. `'env`
-/// 3. `'tx`
-/// 4. `'db`
+/// ```text
+/// Env -> Tx -> Database
+/// ```
 ///
 /// As in:
 /// - open database tables only live as long as...
 /// - transactions which only live as long as the...
-/// - environment ([`EnvInner`])
+/// - database environment
 pub trait Env: Sized {
     //------------------------------------------------ Constants
     /// Does the database backend need to be manually
@@ -202,18 +201,19 @@ Subsequent table opens will follow the flags/ordering, but only if
 /// Note that when opening tables with [`EnvInner::open_db_ro`],
 /// they must be created first or else it will return error.
 ///
-/// Note that when opening tables with [`EnvInner::open_db_ro`],
-/// they must be created first or else it will return error.
-///
 /// See [`EnvInner::create_db`] for creating tables.
 ///
 /// # Invariant
 #[doc = doc_heed_create_db_invariant!()]
 pub trait EnvInner<'env> {
     /// The read-only transaction type of the backend.
-    type Ro<'a>: TxRo<'a>;
+    ///
+    /// `'tx` is the lifetime of the transaction itself.
+    type Ro<'tx>: TxRo<'tx>;
     /// The read-write transaction type of the backend.
-    type Rw<'a>: TxRw<'a>;
+    ///
+    /// `'tx` is the lifetime of the transaction itself.
+    type Rw<'tx>: TxRw<'tx>;
 
     /// Create a read-only transaction.
     ///
@@ -235,11 +235,37 @@ pub trait EnvInner<'env> {
     /// This will open the database [`Table`]
     /// passed as a generic to this function.
     ///
-    /// ```rust,ignore
-    /// let db = env.open_db_ro::<Table>(&tx_ro);
-    /// //  ^                     ^
-    /// // database table       table metadata
-    /// //                      (name, key/value type)
+    /// ```rust
+    /// # use cuprate_database::{
+    /// #     ConcreteEnv,
+    /// #     config::ConfigBuilder,
+    /// #     Env, EnvInner,
+    /// #     DatabaseRo, DatabaseRw, TxRo, TxRw,
+    /// # };
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let tmp_dir = tempfile::tempdir()?;
+    /// # let db_dir = tmp_dir.path().to_owned();
+    /// # let config = ConfigBuilder::new(db_dir.into()).build();
+    /// # let env = ConcreteEnv::open(config)?;
+    /// #
+    /// # struct Table;
+    /// # impl cuprate_database::Table for Table {
+    /// #     const NAME: &'static str = "table";
+    /// #     type Key = u8;
+    /// #     type Value = u64;
+    /// # }
+    /// #
+    /// # let env_inner = env.env_inner();
+    /// # let tx_rw = env_inner.tx_rw()?;
+    /// # env_inner.create_db::<Table>(&tx_rw)?;
+    /// # TxRw::commit(tx_rw);
+    /// #
+    /// # let tx_ro = env_inner.tx_ro()?;
+    /// let db = env_inner.open_db_ro::<Table>(&tx_ro);
+    /// //  ^                           ^
+    /// // database table             table metadata
+    /// //                            (name, key/value type)
+    /// # Ok(()) }
     /// ```
     ///
     /// # Errors

@@ -11,7 +11,7 @@ use crate::error::RuntimeError;
 /// # Commit
 /// It's recommended but may not be necessary to call [`TxRo::commit`] in certain cases:
 /// - <https://docs.rs/heed/0.20.0-alpha.9/heed/struct.RoTxn.html#method.commit>
-pub trait TxRo<'env> {
+pub trait TxRo<'tx> {
     /// Commit the read-only transaction.
     ///
     /// # Errors
@@ -23,7 +23,7 @@ pub trait TxRo<'env> {
 /// Read/write database transaction.
 ///
 /// Returned from [`EnvInner::tx_rw`](crate::EnvInner::tx_rw).
-pub trait TxRw<'env> {
+pub trait TxRw<'tx> {
     /// Commit the read/write transaction.
     ///
     /// Note that this doesn't necessarily sync the database caches to disk.
