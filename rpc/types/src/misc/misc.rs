@@ -355,19 +355,6 @@ define_struct_and_impl_epee! {
 define_struct_and_impl_epee! {
     #[doc = monero_definition_link!(
         cc73fe71162d564ffda8e549b79a350bca53c454,
-        "cryptonote_protocol/cryptonote_protocol_defs.h",
-        121..=131
-    )]
-    /// Used in [`crate::bin::GetBlocksResponse`].
-    TxBlobEntry {
-        blob: String,
-        prunable_hash: [u8; 32],
-    }
-}
-
-define_struct_and_impl_epee! {
-    #[doc = monero_definition_link!(
-        cc73fe71162d564ffda8e549b79a350bca53c454,
         "rpc/core_rpc_server_commands_defs.h",
         512..=521
     )]

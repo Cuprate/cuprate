@@ -16,15 +16,17 @@ use cuprate_epee_encoding::{
     read_epee_value, write_field, EpeeObject, EpeeObjectBuilder, EpeeValue,
 };
 
+use cuprate_types::BlockCompleteEntry;
+
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_false, default_height, default_string, default_vec, default_zero},
     free::{is_one, is_zero},
     macros::{define_request, define_request_and_response, define_request_and_response_doc},
     misc::{
-        AuxPow, BlockCompleteEntry, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo,
-        GetBan, GetOutputsOut, HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData,
-        Peer, PoolInfoExtent, PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
+        AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo, GetBan, GetOutputsOut,
+        HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData, Peer, PoolInfoExtent,
+        PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
     },
 };
 

@@ -4,6 +4,9 @@
 #[cfg(feature = "epee")]
 use bytes::Bytes;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use cuprate_fixed_bytes::ByteArray;
 
 #[cfg(feature = "epee")]
@@ -15,7 +18,8 @@ use cuprate_epee_encoding::{
 
 //---------------------------------------------------------------------------------------------------- BlockCompleteEntry
 /// A block that can contain transactions.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BlockCompleteEntry {
     /// `true` if transaction data is pruned.
     pub pruned: bool,
@@ -41,12 +45,14 @@ epee_object!(
 
 //---------------------------------------------------------------------------------------------------- TransactionBlobs
 /// TODO
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TransactionBlobs {
     /// TODO
     Pruned(Vec<PrunedTxBlobEntry>),
     /// TODO
     Normal(Vec<Bytes>),
+    #[default]
     /// TODO
     None,
 }
@@ -127,7 +133,8 @@ impl TransactionBlobs {
 
 //---------------------------------------------------------------------------------------------------- PrunedTxBlobEntry
 /// A pruned transaction with the hash of the missing prunable data
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PrunedTxBlobEntry {
     /// The transaction.
     pub tx: Bytes,

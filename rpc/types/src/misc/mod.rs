@@ -13,7 +13,6 @@
 
 //---------------------------------------------------------------------------------------------------- Mod
 mod binary_string;
-mod block_complete_entry;
 mod key_image_spent_status;
 mod misc;
 mod pool_info_extent;
@@ -21,13 +20,12 @@ mod status;
 mod tx_entry;
 
 pub use binary_string::BinaryString;
-pub use block_complete_entry::BlockCompleteEntry;
 pub use key_image_spent_status::KeyImageSpentStatus;
 pub use misc::{
     AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo, GetBan,
     GetMinerDataTxBacklogEntry, GetOutputsOut, HardforkEntry, HistogramEntry, OutKey, OutKeyBin,
     OutputDistributionData, Peer, PoolTxInfo, PublicNode, SetBan, Span, SpentKeyImageInfo,
-    SyncInfoPeer, TxBacklogEntry, TxBlobEntry, TxInfo, TxOutputIndices, TxpoolHisto, TxpoolStats,
+    SyncInfoPeer, TxBacklogEntry, TxInfo, TxOutputIndices, TxpoolHisto, TxpoolStats,
 };
 pub use pool_info_extent::PoolInfoExtent;
 pub use status::Status;
