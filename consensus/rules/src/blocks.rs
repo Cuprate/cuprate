@@ -148,7 +148,7 @@ fn block_size_sanity_check(
 /// Sanity check on the block weight.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size>
-fn check_block_weight(
+pub fn check_block_weight(
     block_weight: usize,
     median_for_block_reward: usize,
 ) -> Result<(), BlockError> {

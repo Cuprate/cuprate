@@ -9,16 +9,7 @@ use std::{
     ops::Range,
 };
 
-use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
-
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct ChainID(pub u64);
-
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub enum Chain {
-    Main,
-    Alt(ChainID),
-}
+use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.

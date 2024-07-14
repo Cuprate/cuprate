@@ -31,10 +31,10 @@ mod alt_chains;
 mod task;
 mod tokens;
 
-use crate::context::alt_chains::sealed::AltChainRequestToken;
-use crate::context::alt_chains::AltChainContextCache;
 use crate::context::difficulty::DifficultyCache;
 use crate::context::weight::BlockWeightsCache;
+pub(crate) use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
+use cuprate_types::Chain;
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
 use rx_vms::RandomXVM;
@@ -251,6 +251,11 @@ pub enum BlockChainContextRequest {
         prev_id: [u8; 32],
         _token: AltChainRequestToken,
     },
+    AltChainRxVM {
+        height: u64,
+        chain: Chain,
+        _token: AltChainRequestToken,
+    },
     AddAltChainContextCache {
         prev_id: [u8; 32],
         cache: AltChainContextCache,
@@ -268,6 +273,7 @@ pub enum BlockChainContextResponse {
 
     AltChainContextCache(AltChainContextCache),
     AltChainDifficultyCache(DifficultyCache),
+    AltChainRxVM(Arc<RandomXVM>),
     AltChainWeightCache(BlockWeightsCache),
     /// Ok response.
     Ok,

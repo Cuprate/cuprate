@@ -57,7 +57,10 @@ async fn pop_blocks_greater_than_window() -> Result<(), tower::BoxError> {
     weight_cache.new_block(5001, 0, 0);
     weight_cache.new_block(5002, 0, 0);
 
-    weight_cache.pop_blocks(3, database).await.unwrap();
+    weight_cache
+        .pop_blocks_main_chain(3, database)
+        .await
+        .unwrap();
 
     assert_eq!(weight_cache, old_cache);
 
@@ -84,7 +87,10 @@ async fn pop_blocks_less_than_window() -> Result<(), tower::BoxError> {
     weight_cache.new_block(501, 0, 0);
     weight_cache.new_block(502, 0, 0);
 
-    weight_cache.pop_blocks(3, database).await.unwrap();
+    weight_cache
+        .pop_blocks_main_chain(3, database)
+        .await
+        .unwrap();
 
     assert_eq!(weight_cache, old_cache);
 

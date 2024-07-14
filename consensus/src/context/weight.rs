@@ -16,7 +16,10 @@ use tracing::instrument;
 
 use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 use cuprate_helper::{asynch::rayon_spawn_async, num::RollingMedian};
-use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    Chain,
+};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
 
@@ -120,7 +123,7 @@ impl BlockWeightsCache {
     ///
     /// The cache will be returned to the state it would have been in `numb_blocks` ago.
     #[instrument(name = "pop_blocks_weight_cache", skip_all, fields(numb_blocks = numb_blocks))]
-    pub async fn pop_blocks<D: Database + Clone>(
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
         &mut self,
         numb_blocks: u64,
         database: D,

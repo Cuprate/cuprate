@@ -6,7 +6,6 @@ use monero_serai::{
     block::Block,
     transaction::{Timelock, Transaction},
 };
-
 //---------------------------------------------------------------------------------------------------- ExtendedBlockHeader
 /// Extended header data of a block.
 ///
@@ -38,7 +37,8 @@ pub struct ExtendedBlockHeader {
 //---------------------------------------------------------------------------------------------------- VerifiedTransactionInformation
 /// Verified information of a transaction.
 ///
-/// This represents a transaction in a valid block.
+/// If this is in a [`VerifiedBlockInformation`] this represents a  valid transaction, otherwise if this is in
+/// [`AltBlockInformation`] this represents a potentially valid transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedTransactionInformation {
     /// The transaction itself.
@@ -89,6 +89,42 @@ pub struct VerifiedBlockInformation {
     pub long_term_weight: usize,
     /// The cumulative difficulty of all blocks up until and including this block.
     pub cumulative_difficulty: u128,
+}
+//---------------------------------------------------------------------------------------------------- ChainID
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub struct ChainID(pub u64);
+//---------------------------------------------------------------------------------------------------- Chain
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub enum Chain {
+    Main,
+    Alt(ChainID),
+}
+//---------------------------------------------------------------------------------------------------- AltBlockInformation
+pub struct AltBlockInformation {
+    /// The block itself.
+    pub block: Block,
+    /// The serialized byte form of [`Self::block`].
+    ///
+    /// [`Block::serialize`].
+    pub block_blob: Vec<u8>,
+    /// All the transactions in the block, excluding the [`Block::miner_tx`].
+    pub txs: Vec<VerifiedTransactionInformation>,
+    /// The block's hash.
+    ///
+    /// [`Block::hash`].
+    pub block_hash: [u8; 32],
+    /// The block's proof-of-work hash.
+    pub pow_hash: [u8; 32],
+    /// The block's height.
+    pub height: u64,
+    /// The adjusted block size, in bytes.
+    pub weight: usize,
+    /// The long term block weight, which is the weight factored in with previous block weights.
+    pub long_term_weight: usize,
+    /// The cumulative difficulty of all blocks up until and including this block.
+    pub cumulative_difficulty: u128,
+
+    pub chain_id: ChainID,
 }
 
 //---------------------------------------------------------------------------------------------------- OutputOnChain

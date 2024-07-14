@@ -12,7 +12,10 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_helper::num::median;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    Chain,
+};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
 
@@ -68,7 +71,7 @@ impl DifficultyCacheConfig {
 /// This struct is able to calculate difficulties from blockchain information.
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct DifficultyCache {
+pub struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
     pub(crate) timestamps: VecDeque<u64>,

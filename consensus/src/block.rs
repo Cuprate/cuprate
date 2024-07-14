@@ -26,8 +26,11 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
+use cuprate_types::{
+    AltBlockInformation, VerifiedBlockInformation, VerifiedTransactionInformation,
+};
 
+use crate::context::AltChainRequestToken;
 use crate::{
     context::{
         rx_vms::RandomXVM, BlockChainContextRequest, BlockChainContextResponse,
@@ -36,6 +39,9 @@ use crate::{
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     Database, ExtendedConsensusError,
 };
+
+mod alt_block;
+use alt_block::sanity_check_alt_block;
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
 #[derive(Debug)]
@@ -124,7 +130,7 @@ impl PreparedBlock {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
-        let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
+        let [Input::Gen(height)] = &block.miner_tx.prefix.inputs[..] else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
@@ -198,6 +204,11 @@ pub enum VerifyBlockRequest {
         /// The list of blocks and their transactions (not necessarily in the order given in the block).
         blocks: Vec<(Block, Vec<Transaction>)>,
     },
+
+    AltChain {
+        block: Block,
+        prepared_txs: HashMap<[u8; 32], TransactionVerificationData>,
+    },
 }
 
 /// A response from a verify block request.
@@ -205,6 +216,7 @@ pub enum VerifyBlockRequest {
 pub enum VerifyBlockResponse {
     /// This block is valid.
     MainChain(VerifiedBlockInformation),
+    AltChain(AltBlockInformation),
     /// A list of prepared blocks for verification, you should call [`VerifyBlockRequest::MainChainPrepped`] on each of the returned
     /// blocks to fully verify them.
     MainChainBatchPrepped(Vec<(PreparedBlock, Vec<Arc<TransactionVerificationData>>)>),
@@ -296,6 +308,10 @@ where
                     verify_prepped_main_chain_block(block, txs, context_svc, tx_verifier_svc, None)
                         .await
                 }
+                VerifyBlockRequest::AltChain {
+                    block,
+                    prepared_txs,
+                } => sanity_check_alt_block(block, prepared_txs, context_svc).await,
             }
         }
         .boxed()

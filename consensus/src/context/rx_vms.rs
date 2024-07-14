@@ -22,7 +22,10 @@ use cuprate_consensus_rules::{
     HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    Chain,
+};
 
 use crate::{Database, ExtendedConsensusError};
 
@@ -76,9 +79,6 @@ pub struct RandomXVMCache {
     /// The VMs for `seeds` (if after hf 12, otherwise this will be empty).
     pub(crate) vms: HashMap<u64, Arc<RandomXVM>>,
 
-    /// VMs for alt chains.
-    pub(crate) alt_vms: HashMap<[u8; 32], Arc<RandomXVM>>,
-
     /// A single cached VM that was given to us from a part of Cuprate.
     pub(crate) cached_vm: Option<([u8; 32], Arc<RandomXVM>)>,
 }
@@ -119,7 +119,6 @@ impl RandomXVMCache {
 
         Ok(RandomXVMCache {
             seeds,
-            alt_vms: HashMap::new(),
             vms,
             cached_vm: None,
         })
@@ -145,24 +144,17 @@ impl RandomXVMCache {
             panic!("Database returned wrong response!");
         };
 
-        if let Some(vm) = self.alt_vms.get(&seed_hash) {
-            return Ok(vm.clone());
-        };
-
         for (vm_main_chain_height, vm_seed_hash) in &self.seeds {
             if vm_seed_hash == &seed_hash {
                 let Some(vm) = self.vms.get(&vm_main_chain_height) else {
                     break;
                 };
 
-                self.alt_vms.insert(seed_hash, vm.clone());
                 return Ok(vm.clone());
             }
         }
 
         let alt_vm = rayon_spawn_async(move || Arc::new(RandomXVM::new(&seed_hash).unwrap())).await;
-
-        self.alt_vms.insert(seed_hash, alt_vm.clone());
 
         Ok(alt_vm)
     }

@@ -9,17 +9,23 @@ use tower::ServiceExt;
 use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse, Chain};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    Chain,
+};
 
-use super::{
-    difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
-    BlockChainContextResponse, ContextConfig, RawBlockChainContext, ValidityToken,
-    BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
+use crate::{
+    context::{
+        alt_chains::{
+            get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainContextCache,
+            AltChainMap,
+        },
+        difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
+        BlockChainContextResponse, ContextConfig, RawBlockChainContext, ValidityToken,
+        BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
+    },
+    Database, ExtendedConsensusError,
 };
-use crate::context::alt_chains::{
-    get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainContextCache, AltChainMap,
-};
-use crate::{Database, ExtendedConsensusError};
 
 /// A request from the context service to the context task.
 pub(super) struct ContextTaskRequest {
@@ -58,7 +64,7 @@ pub struct ContextTask<D: Database> {
     database: D,
 }
 
-impl<D: Database> ContextTask<D> {
+impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     /// Initialize the [`ContextTask`], this will need to pull a lot of data from the database so may take a
     /// while to complete.
     pub async fn init_context(
@@ -228,7 +234,9 @@ impl<D: Database> ContextTask<D> {
             }
             BlockChainContextRequest::AltChainContextCache { prev_id, _token } => {
                 BlockChainContextResponse::AltChainContextCache(
-                    self.alt_chain_cache_map.get_alt_chain_context(prev_id),
+                    self.alt_chain_cache_map
+                        .get_alt_chain_context(prev_id, &mut self.database)
+                        .await?,
                 )
             }
             BlockChainContextRequest::AltChainDifficultyCache { prev_id, _token } => {
@@ -236,18 +244,26 @@ impl<D: Database> ContextTask<D> {
                     get_alt_chain_difficulty_cache(
                         prev_id,
                         &self.difficulty_cache,
-                        &mut self.database,
+                        self.database.clone(),
                     )
                     .await?,
                 )
             }
             BlockChainContextRequest::AltChainWeightCache { prev_id, _token } => {
-                BlockChainContextResponse::AltChainWeightCache(get_alt_chain_weight_cache(
-                    prev_id,
-                    &self.weight_cache,
-                    &mut self.database,
-                ))
+                BlockChainContextResponse::AltChainWeightCache(
+                    get_alt_chain_weight_cache(prev_id, &self.weight_cache, self.database.clone())
+                        .await?,
+                )
             }
+            BlockChainContextRequest::AltChainRxVM {
+                height,
+                chain,
+                _token,
+            } => BlockChainContextResponse::AltChainRxVM(
+                self.rx_vm_cache
+                    .get_alt_vm(height, chain, &mut self.database)
+                    .await?,
+            ),
             BlockChainContextRequest::AddAltChainContextCache { .. } => todo!(),
         })
     }

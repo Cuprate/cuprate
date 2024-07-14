@@ -15,10 +15,9 @@ use tokio_util::sync::PollSemaphore;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_helper::{asynch::InfallibleOneshotReceiver, map::combine_low_high_bits_to_u128};
-use cuprate_types::blockchain::Chain;
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
-    ExtendedBlockHeader, OutputOnChain,
+    Chain, ExtendedBlockHeader, OutputOnChain,
 };
 
 use crate::{
