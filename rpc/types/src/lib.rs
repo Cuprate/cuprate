@@ -113,6 +113,9 @@ mod defaults;
 mod free;
 mod macros;
 
+#[cfg(feature = "serde")]
+mod serde;
+
 pub mod base;
 pub mod bin;
 pub mod json;
