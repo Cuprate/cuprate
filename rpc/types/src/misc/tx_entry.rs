@@ -21,6 +21,14 @@ use cuprate_epee_encoding::{
 )]
 /// Used in [`crate::other::GetTransactionsResponse`].
 ///
+/// # Epee
+/// This type is only used in a JSON endpoint, so the
+/// epee implementation on this type only panics.
+///
+/// It is only implemented to satisfy the RPC type generator
+/// macro, which requires all objects to be serde + epee.
+///
+/// # Example
 /// ```rust
 /// use cuprate_rpc_types::misc::*;
 /// use serde_json::{json, from_value};
@@ -112,180 +120,27 @@ impl Default for TxEntry {
     }
 }
 
-//---------------------------------------------------------------------------------------------------- Serde
+//---------------------------------------------------------------------------------------------------- Epee
 #[cfg(feature = "epee")]
-/// [`EpeeObjectBuilder`] for [`TxEntry`].
-///
-/// Not for public usage.
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct __TxEntryEpeeBuilder {
-    pub as_hex: Option<String>,
-    pub as_json: Option<String>,
-    pub block_height: Option<u64>,
-    pub block_timestamp: Option<u64>,
-    pub confirmations: Option<u64>,
-    pub double_spend_seen: Option<bool>,
-    pub in_pool: Option<bool>,
-    pub output_indices: Option<Vec<u64>>,
-    pub prunable_as_hex: Option<String>,
-    pub prunable_hash: Option<String>,
-    pub pruned_as_hex: Option<String>,
-    pub received_timestamp: Option<u64>,
-    pub relayed: Option<bool>,
-    pub tx_hash: Option<String>,
-}
-
-#[cfg(feature = "epee")]
-impl EpeeObjectBuilder<TxEntry> for __TxEntryEpeeBuilder {
+impl EpeeObjectBuilder<TxEntry> for () {
     fn add_field<B: Buf>(&mut self, name: &str, r: &mut B) -> error::Result<bool> {
-        macro_rules! read_epee_field {
-            ($($field:ident),*) => {
-                match name {
-                    $(
-                        stringify!($field) => { self.$field = Some(read_epee_value(r)?); },
-                    )*
-                    _ => return Ok(false),
-                }
-            };
-        }
-
-        read_epee_field! {
-            as_hex,
-            as_json,
-            block_height,
-            block_timestamp,
-            confirmations,
-            double_spend_seen,
-            in_pool,
-            output_indices,
-            prunable_as_hex,
-            prunable_hash,
-            pruned_as_hex,
-            received_timestamp,
-            relayed,
-            tx_hash
-        }
-
-        Ok(true)
+        unreachable!()
     }
 
     fn finish(self) -> error::Result<TxEntry> {
-        const ELSE: error::Error = error::Error::Format("Required field was not found!");
-
-        let in_pool = self.in_pool.ok_or(ELSE)?;
-
-        let tx_entry = if in_pool {
-            TxEntry::InPool {
-                as_hex: self.as_hex.ok_or(ELSE)?,
-                as_json: self.as_json.ok_or(ELSE)?,
-                block_height: self.block_height.ok_or(ELSE)?,
-                block_timestamp: self.block_timestamp.ok_or(ELSE)?,
-                confirmations: self.confirmations.ok_or(ELSE)?,
-                double_spend_seen: self.double_spend_seen.ok_or(ELSE)?,
-                in_pool: self.in_pool.ok_or(ELSE)?,
-                output_indices: self.output_indices.ok_or(ELSE)?,
-                prunable_as_hex: self.prunable_as_hex.ok_or(ELSE)?,
-                prunable_hash: self.prunable_hash.ok_or(ELSE)?,
-                pruned_as_hex: self.pruned_as_hex.ok_or(ELSE)?,
-                tx_hash: self.tx_hash.ok_or(ELSE)?,
-            }
-        } else {
-            TxEntry::NotInPool {
-                as_hex: self.as_hex.ok_or(ELSE)?,
-                as_json: self.as_json.ok_or(ELSE)?,
-                double_spend_seen: self.double_spend_seen.ok_or(ELSE)?,
-                in_pool: self.in_pool.ok_or(ELSE)?,
-                prunable_as_hex: self.prunable_as_hex.ok_or(ELSE)?,
-                prunable_hash: self.prunable_hash.ok_or(ELSE)?,
-                pruned_as_hex: self.pruned_as_hex.ok_or(ELSE)?,
-                received_timestamp: self.received_timestamp.ok_or(ELSE)?,
-                relayed: self.relayed.ok_or(ELSE)?,
-                tx_hash: self.tx_hash.ok_or(ELSE)?,
-            }
-        };
-
-        Ok(tx_entry)
+        unreachable!()
     }
 }
 
 #[cfg(feature = "epee")]
 impl EpeeObject for TxEntry {
-    type Builder = __TxEntryEpeeBuilder;
+    type Builder = ();
 
     fn number_of_fields(&self) -> u64 {
-        match self {
-            Self::InPool { .. } => 12,
-            Self::NotInPool { .. } => 10,
-        }
+        unreachable!()
     }
 
     fn write_fields<B: BufMut>(self, w: &mut B) -> error::Result<()> {
-        macro_rules! write_fields {
-            ($($field:ident),*) => {
-                $(
-                    write_field($field, stringify!($field), w)?;
-                )*
-            };
-        }
-
-        match self {
-            Self::InPool {
-                as_hex,
-                as_json,
-                block_height,
-                block_timestamp,
-                confirmations,
-                double_spend_seen,
-                output_indices,
-                prunable_as_hex,
-                prunable_hash,
-                pruned_as_hex,
-                tx_hash,
-                in_pool,
-            } => {
-                write_fields! {
-                    as_hex,
-                    as_json,
-                    block_height,
-                    block_timestamp,
-                    confirmations,
-                    double_spend_seen,
-                    output_indices,
-                    prunable_as_hex,
-                    prunable_hash,
-                    pruned_as_hex,
-                    tx_hash,
-                    in_pool
-                }
-            }
-            Self::NotInPool {
-                as_hex,
-                as_json,
-                double_spend_seen,
-                prunable_as_hex,
-                prunable_hash,
-                pruned_as_hex,
-                received_timestamp,
-                relayed,
-                tx_hash,
-                in_pool,
-            } => {
-                write_fields! {
-                    as_hex,
-                    as_json,
-                    double_spend_seen,
-                    prunable_as_hex,
-                    prunable_hash,
-                    pruned_as_hex,
-                    received_timestamp,
-                    relayed,
-                    tx_hash,
-                    in_pool
-                }
-            }
-        }
-
-        Ok(())
+        unreachable!()
     }
 }
