@@ -86,7 +86,10 @@
 //
 // Documentation for each module is located in the respective file.
 
+mod block_complete_entry;
 mod types;
+
+pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
 pub use types::{
     ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation, VerifiedTransactionInformation,
 };

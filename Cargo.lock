@@ -800,8 +800,12 @@ version = "0.0.0"
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
+ "bytes",
+ "cuprate-epee-encoding",
+ "cuprate-fixed-bytes",
  "curve25519-dalek",
  "monero-serai",
+ "serde",
 ]
 
 [[package]]
