@@ -64,7 +64,7 @@ pub struct BlockWeightsCache {
     long_term_weights: RollingMedian<usize>,
 
     /// The height of the top block.
-    tip_height: u64,
+    pub(crate) tip_height: u64,
 
     pub(crate) config: BlockWeightsCacheConfig,
 }

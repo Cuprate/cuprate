@@ -31,6 +31,10 @@ mod alt_chains;
 mod task;
 mod tokens;
 
+use crate::context::alt_chains::sealed::AltChainRequestToken;
+use crate::context::alt_chains::AltChainContextCache;
+use crate::context::difficulty::DifficultyCache;
+use crate::context::weight::BlockWeightsCache;
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
 use rx_vms::RandomXVM;
@@ -234,6 +238,24 @@ pub enum BlockChainContextRequest {
     NewRXVM(([u8; 32], Arc<RandomXVM>)),
     /// A request to add a new block to the cache.
     Update(NewBlockData),
+
+    AltChainContextCache {
+        prev_id: [u8; 32],
+        _token: AltChainRequestToken,
+    },
+    AltChainDifficultyCache {
+        prev_id: [u8; 32],
+        _token: AltChainRequestToken,
+    },
+    AltChainWeightCache {
+        prev_id: [u8; 32],
+        _token: AltChainRequestToken,
+    },
+    AddAltChainContextCache {
+        prev_id: [u8; 32],
+        cache: AltChainContextCache,
+        _token: AltChainRequestToken,
+    },
 }
 
 pub enum BlockChainContextResponse {
@@ -243,6 +265,10 @@ pub enum BlockChainContextResponse {
     RxVms(HashMap<u64, Arc<RandomXVM>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
+
+    AltChainContextCache(AltChainContextCache),
+    AltChainDifficultyCache(DifficultyCache),
+    AltChainWeightCache(BlockWeightsCache),
     /// Ok response.
     Ok,
 }
