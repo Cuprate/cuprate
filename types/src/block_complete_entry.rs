@@ -1,4 +1,4 @@
-//! TODO
+//! Contains [`BlockCompleteEntry`] and the related types.
 
 //---------------------------------------------------------------------------------------------------- Import
 #[cfg(feature = "epee")]
@@ -44,21 +44,21 @@ epee_object!(
 );
 
 //---------------------------------------------------------------------------------------------------- TransactionBlobs
-/// TODO
+/// Transaction blobs within [`BlockCompleteEntry`].
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TransactionBlobs {
-    /// TODO
+    /// Pruned transaction blobs.
     Pruned(Vec<PrunedTxBlobEntry>),
-    /// TODO
+    /// Normal transaction blobs.
     Normal(Vec<Bytes>),
     #[default]
-    /// TODO
+    /// No transactions.
     None,
 }
 
 impl TransactionBlobs {
-    /// TODO
+    /// Returns [`Some`] if `self` is [`Self::Pruned`].
     pub fn take_pruned(self) -> Option<Vec<PrunedTxBlobEntry>> {
         match self {
             Self::Normal(_) => None,
@@ -67,7 +67,7 @@ impl TransactionBlobs {
         }
     }
 
-    /// TODO
+    /// Returns [`Some`] if `self` is [`Self::Normal`].
     pub fn take_normal(self) -> Option<Vec<Bytes>> {
         match self {
             Self::Normal(txs) => Some(txs),
@@ -76,7 +76,7 @@ impl TransactionBlobs {
         }
     }
 
-    /// TODO
+    /// Returns the byte length of the blob.
     pub fn len(&self) -> usize {
         match self {
             Self::Normal(txs) => txs.len(),
@@ -85,12 +85,12 @@ impl TransactionBlobs {
         }
     }
 
-    /// TODO
+    /// Returns `true` if the byte length of the blob is `0`.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    /// TODO
+    /// Epee read function.
     #[cfg(feature = "epee")]
     fn tx_blob_read<B: Buf>(b: &mut B) -> cuprate_epee_encoding::Result<Self> {
         let marker = cuprate_epee_encoding::read_marker(b)?;
@@ -103,7 +103,7 @@ impl TransactionBlobs {
         }
     }
 
-    /// TODO
+    /// Epee write function.
     #[cfg(feature = "epee")]
     fn tx_blob_write<B: BufMut>(
         self,
@@ -124,7 +124,7 @@ impl TransactionBlobs {
         Ok(())
     }
 
-    /// TODO
+    /// Epee should write function.
     #[cfg(feature = "epee")]
     fn should_write_tx_blobs(&self) -> bool {
         !self.is_empty()
