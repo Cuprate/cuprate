@@ -232,15 +232,47 @@ impl EpeeObject for GetBlocksResponse {
     type Builder = __GetBlocksResponseEpeeBuilder;
 
     fn number_of_fields(&self) -> u64 {
-        // TODO: fields written depends on branch
-        11
+        let mut fields = 0;
+
+        macro_rules! add_field {
+            ($($field:ident),*) => {
+                $(
+                    if self.$field.should_write() {
+                        fields += 1;
+                    }
+                )*
+            };
+        }
+
+        add_field! {
+            status,
+            untrusted,
+            blocks,
+            start_height,
+            current_height,
+            output_indices,
+            daemon_time,
+            pool_info_extent
+        }
+
+        if self.pool_info_extent != PoolInfoExtent::None {
+            add_field!(added_pool_txs, remaining_added_pool_txids);
+        }
+
+        if self.pool_info_extent != PoolInfoExtent::Incremental {
+            add_field!(removed_pool_txids);
+        }
+
+        fields
     }
 
     fn write_fields<B: BufMut>(self, w: &mut B) -> error::Result<()> {
         macro_rules! write_field {
             ($($field:ident),*) => {
                 $(
-                    write_field(self.$field, stringify!($field), w)?;
+                    if self.$field.should_write() {
+                        write_field(self.$field, stringify!($field), w)?;
+                    }
                 )*
             };
         }
