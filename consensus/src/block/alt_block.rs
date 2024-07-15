@@ -92,7 +92,6 @@ where
     }
 
     // Check that the txs included are what we need and that there are not any extra.
-
     let mut ordered_txs = Vec::with_capacity(txs.len());
 
     tracing::debug!("Ordering transactions for block.");
@@ -102,7 +101,7 @@ where
             let tx = txs
                 .remove(tx_hash)
                 .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
-            ordered_txs.push(Arc::new(tx));
+            ordered_txs.push(tx);
         }
         drop(txs);
     }
@@ -133,26 +132,18 @@ where
         .chain_id
         .get_or_insert_with(|| ChainID(rand::random()));
 
-    Ok(VerifyBlockResponse::AltChain(AltBlockInformation {
+    let block_info = AltBlockInformation {
         block_hash: prepped_block.block_hash,
         block: prepped_block.block,
         block_blob: prepped_block.block_blob,
         txs: ordered_txs
             .into_iter()
-            .map(|tx| {
-                // Note: it would be possible for the transaction verification service to hold onto the tx after the call
-                // if one of txs was invalid and the rest are still in rayon threads.
-                let tx = Arc::into_inner(tx).expect(
-                    "Transaction verification service should not hold onto valid transactions.",
-                );
-
-                VerifiedTransactionInformation {
-                    tx_blob: tx.tx_blob,
-                    tx_weight: tx.tx_weight,
-                    fee: tx.fee,
-                    tx_hash: tx.tx_hash,
-                    tx: tx.tx,
-                }
+            .map(|tx| VerifiedTransactionInformation {
+                tx_blob: tx.tx_blob,
+                tx_weight: tx.tx_weight,
+                fee: tx.fee,
+                tx_hash: tx.tx_hash,
+                tx: tx.tx,
             })
             .collect(),
         pow_hash: prepped_block.pow_hash,
@@ -161,7 +152,17 @@ where
         long_term_weight,
         cumulative_difficulty,
         chain_id,
-    }))
+    };
+
+    context_svc
+        .oneshot(BlockChainContextRequest::AddAltChainContextCache {
+            prev_id: block_info.block.header.previous,
+            cache: alt_context_cache,
+            _token: AltChainRequestToken,
+        })
+        .await?;
+
+    Ok(VerifyBlockResponse::AltChain(block_info))
 }
 
 async fn alt_rx_vm<C>(
