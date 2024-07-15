@@ -27,8 +27,8 @@ use super::OutputDistributionData;
     "rpc/core_rpc_server_commands_defs.h",
     45..=55
 )]
-pub fn compress_integer_array(array: Vec<u64>) -> error::Result<Vec<u64>> {
-    // TODO: for handler.
+#[allow(clippy::needless_pass_by_value)] // TODO: remove after impl
+fn compress_integer_array(array: Vec<u64>) -> error::Result<Vec<u64>> {
     todo!()
 }
 
@@ -40,7 +40,8 @@ pub fn compress_integer_array(array: Vec<u64>) -> error::Result<Vec<u64>> {
     "rpc/core_rpc_server_commands_defs.h",
     57..=72
 )]
-pub fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
+#[allow(clippy::needless_pass_by_value)] // TODO: remove after impl
+fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
     todo!()
 }
 
@@ -55,7 +56,7 @@ pub fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Distribution {
-    /// TODO
+    /// Distribution data will be (de)serialized as JSON.
     Json {
         data: OutputDistributionData,
         amount: u64,
@@ -66,7 +67,7 @@ pub enum Distribution {
         /// Will always be serialized as `false`.
         compress: bool,
     },
-    /// TODO
+    /// Distribution data will be (de)serialized as binary.
     Binary {
         data: OutputDistributionData,
         amount: u64,
@@ -77,7 +78,7 @@ pub enum Distribution {
         /// Will always be serialized as `false`.
         compress: bool,
     },
-    /// TODO
+    /// Distribution data will be (de)serialized as compressed binary.
     CompressedBinary {
         data: OutputDistributionData,
         amount: u64,
@@ -185,8 +186,7 @@ impl EpeeObject for Distribution {
 
     fn number_of_fields(&self) -> u64 {
         match self {
-            Self::Json { .. } => 4,
-            Self::Binary { .. } => 4,
+            Self::Json { .. } | Self::Binary { .. } => 4,
             Self::CompressedBinary { .. } => 5,
         }
     }

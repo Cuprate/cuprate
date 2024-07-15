@@ -70,7 +70,7 @@ impl KeyImageSpentStatus {
 
 #[cfg(feature = "epee")]
 impl EpeeValue for KeyImageSpentStatus {
-    const MARKER: Marker = <u8 as EpeeValue>::MARKER;
+    const MARKER: Marker = u8::MARKER;
 
     fn read<B: Buf>(r: &mut B, marker: &Marker) -> error::Result<Self> {
         let u = u8::read(r, marker)?;

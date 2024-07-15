@@ -68,7 +68,8 @@ define_request_and_response! {
         key_images: Vec<String>,
     },
     AccessResponseBase {
-        spent_status: Vec<KeyImageSpentStatus>,
+        /// FIXME: These are [`KeyImageSpentStatus`] in [`u8`] form.
+        spent_status: Vec<u8>,
     }
 }
 

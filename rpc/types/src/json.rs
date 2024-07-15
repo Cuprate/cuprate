@@ -9,8 +9,8 @@ use crate::{
     free::{is_one, is_zero},
     macros::define_request_and_response,
     misc::{
-        AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry,
-        OutputDistributionData, SetBan, Span, Status, SyncInfoPeer, TxBacklogEntry,
+        AuxPow, BlockHeader, ChainInfo, ConnectionInfo, Distribution, GetBan, HardforkEntry,
+        HistogramEntry, OutputDistributionData, SetBan, Span, Status, SyncInfoPeer, TxBacklogEntry,
     },
 };
 
@@ -570,10 +570,8 @@ define_request_and_response! {
         from_height: u64,
         to_height: u64,
     },
-    /// TODO: this request has custom serde:
-    /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L2468-L2508>
     AccessResponseBase {
-        distributions: Vec<OutputDistributionData>,
+        distributions: Vec<Distribution>,
     }
 }
 
