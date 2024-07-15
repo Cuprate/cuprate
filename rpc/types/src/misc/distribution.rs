@@ -1,8 +1,11 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Use
+use std::mem::size_of;
+
 #[cfg(feature = "serde")]
 use crate::serde::{serde_false, serde_true};
+use cuprate_epee_encoding::read_varint;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -10,30 +13,35 @@ use serde::{Deserialize, Serialize};
 use cuprate_epee_encoding::{
     epee_object, error,
     macros::bytes::{Buf, BufMut},
-    read_epee_value, write_field, EpeeObject, EpeeObjectBuilder, EpeeValue, Marker,
+    read_epee_value, write_field, write_varint, EpeeObject, EpeeObjectBuilder, EpeeValue, Marker,
 };
 
 use super::OutputDistributionData;
 
 //---------------------------------------------------------------------------------------------------- Free
-/// TODO
+/// Used for [`Distribution::CompressedBinary::compressed_data`].
+///
+/// TODO: for handler code. This should already be provided in the field.
 #[doc = crate::macros::monero_definition_link!(
     cc73fe71162d564ffda8e549b79a350bca53c454,
     "rpc/core_rpc_server_commands_defs.h",
     45..=55
 )]
-pub fn compress_integer_array(array: Vec<u64>) -> Vec<u64> {
-    todo!();
+pub fn compress_integer_array(array: Vec<u64>) -> error::Result<Vec<u64>> {
+    // TODO: for handler.
+    todo!()
 }
 
-/// TODO
+/// Used for [`Distribution::CompressedBinary::compressed_data`].
+///
+/// TODO: for handler code. This should already be provided in the field.
 #[doc = crate::macros::monero_definition_link!(
     cc73fe71162d564ffda8e549b79a350bca53c454,
     "rpc/core_rpc_server_commands_defs.h",
     57..=72
 )]
 pub fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
-    todo!();
+    todo!()
 }
 
 //---------------------------------------------------------------------------------------------------- Distribution
@@ -232,9 +240,6 @@ impl EpeeObject for Distribution {
                     write_field(data.base, "base", w)?;
                 }
 
-                // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L2487>
-                // TODO: cast `String` -> `Vec<u64>`
-                let compressed_data = compress_integer_array(compressed_data);
                 if compressed_data.should_write() {
                     compressed_data.write(w)?;
                 }
