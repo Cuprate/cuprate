@@ -8,12 +8,12 @@ use crate::{
     defaults::{default_false, default_string, default_true},
     macros::define_request_and_response,
     misc::{
-        GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
-        TxpoolStats,
+        GetOutputsOut, KeyImageSpentStatus, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status,
+        TxEntry, TxInfo, TxpoolStats,
     },
 };
 
-//---------------------------------------------------------------------------------------------------- TODO
+//---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
     get_height,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
@@ -68,7 +68,7 @@ define_request_and_response! {
         key_images: Vec<String>,
     },
     AccessResponseBase {
-        spent_status: Vec<u8>, // TODO: should be `KeyImageSpentStatus`.
+        spent_status: Vec<KeyImageSpentStatus>,
     }
 }
 

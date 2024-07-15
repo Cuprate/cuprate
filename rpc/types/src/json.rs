@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-//---------------------------------------------------------------------------------------------------- Struct definitions
+//---------------------------------------------------------------------------------------------------- Definitions
 // This generates 2 structs:
 //
 // - `GetBlockTemplateRequest`
@@ -291,7 +291,7 @@ define_request_and_response! {
     AccessResponseBase {
         blob: String,
         block_header: BlockHeader,
-        json: String, // TODO: this should be defined in a struct, it has many fields.
+        json: String, // FIXME: this should be defined in a struct, it has many fields.
         miner_tx_hash: String,
         tx_hashes: Vec<String>,
     }

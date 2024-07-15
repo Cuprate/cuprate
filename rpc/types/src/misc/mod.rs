@@ -13,6 +13,7 @@
 
 //---------------------------------------------------------------------------------------------------- Mod
 mod binary_string;
+mod distribution;
 mod key_image_spent_status;
 mod misc;
 mod pool_info_extent;
@@ -20,6 +21,7 @@ mod status;
 mod tx_entry;
 
 pub use binary_string::BinaryString;
+pub use distribution::Distribution;
 pub use key_image_spent_status::KeyImageSpentStatus;
 pub use misc::{
     AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo, GetBan,
