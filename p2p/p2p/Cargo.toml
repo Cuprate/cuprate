@@ -13,6 +13,7 @@ cuprate-address-book = { path = "../address-book" }
 cuprate-pruning = { path = "../../pruning" }
 cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
 cuprate-async-buffer = { path = "../async-buffer" }
+cuprate-types = { path = "../../types" }
 
 monero-serai = { workspace = true, features = ["std"] }
 

@@ -25,10 +25,8 @@ use tower::Service;
 use cuprate_p2p_core::{
     client::InternalPeerID, BroadcastMessage, ConnectionDirection, NetworkZone,
 };
-use cuprate_wire::{
-    common::{BlockCompleteEntry, TransactionBlobs},
-    protocol::{NewFluffyBlock, NewTransactions},
-};
+use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
+use cuprate_wire::protocol::{NewFluffyBlock, NewTransactions};
 
 use crate::constants::{
     DIFFUSION_FLUSH_AVERAGE_SECONDS_INBOUND, DIFFUSION_FLUSH_AVERAGE_SECONDS_OUTBOUND,

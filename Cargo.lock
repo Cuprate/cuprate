@@ -702,6 +702,7 @@ dependencies = [
  "cuprate-p2p-core",
  "cuprate-pruning",
  "cuprate-test-utils",
+ "cuprate-types",
  "cuprate-wire",
  "dashmap",
  "futures",
@@ -817,6 +818,7 @@ dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "cuprate-levin",
+ "cuprate-types",
  "hex",
  "thiserror",
 ]
