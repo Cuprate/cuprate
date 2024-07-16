@@ -14,6 +14,7 @@ tracing = ["cuprate-levin/tracing"]
 cuprate-levin = { path = "../levin" }
 cuprate-epee-encoding = { path = "../epee-encoding" }
 cuprate-fixed-bytes = { path = "../fixed-bytes" }
+cuprate-types = { path = "../../types" }
 
 bitflags = { workspace = true, features = ["std"] }
 bytes = { workspace = true, features = ["std"] }
