@@ -12,7 +12,7 @@ use monero_serai::{
 
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
-use crate::rpc::constants::LOCALHOST_RPC_URL;
+use crate::rpc::client::constants::LOCALHOST_RPC_URL;
 
 //---------------------------------------------------------------------------------------------------- HttpRpcClient
 /// An HTTP RPC client for Monero.
