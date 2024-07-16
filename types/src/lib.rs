@@ -1,11 +1,4 @@
-//! Cuprate shared data types.
-//!
-//! This crate is a kitchen-sink for data types that are shared across `Cuprate`.
-//!
-//! # Features flags
-//! The [`blockchain`] module, containing the blockchain database request/response
-//! types, must be enabled with the `blockchain` feature (on by default).
-
+#![doc = include_str!("../README.md")]
 //---------------------------------------------------------------------------------------------------- Lints
 // Forbid lints.
 // Our code, and code generated (e.g macros) cannot overrule these.
@@ -86,7 +79,10 @@
 //
 // Documentation for each module is located in the respective file.
 
+mod block_complete_entry;
 mod types;
+
+pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
 pub use types::{
     ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
