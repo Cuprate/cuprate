@@ -18,6 +18,7 @@
 use bitflags::bitflags;
 
 use cuprate_epee_encoding::epee_object;
+pub use cuprate_types::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
 
 use crate::NetworkAddress;
 

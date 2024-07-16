@@ -22,7 +22,8 @@ use bytes::Bytes;
 
 use cuprate_epee_encoding::{container_as_blob::ContainerAsBlob, epee_object};
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
-use cuprate_types::BlockCompleteEntry;
+
+use crate::p2p::common::BlockCompleteEntry;
 
 /// A block that SHOULD have transactions
 #[derive(Debug, Clone, PartialEq, Eq)]
