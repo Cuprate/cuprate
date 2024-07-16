@@ -86,8 +86,8 @@ However, some of the types will panic with [`unimplemented`]
 or will otherwise have undefined implementation in the incorrect context.
 
 In other words:
-- The epee (de)serialization of [`json`] & [`other`] types should not be relied upon
-- The JSON (de)serialization of [`bin`] types should not be relied upon
+- The epee (de)serialization of [`json`] & [`other`] types should **not** be relied upon
+- The JSON (de)serialization of [`bin`] types should **not** be relied upon
 
 The invariants that can be relied upon:
 - Types in [`json`] & [`other`] will implement `serde` correctly
