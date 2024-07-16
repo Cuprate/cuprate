@@ -1,4 +1,4 @@
-//! TODO
+//! Output distributions for [`crate::json::GetOutputDistributionResponse`].
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::mem::size_of;
