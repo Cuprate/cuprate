@@ -16,10 +16,8 @@
 //! Common types that are used across multiple messages.
 
 use bitflags::bitflags;
-use bytes::{Buf, BufMut, Bytes};
 
-use cuprate_epee_encoding::{epee_object, EpeeValue, InnerMarker};
-use cuprate_fixed_bytes::ByteArray;
+use cuprate_epee_encoding::epee_object;
 
 use crate::NetworkAddress;
 
