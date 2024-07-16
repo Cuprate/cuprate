@@ -26,10 +26,8 @@ use cuprate_p2p_core::{
     ProtocolResponse,
 };
 use cuprate_pruning::PruningSeed;
-use cuprate_wire::{
-    common::{BlockCompleteEntry, TransactionBlobs},
-    protocol::{ChainResponse, GetObjectsResponse},
-};
+use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
+use cuprate_wire::protocol::{ChainResponse, GetObjectsResponse};
 
 use crate::{
     block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
