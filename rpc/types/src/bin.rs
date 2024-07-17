@@ -119,9 +119,9 @@ define_request_and_response! {
 define_request! {
     #[doc = define_request_and_response_doc!(
         "response" => GetBlocksResponse,
-        get_transaction_pool_hashesbin,
+        get_blocksbin,
         cc73fe71162d564ffda8e549b79a350bca53c454,
-        core_rpc_server_commands_defs, h, 1593, 1613,
+        core_rpc_server_commands_defs, h, 162, 262,
     )]
     GetBlocksRequest {
         requested_info: u8 = default_zero::<u8>(), "default_zero",
@@ -136,25 +136,69 @@ define_request! {
 
 #[doc = define_request_and_response_doc!(
     "request" => GetBlocksRequest,
-    get_transaction_pool_hashesbin,
+    get_blocksbin,
     cc73fe71162d564ffda8e549b79a350bca53c454,
-    core_rpc_server_commands_defs, h, 1593, 1613,
+    core_rpc_server_commands_defs, h, 162, 262,
 )]
+///
+/// This response's variant depends upon [`PoolInfoExtent`].
 #[allow(dead_code, missing_docs)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct GetBlocksResponse {
-    pub status: Status,
-    pub untrusted: bool,
-    pub blocks: Vec<BlockCompleteEntry>,
-    pub start_height: u64,
-    pub current_height: u64,
-    pub output_indices: Vec<BlockOutputIndices>,
-    pub daemon_time: u64,
-    pub pool_info_extent: PoolInfoExtent,
-    pub added_pool_txs: Vec<PoolTxInfo>,
-    pub remaining_added_pool_txids: ByteArrayVec<32>,
-    pub removed_pool_txids: ByteArrayVec<32>,
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum GetBlocksResponse {
+    PoolInfoNone {
+        status: Status,
+        untrusted: bool,
+        blocks: Vec<BlockCompleteEntry>,
+        start_height: u64,
+        current_height: u64,
+        output_indices: Vec<BlockOutputIndices>,
+        daemon_time: u64,
+        /// Will always serialize as [`PoolInfoExtent::None`].
+        pool_info_extent: PoolInfoExtent,
+    },
+    PoolInfoIncremental {
+        status: Status,
+        untrusted: bool,
+        blocks: Vec<BlockCompleteEntry>,
+        start_height: u64,
+        current_height: u64,
+        output_indices: Vec<BlockOutputIndices>,
+        daemon_time: u64,
+        /// Will always serialize as [`PoolInfoExtent::Incremental`].
+        pool_info_extent: PoolInfoExtent,
+        added_pool_txs: Vec<PoolTxInfo>,
+        remaining_added_pool_txids: ByteArrayVec<32>,
+        removed_pool_txids: ByteArrayVec<32>,
+    },
+    PoolInfoFull {
+        status: Status,
+        untrusted: bool,
+        blocks: Vec<BlockCompleteEntry>,
+        start_height: u64,
+        current_height: u64,
+        output_indices: Vec<BlockOutputIndices>,
+        daemon_time: u64,
+        /// Will always serialize as [`PoolInfoExtent::Full`].
+        pool_info_extent: PoolInfoExtent,
+        added_pool_txs: Vec<PoolTxInfo>,
+        remaining_added_pool_txids: ByteArrayVec<32>,
+    },
+}
+
+impl Default for GetBlocksResponse {
+    fn default() -> Self {
+        Self::PoolInfoNone {
+            status: Status::default(),
+            untrusted: bool::default(),
+            blocks: Vec::<BlockCompleteEntry>::default(),
+            start_height: u64::default(),
+            current_height: u64::default(),
+            output_indices: Vec::<BlockOutputIndices>::default(),
+            daemon_time: u64::default(),
+            pool_info_extent: PoolInfoExtent::default(),
+        }
+    }
 }
 
 #[cfg(feature = "epee")]
@@ -211,23 +255,60 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
 
     fn finish(self) -> error::Result<GetBlocksResponse> {
         const ELSE: error::Error = error::Error::Format("Required field was not found!");
-        Ok(GetBlocksResponse {
-            status: self.status.ok_or(ELSE)?,
-            untrusted: self.untrusted.ok_or(ELSE)?,
-            blocks: self.blocks.ok_or(ELSE)?,
-            start_height: self.start_height.ok_or(ELSE)?,
-            current_height: self.current_height.ok_or(ELSE)?,
-            output_indices: self.output_indices.ok_or(ELSE)?,
-            daemon_time: self.daemon_time.unwrap_or(0),
-            pool_info_extent: self.pool_info_extent.unwrap_or_default(),
-            added_pool_txs: self.added_pool_txs.ok_or(ELSE)?,
-            remaining_added_pool_txids: self.remaining_added_pool_txids.ok_or(ELSE)?,
-            removed_pool_txids: self.removed_pool_txids.ok_or(ELSE)?,
-        })
+
+        let status = self.status.ok_or(ELSE)?;
+        let untrusted = self.untrusted.ok_or(ELSE)?;
+        let blocks = self.blocks.ok_or(ELSE)?;
+        let start_height = self.start_height.ok_or(ELSE)?;
+        let current_height = self.current_height.ok_or(ELSE)?;
+        let output_indices = self.output_indices.ok_or(ELSE)?;
+        let daemon_time = self.daemon_time.ok_or(ELSE)?;
+        let pool_info_extent = self.pool_info_extent.ok_or(ELSE)?;
+
+        let this = match pool_info_extent {
+            PoolInfoExtent::None => GetBlocksResponse::PoolInfoNone {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+            },
+            PoolInfoExtent::Incremental => GetBlocksResponse::PoolInfoIncremental {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+                added_pool_txs: self.added_pool_txs.ok_or(ELSE)?,
+                remaining_added_pool_txids: self.remaining_added_pool_txids.ok_or(ELSE)?,
+                removed_pool_txids: self.removed_pool_txids.ok_or(ELSE)?,
+            },
+            PoolInfoExtent::Full => GetBlocksResponse::PoolInfoFull {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+                added_pool_txs: self.added_pool_txs.ok_or(ELSE)?,
+                remaining_added_pool_txids: self.remaining_added_pool_txids.ok_or(ELSE)?,
+            },
+        };
+
+        Ok(this)
     }
 }
 
 #[cfg(feature = "epee")]
+#[allow(clippy::cognitive_complexity)]
 impl EpeeObject for GetBlocksResponse {
     type Builder = __GetBlocksResponseEpeeBuilder;
 
@@ -237,30 +318,91 @@ impl EpeeObject for GetBlocksResponse {
         macro_rules! add_field {
             ($($field:ident),*) => {
                 $(
-                    if self.$field.should_write() {
+                    if $field.should_write() {
                         fields += 1;
                     }
                 )*
             };
         }
 
-        add_field! {
-            status,
-            untrusted,
-            blocks,
-            start_height,
-            current_height,
-            output_indices,
-            daemon_time,
-            pool_info_extent
-        }
+        match self {
+            Self::PoolInfoNone {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+            } => {
+                const POOL_INFO_EXTENT: u8 = PoolInfoExtent::None.to_u8();
+                add_field! {
+                    status,
+                    untrusted,
+                    blocks,
+                    start_height,
+                    current_height,
+                    output_indices,
+                    daemon_time,
+                    POOL_INFO_EXTENT
+                }
+            }
 
-        if self.pool_info_extent != PoolInfoExtent::None {
-            add_field!(added_pool_txs, remaining_added_pool_txids);
-        }
-
-        if self.pool_info_extent != PoolInfoExtent::Incremental {
-            add_field!(removed_pool_txids);
+            Self::PoolInfoIncremental {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+                added_pool_txs,
+                remaining_added_pool_txids,
+                removed_pool_txids,
+            } => {
+                const POOL_INFO_EXTENT: u8 = PoolInfoExtent::Incremental.to_u8();
+                add_field! {
+                    status,
+                    untrusted,
+                    blocks,
+                    start_height,
+                    current_height,
+                    output_indices,
+                    daemon_time,
+                    POOL_INFO_EXTENT,
+                    added_pool_txs,
+                    remaining_added_pool_txids,
+                    removed_pool_txids
+                }
+            }
+            Self::PoolInfoFull {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+                added_pool_txs,
+                remaining_added_pool_txids,
+            } => {
+                const POOL_INFO_EXTENT: u8 = PoolInfoExtent::Full.to_u8();
+                add_field! {
+                    status,
+                    untrusted,
+                    blocks,
+                    start_height,
+                    current_height,
+                    output_indices,
+                    daemon_time,
+                    POOL_INFO_EXTENT,
+                    added_pool_txs,
+                    remaining_added_pool_txids
+                }
+            }
         }
 
         fields
@@ -270,34 +412,93 @@ impl EpeeObject for GetBlocksResponse {
         macro_rules! write_field {
             ($($field:ident),*) => {
                 $(
-                    if self.$field.should_write() {
-                        write_field(self.$field, stringify!($field), w)?;
+                    if $field.should_write() {
+                        write_field($field, stringify!($field), w)?;
                     }
                 )*
             };
         }
 
-        write_field! {
-            status,
-            untrusted,
-            blocks,
-            start_height,
-            current_height,
-            output_indices,
-            daemon_time,
-            pool_info_extent
-        }
+        match self {
+            Self::PoolInfoNone {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+            } => {
+                // This is on purpose `lower_case` instead of
+                // `CONST_UPPER` due to `stringify!`.
+                let pool_info_extent = PoolInfoExtent::None.to_u8();
+                write_field! {
+                    status,
+                    untrusted,
+                    blocks,
+                    start_height,
+                    current_height,
+                    output_indices,
+                    daemon_time,
+                    pool_info_extent
+                }
+            }
 
-        // The following section is why custom epee (de)serialization exists.
-        //
-        // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L242-L259>
-
-        if self.pool_info_extent != PoolInfoExtent::None {
-            write_field!(added_pool_txs, remaining_added_pool_txids);
-        }
-
-        if self.pool_info_extent != PoolInfoExtent::Incremental {
-            write_field!(removed_pool_txids);
+            Self::PoolInfoIncremental {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+                added_pool_txs,
+                remaining_added_pool_txids,
+                removed_pool_txids,
+            } => {
+                let pool_info_extent = PoolInfoExtent::None.to_u8();
+                write_field! {
+                    status,
+                    untrusted,
+                    blocks,
+                    start_height,
+                    current_height,
+                    output_indices,
+                    daemon_time,
+                    pool_info_extent,
+                    added_pool_txs,
+                    remaining_added_pool_txids,
+                    removed_pool_txids
+                }
+            }
+            Self::PoolInfoFull {
+                status,
+                untrusted,
+                blocks,
+                start_height,
+                current_height,
+                output_indices,
+                daemon_time,
+                pool_info_extent,
+                added_pool_txs,
+                remaining_added_pool_txids,
+            } => {
+                let pool_info_extent = PoolInfoExtent::None.to_u8();
+                write_field! {
+                    status,
+                    untrusted,
+                    blocks,
+                    start_height,
+                    current_height,
+                    output_indices,
+                    daemon_time,
+                    pool_info_extent,
+                    added_pool_txs,
+                    remaining_added_pool_txids
+                }
+            }
         }
 
         Ok(())

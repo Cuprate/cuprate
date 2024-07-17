@@ -7,6 +7,7 @@
 use serde::Serializer;
 
 //---------------------------------------------------------------------------------------------------- Free functions
+/// Always serializes `true`.
 #[inline]
 pub(crate) fn serde_true<S>(_: &bool, serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -15,6 +16,7 @@ where
     serializer.serialize_bool(true)
 }
 
+/// Always serializes `false`.
 #[inline]
 pub(crate) fn serde_false<S>(_: &bool, serializer: S) -> Result<S::Ok, S::Error>
 where

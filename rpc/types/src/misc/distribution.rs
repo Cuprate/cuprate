@@ -52,6 +52,8 @@ fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
     2468..=2508
 )]
 /// Used in [`crate::json::GetOutputDistributionResponse`].
+///
+/// This enum's variant depends upon the `binary` and `compress` fields.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
