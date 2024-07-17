@@ -416,7 +416,7 @@ define_request_and_response! {
     get_block (json),
     /// This is the same as [`GET_BLOCK_REQUEST`] and
     /// [`GET_BLOCK_RESPONSE`] but it uses the `hash` parameter.
-    GET_BLOCK_BY_HASH: &str,
+    GET_BLOCK_HASH: &str,
     Request =
 r#"{
   "jsonrpc": "2.0",
@@ -601,276 +601,665 @@ r#"{
 }"#;
 }
 
-// define_request_and_response! {
-//     hard_fork_info (json),
-//     HardForkInfo,
-//     Request = r#""#;
-//     Response = r#""#;
-//         earliest_height: u64,
-//         enabled: bool,
-//         state: u32,
-//         threshold: u32,
-//         version: u8,
-//         votes: u32,
-//         voting: u8,
-//         window: u32,
-//     }
-// }
+define_request_and_response! {
+    hard_fork_info (json),
+    HARD_FORK_INFO: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "hard_fork_info"
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "earliest_height": 2689608,
+    "enabled": true,
+    "state": 0,
+    "status": "OK",
+    "threshold": 0,
+    "top_hash": "",
+    "untrusted": false,
+    "version": 16,
+    "votes": 10080,
+    "voting": 16,
+    "window": 10080
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     set_bans (json),
-//     SetBans,
-//     Request = r#""#;
-//         bans: Vec<SetBan>,
-//     },
-//     Response =
-// r#""#;
-// }
+define_request_and_response! {
+    set_bans (json),
+    SET_BANS: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "set_bans",
+  "params": {
+    "bans": [{
+      "host": "192.168.1.51",
+      "ban": true,
+      "seconds": 30
+    }]
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK",
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     get_bans (json),
-//     GetBans,
-//     Request = r#""#;
-//     Response =
-// r#""#;
-//         bans: Vec<GetBan>,
-//     }
-// }
+define_request_and_response! {
+    set_bans (json),
+    /// This is the same as [`SET_BANS_REQUEST`] and
+    /// [`SET_BANS_RESPONSE`] but it uses the `ip` parameter.
+    SET_BANS_IP: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "set_bans",
+  "params": {
+    "bans": [{
+      "ip": 838969536,
+      "ban": true,
+      "seconds": 30
+    }]
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK",
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     banned (json),
-//     Banned,
-//     #[cfg_attr(feature = "serde", serde(transparent))]
-//     #[repr(transparent)]
-//     Request = r#""#;
-//         address: String,
-//     },
-//     #[derive(Copy)]
-//     Response {
-//         banned: bool,
-//         seconds: u32,
-//         status: Status,
-//     }
-// }
+define_request_and_response! {
+    get_bans (json),
+    GET_BANS: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_bans"
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "bans": [{
+      "host": "104.248.206.131",
+      "ip": 2211379304,
+      "seconds": 689754
+    },{
+      "host": "209.222.252.0\/24",
+      "ip": 0,
+      "seconds": 689754
+    }],
+    "status": "OK",
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     flush_txpool (json),
-//     FlushTransactionPool,
-//     Request = r#""#;
-//         txids: Vec<String> = default_vec::<String>(), "default_vec",
-//     },
-//     #[derive(Copy)]
-//     #[cfg_attr(feature = "serde", serde(transparent))]
-//     #[repr(transparent)]
-//     Response {
-//         status: Status,
-//     }
-// }
+define_request_and_response! {
+    banned (json),
+    BANNED: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "banned",
+  "params": {
+    "address": "95.216.203.255"
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "banned": true,
+    "seconds": 689655,
+    "status": "OK"
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     get_output_histogram (json),
-//     GetOutputHistogram,
-//     Request = r#""#;
-//         amounts: Vec<u64>,
-//         min_count: u64,
-//         max_count: u64,
-//         unlocked: bool,
-//         recent_cutoff: u64,
-//     },
-//     Response = r#""#;
-//         histogram: Vec<HistogramEntry>,
-//     }
-// }
+define_request_and_response! {
+    flush_txpool (json),
+    FLUSH_TRANSACTION_POOL: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "flush_txpool",
+  "params": {
+    "txids": ["dc16fa8eaffe1484ca9014ea050e13131d3acf23b419f33bb4cc0b32b6c49308"]
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK"
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     get_coinbase_tx_sum (json),
-//     GetCoinbaseTxSum,
-//     Request = r#""#;
-//         height: u64,
-//         count: u64,
-//     },
-//     Response = r#""#;
-//         emission_amount: u64,
-//         emission_amount_top64: u64,
-//         fee_amount: u64,
-//         fee_amount_top64: u64,
-//         wide_emission_amount: String,
-//         wide_fee_amount: String,
-//     }
-// }
+define_request_and_response! {
+    get_output_histogram (json),
+    GET_OUTPUT_HISTOGRAM: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_output_histogram",
+  "params": {
+    "amounts": ["20000000000"]
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "histogram": [{
+      "amount": 20000000000,
+      "recent_instances": 0,
+      "total_instances": 381490,
+      "unlocked_instances": 0
+    }],
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     get_version (json),
-//     GetVersion,
-//     Request = r#""#;
-//     Response =
-// r#""#;
-//         version: u32,
-//         release: bool,
-//         #[serde(skip_serializing_if = "is_zero")]
-//         current_height: u64 = default_zero(), "default_zero",
-//         #[serde(skip_serializing_if = "is_zero")]
-//         target_height: u64 = default_zero(), "default_zero",
-//         #[serde(skip_serializing_if = "Vec::is_empty")]
-//         hard_forks: Vec<HardforkEntry> = default_vec(), "default_vec",
-//     }
-// }
+define_request_and_response! {
+    get_coinbase_tx_sum (json),
+    GET_COINBASE_TX_SUM: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_coinbase_tx_sum",
+  "params": {
+    "height": 1563078,
+    "count": 2
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "emission_amount": 9387854817320,
+    "emission_amount_top64": 0,
+    "fee_amount": 83981380000,
+    "fee_amount_top64": 0,
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false,
+    "wide_emission_amount": "0x889c7c06828",
+    "wide_fee_amount": "0x138dae29a0"
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     get_fee_estimate (json),
-//     GetFeeEstimate,
-//     Request = r#""#;
-//     Response = r#""#;
-//         fee: u64,
-//         fees: Vec<u64>,
-//         #[serde(skip_serializing_if = "is_one")]
-//         quantization_mask: u64,
-//     }
-// }
+define_request_and_response! {
+    get_version (json),
+    GET_VERSION: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_version"
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "current_height": 3195051,
+    "hard_forks": [{
+      "height": 1,
+      "hf_version": 1
+    },{
+      "height": 1009827,
+      "hf_version": 2
+    },{
+      "height": 1141317,
+      "hf_version": 3
+    },{
+      "height": 1220516,
+      "hf_version": 4
+    },{
+      "height": 1288616,
+      "hf_version": 5
+    },{
+      "height": 1400000,
+      "hf_version": 6
+    },{
+      "height": 1546000,
+      "hf_version": 7
+    },{
+      "height": 1685555,
+      "hf_version": 8
+    },{
+      "height": 1686275,
+      "hf_version": 9
+    },{
+      "height": 1788000,
+      "hf_version": 10
+    },{
+      "height": 1788720,
+      "hf_version": 11
+    },{
+      "height": 1978433,
+      "hf_version": 12
+    },{
+      "height": 2210000,
+      "hf_version": 13
+    },{
+      "height": 2210720,
+      "hf_version": 14
+    },{
+      "height": 2688888,
+      "hf_version": 15
+    },{
+      "height": 2689608,
+      "hf_version": 16
+    }],
+    "release": true,
+    "status": "OK",
+    "untrusted": false,
+    "version": 196621
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     get_alternate_chains (json),
-//     GetAlternateChains,
-//     Request = r#""#;
-//     Response =
-// r#""#;
-//         chains: Vec<ChainInfo>,
-//     }
-// }
+define_request_and_response! {
+    get_fee_estimate (json),
+    GET_FEE_ESTIMATE: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_fee_estimate"
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "fee": 20000,
+    "fees": [20000,80000,320000,4000000],
+    "quantization_mask": 10000,
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     relay_tx (json),
-//     RelayTx,
-//     Request = r#""#;
-//         txids: Vec<String>,
-//     },
-//     #[derive(Copy)]
-//     #[cfg_attr(feature = "serde", serde(transparent))]
-//     #[repr(transparent)]
-//     Response {
-//         status: Status,
-//     }
-// }
+define_request_and_response! {
+    get_alternate_chains (json),
+    GET_ALTERNATE_CHAINS: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_alternate_chains"
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "chains": [{
+      "block_hash": "4826c7d45d7cf4f02985b5c405b0e5d7f92c8d25e015492ce19aa3b209295dce",
+      "block_hashes": ["4826c7d45d7cf4f02985b5c405b0e5d7f92c8d25e015492ce19aa3b209295dce"],
+      "difficulty": 357404825113208373,
+      "difficulty_top64": 0,
+      "height": 3167471,
+      "length": 1,
+      "main_chain_parent_block": "69b5075ea627d6ba06b1c30b7e023884eeaef5282cf58ec847dab838ddbcdd86",
+      "wide_difficulty": "0x4f5c1cb79e22635"
+    },{
+      "block_hash": "33ee476f5a1c5b9d889274cbbe171f5e0112df7ed69021918042525485deb401",
+      "block_hashes": ["33ee476f5a1c5b9d889274cbbe171f5e0112df7ed69021918042525485deb401"],
+      "difficulty": 354736121711617293,
+      "difficulty_top64": 0,
+      "height": 3157465,
+      "length": 1,
+      "main_chain_parent_block": "fd522fcc4cefe5c8c0e5c5600981b3151772c285df3a4e38e5c4011cf466d2cb",
+      "wide_difficulty": "0x4ec469f8b9ee50d"
+    }],
+    "status": "OK",
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     sync_info (json),
-//     SyncInfo,
-//     Request = r#""#;
-//     Response = r#""#;
-//         height: u64,
-//         next_needed_pruning_seed: u32,
-//         overview: String,
-//         // FIXME: This is a `std::list` in `monerod` because...?
-//         peers: Vec<SyncInfoPeer>,
-//         // FIXME: This is a `std::list` in `monerod` because...?
-//         spans: Vec<Span>,
-//         target_height: u64,
-//     }
-// }
+define_request_and_response! {
+    relay_tx (json),
+    RELAY_TX: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "relay_tx",
+  "params": {
+    "txids": ["9fd75c429cbe52da9a52f2ffc5fbd107fe7fd2099c0d8de274dc8a67e0c98613"]
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK"
+  }
+}"#;
+}
 
+define_request_and_response! {
+    sync_info (json),
+    SYNC_INFO: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "sync_info"
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "height": 3195157,
+    "next_needed_pruning_seed": 0,
+    "overview": "[]",
+    "peers": [{
+      "info": {
+        "address": "142.93.128.65:44986",
+        "address_type": 1,
+        "avg_download": 1,
+        "avg_upload": 1,
+        "connection_id": "a5803c4c2dac49e7b201dccdef54c862",
+        "current_download": 2,
+        "current_upload": 1,
+        "height": 3195157,
+        "host": "142.93.128.65",
+        "incoming": true,
+        "ip": "142.93.128.65",
+        "live_time": 18,
+        "local_ip": false,
+        "localhost": false,
+        "peer_id": "6830e9764d3e5687",
+        "port": "44986",
+        "pruning_seed": 0,
+        "recv_count": 20340,
+        "recv_idle_time": 0,
+        "rpc_credits_per_hash": 0,
+        "rpc_port": 18089,
+        "send_count": 32235,
+        "send_idle_time": 6,
+        "state": "normal",
+        "support_flags": 1
+      }
+    },{
+      "info": {
+        "address": "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion:18083",
+        "address_type": 4,
+        "avg_download": 0,
+        "avg_upload": 0,
+        "connection_id": "277f7c821bc546878c8bd29977e780f5",
+        "current_download": 0,
+        "current_upload": 0,
+        "height": 3195157,
+        "host": "4iykytmumafy5kjahdqc7uzgcs34s2vwsadfjpk4znvsa5vmcxeup2qd.onion",
+        "incoming": false,
+        "ip": "",
+        "live_time": 2246,
+        "local_ip": false,
+        "localhost": false,
+        "peer_id": "0000000000000001",
+        "port": "",
+        "pruning_seed": 389,
+        "recv_count": 65164,
+        "recv_idle_time": 15,
+        "rpc_credits_per_hash": 0,
+        "rpc_port": 0,
+        "send_count": 99120,
+        "send_idle_time": 15,
+        "state": "normal",
+        "support_flags": 0
+      }
+    }],
+    "status": "OK",
+    "target_height": 0,
+    "top_hash": "",
+    "untrusted": false
+  }
+}"#;
+}
+
+// TODO: binary string.
 // define_request_and_response! {
 //     get_txpool_backlog (json),
-//     GetTransactionPoolBacklog,
-//     Request = r#""#;
+//     GET_TRANSACTION_POOL_BACKLOG: &str,
+//     Request =
+// r#"{
+//   "jsonrpc": "2.0",
+//   "id": "0",
+//   "method": "get_txpool_backlog"
+// }"#;
 //     Response =
-// r#""#;
-//         // TODO: this is a [`BinaryString`].
-//         backlog: Vec<TxBacklogEntry>,
-//     }
+// r#"{
+//   "id": "0",
+//   "jsonrpc": "2.0",
+//   "result": {
+//     "backlog": "...Binary...",
+//     "status": "OK",
+//     "untrusted": false
+//   }
+// }"#;
 // }
 
-// define_request_and_response! {
-//     get_output_distribution (json),
-//     /// This type is also used in the (undocumented)
-//     GetOutputDistribution,
-//     Request = r#""#;
-//         amounts: Vec<u64>,
-//         binary: bool,
-//         compress: bool,
-//         cumulative: bool,
-//         from_height: u64,
-//         to_height: u64,
-//     },
-//     /// TODO: this request has custom serde:
-//         distributions: Vec<OutputDistributionData>,
-//     }
-// }
+define_request_and_response! {
+    get_output_distribution (json),
+    GET_OUTPUT_DISTRIBUTION: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_output_distribution",
+  "params": {
+    "amounts": [628780000],
+    "from_height": 1462078
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "distributions": [{
+      "amount": 2628780000,
+      "base": 0,
+      "distribution": "",
+      "start_height": 1462078
+    }],
+    "status": "OK"
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     get_miner_data (json),
-//     GetMinerData,
-//     Request = r#""#;
-//     Response =
-// r#""#;
-//         major_version: u8,
-//         height: u64,
-//         prev_id: String,
-//         seed_hash: String,
-//         difficulty: String,
-//         median_weight: u64,
-//         already_generated_coins: u64,
-//     }
-// }
+define_request_and_response! {
+    get_miner_data (json),
+    GET_MINER_DATA: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_miner_data"
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "already_generated_coins": 18186022843595960691,
+    "difficulty": "0x48afae42de",
+    "height": 2731375,
+    "major_version": 16,
+    "median_weight": 300000,
+    "prev_id": "78d50c5894d187c4946d54410990ca59a75017628174a9e8c7055fa4ca5c7c6d",
+    "seed_hash": "a6b869d50eca3a43ec26fe4c369859cf36ae37ce6ecb76457d31ffeb8a6ca8a6",
+    "status": "OK",
+    "tx_backlog": [{
+      "fee": 30700000,
+      "id": "9868490d6bb9207fdd9cf17ca1f6c791b92ca97de0365855ea5c089f67c22208",
+      "weight": 1535
+    },{
+      "fee": 44280000,
+      "id": "b6000b02bbec71e18ad704bcae09fb6e5ae86d897ced14a718753e76e86c0a0a",
+      "weight": 2214
+    }],
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     prune_blockchain (json),
-//     PruneBlockchain,
-//     #[derive(Copy)]
-//     Request = r#""#;
-//         check: bool = default_false(), "default_false",
-//     },
-//     #[derive(Copy)]
-//     Response =
-// r#""#;
-//         pruned: bool,
-//         pruning_seed: u32,
-//     }
-// }
+define_request_and_response! {
+    prune_blockchain (json),
+    PRUNE_BLOCKCHAIN: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "prune_blockchain",
+  "params": {
+    "check": true
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "pruned": true,
+    "pruning_seed": 387,
+    "status": "OK",
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     calc_pow (json),
-//     CalcPow,
-//     Request = r#""#;
-//         major_version: u8,
-//         height: u64,
-//         block_blob: String,
-//         seed_hash: String,
-//     },
-//     #[cfg_attr(feature = "serde", serde(transparent))]
-//     #[repr(transparent)]
-//     Response {
-//         pow_hash: String,
-//     }
-// }
+define_request_and_response! {
+    calc_pow (json),
+    CALC_POW: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "calc_pow",
+  "params": {
+    "major_version": 14,
+    "height": 2286447,
+    "block_blob": "0e0ed286da8006ecdc1aab3033cf1716c52f13f9d8ae0051615a2453643de94643b550d543becd0000000002abc78b0101ffefc68b0101fcfcf0d4b422025014bb4a1eade6622fd781cb1063381cad396efa69719b41aa28b4fce8c7ad4b5f019ce1dc670456b24a5e03c2d9058a2df10fec779e2579753b1847b74ee644f16b023c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000051399a1bc46a846474f5b33db24eae173a26393b976054ee14f9feefe99925233802867097564c9db7a36af5bb5ed33ab46e63092bd8d32cef121608c3258edd55562812e21cc7e3ac73045745a72f7d74581d9a0849d6f30e8b2923171253e864f4e9ddea3acb5bc755f1c4a878130a70c26297540bc0b7a57affb6b35c1f03d8dbd54ece8457531f8cba15bb74516779c01193e212050423020e45aa2c15dcb",
+    "seed_hash": "d432f499205150873b2572b5f033c9c6e4b7c6f3394bd2dd93822cd7085e7307"
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": "d0402d6834e26fb94a9ce38c6424d27d2069896a9b8b1ce685d79936bca6e0a8"
+}"#;
+}
 
-// define_request_and_response! {
-//     flush_cache (json),
-//     FlushCache,
-//     #[derive(Copy)]
-//     Request = r#""#;
-//         bad_txs: bool = default_false(), "default_false",
-//         bad_blocks: bool = default_false(), "default_false",
-//     },
-//     Response =
-// r#""#;
-// }
+define_request_and_response! {
+    flush_cache (json),
+    FLUSH_CACHE: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "flush_cache",
+  "params": {
+    "bad_txs": true,
+    "bad_blocks": true
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK",
+    "untrusted": false
+  }
+}"#;
+}
 
-// define_request_and_response! {
-//     add_aux_pow (json),
-//     AddAuxPow,
-//     Request = r#""#;
-//         blocktemplate_blob: String,
-//         aux_pow: Vec<AuxPow>,
-//     },
-//     Response =
-// r#""#;
-//       blocktemplate_blob: String,
-//       blockhashing_blob: String,
-//       merkle_root: String,
-//       merkle_tree_depth: u64,
-//       aux_pow: Vec<AuxPow>,
-//     }
-// }
+define_request_and_response! {
+    add_aux_pow (json),
+    ADD_AUX_POW: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "add_aux_pow",
+  "params": {
+    "blocktemplate_blob": "1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a0000000002c681c30101ff8a81c3010180e0a596bb11033b7eedf47baf878f3490cb20b696079c34bd017fe59b0d070e74d73ffabc4bb0e05f011decb630f3148d0163b3bd39690dde4078e4cfb69fecf020d6278a27bad10c58023c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "aux_pow": [{
+      "id": "3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8",
+      "hash": "7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a"
+    }]
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "aux_pow": [{
+      "hash": "7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a",
+      "id": "3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8"
+    }],
+    "blockhashing_blob": "1010ee97e2a106e9f8ebe8887e5b609949ac8ea6143e560ed13552b110cb009b21f0cfca1eaccf00000000b2685c1283a646bc9020c758daa443be145b7370ce5a6efacb3e614117032e2c22",
+    "blocktemplate_blob": "1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a0000000002c681c30101ff8a81c3010180e0a596bb11033b7eedf47baf878f3490cb20b696079c34bd017fe59b0d070e74d73ffabc4bb0e05f011decb630f3148d0163b3bd39690dde4078e4cfb69fecf020d6278a27bad10c58023c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "merkle_root": "7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a",
+    "merkle_tree_depth": 0,
+    "status": "OK",
+    "untrusted": false
+  }
+}
+"#;
+}
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
