@@ -31,7 +31,7 @@ macro_rules! define_request_and_response {
         $( #[$response_attr:meta] )*
         Response = $response:literal;
     ) => { paste::paste! {
-        #[doc = $crate::rpc::types::macros::define_request_and_response_doc!(
+        #[doc = $crate::rpc::data::macros::define_request_and_response_doc!(
             "response" => [<$name:upper _RESPONSE>],
             $monero_daemon_rpc_doc_link,
         )]
@@ -41,12 +41,11 @@ macro_rules! define_request_and_response {
         $( #[$request_attr] )*
         ///
         $(
-            const _: &str = stringify!($json);
-            #[doc = $crate::rpc::types::macros::json_test!([<$name:upper _REQUEST>])]
+            #[doc = $crate::rpc::data::macros::json_test!([<$name:upper _REQUEST>], $json)]
         )?
         pub const [<$name:upper _REQUEST>]: $type = $request;
 
-        #[doc = $crate::rpc::types::macros::define_request_and_response_doc!(
+        #[doc = $crate::rpc::data::macros::define_request_and_response_doc!(
             "request" => [<$name:upper _REQUEST>],
             $monero_daemon_rpc_doc_link,
         )]
@@ -56,8 +55,7 @@ macro_rules! define_request_and_response {
         $( #[$response_attr] )*
         ///
         $(
-            const _: &str = stringify!($json);
-            #[doc = $crate::rpc::types::macros::json_test!([<$name:upper _RESPONSE>])]
+            #[doc = $crate::rpc::data::macros::json_test!([<$name:upper _RESPONSE>], $json)]
         )?
         pub const [<$name:upper _RESPONSE>]: $type = $response;
     }};
@@ -105,21 +103,38 @@ pub(super) use define_request_and_response_doc;
 /// See it for more info on inputs.
 macro_rules! json_test {
     (
-        $name:ident // TODO
+        $name:ident, // TODO
+        $json:ident
     ) => {
         concat!(
-            "```rust",
-            "use cuprate_test_utils::rpc::types::{json::*,bin::*,other::*};",
-            "use serde_json::to_value;",
-            "",
-            "let value = serde_json::to_value(&",
+            "```rust\n",
+            "use cuprate_test_utils::rpc::data::{json::*, bin::*, other::*};\n",
+            "use serde_json::{to_value, Value};\n",
+            "\n",
+            "let value = serde_json::from_str::<Value>(&",
             stringify!($name),
-            ").unwrap();",
-            "let string = serde_json::to_string_pretty(&value).unwrap();",
-            "assert_eq!(string, ",
-            stringify!($name),
-            ");",
-            "```",
+            ").unwrap();\n",
+            "let Value::Object(map) = value else {\n",
+            "    panic!();\n",
+            "};\n",
+            "\n",
+            r#"assert_eq!(map.get("jsonrpc").unwrap(), "2.0");"#,
+            "\n",
+            r#"map.get("id").unwrap();"#,
+            "\n\n",
+            r#"if map.get("method").is_some() {"#,
+            "\n",
+            r#"    return;"#,
+            "\n",
+            "}\n",
+            "\n",
+            r#"if map.get("result").is_none() {"#,
+            "\n",
+            r#"    map.get("error").unwrap();"#,
+            "\n",
+            "}\n",
+            "\n",
+            "```\n",
         )
     };
 }

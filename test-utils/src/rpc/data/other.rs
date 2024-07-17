@@ -1,4 +1,4 @@
-//! JSON types from the [`other`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#other-daemon-rpc-calls) endpoints.
+//! JSON data from the [`other`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#other-daemon-rpc-calls) endpoints.
 
 //---------------------------------------------------------------------------------------------------- Import
 // use crate::rpc::types::macros::define_request_and_response;
