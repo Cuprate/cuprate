@@ -12,7 +12,10 @@ use crate::rpc::types::macros::define_request_and_response;
 // with some interconnected documentation.
 define_request_and_response! {
     // The markdown tag for Monero RPC documentation. Not necessarily the endpoint.
-    get_block_template,
+    //
+    // Adding `(json)` after this will trigger the macro to automatically
+    // add a `serde_json` test for the request/response data.
+    get_block_template (json),
 
     // The base const name: the type of the request/response.
     GET_BLOCK_TEMPLATE: &str,

@@ -7,12 +7,15 @@
 ///
 /// # Macro internals
 /// This macro uses:
-/// - [`__define_request_and_response_doc`]
-/// - [`__define_request_and_response_test`]
+/// - [`define_request_and_response_doc`]
+/// - [`define_request_and_response_test`]
 macro_rules! define_request_and_response {
     (
         // The markdown tag for Monero daemon RPC documentation. Not necessarily the endpoint.
-        $monero_daemon_rpc_doc_link:ident,
+        //
+        // Adding `(json)` after this will trigger the macro to automatically
+        // add a `serde_json` test for the request/response data.
+        $monero_daemon_rpc_doc_link:ident $(($json:ident))?,
 
         // The base `struct` name.
         // Attributes added here will apply to _both_
@@ -28,7 +31,7 @@ macro_rules! define_request_and_response {
         $( #[$response_attr:meta] )*
         Response = $response:literal;
     ) => { paste::paste! {
-        #[doc = $crate::rpc::types::macros::__define_request_and_response_doc!(
+        #[doc = $crate::rpc::types::macros::define_request_and_response_doc!(
             "response" => [<$name:upper _RESPONSE>],
             $monero_daemon_rpc_doc_link,
         )]
@@ -37,10 +40,13 @@ macro_rules! define_request_and_response {
         ///
         $( #[$request_attr] )*
         ///
-        #[doc = $crate::rpc::types::macros::__define_request_and_response_test!([<$name:upper _REQUEST>])]
+        $(
+            const _: &str = stringify!($json);
+            #[doc = $crate::rpc::types::macros::json_test!([<$name:upper _REQUEST>])]
+        )?
         pub const [<$name:upper _REQUEST>]: $type = $request;
 
-        #[doc = $crate::rpc::types::macros::__define_request_and_response_doc!(
+        #[doc = $crate::rpc::types::macros::define_request_and_response_doc!(
             "request" => [<$name:upper _REQUEST>],
             $monero_daemon_rpc_doc_link,
         )]
@@ -49,7 +55,10 @@ macro_rules! define_request_and_response {
         ///
         $( #[$response_attr] )*
         ///
-        #[doc = $crate::rpc::types::macros::__define_request_and_response_test!([<$name:upper _RESPONSE>])]
+        $(
+            const _: &str = stringify!($json);
+            #[doc = $crate::rpc::types::macros::json_test!([<$name:upper _RESPONSE>])]
+        )?
         pub const [<$name:upper _RESPONSE>]: $type = $response;
     }};
 }
@@ -57,10 +66,10 @@ pub(super) use define_request_and_response;
 
 //---------------------------------------------------------------------------------------------------- define_request_and_response_doc
 /// Generate documentation for the types generated
-/// by the [`__define_request_and_response`] macro.
+/// by the [`define_request_and_response`] macro.
 ///
 /// See it for more info on inputs.
-macro_rules! __define_request_and_response_doc {
+macro_rules! define_request_and_response_doc {
     (
         // This labels the last `[request]` or `[response]`
         // hyperlink in documentation. Input is either:
@@ -87,14 +96,14 @@ macro_rules! __define_request_and_response_doc {
         )
     };
 }
-pub(super) use __define_request_and_response_doc;
+pub(super) use define_request_and_response_doc;
 
-//---------------------------------------------------------------------------------------------------- __define_request_and_response_test
+//---------------------------------------------------------------------------------------------------- define_request_and_response_test
 /// Generate documentation for the types generated
-/// by the [`__define_request_and_response`] macro.
+/// by the [`define_request_and_response`] macro.
 ///
 /// See it for more info on inputs.
-macro_rules! __define_request_and_response_test {
+macro_rules! json_test {
     (
         $name:ident // TODO
     ) => {
@@ -114,4 +123,4 @@ macro_rules! __define_request_and_response_test {
         )
     };
 }
-pub(super) use __define_request_and_response_test;
+pub(super) use json_test;
