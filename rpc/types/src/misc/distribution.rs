@@ -259,14 +259,16 @@ impl EpeeObject for Distribution {
                 binary,
                 compress,
             } => {
-                const COMPRESS: bool = false;
+                // This is on purpose `lower_case` instead of
+                // `CONST_UPPER` due to `stringify!`.
+                let compress = false;
                 write_field! {
                     distribution,
                     start_height,
                     base,
                     amount,
                     binary,
-                    COMPRESS
+                    compress
                 }
             }
 
@@ -278,15 +280,15 @@ impl EpeeObject for Distribution {
                 binary,
                 compress,
             } => {
-                const BINARY: bool = true;
-                const COMPRESS: bool = true;
+                let binary = true;
+                let compress = true;
                 write_field! {
                     start_height,
                     base,
                     compressed_data,
                     amount,
-                    BINARY,
-                    COMPRESS
+                    binary,
+                    compress
                 }
             }
         }
