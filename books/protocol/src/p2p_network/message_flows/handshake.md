@@ -7,8 +7,8 @@ Handshakes are used to establish connections to peers.
 The default handshake flow is made up of the connecting peer sending a [handshake request](../levin/admin.md#handshake-request) and the
 receiving peer responding with a [handshake response](../levin/admin.md#handshake-response).
 
-It should be noted that not all other messages are banned during handshakes, for example support flag requests can be sent and even some protocol
-requests.
+It should be noted that not all other messages are banned during handshakes, for example, support flag requests and even some protocol
+requests can be sent.
 
 ### Handshake Request Checks
 

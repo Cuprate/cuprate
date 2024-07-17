@@ -22,8 +22,8 @@ Support flags specify any protocol extensions the peer supports, currently only 
 ### Core Sync Data [^c-s-d] { #core-sync-data }
 
 | Fields                        | Type                   | Description                                                   |
-| ----------------------------- | ---------------------- | ------------------------------------------------------------- |
-| `current_height`              | u64                    | The current chain height.                                     |
+|-------------------------------|------------------------|---------------------------------------------------------------|
+| `current_height`              | u64                    | The current chain height                                      |
 | `cumulative_difficulty`       | u64                    | The low 64 bits of the cumulative difficulty                  |
 | `cumulative_difficulty_top64` | u64                    | The high 64 bits of the cumulative difficulty                 |
 | `top_id`                      | [u8; 32] (epee string) | The hash of the top block                                     |
@@ -69,13 +69,13 @@ TODO:
 ### Peer List Entry Base [^pl-entry-base] { #peer-list-entry-base }
 
 | Fields                 | Type                                | Description                                                                                           |
-| ---------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------- |
+|------------------------|-------------------------------------|-------------------------------------------------------------------------------------------------------|
 | `adr`                  | [Network Address](#network-address) | The address of the peer                                                                               |
-| `id`                   | u64                                 | The random, self assigned, id of this node                                                            |
+| `id`                   | u64                                 | The random, self assigned, ID of this node                                                            |
 | `last_seen`            | i64                                 | A field marking when this peer was last seen, although this is zeroed before sending over the network |
-| `pruning_seed`         | u32                                 | This peers pruning seed, `0` if the peer does no pruning                                              |
-| `rpc_port`             | u16                                 | This nodes RPC port, `0` if this peer has no public RPC port.                                         |
-| `rpc_credits_per_hash` | u32                                   | States how much it costs to use this node in credits per hashes, `0` being free           |
+| `pruning_seed`         | u32                                 | This peer's pruning seed, `0` if the peer does no pruning                                             |
+| `rpc_port`             | u16                                 | This node's RPC port, `0` if this peer has no public RPC port.                                        |
+| `rpc_credits_per_hash` | u32                                 | States how much it costs to use this node in credits per hashes, `0` being free                       |
 
 ### Tx Blob Entry [^tb-entry] { #tx-blob-entry }
 
@@ -87,10 +87,10 @@ TODO:
 ### Block Complete Entry [^bc-entry] { #block-complete-entry }
 
 | Fields         | Type                | Description                                               |
-| -------------- | ------------------- | --------------------------------------------------------- |
-| `pruned`       | bool                | A bool for it the block is pruned                         |
+|----------------|---------------------|-----------------------------------------------------------|
+| `pruned`       | bool                | True if the block is pruned, false otherwise              |
 | `block`        | bytes (epee string) | The block blob                                            |
-| `block_weight` | u64                 | The blocks weight                                         |
+| `block_weight` | u64                 | The block's weight                                        |
 | `txs`          | depends on `pruned` | The transaction blobs, the exact type depends on `pruned` |
 
 If `pruned` is true:

@@ -1,6 +1,6 @@
 # New Block
 
-This is used whenever a new block is to be sent to peers. Only the fluffy block flow is described here, as the other method is depreciated.
+This is used whenever a new block is to be sent to peers. Only the fluffy block flow is described here, as the other method is deprecated.
 
 ## Flow
 
@@ -11,9 +11,9 @@ with the transactions requested.
 
 ```bob
                           
-     ,----------.          ,----------.  
-     |Initiator |          | Receiver |
-     `-----+----'          `-----+----'
+     ,-----------.         ,----------.  
+     | Initiator |         | Receiver |
+     `-----+-----'         `-----+----'
            |  New Fluffy Block   |
            |-------------------->|
            |                     |

@@ -1,6 +1,6 @@
 # Chain Sync
 
-Chain sync is the first step in syncing a peers blockchain, it allows a peers to find the split point in their chains and for the peer
+Chain sync is the first step in syncing a peer's blockchain, it allows a peers to find the split point in their chains and for the peer
 to learn about the missing block IDs.
 
 ## Flow
@@ -8,13 +8,13 @@ to learn about the missing block IDs.
 The first step is for the initiating peer is to get its compact chain history. The compact chain history must be in reverse chronological
 order, with the first block being the top block and the last the genesis, if the only block is the genesis then that only needs to be included
 once. The blocks in the middle are not enforced to be at certain locations, however `monerod` will use the top 11 blocks and will then go power
-of 2 offsets from then on, i.e 13, 17, 25 ... 
+of 2 offsets from then on, i.e. `{13, 17, 25, ...}` 
 
 Then, with the compact history, the initiating peer will send a [request chain](../levin/protocol.md#notify-request-chain) message, the receiving
 peer will then find the split point and return a [response chain entry](../levin/protocol.md#notify-response-chain-entry) message.
 
 The `response chain entry` will contain a list of block IDs with the first being a common ancestor and the rest being the next blocks that come after
-that block in the peers chain.
+that block in the peer's chain.
 
 ### Response Checks
 

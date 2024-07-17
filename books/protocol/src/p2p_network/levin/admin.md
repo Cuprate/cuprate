@@ -1,6 +1,7 @@
 # Admin Messages
 
-This chapter describes admin messages, and documents the current admin messages.
+This chapter describes admin messages, and documents the current admin messages. Admin messages are a subset of messages that handle connection
+creation, making sure connections are still alive, and sharing peer lists.
 
 ## Levin
 
@@ -15,18 +16,18 @@ ID: `1001`[^handshake-id]
 
 #### Request [^handshake-req] { #handshake-request }
 
-| Fields         | Type                                                 | Description                         |
-| -------------- | ---------------------------------------------------- | ----------------------------------- |
-| `node_data`    | [basic node data](./common_types.md#basic-node-data) | Static information about our node   |
-| `payload_data` | [core sync data](./common_types.md#core-sync-data)   | Information on the nodes sync state |
+| Fields         | Type                                                  | Description                          |
+|----------------|-------------------------------------------------------|--------------------------------------|
+| `node_data`    | [basic node data](../common_types.md#basic-node-data) | Static information about our node    |
+| `payload_data` | [core sync data](../common_types.md#core-sync-data)   | Information on the node's sync state |
 
 #### Response [^handshake-res] { #handshake-response }
 
-| Fields               | Type                                                                    | Description                            |
-| -------------------- | ----------------------------------------------------------------------- | -------------------------------------- |
-| `node_data`          | [basic node data](./common_types.md#basic-node-data)                    | Static information about our node      |
-| `payload_data`       | [core sync data](./common_types.md#core-sync-data)                      | Information on the nodes sync state    |
-| `local_peerlist_new` | A Vec of [peer list entry base](./common_types.md#peer-list-entry-base) | A list of peers in the nodes peer list |
+| Fields               | Type                                                                     | Description                             |
+|----------------------|--------------------------------------------------------------------------|-----------------------------------------|
+| `node_data`          | [basic node data](../common_types.md#basic-node-data)                    | Static information about our node       |
+| `payload_data`       | [core sync data](../common_types.md#core-sync-data)                      | Information on the node's sync state    |
+| `local_peerlist_new` | A Vec of [peer list entry base](../common_types.md#peer-list-entry-base) | A list of peers in the node's peer list |
 
 ### Timed Sync
 
@@ -34,16 +35,16 @@ ID: `1002`[^timed-sync-id]
 
 #### Request [^timed-sync-req] { #timed-sync-request }
 
-| Fields               | Type                                                                    | Description                            |
-| -------------------- | ----------------------------------------------------------------------- | -------------------------------------- |
-| `payload_data`       | [core sync data](./common_types.md#core-sync-data)                      | Information on the nodes sync state    |
+| Fields         | Type                                                | Description                          |
+| -------------- | --------------------------------------------------- | ------------------------------------ |
+| `payload_data` | [core sync data](../common_types.md#core-sync-data) | Information on the node's sync state |
 
 #### Response [^timed-sync-res] { #timed-sync-response }
 
-| Fields               | Type                                                                    | Description                            |
-| -------------------- | ----------------------------------------------------------------------- | -------------------------------------- |
-| `payload_data`       | [core sync data](./common_types.md#core-sync-data)                      | Information on the nodes sync state    |
-| `local_peerlist_new` | A Vec of [peer list entry base](./common_types.md#peer-list-entry-base) | A list of peers in the nodes peer list |
+| Fields               | Type                                                                     | Description                             |
+|----------------------|--------------------------------------------------------------------------|-----------------------------------------|
+| `payload_data`       | [core sync data](../common_types.md#core-sync-data)                      | Information on the node's sync state    |
+| `local_peerlist_new` | A Vec of [peer list entry base](../common_types.md#peer-list-entry-base) | A list of peers in the node's peer list |
 
 ### Ping
 
@@ -70,9 +71,9 @@ No data is serialized for a ping request.
 
 #### Response [^sf-res] { #support-flags-response }
 
-| Fields          | Type | Description                                                |
-| --------------- | ---- | ---------------------------------------------------------- |
-| `support_flags` | u32  | The peers [support flags](./common_types.md#support-flags) |
+| Fields          | Type | Description                                                  |
+| --------------- | ---- | ------------------------------------------------------------ |
+| `support_flags` | u32  | The peer's [support flags](../common_types.md#support-flags) |
 
 ---
 

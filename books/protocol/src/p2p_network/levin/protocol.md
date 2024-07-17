@@ -1,14 +1,14 @@
 # Protocol Messages
 
-This chapter describes protocol messages, and documents the current protocol messages.
+This chapter describes protocol messages, and documents the current protocol messages. Protocol messages are used to share protocol data
+like blocks and transactions.
 
 ## Levin
 
-All protocol messages are in the notification levin format. Although there are some messages that fall under requests/responses
-levin will treat them as notifications
+All protocol messages are in the notification levin format. Although there are some messages that fall under requests/responses, levin will treat them as notifications.
 
-
-This means requests will NOT set the [expect response bit](./levin.md#expect-response) and responses will set the return code to [`0`](./levin.md#return-code).
+All admin messages are in the request/response levin format. This means requests will set the [expect response bit](../levin.md#expect-response) and
+responses will set the return code to [`1`](../levin.md#return-code).
 
 ## Messages
 
@@ -35,10 +35,10 @@ ID: `2002`[^notify-new-transactions-id]
 
 ID: `2003`[^notify-request-get-objects-id]
 
-| Fields   | Type                                               | Description                                     |
-| -------- | -------------------------------------------------- | ----------------------------------------------- |
-| `blocks` | A vector of [u8; 32] serialized as a single string | The blocks IDs requested                        |
-| `prune`  | bool                                               | A bool for if we want the blocks in pruned form |
+| Fields   | Type                                               | Description                                                |
+|----------|----------------------------------------------------|------------------------------------------------------------|
+| `blocks` | A vector of [u8; 32] serialized as a single string | The block IDs requested                                    |
+| `prune`  | bool                                               | True if we want the blocks in pruned form, false otherwise |
 
 ### Notify Response Get Objects
 
@@ -55,22 +55,22 @@ ID: `2004`[^notify-response-get-objects-id]
 ID: `2006`[^notify-request-chain-id]
 
 | Fields      | Type                                               | Description                                                                                           |
-| ----------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `block_ids` | A vector of [u8; 32] serialized as a single string | A list of block ids in reverse chronological order, the top and genesis block will always be included |
-| `prune`     | bool                                               | For if we want the response to contain pruned blocks                                                  |
+|-------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------|
+| `block_ids` | A vector of [u8; 32] serialized as a single string | A list of block IDs in reverse chronological order, the top and genesis block will always be included |
+| `prune`     | bool                                               | True if we want the response to contain pruned blocks, false otherwise                                |
 
 ### Notify Response Chain Entry
 
 ID: `2007`[^notify-response-chain-entry-id]
 
 | Fields                        | Type                                               | Description                                    |
-| ----------------------------- | -------------------------------------------------- | ---------------------------------------------- |
+|-------------------------------|----------------------------------------------------|------------------------------------------------|
 | `start_height`                | u64                                                | The start height of the entry                  |
-| `total_height`                | u64                                                | The height of the peers blockchain             |
+| `total_height`                | u64                                                | The height of the peer's blockchain            |
 | `cumulative_difficulty`       | u64                                                | The low 64 bits of the cumulative difficulty   |
 | `cumulative_difficulty_top64` | u64                                                | The high 64 bits of the cumulative difficulty  |
-| `m_block_ids`                 | A vector of [u8; 32] serialized as a single string | The blocks IDs in this entry                   |
-| `m_block_weights`             | A vector of u64 serialized as a single string      | The blocks weights                             |
+| `m_block_ids`                 | A vector of [u8; 32] serialized as a single string | The block IDs in this entry                    |
+| `m_block_weights`             | A vector of u64 serialized as a single string      | The block weights                              |
 | `first_block`                 | bytes (epee string)                                | The header of the first block in `m_block_ids` |
 
 ### Notify New Fluffy Block
@@ -87,10 +87,10 @@ ID: `2008`[^notify-new-fluffy-block-id]
 ID: `2009`[^notify-request-fluffy-missing-tx-id]
 
 | Fields                      | Type                                          | Description                                |
-| --------------------------- | --------------------------------------------- | ------------------------------------------ |
+|-----------------------------|-----------------------------------------------|--------------------------------------------|
 | `block_hash`                | [u8; 32] serialized as a string               | The block hash txs are needed from         |
 | `current_blockchain_height` | u64                                           | The current chain height                   |
-| `missing_tx_indices`        | A vector of u64 serialized as a single string | The indexes of the needed txs in the block |
+| `missing_tx_indices`        | A vector of u64 serialized as a single string | The indices of the needed txs in the block |
 
 ### Notify Get Txpool Compliment
 
