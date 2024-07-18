@@ -25,11 +25,11 @@ macro_rules! define_request_and_response {
 
         // The request type (and any doc comments, derives, etc).
         $( #[$request_attr:meta] )*
-        Request = $request:literal;
+        Request = $request:expr;
 
         // The response type (and any doc comments, derives, etc).
         $( #[$response_attr:meta] )*
-        Response = $response:literal;
+        Response = $response:expr;
     ) => { paste::paste! {
         #[doc = $crate::rpc::data::macros::define_request_and_response_doc!(
             "response" => [<$name:upper _RESPONSE>],
@@ -108,7 +108,7 @@ macro_rules! json_test {
     ) => {
         concat!(
             "```rust\n",
-            "use cuprate_test_utils::rpc::data::{json::*, bin::*, other::*};\n",
+            "use cuprate_test_utils::rpc::data::json::*;\n",
             "use serde_json::{to_value, Value};\n",
             "\n",
             "let value = serde_json::from_str::<Value>(&",
@@ -143,7 +143,7 @@ macro_rules! json_test {
     ) => {
         concat!(
             "```rust\n",
-            "use cuprate_test_utils::rpc::data::{json::*, bin::*, other::*};\n",
+            "use cuprate_test_utils::rpc::data::other::*;\n",
             "use serde_json::{to_value, Value};\n",
             "\n",
             "let value = serde_json::from_str::<Value>(&",
