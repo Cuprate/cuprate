@@ -20,7 +20,7 @@ define_request_and_response! {
     // The base const name: the type of the request/response.
     GET_BLOCK_TEMPLATE: &str,
 
-    // The request literal.
+    // The request data.
     Request =
 r#"{
     "jsonrpc": "2.0",
@@ -32,7 +32,7 @@ r#"{
     }
 }"#;
 
-    // The response literal.
+    // The response data.
     Response =
 r#"{
   "id": "0",

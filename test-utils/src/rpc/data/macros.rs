@@ -17,7 +17,7 @@ macro_rules! define_request_and_response {
         // add a `serde_json` test for the request/response data.
         $monero_daemon_rpc_doc_link:ident $(($test:ident))?,
 
-        // The base `struct` name.
+        // The base name.
         // Attributes added here will apply to _both_
         // request and response types.
         $( #[$attr:meta] )*
@@ -41,7 +41,7 @@ macro_rules! define_request_and_response {
         $( #[$request_attr] )*
         ///
         $(
-            #[doc = $crate::rpc::data::macros::json_test!([<$name:upper _REQUEST>], $test)]
+            #[doc = $crate::rpc::data::macros::define_request_and_response_doc_test!([<$name:upper _REQUEST>], $test)]
         )?
         pub const [<$name:upper _REQUEST>]: $type = $request;
 
@@ -55,7 +55,7 @@ macro_rules! define_request_and_response {
         $( #[$response_attr] )*
         ///
         $(
-            #[doc = $crate::rpc::data::macros::json_test!([<$name:upper _RESPONSE>], $test)]
+            #[doc = $crate::rpc::data::macros::define_request_and_response_doc_test!([<$name:upper _RESPONSE>], $test)]
         )?
         pub const [<$name:upper _RESPONSE>]: $type = $response;
     }};
@@ -101,9 +101,11 @@ pub(super) use define_request_and_response_doc;
 /// by the [`define_request_and_response`] macro.
 ///
 /// See it for more info on inputs.
-macro_rules! json_test {
+macro_rules! define_request_and_response_doc_test {
+    // `/json_rpc` doc test.
     (
-        $name:ident, // TODO
+        // The ident of the `const` request/response.
+        $name:ident,
         json_rpc
     ) => {
         concat!(
@@ -137,6 +139,8 @@ macro_rules! json_test {
             "```\n",
         )
     };
+
+    // Other JSON endpoint doc test.
     (
         $name:ident,
         other
@@ -152,6 +156,8 @@ macro_rules! json_test {
             "```\n",
         )
     };
+
+    // No doc test.
     (
         $name:ident,
         $test:ident,
@@ -159,4 +165,4 @@ macro_rules! json_test {
         ""
     };
 }
-pub(super) use json_test;
+pub(super) use define_request_and_response_doc_test;
