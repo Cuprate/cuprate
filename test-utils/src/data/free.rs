@@ -292,7 +292,7 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
-    use crate::rpc::HttpRpcClient;
+    use crate::rpc::client::HttpRpcClient;
 
     /// Assert the defined blocks are the same compared to ones received from a local RPC call.
     #[ignore] // FIXME: doesn't work in CI, we need a real unrestricted node

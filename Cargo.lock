@@ -785,6 +785,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "monero-serai",
+ "paste",
  "pretty_assertions",
  "serde",
  "serde_json",
