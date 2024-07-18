@@ -1,5 +1,4 @@
 #![doc = include_str!("../README.md")]
-#![allow(clippy::module_inception)]
 
 pub mod data;
 pub mod monerod;
