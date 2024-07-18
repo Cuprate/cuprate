@@ -13,9 +13,9 @@ use crate::rpc::data::macros::define_request_and_response;
 define_request_and_response! {
     // The markdown tag for Monero RPC documentation. Not necessarily the endpoint (json).
     //
-    // Adding `(json)` after this will trigger the macro to automatically
+    // Adding `(json_rpc)` after this will trigger the macro to automatically
     // add a `serde_json` test for the request/response data.
-    get_block_template (json),
+    get_block_template (json_rpc),
 
     // The base const name: the type of the request/response.
     GET_BLOCK_TEMPLATE: &str,
@@ -57,7 +57,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_block_count (json),
+    get_block_count (json_rpc),
     GET_BLOCK_COUNT: &str,
     Request =
 r#"{
@@ -78,7 +78,7 @@ r#"{
 }
 
 define_request_and_response! {
-    on_get_block_hash (json),
+    on_get_block_hash (json_rpc),
     ON_GET_BLOCK_HASH: &str,
     Request =
 r#"{
@@ -96,7 +96,7 @@ r#"{
 }
 
 define_request_and_response! {
-    submit_block (json),
+    submit_block (json_rpc),
     SUBMIT_BLOCK: &str,
     Request =
 r#"{
@@ -117,7 +117,7 @@ r#"{
 }
 
 define_request_and_response! {
-    generateblocks (json),
+    generateblocks (json_rpc),
     GENERATE_BLOCKS: &str,
     Request =
 r#"{
@@ -144,7 +144,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_last_block_header (json),
+    get_last_block_header (json_rpc),
     GET_LAST_BLOCK_HEADER: &str,
     Request =
 r#"{
@@ -190,7 +190,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_block_header_by_hash (json),
+    get_block_header_by_hash (json_rpc),
     GET_BLOCK_HEADER_BY_HASH: &str,
     Request =
 r#"{
@@ -239,7 +239,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_block_header_by_height (json),
+    get_block_header_by_height (json_rpc),
     GET_BLOCK_HEADER_BY_HEIGHT: &str,
     Request =
 r#"{
@@ -288,7 +288,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_block_headers_range (json),
+    get_block_headers_range (json_rpc),
     GET_BLOCK_HEADERS_RANGE: &str,
     Request =
 r#"{
@@ -361,7 +361,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_block (json),
+    get_block (json_rpc),
     GET_BLOCK: &str,
     Request =
 r#"{
@@ -413,7 +413,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_block (json),
+    get_block (json_rpc),
     /// This is the same as [`GET_BLOCK_REQUEST`] and
     /// [`GET_BLOCK_RESPONSE`] but it uses the `hash` parameter.
     GET_BLOCK_HASH: &str,
@@ -468,7 +468,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_connections (json),
+    get_connections (json_rpc),
     GET_CONNECTIONS: &str,
     Request =
 r#"{
@@ -541,7 +541,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_info (json),
+    get_info (json_rpc),
     GET_INFO: &str,
     Request =
 r#"{
@@ -602,7 +602,7 @@ r#"{
 }
 
 define_request_and_response! {
-    hard_fork_info (json),
+    hard_fork_info (json_rpc),
     HARD_FORK_INFO: &str,
     Request =
 r#"{
@@ -632,7 +632,7 @@ r#"{
 }
 
 define_request_and_response! {
-    set_bans (json),
+    set_bans (json_rpc),
     SET_BANS: &str,
     Request =
 r#"{
@@ -659,7 +659,7 @@ r#"{
 }
 
 define_request_and_response! {
-    set_bans (json),
+    set_bans (json_rpc),
     /// This is the same as [`SET_BANS_REQUEST`] and
     /// [`SET_BANS_RESPONSE`] but it uses the `ip` parameter.
     SET_BANS_IP: &str,
@@ -688,7 +688,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_bans (json),
+    get_bans (json_rpc),
     GET_BANS: &str,
     Request =
 r#"{
@@ -717,7 +717,7 @@ r#"{
 }
 
 define_request_and_response! {
-    banned (json),
+    banned (json_rpc),
     BANNED: &str,
     Request =
 r#"{
@@ -741,7 +741,7 @@ r#"{
 }
 
 define_request_and_response! {
-    flush_txpool (json),
+    flush_txpool (json_rpc),
     FLUSH_TRANSACTION_POOL: &str,
     Request =
 r#"{
@@ -763,7 +763,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_output_histogram (json),
+    get_output_histogram (json_rpc),
     GET_OUTPUT_HISTOGRAM: &str,
     Request =
 r#"{
@@ -794,7 +794,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_coinbase_tx_sum (json),
+    get_coinbase_tx_sum (json_rpc),
     GET_COINBASE_TX_SUM: &str,
     Request =
 r#"{
@@ -826,7 +826,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_version (json),
+    get_version (json_rpc),
     GET_VERSION: &str,
     Request =
 r#"{
@@ -898,7 +898,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_fee_estimate (json),
+    get_fee_estimate (json_rpc),
     GET_FEE_ESTIMATE: &str,
     Request =
 r#"{
@@ -923,7 +923,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_alternate_chains (json),
+    get_alternate_chains (json_rpc),
     GET_ALTERNATE_CHAINS: &str,
     Request =
 r#"{
@@ -962,7 +962,7 @@ r#"{
 }
 
 define_request_and_response! {
-    relay_tx (json),
+    relay_tx (json_rpc),
     RELAY_TX: &str,
     Request =
 r#"{
@@ -984,7 +984,7 @@ r#"{
 }
 
 define_request_and_response! {
-    sync_info (json),
+    sync_info (json_rpc),
     SYNC_INFO: &str,
     Request =
 r#"{
@@ -1068,7 +1068,7 @@ r#"{
 
 // TODO: binary string.
 // define_request_and_response! {
-//     get_txpool_backlog (json),
+//     get_txpool_backlog (json_rpc),
 //     GET_TRANSACTION_POOL_BACKLOG: &str,
 //     Request =
 // r#"{
@@ -1089,7 +1089,7 @@ r#"{
 // }
 
 define_request_and_response! {
-    get_output_distribution (json),
+    get_output_distribution (json_rpc),
     GET_OUTPUT_DISTRIBUTION: &str,
     Request =
 r#"{
@@ -1118,7 +1118,7 @@ r#"{
 }
 
 define_request_and_response! {
-    get_miner_data (json),
+    get_miner_data (json_rpc),
     GET_MINER_DATA: &str,
     Request =
 r#"{
@@ -1154,7 +1154,7 @@ r#"{
 }
 
 define_request_and_response! {
-    prune_blockchain (json),
+    prune_blockchain (json_rpc),
     PRUNE_BLOCKCHAIN: &str,
     Request =
 r#"{
@@ -1179,7 +1179,7 @@ r#"{
 }
 
 define_request_and_response! {
-    calc_pow (json),
+    calc_pow (json_rpc),
     CALC_POW: &str,
     Request =
 r#"{
@@ -1202,7 +1202,7 @@ r#"{
 }
 
 define_request_and_response! {
-    flush_cache (json),
+    flush_cache (json_rpc),
     FLUSH_CACHE: &str,
     Request =
 r#"{
@@ -1226,7 +1226,7 @@ r#"{
 }
 
 define_request_and_response! {
-    add_aux_pow (json),
+    add_aux_pow (json_rpc),
     ADD_AUX_POW: &str,
     Request =
 r#"{

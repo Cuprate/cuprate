@@ -15,7 +15,7 @@ macro_rules! define_request_and_response {
         //
         // Adding `(json)` after this will trigger the macro to automatically
         // add a `serde_json` test for the request/response data.
-        $monero_daemon_rpc_doc_link:ident $(($json:ident))?,
+        $monero_daemon_rpc_doc_link:ident $(($test:ident))?,
 
         // The base `struct` name.
         // Attributes added here will apply to _both_
@@ -41,7 +41,7 @@ macro_rules! define_request_and_response {
         $( #[$request_attr] )*
         ///
         $(
-            #[doc = $crate::rpc::data::macros::json_test!([<$name:upper _REQUEST>], $json)]
+            #[doc = $crate::rpc::data::macros::json_test!([<$name:upper _REQUEST>], $test)]
         )?
         pub const [<$name:upper _REQUEST>]: $type = $request;
 
@@ -55,7 +55,7 @@ macro_rules! define_request_and_response {
         $( #[$response_attr] )*
         ///
         $(
-            #[doc = $crate::rpc::data::macros::json_test!([<$name:upper _RESPONSE>], $json)]
+            #[doc = $crate::rpc::data::macros::json_test!([<$name:upper _RESPONSE>], $test)]
         )?
         pub const [<$name:upper _RESPONSE>]: $type = $response;
     }};
@@ -104,7 +104,7 @@ pub(super) use define_request_and_response_doc;
 macro_rules! json_test {
     (
         $name:ident, // TODO
-        $json:ident
+        json_rpc
     ) => {
         concat!(
             "```rust\n",
@@ -136,6 +136,27 @@ macro_rules! json_test {
             "\n",
             "```\n",
         )
+    };
+    (
+        $name:ident,
+        other
+    ) => {
+        concat!(
+            "```rust\n",
+            "use cuprate_test_utils::rpc::data::{json::*, bin::*, other::*};\n",
+            "use serde_json::{to_value, Value};\n",
+            "\n",
+            "let value = serde_json::from_str::<Value>(&",
+            stringify!($name),
+            ");\n",
+            "```\n",
+        )
+    };
+    (
+        $name:ident,
+        $test:ident,
+    ) => {
+        ""
     };
 }
 pub(super) use json_test;
