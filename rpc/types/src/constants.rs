@@ -36,9 +36,6 @@ pub const CORE_RPC_STATUS_NOT_MINING: &str = "NOT MINING";
 #[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 81)]
 pub const CORE_RPC_STATUS_PAYMENT_REQUIRED: &str = "PAYMENT REQUIRED";
 
-/// Custom `CORE_RPC_STATUS` for usage in Cuprate.
-pub const CORE_RPC_STATUS_UNKNOWN: &str = "UNKNOWN";
-
 //---------------------------------------------------------------------------------------------------- Versions
 #[doc = monero_definition_link!(cc73fe71162d564ffda8e549b79a350bca53c454, "/rpc/core_rpc_server_commands_defs.h", 90)]
 /// RPC major version.

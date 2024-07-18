@@ -764,6 +764,7 @@ version = "0.0.0"
 dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-types",
  "monero-serai",
  "paste",
  "serde",
