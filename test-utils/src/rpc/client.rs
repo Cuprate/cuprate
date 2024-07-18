@@ -12,7 +12,9 @@ use monero_serai::{
 
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
-use crate::rpc::client::constants::LOCALHOST_RPC_URL;
+//---------------------------------------------------------------------------------------------------- Constants
+/// The default URL used for Monero RPC connections.
+pub const LOCALHOST_RPC_URL: &str = "http://127.0.0.1:18081";
 
 //---------------------------------------------------------------------------------------------------- HttpRpcClient
 /// An HTTP RPC client for Monero.
