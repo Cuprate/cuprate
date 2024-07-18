@@ -1,28 +1,33 @@
-use crate::block::PreparedBlock;
-use crate::context::difficulty::DifficultyCache;
-use crate::context::rx_vms::RandomXVM;
-use crate::context::weight::BlockWeightsCache;
-use crate::context::{weight, AltChainContextCache, AltChainRequestToken};
-use crate::transactions::TransactionVerificationData;
-use crate::{
-    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
-    VerifyBlockResponse, VerifyTxRequest,
+use std::{collections::HashMap, sync::Arc};
+
+use cuprate_consensus_rules::{
+    blocks::{check_block_pow, check_block_weight, randomx_seed_height, BlockError},
+    miner_tx::MinerTxError,
+    ConsensusError,
 };
-use cuprate_consensus_rules::blocks::{
-    check_block, check_block_pow, check_block_weight, randomx_seed_height, BlockError,
-};
-use cuprate_consensus_rules::miner_tx::MinerTxError;
-use cuprate_consensus_rules::ConsensusError;
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{
-    AltBlockInformation, Chain, ChainID, VerifiedBlockInformation, VerifiedTransactionInformation,
-};
-use monero_serai::block::Block;
-use monero_serai::transaction::Input;
-use std::collections::HashMap;
-use std::sync::Arc;
+use cuprate_types::{AltBlockInformation, Chain, ChainID, VerifiedTransactionInformation};
+use monero_serai::{block::Block, transaction::Input};
 use tower::{Service, ServiceExt};
 
+use crate::{
+    block::PreparedBlock,
+    context::{
+        difficulty::DifficultyCache,
+        rx_vms::RandomXVM,
+        weight::{self, BlockWeightsCache},
+        AltChainContextCache, AltChainRequestToken,
+    },
+    transactions::TransactionVerificationData,
+    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+    VerifyBlockResponse,
+};
+
+/// This function sanity checks an alt-block.
+///
+/// Returns [`AltBlockInformation`], which contains the cumulative difficulty of the alt chain.
+///
+/// This does not fully check the alt block, it checks the blocks PoW and its weight.
 pub async fn sanity_check_alt_block<C>(
     block: Block,
     mut txs: HashMap<[u8; 32], TransactionVerificationData>,
@@ -37,6 +42,7 @@ where
         + 'static,
     C::Future: Send + 'static,
 {
+    // Fetch the alt-chains context cache.
     let BlockChainContextResponse::AltChainContextCache(mut alt_context_cache) = context_svc
         .ready()
         .await?
@@ -49,6 +55,7 @@ where
         panic!("Context service returned wrong response!");
     };
 
+    // Check the blocks miner input if formed correctly.
     let [Input::Gen(height)] = &block.miner_tx.prefix.inputs[..] else {
         Err(ConsensusError::Block(BlockError::MinerTxError(
             MinerTxError::InputNotOfTypeGen,
@@ -61,6 +68,7 @@ where
         )))?
     }
 
+    // prep the alt block.
     let prepped_block = {
         let rx_vm = alt_rx_vm(
             alt_context_cache.chain_height,
@@ -74,6 +82,7 @@ where
         rayon_spawn_async(move || PreparedBlock::new(block, rx_vm.as_deref())).await?
     };
 
+    // get the difficulty cache for this alt chain.
     let difficulty_cache = alt_difficulty_cache(
         prepped_block.block.header.previous,
         &mut alt_context_cache,
@@ -82,7 +91,7 @@ where
     .await?;
 
     let next_difficulty = difficulty_cache.next_difficulty(&prepped_block.hf_version);
-
+    // make sure the block's PoW is valid for this difficulty.
     check_block_pow(&prepped_block.pow_hash, next_difficulty).map_err(ConsensusError::Block)?;
 
     let cumulative_difficulty = difficulty_cache.cumulative_difficulty() + next_difficulty;
@@ -93,8 +102,6 @@ where
 
     // Check that the txs included are what we need and that there are not any extra.
     let mut ordered_txs = Vec::with_capacity(txs.len());
-
-    tracing::debug!("Ordering transactions for block.");
 
     if !prepped_block.block.txs.is_empty() {
         for tx_hash in &prepped_block.block.txs {
@@ -116,6 +123,7 @@ where
     )
     .await?;
 
+    // Check the block weight is below the limit.
     check_block_weight(
         block_weight,
         alt_weight_cache.median_for_block_reward(&prepped_block.hf_version),
@@ -128,6 +136,7 @@ where
         alt_weight_cache.median_long_term_weight(),
     );
 
+    // Get the chainID or generate a new one if this is the first alt block in this alt chain.
     let chain_id = *alt_context_cache
         .chain_id
         .get_or_insert_with(|| ChainID(rand::random()));
@@ -153,6 +162,14 @@ where
         cumulative_difficulty,
         chain_id,
     };
+
+    alt_context_cache.add_new_block(
+        block_info.height,
+        block_info.block_hash,
+        block_info.weight,
+        block_info.long_term_weight,
+        block_info.block.header.timestamp,
+    );
 
     context_svc
         .oneshot(BlockChainContextRequest::AddAltChainContextCache {

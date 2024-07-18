@@ -34,7 +34,27 @@ pub struct AltChainContextCache {
     pub parent_chain: Chain,
 }
 
-impl AltChainContextCache {}
+impl AltChainContextCache {
+    pub fn add_new_block(
+        &mut self,
+        height: u64,
+        block_hash: [u8; 32],
+        block_weight: usize,
+        long_term_block_weight: usize,
+        timestamp: u64,
+    ) {
+        if let Some(difficulty_cache) = &mut self.difficulty_cache {
+            difficulty_cache.new_block(height, timestamp, difficulty_cache.cumulative_difficulty());
+        }
+
+        if let Some(weight_cache) = &mut self.weight_cache {
+            weight_cache.new_block(height, block_weight, long_term_block_weight);
+        }
+
+        self.chain_height += 1;
+        self.top_hash = block_hash;
+    }
+}
 
 pub struct AltChainMap {
     alt_cache_map: HashMap<[u8; 32], AltChainContextCache>,
@@ -45,6 +65,10 @@ impl AltChainMap {
         AltChainMap {
             alt_cache_map: HashMap::new(),
         }
+    }
+
+    pub fn add_alt_cache(&mut self, prev_id: [u8; 32], alt_cache: AltChainContextCache) {
+        self.alt_cache_map.insert(prev_id, alt_cache);
     }
 
     pub async fn get_alt_chain_context<D: Database>(
