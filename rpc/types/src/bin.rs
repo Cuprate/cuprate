@@ -146,6 +146,7 @@ define_request! {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GetBlocksResponse {
+    /// Will always serialize a [`PoolInfoExtent::None`] field.
     PoolInfoNone {
         status: Status,
         untrusted: bool,
@@ -154,9 +155,8 @@ pub enum GetBlocksResponse {
         current_height: u64,
         output_indices: Vec<BlockOutputIndices>,
         daemon_time: u64,
-        /// Will always serialize as [`PoolInfoExtent::None`].
-        pool_info_extent: PoolInfoExtent,
     },
+    /// Will always serialize a [`PoolInfoExtent::Incremental`] field.
     PoolInfoIncremental {
         status: Status,
         untrusted: bool,
@@ -165,12 +165,11 @@ pub enum GetBlocksResponse {
         current_height: u64,
         output_indices: Vec<BlockOutputIndices>,
         daemon_time: u64,
-        /// Will always serialize as [`PoolInfoExtent::Incremental`].
-        pool_info_extent: PoolInfoExtent,
         added_pool_txs: Vec<PoolTxInfo>,
         remaining_added_pool_txids: ByteArrayVec<32>,
         removed_pool_txids: ByteArrayVec<32>,
     },
+    /// Will always serialize a [`PoolInfoExtent::Full`] field.
     PoolInfoFull {
         status: Status,
         untrusted: bool,
@@ -179,8 +178,6 @@ pub enum GetBlocksResponse {
         current_height: u64,
         output_indices: Vec<BlockOutputIndices>,
         daemon_time: u64,
-        /// Will always serialize as [`PoolInfoExtent::Full`].
-        pool_info_extent: PoolInfoExtent,
         added_pool_txs: Vec<PoolTxInfo>,
         remaining_added_pool_txids: ByteArrayVec<32>,
     },
@@ -196,7 +193,6 @@ impl Default for GetBlocksResponse {
             current_height: u64::default(),
             output_indices: Vec::<BlockOutputIndices>::default(),
             daemon_time: u64::default(),
-            pool_info_extent: PoolInfoExtent::default(),
         }
     }
 }
@@ -274,7 +270,6 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
             },
             PoolInfoExtent::Incremental => GetBlocksResponse::PoolInfoIncremental {
                 status,
@@ -284,7 +279,6 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
                 added_pool_txs: self.added_pool_txs.ok_or(ELSE)?,
                 remaining_added_pool_txids: self.remaining_added_pool_txids.ok_or(ELSE)?,
                 removed_pool_txids: self.removed_pool_txids.ok_or(ELSE)?,
@@ -297,7 +291,6 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
                 added_pool_txs: self.added_pool_txs.ok_or(ELSE)?,
                 remaining_added_pool_txids: self.remaining_added_pool_txids.ok_or(ELSE)?,
             },
@@ -334,7 +327,6 @@ impl EpeeObject for GetBlocksResponse {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
             } => {
                 const POOL_INFO_EXTENT: u8 = PoolInfoExtent::None.to_u8();
                 add_field! {
@@ -357,7 +349,6 @@ impl EpeeObject for GetBlocksResponse {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
                 added_pool_txs,
                 remaining_added_pool_txids,
                 removed_pool_txids,
@@ -385,7 +376,6 @@ impl EpeeObject for GetBlocksResponse {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
                 added_pool_txs,
                 remaining_added_pool_txids,
             } => {
@@ -428,7 +418,6 @@ impl EpeeObject for GetBlocksResponse {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
             } => {
                 // This is on purpose `lower_case` instead of
                 // `CONST_UPPER` due to `stringify!`.
@@ -453,7 +442,6 @@ impl EpeeObject for GetBlocksResponse {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
                 added_pool_txs,
                 remaining_added_pool_txids,
                 removed_pool_txids,
@@ -481,7 +469,6 @@ impl EpeeObject for GetBlocksResponse {
                 current_height,
                 output_indices,
                 daemon_time,
-                pool_info_extent,
                 added_pool_txs,
                 remaining_added_pool_txids,
             } => {

@@ -4,16 +4,14 @@
 use std::mem::size_of;
 
 #[cfg(feature = "serde")]
-use crate::serde::{serde_false, serde_true};
-use cuprate_epee_encoding::read_varint;
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
     epee_object, error,
     macros::bytes::{Buf, BufMut},
-    read_epee_value, write_field, write_varint, EpeeObject, EpeeObjectBuilder, EpeeValue, Marker,
+    read_epee_value, read_varint, write_field, write_varint, EpeeObject, EpeeObjectBuilder,
+    EpeeValue, Marker,
 };
 
 use super::OutputDistributionData;
@@ -53,7 +51,20 @@ fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
 )]
 /// Used in [`crate::json::GetOutputDistributionResponse`].
 ///
-/// This enum's variant depends upon the `binary` and `compress` fields.
+/// # Internals
+/// This type's (de)serialization depends on `monerod`'s (de)serialization.
+///
+/// During serialization:
+/// [`Self::Uncompressed`] will emit:
+/// - `compress: false`
+///
+/// [`Self::CompressedBinary`] will emit:
+/// - `binary: true`
+/// - `compress: true`
+///
+/// Upon deserialization, the presence of a `compressed_data`
+/// field signifies that the [`Self::CompressedBinary`] should
+/// be selected.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
@@ -69,9 +80,6 @@ pub enum Distribution {
         distribution: Vec<u64>,
         amount: u64,
         binary: bool,
-        #[cfg_attr(feature = "serde", serde(serialize_with = "serde_false"))]
-        /// Will always be serialized as `false`.
-        compress: bool,
     },
     /// Distribution data will be (de)serialized as compressed binary.
     CompressedBinary {
@@ -79,12 +87,6 @@ pub enum Distribution {
         base: u64,
         compressed_data: String,
         amount: u64,
-        #[cfg_attr(feature = "serde", serde(serialize_with = "serde_true"))]
-        /// Will always be serialized as `true`.
-        binary: bool,
-        #[cfg_attr(feature = "serde", serde(serialize_with = "serde_true"))]
-        /// Will always be serialized as `true`.
-        compress: bool,
     },
 }
 
@@ -96,7 +98,6 @@ impl Default for Distribution {
             distribution: Vec::<u64>::default(),
             amount: u64::default(),
             binary: false,
-            compress: false,
         }
     }
 }
@@ -133,12 +134,13 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
             };
         }
 
+        self.compressed_data = read_epee_value(r).ok().unwrap_or_default();
+        self.distribution = read_epee_value(r).ok().unwrap_or_default();
+
         read_epee_field! {
             start_height,
             base,
-            distribution,
             amount,
-            compressed_data,
             binary,
             compress
         }
@@ -152,27 +154,24 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
         let start_height = self.start_height.ok_or(ELSE)?;
         let base = self.base.ok_or(ELSE)?;
         let amount = self.amount.ok_or(ELSE)?;
-        let binary = self.binary.ok_or(ELSE)?;
-        let compress = self.compress.ok_or(ELSE)?;
 
-        let distribution = if binary && compress {
+        let distribution = if let Some(compressed_data) = self.compressed_data {
             Distribution::CompressedBinary {
-                compressed_data: self.compressed_data.ok_or(ELSE)?,
+                compressed_data,
                 start_height,
                 base,
                 amount,
-                binary,
-                compress,
+            }
+        } else if let Some(distribution) = self.distribution {
+            Distribution::Uncompressed {
+                binary: self.binary.ok_or(ELSE)?,
+                distribution,
+                start_height,
+                base,
+                amount,
             }
         } else {
-            Distribution::Uncompressed {
-                distribution: self.distribution.ok_or(ELSE)?,
-                start_height,
-                base,
-                amount,
-                binary,
-                compress,
-            }
+            return Err(ELSE);
         };
 
         Ok(distribution)
@@ -203,7 +202,6 @@ impl EpeeObject for Distribution {
                 base,
                 amount,
                 binary,
-                compress,
             } => {
                 const COMPRESS: bool = false;
                 add_field! {
@@ -220,8 +218,6 @@ impl EpeeObject for Distribution {
                 base,
                 compressed_data,
                 amount,
-                binary,
-                compress,
             } => {
                 const BINARY: bool = true;
                 const COMPRESS: bool = true;
@@ -257,7 +253,6 @@ impl EpeeObject for Distribution {
                 base,
                 amount,
                 binary,
-                compress,
             } => {
                 // This is on purpose `lower_case` instead of
                 // `CONST_UPPER` due to `stringify!`.
@@ -277,8 +272,6 @@ impl EpeeObject for Distribution {
                 base,
                 compressed_data,
                 amount,
-                binary,
-                compress,
             } => {
                 let binary = true;
                 let compress = true;
