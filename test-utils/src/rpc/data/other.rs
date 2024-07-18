@@ -794,16 +794,6 @@ r#"{
 }"#;
 }
 
-// TODO: what are the inputs?
-// define_request_and_response! {
-//     UNDOCUMENTED_ENDPOINT (other),
-//     GET_TX_IDS_LOOSE: &str,
-//     Request =
-// r#""#;
-//     Response =
-// r#""#;
-// }
-
 define_request_and_response! {
     UNDOCUMENTED_ENDPOINT (other),
     GET_TRANSACTION_POOL_HASHES: &str,

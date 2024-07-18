@@ -1257,8 +1257,32 @@ r#"{
     "status": "OK",
     "untrusted": false
   }
+}"#;
 }
-"#;
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD (json_rpc),
+    GET_TX_IDS_LOOSE: &str,
+    Request =
+r#"{
+  "jsonrpc": "2.0",
+  "id": "0",
+  "method": "get_txids_loose",
+  "params": {
+    "txid_template": "0000000000000000aea473c43708aa50b2c9eaf0e441aa209afc9b43458fb09e",
+    "num_matching_bits": 192
+  }
+}"#;
+    Response =
+r#"{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "txids": "",
+    "status": "OK",
+    "untrusted": false
+  }
+}"#;
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
