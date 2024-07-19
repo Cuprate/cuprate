@@ -23,4 +23,7 @@ paste        = { workspace = true }
 serde        = { workspace = true, optional = true }
 
 [dev-dependencies]
+cuprate-test-utils = { path = "../../test-utils" }
+cuprate-json-rpc   = { path = "../json-rpc" }
+
 serde_json = { workspace = true }

@@ -57,6 +57,24 @@ pub struct ResponseBase {
     pub untrusted: bool,
 }
 
+impl ResponseBase {
+    /// TODO
+    pub const fn ok() -> Self {
+        Self {
+            status: Status::Ok,
+            untrusted: false,
+        }
+    }
+
+    /// TODO
+    pub const fn ok_untrusted() -> Self {
+        Self {
+            status: Status::Ok,
+            untrusted: true,
+        }
+    }
+}
+
 #[cfg(feature = "epee")]
 epee_object! {
     ResponseBase,
@@ -78,6 +96,26 @@ pub struct AccessResponseBase {
     /// If payment for RPC is enabled, the hash of the
     /// highest block in the chain. Otherwise, empty.
     pub top_hash: String,
+}
+
+impl AccessResponseBase {
+    /// TODO
+    pub const fn ok() -> Self {
+        Self {
+            response_base: ResponseBase::ok(),
+            credits: 0,
+            top_hash: String::new(),
+        }
+    }
+
+    /// TODO
+    pub const fn ok_untrusted() -> Self {
+        Self {
+            response_base: ResponseBase::ok_untrusted(),
+            credits: 0,
+            top_hash: String::new(),
+        }
+    }
 }
 
 #[cfg(feature = "epee")]
