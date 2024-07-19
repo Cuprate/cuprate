@@ -371,3 +371,50 @@ macro_rules! monero_definition_link {
     };
 }
 pub(crate) use monero_definition_link;
+
+//---------------------------------------------------------------------------------------------------- Macro
+macro_rules! json_rpc_doc_test {
+    (
+        $cuprate_test_utils_rpc_const:ident => $expected:expr
+    ) => {
+        paste::paste! {
+            concat!(
+                "```rust\n",
+                "use cuprate_test_utils::rpc::data::json::*;\n",
+                "use cuprate_rpc_types::{misc::*, base::*, json::*};\n",
+                "use serde_json::{Value, from_str, from_value};\n",
+                "\n",
+                "// The expected data.\n",
+                "let expected = ",
+                stringify!($expected),
+                ";\n",
+                "\n",
+                "// Assert it can be turned into a JSON value.\n",
+                "let value = from_str::<Value>(",
+                stringify!($cuprate_test_utils_rpc_const),
+                ").unwrap();\n",
+                "let Value::Object(map) = value else {\n",
+                "    panic!();\n",
+                "};\n",
+                "\n",
+                "// If a request...\n",
+                "if let Some(params) = map.get(\"params\") {\n",
+                "    let response = from_value::<",
+                stringify!([<$cuprate_test_utils_rpc_const:camel>]),
+                ">(params.clone()).unwrap();\n",
+                "    assert_eq!(response, expected);\n",
+                "    return;\n",
+                "}\n",
+                "\n",
+                "// Else, if a response...\n",
+                "let result = map.get(\"result\").unwrap().clone();\n",
+                "let response = from_value::<",
+                stringify!([<$cuprate_test_utils_rpc_const:camel>]),
+                ">(result.clone()).unwrap();\n",
+                "assert_eq!(response, expected);\n",
+                "```\n",
+            )
+        }
+    };
+}
+pub(crate) use json_rpc_doc_test;
