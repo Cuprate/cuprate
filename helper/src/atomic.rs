@@ -6,7 +6,7 @@
 use crossbeam::atomic::AtomicCell;
 
 #[allow(unused_imports)] // docs
-use std::sync::atomic::{Ordering, Ordering::Acquire, Ordering::Release};
+use core::sync::atomic::{Ordering, Ordering::Acquire, Ordering::Release};
 
 //---------------------------------------------------------------------------------------------------- Atomic Float
 /// Compile-time assertion that our floats are

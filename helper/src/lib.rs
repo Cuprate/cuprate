@@ -43,7 +43,7 @@ pub mod atomic;
 #[cfg(feature = "constants")]
 pub mod constants;
 
-#[cfg(feature = "fs")]
+#[cfg(all(feature = "fs", feature = "std"))]
 pub mod fs;
 
 pub mod network;
