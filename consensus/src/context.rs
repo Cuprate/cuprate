@@ -41,7 +41,7 @@ use rx_vms::RandomXVM;
 pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
-const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
+pub(crate) const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
 
 /// Config for the context service.
 pub struct ContextConfig {

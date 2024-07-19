@@ -1,15 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use cuprate_consensus_rules::{
-    blocks::{check_block_pow, check_block_weight, randomx_seed_height, BlockError},
-    miner_tx::MinerTxError,
-    ConsensusError,
-};
-use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{AltBlockInformation, Chain, ChainID, VerifiedTransactionInformation};
-use monero_serai::{block::Block, transaction::Input};
-use tower::{Service, ServiceExt};
-
+use crate::context::BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
 use crate::{
     block::PreparedBlock,
     context::{
@@ -22,12 +13,22 @@ use crate::{
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     VerifyBlockResponse,
 };
+use cuprate_consensus_rules::blocks::check_timestamp;
+use cuprate_consensus_rules::{
+    blocks::{check_block_pow, check_block_weight, randomx_seed_height, BlockError},
+    miner_tx::MinerTxError,
+    ConsensusError,
+};
+use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_types::{AltBlockInformation, Chain, ChainID, VerifiedTransactionInformation};
+use monero_serai::{block::Block, transaction::Input};
+use tower::{Service, ServiceExt};
 
 /// This function sanity checks an alt-block.
 ///
 /// Returns [`AltBlockInformation`], which contains the cumulative difficulty of the alt chain.
 ///
-/// This does not fully check the alt block, it checks the blocks PoW and its weight.
+/// This function only checks the blocks PoW and its weight.
 pub async fn sanity_check_alt_block<C>(
     block: Block,
     mut txs: HashMap<[u8; 32], TransactionVerificationData>,
@@ -89,6 +90,13 @@ where
         &mut context_svc,
     )
     .await?;
+
+    // Check the alt block timestamp is in the correct range.
+    if let Some(median_timestamp) =
+        difficulty_cache.median_timestamp(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW.try_into().unwrap())
+    {
+        check_timestamp(&prepped_block.block, median_timestamp).map_err(ConsensusError::Block)?
+    };
 
     let next_difficulty = difficulty_cache.next_difficulty(&prepped_block.hf_version);
     // make sure the block's PoW is valid for this difficulty.

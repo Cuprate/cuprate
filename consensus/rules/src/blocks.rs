@@ -184,7 +184,7 @@ fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
 /// Checks the blocks timestamp is in the valid range.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#timestamp>
-fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockError> {
+pub fn check_timestamp(block: &Block, median_timestamp: u64) -> Result<(), BlockError> {
     if block.header.timestamp < median_timestamp
         || block.header.timestamp > current_unix_timestamp() + BLOCK_FUTURE_TIME_LIMIT
     {
