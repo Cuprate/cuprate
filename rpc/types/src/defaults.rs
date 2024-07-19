@@ -53,6 +53,12 @@ pub(crate) fn default_zero<T: From<u8>>() -> T {
     T::from(0)
 }
 
+/// Default `1` value used in request/response types.
+#[inline]
+pub(crate) fn default_one<T: From<u8>>() -> T {
+    T::from(1)
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

@@ -4,6 +4,8 @@
 use std::mem::size_of;
 
 #[cfg(feature = "serde")]
+use crate::defaults::default_true;
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
@@ -65,6 +67,60 @@ fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
 /// Upon deserialization, the presence of a `compressed_data`
 /// field signifies that the [`Self::CompressedBinary`] should
 /// be selected.
+///
+/// # JSON Example
+/// ```rust
+/// use cuprate_rpc_types::misc::Distribution;
+/// use serde_json::*;
+///
+/// // Uncompressed.
+/// let json = json!({
+///     "amount": 2628780000_u64,
+///     "base": 0_u64,
+///     "distribution": "asdf",
+///     "start_height": 1462078_u64
+/// });
+/// let d = from_value::<Distribution>(json).unwrap();
+/// match d {
+///     Distribution::Uncompressed {
+///         start_height,
+///         base,
+///         distribution,
+///         amount,
+///         binary,
+///     } => {
+///         assert_eq!(start_height, 1462078);
+///         assert_eq!(base, 0);
+///         assert_eq!(distribution, "asdf");
+///         assert_eq!(amount, 2628780000);
+///         assert_eq!(binary, true);
+///     },
+///     Distribution::CompressedBinary { .. } => unreachable!(),
+/// }
+///
+/// // Compressed binary.
+/// let json = json!({
+///     "amount": 2628780000_u64,
+///     "base": 0_u64,
+///     "compressed_data": "asdf",
+///     "start_height": 1462078_u64
+/// });
+/// let d = from_value::<Distribution>(json).unwrap();
+/// match d {
+///     Distribution::CompressedBinary {
+///         start_height,
+///         base,
+///         compressed_data,
+///         amount,
+///     } => {
+///         assert_eq!(start_height, 1462078);
+///         assert_eq!(base, 0);
+///         assert_eq!(compressed_data, "asdf");
+///         assert_eq!(amount, 2628780000);
+///     },
+///     Distribution::Uncompressed { .. } => unreachable!(),
+/// }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
@@ -77,8 +133,9 @@ pub enum Distribution {
         ///
         /// Considering both the `binary` field and `/get_output_distribution.bin`
         /// endpoint are undocumented in the first place, Cuprate could just drop support for this.
-        distribution: Vec<u64>,
+        distribution: String,
         amount: u64,
+        #[cfg_attr(feature = "serde", serde(default = "default_true"))]
         binary: bool,
     },
     /// Distribution data will be (de)serialized as compressed binary.
@@ -95,7 +152,7 @@ impl Default for Distribution {
         Self::Uncompressed {
             start_height: u64::default(),
             base: u64::default(),
-            distribution: Vec::<u64>::default(),
+            distribution: String::default(),
             amount: u64::default(),
             binary: false,
         }
@@ -113,7 +170,7 @@ impl Default for Distribution {
 pub struct __DistributionEpeeBuilder {
     pub start_height: Option<u64>,
     pub base: Option<u64>,
-    pub distribution: Option<Vec<u64>>,
+    pub distribution: Option<String>,
     pub amount: Option<u64>,
     pub compressed_data: Option<String>,
     pub binary: Option<bool>,
