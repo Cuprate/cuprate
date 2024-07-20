@@ -238,19 +238,43 @@ pub enum BlockChainContextRequest {
     NewRXVM(([u8; 32], Arc<RandomXVM>)),
     /// A request to add a new block to the cache.
     Update(NewBlockData),
-
+    //----------------------------------------------------------------------------------------------------------- AltChainRequests
+    /// A request for an [`AltChainContextCache`].
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the alt cache.
     AltChainContextCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
         prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
+    /// A request for a [`DifficultyCache`] of an alternative chin.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the difficulty cache of an alt chain.
     AltChainDifficultyCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
         prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
+    /// A request for a [`BlockWeightsCache`] of an alternative chin.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the weight cache of an alt chain.
     AltChainWeightCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
         prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
+    /// A request for a [`RandomXVM`] for an alternative chin.
+    ///
+    /// Response variant: [`BlockChainContextResponse::AltChainRxVM`].
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the randomX VM of an alt chain.
     AltChainRxVM {
         height: u64,
         chain: Chain,

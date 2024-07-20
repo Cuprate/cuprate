@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use tower::{Service, ServiceExt};
 
@@ -9,32 +8,44 @@ use cuprate_types::{
     Chain, ChainID,
 };
 
-use crate::context::rx_vms::RandomXVM;
 use crate::{
     ExtendedConsensusError,
     __private::Database,
-    context::{difficulty::DifficultyCache, weight::BlockWeightsCache},
+    context::{difficulty::DifficultyCache, rx_vms::RandomXVM, weight::BlockWeightsCache},
 };
 
 pub(crate) mod sealed {
+    /// A token that should be hard to create from outside this crate.
+    ///
+    /// It is currently possible to safely create this from outside this crate, **DO NOT** rely on this
+    /// as it will be broken once we find a way to completely seal this.
     #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
     pub struct AltChainRequestToken;
 }
 
+/// The context cache of an alternative chain.
 #[derive(Debug, Clone)]
 pub struct AltChainContextCache {
+    /// The alt chain weight cache, if it has been built yet.
     pub weight_cache: Option<BlockWeightsCache>,
+    /// The alt chain difficulty cache, if it has been built yet.
     pub difficulty_cache: Option<DifficultyCache>,
 
+    /// A cached RX VM.
     pub cached_rx_vm: Option<(u64, Arc<RandomXVM>)>,
 
+    /// The chain height of the alt chain.
     pub chain_height: u64,
+    /// The top hash of the alt chain.
     pub top_hash: [u8; 32],
+    /// The [`ChainID`] of the alt chain.
     pub chain_id: Option<ChainID>,
+    /// The parent [`Chain`] of this alt chain.
     pub parent_chain: Chain,
 }
 
 impl AltChainContextCache {
+    /// Add a new block to the cache.
     pub fn add_new_block(
         &mut self,
         height: u64,
@@ -56,6 +67,7 @@ impl AltChainContextCache {
     }
 }
 
+/// A map of top IDs to alt chains.
 pub struct AltChainMap {
     alt_cache_map: HashMap<[u8; 32], AltChainContextCache>,
 }
@@ -67,10 +79,13 @@ impl AltChainMap {
         }
     }
 
+    /// Add an alt chain cache to the map.
     pub fn add_alt_cache(&mut self, prev_id: [u8; 32], alt_cache: AltChainContextCache) {
         self.alt_cache_map.insert(prev_id, alt_cache);
     }
 
+    /// Attempts to take an [`AltChainContextCache`] from the map, returning [`None`] if no cache is
+    /// present.
     pub async fn get_alt_chain_context<D: Database>(
         &mut self,
         prev_id: [u8; 32],
@@ -104,6 +119,7 @@ impl AltChainMap {
     }
 }
 
+/// Builds a [`DifficultyCache`] for an alt chain.
 pub async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
     prev_id: [u8; 32],
     main_chain_difficulty_cache: &DifficultyCache,
@@ -152,6 +168,7 @@ pub async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
     })
 }
 
+/// Builds a [`BlockWeightsCache`] for an alt chain.
 pub async fn get_alt_chain_weight_cache<D: Database + Clone>(
     prev_id: [u8; 32],
     main_chain_weight_cache: &BlockWeightsCache,

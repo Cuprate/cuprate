@@ -91,12 +91,18 @@ pub struct VerifiedBlockInformation {
     pub cumulative_difficulty: u128,
 }
 //---------------------------------------------------------------------------------------------------- ChainID
+/// A unique ID for an alt chain.
+///
+/// The inner value is meaningless.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct ChainID(pub u64);
 //---------------------------------------------------------------------------------------------------- Chain
+/// An identifier for a chain.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum Chain {
+    /// The main chain.
     Main,
+    /// An alt chain.
     Alt(ChainID),
 }
 //---------------------------------------------------------------------------------------------------- AltBlockInformation
@@ -123,7 +129,7 @@ pub struct AltBlockInformation {
     pub long_term_weight: usize,
     /// The cumulative difficulty of all blocks up until and including this block.
     pub cumulative_difficulty: u128,
-
+    /// The [`ChainID`] of the chain this alt block is on.
     pub chain_id: ChainID,
 }
 

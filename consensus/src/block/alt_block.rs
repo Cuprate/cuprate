@@ -1,28 +1,34 @@
+//! Alt Blocks
+//!
+//! Alt blocks are sanity checked by [`sanity_check_alt_block`], that function will also compute the cumulative
+//! difficulty of the alt chain so callers will know if they should re-org to the alt chain.
 use std::{collections::HashMap, sync::Arc};
 
-use crate::context::BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
-use crate::{
-    block::PreparedBlock,
-    context::{
-        difficulty::DifficultyCache,
-        rx_vms::RandomXVM,
-        weight::{self, BlockWeightsCache},
-        AltChainContextCache, AltChainRequestToken,
-    },
-    transactions::TransactionVerificationData,
-    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
-    VerifyBlockResponse,
-};
-use cuprate_consensus_rules::blocks::check_timestamp;
+use monero_serai::{block::Block, transaction::Input};
+use tower::{Service, ServiceExt};
+
 use cuprate_consensus_rules::{
-    blocks::{check_block_pow, check_block_weight, randomx_seed_height, BlockError},
+    blocks::{
+        check_block_pow, check_block_weight, check_timestamp, randomx_seed_height, BlockError,
+    },
     miner_tx::MinerTxError,
     ConsensusError,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{AltBlockInformation, Chain, ChainID, VerifiedTransactionInformation};
-use monero_serai::{block::Block, transaction::Input};
-use tower::{Service, ServiceExt};
+
+use crate::{
+    block::{free::pull_ordered_transactions, PreparedBlock},
+    context::{
+        difficulty::DifficultyCache,
+        rx_vms::RandomXVM,
+        weight::{self, BlockWeightsCache},
+        AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
+    },
+    transactions::TransactionVerificationData,
+    BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
+    VerifyBlockResponse,
+};
 
 /// This function sanity checks an alt-block.
 ///
@@ -31,7 +37,7 @@ use tower::{Service, ServiceExt};
 /// This function only checks the blocks PoW and its weight.
 pub async fn sanity_check_alt_block<C>(
     block: Block,
-    mut txs: HashMap<[u8; 32], TransactionVerificationData>,
+    txs: HashMap<[u8; 32], TransactionVerificationData>,
     mut context_svc: C,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
 where
@@ -104,22 +110,7 @@ where
 
     let cumulative_difficulty = difficulty_cache.cumulative_difficulty() + next_difficulty;
 
-    if prepped_block.block.txs.len() != txs.len() {
-        return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
-    }
-
-    // Check that the txs included are what we need and that there are not any extra.
-    let mut ordered_txs = Vec::with_capacity(txs.len());
-
-    if !prepped_block.block.txs.is_empty() {
-        for tx_hash in &prepped_block.block.txs {
-            let tx = txs
-                .remove(tx_hash)
-                .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
-            ordered_txs.push(tx);
-        }
-        drop(txs);
-    }
+    let mut ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)?;
 
     let block_weight =
         prepped_block.miner_tx_weight + ordered_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
@@ -149,6 +140,7 @@ where
         .chain_id
         .get_or_insert_with(|| ChainID(rand::random()));
 
+    // Create the alt block info.
     let block_info = AltBlockInformation {
         block_hash: prepped_block.block_hash,
         block: prepped_block.block,
@@ -171,6 +163,7 @@ where
         chain_id,
     };
 
+    // Add this block to the cache.
     alt_context_cache.add_new_block(
         block_info.height,
         block_info.block_hash,
@@ -179,6 +172,7 @@ where
         block_info.block.header.timestamp,
     );
 
+    // Add this alt cache back to the context service.
     context_svc
         .oneshot(BlockChainContextRequest::AddAltChainContextCache {
             prev_id: block_info.block.header.previous,
@@ -190,6 +184,9 @@ where
     Ok(VerifyBlockResponse::AltChain(block_info))
 }
 
+/// Retrieves the alt RX VM for the chosen block height.
+///
+/// If the `hf` is less than 12 (the height RX activates), then [`None`] is returned.
 async fn alt_rx_vm<C>(
     block_height: u64,
     hf: u8,
@@ -211,14 +208,12 @@ where
 
     let seed_height = randomx_seed_height(block_height);
 
-    let cached_vm = match alt_chain_context
-        .cached_rx_vm
-        .take()
-        .filter(|(cached_seed_height, _)| seed_height == *cached_seed_height)
-    {
+    let cached_vm = match alt_chain_context.cached_rx_vm.take() {
+        // If the VM is cached and the height is the height we need, we can use this VM.
         Some((cached_seed_height, vm)) if seed_height == cached_seed_height => {
             (cached_seed_height, vm)
         }
+        // Otherwise we need to make a new VM.
         _ => {
             let BlockChainContextResponse::AltChainRxVM(vm) = context_svc
                 .oneshot(BlockChainContextRequest::AltChainRxVM {
@@ -240,6 +235,7 @@ where
     ))
 }
 
+/// Returns the [`DifficultyCache`] for the alt chain.
 async fn alt_difficulty_cache<C>(
     prev_id: [u8; 32],
     alt_chain_context: &mut AltChainContextCache,
@@ -253,8 +249,10 @@ where
         > + Send,
     C::Future: Send + 'static,
 {
+    // First look to see if the difficulty cache for this alt chain is already cached.
     match &mut alt_chain_context.difficulty_cache {
         Some(cache) => Ok(cache),
+        // Otherwise make a new one.
         difficulty_cache => {
             let BlockChainContextResponse::AltChainDifficultyCache(cache) = context_svc
                 .oneshot(BlockChainContextRequest::AltChainDifficultyCache {
@@ -271,6 +269,7 @@ where
     }
 }
 
+/// Returns the [`BlockWeightsCache`] for the alt chain.
 async fn alt_weight_cache<C>(
     prev_id: [u8; 32],
     alt_chain_context: &mut AltChainContextCache,
@@ -284,8 +283,10 @@ where
         > + Send,
     C::Future: Send + 'static,
 {
+    // First look to see if the weight cache for this alt chain is already cached.
     match &mut alt_chain_context.weight_cache {
         Some(cache) => Ok(cache),
+        // Otherwise make a new one.
         weight_cache => {
             let BlockChainContextResponse::AltChainWeightCache(cache) = context_svc
                 .oneshot(BlockChainContextRequest::AltChainWeightCache {
