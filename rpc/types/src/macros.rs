@@ -372,7 +372,8 @@ macro_rules! monero_definition_link {
 }
 pub(crate) use monero_definition_link;
 
-//---------------------------------------------------------------------------------------------------- Macro
+//---------------------------------------------------------------------------------------------------- json_rpc_doc_test
+/// TODO
 macro_rules! json_rpc_doc_test {
     (
         $cuprate_test_utils_rpc_const:ident => $expected:expr
@@ -418,3 +419,54 @@ macro_rules! json_rpc_doc_test {
     };
 }
 pub(crate) use json_rpc_doc_test;
+
+//---------------------------------------------------------------------------------------------------- json_other_doc_test
+/// TODO
+macro_rules! json_other_doc_test {
+    // TODO
+    ($cuprate_test_utils_rpc_const:ident) => {
+        paste::paste! {
+            concat!(
+                "```rust\n",
+                "use cuprate_test_utils::rpc::data::other::*;\n",
+                "use cuprate_rpc_types::{misc::*, base::*, other::*};\n",
+                "use serde_json::{Value, from_str, from_value};\n",
+                "\n",
+                "let string = from_str::<",
+                stringify!([<$cuprate_test_utils_rpc_const:camel>]),
+                ">(",
+                stringify!($cuprate_test_utils_rpc_const),
+                ").unwrap();\n",
+                "```\n",
+            )
+        }
+    };
+    // TODO
+    (
+        $cuprate_test_utils_rpc_const:ident => $expected:expr
+    ) => {
+        paste::paste! {
+            concat!(
+                "```rust\n",
+                "use cuprate_test_utils::rpc::data::other::*;\n",
+                "use cuprate_rpc_types::{misc::*, base::*, other::*};\n",
+                "use serde_json::{Value, from_str, from_value};\n",
+                "\n",
+                "// The expected data.\n",
+                "let expected = ",
+                stringify!($expected),
+                ";\n",
+                "\n",
+                "let string = from_str::<",
+                stringify!([<$cuprate_test_utils_rpc_const:camel>]),
+                ">(",
+                stringify!($cuprate_test_utils_rpc_const),
+                ").unwrap();\n",
+                "\n",
+                "assert_eq!(string, expected);\n",
+                "```\n",
+            )
+        }
+    };
+}
+pub(crate) use json_other_doc_test;
