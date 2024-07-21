@@ -10,7 +10,7 @@ use crate::{
         default_zero,
     },
     free::{is_one, is_zero},
-    macros::{define_request_and_response, json_rpc_doc_test},
+    macros::define_request_and_response,
     misc::{
         AuxPow, BlockHeader, ChainInfo, ConnectionInfo, Distribution, GetBan,
         GetMinerDataTxBacklogEntry, HardforkEntry, HistogramEntry, OutputDistributionData, SetBan,
@@ -18,8 +18,66 @@ use crate::{
     },
 };
 
-//---------------------------------------------------------------------------------------------------- Definitions
+//---------------------------------------------------------------------------------------------------- Macro
+/// Adds a (de)serialization doc-test to a type in `json.rs`.
+///
+/// It expects a const string from `cuprate_test_utils::rpc::data`
+/// and the expected value it should (de)serialize into/from.
+///
+/// It tests that the provided const JSON string can properly
+/// (de)serialize into the expected value.
+///
+/// See below for example usage. This macro is only used in this file.
+macro_rules! serde_doc_test {
+    (
+        // `const` string from `cuprate_test_utils::rpc::data`
+        //  v
+        $cuprate_test_utils_rpc_const:ident => $expected:expr
+        //                                     ^
+        //                     Expected value as an expression
+    ) => {
+        paste::paste! {
+            concat!(
+                "```rust\n",
+                "use cuprate_test_utils::rpc::data::json::*;\n",
+                "use cuprate_rpc_types::{misc::*, base::*, json::*};\n",
+                "use serde_json::{Value, from_str, from_value};\n",
+                "\n",
+                "// The expected data.\n",
+                "let expected = ",
+                stringify!($expected),
+                ";\n",
+                "\n",
+                "// Assert it can be turned into a JSON value.\n",
+                "let value = from_str::<Value>(",
+                stringify!($cuprate_test_utils_rpc_const),
+                ").unwrap();\n",
+                "let Value::Object(map) = value else {\n",
+                "    panic!();\n",
+                "};\n",
+                "\n",
+                "// If a request...\n",
+                "if let Some(params) = map.get(\"params\") {\n",
+                "    let response = from_value::<",
+                stringify!([<$cuprate_test_utils_rpc_const:camel>]),
+                ">(params.clone()).unwrap();\n",
+                "    assert_eq!(response, expected);\n",
+                "    return;\n",
+                "}\n",
+                "\n",
+                "// Else, if a response...\n",
+                "let result = map.get(\"result\").unwrap().clone();\n",
+                "let response = from_value::<",
+                stringify!([<$cuprate_test_utils_rpc_const:camel>]),
+                ">(result.clone()).unwrap();\n",
+                "assert_eq!(response, expected);\n",
+                "```\n",
+            )
+        }
+    };
+}
 
+//---------------------------------------------------------------------------------------------------- Definitions
 // This generates 2 structs:
 //
 // - `GetBlockTemplateRequest`
@@ -47,7 +105,14 @@ define_request_and_response! {
     // If there are any additional attributes (`/// docs` or `#[derive]`s)
     // for the struct, they go here, e.g.:
     //
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
+        // ^ This is a macro that adds a doc-test to this type.
+        // It is optional but it is added to nearly all types.
+        // The syntax is:
+        // `$const` => `$expected`
+        // where `$const` is a `const` string from
+        // `cuprate_test_utils::rpc::data` and `$expected` is an
+        // actual expression that the string _should_ (de)serialize into/from.
         GET_BLOCK_TEMPLATE_REQUEST => GetBlockTemplateRequest {
             extra_nonce: String::default(),
             prev_block: String::default(),
@@ -104,7 +169,7 @@ define_request_and_response! {
     // "Flatten" means the field(s) of a struct gets inlined
     // directly into the struct during (de)serialization, see:
     // <https://serde.rs/field-attrs.html#flatten>.
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_TEMPLATE_RESPONSE => GetBlockTemplateResponse {
             base: ResponseBase::ok(),
             blockhashing_blob: "1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a00000000e0c20372be23d356347091025c5b5e8f2abf83ab618378565cce2b703491523401".into(),
@@ -160,7 +225,7 @@ define_request_and_response! {
     // type alias to `()` instead of a `struct`.
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_COUNT_RESPONSE => GetBlockCountResponse {
             base: ResponseBase::ok(),
             count: 3195019,
@@ -178,7 +243,7 @@ define_request_and_response! {
 
     OnGetBlockHash,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         ON_GET_BLOCK_HASH_REQUEST => OnGetBlockHashRequest {
             block_height: [912345],
         }
@@ -192,7 +257,7 @@ define_request_and_response! {
         block_height: [u64; 1],
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         ON_GET_BLOCK_HASH_RESPONSE => OnGetBlockHashResponse {
             block_hash: "e22cf75f39ae720e8b71b3d120a5ac03f0db50bba6379e2850975b4859190bc6".into(),
         }
@@ -211,7 +276,7 @@ define_request_and_response! {
 
     SubmitBlock,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         SUBMIT_BLOCK_REQUEST => SubmitBlockRequest {
             block_blob: ["0707e6bdfedc053771512f1bc27c62731ae9e8f2443db64ce742f4e57f5cf8d393de28551e441a0000000002fb830a01ffbf830a018cfe88bee283060274c0aae2ef5730e680308d9c00b6da59187ad0352efe3c71d36eeeb28782f29f2501bd56b952c3ddc3e350c2631d3a5086cac172c56893831228b17de296ff4669de020200000000".into()],
         }
@@ -237,7 +302,7 @@ define_request_and_response! {
 
     GenerateBlocks,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GENERATE_BLOCKS_REQUEST => GenerateBlocksRequest {
             amount_of_blocks: 1,
             prev_block: String::default(),
@@ -252,7 +317,7 @@ define_request_and_response! {
         wallet_address: String,
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GENERATE_BLOCKS_RESPONSE => GenerateBlocksResponse {
             base: ResponseBase::ok(),
             blocks: vec!["49b712db7760e3728586f8434ee8bc8d7b3d410dac6bb6e98bf5845c83b917e4".into()],
@@ -277,7 +342,7 @@ define_request_and_response! {
         fill_pow_hash: bool = default_false(), "default_false",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_LAST_BLOCK_HEADER_RESPONSE => GetLastBlockHeaderResponse {
             base: AccessResponseBase::ok(),
             block_header: BlockHeader {
@@ -316,7 +381,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1240..=1269,
     GetBlockHeaderByHash,
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_HEADER_BY_HASH_REQUEST => GetBlockHeaderByHashRequest {
             hash: "e22cf75f39ae720e8b71b3d120a5ac03f0db50bba6379e2850975b4859190bc6".into(),
             hashes: vec![],
@@ -329,7 +394,7 @@ define_request_and_response! {
         fill_pow_hash: bool = default_false(), "default_false",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_HEADER_BY_HASH_RESPONSE => GetBlockHeaderByHashResponse {
             base: AccessResponseBase::ok(),
             block_headers: vec![],
@@ -373,7 +438,7 @@ define_request_and_response! {
     GetBlockHeaderByHeight,
 
     #[derive(Copy)]
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_HEADER_BY_HEIGHT_REQUEST => GetBlockHeaderByHeightRequest {
             height: 912345,
             fill_pow_hash: false,
@@ -384,7 +449,7 @@ define_request_and_response! {
         fill_pow_hash: bool = default_false(), "default_false",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_HEADER_BY_HEIGHT_RESPONSE => GetBlockHeaderByHeightResponse {
             base: AccessResponseBase::ok(),
             block_header: BlockHeader {
@@ -426,7 +491,7 @@ define_request_and_response! {
     GetBlockHeadersRange,
 
     #[derive(Copy)]
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_HEADERS_RANGE_REQUEST => GetBlockHeadersRangeRequest {
             start_height: 1545999,
             end_height: 1546000,
@@ -439,7 +504,7 @@ define_request_and_response! {
         fill_pow_hash: bool = default_false(), "default_false",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_HEADERS_RANGE_RESPONSE => GetBlockHeadersRangeResponse {
             base: AccessResponseBase::ok(),
             headers: vec![
@@ -505,7 +570,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 1298..=1313,
     GetBlock,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_REQUEST => GetBlockRequest {
             height: 2751506,
             hash: String::default(),
@@ -521,7 +586,7 @@ define_request_and_response! {
         fill_pow_hash: bool = default_false(), "default_false",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BLOCK_RESPONSE => GetBlockResponse {
             base: AccessResponseBase::ok(),
             blob: "1010c58bab9b06b27bdecfc6cd0a46172d136c08831cf67660377ba992332363228b1b722781e7807e07f502cef8a70101ff92f8a7010180e0a596bb1103d7cbf826b665d7a532c316982dc8dbc24f285cbc18bbcc27c7164cd9b3277a85d034019f629d8b36bd16a2bfce3ea80c31dc4d8762c67165aec21845494e32b7582fe00211000000297a787a000000000000000000000000".into(),
@@ -572,7 +637,7 @@ define_request_and_response! {
 
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_CONNECTIONS_RESPONSE => GetConnectionsResponse {
             base: ResponseBase::ok(),
             connections: vec![
@@ -646,7 +711,7 @@ define_request_and_response! {
     GetInfo,
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_INFO_RESPONSE => GetInfoResponse {
             base: AccessResponseBase::ok(),
             adjusted_time: 1721245289,
@@ -740,7 +805,7 @@ define_request_and_response! {
     HardForkInfo,
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         HARD_FORK_INFO_RESPONSE => HardForkInfoResponse {
             base: AccessResponseBase::ok(),
             earliest_height: 2689608,
@@ -771,7 +836,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 2032..=2067,
     SetBans,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         SET_BANS_REQUEST => SetBansRequest {
             bans: vec![ SetBan {
                 host: "192.168.1.51".into(),
@@ -785,7 +850,7 @@ define_request_and_response! {
         bans: Vec<SetBan>,
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         SET_BANS_RESPONSE => SetBansResponse {
             base: ResponseBase::ok(),
         }
@@ -800,7 +865,7 @@ define_request_and_response! {
     GetBans,
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_BANS_RESPONSE => GetBansResponse {
             base: ResponseBase::ok(),
             bans: vec![
@@ -828,7 +893,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 2069..=2094,
     Banned,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         BANNED_REQUEST => BannedRequest {
             address: "95.216.203.255".into(),
         }
@@ -837,7 +902,7 @@ define_request_and_response! {
         address: String,
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         BANNED_RESPONSE => BannedResponse {
             banned: true,
             seconds: 689655,
@@ -857,7 +922,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 2096..=2116,
     FlushTransactionPool,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         FLUSH_TRANSACTION_POOL_REQUEST => FlushTransactionPoolRequest {
             txids: vec!["dc16fa8eaffe1484ca9014ea050e13131d3acf23b419f33bb4cc0b32b6c49308".into()],
         }
@@ -866,7 +931,7 @@ define_request_and_response! {
         txids: Vec<String> = default_vec::<String>(), "default_vec",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         FLUSH_TRANSACTION_POOL_RESPONSE => FlushTransactionPoolResponse {
             status: Status::Ok,
         }
@@ -883,7 +948,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 2118..=2168,
     GetOutputHistogram,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_OUTPUT_HISTOGRAM_REQUEST => GetOutputHistogramRequest {
             amounts: vec![20000000000],
             min_count: 0,
@@ -900,7 +965,7 @@ define_request_and_response! {
         recent_cutoff: u64 = default_zero::<u64>(), "default_zero",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_OUTPUT_HISTOGRAM_RESPONSE => GetOutputHistogramResponse {
             base: AccessResponseBase::ok(),
             histogram: vec![HistogramEntry {
@@ -923,7 +988,7 @@ define_request_and_response! {
 
     GetCoinbaseTxSum,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_COINBASE_TX_SUM_REQUEST => GetCoinbaseTxSumRequest {
             height: 1563078,
             count: 2
@@ -934,7 +999,7 @@ define_request_and_response! {
         count: u64,
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_COINBASE_TX_SUM_RESPONSE => GetCoinbaseTxSumResponse {
             base: AccessResponseBase::ok(),
             emission_amount: 9387854817320,
@@ -963,7 +1028,7 @@ define_request_and_response! {
     GetVersion,
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_VERSION_RESPONSE => GetVersionResponse {
             base: ResponseBase::ok(),
             current_height: 3195051,
@@ -1054,7 +1119,7 @@ define_request_and_response! {
     GetFeeEstimate,
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_FEE_ESTIMATE_RESPONSE => GetFeeEstimateResponse {
             base: AccessResponseBase::ok(),
             fee: 20000,
@@ -1076,7 +1141,7 @@ define_request_and_response! {
     GetAlternateChains,
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_ALTERNATE_CHAINS_RESPONSE => GetAlternateChainsResponse {
             base: ResponseBase::ok(),
             chains: vec![
@@ -1115,7 +1180,7 @@ define_request_and_response! {
 
     RelayTx,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         RELAY_TX_REQUEST => RelayTxRequest {
             txids: vec!["9fd75c429cbe52da9a52f2ffc5fbd107fe7fd2099c0d8de274dc8a67e0c98613".into()]
         }
@@ -1124,7 +1189,7 @@ define_request_and_response! {
         txids: Vec<String>,
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         RELAY_TX_RESPONSE => RelayTxResponse {
             status: Status::Ok,
         }
@@ -1143,7 +1208,7 @@ define_request_and_response! {
     SyncInfo,
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         SYNC_INFO_RESPONSE => SyncInfoResponse {
             base: AccessResponseBase::ok(),
             height: 3195157,
@@ -1233,7 +1298,7 @@ define_request_and_response! {
     Request {},
 
     // TODO: enable test after binary string impl.
-    // #[doc = json_rpc_doc_test!(
+    // #[doc = serde_doc_test!(
     //     GET_TRANSACTION_POOL_BACKLOG_RESPONSE => GetTransactionPoolBacklogResponse {
     //         base: ResponseBase::ok(),
     //         backlog: "...Binary...".into(),
@@ -1255,7 +1320,7 @@ define_request_and_response! {
     /// binary endpoint.
     GetOutputDistribution,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_OUTPUT_DISTRIBUTION_REQUEST => GetOutputDistributionRequest {
             amounts: vec![628780000],
             from_height: 1462078,
@@ -1274,7 +1339,7 @@ define_request_and_response! {
         to_height: u64 = default_zero::<u64>(), "default_zero",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_OUTPUT_DISTRIBUTION_RESPONSE => GetOutputDistributionResponse {
             base: AccessResponseBase::ok(),
             distributions: vec![Distribution::Uncompressed {
@@ -1298,7 +1363,7 @@ define_request_and_response! {
     GetMinerData,
     Request {},
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         GET_MINER_DATA_RESPONSE => GetMinerDataResponse {
             base: ResponseBase::ok(),
             already_generated_coins: 18186022843595960691,
@@ -1342,7 +1407,7 @@ define_request_and_response! {
     PruneBlockchain,
 
     #[derive(Copy)]
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         PRUNE_BLOCKCHAIN_REQUEST => PruneBlockchainRequest {
             check: true
         }
@@ -1351,7 +1416,7 @@ define_request_and_response! {
         check: bool = default_false(), "default_false",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         PRUNE_BLOCKCHAIN_RESPONSE => PruneBlockchainResponse {
             base: ResponseBase::ok(),
             pruned: true,
@@ -1371,7 +1436,7 @@ define_request_and_response! {
 
     CalcPow,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         CALC_POW_REQUEST => CalcPowRequest {
             major_version: 14,
             height: 2286447,
@@ -1386,7 +1451,7 @@ define_request_and_response! {
         seed_hash: String,
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         CALC_POW_RESPONSE => CalcPowResponse {
             pow_hash: "d0402d6834e26fb94a9ce38c6424d27d2069896a9b8b1ce685d79936bca6e0a8".into(),
         }
@@ -1406,7 +1471,7 @@ define_request_and_response! {
     FlushCache,
 
     #[derive(Copy)]
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         FLUSH_CACHE_REQUEST => FlushCacheRequest {
             bad_txs: true,
             bad_blocks: true
@@ -1417,7 +1482,7 @@ define_request_and_response! {
         bad_blocks: bool = default_false(), "default_false",
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         FLUSH_CACHE_RESPONSE => FlushCacheResponse {
             base: ResponseBase::ok(),
         }
@@ -1432,7 +1497,7 @@ define_request_and_response! {
 
     AddAuxPow,
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         ADD_AUX_POW_REQUEST => AddAuxPowRequest {
             blocktemplate_blob: "1010f4bae0b4069d648e741d85ca0e7acb4501f051b27e9b107d3cd7a3f03aa7f776089117c81a0000000002c681c30101ff8a81c3010180e0a596bb11033b7eedf47baf878f3490cb20b696079c34bd017fe59b0d070e74d73ffabc4bb0e05f011decb630f3148d0163b3bd39690dde4078e4cfb69fecf020d6278a27bad10c58023c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000".into(),
             aux_pow: vec![AuxPow {
@@ -1446,7 +1511,7 @@ define_request_and_response! {
         aux_pow: Vec<AuxPow>,
     },
 
-    #[doc = json_rpc_doc_test!(
+    #[doc = serde_doc_test!(
         ADD_AUX_POW_RESPONSE => AddAuxPowResponse {
             base: ResponseBase::ok(),
             aux_pow: vec![AuxPow {

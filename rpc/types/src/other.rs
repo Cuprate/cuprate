@@ -6,12 +6,87 @@
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_false, default_string, default_true, default_vec, default_zero},
-    macros::{define_request_and_response, json_other_doc_test},
+    macros::define_request_and_response,
     misc::{
         GetOutputsOut, KeyImageSpentStatus, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status,
         TxEntry, TxInfo, TxpoolStats,
     },
 };
+
+//---------------------------------------------------------------------------------------------------- Macro
+/// Adds a (de)serialization doc-test to a type in `other.rs`.
+///
+/// It expects a const string from `cuprate_test_utils::rpc::data`
+/// and the expected value it should (de)serialize into/from.
+///
+/// It tests that the provided const JSON string can properly
+/// (de)serialize into the expected value.
+///
+/// See below for example usage. This macro is only used in this file.
+macro_rules! serde_doc_test {
+    // This branch _only_ tests that the type can be deserialize
+    // from the string, not that any value is correct.
+    //
+    // Practically, this is used for structs that have
+    // many values that are complicated to test, e.g. `GET_TRANSACTIONS_RESPONSE`.
+    //
+    // HACK:
+    // The type itself doesn't need to be specified because it happens
+    // to just be the `CamelCase` version of the provided const.
+    (
+        // `const` string from `cuprate_test_utils::rpc::data`.
+        $cuprate_test_utils_rpc_const:ident
+    ) => {
+        paste::paste! {
+            concat!(
+                "```rust\n",
+                "use cuprate_test_utils::rpc::data::other::*;\n",
+                "use cuprate_rpc_types::{misc::*, base::*, other::*};\n",
+                "use serde_json::{Value, from_str, from_value};\n",
+                "\n",
+                "let string = from_str::<",
+                stringify!([<$cuprate_test_utils_rpc_const:camel>]),
+                ">(",
+                stringify!($cuprate_test_utils_rpc_const),
+                ").unwrap();\n",
+                "```\n",
+            )
+        }
+    };
+
+    // This branch tests that the type can be deserialize
+    // from the string AND that values are correct.
+    (
+        // `const` string from `cuprate_test_utils::rpc::data`
+        //  v
+        $cuprate_test_utils_rpc_const:ident => $expected:expr
+        //                                     ^
+        //                     Expected value as an expression
+    ) => {
+        paste::paste! {
+            concat!(
+                "```rust\n",
+                "use cuprate_test_utils::rpc::data::other::*;\n",
+                "use cuprate_rpc_types::{misc::*, base::*, other::*};\n",
+                "use serde_json::{Value, from_str, from_value};\n",
+                "\n",
+                "// The expected data.\n",
+                "let expected = ",
+                stringify!($expected),
+                ";\n",
+                "\n",
+                "let string = from_str::<",
+                stringify!([<$cuprate_test_utils_rpc_const:camel>]),
+                ">(",
+                stringify!($cuprate_test_utils_rpc_const),
+                ").unwrap();\n",
+                "\n",
+                "assert_eq!(string, expected);\n",
+                "```\n",
+            )
+        }
+    };
+}
 
 //---------------------------------------------------------------------------------------------------- Definitions
 define_request_and_response! {
@@ -21,7 +96,7 @@ define_request_and_response! {
     GetHeight,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_HEIGHT_RESPONSE => GetHeightResponse {
             base: ResponseBase::ok(),
             hash: "68bb1a1cff8e2a44c3221e8e1aff80bc6ca45d06fa8eff4d2a3a7ac31d4efe3f".into(),
@@ -40,7 +115,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 370..=451,
     GetTransactions,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_TRANSACTIONS_REQUEST => GetTransactionsRequest {
             txs_hashes: vec!["d6e48158472848e6687173a91ae6eebfa3e1d778e65252ee99d7515d63090408".into()],
             decode_as_json: false,
@@ -58,7 +133,7 @@ define_request_and_response! {
         split: bool = default_false(), "default_false",
     },
 
-    #[doc = json_other_doc_test!(GET_TRANSACTIONS_RESPONSE)]
+    #[doc = serde_doc_test!(GET_TRANSACTIONS_RESPONSE)]
     AccessResponseBase {
         txs_as_hex: Vec<String> = default_vec::<String>(), "default_vec",
         txs_as_json: Vec<String> = default_vec::<String>(), "default_vec",
@@ -74,7 +149,7 @@ define_request_and_response! {
     GetAltBlocksHashes,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_ALT_BLOCKS_HASHES_RESPONSE => GetAltBlocksHashesResponse {
             base: AccessResponseBase::ok(),
             blks_hashes: vec!["8ee10db35b1baf943f201b303890a29e7d45437bd76c2bd4df0d2f2ee34be109".into()],
@@ -92,7 +167,7 @@ define_request_and_response! {
 
     IsKeyImageSpent,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         IS_KEY_IMAGE_SPENT_REQUEST => IsKeyImageSpentRequest {
             key_images: vec![
                 "8d1bd8181bf7d857bdb281e0153d84cd55a3fcaa57c3e570f4a49f935850b5e3".into(),
@@ -104,7 +179,7 @@ define_request_and_response! {
         key_images: Vec<String>,
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         IS_KEY_IMAGE_SPENT_RESPONSE => IsKeyImageSpentResponse {
             base: AccessResponseBase::ok(),
             spent_status: vec![1, 1],
@@ -123,7 +198,7 @@ define_request_and_response! {
 
     SendRawTransaction,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SEND_RAW_TRANSACTION_REQUEST => SendRawTransactionRequest {
             tx_as_hex: "dc16fa8eaffe1484ca9014ea050e13131d3acf23b419f33bb4cc0b32b6c49308".into(),
             do_not_relay: false,
@@ -136,7 +211,7 @@ define_request_and_response! {
         do_sanity_checks: bool = default_true(), "default_true",
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SEND_RAW_TRANSACTION_RESPONSE => SendRawTransactionResponse {
             base: AccessResponseBase {
                 response_base: ResponseBase {
@@ -185,7 +260,7 @@ define_request_and_response! {
 
     StartMining,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         START_MINING_REQUEST => StartMiningRequest {
             do_background_mining: false,
             ignore_battery: true,
@@ -200,7 +275,7 @@ define_request_and_response! {
         ignore_battery: bool,
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         START_MINING_RESPONSE => StartMiningResponse {
             base: ResponseBase::ok(),
         }
@@ -215,7 +290,7 @@ define_request_and_response! {
     StopMining,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         STOP_MINING_RESPONSE => StopMiningResponse {
             base: ResponseBase::ok(),
         }
@@ -230,7 +305,7 @@ define_request_and_response! {
     MiningStatus,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         MINING_STATUS_RESPONSE => MiningStatusResponse {
             base: ResponseBase::ok(),
             active: false,
@@ -276,7 +351,7 @@ define_request_and_response! {
     SaveBc,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SAVE_BC_RESPONSE => SaveBcResponse {
             base: ResponseBase::ok(),
         }
@@ -291,7 +366,7 @@ define_request_and_response! {
 
     GetPeerList,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_PEER_LIST_REQUEST => GetPeerListRequest {
             public_only: true,
             include_blocked: false,
@@ -302,7 +377,7 @@ define_request_and_response! {
         include_blocked: bool = default_false(), "default_false",
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_PEER_LIST_RESPONSE => GetPeerListResponse {
             base: ResponseBase::ok(),
             gray_list: vec![
@@ -374,7 +449,7 @@ define_request_and_response! {
     SetLogHashRate,
 
     #[derive(Copy)]
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_LOG_HASH_RATE_REQUEST => SetLogHashRateRequest {
             visible: true,
         }
@@ -383,7 +458,7 @@ define_request_and_response! {
         visible: bool = default_false(), "default_false",
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_LOG_HASH_RATE_RESPONSE => SetLogHashRateResponse {
             base: ResponseBase::ok(),
         }
@@ -399,7 +474,7 @@ define_request_and_response! {
     SetLogLevel,
 
     #[derive(Copy)]
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_LOG_LEVEL_REQUEST => SetLogLevelRequest {
             level: 1
         }
@@ -408,7 +483,7 @@ define_request_and_response! {
         level: u8,
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_LOG_LEVEL_RESPONSE => SetLogLevelResponse {
             base: ResponseBase::ok(),
         }
@@ -423,7 +498,7 @@ define_request_and_response! {
 
     SetLogCategories,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_LOG_CATEGORIES_REQUEST => SetLogCategoriesRequest {
             categories: "*:INFO".into(),
         }
@@ -432,7 +507,7 @@ define_request_and_response! {
         categories: String = default_string(), "default_string",
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_LOG_CATEGORIES_RESPONSE => SetLogCategoriesResponse {
             base: ResponseBase::ok(),
             categories: "*:INFO".into(),
@@ -450,7 +525,7 @@ define_request_and_response! {
 
     SetBootstrapDaemon,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_BOOTSTRAP_DAEMON_REQUEST => SetBootstrapDaemonRequest {
             address: "http://getmonero.org:18081".into(),
             username: String::new(),
@@ -465,7 +540,7 @@ define_request_and_response! {
         proxy: String = default_string(), "default_string",
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_BOOTSTRAP_DAEMON_RESPONSE => SetBootstrapDaemonResponse {
             status: Status::Ok,
         }
@@ -483,7 +558,7 @@ define_request_and_response! {
     GetTransactionPool,
     Request {},
 
-    #[doc = json_other_doc_test!(GET_TRANSACTION_POOL_RESPONSE)]
+    #[doc = serde_doc_test!(GET_TRANSACTION_POOL_RESPONSE)]
     AccessResponseBase {
         transactions: Vec<TxInfo>,
         spent_key_images: Vec<SpentKeyImageInfo>,
@@ -498,7 +573,7 @@ define_request_and_response! {
     GetTransactionPoolStats,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_TRANSACTION_POOL_STATS_RESPONSE => GetTransactionPoolStatsResponse {
             base: AccessResponseBase::ok(),
             pool_stats: TxpoolStats {
@@ -542,7 +617,7 @@ define_request_and_response! {
     StopDaemon,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         STOP_DAEMON_RESPONSE => StopDaemonResponse {
             status: Status::Ok,
         }
@@ -560,7 +635,7 @@ define_request_and_response! {
     GetLimit,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_LIMIT_RESPONSE => GetLimitResponse {
             base: ResponseBase::ok(),
             limit_down: 1280000,
@@ -579,7 +654,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 1876..=1903,
 
     SetLimit,
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_LIMIT_REQUEST => SetLimitRequest {
             limit_down: 1024,
             limit_up: 0,
@@ -591,7 +666,7 @@ define_request_and_response! {
         limit_up: i64 = default_zero::<i64>(), "default_zero",
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         SET_LIMIT_RESPONSE => SetLimitResponse {
             base: ResponseBase::ok(),
             limit_down: 1024,
@@ -611,7 +686,7 @@ define_request_and_response! {
 
     OutPeers,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         OUT_PEERS_REQUEST => OutPeersRequest {
             out_peers: 3232235535,
             set: true,
@@ -622,7 +697,7 @@ define_request_and_response! {
         out_peers: u32,
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         OUT_PEERS_RESPONSE => OutPeersResponse {
             base: ResponseBase::ok(),
             out_peers: 3232235535,
@@ -641,7 +716,7 @@ define_request_and_response! {
     GetNetStats,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_NET_STATS_RESPONSE => GetNetStatsResponse {
             base: ResponseBase::ok(),
             start_time: 1721251858,
@@ -666,7 +741,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 567..=609,
 
     GetOuts,
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_OUTS_REQUEST => GetOutsRequest {
             outputs: vec![
                 GetOutputsOut { amount: 1, index: 0 },
@@ -680,7 +755,7 @@ define_request_and_response! {
         get_txid: bool,
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_OUTS_RESPONSE => GetOutsResponse {
             base: ResponseBase::ok(),
             outs: vec![
@@ -713,7 +788,7 @@ define_request_and_response! {
 
     Update,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         UPDATE_REQUEST => UpdateRequest {
             command: "check".into(),
             path: "".into(),
@@ -724,7 +799,7 @@ define_request_and_response! {
         path: String = default_string(), "default_string",
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         UPDATE_RESPONSE => UpdateResponse {
             base: ResponseBase::ok(),
             auto_uri: "".into(),
@@ -752,7 +827,7 @@ define_request_and_response! {
 
     PopBlocks,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         POP_BLOCKS_REQUEST => PopBlocksRequest {
             nblocks: 6
         }
@@ -761,7 +836,7 @@ define_request_and_response! {
         nblocks: u64,
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         POP_BLOCKS_RESPONSE => PopBlocksResponse {
             base: ResponseBase::ok(),
             height: 76482,
@@ -780,7 +855,7 @@ define_request_and_response! {
     GetTransactionPoolHashes,
     Request {},
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_TRANSACTION_POOL_HASHES_RESPONSE => GetTransactionPoolHashesResponse {
             base: ResponseBase::ok(),
             tx_hashes: vec![
@@ -816,7 +891,7 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 1419..=1448,
     GetPublicNodes,
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_PUBLIC_NODES_REQUEST => GetPublicNodesRequest {
             gray: false,
             white: true,
@@ -829,7 +904,7 @@ define_request_and_response! {
         include_blocked: bool = default_false(), "default_false",
     },
 
-    #[doc = json_other_doc_test!(
+    #[doc = serde_doc_test!(
         GET_PUBLIC_NODES_RESPONSE => GetPublicNodesResponse {
             base: ResponseBase::ok(),
             gray: vec![],
