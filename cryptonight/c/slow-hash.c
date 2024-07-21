@@ -11,8 +11,6 @@
 #include "variant2_int_sqrt.h"
 #include "variant4_random_math.h"
 
-#include <errno.h>
-
 #define MEMORY         (1 << 21) // 2MB scratchpad
 #define ITER           (1 << 20)
 #define AES_BLOCK_SIZE  16
@@ -56,23 +54,6 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
     xor64(tweak1_2, NONCE_POINTER); \
   } while(0)
 
-#define VARIANT1_INIT64() \
-  if (variant == 1) \
-  { \
-    VARIANT1_CHECK(); \
-  } \
-  const uint64_t tweak1_2 = (variant == 1) ? (state.hs.w[24] ^ (*((const uint64_t*)NONCE_POINTER))) : 0
-
-#define VARIANT2_INIT64() \
-  uint64_t division_result = 0; \
-  uint64_t sqrt_result = 0; \
-  do if (variant >= 2) \
-  { \
-    U64(b)[2] = state.hs.w[8] ^ state.hs.w[10]; \
-    U64(b)[3] = state.hs.w[9] ^ state.hs.w[11]; \
-    division_result = SWAP64LE(state.hs.w[12]); \
-    sqrt_result = SWAP64LE(state.hs.w[13]); \
-  } while (0)
 
 #define VARIANT2_PORTABLE_INIT() \
   uint64_t division_result = 0; \
@@ -84,40 +65,6 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
     xor64(b + AES_BLOCK_SIZE + 8, state.hs.b + 88); \
     division_result = SWAP64LE(state.hs.w[12]); \
     sqrt_result = SWAP64LE(state.hs.w[13]); \
-  } while (0)
-
-#define VARIANT2_SHUFFLE_ADD_SSE2(base_ptr, offset) \
-  do if (variant >= 2) \
-  { \
-    __m128i chunk1 = _mm_load_si128((__m128i *)((base_ptr) + ((offset) ^ 0x10))); \
-    const __m128i chunk2 = _mm_load_si128((__m128i *)((base_ptr) + ((offset) ^ 0x20))); \
-    const __m128i chunk3 = _mm_load_si128((__m128i *)((base_ptr) + ((offset) ^ 0x30))); \
-    _mm_store_si128((__m128i *)((base_ptr) + ((offset) ^ 0x10)), _mm_add_epi64(chunk3, _b1)); \
-    _mm_store_si128((__m128i *)((base_ptr) + ((offset) ^ 0x20)), _mm_add_epi64(chunk1, _b)); \
-    _mm_store_si128((__m128i *)((base_ptr) + ((offset) ^ 0x30)), _mm_add_epi64(chunk2, _a)); \
-    if (variant >= 4) \
-    { \
-      chunk1 = _mm_xor_si128(chunk1, chunk2); \
-      _c = _mm_xor_si128(_c, chunk3); \
-      _c = _mm_xor_si128(_c, chunk1); \
-    } \
-  } while (0)
-
-#define VARIANT2_SHUFFLE_ADD_NEON(base_ptr, offset) \
-  do if (variant >= 2) \
-  { \
-    uint64x2_t chunk1 = vld1q_u64(U64((base_ptr) + ((offset) ^ 0x10))); \
-    const uint64x2_t chunk2 = vld1q_u64(U64((base_ptr) + ((offset) ^ 0x20))); \
-    const uint64x2_t chunk3 = vld1q_u64(U64((base_ptr) + ((offset) ^ 0x30))); \
-    vst1q_u64(U64((base_ptr) + ((offset) ^ 0x10)), vaddq_u64(chunk3, vreinterpretq_u64_u8(_b1))); \
-    vst1q_u64(U64((base_ptr) + ((offset) ^ 0x20)), vaddq_u64(chunk1, vreinterpretq_u64_u8(_b))); \
-    vst1q_u64(U64((base_ptr) + ((offset) ^ 0x30)), vaddq_u64(chunk2, vreinterpretq_u64_u8(_a))); \
-    if (variant >= 4) \
-    { \
-      chunk1 = veorq_u64(chunk1, chunk2); \
-      _c = vreinterpretq_u8_u64(veorq_u64(vreinterpretq_u64_u8(_c), chunk3)); \
-      _c = vreinterpretq_u8_u64(veorq_u64(vreinterpretq_u64_u8(_c), chunk1)); \
-    } \
   } while (0)
 
 #define VARIANT2_PORTABLE_SHUFFLE_ADD(out, a_, base_ptr, offset) \
@@ -170,14 +117,6 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
   } \
   const uint64_t sqrt_input = SWAP64LE(((uint64_t*)(ptr))[0]) + division_result
 
-#define VARIANT2_INTEGER_MATH_SSE2(b, ptr) \
-  do if ((variant == 2) || (variant == 3)) \
-  { \
-    VARIANT2_INTEGER_MATH_DIVISION_STEP(b, ptr); \
-    VARIANT2_INTEGER_MATH_SQRT_STEP_SSE2(); \
-    VARIANT2_INTEGER_MATH_SQRT_FIXUP(sqrt_result); \
-  } while(0)
-
 #if defined DBL_MANT_DIG && (DBL_MANT_DIG >= 50)
   // double precision floating point type has enough bits of precision on current platform
   #define VARIANT2_PORTABLE_INTEGER_MATH(b, ptr) \
@@ -203,15 +142,6 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
       xor_blocks(long_state + (j ^ 0x10), d); \
       xor_blocks(d, long_state + (j ^ 0x20)); \
     }
-
-#define VARIANT2_2() \
-  do if (variant == 2 || variant == 3) \
-  { \
-    *U64(local_hp_state + (j ^ 0x10)) ^= SWAP64LE(hi); \
-    *(U64(local_hp_state + (j ^ 0x10)) + 1) ^= SWAP64LE(lo); \
-    hi ^= SWAP64LE(*U64(local_hp_state + (j ^ 0x20))); \
-    lo ^= SWAP64LE(*(U64(local_hp_state + (j ^ 0x20)) + 1)); \
-  } while (0)
 
 #define V4_REG_LOAD(dst, src) \
   do { \
