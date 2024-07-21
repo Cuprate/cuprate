@@ -6,6 +6,7 @@ use crate::{
     tests::{context::data::BW_2850000_3050000, mock_db::*},
     HardFork,
 };
+use cuprate_types::Chain;
 
 pub const TEST_WEIGHT_CONFIG: BlockWeightsCacheConfig = BlockWeightsCacheConfig::new(100, 5000);
 
@@ -21,6 +22,7 @@ async fn blocks_out_of_window_not_counted() -> Result<(), tower::BoxError> {
         5000,
         TEST_WEIGHT_CONFIG,
         db_builder.finish(None),
+        Chain::Main,
     )
     .await?;
     assert_eq!(weight_cache.median_long_term_weight(), 2500);
@@ -47,9 +49,13 @@ async fn pop_blocks_greater_than_window() -> Result<(), tower::BoxError> {
 
     let database = db_builder.finish(None);
 
-    let mut weight_cache =
-        BlockWeightsCache::init_from_chain_height(5000, TEST_WEIGHT_CONFIG, database.clone())
-            .await?;
+    let mut weight_cache = BlockWeightsCache::init_from_chain_height(
+        5000,
+        TEST_WEIGHT_CONFIG,
+        database.clone(),
+        Chain::Main,
+    )
+    .await?;
 
     let old_cache = weight_cache.clone();
 
@@ -77,9 +83,13 @@ async fn pop_blocks_less_than_window() -> Result<(), tower::BoxError> {
 
     let database = db_builder.finish(None);
 
-    let mut weight_cache =
-        BlockWeightsCache::init_from_chain_height(500, TEST_WEIGHT_CONFIG, database.clone())
-            .await?;
+    let mut weight_cache = BlockWeightsCache::init_from_chain_height(
+        500,
+        TEST_WEIGHT_CONFIG,
+        database.clone(),
+        Chain::Main,
+    )
+    .await?;
 
     let old_cache = weight_cache.clone();
 
@@ -104,9 +114,13 @@ async fn weight_cache_calculates_correct_median() -> Result<(), tower::BoxError>
     let block = DummyBlockExtendedHeader::default().with_weight_into(0, 0);
     db_builder.add_block(block);
 
-    let mut weight_cache =
-        BlockWeightsCache::init_from_chain_height(1, TEST_WEIGHT_CONFIG, db_builder.finish(None))
-            .await?;
+    let mut weight_cache = BlockWeightsCache::init_from_chain_height(
+        1,
+        TEST_WEIGHT_CONFIG,
+        db_builder.finish(None),
+        Chain::Main,
+    )
+    .await?;
 
     for height in 1..=100 {
         weight_cache.new_block(height as u64, height, height);
@@ -136,6 +150,7 @@ async fn calc_bw_ltw_2850000_3050000() {
         2950000,
         TEST_WEIGHT_CONFIG,
         db_builder.finish(Some(2950000)),
+        Chain::Main,
     )
     .await
     .unwrap();

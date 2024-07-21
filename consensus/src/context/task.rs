@@ -5,7 +5,7 @@
 //!
 use futures::channel::oneshot;
 use tokio::sync::mpsc;
-use tower::{Service, ServiceExt};
+use tower::ServiceExt;
 use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
@@ -16,10 +16,7 @@ use cuprate_types::{
 
 use crate::{
     context::{
-        alt_chains::{
-            get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainContextCache,
-            AltChainMap,
-        },
+        alt_chains::{get_alt_chain_difficulty_cache, get_alt_chain_weight_cache, AltChainMap},
         difficulty, hardforks, rx_vms, weight, BlockChainContext, BlockChainContextRequest,
         BlockChainContextResponse, ContextConfig, RawBlockChainContext, ValidityToken,
         BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
@@ -91,7 +88,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
         let BCResponse::GeneratedCoins(already_generated_coins) = database
             .ready()
             .await?
-            .call(BCReadRequest::GeneratedCoins)
+            .call(BCReadRequest::GeneratedCoins(chain_height - 1))
             .await?
         else {
             panic!("Database sent incorrect response!");
@@ -249,21 +246,31 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
                 self.chain_height -= numb_blocks;
 
-                /*
-                TODO: get generated coins of a certain block
-
-                let BCResponse::BlockExtendedHeader(extended_header) = self
+                let BCResponse::GeneratedCoins(already_generated_coins) = self
                     .database
                     .ready()
                     .await?
-                    .call(BCReadRequest::G(self.chain_height - 1))
+                    .call(BCReadRequest::GeneratedCoins(self.chain_height - 1))
+                    .await?
+                else {
+                    panic!("Database sent incorrect response!");
+                };
+
+                let BCResponse::BlockHash(top_block_hash) = self
+                    .database
+                    .ready()
+                    .await?
+                    .call(BCReadRequest::BlockHash(self.chain_height - 1, Chain::Main))
                     .await?
                 else {
                     panic!("Database returned incorrect response!");
                 };
-                self.top_block_hash = extended_header.;
 
-                 */
+                self.already_generated_coins = already_generated_coins;
+                self.top_block_hash = top_block_hash;
+
+                std::mem::replace(&mut self.current_validity_token, ValidityToken::new())
+                    .set_data_invalid();
 
                 BlockChainContextResponse::Ok
             }

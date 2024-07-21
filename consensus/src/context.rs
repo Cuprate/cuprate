@@ -300,7 +300,7 @@ pub enum BlockChainContextRequest {
         /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
         prev_id: [u8; 32],
         /// The cache.
-        cache: AltChainContextCache,
+        cache: Box<AltChainContextCache>,
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
@@ -314,7 +314,7 @@ pub enum BlockChainContextResponse {
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
     /// An [`AltChainContextCache`].
-    AltChainContextCache(AltChainContextCache),
+    AltChainContextCache(Box<AltChainContextCache>),
     /// A [`DifficultyCache`] for an alt chain.
     AltChainDifficultyCache(DifficultyCache),
     /// A [`RandomXVM`] for an alt chain.

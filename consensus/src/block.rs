@@ -12,29 +12,23 @@ use monero_serai::{
     block::Block,
     transaction::{Input, Transaction},
 };
-use rayon::prelude::*;
 use tower::{Service, ServiceExt};
-use tracing::instrument;
 
-use cuprate_consensus_rules::{
-    blocks::{
-        calculate_pow_hash, check_block, check_block_pow, is_randomx_seed_height,
-        randomx_seed_height, BlockError, RandomX,
-    },
-    hard_forks::HardForkError,
-    miner_tx::MinerTxError,
-    ConsensusError, HardFork,
-};
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
     AltBlockInformation, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 
-use crate::{
-    context::{
-        rx_vms::RandomXVM, AltChainRequestToken, BlockChainContextRequest,
-        BlockChainContextResponse, RawBlockChainContext,
+use cuprate_consensus_rules::{
+    blocks::{
+        calculate_pow_hash, check_block, check_block_pow, randomx_seed_height, BlockError, RandomX,
     },
+    miner_tx::MinerTxError,
+    ConsensusError, HardFork,
+};
+
+use crate::{
+    context::{BlockChainContextRequest, BlockChainContextResponse, RawBlockChainContext},
     transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
     Database, ExtendedConsensusError,
 };
@@ -332,7 +326,7 @@ where
 /// Verifies a prepared block.
 async fn verify_main_chain_block<C, TxV>(
     block: Block,
-    mut txs: HashMap<[u8; 32], TransactionVerificationData>,
+    txs: HashMap<[u8; 32], TransactionVerificationData>,
     mut context_svc: C,
     tx_verifier_svc: TxV,
 ) -> Result<VerifyBlockResponse, ExtendedConsensusError>
@@ -395,7 +389,7 @@ where
 
     // Check that the txs included are what we need and that there are not any extra.
     // TODO: Remove the Arc here
-    let ordered_txs = pull_ordered_transactions(&block, txs)?
+    let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)?
         .into_iter()
         .map(Arc::new)
         .collect();

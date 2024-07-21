@@ -175,7 +175,7 @@ where
                 let height = block.height;
                 let block = PreparedBlock::new_prepped(
                     block,
-                    rx_vms.get(&randomx_seed_height(height)).as_ref(),
+                    rx_vms.get(&randomx_seed_height(height)).map(AsRef::as_ref),
                 )?;
 
                 // Check the PoW
@@ -192,7 +192,7 @@ where
 
                 // Order the txs correctly.
                 // TODO: Remove the Arc here
-                let mut ordered_txs = pull_ordered_transactions(&block.block, txs)?
+                let ordered_txs = pull_ordered_transactions(&block.block, txs)?
                     .into_iter()
                     .map(Arc::new)
                     .collect();

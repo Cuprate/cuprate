@@ -110,7 +110,7 @@ where
 
     let cumulative_difficulty = difficulty_cache.cumulative_difficulty() + next_difficulty;
 
-    let mut ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)?;
+    let ordered_txs = pull_ordered_transactions(&prepped_block.block, txs)?;
 
     let block_weight =
         prepped_block.miner_tx_weight + ordered_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();

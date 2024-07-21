@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use tower::{Service, ServiceExt};
+use tower::ServiceExt;
 
 use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_types::{
@@ -69,7 +69,7 @@ impl AltChainContextCache {
 
 /// A map of top IDs to alt chains.
 pub struct AltChainMap {
-    alt_cache_map: HashMap<[u8; 32], AltChainContextCache>,
+    alt_cache_map: HashMap<[u8; 32], Box<AltChainContextCache>>,
 }
 
 impl AltChainMap {
@@ -84,7 +84,7 @@ impl AltChainMap {
     }
 
     /// Add an alt chain cache to the map.
-    pub fn add_alt_cache(&mut self, prev_id: [u8; 32], alt_cache: AltChainContextCache) {
+    pub fn add_alt_cache(&mut self, prev_id: [u8; 32], alt_cache: Box<AltChainContextCache>) {
         self.alt_cache_map.insert(prev_id, alt_cache);
     }
 
@@ -94,7 +94,7 @@ impl AltChainMap {
         &mut self,
         prev_id: [u8; 32],
         database: D,
-    ) -> Result<AltChainContextCache, ExtendedConsensusError> {
+    ) -> Result<Box<AltChainContextCache>, ExtendedConsensusError> {
         if let Some(cache) = self.alt_cache_map.remove(&prev_id) {
             return Ok(cache);
         }
@@ -111,7 +111,7 @@ impl AltChainMap {
             Err(ConsensusError::Block(BlockError::PreviousIDIncorrect))?
         };
 
-        Ok(AltChainContextCache {
+        Ok(Box::new(AltChainContextCache {
             weight_cache: None,
             difficulty_cache: None,
             cached_rx_vm: None,
@@ -119,7 +119,7 @@ impl AltChainMap {
             top_hash: prev_id,
             chain_id: None,
             parent_chain,
-        })
+        }))
     }
 }
 
@@ -159,15 +159,13 @@ pub async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
         }
         chain @ Chain::Alt(_) => {
             // prev_id is in an alt chain, completely rebuild the cache.
-            let difficulty_cache = DifficultyCache::init_from_chain_height(
+            DifficultyCache::init_from_chain_height(
                 top_height + 1,
                 main_chain_difficulty_cache.config,
                 database,
                 chain,
             )
-            .await?;
-
-            difficulty_cache
+            .await?
         }
     })
 }
@@ -205,15 +203,13 @@ pub async fn get_alt_chain_weight_cache<D: Database + Clone>(
         }
         chain @ Chain::Alt(_) => {
             // prev_id is in an alt chain, completely rebuild the cache.
-            let weight_cache = BlockWeightsCache::init_from_chain_height(
+            BlockWeightsCache::init_from_chain_height(
                 top_height + 1,
                 main_chain_weight_cache.config,
                 database,
                 chain,
             )
-            .await?;
-
-            weight_cache
+            .await?
         }
     })
 }

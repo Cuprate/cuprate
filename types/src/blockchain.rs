@@ -52,8 +52,8 @@ pub enum BCReadRequest {
     /// Note that this is not the top-block height.
     ChainHeight,
 
-    /// Request the total amount of generated coins (atomic units) so far.
-    GeneratedCoins,
+    /// Request the total amount of generated coins (atomic units) at this height.
+    GeneratedCoins(u64),
 
     /// Request data for multiple outputs.
     ///

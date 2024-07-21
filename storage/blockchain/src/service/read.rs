@@ -213,7 +213,7 @@ fn map_request(
             block_extended_header_in_range(env, range, chain)
         }
         R::ChainHeight => chain_height(env),
-        R::GeneratedCoins => generated_coins(env),
+        R::GeneratedCoins(height) => generated_coins(env, height),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
@@ -403,17 +403,14 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`BCReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
+fn generated_coins(env: &ConcreteEnv, height: u64) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
-    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    let top_height = top_block_height(&table_block_heights)?;
-
     Ok(BCResponse::GeneratedCoins(cumulative_generated_coins(
-        &top_height,
+        &height,
         &table_block_infos,
     )?))
 }

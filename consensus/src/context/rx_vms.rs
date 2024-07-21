@@ -3,7 +3,6 @@
 //! This module keeps track of the RandomX VM to calculate the next blocks PoW, if the block needs a randomX VM and potentially
 //! more VMs around this height.
 //!
-use std::collections::HashSet;
 use std::{
     collections::{HashMap, VecDeque},
     sync::Arc,
@@ -13,7 +12,7 @@ use futures::{stream::FuturesOrdered, StreamExt};
 use randomx_rs::{RandomXCache, RandomXError, RandomXFlag, RandomXVM as VMInner};
 use rayon::prelude::*;
 use thread_local::ThreadLocal;
-use tower::{Service, ServiceExt};
+use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::blocks::randomx_seed_height;
@@ -148,7 +147,7 @@ impl RandomXVMCache {
 
         for (vm_main_chain_height, vm_seed_hash) in &self.seeds {
             if vm_seed_hash == &seed_hash {
-                let Some(vm) = self.vms.get(&vm_main_chain_height) else {
+                let Some(vm) = self.vms.get(vm_main_chain_height) else {
                     break;
                 };
 
