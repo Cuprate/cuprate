@@ -293,6 +293,28 @@ impl HFVotes {
         }
     }
 
+    /// Pop a number of blocks from the top of the cache and push some values into the front of the cache,
+    /// i.e. the oldest blocks.
+    ///
+    /// `old_block_votes` should contain the HFs below the window that now will be in the window after popping
+    /// blocks from the top.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if `old_block_votes` contains more HFs than `numb_blocks`.
+    pub fn reverse_blocks(&mut self, numb_blocks: usize, old_block_votes: Self) {
+        assert!(old_block_votes.vote_list.len() <= numb_blocks);
+
+        for hf in self.vote_list.drain(self.vote_list.len() - numb_blocks..) {
+            self.votes[hf as usize - 1] -= 1;
+        }
+
+        for old_vote in old_block_votes.vote_list.into_iter().rev() {
+            self.vote_list.push_front(old_vote);
+            self.votes[old_vote as usize - 1] += 1;
+        }
+    }
+
     /// Returns the total votes for a hard-fork.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#accepting-a-fork>

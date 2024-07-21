@@ -18,7 +18,7 @@ const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a
 
 /// Configuration for hard-forks.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct HardForkConfig {
     /// The network we are on.
     pub(crate) info: HFsInfo,
@@ -118,6 +118,50 @@ impl HardForkState {
         );
 
         Ok(hfs)
+    }
+
+    /// Pop some blocks from the top of the cache.
+    ///
+    /// The cache will be returned to the state it would have been in `numb_blocks` ago.
+    ///
+    /// # Invariant
+    ///
+    /// This _must_ only be used on a main-chain cache.
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
+        &mut self,
+        numb_blocks: u64,
+        database: D,
+    ) -> Result<(), ExtendedConsensusError> {
+        let Some(retained_blocks) = self.votes.total_votes().checked_sub(self.config.window) else {
+            *self = Self::init_from_chain_height(
+                self.last_height + 1 - numb_blocks,
+                self.config,
+                database,
+            )
+            .await?;
+
+            return Ok(());
+        };
+
+        let current_chain_height = self.last_height + 1;
+
+        let oldest_votes = get_votes_in_range(
+            database,
+            current_chain_height
+                .saturating_sub(self.config.window)
+                .saturating_sub(numb_blocks)
+                ..current_chain_height
+                    .saturating_sub(numb_blocks)
+                    .saturating_sub(retained_blocks),
+            usize::try_from(numb_blocks).unwrap(),
+        )
+        .await?;
+
+        self.votes
+            .reverse_blocks(usize::try_from(numb_blocks).unwrap(), oldest_votes);
+        self.last_height -= numb_blocks;
+
+        Ok(())
     }
 
     /// Add a new block to the cache.

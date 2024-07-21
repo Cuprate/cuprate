@@ -79,6 +79,10 @@ impl AltChainMap {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.alt_cache_map.clear();
+    }
+
     /// Add an alt chain cache to the map.
     pub fn add_alt_cache(&mut self, prev_id: [u8; 32], alt_cache: AltChainContextCache) {
         self.alt_cache_map.insert(prev_id, alt_cache);

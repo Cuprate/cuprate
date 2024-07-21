@@ -129,6 +129,8 @@ impl RandomXVMCache {
         self.cached_vm.replace(vm);
     }
 
+    /// Creates a RX VM for an alt chain, looking at the main chain RX VMs to see if we can use one
+    /// of them first.
     pub async fn get_alt_vm<D: Database>(
         &mut self,
         height: u64,
@@ -209,6 +211,12 @@ impl RandomXVMCache {
         }
 
         self.vms.clone()
+    }
+
+    /// Removes all the RandomX VMs above the `new_height`.
+    pub fn pop_blocks_main_chain(&mut self, new_height: u64) {
+        self.seeds.retain(|(height, _)| *height < new_height);
+        self.vms.retain(|height, _| *height < new_height);
     }
 
     /// Add a new block to the VM cache.

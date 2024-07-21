@@ -5,7 +5,7 @@
 //!
 use futures::channel::oneshot;
 use tokio::sync::mpsc;
-use tower::ServiceExt;
+use tower::{Service, ServiceExt};
 use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
@@ -229,6 +229,41 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 self.already_generated_coins = self
                     .already_generated_coins
                     .saturating_add(new.generated_coins);
+
+                BlockChainContextResponse::Ok
+            }
+            BlockChainContextRequest::PopBlocks { numb_blocks } => {
+                self.difficulty_cache
+                    .pop_blocks_main_chain(numb_blocks, self.database.clone())
+                    .await?;
+                self.weight_cache
+                    .pop_blocks_main_chain(numb_blocks, self.database.clone())
+                    .await?;
+                self.rx_vm_cache
+                    .pop_blocks_main_chain(self.chain_height - numb_blocks - 1);
+                self.hardfork_state
+                    .pop_blocks_main_chain(numb_blocks, self.database.clone())
+                    .await?;
+
+                self.alt_chain_cache_map.clear();
+
+                self.chain_height -= numb_blocks;
+
+                /*
+                TODO: get generated coins of a certain block
+
+                let BCResponse::BlockExtendedHeader(extended_header) = self
+                    .database
+                    .ready()
+                    .await?
+                    .call(BCReadRequest::G(self.chain_height - 1))
+                    .await?
+                else {
+                    panic!("Database returned incorrect response!");
+                };
+                self.top_block_hash = extended_header.;
+
+                 */
 
                 BlockChainContextResponse::Ok
             }

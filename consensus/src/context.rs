@@ -238,6 +238,15 @@ pub enum BlockChainContextRequest {
     NewRXVM(([u8; 32], Arc<RandomXVM>)),
     /// A request to add a new block to the cache.
     Update(NewBlockData),
+    /// Pop blocks from the cache to the specified height.
+    PopBlocks {
+        /// The number of blocks to pop from the top of the chain.
+        ///
+        /// # Panics
+        ///
+        /// This will panic if the number of blocks will pop the genesis block.
+        numb_blocks: u64,
+    },
     //----------------------------------------------------------------------------------------------------------- AltChainRequests
     /// A request for an [`AltChainContextCache`].
     ///
@@ -276,13 +285,23 @@ pub enum BlockChainContextRequest {
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the randomX VM of an alt chain.
     AltChainRxVM {
+        /// The height the RandomX VM is needed for.
         height: u64,
+        /// The chain to look in for the seed.
         chain: Chain,
+        /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
+    /// A request to add an [`AltChainContextCache`] to the context cache.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle returning the alt cache to the context service.
     AddAltChainContextCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
         prev_id: [u8; 32],
+        /// The cache.
         cache: AltChainContextCache,
+        /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
 }
@@ -294,12 +313,15 @@ pub enum BlockChainContextResponse {
     RxVms(HashMap<u64, Arc<RandomXVM>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
-
+    /// An [`AltChainContextCache`].
     AltChainContextCache(AltChainContextCache),
+    /// A [`DifficultyCache`] for an alt chain.
     AltChainDifficultyCache(DifficultyCache),
+    /// A [`RandomXVM`] for an alt chain.
     AltChainRxVM(Arc<RandomXVM>),
+    /// A [`BlockWeightsCache`] for an alt chain
     AltChainWeightCache(BlockWeightsCache),
-    /// Ok response.
+    /// A generic Ok response.
     Ok,
 }
 
