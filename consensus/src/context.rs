@@ -31,13 +31,14 @@ mod alt_chains;
 mod task;
 mod tokens;
 
-use crate::context::difficulty::DifficultyCache;
-use crate::context::weight::BlockWeightsCache;
-pub(crate) use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
 use cuprate_types::Chain;
+use difficulty::DifficultyCache;
+use rx_vms::RandomXVM;
+use weight::BlockWeightsCache;
+
+pub(crate) use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
-use rx_vms::RandomXVM;
 pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
@@ -248,7 +249,7 @@ pub enum BlockChainContextRequest {
         numb_blocks: u64,
     },
     //----------------------------------------------------------------------------------------------------------- AltChainRequests
-    /// A request for an [`AltChainContextCache`].
+    /// A request for an alt chain context cache.
     ///
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the alt cache.
@@ -258,7 +259,7 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
-    /// A request for a [`DifficultyCache`] of an alternative chin.
+    /// A request for a difficulty cache of an alternative chin.
     ///
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the difficulty cache of an alt chain.
@@ -268,7 +269,7 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
-    /// A request for a [`BlockWeightsCache`] of an alternative chin.
+    /// A request for a block weight cache of an alternative chin.
     ///
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the weight cache of an alt chain.
@@ -278,7 +279,7 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
-    /// A request for a [`RandomXVM`] for an alternative chin.
+    /// A request for a RX VM for an alternative chin.
     ///
     /// Response variant: [`BlockChainContextResponse::AltChainRxVM`].
     ///
@@ -292,7 +293,7 @@ pub enum BlockChainContextRequest {
         /// An internal token to prevent external crates calling this request.
         _token: AltChainRequestToken,
     },
-    /// A request to add an [`AltChainContextCache`] to the context cache.
+    /// A request to add an alt chain context cache to the context cache.
     ///
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle returning the alt cache to the context service.
@@ -313,13 +314,13 @@ pub enum BlockChainContextResponse {
     RxVms(HashMap<u64, Arc<RandomXVM>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
-    /// An [`AltChainContextCache`].
+    /// An alt chain context cache.
     AltChainContextCache(Box<AltChainContextCache>),
-    /// A [`DifficultyCache`] for an alt chain.
+    /// A difficulty cache for an alt chain.
     AltChainDifficultyCache(DifficultyCache),
-    /// A [`RandomXVM`] for an alt chain.
+    /// A randomX VM for an alt chain.
     AltChainRxVM(Arc<RandomXVM>),
-    /// A [`BlockWeightsCache`] for an alt chain
+    /// A weight cache for an alt chain
     AltChainWeightCache(BlockWeightsCache),
     /// A generic Ok response.
     Ok,
