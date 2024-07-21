@@ -21,7 +21,6 @@ fn main() {
         .file("c/skein.c")
         .file("c/memwipe.c")
         .file("c/slow-hash.c")
-        .file("c/CryptonightR_JIT.c")
         .flag_if_supported("-fexceptions")
         // c/oaes_lib.c: In function ‘oaes_get_seed’:
         // c/oaes_lib.c:515:9: warning: ‘ftime’ is deprecated: Use gettimeofday or clock_gettime instead [-Wdeprecated-declarations]

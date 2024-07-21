@@ -1,3 +1,5 @@
+mod hash;
+
 #[link(name = "cryptonight")]
 extern "C" {
     fn cn_slow_hash(
@@ -5,9 +7,18 @@ extern "C" {
         length: usize,
         hash: *mut u8,
         variant: i32,
-        pre_hashed: i32,
         height: u64,
     );
+}
+
+/// Calculates the CryptoNight v0 hash of buf (legacy C version).
+///
+pub fn cryptonight_hash_v0_legacy(buf: &[u8]) -> [u8; 32] {
+    let mut hash = [0; 32];
+    unsafe {
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 0, 0);
+    }
+    hash
 }
 
 /// Calculates the CryptoNight v0 hash of buf.
@@ -15,10 +26,11 @@ extern "C" {
 pub fn cryptonight_hash_v0(buf: &[u8]) -> [u8; 32] {
     let mut hash = [0; 32];
     unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 0, 0, 0);
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 0, 0);
     }
     hash
 }
+
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
 #[error("Data can't be hashed")]
@@ -35,7 +47,7 @@ pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
 
     let mut hash = [0; 32];
     unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 1, 0, 0);
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 1, 0);
     }
     Ok(hash)
 }
@@ -45,7 +57,7 @@ pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
 pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
     let mut hash = [0; 32];
     unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 2, 0, 0);
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 2, 0);
     }
     hash
 }
@@ -55,7 +67,7 @@ pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
 pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
     let mut hash = [0; 32];
     unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 4, 0, height);
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 4, height);
     }
     hash
 }
