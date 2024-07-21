@@ -18,7 +18,7 @@ const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a
 
 /// Configuration for hard-forks.
 ///
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HardForkConfig {
     /// The network we are on.
     pub(crate) info: HFsInfo,
@@ -53,7 +53,7 @@ impl HardForkConfig {
 }
 
 /// A struct that keeps track of the current hard-fork and current votes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HardForkState {
     /// The current active hard-fork.
     pub(crate) current_hardfork: HardFork,

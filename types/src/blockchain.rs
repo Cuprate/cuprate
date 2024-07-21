@@ -134,6 +134,9 @@ pub enum BCResponse {
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
 
+    /// Response to [`BCReadRequest::FindBlock`].
+    ///
+    /// Inner value is the chain and height of the block if found.
     FindBlock(Option<(Chain, u64)>),
 
     /// Response to [`BCReadRequest::FilterUnknownHashes`].

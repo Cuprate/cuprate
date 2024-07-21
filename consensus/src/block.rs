@@ -37,9 +37,9 @@ mod alt_block;
 mod batch_prepare;
 mod free;
 
-use crate::block::free::pull_ordered_transactions;
 use alt_block::sanity_check_alt_block;
 use batch_prepare::batch_prepare_main_chain_block;
+use free::pull_ordered_transactions;
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
 #[derive(Debug)]

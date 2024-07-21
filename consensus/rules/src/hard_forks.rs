@@ -38,7 +38,7 @@ pub enum HardForkError {
 }
 
 /// Information about a given hard-fork.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HFInfo {
     height: u64,
     threshold: u64,
@@ -50,7 +50,7 @@ impl HFInfo {
 }
 
 /// Information about every hard-fork Monero has had.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HFsInfo([HFInfo; NUMB_OF_HARD_FORKS]);
 
 impl HFsInfo {
@@ -243,7 +243,7 @@ impl HardFork {
 }
 
 /// A struct holding the current voting state of the blockchain.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HFVotes {
     votes: [u64; NUMB_OF_HARD_FORKS],
     vote_list: VecDeque<HardFork>,

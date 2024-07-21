@@ -106,6 +106,7 @@ pub enum Chain {
     Alt(ChainID),
 }
 //---------------------------------------------------------------------------------------------------- AltBlockInformation
+/// A block on an alternative chain.
 pub struct AltBlockInformation {
     /// The block itself.
     pub block: Block,
