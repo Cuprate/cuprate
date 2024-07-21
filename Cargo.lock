@@ -757,6 +757,10 @@ dependencies = [
 [[package]]
 name = "cuprate-rpc-interface"
 version = "0.0.0"
+dependencies = [
+ "cuprate-epee-encoding",
+ "serde",
+]
 
 [[package]]
 name = "cuprate-rpc-types"

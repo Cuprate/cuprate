@@ -9,7 +9,11 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/cuprate-rpc-inte
 keywords    = ["cuprate", "rpc", "interface"]
 
 [features]
+default = []
 
 [dependencies]
+cuprate-epee-encoding = { path = "../../net/epee-encoding" }
+
+serde = { workspace = true }
 
 [dev-dependencies]
