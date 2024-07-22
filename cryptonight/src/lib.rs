@@ -1,3 +1,5 @@
+extern crate core;
+
 mod hash;
 
 #[link(name = "cryptonight")]
