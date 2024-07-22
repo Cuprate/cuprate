@@ -108,8 +108,8 @@
 mod constants;
 mod error;
 mod free;
+mod json_rpc_method;
 mod macros;
-mod method;
 mod request;
 mod response;
 mod route;
@@ -118,7 +118,7 @@ mod rpc_state;
 
 pub use error::Error;
 pub use free::create_router;
-pub use method::Method;
+pub use json_rpc_method::JsonRpcMethod;
 pub use request::Request;
 pub use response::Response;
 pub use rpc_handler::{ConcreteRpcHandler, RpcHandler};

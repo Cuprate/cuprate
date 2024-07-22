@@ -9,7 +9,8 @@ use axum::Json;
 use tower::Service;
 
 use crate::{
-    error::Error, method::Method, request::Request, response::Response, rpc_handler::RpcHandler,
+    error::Error, json_rpc_method::JsonRpcMethod, request::Request, response::Response,
+    rpc_handler::RpcHandler,
 };
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
@@ -17,7 +18,7 @@ use crate::{
 // pub(crate) async fn json_rpc<H: RpcHandler>(
 pub(crate) async fn json_rpc(
     // handler: Arc<H>,
-    Json(request): Json<cuprate_json_rpc::Request<Method>>,
+    Json(request): Json<cuprate_json_rpc::Request<JsonRpcMethod>>,
 ) {
     todo!()
 }
