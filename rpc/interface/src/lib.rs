@@ -102,14 +102,24 @@
     )
 )]
 // TODO: remove me after finishing impl
-#![allow(dead_code)]
+#![allow(dead_code, unreachable_code)]
 
 //---------------------------------------------------------------------------------------------------- Mod
 mod constants;
 mod error;
 mod free;
 mod macros;
+mod method;
 mod request;
 mod response;
 mod route;
-mod state;
+mod rpc_handler;
+mod rpc_state;
+
+pub use error::Error;
+pub use free::create_router;
+pub use method::Method;
+pub use request::Request;
+pub use response::Response;
+pub use rpc_handler::{ConcreteRpcHandler, RpcHandler};
+pub use rpc_state::{ConcreteRpcState, RpcState};
