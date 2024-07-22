@@ -1,9 +1,8 @@
 use std::io::Write;
 
-use keccak;
 use sha3::Digest;
 
-struct cache {
+struct Cache {
     scratchpad: [u64; 2 * 1024 * 1024 / 8], // 2 MiB scratchpad
     final_state: [u64; 25],                 // state of keccak1600
     _padding: [u8; 8],                       // ensure that next field is 16 byte aligned
@@ -11,9 +10,9 @@ struct cache {
     rkeys: [u32; 40],                       // 10 rounds, instead of 14 as in standard AES-256
 }
 
-impl Default for cache {
+impl Default for Cache {
     fn default() -> Self {
-        cache {
+        Cache {
             scratchpad: [0; 2 * 1024 * 1024 / 8],
             final_state: [0; 25],
             _padding: [0; 8],
@@ -23,71 +22,10 @@ impl Default for cache {
     }
 }
 
-impl cache {
+impl Cache {
     // fn zero(&mut self) {
     //     *self = cache::default();
     // }
-}
-
-
-// pub fn convert(data: &[u32; 4]) -> [u8; 16] {
-//     unsafe { std::mem::transmute(*data) }
-// }
-
-const PLEN: usize = 25;
-const TLEN: usize = 144;
-
-
-#[inline(always)]
-#[allow(cast_ptr_alignment)]
-fn as_u64_array(t: &mut [u8; TLEN]) -> &mut [u64; TLEN / 8] {
-    unsafe { &mut *(t as *mut [u8; TLEN] as *mut [u64; TLEN / 8]) }
-}
-
-pub fn as_u8_array(t: &mut [u64; 25]) -> &mut [u8; 200] {
-    unsafe { &mut *(t as *mut [u64; 25] as *mut [u8; 200]) }
-}
-
-fn xorin(dst: &mut [u8], src: &[u8]) {
-    for (d, i) in dst.iter_mut().zip(src) {
-        *d ^= *i;
-    }
-}
-
-
-pub fn cn_keccak(input: &[u8]) -> [u64; 25] { // [u8; 200] {
-
-    let mut a: [u64; PLEN] = [0; PLEN];
-    let init_rate = 136; //200 - 512/4;
-    let mut rate = init_rate;
-    let inlen = input.len();
-    let mut tmp: [u8; TLEN] = [0; TLEN];
-    tmp[..inlen].copy_from_slice(input);
-
-    //first foldp
-    let mut ip = 0;
-    let mut l = inlen;
-    while l >= rate {
-        xorin(&mut as_u8_array(&mut a)[0..][..rate], &input[ip..]);
-        tiny_keccak::keccakf(&mut a);
-        ip += rate;
-        l -= rate;
-        rate = init_rate;
-    }
-
-    //pad
-    tmp[inlen] = 1;
-    tmp[rate - 1] |= 0x80;
-
-    let t64 = as_u64_array(&mut tmp);
-    for i in 0..(rate / 8) {
-        a[i] ^= t64[i];
-    }
-
-    keccak::f1600(&mut a);
-
-    //let t8 = as_u8_array(&mut a);
-    a
 }
 
 
@@ -103,14 +41,20 @@ fn sum(data: &[u8]) -> [u64; 25] { //-> [u8; 32] {
     // let mut div_result: u64 = 0;
     // let mut sqrt_result: u64 = 0;
 
-    //let mut hasher = sha3::Keccak256Full::new();
-    // hasher.write(data).expect("Failed to write data to hasher");
-    // let result = hasher.finalize().as_slice();
-    // for i in 0..25 {
-    //   cache.final_state[i] = u64::from_le_bytes(result[i*8..(i+1)*8-1]);
-    // }
+    let mut hasher = sha3::Keccak256Full::new();
+    hasher.write(data).expect("Failed to write data to hasher");
+    let hash = hasher.finalize().to_vec();
+    assert_eq!(hash.len(), 200);
 
-    cn_keccak(data)
+    let state: &mut [u64; 25] = &mut [0; 25];
+    for i in 0..25 {
+        state[i] = u64::from_le_bytes([hash[i * 8], hash[i * 8 + 1], hash[i * 8 + 2], hash[i * 8 + 3], hash[i * 8 + 4], hash[i * 8 + 5], hash[i * 8 + 6], hash[i * 8 + 7]]);
+    }
+
+    println!("state: {:?}", state);
+
+
+    state.clone()
 }
 
 
