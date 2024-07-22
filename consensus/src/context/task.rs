@@ -274,6 +274,11 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
                 BlockChainContextResponse::Ok
             }
+            BlockChainContextRequest::ClearAltCache => {
+                self.alt_chain_cache_map.clear();
+
+                BlockChainContextResponse::Ok
+            }
             BlockChainContextRequest::AltChainContextCache { prev_id, _token } => {
                 BlockChainContextResponse::AltChainContextCache(
                     self.alt_chain_cache_map

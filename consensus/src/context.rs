@@ -248,6 +248,8 @@ pub enum BlockChainContextRequest {
         /// This will panic if the number of blocks will pop the genesis block.
         numb_blocks: u64,
     },
+    /// Clear the alt chain context caches.
+    ClearAltCache,
     //----------------------------------------------------------------------------------------------------------- AltChainRequests
     /// A request for an alt chain context cache.
     ///
