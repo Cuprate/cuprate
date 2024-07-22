@@ -21,7 +21,7 @@ mod status;
 mod tx_entry;
 
 pub use binary_string::BinaryString;
-pub use distribution::Distribution;
+pub use distribution::{Distribution, DistributionCompressedBinary, DistributionUncompressed};
 pub use key_image_spent_status::KeyImageSpentStatus;
 pub use misc::{
     AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo, GetBan,

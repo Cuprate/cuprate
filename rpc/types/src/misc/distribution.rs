@@ -70,36 +70,58 @@ fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Distribution {
     /// Distribution data will be (de)serialized as either JSON or binary (uncompressed).
-    Uncompressed {
-        start_height: u64,
-        base: u64,
-        /// TODO: this is a binary JSON string if `binary == true`.
-        ///
-        /// Considering both the `binary` field and `/get_output_distribution.bin`
-        /// endpoint are undocumented in the first place, Cuprate could just drop support for this.
-        distribution: Vec<u64>,
-        amount: u64,
-        binary: bool,
-    },
+    Uncompressed(DistributionUncompressed),
     /// Distribution data will be (de)serialized as compressed binary.
-    CompressedBinary {
-        start_height: u64,
-        base: u64,
-        compressed_data: String,
-        amount: u64,
-    },
+    CompressedBinary(DistributionCompressedBinary),
 }
 
 impl Default for Distribution {
     fn default() -> Self {
-        Self::Uncompressed {
-            start_height: u64::default(),
-            base: u64::default(),
-            distribution: Vec::<u64>::default(),
-            amount: u64::default(),
-            binary: false,
-        }
+        Self::Uncompressed(DistributionUncompressed::default())
     }
+}
+
+/// Data within [`Distribution::Uncompressed`].
+#[allow(dead_code, missing_docs)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DistributionUncompressed {
+    pub start_height: u64,
+    pub base: u64,
+    /// TODO: this is a binary JSON string if `binary == true`.
+    pub distribution: Vec<u64>,
+    pub amount: u64,
+    pub binary: bool,
+}
+
+#[cfg(feature = "epee")]
+epee_object! {
+    DistributionUncompressed,
+    start_height: u64,
+    base: u64,
+    distribution: Vec<u64>,
+    amount: u64,
+    binary: bool,
+}
+
+/// Data within [`Distribution::CompressedBinary`].
+#[allow(dead_code, missing_docs)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DistributionCompressedBinary {
+    pub start_height: u64,
+    pub base: u64,
+    pub compressed_data: String,
+    pub amount: u64,
+}
+
+#[cfg(feature = "epee")]
+epee_object! {
+    DistributionCompressedBinary,
+    start_height: u64,
+    base: u64,
+    compressed_data: String,
+    amount: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- Epee
@@ -134,9 +156,6 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
             };
         }
 
-        self.compressed_data = read_epee_value(r).ok().unwrap_or_default();
-        self.distribution = read_epee_value(r).ok().unwrap_or_default();
-
         read_epee_field! {
             start_height,
             base,
@@ -144,6 +163,9 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
             binary,
             compress
         }
+
+        self.compressed_data = read_epee_value(r).ok().unwrap_or_default();
+        self.distribution = read_epee_value(r).ok().unwrap_or_default();
 
         Ok(true)
     }
@@ -156,20 +178,20 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
         let amount = self.amount.ok_or(ELSE)?;
 
         let distribution = if let Some(compressed_data) = self.compressed_data {
-            Distribution::CompressedBinary {
-                compressed_data,
+            Distribution::CompressedBinary(DistributionCompressedBinary {
                 start_height,
                 base,
+                compressed_data,
                 amount,
-            }
+            })
         } else if let Some(distribution) = self.distribution {
-            Distribution::Uncompressed {
+            Distribution::Uncompressed(DistributionUncompressed {
                 binary: self.binary.ok_or(ELSE)?,
                 distribution,
                 start_height,
                 base,
                 amount,
-            }
+            })
         } else {
             return Err(ELSE);
         };
@@ -183,56 +205,12 @@ impl EpeeObject for Distribution {
     type Builder = __DistributionEpeeBuilder;
 
     fn number_of_fields(&self) -> u64 {
-        let mut fields = 0;
-
-        macro_rules! add_field {
-            ($($field:ident),*) => {
-                $(
-                    if $field.should_write() {
-                        fields += 1;
-                    }
-                )*
-            };
-        }
-
         match self {
-            Self::Uncompressed {
-                distribution,
-                start_height,
-                base,
-                amount,
-                binary,
-            } => {
-                const COMPRESS: bool = false;
-                add_field! {
-                    distribution,
-                    start_height,
-                    base,
-                    amount,
-                    binary,
-                    COMPRESS
-                }
-            }
-            Self::CompressedBinary {
-                start_height,
-                base,
-                compressed_data,
-                amount,
-            } => {
-                const BINARY: bool = true;
-                const COMPRESS: bool = true;
-                add_field! {
-                    start_height,
-                    base,
-                    compressed_data,
-                    amount,
-                    BINARY,
-                    COMPRESS
-                }
-            }
+            // Inner struct fields + `compress`.
+            Self::Uncompressed(s) => s.number_of_fields() + 1,
+            // Inner struct fields + `compress` + `binary`.
+            Self::CompressedBinary(s) => s.number_of_fields() + 2,
         }
-
-        fields
     }
 
     fn write_fields<B: BufMut>(self, w: &mut B) -> error::Result<()> {
@@ -245,42 +223,19 @@ impl EpeeObject for Distribution {
         }
 
         match self {
-            Self::Uncompressed {
-                distribution,
-                start_height,
-                base,
-                amount,
-                binary,
-            } => {
+            Self::Uncompressed(s) => {
+                s.write_fields(w)?;
                 // This is on purpose `lower_case` instead of
                 // `CONST_UPPER` due to `stringify!`.
                 let compress = false;
-                write_field! {
-                    distribution,
-                    start_height,
-                    base,
-                    amount,
-                    binary,
-                    compress
-                }
+                write_field!(compress);
             }
 
-            Self::CompressedBinary {
-                start_height,
-                base,
-                compressed_data,
-                amount,
-            } => {
+            Self::CompressedBinary(s) => {
+                s.write_fields(w)?;
                 let binary = true;
                 let compress = true;
-                write_field! {
-                    start_height,
-                    base,
-                    compressed_data,
-                    amount,
-                    binary,
-                    compress
-                }
+                write_field!(binary, compress);
             }
         }
 
