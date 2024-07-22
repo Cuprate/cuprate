@@ -1,9 +1,6 @@
 #ifndef VARIANT4_RANDOM_MATH_H
 #define VARIANT4_RANDOM_MATH_H
 
-// Register size can be configured to either 32 bit (uint32_t) or 64 bit (uint64_t)
-typedef uint32_t v4_reg;
-
 enum V4_Settings
 {
 	// Generate code with minimal theoretical latency = 45 cycles, which is equivalent to 15 multiplications
@@ -82,18 +79,18 @@ struct V4_Instruction
 // every switch-case will point to the same destination on every iteration of Cryptonight main loop
 //
 // This is about as fast as it can get without using low-level machine code generation
-static FORCEINLINE void v4_random_math(const struct V4_Instruction* code, v4_reg* r)
+static FORCEINLINE void v4_random_math(const struct V4_Instruction* code, uint32_t* r)
 {
 	enum
 	{
-		REG_BITS = sizeof(v4_reg) * 8,
+		REG_BITS = sizeof(uint32_t) * 8,
 	};
 
 #define V4_EXEC(i) \
 	{ \
 		const struct V4_Instruction* op = code + i; \
-		const v4_reg src = r[op->src_index]; \
-		v4_reg* dst = r + op->dst_index; \
+		const uint32_t src = r[op->src_index]; \
+		uint32_t* dst = r + op->dst_index; \
 		switch (op->opcode) \
 		{ \
 		case MUL: \
