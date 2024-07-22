@@ -10,6 +10,7 @@
 #include "oaes_lib.h"
 #include "variant2_int_sqrt.h"
 #include "variant4_random_math.h"
+#include "keccak.h"
 
 #define MEMORY         (1 << 21) // 2MB scratchpad
 #define ITER           (1 << 20)
@@ -272,7 +273,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
   uint8_t aes_key[AES_KEY_SIZE];
   oaes_ctx *aes_ctx;
 
-  hash_process(&state.hs, data, length);
+  keccak1600(data, length, state.hs.b);
   memcpy(text, state.init, INIT_SIZE_BYTE);
   memcpy(aes_key, state.hs.b, AES_KEY_SIZE);
   aes_ctx = (oaes_ctx *) oaes_alloc();
