@@ -402,9 +402,7 @@ impl EpeeObject for GetBlocksResponse {
         macro_rules! write_field {
             ($($field:ident),*) => {
                 $(
-                    if $field.should_write() {
-                        write_field($field, stringify!($field), w)?;
-                    }
+                    write_field($field, stringify!($field), w)?;
                 )*
             };
         }
