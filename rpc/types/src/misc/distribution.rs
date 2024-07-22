@@ -14,8 +14,6 @@ use cuprate_epee_encoding::{
     EpeeValue, Marker,
 };
 
-use super::OutputDistributionData;
-
 //---------------------------------------------------------------------------------------------------- Free
 /// Used for [`Distribution::CompressedBinary::compressed_data`].
 ///
@@ -214,28 +212,16 @@ impl EpeeObject for Distribution {
     }
 
     fn write_fields<B: BufMut>(self, w: &mut B) -> error::Result<()> {
-        macro_rules! write_field {
-            ($($field:ident),*) => {
-                $(
-                    write_field($field, stringify!($field), w)?;
-                )*
-            };
-        }
-
         match self {
             Self::Uncompressed(s) => {
                 s.write_fields(w)?;
-                // This is on purpose `lower_case` instead of
-                // `CONST_UPPER` due to `stringify!`.
-                let compress = false;
-                write_field!(compress);
+                write_field(false, "compress", w)?;
             }
 
             Self::CompressedBinary(s) => {
                 s.write_fields(w)?;
-                let binary = true;
-                let compress = true;
-                write_field!(binary, compress);
+                write_field(true, "binary", w)?;
+                write_field(true, "compress", w)?;
             }
         }
 

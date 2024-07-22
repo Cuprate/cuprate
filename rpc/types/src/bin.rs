@@ -364,33 +364,29 @@ impl EpeeObject for GetBlocksResponse {
     type Builder = __GetBlocksResponseEpeeBuilder;
 
     fn number_of_fields(&self) -> u64 {
-        // Inner struct fields + [`PoolInfoExtent`].
-        match self {
-            Self::PoolInfoNone(s) => s.number_of_fields() + 1,
-            Self::PoolInfoIncremental(s) => s.number_of_fields() + 1,
-            Self::PoolInfoFull(s) => s.number_of_fields() + 1,
-        }
+        // [`PoolInfoExtent`] + inner struct fields.
+        let inner_fields = match self {
+            Self::PoolInfoNone(s) => s.number_of_fields(),
+            Self::PoolInfoIncremental(s) => s.number_of_fields(),
+            Self::PoolInfoFull(s) => s.number_of_fields(),
+        };
+
+        1 + inner_fields
     }
 
     fn write_fields<B: BufMut>(self, w: &mut B) -> error::Result<()> {
-        macro_rules! write_field_pool_info_extent {
-            ($pool_info_extent:expr) => {
-                write_field($pool_info_extent.to_u8(), "pool_info_extent", w)?;
-            };
-        }
-
         match self {
             Self::PoolInfoNone(s) => {
                 s.write_fields(w)?;
-                write_field_pool_info_extent!(PoolInfoExtent::None);
+                write_field(PoolInfoExtent::None.to_u8(), "pool_info_extent", w)?;
             }
             Self::PoolInfoIncremental(s) => {
                 s.write_fields(w)?;
-                write_field_pool_info_extent!(PoolInfoExtent::Incremental);
+                write_field(PoolInfoExtent::Incremental.to_u8(), "pool_info_extent", w)?;
             }
             Self::PoolInfoFull(s) => {
                 s.write_fields(w)?;
-                write_field_pool_info_extent!(PoolInfoExtent::Full);
+                write_field(PoolInfoExtent::Full.to_u8(), "pool_info_extent", w)?;
             }
         }
 
