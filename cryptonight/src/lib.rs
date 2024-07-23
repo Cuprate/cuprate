@@ -97,12 +97,12 @@ mod tests {
     }
 
     #[test]
-    fn slow_hash1_legacy() {
-        const INPUT: &str = "8519e039172b0d70e5ca7b3383d6b3167315a422747b73f019cf9528f0fde341fd0f2a63030ba6450525cf6de31837669af6f1df8131faf50aaab8d3a7405589";
-        const EXPECTED: &str = "5bb40c5880cef2f739bdb6aaaf16161eaae55530e7b10d7ea996b751a299e949";
+    fn slow_hash2_legacy() {
+        const INPUT: &str = "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374";
+        const EXPECTED: &str = "353fdc068fd47b03c04b9431e005e00b68c2168a3cc7335c8b9b308156591a4f";
 
-        let res = cryptonight_hash_v1(&hex::decode(INPUT).unwrap());
-        let res_hex = hex::encode(res.unwrap());
+        let res = cryptonight_hash_v2(&hex::decode(INPUT).unwrap());
+        let res_hex = hex::encode(res);
         assert_eq!(res_hex, EXPECTED);
     }
 

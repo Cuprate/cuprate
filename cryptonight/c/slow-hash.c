@@ -300,9 +300,6 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     xor64(tweak1_2, NONCE_POINTER);
   }
 
-    print_hex("tweak1_2", tweak1_2, 8);
-    print_hex("state.hs.b", state.hs.b, 200);
-
   // VARIANT2_PORTABLE_INIT();
   uint64_t division_result = 0;
   uint64_t sqrt_result = 0;
@@ -313,6 +310,11 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     division_result = SWAP64LE(state.hs.w[12]);
     sqrt_result = SWAP64LE(state.hs.w[13]);
   }
+
+    print_hex("b", b, 32);
+    print_hex("state.hs.b", state.hs.b, 200);
+    printf("division_result: %lu\n", division_result);
+    printf("sqrt_result: %lu\n", sqrt_result);
 
   // VARIANT4_RANDOM_MATH_INIT();
   uint32_t r[9];

@@ -134,6 +134,16 @@ fn xor64(left: &mut [u8], right: &[u8]) {
     }
 }
 
+macro_rules! swap_bytes_if_be {
+    ($val:expr) => {
+        if cfg!(target_endian = "big") {
+            $val.swap_bytes()
+        } else {
+            $val
+        }
+    };
+}
+
 fn keccak1600(input: &[u8], out: &mut [u8; 200]) {
     let mut hasher = sha3::Keccak256Full::new();
     hasher.write(input).unwrap();
@@ -143,14 +153,12 @@ fn keccak1600(input: &[u8], out: &mut [u8; 200]) {
 
 const NONCE_PTR_INDEX: usize = 35;
 
-fn cn_slow_hash(data: &[u8], variant: Variant) -> ([u8; 8], [u8; 200]) {
-    // -> [u8; 32] {
-    //-> [u8; 32] {
+fn cn_slow_hash(data: &[u8], variant: Variant) -> ([u8; 32], [u8; 200], u64, u64) {
     // let long_state: [u8; MEMORY];
     // let text: [u8; INIT_SIZE_BYTE];
     // let a: [u8; AES_BLOCK_SIZE];
     // let a1: [u8; AES_BLOCK_SIZE];
-    // let b: [u8; AES_BLOCK_SIZE * 2];
+    let mut b = [0u8; AES_BLOCK_SIZE * 2];
     // let c1: [u8; AES_BLOCK_SIZE];
     // let c2: [u8; AES_BLOCK_SIZE];
     // let d: [u8; AES_BLOCK_SIZE];
@@ -160,6 +168,7 @@ fn cn_slow_hash(data: &[u8], variant: Variant) -> ([u8; 8], [u8; 200]) {
     let mut keccak_state_bytes = state.get_keccak_state_bytes_mut();
     keccak1600(data, &mut keccak_state_bytes);
 
+    // Variant 1 Init
     let mut tweak1_2 = [0u8; 8];
     if variant == Variant::V1 {
         assert!(
@@ -170,7 +179,26 @@ fn cn_slow_hash(data: &[u8], variant: Variant) -> ([u8; 8], [u8; 200]) {
         xor64(&mut tweak1_2, &data[NONCE_PTR_INDEX..NONCE_PTR_INDEX + 8]);
     }
 
-    (tweak1_2.clone(), state.get_keccak_state_bytes().clone())
+    // Variant 2 Init
+    let mut division_result: u64 = 0;
+    let mut sqrt_result: u64 = 0;
+    if variant == Variant::V2 {
+        b[AES_BLOCK_SIZE..AES_BLOCK_SIZE + AES_BLOCK_SIZE]
+            .copy_from_slice(&keccak_state_bytes[64..64 + AES_BLOCK_SIZE]);
+        xor64(&mut b[AES_BLOCK_SIZE..], &keccak_state_bytes[80..]);
+        xor64(&mut b[AES_BLOCK_SIZE + 8..], &keccak_state_bytes[88..]);
+        // TODO: move to implementation that only uses the bytes
+        let keccak_state_words = state.get_keccak_state_words();
+        division_result = swap_bytes_if_be!(keccak_state_words[12]);
+        sqrt_result = swap_bytes_if_be!(keccak_state_words[13]);
+    }
+
+    (
+        b,
+        state.get_keccak_state_bytes().clone(),
+        division_result,
+        sqrt_result,
+    )
 }
 
 #[cfg(test)]
@@ -179,9 +207,15 @@ mod tests {
 
     #[test]
     fn test_sum() {
-        let input = hex::decode("8519e039172b0d70e5ca7b3383d6b3167315a422747b73f019cf9528f0fde341fd0f2a63030ba6450525cf6de31837669af6f1df8131faf50aaab8d3a7405589").unwrap();
-        let (tweak, hash_state) = cn_slow_hash(&input, Variant::V1);
-        assert_eq!(hex::encode(tweak), "9d0192226fb7e413");
-        assert_eq!(hex::encode(hash_state), "daedcec20429ffd440ab70a0a3a549fbc89745581f539fd2ac945388698e2db238bad5006189a23b7a520fe71706f121d8f8bbd70334ef5609ad9f8c332819363a522cca3d9aac50ff095e6f9b0f215a08ab179f472ecacc1446c281aa07fdddbed3441bb4d9284e846bab2bb0efea65423906bc338292e229656b1e5f994560f69d6eed5fc31ec8d1b565ae7ea4adfd18ade82774b3e2efac16bb052060306fe8411bad32867e3c7b7299edba6cc67fd05fe9323335dd7ba62cc870f16bf561fe0299842ab2c1dc");
+        let input = hex::decode("5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374").unwrap();
+        let (b, hash_state, division_result, sqrt_result) = cn_slow_hash(&input, Variant::V2);
+
+        assert_eq!(
+            hex::encode(b),
+            "00000000000000000000000000000000d99c9a4bae0badfb8a8cf8504b813b7d"
+        );
+        assert_eq!(hex::encode(hash_state), "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f266110665e23e891ea4ee2337fb304b35bf8d9c2e4c3524e52e62db67b0b170487a68a34f8026a81b35dc835c60b356d2c411ad227b6c67e30e9b57ba34b3cf27fccecae972850cf3889bb3ff8347b55a5710d58086973d12d75a3340a39430b65ee2f4be27c21e7b39f47341dd036fe13bf43bb2c55bce498a3adcbf07397ea66062b66d56cd8136");
+        assert_eq!(division_result, 1992885167645223034);
+        assert_eq!(sqrt_result, 15156498822412360757);
     }
 }
