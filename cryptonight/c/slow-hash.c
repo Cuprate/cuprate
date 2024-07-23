@@ -258,6 +258,15 @@ union cn_slow_hash_state {
 };
 #pragma pack(pop)
 
+void print_hex(const char *name, const void* memory, size_t size) {
+    const unsigned char* bytes = (const unsigned char*)memory;
+    printf("%s: ", name);
+    for (size_t i = 0; i < size; ++i) {
+        printf("%02x", bytes[i]);
+    }
+    printf("\n");
+}
+
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint64_t height) {
   uint8_t long_state[MEMORY];
 
@@ -290,6 +299,9 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     memcpy(&tweak1_2, &state.hs.b[192], sizeof(tweak1_2));
     xor64(tweak1_2, NONCE_POINTER);
   }
+
+    print_hex("tweak1_2", tweak1_2, 8);
+    print_hex("state.hs.b", state.hs.b, 200);
 
   // VARIANT2_PORTABLE_INIT();
   uint64_t division_result = 0;
