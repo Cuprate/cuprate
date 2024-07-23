@@ -16,7 +16,7 @@ cuprate-epee-encoding = { path = "../../net/epee-encoding" }
 cuprate-json-rpc      = { path = "../json-rpc" }
 cuprate-rpc-types     = { path = "../types" }
 
-axum  = { version = "0.7.5" }
+axum  = { version = "0.7.5", features = ["macros"] }
 serde = { workspace = true }
 tower = { workspace = true }
 

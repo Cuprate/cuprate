@@ -5,22 +5,29 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::{future::Future, sync::Arc};
 
-use axum::Json;
-use tower::Service;
+use axum::{extract::State, http::StatusCode, Json};
+use tower::{Service, ServiceExt};
 
 use crate::{
     error::Error, json_rpc_method::JsonRpcMethod, request::Request, response::Response,
-    rpc_handler::RpcHandler,
+    rpc_handler::RpcHandler, rpc_state::RpcState,
 };
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
 /// TODO
-// pub(crate) async fn json_rpc<H: RpcHandler>(
-pub(crate) async fn json_rpc(
-    // handler: Arc<H>,
+pub(crate) async fn json_rpc<H: RpcHandler>(
+    State(handler): State<H>,
     Json(request): Json<cuprate_json_rpc::Request<JsonRpcMethod>>,
-) {
-    todo!()
+) -> Result<Json<&'static str>, StatusCode> {
+    if handler.state().restricted() && request.body.is_restricted() {
+        // const RESTRICTED: Response = Response::Todo;
+        const RESTRICTED: &str = "TODO";
+        return Ok(Json(RESTRICTED));
+    }
+
+    /* call handler */
+
+    Ok(Json("TODO"))
 }
 
 // // This generates 2 structs:
