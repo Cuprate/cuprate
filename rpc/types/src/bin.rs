@@ -172,7 +172,7 @@ impl RpcRequest for BinRequest {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(missing_docs)]
-pub enum JsonRpcResponse {
+pub enum BinResponse {
     GetBlocks(GetBlocksResponse),
     GetBlocksByHeight(GetBlocksByHeightResponse),
     GetHashes(GetHashesResponse),

@@ -1,12 +1,17 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
+use cuprate_rpc_types::{bin::BinRequest, json::JsonRpcRequest, other::OtherRequest};
 
 //---------------------------------------------------------------------------------------------------- TODO
 /// TODO
 pub enum Request {
     /// TODO
-    Todo,
+    JsonRpc(cuprate_json_rpc::Request<JsonRpcRequest>),
+    /// TODO
+    Binary(BinRequest),
+    /// TODO
+    Other(OtherRequest),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

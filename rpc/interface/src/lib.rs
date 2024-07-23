@@ -102,13 +102,12 @@
     )
 )]
 // TODO: remove me after finishing impl
-#![allow(dead_code, unreachable_code)]
+#![allow(dead_code, unreachable_code, clippy::diverging_sub_expression)]
 
 //---------------------------------------------------------------------------------------------------- Mod
 mod constants;
 mod error;
 mod free;
-mod json_rpc_method;
 mod macros;
 mod request;
 mod response;
@@ -118,7 +117,6 @@ mod rpc_state;
 
 pub use error::Error;
 pub use free::create_router;
-pub use json_rpc_method::JsonRpcMethod;
 pub use request::Request;
 pub use response::Response;
 pub use rpc_handler::{ConcreteRpcHandler, RpcHandler};
