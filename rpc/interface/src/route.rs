@@ -1,11 +1,9 @@
-//! JSON types from the [`/json_rpc`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#json-rpc-methods) endpoint.
-//!
-//! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
+//! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, future::Future, sync::Arc};
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{body::Bytes, extract::State, http::StatusCode, Json};
 use cuprate_json_rpc::{
     error::{ErrorCode, ErrorObject},
     Id,
@@ -14,6 +12,7 @@ use tower::{Service, ServiceExt};
 
 use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
+    other::{OtherRequest, OtherResponse},
     RpcRequest,
 };
 
@@ -22,7 +21,7 @@ use crate::{
     rpc_state::RpcState,
 };
 
-//---------------------------------------------------------------------------------------------------- Struct definitions
+//---------------------------------------------------------------------------------------------------- Routes
 /// TODO
 pub(crate) async fn json_rpc<H: RpcHandler>(
     State(handler): State<H>,
@@ -54,6 +53,49 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
     };
 
     Ok(Json(response))
+}
+
+/// TODO
+pub(crate) async fn bin<H: RpcHandler>(
+    State(handler): State<H>,
+    request: Bytes, // TODO: BinRequest
+) -> Result<Vec<u8>, StatusCode> {
+    // TODO
+    // if handler.state().restricted() && request.is_restricted() {
+    if handler.state().restricted() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // TODO: call handler
+    let Response::Binary(response) = todo!() else {
+        panic!("RPC handler returned incorrect response");
+    };
+
+    let binary: Vec<u8> = todo!(); // TODO: serialize response.
+
+    Ok(binary)
+}
+
+/// TODO
+pub(crate) async fn other<H: RpcHandler>(
+    State(handler): State<H>,
+    Json(request): Json<OtherRequest>,
+) -> Result<Json<OtherResponse>, StatusCode> {
+    if handler.state().restricted() && request.is_restricted() {
+        todo!();
+    }
+
+    // TODO: call handler
+    let Response::Other(response) = todo!() else {
+        panic!("RPC handler returned incorrect response");
+    };
+
+    Ok(Json(response))
+}
+
+/// TODO
+pub(crate) async fn unknown() -> StatusCode {
+    StatusCode::NOT_FOUND
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
