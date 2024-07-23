@@ -5,6 +5,9 @@
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_fixed_bytes::ByteArrayVec;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::container_as_blob::ContainerAsBlob;
 
@@ -18,6 +21,7 @@ use crate::{
         GetBan, GetOutputsOut, HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData,
         Peer, PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
     },
+    RpcRequest,
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -132,6 +136,49 @@ define_request_and_response! {
     AccessResponseBase {
         tx_hashes: ByteArrayVec<32>,
     }
+}
+
+//---------------------------------------------------------------------------------------------------- Request
+/// TODO
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum BinRequest {
+    GetBlocks(GetBlocksRequest),
+    GetBlocksByHeight(GetBlocksByHeightRequest),
+    GetHashes(GetHashesRequest),
+    GetOutputIndexes(GetOutputIndexesRequest),
+    GetOuts(GetOutsRequest),
+    GetTransactionPoolHashes(GetTransactionPoolHashesRequest),
+}
+
+impl RpcRequest for BinRequest {
+    /// All binary methods are un-restricted, i.e.
+    // all of them will return `false`.
+    fn is_restricted(&self) -> bool {
+        match self {
+            Self::GetBlocks(_)
+            | Self::GetBlocksByHeight(_)
+            | Self::GetHashes(_)
+            | Self::GetOutputIndexes(_)
+            | Self::GetOuts(_)
+            | Self::GetTransactionPoolHashes(()) => false,
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Response
+/// TODO
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum JsonRpcResponse {
+    GetBlocks(GetBlocksResponse),
+    GetBlocksByHeight(GetBlocksByHeightResponse),
+    GetHashes(GetHashesResponse),
+    GetOutputIndexes(GetOutputIndexesResponse),
+    GetOuts(GetOutsResponse),
+    GetTransactionPoolHashes(GetTransactionPoolHashesResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

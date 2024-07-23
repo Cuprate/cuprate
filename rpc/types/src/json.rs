@@ -3,6 +3,9 @@
 //! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_false, default_height, default_string, default_vec, default_zero},
@@ -12,6 +15,7 @@ use crate::{
         AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry,
         OutputDistributionData, SetBan, Span, Status, SyncInfoPeer, TxBacklogEntry,
     },
+    RpcRequest,
 };
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
@@ -661,6 +665,121 @@ define_request_and_response! {
       merkle_tree_depth: u64,
       aux_pow: Vec<AuxPow>,
     }
+}
+
+//---------------------------------------------------------------------------------------------------- Request
+/// TODO
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum JsonRpcRequest {
+    GetBlockCount(GetBlockCountRequest),
+    OnGetBlockHash(OnGetBlockHashRequest),
+    SubmitBlock(SubmitBlockRequest),
+    GenerateBlocks(GenerateBlocksRequest),
+    GetLastBlockHeader(GetLastBlockHeaderRequest),
+    GetBlockHeaderByHash(GetBlockHeaderByHashRequest),
+    GetBlockHeaderByHeight(GetBlockHeaderByHeightRequest),
+    GetBlockHeadersRange(GetBlockHeadersRangeRequest),
+    GetBlock(GetBlockRequest),
+    GetConnections(GetConnectionsRequest),
+    GetInfo(GetInfoRequest),
+    HardForkInfo(HardForkInfoRequest),
+    SetBans(SetBansRequest),
+    GetBans(GetBansRequest),
+    Banned(BannedRequest),
+    FlushTransactionPool(FlushTransactionPoolRequest),
+    GetOutputHistogram(GetOutputHistogramRequest),
+    GetCoinbaseTxSum(GetCoinbaseTxSumRequest),
+    GetVersion(GetVersionRequest),
+    GetFeeEstimate(GetFeeEstimateRequest),
+    GetAlternateChains(GetAlternateChainsRequest),
+    RelayTx(RelayTxRequest),
+    SyncInfo(SyncInfoRequest),
+    GetTransactionPoolBacklog(GetTransactionPoolBacklogRequest),
+    GetMinerData(GetMinerDataRequest),
+    PruneBlockchain(PruneBlockchainRequest),
+    CalcPow(CalcPowRequest),
+    FlushCache(FlushCacheRequest),
+    AddAuxPow(AddAuxPowRequest),
+}
+
+impl RpcRequest for JsonRpcRequest {
+    fn is_restricted(&self) -> bool {
+        match self {
+            // Normal methods. These are allowed
+            // even on restricted RPC servers (18089).
+            Self::GetBlockCount(())
+            | Self::OnGetBlockHash(_)
+            | Self::SubmitBlock(_)
+            | Self::GetLastBlockHeader(_)
+            | Self::GetBlockHeaderByHash(_)
+            | Self::GetBlockHeaderByHeight(_)
+            | Self::GetBlockHeadersRange(_)
+            | Self::GetBlock(_)
+            | Self::GetInfo(())
+            | Self::HardForkInfo(())
+            | Self::GetOutputHistogram(_)
+            | Self::GetVersion(())
+            | Self::GetFeeEstimate(())
+            | Self::GetTransactionPoolBacklog(())
+            | Self::GetMinerData(())
+            | Self::AddAuxPow(_) => false,
+
+            // Restricted methods. These are only allowed
+            // for unrestricted RPC servers (18081).
+            Self::GenerateBlocks(_)
+            | Self::GetConnections(())
+            | Self::SetBans(_)
+            | Self::GetBans(())
+            | Self::Banned(_)
+            | Self::FlushTransactionPool(_)
+            | Self::GetCoinbaseTxSum(_)
+            | Self::GetAlternateChains(())
+            | Self::RelayTx(_)
+            | Self::SyncInfo(())
+            | Self::PruneBlockchain(_)
+            | Self::CalcPow(_)
+            | Self::FlushCache(_) => true,
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Response
+/// TODO
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum JsonRpcResponse {
+    GetBlockCount(GetBlockCountResponse),
+    OnGetBlockHash(OnGetBlockHashResponse),
+    SubmitBlock(SubmitBlockResponse),
+    GenerateBlocks(GenerateBlocksResponse),
+    GetLastBlockHeader(GetLastBlockHeaderResponse),
+    GetBlockHeaderByHash(GetBlockHeaderByHashResponse),
+    GetBlockHeaderByHeight(GetBlockHeaderByHeightResponse),
+    GetBlockHeadersRange(GetBlockHeadersRangeResponse),
+    GetBlock(GetBlockResponse),
+    GetConnections(GetConnectionsResponse),
+    GetInfo(GetInfoResponse),
+    HardForkInfo(HardForkInfoResponse),
+    SetBans(SetBansResponse),
+    GetBans(GetBansResponse),
+    Banned(BannedResponse),
+    FlushTransactionPool(FlushTransactionPoolResponse),
+    GetOutputHistogram(GetOutputHistogramResponse),
+    GetCoinbaseTxSum(GetCoinbaseTxSumResponse),
+    GetVersion(GetVersionResponse),
+    GetFeeEstimate(GetFeeEstimateResponse),
+    GetAlternateChains(GetAlternateChainsResponse),
+    RelayTx(RelayTxResponse),
+    SyncInfo(SyncInfoResponse),
+    GetTransactionPoolBacklog(GetTransactionPoolBacklogResponse),
+    GetMinerData(GetMinerDataResponse),
+    PruneBlockchain(PruneBlockchainResponse),
+    CalcPow(CalcPowResponse),
+    FlushCache(FlushCacheResponse),
+    AddAuxPow(AddAuxPowResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

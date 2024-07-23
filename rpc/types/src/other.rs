@@ -3,6 +3,9 @@
 //! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_false, default_string, default_true},
@@ -11,6 +14,7 @@ use crate::{
         GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
         TxpoolStats,
     },
+    RpcRequest,
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
@@ -400,6 +404,116 @@ define_request_and_response! {
         gray: Vec<PublicNode>,
         white: Vec<PublicNode>,
     }
+}
+
+//---------------------------------------------------------------------------------------------------- Request
+/// TODO
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum OtherRequest {
+    GetHeight(GetHeightRequest),
+    GetTransactions(GetTransactionsRequest),
+    GetAltBlocksHashes(GetAltBlocksHashesRequest),
+    IsKeyImageSpent(IsKeyImageSpentRequest),
+    SendRawTransaction(SendRawTransactionRequest),
+    StartMining(StartMiningRequest),
+    StopMining(StopMiningRequest),
+    MiningStatus(MiningStatusRequest),
+    SaveBc(SaveBcRequest),
+    GetPeerList(GetPeerListRequest),
+    SetLogHashRate(SetLogHashRateRequest),
+    SetLogLevel(SetLogLevelRequest),
+    SetLogCategories(SetLogCategoriesRequest),
+    SetBootstrapDaemon(SetBootstrapDaemonRequest),
+    GetTransactionPool(GetTransactionPoolRequest),
+    GetTransactionPoolStats(GetTransactionPoolStatsRequest),
+    StopDaemon(StopDaemonRequest),
+    GetLimit(GetLimitRequest),
+    SetLimit(SetLimitRequest),
+    OutPeers(OutPeersRequest),
+    GetNetStats(GetNetStatsRequest),
+    GetOuts(GetOutsRequest),
+    Update(UpdateRequest),
+    PopBlocks(PopBlocksRequest),
+    GetTxIdsLoose(GetTxIdsLooseRequest),
+    GetTransactionPoolHashes(GetTransactionPoolHashesRequest),
+    GetPublicNodes(GetPublicNodesRequest),
+}
+
+impl RpcRequest for OtherRequest {
+    fn is_restricted(&self) -> bool {
+        match self {
+            // Normal methods. These are allowed
+            // even on restricted RPC servers (18089).
+            Self::GetHeight(())
+            | Self::GetTransactions(_)
+            | Self::GetAltBlocksHashes(())
+            | Self::IsKeyImageSpent(_)
+            | Self::SendRawTransaction(_)
+            | Self::GetTransactionPool(())
+            | Self::GetTransactionPoolStats(())
+            | Self::GetLimit(())
+            | Self::GetOuts(_)
+            | Self::GetTxIdsLoose(_)
+            | Self::GetTransactionPoolHashes(()) => false,
+
+            // Restricted methods. These are only allowed
+            // for unrestricted RPC servers (18081).
+            // TODO
+            Self::StartMining(_)
+            | Self::StopMining(())
+            | Self::MiningStatus(())
+            | Self::SaveBc(())
+            | Self::GetPeerList(_)
+            | Self::SetLogHashRate(_)
+            | Self::SetLogLevel(_)
+            | Self::SetLogCategories(_)
+            | Self::SetBootstrapDaemon(_)
+            | Self::GetNetStats(())
+            | Self::SetLimit(_)
+            | Self::StopDaemon(())
+            | Self::OutPeers(_)
+            | Self::Update(_)
+            | Self::PopBlocks(_)
+            | Self::GetPublicNodes(_) => true,
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Response
+/// TODO
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum OtherResponse {
+    GetHeight(GetHeightResponse),
+    GetTransactions(GetTransactionsResponse),
+    GetAltBlocksHashes(GetAltBlocksHashesResponse),
+    IsKeyImageSpent(IsKeyImageSpentResponse),
+    SendRawTransaction(SendRawTransactionResponse),
+    StartMining(StartMiningResponse),
+    StopMining(StopMiningResponse),
+    MiningStatus(MiningStatusResponse),
+    SaveBc(SaveBcResponse),
+    GetPeerList(GetPeerListResponse),
+    SetLogHashRate(SetLogHashRateResponse),
+    SetLogLevel(SetLogLevelResponse),
+    SetLogCategories(SetLogCategoriesResponse),
+    SetBootstrapDaemon(SetBootstrapDaemonResponse),
+    GetTransactionPool(GetTransactionPoolResponse),
+    GetTransactionPoolStats(GetTransactionPoolStatsResponse),
+    StopDaemon(StopDaemonResponse),
+    GetLimit(GetLimitResponse),
+    SetLimit(SetLimitResponse),
+    OutPeers(OutPeersResponse),
+    GetNetStats(GetNetStatsResponse),
+    GetOuts(GetOutsResponse),
+    Update(UpdateResponse),
+    PopBlocks(PopBlocksResponse),
+    GetTxIdsLoose(GetTxIdsLooseResponse),
+    GetTransactionPoolHashes(GetTransactionPoolHashesResponse),
+    GetPublicNodes(GetPublicNodesResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
