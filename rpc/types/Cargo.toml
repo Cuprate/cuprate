@@ -23,4 +23,5 @@ paste        = { workspace = true }
 serde        = { workspace = true, optional = true }
 
 [dev-dependencies]
-serde_json = { workspace = true }
+serde_json        = { workspace = true }
+pretty_assertions = { workspace = true }

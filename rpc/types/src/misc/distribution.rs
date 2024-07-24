@@ -4,7 +4,7 @@
 use std::mem::size_of;
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
@@ -15,30 +15,39 @@ use cuprate_epee_encoding::{
 };
 
 //---------------------------------------------------------------------------------------------------- Free
-/// Used for [`Distribution::CompressedBinary::compressed_data`].
-///
-/// TODO: for handler code. This should already be provided in the field.
+/// Used for [`Distribution::CompressedBinary::distribution`].
 #[doc = crate::macros::monero_definition_link!(
     cc73fe71162d564ffda8e549b79a350bca53c454,
     "rpc/core_rpc_server_commands_defs.h",
     45..=55
 )]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove after impl
-fn compress_integer_array(array: Vec<u64>) -> error::Result<Vec<u64>> {
-    todo!()
+#[cfg(feature = "epee")]
+fn compress_integer_array(array: &[u64]) -> error::Result<Vec<u8>> {
+    let capacity = array.len() * (u64::BITS as usize * 8 / 7 + 1);
+    let mut vec = Vec::<u8>::with_capacity(capacity);
+
+    for i in array {
+        write_varint(*i, &mut vec)?;
+    }
+
+    Ok(vec)
 }
 
-/// Used for [`Distribution::CompressedBinary::compressed_data`].
-///
-/// TODO: for handler code. This should already be provided in the field.
+/// Used for [`Distribution::CompressedBinary::distribution`].
 #[doc = crate::macros::monero_definition_link!(
     cc73fe71162d564ffda8e549b79a350bca53c454,
     "rpc/core_rpc_server_commands_defs.h",
     57..=72
 )]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove after impl
-fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
-    todo!()
+fn decompress_integer_array(mut array: &[u8]) -> Vec<u64> {
+    let capacity = array.len();
+    let mut vec = Vec::<u64>::with_capacity(capacity);
+
+    while let Ok(varint) = read_varint(&mut array) {
+        vec.push(varint);
+    }
+
+    vec
 }
 
 //---------------------------------------------------------------------------------------------------- Distribution
@@ -109,7 +118,16 @@ epee_object! {
 pub struct DistributionCompressedBinary {
     pub start_height: u64,
     pub base: u64,
-    pub compressed_data: String,
+    #[cfg_attr(
+        feature = "serde",
+        serde(serialize_with = "serialize_distribution_as_compressed_data")
+    )]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_compressed_data_as_distribution")
+    )]
+    #[cfg_attr(feature = "serde", serde(rename = "compressed_data"))]
+    pub distribution: Vec<u64>,
     pub amount: u64,
 }
 
@@ -118,8 +136,38 @@ epee_object! {
     DistributionCompressedBinary,
     start_height: u64,
     base: u64,
-    compressed_data: String,
+    distribution: Vec<u64>,
     amount: u64,
+}
+
+/// Serializer function for [`DistributionCompressedBinary::distribution`].
+///
+/// 1. Compresses the distribution array
+/// 2. Serializes the compressed data
+#[cfg(feature = "serde")]
+#[allow(clippy::ptr_arg)]
+fn serialize_distribution_as_compressed_data<S>(v: &Vec<u64>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match compress_integer_array(v) {
+        Ok(compressed_data) => compressed_data.serialize(s),
+        Err(_) => Err(serde::ser::Error::custom(
+            "error compressing distribution array",
+        )),
+    }
+}
+
+/// Deserializer function for [`DistributionCompressedBinary::distribution`].
+///
+/// 1. Deserializes as `compressed_data` field.
+/// 2. Decompresses and returns the data
+#[cfg(feature = "serde")]
+fn deserialize_compressed_data_as_distribution<'de, D>(d: D) -> Result<Vec<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Vec::<u8>::deserialize(d).map(|v| decompress_integer_array(&v))
 }
 
 //---------------------------------------------------------------------------------------------------- Epee
@@ -135,7 +183,7 @@ pub struct __DistributionEpeeBuilder {
     pub base: Option<u64>,
     pub distribution: Option<Vec<u64>>,
     pub amount: Option<u64>,
-    pub compressed_data: Option<String>,
+    pub compressed_data: Option<Vec<u8>>,
     pub binary: Option<bool>,
     pub compress: Option<bool>,
 }
@@ -175,10 +223,11 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
         let amount = self.amount.ok_or(ELSE)?;
 
         let distribution = if let Some(compressed_data) = self.compressed_data {
+            let distribution = decompress_integer_array(&compressed_data);
             Distribution::CompressedBinary(DistributionCompressedBinary {
                 start_height,
                 base,
-                compressed_data,
+                distribution,
                 amount,
             })
         } else if let Some(distribution) = self.distribution {
@@ -217,13 +266,52 @@ impl EpeeObject for Distribution {
                 write_field(false, "compress", w)?;
             }
 
-            Self::CompressedBinary(s) => {
-                s.write_fields(w)?;
+            Self::CompressedBinary(DistributionCompressedBinary {
+                start_height,
+                base,
+                distribution,
+                amount,
+            }) => {
+                let compressed_data = compress_integer_array(&distribution)?;
+
+                start_height.write(w)?;
+                base.write(w)?;
+                compressed_data.write(w)?;
+                amount.write(w)?;
+
                 write_field(true, "binary", w)?;
                 write_field(true, "compress", w)?;
             }
         }
 
         Ok(())
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Tests
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    /// Tests that [`compress_integer_array`] outputs as expected.
+    #[test]
+    fn compress() {
+        let varints = &[16_384, 16_383, 16_382, 16_381];
+        let bytes = compress_integer_array(varints).unwrap();
+
+        let expected = [2, 0, 1, 0, 253, 255, 249, 255, 245, 255];
+        assert_eq!(expected, *bytes);
+    }
+
+    /// Tests that [`decompress_integer_array`] outputs as expected.
+    #[test]
+    fn decompress() {
+        let bytes = &[2, 0, 1, 0, 253, 255, 249, 255, 245, 255];
+        let varints = decompress_integer_array(bytes);
+
+        let expected = vec![16_384, 16_383, 16_382, 16_381];
+        assert_eq!(expected, varints);
     }
 }
