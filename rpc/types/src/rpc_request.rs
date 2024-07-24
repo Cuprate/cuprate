@@ -13,14 +13,17 @@ pub trait RpcRequest {
     /// RPC servers.
     ///
     /// ```rust
-    /// use cuprate_rpc_types::JsonRpcRequest;
+    /// use cuprate_rpc_types::{
+    ///     RpcRequest,
+    ///     json::{GetBlockCountRequest, GetConnectionsRequest},
+    /// };
     ///
     /// // Allowed method, even on restricted RPC servers (18089).
-    /// assert_eq!(JsonRpcRequest::GetBlockCount(()).is_restricted(), false);
+    /// assert_eq!(GetBlockCountRequest::default().is_restricted(), false);
     ///
     /// // Restricted methods, only allowed
     /// // for unrestricted RPC servers (18081).
-    /// assert_eq!(JsonRpcRequest::GetConnections(()).is_restricted(), true);
+    /// assert_eq!(GetConnectionsRequest::default().is_restricted(), true);
     /// ```
     fn is_restricted(&self) -> bool;
 }
