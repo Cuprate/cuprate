@@ -172,7 +172,7 @@ impl RpcRequest for BinRequest {
             | Self::GetHashes(_)
             | Self::GetOutputIndexes(_)
             | Self::GetOuts(_)
-            | Self::GetTransactionPoolHashes(())
+            | Self::GetTransactionPoolHashes(_)
             | Self::GetOutputDistribution(_) => false,
         }
     }

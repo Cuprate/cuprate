@@ -206,7 +206,7 @@ define_request_and_response! {
     generateblocks,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1130..=1161,
-    GenerateBlocks,
+    GenerateBlocks (restricted),
     Request {
         amount_of_blocks: u64,
         prev_block: String,
@@ -306,7 +306,7 @@ define_request_and_response! {
     get_connections,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1734..=1754,
-    GetConnections,
+    GetConnections (restricted),
     Request {},
     ResponseBase {
         // FIXME: This is a `std::list` in `monerod` because...?
@@ -385,7 +385,7 @@ define_request_and_response! {
     set_bans,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2032..=2067,
-    SetBans,
+    SetBans (restricted),
     Request {
         bans: Vec<SetBan>,
     },
@@ -396,7 +396,7 @@ define_request_and_response! {
     get_bans,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1997..=2030,
-    GetBans,
+    GetBans (restricted),
     Request {},
     ResponseBase {
         bans: Vec<GetBan>,
@@ -407,7 +407,7 @@ define_request_and_response! {
     banned,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2069..=2094,
-    Banned,
+    Banned (restricted),
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Request {
@@ -425,7 +425,7 @@ define_request_and_response! {
     flush_txpool,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2096..=2116,
-    FlushTransactionPool,
+    FlushTransactionPool (restricted),
     Request {
         txids: Vec<String> = default_vec::<String>(), "default_vec",
     },
@@ -458,7 +458,7 @@ define_request_and_response! {
     get_coinbase_tx_sum,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2213..=2248,
-    GetCoinbaseTxSum,
+    GetCoinbaseTxSum (restricted),
     Request {
         height: u64,
         count: u64,
@@ -509,7 +509,7 @@ define_request_and_response! {
     get_alternate_chains,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2279..=2310,
-    GetAlternateChains,
+    GetAlternateChains (restricted),
     Request {},
     ResponseBase {
         chains: Vec<ChainInfo>,
@@ -520,7 +520,7 @@ define_request_and_response! {
     relay_tx,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2361..=2381,
-    RelayTx,
+    RelayTx (restricted),
     Request {
         txids: Vec<String>,
     },
@@ -536,7 +536,7 @@ define_request_and_response! {
     sync_info,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2383..=2443,
-    SyncInfo,
+    SyncInfo (restricted),
     Request {},
     AccessResponseBase {
         height: u64,
@@ -606,7 +606,7 @@ define_request_and_response! {
     prune_blockchain,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2747..=2772,
-    PruneBlockchain,
+    PruneBlockchain (restricted),
     #[derive(Copy)]
     Request {
         check: bool = default_false(), "default_false",
@@ -622,7 +622,7 @@ define_request_and_response! {
     calc_pow,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1046..=1066,
-    CalcPow,
+    CalcPow (restricted),
     Request {
         major_version: u8,
         height: u64,
@@ -640,7 +640,7 @@ define_request_and_response! {
     flush_cache,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2774..=2796,
-    FlushCache,
+    FlushCache (restricted),
     #[derive(Copy)]
     Request {
         bad_txs: bool = default_false(), "default_false",
@@ -709,7 +709,7 @@ impl RpcRequest for JsonRpcRequest {
         match self {
             // Normal methods. These are allowed
             // even on restricted RPC servers (18089).
-            Self::GetBlockCount(())
+            Self::GetBlockCount(_)
             | Self::OnGetBlockHash(_)
             | Self::SubmitBlock(_)
             | Self::GetLastBlockHeader(_)
@@ -717,27 +717,27 @@ impl RpcRequest for JsonRpcRequest {
             | Self::GetBlockHeaderByHeight(_)
             | Self::GetBlockHeadersRange(_)
             | Self::GetBlock(_)
-            | Self::GetInfo(())
-            | Self::HardForkInfo(())
+            | Self::GetInfo(_)
+            | Self::HardForkInfo(_)
             | Self::GetOutputHistogram(_)
-            | Self::GetVersion(())
-            | Self::GetFeeEstimate(())
-            | Self::GetTransactionPoolBacklog(())
-            | Self::GetMinerData(())
+            | Self::GetVersion(_)
+            | Self::GetFeeEstimate(_)
+            | Self::GetTransactionPoolBacklog(_)
+            | Self::GetMinerData(_)
             | Self::AddAuxPow(_) => false,
 
             // Restricted methods. These are only allowed
             // for unrestricted RPC servers (18081).
             Self::GenerateBlocks(_)
-            | Self::GetConnections(())
+            | Self::GetConnections(_)
             | Self::SetBans(_)
-            | Self::GetBans(())
+            | Self::GetBans(_)
             | Self::Banned(_)
             | Self::FlushTransactionPool(_)
             | Self::GetCoinbaseTxSum(_)
-            | Self::GetAlternateChains(())
+            | Self::GetAlternateChains(_)
             | Self::RelayTx(_)
-            | Self::SyncInfo(())
+            | Self::SyncInfo(_)
             | Self::PruneBlockchain(_)
             | Self::CalcPow(_)
             | Self::FlushCache(_) => true,

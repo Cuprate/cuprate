@@ -107,7 +107,7 @@ define_request_and_response! {
     start_mining,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 665..=691,
-    StartMining,
+    StartMining (restricted),
     Request {
         miner_address: String,
         threads_count: u64,
@@ -121,7 +121,7 @@ define_request_and_response! {
     stop_mining,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 825..=843,
-    StopMining,
+    StopMining (restricted),
     Request {},
     ResponseBase {}
 }
@@ -130,7 +130,7 @@ define_request_and_response! {
     mining_status,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 846..=895,
-    MiningStatus,
+    MiningStatus (restricted),
     Request {},
     ResponseBase {
         active: bool,
@@ -155,7 +155,7 @@ define_request_and_response! {
     save_bc,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 898..=916,
-    SaveBc,
+    SaveBc (restricted),
     Request {},
     ResponseBase {}
 }
@@ -164,7 +164,7 @@ define_request_and_response! {
     get_peer_list,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1369..=1417,
-    GetPeerList,
+    GetPeerList (restricted),
     Request {
         public_only: bool = default_true(), "default_true",
         include_blocked: bool = default_false(), "default_false",
@@ -179,7 +179,7 @@ define_request_and_response! {
     set_log_hash_rate,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1450..=1470,
-    SetLogHashRate,
+    SetLogHashRate (restricted),
     #[derive(Copy)]
     Request {
         visible: bool,
@@ -191,7 +191,7 @@ define_request_and_response! {
     set_log_level,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1450..=1470,
-    SetLogLevel,
+    SetLogLevel (restricted),
     #[derive(Copy)]
     Request {
         level: u8,
@@ -203,7 +203,7 @@ define_request_and_response! {
     set_log_categories,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1494..=1517,
-    SetLogCategories,
+    SetLogCategories (restricted),
     Request {
         categories: String = default_string(), "default_string",
     },
@@ -216,7 +216,7 @@ define_request_and_response! {
     set_bootstrap_daemon,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1785..=1812,
-    SetBootstrapDaemon,
+    SetBootstrapDaemon (restricted),
     Request {
         address: String,
         username: String,
@@ -256,7 +256,7 @@ define_request_and_response! {
     stop_daemon,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1814..=1831,
-    StopDaemon,
+    StopDaemon (restricted),
     Request {},
     ResponseBase {
         status: Status,
@@ -279,7 +279,7 @@ define_request_and_response! {
     set_limit,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1876..=1903,
-    SetLimit,
+    SetLimit (restricted),
     Request {
         limit_down: i64,
         limit_up: i64,
@@ -294,7 +294,7 @@ define_request_and_response! {
     out_peers,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1876..=1903,
-    OutPeers,
+    OutPeers (restricted),
     Request {
         set: bool = default_true(), "default_true",
         out_peers: u32,
@@ -308,7 +308,7 @@ define_request_and_response! {
     get_net_stats,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 793..=822,
-    GetNetStats,
+    GetNetStats (restricted),
     Request {},
     ResponseBase {
         start_time: u64,
@@ -337,7 +337,7 @@ define_request_and_response! {
     update,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2324..=2359,
-    Update,
+    Update (restricted),
     Request {
         command: String,
         path: String = default_string(), "default_string",
@@ -356,7 +356,7 @@ define_request_and_response! {
     pop_blocks,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2722..=2745,
-    PopBlocks,
+    PopBlocks (restricted),
     Request {
         nblocks: u64,
     },
@@ -394,7 +394,7 @@ define_request_and_response! {
     UNDOCUMENTED_ENDPOINT,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1419..=1448,
-    GetPublicNodes,
+    GetPublicNodes (restricted),
     Request {
         gray: bool = default_false(), "default_false",
         white: bool = default_true(), "default_true",
@@ -446,33 +446,33 @@ impl RpcRequest for OtherRequest {
         match self {
             // Normal methods. These are allowed
             // even on restricted RPC servers (18089).
-            Self::GetHeight(())
+            Self::GetHeight(_)
             | Self::GetTransactions(_)
-            | Self::GetAltBlocksHashes(())
+            | Self::GetAltBlocksHashes(_)
             | Self::IsKeyImageSpent(_)
             | Self::SendRawTransaction(_)
-            | Self::GetTransactionPool(())
-            | Self::GetTransactionPoolStats(())
-            | Self::GetLimit(())
+            | Self::GetTransactionPool(_)
+            | Self::GetTransactionPoolStats(_)
+            | Self::GetLimit(_)
             | Self::GetOuts(_)
             | Self::GetTxIdsLoose(_)
-            | Self::GetTransactionPoolHashes(()) => false,
+            | Self::GetTransactionPoolHashes(_) => false,
 
             // Restricted methods. These are only allowed
             // for unrestricted RPC servers (18081).
             // TODO
             Self::StartMining(_)
-            | Self::StopMining(())
-            | Self::MiningStatus(())
-            | Self::SaveBc(())
+            | Self::StopMining(_)
+            | Self::MiningStatus(_)
+            | Self::SaveBc(_)
             | Self::GetPeerList(_)
             | Self::SetLogHashRate(_)
             | Self::SetLogLevel(_)
             | Self::SetLogCategories(_)
             | Self::SetBootstrapDaemon(_)
-            | Self::GetNetStats(())
+            | Self::GetNetStats(_)
             | Self::SetLimit(_)
-            | Self::StopDaemon(())
+            | Self::StopDaemon(_)
             | Self::OutPeers(_)
             | Self::Update(_)
             | Self::PopBlocks(_)

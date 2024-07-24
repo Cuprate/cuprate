@@ -60,7 +60,7 @@ macro_rules! define_request_and_response {
         // Attributes added here will apply to _both_
         // request and response types.
         $( #[$type_attr:meta] )*
-        $type_name:ident,
+        $type_name:ident $(($restricted:ident))?,
 
         // The request type (and any doc comments, derives, etc).
         $( #[$request_type_attr:meta] )*
@@ -100,7 +100,7 @@ macro_rules! define_request_and_response {
             $( #[$type_attr] )*
             ///
             $( #[$request_type_attr] )*
-            [<$type_name Request>] {
+            [<$type_name Request>] $(($restricted))? {
                 $(
                     $( #[$request_field_attr] )*
                     $request_field: $request_field_type
@@ -141,6 +141,29 @@ macro_rules! define_request_and_response {
 }
 pub(crate) use define_request_and_response;
 
+//---------------------------------------------------------------------------------------------------- impl_rpc_request
+/// TODO
+macro_rules! impl_rpc_request {
+    // TODO
+    ($t:ident, $restricted:ident) => {
+        impl $crate::RpcRequest for $t {
+            fn is_restricted(&self) -> bool {
+                true
+            }
+        }
+    };
+
+    // TODO
+    ($t:ident) => {
+        impl $crate::RpcRequest for $t {
+            fn is_restricted(&self) -> bool {
+                false
+            }
+        }
+    };
+}
+pub(crate) use impl_rpc_request;
+
 //---------------------------------------------------------------------------------------------------- define_request
 /// Define a request type.
 ///
@@ -148,28 +171,11 @@ pub(crate) use define_request_and_response;
 ///
 /// `__` is used to notate that this shouldn't be called directly.
 macro_rules! __define_request {
-    //------------------------------------------------------------------------------
-    // This branch will generate a type alias to `()` if only given `{}` as input.
     (
         // Any doc comments, derives, etc.
         $( #[$attr:meta] )*
         // The response type.
-        $t:ident {}
-    ) => {
-        $( #[$attr] )*
-        ///
-        /// This request has no inputs.
-        pub type $t = ();
-    };
-
-    //------------------------------------------------------------------------------
-    // This branch of the macro expects fields within the `{}`,
-    // and will generate a `struct`
-    (
-        // Any doc comments, derives, etc.
-        $( #[$attr:meta] )*
-        // The response type.
-        $t:ident {
+        $t:ident $(($restricted:ident))? {
             // And any fields.
             $(
                 $( #[$field_attr:meta] )* // field attributes
@@ -194,6 +200,8 @@ macro_rules! __define_request {
                 pub $field: $field_type,
             )*
         }
+
+        $crate::macros::impl_rpc_request!($t $(, $restricted)?);
 
         #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
