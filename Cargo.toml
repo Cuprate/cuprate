@@ -46,6 +46,7 @@ opt-level     = 1
 opt-level = 3
 
 [workspace.dependencies]
+axum                  = { version = "0.7.5", default-features = false }
 async-trait           = { version = "0.1.74", default-features = false }
 bitflags              = { version = "2.4.2", default-features = false }
 borsh                 = { version = "1.2.1", default-features = false }

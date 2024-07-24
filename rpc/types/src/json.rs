@@ -483,9 +483,9 @@ define_request_and_response! {
         version: u32,
         release: bool,
         #[serde(skip_serializing_if = "is_zero")]
-        current_height: u64 = default_zero(), "default_zero",
+        current_height: u64 = default_zero::<u64>(), "default_zero",
         #[serde(skip_serializing_if = "is_zero")]
-        target_height: u64 = default_zero(), "default_zero",
+        target_height: u64 = default_zero::<u64>(), "default_zero",
         #[serde(skip_serializing_if = "Vec::is_empty")]
         hard_forks: Vec<HardforkEntry> = default_vec(), "default_vec",
     }

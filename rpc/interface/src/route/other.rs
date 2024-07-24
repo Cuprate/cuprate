@@ -1,4 +1,5 @@
 //! TODO
+#![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{borrow::Cow, future::Future, sync::Arc};
@@ -10,7 +11,12 @@ use cuprate_json_rpc::{
 };
 use tower::{Service, ServiceExt};
 
+use cuprate_epee_encoding::from_bytes;
 use cuprate_rpc_types::{
+    bin::{
+        BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksRequest, GetHashesRequest,
+        GetOutputIndexesRequest, GetOutsRequest, GetTransactionPoolHashesRequest,
+    },
     json::{JsonRpcRequest, JsonRpcResponse},
     other::{OtherRequest, OtherResponse},
     RpcRequest,
@@ -56,13 +62,39 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
 }
 
 /// TODO
-pub(crate) async fn bin<H: RpcHandler>(
+pub(crate) async fn binary<H: RpcHandler>(
     State(handler): State<H>,
-    request: Bytes, // TODO: BinRequest
-) -> Result<Vec<u8>, StatusCode> {
+    endpoint: &'static str,
+    mut request: Bytes, // TODO: BinRequest
+) -> Result<BinResponse, StatusCode> {
+    let error = |_| StatusCode::INTERNAL_SERVER_ERROR;
+
+    let request = match endpoint {
+        "/get_blocks.bin" | "/getblocks.bin" => {
+            BinRequest::GetBlocks(from_bytes(&mut request).map_err(error)?)
+        }
+        "/get_blocks_by_height.bin" | "/getblocks_by_height.bin" => {
+            BinRequest::GetBlocksByHeight(from_bytes(&mut request).map_err(error)?)
+        }
+        "/get_hashes.bin" | "/gethashes.bin" => {
+            BinRequest::GetHashes(from_bytes(&mut request).map_err(error)?)
+        }
+        "/get_o_indexes.bin" => {
+            BinRequest::GetOutputIndexes(from_bytes(&mut request).map_err(error)?)
+        }
+        "/get_outs.bin" => BinRequest::GetOuts(from_bytes(&mut request).map_err(error)?),
+        "/get_transaction_pool_hashes.bin" => BinRequest::GetTransactionPoolHashes(()),
+        "/get_output_distribution.bin" => {
+            BinRequest::GetOutputDistribution(from_bytes(&mut request).map_err(error)?)
+        }
+
+        // INVARIANT:
+        // The `create_router` function only passes the above endpoints.
+        _ => unreachable!(),
+    };
+
     // TODO
-    // if handler.state().restricted() && request.is_restricted() {
-    if handler.state().restricted() {
+    if handler.state().restricted() && request.is_restricted() {
         return Err(StatusCode::NOT_FOUND);
     }
 
@@ -71,9 +103,7 @@ pub(crate) async fn bin<H: RpcHandler>(
         panic!("RPC handler returned incorrect response");
     };
 
-    let binary: Vec<u8> = todo!(); // TODO: serialize response.
-
-    Ok(binary)
+    Ok(response)
 }
 
 /// TODO

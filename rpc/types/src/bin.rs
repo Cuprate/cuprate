@@ -5,6 +5,15 @@
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_fixed_bytes::ByteArrayVec;
 
+#[cfg(feature = "axum")]
+use axum::{
+    async_trait,
+    body::{Body, Bytes},
+    extract::{FromRequest, Request},
+    http::StatusCode,
+    response::{IntoResponse, Response},
+};
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -31,13 +40,13 @@ define_request_and_response! {
     core_rpc_server_commands_defs.h => 162..=262,
     GetBlocks,
     Request {
-        requested_info: u8 = default_zero(), "default_zero",
+        requested_info: u8 = default_zero::<u8>(), "default_zero",
         // FIXME: This is a `std::list` in `monerod` because...?
         block_ids: ByteArrayVec<32>,
         start_height: u64,
         prune: bool,
         no_miner_tx: bool = default_false(), "default_false",
-        pool_info_since: u64 = default_zero(), "default_zero",
+        pool_info_since: u64 = default_zero::<u64>(), "default_zero",
     },
     // TODO: this has custom epee (de)serialization.
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L242-L259>
@@ -150,6 +159,7 @@ pub enum BinRequest {
     GetOutputIndexes(GetOutputIndexesRequest),
     GetOuts(GetOutsRequest),
     GetTransactionPoolHashes(GetTransactionPoolHashesRequest),
+    GetOutputDistribution(crate::json::GetOutputDistributionRequest),
 }
 
 impl RpcRequest for BinRequest {
@@ -162,7 +172,8 @@ impl RpcRequest for BinRequest {
             | Self::GetHashes(_)
             | Self::GetOutputIndexes(_)
             | Self::GetOuts(_)
-            | Self::GetTransactionPoolHashes(()) => false,
+            | Self::GetTransactionPoolHashes(())
+            | Self::GetOutputDistribution(_) => false,
         }
     }
 }
@@ -179,6 +190,33 @@ pub enum BinResponse {
     GetOutputIndexes(GetOutputIndexesResponse),
     GetOuts(GetOutsResponse),
     GetTransactionPoolHashes(GetTransactionPoolHashesResponse),
+    GetOutputDistribution(crate::json::GetOutputDistributionResponse),
+}
+
+#[cfg(feature = "axum")]
+#[cfg(feature = "epee")]
+impl axum::response::IntoResponse for BinResponse {
+    fn into_response(self) -> axum::response::Response {
+        use cuprate_epee_encoding::to_bytes;
+
+        let mut bytes = axum::body::Bytes::new();
+        let writer = &mut bytes;
+
+        let result = match self {
+            Self::GetBlocks(s) => to_bytes(s),
+            Self::GetBlocksByHeight(s) => to_bytes(s),
+            Self::GetHashes(s) => to_bytes(s),
+            Self::GetOutputIndexes(s) => to_bytes(s),
+            Self::GetOuts(s) => to_bytes(s),
+            Self::GetTransactionPoolHashes(s) => to_bytes(s),
+            Self::GetOutputDistribution(s) => to_bytes(s),
+        };
+
+        match result {
+            Ok(bytes) => bytes.into_response(),
+            Err(e) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
