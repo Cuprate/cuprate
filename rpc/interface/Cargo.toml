@@ -14,7 +14,7 @@ default = []
 [dependencies]
 cuprate-epee-encoding = { path = "../../net/epee-encoding" }
 cuprate-json-rpc      = { path = "../json-rpc" }
-cuprate-rpc-types     = { path = "../types" }
+cuprate-rpc-types     = { path = "../types", features = ["serde", "epee", "axum"] }
 
 axum  = { workspace = true, features = ["json"] }
 serde = { workspace = true }

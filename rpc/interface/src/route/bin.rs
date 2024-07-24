@@ -34,21 +34,9 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
-macro_rules! serialize_binary_request {
-    ($variant:ident, $request:ident) => {
-        BinRequest::$variant(
-            from_bytes(&mut $request).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
-        )
-    };
-    ($variant:ident, $request:ident $(=> $constructor:expr)?) => {
-        BinRequest::$variant(())
-    };
-}
-
-/// TODO
-macro_rules! generate_binary_endpoints {
+macro_rules! generate_endpoints {
     ($(
-        $endpoint:ident => $variant:ident $(=> $constructor:expr)?
+        $endpoint:ident => $variant:ident
     ),*) => { paste::paste! {
         $(
             /// TODO
@@ -58,7 +46,9 @@ macro_rules! generate_binary_endpoints {
                 mut request: Bytes,
             ) -> Result<Bytes, StatusCode> {
                 // Serialize into the request type.
-                let request = serialize_binary_request!($variant, request $(=> $constructor)?);
+                let request = BinRequest::$variant(
+                    from_bytes(&mut request).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                );
 
                 // TODO: call handler
                 let Response::Binary(response) = todo!() else {
@@ -80,13 +70,13 @@ macro_rules! generate_binary_endpoints {
     }};
 }
 
-generate_binary_endpoints! {
+generate_endpoints! {
     get_blocks => GetBlocks,
     get_blocks_by_height => GetBlocksByHeight,
     get_hashes => GetHashes,
     get_o_indexes => GetOutputIndexes,
     get_outs => GetOuts,
-    get_transaction_pool_hashes => GetTransactionPoolHashes => (),
+    get_transaction_pool_hashes => GetTransactionPoolHashes,
     get_output_distribution => GetOutputDistribution
 }
 

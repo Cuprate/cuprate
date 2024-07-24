@@ -1,6 +1,6 @@
 //! TODO
 
 pub(crate) mod bin;
-mod json;
+pub(crate) mod json;
 pub(crate) mod other;
-mod unknown;
+pub(crate) mod unknown;

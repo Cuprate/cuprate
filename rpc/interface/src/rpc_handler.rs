@@ -30,6 +30,7 @@ pub trait RpcHandler: Clone + Send + Sync + 'static {
     fn handler(&self) -> Self::Handler;
 }
 
+//---------------------------------------------------------------------------------------------------- TODO
 /// TODO
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConcreteRpcHandler<Handler> {
