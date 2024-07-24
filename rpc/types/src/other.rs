@@ -305,6 +305,20 @@ define_request_and_response! {
 }
 
 define_request_and_response! {
+    in_peers,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1932..=1956,
+    InPeers (restricted),
+    Request {
+        set: bool = default_true(), "default_true",
+        in_peers: u32,
+    },
+    ResponseBase {
+        in_peers: u32,
+    }
+}
+
+define_request_and_response! {
     get_net_stats,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 793..=822,
@@ -432,6 +446,7 @@ pub enum OtherRequest {
     GetLimit(GetLimitRequest),
     SetLimit(SetLimitRequest),
     OutPeers(OutPeersRequest),
+    InPeers(InPeersRequest),
     GetNetStats(GetNetStatsRequest),
     GetOuts(GetOutsRequest),
     Update(UpdateRequest),
@@ -474,6 +489,7 @@ impl RpcRequest for OtherRequest {
             | Self::SetLimit(_)
             | Self::StopDaemon(_)
             | Self::OutPeers(_)
+            | Self::InPeers(_)
             | Self::Update(_)
             | Self::PopBlocks(_)
             | Self::GetPublicNodes(_) => true,
@@ -507,6 +523,7 @@ pub enum OtherResponse {
     GetLimit(GetLimitResponse),
     SetLimit(SetLimitResponse),
     OutPeers(OutPeersResponse),
+    InPeers(InPeersResponse),
     GetNetStats(GetNetStatsResponse),
     GetOuts(GetOutsResponse),
     Update(UpdateResponse),
