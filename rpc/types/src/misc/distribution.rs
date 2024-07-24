@@ -159,11 +159,10 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
             base,
             amount,
             binary,
-            compress
+            compress,
+            compressed_data,
+            distribution
         }
-
-        self.compressed_data = read_epee_value(r).ok().unwrap_or_default();
-        self.distribution = read_epee_value(r).ok().unwrap_or_default();
 
         Ok(true)
     }

@@ -291,12 +291,11 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
             current_height,
             output_indices,
             daemon_time,
-            pool_info_extent
+            pool_info_extent,
+            added_pool_txs,
+            remaining_added_pool_txids,
+            removed_pool_txids
         }
-
-        self.added_pool_txs = read_epee_value(r).ok().unwrap_or_default();
-        self.remaining_added_pool_txids = read_epee_value(r).ok().unwrap_or_default();
-        self.removed_pool_txids = read_epee_value(r).ok().unwrap_or_default();
 
         Ok(true)
     }
