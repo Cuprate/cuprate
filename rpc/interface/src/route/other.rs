@@ -50,7 +50,7 @@ macro_rules! generate_endpoints {
                 State(handler): State<H>,
                 Json(request): Json<[<$variant Request>]>,
             ) -> Result<Json<[<$variant Response>]>, StatusCode> {
-                if handler.state().restricted() && request.is_restricted() {
+                if request.is_restricted() && handler.state().restricted() {
                     todo!();
                 }
 

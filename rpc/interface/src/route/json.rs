@@ -35,7 +35,7 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
 ) -> Result<Json<cuprate_json_rpc::Response<JsonRpcResponse>>, StatusCode> {
     // Return early if this RPC server is restricted and
     // the requested method is only for non-restricted RPC.
-    if handler.state().restricted() && request.body.is_restricted() {
+    if request.body.is_restricted() && handler.state().restricted() {
         let error_object = ErrorObject {
             code: ErrorCode::ServerError(-1 /* TODO */),
             message: Cow::Borrowed("Restricted. TODO"),
