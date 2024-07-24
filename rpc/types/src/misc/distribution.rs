@@ -15,6 +15,8 @@ use cuprate_epee_encoding::{
 };
 
 //---------------------------------------------------------------------------------------------------- Free
+/// TODO: <https://github.com/Cuprate/cuprate/pull/229#discussion_r1690531904>.
+///
 /// Used for [`Distribution::CompressedBinary::distribution`].
 #[doc = crate::macros::monero_definition_link!(
     cc73fe71162d564ffda8e549b79a350bca53c454,
@@ -23,31 +25,19 @@ use cuprate_epee_encoding::{
 )]
 #[cfg(feature = "epee")]
 fn compress_integer_array(array: &[u64]) -> error::Result<Vec<u8>> {
-    let capacity = array.len() * (u64::BITS as usize * 8 / 7 + 1);
-    let mut vec = Vec::<u8>::with_capacity(capacity);
-
-    for i in array {
-        write_varint(*i, &mut vec)?;
-    }
-
-    Ok(vec)
+    todo!()
 }
 
+/// TODO: <https://github.com/Cuprate/cuprate/pull/229#discussion_r1690531904>.
+///
 /// Used for [`Distribution::CompressedBinary::distribution`].
 #[doc = crate::macros::monero_definition_link!(
     cc73fe71162d564ffda8e549b79a350bca53c454,
     "rpc/core_rpc_server_commands_defs.h",
     57..=72
 )]
-fn decompress_integer_array(mut array: &[u8]) -> Vec<u64> {
-    let capacity = array.len();
-    let mut vec = Vec::<u64>::with_capacity(capacity);
-
-    while let Ok(varint) = read_varint(&mut array) {
-        vec.push(varint);
-    }
-
-    vec
+fn decompress_integer_array(array: &[u8]) -> Vec<u64> {
+    todo!()
 }
 
 //---------------------------------------------------------------------------------------------------- Distribution
@@ -295,23 +285,25 @@ mod tests {
 
     use super::*;
 
-    /// Tests that [`compress_integer_array`] outputs as expected.
-    #[test]
-    fn compress() {
-        let varints = &[16_384, 16_383, 16_382, 16_381];
-        let bytes = compress_integer_array(varints).unwrap();
+    // TODO: re-enable tests after (de)compression functions are implemented.
 
-        let expected = [2, 0, 1, 0, 253, 255, 249, 255, 245, 255];
-        assert_eq!(expected, *bytes);
-    }
+    // /// Tests that [`compress_integer_array`] outputs as expected.
+    // #[test]
+    // fn compress() {
+    //     let varints = &[16_384, 16_383, 16_382, 16_381];
+    //     let bytes = compress_integer_array(varints).unwrap();
 
-    /// Tests that [`decompress_integer_array`] outputs as expected.
-    #[test]
-    fn decompress() {
-        let bytes = &[2, 0, 1, 0, 253, 255, 249, 255, 245, 255];
-        let varints = decompress_integer_array(bytes);
+    //     let expected = [2, 0, 1, 0, 253, 255, 249, 255, 245, 255];
+    //     assert_eq!(expected, *bytes);
+    // }
 
-        let expected = vec![16_384, 16_383, 16_382, 16_381];
-        assert_eq!(expected, varints);
-    }
+    // /// Tests that [`decompress_integer_array`] outputs as expected.
+    // #[test]
+    // fn decompress() {
+    //     let bytes = &[2, 0, 1, 0, 253, 255, 249, 255, 245, 255];
+    //     let varints = decompress_integer_array(bytes);
+
+    //     let expected = vec![16_384, 16_383, 16_382, 16_381];
+    //     assert_eq!(expected, varints);
+    // }
 }
