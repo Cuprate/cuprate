@@ -140,6 +140,7 @@ mod tests {
 
     proptest! {
         #[test]
+        #[allow(clippy::mutable_key_type)]
         fn block_queue_returns_items_in_order(batches in vec(ready_batch_strategy(), 0..10_000)) {
             block_on(async move {
                 let (buffer_tx, mut buffer_rx) = cuprate_async_buffer::new_buffer(usize::MAX);
