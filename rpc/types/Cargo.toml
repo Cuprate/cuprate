@@ -26,4 +26,5 @@ serde        = { workspace = true, optional = true }
 cuprate-test-utils = { path = "../../test-utils" }
 cuprate-json-rpc   = { path = "../json-rpc" }
 
-serde_json = { workspace = true }
+serde_json        = { workspace = true }
+pretty_assertions = { workspace = true }

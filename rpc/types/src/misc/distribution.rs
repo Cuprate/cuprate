@@ -4,9 +4,7 @@
 use std::mem::size_of;
 
 #[cfg(feature = "serde")]
-use crate::defaults::default_true;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
@@ -16,32 +14,29 @@ use cuprate_epee_encoding::{
     EpeeValue, Marker,
 };
 
-use super::OutputDistributionData;
-
 //---------------------------------------------------------------------------------------------------- Free
-/// Used for [`Distribution::CompressedBinary::compressed_data`].
+/// TODO: <https://github.com/Cuprate/cuprate/pull/229#discussion_r1690531904>.
 ///
-/// TODO: for handler code. This should already be provided in the field.
+/// Used for [`Distribution::CompressedBinary::distribution`].
 #[doc = crate::macros::monero_definition_link!(
     cc73fe71162d564ffda8e549b79a350bca53c454,
     "rpc/core_rpc_server_commands_defs.h",
     45..=55
 )]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove after impl
-fn compress_integer_array(array: Vec<u64>) -> error::Result<Vec<u64>> {
+#[cfg(feature = "epee")]
+fn compress_integer_array(array: &[u64]) -> error::Result<Vec<u8>> {
     todo!()
 }
 
-/// Used for [`Distribution::CompressedBinary::compressed_data`].
+/// TODO: <https://github.com/Cuprate/cuprate/pull/229#discussion_r1690531904>.
 ///
-/// TODO: for handler code. This should already be provided in the field.
+/// Used for [`Distribution::CompressedBinary::distribution`].
 #[doc = crate::macros::monero_definition_link!(
     cc73fe71162d564ffda8e549b79a350bca53c454,
     "rpc/core_rpc_server_commands_defs.h",
     57..=72
 )]
-#[allow(clippy::needless_pass_by_value)] // TODO: remove after impl
-fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
+fn decompress_integer_array(array: &[u8]) -> Vec<u64> {
     todo!()
 }
 
@@ -67,96 +62,102 @@ fn decompress_integer_array(array: Vec<u64>) -> Vec<u64> {
 /// Upon deserialization, the presence of a `compressed_data`
 /// field signifies that the [`Self::CompressedBinary`] should
 /// be selected.
-///
-/// # JSON Example
-/// ```rust
-/// use cuprate_rpc_types::misc::Distribution;
-/// use serde_json::*;
-///
-/// // Uncompressed.
-/// let json = json!({
-///     "amount": 2628780000_u64,
-///     "base": 0_u64,
-///     "distribution": "asdf",
-///     "start_height": 1462078_u64
-/// });
-/// let d = from_value::<Distribution>(json).unwrap();
-/// match d {
-///     Distribution::Uncompressed {
-///         start_height,
-///         base,
-///         distribution,
-///         amount,
-///         binary,
-///     } => {
-///         assert_eq!(start_height, 1462078);
-///         assert_eq!(base, 0);
-///         assert_eq!(distribution, "asdf");
-///         assert_eq!(amount, 2628780000);
-///         assert_eq!(binary, true);
-///     },
-///     Distribution::CompressedBinary { .. } => unreachable!(),
-/// }
-///
-/// // Compressed binary.
-/// let json = json!({
-///     "amount": 2628780000_u64,
-///     "base": 0_u64,
-///     "compressed_data": "asdf",
-///     "start_height": 1462078_u64
-/// });
-/// let d = from_value::<Distribution>(json).unwrap();
-/// match d {
-///     Distribution::CompressedBinary {
-///         start_height,
-///         base,
-///         compressed_data,
-///         amount,
-///     } => {
-///         assert_eq!(start_height, 1462078);
-///         assert_eq!(base, 0);
-///         assert_eq!(compressed_data, "asdf");
-///         assert_eq!(amount, 2628780000);
-///     },
-///     Distribution::Uncompressed { .. } => unreachable!(),
-/// }
-/// ```
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Distribution {
     /// Distribution data will be (de)serialized as either JSON or binary (uncompressed).
-    Uncompressed {
-        start_height: u64,
-        base: u64,
-        /// TODO: this is a binary JSON string if `binary == true`.
-        ///
-        /// Considering both the `binary` field and `/get_output_distribution.bin`
-        /// endpoint are undocumented in the first place, Cuprate could just drop support for this.
-        distribution: String,
-        amount: u64,
-        #[cfg_attr(feature = "serde", serde(default = "default_true"))]
-        binary: bool,
-    },
+    Uncompressed(DistributionUncompressed),
     /// Distribution data will be (de)serialized as compressed binary.
-    CompressedBinary {
-        start_height: u64,
-        base: u64,
-        compressed_data: String,
-        amount: u64,
-    },
+    CompressedBinary(DistributionCompressedBinary),
 }
 
 impl Default for Distribution {
     fn default() -> Self {
-        Self::Uncompressed {
-            start_height: u64::default(),
-            base: u64::default(),
-            distribution: String::default(),
-            amount: u64::default(),
-            binary: false,
-        }
+        Self::Uncompressed(DistributionUncompressed::default())
     }
+}
+
+/// Data within [`Distribution::Uncompressed`].
+#[allow(dead_code, missing_docs)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DistributionUncompressed {
+    pub start_height: u64,
+    pub base: u64,
+    /// TODO: this is a binary JSON string if `binary == true`.
+    pub distribution: Vec<u64>,
+    pub amount: u64,
+    pub binary: bool,
+}
+
+#[cfg(feature = "epee")]
+epee_object! {
+    DistributionUncompressed,
+    start_height: u64,
+    base: u64,
+    distribution: Vec<u64>,
+    amount: u64,
+    binary: bool,
+}
+
+/// Data within [`Distribution::CompressedBinary`].
+#[allow(dead_code, missing_docs)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DistributionCompressedBinary {
+    pub start_height: u64,
+    pub base: u64,
+    #[cfg_attr(
+        feature = "serde",
+        serde(serialize_with = "serialize_distribution_as_compressed_data")
+    )]
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "deserialize_compressed_data_as_distribution")
+    )]
+    #[cfg_attr(feature = "serde", serde(rename = "compressed_data"))]
+    pub distribution: Vec<u64>,
+    pub amount: u64,
+}
+
+#[cfg(feature = "epee")]
+epee_object! {
+    DistributionCompressedBinary,
+    start_height: u64,
+    base: u64,
+    distribution: Vec<u64>,
+    amount: u64,
+}
+
+/// Serializer function for [`DistributionCompressedBinary::distribution`].
+///
+/// 1. Compresses the distribution array
+/// 2. Serializes the compressed data
+#[cfg(feature = "serde")]
+#[allow(clippy::ptr_arg)]
+fn serialize_distribution_as_compressed_data<S>(v: &Vec<u64>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match compress_integer_array(v) {
+        Ok(compressed_data) => compressed_data.serialize(s),
+        Err(_) => Err(serde::ser::Error::custom(
+            "error compressing distribution array",
+        )),
+    }
+}
+
+/// Deserializer function for [`DistributionCompressedBinary::distribution`].
+///
+/// 1. Deserializes as `compressed_data` field.
+/// 2. Decompresses and returns the data
+#[cfg(feature = "serde")]
+fn deserialize_compressed_data_as_distribution<'de, D>(d: D) -> Result<Vec<u64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Vec::<u8>::deserialize(d).map(|v| decompress_integer_array(&v))
 }
 
 //---------------------------------------------------------------------------------------------------- Epee
@@ -170,9 +171,9 @@ impl Default for Distribution {
 pub struct __DistributionEpeeBuilder {
     pub start_height: Option<u64>,
     pub base: Option<u64>,
-    pub distribution: Option<String>,
+    pub distribution: Option<Vec<u64>>,
     pub amount: Option<u64>,
-    pub compressed_data: Option<String>,
+    pub compressed_data: Option<Vec<u8>>,
     pub binary: Option<bool>,
     pub compress: Option<bool>,
 }
@@ -191,15 +192,14 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
             };
         }
 
-        self.compressed_data = read_epee_value(r).ok().unwrap_or_default();
-        self.distribution = read_epee_value(r).ok().unwrap_or_default();
-
         read_epee_field! {
             start_height,
             base,
             amount,
             binary,
-            compress
+            compress,
+            compressed_data,
+            distribution
         }
 
         Ok(true)
@@ -213,20 +213,21 @@ impl EpeeObjectBuilder<Distribution> for __DistributionEpeeBuilder {
         let amount = self.amount.ok_or(ELSE)?;
 
         let distribution = if let Some(compressed_data) = self.compressed_data {
-            Distribution::CompressedBinary {
-                compressed_data,
+            let distribution = decompress_integer_array(&compressed_data);
+            Distribution::CompressedBinary(DistributionCompressedBinary {
                 start_height,
                 base,
+                distribution,
                 amount,
-            }
+            })
         } else if let Some(distribution) = self.distribution {
-            Distribution::Uncompressed {
+            Distribution::Uncompressed(DistributionUncompressed {
                 binary: self.binary.ok_or(ELSE)?,
                 distribution,
                 start_height,
                 base,
                 amount,
-            }
+            })
         } else {
             return Err(ELSE);
         };
@@ -240,109 +241,69 @@ impl EpeeObject for Distribution {
     type Builder = __DistributionEpeeBuilder;
 
     fn number_of_fields(&self) -> u64 {
-        let mut fields = 0;
-
-        macro_rules! add_field {
-            ($($field:ident),*) => {
-                $(
-                    if $field.should_write() {
-                        fields += 1;
-                    }
-                )*
-            };
-        }
-
         match self {
-            Self::Uncompressed {
-                distribution,
-                start_height,
-                base,
-                amount,
-                binary,
-            } => {
-                const COMPRESS: bool = false;
-                add_field! {
-                    distribution,
-                    start_height,
-                    base,
-                    amount,
-                    binary,
-                    COMPRESS
-                }
-            }
-            Self::CompressedBinary {
-                start_height,
-                base,
-                compressed_data,
-                amount,
-            } => {
-                const BINARY: bool = true;
-                const COMPRESS: bool = true;
-                add_field! {
-                    start_height,
-                    base,
-                    compressed_data,
-                    amount,
-                    BINARY,
-                    COMPRESS
-                }
-            }
+            // Inner struct fields + `compress`.
+            Self::Uncompressed(s) => s.number_of_fields() + 1,
+            // Inner struct fields + `compress` + `binary`.
+            Self::CompressedBinary(s) => s.number_of_fields() + 2,
         }
-
-        fields
     }
 
     fn write_fields<B: BufMut>(self, w: &mut B) -> error::Result<()> {
-        macro_rules! write_field {
-            ($($field:ident),*) => {
-                $(
-                    if $field.should_write() {
-                        write_field($field, stringify!($field), w)?;
-                    }
-                )*
-            };
-        }
-
         match self {
-            Self::Uncompressed {
-                distribution,
-                start_height,
-                base,
-                amount,
-                binary,
-            } => {
-                // This is on purpose `lower_case` instead of
-                // `CONST_UPPER` due to `stringify!`.
-                let compress = false;
-                write_field! {
-                    distribution,
-                    start_height,
-                    base,
-                    amount,
-                    binary,
-                    compress
-                }
+            Self::Uncompressed(s) => {
+                s.write_fields(w)?;
+                write_field(false, "compress", w)?;
             }
 
-            Self::CompressedBinary {
+            Self::CompressedBinary(DistributionCompressedBinary {
                 start_height,
                 base,
-                compressed_data,
+                distribution,
                 amount,
-            } => {
-                let binary = true;
-                let compress = true;
-                write_field! {
-                    start_height,
-                    base,
-                    compressed_data,
-                    amount,
-                    binary,
-                    compress
-                }
+            }) => {
+                let compressed_data = compress_integer_array(&distribution)?;
+
+                start_height.write(w)?;
+                base.write(w)?;
+                compressed_data.write(w)?;
+                amount.write(w)?;
+
+                write_field(true, "binary", w)?;
+                write_field(true, "compress", w)?;
             }
         }
 
         Ok(())
     }
+}
+
+//---------------------------------------------------------------------------------------------------- Tests
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+
+    // TODO: re-enable tests after (de)compression functions are implemented.
+
+    // /// Tests that [`compress_integer_array`] outputs as expected.
+    // #[test]
+    // fn compress() {
+    //     let varints = &[16_384, 16_383, 16_382, 16_381];
+    //     let bytes = compress_integer_array(varints).unwrap();
+
+    //     let expected = [2, 0, 1, 0, 253, 255, 249, 255, 245, 255];
+    //     assert_eq!(expected, *bytes);
+    // }
+
+    // /// Tests that [`decompress_integer_array`] outputs as expected.
+    // #[test]
+    // fn decompress() {
+    //     let bytes = &[2, 0, 1, 0, 253, 255, 249, 255, 245, 255];
+    //     let varints = decompress_integer_array(bytes);
+
+    //     let expected = vec![16_384, 16_383, 16_382, 16_381];
+    //     assert_eq!(expected, varints);
+    // }
 }
