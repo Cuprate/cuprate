@@ -5,17 +5,18 @@
 use std::borrow::Cow;
 
 use axum::{extract::State, http::StatusCode, Json};
+use tower::ServiceExt;
+
 use cuprate_json_rpc::{
     error::{ErrorCode, ErrorObject},
     Id,
 };
-
 use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
     RpcRequest,
 };
 
-use crate::{response::Response, rpc_handler::RpcHandler};
+use crate::{request::Request, response::Response, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -28,7 +29,7 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
     if request.body.is_restricted() && handler.restricted() {
         let error_object = ErrorObject {
             code: ErrorCode::ServerError(-1 /* TODO */),
-            message: Cow::Borrowed("Restricted. TODO"),
+            message: Cow::Borrowed("Restricted. TODO: mimic monerod message"),
             data: None,
         };
 
@@ -39,12 +40,15 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
 
         let response = cuprate_json_rpc::Response::err(id, error_object);
 
-        // TODO
         return Ok(Json(response));
     }
 
-    // TODO: call handler
-    let Response::JsonRpc(response) = todo!() else {
+    // Send request.
+    let request = Request::JsonRpc(request);
+    let channel = handler.oneshot(request).await?;
+
+    // Assert the response from the inner handler is correct.
+    let Response::JsonRpc(response) = channel else {
         panic!("RPC handler returned incorrect response");
     };
 

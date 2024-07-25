@@ -2,8 +2,8 @@
 #![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import
-
 use axum::{extract::State, http::StatusCode, Json};
+use tower::ServiceExt;
 
 use cuprate_rpc_types::{
     other::{
@@ -15,18 +15,18 @@ use cuprate_rpc_types::{
         GetTransactionPoolStatsResponse, GetTransactionsRequest, GetTransactionsResponse,
         GetTxIdsLooseRequest, GetTxIdsLooseResponse, InPeersRequest, InPeersResponse,
         IsKeyImageSpentRequest, IsKeyImageSpentResponse, MiningStatusRequest, MiningStatusResponse,
-        OtherResponse, OutPeersRequest, OutPeersResponse, PopBlocksRequest, PopBlocksResponse,
-        SaveBcRequest, SaveBcResponse, SendRawTransactionRequest, SendRawTransactionResponse,
-        SetBootstrapDaemonRequest, SetBootstrapDaemonResponse, SetLimitRequest, SetLimitResponse,
-        SetLogCategoriesRequest, SetLogCategoriesResponse, SetLogHashRateRequest,
-        SetLogHashRateResponse, SetLogLevelRequest, SetLogLevelResponse, StartMiningRequest,
-        StartMiningResponse, StopDaemonRequest, StopDaemonResponse, StopMiningRequest,
-        StopMiningResponse, UpdateRequest, UpdateResponse,
+        OtherRequest, OtherResponse, OutPeersRequest, OutPeersResponse, PopBlocksRequest,
+        PopBlocksResponse, SaveBcRequest, SaveBcResponse, SendRawTransactionRequest,
+        SendRawTransactionResponse, SetBootstrapDaemonRequest, SetBootstrapDaemonResponse,
+        SetLimitRequest, SetLimitResponse, SetLogCategoriesRequest, SetLogCategoriesResponse,
+        SetLogHashRateRequest, SetLogHashRateResponse, SetLogLevelRequest, SetLogLevelResponse,
+        StartMiningRequest, StartMiningResponse, StopDaemonRequest, StopDaemonResponse,
+        StopMiningRequest, StopMiningResponse, UpdateRequest, UpdateResponse,
     },
     RpcRequest,
 };
 
-use crate::{response::Response, rpc_handler::RpcHandler};
+use crate::{request::Request, response::Response, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -38,19 +38,23 @@ macro_rules! generate_endpoints {
             /// TODO
             #[allow(unused_mut)]
             pub(crate) async fn $endpoint<H: RpcHandler>(
-                State(handler): State<H>,
+                State(mut handler): State<H>,
                 Json(request): Json<[<$variant Request>]>,
             ) -> Result<Json<[<$variant Response>]>, StatusCode> {
+                // Check if restricted.
                 if request.is_restricted() && handler.restricted() {
-                    todo!();
+                    // TODO: mimic `monerod` behavior.
+                    return Err(StatusCode::FORBIDDEN);
                 }
 
-                // TODO: call handler
-                let Response::Other(response) = todo!() else {
-                    panic!("RPC handler did not return a binary response");
-                };
+                // Send request.
+                let request = Request::Other(OtherRequest::$variant(request));
+                let channel = handler.oneshot(request).await?;
 
                 // Assert the response from the inner handler is correct.
+                let Response::Other(response) = channel else {
+                    panic!("RPC handler did not return a binary response");
+                };
                 let OtherResponse::$variant(response) = response else {
                     panic!("RPC handler returned incorrect response")
                 };

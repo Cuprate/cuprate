@@ -3,11 +3,12 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use axum::{body::Bytes, extract::State, http::StatusCode};
+use tower::ServiceExt;
 
 use cuprate_epee_encoding::from_bytes;
 use cuprate_rpc_types::bin::{BinRequest, BinResponse};
 
-use crate::{response::Response, rpc_handler::RpcHandler};
+use crate::{request::Request, response::Response, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -27,12 +28,14 @@ macro_rules! generate_endpoints {
                     from_bytes(&mut request).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
                 );
 
-                // TODO: call handler
+                // Send request.
+                let request = Request::Binary(request);
+                let channel = handler.oneshot(request).await?;
+
+                // Assert the response from the inner handler is correct.
                 let Response::Binary(response) = todo!() else {
                     panic!("RPC handler did not return a binary response");
                 };
-
-                // Assert the response from the inner handler is correct.
                 let BinResponse::$variant(response) = response else {
                     panic!("RPC handler returned incorrect response");
                 };
