@@ -9,12 +9,12 @@ use crate::{
     free::{is_one, is_zero},
     macros::define_request_and_response,
     misc::{
-        AuxPow, BlockHeader, ChainInfo, ConnectionInfo, GetBan, HardforkEntry, HistogramEntry,
-        OutputDistributionData, SetBan, Span, Status, SyncInfoPeer, TxBacklogEntry,
+        AuxPow, BlockHeader, ChainInfo, ConnectionInfo, Distribution, GetBan, HardforkEntry,
+        HistogramEntry, OutputDistributionData, SetBan, Span, Status, SyncInfoPeer, TxBacklogEntry,
     },
 };
 
-//---------------------------------------------------------------------------------------------------- Struct definitions
+//---------------------------------------------------------------------------------------------------- Definitions
 // This generates 2 structs:
 //
 // - `GetBlockTemplateRequest`
@@ -131,7 +131,6 @@ define_request_and_response! {
     // type alias to `()` instead of a `struct`.
     Request {},
 
-    #[derive(Copy)]
     ResponseBase {
         count: u64,
     }
@@ -292,7 +291,7 @@ define_request_and_response! {
     AccessResponseBase {
         blob: String,
         block_header: BlockHeader,
-        json: String, // TODO: this should be defined in a struct, it has many fields.
+        json: String, // FIXME: this should be defined in a struct, it has many fields.
         miner_tx_hash: String,
         tx_hashes: Vec<String>,
     }
@@ -409,7 +408,6 @@ define_request_and_response! {
     Request {
         address: String,
     },
-    #[derive(Copy)]
     Response {
         banned: bool,
         seconds: u32,
@@ -425,7 +423,6 @@ define_request_and_response! {
     Request {
         txids: Vec<String> = default_vec::<String>(), "default_vec",
     },
-    #[derive(Copy)]
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Response {
@@ -479,9 +476,9 @@ define_request_and_response! {
         version: u32,
         release: bool,
         #[serde(skip_serializing_if = "is_zero")]
-        current_height: u64 = default_zero(), "default_zero",
+        current_height: u64 = default_zero::<u64>(), "default_zero",
         #[serde(skip_serializing_if = "is_zero")]
-        target_height: u64 = default_zero(), "default_zero",
+        target_height: u64 = default_zero::<u64>(), "default_zero",
         #[serde(skip_serializing_if = "Vec::is_empty")]
         hard_forks: Vec<HardforkEntry> = default_vec(), "default_vec",
     }
@@ -520,7 +517,6 @@ define_request_and_response! {
     Request {
         txids: Vec<String>,
     },
-    #[derive(Copy)]
     #[cfg_attr(feature = "serde", serde(transparent))]
     #[repr(transparent)]
     Response {
@@ -574,10 +570,8 @@ define_request_and_response! {
         from_height: u64,
         to_height: u64,
     },
-    /// TODO: this request has custom serde:
-    /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L2468-L2508>
     AccessResponseBase {
-        distributions: Vec<OutputDistributionData>,
+        distributions: Vec<Distribution>,
     }
 }
 
@@ -607,7 +601,6 @@ define_request_and_response! {
     Request {
         check: bool = default_false(), "default_false",
     },
-    #[derive(Copy)]
     ResponseBase {
         pruned: bool,
         pruning_seed: u32,
