@@ -1111,7 +1111,8 @@ r#"{
       "amount": 2628780000,
       "base": 0,
       "distribution": "",
-      "start_height": 1462078
+      "start_height": 1462078,
+      "binary": false
     }],
     "status": "OK",
     "top_hash": "",

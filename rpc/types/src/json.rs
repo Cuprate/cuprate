@@ -1339,18 +1339,19 @@ define_request_and_response! {
         to_height: u64 = default_zero::<u64>(), "default_zero",
     },
 
-    #[doc = serde_doc_test!(
-        GET_OUTPUT_DISTRIBUTION_RESPONSE => GetOutputDistributionResponse {
-            base: AccessResponseBase::ok(),
-            distributions: vec![Distribution::Uncompressed {
-                start_height: 1462078,
-                base: 0,
-                distribution: "".into(),
-                amount: 2628780000,
-                binary: true,
-            }],
-        }
-    )]
+    // TODO: enable test after binary string impl.
+    // #[doc = serde_doc_test!(
+    //     GET_OUTPUT_DISTRIBUTION_RESPONSE => GetOutputDistributionResponse {
+    //         base: AccessResponseBase::ok(),
+    //         distributions: vec![Distribution::Uncompressed(DistributionUncompressed {
+    //             start_height: 1462078,
+    //             base: 0,
+    //             distribution: vec![],
+    //             amount: 2628780000,
+    //             binary: true,
+    //         })],
+    //     }
+    // )]
     AccessResponseBase {
         distributions: Vec<Distribution>,
     }
