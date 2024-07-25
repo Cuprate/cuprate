@@ -113,11 +113,11 @@ mod request;
 mod response;
 mod route;
 mod rpc_handler;
-mod rpc_state;
+mod rpc_service;
 
 pub use error::Error;
 pub use free::create_router;
 pub use request::Request;
 pub use response::Response;
 pub use rpc_handler::{ConcreteRpcHandler, RpcHandler};
-pub use rpc_state::{ConcreteRpcState, RpcState};
+pub use rpc_service::RpcService;

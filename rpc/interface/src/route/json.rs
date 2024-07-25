@@ -22,10 +22,7 @@ use cuprate_rpc_types::{
     RpcRequest,
 };
 
-use crate::{
-    error::Error, request::Request, response::Response, rpc_handler::RpcHandler,
-    rpc_state::RpcState,
-};
+use crate::{error::Error, request::Request, response::Response, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -35,7 +32,7 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
 ) -> Result<Json<cuprate_json_rpc::Response<JsonRpcResponse>>, StatusCode> {
     // Return early if this RPC server is restricted and
     // the requested method is only for non-restricted RPC.
-    if request.body.is_restricted() && handler.state().restricted() {
+    if request.body.is_restricted() && handler.restricted() {
         let error_object = ErrorObject {
             code: ErrorCode::ServerError(-1 /* TODO */),
             message: Cow::Borrowed("Restricted. TODO"),

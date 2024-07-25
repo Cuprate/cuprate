@@ -12,7 +12,6 @@ use crate::{
     response::Response,
     route::{bin, json, other, unknown},
     rpc_handler::RpcHandler,
-    RpcState,
 };
 
 //---------------------------------------------------------------------------------------------------- Router
@@ -22,8 +21,6 @@ use crate::{
 pub fn create_router<H: RpcHandler>() -> Router<H> {
     // List of `monerod` routes:
     // <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.h#L97-L189>
-
-    // let mut router = Router::new();
 
     Router::new()
         // JSON-RPC route.

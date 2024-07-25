@@ -809,6 +809,7 @@ version = "0.0.0"
 dependencies = [
  "axum",
  "cuprate-epee-encoding",
+ "cuprate-helper",
  "cuprate-json-rpc",
  "cuprate-rpc-types",
  "paste",

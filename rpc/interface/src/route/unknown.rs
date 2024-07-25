@@ -22,10 +22,7 @@ use cuprate_rpc_types::{
     RpcRequest,
 };
 
-use crate::{
-    error::Error, request::Request, response::Response, rpc_handler::RpcHandler,
-    rpc_state::RpcState,
-};
+use crate::{error::Error, request::Request, response::Response, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO

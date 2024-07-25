@@ -32,10 +32,7 @@ use cuprate_rpc_types::{
     RpcRequest,
 };
 
-use crate::{
-    error::Error, request::Request, response::Response, rpc_handler::RpcHandler,
-    rpc_state::RpcState,
-};
+use crate::{error::Error, request::Request, response::Response, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -50,7 +47,7 @@ macro_rules! generate_endpoints {
                 State(handler): State<H>,
                 Json(request): Json<[<$variant Request>]>,
             ) -> Result<Json<[<$variant Response>]>, StatusCode> {
-                if request.is_restricted() && handler.state().restricted() {
+                if request.is_restricted() && handler.restricted() {
                     todo!();
                 }
 
