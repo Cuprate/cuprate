@@ -5,15 +5,6 @@
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_fixed_bytes::ByteArrayVec;
 
-#[cfg(feature = "axum")]
-use axum::{
-    async_trait,
-    body::{Body, Bytes},
-    extract::{FromRequest, Request},
-    http::StatusCode,
-    response::{IntoResponse, Response},
-};
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -191,32 +182,6 @@ pub enum BinResponse {
     GetOuts(GetOutsResponse),
     GetTransactionPoolHashes(GetTransactionPoolHashesResponse),
     GetOutputDistribution(crate::json::GetOutputDistributionResponse),
-}
-
-#[cfg(feature = "axum")]
-#[cfg(feature = "epee")]
-impl axum::response::IntoResponse for BinResponse {
-    fn into_response(self) -> axum::response::Response {
-        use cuprate_epee_encoding::to_bytes;
-
-        let mut bytes = axum::body::Bytes::new();
-        let writer = &mut bytes;
-
-        let result = match self {
-            Self::GetBlocks(s) => to_bytes(s),
-            Self::GetBlocksByHeight(s) => to_bytes(s),
-            Self::GetHashes(s) => to_bytes(s),
-            Self::GetOutputIndexes(s) => to_bytes(s),
-            Self::GetOuts(s) => to_bytes(s),
-            Self::GetTransactionPoolHashes(s) => to_bytes(s),
-            Self::GetOutputDistribution(s) => to_bytes(s),
-        };
-
-        match result {
-            Ok(bytes) => bytes.into_response(),
-            Err(e) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        }
-    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

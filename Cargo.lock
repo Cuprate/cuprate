@@ -821,7 +821,6 @@ dependencies = [
 name = "cuprate-rpc-types"
 version = "0.0.0"
 dependencies = [
- "axum",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "monero-serai",

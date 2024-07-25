@@ -14,7 +14,7 @@ default = []
 [dependencies]
 cuprate-epee-encoding = { path = "../../net/epee-encoding", default-features = false }
 cuprate-json-rpc      = { path = "../json-rpc", default-features = false }
-cuprate-rpc-types     = { path = "../types", features = ["serde", "epee", "axum"], default-features = false }
+cuprate-rpc-types     = { path = "../types", features = ["serde", "epee"], default-features = false }
 cuprate-helper        = { path = "../../helper", features = ["asynch"], default-features = false }
 
 axum  = { workspace = true, features = ["json"] }
