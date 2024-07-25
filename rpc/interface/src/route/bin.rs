@@ -2,32 +2,12 @@
 #![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, future::Future, sync::Arc};
-
-use axum::{body::Bytes, extract::State, http::StatusCode, response::IntoResponse, Json};
-use cuprate_json_rpc::{
-    error::{ErrorCode, ErrorObject},
-    Id,
-};
-use tower::{Service, ServiceExt};
+use axum::{body::Bytes, extract::State, http::StatusCode};
 
 use cuprate_epee_encoding::from_bytes;
-use cuprate_rpc_types::{
-    bin::{
-        BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse,
-        GetBlocksRequest, GetBlocksResponse, GetHashesRequest, GetHashesResponse,
-        GetOutputIndexesRequest, GetOutputIndexesResponse, GetOutsRequest, GetOutsResponse,
-        GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
-    },
-    json::{
-        GetOutputDistributionRequest, GetOutputDistributionResponse, JsonRpcRequest,
-        JsonRpcResponse,
-    },
-    other::{OtherRequest, OtherResponse},
-    RpcRequest,
-};
+use cuprate_rpc_types::bin::{BinRequest, BinResponse};
 
-use crate::{error::Error, request::Request, response::Response, rpc_handler::RpcHandler};
+use crate::{response::Response, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO

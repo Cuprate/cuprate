@@ -1,9 +1,6 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{future::Future, marker::PhantomData, sync::Arc};
-
-use axum::extract::State;
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;

@@ -2,14 +2,8 @@
 #![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Cow, future::Future, sync::Arc};
 
-use axum::{body::Bytes, extract::State, http::StatusCode, Json};
-use cuprate_json_rpc::{
-    error::{ErrorCode, ErrorObject},
-    Id,
-};
-use tower::{Service, ServiceExt};
+use axum::{extract::State, http::StatusCode, Json};
 
 use cuprate_rpc_types::{
     other::{
@@ -21,18 +15,18 @@ use cuprate_rpc_types::{
         GetTransactionPoolStatsResponse, GetTransactionsRequest, GetTransactionsResponse,
         GetTxIdsLooseRequest, GetTxIdsLooseResponse, InPeersRequest, InPeersResponse,
         IsKeyImageSpentRequest, IsKeyImageSpentResponse, MiningStatusRequest, MiningStatusResponse,
-        OtherRequest, OtherResponse, OutPeersRequest, OutPeersResponse, PopBlocksRequest,
-        PopBlocksResponse, SaveBcRequest, SaveBcResponse, SendRawTransactionRequest,
-        SendRawTransactionResponse, SetBootstrapDaemonRequest, SetBootstrapDaemonResponse,
-        SetLimitRequest, SetLimitResponse, SetLogCategoriesRequest, SetLogCategoriesResponse,
-        SetLogHashRateRequest, SetLogHashRateResponse, SetLogLevelRequest, SetLogLevelResponse,
-        StartMiningRequest, StartMiningResponse, StopDaemonRequest, StopDaemonResponse,
-        StopMiningRequest, StopMiningResponse, UpdateRequest, UpdateResponse,
+        OtherResponse, OutPeersRequest, OutPeersResponse, PopBlocksRequest, PopBlocksResponse,
+        SaveBcRequest, SaveBcResponse, SendRawTransactionRequest, SendRawTransactionResponse,
+        SetBootstrapDaemonRequest, SetBootstrapDaemonResponse, SetLimitRequest, SetLimitResponse,
+        SetLogCategoriesRequest, SetLogCategoriesResponse, SetLogHashRateRequest,
+        SetLogHashRateResponse, SetLogLevelRequest, SetLogLevelResponse, StartMiningRequest,
+        StartMiningResponse, StopDaemonRequest, StopDaemonResponse, StopMiningRequest,
+        StopMiningResponse, UpdateRequest, UpdateResponse,
     },
     RpcRequest,
 };
 
-use crate::{error::Error, request::Request, response::Response, rpc_handler::RpcHandler};
+use crate::{response::Response, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -57,10 +51,11 @@ macro_rules! generate_endpoints {
                 };
 
                 // Assert the response from the inner handler is correct.
-                match response {
-                    OtherResponse::$variant(response) => Ok(Json(response)),
-                    _ => panic!("RPC handler returned incorrect response"),
-                }
+                let OtherResponse::$variant(response) = response else {
+                    panic!("RPC handler returned incorrect response")
+                };
+
+                Ok(Json(response))
             }
         )*
     }};

@@ -1,15 +1,9 @@
 //! Free functions.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{future::Future, marker::PhantomData};
-
-use axum::{extract::State, routing::method_routing::get, Router};
-use tower::Service;
+use axum::{routing::method_routing::get, Router};
 
 use crate::{
-    error::Error,
-    request::Request,
-    response::Response,
     route::{bin, json, other, unknown},
     rpc_handler::RpcHandler,
 };
