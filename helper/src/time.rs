@@ -55,7 +55,7 @@ pub const fn unix_clock(seconds_after_unix_epoch: u64) -> u32 {
 /// - The seconds returned is guaranteed to be `0..=59`
 /// - The minutes returned is guaranteed to be `0..=59`
 /// - The hours returned can be over `23`, as this is not a clock function,
-/// see [`secs_to_clock`] for clock-like behavior that wraps around on `24`
+///   see [`secs_to_clock`] for clock-like behavior that wraps around on `24`
 ///
 /// ```rust
 /// # use cuprate_helper::time::*;
