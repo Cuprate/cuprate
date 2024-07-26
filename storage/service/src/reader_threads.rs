@@ -16,7 +16,7 @@ use rayon::ThreadPool;
 use serde::{Deserialize, Serialize};
 
 //---------------------------------------------------------------------------------------------------- init_thread_pool
-
+/// Initialize the reader thread-pool backed by `rayon`.
 pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
     // How many reader threads to spawn?
     let reader_count = reader_threads.as_threads().get();

@@ -14,13 +14,17 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 ///
 /// Uses an inner request handler and a rayon thread-pool to asynchronously handler requests.
 pub struct DatabaseReadService<Req, Res> {
-    /// The rayon thread-pool.
+    /// Handle to the custom `rayon` DB reader thread-pool.
+    ///
+    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
+    /// and responses are returned via a channel we (the caller) provide.
     pool: Arc<ThreadPool>,
 
     /// The function used to handle request.
     inner_handler: Arc<dyn Fn(Req) -> Result<Res, RuntimeError> + Send + Sync + 'static>,
 }
 
+// deriving clone means Req & Res needs to be clone, when they don't.
 impl<Req, Res> Clone for DatabaseReadService<Req, Res> {
     fn clone(&self) -> Self {
         Self {
@@ -35,6 +39,11 @@ where
     Req: Send + 'static,
     Res: Send + 'static,
 {
+    /// Creates the [`DatabaseReadService`] with the provided backing thread-pool.
+    ///
+    /// Should be called _once_ per actual database.
+    #[cold]
+    #[inline(never)] // Only called once.
     pub fn new(
         env: Arc<ConcreteEnv>,
         pool: Arc<ThreadPool>,

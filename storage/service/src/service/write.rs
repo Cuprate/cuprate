@@ -1,9 +1,13 @@
+use std::{
+    fmt::Debug,
+    sync::Arc,
+    task::{Context, Poll},
+};
+
+use futures::channel::oneshot;
+
 use cuprate_database::{ConcreteEnv, Env, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use futures::channel::oneshot;
-use std::fmt::Debug;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// Name of the writer thread.

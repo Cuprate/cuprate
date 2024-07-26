@@ -37,13 +37,24 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- init_read_service
-/// Initialize the blockchain database read service.
+/// Initialize the [`BCReadHandle`] thread-pool backed by `rayon`.
+///
+/// This spawns `threads` amount of reader threads
+/// attached to `env` and returns a handle to the pool.
+///
+/// Should be called _once_ per actual database.
+#[cold]
+#[inline(never)] // Only called once.
 pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BCReadHandle {
     init_read_service_with_pool(env, init_thread_pool(threads))
 }
 
 /// Initialize the blockchain database read service, with a specific rayon thread-pool instead of
 /// creating a new one.
+///
+/// Should be called _once_ per actual database.
+#[cold]
+#[inline(never)] // Only called once.
 pub fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> BCReadHandle {
     DatabaseReadService::new(env, pool, map_request)
 }
