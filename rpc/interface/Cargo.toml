@@ -17,7 +17,7 @@ cuprate-json-rpc      = { path = "../json-rpc", default-features = false }
 cuprate-rpc-types     = { path = "../types", features = ["serde", "epee"], default-features = false }
 cuprate-helper        = { path = "../../helper", features = ["asynch"], default-features = false }
 
-axum  = { workspace = true, features = ["json"] }
+axum  = { version = "0.7.5", features = ["json"], default-features = false }
 serde = { workspace = true }
 tower = { workspace = true }
 paste = { workspace = true }
