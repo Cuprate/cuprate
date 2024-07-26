@@ -1,3 +1,5 @@
+#![allow(clippy::impl_trait_in_params)]
+
 mod reader_threads;
 mod service;
 

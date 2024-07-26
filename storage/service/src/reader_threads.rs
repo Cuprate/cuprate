@@ -9,11 +9,13 @@
 //! based on these values.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::{num::NonZeroUsize, sync::Arc};
+
 use rayon::ThreadPool;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroUsize;
-use std::sync::Arc;
+
+//---------------------------------------------------------------------------------------------------- init_thread_pool
 
 pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
     // How many reader threads to spawn?
@@ -29,8 +31,6 @@ pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
 }
 
 //---------------------------------------------------------------------------------------------------- ReaderThreads
-/// Amount of database reader threads to spawn when using [`service`](crate::service).
-///
 /// This controls how many reader thread `service`'s
 /// thread-pool will spawn to receive and send requests/responses.
 ///

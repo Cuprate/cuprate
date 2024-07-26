@@ -14,8 +14,8 @@
 //!
 //! ## Handles
 //! The 2 handles to the database are:
-//! - [`DatabaseReadHandle`]
-//! - [`DatabaseWriteHandle`]
+//! - [`BCReadHandle`]
+//! - [`BCWriteHandle`]
 //!
 //! The 1st allows any caller to send [`ReadRequest`][req_r]s.
 //!
@@ -33,12 +33,12 @@
 //!
 //! ## Shutdown
 //! Upon the above handles being dropped, the corresponding thread(s) will automatically exit, i.e:
-//! - The last [`DatabaseReadHandle`] is dropped => reader thread-pool exits
-//! - The last [`DatabaseWriteHandle`] is dropped => writer thread exits
+//! - The last [`BCReadHandle`] is dropped => reader thread-pool exits
+//! - The last [`BCWriteHandle`] is dropped => writer thread exits
 //!
-//! Upon dropping the [`cuprate_database::ConcreteEnv`]:
+//! Upon dropping the [`cuprate_database::Env`]:
 //! - All un-processed database transactions are completed
-//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)
+//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `Env`)
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),
@@ -117,6 +117,9 @@
 //! drop(read_handle);
 //! # Ok(()) }
 //! ```
+
+// needed for docs
+use tower as _;
 
 mod read;
 pub use read::{init_read_service, init_read_service_with_pool};

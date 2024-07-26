@@ -13,6 +13,8 @@ use cuprate_types::blockchain::{BCReadRequest, BCResponse, BCWriteRequest};
 /// Either our [`BCResponse`], or a database error occurred.
 pub(super) type ResponseResult = Result<BCResponse, RuntimeError>;
 
+/// The blockchain database write service.
 pub type BCWriteHandle = DatabaseWriteHandle<BCWriteRequest, BCResponse>;
 
-pub type BCReadHandle = DatabaseReadService<BCReadRequest, BCResponse, RuntimeError>;
+/// The blockchain database read service.
+pub type BCReadHandle = DatabaseReadService<BCReadRequest, BCResponse>;

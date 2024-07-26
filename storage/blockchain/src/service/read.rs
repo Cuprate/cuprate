@@ -36,12 +36,14 @@ use crate::{
     types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
-//---------------------------------------------------------------------------------------------------- DatabaseReadHandle
-
+//---------------------------------------------------------------------------------------------------- init_read_service
+/// Initialize the blockchain database read service.
 pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BCReadHandle {
     init_read_service_with_pool(env, init_thread_pool(threads))
 }
 
+/// Initialize the blockchain database read service, with a specific rayon thread-pool instead of
+/// creating a new one.
 pub fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> BCReadHandle {
     DatabaseReadService::new(env, pool, map_request)
 }
@@ -65,7 +67,7 @@ fn map_request(
 
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
-    let response = match request {
+    match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block) => block_hash(env, block),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
@@ -77,11 +79,9 @@ fn map_request(
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
-    };
+    }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
-
-    response
 }
 
 //---------------------------------------------------------------------------------------------------- Thread Local

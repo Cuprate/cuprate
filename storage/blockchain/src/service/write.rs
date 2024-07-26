@@ -14,12 +14,15 @@ use crate::{
     service::types::{BCWriteHandle, ResponseResult},
     tables::OpenTables,
 };
-//---------------------------------------------------------------------------------------------------- init_write_service
 
+//---------------------------------------------------------------------------------------------------- init_write_service
+/// Initialize the blockchain write service from a [`ConcreteEnv`].
 pub fn init_write_service(env: Arc<ConcreteEnv>) -> BCWriteHandle {
     DatabaseWriteHandle::init(env, handle_bc_request)
 }
 
+//---------------------------------------------------------------------------------------------------- handle_bc_request
+/// Handle an incoming [`BCWriteRequest`], returning a [`BCResponse`].
 fn handle_bc_request(env: &ConcreteEnv, req: &BCWriteRequest) -> Result<BCResponse, RuntimeError> {
     match req {
         BCWriteRequest::WriteBlock(block) => write_block(env, block),

@@ -7,39 +7,38 @@ use futures::channel::oneshot;
 use rayon::ThreadPool;
 use tower::Service;
 
-use cuprate_database::ConcreteEnv;
+use cuprate_database::{ConcreteEnv, RuntimeError};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 /// The [`rayon::ThreadPool`] service.
 ///
 /// Uses an inner request handler and a rayon thread-pool to asynchronously handler requests.
-pub struct DatabaseReadService<Req, Res, Err> {
+pub struct DatabaseReadService<Req, Res> {
     /// The rayon thread-pool.
     pool: Arc<ThreadPool>,
 
     /// The function used to handle request.
-    inner_handler: Arc<dyn Fn(Req) -> Result<Res, Err> + Send + Sync + 'static>,
+    inner_handler: Arc<dyn Fn(Req) -> Result<Res, RuntimeError> + Send + Sync + 'static>,
 }
 
-impl<Req, Res, Err> Clone for DatabaseReadService<Req, Res, Err> {
+impl<Req, Res> Clone for DatabaseReadService<Req, Res> {
     fn clone(&self) -> Self {
         Self {
-            pool: self.pool.clone(),
-            inner_handler: self.inner_handler.clone(),
+            pool: Arc::clone(&self.pool),
+            inner_handler: Arc::clone(&self.inner_handler),
         }
     }
 }
 
-impl<Req, Res, Err> DatabaseReadService<Req, Res, Err>
+impl<Req, Res> DatabaseReadService<Req, Res>
 where
     Req: Send + 'static,
     Res: Send + 'static,
-    Err: Send + 'static,
 {
     pub fn new(
         env: Arc<ConcreteEnv>,
         pool: Arc<ThreadPool>,
-        req_handler: impl Fn(&ConcreteEnv, Req) -> Result<Res, Err> + Send + Sync + 'static,
+        req_handler: impl Fn(&ConcreteEnv, Req) -> Result<Res, RuntimeError> + Send + Sync + 'static,
     ) -> Self {
         let inner_handler = Arc::new(move |req| req_handler(&env, req));
 
@@ -50,14 +49,13 @@ where
     }
 }
 
-impl<Req, Res, Err> Service<Req> for DatabaseReadService<Req, Res, Err>
+impl<Req, Res> Service<Req> for DatabaseReadService<Req, Res>
 where
     Req: Send + 'static,
     Res: Send + 'static,
-    Err: Send + 'static,
 {
     type Response = Res;
-    type Error = Err;
+    type Error = RuntimeError;
     type Future = InfallibleOneshotReceiver<Result<Self::Response, Self::Error>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -68,7 +66,7 @@ where
         // Response channel we `.await` on.
         let (response_sender, receiver) = oneshot::channel();
 
-        let handler = self.inner_handler.clone();
+        let handler = Arc::clone(&self.inner_handler);
 
         // Spawn the request in the rayon DB thread-pool.
         //

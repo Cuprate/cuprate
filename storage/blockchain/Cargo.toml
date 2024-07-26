@@ -34,6 +34,7 @@ monero-serai     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
 
 # `service` feature.
+tower        = { workspace = true }
 thread_local = { workspace = true, optional = true }
 rayon        = { workspace = true, optional = true }
 
@@ -42,7 +43,6 @@ cuprate-helper     = { path = "../../helper", features = ["thread"] }
 cuprate-test-utils = { path = "../../test-utils" }
 
 tokio             = { workspace = true, features = ["full"] }
-tower             = { workspace = true }
 tempfile          = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest          = { workspace = true }

@@ -16,7 +16,7 @@ const WRITER_THREAD_NAME: &str = concat!(module_path!(), "::DatabaseWriter");
 ///
 /// Calling [`tower::Service::call`] with a [`DatabaseWriteHandle`]
 /// will return an `async`hronous channel that can be `.await`ed upon
-/// to receive the corresponding [`BCResponse`].
+/// to receive the corresponding response.
 #[derive(Debug)]
 pub struct DatabaseWriteHandle<Req, Res> {
     /// Sender channel to the database write thread-pool.
@@ -44,7 +44,7 @@ where
         // Spawn the writer.
         std::thread::Builder::new()
             .name(WRITER_THREAD_NAME.into())
-            .spawn(move || database_writer(env, receiver, inner_handler))
+            .spawn(move || database_writer(&env, &receiver, inner_handler))
             .unwrap();
 
         Self { sender }
@@ -76,8 +76,8 @@ impl<Req, Res> tower::Service<Req> for DatabaseWriteHandle<Req, Res> {
 //---------------------------------------------------------------------------------------------------- database_writer
 /// The main function of the writer thread.
 fn database_writer<Req, Res>(
-    env: Arc<ConcreteEnv>,
-    receiver: crossbeam::channel::Receiver<(Req, oneshot::Sender<Result<Res, RuntimeError>>)>,
+    env: &ConcreteEnv,
+    receiver: &crossbeam::channel::Receiver<(Req, oneshot::Sender<Result<Res, RuntimeError>>)>,
     inner_handler: impl Fn(&ConcreteEnv, &Req) -> Result<Res, RuntimeError>,
 ) where
     Req: Send + 'static,
@@ -120,7 +120,7 @@ fn database_writer<Req, Res>(
         'retry: for retry in 0..REQUEST_RETRY_LIMIT {
             // FIXME: will there be more than 1 write request?
             // this won't have to be an enum.
-            let response = inner_handler(&env, &request);
+            let response = inner_handler(env, &request);
 
             // If the database needs to resize, do so.
             if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded)) {
