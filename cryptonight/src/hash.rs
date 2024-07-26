@@ -4,6 +4,8 @@ use std::io::Write;
 use memoffset::offset_of;
 use sha3::Digest;
 use static_assertions::const_assert_eq;
+use crate::hash_v4 as v4;
+use crate::hash_v4::Instruction;
 
 const MEMORY: usize = 1 << 21; // 2MB scratchpad
 const ITER: usize = 1 << 20;
@@ -11,6 +13,8 @@ const AES_BLOCK_SIZE: usize = 16;
 const AES_KEY_SIZE: usize = 32;
 const INIT_SIZE_BLK: usize = 8;
 const INIT_SIZE_BYTE: usize = INIT_SIZE_BLK * AES_BLOCK_SIZE;
+
+
 
 #[derive(PartialEq, Eq)]
 enum Variant {
@@ -39,6 +43,7 @@ impl Default for HashState {
         }
     }
 }
+
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -98,6 +103,8 @@ impl CnSlowHashState {
     }
 }
 
+
+
 struct Cache {
     //scratchpad: [u64; 2 * 1024 * 1024 / 8], // 2 MiB scratchpad
     //final_state: [u64; 25],                 // state of keccak1600
@@ -134,6 +141,11 @@ fn xor64(left: &mut [u8], right: &[u8]) {
     }
 }
 
+fn v4_reg_load(dst: &mut u32, src: &[u8]) {
+    assert!(src.len() >= 4, "Source must have at least 4 bytes.");
+    *dst = u32::from_le_bytes([src[0], src[1], src[2], src[3]]);
+}
+
 macro_rules! swap_bytes_if_be {
     ($val:expr) => {
         if cfg!(target_endian = "big") {
@@ -153,7 +165,7 @@ fn keccak1600(input: &[u8], out: &mut [u8; 200]) {
 
 const NONCE_PTR_INDEX: usize = 35;
 
-fn cn_slow_hash(data: &[u8], variant: Variant) -> ([u8; 32], [u8; 200], u64, u64) {
+fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u32; 71], [Instruction; 71]) {
     // let long_state: [u8; MEMORY];
     // let text: [u8; INIT_SIZE_BYTE];
     // let a: [u8; AES_BLOCK_SIZE];
@@ -193,29 +205,111 @@ fn cn_slow_hash(data: &[u8], variant: Variant) -> ([u8; 32], [u8; 200], u64, u64
         sqrt_result = swap_bytes_if_be!(keccak_state_words[13]);
     }
 
-    (
-        b,
-        state.get_keccak_state_bytes().clone(),
-        division_result,
-        sqrt_result,
-    )
+    // Variant 4 Random Math Init
+    let mut r = [0u32; v4::NUM_INSTRUCTIONS_MAX + 1];
+    let mut code = [v4::Instruction::default(); v4::NUM_INSTRUCTIONS_MAX + 1];
+    let mut keccak_state_bytes = state.get_keccak_state_bytes_mut();
+    if variant == Variant::R {
+        for i in 0..4 {
+            let j = 12*8 + 4 * i;
+            r[i] = u32::from_le_bytes(keccak_state_bytes[j..j + 4].try_into().unwrap());
+        }
+        v4::random_math_init(&mut code, height);
+    }
+
+    (r, code)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::hash::{cn_slow_hash, Variant};
+    use crate::hash_v4::Instruction;
 
     #[test]
-    fn test_sum() {
+    fn test_cn_slow_hash() {
         let input = hex::decode("5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374").unwrap();
-        let (b, hash_state, division_result, sqrt_result) = cn_slow_hash(&input, Variant::V2);
+        let (r, code) = cn_slow_hash(&input, Variant::R, 1806260);
 
-        assert_eq!(
-            hex::encode(b),
-            "00000000000000000000000000000000d99c9a4bae0badfb8a8cf8504b813b7d"
-        );
-        assert_eq!(hex::encode(hash_state), "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f266110665e23e891ea4ee2337fb304b35bf8d9c2e4c3524e52e62db67b0b170487a68a34f8026a81b35dc835c60b356d2c411ad227b6c67e30e9b57ba34b3cf27fccecae972850cf3889bb3ff8347b55a5710d58086973d12d75a3340a39430b65ee2f4be27c21e7b39f47341dd036fe13bf43bb2c55bce498a3adcbf07397ea66062b66d56cd8136");
-        assert_eq!(division_result, 1992885167645223034);
-        assert_eq!(sqrt_result, 15156498822412360757);
+        let r_expected: [u32; 9] = [1336109178, 464004736, 1552145461, 3528897376, 0, 0, 0, 0, 0];
+        let code_expected:[Instruction; 71] = [
+            Instruction {opcode: 4, dst_index: 0, src_index: 7, c: 0},
+            Instruction {opcode: 0, dst_index: 3, src_index: 1, c: 0},
+            Instruction {opcode: 1, dst_index: 2, src_index: 7, c: 3553557725},
+            Instruction {opcode: 2, dst_index: 0, src_index: 8, c: 0},
+            Instruction {opcode: 1, dst_index: 3, src_index: 4, c: 3590470404},
+            Instruction {opcode: 5, dst_index: 1, src_index: 0, c: 0},
+            Instruction {opcode: 5, dst_index: 1, src_index: 5, c: 0},
+            Instruction {opcode: 5, dst_index: 1, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 7, c: 0},
+            Instruction {opcode: 0, dst_index: 2, src_index: 1, c: 0},
+            Instruction {opcode: 0, dst_index: 2, src_index: 4, c: 0},
+            Instruction {opcode: 0, dst_index: 2, src_index: 7, c: 0},
+            Instruction {opcode: 2, dst_index: 1, src_index: 8, c: 0},
+            Instruction {opcode: 1, dst_index: 0, src_index: 6, c: 1516169632},
+            Instruction {opcode: 1, dst_index: 2, src_index: 0, c: 1587456779},
+            Instruction {opcode: 0, dst_index: 3, src_index: 5, c: 0},
+            Instruction {opcode: 0, dst_index: 1, src_index: 0, c: 0},
+            Instruction {opcode: 5, dst_index: 2, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
+            Instruction {opcode: 2, dst_index: 3, src_index: 6, c: 0},
+            Instruction {opcode: 4, dst_index: 3, src_index: 0, c: 0},
+            Instruction {opcode: 5, dst_index: 2, src_index: 4, c: 0},
+            Instruction {opcode: 0, dst_index: 3, src_index: 5, c: 0},
+            Instruction {opcode: 5, dst_index: 2, src_index: 0, c: 0},
+            Instruction {opcode: 4, dst_index: 2, src_index: 4, c: 0},
+            Instruction {opcode: 5, dst_index: 3, src_index: 8, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 4, c: 0},
+            Instruction {opcode: 1, dst_index: 2, src_index: 3, c: 2235486112},
+            Instruction {opcode: 5, dst_index: 0, src_index: 3, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 2, c: 0},
+            Instruction {opcode: 5, dst_index: 2, src_index: 7, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 7, c: 0},
+            Instruction {opcode: 3, dst_index: 0, src_index: 4, c: 0},
+            Instruction {opcode: 0, dst_index: 3, src_index: 2, c: 0},
+            Instruction {opcode: 1, dst_index: 2, src_index: 3, c: 382729823},
+            Instruction {opcode: 0, dst_index: 1, src_index: 4, c: 0},
+            Instruction {opcode: 2, dst_index: 3, src_index: 5, c: 0},
+            Instruction {opcode: 1, dst_index: 3, src_index: 7, c: 446636115},
+            Instruction {opcode: 2, dst_index: 0, src_index: 5, c: 0},
+            Instruction {opcode: 1, dst_index: 1, src_index: 8, c: 1136500848},
+            Instruction {opcode: 5, dst_index: 3, src_index: 8, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 4, c: 0},
+            Instruction {opcode: 3, dst_index: 3, src_index: 5, c: 0},
+            Instruction {opcode: 0, dst_index: 2, src_index: 0, c: 0},
+            Instruction {opcode: 3, dst_index: 0, src_index: 1, c: 0},
+            Instruction {opcode: 1, dst_index: 0, src_index: 7, c: 4221005163},
+            Instruction {opcode: 4, dst_index: 0, src_index: 2, c: 0},
+            Instruction {opcode: 1, dst_index: 0, src_index: 7, c: 1789679560},
+            Instruction {opcode: 5, dst_index: 0, src_index: 3, c: 0},
+            Instruction {opcode: 1, dst_index: 2, src_index: 8, c: 2725270475},
+            Instruction {opcode: 5, dst_index: 1, src_index: 4, c: 0},
+            Instruction {opcode: 2, dst_index: 3, src_index: 8, c: 0},
+            Instruction {opcode: 5, dst_index: 3, src_index: 5, c: 0},
+            Instruction {opcode: 2, dst_index: 3, src_index: 2, c: 0},
+            Instruction {opcode: 4, dst_index: 2, src_index: 2, c: 0},
+            Instruction {opcode: 1, dst_index: 3, src_index: 6, c: 4110965463},
+            Instruction {opcode: 5, dst_index: 2, src_index: 6, c: 0},
+            Instruction {opcode: 2, dst_index: 2, src_index: 7, c: 0},
+            Instruction {opcode: 2, dst_index: 3, src_index: 1, c: 0},
+            Instruction {opcode: 2, dst_index: 1, src_index: 8, c: 0},
+            Instruction {opcode: 3, dst_index: 1, src_index: 2, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 1, c: 0},
+            Instruction {opcode: 0, dst_index: 2, src_index: 0, c: 0},
+            Instruction {opcode: 6, dst_index: 0, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
+            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0}
+        ];
+
+        for i in 0..9 {
+            assert_eq!(r_expected[i], r[i], "r[{}] is incorrect", i);
+        }
+        for i in 0..71 {
+            assert_eq!(code_expected[i], code[i], "code[{}] is incorrect", i);
+        }
     }
 }

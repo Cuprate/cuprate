@@ -267,6 +267,29 @@ void print_hex(const char *name, const void* memory, size_t size) {
     printf("\n");
 }
 
+void print_r_and_code(const uint32_t r[9], const struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1]) {
+  printf("        let r: [u32; 9] = [");
+  for (int i = 0; i < 9; ++i) {
+    printf("%u", r[i]);
+    if (i < 8) {
+      printf(", ");
+    }
+  }
+  printf("];\n");
+
+  printf("        let code:[Instruction; 71] = [\n");
+  for (int i = 0; i < NUM_INSTRUCTIONS_MAX + 1; ++i) {
+    printf("            Instruction {opcode: %u, dst_index: %u, src_index: %u, c: %u}",
+           code[i].opcode, code[i].dst_index, code[i].src_index, code[i].C);
+    if (i < NUM_INSTRUCTIONS_MAX) {
+      printf(",\n");
+    } else {
+      printf("\n");
+    }
+  }
+  printf("        ];\n");
+}
+
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint64_t height) {
   uint8_t long_state[MEMORY];
 
@@ -311,10 +334,10 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     sqrt_result = SWAP64LE(state.hs.w[13]);
   }
 
-    print_hex("b", b, 32);
-    print_hex("state.hs.b", state.hs.b, 200);
-    printf("division_result: %lu\n", division_result);
-    printf("sqrt_result: %lu\n", sqrt_result);
+//    print_hex("b", b, 32);
+//    print_hex("state.hs.b", state.hs.b, 200);
+//    printf("division_result: %lu\n", division_result);
+//    printf("sqrt_result: %lu\n", sqrt_result);
 
   // VARIANT4_RANDOM_MATH_INIT();
   uint32_t r[9];
@@ -325,6 +348,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     }
     v4_random_math_init(code, height);
   }
+
+    print_r_and_code(r, code);
 
   oaes_key_import_data(aes_ctx, aes_key, AES_KEY_SIZE);
   for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
