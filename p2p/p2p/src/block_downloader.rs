@@ -194,7 +194,7 @@ where
 /// - download the next batch of blocks
 /// - request the next chain entry
 /// - download an already requested batch of blocks (this might happen due to an error in the previous request
-/// or because the queue of ready blocks is too large, so we need the oldest block to clear it).
+///   or because the queue of ready blocks is too large, so we need the oldest block to clear it).
 struct BlockDownloader<N: NetworkZone, S, C> {
     /// The client pool.
     client_pool: Arc<ClientPool<N>>,

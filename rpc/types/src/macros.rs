@@ -16,11 +16,11 @@
 ///
 /// # Macro internals
 /// This macro uses:
-/// - [`__define_request`]
-/// - [`__define_response`]
-/// - [`__define_request_and_response_doc`]
+/// - [`define_request`]
+/// - [`define_response`]
+/// - [`define_request_and_response_doc`]
 ///
-/// # `__define_request`
+/// # `define_request`
 /// This macro has 2 branches. If the caller provides
 /// `Request {}`, i.e. no fields, it will generate:
 /// ```
@@ -34,7 +34,7 @@
 /// means they are not compatible and it makes it cumbersome for end-users.
 /// Really, they semantically are empty types, so `()` is used.
 ///
-/// # `__define_response`
+/// # `define_response`
 /// This macro has 2 branches. If the caller provides `Response`
 /// it will generate a normal struct with no additional fields.
 ///
@@ -86,8 +86,8 @@ macro_rules! define_request_and_response {
             )*
         }
     ) => { paste::paste! {
-        $crate::macros::__define_request! {
-            #[doc = $crate::macros::__define_request_and_response_doc!(
+        $crate::macros::define_request! {
+            #[doc = $crate::macros::define_request_and_response_doc!(
                 "response" => [<$type_name Response>],
                 $monero_daemon_rpc_doc_link,
                 $monero_code_commit,
@@ -110,12 +110,12 @@ macro_rules! define_request_and_response {
             }
         }
 
-        $crate::macros::__define_response! {
+        $crate::macros::define_response! {
             #[allow(dead_code)]
             #[allow(missing_docs)]
             #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
             #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-            #[doc = $crate::macros::__define_request_and_response_doc!(
+            #[doc = $crate::macros::define_request_and_response_doc!(
                 "request" => [<$type_name Request>],
                 $monero_daemon_rpc_doc_link,
                 $monero_code_commit,
@@ -168,9 +168,9 @@ pub(crate) use impl_rpc_request;
 /// Define a request type.
 ///
 /// This is only used in [`define_request_and_response`], see it for docs.
-///
-/// `__` is used to notate that this shouldn't be called directly.
-macro_rules! __define_request {
+macro_rules! define_request {
+    //------------------------------------------------------------------------------
+    // This branch will generate a type alias to `()` if only given `{}` as input.
     (
         // Any doc comments, derives, etc.
         $( #[$attr:meta] )*
@@ -214,15 +214,13 @@ macro_rules! __define_request {
         }
     };
 }
-pub(crate) use __define_request;
+pub(crate) use define_request;
 
 //---------------------------------------------------------------------------------------------------- define_response
 /// Define a response type.
 ///
-/// This is only used in [`define_request_and_response`], see it for docs.
-///
-/// `__` is used to notate that this shouldn't be called directly.
-macro_rules! __define_response {
+/// This is used in [`define_request_and_response`], see it for docs.
+macro_rules! define_response {
     //------------------------------------------------------------------------------
     // This version of the macro expects the literal ident
     // `Response` => $response_type_name.
@@ -236,7 +234,7 @@ macro_rules! __define_response {
         // The response type.
         Response => $t:ident {
             // And any fields.
-            // See [`__define_request`] for docs, this does the same thing.
+            // See [`define_request`] for docs, this does the same thing.
             $(
                 $( #[$field_attr:meta] )*
                 $field:ident: $field_type:ty
@@ -273,7 +271,7 @@ macro_rules! __define_response {
         // The response base type => actual name of the struct
         $base:ty => $t:ident {
             // And any fields.
-            // See [`__define_request`] for docs, this does the same thing.
+            // See [`define_request`] for docs, this does the same thing.
             $(
                 $( #[$field_attr:meta] )*
                 $field:ident: $field_type:ty
@@ -306,16 +304,14 @@ macro_rules! __define_response {
         }
     };
 }
-pub(crate) use __define_response;
+pub(crate) use define_response;
 
 //---------------------------------------------------------------------------------------------------- define_request_and_response_doc
 /// Generate documentation for the types generated
-/// by the [`__define_request_and_response`] macro.
+/// by the [`define_request_and_response`] macro.
 ///
 /// See it for more info on inputs.
-///
-/// `__` is used to notate that this shouldn't be called directly.
-macro_rules! __define_request_and_response_doc {
+macro_rules! define_request_and_response_doc {
     (
         // This labels the last `[request]` or `[response]`
         // hyperlink in documentation. Input is either:
@@ -359,7 +355,7 @@ macro_rules! __define_request_and_response_doc {
         )
     };
 }
-pub(crate) use __define_request_and_response_doc;
+pub(crate) use define_request_and_response_doc;
 
 //---------------------------------------------------------------------------------------------------- Macro
 /// Output a string link to `monerod` source code.
