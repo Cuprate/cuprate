@@ -30,12 +30,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "allocator-api2"
-version = "0.2.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c6cb57a04249c6480766f7f7cef5467412af1490f8d1e243141daddada3264f"
-
-[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -471,7 +465,7 @@ dependencies = [
  "cuprate-test-utils",
  "cuprate-wire",
  "futures",
- "indexmap 2.2.6",
+ "indexmap",
  "rand",
  "thiserror",
  "tokio",
@@ -496,14 +490,13 @@ version = "0.0.0"
 dependencies = [
  "bitflags 2.5.0",
  "bytemuck",
- "crossbeam",
  "cuprate-database",
+ "cuprate-database-service",
  "cuprate-helper",
  "cuprate-pruning",
  "cuprate-test-utils",
  "cuprate-types",
  "curve25519-dalek",
- "futures",
  "hex",
  "hex-literal",
  "monero-serai",
@@ -514,7 +507,6 @@ dependencies = [
  "tempfile",
  "thread_local",
  "tokio",
- "tokio-util",
  "tower",
 ]
 
@@ -605,6 +597,19 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror",
+]
+
+[[package]]
+name = "cuprate-database-service"
+version = "0.1.0"
+dependencies = [
+ "crossbeam",
+ "cuprate-database",
+ "cuprate-helper",
+ "futures",
+ "rayon",
+ "serde",
+ "tower",
 ]
 
 [[package]]
@@ -707,7 +712,7 @@ dependencies = [
  "dashmap",
  "futures",
  "hex",
- "indexmap 2.2.6",
+ "indexmap",
  "monero-serai",
  "pin-project",
  "proptest",
@@ -876,7 +881,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
 dependencies = [
  "cfg-if",
- "hashbrown 0.14.5",
+ "hashbrown",
  "lock_api",
  "once_cell",
  "parking_lot_core",
@@ -1170,28 +1175,11 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.12.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
-
-[[package]]
-name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 dependencies = [
  "ahash",
- "allocator-api2",
-]
-
-[[package]]
-name = "hdrhistogram"
-version = "7.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "765c9198f173dd59ce26ff9f95ef0aafd0a0fe01fb9d72841bc5066a4c06511d"
-dependencies = [
- "byteorder",
- "num-traits",
 ]
 
 [[package]]
@@ -1517,22 +1505,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
-dependencies = [
- "autocfg",
- "hashbrown 0.12.3",
-]
-
-[[package]]
-name = "indexmap"
 version = "2.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
 dependencies = [
  "equivalent",
- "hashbrown 0.14.5",
+ "hashbrown",
 ]
 
 [[package]]
@@ -2458,7 +2436,7 @@ name = "std-shims"
 version = "0.1.1"
 source = "git+https://github.com/Cuprate/serai.git?rev=d27d934#d27d93480aa8a849d84214ad4c71d83ce6fea0c1"
 dependencies = [
- "hashbrown 0.14.5",
+ "hashbrown",
  "spin",
 ]
 
@@ -2663,10 +2641,7 @@ checksum = "9cf6b47b3771c49ac75ad09a6162f53ad4b8088b76ac60e8ec1455b31a189fe1"
 dependencies = [
  "bytes",
  "futures-core",
- "futures-io",
  "futures-sink",
- "futures-util",
- "hashbrown 0.14.5",
  "pin-project-lite",
  "slab",
  "tokio",
@@ -2685,7 +2660,7 @@ version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8534fd7f78b5405e860340ad6575217ce99f38d4d5c8f2442cb5ecb50090e1"
 dependencies = [
- "indexmap 2.2.6",
+ "indexmap",
  "toml_datetime",
  "winnow",
 ]
@@ -2698,12 +2673,8 @@ checksum = "b8fa9be0de6cf49e536ce1851f987bd21a43b771b09473c3549a6c853db37c1c"
 dependencies = [
  "futures-core",
  "futures-util",
- "hdrhistogram",
- "indexmap 1.9.3",
  "pin-project",
  "pin-project-lite",
- "rand",
- "slab",
  "tokio",
  "tokio-util",
  "tower-layer",

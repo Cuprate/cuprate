@@ -3,11 +3,12 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
-use cuprate_database::InitError;
+use cuprate_database::{ConcreteEnv, InitError};
 
+use crate::service::{init_read_service, init_write_service};
 use crate::{
     config::Config,
-    service::{DatabaseReadHandle, DatabaseWriteHandle},
+    service::types::{BCReadHandle, BCWriteHandle},
 };
 
 //---------------------------------------------------------------------------------------------------- Init
@@ -20,17 +21,17 @@ use crate::{
 ///
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
-pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle), InitError> {
+pub fn init(config: Config) -> Result<(BCReadHandle, BCWriteHandle, Arc<ConcreteEnv>), InitError> {
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.
     let db = Arc::new(crate::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = DatabaseReadHandle::init(&db, reader_threads);
-    let writer = DatabaseWriteHandle::init(db);
+    let readers = init_read_service(db.clone(), reader_threads);
+    let writer = init_write_service(db.clone());
 
-    Ok((readers, writer))
+    Ok((readers, writer, db))
 }
 
 //---------------------------------------------------------------------------------------------------- Compact history

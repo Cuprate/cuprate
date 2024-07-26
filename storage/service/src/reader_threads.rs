@@ -9,10 +9,24 @@
 //! based on these values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::num::NonZeroUsize;
-
+use rayon::ThreadPool;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use std::num::NonZeroUsize;
+use std::sync::Arc;
+
+pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
+    // How many reader threads to spawn?
+    let reader_count = reader_threads.as_threads().get();
+
+    Arc::new(
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(reader_count)
+            .thread_name(|i| format!("{}::DatabaseReader({i})", module_path!()))
+            .build()
+            .unwrap(),
+    )
+}
 
 //---------------------------------------------------------------------------------------------------- ReaderThreads
 /// Amount of database reader threads to spawn when using [`service`](crate::service).
@@ -48,7 +62,7 @@ pub enum ReaderThreads {
     /// as such, it is equal to [`ReaderThreads::OnePerThread`].
     ///
     /// ```rust
-    /// # use cuprate_blockchain::config::*;
+    /// # use cuprate_database_service::*;
     /// let reader_threads = ReaderThreads::from(0_usize);
     /// assert!(matches!(reader_threads, ReaderThreads::OnePerThread));
     /// ```
@@ -80,7 +94,7 @@ pub enum ReaderThreads {
     /// non-zero, but not 1 thread, the minimum value 1 will be returned.
     ///
     /// ```rust
-    /// # use cuprate_blockchain::config::*;
+    /// # use cuprate_database_service::ReaderThreads;
     /// assert_eq!(ReaderThreads::Percent(0.000000001).as_threads().get(), 1);
     /// ```
     Percent(f32),
@@ -96,7 +110,7 @@ impl ReaderThreads {
     ///
     /// # Example
     /// ```rust
-    /// use cuprate_blockchain::config::ReaderThreads as R;
+    /// use cuprate_database_service::ReaderThreads as R;
     ///
     /// let total_threads: std::num::NonZeroUsize =
     ///     cuprate_helper::thread::threads();

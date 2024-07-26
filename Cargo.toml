@@ -17,6 +17,7 @@ members = [
 	"p2p/async-buffer",
 	"p2p/address-book",
 	"storage/blockchain",
+	"storage/service",
 	"storage/txpool",
 	"storage/database",
 	"pruning",

@@ -4,24 +4,21 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    task::{Context, Poll},
 };
 
-use futures::{channel::oneshot, ready};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::ThreadPool;
 use thread_local::ThreadLocal;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio_util::sync::PollSemaphore;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_helper::{asynch::InfallibleOneshotReceiver, map::combine_low_high_bits_to_u128};
+use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
     ExtendedBlockHeader, OutputOnChain,
 };
 
 use crate::{
-    config::ReaderThreads,
     ops::{
         block::{
             block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
@@ -32,7 +29,7 @@ use crate::{
     },
     service::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
-        types::{ResponseReceiver, ResponseResult, ResponseSender},
+        types::{BCReadHandle, ResponseResult},
     },
     tables::OpenTables,
     tables::{BlockHeights, BlockInfos, Tables},
@@ -40,148 +37,13 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
-/// Read handle to the database.
-///
-/// This is cheaply [`Clone`]able handle that
-/// allows `async`hronously reading from the database.
-///
-/// Calling [`tower::Service::call`] with a [`DatabaseReadHandle`] & [`BCReadRequest`]
-/// will return an `async`hronous channel that can be `.await`ed upon
-/// to receive the corresponding [`BCResponse`].
-pub struct DatabaseReadHandle {
-    /// Handle to the custom `rayon` DB reader thread-pool.
-    ///
-    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
-    /// and responses are returned via a channel we (the caller) provide.
-    pool: Arc<rayon::ThreadPool>,
 
-    /// Counting semaphore asynchronous permit for database access.
-    /// Each [`tower::Service::poll_ready`] will acquire a permit
-    /// before actually sending a request to the `rayon` DB threadpool.
-    semaphore: PollSemaphore,
-
-    /// An owned permit.
-    /// This will be set to [`Some`] in `poll_ready()` when we successfully acquire
-    /// the permit, and will be [`Option::take()`]n after `tower::Service::call()` is called.
-    ///
-    /// The actual permit will be dropped _after_ the rayon DB thread has finished
-    /// the request, i.e., after [`map_request()`] finishes.
-    permit: Option<OwnedSemaphorePermit>,
-
-    /// Access to the database.
-    env: Arc<ConcreteEnv>,
+pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BCReadHandle {
+    init_read_service_with_pool(env, init_thread_pool(threads))
 }
 
-// `OwnedSemaphorePermit` does not implement `Clone`,
-// so manually clone all elements, while keeping `permit`
-// `None` across clones.
-impl Clone for DatabaseReadHandle {
-    fn clone(&self) -> Self {
-        Self {
-            pool: Arc::clone(&self.pool),
-            semaphore: self.semaphore.clone(),
-            permit: None,
-            env: Arc::clone(&self.env),
-        }
-    }
-}
-
-impl DatabaseReadHandle {
-    /// Initialize the `DatabaseReader` thread-pool backed by `rayon`.
-    ///
-    /// This spawns `N` amount of `DatabaseReader`'s
-    /// attached to `env` and returns a handle to the pool.
-    ///
-    /// Should be called _once_ per actual database.
-    #[cold]
-    #[inline(never)] // Only called once.
-    pub(super) fn init(env: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
-        // How many reader threads to spawn?
-        let reader_count = reader_threads.as_threads().get();
-
-        // Spawn `rayon` reader threadpool.
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(reader_count)
-            .thread_name(|i| format!("cuprate_helper::service::read::DatabaseReader{i}"))
-            .build()
-            .unwrap();
-
-        // Create a semaphore with the same amount of
-        // permits as the amount of reader threads.
-        let semaphore = PollSemaphore::new(Arc::new(Semaphore::new(reader_count)));
-
-        // Return a handle to the pool.
-        Self {
-            pool: Arc::new(pool),
-            semaphore,
-            permit: None,
-            env: Arc::clone(env),
-        }
-    }
-
-    /// Access to the actual database environment.
-    ///
-    /// # ⚠️ Warning
-    /// This function gives you access to the actual
-    /// underlying database connected to by `self`.
-    ///
-    /// I.e. it allows you to read/write data _directly_
-    /// instead of going through a request.
-    ///
-    /// Be warned that using the database directly
-    /// in this manner has not been tested.
-    #[inline]
-    pub const fn env(&self) -> &Arc<ConcreteEnv> {
-        &self.env
-    }
-}
-
-impl tower::Service<BCReadRequest> for DatabaseReadHandle {
-    type Response = BCResponse;
-    type Error = RuntimeError;
-    type Future = ResponseReceiver;
-
-    #[inline]
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // Check if we already have a permit.
-        if self.permit.is_some() {
-            return Poll::Ready(Ok(()));
-        }
-
-        // Acquire a permit before returning `Ready`.
-        let permit =
-            ready!(self.semaphore.poll_acquire(cx)).expect("this semaphore is never closed");
-
-        self.permit = Some(permit);
-        Poll::Ready(Ok(()))
-    }
-
-    #[inline]
-    fn call(&mut self, request: BCReadRequest) -> Self::Future {
-        let permit = self
-            .permit
-            .take()
-            .expect("poll_ready() should have acquire a permit before calling call()");
-
-        // Response channel we `.await` on.
-        let (response_sender, receiver) = oneshot::channel();
-
-        // Spawn the request in the rayon DB thread-pool.
-        //
-        // Note that this uses `self.pool` instead of `rayon::spawn`
-        // such that any `rayon` parallel code that runs within
-        // the passed closure uses the same `rayon` threadpool.
-        //
-        // INVARIANT:
-        // The below `DatabaseReader` function impl block relies on this behavior.
-        let env = Arc::clone(&self.env);
-        self.pool.spawn(move || {
-            let _permit: OwnedSemaphorePermit = permit;
-            map_request(&env, request, response_sender);
-        }); // drop(permit/env);
-
-        InfallibleOneshotReceiver::from(receiver)
-    }
+pub fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> BCReadHandle {
+    DatabaseReadService::new(env, pool, map_request)
 }
 
 //---------------------------------------------------------------------------------------------------- Request Mapping
@@ -194,12 +56,11 @@ impl tower::Service<BCReadRequest> for DatabaseReadHandle {
 /// The basic structure is:
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
-/// 3. [`BCResponse`] is sent
+/// 3. [`BCResponse`] is returned
 fn map_request(
-    env: &ConcreteEnv,               // Access to the database
-    request: BCReadRequest,          // The request we must fulfill
-    response_sender: ResponseSender, // The channel we must send the response back to
-) {
+    env: &ConcreteEnv,      // Access to the database
+    request: BCReadRequest, // The request we must fulfill
+) -> ResponseResult {
     use BCReadRequest as R;
 
     /* SOMEDAY: pre-request handling, run some code for each request? */
@@ -218,12 +79,9 @@ fn map_request(
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
     };
 
-    if let Err(e) = response_sender.send(response) {
-        // TODO: use tracing.
-        println!("database reader failed to send response: {e:?}");
-    }
-
     /* SOMEDAY: post-request handling, run some code for each request? */
+
+    response
 }
 
 //---------------------------------------------------------------------------------------------------- Thread Local

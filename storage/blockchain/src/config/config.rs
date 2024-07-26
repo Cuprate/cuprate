@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
 use cuprate_helper::fs::cuprate_blockchain_dir;
 
-use crate::config::ReaderThreads;
-
+// re-exports
+pub use cuprate_database_service::ReaderThreads;
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
 ///
