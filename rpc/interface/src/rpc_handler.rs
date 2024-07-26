@@ -1,45 +1,31 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Use
+use std::task::Poll;
+
+use futures::{channel::oneshot::channel, FutureExt};
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_json_rpc::Id;
+use cuprate_rpc_types::json::JsonRpcRequest;
 
-use crate::{error::Error, request::Request, response::Response, RpcService};
+use crate::{error::Error, request::Request, response::Response};
 
 //---------------------------------------------------------------------------------------------------- TODO
 /// TODO
-pub trait RpcHandler: RpcService {
+pub trait RpcHandler:
+    Clone
+    + Send
+    + Sync
+    + 'static
+    + Service<
+        Request,
+        Response = Response,
+        Error = Error,
+        Future = InfallibleOneshotReceiver<Result<Response, Error>>,
+    >
+{
     /// TODO
     fn restricted(&self) -> bool;
-}
-
-//---------------------------------------------------------------------------------------------------- TODO
-/// TODO
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ConcreteRpcHandler {
-    restricted: bool,
-}
-
-impl RpcHandler for ConcreteRpcHandler {
-    fn restricted(&self) -> bool {
-        self.restricted
-    }
-}
-
-impl Service<Request> for ConcreteRpcHandler {
-    type Response = Response;
-    type Error = Error;
-    type Future = InfallibleOneshotReceiver<Result<Response, Error>>;
-
-    fn poll_ready(
-        &mut self,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        todo!()
-    }
-
-    fn call(&mut self, req: Request) -> Self::Future {
-        todo!()
-    }
 }

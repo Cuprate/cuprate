@@ -113,11 +113,13 @@ mod request;
 mod response;
 mod route;
 mod rpc_handler;
-mod rpc_service;
+#[cfg(feature = "dummy")]
+mod rpc_handler_dummy;
 
 pub use error::Error;
 pub use free::create_router;
 pub use request::Request;
 pub use response::Response;
-pub use rpc_handler::{ConcreteRpcHandler, RpcHandler};
-pub use rpc_service::RpcService;
+pub use rpc_handler::RpcHandler;
+#[cfg(feature = "dummy")]
+pub use rpc_handler_dummy::RpcHandlerDummy;

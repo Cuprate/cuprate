@@ -812,6 +812,7 @@ dependencies = [
  "cuprate-helper",
  "cuprate-json-rpc",
  "cuprate-rpc-types",
+ "futures",
  "paste",
  "serde",
  "tower",
