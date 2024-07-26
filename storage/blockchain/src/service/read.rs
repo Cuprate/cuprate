@@ -207,7 +207,7 @@ fn map_request(
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
-        BCReadRequest::FindBlock(_) => todo!("Add alt blocks to DB"),
+        R::FindBlock(_) => todo!("Add alt blocks to DB"),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
         R::BlockExtendedHeaderInRange(range, chain) => {
             block_extended_header_in_range(env, range, chain)

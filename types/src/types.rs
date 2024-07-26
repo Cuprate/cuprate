@@ -37,8 +37,8 @@ pub struct ExtendedBlockHeader {
 //---------------------------------------------------------------------------------------------------- VerifiedTransactionInformation
 /// Verified information of a transaction.
 ///
-/// If this is in a [`VerifiedBlockInformation`] this represents a  valid transaction, otherwise if this is in
-/// [`AltBlockInformation`] this represents a potentially valid transaction.
+/// - If this is in a [`VerifiedBlockInformation`] this represents a valid transaction
+/// - If this is in an [`AltBlockInformation`] this represents a potentially valid transaction
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedTransactionInformation {
     /// The transaction itself.
@@ -90,12 +90,14 @@ pub struct VerifiedBlockInformation {
     /// The cumulative difficulty of all blocks up until and including this block.
     pub cumulative_difficulty: u128,
 }
+
 //---------------------------------------------------------------------------------------------------- ChainID
 /// A unique ID for an alt chain.
 ///
 /// The inner value is meaningless.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct ChainID(pub u64);
+
 //---------------------------------------------------------------------------------------------------- Chain
 /// An identifier for a chain.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
@@ -105,8 +107,10 @@ pub enum Chain {
     /// An alt chain.
     Alt(ChainID),
 }
+
 //---------------------------------------------------------------------------------------------------- AltBlockInformation
 /// A block on an alternative chain.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AltBlockInformation {
     /// The block itself.
     pub block: Block,

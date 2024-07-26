@@ -34,7 +34,7 @@ use crate::{
 ///
 /// Returns [`AltBlockInformation`], which contains the cumulative difficulty of the alt chain.
 ///
-/// This function only checks the blocks PoW and its weight.
+/// This function only checks the block's PoW and its weight.
 pub async fn sanity_check_alt_block<C>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
@@ -62,7 +62,7 @@ where
         panic!("Context service returned wrong response!");
     };
 
-    // Check the blocks miner input if formed correctly.
+    // Check if the block's miner input is formed correctly.
     let [Input::Gen(height)] = &block.miner_tx.prefix.inputs[..] else {
         Err(ConsensusError::Block(BlockError::MinerTxError(
             MinerTxError::InputNotOfTypeGen,

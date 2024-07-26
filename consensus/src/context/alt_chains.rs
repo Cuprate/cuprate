@@ -26,9 +26,9 @@ pub(crate) mod sealed {
 /// The context cache of an alternative chain.
 #[derive(Debug, Clone)]
 pub struct AltChainContextCache {
-    /// The alt chain weight cache, if it has been built yet.
+    /// The alt chain weight cache, [`None`] if it has not been built yet.
     pub weight_cache: Option<BlockWeightsCache>,
-    /// The alt chain difficulty cache, if it has been built yet.
+    /// The alt chain difficulty cache, [`None`] if it has not been built yet.
     pub difficulty_cache: Option<DifficultyCache>,
 
     /// A cached RX VM.
@@ -73,8 +73,8 @@ pub struct AltChainMap {
 }
 
 impl AltChainMap {
-    pub fn new() -> AltChainMap {
-        AltChainMap {
+    pub fn new() -> Self {
+        Self {
             alt_cache_map: HashMap::new(),
         }
     }
@@ -157,7 +157,7 @@ pub async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
 
             difficulty_cache
         }
-        chain @ Chain::Alt(_) => {
+        Chain::Alt(_) => {
             // prev_id is in an alt chain, completely rebuild the cache.
             DifficultyCache::init_from_chain_height(
                 top_height + 1,
@@ -201,7 +201,7 @@ pub async fn get_alt_chain_weight_cache<D: Database + Clone>(
 
             weight_cache
         }
-        chain @ Chain::Alt(_) => {
+        Chain::Alt(_) => {
             // prev_id is in an alt chain, completely rebuild the cache.
             BlockWeightsCache::init_from_chain_height(
                 top_height + 1,

@@ -7,7 +7,7 @@ use crate::num::median;
 
 /// A rolling median type.
 ///
-/// The `RollingMedian` keeps track of window of items and allows calculating the [RollingMedian::median] of them.
+/// This keeps track of a window of items and allows calculating the [`RollingMedian::median`] of them.
 // TODO: a more efficient structure is probably possible.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct RollingMedian<T> {
@@ -34,8 +34,8 @@ where
     /// Creates a new [`RollingMedian`] with a certain target window length.
     ///
     /// The target window is the maximum amount of items to keep in the rolling window.
-    pub fn new(target_window: usize) -> RollingMedian<T> {
-        RollingMedian {
+    pub fn new(target_window: usize) -> Self {
+        Self {
             window: VecDeque::with_capacity(target_window),
             sorted_window: Vec::with_capacity(target_window),
             target_window,
@@ -124,7 +124,7 @@ where
         self.window.len()
     }
 
-    /// Calculated the median of the values currently in the [`RollingMedian`].
+    /// Calculates the median of the values currently in the [`RollingMedian`].
     pub fn median(&self) -> T {
         median(&self.sorted_window)
     }

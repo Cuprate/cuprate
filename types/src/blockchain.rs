@@ -32,7 +32,7 @@ pub enum BCReadRequest {
     /// The input is the block's height and the chain it is on.
     BlockHash(u64, Chain),
 
-    /// Request to check if we have a block and where it is.
+    /// Request to check if we have a block and which [`Chain`] it is on.
     ///
     /// The input is the block's hash.
     FindBlock([u8; 32]),
