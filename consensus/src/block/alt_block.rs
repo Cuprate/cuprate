@@ -15,7 +15,7 @@ use cuprate_consensus_rules::{
     ConsensusError,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{AltBlockInformation, Chain, ChainID, VerifiedTransactionInformation};
+use cuprate_types::{AltBlockInformation, Chain, ChainId, VerifiedTransactionInformation};
 
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock},
@@ -138,7 +138,7 @@ where
     // Get the chainID or generate a new one if this is the first alt block in this alt chain.
     let chain_id = *alt_context_cache
         .chain_id
-        .get_or_insert_with(|| ChainID(rand::random()));
+        .get_or_insert_with(|| ChainId(rand::random()));
 
     // Create the alt block info.
     let block_info = AltBlockInformation {

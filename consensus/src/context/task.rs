@@ -230,6 +230,8 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 BlockChainContextResponse::Ok
             }
             BlockChainContextRequest::PopBlocks { numb_blocks } => {
+                assert!(numb_blocks < self.chain_height);
+
                 self.difficulty_cache
                     .pop_blocks_main_chain(numb_blocks, self.database.clone())
                     .await?;

@@ -156,7 +156,7 @@ pub enum BCResponse {
 
     /// Response to [`BCReadRequest::GeneratedCoins`].
     ///
-    /// Inner value is the total amount of generated coins so far, in atomic units.
+    /// Inner value is the total amount of generated coins up to and including the chosen height, in atomic units.
     GeneratedCoins(u64),
 
     /// Response to [`BCReadRequest::Outputs`].

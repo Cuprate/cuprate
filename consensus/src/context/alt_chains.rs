@@ -5,7 +5,7 @@ use tower::ServiceExt;
 use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
-    Chain, ChainID,
+    Chain, ChainId,
 };
 
 use crate::{
@@ -39,7 +39,7 @@ pub struct AltChainContextCache {
     /// The top hash of the alt chain.
     pub top_hash: [u8; 32],
     /// The [`ChainID`] of the alt chain.
-    pub chain_id: Option<ChainID>,
+    pub chain_id: Option<ChainId>,
     /// The parent [`Chain`] of this alt chain.
     pub parent_chain: Chain,
 }

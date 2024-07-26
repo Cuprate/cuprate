@@ -88,7 +88,7 @@
 
 mod types;
 pub use types::{
-    AltBlockInformation, Chain, ChainID, ExtendedBlockHeader, OutputOnChain,
+    AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
     VerifiedBlockInformation, VerifiedTransactionInformation,
 };
 

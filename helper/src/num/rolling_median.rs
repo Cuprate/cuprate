@@ -8,6 +8,25 @@ use crate::num::median;
 /// A rolling median type.
 ///
 /// This keeps track of a window of items and allows calculating the [`RollingMedian::median`] of them.
+///
+/// Example:
+/// ```rust
+/// # use cuprate_helper::num::RollingMedian;
+/// let mut rolling_median = RollingMedian::new(2);
+///
+/// rolling_median.push(1);
+/// assert_eq!(rolling_median.median(), 1);
+/// assert_eq!(rolling_median.window_len(), 1);
+///
+/// rolling_median.push(3);
+/// assert_eq!(rolling_median.median(), 2);
+/// assert_eq!(rolling_median.window_len(), 2);
+///
+/// rolling_median.push(5);
+/// assert_eq!(rolling_median.median(), 4);
+/// assert_eq!(rolling_median.window_len(), 2);
+/// ```
+///
 // TODO: a more efficient structure is probably possible.
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
 pub struct RollingMedian<T> {
@@ -33,7 +52,7 @@ where
 {
     /// Creates a new [`RollingMedian`] with a certain target window length.
     ///
-    /// The target window is the maximum amount of items to keep in the rolling window.
+    /// `target_window` is the maximum amount of items to keep in the rolling window.
     pub fn new(target_window: usize) -> Self {
         Self {
             window: VecDeque::with_capacity(target_window),
@@ -44,18 +63,18 @@ where
 
     /// Creates a new [`RollingMedian`] from a [`Vec`] with a certain target window length.
     ///
-    /// The target window is the maximum amount of items to keep in the rolling window.
+    /// `target_window` is the maximum amount of items to keep in the rolling window.
     ///
     /// # Panics
     /// This function panics if the vec is larger than the target window length.
-    pub fn from_vec(value: Vec<T>, target_window: usize) -> RollingMedian<T> {
-        assert!(value.len() <= target_window);
+    pub fn from_vec(vec: Vec<T>, target_window: usize) -> Self {
+        assert!(vec.len() <= target_window);
 
-        let mut sorted_window = value.clone();
+        let mut sorted_window = vec.clone();
         sorted_window.sort_unstable();
 
-        RollingMedian {
-            window: value.into(),
+        Self {
+            window: vec.into(),
             sorted_window,
             target_window,
         }
