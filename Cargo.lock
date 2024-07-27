@@ -804,6 +804,13 @@ dependencies = [
 [[package]]
 name = "cuprate-txpool"
 version = "0.0.0"
+dependencies = [
+ "bytemuck",
+ "cuprate-database",
+ "cuprate-database-service",
+ "cuprate-types",
+ "monero-serai",
+]
 
 [[package]]
 name = "cuprate-types"

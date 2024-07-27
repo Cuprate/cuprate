@@ -1,4 +1,4 @@
-//! Database [table](crate::tables) types.
+//! Blockchain [table](crate::tables) types.
 //!
 //! This module contains all types used by the database tables,
 //! and aliases for common Monero-related types that use the

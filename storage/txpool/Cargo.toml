@@ -4,12 +4,18 @@ version     = "0.0.0"
 edition     = "2021"
 description = "Cuprate's transaction pool database"
 license     = "MIT"
-authors     = ["hinto-janai"]
-repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/cuprate-txpool"
+authors     = ["Boog900"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/txpool"
 keywords    = ["cuprate", "txpool", "transaction", "pool", "database"]
 
 [features]
 
 [dependencies]
+cuprate-database = { path = "../database" }
+cuprate-database-service = { path = "../service" }
+cuprate-types    = { path = "../../types" }
+
+monero-serai     = { workspace = true, features = ["std"] }
+bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 
 [dev-dependencies]

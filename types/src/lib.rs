@@ -84,7 +84,8 @@ mod types;
 
 pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
 pub use types::{
-    ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation, VerifiedTransactionInformation,
+    CachedVerificationState, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation,
+    VerifiedTransactionInformation,
 };
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
