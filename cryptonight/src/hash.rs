@@ -1,11 +1,11 @@
 use std::cmp::PartialEq;
 use std::io::Write;
 
+use crate::hash_v4 as v4;
+use crate::hash_v4::Instruction;
 use memoffset::offset_of;
 use sha3::Digest;
 use static_assertions::const_assert_eq;
-use crate::hash_v4 as v4;
-use crate::hash_v4::Instruction;
 
 const MEMORY: usize = 1 << 21; // 2MB scratchpad
 const ITER: usize = 1 << 20;
@@ -13,8 +13,6 @@ const AES_BLOCK_SIZE: usize = 16;
 const AES_KEY_SIZE: usize = 32;
 const INIT_SIZE_BLK: usize = 8;
 const INIT_SIZE_BYTE: usize = INIT_SIZE_BLK * AES_BLOCK_SIZE;
-
-
 
 #[derive(PartialEq, Eq)]
 enum Variant {
@@ -43,7 +41,6 @@ impl Default for HashState {
         }
     }
 }
-
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -102,8 +99,6 @@ impl CnSlowHashState {
         unsafe { &mut self.hs.w }
     }
 }
-
-
 
 struct Cache {
     //scratchpad: [u64; 2 * 1024 * 1024 / 8], // 2 MiB scratchpad
@@ -211,7 +206,7 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u32; 71], [Inst
     let mut keccak_state_bytes = state.get_keccak_state_bytes_mut();
     if variant == Variant::R {
         for i in 0..4 {
-            let j = 12*8 + 4 * i;
+            let j = 12 * 8 + 4 * i;
             r[i] = u32::from_le_bytes(keccak_state_bytes[j..j + 4].try_into().unwrap());
         }
         v4::random_math_init(&mut code, height);
@@ -231,78 +226,433 @@ mod tests {
         let (r, code) = cn_slow_hash(&input, Variant::R, 1806260);
 
         let r_expected: [u32; 9] = [1336109178, 464004736, 1552145461, 3528897376, 0, 0, 0, 0, 0];
-        let code_expected:[Instruction; 71] = [
-            Instruction {opcode: 4, dst_index: 0, src_index: 7, c: 0},
-            Instruction {opcode: 0, dst_index: 3, src_index: 1, c: 0},
-            Instruction {opcode: 1, dst_index: 2, src_index: 7, c: 3553557725},
-            Instruction {opcode: 2, dst_index: 0, src_index: 8, c: 0},
-            Instruction {opcode: 1, dst_index: 3, src_index: 4, c: 3590470404},
-            Instruction {opcode: 5, dst_index: 1, src_index: 0, c: 0},
-            Instruction {opcode: 5, dst_index: 1, src_index: 5, c: 0},
-            Instruction {opcode: 5, dst_index: 1, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 7, c: 0},
-            Instruction {opcode: 0, dst_index: 2, src_index: 1, c: 0},
-            Instruction {opcode: 0, dst_index: 2, src_index: 4, c: 0},
-            Instruction {opcode: 0, dst_index: 2, src_index: 7, c: 0},
-            Instruction {opcode: 2, dst_index: 1, src_index: 8, c: 0},
-            Instruction {opcode: 1, dst_index: 0, src_index: 6, c: 1516169632},
-            Instruction {opcode: 1, dst_index: 2, src_index: 0, c: 1587456779},
-            Instruction {opcode: 0, dst_index: 3, src_index: 5, c: 0},
-            Instruction {opcode: 0, dst_index: 1, src_index: 0, c: 0},
-            Instruction {opcode: 5, dst_index: 2, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
-            Instruction {opcode: 2, dst_index: 3, src_index: 6, c: 0},
-            Instruction {opcode: 4, dst_index: 3, src_index: 0, c: 0},
-            Instruction {opcode: 5, dst_index: 2, src_index: 4, c: 0},
-            Instruction {opcode: 0, dst_index: 3, src_index: 5, c: 0},
-            Instruction {opcode: 5, dst_index: 2, src_index: 0, c: 0},
-            Instruction {opcode: 4, dst_index: 2, src_index: 4, c: 0},
-            Instruction {opcode: 5, dst_index: 3, src_index: 8, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 4, c: 0},
-            Instruction {opcode: 1, dst_index: 2, src_index: 3, c: 2235486112},
-            Instruction {opcode: 5, dst_index: 0, src_index: 3, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 2, c: 0},
-            Instruction {opcode: 5, dst_index: 2, src_index: 7, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 7, c: 0},
-            Instruction {opcode: 3, dst_index: 0, src_index: 4, c: 0},
-            Instruction {opcode: 0, dst_index: 3, src_index: 2, c: 0},
-            Instruction {opcode: 1, dst_index: 2, src_index: 3, c: 382729823},
-            Instruction {opcode: 0, dst_index: 1, src_index: 4, c: 0},
-            Instruction {opcode: 2, dst_index: 3, src_index: 5, c: 0},
-            Instruction {opcode: 1, dst_index: 3, src_index: 7, c: 446636115},
-            Instruction {opcode: 2, dst_index: 0, src_index: 5, c: 0},
-            Instruction {opcode: 1, dst_index: 1, src_index: 8, c: 1136500848},
-            Instruction {opcode: 5, dst_index: 3, src_index: 8, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 4, c: 0},
-            Instruction {opcode: 3, dst_index: 3, src_index: 5, c: 0},
-            Instruction {opcode: 0, dst_index: 2, src_index: 0, c: 0},
-            Instruction {opcode: 3, dst_index: 0, src_index: 1, c: 0},
-            Instruction {opcode: 1, dst_index: 0, src_index: 7, c: 4221005163},
-            Instruction {opcode: 4, dst_index: 0, src_index: 2, c: 0},
-            Instruction {opcode: 1, dst_index: 0, src_index: 7, c: 1789679560},
-            Instruction {opcode: 5, dst_index: 0, src_index: 3, c: 0},
-            Instruction {opcode: 1, dst_index: 2, src_index: 8, c: 2725270475},
-            Instruction {opcode: 5, dst_index: 1, src_index: 4, c: 0},
-            Instruction {opcode: 2, dst_index: 3, src_index: 8, c: 0},
-            Instruction {opcode: 5, dst_index: 3, src_index: 5, c: 0},
-            Instruction {opcode: 2, dst_index: 3, src_index: 2, c: 0},
-            Instruction {opcode: 4, dst_index: 2, src_index: 2, c: 0},
-            Instruction {opcode: 1, dst_index: 3, src_index: 6, c: 4110965463},
-            Instruction {opcode: 5, dst_index: 2, src_index: 6, c: 0},
-            Instruction {opcode: 2, dst_index: 2, src_index: 7, c: 0},
-            Instruction {opcode: 2, dst_index: 3, src_index: 1, c: 0},
-            Instruction {opcode: 2, dst_index: 1, src_index: 8, c: 0},
-            Instruction {opcode: 3, dst_index: 1, src_index: 2, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 1, c: 0},
-            Instruction {opcode: 0, dst_index: 2, src_index: 0, c: 0},
-            Instruction {opcode: 6, dst_index: 0, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0},
-            Instruction {opcode: 0, dst_index: 0, src_index: 0, c: 0}
+        let code_expected: [Instruction; 71] = [
+            Instruction {
+                opcode: 4,
+                dst_index: 0,
+                src_index: 7,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 3,
+                src_index: 1,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 2,
+                src_index: 7,
+                c: 3553557725,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 0,
+                src_index: 8,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 3,
+                src_index: 4,
+                c: 3590470404,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 1,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 1,
+                src_index: 5,
+                c: 0,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 1,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 7,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 2,
+                src_index: 1,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 2,
+                src_index: 4,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 2,
+                src_index: 7,
+                c: 0,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 1,
+                src_index: 8,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 0,
+                src_index: 6,
+                c: 1516169632,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 2,
+                src_index: 0,
+                c: 1587456779,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 3,
+                src_index: 5,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 1,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 2,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 3,
+                src_index: 6,
+                c: 0,
+            },
+            Instruction {
+                opcode: 4,
+                dst_index: 3,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 2,
+                src_index: 4,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 3,
+                src_index: 5,
+                c: 0,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 2,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 4,
+                dst_index: 2,
+                src_index: 4,
+                c: 0,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 3,
+                src_index: 8,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 4,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 2,
+                src_index: 3,
+                c: 2235486112,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 0,
+                src_index: 3,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 2,
+                c: 0,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 2,
+                src_index: 7,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 7,
+                c: 0,
+            },
+            Instruction {
+                opcode: 3,
+                dst_index: 0,
+                src_index: 4,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 3,
+                src_index: 2,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 2,
+                src_index: 3,
+                c: 382729823,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 1,
+                src_index: 4,
+                c: 0,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 3,
+                src_index: 5,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 3,
+                src_index: 7,
+                c: 446636115,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 0,
+                src_index: 5,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 1,
+                src_index: 8,
+                c: 1136500848,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 3,
+                src_index: 8,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 4,
+                c: 0,
+            },
+            Instruction {
+                opcode: 3,
+                dst_index: 3,
+                src_index: 5,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 2,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 3,
+                dst_index: 0,
+                src_index: 1,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 0,
+                src_index: 7,
+                c: 4221005163,
+            },
+            Instruction {
+                opcode: 4,
+                dst_index: 0,
+                src_index: 2,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 0,
+                src_index: 7,
+                c: 1789679560,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 0,
+                src_index: 3,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 2,
+                src_index: 8,
+                c: 2725270475,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 1,
+                src_index: 4,
+                c: 0,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 3,
+                src_index: 8,
+                c: 0,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 3,
+                src_index: 5,
+                c: 0,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 3,
+                src_index: 2,
+                c: 0,
+            },
+            Instruction {
+                opcode: 4,
+                dst_index: 2,
+                src_index: 2,
+                c: 0,
+            },
+            Instruction {
+                opcode: 1,
+                dst_index: 3,
+                src_index: 6,
+                c: 4110965463,
+            },
+            Instruction {
+                opcode: 5,
+                dst_index: 2,
+                src_index: 6,
+                c: 0,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 2,
+                src_index: 7,
+                c: 0,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 3,
+                src_index: 1,
+                c: 0,
+            },
+            Instruction {
+                opcode: 2,
+                dst_index: 1,
+                src_index: 8,
+                c: 0,
+            },
+            Instruction {
+                opcode: 3,
+                dst_index: 1,
+                src_index: 2,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 1,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 2,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 6,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
+            Instruction {
+                opcode: 0,
+                dst_index: 0,
+                src_index: 0,
+                c: 0,
+            },
         ];
 
         for i in 0..9 {
