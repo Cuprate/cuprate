@@ -177,7 +177,7 @@ impl tower::Service<BCReadRequest> for DatabaseReadHandle {
         let env = Arc::clone(&self.env);
         self.pool.spawn(move || {
             let _permit: OwnedSemaphorePermit = permit;
-            map_request(&env, request, response_sender);
+            map_request(&*env, request, response_sender);
         }); // drop(permit/env);
 
         InfallibleOneshotReceiver::from(receiver)
@@ -195,8 +195,8 @@ impl tower::Service<BCReadRequest> for DatabaseReadHandle {
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`BCResponse`] is sent
-fn map_request(
-    env: &ConcreteEnv,               // Access to the database
+fn map_request<E: Env>(
+    env: &E,                         // Access to the database
     request: BCReadRequest,          // The request we must fulfill
     response_sender: ResponseSender, // The channel we must send the response back to
 ) {
@@ -299,7 +299,7 @@ macro_rules! get_tables {
 
 /// [`BCReadRequest::BlockExtendedHeader`].
 #[inline]
-fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+fn block_extended_header<E: Env>(env: &E, block_height: BlockHeight) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -312,7 +312,7 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 
 /// [`BCReadRequest::BlockHash`].
 #[inline]
-fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+fn block_hash<E: Env>(env: &E, block_height: BlockHeight) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -325,7 +325,7 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
 
 /// [`BCReadRequest::FilterUnknownHashes`].
 #[inline]
-fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
+fn filter_unknown_hashes<E: Env>(env: &E, mut hashes: HashSet<BlockHash>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -353,8 +353,8 @@ fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
 
 /// [`BCReadRequest::BlockExtendedHeaderInRange`].
 #[inline]
-fn block_extended_header_in_range(
-    env: &ConcreteEnv,
+fn block_extended_header_in_range<E: Env>(
+    env: &E,
     range: std::ops::Range<BlockHeight>,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
@@ -377,7 +377,7 @@ fn block_extended_header_in_range(
 
 /// [`BCReadRequest::ChainHeight`].
 #[inline]
-fn chain_height(env: &ConcreteEnv) -> ResponseResult {
+fn chain_height<E: Env>(env: &E) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -393,7 +393,7 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`BCReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
+fn generated_coins<E: Env>(env: &E) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -410,7 +410,7 @@ fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`BCReadRequest::Outputs`].
 #[inline]
-fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+fn outputs<E: Env>(env: &E, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -451,7 +451,7 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
 
 /// [`BCReadRequest::NumberOutputsWithAmount`].
 #[inline]
-fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
+fn number_outputs_with_amount<E: Env>(env: &E, amounts: Vec<Amount>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -496,7 +496,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 
 /// [`BCReadRequest::KeyImagesSpent`].
 #[inline]
-fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+fn key_images_spent<E: Env>(env: &E, key_images: HashSet<KeyImage>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -532,7 +532,7 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
 }
 
 /// [`BCReadRequest::CompactChainHistory`]
-fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
+fn compact_chain_history<E: Env>(env: &E) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
@@ -573,7 +573,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
 /// `block_ids` must be sorted in chronological block order, or else
 /// the returned result is unspecified and meaningless, as this function
 /// performs a binary search.
-fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseResult {
+fn find_first_unknown<E: Env>(env: &E, block_ids: &[BlockHash]) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
