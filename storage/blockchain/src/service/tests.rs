@@ -29,7 +29,7 @@ use crate::{
         blockchain::chain_height,
         output::id_to_output_on_chain,
     },
-    service::{init, DatabaseReadHandle, DatabaseWriteHandle},
+    service::{init, BCReadHandle, BCWriteHandle},
     tables::{OpenTables, Tables, TablesIter},
     tests::AssertTableLen,
     types::{Amount, AmountIndex, PreRctOutputId},
@@ -38,8 +38,8 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Helper functions
 /// Initialize the `service`.
 fn init_service() -> (
-    DatabaseReadHandle,
-    DatabaseWriteHandle,
+    BCReadHandle,
+    BCWriteHandle,
     Arc<ConcreteEnv>,
     tempfile::TempDir,
 ) {
@@ -48,8 +48,7 @@ fn init_service() -> (
         .db_directory(Cow::Owned(tempdir.path().into()))
         .low_power()
         .build();
-    let (reader, writer) = init(config).unwrap();
-    let env = reader.env().clone();
+    let (reader, writer, env) = init(config).unwrap();
     (reader, writer, env, tempdir)
 }
 

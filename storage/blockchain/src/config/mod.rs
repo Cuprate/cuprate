@@ -34,14 +34,11 @@
 //!     .build();
 //!
 //! // Start a database `service` using this configuration.
-//! let (reader_handle, _) = cuprate_blockchain::service::init(config.clone())?;
+//! let (_, _, env) = cuprate_blockchain::service::init(config.clone())?;
 //! // It's using the config we provided.
-//! assert_eq!(reader_handle.env().config(), &config.db_config);
+//! assert_eq!(env.config(), &config.db_config);
 //! # Ok(()) }
 //! ```
 
 mod config;
-pub use config::{Config, ConfigBuilder};
-
-mod reader_threads;
-pub use reader_threads::ReaderThreads;
+pub use config::{Config, ConfigBuilder, ReaderThreads};

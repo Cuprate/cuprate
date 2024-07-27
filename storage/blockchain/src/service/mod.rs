@@ -14,8 +14,8 @@
 //!
 //! ## Handles
 //! The 2 handles to the database are:
-//! - [`DatabaseReadHandle`]
-//! - [`DatabaseWriteHandle`]
+//! - [`BCReadHandle`]
+//! - [`BCWriteHandle`]
 //!
 //! The 1st allows any caller to send [`ReadRequest`][req_r]s.
 //!
@@ -33,12 +33,12 @@
 //!
 //! ## Shutdown
 //! Upon the above handles being dropped, the corresponding thread(s) will automatically exit, i.e:
-//! - The last [`DatabaseReadHandle`] is dropped => reader thread-pool exits
-//! - The last [`DatabaseWriteHandle`] is dropped => writer thread exits
+//! - The last [`BCReadHandle`] is dropped => reader thread-pool exits
+//! - The last [`BCWriteHandle`] is dropped => writer thread exits
 //!
-//! Upon dropping the [`cuprate_database::ConcreteEnv`]:
+//! Upon dropping the [`cuprate_database::Env`]:
 //! - All un-processed database transactions are completed
-//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)
+//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `Env`)
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),
@@ -81,11 +81,11 @@
 //!     .build();
 //!
 //! // Initialize the database thread-pool.
-//! let (mut read_handle, mut write_handle) = cuprate_blockchain::service::init(config)?;
+//! let (mut read_handle, mut write_handle, _) = cuprate_blockchain::service::init(config)?;
 //!
 //! // Prepare a request to write block.
 //! let mut block = block_v16_tx0().clone();
-//! # block.height = 0 as u64; // must be 0th height or panic in `add_block()`
+//! # block.height = 0_u64; // must be 0th height or panic in `add_block()`
 //! let request = BCWriteRequest::WriteBlock(block);
 //!
 //! // Send the request.
@@ -118,17 +118,21 @@
 //! # Ok(()) }
 //! ```
 
+// needed for docs
+use tower as _;
+
 mod read;
-pub use read::DatabaseReadHandle;
+pub use read::{init_read_service, init_read_service_with_pool};
 
 mod write;
-pub use write::DatabaseWriteHandle;
+pub use write::init_write_service;
 
 mod free;
 pub use free::init;
 
 // Internal type aliases for `service`.
 mod types;
+pub use types::{BCReadHandle, BCWriteHandle};
 
 #[cfg(test)]
 mod tests;

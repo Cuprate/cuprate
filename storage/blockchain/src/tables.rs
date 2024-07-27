@@ -28,7 +28,6 @@ use crate::types::{
 // - Tables are defined in plural to avoid name conflicts with types
 // - If adding/changing a table also edit:
 //   - the tests in `src/backend/tests.rs`
-//   - `call_fn_on_all_tables_or_early_return!()` macro in `src/open_tables.rs`
 cuprate_database::define_tables! {
     /// Serialized block blobs (bytes).
     ///

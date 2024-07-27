@@ -105,6 +105,38 @@ pub struct OutputOnChain {
     pub commitment: EdwardsPoint,
 }
 
+/// Represents if a transaction has been fully validated and under what conditions
+/// the transaction is valid in the future.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum CachedVerificationState {
+    /// The transaction has not been validated.
+    NotVerified,
+    /// The transaction is valid* if the block represented by this hash is in the blockchain and the [`HardFork`]
+    /// is the same.
+    ///
+    /// *V1 transactions require checks on their ring-length even if this hash is in the blockchain.
+    ValidAtHashAndHF {
+        /// The block hash that was in the chain when this transaction was validated.
+        block_hash: [u8; 32],
+        /// The hf this transaction was validated against.
+        hf: u8,
+    },
+    /// The transaction is valid* if the block represented by this hash is in the blockchain _and_ this
+    /// given time lock is unlocked. The time lock here will represent the youngest used time based lock
+    /// (If the transaction uses any time based time locks). This is because time locks are not monotonic
+    /// so unlocked outputs could become re-locked.
+    ///
+    /// *V1 transactions require checks on their ring-length even if this hash is in the blockchain.
+    ValidAtHashAndHFWithTimeBasedLock {
+        /// The block hash that was in the chain when this transaction was validated.
+        block_hash: [u8; 32],
+        /// The hf this transaction was validated against.
+        hf: u8,
+        /// The youngest used time based lock.
+        time_lock: Timelock,
+    },
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

@@ -4,7 +4,7 @@ use clap::Parser;
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::{
-    config::ConfigBuilder, cuprate_database::RuntimeError, service::DatabaseReadHandle,
+    config::ConfigBuilder, cuprate_database::RuntimeError, service::BCReadHandle,
 };
 use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 
@@ -13,7 +13,7 @@ use cuprate_fast_sync::{hash_of_hashes, BlockId, HashOfHashes};
 const BATCH_SIZE: u64 = 512;
 
 async fn read_batch(
-    handle: &mut DatabaseReadHandle,
+    handle: &mut BCReadHandle,
     height_from: u64,
 ) -> Result<Vec<BlockId>, RuntimeError> {
     let mut block_ids = Vec::<BlockId>::with_capacity(BATCH_SIZE as usize);
@@ -60,7 +60,7 @@ async fn main() {
 
     let config = ConfigBuilder::new().build();
 
-    let (mut read_handle, _) = cuprate_blockchain::service::init(config).unwrap();
+    let (mut read_handle, _, _) = cuprate_blockchain::service::init(config).unwrap();
 
     let mut hashes_of_hashes = Vec::new();
 
