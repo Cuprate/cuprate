@@ -28,7 +28,7 @@ use crate::{
         HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData, Peer, PoolInfoExtent,
         PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
     },
-    RpcRequest,
+    IsRestricted,
 };
 
 //---------------------------------------------------------------------------------------------------- Definitions
@@ -399,6 +399,7 @@ impl EpeeObject for GetBlocksResponse {
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(missing_docs)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BinRequest {
     GetBlocks(GetBlocksRequest),
     GetBlocksByHeight(GetBlocksByHeightRequest),
@@ -409,7 +410,7 @@ pub enum BinRequest {
     GetOutputDistribution(crate::json::GetOutputDistributionRequest),
 }
 
-impl RpcRequest for BinRequest {
+impl IsRestricted for BinRequest {
     /// All binary methods are un-restricted, i.e.
     // all of them will return `false`.
     fn is_restricted(&self) -> bool {
@@ -427,6 +428,7 @@ impl RpcRequest for BinRequest {
 
 //---------------------------------------------------------------------------------------------------- Response
 /// TODO
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(missing_docs)]

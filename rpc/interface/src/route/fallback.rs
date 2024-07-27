@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
-pub(crate) async fn unknown() -> StatusCode {
+pub(crate) async fn fallback() -> StatusCode {
     StatusCode::NOT_FOUND
 }
 

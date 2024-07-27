@@ -23,10 +23,10 @@ use cuprate_rpc_types::{
         StopDaemonRequest, StopDaemonResponse, StopMiningRequest, StopMiningResponse,
         UpdateRequest, UpdateResponse,
     },
-    RpcRequest,
+    IsRestricted,
 };
 
-use crate::{request::Request, response::Response, rpc_handler::RpcHandler};
+use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -48,11 +48,11 @@ macro_rules! generate_endpoints {
                 }
 
                 // Send request.
-                let request = Request::Other(OtherRequest::$variant(request));
+                let request = RpcRequest::Other(OtherRequest::$variant(request));
                 let channel = handler.oneshot(request).await?;
 
                 // Assert the response from the inner handler is correct.
-                let Response::Other(response) = channel else {
+                let RpcResponse::Other(response) = channel else {
                     panic!("RPC handler did not return a binary response");
                 };
                 let OtherResponse::$variant(response) = response else {

@@ -10,7 +10,7 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_json_rpc::Id;
 use cuprate_rpc_types::json::JsonRpcRequest;
 
-use crate::{error::Error, request::Request, response::Response};
+use crate::{rpc_error::RpcError, rpc_request::RpcRequest, rpc_response::RpcResponse};
 
 //---------------------------------------------------------------------------------------------------- TODO
 /// TODO
@@ -20,10 +20,10 @@ pub trait RpcHandler:
     + Sync
     + 'static
     + Service<
-        Request,
-        Response = Response,
-        Error = Error,
-        Future = InfallibleOneshotReceiver<Result<Response, Error>>,
+        RpcRequest,
+        Response = RpcResponse,
+        Error = RpcError,
+        Future = InfallibleOneshotReceiver<Result<RpcResponse, RpcError>>,
     >
 {
     /// TODO

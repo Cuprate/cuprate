@@ -4,7 +4,7 @@
 use axum::{routing::method_routing::get, Router};
 
 use crate::{
-    route::{bin, json, other, unknown},
+    route::{bin, fallback, json, other},
     rpc_handler::RpcHandler,
 };
 
@@ -62,10 +62,10 @@ pub fn create_router<H: RpcHandler>() -> Router<H> {
         .route("/get_outs.bin", get(bin::get_outs::<H>))
         .route("/get_transaction_pool_hashes.bin", get(bin::get_transaction_pool_hashes::<H>))
         .route("/get_output_distribution.bin", get(bin::get_output_distribution::<H>))
-        // Unknown route (catch-all).
+        // Fallback route (catch-all).
         //
         // Deprecated routes will also route here, list:
         // - `get_info`
         // - `getinfo`
-        .route("/*", get(unknown::unknown))
+        .fallback(fallback::fallback)
 }

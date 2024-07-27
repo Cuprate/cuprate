@@ -10,7 +10,10 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_json_rpc::Id;
 use cuprate_rpc_types::json::JsonRpcRequest;
 
-use crate::{error::Error, request::Request, response::Response, rpc_handler::RpcHandler};
+use crate::{
+    rpc_error::RpcError, rpc_handler::RpcHandler, rpc_request::RpcRequest,
+    rpc_response::RpcResponse,
+};
 
 //---------------------------------------------------------------------------------------------------- TODO
 /// TODO
@@ -26,16 +29,16 @@ impl RpcHandler for RpcHandlerDummy {
     }
 }
 
-impl Service<Request> for RpcHandlerDummy {
-    type Response = Response;
-    type Error = Error;
-    type Future = InfallibleOneshotReceiver<Result<Response, Error>>;
+impl Service<RpcRequest> for RpcHandlerDummy {
+    type Response = RpcResponse;
+    type Error = RpcError;
+    type Future = InfallibleOneshotReceiver<Result<RpcResponse, RpcError>>;
 
     fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
+    fn call(&mut self, req: RpcRequest) -> Self::Future {
         use cuprate_rpc_types::bin::BinRequest as BReq;
         use cuprate_rpc_types::bin::BinResponse as BResp;
         use cuprate_rpc_types::json::JsonRpcRequest as JReq;
@@ -46,7 +49,7 @@ impl Service<Request> for RpcHandlerDummy {
         #[rustfmt::skip]
         #[allow(clippy::default_trait_access)]
         let resp = match req {
-            Request::JsonRpc(j) => Response::JsonRpc(cuprate_json_rpc::Response::ok(Id::Null, match j.body {
+            RpcRequest::JsonRpc(j) => RpcResponse::JsonRpc(cuprate_json_rpc::Response::ok(Id::Null, match j.body {
                 JReq::GetBlockCount(_) => JResp::GetBlockCount(Default::default()),
                 JReq::OnGetBlockHash(_) => JResp::OnGetBlockHash(Default::default()),
                 JReq::SubmitBlock(_) => JResp::SubmitBlock(Default::default()),
@@ -78,7 +81,7 @@ impl Service<Request> for RpcHandlerDummy {
                 JReq::AddAuxPow(_) => JResp::AddAuxPow(Default::default()),
                 JReq::GetTxIdsLoose(_) => JResp::GetTxIdsLoose(Default::default()),
             })),
-            Request::Binary(b) => Response::Binary(match b {
+            RpcRequest::Binary(b) => RpcResponse::Binary(match b {
                 BReq::GetBlocks(_) => BResp::GetBlocks(Default::default()),
                 BReq::GetBlocksByHeight(_) => BResp::GetBlocksByHeight(Default::default()),
                 BReq::GetHashes(_) => BResp::GetHashes(Default::default()),
@@ -87,7 +90,7 @@ impl Service<Request> for RpcHandlerDummy {
                 BReq::GetTransactionPoolHashes(_) => BResp::GetTransactionPoolHashes(Default::default()),
                 BReq::GetOutputDistribution(_) => BResp::GetOutputDistribution(Default::default()),
             }),
-            Request::Other(o) => Response::Other(match o {
+            RpcRequest::Other(o) => RpcResponse::Other(match o {
                 OReq::GetHeight(_) => OResp::GetHeight(Default::default()),
                 OReq::GetTransactions(_) => OResp::GetTransactions(Default::default()),
                 OReq::GetAltBlocksHashes(_) => OResp::GetAltBlocksHashes(Default::default()),

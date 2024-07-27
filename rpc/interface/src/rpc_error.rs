@@ -1,17 +1,18 @@
 //! TODO
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_rpc_types::{bin::BinRequest, json::JsonRpcRequest, other::OtherRequest};
+use axum::http::StatusCode;
 
 //---------------------------------------------------------------------------------------------------- TODO
 /// TODO
-pub enum Request {
-    /// TODO
-    JsonRpc(cuprate_json_rpc::Request<JsonRpcRequest>),
-    /// TODO
-    Binary(BinRequest),
-    /// TODO
-    Other(OtherRequest),
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RpcError {}
+
+impl From<RpcError> for StatusCode {
+    fn from(value: RpcError) -> Self {
+        // TODO
+        Self::INTERNAL_SERVER_ERROR
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

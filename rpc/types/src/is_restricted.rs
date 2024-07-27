@@ -4,7 +4,7 @@
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
 /// TODO
-pub trait RpcRequest {
+pub trait IsRestricted {
     /// Returns `true` if this method should
     /// only be allowed on local servers.
     ///

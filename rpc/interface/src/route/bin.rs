@@ -8,7 +8,7 @@ use tower::ServiceExt;
 use cuprate_epee_encoding::from_bytes;
 use cuprate_rpc_types::bin::{BinRequest, BinResponse};
 
-use crate::{request::Request, response::Response, rpc_handler::RpcHandler};
+use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -29,11 +29,11 @@ macro_rules! generate_endpoints {
                 );
 
                 // Send request.
-                let request = Request::Binary(request);
+                let request = RpcRequest::Binary(request);
                 let channel = handler.oneshot(request).await?;
 
                 // Assert the response from the inner handler is correct.
-                let Response::Binary(response) = todo!() else {
+                let RpcResponse::Binary(response) = todo!() else {
                     panic!("RPC handler did not return a binary response");
                 };
                 let BinResponse::$variant(response) = response else {

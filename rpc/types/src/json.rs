@@ -19,7 +19,7 @@ use crate::{
         GetMinerDataTxBacklogEntry, HardforkEntry, HistogramEntry, OutputDistributionData, SetBan,
         Span, Status, SyncInfoPeer, TxBacklogEntry,
     },
-    RpcRequest,
+    IsRestricted,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -1560,6 +1560,7 @@ define_request_and_response! {
 
 //---------------------------------------------------------------------------------------------------- Request
 /// TODO
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(missing_docs)]
@@ -1596,7 +1597,7 @@ pub enum JsonRpcRequest {
     GetTxIdsLoose(GetTxIdsLooseRequest),
 }
 
-impl RpcRequest for JsonRpcRequest {
+impl IsRestricted for JsonRpcRequest {
     fn is_restricted(&self) -> bool {
         match self {
             // Normal methods. These are allowed
@@ -1640,6 +1641,7 @@ impl RpcRequest for JsonRpcRequest {
 
 //---------------------------------------------------------------------------------------------------- Response
 /// TODO
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(missing_docs)]

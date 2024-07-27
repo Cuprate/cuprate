@@ -106,20 +106,20 @@
 
 //---------------------------------------------------------------------------------------------------- Mod
 mod constants;
-mod error;
 mod free;
 mod macros;
-mod request;
-mod response;
 mod route;
+mod rpc_error;
 mod rpc_handler;
 #[cfg(feature = "dummy")]
 mod rpc_handler_dummy;
+mod rpc_request;
+mod rpc_response;
 
-pub use error::Error;
 pub use free::create_router;
-pub use request::Request;
-pub use response::Response;
+pub use rpc_error::RpcError;
 pub use rpc_handler::RpcHandler;
 #[cfg(feature = "dummy")]
 pub use rpc_handler_dummy::RpcHandlerDummy;
+pub use rpc_request::RpcRequest;
+pub use rpc_response::RpcResponse;

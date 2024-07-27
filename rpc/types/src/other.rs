@@ -14,7 +14,7 @@ use crate::{
         GetOutputsOut, KeyImageSpentStatus, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status,
         TxEntry, TxInfo, TxpoolStats,
     },
-    RpcRequest,
+    IsRestricted,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -953,6 +953,7 @@ define_request_and_response! {
 
 //---------------------------------------------------------------------------------------------------- Request
 /// TODO
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(missing_docs)]
@@ -986,7 +987,7 @@ pub enum OtherRequest {
     GetPublicNodes(GetPublicNodesRequest),
 }
 
-impl RpcRequest for OtherRequest {
+impl IsRestricted for OtherRequest {
     fn is_restricted(&self) -> bool {
         match self {
             // Normal methods. These are allowed
@@ -1028,6 +1029,7 @@ impl RpcRequest for OtherRequest {
 
 //---------------------------------------------------------------------------------------------------- Response
 /// TODO
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(missing_docs)]

@@ -111,8 +111,8 @@
 mod constants;
 mod defaults;
 mod free;
+mod is_restricted;
 mod macros;
-mod rpc_request;
 
 #[cfg(feature = "serde")]
 mod serde;
@@ -128,4 +128,4 @@ pub use constants::{
     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_VERSION, CORE_RPC_VERSION_MAJOR,
     CORE_RPC_VERSION_MINOR,
 };
-pub use rpc_request::RpcRequest;
+pub use is_restricted::IsRestricted;

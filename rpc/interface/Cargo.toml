@@ -25,3 +25,7 @@ paste   = { workspace = true }
 futures = { workspace = true }
 
 [dev-dependencies]
+axum       = { version = "0.7.5", features = ["json", "tokio", "http2"] }
+serde_json = { workspace = true, features = ["std"] }
+tokio      = { workspace = true, features = ["full"] }
+ureq       = { version = "2.10.0", features = ["json"] }

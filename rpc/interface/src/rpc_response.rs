@@ -5,7 +5,7 @@ use cuprate_rpc_types::{bin::BinResponse, json::JsonRpcResponse, other::OtherRes
 
 //---------------------------------------------------------------------------------------------------- Status
 /// TODO
-pub enum Response {
+pub enum RpcResponse {
     /// TODO
     JsonRpc(cuprate_json_rpc::Response<JsonRpcResponse>),
     /// TODO

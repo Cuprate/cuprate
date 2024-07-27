@@ -13,10 +13,10 @@ use cuprate_json_rpc::{
 };
 use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
-    RpcRequest,
+    IsRestricted,
 };
 
-use crate::{request::Request, response::Response, rpc_handler::RpcHandler};
+use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
@@ -44,11 +44,11 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
     }
 
     // Send request.
-    let request = Request::JsonRpc(request);
+    let request = RpcRequest::JsonRpc(request);
     let channel = handler.oneshot(request).await?;
 
     // Assert the response from the inner handler is correct.
-    let Response::JsonRpc(response) = channel else {
+    let RpcResponse::JsonRpc(response) = channel else {
         panic!("RPC handler returned incorrect response");
     };
 
