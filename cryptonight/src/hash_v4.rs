@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use blake2::{Blake2s256, Digest};
+use blake;
 use static_assertions::const_assert_eq;
 
 const TOTAL_LATENCY: usize = 15 * 3;
@@ -55,15 +55,13 @@ fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [i8]) {
     if *data_index + bytes_needed > data.len() {
 
         // SAFETY: data is a valid slice of i8, which is cast to a slice of u8 to be compatible
-        // with the blake2s hash input. While it requires access to the raw pointer, it is
+        // with the blake hash input. While it requires access to the raw pointer, it is
         // safe and preferable to copying to a new slice of u8.
         let mut data: &mut [u8] = unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, data.len()) };
+        let mut output = [0u8; 32];
 
-        let mut hasher = Blake2s256::new();
-        hasher.update(&data);
-        let result = hasher.finalize();
-        data.copy_from_slice(result.as_slice());
-
+        blake::hash(256, data, &mut output).expect("blake hash failed");
+        data.copy_from_slice(&output);
         *data_index = 0;
     }
 }
@@ -71,7 +69,7 @@ fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [i8]) {
 
 // Generates as many random math operations as possible with given latency and ALU restrictions
 // "code" array must have space for NUM_INSTRUCTIONS_MAX+1 instructions
-pub fn random_math_init(code: &mut [Instruction; NUM_INSTRUCTIONS_MAX + 1], height: u64) -> usize {
+pub(crate) fn random_math_init(code: &mut [Instruction; NUM_INSTRUCTIONS_MAX + 1], height: u64) -> usize {
     // MUL is 3 cycles, 3-way addition and rotations are 2 cycles, SUB/XOR are 1 cycle
     // These latencies match real-life instruction latencies for Intel CPUs starting from Sandy Bridge and up to Skylake/Coffee lake
     //
