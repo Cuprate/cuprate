@@ -61,7 +61,7 @@ pub trait Env: Sized {
     // For `heed`, this is just `heed::Env`, for `redb` this is
     // `(redb::Database, redb::Durability)` as each transaction
     // needs the sync mode set during creation.
-    type EnvInner<'env>: EnvInner<'env>
+    type EnvInner<'env>: EnvInner<'env> + Sync
     where
         Self: 'env;
 
@@ -209,7 +209,7 @@ pub trait EnvInner<'env> {
     /// The read-only transaction type of the backend.
     ///
     /// `'tx` is the lifetime of the transaction itself.
-    type Ro<'tx>: TxRo<'tx>;
+    type Ro<'tx>: TxRo<'tx> + Send;
     /// The read-write transaction type of the backend.
     ///
     /// `'tx` is the lifetime of the transaction itself.
