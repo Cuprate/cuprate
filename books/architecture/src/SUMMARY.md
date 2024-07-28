@@ -117,6 +117,7 @@
 ---
 
 - [⚪️ Appendix](appendix/intro.md)
+    - [🟢 Cuprate crates](appendix/cuprate-crates.md)
     - [🔴 Contributing](appendix/contributing.md)
     - [🔴 Crate documentation](appendix/crate-documentation.md)
     - [🔴 Build targets](appendix/build-targets.md)
