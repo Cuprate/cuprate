@@ -141,12 +141,12 @@ macro_rules! define_request_and_response {
 }
 pub(crate) use define_request_and_response;
 
-//---------------------------------------------------------------------------------------------------- impl_is_restricted
+//---------------------------------------------------------------------------------------------------- impl_rpc_call
 /// TODO
-macro_rules! impl_is_restricted {
+macro_rules! impl_rpc_call {
     // TODO
     ($t:ident, $restricted:ident) => {
-        impl $crate::IsRestricted for $t {
+        impl $crate::RpcCall for $t {
             fn is_restricted(&self) -> bool {
                 true
             }
@@ -155,14 +155,14 @@ macro_rules! impl_is_restricted {
 
     // TODO
     ($t:ident) => {
-        impl $crate::IsRestricted for $t {
+        impl $crate::RpcCall for $t {
             fn is_restricted(&self) -> bool {
                 false
             }
         }
     };
 }
-pub(crate) use impl_is_restricted;
+pub(crate) use impl_rpc_call;
 
 //---------------------------------------------------------------------------------------------------- define_request
 /// Define a request type.
@@ -201,7 +201,7 @@ macro_rules! define_request {
             )*
         }
 
-        $crate::macros::impl_is_restricted!($t $(, $restricted)?);
+        $crate::macros::impl_rpc_call!($t $(, $restricted)?);
 
         #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {

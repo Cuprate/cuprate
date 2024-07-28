@@ -13,7 +13,7 @@ use cuprate_json_rpc::{
 };
 use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
-    IsRestricted,
+    RpcCall,
 };
 
 use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};

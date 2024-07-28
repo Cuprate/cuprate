@@ -4,8 +4,8 @@
 
 //---------------------------------------------------------------------------------------------------- Struct definitions
 /// TODO
-pub trait IsRestricted {
-    /// Returns `true` if this method should
+pub trait RpcCall {
+    /// Returns `true` if this RPC method should
     /// only be allowed on local servers.
     ///
     /// If this returns `false`, it should be
@@ -14,7 +14,7 @@ pub trait IsRestricted {
     ///
     /// ```rust
     /// use cuprate_rpc_types::{
-    ///     RpcRequest,
+    ///     RpcCall,
     ///     json::{GetBlockCountRequest, GetConnectionsRequest},
     /// };
     ///

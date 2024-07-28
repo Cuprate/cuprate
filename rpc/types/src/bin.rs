@@ -28,7 +28,7 @@ use crate::{
         HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData, Peer, PoolInfoExtent,
         PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
     },
-    IsRestricted,
+    rpc_call::RpcCall,
 };
 
 //---------------------------------------------------------------------------------------------------- Definitions
@@ -410,7 +410,7 @@ pub enum BinRequest {
     GetOutputDistribution(crate::json::GetOutputDistributionRequest),
 }
 
-impl IsRestricted for BinRequest {
+impl RpcCall for BinRequest {
     /// All binary methods are un-restricted, i.e.
     // all of them will return `false`.
     fn is_restricted(&self) -> bool {

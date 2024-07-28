@@ -14,7 +14,7 @@ use crate::{
         GetOutputsOut, KeyImageSpentStatus, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status,
         TxEntry, TxInfo, TxpoolStats,
     },
-    IsRestricted,
+    rpc_call::RpcCall,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -987,7 +987,7 @@ pub enum OtherRequest {
     GetPublicNodes(GetPublicNodesRequest),
 }
 
-impl IsRestricted for OtherRequest {
+impl RpcCall for OtherRequest {
     fn is_restricted(&self) -> bool {
         match self {
             // Normal methods. These are allowed

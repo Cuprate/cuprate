@@ -23,7 +23,7 @@ use cuprate_rpc_types::{
         StopDaemonRequest, StopDaemonResponse, StopMiningRequest, StopMiningResponse,
         UpdateRequest, UpdateResponse,
     },
-    IsRestricted,
+    RpcCall,
 };
 
 use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};

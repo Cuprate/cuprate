@@ -19,7 +19,7 @@ use crate::{
         GetMinerDataTxBacklogEntry, HardforkEntry, HistogramEntry, OutputDistributionData, SetBan,
         Span, Status, SyncInfoPeer, TxBacklogEntry,
     },
-    IsRestricted,
+    rpc_call::RpcCall,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -1597,7 +1597,7 @@ pub enum JsonRpcRequest {
     GetTxIdsLoose(GetTxIdsLooseRequest),
 }
 
-impl IsRestricted for JsonRpcRequest {
+impl RpcCall for JsonRpcRequest {
     fn is_restricted(&self) -> bool {
         match self {
             // Normal methods. These are allowed
