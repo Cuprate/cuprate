@@ -74,7 +74,6 @@
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
-//! use cuprate_types::Chain;
 //! let tmp_dir = tempfile::tempdir()?;
 //! let db_dir = tmp_dir.path().to_owned();
 //! let config = ConfigBuilder::new()

@@ -82,7 +82,7 @@ where
 
     /// Pops the front of the window, i.e. the oldest item.
     ///
-    /// This is often not needed [`RollingMedian::push`] will handle popping old values when they fall
+    /// This is often not needed as [`RollingMedian::push`] will handle popping old values when they fall
     /// out of the window.
     pub fn pop_front(&mut self) {
         if let Some(item) = self.window.pop_front() {
