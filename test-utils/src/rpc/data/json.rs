@@ -771,7 +771,7 @@ r#"{
   "id": "0",
   "method": "get_output_histogram",
   "params": {
-    "amounts": ["20000000000"]
+    "amounts": [20000000000]
   }
 }"#;
     Response =
@@ -1106,13 +1106,17 @@ r#"{
   "id": "0",
   "jsonrpc": "2.0",
   "result": {
+    "credits": 0,
     "distributions": [{
       "amount": 2628780000,
       "base": 0,
       "distribution": "",
-      "start_height": 1462078
+      "start_height": 1462078,
+      "binary": false
     }],
-    "status": "OK"
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
   }
 }"#;
 }

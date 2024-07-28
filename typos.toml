@@ -18,4 +18,5 @@ extend-exclude = [
 	"/misc/gpg_keys/",
 	"cryptonight/",
 	"/test-utils/src/rpc/data/json.rs",
+	"rpc/types/src/json.rs",
 ]
