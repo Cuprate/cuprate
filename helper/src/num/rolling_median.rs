@@ -66,7 +66,7 @@ where
     /// `target_window` is the maximum amount of items to keep in the rolling window.
     ///
     /// # Panics
-    /// This function panics if the vec is larger than the target window length.
+    /// This function panics if `vec.len() > target_window`.
     pub fn from_vec(vec: Vec<T>, target_window: usize) -> Self {
         assert!(vec.len() <= target_window);
 
