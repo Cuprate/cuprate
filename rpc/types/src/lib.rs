@@ -128,4 +128,4 @@ pub use constants::{
     CORE_RPC_STATUS_PAYMENT_REQUIRED, CORE_RPC_VERSION, CORE_RPC_VERSION_MAJOR,
     CORE_RPC_VERSION_MINOR,
 };
-pub use rpc_call::RpcCall;
+pub use rpc_call::{RpcCall, RpcCallValue};

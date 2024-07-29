@@ -6,13 +6,13 @@ use axum::{body::Bytes, extract::State, http::StatusCode};
 use tower::ServiceExt;
 
 use cuprate_epee_encoding::from_bytes;
-use cuprate_rpc_types::bin::{BinRequest, BinResponse};
+use cuprate_rpc_types::bin::{BinRequest, BinResponse, GetTransactionPoolHashesRequest};
 
 use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// TODO
-macro_rules! generate_endpoints {
+macro_rules! generate_endpoints_with_input {
     ($(
         $endpoint:ident => $variant:ident
     ),*) => { paste::paste! {
@@ -28,9 +28,38 @@ macro_rules! generate_endpoints {
                     from_bytes(&mut request).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
                 );
 
+                generate_endpoints_inner!($variant, handler, request)
+            }
+        )*
+    }};
+}
+
+/// TODO
+macro_rules! generate_endpoints_with_no_input {
+    ($(
+        $endpoint:ident => $variant:ident
+    ),*) => { paste::paste! {
+        $(
+            /// TODO
+            #[allow(unused_mut)]
+            pub(crate) async fn $endpoint<H: RpcHandler>(
+                State(handler): State<H>,
+            ) -> Result<Bytes, StatusCode> {
+                const REQUEST: BinRequest = BinRequest::$variant([<$variant Request>] {});
+                generate_endpoints_inner!($variant, handler, REQUEST)
+            }
+        )*
+    }};
+}
+
+/// TODO
+macro_rules! generate_endpoints_inner {
+    ($variant:ident, $handler:ident, $request:expr) => {
+        paste::paste! {
+            {
                 // Send request.
-                let request = RpcRequest::Binary(request);
-                let channel = handler.oneshot(request).await?;
+                let request = RpcRequest::Binary($request);
+                let channel = $handler.oneshot(request).await?;
 
                 // Assert the response from the inner handler is correct.
                 let RpcResponse::Binary(response) = todo!() else {
@@ -46,18 +75,21 @@ macro_rules! generate_endpoints {
                     Err(e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
                 }
             }
-        )*
-    }};
+        }
+    };
 }
 
-generate_endpoints! {
+generate_endpoints_with_input! {
     get_blocks => GetBlocks,
     get_blocks_by_height => GetBlocksByHeight,
     get_hashes => GetHashes,
     get_o_indexes => GetOutputIndexes,
     get_outs => GetOuts,
-    get_transaction_pool_hashes => GetTransactionPoolHashes,
     get_output_distribution => GetOutputDistribution
+}
+
+generate_endpoints_with_no_input! {
+    get_transaction_pool_hashes => GetTransactionPoolHashes
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -89,13 +89,11 @@ async fn main() {
     });
     barrier.wait();
 
-    // Send a request.
-    // TODO: endpoints without inputs shouldn't error without input.
+    // Send a request. This endpoint has no inputs.
     let url = format!("http://127.0.0.1:{port}/get_height");
-    let request = OtherRequest::GetHeight(Default::default());
     let body: OtherResponse = ureq::get(&url)
         .set("Content-Type", "application/json")
-        .send_json(request)
+        .call()
         .unwrap()
         .into_json()
         .unwrap();

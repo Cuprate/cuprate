@@ -15,6 +15,7 @@ use crate::{
         TxEntry, TxInfo, TxpoolStats,
     },
     rpc_call::RpcCall,
+    RpcCallValue,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -97,7 +98,7 @@ define_request_and_response! {
     get_height,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 138..=160,
-    GetHeight,
+    GetHeight (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -150,7 +151,7 @@ define_request_and_response! {
     get_alt_blocks_hashes,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 288..=308,
-    GetAltBlocksHashes,
+    GetAltBlocksHashes (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -291,7 +292,7 @@ define_request_and_response! {
     stop_mining,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 825..=843,
-    StopMining (restricted),
+    StopMining (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -560,7 +561,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1569..=1591,
 
-    GetTransactionPool,
+    GetTransactionPool (empty),
     Request {},
 
     #[doc = serde_doc_test!(GET_TRANSACTION_POOL_RESPONSE)]
@@ -575,7 +576,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1712..=1732,
 
-    GetTransactionPoolStats,
+    GetTransactionPoolStats (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -619,7 +620,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1814..=1831,
 
-    StopDaemon (restricted),
+    StopDaemon (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -637,7 +638,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1852..=1874,
 
-    GetLimit,
+    GetLimit (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -733,7 +734,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 793..=822,
 
-    GetNetStats (restricted),
+    GetNetStats (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -872,7 +873,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1615..=1635,
 
-    GetTransactionPoolHashes,
+    GetTransactionPoolHashes (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -987,42 +988,68 @@ pub enum OtherRequest {
     GetPublicNodes(GetPublicNodesRequest),
 }
 
-impl RpcCall for OtherRequest {
+impl RpcCallValue for OtherRequest {
     fn is_restricted(&self) -> bool {
         match self {
-            // Normal methods. These are allowed
-            // even on restricted RPC servers (18089).
-            Self::GetHeight(_)
-            | Self::GetTransactions(_)
-            | Self::GetAltBlocksHashes(_)
-            | Self::IsKeyImageSpent(_)
-            | Self::SendRawTransaction(_)
-            | Self::GetTransactionPool(_)
-            | Self::GetTransactionPoolStats(_)
-            | Self::GetLimit(_)
-            | Self::GetOuts(_)
-            | Self::GetTransactionPoolHashes(_) => false,
+            Self::GetHeight(x) => x.is_restricted(),
+            Self::GetTransactions(x) => x.is_restricted(),
+            Self::GetAltBlocksHashes(x) => x.is_restricted(),
+            Self::IsKeyImageSpent(x) => x.is_restricted(),
+            Self::SendRawTransaction(x) => x.is_restricted(),
+            Self::StartMining(x) => x.is_restricted(),
+            Self::StopMining(x) => x.is_restricted(),
+            Self::MiningStatus(x) => x.is_restricted(),
+            Self::SaveBc(x) => x.is_restricted(),
+            Self::GetPeerList(x) => x.is_restricted(),
+            Self::SetLogHashRate(x) => x.is_restricted(),
+            Self::SetLogLevel(x) => x.is_restricted(),
+            Self::SetLogCategories(x) => x.is_restricted(),
+            Self::SetBootstrapDaemon(x) => x.is_restricted(),
+            Self::GetTransactionPool(x) => x.is_restricted(),
+            Self::GetTransactionPoolStats(x) => x.is_restricted(),
+            Self::StopDaemon(x) => x.is_restricted(),
+            Self::GetLimit(x) => x.is_restricted(),
+            Self::SetLimit(x) => x.is_restricted(),
+            Self::OutPeers(x) => x.is_restricted(),
+            Self::InPeers(x) => x.is_restricted(),
+            Self::GetNetStats(x) => x.is_restricted(),
+            Self::GetOuts(x) => x.is_restricted(),
+            Self::Update(x) => x.is_restricted(),
+            Self::PopBlocks(x) => x.is_restricted(),
+            Self::GetTransactionPoolHashes(x) => x.is_restricted(),
+            Self::GetPublicNodes(x) => x.is_restricted(),
+        }
+    }
 
-            // Restricted methods. These are only allowed
-            // for unrestricted RPC servers (18081).
-            // TODO
-            Self::StartMining(_)
-            | Self::StopMining(_)
-            | Self::MiningStatus(_)
-            | Self::SaveBc(_)
-            | Self::GetPeerList(_)
-            | Self::SetLogHashRate(_)
-            | Self::SetLogLevel(_)
-            | Self::SetLogCategories(_)
-            | Self::SetBootstrapDaemon(_)
-            | Self::GetNetStats(_)
-            | Self::SetLimit(_)
-            | Self::StopDaemon(_)
-            | Self::OutPeers(_)
-            | Self::InPeers(_)
-            | Self::Update(_)
-            | Self::PopBlocks(_)
-            | Self::GetPublicNodes(_) => true,
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::GetHeight(x) => x.is_empty(),
+            Self::GetTransactions(x) => x.is_empty(),
+            Self::GetAltBlocksHashes(x) => x.is_empty(),
+            Self::IsKeyImageSpent(x) => x.is_empty(),
+            Self::SendRawTransaction(x) => x.is_empty(),
+            Self::StartMining(x) => x.is_empty(),
+            Self::StopMining(x) => x.is_empty(),
+            Self::MiningStatus(x) => x.is_empty(),
+            Self::SaveBc(x) => x.is_empty(),
+            Self::GetPeerList(x) => x.is_empty(),
+            Self::SetLogHashRate(x) => x.is_empty(),
+            Self::SetLogLevel(x) => x.is_empty(),
+            Self::SetLogCategories(x) => x.is_empty(),
+            Self::SetBootstrapDaemon(x) => x.is_empty(),
+            Self::GetTransactionPool(x) => x.is_empty(),
+            Self::GetTransactionPoolStats(x) => x.is_empty(),
+            Self::StopDaemon(x) => x.is_empty(),
+            Self::GetLimit(x) => x.is_empty(),
+            Self::SetLimit(x) => x.is_empty(),
+            Self::OutPeers(x) => x.is_empty(),
+            Self::InPeers(x) => x.is_empty(),
+            Self::GetNetStats(x) => x.is_empty(),
+            Self::GetOuts(x) => x.is_empty(),
+            Self::Update(x) => x.is_empty(),
+            Self::PopBlocks(x) => x.is_empty(),
+            Self::GetTransactionPoolHashes(x) => x.is_empty(),
+            Self::GetPublicNodes(x) => x.is_empty(),
         }
     }
 }

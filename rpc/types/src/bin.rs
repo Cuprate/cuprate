@@ -28,7 +28,7 @@ use crate::{
         HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData, Peer, PoolInfoExtent,
         PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
     },
-    rpc_call::RpcCall,
+    rpc_call::{RpcCall, RpcCallValue},
 };
 
 //---------------------------------------------------------------------------------------------------- Definitions
@@ -410,18 +410,28 @@ pub enum BinRequest {
     GetOutputDistribution(crate::json::GetOutputDistributionRequest),
 }
 
-impl RpcCall for BinRequest {
-    /// All binary methods are un-restricted, i.e.
-    // all of them will return `false`.
+impl RpcCallValue for BinRequest {
     fn is_restricted(&self) -> bool {
         match self {
-            Self::GetBlocks(_)
-            | Self::GetBlocksByHeight(_)
-            | Self::GetHashes(_)
-            | Self::GetOutputIndexes(_)
-            | Self::GetOuts(_)
-            | Self::GetTransactionPoolHashes(_)
-            | Self::GetOutputDistribution(_) => false,
+            Self::GetBlocks(x) => x.is_restricted(),
+            Self::GetBlocksByHeight(x) => x.is_restricted(),
+            Self::GetHashes(x) => x.is_restricted(),
+            Self::GetOutputIndexes(x) => x.is_restricted(),
+            Self::GetOuts(x) => x.is_restricted(),
+            Self::GetTransactionPoolHashes(x) => x.is_restricted(),
+            Self::GetOutputDistribution(x) => x.is_restricted(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::GetBlocks(x) => x.is_empty(),
+            Self::GetBlocksByHeight(x) => x.is_empty(),
+            Self::GetHashes(x) => x.is_empty(),
+            Self::GetOutputIndexes(x) => x.is_empty(),
+            Self::GetOuts(x) => x.is_empty(),
+            Self::GetTransactionPoolHashes(x) => x.is_empty(),
+            Self::GetOutputDistribution(x) => x.is_empty(),
         }
     }
 }

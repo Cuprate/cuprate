@@ -19,7 +19,7 @@ use crate::{
         GetMinerDataTxBacklogEntry, HardforkEntry, HistogramEntry, OutputDistributionData, SetBan,
         Span, Status, SyncInfoPeer, TxBacklogEntry,
     },
-    rpc_call::RpcCall,
+    rpc_call::RpcCallValue,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -222,7 +222,7 @@ define_request_and_response! {
     get_block_count,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 919..=933,
-    GetBlockCount,
+    GetBlockCount (empty),
 
     // There are no request fields specified,
     // this will cause the macro to generate a
@@ -637,7 +637,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1734..=1754,
 
-    GetConnections (restricted),
+    GetConnections (restricted, empty),
 
     Request {},
 
@@ -712,7 +712,7 @@ define_request_and_response! {
     get_info,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 693..=789,
-    GetInfo,
+    GetInfo (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -806,7 +806,7 @@ define_request_and_response! {
     hard_fork_info,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1958..=1995,
-    HardForkInfo,
+    HardForkInfo (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -867,7 +867,7 @@ define_request_and_response! {
     get_bans,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1997..=2030,
-    GetBans (restricted),
+    GetBans (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1032,7 +1032,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2170..=2211,
 
-    GetVersion,
+    GetVersion (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1123,7 +1123,7 @@ define_request_and_response! {
     get_fee_estimate,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2250..=2277,
-    GetFeeEstimate,
+    GetFeeEstimate (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1145,7 +1145,7 @@ define_request_and_response! {
     get_alternate_chains,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2279..=2310,
-    GetAlternateChains (restricted),
+    GetAlternateChains (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1212,7 +1212,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2383..=2443,
 
-    SyncInfo (restricted),
+    SyncInfo (restricted, empty),
 
     Request {},
 
@@ -1302,7 +1302,7 @@ define_request_and_response! {
     get_txpool_backlog,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1637..=1664,
-    GetTransactionPoolBacklog,
+    GetTransactionPoolBacklog (empty),
     Request {},
 
     // TODO: enable test after binary string impl.
@@ -1369,7 +1369,7 @@ define_request_and_response! {
     get_miner_data,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 996..=1044,
-    GetMinerData,
+    GetMinerData (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1597,44 +1597,74 @@ pub enum JsonRpcRequest {
     GetTxIdsLoose(GetTxIdsLooseRequest),
 }
 
-impl RpcCall for JsonRpcRequest {
+impl RpcCallValue for JsonRpcRequest {
     fn is_restricted(&self) -> bool {
         match self {
-            // Normal methods. These are allowed
-            // even on restricted RPC servers (18089).
-            Self::GetBlockCount(_)
-            | Self::OnGetBlockHash(_)
-            | Self::SubmitBlock(_)
-            | Self::GetLastBlockHeader(_)
-            | Self::GetBlockHeaderByHash(_)
-            | Self::GetBlockHeaderByHeight(_)
-            | Self::GetBlockHeadersRange(_)
-            | Self::GetBlock(_)
-            | Self::GetInfo(_)
-            | Self::HardForkInfo(_)
-            | Self::GetOutputHistogram(_)
-            | Self::GetVersion(_)
-            | Self::GetFeeEstimate(_)
-            | Self::GetTransactionPoolBacklog(_)
-            | Self::GetMinerData(_)
-            | Self::AddAuxPow(_)
-            | Self::GetTxIdsLoose(_) => false,
+            Self::GetBlockCount(x) => x.is_restricted(),
+            Self::OnGetBlockHash(x) => x.is_restricted(),
+            Self::SubmitBlock(x) => x.is_restricted(),
+            Self::GetLastBlockHeader(x) => x.is_restricted(),
+            Self::GetBlockHeaderByHash(x) => x.is_restricted(),
+            Self::GetBlockHeaderByHeight(x) => x.is_restricted(),
+            Self::GetBlockHeadersRange(x) => x.is_restricted(),
+            Self::GetBlock(x) => x.is_restricted(),
+            Self::GetInfo(x) => x.is_restricted(),
+            Self::HardForkInfo(x) => x.is_restricted(),
+            Self::GetOutputHistogram(x) => x.is_restricted(),
+            Self::GetVersion(x) => x.is_restricted(),
+            Self::GetFeeEstimate(x) => x.is_restricted(),
+            Self::GetTransactionPoolBacklog(x) => x.is_restricted(),
+            Self::GetMinerData(x) => x.is_restricted(),
+            Self::AddAuxPow(x) => x.is_restricted(),
+            Self::GetTxIdsLoose(x) => x.is_restricted(),
+            Self::GenerateBlocks(x) => x.is_restricted(),
+            Self::GetConnections(x) => x.is_restricted(),
+            Self::SetBans(x) => x.is_restricted(),
+            Self::GetBans(x) => x.is_restricted(),
+            Self::Banned(x) => x.is_restricted(),
+            Self::FlushTransactionPool(x) => x.is_restricted(),
+            Self::GetCoinbaseTxSum(x) => x.is_restricted(),
+            Self::GetAlternateChains(x) => x.is_restricted(),
+            Self::RelayTx(x) => x.is_restricted(),
+            Self::SyncInfo(x) => x.is_restricted(),
+            Self::PruneBlockchain(x) => x.is_restricted(),
+            Self::CalcPow(x) => x.is_restricted(),
+            Self::FlushCache(x) => x.is_restricted(),
+        }
+    }
 
-            // Restricted methods. These are only allowed
-            // for unrestricted RPC servers (18081).
-            Self::GenerateBlocks(_)
-            | Self::GetConnections(_)
-            | Self::SetBans(_)
-            | Self::GetBans(_)
-            | Self::Banned(_)
-            | Self::FlushTransactionPool(_)
-            | Self::GetCoinbaseTxSum(_)
-            | Self::GetAlternateChains(_)
-            | Self::RelayTx(_)
-            | Self::SyncInfo(_)
-            | Self::PruneBlockchain(_)
-            | Self::CalcPow(_)
-            | Self::FlushCache(_) => true,
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::GetBlockCount(x) => x.is_empty(),
+            Self::OnGetBlockHash(x) => x.is_empty(),
+            Self::SubmitBlock(x) => x.is_empty(),
+            Self::GetLastBlockHeader(x) => x.is_empty(),
+            Self::GetBlockHeaderByHash(x) => x.is_empty(),
+            Self::GetBlockHeaderByHeight(x) => x.is_empty(),
+            Self::GetBlockHeadersRange(x) => x.is_empty(),
+            Self::GetBlock(x) => x.is_empty(),
+            Self::GetInfo(x) => x.is_empty(),
+            Self::HardForkInfo(x) => x.is_empty(),
+            Self::GetOutputHistogram(x) => x.is_empty(),
+            Self::GetVersion(x) => x.is_empty(),
+            Self::GetFeeEstimate(x) => x.is_empty(),
+            Self::GetTransactionPoolBacklog(x) => x.is_empty(),
+            Self::GetMinerData(x) => x.is_empty(),
+            Self::AddAuxPow(x) => x.is_empty(),
+            Self::GetTxIdsLoose(x) => x.is_empty(),
+            Self::GenerateBlocks(x) => x.is_empty(),
+            Self::GetConnections(x) => x.is_empty(),
+            Self::SetBans(x) => x.is_empty(),
+            Self::GetBans(x) => x.is_empty(),
+            Self::Banned(x) => x.is_empty(),
+            Self::FlushTransactionPool(x) => x.is_empty(),
+            Self::GetCoinbaseTxSum(x) => x.is_empty(),
+            Self::GetAlternateChains(x) => x.is_empty(),
+            Self::RelayTx(x) => x.is_empty(),
+            Self::SyncInfo(x) => x.is_empty(),
+            Self::PruneBlockchain(x) => x.is_empty(),
+            Self::CalcPow(x) => x.is_empty(),
+            Self::FlushCache(x) => x.is_empty(),
         }
     }
 }

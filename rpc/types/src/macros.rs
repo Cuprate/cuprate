@@ -60,7 +60,7 @@ macro_rules! define_request_and_response {
         // Attributes added here will apply to _both_
         // request and response types.
         $( #[$type_attr:meta] )*
-        $type_name:ident $(($restricted:ident))?,
+        $type_name:ident $(($restricted:ident $(, $empty:ident)?))?,
 
         // The request type (and any doc comments, derives, etc).
         $( #[$request_type_attr:meta] )*
@@ -100,7 +100,7 @@ macro_rules! define_request_and_response {
             $( #[$type_attr] )*
             ///
             $( #[$request_type_attr] )*
-            [<$type_name Request>] $(($restricted))? {
+            [<$type_name Request>] $(($restricted $(, $empty)?))? {
                 $(
                     $( #[$request_field_attr] )*
                     $request_field: $request_field_type
@@ -145,20 +145,54 @@ pub(crate) use define_request_and_response;
 /// TODO
 macro_rules! impl_rpc_call {
     // TODO
-    ($t:ident, $restricted:ident) => {
+    ($t:ident, restricted, empty) => {
         impl $crate::RpcCall for $t {
-            fn is_restricted(&self) -> bool {
-                true
+            const IS_RESTRICTED: bool = true;
+            const IS_EMPTY: bool = true;
+        }
+
+        impl From<()> for $t {
+            fn from(_: ()) -> Self {
+                Self {}
             }
+        }
+
+        impl From<$t> for () {
+            fn from(_: $t) -> Self {}
+        }
+    };
+
+    // TODO
+    ($t:ident, empty) => {
+        impl $crate::RpcCall for $t {
+            const IS_RESTRICTED: bool = false;
+            const IS_EMPTY: bool = true;
+        }
+
+        impl From<()> for $t {
+            fn from(_: ()) -> Self {
+                Self {}
+            }
+        }
+
+        impl From<$t> for () {
+            fn from(_: $t) -> Self {}
+        }
+    };
+
+    // TODO
+    ($t:ident, restricted) => {
+        impl $crate::RpcCall for $t {
+            const IS_RESTRICTED: bool = true;
+            const IS_EMPTY: bool = false;
         }
     };
 
     // TODO
     ($t:ident) => {
         impl $crate::RpcCall for $t {
-            fn is_restricted(&self) -> bool {
-                false
-            }
+            const IS_RESTRICTED: bool = false;
+            const IS_EMPTY: bool = false;
         }
     };
 }
@@ -175,7 +209,7 @@ macro_rules! define_request {
         // Any doc comments, derives, etc.
         $( #[$attr:meta] )*
         // The response type.
-        $t:ident $(($restricted:ident))? {
+        $t:ident $(($restricted:ident $(, $empty:ident)?))? {
             // And any fields.
             $(
                 $( #[$field_attr:meta] )* // field attributes
@@ -201,7 +235,7 @@ macro_rules! define_request {
             )*
         }
 
-        $crate::macros::impl_rpc_call!($t $(, $restricted)?);
+        $crate::macros::impl_rpc_call!($t $(, $restricted $(, $empty)?)?);
 
         #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
