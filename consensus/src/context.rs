@@ -27,16 +27,22 @@ pub(crate) mod hardforks;
 pub(crate) mod rx_vms;
 pub(crate) mod weight;
 
+mod alt_chains;
 mod task;
 mod tokens;
 
+use cuprate_types::Chain;
+use difficulty::DifficultyCache;
+use rx_vms::RandomXVM;
+use weight::BlockWeightsCache;
+
+pub(crate) use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
 pub use difficulty::DifficultyCacheConfig;
 pub use hardforks::HardForkConfig;
-use rx_vms::RandomXVM;
 pub use tokens::*;
 pub use weight::BlockWeightsCacheConfig;
 
-const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
+pub(crate) const BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW: u64 = 60;
 
 /// Config for the context service.
 pub struct ContextConfig {
@@ -233,6 +239,74 @@ pub enum BlockChainContextRequest {
     NewRXVM(([u8; 32], Arc<RandomXVM>)),
     /// A request to add a new block to the cache.
     Update(NewBlockData),
+    /// Pop blocks from the cache to the specified height.
+    PopBlocks {
+        /// The number of blocks to pop from the top of the chain.
+        ///
+        /// # Panics
+        ///
+        /// This will panic if the number of blocks will pop the genesis block.
+        numb_blocks: u64,
+    },
+    /// Clear the alt chain context caches.
+    ClearAltCache,
+    //----------------------------------------------------------------------------------------------------------- AltChainRequests
+    /// A request for an alt chain context cache.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the alt cache.
+    AltChainContextCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
+    /// A request for a difficulty cache of an alternative chin.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the difficulty cache of an alt chain.
+    AltChainDifficultyCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
+    /// A request for a block weight cache of an alternative chin.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the weight cache of an alt chain.
+    AltChainWeightCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        prev_id: [u8; 32],
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
+    /// A request for a RX VM for an alternative chin.
+    ///
+    /// Response variant: [`BlockChainContextResponse::AltChainRxVM`].
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle getting the randomX VM of an alt chain.
+    AltChainRxVM {
+        /// The height the RandomX VM is needed for.
+        height: u64,
+        /// The chain to look in for the seed.
+        chain: Chain,
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
+    /// A request to add an alt chain context cache to the context cache.
+    ///
+    /// This variant is private and is not callable from outside this crate, the block verifier service will
+    /// handle returning the alt cache to the context service.
+    AddAltChainContextCache {
+        /// The previous block field in a [`BlockHeader`](monero_serai::block::BlockHeader).
+        prev_id: [u8; 32],
+        /// The cache.
+        cache: Box<AltChainContextCache>,
+        /// An internal token to prevent external crates calling this request.
+        _token: AltChainRequestToken,
+    },
 }
 
 pub enum BlockChainContextResponse {
@@ -242,7 +316,15 @@ pub enum BlockChainContextResponse {
     RxVms(HashMap<u64, Arc<RandomXVM>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
-    /// Ok response.
+    /// An alt chain context cache.
+    AltChainContextCache(Box<AltChainContextCache>),
+    /// A difficulty cache for an alt chain.
+    AltChainDifficultyCache(DifficultyCache),
+    /// A randomX VM for an alt chain.
+    AltChainRxVM(Arc<RandomXVM>),
+    /// A weight cache for an alt chain
+    AltChainWeightCache(BlockWeightsCache),
+    /// A generic Ok response.
     Ok,
 }
 
