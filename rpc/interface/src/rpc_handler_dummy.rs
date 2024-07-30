@@ -1,4 +1,4 @@
-//! TODO
+//! Dummy implementation of [`RpcHandler`].
 
 //---------------------------------------------------------------------------------------------------- Use
 use std::task::Poll;
@@ -16,10 +16,18 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- TODO
-/// TODO
+/// An [`RpcHandler`] that always returns [`Default::default`].
+///
+/// This `struct` implements [`RpcHandler`], and always responds
+/// with the response `struct` set to [`Default::default`].
+///
+/// TODO: test asserting `json_rpc` id, response, etc.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RpcHandlerDummy {
-    /// TODO
+    /// Should this RPC server be restricted?
+    ///
+    /// The dummy will honor this [`bool`]
+    /// on restricted methods/endpoints.
     pub restricted: bool,
 }
 
