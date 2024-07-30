@@ -39,6 +39,54 @@ use crate::{
     types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
+trait SpawnReadTask {
+    fn spawn(&self, request: BCReadRequest, permit: OwnedSemaphorePermit) -> ResponseReceiver;
+}
+
+#[derive(Clone)]
+struct GenericEnvSpawnReadTask<E: Env> {
+    /// Access to the database.
+    env: Arc<E>,
+
+    /// Handle to the custom `rayon` DB reader thread-pool.
+    ///
+    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
+    /// and responses are returned via a channel we (the caller) provide.
+    pool: Arc<rayon::ThreadPool>,
+}
+
+impl<E: Env> GenericEnvSpawnReadTask<E> {
+    fn new(env: &Arc<E>, pool: Arc<rayon::ThreadPool>) -> Self {
+        Self {
+            env: Arc::clone(&env),
+            pool
+        }
+    }
+}
+
+impl<E: Env + Send + Sync + 'static> SpawnReadTask for GenericEnvSpawnReadTask<E> {
+    fn spawn(&self, request: BCReadRequest, permit: OwnedSemaphorePermit) -> ResponseReceiver { 
+        // Response channel we `.await` on.
+        let (response_sender, receiver) = oneshot::channel();
+
+        // Spawn the request in the rayon DB thread-pool.
+        //
+        // Note that this uses `self.pool` instead of `rayon::spawn`
+        // such that any `rayon` parallel code that runs within
+        // the passed closure uses the same `rayon` threadpool.
+        //
+        // INVARIANT:
+        // The below `DatabaseReader` function impl block relies on this behavior.
+        let env = Arc::clone(&self.env);
+        self.pool.spawn(move || {
+            let _permit: OwnedSemaphorePermit = permit;
+            map_request(&*env, request, response_sender);
+        }); // drop(permit/env);
+
+        InfallibleOneshotReceiver::from(receiver)
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
 ///
@@ -49,12 +97,6 @@ use crate::{
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding [`BCResponse`].
 pub struct DatabaseReadHandle {
-    /// Handle to the custom `rayon` DB reader thread-pool.
-    ///
-    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
-    /// and responses are returned via a channel we (the caller) provide.
-    pool: Arc<rayon::ThreadPool>,
-
     /// Counting semaphore asynchronous permit for database access.
     /// Each [`tower::Service::poll_ready`] will acquire a permit
     /// before actually sending a request to the `rayon` DB threadpool.
@@ -68,8 +110,7 @@ pub struct DatabaseReadHandle {
     /// the request, i.e., after [`map_request()`] finishes.
     permit: Option<OwnedSemaphorePermit>,
 
-    /// Access to the database.
-    env: Arc<ConcreteEnv>,
+    spawn: Arc<dyn SpawnReadTask>,
 }
 
 // `OwnedSemaphorePermit` does not implement `Clone`,
@@ -78,10 +119,9 @@ pub struct DatabaseReadHandle {
 impl Clone for DatabaseReadHandle {
     fn clone(&self) -> Self {
         Self {
-            pool: Arc::clone(&self.pool),
             semaphore: self.semaphore.clone(),
             permit: None,
-            env: Arc::clone(&self.env),
+            spawn: Arc::clone(&self.spawn),
         }
     }
 }
@@ -95,28 +135,26 @@ impl DatabaseReadHandle {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(env: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
+    pub(super) fn init<E: Env + Send + Sync + 'static>(env: &Arc<E>, reader_threads: ReaderThreads) -> Self {
         // How many reader threads to spawn?
         let reader_count = reader_threads.as_threads().get();
 
         // Spawn `rayon` reader threadpool.
-        let pool = rayon::ThreadPoolBuilder::new()
+        let pool = Arc::new(rayon::ThreadPoolBuilder::new()
             .num_threads(reader_count)
             .thread_name(|i| format!("cuprate_helper::service::read::DatabaseReader{i}"))
             .build()
-            .unwrap();
+            .unwrap()
+        );
 
         // Create a semaphore with the same amount of
         // permits as the amount of reader threads.
         let semaphore = PollSemaphore::new(Arc::new(Semaphore::new(reader_count)));
 
+        let spawn = Arc::new(GenericEnvSpawnReadTask::new(env, pool));
+
         // Return a handle to the pool.
-        Self {
-            pool: Arc::new(pool),
-            semaphore,
-            permit: None,
-            env: Arc::clone(env),
-        }
+        Self { semaphore, permit: None, spawn }
     }
 
     /// Access to the actual database environment.
@@ -132,7 +170,7 @@ impl DatabaseReadHandle {
     /// in this manner has not been tested.
     #[inline]
     pub const fn env(&self) -> &Arc<ConcreteEnv> {
-        &self.env
+        unimplemented!();
     }
 }
 
@@ -163,24 +201,7 @@ impl tower::Service<BCReadRequest> for DatabaseReadHandle {
             .take()
             .expect("poll_ready() should have acquire a permit before calling call()");
 
-        // Response channel we `.await` on.
-        let (response_sender, receiver) = oneshot::channel();
-
-        // Spawn the request in the rayon DB thread-pool.
-        //
-        // Note that this uses `self.pool` instead of `rayon::spawn`
-        // such that any `rayon` parallel code that runs within
-        // the passed closure uses the same `rayon` threadpool.
-        //
-        // INVARIANT:
-        // The below `DatabaseReader` function impl block relies on this behavior.
-        let env = Arc::clone(&self.env);
-        self.pool.spawn(move || {
-            let _permit: OwnedSemaphorePermit = permit;
-            map_request(&*env, request, response_sender);
-        }); // drop(permit/env);
-
-        InfallibleOneshotReceiver::from(receiver)
+        self.spawn.spawn(request, permit)
     }
 }
 

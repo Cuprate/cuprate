@@ -45,3 +45,6 @@ pub use config::{Config, ConfigBuilder};
 
 mod reader_threads;
 pub use reader_threads::ReaderThreads;
+
+mod backend;
+pub use backend::Backend;

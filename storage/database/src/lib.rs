@@ -121,6 +121,13 @@ pub mod config;
 pub mod resize;
 
 pub use backend::ConcreteEnv;
+
+#[cfg(feature="heed")]
+pub use backend::HeedEnv;
+
+#[cfg(feature="redb")]
+pub use backend::RedbEnv;
+
 pub use constants::{
     DATABASE_BACKEND, DATABASE_CORRUPT_MSG, DATABASE_DATA_FILENAME, DATABASE_LOCK_FILENAME,
 };

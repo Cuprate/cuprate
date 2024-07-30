@@ -3,14 +3,15 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
-use cuprate_database::InitError;
+use cuprate_database::{Env, InitError};
 
 use crate::{
-    config::Config,
+    config::{Backend, Config},
     service::{DatabaseReadHandle, DatabaseWriteHandle},
 };
 
 //---------------------------------------------------------------------------------------------------- Init
+#[allow(unreachable_patterns)]
 #[cold]
 #[inline(never)] // Only called once (?)
 /// Initialize a database & thread-pool, and return a read/write handle to it.
@@ -21,10 +22,22 @@ use crate::{
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
 pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle), InitError> {
+    match config.backend {
+        #[cfg(feature = "heed")]
+        Backend::Heed => do_init::<cuprate_database::HeedEnv>(config),
+        #[cfg(feature = "redb")]
+        Backend::Redb => do_init::<cuprate_database::RedbEnv>(config),
+        _ => panic!("Selected database backend not available in this build."),
+    }
+}
+
+#[cold]
+#[inline(never)] 
+fn do_init<E: Env + Send + Sync + 'static>(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle), InitError> {
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.
-    let db = Arc::new(crate::open(config)?);
+    let db = Arc::new(crate::open::<E>(config)?);
 
     // Spawn the Reader thread pool and Writer.
     let readers = DatabaseReadHandle::init(&db, reader_threads);
@@ -32,6 +45,7 @@ pub fn init(config: Config) -> Result<(DatabaseReadHandle, DatabaseWriteHandle),
 
     Ok((readers, writer))
 }
+
 
 //---------------------------------------------------------------------------------------------------- Compact history
 /// Given a position in the compact history, returns the height offset that should be in that position.

@@ -8,7 +8,7 @@ use std::{
 
 use futures::channel::oneshot;
 
-use cuprate_database::{ConcreteEnv, Env, EnvInner, RuntimeError, TxRw};
+use cuprate_database::{Env, EnvInner, RuntimeError, TxRw};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_types::{
     blockchain::{BCResponse, BCWriteRequest},
@@ -46,7 +46,7 @@ impl DatabaseWriteHandle {
     /// Initialize the single `DatabaseWriter` thread.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(env: Arc<ConcreteEnv>) -> Self {
+    pub(super) fn init<E: Env + Send + Sync + 'static>(env: Arc<E>) -> Self {
         // Initialize `Request/Response` channels.
         let (sender, receiver) = crossbeam::channel::unbounded();
 
@@ -87,7 +87,7 @@ impl tower::Service<BCWriteRequest> for DatabaseWriteHandle {
 
 //---------------------------------------------------------------------------------------------------- DatabaseWriter
 /// The single database writer thread.
-pub(super) struct DatabaseWriter {
+pub(super) struct DatabaseWriter<E: Env> {
     /// Receiver side of the database request channel.
     ///
     /// Any caller can send some requests to this channel.
@@ -96,16 +96,16 @@ pub(super) struct DatabaseWriter {
     receiver: crossbeam::channel::Receiver<(BCWriteRequest, ResponseSender)>,
 
     /// Access to the database.
-    env: Arc<ConcreteEnv>,
+    env: Arc<E>,
 }
 
-impl Drop for DatabaseWriter {
+impl<E: Env> Drop for DatabaseWriter<E> {
     fn drop(&mut self) {
         // TODO: log the writer thread has exited?
     }
 }
 
-impl DatabaseWriter {
+impl<E: Env> DatabaseWriter<E> {
     /// The `DatabaseWriter`'s main function.
     ///
     /// The writer just loops in this function, handling requests forever
@@ -130,10 +130,12 @@ impl DatabaseWriter {
                 return;
             };
 
+            // FIXME
+            #[allow(unused_doc_comments, non_snake_case)]
             /// How many times should we retry handling the request on resize errors?
             ///
             /// This is 1 on automatically resizing databases, meaning there is only 1 iteration.
-            const REQUEST_RETRY_LIMIT: usize = if ConcreteEnv::MANUAL_RESIZE { 3 } else { 1 };
+            let REQUEST_RETRY_LIMIT: usize = if E::MANUAL_RESIZE { 3 } else { 1 };
 
             // Map [`Request`]'s to specific database functions.
             //
@@ -151,11 +153,11 @@ impl DatabaseWriter {
                 // FIXME: will there be more than 1 write request?
                 // this won't have to be an enum.
                 let response = match &request {
-                    BCWriteRequest::WriteBlock(block) => write_block(&self.env, block),
+                    BCWriteRequest::WriteBlock(block) => write_block(&*self.env, block),
                 };
 
                 // If the database needs to resize, do so.
-                if ConcreteEnv::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded))
+                if E::MANUAL_RESIZE && matches!(response, Err(RuntimeError::ResizeNeeded))
                 {
                     // If this is the last iteration of the outer `for` loop and we
                     // encounter a resize error _again_, it means something is wrong.
@@ -183,7 +185,7 @@ impl DatabaseWriter {
 
                 // Automatically resizing databases should not be returning a resize error.
                 #[cfg(debug_assertions)]
-                if !ConcreteEnv::MANUAL_RESIZE {
+                if !E::MANUAL_RESIZE {
                     assert!(
                         !matches!(response, Err(RuntimeError::ResizeNeeded)),
                         "auto-resizing database returned a ResizeNeeded error"
@@ -218,7 +220,7 @@ impl DatabaseWriter {
 
 /// [`BCWriteRequest::WriteBlock`].
 #[inline]
-fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
+fn write_block<E: Env>(env: &E, block: &VerifiedBlockInformation) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 

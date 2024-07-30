@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
 use cuprate_helper::fs::cuprate_blockchain_dir;
 
-use crate::config::ReaderThreads;
+use crate::config::{Backend, ReaderThreads};
 
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
@@ -65,6 +65,7 @@ impl ConfigBuilder {
             .build();
 
         Config {
+            backend: Backend::default(),
             db_config,
             reader_threads,
         }
@@ -149,6 +150,9 @@ impl Default for ConfigBuilder {
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
+    /// The database backend.
+    pub backend: Backend,
+
     /// The database configuration.
     pub db_config: cuprate_database::config::Config,
 
