@@ -24,7 +24,7 @@ cargo doc --open --package cuprate-blockchain
 |-------|--------------|---------|
 | [`cuprate-epee-encoding`](https://doc.cuprate.org/cuprate_epee_encoding) | [`net/epee-encoding/`](https://github.com/Cuprate/cuprate/tree/main/net/epee-encoding) | Epee (de)serialization
 | [`cuprate-fixed-bytes`](https://doc.cuprate.org/cuprate_fixed_bytes) | [`net/fixed-bytes/`](https://github.com/Cuprate/cuprate/tree/main/net/fixed-bytes) | Fixed byte containers backed by `byte::Byte`
-| [`cuprate-levin`](https://doc.cuprate.org/cuprate_levin) | [`net/levin/`](https://github.com/Cuprate/cuprate/tree/main/net/levin) | Levin protocol implementation
+| [`cuprate-levin`](https://doc.cuprate.org/cuprate_levin) | [`net/levin/`](https://github.com/Cuprate/cuprate/tree/main/net/levin) | Levin bucket protocol implementation
 | [`cuprate-wire`](https://doc.cuprate.org/cuprate_wire) | [`net/wire/`](https://github.com/Cuprate/cuprate/tree/main/net/wire) | TODO
 
 ## P2P
