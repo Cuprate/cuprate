@@ -13,6 +13,7 @@ default    = ["blockchain", "epee", "serde"]
 blockchain = []
 epee       = ["dep:cuprate-epee-encoding"]
 serde      = ["dep:serde"]
+protptest  = ["dep:proptest-derive"]
 
 [dependencies]
 cuprate-epee-encoding = { path = "../net/epee-encoding", optional = true }
@@ -22,5 +23,8 @@ bytes            = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
 serde            = { workspace = true, features = ["derive"], optional = true }
+thiserror        = { workspace = true }
+
+proptest-derive  = { workspace = true, optional = true }
 
 [dev-dependencies]

@@ -821,7 +821,9 @@ dependencies = [
  "cuprate-fixed-bytes",
  "curve25519-dalek",
  "monero-serai",
+ "proptest-derive",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

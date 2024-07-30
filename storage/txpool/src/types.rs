@@ -1,7 +1,19 @@
 use bytemuck::{Pod, Zeroable};
 
-use cuprate_types::CachedVerificationState;
+use cuprate_types::{CachedVerificationState, HardFork};
 use monero_serai::transaction::Timelock;
+
+pub type KeyImage = [u8; 32];
+
+pub type TransactionHash = [u8; 32];
+
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct TransactionInfo {
+    pub fee: u64,
+    pub weight: usize,
+    pub state_stem: bool,
+}
 
 /// [`CachedVerificationState`] in a format that can be stored into the database.
 ///
@@ -31,13 +43,15 @@ impl From<RawCachedVerificationState> for CachedVerificationState {
         if raw_valid_past_timestamp == 0 {
             return CachedVerificationState::ValidAtHashAndHF {
                 block_hash: value.raw_valid_at_hash,
-                hf: value.raw_hf,
+                hf: HardFork::from_version(value.raw_hf)
+                    .expect("hard-fork values stored in the DB should always be valid"),
             };
         }
 
         CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
             block_hash: value.raw_valid_at_hash,
-            hf: value.raw_hf,
+            hf: HardFork::from_version(value.raw_hf)
+                .expect("hard-fork values stored in the DB should always be valid"),
             time_lock: Timelock::Time(raw_valid_past_timestamp),
         }
     }
@@ -53,7 +67,7 @@ impl From<CachedVerificationState> for RawCachedVerificationState {
             },
             CachedVerificationState::ValidAtHashAndHF { block_hash, hf } => Self {
                 raw_valid_at_hash: block_hash,
-                raw_hf: hf,
+                raw_hf: hf as u8,
                 raw_valid_past_timestamp: [0; 8],
             },
             CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
@@ -67,7 +81,7 @@ impl From<CachedVerificationState> for RawCachedVerificationState {
 
                 Self {
                     raw_valid_at_hash: block_hash,
-                    raw_hf: hf,
+                    raw_hf: hf as u8,
                     raw_valid_past_timestamp: time.to_le_bytes(),
                 }
             }
