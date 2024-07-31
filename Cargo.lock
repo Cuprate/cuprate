@@ -808,8 +808,12 @@ dependencies = [
  "bytemuck",
  "cuprate-database",
  "cuprate-database-service",
+ "cuprate-helper",
  "cuprate-types",
+ "hex",
  "monero-serai",
+ "thiserror",
+ "tower",
 ]
 
 [[package]]

@@ -178,6 +178,19 @@ impl_path_oncelock_and_fn! {
     cuprate_blockchain_dir,
     data_dir,
     "blockchain",
+
+    /// Cuprate's transaction pool directory.
+    ///
+    /// This is the PATH used for any Cuprate txpool files.
+    ///
+    /// | OS      | PATH                                                       |
+    /// |---------|------------------------------------------------------------|
+    /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\txpool\`           |
+    /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/txpool/` |
+    /// | Linux   | `/home/alice/.local/share/cuprate/txpool/`                 |
+    cuprate_txpool_dir,
+    data_dir,
+    "txpool",
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
