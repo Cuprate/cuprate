@@ -15,16 +15,19 @@ use crate::{
     rpc_response::RpcResponse,
 };
 
-//---------------------------------------------------------------------------------------------------- TODO
+//---------------------------------------------------------------------------------------------------- RpcHandlerDummy
 /// An [`RpcHandler`] that always returns [`Default::default`].
 ///
 /// This `struct` implements [`RpcHandler`], and always responds
 /// with the response `struct` set to [`Default::default`].
 ///
-/// TODO: test asserting `json_rpc` id, response, etc.
+/// See the [`crate`] documentation for example usage.
+///
+/// This is mostly used for testing purposes and can
+/// be disabled by disable the `dummy` feature flag.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RpcHandlerDummy {
-    /// Should this RPC server be restricted?
+    /// Should this RPC server be [restricted](RpcHandler::restricted)?
     ///
     /// The dummy will honor this [`bool`]
     /// on restricted methods/endpoints.

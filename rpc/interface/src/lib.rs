@@ -105,9 +105,7 @@
 #![allow(dead_code, unreachable_code, clippy::diverging_sub_expression)]
 
 //---------------------------------------------------------------------------------------------------- Mod
-mod constants;
 mod free;
-mod macros;
 mod route;
 mod rpc_error;
 mod rpc_handler;

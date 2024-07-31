@@ -1,4 +1,4 @@
-//! TODO
+//! Other JSON endpoint route functions.
 #![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import

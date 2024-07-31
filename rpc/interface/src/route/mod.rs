@@ -1,4 +1,4 @@
-//! TODO
+//! Routing functions.
 
 pub(crate) mod bin;
 pub(crate) mod fallback;

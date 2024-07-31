@@ -1,6 +1,8 @@
 # `cuprate-rpc-interface`
 This crate provides Cuprate's RPC _interface_.
 
+This crate is _not_ a standalone RPC server, it is just the interface.
+
 ```text
             cuprate-rpc-interface provides these parts
                             │         │
@@ -20,7 +22,7 @@ This is where your [`RpcHandler`] turns this [`RpcRequest`] into a [`RpcResponse
 You hand this `Response` back to `cuprate-rpc-interface` and it will take care of sending it back to the client.
 
 The main handler used by Cuprate is implemented in the `cuprate-rpc-handler` crate;
-it implements the regular RPC server modeled after `monerod`.
+it implements the standard RPC handlers modeled after `monerod`.
 
 # Purpose
 `cuprate-rpc-interface` is built on-top of [`axum`],
@@ -28,14 +30,15 @@ which is the crate _actually_ handling everything.
 
 This crate simply handles:
 - Registering endpoint routes (e.g. `/get_block.bin`)
-- Handler function signatures
-- (De)serialization of data (JSON-RPC methods/params, binary, JSON)
+- Defining handler function signatures
+- (De)serialization of requests/responses (JSON-RPC, binary, JSON)
 
-The actual server details are all handled by the [`axum`] and [`tower`] ecosystem, i.e.
-the whole purpose of this crate is to:
+The actual server details are all handled by the [`axum`] and [`tower`] ecosystem.
+
+The proper usage of this crate is to:
 1. Implement a [`RpcHandler`]
 2. Use it with [`create_router`] to generate an
-   [`axum::Router`] with all Monero RPC routes/types set
+   [`axum::Router`] with all Monero RPC routes set
 4. Do whatever with it
 
 # The [`RpcHandler`]
@@ -53,55 +56,94 @@ for RPC server operation.
 The only state currently need is [`RpcHandler::restricted`], which determines if an RPC
 server is restricted or not, and thus, if some endpoints/methods are allowed or not.
 
+# Unknown endpoint behavior
+TODO: decide what this crate should return (per different endpoint)
+when a request is received to an unknown endpoint, including HTTP stuff, e.g. status code.
+
+# Unknown JSON-RPC method behavior
+TODO: decide what this crate returns when a `/json_rpc`
+request is received with an unknown method, including HTTP stuff, e.g. status code.
+
 # Example
 Example usage of this crate + starting an RPC server.
 
-This uses `RpcHandlerDummy` as the handler; it responds with the
-correct response, but always with a default value.
+This uses `RpcHandlerDummy` as the handler; it always responds with the
+correct response type, but set to a default value regardless of the request.
 
 ```rust
 use std::sync::Arc;
 
-use axum::{extract::Request, response::Response};
 use tokio::{net::TcpListener, sync::Barrier};
 
-use cuprate_rpc_types::other::{OtherRequest, OtherResponse};
+use cuprate_json_rpc::{Request, Response, Id};
+use cuprate_rpc_types::{
+    json::{JsonRpcRequest, JsonRpcResponse, GetBlockCountResponse},
+    other::{OtherRequest, OtherResponse},
+};
 use cuprate_rpc_interface::{create_router, RpcHandlerDummy, RpcRequest};
 
-#[tokio::main]
-async fn main() {
-    // Create the router.
-    let state = RpcHandlerDummy { restricted: false };
-    let router = create_router().with_state(state);
-
-    // Start a server.
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
-        .unwrap();
-    let port = listener.local_addr().unwrap().port();
-
-    // Run the server with `axum`.
-    let barrier = Arc::new(Barrier::new(2));
-    let barrier2 = barrier.clone();
-    tokio::task::spawn(async move {
-        barrier2.wait();
-        axum::serve(listener, router).await.unwrap();
-    });
-    barrier.wait();
-
-    // Send a request. This endpoint has no inputs.
+// Send a `/get_height` request. This endpoint has no inputs.
+async fn get_height(port: u16) -> OtherResponse {
     let url = format!("http://127.0.0.1:{port}/get_height");
-    let body: OtherResponse = ureq::get(&url)
+    ureq::get(&url)
         .set("Content-Type", "application/json")
         .call()
         .unwrap()
         .into_json()
-        .unwrap();
+        .unwrap()
+}
 
-    // Assert the response is as expected.
-    // We just made an RPC call :)
+// Send a JSON-RPC request with the `get_block_count` method.
+//
+// The returned [`String`] is JSON.
+async fn get_block_count(port: u16) -> String {
+    let url = format!("http://127.0.0.1:{port}/json_rpc");
+    let method = JsonRpcRequest::GetBlockCount(Default::default());
+    let request = Request::new(method);
+    ureq::get(&url)
+        .set("Content-Type", "application/json")
+        .send_json(request)
+        .unwrap()
+        .into_string()
+        .unwrap()
+}
+
+#[tokio::main]
+async fn main() {
+    // Start a local RPC server.
+    let port = {
+        // Create the router.
+        let state = RpcHandlerDummy { restricted: false };
+        let router = create_router().with_state(state);
+
+        // Start a server.
+        let listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        // Run the server with `axum`.
+        tokio::task::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+
+        port
+    };
+
+    // Assert the response is the default.
+    let response = get_height(port).await;
     let expected = OtherResponse::GetHeight(Default::default());
-    assert_eq!(body, expected);
+    assert_eq!(response, expected);
+
+    // Assert the response JSON is correct.
+    let response = get_block_count(port).await;
+    let expected = r#"{"jsonrpc":"2.0","id":null,"result":{"status":"OK","untrusted":false,"count":0}}"#;
+    assert_eq!(response, expected);
+
+    // Assert that (de)serialization works.
+    let expected = Response::ok(Id::Null, Default::default());
+    let response: Response<GetBlockCountResponse> = serde_json::from_str(&response).unwrap();
+    assert_eq!(response, expected);
 }
 ```
 

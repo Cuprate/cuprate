@@ -9,12 +9,13 @@ use crate::{
 };
 
 //---------------------------------------------------------------------------------------------------- Router
-/// Create the RPC router.
+/// Create the RPC [`axum::Router`].
 ///
-/// TODO
+/// This creates an [`axum::Router`] with all Monero RPC routes
+/// registered and handled by your [`RpcHandler`] of choice.
 ///
 /// # Routes
-/// List of `monerod` routes, [here](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.h#L97-L189).
+/// For a list of all `monerod` routes, [here](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.h#L97-L189), or the source code of this function.
 #[rustfmt::skip]
 pub fn create_router<H: RpcHandler>() -> Router<H> {
     Router::new()

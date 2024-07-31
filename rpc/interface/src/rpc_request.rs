@@ -1,16 +1,23 @@
-//! TODO
+//! RPC requests.
 
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_rpc_types::{bin::BinRequest, json::JsonRpcRequest, other::OtherRequest};
 
-//---------------------------------------------------------------------------------------------------- TODO
-/// TODO
+//---------------------------------------------------------------------------------------------------- RpcRequest
+/// All possible RPC requests.
+///
+/// This enum encapsulates all possible RPC requests:
+/// - JSON RPC 2.0 requests
+/// - Binary requests
+/// - Other JSON requests
+///
+/// It is the `Request` type required to be used in an [`RpcHandler`](crate::RpcHandler).
 pub enum RpcRequest {
-    /// TODO
+    /// JSON-RPC 2.0 requests.
     JsonRpc(cuprate_json_rpc::Request<JsonRpcRequest>),
-    /// TODO
+    /// Binary requests.
     Binary(BinRequest),
-    /// TODO
+    /// Other JSON requests.
     Other(OtherRequest),
 }
 

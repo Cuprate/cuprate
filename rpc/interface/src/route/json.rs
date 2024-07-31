@@ -1,4 +1,4 @@
-//! TODO
+//! JSON-RPC 2.0 endpoint route functions.
 #![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import
