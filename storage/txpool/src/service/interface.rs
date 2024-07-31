@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadRequest
 pub enum TxpoolReadRequest {
-    GetTransaction(TransactionHash),
+    GetTransactionBlob(TransactionHash),
     TransactionInPool(TransactionHash),
 }
 

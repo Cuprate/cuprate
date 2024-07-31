@@ -13,6 +13,8 @@ pub struct TransactionInfo {
     pub fee: u64,
     pub weight: usize,
     pub state_stem: bool,
+
+    pub double_spend_seen: bool,
 }
 
 /// [`CachedVerificationState`] in a format that can be stored into the database.
