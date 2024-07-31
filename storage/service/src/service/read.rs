@@ -12,7 +12,10 @@ use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
 /// The [`rayon::ThreadPool`] service.
 ///
-/// Uses an inner request handler and a rayon thread-pool to asynchronously handler requests.
+/// Uses an inner request handler and a rayon thread-pool to asynchronously handle requests.
+///
+/// - `Req` is the request type
+/// - `Res` is the response type
 pub struct DatabaseReadService<Req, Res> {
     /// Handle to the custom `rayon` DB reader thread-pool.
     ///
@@ -24,7 +27,7 @@ pub struct DatabaseReadService<Req, Res> {
     inner_handler: Arc<dyn Fn(Req) -> Result<Res, RuntimeError> + Send + Sync + 'static>,
 }
 
-// deriving clone means Req & Res needs to be clone, when they don't.
+// Deriving [`Clone`] means `Req` & `Res` need to be `Clone`, even if they aren't.
 impl<Req, Res> Clone for DatabaseReadService<Req, Res> {
     fn clone(&self) -> Self {
         Self {
