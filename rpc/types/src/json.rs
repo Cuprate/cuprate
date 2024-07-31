@@ -97,7 +97,17 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 943..=994,
 
     // The base type name.
-    GetBlockTemplate,
+    //
+    // After the type name, 2 optional idents are allowed:
+    // - `restricted`
+    // - `empty`
+    //
+    // These have to be within `()` and will affect the
+    // [`crate::RpcCall`] implementation on the request type.
+    //
+    // This type is not either restricted or empty so nothing is
+    // here, but the correct syntax is shown in a comment below:
+    GetBlockTemplate /* (restricted, empty) */,
 
     // The request type.
     //

@@ -60,6 +60,13 @@ macro_rules! define_request_and_response {
         // Attributes added here will apply to _both_
         // request and response types.
         $( #[$type_attr:meta] )*
+        // After the type name, 2 optional idents are allowed:
+        //
+        // - `restricted`
+        // - `empty`
+        //
+        // These have to be within `()` and will affect the
+        // [`crate::RpcCall`] implementation on the request type.
         $type_name:ident $(($restricted:ident $(, $empty:ident)?))?,
 
         // The request type (and any doc comments, derives, etc).
@@ -142,9 +149,15 @@ macro_rules! define_request_and_response {
 pub(crate) use define_request_and_response;
 
 //---------------------------------------------------------------------------------------------------- impl_rpc_call
-/// TODO
+/// Implement [`crate::RpcCall`] and [`crate::RpcCallValue`] on request types.
+///
+/// Input for this is:
+/// `$REQUEST_TYPE restricted empty`
+/// where `restricted` and `empty` are the idents themselves.
+/// The implementation for [`crate::RpcCall`] will change
+/// depending if they exist or not.
 macro_rules! impl_rpc_call {
-    // TODO
+    // Restricted and empty RPC calls.
     ($t:ident, restricted, empty) => {
         impl $crate::RpcCall for $t {
             const IS_RESTRICTED: bool = true;
@@ -162,7 +175,7 @@ macro_rules! impl_rpc_call {
         }
     };
 
-    // TODO
+    // Empty RPC calls.
     ($t:ident, empty) => {
         impl $crate::RpcCall for $t {
             const IS_RESTRICTED: bool = false;
@@ -180,7 +193,7 @@ macro_rules! impl_rpc_call {
         }
     };
 
-    // TODO
+    // Restricted RPC calls.
     ($t:ident, restricted) => {
         impl $crate::RpcCall for $t {
             const IS_RESTRICTED: bool = true;
@@ -188,7 +201,7 @@ macro_rules! impl_rpc_call {
         }
     };
 
-    // TODO
+    // Not restrict or empty RPC calls.
     ($t:ident) => {
         impl $crate::RpcCall for $t {
             const IS_RESTRICTED: bool = false;

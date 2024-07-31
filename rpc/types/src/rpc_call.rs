@@ -1,9 +1,18 @@
-//! TODO
+//! RPC call metadata.
 
 //---------------------------------------------------------------------------------------------------- Import
 
-//---------------------------------------------------------------------------------------------------- Struct definitions
-/// TODO
+//---------------------------------------------------------------------------------------------------- RpcCall
+/// Metadata about an RPC call.
+///
+/// This trait describes some metadata about RPC requests.
+///
+/// It is implemented on all request types within:
+/// - [`crate::json`]
+/// - [`crate::other`]
+/// - [`crate::bin`]
+///
+/// See also [`RpcCallValue`] for a dynamic by-value version of this trait.
 pub trait RpcCall {
     /// Is `true` if this RPC method should
     /// only be allowed on local servers.
@@ -13,49 +22,58 @@ pub trait RpcCall {
     /// RPC servers.
     ///
     /// ```rust
-    /// use cuprate_rpc_types::{
-    ///     RpcCall,
-    ///     json::{GetBlockCountRequest, GetConnectionsRequest},
-    /// };
+    /// use cuprate_rpc_types::{RpcCall, json::*};
     ///
     /// // Allowed method, even on restricted RPC servers (18089).
-    /// assert_eq!(GetBlockCountRequest::IS_RESTRICTED.is_some_and(|x| !x));
+    /// assert!(!GetBlockCountRequest::IS_RESTRICTED);
     ///
     /// // Restricted methods, only allowed
     /// // for unrestricted RPC servers (18081).
-    /// assert_eq!(GetConnectionsRequest::IS_RESTRICTED.is_some_and(|x| x));
+    /// assert!(GetConnectionsRequest::IS_RESTRICTED);
     /// ```
     const IS_RESTRICTED: bool;
 
-    /// TODO
+    /// Is `true` if this RPC method has no inputs, i.e. it is a `struct` with no fields.
+    ///
+    /// ```rust
+    /// use cuprate_rpc_types::{RpcCall, json::*};
+    ///
+    /// assert!(GetBlockCountRequest::IS_EMPTY);
+    /// assert!(!OnGetBlockHashRequest::IS_EMPTY);
+    /// ```
     const IS_EMPTY: bool;
 }
 
-/// TODO
+//---------------------------------------------------------------------------------------------------- RpcCallValue
+/// By-value version of [`RpcCall`].
+///
+/// This trait is a mirror of [`RpcCall`],
+/// except it takes `self` by value instead
+/// of being a `const` property.
+///
+/// This exists for `enum`s where requests must be dynamically
+/// `match`ed like [`JsonRpcRequest`](crate::json::JsonRpcRequest).
+///
+/// All types that implement [`RpcCall`] automatically implement [`RpcCallValue`].
 pub trait RpcCallValue {
-    /// Returns `true` if this RPC method should
-    /// only be allowed on local servers.
-    ///
-    /// If this returns `false`, it should be
-    /// okay to execute the method even on restricted
-    /// RPC servers.
+    /// Same as [`RpcCall::IS_RESTRICTED`].
     ///
     /// ```rust
-    /// use cuprate_rpc_types::{
-    ///     RpcCall,
-    ///     json::{GetBlockCountRequest, GetConnectionsRequest},
-    /// };
+    /// use cuprate_rpc_types::{RpcCallValue, json::*};
     ///
-    /// // Allowed method, even on restricted RPC servers (18089).
-    /// assert_eq!(GetBlockCountRequest::IS_RESTRICTED.is_some_and(|x| !x));
-    ///
-    /// // Restricted methods, only allowed
-    /// // for unrestricted RPC servers (18081).
-    /// assert_eq!(GetConnectionsRequest::IS_RESTRICTED.is_some_and(|x| x));
+    /// assert!(!GetBlockCountRequest::default().is_restricted());
+    /// assert!(GetConnectionsRequest::default().is_restricted());
     /// ```
     fn is_restricted(&self) -> bool;
 
-    /// TODO
+    /// Same as [`RpcCall::IS_EMPTY`].
+    ///
+    /// ```rust
+    /// use cuprate_rpc_types::{RpcCallValue, json::*};
+    ///
+    /// assert!(GetBlockCountRequest::default().is_empty());
+    /// assert!(!OnGetBlockHashRequest::default().is_empty());
+    /// ```
     fn is_empty(&self) -> bool;
 }
 

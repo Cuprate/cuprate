@@ -953,7 +953,21 @@ define_request_and_response! {
 }
 
 //---------------------------------------------------------------------------------------------------- Request
-/// TODO
+/// Other JSON requests.
+///
+/// This enum contains all [`crate::other`] requests.
+///
+/// The `serde` implementation will (de)serialize from
+/// the inner variant itself, e.g. [`OtherRequest::SetLogLevel`]
+/// has the same (de)serialization as [`SetLogLevelRequest`].
+///
+/// ```rust
+/// use cuprate_rpc_types::other::*;
+///
+/// let request = OtherRequest::SetLogLevel(Default::default());
+/// let json = serde_json::to_string(&request).unwrap();
+/// assert_eq!(json, r#"{"level":0}"#);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
@@ -1055,7 +1069,21 @@ impl RpcCallValue for OtherRequest {
 }
 
 //---------------------------------------------------------------------------------------------------- Response
-/// TODO
+/// Other JSON responses.
+///
+/// This enum contains all [`crate::other`] responses.
+///
+/// The `serde` implementation will (de)serialize from
+/// the inner variant itself, e.g. [`OtherRequest::SetBootstrapDaemon`]
+/// has the same (de)serialization as [`SetBootstrapDaemonResponse`].
+///
+/// ```rust
+/// use cuprate_rpc_types::other::*;
+///
+/// let response = OtherResponse::SetBootstrapDaemon(Default::default());
+/// let json = serde_json::to_string(&response).unwrap();
+/// assert_eq!(json, r#"{"status":"OK"}"#);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
