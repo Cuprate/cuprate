@@ -57,7 +57,6 @@
 //! use cuprate_test_utils::data::block_v16_tx0;
 //! use cuprate_blockchain::{
 //!     cuprate_database::{
-//!         ConcreteEnv,
 //!         Env, EnvInner,
 //!         DatabaseRo, DatabaseRw, TxRo, TxRw,
 //!     },
@@ -65,6 +64,11 @@
 //!     tables::{Tables, TablesMut, OpenTables},
 //!     ops::block::{add_block, pop_block},
 //! };
+//!
+//! #[cfg(feature = "heed")]
+//! use cuprate_blockchain::cuprate_database::HeedEnv as ConcreteEnv;
+//! #[cfg(all(feature = "redb",not(feature = "heed")))]
+//! use cuprate_blockchain::cuprate_database::RedbEnv as ConcreteEnv;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
@@ -75,7 +79,7 @@
 //!     .build();
 //!
 //! // Initialize the database environment.
-//! let env = cuprate_blockchain::open(config)?;
+//! let env = cuprate_blockchain::open::<ConcreteEnv>(config)?;
 //!
 //! // Open up a transaction + tables for writing.
 //! let env_inner = env.env_inner();

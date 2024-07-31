@@ -15,7 +15,14 @@ use std::{
 use pretty_assertions::assert_eq;
 use tower::{Service, ServiceExt};
 
-use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
+
+#[cfg(all(feature = "redb", not(feature = "heed")))]
+use cuprate_database::RedbEnv as ConcreteEnv;
+
+#[cfg(feature = "heed")]
+use cuprate_database::HeedEnv as ConcreteEnv;
+
 use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse, BCWriteRequest},
@@ -29,7 +36,7 @@ use crate::{
         blockchain::chain_height,
         output::id_to_output_on_chain,
     },
-    service::{init, DatabaseReadHandle, DatabaseWriteHandle},
+    service::{do_init, DatabaseReadHandle, DatabaseWriteHandle},
     tables::{OpenTables, Tables, TablesIter},
     tests::AssertTableLen,
     types::{Amount, AmountIndex, PreRctOutputId},
@@ -48,8 +55,7 @@ fn init_service() -> (
         .db_directory(Cow::Owned(tempdir.path().into()))
         .low_power()
         .build();
-    let (reader, writer) = init(config).unwrap();
-    let env = reader.env().clone();
+    let (reader, writer, env) = do_init::<ConcreteEnv>(config).unwrap();
     (reader, writer, env, tempdir)
 }
 
