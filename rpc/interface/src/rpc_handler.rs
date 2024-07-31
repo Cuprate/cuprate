@@ -52,6 +52,6 @@ pub trait RpcHandler:
     /// - The `/pop_blocks` endpoint
     ///
     /// will automatically be denied access when using the
-    /// [`axum::Router`] provided by [`crate::create_router`].
+    /// [`axum::Router`] provided by [`RouterBuilder`](crate::RouterBuilder).
     fn restricted(&self) -> bool;
 }

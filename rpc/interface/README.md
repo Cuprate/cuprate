@@ -37,7 +37,7 @@ The actual server details are all handled by the [`axum`] and [`tower`] ecosyste
 
 The proper usage of this crate is to:
 1. Implement a [`RpcHandler`]
-2. Use it with [`create_router`] to generate an
+2. Use it with [`RouterBuilder`] to generate an
    [`axum::Router`] with all Monero RPC routes set
 4. Do whatever with it
 
@@ -80,7 +80,7 @@ use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse, GetBlockCountResponse},
     other::{OtherRequest, OtherResponse},
 };
-use cuprate_rpc_interface::{create_router, RpcHandlerDummy, RpcRequest};
+use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy, RpcRequest};
 
 // Send a `/get_height` request. This endpoint has no inputs.
 async fn get_height(port: u16) -> OtherResponse {
@@ -114,7 +114,7 @@ async fn main() {
     let port = {
         // Create the router.
         let state = RpcHandlerDummy { restricted: false };
-        let router = create_router().with_state(state);
+        let router = RouterBuilder::new().all().build().with_state(state);
 
         // Start a server.
         let listener = TcpListener::bind("127.0.0.1:0")
