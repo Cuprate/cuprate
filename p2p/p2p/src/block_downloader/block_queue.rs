@@ -131,7 +131,7 @@ mod tests {
                 start_height,
                 block_batch: BlockBatch {
                     blocks: vec![],
-                    size: start_height as usize,
+                    size: start_height,
                     peer_handle,
                 },
             }

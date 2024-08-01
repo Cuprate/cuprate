@@ -130,10 +130,10 @@ pub(crate) fn ring_ct_semantic_checks(
     let rct_type = proofs.rct_type();
 
     check_rct_type(&rct_type, *hf, tx_hash)?;
-    check_output_range_proofs(&proofs, verifier)?;
+    check_output_range_proofs(proofs, verifier)?;
 
     if rct_type != RctType::AggregateMlsagBorromean {
-        simple_type_balances(&proofs)?;
+        simple_type_balances(proofs)?;
     }
 
     Ok(())

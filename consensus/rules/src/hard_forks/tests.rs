@@ -35,9 +35,9 @@ prop_compose! {
     fn arb_full_hf_votes()
                    (
                        // we can't use HardFork as for some reason it overflows the stack, so we use u8.
-                       votes in any::<[u8; TEST_WINDOW_SIZE as usize]>()
+                       votes in any::<[u8; TEST_WINDOW_SIZE]>()
                    ) -> HFVotes {
-        let mut vote_count = HFVotes::new(TEST_WINDOW_SIZE as usize);
+        let mut vote_count = HFVotes::new(TEST_WINDOW_SIZE);
         for vote in votes {
             vote_count.add_vote_for_hf(&HardFork::from_vote(vote % 17));
         }

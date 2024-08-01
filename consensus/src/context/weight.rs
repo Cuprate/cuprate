@@ -101,17 +101,11 @@ impl BlockWeightsCache {
 
         Ok(BlockWeightsCache {
             short_term_block_weights: rayon_spawn_async(move || {
-                RollingMedian::from_vec(
-                    short_term_block_weights,
-                    usize::try_from(config.short_term_window).unwrap(),
-                )
+                RollingMedian::from_vec(short_term_block_weights, config.short_term_window)
             })
             .await,
             long_term_weights: rayon_spawn_async(move || {
-                RollingMedian::from_vec(
-                    long_term_weights,
-                    usize::try_from(config.long_term_window).unwrap(),
-                )
+                RollingMedian::from_vec(long_term_weights, config.long_term_window)
             })
             .await,
             tip_height: chain_height - 1,

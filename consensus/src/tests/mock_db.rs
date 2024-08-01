@@ -173,8 +173,8 @@ impl Service<BCReadRequest> for DummyDatabase {
                     BCResponse::BlockHash(hash)
                 }
                 BCReadRequest::BlockExtendedHeaderInRange(range, _) => {
-                    let mut end = usize::try_from(range.end).unwrap();
-                    let mut start = usize::try_from(range.start).unwrap();
+                    let mut end = range.end;
+                    let mut start = range.start;
 
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();

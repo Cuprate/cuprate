@@ -135,11 +135,7 @@ impl DifficultyCache {
         numb_blocks: usize,
         database: D,
     ) -> Result<(), ExtendedConsensusError> {
-        let Some(retained_blocks) = self
-            .timestamps
-            .len()
-            .checked_sub(usize::try_from(numb_blocks).unwrap())
-        else {
+        let Some(retained_blocks) = self.timestamps.len().checked_sub(numb_blocks) else {
             // More blocks to pop than we have in the cache, so just restart a new cache.
             *self = Self::init_from_chain_height(
                 self.last_accounted_height - numb_blocks + 1,

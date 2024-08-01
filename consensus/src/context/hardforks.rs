@@ -79,12 +79,8 @@ impl HardForkState {
 
         let block_start = chain_height.saturating_sub(config.window);
 
-        let votes = get_votes_in_range(
-            database.clone(),
-            block_start..chain_height,
-            usize::try_from(config.window).unwrap(),
-        )
-        .await?;
+        let votes =
+            get_votes_in_range(database.clone(), block_start..chain_height, config.window).await?;
 
         if chain_height > config.window {
             debug_assert_eq!(votes.total_votes(), config.window)

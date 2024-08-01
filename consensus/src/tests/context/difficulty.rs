@@ -65,7 +65,7 @@ async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
     let mut db_builder = DummyDatabaseBuilder::default();
     for (cum_dif, timestamp) in DIF_3000000_3002000
         .iter()
-        .take(cfg.total_block_count() as usize)
+        .take(cfg.total_block_count())
     {
         db_builder.add_block(
             DummyBlockExtendedHeader::default().with_difficulty_info(*timestamp, *cum_dif),

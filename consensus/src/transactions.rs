@@ -130,13 +130,10 @@ impl TransactionVerificationData {
         match &tx {
             Transaction::V1 { prefix, .. } => {
                 for input in &prefix.inputs {
-                    match input {
-                        Input::ToKey { amount, .. } => {
-                            fee = fee
-                                .checked_add(amount.unwrap_or(0))
-                                .ok_or(TransactionError::InputsOverflow)?;
-                        }
-                        _ => (),
+                    if let Input::ToKey { amount, .. } = input {
+                        fee = fee
+                            .checked_add(amount.unwrap_or(0))
+                            .ok_or(TransactionError::InputsOverflow)?;
                     }
                 }
 
