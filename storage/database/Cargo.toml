@@ -9,7 +9,7 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/database"
 keywords    = ["cuprate", "database"]
 
 [features]
-default     = ["heed"]
+# default     = ["heed"]
 # default     = ["redb"]
 # default     = ["redb-memory"]
 heed        = ["dep:heed"]
@@ -21,6 +21,7 @@ bytemuck  = { version = "1.14.3", features = ["must_cast", "derive", "min_const_
 bytes     = { workspace = true }
 cfg-if    = { workspace = true }
 page_size = { version = "0.6.0" } # Needed for database resizes, they must be a multiple of the OS page size.
+paste     = { workspace = true }
 thiserror = { workspace = true }
 
 # Optional features.

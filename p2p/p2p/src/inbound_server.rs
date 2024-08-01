@@ -87,8 +87,8 @@ where
                 addr,
                 peer_stream,
                 peer_sink,
-                direction: ConnectionDirection::InBound,
-                permit,
+                direction: ConnectionDirection::Inbound,
+                permit: Some(permit),
             });
 
             let cloned_pool = client_pool.clone();

@@ -121,8 +121,7 @@ pub enum ChainSvcResponse {
     /// The response for [`ChainSvcRequest::FindFirstUnknown`].
     ///
     /// Contains the index of the first unknown block and its expected height.
-    // TODO: make this a named field variant instead of a tuple
-    FindFirstUnknown(usize, usize),
+    FindFirstUnknown(Option<(usize, u64)>),
     /// The response for [`ChainSvcRequest::CumulativeDifficulty`].
     ///
     /// The current cumulative difficulty of our chain.
@@ -195,7 +194,7 @@ where
 /// - download the next batch of blocks
 /// - request the next chain entry
 /// - download an already requested batch of blocks (this might happen due to an error in the previous request
-/// or because the queue of ready blocks is too large, so we need the oldest block to clear it).
+///   or because the queue of ready blocks is too large, so we need the oldest block to clear it).
 struct BlockDownloader<N: NetworkZone, S, C> {
     /// The client pool.
     client_pool: Arc<ClientPool<N>>,
@@ -208,7 +207,7 @@ struct BlockDownloader<N: NetworkZone, S, C> {
     /// The amount of blocks to request in the next batch.
     amount_of_blocks_to_request: usize,
     /// The height at which [`Self::amount_of_blocks_to_request`] was updated.
-    amount_of_blocks_to_request_updated_at: usize,
+    amount_of_blocks_to_request_updated_at: u64,
 
     /// The amount of consecutive empty chain entries we received.
     ///
@@ -226,12 +225,12 @@ struct BlockDownloader<N: NetworkZone, S, C> {
     /// The current inflight requests.
     ///
     /// This is a map of batch start heights to block IDs and related information of the batch.
-    inflight_requests: BTreeMap<usize, BlocksToRetrieve<N>>,
+    inflight_requests: BTreeMap<u64, BlocksToRetrieve<N>>,
 
     /// A queue of start heights from failed batches that should be retried.
     ///
     /// Wrapped in [`Reverse`] so we prioritize early batches.
-    failed_batches: BinaryHeap<Reverse<usize>>,
+    failed_batches: BinaryHeap<Reverse<u64>>,
 
     block_queue: BlockQueue,
 
@@ -525,7 +524,7 @@ where
     /// Handles a response to a request to get blocks from a peer.
     async fn handle_download_batch_res(
         &mut self,
-        start_height: usize,
+        start_height: u64,
         res: Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError>,
         chain_tracker: &mut ChainTracker<N>,
         pending_peers: &mut BTreeMap<PruningSeed, Vec<ClientPoolDropGuard<N>>>,
@@ -693,19 +692,18 @@ where
 /// The return value from the block download tasks.
 struct BlockDownloadTaskResponse<N: NetworkZone> {
     /// The start height of the batch.
-    start_height: usize,
+    start_height: u64,
     /// A result containing the batch or an error.
     result: Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError>,
 }
 
 /// Returns if a peer has all the blocks in a range, according to its [`PruningSeed`].
-fn client_has_block_in_range(
-    pruning_seed: &PruningSeed,
-    start_height: usize,
-    length: usize,
-) -> bool {
+fn client_has_block_in_range(pruning_seed: &PruningSeed, start_height: u64, length: usize) -> bool {
     pruning_seed.has_full_block(start_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
-        && pruning_seed.has_full_block(start_height + length, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+        && pruning_seed.has_full_block(
+            start_height + u64::try_from(length).unwrap(),
+            CRYPTONOTE_MAX_BLOCK_HEIGHT,
+        )
 }
 
 /// Calculates the next amount of blocks to request in a batch.

@@ -127,6 +127,12 @@ pub struct DummyDatabase {
     dummy_height: Option<usize>,
 }
 
+impl DummyDatabase {
+    pub fn add_block(&mut self, block: DummyBlockExtendedHeader) {
+        self.blocks.write().unwrap().push(block)
+    }
+}
+
 impl Service<BCReadRequest> for DummyDatabase {
     type Response = BCResponse;
     type Error = BoxError;
@@ -161,12 +167,12 @@ impl Service<BCReadRequest> for DummyDatabase {
                             .ok_or("block not in database!")?,
                     )
                 }
-                BCReadRequest::BlockHash(id) => {
+                BCReadRequest::BlockHash(id, _) => {
                     let mut hash = [0; 32];
                     hash[0..8].copy_from_slice(&id.to_le_bytes());
                     BCResponse::BlockHash(hash)
                 }
-                BCReadRequest::BlockExtendedHeaderInRange(range) => {
+                BCReadRequest::BlockExtendedHeaderInRange(range, _) => {
                     let mut end = usize::try_from(range.end).unwrap();
                     let mut start = usize::try_from(range.start).unwrap();
 
@@ -200,7 +206,7 @@ impl Service<BCReadRequest> for DummyDatabase {
 
                     BCResponse::ChainHeight(height, top_hash)
                 }
-                BCReadRequest::GeneratedCoins => BCResponse::GeneratedCoins(0),
+                BCReadRequest::GeneratedCoins(_) => BCResponse::GeneratedCoins(0),
                 _ => unimplemented!("the context svc should not need these requests!"),
             })
         }

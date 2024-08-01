@@ -38,7 +38,7 @@ pub enum HardForkError {
 }
 
 /// Information about a given hard-fork.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HFInfo {
     height: usize,
     threshold: usize,
@@ -50,7 +50,7 @@ impl HFInfo {
 }
 
 /// Information about every hard-fork Monero has had.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HFsInfo([HFInfo; NUMB_OF_HARD_FORKS]);
 
 impl HFsInfo {
@@ -243,7 +243,7 @@ impl HardFork {
 }
 
 /// A struct holding the current voting state of the blockchain.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HFVotes {
     votes: [usize; NUMB_OF_HARD_FORKS],
     vote_list: VecDeque<HardFork>,
@@ -290,6 +290,28 @@ impl HFVotes {
         if self.vote_list.len() > self.window_size {
             let hf = self.vote_list.pop_front().unwrap();
             self.votes[hf as usize - 1] -= 1;
+        }
+    }
+
+    /// Pop a number of blocks from the top of the cache and push some values into the front of the cache,
+    /// i.e. the oldest blocks.
+    ///
+    /// `old_block_votes` should contain the HFs below the window that now will be in the window after popping
+    /// blocks from the top.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if `old_block_votes` contains more HFs than `numb_blocks`.
+    pub fn reverse_blocks(&mut self, numb_blocks: usize, old_block_votes: Self) {
+        assert!(old_block_votes.vote_list.len() <= numb_blocks);
+
+        for hf in self.vote_list.drain(self.vote_list.len() - numb_blocks..) {
+            self.votes[hf as usize - 1] -= 1;
+        }
+
+        for old_vote in old_block_votes.vote_list.into_iter().rev() {
+            self.vote_list.push_front(old_vote);
+            self.votes[old_vote as usize - 1] += 1;
         }
     }
 

@@ -16,14 +16,14 @@
 //! This module defines Monero protocol messages
 //!
 //! Protocol message requests don't have to be responded to in order unlike
-//! admin messages.   
+//! admin messages.
 
 use bytes::Bytes;
 
 use cuprate_epee_encoding::{container_as_blob::ContainerAsBlob, epee_object};
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
 
-use super::common::BlockCompleteEntry;
+use crate::p2p::common::BlockCompleteEntry;
 
 /// A block that SHOULD have transactions
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -61,7 +61,7 @@ epee_object!(
 /// A Request For Blocks
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetObjectsRequest {
-    /// Block hashes we want
+    /// Block hashes wanted.
     pub blocks: ByteArrayVec<32>,
     /// Pruned
     pub pruned: bool,

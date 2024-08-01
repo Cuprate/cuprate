@@ -5,14 +5,14 @@
 //! database operations.
 //!
 //! # `impl Table`
-//! `ops/` functions take [`Tables`](crate::tables::Tables) and
+//! Functions in this module take [`Tables`](crate::tables::Tables) and
 //! [`TablesMut`](crate::tables::TablesMut) directly - these are
 //! _already opened_ database tables.
 //!
-//! As such, the function puts the responsibility
-//! of transactions, tables, etc on the caller.
+//! As such, the responsibility of
+//! transactions, tables, etc, are on the caller.
 //!
-//! This does mean these functions are mostly as lean
+//! Notably, this means that these functions are as lean
 //! as possible, so calling them in a loop should be okay.
 //!
 //! # Atomicity
@@ -61,9 +61,8 @@
 //!         Env, EnvInner,
 //!         DatabaseRo, DatabaseRw, TxRo, TxRw,
 //!     },
-//!     OpenTables,
 //!     config::ConfigBuilder,
-//!     tables::{Tables, TablesMut},
+//!     tables::{Tables, TablesMut, OpenTables},
 //!     ops::block::{add_block, pop_block},
 //! };
 //!

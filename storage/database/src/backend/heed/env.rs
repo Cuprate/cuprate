@@ -7,25 +7,22 @@ use std::{
     sync::{RwLock, RwLockReadGuard},
 };
 
-use heed::{EnvFlags, EnvOpenOptions};
+use heed::{DatabaseFlags, EnvFlags, EnvOpenOptions};
 
 use crate::{
     backend::heed::{
         database::{HeedTableRo, HeedTableRw},
+        storable::StorableHeed,
         types::HeedDb,
     },
     config::{Config, SyncMode},
     database::{DatabaseIter, DatabaseRo, DatabaseRw},
     env::{Env, EnvInner},
     error::{InitError, RuntimeError},
+    key::{Key, KeyCompare},
     resize::ResizeAlgorithm,
     table::Table,
 };
-
-//---------------------------------------------------------------------------------------------------- Consts
-/// Panic message when there's a table missing.
-const PANIC_MSG_MISSING_TABLE: &str =
-    "cuprate_database::Env should uphold the invariant that all tables are already created";
 
 //---------------------------------------------------------------------------------------------------- ConcreteEnv
 /// A strongly typed, concrete database environment, backed by `heed`.
@@ -247,27 +244,34 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, heed::RoTxn<'env>, RefCell<heed::RwTxn<'env>>>
-    for RwLockReadGuard<'env, heed::Env>
+impl<'env> EnvInner<'env> for RwLockReadGuard<'env, heed::Env>
 where
     Self: 'env,
 {
+    type Ro<'a> = heed::RoTxn<'a>;
+
+    type Rw<'a> = RefCell<heed::RwTxn<'a>>;
+
     #[inline]
-    fn tx_ro(&'env self) -> Result<heed::RoTxn<'env>, RuntimeError> {
+    fn tx_ro(&self) -> Result<Self::Ro<'_>, RuntimeError> {
         Ok(self.read_txn()?)
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<RefCell<heed::RwTxn<'env>>, RuntimeError> {
+    fn tx_rw(&self) -> Result<Self::Rw<'_>, RuntimeError> {
         Ok(RefCell::new(self.write_txn()?))
     }
 
     #[inline]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &heed::RoTxn<'env>,
+        tx_ro: &Self::Ro<'_>,
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our table's const metadata.
+        //
+        // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
+        // and we're relying on that since we aren't setting that here.
+        // <https://github.com/Cuprate/cuprate/pull/198#discussion_r1659422277>
         Ok(HeedTableRo {
             db: self
                 .open_database(tx_ro, Some(T::NAME))?
@@ -279,40 +283,66 @@ where
     #[inline]
     fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &RefCell<heed::RwTxn<'env>>,
+        tx_rw: &Self::Rw<'_>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our table's const metadata.
+        //
+        // INVARIANT: LMDB caches the ordering / comparison function from [`EnvInner::create_db`],
+        // and we're relying on that since we aren't setting that here.
+        // <https://github.com/Cuprate/cuprate/pull/198#discussion_r1659422277>
         Ok(HeedTableRw {
             db: self.create_database(&mut tx_rw.borrow_mut(), Some(T::NAME))?,
             tx_rw,
         })
     }
 
-    fn create_db<T: Table>(&self, tx_rw: &RefCell<heed::RwTxn<'env>>) -> Result<(), RuntimeError> {
-        // INVARIANT: `heed` creates tables with `open_database` if they don't exist.
-        self.open_db_rw::<T>(tx_rw)?;
+    fn create_db<T: Table>(&self, tx_rw: &Self::Rw<'_>) -> Result<(), RuntimeError> {
+        // Create a database using our:
+        // - [`Table`]'s const metadata.
+        // - (potentially) our [`Key`] comparison function
+        let mut tx_rw = tx_rw.borrow_mut();
+        let mut db = self.database_options();
+        db.name(T::NAME);
+
+        // Set the key comparison behavior.
+        match <T::Key>::KEY_COMPARE {
+            // Use LMDB's default comparison function.
+            KeyCompare::Default => {
+                db.create(&mut tx_rw)?;
+            }
+
+            // Instead of setting a custom [`heed::Comparator`],
+            // use this LMDB flag; it is ~10% faster.
+            KeyCompare::Number => {
+                db.flags(DatabaseFlags::INTEGER_KEY).create(&mut tx_rw)?;
+            }
+
+            // Use a custom comparison function if specified.
+            KeyCompare::Custom(_) => {
+                db.key_comparator::<StorableHeed<T::Key>>()
+                    .create(&mut tx_rw)?;
+            }
+        }
+
         Ok(())
     }
 
     #[inline]
-    fn clear_db<T: Table>(
-        &self,
-        tx_rw: &mut RefCell<heed::RwTxn<'env>>,
-    ) -> Result<(), RuntimeError> {
+    fn clear_db<T: Table>(&self, tx_rw: &mut Self::Rw<'_>) -> Result<(), RuntimeError> {
         let tx_rw = tx_rw.get_mut();
 
-        // Open the table first...
+        // Open the table. We don't care about flags or key
+        // comparison behavior since we're clearing it anyway.
         let db: HeedDb<T::Key, T::Value> = self
             .open_database(tx_rw, Some(T::NAME))?
-            .expect(PANIC_MSG_MISSING_TABLE);
+            .ok_or(RuntimeError::TableNotFound)?;
 
-        // ...then clear it.
-        Ok(db.clear(tx_rw)?)
+        db.clear(tx_rw)?;
+
+        Ok(())
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {
-    // use super::*;
-}
+mod tests {}

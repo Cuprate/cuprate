@@ -3,10 +3,10 @@
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
 
-use crate::{config::Config, open_tables::OpenTables};
+use crate::{config::Config, tables::OpenTables};
 
 //---------------------------------------------------------------------------------------------------- Free functions
-/// Open the blockchain database, using the passed [`Config`].
+/// Open the blockchain database using the passed [`Config`].
 ///
 /// This calls [`cuprate_database::Env::open`] and prepares the
 /// database to be ready for blockchain-related usage, e.g.
@@ -50,20 +50,12 @@ pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
     // we want since it is agnostic, so we are responsible for this.
     {
         let env_inner = env.env_inner();
-        let tx_rw = env_inner.tx_rw();
-        let tx_rw = match tx_rw {
-            Ok(tx_rw) => tx_rw,
-            Err(e) => return Err(runtime_to_init_error(e)),
-        };
+        let tx_rw = env_inner.tx_rw().map_err(runtime_to_init_error)?;
 
         // Create all tables.
-        if let Err(e) = OpenTables::create_tables(&env_inner, &tx_rw) {
-            return Err(runtime_to_init_error(e));
-        };
+        OpenTables::create_tables(&env_inner, &tx_rw).map_err(runtime_to_init_error)?;
 
-        if let Err(e) = tx_rw.commit() {
-            return Err(runtime_to_init_error(e));
-        }
+        TxRw::commit(tx_rw).map_err(runtime_to_init_error)?;
     }
 
     Ok(env)

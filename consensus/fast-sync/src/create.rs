@@ -6,7 +6,10 @@ use tower::{Service, ServiceExt};
 use cuprate_blockchain::{
     config::ConfigBuilder, cuprate_database::RuntimeError, service::DatabaseReadHandle,
 };
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    Chain,
+};
 
 use cuprate_fast_sync::{hash_of_hashes, BlockId, HashOfHashes};
 
@@ -19,7 +22,7 @@ async fn read_batch(
     let mut block_ids = Vec::<BlockId>::with_capacity(BATCH_SIZE);
 
     for height in height_from..(height_from + BATCH_SIZE) {
-        let request = BCReadRequest::BlockHash(height);
+        let request = BCReadRequest::BlockHash(height, Chain::Main);
         let response_channel = handle.ready().await?.call(request);
         let response = response_channel.await?;
 

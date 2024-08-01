@@ -14,21 +14,19 @@ use monero_serai::{
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
 use proptest::{collection::vec, prelude::*};
-use tokio::{sync::Semaphore, time::timeout};
+use tokio::time::timeout;
 use tower::{service_fn, Service};
 
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
     client::{mock_client, Client, InternalPeerID, PeerInformation},
-    network_zones::ClearNet,
     services::{PeerSyncRequest, PeerSyncResponse},
-    ConnectionDirection, NetworkZone, PeerRequest, PeerResponse,
+    ClearNet, ConnectionDirection, NetworkZone, PeerRequest, PeerResponse, ProtocolRequest,
+    ProtocolResponse,
 };
 use cuprate_pruning::PruningSeed;
-use cuprate_wire::{
-    common::{BlockCompleteEntry, TransactionBlobs},
-    protocol::{ChainResponse, GetObjectsResponse},
-};
+use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
+use cuprate_wire::protocol::{ChainResponse, GetObjectsResponse};
 
 use crate::{
     block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},
@@ -94,7 +92,7 @@ prop_compose! {
     fn dummy_transaction_stragtegy(height: u64)
         (
             extra in vec(any::<u8>(), 0..1_000),
-            timelock in 0_usize..50_000_000,
+            timelock in 1_usize..50_000_000,
         )
     -> Transaction {
         Transaction::V1 {
@@ -171,18 +169,15 @@ prop_compose! {
 }
 
 fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<ClearNet> {
-    let semaphore = Arc::new(Semaphore::new(1));
-
-    let (connection_guard, connection_handle) = cuprate_p2p_core::handles::HandleBuilder::new()
-        .with_permit(semaphore.try_acquire_owned().unwrap())
-        .build();
+    let (connection_guard, connection_handle) =
+        cuprate_p2p_core::handles::HandleBuilder::new().build();
 
     let request_handler = service_fn(move |req: PeerRequest| {
         let bc = blockchain.clone();
 
         async move {
             match req {
-                PeerRequest::GetChain(chain_req) => {
+                PeerRequest::Protocol(ProtocolRequest::GetChain(chain_req)) => {
                     let mut i = 0;
                     while !bc.blocks.contains_key(&chain_req.block_ids[i]) {
                         i += 1;
@@ -204,18 +199,20 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
                         .take(200)
                         .collect::<Vec<_>>();
 
-                    Ok(PeerResponse::GetChain(ChainResponse {
-                        start_height: 0,
-                        total_height: 0,
-                        cumulative_difficulty_low64: 1,
-                        cumulative_difficulty_top64: 0,
-                        m_block_ids: block_ids.into(),
-                        m_block_weights: vec![],
-                        first_block: Default::default(),
-                    }))
+                    Ok(PeerResponse::Protocol(ProtocolResponse::GetChain(
+                        ChainResponse {
+                            start_height: 0,
+                            total_height: 0,
+                            cumulative_difficulty_low64: 1,
+                            cumulative_difficulty_top64: 0,
+                            m_block_ids: block_ids.into(),
+                            m_block_weights: vec![],
+                            first_block: Default::default(),
+                        },
+                    )))
                 }
 
-                PeerRequest::GetObjects(obj) => {
+                PeerRequest::Protocol(ProtocolRequest::GetObjects(obj)) => {
                     let mut res = Vec::with_capacity(obj.blocks.len());
 
                     for i in 0..obj.blocks.len() {
@@ -238,11 +235,13 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
                         res.push(block_entry);
                     }
 
-                    Ok(PeerResponse::GetObjects(GetObjectsResponse {
-                        blocks: res,
-                        missed_ids: ByteArrayVec::from([]),
-                        current_blockchain_height: 0,
-                    }))
+                    Ok(PeerResponse::Protocol(ProtocolResponse::GetObjects(
+                        GetObjectsResponse {
+                            blocks: res,
+                            missed_ids: ByteArrayVec::from([]),
+                            current_blockchain_height: 0,
+                        },
+                    )))
                 }
                 _ => panic!(),
             }
@@ -253,7 +252,7 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
     let info = PeerInformation {
         id: InternalPeerID::Unknown(rand::random()),
         handle: connection_handle,
-        direction: ConnectionDirection::InBound,
+        direction: ConnectionDirection::Inbound,
         pruning_seed: PruningSeed::NotPruned,
     };
 
@@ -303,7 +302,9 @@ impl Service<ChainSvcRequest> for OurChainSvc {
                     block_ids: vec![genesis],
                     cumulative_difficulty: 1,
                 },
-                ChainSvcRequest::FindFirstUnknown(_) => ChainSvcResponse::FindFirstUnknown(1, 1),
+                ChainSvcRequest::FindFirstUnknown(_) => {
+                    ChainSvcResponse::FindFirstUnknown(Some((1, 1)))
+                }
                 ChainSvcRequest::CumulativeDifficulty => ChainSvcResponse::CumulativeDifficulty(1),
             })
         }

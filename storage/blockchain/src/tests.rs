@@ -11,7 +11,10 @@ use pretty_assertions::assert_eq;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
 
-use crate::{config::ConfigBuilder, open_tables::OpenTables, tables::Tables};
+use crate::{
+    config::ConfigBuilder,
+    tables::{OpenTables, Tables},
+};
 
 //---------------------------------------------------------------------------------------------------- Struct
 /// Named struct to assert the length of all tables.

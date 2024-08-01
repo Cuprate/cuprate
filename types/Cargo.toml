@@ -9,12 +9,19 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/types"
 keywords    = ["cuprate", "types"]
 
 [features]
-default = ["blockchain"]
+default    = ["blockchain", "epee", "serde"]
 blockchain = []
+epee       = ["dep:cuprate-epee-encoding"]
+serde      = ["dep:serde"]
 
 [dependencies]
+cuprate-epee-encoding = { path = "../net/epee-encoding", optional = true }
+cuprate-fixed-bytes   = { path = "../net/fixed-bytes" }
+
+bytes            = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
+serde            = { workspace = true, features = ["derive"], optional = true }
 
 serde            = { workspace = true, optional = true }
 borsh            = { workspace = true, optional = true }

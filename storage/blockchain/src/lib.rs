@@ -114,22 +114,17 @@ compile_error!("Cuprate is only compatible with 64-bit CPUs");
 //
 // Documentation for each module is located in the respective file.
 
-pub mod config;
-
 mod constants;
-pub use constants::{DATABASE_CORRUPT_MSG, DATABASE_VERSION};
-
-mod open_tables;
-pub use open_tables::OpenTables;
-
 mod free;
+
+pub use constants::{DATABASE_CORRUPT_MSG, DATABASE_VERSION};
+pub use cuprate_database;
 pub use free::open;
 
+pub mod config;
 pub mod ops;
 pub mod tables;
 pub mod types;
-
-pub use cuprate_database;
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "service")]

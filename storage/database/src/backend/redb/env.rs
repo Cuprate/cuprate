@@ -56,8 +56,9 @@ impl Env for ConcreteEnv {
             // <https://docs.rs/redb/1.5.0/redb/enum.Durability.html#variant.Paranoid>
             // should we use that instead of Immediate?
             SyncMode::Safe => redb::Durability::Immediate,
-            SyncMode::Async => redb::Durability::Eventual,
-            SyncMode::Fast => redb::Durability::None,
+            // FIXME: `Fast` maps to `Eventual` instead of `None` because of:
+            // <https://github.com/Cuprate/cuprate/issues/149>
+            SyncMode::Async | SyncMode::Fast => redb::Durability::Eventual,
             // SOMEDAY: dynamic syncs are not implemented.
             SyncMode::FastThenSafe | SyncMode::Threshold(_) => unimplemented!(),
         };
@@ -118,18 +119,20 @@ impl Env for ConcreteEnv {
 }
 
 //---------------------------------------------------------------------------------------------------- EnvInner Impl
-impl<'env> EnvInner<'env, redb::ReadTransaction, redb::WriteTransaction>
-    for (&'env redb::Database, redb::Durability)
+impl<'env> EnvInner<'env> for (&'env redb::Database, redb::Durability)
 where
     Self: 'env,
 {
+    type Ro<'a> = redb::ReadTransaction;
+    type Rw<'a> = redb::WriteTransaction;
+
     #[inline]
-    fn tx_ro(&'env self) -> Result<redb::ReadTransaction, RuntimeError> {
+    fn tx_ro(&self) -> Result<redb::ReadTransaction, RuntimeError> {
         Ok(self.0.begin_read()?)
     }
 
     #[inline]
-    fn tx_rw(&'env self) -> Result<redb::WriteTransaction, RuntimeError> {
+    fn tx_rw(&self) -> Result<redb::WriteTransaction, RuntimeError> {
         // `redb` has sync modes on the TX level, unlike heed,
         // which sets it at the Environment level.
         //
@@ -142,7 +145,7 @@ where
     #[inline]
     fn open_db_ro<T: Table>(
         &self,
-        tx_ro: &redb::ReadTransaction,
+        tx_ro: &Self::Ro<'_>,
     ) -> Result<impl DatabaseRo<T> + DatabaseIter<T>, RuntimeError> {
         // Open up a read-only database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
@@ -154,7 +157,7 @@ where
     #[inline]
     fn open_db_rw<T: Table>(
         &self,
-        tx_rw: &redb::WriteTransaction,
+        tx_rw: &Self::Rw<'_>,
     ) -> Result<impl DatabaseRw<T>, RuntimeError> {
         // Open up a read/write database using our `T: Table`'s const metadata.
         let table: redb::TableDefinition<'static, StorableRedb<T::Key>, StorableRedb<T::Value>> =
@@ -189,7 +192,10 @@ where
         // 3. So it's not being used to open a table since that needs `&tx_rw`
         //
         // Reader-open tables do not affect this, if they're open the below is still OK.
-        redb::WriteTransaction::delete_table(tx_rw, table)?;
+        if !redb::WriteTransaction::delete_table(tx_rw, table)? {
+            return Err(RuntimeError::TableNotFound);
+        }
+
         // Re-create the table.
         // `redb` creates tables if they don't exist, so this should never panic.
         redb::WriteTransaction::open_table(tx_rw, table)?;
@@ -200,6 +206,4 @@ where
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-mod test {
-    // use super::*;
-}
+mod tests {}

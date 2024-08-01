@@ -3,44 +3,48 @@ mod router;
 
 use std::{collections::HashMap, future::Future, hash::Hash, sync::Arc};
 
-use futures::TryStreamExt;
+use futures::{Stream, StreamExt, TryStreamExt};
 use tokio::sync::mpsc::{self, UnboundedReceiver};
-use tower::{
-    discover::{Discover, ServiceList},
-    util::service_fn,
-    Service, ServiceExt,
-};
+use tower::{util::service_fn, Service, ServiceExt};
 
 use crate::{
     traits::{TxStoreRequest, TxStoreResponse},
-    State,
+    OutboundPeer, State,
 };
 
 pub fn mock_discover_svc<Req: Send + 'static>() -> (
-    impl Discover<
-        Key = usize,
-        Service = impl Service<
-            Req,
-            Future = impl Future<Output = Result<(), tower::BoxError>> + Send + 'static,
-            Error = tower::BoxError,
-        > + Send
-                      + 'static,
-        Error = tower::BoxError,
+    impl Stream<
+        Item = Result<
+            OutboundPeer<
+                usize,
+                impl Service<
+                        Req,
+                        Future = impl Future<Output = Result<(), tower::BoxError>> + Send + 'static,
+                        Error = tower::BoxError,
+                    > + Send
+                    + 'static,
+            >,
+            tower::BoxError,
+        >,
     >,
-    UnboundedReceiver<(u64, Req)>,
+    UnboundedReceiver<(usize, Req)>,
 ) {
     let (tx, rx) = mpsc::unbounded_channel();
 
-    let discover = ServiceList::new((0..).map(move |i| {
-        let tx_2 = tx.clone();
+    let discover = futures::stream::iter(0_usize..1_000_000)
+        .map(move |i| {
+            let tx_2 = tx.clone();
 
-        service_fn(move |req| {
-            tx_2.send((i, req)).unwrap();
+            Ok::<_, tower::BoxError>(OutboundPeer::Peer(
+                i,
+                service_fn(move |req| {
+                    tx_2.send((i, req)).unwrap();
 
-            async move { Ok::<(), tower::BoxError>(()) }
+                    async move { Ok::<(), tower::BoxError>(()) }
+                }),
+            ))
         })
-    }))
-    .map_err(Into::into);
+        .map_err(Into::into);
 
     (discover, rx)
 }

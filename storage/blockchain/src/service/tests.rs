@@ -19,19 +19,18 @@ use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, Run
 use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse, BCWriteRequest},
-    OutputOnChain, VerifiedBlockInformation,
+    Chain, OutputOnChain, VerifiedBlockInformation,
 };
 
 use crate::{
     config::ConfigBuilder,
-    open_tables::OpenTables,
     ops::{
         block::{get_block_extended_header_from_height, get_block_info},
         blockchain::chain_height,
         output::id_to_output_on_chain,
     },
     service::{init, DatabaseReadHandle, DatabaseWriteHandle},
-    tables::{Tables, TablesIter},
+    tables::{OpenTables, Tables, TablesIter},
     tests::AssertTableLen,
     types::{Amount, AmountIndex, PreRctOutputId},
 };
@@ -139,10 +138,15 @@ async fn test_template(
         Err(RuntimeError::KeyNotFound)
     };
 
+    let test_chain_height = chain_height(tables.block_heights()).unwrap();
+
     let chain_height = {
-        let height = chain_height(tables.block_heights()).unwrap();
-        let block_info = get_block_info(&height.saturating_sub(1), tables.block_infos()).unwrap();
-        Ok(BCResponse::ChainHeight(height, block_info.block_hash))
+        let block_info =
+            get_block_info(&test_chain_height.saturating_sub(1), tables.block_infos()).unwrap();
+        Ok(BCResponse::ChainHeight(
+            test_chain_height,
+            block_info.block_hash,
+        ))
     };
 
     let cumulative_generated_coins = Ok(BCResponse::GeneratedCoins(cumulative_generated_coins));
@@ -183,12 +187,21 @@ async fn test_template(
             BCReadRequest::BlockExtendedHeader(1),
             extended_block_header_1,
         ),
-        (BCReadRequest::BlockHash(0), block_hash_0),
-        (BCReadRequest::BlockHash(1), block_hash_1),
-        (BCReadRequest::BlockExtendedHeaderInRange(0..1), range_0_1),
-        (BCReadRequest::BlockExtendedHeaderInRange(0..2), range_0_2),
+        (BCReadRequest::BlockHash(0, Chain::Main), block_hash_0),
+        (BCReadRequest::BlockHash(1, Chain::Main), block_hash_1),
+        (
+            BCReadRequest::BlockExtendedHeaderInRange(0..1, Chain::Main),
+            range_0_1,
+        ),
+        (
+            BCReadRequest::BlockExtendedHeaderInRange(0..2, Chain::Main),
+            range_0_2,
+        ),
         (BCReadRequest::ChainHeight, chain_height),
-        (BCReadRequest::GeneratedCoins, cumulative_generated_coins),
+        (
+            BCReadRequest::GeneratedCoins(test_chain_height),
+            cumulative_generated_coins,
+        ),
         (BCReadRequest::NumberOutputsWithAmount(num_req), num_resp),
         (BCReadRequest::KeyImagesSpent(ki_req), ki_resp),
     ] {

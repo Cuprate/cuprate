@@ -16,7 +16,6 @@
 //!
 //! When using your handle to the backing store it must be remembered to keep transactions in the stem pool hidden.
 //! So handle any requests to the tx-pool like the stem side of the pool does not exist.
-//!
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
@@ -52,7 +51,7 @@ use crate::{
 ///
 /// - `buffer_size` is the size of the channel's buffer between the [`DandelionPoolService`] and [`DandelionPool`].
 /// - `dandelion_router` is the router service, kept generic instead of [`DandelionRouter`](crate::DandelionRouter) to allow
-/// user to customise routing functionality.
+///   user to customise routing functionality.
 /// - `backing_pool` is the backing transaction storage service
 /// - `config` is [`DandelionConfig`].
 pub fn start_dandelion_pool<P, R, Tx, TxID, PID>(

@@ -27,6 +27,7 @@ tokio = { workspace = true, features = ["rt"] }
 tokio-util = { workspace = true }
 
 hex = { workspace = true }
+rand = { workspace = true }
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../test-utils" }
@@ -35,5 +36,6 @@ cuprate-consensus-rules =  {path = "./rules", features = ["proptest"]}
 hex-literal = { workspace = true }
 
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"]}
+tokio-test = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }

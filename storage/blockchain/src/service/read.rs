@@ -14,26 +14,29 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_helper::{asynch::InfallibleOneshotReceiver, map::combine_low_high_bits_to_u128};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
-    ExtendedBlockHeader, OutputOnChain,
+    Chain, ExtendedBlockHeader, OutputOnChain,
 };
 
 use crate::{
     config::ReaderThreads,
-    open_tables::OpenTables,
-    ops::block::block_exists,
     ops::{
-        block::{get_block_extended_header_from_height, get_block_info},
+        block::{
+            block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
+        },
         blockchain::{cumulative_generated_coins, top_block_height},
         key_image::key_image_exists,
         output::id_to_output_on_chain,
     },
-    service::types::{ResponseReceiver, ResponseResult, ResponseSender},
+    service::{
+        free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
+        types::{ResponseReceiver, ResponseResult, ResponseSender},
+    },
+    tables::OpenTables,
     tables::{BlockHeights, BlockInfos, Tables},
-    types::BlockHash,
-    types::{Amount, AmountIndex, BlockHeight, KeyImage, PreRctOutputId},
+    types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
@@ -203,14 +206,19 @@ fn map_request(
 
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
-        R::BlockHash(block) => block_hash(env, block),
-        R::FilterUnknownHashes(hashes) => filter_unknown_hahses(env, hashes),
-        R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(env, range),
+        R::BlockHash(block, chain) => block_hash(env, block, chain),
+        R::FindBlock(_) => todo!("Add alt blocks to DB"),
+        R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
+        R::BlockExtendedHeaderInRange(range, chain) => {
+            block_extended_header_in_range(env, range, chain)
+        }
         R::ChainHeight => chain_height(env),
-        R::GeneratedCoins => generated_coins(env),
+        R::GeneratedCoins(height) => generated_coins(env, height),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
+        R::CompactChainHistory => compact_chain_history(env),
+        R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
     };
 
     if let Err(e) = response_sender.send(response) {
@@ -307,20 +315,23 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 
 /// [`BCReadRequest::BlockHash`].
 #[inline]
-fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    Ok(BCResponse::BlockHash(
-        get_block_info(&block_height, &table_block_infos)?.block_hash,
-    ))
+    let block_hash = match chain {
+        Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
+        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+    };
+
+    Ok(BCResponse::BlockHash(block_hash))
 }
 
 /// [`BCReadRequest::FilterUnknownHashes`].
 #[inline]
-fn filter_unknown_hahses(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
+fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -351,6 +362,7 @@ fn filter_unknown_hahses(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
 fn block_extended_header_in_range(
     env: &ConcreteEnv,
     range: std::ops::Range<BlockHeight>,
+    chain: Chain,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
@@ -358,14 +370,17 @@ fn block_extended_header_in_range(
     let tables = thread_local(env);
 
     // Collect results using `rayon`.
-    let vec = range
-        .into_par_iter()
-        .map(|block_height| {
-            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-            get_block_extended_header_from_height(&block_height, tables)
-        })
-        .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
+    let vec = match chain {
+        Chain::Main => range
+            .into_par_iter()
+            .map(|block_height| {
+                let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+                let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+                get_block_extended_header_from_height(&block_height, tables)
+            })
+            .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
+        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+    };
 
     Ok(BCResponse::BlockExtendedHeaderInRange(vec))
 }
@@ -388,17 +403,14 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`BCReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
+fn generated_coins(env: &ConcreteEnv, height: u64) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
-    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    let top_height = top_block_height(&table_block_heights)?;
-
     Ok(BCResponse::GeneratedCoins(cumulative_generated_coins(
-        &top_height,
+        &height,
         &table_block_infos,
     )?))
 }
@@ -524,4 +536,82 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
         Some(Ok(true)) => Ok(BCResponse::KeyImagesSpent(true)),          // Key image was found.
         Some(Err(e)) => Err(e), // A database error occurred.
     }
+}
+
+/// [`BCReadRequest::CompactChainHistory`]
+fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+    let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+
+    let top_block_height = top_block_height(&table_block_heights)?;
+
+    let top_block_info = get_block_info(&top_block_height, &table_block_infos)?;
+    let cumulative_difficulty = combine_low_high_bits_to_u128(
+        top_block_info.cumulative_difficulty_low,
+        top_block_info.cumulative_difficulty_high,
+    );
+
+    /// The amount of top block IDs in the compact chain.
+    const INITIAL_BLOCKS: u64 = 11;
+
+    // rayon is not used here because the amount of block IDs is expected to be small.
+    let mut block_ids = (0..)
+        .map(compact_history_index_to_height_offset::<INITIAL_BLOCKS>)
+        .map_while(|i| top_block_height.checked_sub(i))
+        .map(|height| Ok(get_block_info(&height, &table_block_infos)?.block_hash))
+        .collect::<Result<Vec<_>, RuntimeError>>()?;
+
+    if compact_history_genesis_not_included::<INITIAL_BLOCKS>(top_block_height) {
+        block_ids.push(get_block_info(&0, &table_block_infos)?.block_hash);
+    }
+
+    Ok(BCResponse::CompactChainHistory {
+        cumulative_difficulty,
+        block_ids,
+    })
+}
+
+/// [`BCReadRequest::FindFirstUnknown`]
+///
+/// # Invariant
+/// `block_ids` must be sorted in chronological block order, or else
+/// the returned result is unspecified and meaningless, as this function
+/// performs a binary search.
+fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+
+    let mut err = None;
+
+    // Do a binary search to find the first unknown block in the batch.
+    let idx =
+        block_ids.partition_point(
+            |block_id| match block_exists(block_id, &table_block_heights) {
+                Ok(exists) => exists,
+                Err(e) => {
+                    err.get_or_insert(e);
+                    // if this happens the search is scrapped, just return `false` back.
+                    false
+                }
+            },
+        );
+
+    if let Some(e) = err {
+        return Err(e);
+    }
+
+    Ok(if idx == block_ids.len() {
+        BCResponse::FindFirstUnknown(None)
+    } else if idx == 0 {
+        BCResponse::FindFirstUnknown(Some((0, 0)))
+    } else {
+        let last_known_height = get_block_height(&block_ids[idx - 1], &table_block_heights)?;
+
+        BCResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
+    })
 }

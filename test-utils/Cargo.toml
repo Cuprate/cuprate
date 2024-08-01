@@ -1,32 +1,30 @@
 [package]
-name = "cuprate-test-utils"
+name    = "cuprate-test-utils"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
 authors = ["Boog900", "hinto-janai"]
 
 [dependencies]
-cuprate-types = { path = "../types" }
-cuprate-helper = { path = "../helper", features = ["map"] }
-cuprate-wire = { path = "../net/wire" }
+cuprate-types    = { path = "../types" }
+cuprate-helper   = { path = "../helper", features = ["map"] }
+cuprate-wire     = { path = "../net/wire" }
 cuprate-p2p-core = { path = "../p2p/p2p-core", features = ["borsh"] }
 
-hex = { workspace = true }
-hex-literal = { workspace = true }
-monero-serai = { workspace = true, features = ["std"] }
-monero-simple-request-rpc = { workspace = true }
-monero-rpc = { workspace = true }
-futures = { workspace = true, features = ["std"] }
-async-trait = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
-tokio-util = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-bytes = { workspace = true, features = ["std"] }
-tempfile = { workspace = true }
-
-borsh = { workspace = true, features = ["derive"]}
+hex          = { workspace = true }
+hex-literal  = { workspace = true }
+monero-serai = { workspace = true, features = ["std", "http-rpc"] }
+futures      = { workspace = true, features = ["std"] }
+async-trait  = { workspace = true }
+tokio        = { workspace = true, features = ["full"] }
+tokio-util   = { workspace = true }
+serde        = { workspace = true }
+serde_json   = { workspace = true }
+bytes        = { workspace = true, features = ["std"] }
+tempfile     = { workspace = true }
+paste        = { workspace = true }
+borsh        = { workspace = true, features = ["derive"]}
 
 [dev-dependencies]
-hex = { workspace = true }
+hex               = { workspace = true }
 pretty_assertions = { workspace = true }

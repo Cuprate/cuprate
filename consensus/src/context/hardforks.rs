@@ -4,7 +4,10 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    Chain,
+};
 
 use crate::{Database, ExtendedConsensusError};
 
@@ -15,7 +18,7 @@ const DEFAULT_WINDOW_SIZE: usize = 10080; // supermajority window check length -
 
 /// Configuration for hard-forks.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct HardForkConfig {
     /// The network we are on.
     pub(crate) info: HFsInfo,
@@ -50,7 +53,7 @@ impl HardForkConfig {
 }
 
 /// A struct that keeps track of the current hard-fork and current votes.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HardForkState {
     /// The current active hard-fork.
     pub(crate) current_hardfork: HardFork,
@@ -117,6 +120,50 @@ impl HardForkState {
         Ok(hfs)
     }
 
+    /// Pop some blocks from the top of the cache.
+    ///
+    /// The cache will be returned to the state it would have been in `numb_blocks` ago.
+    ///
+    /// # Invariant
+    ///
+    /// This _must_ only be used on a main-chain cache.
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
+        &mut self,
+        numb_blocks: u64,
+        database: D,
+    ) -> Result<(), ExtendedConsensusError> {
+        let Some(retained_blocks) = self.votes.total_votes().checked_sub(self.config.window) else {
+            *self = Self::init_from_chain_height(
+                self.last_height + 1 - numb_blocks,
+                self.config,
+                database,
+            )
+            .await?;
+
+            return Ok(());
+        };
+
+        let current_chain_height = self.last_height + 1;
+
+        let oldest_votes = get_votes_in_range(
+            database,
+            current_chain_height
+                .saturating_sub(self.config.window)
+                .saturating_sub(numb_blocks)
+                ..current_chain_height
+                    .saturating_sub(numb_blocks)
+                    .saturating_sub(retained_blocks),
+            usize::try_from(numb_blocks).unwrap(),
+        )
+        .await?;
+
+        self.votes
+            .reverse_blocks(usize::try_from(numb_blocks).unwrap(), oldest_votes);
+        self.last_height -= numb_blocks;
+
+        Ok(())
+    }
+
     /// Add a new block to the cache.
     pub fn new_block(&mut self, vote: HardFork, height: usize) {
         // We don't _need_ to take in `height` but it's for safety, so we don't silently loose track
@@ -168,7 +215,10 @@ async fn get_votes_in_range<D: Database>(
     let mut votes = HFVotes::new(window_size);
 
     let BCResponse::BlockExtendedHeaderInRange(vote_list) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(block_heights))
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(
+            block_heights,
+            Chain::Main,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response!");

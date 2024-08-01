@@ -4,7 +4,6 @@
 //! a certain [`NetworkZone`]
 use std::sync::Arc;
 
-use cuprate_async_buffer::BufferStream;
 use futures::FutureExt;
 use tokio::{
     sync::{mpsc, watch},
@@ -14,11 +13,12 @@ use tokio_stream::wrappers::WatchStream;
 use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
+use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
     client::Connector,
     client::InternalPeerID,
     services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
-    CoreSyncSvc, NetworkZone, PeerRequestHandler,
+    CoreSyncSvc, NetworkZone, ProtocolRequestHandler,
 };
 
 mod block_downloader;
@@ -42,17 +42,18 @@ use connection_maintainer::MakeConnectionRequest;
 ///
 /// # Usage
 /// You must provide:
-/// - A peer request handler, which is given to each connection
+/// - A protocol request handler, which is given to each connection
 /// - A core sync service, which keeps track of the sync state of our node
 #[instrument(level = "debug", name = "net", skip_all, fields(zone = N::NAME))]
-pub async fn initialize_network<N, R, CS>(
-    peer_req_handler: R,
+pub async fn initialize_network<N, PR, CS>(
+    protocol_request_handler: PR,
     core_sync_svc: CS,
     config: P2PConfig<N>,
 ) -> Result<NetworkInterface<N>, tower::BoxError>
 where
     N: NetworkZone,
-    R: PeerRequestHandler + Clone,
+    N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
+    PR: ProtocolRequestHandler + Clone,
     CS: CoreSyncSvc + Clone,
 {
     let address_book =
@@ -79,23 +80,21 @@ where
         basic_node_data.peer_id = 1;
     }
 
-    let outbound_handshaker = cuprate_p2p_core::client::HandShaker::new(
-        address_book.clone(),
-        sync_states_svc.clone(),
-        core_sync_svc.clone(),
-        peer_req_handler.clone(),
-        outbound_mkr,
-        basic_node_data.clone(),
-    );
+    let outbound_handshaker_builder =
+        cuprate_p2p_core::client::HandshakerBuilder::new(basic_node_data)
+            .with_address_book(address_book.clone())
+            .with_peer_sync_svc(sync_states_svc.clone())
+            .with_core_sync_svc(core_sync_svc)
+            .with_protocol_request_handler(protocol_request_handler)
+            .with_broadcast_stream_maker(outbound_mkr)
+            .with_connection_parent_span(Span::current());
 
-    let inbound_handshaker = cuprate_p2p_core::client::HandShaker::new(
-        address_book.clone(),
-        sync_states_svc.clone(),
-        core_sync_svc.clone(),
-        peer_req_handler,
-        inbound_mkr,
-        basic_node_data,
-    );
+    let inbound_handshaker = outbound_handshaker_builder
+        .clone()
+        .with_broadcast_stream_maker(inbound_mkr)
+        .build();
+
+    let outbound_handshaker = outbound_handshaker_builder.build();
 
     let client_pool = client_pool::ClientPool::new();
 

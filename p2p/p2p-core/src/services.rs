@@ -6,6 +6,7 @@ use crate::{
     NetworkZone,
 };
 
+/// A request to the service that keeps track of peers sync states.
 pub enum PeerSyncRequest<N: NetworkZone> {
     /// Request some peers to sync from.
     ///
@@ -15,10 +16,11 @@ pub enum PeerSyncRequest<N: NetworkZone> {
         current_cumulative_difficulty: u128,
         block_needed: Option<usize>,
     },
-    /// Add/update a peers core sync data to the sync state service.
+    /// Add/update a peer's core sync data.
     IncomingCoreSyncData(InternalPeerID<N::Addr>, ConnectionHandle, CoreSyncData),
 }
 
+/// A response from the service that keeps track of peers sync states.
 pub enum PeerSyncResponse<N: NetworkZone> {
     /// The return value of [`PeerSyncRequest::PeersToSyncFrom`].
     PeersToSyncFrom(Vec<InternalPeerID<N::Addr>>),
@@ -26,10 +28,16 @@ pub enum PeerSyncResponse<N: NetworkZone> {
     Ok,
 }
 
+/// A request to the core sync service for our node's [`CoreSyncData`].
 pub struct CoreSyncDataRequest;
 
+/// A response from the core sync service containing our [`CoreSyncData`].
 pub struct CoreSyncDataResponse(pub CoreSyncData);
 
+/// A [`NetworkZone`] specific [`PeerListEntryBase`].
+///
+/// Using this type instead of [`PeerListEntryBase`] in the address book makes
+/// usage easier for the rest of the P2P code as we can guarantee only the correct addresses will be stored and returned.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(
     feature = "borsh",
@@ -57,6 +65,7 @@ impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for cuprate_wire:
     }
 }
 
+/// An error converting a [`PeerListEntryBase`] into a [`ZoneSpecificPeerListEntryBase`].
 #[derive(Debug, thiserror::Error)]
 pub enum PeerListConversionError {
     #[error("Address is in incorrect zone")]
@@ -82,6 +91,7 @@ impl<A: NetZoneAddress> TryFrom<cuprate_wire::PeerListEntryBase>
     }
 }
 
+/// A request to the address book service.
 pub enum AddressBookRequest<Z: NetworkZone> {
     /// Tells the address book that we have connected or received a connection from a peer.
     NewConnection {
@@ -123,6 +133,7 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     IsPeerBanned(Z::Addr),
 }
 
+/// A response from the address book service.
 pub enum AddressBookResponse<Z: NetworkZone> {
     Ok,
     Peer(ZoneSpecificPeerListEntryBase<Z::Addr>),

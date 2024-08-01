@@ -13,6 +13,7 @@ cuprate-address-book = { path = "../address-book" }
 cuprate-pruning = { path = "../../pruning" }
 cuprate-helper = { path = "../../helper", features = ["asynch"], default-features = false }
 cuprate-async-buffer = { path = "../async-buffer" }
+cuprate-types = { path = "../../types", default-features = false }
 
 monero-serai = { workspace = true, features = ["std"] }
 
@@ -31,6 +32,7 @@ rand = { workspace = true, features = ["std", "std_rng"] }
 rand_distr = { workspace = true, features = ["std"] }
 hex = { workspace = true, features = ["std"] }
 tracing = { workspace = true, features = ["std", "attributes"] }
+borsh = { workspace = true, features = ["derive", "std"] }
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }

@@ -30,7 +30,6 @@ bytemuck         = { version = "1.14.3", features = ["must_cast", "derive", "min
 curve25519-dalek = { workspace = true }
 cuprate-pruning  = { path = "../../pruning" }
 monero-serai     = { workspace = true, features = ["std"] }
-paste            = { workspace = true }
 serde            = { workspace = true, optional = true }
 
 # `service` feature.
@@ -46,8 +45,8 @@ rayon        = { workspace = true, optional = true }
 cuprate-helper     = { path = "../../helper", features = ["thread"] }
 cuprate-test-utils = { path = "../../test-utils" }
 
-bytemuck          = { version = "1.14.3", features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 tempfile          = { version = "3.10.0" }
 pretty_assertions = { workspace = true }
+proptest          = { workspace = true }
 hex               = { workspace = true }
 hex-literal       = { workspace = true }

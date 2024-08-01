@@ -8,36 +8,37 @@
 //!
 use std::{
     cmp::{max, min},
-    collections::VecDeque,
     ops::Range,
 };
 
-use rayon::prelude::*;
 use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
-use cuprate_helper::{asynch::rayon_spawn_async, num::median};
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_helper::{asynch::rayon_spawn_async, num::RollingMedian};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    Chain,
+};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
 
 /// The short term block weight window.
-const SHORT_TERM_WINDOW: usize = 100;
+const SHORT_TERM_WINDOW: u64 = 100;
 /// The long term block weight window.
-const LONG_TERM_WINDOW: usize = 100000;
+const LONG_TERM_WINDOW: u64 = 100000;
 
 /// Configuration for the block weight cache.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct BlockWeightsCacheConfig {
-    short_term_window: usize,
-    long_term_window: usize,
+    short_term_window: u64,
+    long_term_window: u64,
 }
 
 impl BlockWeightsCacheConfig {
     /// Creates a new [`BlockWeightsCacheConfig`]
-    pub const fn new(short_term_window: usize, long_term_window: usize) -> BlockWeightsCacheConfig {
+    pub const fn new(short_term_window: u64, long_term_window: u64) -> BlockWeightsCacheConfig {
         BlockWeightsCacheConfig {
             short_term_window,
             long_term_window,
@@ -58,78 +59,134 @@ impl BlockWeightsCacheConfig {
 ///
 /// These calculations require a lot of data from the database so by caching
 /// this data it reduces the load on the database.
-#[derive(Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct BlockWeightsCache {
     /// The short term block weights.
-    short_term_block_weights: VecDeque<usize>,
+    short_term_block_weights: RollingMedian<usize>,
     /// The long term block weights.
-    long_term_weights: VecDeque<usize>,
-
-    /// The short term block weights sorted so we don't have to sort them every time we need
-    /// the median.
-    cached_sorted_long_term_weights: Vec<usize>,
-    /// The long term block weights sorted so we don't have to sort them every time we need
-    /// the median.
-    cached_sorted_short_term_weights: Vec<usize>,
+    long_term_weights: RollingMedian<usize>,
 
     /// The height of the top block.
-    tip_height: usize,
+    pub(crate) tip_height: u64,
 
-    /// The block weight config.
-    config: BlockWeightsCacheConfig,
+    pub(crate) config: BlockWeightsCacheConfig,
 }
 
 impl BlockWeightsCache {
     /// Initialize the [`BlockWeightsCache`] at the the given chain height.
     #[instrument(name = "init_weight_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
-        chain_height: usize,
+        chain_height: u64,
         config: BlockWeightsCacheConfig,
         database: D,
+        chain: Chain,
     ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing weight cache this may take a while.");
 
         let long_term_weights = get_long_term_weight_in_range(
             chain_height.saturating_sub(config.long_term_window)..chain_height,
             database.clone(),
+            chain,
         )
         .await?;
 
         let short_term_block_weights = get_blocks_weight_in_range(
             chain_height.saturating_sub(config.short_term_window)..chain_height,
             database,
+            chain,
         )
         .await?;
 
         tracing::info!("Initialized block weight cache, chain-height: {:?}, long term weights length: {:?}, short term weights length: {:?}", chain_height, long_term_weights.len(), short_term_block_weights.len());
 
-        let mut cloned_short_term_weights = short_term_block_weights.clone();
-        let mut cloned_long_term_weights = long_term_weights.clone();
         Ok(BlockWeightsCache {
-            short_term_block_weights: short_term_block_weights.into(),
-            long_term_weights: long_term_weights.into(),
-
-            cached_sorted_long_term_weights: rayon_spawn_async(|| {
-                cloned_long_term_weights.par_sort_unstable();
-                cloned_long_term_weights
+            short_term_block_weights: rayon_spawn_async(move || {
+                RollingMedian::from_vec(
+                    short_term_block_weights,
+                    usize::try_from(config.short_term_window).unwrap(),
+                )
             })
             .await,
-            cached_sorted_short_term_weights: rayon_spawn_async(|| {
-                cloned_short_term_weights.par_sort_unstable();
-                cloned_short_term_weights
+            long_term_weights: rayon_spawn_async(move || {
+                RollingMedian::from_vec(
+                    long_term_weights,
+                    usize::try_from(config.long_term_window).unwrap(),
+                )
             })
             .await,
-
             tip_height: chain_height - 1,
             config,
         })
+    }
+
+    /// Pop some blocks from the top of the cache.
+    ///
+    /// The cache will be returned to the state it would have been in `numb_blocks` ago.
+    #[instrument(name = "pop_blocks_weight_cache", skip_all, fields(numb_blocks = numb_blocks))]
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
+        &mut self,
+        numb_blocks: u64,
+        database: D,
+    ) -> Result<(), ExtendedConsensusError> {
+        if self.long_term_weights.window_len() <= usize::try_from(numb_blocks).unwrap() {
+            // More blocks to pop than we have in the cache, so just restart a new cache.
+            *self = Self::init_from_chain_height(
+                self.tip_height - numb_blocks + 1,
+                self.config,
+                database,
+                Chain::Main,
+            )
+            .await?;
+
+            return Ok(());
+        }
+
+        let chain_height = self.tip_height + 1;
+
+        let new_long_term_start_height = chain_height
+            .saturating_sub(self.config.long_term_window)
+            .saturating_sub(numb_blocks);
+
+        let old_long_term_weights = get_long_term_weight_in_range(
+            new_long_term_start_height
+                // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
+                ..(chain_height - u64::try_from(self.long_term_weights.window_len()).unwrap()),
+            database.clone(),
+            Chain::Main,
+        )
+        .await?;
+
+        let new_short_term_start_height = chain_height
+            .saturating_sub(self.config.short_term_window)
+            .saturating_sub(numb_blocks);
+
+        let old_short_term_weights = get_blocks_weight_in_range(
+            new_short_term_start_height
+                // current_chain_height - self.long_term_weights.len() blocks are already in the cache.
+                ..(chain_height - u64::try_from(self.short_term_block_weights.window_len()).unwrap()),
+            database,
+            Chain::Main
+        )
+            .await?;
+
+        for _ in 0..numb_blocks {
+            self.short_term_block_weights.pop_back();
+            self.long_term_weights.pop_back();
+        }
+
+        self.long_term_weights.append_front(old_long_term_weights);
+        self.short_term_block_weights
+            .append_front(old_short_term_weights);
+        self.tip_height -= numb_blocks;
+
+        Ok(())
     }
 
     /// Add a new block to the cache.
     ///
     /// The block_height **MUST** be one more than the last height the cache has
     /// seen.
-    pub fn new_block(&mut self, block_height: usize, block_weight: usize, long_term_weight: usize) {
+    pub fn new_block(&mut self, block_height: u64, block_weight: usize, long_term_weight: usize) {
         assert_eq!(self.tip_height + 1, block_height);
         self.tip_height += 1;
         tracing::debug!(
@@ -139,72 +196,19 @@ impl BlockWeightsCache {
             long_term_weight
         );
 
-        // add the new block to the `long_term_weights` list and the sorted `cached_sorted_long_term_weights` list.
-        self.long_term_weights.push_back(long_term_weight);
-        match self
-            .cached_sorted_long_term_weights
-            .binary_search(&long_term_weight)
-        {
-            Ok(idx) | Err(idx) => self
-                .cached_sorted_long_term_weights
-                .insert(idx, long_term_weight),
-        }
+        self.long_term_weights.push(long_term_weight);
 
-        // If the list now has too many entries remove the oldest.
-        if self.long_term_weights.len() > self.config.long_term_window {
-            let val = self
-                .long_term_weights
-                .pop_front()
-                .expect("long term window can't be negative");
-
-            match self.cached_sorted_long_term_weights.binary_search(&val) {
-                Ok(idx) => self.cached_sorted_long_term_weights.remove(idx),
-                Err(_) => panic!("Long term cache has incorrect values!"),
-            };
-        }
-
-        // add the block to the short_term_block_weights and the sorted cached_sorted_short_term_weights list.
-        self.short_term_block_weights.push_back(block_weight);
-        match self
-            .cached_sorted_short_term_weights
-            .binary_search(&block_weight)
-        {
-            Ok(idx) | Err(idx) => self
-                .cached_sorted_short_term_weights
-                .insert(idx, block_weight),
-        }
-
-        // If there are now too many entries remove the oldest.
-        if self.short_term_block_weights.len() > self.config.short_term_window {
-            let val = self
-                .short_term_block_weights
-                .pop_front()
-                .expect("short term window can't be negative");
-
-            match self.cached_sorted_short_term_weights.binary_search(&val) {
-                Ok(idx) => self.cached_sorted_short_term_weights.remove(idx),
-                Err(_) => panic!("Short term cache has incorrect values"),
-            };
-        }
-
-        debug_assert_eq!(
-            self.cached_sorted_long_term_weights.len(),
-            self.long_term_weights.len()
-        );
-        debug_assert_eq!(
-            self.cached_sorted_short_term_weights.len(),
-            self.short_term_block_weights.len()
-        );
+        self.short_term_block_weights.push(block_weight);
     }
 
     /// Returns the median long term weight over the last [`LONG_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
     pub fn median_long_term_weight(&self) -> usize {
-        median(&self.cached_sorted_long_term_weights)
+        self.long_term_weights.median()
     }
 
     /// Returns the median weight over the last [`SHORT_TERM_WINDOW`] blocks, or custom amount of blocks in the config.
     pub fn median_short_term_weight(&self) -> usize {
-        median(&self.cached_sorted_short_term_weights)
+        self.short_term_block_weights.median()
     }
 
     /// Returns the effective median weight, used for block reward calculations and to calculate
@@ -286,13 +290,14 @@ pub fn calculate_block_long_term_weight(
 /// Gets the block weights from the blocks with heights in the range provided.
 #[instrument(name = "get_block_weights", skip(database))]
 async fn get_blocks_weight_in_range<D: Database + Clone>(
-    range: Range<usize>,
+    range: Range<u64>,
     database: D,
+    chain: Chain,
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block weights.");
 
     let BCResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range))
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range, chain))
         .await?
     else {
         panic!("Database sent incorrect response!")
@@ -307,13 +312,14 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
 /// Gets the block long term weights from the blocks with heights in the range provided.
 #[instrument(name = "get_long_term_weights", skip(database), level = "info")]
 async fn get_long_term_weight_in_range<D: Database + Clone>(
-    range: Range<usize>,
+    range: Range<u64>,
     database: D,
+    chain: Chain,
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block long term weights.");
 
     let BCResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range))
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range, chain))
         .await?
     else {
         panic!("Database sent incorrect response!")

@@ -1,7 +1,10 @@
 //! (De)serialization for table keys & values.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{borrow::Borrow, fmt::Debug};
+use std::{
+    borrow::{Borrow, Cow},
+    fmt::Debug,
+};
 
 use bytemuck::Pod;
 use bytes::Bytes;
@@ -126,7 +129,7 @@ where
 ///
 /// Slice types are owned both:
 /// - when returned from the database
-/// - in `put()`
+/// - in [`crate::DatabaseRw::put()`]
 ///
 /// This is needed as `impl Storable for Vec<T>` runs into impl conflicts.
 ///
@@ -190,6 +193,66 @@ impl<T> std::ops::Deref for StorableVec<T> {
 impl<T> Borrow<[T]> for StorableVec<T> {
     #[inline]
     fn borrow(&self) -> &[T] {
+        &self.0
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- StorableVec
+/// A [`Storable`] string.
+///
+/// This is a wrapper around a `Cow<'static, str>`
+/// that can be stored in the database.
+///
+/// # Invariant
+/// [`StorableStr::from_bytes`] will panic
+/// if the bytes are not UTF-8. This should normally
+/// not be possible in database operations, although technically
+/// you can call this function yourself and input bad data.
+///
+/// # Example
+/// ```rust
+/// # use cuprate_database::*;
+/// # use std::borrow::Cow;
+/// let string: StorableStr = StorableStr(Cow::Borrowed("a"));
+///
+/// // Into bytes.
+/// let into = Storable::as_bytes(&string);
+/// assert_eq!(into, &[97]);
+///
+/// // From bytes.
+/// let from: StorableStr = Storable::from_bytes(&into);
+/// assert_eq!(from, string);
+/// ```
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, bytemuck::TransparentWrapper)]
+#[repr(transparent)]
+pub struct StorableStr(pub Cow<'static, str>);
+
+impl Storable for StorableStr {
+    const BYTE_LENGTH: Option<usize> = None;
+
+    /// [`String::as_bytes`].
+    #[inline]
+    fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+
+    #[inline]
+    fn from_bytes(bytes: &[u8]) -> Self {
+        Self(Cow::Owned(std::str::from_utf8(bytes).unwrap().to_string()))
+    }
+}
+
+impl std::ops::Deref for StorableStr {
+    type Target = Cow<'static, str>;
+    #[inline]
+    fn deref(&self) -> &Cow<'static, str> {
+        &self.0
+    }
+}
+
+impl Borrow<Cow<'static, str>> for StorableStr {
+    #[inline]
+    fn borrow(&self) -> &Cow<'static, str> {
         &self.0
     }
 }

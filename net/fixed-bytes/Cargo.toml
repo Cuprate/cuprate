@@ -6,9 +6,14 @@ license = "MIT"
 authors = ["Boog900"]
 
 [features]
-default = ["std"]
+default = ["std", "serde"]
 std = ["bytes/std", "dep:thiserror"]
+serde = ["bytes/serde", "dep:serde"]
 
 [dependencies]
 thiserror = { workspace = true, optional = true }
 bytes = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true, features = ["std"] }

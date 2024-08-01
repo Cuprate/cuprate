@@ -9,12 +9,7 @@ use std::{
     ops::Range,
 };
 
-#[cfg(feature = "borsh")]
-use borsh::{BorshDeserialize, BorshSerialize};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-
-use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
+use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.
@@ -30,12 +25,17 @@ pub enum BCReadRequest {
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
-    BlockExtendedHeader(usize),
+    BlockExtendedHeader(u64),
 
     /// Request a block's hash.
     ///
-    /// The input is the block's height.
-    BlockHash(usize),
+    /// The input is the block's height and the chain it is on.
+    BlockHash(u64, Chain),
+
+    /// Request to check if we have a block and which [`Chain`] it is on.
+    ///
+    /// The input is the block's hash.
+    FindBlock([u8; 32]),
 
     /// Removes the block hashes that are not in the _main_ chain.
     ///
@@ -45,15 +45,15 @@ pub enum BCReadRequest {
     /// Request a range of block extended headers.
     ///
     /// The input is a range of block heights.
-    BlockExtendedHeaderInRange(Range<usize>),
+    BlockExtendedHeaderInRange(Range<u64>, Chain),
 
     /// Request the current chain height.
     ///
     /// Note that this is not the top-block height.
     ChainHeight,
 
-    /// Request the total amount of generated coins (atomic units) so far.
-    GeneratedCoins,
+    /// Request the total amount of generated coins (atomic units) at this height.
+    GeneratedCoins(u64),
 
     /// Request data for multiple outputs.
     ///
@@ -83,10 +83,21 @@ pub enum BCReadRequest {
     /// The input is a list of output amounts.
     NumberOutputsWithAmount(Vec<u64>),
 
-    /// Check that all key images within a set arer not spent.
+    /// Check that all key images within a set are not spent.
     ///
     /// Input is a set of key images.
     KeyImagesSpent(HashSet<[u8; 32]>),
+
+    /// A request for the compact chain history.
+    CompactChainHistory,
+
+    /// A request to find the first unknown block ID in a list of block IDs.
+    ////
+    /// # Invariant
+    /// The [`Vec`] containing the block IDs must be sorted in chronological block
+    /// order, or else the returned response is unspecified and meaningless,
+    /// as this request performs a binary search.
+    FindFirstUnknown(Vec<[u8; 32]>),
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -123,6 +134,11 @@ pub enum BCResponse {
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
 
+    /// Response to [`BCReadRequest::FindBlock`].
+    ///
+    /// Inner value is the chain and height of the block if found.
+    FindBlock(Option<(Chain, u64)>),
+
     /// Response to [`BCReadRequest::FilterUnknownHashes`].
     ///
     /// Inner value is the list of hashes that were in the main chain.
@@ -136,11 +152,11 @@ pub enum BCResponse {
     /// Response to [`BCReadRequest::ChainHeight`].
     ///
     /// Inner value is the chain height, and the top block's hash.
-    ChainHeight(usize, [u8; 32]),
+    ChainHeight(u64, [u8; 32]),
 
     /// Response to [`BCReadRequest::GeneratedCoins`].
     ///
-    /// Inner value is the total amount of generated coins so far, in atomic units.
+    /// Inner value is the total amount of generated coins up to and including the chosen height, in atomic units.
     GeneratedCoins(u64),
 
     /// Response to [`BCReadRequest::Outputs`].
@@ -163,6 +179,23 @@ pub enum BCResponse {
     ///
     /// The inner value is `false` if _none_ of the key images were spent.
     KeyImagesSpent(bool),
+
+    /// Response to [`BCReadRequest::CompactChainHistory`].
+    CompactChainHistory {
+        /// A list of blocks IDs in our chain, starting with the most recent block, all the way to the genesis block.
+        ///
+        /// These blocks should be in reverse chronological order, not every block is needed.
+        block_ids: Vec<[u8; 32]>,
+        /// The current cumulative difficulty of the chain.
+        cumulative_difficulty: u128,
+    },
+
+    /// The response for [`BCReadRequest::FindFirstUnknown`].
+    ///
+    /// Contains the index of the first unknown block and its expected height.
+    ///
+    /// This will be [`None`] if all blocks were known.
+    FindFirstUnknown(Option<(usize, u64)>),
 
     //------------------------------------------------------ Writes
     /// Response to [`BCWriteRequest::WriteBlock`].
