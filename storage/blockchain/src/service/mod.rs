@@ -36,9 +36,10 @@
 //! - The last [`BCReadHandle`] is dropped => reader thread-pool exits
 //! - The last [`BCWriteHandle`] is dropped => writer thread exits
 //!
-//! Upon dropping the [`cuprate_database::Env`]:
+//! TODO: update this when ConcreteEnv is removed
+//! Upon dropping the [`cuprate_database::ConcreteEnv`]:
 //! - All un-processed database transactions are completed
-//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `Env`)
+//! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)
 //!
 //! ## Request and Response
 //! To interact with the database (whether reading or writing data),
@@ -129,8 +130,6 @@ pub use write::init_write_service;
 
 mod free;
 pub use free::init;
-
-// Internal type aliases for `service`.
 mod types;
 pub use types::{BCReadHandle, BCWriteHandle};
 

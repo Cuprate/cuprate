@@ -44,7 +44,8 @@ where
 {
     /// Creates the [`DatabaseReadService`] with the provided backing thread-pool.
     ///
-    /// Should be called _once_ per actual database.
+    /// Should be called _once_ per actual database, although nothing bad will happen, cloning the [`DatabaseReadService`]
+    /// is the correct way to get multiple handles to the database.
     #[cold]
     #[inline(never)] // Only called once.
     pub fn new(

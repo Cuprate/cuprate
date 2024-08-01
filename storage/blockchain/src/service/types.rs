@@ -1,6 +1,4 @@
 //! Database service type aliases.
-//!
-//! Only used internally for our `tower::Service` impls.
 
 //---------------------------------------------------------------------------------------------------- Use
 use cuprate_database::RuntimeError;

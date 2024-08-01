@@ -6,8 +6,10 @@ use std::{
     sync::Arc,
 };
 
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon::ThreadPool;
+use rayon::{
+    iter::{IntoParallelIterator, ParallelIterator},
+    ThreadPool,
+};
 use thread_local::ThreadLocal;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
@@ -31,18 +33,18 @@ use crate::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         types::{BCReadHandle, ResponseResult},
     },
-    tables::OpenTables,
-    tables::{BlockHeights, BlockInfos, Tables},
+    tables::{BlockHeights, BlockInfos, OpenTables, Tables},
     types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
 //---------------------------------------------------------------------------------------------------- init_read_service
-/// Initialize the [`BCReadHandle`] thread-pool backed by `rayon`.
+/// Initialize the [`BCReadHandle`] thread-pool backed by [`rayon`].
 ///
 /// This spawns `threads` amount of reader threads
 /// attached to `env` and returns a handle to the pool.
 ///
-/// Should be called _once_ per actual database.
+/// Should be called _once_ per actual database. Calling this function more than once will create
+/// multiple unnecessary rayon thread-pools.
 #[cold]
 #[inline(never)] // Only called once.
 pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BCReadHandle {
@@ -52,7 +54,8 @@ pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BCRea
 /// Initialize the blockchain database read service, with a specific rayon thread-pool instead of
 /// creating a new one.
 ///
-/// Should be called _once_ per actual database.
+/// Should be called _once_ per actual database, although nothing bad will happen, cloning the [`BCReadHandle`]
+/// is the correct way to get multiple handles to the database.
 #[cold]
 #[inline(never)] // Only called once.
 pub fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> BCReadHandle {
