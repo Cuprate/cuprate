@@ -122,8 +122,11 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
     match &tx {
         Transaction::V1 { prefix, .. } => {
             for input in &prefix.inputs {
-                if let Input::ToKey { amount, .. } = input {
-                    fee = fee.checked_add(amount.unwrap_or(0)).unwrap();
+                match input {
+                    Input::Gen(_) => return 0,
+                    Input::ToKey { amount, .. } => {
+                        fee = fee.checked_add(amount.unwrap_or(0)).unwrap();
+                    }
                 }
             }
 
