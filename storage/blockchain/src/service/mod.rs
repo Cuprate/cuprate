@@ -36,7 +36,7 @@
 //! - The last [`BCReadHandle`] is dropped => reader thread-pool exits
 //! - The last [`BCWriteHandle`] is dropped => writer thread exits
 //!
-//! TODO: update this when [`ConcreteEnv`] is removed
+//! TODO: update this when `ConcreteEnv` is removed
 //! Upon dropping the [`cuprate_database::ConcreteEnv`]:
 //! - All un-processed database transactions are completed
 //! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)
