@@ -12,11 +12,11 @@ keywords    = ["cuprate", "service", "database"]
 cuprate-database = { path = "../database" }
 cuprate-helper   = { path = "../../helper", features = ["fs", "thread", "map"] }
 
-serde            = { workspace = true, optional = true }
-rayon            = { workspace = true }
-tower            = { workspace = true }
-futures          = { workspace = true }
-crossbeam        = { workspace = true, features = ["std"] }
+serde     = { workspace = true, optional = true }
+rayon     = { workspace = true }
+tower     = { workspace = true }
+futures   = { workspace = true }
+crossbeam = { workspace = true, features = ["std"] }
 
 [lints]
 workspace = true
