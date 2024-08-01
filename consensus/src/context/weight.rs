@@ -23,21 +23,21 @@ use cuprate_types::blockchain::{BCReadRequest, BCResponse};
 use crate::{Database, ExtendedConsensusError, HardFork};
 
 /// The short term block weight window.
-const SHORT_TERM_WINDOW: u64 = 100;
+const SHORT_TERM_WINDOW: usize = 100;
 /// The long term block weight window.
-const LONG_TERM_WINDOW: u64 = 100000;
+const LONG_TERM_WINDOW: usize = 100000;
 
 /// Configuration for the block weight cache.
 ///
 #[derive(Debug, Clone)]
 pub struct BlockWeightsCacheConfig {
-    short_term_window: u64,
-    long_term_window: u64,
+    short_term_window: usize,
+    long_term_window: usize,
 }
 
 impl BlockWeightsCacheConfig {
     /// Creates a new [`BlockWeightsCacheConfig`]
-    pub const fn new(short_term_window: u64, long_term_window: u64) -> BlockWeightsCacheConfig {
+    pub const fn new(short_term_window: usize, long_term_window: usize) -> BlockWeightsCacheConfig {
         BlockWeightsCacheConfig {
             short_term_window,
             long_term_window,
@@ -73,7 +73,7 @@ pub struct BlockWeightsCache {
     cached_sorted_short_term_weights: Vec<usize>,
 
     /// The height of the top block.
-    tip_height: u64,
+    tip_height: usize,
 
     /// The block weight config.
     config: BlockWeightsCacheConfig,
@@ -83,7 +83,7 @@ impl BlockWeightsCache {
     /// Initialize the [`BlockWeightsCache`] at the the given chain height.
     #[instrument(name = "init_weight_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
-        chain_height: u64,
+        chain_height: usize,
         config: BlockWeightsCacheConfig,
         database: D,
     ) -> Result<Self, ExtendedConsensusError> {
@@ -129,7 +129,7 @@ impl BlockWeightsCache {
     ///
     /// The block_height **MUST** be one more than the last height the cache has
     /// seen.
-    pub fn new_block(&mut self, block_height: u64, block_weight: usize, long_term_weight: usize) {
+    pub fn new_block(&mut self, block_height: usize, block_weight: usize, long_term_weight: usize) {
         assert_eq!(self.tip_height + 1, block_height);
         self.tip_height += 1;
         tracing::debug!(
@@ -151,7 +151,7 @@ impl BlockWeightsCache {
         }
 
         // If the list now has too many entries remove the oldest.
-        if u64::try_from(self.long_term_weights.len()).unwrap() > self.config.long_term_window {
+        if self.long_term_weights.len() > self.config.long_term_window {
             let val = self
                 .long_term_weights
                 .pop_front()
@@ -175,9 +175,7 @@ impl BlockWeightsCache {
         }
 
         // If there are now too many entries remove the oldest.
-        if u64::try_from(self.short_term_block_weights.len()).unwrap()
-            > self.config.short_term_window
-        {
+        if self.short_term_block_weights.len() > self.config.short_term_window {
             let val = self
                 .short_term_block_weights
                 .pop_front()
@@ -288,7 +286,7 @@ pub fn calculate_block_long_term_weight(
 /// Gets the block weights from the blocks with heights in the range provided.
 #[instrument(name = "get_block_weights", skip(database))]
 async fn get_blocks_weight_in_range<D: Database + Clone>(
-    range: Range<u64>,
+    range: Range<usize>,
     database: D,
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block weights.");
@@ -309,7 +307,7 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
 /// Gets the block long term weights from the blocks with heights in the range provided.
 #[instrument(name = "get_long_term_weights", skip(database), level = "info")]
 async fn get_long_term_weight_in_range<D: Database + Clone>(
-    range: Range<u64>,
+    range: Range<usize>,
     database: D,
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block long term weights.");

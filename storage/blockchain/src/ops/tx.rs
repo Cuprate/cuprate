@@ -68,7 +68,7 @@ pub fn add_tx(
     // so the `u64/usize` is stored without any tag.
     //
     // <https://github.com/Cuprate/cuprate/pull/102#discussion_r1558504285>
-    match tx.prefix().timelock {
+    match tx.prefix().additional_timelock {
         Timelock::None => (),
         Timelock::Block(height) => tables.tx_unlock_time_mut().put(&tx_id, &(height as u64))?,
         Timelock::Time(time) => tables.tx_unlock_time_mut().put(&tx_id, &time)?,
@@ -106,7 +106,7 @@ pub fn add_tx(
     //------------------------------------------------------ Outputs
     // Output bit flags.
     // Set to a non-zero bit value if the unlock time is non-zero.
-    let output_flags = match tx.prefix().timelock {
+    let output_flags = match tx.prefix().additional_timelock {
         Timelock::None => OutputFlags::empty(),
         Timelock::Block(_) | Timelock::Time(_) => OutputFlags::NON_ZERO_UNLOCK_TIME,
     };
@@ -141,7 +141,7 @@ pub fn add_tx(
                 // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
                 let commitment = if miner_tx {
                     ED25519_BASEPOINT_POINT
-                        + monero_serai::generators::H() * Scalar::from(output.amount.unwrap_or(0))
+                        + *monero_serai::generators::H * Scalar::from(output.amount.unwrap_or(0))
                 } else {
                     let commitment = proofs
                         .as_ref()

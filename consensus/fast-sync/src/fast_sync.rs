@@ -244,7 +244,7 @@ where
 
     let block_blob = block.serialize();
 
-    let Some(Input::Gen(height)) = block.miner_tx.prefix().inputs.first() else {
+    let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
         return Err(FastSyncError::MinerTx(MinerTxError::InputNotOfTypeGen));
     };
     if *height != block_chain_ctx.chain_height {
@@ -252,7 +252,7 @@ where
     }
 
     let mut verified_txs = Vec::with_capacity(txs.len());
-    for tx in &block.txs {
+    for tx in &block.transactions {
         let tx = txs
             .remove(tx)
             .ok_or(FastSyncError::TxsIncludedWithBlockIncorrect)?;
@@ -269,7 +269,7 @@ where
 
     let total_fees = verified_txs.iter().map(|tx| tx.fee).sum::<u64>();
     let total_outputs = block
-        .miner_tx
+        .miner_transaction
         .prefix()
         .outputs
         .iter()
@@ -278,8 +278,8 @@ where
 
     let generated_coins = total_outputs - total_fees;
 
-    let weight =
-        block.miner_tx.weight() + verified_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
+    let weight = block.miner_transaction.weight()
+        + verified_txs.iter().map(|tx| tx.tx_weight).sum::<usize>();
 
     Ok(FastSyncResponse::ValidateBlock(VerifiedBlockInformation {
         block_blob,

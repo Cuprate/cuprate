@@ -75,8 +75,8 @@ fn simple_type_balances(rct_sig: &RctProofs) -> Result<(), RingCTError> {
     };
 
     let sum_inputs = pseudo_outs.iter().sum::<EdwardsPoint>();
-    let sum_outputs = rct_sig.base.commitments.iter().sum::<EdwardsPoint>()
-        + Scalar::from(rct_sig.base.fee) * H();
+    let sum_outputs =
+        rct_sig.base.commitments.iter().sum::<EdwardsPoint>() + Scalar::from(rct_sig.base.fee) * *H;
 
     if sum_inputs == sum_outputs {
         Ok(())

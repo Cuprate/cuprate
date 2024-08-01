@@ -99,7 +99,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
     fn peers_to_sync_from(
         &self,
         current_cum_diff: u128,
-        block_needed: Option<u64>,
+        block_needed: Option<usize>,
     ) -> Vec<InternalPeerID<N::Addr>> {
         self.cumulative_difficulties
             .range((current_cum_diff + 1)..)

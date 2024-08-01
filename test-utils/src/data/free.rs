@@ -31,7 +31,7 @@ use crate::data::constants::{
 struct VerifiedBlockMap {
     block_blob: &'static [u8],
     pow_hash: [u8; 32],
-    height: u64,
+    height: usize,
     generated_coins: u64,
     weight: usize,
     long_term_weight: usize,
@@ -68,11 +68,11 @@ impl VerifiedBlockMap {
 
         assert_eq!(
             txs.len(),
-            block.txs.len(),
+            block.transactions.len(),
             "(deserialized txs).len() != (txs hashes in block).len()"
         );
 
-        for (tx, tx_hash_in_block) in txs.iter().zip(&block.txs) {
+        for (tx, tx_hash_in_block) in txs.iter().zip(&block.transactions) {
             assert_eq!(
                 &tx.tx_hash, tx_hash_in_block,
                 "deserialized tx hash is not the same as the one in the parent block"

@@ -38,7 +38,7 @@ enum OutboundConnectorError {
 /// set needs specific data that none of the currently connected peers have.
 pub struct MakeConnectionRequest {
     /// The block needed that no connected peers have due to pruning.
-    block_needed: Option<u64>,
+    block_needed: Option<usize>,
 }
 
 /// The outbound connection count keeper.

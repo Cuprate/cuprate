@@ -11,7 +11,7 @@ use crate::{Database, ExtendedConsensusError};
 /// The default amount of hard-fork votes to track to decide on activation of a hard-fork.
 ///
 /// ref: <https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork>
-const DEFAULT_WINDOW_SIZE: u64 = 10080; // supermajority window check length - a week
+const DEFAULT_WINDOW_SIZE: usize = 10080; // supermajority window check length - a week
 
 /// Configuration for hard-forks.
 ///
@@ -20,7 +20,7 @@ pub struct HardForkConfig {
     /// The network we are on.
     pub(crate) info: HFsInfo,
     /// The amount of votes we are taking into account to decide on a fork activation.
-    pub(crate) window: u64,
+    pub(crate) window: usize,
 }
 
 impl HardForkConfig {
@@ -61,14 +61,14 @@ pub struct HardForkState {
     pub(crate) votes: HFVotes,
 
     /// The last block height accounted for.
-    pub(crate) last_height: u64,
+    pub(crate) last_height: usize,
 }
 
 impl HardForkState {
     /// Initialize the [`HardForkState`] from the specified chain height.
     #[instrument(name = "init_hardfork_state", skip(config, database), level = "info")]
     pub async fn init_from_chain_height<D: Database + Clone>(
-        chain_height: u64,
+        chain_height: usize,
         config: HardForkConfig,
         mut database: D,
     ) -> Result<Self, ExtendedConsensusError> {
@@ -118,7 +118,7 @@ impl HardForkState {
     }
 
     /// Add a new block to the cache.
-    pub fn new_block(&mut self, vote: HardFork, height: u64) {
+    pub fn new_block(&mut self, vote: HardFork, height: usize) {
         // We don't _need_ to take in `height` but it's for safety, so we don't silently loose track
         // of blocks.
         assert_eq!(self.last_height + 1, height);
@@ -162,7 +162,7 @@ impl HardForkState {
 #[instrument(name = "get_votes", skip(database))]
 async fn get_votes_in_range<D: Database>(
     database: D,
-    block_heights: Range<u64>,
+    block_heights: Range<usize>,
     window_size: usize,
 ) -> Result<HFVotes, ExtendedConsensusError> {
     let mut votes = HFVotes::new(window_size);

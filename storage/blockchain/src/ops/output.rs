@@ -157,7 +157,7 @@ pub fn output_to_output_on_chain(
 ) -> Result<OutputOnChain, RuntimeError> {
     // FIXME: implement lookup table for common values:
     // <https://github.com/monero-project/monero/blob/c8214782fb2a769c57382a999eaf099691c836e7/src/ringct/rctOps.cpp#L322>
-    let commitment = ED25519_BASEPOINT_POINT + H() * Scalar::from(amount);
+    let commitment = ED25519_BASEPOINT_POINT + *H * Scalar::from(amount);
 
     let time_lock = if output
         .output_flags
@@ -173,7 +173,7 @@ pub fn output_to_output_on_chain(
         .unwrap_or(None);
 
     Ok(OutputOnChain {
-        height: u64::from(output.height),
+        height: output.height as usize,
         time_lock,
         key,
         commitment,
@@ -213,7 +213,7 @@ pub fn rct_output_to_output_on_chain(
         .unwrap_or(None);
 
     Ok(OutputOnChain {
-        height: u64::from(rct_output.height),
+        height: rct_output.height as usize,
         time_lock,
         key,
         commitment,

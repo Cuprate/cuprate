@@ -15,7 +15,7 @@ use super::{BlockBatch, BlockDownloadError};
 #[derive(Debug, Clone)]
 pub struct ReadyQueueBatch {
     /// The start height of the batch.
-    pub start_height: u64,
+    pub start_height: usize,
     /// The batch of blocks.
     pub block_batch: BlockBatch,
 }
@@ -64,7 +64,7 @@ impl BlockQueue {
     }
 
     /// Returns the oldest batch that has not been put in the [`async_buffer`] yet.
-    pub fn oldest_ready_batch(&self) -> Option<u64> {
+    pub fn oldest_ready_batch(&self) -> Option<usize> {
         self.ready_batches.peek().map(|batch| batch.start_height)
     }
 
@@ -80,13 +80,13 @@ impl BlockQueue {
     pub async fn add_incoming_batch(
         &mut self,
         new_batch: ReadyQueueBatch,
-        oldest_in_flight_start_height: Option<u64>,
+        oldest_in_flight_start_height: Option<usize>,
     ) -> Result<(), BlockDownloadError> {
         self.ready_batches_size += new_batch.block_batch.size;
         self.ready_batches.push(new_batch);
 
         // The height to stop pushing batches into the buffer.
-        let height_to_stop_at = oldest_in_flight_start_height.unwrap_or(u64::MAX);
+        let height_to_stop_at = oldest_in_flight_start_height.unwrap_or(usize::MAX);
 
         while self
             .ready_batches
@@ -125,7 +125,7 @@ mod tests {
     use super::*;
 
     prop_compose! {
-        fn ready_batch_strategy()(start_height in 0_u64..500_000_000) -> ReadyQueueBatch {
+        fn ready_batch_strategy()(start_height in 0_usize..500_000_000) -> ReadyQueueBatch {
             // TODO: The permit will not be needed here when
             let (_, peer_handle)  = HandleBuilder::new().with_permit(Arc::new(Semaphore::new(1)).try_acquire_owned().unwrap()).build();
 

@@ -59,7 +59,7 @@ impl HttpRpcClient {
     /// # Panics
     /// This function will panic at any error point, e.g.,
     /// if the node cannot be connected to, if deserialization fails, etc.
-    pub async fn get_verified_block_information(&self, height: u64) -> VerifiedBlockInformation {
+    pub async fn get_verified_block_information(&self, height: usize) -> VerifiedBlockInformation {
         #[derive(Debug, Deserialize)]
         struct Result {
             blob: String,
@@ -72,7 +72,7 @@ impl HttpRpcClient {
             long_term_weight: usize,
             cumulative_difficulty: u128,
             hash: String,
-            height: u64,
+            height: usize,
             pow_hash: String,
             reward: u64, // generated_coins + total_tx_fees
         }
@@ -108,7 +108,7 @@ impl HttpRpcClient {
         .unwrap();
 
         let txs: Vec<VerifiedTransactionInformation> = self
-            .get_transaction_verification_data(&block.txs)
+            .get_transaction_verification_data(&block.transactions)
             .await
             .collect();
 
@@ -121,7 +121,7 @@ impl HttpRpcClient {
 
         let total_tx_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
         let generated_coins = block
-            .miner_tx
+            .miner_transaction
             .prefix()
             .outputs
             .iter()
@@ -197,7 +197,7 @@ mod tests {
         #[allow(clippy::too_many_arguments)]
         async fn assert_eq(
             rpc: &HttpRpcClient,
-            height: u64,
+            height: usize,
             block_hash: [u8; 32],
             pow_hash: [u8; 32],
             generated_coins: u64,

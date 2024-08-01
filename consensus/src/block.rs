@@ -53,7 +53,7 @@ pub struct PreparedBlockExPow {
     /// The block's hash.
     pub block_hash: [u8; 32],
     /// The height of the block.
-    pub height: u64,
+    pub height: usize,
 
     /// The weight of the block's miner transaction.
     pub miner_tx_weight: usize,
@@ -70,7 +70,7 @@ impl PreparedBlockExPow {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
-        let Some(Input::Gen(height)) = block.miner_tx.prefix().inputs.first() else {
+        let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
@@ -84,7 +84,7 @@ impl PreparedBlockExPow {
             block_hash: block.hash(),
             height: *height,
 
-            miner_tx_weight: block.miner_tx.weight(),
+            miner_tx_weight: block.miner_transaction.weight(),
             block,
         })
     }
@@ -124,7 +124,7 @@ impl PreparedBlock {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
-        let Some(Input::Gen(height)) = block.miner_tx.prefix().inputs.first() else {
+        let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
@@ -143,7 +143,7 @@ impl PreparedBlock {
                 &hf_version,
             )?,
 
-            miner_tx_weight: block.miner_tx.weight(),
+            miner_tx_weight: block.miner_transaction.weight(),
             block,
         })
     }
@@ -173,7 +173,7 @@ impl PreparedBlock {
                 &block.hf_version,
             )?,
 
-            miner_tx_weight: block.block.miner_tx.weight(),
+            miner_tx_weight: block.block.miner_transaction.weight(),
             block: block.block,
         })
     }
@@ -476,7 +476,7 @@ where
                 // Order the txs correctly.
                 let mut ordered_txs = Vec::with_capacity(txs.len());
 
-                for tx_hash in &block.block.txs {
+                for tx_hash in &block.block.transactions {
                     let tx = txs
                         .remove(tx_hash)
                         .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
@@ -561,8 +561,8 @@ where
 
     tracing::debug!("Ordering transactions for block.");
 
-    if !prepped_block.block.txs.is_empty() {
-        for tx_hash in &prepped_block.block.txs {
+    if !prepped_block.block.transactions.is_empty() {
+        for tx_hash in &prepped_block.block.transactions {
             let tx = txs
                 .remove(tx_hash)
                 .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;
@@ -621,12 +621,12 @@ where
     check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
         .map_err(ConsensusError::Block)?;
 
-    if prepped_block.block.txs.len() != txs.len() {
+    if prepped_block.block.transactions.len() != txs.len() {
         return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
     }
 
-    if !prepped_block.block.txs.is_empty() {
-        for (expected_tx_hash, tx) in prepped_block.block.txs.iter().zip(txs.iter()) {
+    if !prepped_block.block.transactions.is_empty() {
+        for (expected_tx_hash, tx) in prepped_block.block.transactions.iter().zip(txs.iter()) {
             if expected_tx_hash != &tx.tx_hash {
                 return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
             }

@@ -175,7 +175,7 @@ pub enum VerifyTxRequest {
         // TODO: Can we use references to remove the Vec? wont play nicely with Service though
         txs: Vec<Arc<TransactionVerificationData>>,
         /// The current chain height.
-        current_chain_height: u64,
+        current_chain_height: usize,
         /// The top block hash.
         top_hash: [u8; 32],
         /// The value for time to use to check time locked outputs.
@@ -189,7 +189,7 @@ pub enum VerifyTxRequest {
         /// The transactions to verify.
         txs: Vec<Transaction>,
         /// The current chain height.
-        current_chain_height: u64,
+        current_chain_height: usize,
         /// The top block hash.
         top_hash: [u8; 32],
         /// The value for time to use to check time locked outputs.
@@ -288,7 +288,7 @@ where
 async fn prep_and_verify_transactions<D>(
     database: D,
     txs: Vec<Transaction>,
-    current_chain_height: u64,
+    current_chain_height: usize,
     top_hash: [u8; 32],
     time_for_time_lock: u64,
     hf: HardFork,
@@ -323,7 +323,7 @@ where
 async fn verify_prepped_transactions<D>(
     mut database: D,
     txs: &[Arc<TransactionVerificationData>],
-    current_chain_height: u64,
+    current_chain_height: usize,
     top_hash: [u8; 32],
     time_for_time_lock: u64,
     hf: HardFork,
@@ -422,7 +422,7 @@ fn transactions_needing_verification(
     txs: &[Arc<TransactionVerificationData>],
     hashes_in_main_chain: HashSet<[u8; 32]>,
     current_hf: &HardFork,
-    current_chain_height: u64,
+    current_chain_height: usize,
     time_for_time_lock: u64,
 ) -> Result<
     (
@@ -513,7 +513,7 @@ where
 
 async fn verify_transactions<D>(
     txs: Vec<(Arc<TransactionVerificationData>, VerificationNeeded)>,
-    current_chain_height: u64,
+    current_chain_height: usize,
     top_hash: [u8; 32],
     current_time_lock_timestamp: u64,
     hf: HardFork,

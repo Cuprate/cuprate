@@ -80,7 +80,7 @@ pub struct VerifiedBlockInformation {
     /// The block's proof-of-work hash.
     pub pow_hash: [u8; 32],
     /// The block's height.
-    pub height: u64,
+    pub height: usize,
     /// The amount of generated coins (atomic units) in this block.
     pub generated_coins: u64,
     /// The adjusted block size, in bytes.
@@ -96,7 +96,7 @@ pub struct VerifiedBlockInformation {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OutputOnChain {
     /// The block height this output belongs to.
-    pub height: u64,
+    pub height: usize,
     /// The timelock of this output, if any.
     pub time_lock: Timelock,
     /// The public key of this output, if any.

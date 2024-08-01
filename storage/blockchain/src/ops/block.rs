@@ -65,17 +65,17 @@ pub fn add_block(
     #[cfg(debug_assertions)]
     {
         assert_eq!(block.block.serialize(), block.block_blob);
-        assert_eq!(block.block.txs.len(), block.txs.len());
+        assert_eq!(block.block.transactions.len(), block.txs.len());
         for (i, tx) in block.txs.iter().enumerate() {
             assert_eq!(tx.tx_blob, tx.tx.serialize());
-            assert_eq!(tx.tx_hash, block.block.txs[i]);
+            assert_eq!(tx.tx_hash, block.block.transactions[i]);
         }
     }
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
     {
-        let tx = &block.block.miner_tx;
+        let tx = &block.block.miner_transaction;
         add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?;
     }
 
@@ -154,8 +154,8 @@ pub fn pop_block(
     let block = Block::read(&mut block_blob.as_slice())?;
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    remove_tx(&block.miner_tx.hash(), tables)?;
-    for tx_hash in &block.txs {
+    remove_tx(&block.miner_transaction.hash(), tables)?;
+    for tx_hash in &block.transactions {
         remove_tx(tx_hash, tables)?;
     }
 
@@ -297,7 +297,7 @@ mod test {
         // HACK: `add_block()` asserts blocks with non-sequential heights
         // cannot be added, to get around this, manually edit the block height.
         for (height, block) in blocks.iter_mut().enumerate() {
-            block.height = height as u64;
+            block.height = height;
             assert_eq!(block.block.serialize(), block.block_blob);
         }
         let generated_coins_sum = blocks
@@ -388,7 +388,7 @@ mod test {
 
                     assert_eq!(tx.tx_blob, tx2.serialize());
                     assert_eq!(tx.tx_weight, tx2.weight());
-                    assert_eq!(tx.tx_hash, block.block.txs[i]);
+                    assert_eq!(tx.tx_hash, block.block.transactions[i]);
                     assert_eq!(tx.tx_hash, tx2.hash());
                 }
             }
@@ -440,7 +440,7 @@ mod test {
 
         let mut block = block_v9_tx3().clone();
 
-        block.height = u64::from(u32::MAX) + 1;
+        block.height = usize::try_from(u32::MAX).unwrap() + 1;
         add_block(&block, &mut tables).unwrap();
     }
 

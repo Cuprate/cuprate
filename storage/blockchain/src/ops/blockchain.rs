@@ -25,7 +25,7 @@ use crate::{
 pub fn chain_height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<BlockHeight, RuntimeError> {
-    table_block_heights.len()
+    table_block_heights.len().map(|height| height as usize)
 }
 
 /// Retrieve the height of the top block.
@@ -47,7 +47,7 @@ pub fn top_block_height(
 ) -> Result<BlockHeight, RuntimeError> {
     match table_block_heights.len()? {
         0 => Err(RuntimeError::KeyNotFound),
-        height => Ok(height - 1),
+        height => Ok(height as usize - 1),
     }
 }
 
@@ -111,7 +111,7 @@ mod test {
             block_v9_tx3().clone(),
             block_v16_tx0().clone(),
         ];
-        let blocks_len = u64::try_from(blocks.len()).unwrap();
+        let blocks_len = blocks.len();
 
         // Add blocks.
         {
@@ -128,7 +128,6 @@ mod test {
             );
 
             for (i, block) in blocks.iter_mut().enumerate() {
-                let i = u64::try_from(i).unwrap();
                 // HACK: `add_block()` asserts blocks with non-sequential heights
                 // cannot be added, to get around this, manually edit the block height.
                 block.height = i;

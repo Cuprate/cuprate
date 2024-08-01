@@ -196,7 +196,7 @@ pub struct NewBlockData {
     /// The blocks hash.
     pub block_hash: [u8; 32],
     /// The blocks height.
-    pub height: u64,
+    pub height: usize,
     /// The blocks timestamp.
     pub timestamp: u64,
     /// The blocks weight.
@@ -239,7 +239,7 @@ pub enum BlockChainContextResponse {
     /// Blockchain context response.
     Context(BlockChainContext),
     /// A map of seed height to RandomX VMs.
-    RxVms(HashMap<u64, Arc<RandomXVM>>),
+    RxVms(HashMap<usize, Arc<RandomXVM>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
     /// Ok response.

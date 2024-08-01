@@ -40,11 +40,11 @@ pub enum HardForkError {
 /// Information about a given hard-fork.
 #[derive(Debug, Clone, Copy)]
 pub struct HFInfo {
-    height: u64,
-    threshold: u64,
+    height: usize,
+    threshold: usize,
 }
 impl HFInfo {
-    pub const fn new(height: u64, threshold: u64) -> HFInfo {
+    pub const fn new(height: usize, threshold: usize) -> HFInfo {
         HFInfo { height, threshold }
     }
 }
@@ -245,7 +245,7 @@ impl HardFork {
 /// A struct holding the current voting state of the blockchain.
 #[derive(Debug, Clone)]
 pub struct HFVotes {
-    votes: [u64; NUMB_OF_HARD_FORKS],
+    votes: [usize; NUMB_OF_HARD_FORKS],
     vote_list: VecDeque<HardFork>,
     window_size: usize,
 }
@@ -296,13 +296,13 @@ impl HFVotes {
     /// Returns the total votes for a hard-fork.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#accepting-a-fork>
-    pub fn votes_for_hf(&self, hf: &HardFork) -> u64 {
+    pub fn votes_for_hf(&self, hf: &HardFork) -> usize {
         self.votes[*hf as usize - 1..].iter().sum()
     }
 
     /// Returns the total amount of votes being tracked
-    pub fn total_votes(&self) -> u64 {
-        self.votes.iter().sum()
+    pub fn total_votes(&self) -> usize {
+        self.vote_list.len()
     }
 
     /// Checks if a future hard fork should be activated, returning the next hard-fork that should be
@@ -312,8 +312,8 @@ impl HFVotes {
     pub fn current_fork(
         &self,
         current_hf: &HardFork,
-        current_height: u64,
-        window: u64,
+        current_height: usize,
+        window: usize,
         hfs_info: &HFsInfo,
     ) -> HardFork {
         let mut current_hf = *current_hf;
@@ -339,6 +339,6 @@ impl HFVotes {
 /// Returns the votes needed for a hard-fork.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#accepting-a-fork>
-pub fn votes_needed(threshold: u64, window: u64) -> u64 {
+pub fn votes_needed(threshold: usize, window: usize) -> usize {
     (threshold * window).div_ceil(100)
 }

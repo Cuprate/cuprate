@@ -30,12 +30,12 @@ pub enum BCReadRequest {
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
-    BlockExtendedHeader(u64),
+    BlockExtendedHeader(usize),
 
     /// Request a block's hash.
     ///
     /// The input is the block's height.
-    BlockHash(u64),
+    BlockHash(usize),
 
     /// Removes the block hashes that are not in the _main_ chain.
     ///
@@ -45,7 +45,7 @@ pub enum BCReadRequest {
     /// Request a range of block extended headers.
     ///
     /// The input is a range of block heights.
-    BlockExtendedHeaderInRange(Range<u64>),
+    BlockExtendedHeaderInRange(Range<usize>),
 
     /// Request the current chain height.
     ///
@@ -136,7 +136,7 @@ pub enum BCResponse {
     /// Response to [`BCReadRequest::ChainHeight`].
     ///
     /// Inner value is the chain height, and the top block's hash.
-    ChainHeight(u64, [u8; 32]),
+    ChainHeight(usize, [u8; 32]),
 
     /// Response to [`BCReadRequest::GeneratedCoins`].
     ///

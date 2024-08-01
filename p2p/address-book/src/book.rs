@@ -257,7 +257,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
 
     fn take_random_white_peer(
         &mut self,
-        block_needed: Option<u64>,
+        block_needed: Option<usize>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random white peer");
         self.white_list
@@ -266,7 +266,7 @@ impl<Z: NetworkZone> AddressBook<Z> {
 
     fn take_random_gray_peer(
         &mut self,
-        block_needed: Option<u64>,
+        block_needed: Option<usize>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         tracing::debug!("Retrieving random gray peer");
         self.gray_list

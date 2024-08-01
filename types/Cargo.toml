@@ -16,4 +16,7 @@ blockchain = []
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
 
+serde            = { workspace = true, optional = true }
+borsh            = { workspace = true, optional = true }
+
 [dev-dependencies]

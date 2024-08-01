@@ -35,8 +35,8 @@ pub fn generate_genesis_block(network: &Network) -> Block {
             previous: [0; 32],
             nonce: genesis_nonce(network),
         },
-        miner_tx: genesis_miner_tx(network),
-        txs: vec![],
+        miner_transaction: genesis_miner_tx(network),
+        transactions: vec![],
     }
 }
 

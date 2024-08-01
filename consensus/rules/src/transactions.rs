@@ -247,14 +247,14 @@ fn check_outputs_semantics(
 /// <https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html>
 pub fn output_unlocked(
     time_lock: &Timelock,
-    current_chain_height: u64,
+    current_chain_height: usize,
     current_time_lock_timestamp: u64,
     hf: &HardFork,
 ) -> bool {
     match *time_lock {
         Timelock::None => true,
         Timelock::Block(unlock_height) => {
-            check_block_time_lock(unlock_height.try_into().unwrap(), current_chain_height)
+            check_block_time_lock(unlock_height, current_chain_height)
         }
         Timelock::Time(unlock_time) => {
             check_timestamp_time_lock(unlock_time, current_time_lock_timestamp, hf)
@@ -265,7 +265,7 @@ pub fn output_unlocked(
 /// Returns if a locked output, which uses a block height, can be spent.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#block-height>
-fn check_block_time_lock(unlock_height: u64, current_chain_height: u64) -> bool {
+fn check_block_time_lock(unlock_height: usize, current_chain_height: usize) -> bool {
     // current_chain_height = 1 + top height
     unlock_height <= current_chain_height
 }
@@ -289,7 +289,7 @@ fn check_timestamp_time_lock(
 /// <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#the-output-must-not-be-locked>
 fn check_all_time_locks(
     time_locks: &[Timelock],
-    current_chain_height: u64,
+    current_chain_height: usize,
     current_time_lock_timestamp: u64,
     hf: &HardFork,
 ) -> Result<(), TransactionError> {
@@ -434,8 +434,8 @@ fn check_inputs_sorted(inputs: &[Input], hf: &HardFork) -> Result<(), Transactio
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#10-block-lock>
 fn check_10_block_lock(
-    youngest_used_out_height: u64,
-    current_chain_height: u64,
+    youngest_used_out_height: usize,
+    current_chain_height: usize,
     hf: &HardFork,
 ) -> Result<(), TransactionError> {
     if hf >= &HardFork::V12 {
@@ -502,7 +502,7 @@ fn check_inputs_semantics(inputs: &[Input], hf: &HardFork) -> Result<u64, Transa
 fn check_inputs_contextual(
     inputs: &[Input],
     tx_ring_members_info: &TxRingMembersInfo,
-    current_chain_height: u64,
+    current_chain_height: usize,
     hf: &HardFork,
 ) -> Result<(), TransactionError> {
     // This rule is not contained in monero-core explicitly, but it is enforced by how Monero picks ring members.
@@ -659,7 +659,7 @@ pub fn check_transaction_semantic(
 pub fn check_transaction_contextual(
     tx: &Transaction,
     tx_ring_members_info: &TxRingMembersInfo,
-    current_chain_height: u64,
+    current_chain_height: usize,
     current_time_lock_timestamp: u64,
     hf: &HardFork,
 ) -> Result<(), TransactionError> {

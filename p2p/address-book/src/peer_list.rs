@@ -88,7 +88,7 @@ impl<Z: NetworkZone> PeerList<Z> {
     pub fn take_random_peer<R: Rng>(
         &mut self,
         r: &mut R,
-        block_needed: Option<u64>,
+        block_needed: Option<usize>,
         must_keep_peers: &HashSet<Z::Addr>,
     ) -> Option<ZoneSpecificPeerListEntryBase<Z::Addr>> {
         // Take a random peer and see if it's in the list of must_keep_peers, if it is try again.
