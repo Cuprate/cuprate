@@ -398,6 +398,8 @@ impl EpeeObject for GetBlocksResponse {
 /// Binary requests.
 ///
 /// This enum contains all [`crate::bin`] requests.
+///
+/// See also: [`BinResponse`].
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 #[allow(missing_docs)]
@@ -442,6 +444,8 @@ impl RpcCallValue for BinRequest {
 /// Binary responses.
 ///
 /// This enum contains all [`crate::bin`] responses.
+///
+/// See also: [`BinRequest`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]

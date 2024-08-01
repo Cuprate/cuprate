@@ -957,6 +957,9 @@ define_request_and_response! {
 ///
 /// This enum contains all [`crate::other`] requests.
 ///
+/// See also: [`OtherResponse`].
+///
+/// # (De)serialization
 /// The `serde` implementation will (de)serialize from
 /// the inner variant itself, e.g. [`OtherRequest::SetLogLevel`]
 /// has the same (de)serialization as [`SetLogLevelRequest`].
@@ -1073,6 +1076,9 @@ impl RpcCallValue for OtherRequest {
 ///
 /// This enum contains all [`crate::other`] responses.
 ///
+/// See also: [`OtherRequest`].
+///
+/// # (De)serialization
 /// The `serde` implementation will (de)serialize from
 /// the inner variant itself, e.g. [`OtherRequest::SetBootstrapDaemon`]
 /// has the same (de)serialization as [`SetBootstrapDaemonResponse`].

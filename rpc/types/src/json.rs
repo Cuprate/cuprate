@@ -1573,6 +1573,8 @@ define_request_and_response! {
 ///
 /// This enum contains all [`crate::json`] requests.
 ///
+/// See also: [`JsonRpcResponse`].
+///
 /// TODO: document and test (de)serialization behavior after figuring out `method/params`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
@@ -1691,6 +1693,9 @@ impl RpcCallValue for JsonRpcRequest {
 ///
 /// This enum contains all [`crate::json`] responses.
 ///
+/// See also: [`JsonRpcRequest`].
+///
+/// # (De)serialization
 /// The `serde` implementation will (de)serialize from
 /// the inner variant itself, e.g. [`JsonRpcRequest::Banned`]
 /// has the same (de)serialization as [`BannedResponse`].
