@@ -1569,7 +1569,11 @@ define_request_and_response! {
 }
 
 //---------------------------------------------------------------------------------------------------- Request
-/// TODO
+/// JSON-RPC requests.
+///
+/// This enum contains all [`crate::json`] requests.
+///
+/// TODO: document and test (de)serialization behavior after figuring out `method/params`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(
@@ -1683,7 +1687,26 @@ impl RpcCallValue for JsonRpcRequest {
 }
 
 //---------------------------------------------------------------------------------------------------- Response
-/// TODO
+/// JSON-RPC responses.
+///
+/// This enum contains all [`crate::json`] responses.
+///
+/// The `serde` implementation will (de)serialize from
+/// the inner variant itself, e.g. [`JsonRpcRequest::Banned`]
+/// has the same (de)serialization as [`BannedResponse`].
+///
+/// ```rust
+/// use cuprate_rpc_types::{misc::*, json::*};
+///
+/// let response = JsonRpcResponse::Banned(BannedResponse {
+///     banned: true,
+///     seconds: 123,
+///     status: Status::Ok,
+/// });
+/// let json = serde_json::to_string(&response).unwrap();
+/// assert_eq!(json, r#"{"banned":true,"seconds":123,"status":"OK"}"#);
+/// let response: JsonRpcResponse = serde_json::from_str(&json).unwrap();
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged, rename_all = "snake_case"))]
