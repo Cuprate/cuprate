@@ -11,6 +11,8 @@ use monero_simple_request_rpc::SimpleRequestRpc;
 
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
+use crate::data::tx_fee;
+
 //---------------------------------------------------------------------------------------------------- Constants
 /// The default URL used for Monero RPC connections.
 pub const LOCALHOST_RPC_URL: &str = "http://127.0.0.1:18081";
@@ -172,8 +174,7 @@ impl HttpRpcClient {
                     tx_blob: tx.serialize(),
                     tx_weight: tx.weight(),
                     tx_hash,
-                    // TODO: fix this.
-                    fee: 0,
+                    fee: tx_fee(&tx),
                     tx,
                 }
             })

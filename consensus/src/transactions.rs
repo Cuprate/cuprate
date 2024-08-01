@@ -12,11 +12,7 @@ use std::{
 };
 
 use futures::FutureExt;
-use monero_serai::ringct::bulletproofs::Bulletproof;
-use monero_serai::{
-    ringct::RctType,
-    transaction::{Input, Timelock, Transaction},
-};
+use monero_serai::transaction::{Input, Timelock, Transaction};
 use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::instrument;
@@ -38,6 +34,7 @@ use crate::{
 };
 
 pub mod contextual_data;
+mod free;
 
 /// A struct representing the type of validation that needs to be completed for this transaction.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -104,52 +101,9 @@ impl TransactionVerificationData {
         let tx_hash = tx.hash();
         let tx_blob = tx.serialize();
 
-        // the tx weight is only different from the blobs length for bp(+) txs.
-        let tx_weight = match &tx {
-            Transaction::V1 { .. } | Transaction::V2 { proofs: None, .. } => tx_blob.len(),
-            Transaction::V2 {
-                proofs: Some(proofs),
-                ..
-            } => match proofs.rct_type() {
-                RctType::AggregateMlsagBorromean | RctType::MlsagBorromean => tx_blob.len(),
-                RctType::MlsagBulletproofs
-                | RctType::MlsagBulletproofsCompactAmount
-                | RctType::ClsagBulletproof => {
-                    tx_blob.len()
-                        + Bulletproof::calculate_bp_clawback(false, tx.prefix().outputs.len()).0
-                }
-                RctType::ClsagBulletproofPlus => {
-                    tx_blob.len()
-                        + Bulletproof::calculate_bp_clawback(true, tx.prefix().outputs.len()).0
-                }
-            },
-        };
+        let tx_weight = free::tx_weight(&tx, &tx_blob);
 
-        let mut fee = 0_u64;
-
-        match &tx {
-            Transaction::V1 { prefix, .. } => {
-                for input in &prefix.inputs {
-                    if let Input::ToKey { amount, .. } = input {
-                        fee = fee
-                            .checked_add(amount.unwrap_or(0))
-                            .ok_or(TransactionError::InputsOverflow)?;
-                    }
-                }
-
-                for output in &prefix.outputs {
-                    fee.checked_sub(output.amount.unwrap_or(0))
-                        .ok_or(TransactionError::OutputsTooHigh)?;
-                }
-            }
-            Transaction::V2 { proofs, .. } => {
-                fee = proofs
-                    .as_ref()
-                    .ok_or(TransactionError::TransactionVersionInvalid)?
-                    .base
-                    .fee;
-            }
-        };
+        let fee = free::tx_fee(&tx)?;
 
         Ok(TransactionVerificationData {
             tx_hash,
