@@ -3,6 +3,9 @@
 //! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{default_false, default_string, default_true, default_vec, default_zero},
@@ -11,6 +14,8 @@ use crate::{
         GetOutputsOut, KeyImageSpentStatus, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status,
         TxEntry, TxInfo, TxpoolStats,
     },
+    rpc_call::RpcCall,
+    RpcCallValue,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -93,7 +98,7 @@ define_request_and_response! {
     get_height,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 138..=160,
-    GetHeight,
+    GetHeight (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -146,7 +151,7 @@ define_request_and_response! {
     get_alt_blocks_hashes,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 288..=308,
-    GetAltBlocksHashes,
+    GetAltBlocksHashes (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -258,7 +263,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 665..=691,
 
-    StartMining,
+    StartMining (restricted),
 
     #[doc = serde_doc_test!(
         START_MINING_REQUEST => StartMiningRequest {
@@ -287,7 +292,7 @@ define_request_and_response! {
     stop_mining,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 825..=843,
-    StopMining,
+    StopMining (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -302,7 +307,7 @@ define_request_and_response! {
     mining_status,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 846..=895,
-    MiningStatus,
+    MiningStatus (restricted),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -348,7 +353,7 @@ define_request_and_response! {
     save_bc,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 898..=916,
-    SaveBc,
+    SaveBc (restricted),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -364,7 +369,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1369..=1417,
 
-    GetPeerList,
+    GetPeerList (restricted),
 
     #[doc = serde_doc_test!(
         GET_PEER_LIST_REQUEST => GetPeerListRequest {
@@ -446,7 +451,8 @@ define_request_and_response! {
     set_log_hash_rate,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1450..=1470,
-    SetLogHashRate,
+
+    SetLogHashRate (restricted),
 
     #[derive(Copy)]
     #[doc = serde_doc_test!(
@@ -471,7 +477,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1450..=1470,
 
-    SetLogLevel,
+    SetLogLevel (restricted),
 
     #[derive(Copy)]
     #[doc = serde_doc_test!(
@@ -496,7 +502,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1494..=1517,
 
-    SetLogCategories,
+    SetLogCategories (restricted),
 
     #[doc = serde_doc_test!(
         SET_LOG_CATEGORIES_REQUEST => SetLogCategoriesRequest {
@@ -523,7 +529,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1785..=1812,
 
-    SetBootstrapDaemon,
+    SetBootstrapDaemon (restricted),
 
     #[doc = serde_doc_test!(
         SET_BOOTSTRAP_DAEMON_REQUEST => SetBootstrapDaemonRequest {
@@ -555,7 +561,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1569..=1591,
 
-    GetTransactionPool,
+    GetTransactionPool (empty),
     Request {},
 
     #[doc = serde_doc_test!(GET_TRANSACTION_POOL_RESPONSE)]
@@ -570,7 +576,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1712..=1732,
 
-    GetTransactionPoolStats,
+    GetTransactionPoolStats (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -614,7 +620,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1814..=1831,
 
-    StopDaemon,
+    StopDaemon (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -632,7 +638,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1852..=1874,
 
-    GetLimit,
+    GetLimit (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -653,7 +659,8 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1876..=1903,
 
-    SetLimit,
+    SetLimit (restricted),
+
     #[doc = serde_doc_test!(
         SET_LIMIT_REQUEST => SetLimitRequest {
             limit_down: 1024,
@@ -684,7 +691,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1876..=1903,
 
-    OutPeers,
+    OutPeers (restricted),
 
     #[doc = serde_doc_test!(
         OUT_PEERS_REQUEST => OutPeersRequest {
@@ -709,11 +716,25 @@ define_request_and_response! {
 }
 
 define_request_and_response! {
+    in_peers,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 1932..=1956,
+    InPeers (restricted),
+    Request {
+        set: bool = default_true(), "default_true",
+        in_peers: u32,
+    },
+    ResponseBase {
+        in_peers: u32,
+    }
+}
+
+define_request_and_response! {
     get_net_stats,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 793..=822,
 
-    GetNetStats,
+    GetNetStats (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -786,7 +807,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2324..=2359,
 
-    Update,
+    Update (restricted),
 
     #[doc = serde_doc_test!(
         UPDATE_REQUEST => UpdateRequest {
@@ -825,7 +846,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2722..=2745,
 
-    PopBlocks,
+    PopBlocks (restricted),
 
     #[doc = serde_doc_test!(
         POP_BLOCKS_REQUEST => PopBlocksRequest {
@@ -852,7 +873,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1615..=1635,
 
-    GetTransactionPoolHashes,
+    GetTransactionPoolHashes (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -889,7 +910,8 @@ define_request_and_response! {
     UNDOCUMENTED_ENDPOINT,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1419..=1448,
-    GetPublicNodes,
+
+    GetPublicNodes (restricted),
 
     #[doc = serde_doc_test!(
         GET_PUBLIC_NODES_REQUEST => GetPublicNodesRequest {
@@ -928,6 +950,178 @@ define_request_and_response! {
         gray: Vec<PublicNode> = default_vec::<PublicNode>(), "default_vec",
         white: Vec<PublicNode> = default_vec::<PublicNode>(), "default_vec",
     }
+}
+
+//---------------------------------------------------------------------------------------------------- Request
+/// Other JSON requests.
+///
+/// This enum contains all [`crate::other`] requests.
+///
+/// See also: [`OtherResponse`].
+///
+/// # (De)serialization
+/// The `serde` implementation will (de)serialize from
+/// the inner variant itself, e.g. [`OtherRequest::SetLogLevel`]
+/// has the same (de)serialization as [`SetLogLevelRequest`].
+///
+/// ```rust
+/// use cuprate_rpc_types::other::*;
+///
+/// let request = OtherRequest::SetLogLevel(Default::default());
+/// let json = serde_json::to_string(&request).unwrap();
+/// assert_eq!(json, r#"{"level":0}"#);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum OtherRequest {
+    GetHeight(GetHeightRequest),
+    GetTransactions(GetTransactionsRequest),
+    GetAltBlocksHashes(GetAltBlocksHashesRequest),
+    IsKeyImageSpent(IsKeyImageSpentRequest),
+    SendRawTransaction(SendRawTransactionRequest),
+    StartMining(StartMiningRequest),
+    StopMining(StopMiningRequest),
+    MiningStatus(MiningStatusRequest),
+    SaveBc(SaveBcRequest),
+    GetPeerList(GetPeerListRequest),
+    SetLogHashRate(SetLogHashRateRequest),
+    SetLogLevel(SetLogLevelRequest),
+    SetLogCategories(SetLogCategoriesRequest),
+    SetBootstrapDaemon(SetBootstrapDaemonRequest),
+    GetTransactionPool(GetTransactionPoolRequest),
+    GetTransactionPoolStats(GetTransactionPoolStatsRequest),
+    StopDaemon(StopDaemonRequest),
+    GetLimit(GetLimitRequest),
+    SetLimit(SetLimitRequest),
+    OutPeers(OutPeersRequest),
+    InPeers(InPeersRequest),
+    GetNetStats(GetNetStatsRequest),
+    GetOuts(GetOutsRequest),
+    Update(UpdateRequest),
+    PopBlocks(PopBlocksRequest),
+    GetTransactionPoolHashes(GetTransactionPoolHashesRequest),
+    GetPublicNodes(GetPublicNodesRequest),
+}
+
+impl RpcCallValue for OtherRequest {
+    fn is_restricted(&self) -> bool {
+        match self {
+            Self::GetHeight(x) => x.is_restricted(),
+            Self::GetTransactions(x) => x.is_restricted(),
+            Self::GetAltBlocksHashes(x) => x.is_restricted(),
+            Self::IsKeyImageSpent(x) => x.is_restricted(),
+            Self::SendRawTransaction(x) => x.is_restricted(),
+            Self::StartMining(x) => x.is_restricted(),
+            Self::StopMining(x) => x.is_restricted(),
+            Self::MiningStatus(x) => x.is_restricted(),
+            Self::SaveBc(x) => x.is_restricted(),
+            Self::GetPeerList(x) => x.is_restricted(),
+            Self::SetLogHashRate(x) => x.is_restricted(),
+            Self::SetLogLevel(x) => x.is_restricted(),
+            Self::SetLogCategories(x) => x.is_restricted(),
+            Self::SetBootstrapDaemon(x) => x.is_restricted(),
+            Self::GetTransactionPool(x) => x.is_restricted(),
+            Self::GetTransactionPoolStats(x) => x.is_restricted(),
+            Self::StopDaemon(x) => x.is_restricted(),
+            Self::GetLimit(x) => x.is_restricted(),
+            Self::SetLimit(x) => x.is_restricted(),
+            Self::OutPeers(x) => x.is_restricted(),
+            Self::InPeers(x) => x.is_restricted(),
+            Self::GetNetStats(x) => x.is_restricted(),
+            Self::GetOuts(x) => x.is_restricted(),
+            Self::Update(x) => x.is_restricted(),
+            Self::PopBlocks(x) => x.is_restricted(),
+            Self::GetTransactionPoolHashes(x) => x.is_restricted(),
+            Self::GetPublicNodes(x) => x.is_restricted(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::GetHeight(x) => x.is_empty(),
+            Self::GetTransactions(x) => x.is_empty(),
+            Self::GetAltBlocksHashes(x) => x.is_empty(),
+            Self::IsKeyImageSpent(x) => x.is_empty(),
+            Self::SendRawTransaction(x) => x.is_empty(),
+            Self::StartMining(x) => x.is_empty(),
+            Self::StopMining(x) => x.is_empty(),
+            Self::MiningStatus(x) => x.is_empty(),
+            Self::SaveBc(x) => x.is_empty(),
+            Self::GetPeerList(x) => x.is_empty(),
+            Self::SetLogHashRate(x) => x.is_empty(),
+            Self::SetLogLevel(x) => x.is_empty(),
+            Self::SetLogCategories(x) => x.is_empty(),
+            Self::SetBootstrapDaemon(x) => x.is_empty(),
+            Self::GetTransactionPool(x) => x.is_empty(),
+            Self::GetTransactionPoolStats(x) => x.is_empty(),
+            Self::StopDaemon(x) => x.is_empty(),
+            Self::GetLimit(x) => x.is_empty(),
+            Self::SetLimit(x) => x.is_empty(),
+            Self::OutPeers(x) => x.is_empty(),
+            Self::InPeers(x) => x.is_empty(),
+            Self::GetNetStats(x) => x.is_empty(),
+            Self::GetOuts(x) => x.is_empty(),
+            Self::Update(x) => x.is_empty(),
+            Self::PopBlocks(x) => x.is_empty(),
+            Self::GetTransactionPoolHashes(x) => x.is_empty(),
+            Self::GetPublicNodes(x) => x.is_empty(),
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Response
+/// Other JSON responses.
+///
+/// This enum contains all [`crate::other`] responses.
+///
+/// See also: [`OtherRequest`].
+///
+/// # (De)serialization
+/// The `serde` implementation will (de)serialize from
+/// the inner variant itself, e.g. [`OtherRequest::SetBootstrapDaemon`]
+/// has the same (de)serialization as [`SetBootstrapDaemonResponse`].
+///
+/// ```rust
+/// use cuprate_rpc_types::other::*;
+///
+/// let response = OtherResponse::SetBootstrapDaemon(Default::default());
+/// let json = serde_json::to_string(&response).unwrap();
+/// assert_eq!(json, r#"{"status":"OK"}"#);
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum OtherResponse {
+    GetHeight(GetHeightResponse),
+    GetTransactions(GetTransactionsResponse),
+    GetAltBlocksHashes(GetAltBlocksHashesResponse),
+    IsKeyImageSpent(IsKeyImageSpentResponse),
+    SendRawTransaction(SendRawTransactionResponse),
+    StartMining(StartMiningResponse),
+    StopMining(StopMiningResponse),
+    MiningStatus(MiningStatusResponse),
+    SaveBc(SaveBcResponse),
+    GetPeerList(GetPeerListResponse),
+    SetLogHashRate(SetLogHashRateResponse),
+    SetLogLevel(SetLogLevelResponse),
+    SetLogCategories(SetLogCategoriesResponse),
+    SetBootstrapDaemon(SetBootstrapDaemonResponse),
+    GetTransactionPool(GetTransactionPoolResponse),
+    GetTransactionPoolStats(GetTransactionPoolStatsResponse),
+    StopDaemon(StopDaemonResponse),
+    GetLimit(GetLimitResponse),
+    SetLimit(SetLimitResponse),
+    OutPeers(OutPeersResponse),
+    InPeers(InPeersResponse),
+    GetNetStats(GetNetStatsResponse),
+    GetOuts(GetOutsResponse),
+    Update(UpdateResponse),
+    PopBlocks(PopBlocksResponse),
+    GetTransactionPoolHashes(GetTransactionPoolHashesResponse),
+    GetPublicNodes(GetPublicNodesResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -3,6 +3,9 @@
 //! All types are originally defined in [`rpc/core_rpc_server_commands_defs.h`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h).
 
 //---------------------------------------------------------------------------------------------------- Import
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use crate::{
     base::{AccessResponseBase, ResponseBase},
     defaults::{
@@ -16,6 +19,7 @@ use crate::{
         GetMinerDataTxBacklogEntry, HardforkEntry, HistogramEntry, OutputDistributionData, SetBan,
         Span, Status, SyncInfoPeer, TxBacklogEntry,
     },
+    rpc_call::RpcCallValue,
 };
 
 //---------------------------------------------------------------------------------------------------- Macro
@@ -93,7 +97,17 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 => core_rpc_server_commands_defs.h => 943..=994,
 
     // The base type name.
-    GetBlockTemplate,
+    //
+    // After the type name, 2 optional idents are allowed:
+    // - `restricted`
+    // - `empty`
+    //
+    // These have to be within `()` and will affect the
+    // [`crate::RpcCall`] implementation on the request type.
+    //
+    // This type is not either restricted or empty so nothing is
+    // here, but the correct syntax is shown in a comment below:
+    GetBlockTemplate /* (restricted, empty) */,
 
     // The request type.
     //
@@ -218,7 +232,7 @@ define_request_and_response! {
     get_block_count,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 919..=933,
-    GetBlockCount,
+    GetBlockCount (empty),
 
     // There are no request fields specified,
     // this will cause the macro to generate a
@@ -300,7 +314,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1130..=1161,
 
-    GenerateBlocks,
+    GenerateBlocks (restricted),
 
     #[doc = serde_doc_test!(
         GENERATE_BLOCKS_REQUEST => GenerateBlocksRequest {
@@ -633,7 +647,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1734..=1754,
 
-    GetConnections,
+    GetConnections (restricted, empty),
 
     Request {},
 
@@ -708,7 +722,7 @@ define_request_and_response! {
     get_info,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 693..=789,
-    GetInfo,
+    GetInfo (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -802,7 +816,7 @@ define_request_and_response! {
     hard_fork_info,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1958..=1995,
-    HardForkInfo,
+    HardForkInfo (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -834,7 +848,8 @@ define_request_and_response! {
     set_bans,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2032..=2067,
-    SetBans,
+
+    SetBans (restricted),
 
     #[doc = serde_doc_test!(
         SET_BANS_REQUEST => SetBansRequest {
@@ -862,7 +877,7 @@ define_request_and_response! {
     get_bans,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1997..=2030,
-    GetBans,
+    GetBans (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -891,7 +906,8 @@ define_request_and_response! {
     banned,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2069..=2094,
-    Banned,
+
+    Banned (restricted),
 
     #[doc = serde_doc_test!(
         BANNED_REQUEST => BannedRequest {
@@ -920,7 +936,8 @@ define_request_and_response! {
     flush_txpool,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2096..=2116,
-    FlushTransactionPool,
+
+    FlushTransactionPool (restricted),
 
     #[doc = serde_doc_test!(
         FLUSH_TRANSACTION_POOL_REQUEST => FlushTransactionPoolRequest {
@@ -986,7 +1003,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2213..=2248,
 
-    GetCoinbaseTxSum,
+    GetCoinbaseTxSum (restricted),
 
     #[doc = serde_doc_test!(
         GET_COINBASE_TX_SUM_REQUEST => GetCoinbaseTxSumRequest {
@@ -1025,7 +1042,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2170..=2211,
 
-    GetVersion,
+    GetVersion (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1116,7 +1133,7 @@ define_request_and_response! {
     get_fee_estimate,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2250..=2277,
-    GetFeeEstimate,
+    GetFeeEstimate (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1138,7 +1155,7 @@ define_request_and_response! {
     get_alternate_chains,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2279..=2310,
-    GetAlternateChains,
+    GetAlternateChains (restricted, empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1178,7 +1195,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2361..=2381,
 
-    RelayTx,
+    RelayTx (restricted),
 
     #[doc = serde_doc_test!(
         RELAY_TX_REQUEST => RelayTxRequest {
@@ -1205,7 +1222,8 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2383..=2443,
 
-    SyncInfo,
+    SyncInfo (restricted, empty),
+
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1294,7 +1312,7 @@ define_request_and_response! {
     get_txpool_backlog,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1637..=1664,
-    GetTransactionPoolBacklog,
+    GetTransactionPoolBacklog (empty),
     Request {},
 
     // TODO: enable test after binary string impl.
@@ -1361,7 +1379,7 @@ define_request_and_response! {
     get_miner_data,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 996..=1044,
-    GetMinerData,
+    GetMinerData (empty),
     Request {},
 
     #[doc = serde_doc_test!(
@@ -1405,7 +1423,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2747..=2772,
 
-    PruneBlockchain,
+    PruneBlockchain (restricted),
 
     #[derive(Copy)]
     #[doc = serde_doc_test!(
@@ -1435,7 +1453,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1046..=1066,
 
-    CalcPow,
+    CalcPow (restricted),
 
     #[doc = serde_doc_test!(
         CALC_POW_REQUEST => CalcPowRequest {
@@ -1469,7 +1487,7 @@ define_request_and_response! {
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 2774..=2796,
 
-    FlushCache,
+    FlushCache (restricted),
 
     #[derive(Copy)]
     #[doc = serde_doc_test!(
@@ -1532,6 +1550,203 @@ define_request_and_response! {
       merkle_tree_depth: u64,
       aux_pow: Vec<AuxPow>,
     }
+}
+
+define_request_and_response! {
+    UNDOCUMENTED_METHOD,
+    cc73fe71162d564ffda8e549b79a350bca53c454 =>
+    core_rpc_server_commands_defs.h => 2798..=2823,
+
+    GetTxIdsLoose,
+
+    Request {
+        txid_template: String,
+        num_matching_bits: u32,
+    },
+    ResponseBase {
+        txids: Vec<String>,
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Request
+/// JSON-RPC requests.
+///
+/// This enum contains all [`crate::json`] requests.
+///
+/// See also: [`JsonRpcResponse`].
+///
+/// TODO: document and test (de)serialization behavior after figuring out `method/params`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(rename_all = "snake_case", tag = "method", content = "params")
+)]
+#[allow(missing_docs)]
+pub enum JsonRpcRequest {
+    GetBlockCount(GetBlockCountRequest),
+    OnGetBlockHash(OnGetBlockHashRequest),
+    SubmitBlock(SubmitBlockRequest),
+    GenerateBlocks(GenerateBlocksRequest),
+    GetLastBlockHeader(GetLastBlockHeaderRequest),
+    GetBlockHeaderByHash(GetBlockHeaderByHashRequest),
+    GetBlockHeaderByHeight(GetBlockHeaderByHeightRequest),
+    GetBlockHeadersRange(GetBlockHeadersRangeRequest),
+    GetBlock(GetBlockRequest),
+    GetConnections(GetConnectionsRequest),
+    GetInfo(GetInfoRequest),
+    HardForkInfo(HardForkInfoRequest),
+    SetBans(SetBansRequest),
+    GetBans(GetBansRequest),
+    Banned(BannedRequest),
+    FlushTransactionPool(FlushTransactionPoolRequest),
+    GetOutputHistogram(GetOutputHistogramRequest),
+    GetCoinbaseTxSum(GetCoinbaseTxSumRequest),
+    GetVersion(GetVersionRequest),
+    GetFeeEstimate(GetFeeEstimateRequest),
+    GetAlternateChains(GetAlternateChainsRequest),
+    RelayTx(RelayTxRequest),
+    SyncInfo(SyncInfoRequest),
+    GetTransactionPoolBacklog(GetTransactionPoolBacklogRequest),
+    GetMinerData(GetMinerDataRequest),
+    PruneBlockchain(PruneBlockchainRequest),
+    CalcPow(CalcPowRequest),
+    FlushCache(FlushCacheRequest),
+    AddAuxPow(AddAuxPowRequest),
+    GetTxIdsLoose(GetTxIdsLooseRequest),
+}
+
+impl RpcCallValue for JsonRpcRequest {
+    fn is_restricted(&self) -> bool {
+        match self {
+            Self::GetBlockCount(x) => x.is_restricted(),
+            Self::OnGetBlockHash(x) => x.is_restricted(),
+            Self::SubmitBlock(x) => x.is_restricted(),
+            Self::GetLastBlockHeader(x) => x.is_restricted(),
+            Self::GetBlockHeaderByHash(x) => x.is_restricted(),
+            Self::GetBlockHeaderByHeight(x) => x.is_restricted(),
+            Self::GetBlockHeadersRange(x) => x.is_restricted(),
+            Self::GetBlock(x) => x.is_restricted(),
+            Self::GetInfo(x) => x.is_restricted(),
+            Self::HardForkInfo(x) => x.is_restricted(),
+            Self::GetOutputHistogram(x) => x.is_restricted(),
+            Self::GetVersion(x) => x.is_restricted(),
+            Self::GetFeeEstimate(x) => x.is_restricted(),
+            Self::GetTransactionPoolBacklog(x) => x.is_restricted(),
+            Self::GetMinerData(x) => x.is_restricted(),
+            Self::AddAuxPow(x) => x.is_restricted(),
+            Self::GetTxIdsLoose(x) => x.is_restricted(),
+            Self::GenerateBlocks(x) => x.is_restricted(),
+            Self::GetConnections(x) => x.is_restricted(),
+            Self::SetBans(x) => x.is_restricted(),
+            Self::GetBans(x) => x.is_restricted(),
+            Self::Banned(x) => x.is_restricted(),
+            Self::FlushTransactionPool(x) => x.is_restricted(),
+            Self::GetCoinbaseTxSum(x) => x.is_restricted(),
+            Self::GetAlternateChains(x) => x.is_restricted(),
+            Self::RelayTx(x) => x.is_restricted(),
+            Self::SyncInfo(x) => x.is_restricted(),
+            Self::PruneBlockchain(x) => x.is_restricted(),
+            Self::CalcPow(x) => x.is_restricted(),
+            Self::FlushCache(x) => x.is_restricted(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::GetBlockCount(x) => x.is_empty(),
+            Self::OnGetBlockHash(x) => x.is_empty(),
+            Self::SubmitBlock(x) => x.is_empty(),
+            Self::GetLastBlockHeader(x) => x.is_empty(),
+            Self::GetBlockHeaderByHash(x) => x.is_empty(),
+            Self::GetBlockHeaderByHeight(x) => x.is_empty(),
+            Self::GetBlockHeadersRange(x) => x.is_empty(),
+            Self::GetBlock(x) => x.is_empty(),
+            Self::GetInfo(x) => x.is_empty(),
+            Self::HardForkInfo(x) => x.is_empty(),
+            Self::GetOutputHistogram(x) => x.is_empty(),
+            Self::GetVersion(x) => x.is_empty(),
+            Self::GetFeeEstimate(x) => x.is_empty(),
+            Self::GetTransactionPoolBacklog(x) => x.is_empty(),
+            Self::GetMinerData(x) => x.is_empty(),
+            Self::AddAuxPow(x) => x.is_empty(),
+            Self::GetTxIdsLoose(x) => x.is_empty(),
+            Self::GenerateBlocks(x) => x.is_empty(),
+            Self::GetConnections(x) => x.is_empty(),
+            Self::SetBans(x) => x.is_empty(),
+            Self::GetBans(x) => x.is_empty(),
+            Self::Banned(x) => x.is_empty(),
+            Self::FlushTransactionPool(x) => x.is_empty(),
+            Self::GetCoinbaseTxSum(x) => x.is_empty(),
+            Self::GetAlternateChains(x) => x.is_empty(),
+            Self::RelayTx(x) => x.is_empty(),
+            Self::SyncInfo(x) => x.is_empty(),
+            Self::PruneBlockchain(x) => x.is_empty(),
+            Self::CalcPow(x) => x.is_empty(),
+            Self::FlushCache(x) => x.is_empty(),
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Response
+/// JSON-RPC responses.
+///
+/// This enum contains all [`crate::json`] responses.
+///
+/// See also: [`JsonRpcRequest`].
+///
+/// # (De)serialization
+/// The `serde` implementation will (de)serialize from
+/// the inner variant itself, e.g. [`JsonRpcRequest::Banned`]
+/// has the same (de)serialization as [`BannedResponse`].
+///
+/// ```rust
+/// use cuprate_rpc_types::{misc::*, json::*};
+///
+/// let response = JsonRpcResponse::Banned(BannedResponse {
+///     banned: true,
+///     seconds: 123,
+///     status: Status::Ok,
+/// });
+/// let json = serde_json::to_string(&response).unwrap();
+/// assert_eq!(json, r#"{"banned":true,"seconds":123,"status":"OK"}"#);
+/// let response: JsonRpcResponse = serde_json::from_str(&json).unwrap();
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged, rename_all = "snake_case"))]
+#[allow(missing_docs)]
+pub enum JsonRpcResponse {
+    GetBlockCount(GetBlockCountResponse),
+    OnGetBlockHash(OnGetBlockHashResponse),
+    SubmitBlock(SubmitBlockResponse),
+    GenerateBlocks(GenerateBlocksResponse),
+    GetLastBlockHeader(GetLastBlockHeaderResponse),
+    GetBlockHeaderByHash(GetBlockHeaderByHashResponse),
+    GetBlockHeaderByHeight(GetBlockHeaderByHeightResponse),
+    GetBlockHeadersRange(GetBlockHeadersRangeResponse),
+    GetBlock(GetBlockResponse),
+    GetConnections(GetConnectionsResponse),
+    GetInfo(GetInfoResponse),
+    HardForkInfo(HardForkInfoResponse),
+    SetBans(SetBansResponse),
+    GetBans(GetBansResponse),
+    Banned(BannedResponse),
+    FlushTransactionPool(FlushTransactionPoolResponse),
+    GetOutputHistogram(GetOutputHistogramResponse),
+    GetCoinbaseTxSum(GetCoinbaseTxSumResponse),
+    GetVersion(GetVersionResponse),
+    GetFeeEstimate(GetFeeEstimateResponse),
+    GetAlternateChains(GetAlternateChainsResponse),
+    RelayTx(RelayTxResponse),
+    SyncInfo(SyncInfoResponse),
+    GetTransactionPoolBacklog(GetTransactionPoolBacklogResponse),
+    GetMinerData(GetMinerDataResponse),
+    PruneBlockchain(PruneBlockchainResponse),
+    CalcPow(CalcPowResponse),
+    FlushCache(FlushCacheResponse),
+    AddAuxPow(AddAuxPowResponse),
+    GetTxIdsLoose(GetTxIdsLooseResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
