@@ -3,10 +3,13 @@
 use std::marker::PhantomData;
 
 //---------------------------------------------------------------------------------------------------- Use
-use axum::{routing::method_routing::get, Router};
+use axum::{
+    routing::{method_routing::get, post},
+    Router,
+};
 
 use crate::{
-    route::{bin, fallback, json, other},
+    route::{bin, fallback, json_rpc, other},
     rpc_handler::RpcHandler,
 };
 
@@ -15,8 +18,14 @@ use crate::{
 macro_rules! generate_router_builder {
     ($(
         // Syntax:
-        // $BUILDER_FUNCTION_NAME => $ACTUAL_ENDPOINT => $ENDPOINT_FUNCTION
-        $endpoint_ident:ident => $endpoint_string:literal => $endpoint_fn:expr
+        // $BUILDER_FUNCTION_NAME =>
+        // $ACTUAL_ENDPOINT_STRING =>
+        // $ENDPOINT_FUNCTION_MODULE::$ENDPOINT_FUNCTION =>
+        // ($HTTP_METHOD(s))
+        $endpoint_ident:ident =>
+        $endpoint_string:literal =>
+        $endpoint_module:ident::$endpoint_fn:ident =>
+        ($($http_method:ident),*)
     ),* $(,)?) => {
         /// Builder for creating the RPC router.
         ///
@@ -120,7 +129,11 @@ macro_rules! generate_router_builder {
                 #[must_use]
                 pub fn $endpoint_ident(self) -> Self {
                     Self {
-                        router: self.router.route($endpoint_string, $endpoint_fn),
+                        router: self.router.route(
+                            $endpoint_string,
+                            ::axum::routing::method_routing::MethodRouter::new()
+                                $(.$http_method($endpoint_module::$endpoint_fn::<H>))*
+                        ),
                     }
                 }
             )*
@@ -130,49 +143,51 @@ macro_rules! generate_router_builder {
 
 generate_router_builder! {
     // JSON-RPC 2.0 route.
-    json_rpc => "/json_rpc" => get(json::json_rpc::<H>),
+    json_rpc => "/json_rpc" => json_rpc::json_rpc => (get, post),
+
     // Other JSON routes.
-    other_get_height => "/get_height" => get(other::get_height::<H>),
-    other_getheight => "/getheight" => get(other::get_height::<H>),
-    other_get_transactions => "/get_transactions" => get(other::get_transactions::<H>),
-    other_gettransactions => "/gettransactions" => get(other::get_transactions::<H>),
-    other_get_alt_blocks_hashes => "/get_alt_blocks_hashes" => get(other::get_alt_blocks_hashes::<H>),
-    other_is_key_image_spent => "/is_key_image_spent" => get(other::is_key_image_spent::<H>),
-    other_send_raw_transaction => "/send_raw_transaction" => get(other::send_raw_transaction::<H>),
-    other_sendrawtransaction => "/sendrawtransaction" => get(other::send_raw_transaction::<H>),
-    other_start_mining => "/start_mining" => get(other::start_mining::<H>),
-    other_stop_mining => "/stop_mining" => get(other::stop_mining::<H>),
-    other_mining_status => "/mining_status" => get(other::mining_status::<H>),
-    other_save_bc => "/save_bc" => get(other::save_bc::<H>),
-    other_get_peer_list => "/get_peer_list" => get(other::get_peer_list::<H>),
-    other_get_public_nodes => "/get_public_nodes" => get(other::get_public_nodes::<H>),
-    other_set_log_hash_rate => "/set_log_hash_rate" => get(other::set_log_hash_rate::<H>),
-    other_set_log_level => "/set_log_level" => get(other::set_log_level::<H>),
-    other_set_log_categories => "/set_log_categories" => get(other::set_log_categories::<H>),
-    other_get_transaction_pool => "/get_transaction_pool" => get(other::get_transaction_pool::<H>),
-    other_get_transaction_pool_hashes => "/get_transaction_pool_hashes" => get(other::get_transaction_pool_hashes::<H>),
-    other_get_transaction_pool_stats => "/get_transaction_pool_stats" => get(other::get_transaction_pool_stats::<H>),
-    other_set_bootstrap_daemon => "/set_bootstrap_daemon" => get(other::set_bootstrap_daemon::<H>),
-    other_stop_daemon => "/stop_daemon" => get(other::stop_daemon::<H>),
-    other_get_net_stats => "/get_net_stats" => get(other::get_net_stats::<H>),
-    other_get_limit => "/get_limit" => get(other::get_limit::<H>),
-    other_set_limit => "/set_limit" => get(other::set_limit::<H>),
-    other_out_peers => "/out_peers" => get(other::out_peers::<H>),
-    other_in_peers => "/in_peers" => get(other::in_peers::<H>),
-    other_get_outs => "/get_outs" => get(other::get_outs::<H>),
-    other_update => "/update" => get(other::update::<H>),
-    other_pop_blocks => "/pop_blocks" => get(other::pop_blocks::<H>),
+    other_get_height                  => "/get_height"                  => other::get_height                  => (get, post),
+    other_getheight                   => "/getheight"                   => other::get_height                  => (get, post),
+    other_get_transactions            => "/get_transactions"            => other::get_transactions            => (get, post),
+    other_gettransactions             => "/gettransactions"             => other::get_transactions            => (get, post),
+    other_get_alt_blocks_hashes       => "/get_alt_blocks_hashes"       => other::get_alt_blocks_hashes       => (get, post),
+    other_is_key_image_spent          => "/is_key_image_spent"          => other::is_key_image_spent          => (get, post),
+    other_send_raw_transaction        => "/send_raw_transaction"        => other::send_raw_transaction        => (get, post),
+    other_sendrawtransaction          => "/sendrawtransaction"          => other::send_raw_transaction        => (get, post),
+    other_start_mining                => "/start_mining"                => other::start_mining                => (get, post),
+    other_stop_mining                 => "/stop_mining"                 => other::stop_mining                 => (get, post),
+    other_mining_status               => "/mining_status"               => other::mining_status               => (get, post),
+    other_save_bc                     => "/save_bc"                     => other::save_bc                     => (get, post),
+    other_get_peer_list               => "/get_peer_list"               => other::get_peer_list               => (get, post),
+    other_get_public_nodes            => "/get_public_nodes"            => other::get_public_nodes            => (get, post),
+    other_set_log_hash_rate           => "/set_log_hash_rate"           => other::set_log_hash_rate           => (get, post),
+    other_set_log_level               => "/set_log_level"               => other::set_log_level               => (get, post),
+    other_set_log_categories          => "/set_log_categories"          => other::set_log_categories          => (get, post),
+    other_get_transaction_pool        => "/get_transaction_pool"        => other::get_transaction_pool        => (get, post),
+    other_get_transaction_pool_hashes => "/get_transaction_pool_hashes" => other::get_transaction_pool_hashes => (get, post),
+    other_get_transaction_pool_stats  => "/get_transaction_pool_stats"  => other::get_transaction_pool_stats  => (get, post),
+    other_set_bootstrap_daemon        => "/set_bootstrap_daemon"        => other::set_bootstrap_daemon        => (get, post),
+    other_stop_daemon                 => "/stop_daemon"                 => other::stop_daemon                 => (get, post),
+    other_get_net_stats               => "/get_net_stats"               => other::get_net_stats               => (get, post),
+    other_get_limit                   => "/get_limit"                   => other::get_limit                   => (get, post),
+    other_set_limit                   => "/set_limit"                   => other::set_limit                   => (get, post),
+    other_out_peers                   => "/out_peers"                   => other::out_peers                   => (get, post),
+    other_in_peers                    => "/in_peers"                    => other::in_peers                    => (get, post),
+    other_get_outs                    => "/get_outs"                    => other::get_outs                    => (get, post),
+    other_update                      => "/update"                      => other::update                      => (get, post),
+    other_pop_blocks                  => "/pop_blocks"                  => other::pop_blocks                  => (get, post),
+
     // Binary routes.
-    binary_get_blocks => "/get_blocks.bin" => get(bin::get_blocks::<H>),
-    binary_getblocks => "/getblocks.bin" => get(bin::get_blocks::<H>),
-    binary_get_blocks_by_height => "/get_blocks_by_height.bin" => get(bin::get_blocks_by_height::<H>),
-    binary_getblocks_by_height => "/getblocks_by_height.bin" => get(bin::get_blocks_by_height::<H>),
-    binary_get_hashes => "/get_hashes.bin" => get(bin::get_hashes::<H>),
-    binary_gethashes => "/gethashes.bin" => get(bin::get_hashes::<H>),
-    binary_get_o_indexes => "/get_o_indexes.bin" => get(bin::get_o_indexes::<H>),
-    binary_get_outs => "/get_outs.bin" => get(bin::get_outs::<H>),
-    binary_get_transaction_pool_hashes => "/get_transaction_pool_hashes.bin" => get(bin::get_transaction_pool_hashes::<H>),
-    binary_get_output_distribution => "/get_output_distribution.bin" => get(bin::get_output_distribution::<H>),
+    bin_get_blocks                  => "/get_blocks.bin"                  => bin::get_blocks                  => (get, post),
+    bin_getblocks                   => "/getblocks.bin"                   => bin::get_blocks                  => (get, post),
+    bin_get_blocks_by_height        => "/get_blocks_by_height.bin"        => bin::get_blocks_by_height        => (get, post),
+    bin_getblocks_by_height         => "/getblocks_by_height.bin"         => bin::get_blocks_by_height        => (get, post),
+    bin_get_hashes                  => "/get_hashes.bin"                  => bin::get_hashes                  => (get, post),
+    bin_gethashes                   => "/gethashes.bin"                   => bin::get_hashes                  => (get, post),
+    bin_get_o_indexes               => "/get_o_indexes.bin"               => bin::get_o_indexes               => (get, post),
+    bin_get_outs                    => "/get_outs.bin"                    => bin::get_outs                    => (get, post),
+    bin_get_transaction_pool_hashes => "/get_transaction_pool_hashes.bin" => bin::get_transaction_pool_hashes => (get, post),
+    bin_get_output_distribution     => "/get_output_distribution.bin"     => bin::get_output_distribution     => (get, post),
 }
 
 impl<H: RpcHandler> Default for RouterBuilder<H> {
