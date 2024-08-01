@@ -144,13 +144,3 @@ pub(crate) mod tests;
 // Used inside public facing macros.
 #[doc(hidden)]
 pub use paste;
-
-//----------------------------------------------------------------------------------------------------
-// HACK: needed to satisfy the `unused_crate_dependencies` lint.
-cfg_if::cfg_if! {
-    if #[cfg(feature = "redb")]  {
-        use redb as _;
-    } else {
-        use heed as _;
-    }
-}
