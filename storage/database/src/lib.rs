@@ -120,8 +120,6 @@ mod transaction;
 pub mod config;
 pub mod resize;
 
-pub use backend::ConcreteEnv;
-
 #[cfg(feature="heed")]
 pub use backend::HeedEnv;
 

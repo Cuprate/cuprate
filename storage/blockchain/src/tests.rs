@@ -9,7 +9,12 @@ use std::{borrow::Cow, fmt::Debug};
 
 use pretty_assertions::assert_eq;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
+use cuprate_database::{DatabaseRo, Env, EnvInner};
+
+#[cfg(feature = "heed")]
+use cuprate_database::HeedEnv as ConcreteEnv;
+#[cfg(all(feature = "redb", not(feature = "heed")))]
+use cuprate_database::RedbEnv as ConcreteEnv;
 
 use crate::{
     config::ConfigBuilder,

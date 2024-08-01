@@ -13,7 +13,7 @@ use thread_local::ThreadLocal;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_helper::{asynch::InfallibleOneshotReceiver, map::combine_low_high_bits_to_u128};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
@@ -157,21 +157,6 @@ impl DatabaseReadHandle {
         Self { semaphore, permit: None, spawn }
     }
 
-    /// Access to the actual database environment.
-    ///
-    /// # ⚠️ Warning
-    /// This function gives you access to the actual
-    /// underlying database connected to by `self`.
-    ///
-    /// I.e. it allows you to read/write data _directly_
-    /// instead of going through a request.
-    ///
-    /// Be warned that using the database directly
-    /// in this manner has not been tested.
-    #[inline]
-    pub const fn env(&self) -> &Arc<ConcreteEnv> {
-        unimplemented!();
-    }
 }
 
 impl tower::Service<BCReadRequest> for DatabaseReadHandle {
