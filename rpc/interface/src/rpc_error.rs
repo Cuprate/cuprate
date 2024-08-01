@@ -2,6 +2,8 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use axum::http::StatusCode;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 //---------------------------------------------------------------------------------------------------- RpcError
 /// Possible errors during RPC operation.
@@ -15,6 +17,7 @@ use axum::http::StatusCode;
 /// TODO: This is empty as possible errors will be
 /// enumerated when the handler functions are created.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum RpcError {}
 
 impl From<RpcError> for StatusCode {

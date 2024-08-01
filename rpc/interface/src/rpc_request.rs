@@ -1,6 +1,9 @@
 //! RPC requests.
 
 //---------------------------------------------------------------------------------------------------- Import
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use cuprate_rpc_types::{bin::BinRequest, json::JsonRpcRequest, other::OtherRequest};
 
 //---------------------------------------------------------------------------------------------------- RpcRequest
@@ -12,6 +15,8 @@ use cuprate_rpc_types::{bin::BinRequest, json::JsonRpcRequest, other::OtherReque
 /// - Other JSON requests
 ///
 /// It is the `Request` type required to be used in an [`RpcHandler`](crate::RpcHandler).
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum RpcRequest {
     /// JSON-RPC 2.0 requests.
     JsonRpc(cuprate_json_rpc::Request<JsonRpcRequest>),

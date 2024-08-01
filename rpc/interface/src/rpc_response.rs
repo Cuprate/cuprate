@@ -1,6 +1,9 @@
 //! RPC responses.
 
 //---------------------------------------------------------------------------------------------------- Import
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 use cuprate_rpc_types::{bin::BinResponse, json::JsonRpcResponse, other::OtherResponse};
 
 //---------------------------------------------------------------------------------------------------- RpcResponse
@@ -12,6 +15,8 @@ use cuprate_rpc_types::{bin::BinResponse, json::JsonRpcResponse, other::OtherRes
 /// - Other JSON responses
 ///
 /// It is the `Response` type required to be used in an [`RpcHandler`](crate::RpcHandler).
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum RpcResponse {
     /// JSON RPC 2.0 responses.
     JsonRpc(cuprate_json_rpc::Response<JsonRpcResponse>),

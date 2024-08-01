@@ -4,6 +4,8 @@
 use std::task::Poll;
 
 use futures::{channel::oneshot::channel, FutureExt};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
@@ -26,6 +28,7 @@ use crate::{
 /// This is mostly used for testing purposes and can
 /// be disabled by disable the `dummy` feature flag.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub struct RpcHandlerDummy {
     /// Should this RPC server be [restricted](RpcHandler::restricted)?
     ///
