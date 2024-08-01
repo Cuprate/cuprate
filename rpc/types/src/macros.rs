@@ -60,7 +60,14 @@ macro_rules! define_request_and_response {
         // Attributes added here will apply to _both_
         // request and response types.
         $( #[$type_attr:meta] )*
-        $type_name:ident,
+        // After the type name, 2 optional idents are allowed:
+        //
+        // - `restricted`
+        // - `empty`
+        //
+        // These have to be within `()` and will affect the
+        // [`crate::RpcCall`] implementation on the request type.
+        $type_name:ident $(($restricted:ident $(, $empty:ident)?))?,
 
         // The request type (and any doc comments, derives, etc).
         $( #[$request_type_attr:meta] )*
@@ -100,7 +107,7 @@ macro_rules! define_request_and_response {
             $( #[$type_attr] )*
             ///
             $( #[$request_type_attr] )*
-            [<$type_name Request>] {
+            [<$type_name Request>] $(($restricted $(, $empty)?))? {
                 $(
                     $( #[$request_field_attr] )*
                     $request_field: $request_field_type
@@ -141,6 +148,69 @@ macro_rules! define_request_and_response {
 }
 pub(crate) use define_request_and_response;
 
+//---------------------------------------------------------------------------------------------------- impl_rpc_call
+/// Implement [`crate::RpcCall`] and [`crate::RpcCallValue`] on request types.
+///
+/// Input for this is:
+/// `$REQUEST_TYPE restricted empty`
+/// where `restricted` and `empty` are the idents themselves.
+/// The implementation for [`crate::RpcCall`] will change
+/// depending if they exist or not.
+macro_rules! impl_rpc_call {
+    // Restricted and empty RPC calls.
+    ($t:ident, restricted, empty) => {
+        impl $crate::RpcCall for $t {
+            const IS_RESTRICTED: bool = true;
+            const IS_EMPTY: bool = true;
+        }
+
+        impl From<()> for $t {
+            fn from(_: ()) -> Self {
+                Self {}
+            }
+        }
+
+        impl From<$t> for () {
+            fn from(_: $t) -> Self {}
+        }
+    };
+
+    // Empty RPC calls.
+    ($t:ident, empty) => {
+        impl $crate::RpcCall for $t {
+            const IS_RESTRICTED: bool = false;
+            const IS_EMPTY: bool = true;
+        }
+
+        impl From<()> for $t {
+            fn from(_: ()) -> Self {
+                Self {}
+            }
+        }
+
+        impl From<$t> for () {
+            fn from(_: $t) -> Self {}
+        }
+    };
+
+    // Restricted RPC calls.
+    ($t:ident, restricted) => {
+        impl $crate::RpcCall for $t {
+            const IS_RESTRICTED: bool = true;
+            const IS_EMPTY: bool = false;
+        }
+    };
+
+    // Not restrict or empty RPC calls.
+    ($t:ident) => {
+        impl $crate::RpcCall for $t {
+            const IS_RESTRICTED: bool = false;
+            const IS_EMPTY: bool = false;
+        }
+    };
+}
+pub(crate) use impl_rpc_call;
+
 //---------------------------------------------------------------------------------------------------- define_request
 /// Define a request type.
 ///
@@ -152,22 +222,7 @@ macro_rules! define_request {
         // Any doc comments, derives, etc.
         $( #[$attr:meta] )*
         // The response type.
-        $t:ident {}
-    ) => {
-        $( #[$attr] )*
-        ///
-        /// This request has no inputs.
-        pub type $t = ();
-    };
-
-    //------------------------------------------------------------------------------
-    // This branch of the macro expects fields within the `{}`,
-    // and will generate a `struct`
-    (
-        // Any doc comments, derives, etc.
-        $( #[$attr:meta] )*
-        // The response type.
-        $t:ident {
+        $t:ident $(($restricted:ident $(, $empty:ident)?))? {
             // And any fields.
             $(
                 $( #[$field_attr:meta] )* // field attributes
@@ -192,6 +247,8 @@ macro_rules! define_request {
                 pub $field: $field_type,
             )*
         }
+
+        $crate::macros::impl_rpc_call!($t $(, $restricted $(, $empty)?)?);
 
         #[cfg(feature = "epee")]
         ::cuprate_epee_encoding::epee_object! {
