@@ -101,7 +101,7 @@ prop_compose! {
         let (timestamps, mut cumulative_difficulties): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
         cumulative_difficulties.sort_unstable();
         DifficultyCache {
-            last_accounted_height: timestamps.len().try_into().unwrap(),
+            last_accounted_height: timestamps.len(),
             config: TEST_DIFFICULTY_CONFIG,
             timestamps: timestamps.into(),
             // we generate cumulative_difficulties in range 0..u64::MAX as if the generated values are close to u128::MAX
@@ -162,7 +162,7 @@ proptest! {
         let mut timestamps: VecDeque<u64> = timestamps.into();
 
         let diff_cache = DifficultyCache {
-            last_accounted_height: (TEST_WINDOW -1).try_into().unwrap(),
+            last_accounted_height: TEST_WINDOW -1,
             config: TEST_DIFFICULTY_CONFIG,
             timestamps: timestamps.clone(),
             // we dont need cumulative_difficulties

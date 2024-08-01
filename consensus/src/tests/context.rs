@@ -32,7 +32,7 @@ async fn context_invalidated_on_new_block() -> Result<(), tower::BoxError> {
     const BLOCKCHAIN_HEIGHT: usize = 6000;
 
     let mut runner = TestRunner::default();
-    let db = arb_dummy_database(BLOCKCHAIN_HEIGHT.try_into().unwrap())
+    let db = arb_dummy_database(BLOCKCHAIN_HEIGHT)
         .new_tree(&mut runner)
         .unwrap()
         .current();
@@ -74,7 +74,7 @@ async fn context_height_correct() -> Result<(), tower::BoxError> {
     const BLOCKCHAIN_HEIGHT: usize = 6000;
 
     let mut runner = TestRunner::default();
-    let db = arb_dummy_database(BLOCKCHAIN_HEIGHT.try_into().unwrap())
+    let db = arb_dummy_database(BLOCKCHAIN_HEIGHT)
         .new_tree(&mut runner)
         .unwrap()
         .current();

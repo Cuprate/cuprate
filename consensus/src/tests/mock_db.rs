@@ -150,7 +150,7 @@ impl Service<BCReadRequest> for DummyDatabase {
         async move {
             Ok(match req {
                 BCReadRequest::BlockExtendedHeader(id) => {
-                    let mut id = usize::try_from(id).unwrap();
+                    let mut id = id;
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();
 
