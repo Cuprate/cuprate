@@ -128,7 +128,7 @@ pub struct AltBlockInformation {
     /// The block's proof-of-work hash.
     pub pow_hash: [u8; 32],
     /// The block's height.
-    pub height: u64,
+    pub height: usize,
     /// The adjusted block size, in bytes.
     pub weight: usize,
     /// The long term block weight, which is the weight factored in with previous block weights.

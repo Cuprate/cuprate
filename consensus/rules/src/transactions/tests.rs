@@ -231,7 +231,7 @@ proptest! {
     }
 
     #[test]
-    fn test_block_unlock_time(height in 1..u64::MAX) {
+    fn test_block_unlock_time(height in 1..usize::MAX) {
         prop_assert!(check_block_time_lock(height, height));
         prop_assert!(!check_block_time_lock(height, height - 1));
         prop_assert!(check_block_time_lock(height, height+1));

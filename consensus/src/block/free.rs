@@ -12,14 +12,14 @@ pub(crate) fn pull_ordered_transactions(
     block: &Block,
     mut txs: HashMap<[u8; 32], TransactionVerificationData>,
 ) -> Result<Vec<TransactionVerificationData>, ExtendedConsensusError> {
-    if block.txs.len() != txs.len() {
+    if block.transactions.len() != txs.len() {
         return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
     }
 
     let mut ordered_txs = Vec::with_capacity(txs.len());
 
-    if !block.txs.is_empty() {
-        for tx_hash in &block.txs {
+    if !block.transactions.is_empty() {
+        for tx_hash in &block.transactions {
             let tx = txs
                 .remove(tx_hash)
                 .ok_or(ExtendedConsensusError::TxsIncludedWithBlockIncorrect)?;

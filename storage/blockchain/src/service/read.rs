@@ -403,7 +403,7 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`BCReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins(env: &ConcreteEnv, height: u64) -> ResponseResult {
+fn generated_coins(env: &ConcreteEnv, height: usize) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -555,7 +555,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
     );
 
     /// The amount of top block IDs in the compact chain.
-    const INITIAL_BLOCKS: u64 = 11;
+    const INITIAL_BLOCKS: usize = 11;
 
     // rayon is not used here because the amount of block IDs is expected to be small.
     let mut block_ids = (0..)

@@ -196,10 +196,7 @@ impl Service<BCReadRequest> for DummyDatabase {
                     )
                 }
                 BCReadRequest::ChainHeight => {
-                    let height: u64 = dummy_height
-                        .unwrap_or(blocks.read().unwrap().len())
-                        .try_into()
-                        .unwrap();
+                    let height = dummy_height.unwrap_or(blocks.read().unwrap().len());
 
                     let mut top_hash = [0; 32];
                     top_hash[0..8].copy_from_slice(&height.to_le_bytes());

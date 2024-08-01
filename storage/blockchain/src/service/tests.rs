@@ -79,7 +79,7 @@ async fn test_template(
     // cannot be added, to get around this, manually edit the block height.
     for (i, block_fn) in block_fns.iter().enumerate() {
         let mut block = block_fn().clone();
-        block.height = i as u64;
+        block.height = i;
 
         // Request a block to be written, assert it was written.
         let request = BCWriteRequest::WriteBlock(block);

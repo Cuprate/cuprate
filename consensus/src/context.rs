@@ -246,7 +246,7 @@ pub enum BlockChainContextRequest {
         /// # Panics
         ///
         /// This will panic if the number of blocks will pop the genesis block.
-        numb_blocks: u64,
+        numb_blocks: usize,
     },
     /// Clear the alt chain context caches.
     ClearAltCache,
@@ -289,7 +289,7 @@ pub enum BlockChainContextRequest {
     /// handle getting the randomX VM of an alt chain.
     AltChainRxVM {
         /// The height the RandomX VM is needed for.
-        height: u64,
+        height: usize,
         /// The chain to look in for the seed.
         chain: Chain,
         /// An internal token to prevent external crates calling this request.

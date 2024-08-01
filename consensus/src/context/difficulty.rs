@@ -48,8 +48,8 @@ impl DifficultyCacheConfig {
     }
 
     /// Returns the total amount of blocks we need to track to calculate difficulty
-    pub fn total_block_count(&self) -> u64 {
-        (self.window + self.lag).try_into().unwrap()
+    pub fn total_block_count(&self) -> usize {
+        self.window + self.lag
     }
 
     /// The amount of blocks we account for after removing the outliers.
@@ -78,7 +78,7 @@ pub struct DifficultyCache {
     /// The current cumulative difficulty of the chain.
     pub(crate) cumulative_difficulties: VecDeque<u128>,
     /// The last height we accounted for.
-    pub(crate) last_accounted_height: u64,
+    pub(crate) last_accounted_height: usize,
     /// The config
     pub(crate) config: DifficultyCacheConfig,
 }
@@ -87,7 +87,7 @@ impl DifficultyCache {
     /// Initialize the difficulty cache from the specified chain height.
     #[instrument(name = "init_difficulty_cache", level = "info", skip(database, config))]
     pub async fn init_from_chain_height<D: Database + Clone>(
-        chain_height: u64,
+        chain_height: usize,
         config: DifficultyCacheConfig,
         database: D,
         chain: Chain,
@@ -104,7 +104,7 @@ impl DifficultyCache {
         let (timestamps, cumulative_difficulties) =
             get_blocks_in_pow_info(database.clone(), block_start..chain_height, chain).await?;
 
-        debug_assert_eq!(timestamps.len() as u64, chain_height - block_start);
+        debug_assert_eq!(timestamps.len(), chain_height - block_start);
 
         tracing::info!(
             "Current chain height: {}, accounting for {} blocks timestamps",
@@ -132,7 +132,7 @@ impl DifficultyCache {
     #[instrument(name = "pop_blocks_diff_cache", skip_all, fields(numb_blocks = numb_blocks))]
     pub async fn pop_blocks_main_chain<D: Database + Clone>(
         &mut self,
-        numb_blocks: u64,
+        numb_blocks: usize,
         database: D,
     ) -> Result<(), ExtendedConsensusError> {
         let Some(retained_blocks) = self
@@ -167,7 +167,7 @@ impl DifficultyCache {
             database,
             new_start_height
                 // current_chain_height - self.timestamps.len() blocks are already in the cache.
-                ..(current_chain_height - u64::try_from(self.timestamps.len()).unwrap()),
+                ..(current_chain_height - self.timestamps.len()),
             Chain::Main,
         )
         .await?;
@@ -187,7 +187,7 @@ impl DifficultyCache {
     }
 
     /// Add a new block to the difficulty cache.
-    pub fn new_block(&mut self, height: u64, timestamp: u64, cumulative_difficulty: u128) {
+    pub fn new_block(&mut self, height: usize, timestamp: u64, cumulative_difficulty: u128) {
         assert_eq!(self.last_accounted_height + 1, height);
         self.last_accounted_height += 1;
 
@@ -199,7 +199,7 @@ impl DifficultyCache {
         self.cumulative_difficulties
             .push_back(cumulative_difficulty);
 
-        if u64::try_from(self.timestamps.len()).unwrap() > self.config.total_block_count() {
+        if self.timestamps.len() > self.config.total_block_count() {
             self.timestamps.pop_front();
             self.cumulative_difficulties.pop_front();
         }
@@ -244,7 +244,7 @@ impl DifficultyCache {
             let last_cum_diff = cumulative_difficulties.back().copied().unwrap_or(1);
             cumulative_difficulties.push_back(last_cum_diff + *difficulties.last().unwrap());
 
-            if u64::try_from(timestamps.len()).unwrap() > self.config.total_block_count() {
+            if timestamps.len() > self.config.total_block_count() {
                 diff_info_popped.push((
                     timestamps.pop_front().unwrap(),
                     cumulative_difficulties.pop_front().unwrap(),
@@ -266,22 +266,21 @@ impl DifficultyCache {
     ///
     /// Will return [`None`] if there aren't enough blocks.
     pub fn median_timestamp(&self, numb_blocks: usize) -> Option<u64> {
-        let mut timestamps =
-            if self.last_accounted_height + 1 == u64::try_from(numb_blocks).unwrap() {
-                // if the chain height is equal to `numb_blocks` add the genesis block.
-                // otherwise if the chain height is less than `numb_blocks` None is returned
-                // and if it's more it would be excluded from calculations.
-                let mut timestamps = self.timestamps.clone();
-                // all genesis blocks have a timestamp of 0.
-                // https://cuprate.github.io/monero-book/consensus_rules/genesis_block.html
-                timestamps.push_front(0);
-                timestamps.into()
-            } else {
-                self.timestamps
-                    .range(self.timestamps.len().checked_sub(numb_blocks)?..)
-                    .copied()
-                    .collect::<Vec<_>>()
-            };
+        let mut timestamps = if self.last_accounted_height + 1 == numb_blocks {
+            // if the chain height is equal to `numb_blocks` add the genesis block.
+            // otherwise if the chain height is less than `numb_blocks` None is returned
+            // and if it's more it would be excluded from calculations.
+            let mut timestamps = self.timestamps.clone();
+            // all genesis blocks have a timestamp of 0.
+            // https://cuprate.github.io/monero-book/consensus_rules/genesis_block.html
+            timestamps.push_front(0);
+            timestamps.into()
+        } else {
+            self.timestamps
+                .range(self.timestamps.len().checked_sub(numb_blocks)?..)
+                .copied()
+                .collect::<Vec<_>>()
+        };
         timestamps.sort_unstable();
         debug_assert_eq!(timestamps.len(), numb_blocks);
 
@@ -368,7 +367,7 @@ fn get_window_start_and_end(
 #[instrument(name = "get_blocks_timestamps", skip(database), level = "info")]
 async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,
-    block_heights: Range<u64>,
+    block_heights: Range<usize>,
     chain: Chain,
 ) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");

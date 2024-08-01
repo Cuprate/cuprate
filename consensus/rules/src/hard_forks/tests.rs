@@ -4,7 +4,7 @@ use proptest::{arbitrary::any, prop_assert_eq, prop_compose, proptest};
 
 use crate::hard_forks::{HFVotes, HardFork, NUMB_OF_HARD_FORKS};
 
-const TEST_WINDOW_SIZE: u64 = 25;
+const TEST_WINDOW_SIZE: usize = 25;
 
 #[test]
 fn target_block_time() {
@@ -48,9 +48,9 @@ prop_compose! {
 proptest! {
     #[test]
     fn hf_vote_counter_total_correct(hf_votes in arb_full_hf_votes()) {
-        prop_assert_eq!(hf_votes.total_votes(), u64::try_from(hf_votes.vote_list.len()).unwrap());
+        prop_assert_eq!(hf_votes.total_votes(), hf_votes.vote_list.len());
 
-        let mut votes = [0_u64; NUMB_OF_HARD_FORKS];
+        let mut votes = [0_usize; NUMB_OF_HARD_FORKS];
         for vote in hf_votes.vote_list.iter() {
             // manually go through the list of votes tallying
             votes[*vote as usize - 1] += 1;

@@ -32,10 +32,10 @@ pub struct AltChainContextCache {
     pub difficulty_cache: Option<DifficultyCache>,
 
     /// A cached RX VM.
-    pub cached_rx_vm: Option<(u64, Arc<RandomXVM>)>,
+    pub cached_rx_vm: Option<(usize, Arc<RandomXVM>)>,
 
     /// The chain height of the alt chain.
-    pub chain_height: u64,
+    pub chain_height: usize,
     /// The top hash of the alt chain.
     pub top_hash: [u8; 32],
     /// The [`ChainID`] of the alt chain.
@@ -48,7 +48,7 @@ impl AltChainContextCache {
     /// Add a new block to the cache.
     pub fn add_new_block(
         &mut self,
-        height: u64,
+        height: usize,
         block_hash: [u8; 32],
         block_weight: usize,
         long_term_block_weight: usize,

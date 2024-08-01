@@ -129,7 +129,7 @@ impl HardForkState {
     /// This _must_ only be used on a main-chain cache.
     pub async fn pop_blocks_main_chain<D: Database + Clone>(
         &mut self,
-        numb_blocks: u64,
+        numb_blocks: usize,
         database: D,
     ) -> Result<(), ExtendedConsensusError> {
         let Some(retained_blocks) = self.votes.total_votes().checked_sub(self.config.window) else {
@@ -153,12 +153,11 @@ impl HardForkState {
                 ..current_chain_height
                     .saturating_sub(numb_blocks)
                     .saturating_sub(retained_blocks),
-            usize::try_from(numb_blocks).unwrap(),
+            numb_blocks,
         )
         .await?;
 
-        self.votes
-            .reverse_blocks(usize::try_from(numb_blocks).unwrap(), oldest_votes);
+        self.votes.reverse_blocks(numb_blocks, oldest_votes);
         self.last_height -= numb_blocks;
 
         Ok(())

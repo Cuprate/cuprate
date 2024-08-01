@@ -82,14 +82,14 @@ async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
 
     for (i, diff_info) in DIF_3000000_3002000
         .windows(2)
-        .skip(cfg.total_block_count() as usize - 1)
+        .skip(cfg.total_block_count() - 1)
         .enumerate()
     {
         let diff = diff_info[1].0 - diff_info[0].0;
 
         assert_eq!(diff_cache.next_difficulty(&HardFork::V16), diff);
 
-        diff_cache.new_block(3_000_720 + i as u64, diff_info[1].1, diff_info[1].0);
+        diff_cache.new_block(3_000_720 + i, diff_info[1].1, diff_info[1].0);
     }
 
     Ok(())
@@ -234,7 +234,7 @@ proptest! {
                 new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             }
 
-            new_cache.pop_blocks_main_chain(blocks_to_pop as u64, database).await?;
+            new_cache.pop_blocks_main_chain(blocks_to_pop, database).await?;
 
             prop_assert_eq!(new_cache, old_cache);
 
@@ -258,7 +258,7 @@ proptest! {
                 new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             }
 
-            new_cache.pop_blocks_main_chain(blocks_to_pop as u64, database).await?;
+            new_cache.pop_blocks_main_chain(blocks_to_pop, database).await?;
 
             prop_assert_eq!(new_cache, old_cache);
 
