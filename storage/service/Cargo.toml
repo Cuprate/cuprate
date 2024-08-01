@@ -1,7 +1,7 @@
 [package]
-name = "cuprate-database-service"
-version = "0.1.0"
-edition = "2021"
+name        = "cuprate-database-service"
+version     = "0.1.0"
+edition     = "2021"
 description = "Cuprate's database service abstraction"
 license     = "MIT"
 authors     = ["Boog900"]
