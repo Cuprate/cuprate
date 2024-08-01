@@ -9,7 +9,7 @@ use std::{
     ops::Range,
 };
 
-use crate::types::{ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
+use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.
@@ -29,8 +29,13 @@ pub enum BCReadRequest {
 
     /// Request a block's hash.
     ///
-    /// The input is the block's height.
-    BlockHash(u64),
+    /// The input is the block's height and the chain it is on.
+    BlockHash(u64, Chain),
+
+    /// Request to check if we have a block and which [`Chain`] it is on.
+    ///
+    /// The input is the block's hash.
+    FindBlock([u8; 32]),
 
     /// Removes the block hashes that are not in the _main_ chain.
     ///
@@ -40,15 +45,15 @@ pub enum BCReadRequest {
     /// Request a range of block extended headers.
     ///
     /// The input is a range of block heights.
-    BlockExtendedHeaderInRange(Range<u64>),
+    BlockExtendedHeaderInRange(Range<u64>, Chain),
 
     /// Request the current chain height.
     ///
     /// Note that this is not the top-block height.
     ChainHeight,
 
-    /// Request the total amount of generated coins (atomic units) so far.
-    GeneratedCoins,
+    /// Request the total amount of generated coins (atomic units) at this height.
+    GeneratedCoins(u64),
 
     /// Request data for multiple outputs.
     ///
@@ -129,6 +134,11 @@ pub enum BCResponse {
     /// Inner value is the hash of the requested block.
     BlockHash([u8; 32]),
 
+    /// Response to [`BCReadRequest::FindBlock`].
+    ///
+    /// Inner value is the chain and height of the block if found.
+    FindBlock(Option<(Chain, u64)>),
+
     /// Response to [`BCReadRequest::FilterUnknownHashes`].
     ///
     /// Inner value is the list of hashes that were in the main chain.
@@ -146,7 +156,7 @@ pub enum BCResponse {
 
     /// Response to [`BCReadRequest::GeneratedCoins`].
     ///
-    /// Inner value is the total amount of generated coins so far, in atomic units.
+    /// Inner value is the total amount of generated coins up to and including the chosen height, in atomic units.
     GeneratedCoins(u64),
 
     /// Response to [`BCReadRequest::Outputs`].

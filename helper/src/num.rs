@@ -8,12 +8,18 @@ use core::{
     ops::{Add, Div, Mul, Sub},
 };
 
+#[cfg(feature = "std")]
+mod rolling_median;
+
 //---------------------------------------------------------------------------------------------------- Types
 // INVARIANT: must be private.
 // Protects against outside-crate implementations.
 mod private {
     pub trait Sealed: Copy + PartialOrd<Self> + core::fmt::Display {}
 }
+
+#[cfg(feature = "std")]
+pub use rolling_median::RollingMedian;
 
 /// Non-floating point numbers
 ///

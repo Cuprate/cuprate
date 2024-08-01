@@ -1,3 +1,5 @@
+use proptest::{collection::vec, prelude::*};
+
 use cuprate_consensus_rules::hard_forks::{HFInfo, HFsInfo, HardFork, NUMB_OF_HARD_FORKS};
 
 use crate::{
@@ -81,4 +83,45 @@ async fn hf_v15_v16_correct() {
     }
 
     assert_eq!(state.current_hardfork, HardFork::V16);
+}
+
+proptest! {
+    fn pop_blocks(
+        hfs in vec(any::<HardFork>(), 0..100),
+        extra_hfs in vec(any::<HardFork>(), 0..100)
+    ) {
+        tokio_test::block_on(async move {
+            let numb_hfs = hfs.len() as u64;
+            let numb_pop_blocks = extra_hfs.len() as u64;
+
+            let mut db_builder = DummyDatabaseBuilder::default();
+
+            for hf in hfs {
+                db_builder.add_block(
+                    DummyBlockExtendedHeader::default().with_hard_fork_info(hf, hf),
+                );
+            }
+
+            let db = db_builder.finish(Some(numb_hfs as usize));
+
+            let mut state = HardForkState::init_from_chain_height(
+                numb_hfs,
+                TEST_HARD_FORK_CONFIG,
+                db.clone(),
+            )
+            .await?;
+
+            let state_clone = state.clone();
+
+            for (i, hf) in extra_hfs.into_iter().enumerate() {
+                state.new_block(hf, state.last_height + u64::try_from(i).unwrap() + 1);
+            }
+
+            state.pop_blocks_main_chain(numb_pop_blocks, db).await?;
+
+            prop_assert_eq!(state_clone, state);
+
+            Ok::<(), TestCaseError>(())
+        })?;
+    }
 }

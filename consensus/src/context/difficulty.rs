@@ -12,7 +12,10 @@ use tower::ServiceExt;
 use tracing::instrument;
 
 use cuprate_helper::num::median;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::{
+    blockchain::{BCReadRequest, BCResponse},
+    Chain,
+};
 
 use crate::{Database, ExtendedConsensusError, HardFork};
 
@@ -28,7 +31,7 @@ const DIFFICULTY_LAG: usize = 15;
 
 /// Configuration for the difficulty cache.
 ///
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct DifficultyCacheConfig {
     pub(crate) window: usize,
     pub(crate) cut: usize,
@@ -68,7 +71,7 @@ impl DifficultyCacheConfig {
 /// This struct is able to calculate difficulties from blockchain information.
 ///
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct DifficultyCache {
+pub struct DifficultyCache {
     /// The list of timestamps in the window.
     /// len <= [`DIFFICULTY_BLOCKS_COUNT`]
     pub(crate) timestamps: VecDeque<u64>,
@@ -87,6 +90,7 @@ impl DifficultyCache {
         chain_height: u64,
         config: DifficultyCacheConfig,
         database: D,
+        chain: Chain,
     ) -> Result<Self, ExtendedConsensusError> {
         tracing::info!("Initializing difficulty cache this may take a while.");
 
@@ -98,7 +102,9 @@ impl DifficultyCache {
         }
 
         let (timestamps, cumulative_difficulties) =
-            get_blocks_in_pow_info(database.clone(), block_start..chain_height).await?;
+            get_blocks_in_pow_info(database.clone(), block_start..chain_height, chain).await?;
+
+        debug_assert_eq!(timestamps.len() as u64, chain_height - block_start);
 
         tracing::info!(
             "Current chain height: {}, accounting for {} blocks timestamps",
@@ -114,6 +120,70 @@ impl DifficultyCache {
         };
 
         Ok(diff)
+    }
+
+    /// Pop some blocks from the top of the cache.
+    ///
+    /// The cache will be returned to the state it would have been in `numb_blocks` ago.
+    ///
+    /// # Invariant
+    ///
+    /// This _must_ only be used on a main-chain cache.
+    #[instrument(name = "pop_blocks_diff_cache", skip_all, fields(numb_blocks = numb_blocks))]
+    pub async fn pop_blocks_main_chain<D: Database + Clone>(
+        &mut self,
+        numb_blocks: u64,
+        database: D,
+    ) -> Result<(), ExtendedConsensusError> {
+        let Some(retained_blocks) = self
+            .timestamps
+            .len()
+            .checked_sub(usize::try_from(numb_blocks).unwrap())
+        else {
+            // More blocks to pop than we have in the cache, so just restart a new cache.
+            *self = Self::init_from_chain_height(
+                self.last_accounted_height - numb_blocks + 1,
+                self.config,
+                database,
+                Chain::Main,
+            )
+            .await?;
+
+            return Ok(());
+        };
+
+        let current_chain_height = self.last_accounted_height + 1;
+
+        let mut new_start_height = current_chain_height
+            .saturating_sub(self.config.total_block_count())
+            .saturating_sub(numb_blocks);
+
+        // skip the genesis block.
+        if new_start_height == 0 {
+            new_start_height = 1;
+        }
+
+        let (mut timestamps, mut cumulative_difficulties) = get_blocks_in_pow_info(
+            database,
+            new_start_height
+                // current_chain_height - self.timestamps.len() blocks are already in the cache.
+                ..(current_chain_height - u64::try_from(self.timestamps.len()).unwrap()),
+            Chain::Main,
+        )
+        .await?;
+
+        self.timestamps.drain(retained_blocks..);
+        self.cumulative_difficulties.drain(retained_blocks..);
+        timestamps.append(&mut self.timestamps);
+        cumulative_difficulties.append(&mut self.cumulative_difficulties);
+
+        self.timestamps = timestamps;
+        self.cumulative_difficulties = cumulative_difficulties;
+        self.last_accounted_height -= numb_blocks;
+
+        assert_eq!(self.timestamps.len(), self.cumulative_difficulties.len());
+
+        Ok(())
     }
 
     /// Add a new block to the difficulty cache.
@@ -200,7 +270,7 @@ impl DifficultyCache {
             if self.last_accounted_height + 1 == u64::try_from(numb_blocks).unwrap() {
                 // if the chain height is equal to `numb_blocks` add the genesis block.
                 // otherwise if the chain height is less than `numb_blocks` None is returned
-                // and if its more than it would be excluded from calculations.
+                // and if it's more it would be excluded from calculations.
                 let mut timestamps = self.timestamps.clone();
                 // all genesis blocks have a timestamp of 0.
                 // https://cuprate.github.io/monero-book/consensus_rules/genesis_block.html
@@ -299,11 +369,15 @@ fn get_window_start_and_end(
 async fn get_blocks_in_pow_info<D: Database + Clone>(
     database: D,
     block_heights: Range<u64>,
+    chain: Chain,
 ) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
     let BCResponse::BlockExtendedHeaderInRange(ext_header) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(block_heights))
+        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(
+            block_heights,
+            chain,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response");
