@@ -44,11 +44,16 @@
 /// An example:
 /// ```rust
 /// use cuprate_database::{
-///     ConcreteEnv, Table,
+///     Table,
 ///     config::ConfigBuilder,
 ///     Env, EnvInner,
 ///     DatabaseRo, DatabaseRw, TxRo, TxRw,
 /// };
+///
+/// #[cfg(feature = "heed")]
+/// use cuprate_database::HeedEnv as ConcreteEnv;
+/// #[cfg(all(feature = "redb", not(feature = "heed")))]
+/// use cuprate_database::RedbEnv as ConcreteEnv;
 ///
 /// // This generates `pub struct Table{1,2,3}`
 /// // where all those implement `Table` with

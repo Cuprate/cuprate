@@ -237,11 +237,16 @@ pub trait EnvInner<'env> {
     ///
     /// ```rust
     /// # use cuprate_database::{
-    /// #     ConcreteEnv,
     /// #     config::ConfigBuilder,
     /// #     Env, EnvInner,
     /// #     DatabaseRo, DatabaseRw, TxRo, TxRw,
     /// # };
+    /// #
+    /// # #[cfg(feature = "heed")]
+    /// # use cuprate_database::HeedEnv as ConcreteEnv;
+    /// # #[cfg(all(feature = "redb", not(feature = "heed")))]
+    /// # use cuprate_database::RedbEnv as ConcreteEnv;
+    ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let tmp_dir = tempfile::tempdir()?;
     /// # let db_dir = tmp_dir.path().to_owned();
