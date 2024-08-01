@@ -71,7 +71,7 @@ macro_rules! generate_endpoints_inner {
                 let channel = $handler.oneshot(request).await?;
 
                 // Assert the response from the inner handler is correct.
-                let RpcResponse::Binary(response) = todo!() else {
+                let RpcResponse::Binary(response) = channel else {
                     panic!("RPC handler did not return a binary response");
                 };
                 let BinResponse::$variant(response) = response else {
