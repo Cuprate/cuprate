@@ -28,6 +28,7 @@ use crate::{
         HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData, Peer, PoolInfoExtent,
         PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
     },
+    rpc_call::{RpcCall, RpcCallValue},
 };
 
 //---------------------------------------------------------------------------------------------------- Definitions
@@ -391,6 +392,72 @@ impl EpeeObject for GetBlocksResponse {
 
         Ok(())
     }
+}
+
+//---------------------------------------------------------------------------------------------------- Request
+/// Binary requests.
+///
+/// This enum contains all [`crate::bin`] requests.
+///
+/// See also: [`BinResponse`].
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum BinRequest {
+    GetBlocks(GetBlocksRequest),
+    GetBlocksByHeight(GetBlocksByHeightRequest),
+    GetHashes(GetHashesRequest),
+    GetOutputIndexes(GetOutputIndexesRequest),
+    GetOuts(GetOutsRequest),
+    GetTransactionPoolHashes(GetTransactionPoolHashesRequest),
+    GetOutputDistribution(crate::json::GetOutputDistributionRequest),
+}
+
+impl RpcCallValue for BinRequest {
+    fn is_restricted(&self) -> bool {
+        match self {
+            Self::GetBlocks(x) => x.is_restricted(),
+            Self::GetBlocksByHeight(x) => x.is_restricted(),
+            Self::GetHashes(x) => x.is_restricted(),
+            Self::GetOutputIndexes(x) => x.is_restricted(),
+            Self::GetOuts(x) => x.is_restricted(),
+            Self::GetTransactionPoolHashes(x) => x.is_restricted(),
+            Self::GetOutputDistribution(x) => x.is_restricted(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            Self::GetBlocks(x) => x.is_empty(),
+            Self::GetBlocksByHeight(x) => x.is_empty(),
+            Self::GetHashes(x) => x.is_empty(),
+            Self::GetOutputIndexes(x) => x.is_empty(),
+            Self::GetOuts(x) => x.is_empty(),
+            Self::GetTransactionPoolHashes(x) => x.is_empty(),
+            Self::GetOutputDistribution(x) => x.is_empty(),
+        }
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- Response
+/// Binary responses.
+///
+/// This enum contains all [`crate::bin`] responses.
+///
+/// See also: [`BinRequest`].
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[allow(missing_docs)]
+pub enum BinResponse {
+    GetBlocks(GetBlocksResponse),
+    GetBlocksByHeight(GetBlocksByHeightResponse),
+    GetHashes(GetHashesResponse),
+    GetOutputIndexes(GetOutputIndexesResponse),
+    GetOuts(GetOutsResponse),
+    GetTransactionPoolHashes(GetTransactionPoolHashesResponse),
+    GetOutputDistribution(crate::json::GetOutputDistributionResponse),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

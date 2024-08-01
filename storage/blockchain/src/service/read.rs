@@ -17,7 +17,7 @@ use cuprate_database::{DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_helper::{asynch::InfallibleOneshotReceiver, map::combine_low_high_bits_to_u128};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
-    ExtendedBlockHeader, OutputOnChain,
+    Chain, ExtendedBlockHeader, OutputOnChain,
 };
 
 use crate::{
@@ -212,11 +212,14 @@ fn map_request<E: Env>(
 
     let response = match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
-        R::BlockHash(block) => block_hash(env, block),
+        R::BlockHash(block, chain) => block_hash(env, block, chain),
+        R::FindBlock(_) => todo!("Add alt blocks to DB"),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
-        R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(env, range),
+        R::BlockExtendedHeaderInRange(range, chain) => {
+            block_extended_header_in_range(env, range, chain)
+        }
         R::ChainHeight => chain_height(env),
-        R::GeneratedCoins => generated_coins(env),
+        R::GeneratedCoins(height) => generated_coins(env, height),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
@@ -318,15 +321,18 @@ fn block_extended_header<E: Env>(env: &E, block_height: BlockHeight) -> Response
 
 /// [`BCReadRequest::BlockHash`].
 #[inline]
-fn block_hash<E: Env>(env: &E, block_height: BlockHeight) -> ResponseResult {
+fn block_hash<E: Env>(env: &E, block_height: BlockHeight, chain: Chain) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    Ok(BCResponse::BlockHash(
-        get_block_info(&block_height, &table_block_infos)?.block_hash,
-    ))
+    let block_hash = match chain {
+        Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
+        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+    };
+
+    Ok(BCResponse::BlockHash(block_hash))
 }
 
 /// [`BCReadRequest::FilterUnknownHashes`].
@@ -362,6 +368,7 @@ fn filter_unknown_hashes<E: Env>(env: &E, mut hashes: HashSet<BlockHash>) -> Res
 fn block_extended_header_in_range<E: Env>(
     env: &E,
     range: std::ops::Range<BlockHeight>,
+    chain: Chain,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
@@ -369,14 +376,17 @@ fn block_extended_header_in_range<E: Env>(
     let tables = thread_local(env);
 
     // Collect results using `rayon`.
-    let vec = range
-        .into_par_iter()
-        .map(|block_height| {
-            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-            get_block_extended_header_from_height(&block_height, tables)
-        })
-        .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
+    let vec = match chain {
+        Chain::Main => range
+            .into_par_iter()
+            .map(|block_height| {
+                let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+                let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+                get_block_extended_header_from_height(&block_height, tables)
+            })
+            .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
+        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+    };
 
     Ok(BCResponse::BlockExtendedHeaderInRange(vec))
 }
@@ -399,17 +409,14 @@ fn chain_height<E: Env>(env: &E) -> ResponseResult {
 
 /// [`BCReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins<E: Env>(env: &E) -> ResponseResult {
+fn generated_coins<E: Env>(env: &E, height: u64) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
-    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    let top_height = top_block_height(&table_block_heights)?;
-
     Ok(BCResponse::GeneratedCoins(cumulative_generated_coins(
-        &top_height,
+        &height,
         &table_block_infos,
     )?))
 }

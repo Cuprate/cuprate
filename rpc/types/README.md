@@ -7,6 +7,8 @@ This crate ports the types used in Monero's RPC interface, including:
 - Mixed types
 - Other commonly used RPC types
 
+It also includes some traits for these types.
+
 # Modules
 This crate's types are split in the following manner:
 
@@ -93,6 +95,12 @@ The invariants that can be relied upon:
 - Types in [`json`] & [`other`] will implement `serde` correctly
 - Types in [`bin`] will implement `epee` correctly
 - Misc types will implement `serde/epee` correctly as needed
+
+# Requests and responses
+For `enum`s that encapsulate all request/response types, see:
+- [`crate::json::JsonRpcRequest`] & [`crate::json::JsonRpcResponse`]
+- [`crate::bin::BinRequest`] & [`crate::bin::BinResponse`]
+- [`crate::other::OtherRequest`] & [`crate::other::OtherResponse`]
 
 # Feature flags
 List of feature flags for `cuprate-rpc-types`.
