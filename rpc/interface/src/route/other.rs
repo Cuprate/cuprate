@@ -1,5 +1,4 @@
 //! Other JSON endpoint route functions.
-#![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import
 use axum::{extract::State, http::StatusCode, Json};
@@ -29,16 +28,18 @@ use cuprate_rpc_types::{
 use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
 
 //---------------------------------------------------------------------------------------------------- Routes
-/// TODO
+/// This macro generates route functions that expect input.
+///
+/// See below for usage.
 macro_rules! generate_endpoints_with_input {
     ($(
+        // Syntax:
+        // Function name => Expected input type
         $endpoint:ident => $variant:ident
     ),*) => { paste::paste! {
         $(
-            /// TODO
-            #[allow(unused_mut)]
             pub(crate) async fn $endpoint<H: RpcHandler>(
-                State(mut handler): State<H>,
+                State(handler): State<H>,
                 Json(request): Json<[<$variant Request>]>,
             ) -> Result<Json<[<$variant Response>]>, StatusCode> {
                 generate_endpoints_inner!($variant, handler, request)
@@ -47,16 +48,18 @@ macro_rules! generate_endpoints_with_input {
     }};
 }
 
-/// TODO
+/// This macro generates route functions that expect _no_ input.
+///
+/// See below for usage.
 macro_rules! generate_endpoints_with_no_input {
     ($(
+        // Syntax:
+        // Function name => Expected input type (that is empty)
         $endpoint:ident => $variant:ident
     ),*) => { paste::paste! {
         $(
-            /// TODO
-            #[allow(unused_mut)]
             pub(crate) async fn $endpoint<H: RpcHandler>(
-                State(mut handler): State<H>,
+                State(handler): State<H>,
             ) -> Result<Json<[<$variant Response>]>, StatusCode> {
                 generate_endpoints_inner!($variant, handler, [<$variant Request>] {})
             }
@@ -64,7 +67,9 @@ macro_rules! generate_endpoints_with_no_input {
     }};
 }
 
-/// TODO
+/// De-duplicated inner function body for:
+/// - [`generate_endpoints_with_input`]
+/// - [`generate_endpoints_with_no_input`]
 macro_rules! generate_endpoints_inner {
     ($variant:ident, $handler:ident, $request:expr) => {
         paste::paste! {

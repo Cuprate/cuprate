@@ -1,5 +1,4 @@
 //! JSON-RPC 2.0 endpoint route functions.
-#![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::borrow::Cow;
@@ -19,7 +18,7 @@ use cuprate_rpc_types::{
 use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
 
 //---------------------------------------------------------------------------------------------------- Routes
-/// TODO
+/// The `/json_rpc` route function used in [`crate::RouterBuilder`].
 pub(crate) async fn json_rpc<H: RpcHandler>(
     State(handler): State<H>,
     Json(request): Json<cuprate_json_rpc::Request<JsonRpcRequest>>,

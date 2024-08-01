@@ -1,5 +1,4 @@
 //! Binary route functions.
-#![allow(clippy::unused_async)] // TODO: remove after impl
 
 //---------------------------------------------------------------------------------------------------- Import
 use axum::{body::Bytes, extract::State, http::StatusCode};
@@ -11,9 +10,13 @@ use cuprate_rpc_types::bin::{BinRequest, BinResponse, GetTransactionPoolHashesRe
 use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
 
 //---------------------------------------------------------------------------------------------------- Routes
-/// TODO
+/// This macro generates route functions that expect input.
+///
+/// See below for usage.
 macro_rules! generate_endpoints_with_input {
     ($(
+        // Syntax:
+        // Function name => Expected input type
         $endpoint:ident => $variant:ident
     ),*) => { paste::paste! {
         $(
@@ -34,9 +37,13 @@ macro_rules! generate_endpoints_with_input {
     }};
 }
 
-/// TODO
+/// This macro generates route functions that expect _no_ input.
+///
+/// See below for usage.
 macro_rules! generate_endpoints_with_no_input {
     ($(
+        // Syntax:
+        // Function name => Expected input type (that is empty)
         $endpoint:ident => $variant:ident
     ),*) => { paste::paste! {
         $(
@@ -52,7 +59,9 @@ macro_rules! generate_endpoints_with_no_input {
     }};
 }
 
-/// TODO
+/// De-duplicated inner function body for:
+/// - [`generate_endpoints_with_input`]
+/// - [`generate_endpoints_with_no_input`]
 macro_rules! generate_endpoints_inner {
     ($variant:ident, $handler:ident, $request:expr) => {
         paste::paste! {
