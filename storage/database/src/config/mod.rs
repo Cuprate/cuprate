@@ -13,9 +13,14 @@
 //! # Example
 //! ```rust
 //! use cuprate_database::{
-//!     ConcreteEnv, Env,
+//!     Env,
 //!     config::{ConfigBuilder, SyncMode}
 //! };
+//!
+//! #[cfg(feature = "heed")]
+//! use cuprate_database::HeedEnv as ConcreteEnv;
+//! #[cfg(all(feature = "redb", not(feature = "heed")))]
+//! use cuprate_database::RedbEnv as ConcreteEnv;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let db_dir = tempfile::tempdir()?;

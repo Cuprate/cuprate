@@ -21,8 +21,12 @@ use crate::{
     resize::ResizeAlgorithm,
     tests::{tmp_concrete_env, TestTable},
     transaction::{TxRo, TxRw},
-    ConcreteEnv,
 };
+
+#[cfg(feature = "heed")]
+use crate::HeedEnv as ConcreteEnv;
+#[cfg(all(feature = "redb", not(feature = "heed")))]
+use crate::RedbEnv as ConcreteEnv;
 
 //---------------------------------------------------------------------------------------------------- Tests
 /// Simply call [`Env::open`]. If this fails, something is really wrong.

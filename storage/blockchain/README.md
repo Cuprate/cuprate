@@ -66,13 +66,17 @@ For examples of the higher-level APIs, see:
 ```rust
 use cuprate_blockchain::{
     cuprate_database::{
-        ConcreteEnv,
         Env, EnvInner,
         DatabaseRo, DatabaseRw, TxRo, TxRw,
     },
     config::ConfigBuilder,
     tables::{Tables, TablesMut, OpenTables},
 };
+
+#[cfg(feature = "heed")]
+use cuprate_blockchain::cuprate_database::HeedEnv as ConcreteEnv;
+#[cfg(all(feature = "redb", not(feature = "heed")))]
+use cuprate_blockchain::cuprate_database::RedbEnv as ConcreteEnv;
 
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 // Create a configuration for the database environment.
@@ -83,7 +87,7 @@ let config = ConfigBuilder::new()
     .build();
 
 // Initialize the database environment.
-let env = cuprate_blockchain::open(config)?;
+let env = cuprate_blockchain::open::<ConcreteEnv>(config)?;
 
 // Open up a transaction + tables for writing.
 let env_inner = env.env_inner();

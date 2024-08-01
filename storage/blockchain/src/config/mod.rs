@@ -19,6 +19,11 @@
 //!     config::{ConfigBuilder, ReaderThreads},
 //! };
 //!
+//!#[cfg(feature = "heed")]
+//!use cuprate_blockchain::cuprate_database::HeedEnv as ConcreteEnv;
+//!#[cfg(all(feature = "redb", not(feature = "heed")))]
+//!use cuprate_blockchain::cuprate_database::RedbEnv as ConcreteEnv;
+//!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let tmp_dir = tempfile::tempdir()?;
 //! let db_dir = tmp_dir.path().to_owned();
@@ -34,9 +39,9 @@
 //!     .build();
 //!
 //! // Start a database `service` using this configuration.
-//! let (reader_handle, _) = cuprate_blockchain::service::init(config.clone())?;
+//! let (_, _, env) = cuprate_blockchain::service::do_init::<ConcreteEnv>(config.clone())?;
 //! // It's using the config we provided.
-//! assert_eq!(reader_handle.env().config(), &config.db_config);
+//! assert_eq!(env.config(), &config.db_config);
 //! # Ok(()) }
 //! ```
 
@@ -45,3 +50,6 @@ pub use config::{Config, ConfigBuilder};
 
 mod reader_threads;
 pub use reader_threads::ReaderThreads;
+
+mod backend;
+pub use backend::Backend;

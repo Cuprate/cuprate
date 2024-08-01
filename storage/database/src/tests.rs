@@ -7,7 +7,12 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::borrow::Cow;
 
-use crate::{config::ConfigBuilder, table::Table, ConcreteEnv, Env};
+use crate::{config::ConfigBuilder, table::Table, Env};
+
+#[cfg(feature = "heed")]
+use crate::HeedEnv as ConcreteEnv;
+#[cfg(all(feature = "redb",not(feature = "heed")))]
+use crate::RedbEnv as ConcreteEnv;
 
 //---------------------------------------------------------------------------------------------------- struct
 /// A test table.

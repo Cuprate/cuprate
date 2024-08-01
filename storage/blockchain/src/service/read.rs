@@ -13,7 +13,7 @@ use thread_local::ThreadLocal;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::PollSemaphore;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
+use cuprate_database::{DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_helper::{asynch::InfallibleOneshotReceiver, map::combine_low_high_bits_to_u128};
 use cuprate_types::{
     blockchain::{BCReadRequest, BCResponse},
@@ -39,6 +39,54 @@ use crate::{
     types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
+trait SpawnReadTask {
+    fn spawn(&self, request: BCReadRequest, permit: OwnedSemaphorePermit) -> ResponseReceiver;
+}
+
+#[derive(Clone)]
+struct GenericEnvSpawnReadTask<E: Env> {
+    /// Access to the database.
+    env: Arc<E>,
+
+    /// Handle to the custom `rayon` DB reader thread-pool.
+    ///
+    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
+    /// and responses are returned via a channel we (the caller) provide.
+    pool: Arc<rayon::ThreadPool>,
+}
+
+impl<E: Env> GenericEnvSpawnReadTask<E> {
+    fn new(env: &Arc<E>, pool: Arc<rayon::ThreadPool>) -> Self {
+        Self {
+            env: Arc::clone(&env),
+            pool
+        }
+    }
+}
+
+impl<E: Env + Send + Sync + 'static> SpawnReadTask for GenericEnvSpawnReadTask<E> {
+    fn spawn(&self, request: BCReadRequest, permit: OwnedSemaphorePermit) -> ResponseReceiver { 
+        // Response channel we `.await` on.
+        let (response_sender, receiver) = oneshot::channel();
+
+        // Spawn the request in the rayon DB thread-pool.
+        //
+        // Note that this uses `self.pool` instead of `rayon::spawn`
+        // such that any `rayon` parallel code that runs within
+        // the passed closure uses the same `rayon` threadpool.
+        //
+        // INVARIANT:
+        // The below `DatabaseReader` function impl block relies on this behavior.
+        let env = Arc::clone(&self.env);
+        self.pool.spawn(move || {
+            let _permit: OwnedSemaphorePermit = permit;
+            map_request(&*env, request, response_sender);
+        }); // drop(permit/env);
+
+        InfallibleOneshotReceiver::from(receiver)
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- DatabaseReadHandle
 /// Read handle to the database.
 ///
@@ -49,12 +97,6 @@ use crate::{
 /// will return an `async`hronous channel that can be `.await`ed upon
 /// to receive the corresponding [`BCResponse`].
 pub struct DatabaseReadHandle {
-    /// Handle to the custom `rayon` DB reader thread-pool.
-    ///
-    /// Requests are [`rayon::ThreadPool::spawn`]ed in this thread-pool,
-    /// and responses are returned via a channel we (the caller) provide.
-    pool: Arc<rayon::ThreadPool>,
-
     /// Counting semaphore asynchronous permit for database access.
     /// Each [`tower::Service::poll_ready`] will acquire a permit
     /// before actually sending a request to the `rayon` DB threadpool.
@@ -68,8 +110,7 @@ pub struct DatabaseReadHandle {
     /// the request, i.e., after [`map_request()`] finishes.
     permit: Option<OwnedSemaphorePermit>,
 
-    /// Access to the database.
-    env: Arc<ConcreteEnv>,
+    spawn: Arc<dyn SpawnReadTask>,
 }
 
 // `OwnedSemaphorePermit` does not implement `Clone`,
@@ -78,10 +119,9 @@ pub struct DatabaseReadHandle {
 impl Clone for DatabaseReadHandle {
     fn clone(&self) -> Self {
         Self {
-            pool: Arc::clone(&self.pool),
             semaphore: self.semaphore.clone(),
             permit: None,
-            env: Arc::clone(&self.env),
+            spawn: Arc::clone(&self.spawn),
         }
     }
 }
@@ -95,45 +135,28 @@ impl DatabaseReadHandle {
     /// Should be called _once_ per actual database.
     #[cold]
     #[inline(never)] // Only called once.
-    pub(super) fn init(env: &Arc<ConcreteEnv>, reader_threads: ReaderThreads) -> Self {
+    pub(super) fn init<E: Env + Send + Sync + 'static>(env: &Arc<E>, reader_threads: ReaderThreads) -> Self {
         // How many reader threads to spawn?
         let reader_count = reader_threads.as_threads().get();
 
         // Spawn `rayon` reader threadpool.
-        let pool = rayon::ThreadPoolBuilder::new()
+        let pool = Arc::new(rayon::ThreadPoolBuilder::new()
             .num_threads(reader_count)
             .thread_name(|i| format!("cuprate_helper::service::read::DatabaseReader{i}"))
             .build()
-            .unwrap();
+            .unwrap()
+        );
 
         // Create a semaphore with the same amount of
         // permits as the amount of reader threads.
         let semaphore = PollSemaphore::new(Arc::new(Semaphore::new(reader_count)));
 
+        let spawn = Arc::new(GenericEnvSpawnReadTask::new(env, pool));
+
         // Return a handle to the pool.
-        Self {
-            pool: Arc::new(pool),
-            semaphore,
-            permit: None,
-            env: Arc::clone(env),
-        }
+        Self { semaphore, permit: None, spawn }
     }
 
-    /// Access to the actual database environment.
-    ///
-    /// # ⚠️ Warning
-    /// This function gives you access to the actual
-    /// underlying database connected to by `self`.
-    ///
-    /// I.e. it allows you to read/write data _directly_
-    /// instead of going through a request.
-    ///
-    /// Be warned that using the database directly
-    /// in this manner has not been tested.
-    #[inline]
-    pub const fn env(&self) -> &Arc<ConcreteEnv> {
-        &self.env
-    }
 }
 
 impl tower::Service<BCReadRequest> for DatabaseReadHandle {
@@ -163,24 +186,7 @@ impl tower::Service<BCReadRequest> for DatabaseReadHandle {
             .take()
             .expect("poll_ready() should have acquire a permit before calling call()");
 
-        // Response channel we `.await` on.
-        let (response_sender, receiver) = oneshot::channel();
-
-        // Spawn the request in the rayon DB thread-pool.
-        //
-        // Note that this uses `self.pool` instead of `rayon::spawn`
-        // such that any `rayon` parallel code that runs within
-        // the passed closure uses the same `rayon` threadpool.
-        //
-        // INVARIANT:
-        // The below `DatabaseReader` function impl block relies on this behavior.
-        let env = Arc::clone(&self.env);
-        self.pool.spawn(move || {
-            let _permit: OwnedSemaphorePermit = permit;
-            map_request(&env, request, response_sender);
-        }); // drop(permit/env);
-
-        InfallibleOneshotReceiver::from(receiver)
+        self.spawn.spawn(request, permit)
     }
 }
 
@@ -195,8 +201,8 @@ impl tower::Service<BCReadRequest> for DatabaseReadHandle {
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`BCResponse`] is sent
-fn map_request(
-    env: &ConcreteEnv,               // Access to the database
+fn map_request<E: Env>(
+    env: &E,                         // Access to the database
     request: BCReadRequest,          // The request we must fulfill
     response_sender: ResponseSender, // The channel we must send the response back to
 ) {
@@ -302,7 +308,7 @@ macro_rules! get_tables {
 
 /// [`BCReadRequest::BlockExtendedHeader`].
 #[inline]
-fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+fn block_extended_header<E: Env>(env: &E, block_height: BlockHeight) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -315,7 +321,7 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 
 /// [`BCReadRequest::BlockHash`].
 #[inline]
-fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> ResponseResult {
+fn block_hash<E: Env>(env: &E, block_height: BlockHeight, chain: Chain) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -331,7 +337,7 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> Res
 
 /// [`BCReadRequest::FilterUnknownHashes`].
 #[inline]
-fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
+fn filter_unknown_hashes<E: Env>(env: &E, mut hashes: HashSet<BlockHash>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -359,8 +365,8 @@ fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
 
 /// [`BCReadRequest::BlockExtendedHeaderInRange`].
 #[inline]
-fn block_extended_header_in_range(
-    env: &ConcreteEnv,
+fn block_extended_header_in_range<E: Env>(
+    env: &E,
     range: std::ops::Range<BlockHeight>,
     chain: Chain,
 ) -> ResponseResult {
@@ -387,7 +393,7 @@ fn block_extended_header_in_range(
 
 /// [`BCReadRequest::ChainHeight`].
 #[inline]
-fn chain_height(env: &ConcreteEnv) -> ResponseResult {
+fn chain_height<E: Env>(env: &E) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -403,7 +409,7 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
 
 /// [`BCReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins(env: &ConcreteEnv, height: u64) -> ResponseResult {
+fn generated_coins<E: Env>(env: &E, height: u64) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -417,7 +423,7 @@ fn generated_coins(env: &ConcreteEnv, height: u64) -> ResponseResult {
 
 /// [`BCReadRequest::Outputs`].
 #[inline]
-fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
+fn outputs<E: Env>(env: &E, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -458,7 +464,7 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
 
 /// [`BCReadRequest::NumberOutputsWithAmount`].
 #[inline]
-fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
+fn number_outputs_with_amount<E: Env>(env: &E, amounts: Vec<Amount>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -503,7 +509,7 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
 
 /// [`BCReadRequest::KeyImagesSpent`].
 #[inline]
-fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
+fn key_images_spent<E: Env>(env: &E, key_images: HashSet<KeyImage>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
     let tx_ro = thread_local(env);
@@ -539,7 +545,7 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
 }
 
 /// [`BCReadRequest::CompactChainHistory`]
-fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
+fn compact_chain_history<E: Env>(env: &E) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 
@@ -580,7 +586,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
 /// `block_ids` must be sorted in chronological block order, or else
 /// the returned result is unspecified and meaningless, as this function
 /// performs a binary search.
-fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseResult {
+fn find_first_unknown<E: Env>(env: &E, block_ids: &[BlockHash]) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
 

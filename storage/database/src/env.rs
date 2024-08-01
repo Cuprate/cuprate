@@ -61,7 +61,7 @@ pub trait Env: Sized {
     // For `heed`, this is just `heed::Env`, for `redb` this is
     // `(redb::Database, redb::Durability)` as each transaction
     // needs the sync mode set during creation.
-    type EnvInner<'env>: EnvInner<'env>
+    type EnvInner<'env>: EnvInner<'env> + Sync
     where
         Self: 'env;
 
@@ -209,7 +209,7 @@ pub trait EnvInner<'env> {
     /// The read-only transaction type of the backend.
     ///
     /// `'tx` is the lifetime of the transaction itself.
-    type Ro<'tx>: TxRo<'tx>;
+    type Ro<'tx>: TxRo<'tx> + Send;
     /// The read-write transaction type of the backend.
     ///
     /// `'tx` is the lifetime of the transaction itself.
@@ -237,11 +237,16 @@ pub trait EnvInner<'env> {
     ///
     /// ```rust
     /// # use cuprate_database::{
-    /// #     ConcreteEnv,
     /// #     config::ConfigBuilder,
     /// #     Env, EnvInner,
     /// #     DatabaseRo, DatabaseRw, TxRo, TxRw,
     /// # };
+    /// #
+    /// # #[cfg(feature = "heed")]
+    /// # use cuprate_database::HeedEnv as ConcreteEnv;
+    /// # #[cfg(all(feature = "redb", not(feature = "heed")))]
+    /// # use cuprate_database::RedbEnv as ConcreteEnv;
+    ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let tmp_dir = tempfile::tempdir()?;
     /// # let db_dir = tmp_dir.path().to_owned();

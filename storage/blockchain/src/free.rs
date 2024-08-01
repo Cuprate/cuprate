@@ -1,7 +1,7 @@
 //! General free functions (related to the database).
 
 //---------------------------------------------------------------------------------------------------- Import
-use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
+use cuprate_database::{Env, EnvInner, InitError, RuntimeError, TxRw};
 
 use crate::{config::Config, tables::OpenTables};
 
@@ -22,9 +22,9 @@ use crate::{config::Config, tables::OpenTables};
 /// - A table could not be created/opened
 #[cold]
 #[inline(never)] // only called once
-pub fn open(config: Config) -> Result<ConcreteEnv, InitError> {
+pub fn open<E: Env>(config: Config) -> Result<E, InitError> {
     // Attempt to open the database environment.
-    let env = <ConcreteEnv as Env>::open(config.db_config)?;
+    let env = E::open(config.db_config)?;
 
     /// Convert runtime errors to init errors.
     ///

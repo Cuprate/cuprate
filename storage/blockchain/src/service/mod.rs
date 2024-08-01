@@ -126,6 +126,7 @@ pub use write::DatabaseWriteHandle;
 
 mod free;
 pub use free::init;
+pub use free::do_init;
 
 // Internal type aliases for `service`.
 mod types;
