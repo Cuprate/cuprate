@@ -17,13 +17,13 @@ pub struct ExtendedBlockHeader {
     ///
     /// This can also be represented with `cuprate_consensus::HardFork`.
     ///
-    /// This is the same value as [`monero_serai::block::BlockHeader::major_version`].
+    /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_version`].
     pub version: u8,
     /// The block's hard-fork vote.
     ///
     /// This can also be represented with `cuprate_consensus::HardFork`.
     ///
-    /// This is the same value as [`monero_serai::block::BlockHeader::minor_version`].
+    /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_signal`].
     pub vote: u8,
     /// The UNIX time at which the block was mined.
     pub timestamp: u64,
@@ -72,7 +72,7 @@ pub struct VerifiedBlockInformation {
     ///
     /// [`Block::serialize`].
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_tx`].
+    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
     pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///
@@ -119,7 +119,7 @@ pub struct AltBlockInformation {
     ///
     /// [`Block::serialize`].
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_tx`].
+    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
     pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///
