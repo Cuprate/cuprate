@@ -38,7 +38,7 @@ macro_rules! generate_router_builder {
         /// Functions that enable routes are separated into 3 groups:
         /// - `json_rpc` (enables all of JSON RPC 2.0)
         /// - `other_` (e.g. [`other_get_height`](RouterBuilder::other_get_height))
-        /// - `binary_` (e.g. [`binary_get_blocks`](RouterBuilder::binary_get_blocks))
+        /// - `bin_` (e.g. [`bin_get_blocks`](RouterBuilder::bin_get_blocks))
         ///
         /// For a list of all `monerod` routes, see
         /// [here](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.h#L97-L189),
@@ -65,7 +65,7 @@ macro_rules! generate_router_builder {
         /// // - `/get_outs.bin` enabled
         /// // - A fallback enabled
         /// let get_outs_bin_and_fallback = RouterBuilder::<RpcHandlerDummy>::new()
-        ///     .binary_get_outs()
+        ///     .bin_get_outs()
         ///     .fallback()
         ///     .build();
         ///
