@@ -36,7 +36,7 @@
 ---
 
 - [🟠 RPC](rpc/intro.md)
-    - [🟠 JSON-RPC 2.0](rpc/json-rpc/intro.md)
+    - [🟠 JSON-RPC 2.0](rpc/json-rpc.md)
     - [🟢 The types](rpc/types/intro.md)
         - [🟢 Misc](rpc/types/misc.md)
         - [🟢 JSON](rpc/types/json.md)
