@@ -2,7 +2,7 @@
 `monerod`'s daemon RPC has three kinds of RPC calls:
 1. [JSON-RPC 2.0](https://www.jsonrpc.org/specification) methods, called at the `/json_rpc` endpoint
 1. JSON (but not JSON-RPC 2.0) methods called at their own endpoints, e.g. [`/get_height`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_height)
-1. Binary ([epee](../../formats-protocols-types/epee.html)) RPC methods called at their own endpoints ending in `.bin`, e.g. `/get_blocks.bin`
+1. Binary ([epee](../../formats-protocols-types/epee.html)) RPC methods called at their own endpoints ending in `.bin`, e.g. [`/get_blocks.bin`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_blocksbin)
 
 Cuprate's RPC aims to mimic `monerod`'s as much as it can practically can.
 
