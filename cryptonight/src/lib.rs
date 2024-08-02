@@ -1,11 +1,14 @@
 extern crate core;
 
+mod cnaes;
 mod hash;
 mod hash_v4;
 
 #[link(name = "cryptonight")]
 extern "C" {
     fn cn_slow_hash(data: *const u8, length: usize, hash: *mut u8, variant: i32, height: u64);
+    fn aesb_single_round(input: *const u8, output: *mut u8, expanded_key: *mut u8);
+    fn aesb_pseudo_round(input: *const u8, output: *mut u8, expanded_key: *mut u8);
 }
 
 /// Calculates the CryptoNight v0 hash of buf (legacy C version).
@@ -70,6 +73,9 @@ pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
+    use core::arch::aarch64::uint8x16_t;
+
     use crate::*;
 
     #[test]
@@ -105,6 +111,53 @@ mod tests {
         let res = cryptonight_hash_r(&hex::decode(INPUT).unwrap(), 1806260);
         let res_hex = hex::encode(res);
         assert_eq!(res_hex, EXPECTED);
+    }
+
+    /*    #[test]
+       fn test_aesb_pseudo_round() {
+           let input = [0u8; 16];
+           let mut output = [0u8; 16];
+
+           let key = [0u8; 16];
+           let key_ref: Key<Aes128> = key.into();
+           let cipher = Aes128::new(&key_ref);
+           #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+           {
+               let mut expanded_key = [0u8; 176];
+               cipher.expand_key(&mut expanded_key);
+               expanded_key
+           }
+
+           let expanded_key = [0u8; 240];
+           unsafe {
+               //aesb_pseudo_round(input.as_ptr(), output.as_mut_ptr(), expanded_key.as_ptr() as *mut u8);
+               aesb_single_round(input.as_ptr(), output.as_mut_ptr(), expanded_key.as_ptr() as *mut u8);
+           }
+           //assert_eq!(output, [0u8; 16]);
+           println!("pseudo round: {}", hex::encode(output));
+       }
+    */
+
+    #[test]
+    fn test_aesb_pseudo_round() {
+        const EXPECTED_OUT: &str = "4c3673357a3f3e4817ab38fece836666";
+        let input = [0u8; 16];
+        let mut output = [0u8; 16];
+        let key = [0u8; 16];
+
+        //let expanded_key = [0u8; 240];
+        let expanded_key = cnaes::key_schedule(&key);
+        let expanded_key = expanded_key.iter().flatten().copied().collect::<Vec<u8>>();
+        unsafe {
+            aesb_pseudo_round(
+                input.as_ptr(),
+                output.as_mut_ptr(),
+                expanded_key.as_ptr() as *mut u8,
+            );
+        }
+        //cnaes::aesb_pseudo_round(&input, &mut output, &expanded_key);
+        assert_eq!(hex::encode(output), EXPECTED_OUT);
+        println!("{}", hex::encode(output))
     }
 
     #[test]
