@@ -1,4 +1,4 @@
-# 🟢 (De)serialization
+# (De)serialization
 A crucial function of [`cuprate-rpc-types`](https://doc.cuprate.org/cuprate_rpc_types)
 is to provide the _correct_ (de)serialization of types.
 

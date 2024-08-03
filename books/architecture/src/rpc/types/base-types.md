@@ -1,4 +1,4 @@
-# 🟢 Base RPC types
+# Base RPC types
 There exists a few "base" types that many types are built on-top of in `monerod`.
 These are also implemented in [this crate](https://doc.cuprate.org/cuprate_rpc_types/base/index.html).
 

@@ -1,4 +1,4 @@
-# 🟢 The types
+# The types
 Cuprate has a crate that defines all the types related to RPC: [`cuprate-rpc-types`](https://doc.cuprate.org/cuprate_rpc_types).
 
 The main purpose of this crate is to port the types used in `monerod`'s RPC, and to re-implement

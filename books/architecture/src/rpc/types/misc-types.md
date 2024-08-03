@@ -1,4 +1,4 @@
-# 🟢 Misc types
+# Misc types
 Other than the main request/response types, this crate is also responsible
 for any [miscellaneous types](https://doc.cuprate.org/cuprate_rpc_types/misc) used within `monerod`'s RPC.
 

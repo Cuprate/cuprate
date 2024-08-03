@@ -1,4 +1,4 @@
-# 🟢 The type generator macro
+# The type generator macro
 Request and response types make up the majority of [`cuprate-rpc-types`](https://doc.cuprate.org/cuprate_rpc_types).
 
 - Request types are the input expected _from_ users

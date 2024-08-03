@@ -1,4 +1,4 @@
-# 🟢 Metadata
+# Metadata
 [`cuprate-rpc-types`](https://doc.cuprate.org/cuprate_rpc_types) also provides
 some `trait`s to access some metadata surrounding RPC data types.
 
