@@ -1,4 +1,4 @@
-use crate::tables::{TablesMut, TransactionBlobs};
+use crate::tables::{Tables, TransactionBlobs};
 use crate::types::TransactionHash;
 use cuprate_database::{DatabaseRw, RuntimeError};
 use cuprate_types::TransactionVerificationData;
@@ -8,7 +8,7 @@ use std::sync::Mutex;
 /// Gets the [`TransactionVerificationData`] of a transaction in the tx-pool, leaving the tx in the pool.
 pub fn get_transaction_verification_data(
     tx_hash: &TransactionHash,
-    tables: &mut impl TablesMut,
+    tables: &impl Tables,
 ) -> Result<TransactionVerificationData, RuntimeError> {
     let tx_blob = tables.transaction_blobs_mut().get(tx_hash)?.0;
 

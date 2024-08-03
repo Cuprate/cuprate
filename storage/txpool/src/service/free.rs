@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use cuprate_database::{ConcreteEnv, InitError};
 
-use crate::service::types::{TxPoolReadHandle, TxPoolWriteHandle};
+use crate::service::read::init_read_service;
+use crate::service::types::{TxpoolReadHandle, TxpoolWriteHandle};
 use crate::Config;
 
 //---------------------------------------------------------------------------------------------------- Init
@@ -17,7 +18,7 @@ use crate::Config;
 /// This will forward the error if [`crate::open`] failed.
 pub fn init(
     config: Config,
-) -> Result<(TxPoolReadHandle, TxPoolWriteHandle, Arc<ConcreteEnv>), InitError> {
+) -> Result<(TxpoolReadHandle, TxpoolWriteHandle, Arc<ConcreteEnv>), InitError> {
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.

@@ -1,5 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 
+use cuprate_dandelion_tower::State;
 use cuprate_types::{CachedVerificationState, HardFork};
 use monero_serai::transaction::Timelock;
 
@@ -15,6 +16,10 @@ pub struct TransactionInfo {
     pub state_stem: bool,
 
     pub double_spend_seen: bool,
+}
+
+impl TransactionInfo {
+    pub fn dpp_state(&self) -> State {}
 }
 
 /// [`CachedVerificationState`] in a format that can be stored into the database.

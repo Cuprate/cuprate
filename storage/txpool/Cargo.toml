@@ -15,11 +15,14 @@ cuprate-database = { path = "../database" }
 cuprate-database-service = { path = "../service" }
 cuprate-types    = { path = "../../types" }
 cuprate-helper   = { path = "../../helper" , default-features = false, features = ["constants"] }
+cuprate-dandelion-tower = { path = "../../p2p/dandelion-tower" }
 
 monero-serai     = { workspace = true, features = ["std"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 thiserror        = { workspace = true }
 hex              = { workspace = true }
 tower            = { workspace = true }
+
+rayon            = { workspace = true }
 
 [dev-dependencies]
