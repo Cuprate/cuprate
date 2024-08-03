@@ -1,7 +1,7 @@
 # JSON-RPC strictness
 This is a list of behavior that `monerod`'s JSON-RPC implementation allows, that Cuprate's JSON-RPC implementation does not.
 
-In general, `monerod`'s JSON-RPC is quite leniant, going against the specification in many cases.
+In general, `monerod`'s JSON-RPC is quite lenient, going against the specification in many cases.
 Cuprate's JSON-RPC implementation is slightly more strict.
 
 Cuprate also makes some decisions that are _different_ than `monerod`, but are not necessarily more or less strict.
@@ -25,7 +25,7 @@ curl \
 ## Allowing `-` in the `id` field
 `monerod` allows `-` to be in the `id` field, **not a string `"-"`, but just the character `-`**.
 
-The [JSON-RPC 2.0 specfication does state that the response `id` should be `null` upon errors in detecting the request `id`](https://www.jsonrpc.org/specification#response_object), although in this case, this is invalid JSON and should not make it this far.
+The [JSON-RPC 2.0 specification does state that the response `id` should be `null` upon errors in detecting the request `id`](https://www.jsonrpc.org/specification#response_object), although in this case, this is invalid JSON and should not make it this far.
 
 The response also contains `id: 0` instead.
 

@@ -38,8 +38,8 @@ Some `struct` fields within Cuprate's RPC types happen to be alphabetical, but t
 As these are JSON maps, the ordering of fields should not matter,
 although this is something to note as the output will technically differ.
 
-## Example incompatability
-An example of where this leads to incompatability is if specific
+## Example incompatibility
+An example of where this leads to incompatibility is if specific
 line numbers are depended on to contain specific fields.
 
 For example, this will print the 10th line:
