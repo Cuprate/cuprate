@@ -35,18 +35,17 @@
 
 ---
 
-- [🟠 RPC](rpc/intro.md)
-    - [🟠 JSON-RPC 2.0](rpc/json-rpc.md)
+- [🟢 RPC](rpc/intro.md)
+    - [🟡 JSON-RPC 2.0](rpc/json-rpc.md)
     - [🟢 The types](rpc/types/intro.md)
         - [🟢 Misc types](rpc/types/misc-types.md)
         - [🟢 Base RPC types](rpc/types/base-types.md)
         - [🟢 The type generator macro](rpc/types/macro.md)
         - [🟢 Metadata](rpc/types/metadata.md)
         - [🟢 (De)serialization](rpc/types/deserialization.md)
-    - [🟢 The interface](rpc/interface/intro.md)
-        - [🟢 `RpcHandler`](rpc/interface/rpc-handler.md)
-        - [🟢 Router](rpc/interface/router.md)
+    - [🟢 The interface](rpc/interface.md)
     - [🔴 The handler](rpc/handler/intro.md)
+    - [🔴 The server](rpc/server/intro.md)
     - [🟢 Differences with `monerod`](rpc/differences/intro.md)
         - [🟢 JSON field ordering](rpc/differences/json-field-ordering.md)
         - [🟢 JSON strictness](rpc/differences/json-strictness.md)
