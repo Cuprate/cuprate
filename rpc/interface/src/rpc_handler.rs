@@ -22,7 +22,7 @@ use crate::{rpc_error::RpcError, rpc_request::RpcRequest, rpc_response::RpcRespo
 /// - [`RpcRequest`] as the generic `Request` type
 /// - [`RpcResponse`] as the associated `Response` type
 /// - [`RpcError`] as the associated `Error` type
-/// - `InfallibleOneshotReceiver<Result<RpcResponse, RpcError>>` as the associated `Future` type
+/// - A generic [`Future`] that outputs `Result<RpcResponse, RpcError>` and matches [`RpcHandler::Future2`]
 ///
 /// See this crate's `RpcHandlerDummy` for an implementation example of this trait.
 ///
@@ -38,13 +38,16 @@ pub trait RpcHandler:
     + Send
     + Sync
     + 'static
-    + Service<
-        RpcRequest,
-        Response = RpcResponse,
-        Error = RpcError,
-        Future = InfallibleOneshotReceiver<Result<RpcResponse, RpcError>>,
-    >
+    + Service<RpcRequest, Response = RpcResponse, Error = RpcError, Future = Self::Future2>
 {
+    /// This is the [`Future`] your [`RpcHandler`] outputs.
+    ///
+    /// It is used as the type for [`tower::Service::Future`].
+    ///
+    /// For example, `RpcHandlerDummy`'s [`RpcHandler::Future2`] is:
+    /// - `InfallibleOneshotReceiver<Result<RpcResponse, RpcError>>`
+    type Future2: Future<Output = Result<RpcResponse, RpcError>> + Send + Sync + 'static;
+
     /// Is this [`RpcHandler`] restricted?
     ///
     /// If this returns `true`, restricted methods and endpoints such as:

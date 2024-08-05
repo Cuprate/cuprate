@@ -38,6 +38,8 @@ pub struct RpcHandlerDummy {
 }
 
 impl RpcHandler for RpcHandlerDummy {
+    type Future2 = InfallibleOneshotReceiver<Result<RpcResponse, RpcError>>;
+
     fn restricted(&self) -> bool {
         self.restricted
     }

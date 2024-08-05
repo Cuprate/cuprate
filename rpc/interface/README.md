@@ -45,12 +45,15 @@ The proper usage of this crate is to:
 This is your [`tower::Service`] that converts [`RpcRequest`]s into [`RpcResponse`]s,
 i.e. the "inner handler".
 
-Said concretely, [`RpcHandler`] is a `tower::Service` where the associated types are from this crate:
+Said concretely, `RpcHandler` is a `tower::Service` where the associated types are from this crate:
 - [`RpcRequest`]
 - [`RpcResponse`]
 - [`RpcError`]
 
-The [`RpcHandler`] must also hold some state that is required
+`RpcHandler`'s [`Future`](std::future::Future) is generic, _although_,
+it must output `Result<RpcResponse, RpcError>`.
+
+The `RpcHandler` must also hold some state that is required
 for RPC server operation.
 
 The only state currently needed is [`RpcHandler::restricted`], which determines if an RPC
