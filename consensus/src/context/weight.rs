@@ -17,7 +17,7 @@ use tracing::instrument;
 use cuprate_consensus_rules::blocks::{penalty_free_zone, PENALTY_FREE_ZONE_5};
 use cuprate_helper::{asynch::rayon_spawn_async, num::RollingMedian};
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
 };
 
@@ -296,8 +296,10 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block weights.");
 
-    let BCResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range, chain))
+    let BlockchainResponse::BlockExtendedHeaderInRange(ext_headers) = database
+        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(
+            range, chain,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response!")
@@ -318,8 +320,10 @@ async fn get_long_term_weight_in_range<D: Database + Clone>(
 ) -> Result<Vec<usize>, ExtendedConsensusError> {
     tracing::info!("getting block long term weights.");
 
-    let BCResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(range, chain))
+    let BlockchainResponse::BlockExtendedHeaderInRange(ext_headers) = database
+        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(
+            range, chain,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response!")

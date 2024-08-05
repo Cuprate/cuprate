@@ -28,7 +28,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork, TxVersion,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,
@@ -308,10 +308,10 @@ where
         })
     })?;
 
-    let BCResponse::KeyImagesSpent(kis_spent) = database
+    let BlockchainResponse::KeyImagesSpent(kis_spent) = database
         .ready()
         .await?
-        .call(BCReadRequest::KeyImagesSpent(spent_kis))
+        .call(BlockchainReadRequest::KeyImagesSpent(spent_kis))
         .await?
     else {
         panic!("Database sent incorrect response!");
@@ -340,10 +340,12 @@ where
     if !verified_at_block_hashes.is_empty() {
         tracing::trace!("Filtering block hashes not in the main chain.");
 
-        let BCResponse::FilterUnknownHashes(known_hashes) = database
+        let BlockchainResponse::FilterUnknownHashes(known_hashes) = database
             .ready()
             .await?
-            .call(BCReadRequest::FilterUnknownHashes(verified_at_block_hashes))
+            .call(BlockchainReadRequest::FilterUnknownHashes(
+                verified_at_block_hashes,
+            ))
             .await?
         else {
             panic!("Database returned wrong response!");

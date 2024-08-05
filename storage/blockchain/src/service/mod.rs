@@ -14,8 +14,8 @@
 //!
 //! ## Handles
 //! The 2 handles to the database are:
-//! - [`DatabaseReadHandle`]
-//! - [`DatabaseWriteHandle`]
+//! - [`BlockchainReadHandle`]
+//! - [`BlockchainWriteHandle`]
 //!
 //! The 1st allows any caller to send [`ReadRequest`][req_r]s.
 //!
@@ -33,8 +33,10 @@
 //!
 //! ## Shutdown
 //! Upon the above handles being dropped, the corresponding thread(s) will automatically exit, i.e:
-//! - The last [`DatabaseReadHandle`] is dropped => reader thread-pool exits
-//! - The last [`DatabaseWriteHandle`] is dropped => writer thread exits
+//! - The last [`BlockchainReadHandle`] is dropped => reader thread-pool exits
+//! - The last [`BlockchainWriteHandle`] is dropped => writer thread exits
+//!
+//! TODO: update this when `ConcreteEnv` is removed
 //!
 //! Upon dropping the [`cuprate_database::ConcreteEnv`]:
 //! - All un-processed database transactions are completed
@@ -50,11 +52,11 @@
 //! This channel can be `.await`ed upon to (eventually) receive
 //! the corresponding `Response` to your `Request`.
 //!
-//! [req_r]: cuprate_types::blockchain::BCReadRequest
+//! [req_r]: cuprate_types::blockchain::BlockchainReadRequest
 //!
-//! [req_w]: cuprate_types::blockchain::BCWriteRequest
+//! [req_w]: cuprate_types::blockchain::BlockchainWriteRequest
 //!
-//! [resp]: cuprate_types::blockchain::BCResponse
+//! [resp]: cuprate_types::blockchain::BlockchainResponse
 //!
 //! # Example
 //! Simple usage of `service`.
@@ -63,7 +65,7 @@
 //! use hex_literal::hex;
 //! use tower::{Service, ServiceExt};
 //!
-//! use cuprate_types::{blockchain::{BCReadRequest, BCWriteRequest, BCResponse}, Chain};
+//! use cuprate_types::{blockchain::{BlockchainReadRequest, BlockchainWriteRequest, BlockchainResponse}, Chain};
 //! use cuprate_test_utils::data::block_v16_tx0;
 //!
 //! use cuprate_blockchain::{
@@ -81,12 +83,12 @@
 //!     .build();
 //!
 //! // Initialize the database thread-pool.
-//! let (mut read_handle, mut write_handle) = cuprate_blockchain::service::init(config)?;
+//! let (mut read_handle, mut write_handle, _) = cuprate_blockchain::service::init(config)?;
 //!
 //! // Prepare a request to write block.
 //! let mut block = block_v16_tx0().clone();
 //! # block.height = 0_u64; // must be 0th height or panic in `add_block()`
-//! let request = BCWriteRequest::WriteBlock(block);
+//! let request = BlockchainWriteRequest::WriteBlock(block);
 //!
 //! // Send the request.
 //! // We receive back an `async` channel that will
@@ -96,16 +98,16 @@
 //!
 //! // Block write was OK.
 //! let response = response_channel.await?;
-//! assert_eq!(response, BCResponse::WriteBlockOk);
+//! assert_eq!(response, BlockchainResponse::WriteBlockOk);
 //!
 //! // Now, let's try getting the block hash
 //! // of the block we just wrote.
-//! let request = BCReadRequest::BlockHash(0, Chain::Main);
+//! let request = BlockchainReadRequest::BlockHash(0, Chain::Main);
 //! let response_channel = read_handle.ready().await?.call(request);
 //! let response = response_channel.await?;
 //! assert_eq!(
 //!     response,
-//!     BCResponse::BlockHash(
+//!     BlockchainResponse::BlockHash(
 //!         hex!("43bd1f2b6556dcafa413d8372974af59e4e8f37dbf74dc6b2a9b7212d0577428")
 //!     )
 //! );
@@ -118,17 +120,19 @@
 //! # Ok(()) }
 //! ```
 
+// needed for docs
+use tower as _;
+
 mod read;
-pub use read::DatabaseReadHandle;
+pub use read::{init_read_service, init_read_service_with_pool};
 
 mod write;
-pub use write::DatabaseWriteHandle;
+pub use write::init_write_service;
 
 mod free;
 pub use free::init;
-
-// Internal type aliases for `service`.
 mod types;
+pub use types::{BlockchainReadHandle, BlockchainWriteHandle};
 
 #[cfg(test)]
 mod tests;

@@ -27,7 +27,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork, TxVersion,
 };
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     OutputOnChain,
 };
 
@@ -153,19 +153,19 @@ pub async fn batch_get_ring_member_info<D: Database>(
             .map_err(ConsensusError::Transaction)?;
     }
 
-    let BCResponse::Outputs(outputs) = database
+    let BlockchainResponse::Outputs(outputs) = database
         .ready()
         .await?
-        .call(BCReadRequest::Outputs(output_ids))
+        .call(BlockchainReadRequest::Outputs(output_ids))
         .await?
     else {
         panic!("Database sent incorrect response!")
     };
 
-    let BCResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+    let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
         .ready()
         .await?
-        .call(BCReadRequest::NumberOutputsWithAmount(
+        .call(BlockchainReadRequest::NumberOutputsWithAmount(
             outputs.keys().copied().collect(),
         ))
         .await?
@@ -234,10 +234,10 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
         unique_input_amounts.len()
     );
 
-    let BCResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+    let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
         .ready()
         .await?
-        .call(BCReadRequest::NumberOutputsWithAmount(
+        .call(BlockchainReadRequest::NumberOutputsWithAmount(
             unique_input_amounts.into_iter().collect(),
         ))
         .await?
