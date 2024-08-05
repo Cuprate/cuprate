@@ -13,7 +13,7 @@ use tracing::instrument;
 
 use cuprate_helper::num::median;
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
 };
 
@@ -373,8 +373,8 @@ async fn get_blocks_in_pow_info<D: Database + Clone>(
 ) -> Result<(VecDeque<u64>, VecDeque<u128>), ExtendedConsensusError> {
     tracing::info!("Getting blocks timestamps");
 
-    let BCResponse::BlockExtendedHeaderInRange(ext_header) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(
+    let BlockchainResponse::BlockExtendedHeaderInRange(ext_header) = database
+        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(
             block_heights,
             chain,
         ))

@@ -8,7 +8,7 @@ use cuprate_database::{ConcreteEnv, InitError};
 use crate::service::{init_read_service, init_write_service};
 use crate::{
     config::Config,
-    service::types::{BCReadHandle, BCWriteHandle},
+    service::types::{BlockchainReadHandle, BlockchainWriteHandle},
 };
 
 //---------------------------------------------------------------------------------------------------- Init
@@ -21,7 +21,7 @@ use crate::{
 ///
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
-pub fn init(config: Config) -> Result<(BCReadHandle, BCWriteHandle, Arc<ConcreteEnv>), InitError> {
+pub fn init(config: Config) -> Result<(BlockchainReadHandle, BlockchainWriteHandle, Arc<ConcreteEnv>), InitError> {
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.

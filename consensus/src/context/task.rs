@@ -10,7 +10,7 @@ use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
 };
 
@@ -76,19 +76,19 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
         tracing::debug!("Initialising blockchain context");
 
-        let BCResponse::ChainHeight(chain_height, top_block_hash) = database
+        let BlockchainResponse::ChainHeight(chain_height, top_block_hash) = database
             .ready()
             .await?
-            .call(BCReadRequest::ChainHeight)
+            .call(BlockchainReadRequest::ChainHeight)
             .await?
         else {
             panic!("Database sent incorrect response!");
         };
 
-        let BCResponse::GeneratedCoins(already_generated_coins) = database
+        let BlockchainResponse::GeneratedCoins(already_generated_coins) = database
             .ready()
             .await?
-            .call(BCReadRequest::GeneratedCoins(chain_height - 1))
+            .call(BlockchainReadRequest::GeneratedCoins(chain_height - 1))
             .await?
         else {
             panic!("Database sent incorrect response!");
@@ -248,21 +248,21 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
                 self.chain_height -= numb_blocks;
 
-                let BCResponse::GeneratedCoins(already_generated_coins) = self
+                let BlockchainResponse::GeneratedCoins(already_generated_coins) = self
                     .database
                     .ready()
                     .await?
-                    .call(BCReadRequest::GeneratedCoins(self.chain_height - 1))
+                    .call(BlockchainReadRequest::GeneratedCoins(self.chain_height - 1))
                     .await?
                 else {
                     panic!("Database sent incorrect response!");
                 };
 
-                let BCResponse::BlockHash(top_block_hash) = self
+                let BlockchainResponse::BlockHash(top_block_hash) = self
                     .database
                     .ready()
                     .await?
-                    .call(BCReadRequest::BlockHash(self.chain_height - 1, Chain::Main))
+                    .call(BlockchainReadRequest::BlockHash(self.chain_height - 1, Chain::Main))
                     .await?
                 else {
                     panic!("Database returned incorrect response!");

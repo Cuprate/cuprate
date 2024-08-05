@@ -4,7 +4,7 @@ use tower::ServiceExt;
 
 use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, ChainId,
 };
 
@@ -100,8 +100,8 @@ impl AltChainMap {
         }
 
         // find the block with hash == prev_id.
-        let BCResponse::FindBlock(res) =
-            database.oneshot(BCReadRequest::FindBlock(prev_id)).await?
+        let BlockchainResponse::FindBlock(res) =
+            database.oneshot(BlockchainReadRequest::FindBlock(prev_id)).await?
         else {
             panic!("Database returned wrong response");
         };
@@ -130,10 +130,10 @@ pub async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
     mut database: D,
 ) -> Result<DifficultyCache, ExtendedConsensusError> {
     // find the block with hash == prev_id.
-    let BCResponse::FindBlock(res) = database
+    let BlockchainResponse::FindBlock(res) = database
         .ready()
         .await?
-        .call(BCReadRequest::FindBlock(prev_id))
+        .call(BlockchainReadRequest::FindBlock(prev_id))
         .await?
     else {
         panic!("Database returned wrong response");
@@ -177,10 +177,10 @@ pub async fn get_alt_chain_weight_cache<D: Database + Clone>(
     mut database: D,
 ) -> Result<BlockWeightsCache, ExtendedConsensusError> {
     // find the block with hash == prev_id.
-    let BCResponse::FindBlock(res) = database
+    let BlockchainResponse::FindBlock(res) = database
         .ready()
         .await?
-        .call(BCReadRequest::FindBlock(prev_id))
+        .call(BlockchainReadRequest::FindBlock(prev_id))
         .await?
     else {
         panic!("Database returned wrong response");
