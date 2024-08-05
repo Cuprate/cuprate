@@ -343,7 +343,9 @@ where
         let BlockchainResponse::FilterUnknownHashes(known_hashes) = database
             .ready()
             .await?
-            .call(BlockchainReadRequest::FilterUnknownHashes(verified_at_block_hashes))
+            .call(BlockchainReadRequest::FilterUnknownHashes(
+                verified_at_block_hashes,
+            ))
             .await?
         else {
             panic!("Database returned wrong response!");

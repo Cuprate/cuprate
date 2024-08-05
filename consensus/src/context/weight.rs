@@ -297,7 +297,9 @@ async fn get_blocks_weight_in_range<D: Database + Clone>(
     tracing::info!("getting block weights.");
 
     let BlockchainResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(range, chain))
+        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(
+            range, chain,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response!")
@@ -319,7 +321,9 @@ async fn get_long_term_weight_in_range<D: Database + Clone>(
     tracing::info!("getting block long term weights.");
 
     let BlockchainResponse::BlockExtendedHeaderInRange(ext_headers) = database
-        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(range, chain))
+        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(
+            range, chain,
+        ))
         .await?
     else {
         panic!("Database sent incorrect response!")

@@ -94,8 +94,8 @@ pub mod __private {
     /// ```
     pub trait Database:
         tower::Service<
-            BlockchainReadRequest,
-        Response =BlockchainResponse,
+        BlockchainReadRequest,
+        Response = BlockchainResponse,
         Error = tower::BoxError,
         Future = Self::Future2,
     >
@@ -103,8 +103,13 @@ pub mod __private {
         type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
     }
 
-    impl<T: tower::Service<BlockchainReadRequest, Response =BlockchainResponse, Error = tower::BoxError>>
-        crate::Database for T
+    impl<
+            T: tower::Service<
+                BlockchainReadRequest,
+                Response = BlockchainResponse,
+                Error = tower::BoxError,
+            >,
+        > crate::Database for T
     where
         T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
     {

@@ -23,7 +23,10 @@ pub fn init_write_service(env: Arc<ConcreteEnv>) -> BlockchainWriteHandle {
 
 //---------------------------------------------------------------------------------------------------- handle_bc_request
 /// Handle an incoming [`BlockchainWriteRequest`], returning a [`BlockchainResponse`].
-fn handle_blockchain_request(env: &ConcreteEnv, req: &BlockchainWriteRequest) -> Result<BlockchainResponse, RuntimeError> {
+fn handle_blockchain_request(
+    env: &ConcreteEnv,
+    req: &BlockchainWriteRequest,
+) -> Result<BlockchainResponse, RuntimeError> {
     match req {
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
     }

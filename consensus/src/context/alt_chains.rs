@@ -100,8 +100,9 @@ impl AltChainMap {
         }
 
         // find the block with hash == prev_id.
-        let BlockchainResponse::FindBlock(res) =
-            database.oneshot(BlockchainReadRequest::FindBlock(prev_id)).await?
+        let BlockchainResponse::FindBlock(res) = database
+            .oneshot(BlockchainReadRequest::FindBlock(prev_id))
+            .await?
         else {
             panic!("Database returned wrong response");
         };

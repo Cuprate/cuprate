@@ -148,7 +148,9 @@ async fn test_template(
         ))
     };
 
-    let cumulative_generated_coins = Ok(BlockchainResponse::GeneratedCoins(cumulative_generated_coins));
+    let cumulative_generated_coins = Ok(BlockchainResponse::GeneratedCoins(
+        cumulative_generated_coins,
+    ));
 
     let num_req = tables
         .outputs_iter()
@@ -186,8 +188,14 @@ async fn test_template(
             BlockchainReadRequest::BlockExtendedHeader(1),
             extended_block_header_1,
         ),
-        (BlockchainReadRequest::BlockHash(0, Chain::Main), block_hash_0),
-        (BlockchainReadRequest::BlockHash(1, Chain::Main), block_hash_1),
+        (
+            BlockchainReadRequest::BlockHash(0, Chain::Main),
+            block_hash_0,
+        ),
+        (
+            BlockchainReadRequest::BlockHash(1, Chain::Main),
+            block_hash_1,
+        ),
         (
             BlockchainReadRequest::BlockExtendedHeaderInRange(0..1, Chain::Main),
             range_0_1,
@@ -201,7 +209,10 @@ async fn test_template(
             BlockchainReadRequest::GeneratedCoins(test_chain_height),
             cumulative_generated_coins,
         ),
-        (BlockchainReadRequest::NumberOutputsWithAmount(num_req), num_resp),
+        (
+            BlockchainReadRequest::NumberOutputsWithAmount(num_req),
+            num_resp,
+        ),
         (BlockchainReadRequest::KeyImagesSpent(ki_req), ki_resp),
     ] {
         let response = reader.clone().oneshot(request).await;

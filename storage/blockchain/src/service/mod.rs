@@ -37,7 +37,7 @@
 //! - The last [`BlockchainWriteHandle`] is dropped => writer thread exits
 //!
 //! TODO: update this when `ConcreteEnv` is removed
-//! 
+//!
 //! Upon dropping the [`cuprate_database::ConcreteEnv`]:
 //! - All un-processed database transactions are completed
 //! - All data gets flushed to disk (caused by [`Drop::drop`] impl on `ConcreteEnv`)

@@ -58,7 +58,10 @@ pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> Block
 /// is the correct way to get multiple handles to the database.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> BlockchainReadHandle {
+pub fn init_read_service_with_pool(
+    env: Arc<ConcreteEnv>,
+    pool: Arc<ThreadPool>,
+) -> BlockchainReadHandle {
     DatabaseReadService::new(env, pool, map_request)
 }
 
@@ -74,7 +77,7 @@ pub fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>)
 /// 2. Handler function is called
 /// 3. [`BlockchainResponse`] is returned
 fn map_request(
-    env: &ConcreteEnv,      // Access to the database
+    env: &ConcreteEnv,              // Access to the database
     request: BlockchainReadRequest, // The request we must fulfill
 ) -> ResponseResult {
     use BlockchainReadRequest as R;
@@ -281,10 +284,9 @@ fn generated_coins(env: &ConcreteEnv, height: u64) -> ResponseResult {
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    Ok(BlockchainResponse::GeneratedCoins(cumulative_generated_coins(
-        &height,
-        &table_block_infos,
-    )?))
+    Ok(BlockchainResponse::GeneratedCoins(
+        cumulative_generated_coins(&height, &table_block_infos)?,
+    ))
 }
 
 /// [`BlockchainReadRequest::Outputs`].
@@ -405,7 +407,7 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
         .find_any(|result| !matches!(result, Ok(false)))
     {
         None | Some(Ok(false)) => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
-        Some(Ok(true)) => Ok(BlockchainResponse::KeyImagesSpent(true)),          // Key image was found.
+        Some(Ok(true)) => Ok(BlockchainResponse::KeyImagesSpent(true)), // Key image was found.
         Some(Err(e)) => Err(e), // A database error occurred.
     }
 }

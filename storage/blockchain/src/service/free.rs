@@ -21,7 +21,16 @@ use crate::{
 ///
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
-pub fn init(config: Config) -> Result<(BlockchainReadHandle, BlockchainWriteHandle, Arc<ConcreteEnv>), InitError> {
+pub fn init(
+    config: Config,
+) -> Result<
+    (
+        BlockchainReadHandle,
+        BlockchainWriteHandle,
+        Arc<ConcreteEnv>,
+    ),
+    InitError,
+> {
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.

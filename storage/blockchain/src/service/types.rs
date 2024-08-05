@@ -3,7 +3,9 @@
 //---------------------------------------------------------------------------------------------------- Use
 use cuprate_database::RuntimeError;
 use cuprate_database_service::{DatabaseReadService, DatabaseWriteHandle};
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest};
+use cuprate_types::blockchain::{
+    BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,
+};
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.

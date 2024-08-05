@@ -262,7 +262,10 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     .database
                     .ready()
                     .await?
-                    .call(BlockchainReadRequest::BlockHash(self.chain_height - 1, Chain::Main))
+                    .call(BlockchainReadRequest::BlockHash(
+                        self.chain_height - 1,
+                        Chain::Main,
+                    ))
                     .await?
                 else {
                     panic!("Database returned incorrect response!");
