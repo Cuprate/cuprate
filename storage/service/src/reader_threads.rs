@@ -28,9 +28,9 @@ pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
 }
 
 //---------------------------------------------------------------------------------------------------- ReaderThreads
-/// Amount of database reader threads to spawn
+/// Amount of database reader threads to spawn.
 ///
-/// This controls how many reader thread `service`'s
+/// This controls how many reader threads the [`DatabaseReadService`](crate::DatabaseReadService)
 /// thread-pool will spawn to receive and send requests/responses.
 ///
 /// # Invariant
