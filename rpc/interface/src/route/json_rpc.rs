@@ -23,14 +23,12 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
     State(handler): State<H>,
     Json(request): Json<cuprate_json_rpc::Request<JsonRpcRequest>>,
 ) -> Result<Json<cuprate_json_rpc::Response<JsonRpcResponse>>, StatusCode> {
-    // TODO:
+    // TODO: <https://www.jsonrpc.org/specification#notification>
     //
     // JSON-RPC notifications (requests without `id`)
-    // must not be responded too, although the request side-effects
-    // must remain. How to do this consider this function will always
-    // return and `axum` will respond?
-    //
-    // <https://www.jsonrpc.org/specification#notification>
+    // must not be responded too, although, the request's side-effects
+    // must remain. How to do this considering this function will
+    // always return and cause `axum` to respond?
 
     // Return early if this RPC server is restricted and
     // the requested method is only for non-restricted RPC.
