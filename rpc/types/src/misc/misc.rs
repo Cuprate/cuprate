@@ -22,7 +22,7 @@ use crate::{
         CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
         CORE_RPC_STATUS_PAYMENT_REQUIRED,
     },
-    defaults::default_zero,
+    defaults::{default_string, default_zero},
     macros::monero_definition_link,
 };
 
@@ -51,9 +51,9 @@ macro_rules! define_struct_and_impl_epee {
             )*
         }
     ) => {
-        $( #[$struct_attr] )*
         #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
         #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+        $( #[$struct_attr] )*
         pub struct $struct_name {
             $(
                 $( #[$field_attr] )*
@@ -142,7 +142,9 @@ define_struct_and_impl_epee! {
         rpc_port: u16,
         send_count: u64,
         send_idle_time: u64,
-        ssl: bool,
+        // Exists in the original definition, but isn't
+        // used or (de)serialized for RPC purposes.
+        // ssl: bool,
         state: String,
         support_flags: u32,
     }
@@ -156,7 +158,9 @@ define_struct_and_impl_epee! {
     )]
     /// Used in [`crate::json::SetBansRequest`].
     SetBan {
+        #[cfg_attr(feature = "serde", serde(default = "default_string"))]
         host: String,
+        #[cfg_attr(feature = "serde", serde(default = "default_zero"))]
         ip: u32,
         ban: bool,
         seconds: u32,

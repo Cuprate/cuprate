@@ -64,7 +64,7 @@
 //! use hex_literal::hex;
 //! use tower::{Service, ServiceExt};
 //!
-//! use cuprate_types::blockchain::{BCReadRequest, BCWriteRequest, BCResponse};
+//! use cuprate_types::{blockchain::{BCReadRequest, BCWriteRequest, BCResponse}, Chain};
 //! use cuprate_test_utils::data::block_v16_tx0;
 //!
 //! use cuprate_blockchain::{
@@ -101,7 +101,7 @@
 //!
 //! // Now, let's try getting the block hash
 //! // of the block we just wrote.
-//! let request = BCReadRequest::BlockHash(0);
+//! let request = BCReadRequest::BlockHash(0, Chain::Main);
 //! let response_channel = read_handle.ready().await?.call(request);
 //! let response = response_channel.await?;
 //! assert_eq!(

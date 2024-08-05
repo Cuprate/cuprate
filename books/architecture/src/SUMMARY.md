@@ -117,8 +117,8 @@
 ---
 
 - [⚪️ Appendix](appendix/intro.md)
+    - [🟢 Crates](appendix/crates.md)
     - [🔴 Contributing](appendix/contributing.md)
-    - [🔴 Crate documentation](appendix/crate-documentation.md)
     - [🔴 Build targets](appendix/build-targets.md)
     - [🔴 Protocol book](appendix/protocol-book.md)
     - [⚪️ User book](appendix/user-book.md)
