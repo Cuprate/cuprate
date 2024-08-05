@@ -39,7 +39,7 @@ The proper usage of this crate is to:
 1. Implement a [`RpcHandler`]
 2. Use it with [`RouterBuilder`] to generate an
    [`axum::Router`] with all Monero RPC routes set
-4. Do whatever with it
+3. Do whatever with it
 
 # The [`RpcHandler`]
 This is your [`tower::Service`] that converts [`RpcRequest`]s into [`RpcResponse`]s,
