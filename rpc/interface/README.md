@@ -53,7 +53,7 @@ Said concretely, [`RpcHandler`] is a `tower::Service` where the associated types
 The [`RpcHandler`] must also hold some state that is required
 for RPC server operation.
 
-The only state currently need is [`RpcHandler::restricted`], which determines if an RPC
+The only state currently needed is [`RpcHandler::restricted`], which determines if an RPC
 server is restricted or not, and thus, if some endpoints/methods are allowed or not.
 
 # Unknown endpoint behavior
