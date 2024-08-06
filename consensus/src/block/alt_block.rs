@@ -63,7 +63,7 @@ where
     };
 
     // Check if the block's miner input is formed correctly.
-    let [Input::Gen(height)] = &block.miner_tx.prefix.inputs[..] else {
+    let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
         Err(ConsensusError::Block(BlockError::MinerTxError(
             MinerTxError::InputNotOfTypeGen,
         )))?
@@ -79,7 +79,7 @@ where
     let prepped_block = {
         let rx_vm = alt_rx_vm(
             alt_context_cache.chain_height,
-            block.header.major_version,
+            block.header.hardfork_version,
             alt_context_cache.parent_chain,
             &mut alt_context_cache,
             &mut context_svc,
@@ -188,7 +188,7 @@ where
 ///
 /// If the `hf` is less than 12 (the height RX activates), then [`None`] is returned.
 async fn alt_rx_vm<C>(
-    block_height: u64,
+    block_height: usize,
     hf: u8,
     parent_chain: Chain,
     alt_chain_context: &mut AltChainContextCache,

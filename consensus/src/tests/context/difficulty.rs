@@ -63,10 +63,7 @@ async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
     let cfg = DifficultyCacheConfig::main_net();
 
     let mut db_builder = DummyDatabaseBuilder::default();
-    for (cum_dif, timestamp) in DIF_3000000_3002000
-        .iter()
-        .take(cfg.total_block_count() as usize)
-    {
+    for (cum_dif, timestamp) in DIF_3000000_3002000.iter().take(cfg.total_block_count()) {
         db_builder.add_block(
             DummyBlockExtendedHeader::default().with_difficulty_info(*timestamp, *cum_dif),
         )
@@ -82,14 +79,14 @@ async fn calculate_diff_3000000_3002000() -> Result<(), tower::BoxError> {
 
     for (i, diff_info) in DIF_3000000_3002000
         .windows(2)
-        .skip(cfg.total_block_count() as usize - 1)
+        .skip(cfg.total_block_count() - 1)
         .enumerate()
     {
         let diff = diff_info[1].0 - diff_info[0].0;
 
         assert_eq!(diff_cache.next_difficulty(&HardFork::V16), diff);
 
-        diff_cache.new_block(3_000_720 + i as u64, diff_info[1].1, diff_info[1].0);
+        diff_cache.new_block(3_000_720 + i, diff_info[1].1, diff_info[1].0);
     }
 
     Ok(())
@@ -104,7 +101,7 @@ prop_compose! {
         let (timestamps, mut cumulative_difficulties): (Vec<_>, Vec<_>) = blocks.into_iter().unzip();
         cumulative_difficulties.sort_unstable();
         DifficultyCache {
-            last_accounted_height: timestamps.len().try_into().unwrap(),
+            last_accounted_height: timestamps.len(),
             config: TEST_DIFFICULTY_CONFIG,
             timestamps: timestamps.into(),
             // we generate cumulative_difficulties in range 0..u64::MAX as if the generated values are close to u128::MAX
@@ -165,7 +162,7 @@ proptest! {
         let mut timestamps: VecDeque<u64> = timestamps.into();
 
         let diff_cache = DifficultyCache {
-            last_accounted_height: (TEST_WINDOW -1).try_into().unwrap(),
+            last_accounted_height: TEST_WINDOW -1,
             config: TEST_DIFFICULTY_CONFIG,
             timestamps: timestamps.clone(),
             // we dont need cumulative_difficulties
@@ -234,7 +231,7 @@ proptest! {
                 new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             }
 
-            new_cache.pop_blocks_main_chain(blocks_to_pop as u64, database).await?;
+            new_cache.pop_blocks_main_chain(blocks_to_pop, database).await?;
 
             prop_assert_eq!(new_cache, old_cache);
 
@@ -258,7 +255,7 @@ proptest! {
                 new_cache.new_block(new_cache.last_accounted_height+1, timestamp, cumulative_difficulty);
             }
 
-            new_cache.pop_blocks_main_chain(blocks_to_pop as u64, database).await?;
+            new_cache.pop_blocks_main_chain(blocks_to_pop, database).await?;
 
             prop_assert_eq!(new_cache, old_cache);
 

@@ -87,7 +87,7 @@
 //!
 //! // Prepare a request to write block.
 //! let mut block = block_v16_tx0().clone();
-//! # block.height = 0_u64; // must be 0th height or panic in `add_block()`
+//! # block.height = 0_usize; // must be 0th height or panic in `add_block()`
 //! let request = BlockchainWriteRequest::WriteBlock(block);
 //!
 //! // Send the request.

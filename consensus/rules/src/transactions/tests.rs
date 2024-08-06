@@ -97,31 +97,6 @@ fn test_torsion_ki() {
     }
 }
 
-/// Returns a strategy that resolves to a [`RctType`] that uses
-/// BPs(+).
-#[allow(unreachable_code)]
-#[allow(clippy::diverging_sub_expression)]
-fn bulletproof_rct_type() -> BoxedStrategy<RctType> {
-    return prop_oneof![
-        Just(RctType::Bulletproofs),
-        Just(RctType::BulletproofsCompactAmount),
-        Just(RctType::Clsag),
-        Just(RctType::BulletproofsPlus),
-    ]
-    .boxed();
-
-    // Here to make sure this is updated when needed.
-    match unreachable!() {
-        RctType::Null => {}
-        RctType::MlsagAggregate => {}
-        RctType::MlsagIndividual => {}
-        RctType::Bulletproofs => {}
-        RctType::BulletproofsCompactAmount => {}
-        RctType::Clsag => {}
-        RctType::BulletproofsPlus => {}
-    };
-}
-
 prop_compose! {
     /// Returns a valid prime-order point.
     fn random_point()(bytes in any::<[u8; 32]>()) -> EdwardsPoint {
@@ -240,13 +215,13 @@ proptest! {
     }
 
     #[test]
-    fn test_valid_number_of_outputs(valid_numb_outs in 2..17_usize, rct_type in bulletproof_rct_type()) {
-        prop_assert!(check_number_of_outputs(valid_numb_outs, &HardFork::V16, &TxVersion::RingCT, &rct_type).is_ok());
+    fn test_valid_number_of_outputs(valid_numb_outs in 2..17_usize) {
+        prop_assert!(check_number_of_outputs(valid_numb_outs, &HardFork::V16, &TxVersion::RingCT, true).is_ok());
     }
 
     #[test]
-    fn test_invalid_number_of_outputs(numb_outs in 17..usize::MAX, rct_type in bulletproof_rct_type()) {
-        prop_assert!(check_number_of_outputs(numb_outs, &HardFork::V16, &TxVersion::RingCT, &rct_type).is_err());
+    fn test_invalid_number_of_outputs(numb_outs in 17..usize::MAX) {
+        prop_assert!(check_number_of_outputs(numb_outs, &HardFork::V16, &TxVersion::RingCT, true).is_err());
     }
 
     #[test]
@@ -256,7 +231,7 @@ proptest! {
     }
 
     #[test]
-    fn test_block_unlock_time(height in 1..u64::MAX) {
+    fn test_block_unlock_time(height in 1..usize::MAX) {
         prop_assert!(check_block_time_lock(height, height));
         prop_assert!(!check_block_time_lock(height, height - 1));
         prop_assert!(check_block_time_lock(height, height+1));

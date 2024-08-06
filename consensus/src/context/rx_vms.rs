@@ -74,9 +74,9 @@ impl RandomX for RandomXVM {
 #[derive(Clone, Debug)]
 pub struct RandomXVMCache {
     /// The top [`RX_SEEDS_CACHED`] RX seeds.  
-    pub(crate) seeds: VecDeque<(u64, [u8; 32])>,
+    pub(crate) seeds: VecDeque<(usize, [u8; 32])>,
     /// The VMs for `seeds` (if after hf 12, otherwise this will be empty).
-    pub(crate) vms: HashMap<u64, Arc<RandomXVM>>,
+    pub(crate) vms: HashMap<usize, Arc<RandomXVM>>,
 
     /// A single cached VM that was given to us from a part of Cuprate.
     pub(crate) cached_vm: Option<([u8; 32], Arc<RandomXVM>)>,
@@ -85,7 +85,7 @@ pub struct RandomXVMCache {
 impl RandomXVMCache {
     #[instrument(name = "init_rx_vm_cache", level = "info", skip(database))]
     pub async fn init_from_chain_height<D: Database + Clone>(
-        chain_height: u64,
+        chain_height: usize,
         hf: &HardFork,
         database: D,
     ) -> Result<Self, ExtendedConsensusError> {
@@ -94,7 +94,8 @@ impl RandomXVMCache {
 
         tracing::debug!("last {RX_SEEDS_CACHED} randomX seed heights: {seed_heights:?}",);
 
-        let seeds: VecDeque<(u64, [u8; 32])> = seed_heights.into_iter().zip(seed_hashes).collect();
+        let seeds: VecDeque<(usize, [u8; 32])> =
+            seed_heights.into_iter().zip(seed_hashes).collect();
 
         let vms = if hf >= &HardFork::V12 {
             tracing::debug!("Creating RandomX VMs");
@@ -132,7 +133,7 @@ impl RandomXVMCache {
     /// of them first.
     pub async fn get_alt_vm<D: Database>(
         &mut self,
-        height: u64,
+        height: usize,
         chain: Chain,
         database: D,
     ) -> Result<Arc<RandomXVM>, ExtendedConsensusError> {
@@ -161,7 +162,7 @@ impl RandomXVMCache {
     }
 
     /// Get the main-chain RandomX VMs.
-    pub async fn get_vms(&mut self) -> HashMap<u64, Arc<RandomXVM>> {
+    pub async fn get_vms(&mut self) -> HashMap<usize, Arc<RandomXVM>> {
         match self.seeds.len().checked_sub(self.vms.len()) {
             // No difference in the amount of seeds to VMs.
             Some(0) => (),
@@ -213,7 +214,7 @@ impl RandomXVMCache {
     }
 
     /// Removes all the RandomX VMs above the `new_height`.
-    pub fn pop_blocks_main_chain(&mut self, new_height: u64) {
+    pub fn pop_blocks_main_chain(&mut self, new_height: usize) {
         self.seeds.retain(|(height, _)| *height < new_height);
         self.vms.retain(|height, _| *height < new_height);
     }
@@ -221,7 +222,7 @@ impl RandomXVMCache {
     /// Add a new block to the VM cache.
     ///
     /// hash is the block hash not the blocks PoW hash.
-    pub fn new_block(&mut self, height: u64, hash: &[u8; 32]) {
+    pub fn new_block(&mut self, height: usize, hash: &[u8; 32]) {
         if is_randomx_seed_height(height) {
             tracing::debug!("Block {height} is a randomX seed height, adding it to the cache.",);
 
@@ -242,7 +243,7 @@ impl RandomXVMCache {
 
 /// Get the last `amount` of RX seeds, the top height returned here will not necessarily be the RX VM for the top block
 /// in the chain as VMs include some lag before a seed activates.
-pub(crate) fn get_last_rx_seed_heights(mut last_height: u64, mut amount: usize) -> Vec<u64> {
+pub(crate) fn get_last_rx_seed_heights(mut last_height: usize, mut amount: usize) -> Vec<usize> {
     let mut seeds = Vec::with_capacity(amount);
     if is_randomx_seed_height(last_height) {
         seeds.push(last_height);
@@ -265,7 +266,7 @@ pub(crate) fn get_last_rx_seed_heights(mut last_height: u64, mut amount: usize) 
 
 /// Gets the block hashes for the heights specified.
 async fn get_block_hashes<D: Database + Clone>(
-    heights: Vec<u64>,
+    heights: Vec<usize>,
     database: D,
 ) -> Result<Vec<[u8; 32]>, ExtendedConsensusError> {
     let mut fut = FuturesOrdered::new();

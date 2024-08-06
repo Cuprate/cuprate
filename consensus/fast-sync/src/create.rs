@@ -13,13 +13,13 @@ use cuprate_types::{
 
 use cuprate_fast_sync::{hash_of_hashes, BlockId, HashOfHashes};
 
-const BATCH_SIZE: u64 = 512;
+const BATCH_SIZE: usize = 512;
 
 async fn read_batch(
     handle: &mut BlockchainReadHandle,
-    height_from: u64,
+    height_from: usize,
 ) -> Result<Vec<BlockId>, RuntimeError> {
-    let mut block_ids = Vec::<BlockId>::with_capacity(BATCH_SIZE as usize);
+    let mut block_ids = Vec::<BlockId>::with_capacity(BATCH_SIZE);
 
     for height in height_from..(height_from + BATCH_SIZE) {
         let request = BlockchainReadRequest::BlockHash(height, Chain::Main);
@@ -53,7 +53,7 @@ fn generate_hex(hashes: &[HashOfHashes]) -> String {
 #[command(version, about, long_about = None)]
 struct Args {
     #[arg(short, long)]
-    height: u64,
+    height: usize,
 }
 
 #[tokio::main]
@@ -67,7 +67,7 @@ async fn main() {
 
     let mut hashes_of_hashes = Vec::new();
 
-    let mut height = 0u64;
+    let mut height = 0_usize;
 
     while height < height_target {
         match read_batch(&mut read_handle, height).await {

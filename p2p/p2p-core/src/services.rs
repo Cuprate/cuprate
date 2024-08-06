@@ -14,7 +14,7 @@ pub enum PeerSyncRequest<N: NetworkZone> {
     /// claim to have a higher cumulative difficulty.
     PeersToSyncFrom {
         current_cumulative_difficulty: u128,
-        block_needed: Option<u64>,
+        block_needed: Option<usize>,
     },
     /// Add/update a peer's core sync data.
     IncomingCoreSyncData(InternalPeerID<N::Addr>, ConnectionHandle, CoreSyncData),
@@ -115,18 +115,18 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    TakeRandomWhitePeer { height: Option<u64> },
+    TakeRandomWhitePeer { height: Option<usize> },
     /// Takes a random gray peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
-    TakeRandomGrayPeer { height: Option<u64> },
+    TakeRandomGrayPeer { height: Option<usize> },
     /// Takes a random peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed.
     ///
     /// The address book will look in the white peer list first, then the gray
     /// one if no peer is found.
-    TakeRandomPeer { height: Option<u64> },
+    TakeRandomPeer { height: Option<usize> },
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
     /// Checks if the given peer is banned.

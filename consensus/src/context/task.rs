@@ -52,7 +52,7 @@ pub struct ContextTask<D: Database> {
     alt_chain_cache_map: AltChainMap,
 
     /// The current chain height.
-    chain_height: u64,
+    chain_height: usize,
     /// The top block hash.
     top_block_hash: [u8; 32],
     /// The total amount of coins generated.

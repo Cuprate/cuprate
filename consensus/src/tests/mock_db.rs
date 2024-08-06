@@ -150,7 +150,7 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
         async move {
             Ok(match req {
                 BlockchainReadRequest::BlockExtendedHeader(id) => {
-                    let mut id = usize::try_from(id).unwrap();
+                    let mut id = id;
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();
 
@@ -173,8 +173,8 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
                     BlockchainResponse::BlockHash(hash)
                 }
                 BlockchainReadRequest::BlockExtendedHeaderInRange(range, _) => {
-                    let mut end = usize::try_from(range.end).unwrap();
-                    let mut start = usize::try_from(range.start).unwrap();
+                    let mut end = range.end;
+                    let mut start = range.start;
 
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();
@@ -196,10 +196,7 @@ impl Service<BlockchainReadRequest> for DummyDatabase {
                     )
                 }
                 BlockchainReadRequest::ChainHeight => {
-                    let height: u64 = dummy_height
-                        .unwrap_or(blocks.read().unwrap().len())
-                        .try_into()
-                        .unwrap();
+                    let height = dummy_height.unwrap_or(blocks.read().unwrap().len());
 
                     let mut top_hash = [0; 32];
                     top_hash[0..8].copy_from_slice(&height.to_le_bytes());

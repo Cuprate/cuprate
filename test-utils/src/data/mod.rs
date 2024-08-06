@@ -32,4 +32,6 @@ pub use constants::{
 };
 
 mod free;
-pub use free::{block_v16_tx0, block_v1_tx2, block_v9_tx3, tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
+pub use free::{
+    block_v16_tx0, block_v1_tx2, block_v9_tx3, tx_fee, tx_v1_sig0, tx_v1_sig2, tx_v2_rct3,
+};

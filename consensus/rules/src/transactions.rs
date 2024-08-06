@@ -91,7 +91,7 @@ impl TxVersion {
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions.html#version>
     ///  &&  <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#version>
-    pub fn from_raw(version: u64) -> Option<TxVersion> {
+    pub fn from_raw(version: u8) -> Option<TxVersion> {
         Some(match version {
             1 => TxVersion::RingSignatures,
             2 => TxVersion::RingCT,
@@ -205,7 +205,7 @@ fn check_number_of_outputs(
     outputs: usize,
     hf: &HardFork,
     tx_version: &TxVersion,
-    rct_type: &RctType,
+    bp_or_bpp: bool,
 ) -> Result<(), TransactionError> {
     if tx_version == &TxVersion::RingSignatures {
         return Ok(());
@@ -215,18 +215,10 @@ fn check_number_of_outputs(
         return Err(TransactionError::InvalidNumberOfOutputs);
     }
 
-    match rct_type {
-        RctType::Bulletproofs
-        | RctType::BulletproofsCompactAmount
-        | RctType::Clsag
-        | RctType::BulletproofsPlus => {
-            if outputs <= MAX_BULLETPROOFS_OUTPUTS {
-                Ok(())
-            } else {
-                Err(TransactionError::InvalidNumberOfOutputs)
-            }
-        }
-        _ => Ok(()),
+    if bp_or_bpp && outputs > MAX_BULLETPROOFS_OUTPUTS {
+        Err(TransactionError::InvalidNumberOfOutputs)
+    } else {
+        Ok(())
     }
 }
 
@@ -239,11 +231,11 @@ fn check_outputs_semantics(
     outputs: &[Output],
     hf: &HardFork,
     tx_version: &TxVersion,
-    rct_type: &RctType,
+    bp_or_bpp: bool,
 ) -> Result<u64, TransactionError> {
     check_output_types(outputs, hf)?;
     check_output_keys(outputs)?;
-    check_number_of_outputs(outputs.len(), hf, tx_version, rct_type)?;
+    check_number_of_outputs(outputs.len(), hf, tx_version, bp_or_bpp)?;
 
     sum_outputs(outputs, hf, tx_version)
 }
@@ -255,14 +247,14 @@ fn check_outputs_semantics(
 /// <https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html>
 pub fn output_unlocked(
     time_lock: &Timelock,
-    current_chain_height: u64,
+    current_chain_height: usize,
     current_time_lock_timestamp: u64,
     hf: &HardFork,
 ) -> bool {
     match *time_lock {
         Timelock::None => true,
         Timelock::Block(unlock_height) => {
-            check_block_time_lock(unlock_height.try_into().unwrap(), current_chain_height)
+            check_block_time_lock(unlock_height, current_chain_height)
         }
         Timelock::Time(unlock_time) => {
             check_timestamp_time_lock(unlock_time, current_time_lock_timestamp, hf)
@@ -273,7 +265,7 @@ pub fn output_unlocked(
 /// Returns if a locked output, which uses a block height, can be spent.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/unlock_time.html#block-height>
-fn check_block_time_lock(unlock_height: u64, current_chain_height: u64) -> bool {
+fn check_block_time_lock(unlock_height: usize, current_chain_height: usize) -> bool {
     // current_chain_height = 1 + top height
     unlock_height <= current_chain_height
 }
@@ -297,7 +289,7 @@ fn check_timestamp_time_lock(
 /// <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#the-output-must-not-be-locked>
 fn check_all_time_locks(
     time_locks: &[Timelock],
-    current_chain_height: u64,
+    current_chain_height: usize,
     current_time_lock_timestamp: u64,
     hf: &HardFork,
 ) -> Result<(), TransactionError> {
@@ -442,8 +434,8 @@ fn check_inputs_sorted(inputs: &[Input], hf: &HardFork) -> Result<(), Transactio
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#10-block-lock>
 fn check_10_block_lock(
-    youngest_used_out_height: u64,
-    current_chain_height: u64,
+    youngest_used_out_height: usize,
+    current_chain_height: usize,
     hf: &HardFork,
 ) -> Result<(), TransactionError> {
     if hf >= &HardFork::V12 {
@@ -510,7 +502,7 @@ fn check_inputs_semantics(inputs: &[Input], hf: &HardFork) -> Result<u64, Transa
 fn check_inputs_contextual(
     inputs: &[Input],
     tx_ring_members_info: &TxRingMembersInfo,
-    current_chain_height: u64,
+    current_chain_height: usize,
     hf: &HardFork,
 ) -> Result<(), TransactionError> {
     // This rule is not contained in monero-core explicitly, but it is enforced by how Monero picks ring members.
@@ -615,28 +607,41 @@ pub fn check_transaction_semantic(
         Err(TransactionError::TooBig)?;
     }
 
-    let tx_version = TxVersion::from_raw(tx.prefix.version)
-        .ok_or(TransactionError::TransactionVersionInvalid)?;
+    let tx_version =
+        TxVersion::from_raw(tx.version()).ok_or(TransactionError::TransactionVersionInvalid)?;
 
-    let outputs_sum = check_outputs_semantics(
-        &tx.prefix.outputs,
-        hf,
-        &tx_version,
-        &tx.rct_signatures.rct_type(),
-    )?;
-    let inputs_sum = check_inputs_semantics(&tx.prefix.inputs, hf)?;
+    let bp_or_bpp = match tx {
+        Transaction::V2 {
+            proofs: Some(proofs),
+            ..
+        } => match proofs.rct_type() {
+            RctType::AggregateMlsagBorromean | RctType::MlsagBorromean => false,
+            RctType::MlsagBulletproofs
+            | RctType::MlsagBulletproofsCompactAmount
+            | RctType::ClsagBulletproof
+            | RctType::ClsagBulletproofPlus => true,
+        },
+        Transaction::V2 { proofs: None, .. } | Transaction::V1 { .. } => false,
+    };
 
-    let fee = match tx_version {
-        TxVersion::RingSignatures => {
+    let outputs_sum = check_outputs_semantics(&tx.prefix().outputs, hf, &tx_version, bp_or_bpp)?;
+    let inputs_sum = check_inputs_semantics(&tx.prefix().inputs, hf)?;
+
+    let fee = match tx {
+        Transaction::V1 { .. } => {
             if outputs_sum >= inputs_sum {
                 Err(TransactionError::OutputsTooHigh)?;
             }
             inputs_sum - outputs_sum
         }
-        TxVersion::RingCT => {
-            ring_ct::ring_ct_semantic_checks(tx, tx_hash, verifier, hf)?;
+        Transaction::V2 { proofs, .. } => {
+            let proofs = proofs
+                .as_ref()
+                .ok_or(TransactionError::TransactionVersionInvalid)?;
 
-            tx.rct_signatures.base.fee
+            ring_ct::ring_ct_semantic_checks(proofs, tx_hash, verifier, hf)?;
+
+            proofs.base.fee
         }
     };
 
@@ -654,15 +659,15 @@ pub fn check_transaction_semantic(
 pub fn check_transaction_contextual(
     tx: &Transaction,
     tx_ring_members_info: &TxRingMembersInfo,
-    current_chain_height: u64,
+    current_chain_height: usize,
     current_time_lock_timestamp: u64,
     hf: &HardFork,
 ) -> Result<(), TransactionError> {
-    let tx_version = TxVersion::from_raw(tx.prefix.version)
-        .ok_or(TransactionError::TransactionVersionInvalid)?;
+    let tx_version =
+        TxVersion::from_raw(tx.version()).ok_or(TransactionError::TransactionVersionInvalid)?;
 
     check_inputs_contextual(
-        &tx.prefix.inputs,
+        &tx.prefix().inputs,
         tx_ring_members_info,
         current_chain_height,
         hf,
@@ -676,17 +681,22 @@ pub fn check_transaction_contextual(
         hf,
     )?;
 
-    match tx_version {
-        TxVersion::RingSignatures => ring_signatures::check_input_signatures(
-            &tx.prefix.inputs,
-            &tx.signatures,
+    match &tx {
+        Transaction::V1 { prefix, signatures } => ring_signatures::check_input_signatures(
+            &prefix.inputs,
+            signatures,
             &tx_ring_members_info.rings,
-            &tx.signature_hash(),
+            // This will only return None on v2 miner txs.
+            &tx.signature_hash()
+                .ok_or(TransactionError::TransactionVersionInvalid)?,
         ),
-        TxVersion::RingCT => Ok(ring_ct::check_input_signatures(
-            &tx.signature_hash(),
-            &tx.prefix.inputs,
-            &tx.rct_signatures,
+        Transaction::V2 { prefix, proofs } => Ok(ring_ct::check_input_signatures(
+            &tx.signature_hash()
+                .ok_or(TransactionError::TransactionVersionInvalid)?,
+            &prefix.inputs,
+            proofs
+                .as_ref()
+                .ok_or(TransactionError::TransactionVersionInvalid)?,
             &tx_ring_members_info.rings,
         )?),
     }

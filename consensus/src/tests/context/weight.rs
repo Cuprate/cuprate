@@ -123,14 +123,14 @@ async fn weight_cache_calculates_correct_median() -> Result<(), tower::BoxError>
     .await?;
 
     for height in 1..=100 {
-        weight_cache.new_block(height as u64, height, height);
+        weight_cache.new_block(height, height, height);
 
         assert_eq!(weight_cache.median_short_term_weight(), height / 2);
         assert_eq!(weight_cache.median_long_term_weight(), height / 2);
     }
 
     for height in 101..=5000 {
-        weight_cache.new_block(height as u64, height, height);
+        weight_cache.new_block(height, height, height);
 
         assert_eq!(weight_cache.median_long_term_weight(), height / 2);
     }
@@ -162,7 +162,7 @@ async fn calc_bw_ltw_2850000_3050000() {
             weight_cache.median_long_term_weight(),
         );
         assert_eq!(calc_ltw, *ltw);
-        weight_cache.new_block((2950000 + i) as u64, *weight, *ltw);
+        weight_cache.new_block(2950000 + i, *weight, *ltw);
     }
 }
 

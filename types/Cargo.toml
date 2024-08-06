@@ -22,5 +22,6 @@ bytes            = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }
 serde            = { workspace = true, features = ["derive"], optional = true }
+borsh            = { workspace = true, optional = true }
 
 [dev-dependencies]

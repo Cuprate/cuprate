@@ -25,12 +25,12 @@ pub enum BlockchainReadRequest {
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
-    BlockExtendedHeader(u64),
+    BlockExtendedHeader(usize),
 
     /// Request a block's hash.
     ///
     /// The input is the block's height and the chain it is on.
-    BlockHash(u64, Chain),
+    BlockHash(usize, Chain),
 
     /// Request to check if we have a block and which [`Chain`] it is on.
     ///
@@ -45,7 +45,7 @@ pub enum BlockchainReadRequest {
     /// Request a range of block extended headers.
     ///
     /// The input is a range of block heights.
-    BlockExtendedHeaderInRange(Range<u64>, Chain),
+    BlockExtendedHeaderInRange(Range<usize>, Chain),
 
     /// Request the current chain height.
     ///
@@ -53,7 +53,7 @@ pub enum BlockchainReadRequest {
     ChainHeight,
 
     /// Request the total amount of generated coins (atomic units) at this height.
-    GeneratedCoins(u64),
+    GeneratedCoins(usize),
 
     /// Request data for multiple outputs.
     ///
@@ -137,7 +137,7 @@ pub enum BlockchainResponse {
     /// Response to [`BlockchainReadRequest::FindBlock`].
     ///
     /// Inner value is the chain and height of the block if found.
-    FindBlock(Option<(Chain, u64)>),
+    FindBlock(Option<(Chain, usize)>),
 
     /// Response to [`BlockchainReadRequest::FilterUnknownHashes`].
     ///
@@ -152,7 +152,7 @@ pub enum BlockchainResponse {
     /// Response to [`BlockchainReadRequest::ChainHeight`].
     ///
     /// Inner value is the chain height, and the top block's hash.
-    ChainHeight(u64, [u8; 32]),
+    ChainHeight(usize, [u8; 32]),
 
     /// Response to [`BlockchainReadRequest::GeneratedCoins`].
     ///
@@ -195,7 +195,7 @@ pub enum BlockchainResponse {
     /// Contains the index of the first unknown block and its expected height.
     ///
     /// This will be [`None`] if all blocks were known.
-    FindFirstUnknown(Option<(usize, u64)>),
+    FindFirstUnknown(Option<(usize, usize)>),
 
     //------------------------------------------------------ Writes
     /// Response to [`BlockchainWriteRequest::WriteBlock`].

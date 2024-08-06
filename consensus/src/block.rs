@@ -57,7 +57,7 @@ pub struct PreparedBlockExPow {
     /// The block's hash.
     pub block_hash: [u8; 32],
     /// The height of the block.
-    pub height: u64,
+    pub height: usize,
 
     /// The weight of the block's miner transaction.
     pub miner_tx_weight: usize,
@@ -74,7 +74,7 @@ impl PreparedBlockExPow {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
-        let Some(Input::Gen(height)) = block.miner_tx.prefix.inputs.first() else {
+        let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
@@ -88,7 +88,7 @@ impl PreparedBlockExPow {
             block_hash: block.hash(),
             height: *height,
 
-            miner_tx_weight: block.miner_tx.weight(),
+            miner_tx_weight: block.miner_transaction.weight(),
             block,
         })
     }
@@ -128,7 +128,7 @@ impl PreparedBlock {
         let (hf_version, hf_vote) =
             HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
 
-        let [Input::Gen(height)] = &block.miner_tx.prefix.inputs[..] else {
+        let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
             )))?
@@ -142,12 +142,12 @@ impl PreparedBlock {
             block_hash: block.hash(),
             pow_hash: calculate_pow_hash(
                 randomx_vm,
-                &block.serialize_hashable(),
+                &block.serialize_pow_hash(),
                 *height,
                 &hf_version,
             )?,
 
-            miner_tx_weight: block.miner_tx.weight(),
+            miner_tx_weight: block.miner_transaction.weight(),
             block,
         })
     }
@@ -172,12 +172,12 @@ impl PreparedBlock {
             block_hash: block.block_hash,
             pow_hash: calculate_pow_hash(
                 randomx_vm,
-                &block.block.serialize_hashable(),
+                &block.block.serialize_pow_hash(),
                 block.height,
                 &block.hf_version,
             )?,
 
-            miner_tx_weight: block.block.miner_tx.weight(),
+            miner_tx_weight: block.block.miner_transaction.weight(),
             block: block.block,
         })
     }
@@ -359,8 +359,8 @@ where
 
     // Set up the block and just pass it to [`verify_prepped_main_chain_block`]
 
-    // We just use the raw `major_version` here, no need to turn it into a `HardFork`.
-    let rx_vms = if block.header.major_version < 12 {
+    // We just use the raw `hardfork_version` here, no need to turn it into a `HardFork`.
+    let rx_vms = if block.header.hardfork_version < 12 {
         HashMap::new()
     } else {
         let BlockChainContextResponse::RxVms(rx_vms) = context_svc
@@ -443,12 +443,12 @@ where
     check_block_pow(&prepped_block.pow_hash, context.next_difficulty)
         .map_err(ConsensusError::Block)?;
 
-    if prepped_block.block.txs.len() != txs.len() {
+    if prepped_block.block.transactions.len() != txs.len() {
         return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
     }
 
-    if !prepped_block.block.txs.is_empty() {
-        for (expected_tx_hash, tx) in prepped_block.block.txs.iter().zip(txs.iter()) {
+    if !prepped_block.block.transactions.is_empty() {
+        for (expected_tx_hash, tx) in prepped_block.block.transactions.iter().zip(txs.iter()) {
             if expected_tx_hash != &tx.tx_hash {
                 return Err(ExtendedConsensusError::TxsIncludedWithBlockIncorrect);
             }
