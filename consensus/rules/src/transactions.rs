@@ -621,7 +621,7 @@ pub fn check_transaction_semantic(
             | RctType::ClsagBulletproof
             | RctType::ClsagBulletproofPlus => true,
         },
-        _ => false,
+        Transaction::V2 { proofs: None, .. } | Transaction::V1 { .. } => false,
     };
 
     let outputs_sum = check_outputs_semantics(&tx.prefix().outputs, hf, &tx_version, bp_or_bpp)?;
