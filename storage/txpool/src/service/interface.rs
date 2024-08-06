@@ -26,13 +26,19 @@ pub enum TxpoolReadResponse {
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
 pub enum TxpoolWriteRequest {
-    AddTransaction(NewTransaction),
+    AddTransaction {
+        tx: Arc<TransactionVerificationData>,
+        state_stem: bool
+    },
     RemoveTransaction(TransactionHash),
     PromoteTransactionToFluffPool(TransactionHash),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse
-pub enum TxpoolWriteResponse {}
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+pub enum TxpoolWriteResponse {
+    AddTransaction
+}
 
 pub struct NewTransaction {
     tx: Arc<TransactionVerificationData>,

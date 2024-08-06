@@ -1,7 +1,3 @@
-use cuprate_database::{ConcreteEnv, RuntimeError};
-use cuprate_database_service::DatabaseWriteHandle;
-use std::sync::Arc;
-use cuprate_types::blockchain::BCWriteRequest;
 use crate::{
     service::{
         interface::{TxpoolWriteRequest, TxpoolWriteResponse},
@@ -9,6 +5,10 @@ use crate::{
     },
     TxPoolWriteError,
 };
+use cuprate_database::{ConcreteEnv, RuntimeError};
+use cuprate_database_service::DatabaseWriteHandle;
+use cuprate_types::blockchain::BCWriteRequest;
+use std::sync::Arc;
 
 //---------------------------------------------------------------------------------------------------- init_write_service
 /// Initialize the txpool write service from a [`ConcreteEnv`].
@@ -23,7 +23,8 @@ fn handle_txpool_request(
     req: &TxpoolWriteRequest,
 ) -> Result<TxpoolWriteResponse, TxPoolWriteError> {
     match req {
-        TxpoolWriteRequest::AddTransaction(tx) => 
+        TxpoolWriteRequest::AddTransaction { .. } => todo!(),
+        _ => todo!(),
     }
 }
 
@@ -35,5 +36,3 @@ fn handle_txpool_request(
 //
 // Each function will return the [`Response`] that we
 // should send back to the caller in [`map_request()`].
-
-/// [`BCWriteRequest::WriteBlock`].

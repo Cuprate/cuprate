@@ -810,11 +810,15 @@ dependencies = [
  "cuprate-database",
  "cuprate-database-service",
  "cuprate-helper",
+ "cuprate-test-utils",
  "cuprate-types",
  "hex",
+ "hex-literal",
  "monero-serai",
  "rayon",
+ "tempfile",
  "thiserror",
+ "tokio",
  "tower",
 ]
 

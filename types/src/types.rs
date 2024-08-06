@@ -181,6 +181,21 @@ impl TransactionVerificationData {
     }
 }
 
+// This impl is mainly for testing, going from a verified tx to a tx-pool tx doesn't have
+// many use cases.
+impl From<VerifiedTransactionInformation> for TransactionVerificationData {
+    fn from(value: VerifiedTransactionInformation) -> Self {
+        TransactionVerificationData {
+            tx: value.tx,
+            tx_blob: value.tx_blob,
+            tx_weight: value.tx_weight,
+            fee: value.fee,
+            tx_hash: value.tx_hash,
+            cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
+        }
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod test {

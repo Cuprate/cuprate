@@ -1,12 +1,20 @@
-use crate::ops::key_images::{add_tx_key_images, remove_tx_key_images};
-use crate::tables::TablesMut;
-use crate::types::{TransactionHash, TransactionInfo};
-use crate::TxPoolWriteError;
+//! Transaction writing ops.
+//!
+//! This module handles writing full transaction data, like removing or adding a transaction.
+use std::sync::Arc;
+
 use bytemuck::TransparentWrapper;
+use monero_serai::transaction::{Input, Transaction};
+
 use cuprate_database::{RuntimeError, StorableVec};
 use cuprate_types::TransactionVerificationData;
-use monero_serai::transaction::{Input, Transaction};
-use std::sync::Arc;
+
+use crate::{
+    ops::key_images::{add_tx_key_images, remove_tx_key_images},
+    tables::TablesMut,
+    types::{TransactionHash, TransactionInfo},
+    TxPoolWriteError,
+};
 
 /// Adds a transaction to the tx-pool.
 ///
@@ -14,7 +22,6 @@ use std::sync::Arc;
 ///
 /// # Panics
 /// This function will panic if the transactions inputs are not all of type [`Input::ToKey`].
-///
 fn add_transaction(
     tx: Arc<TransactionVerificationData>,
     state_stem: bool,
@@ -50,6 +57,9 @@ fn add_transaction(
 }
 
 /// Removes a transaction from the transaction pool.
+///
+/// # Panics
+/// This function will panic if the transactions inputs are not all of type [`Input::ToKey`].
 fn remove_transaction(
     tx_hash: &TransactionHash,
     tables: &mut impl TablesMut,

@@ -7,6 +7,9 @@ use crate::{tables::SpentKeyImages, types::TransactionHash, TxPoolWriteError};
 /// Adds the transaction key images to the [`SpentKeyImages`] table.
 ///
 /// This function will return an error if any of the key images are already spent.
+///
+/// # Panics
+/// This function will panic if any of the [`Input`]s are not [`Input::ToKey`]
 pub fn add_tx_key_images(
     inputs: &[Input],
     tx_hash: &TransactionHash,
@@ -24,6 +27,9 @@ pub fn add_tx_key_images(
 }
 
 /// Removes key images from the [`SpentKeyImages`] table.
+///
+/// # Panics
+/// This function will panic if any of the [`Input`]s are not [`Input::ToKey`]
 pub fn remove_tx_key_images(
     inputs: &[Input],
     kis_table: &mut impl DatabaseRw<SpentKeyImages>,
@@ -39,7 +45,6 @@ pub fn remove_tx_key_images(
 ///
 /// # Panics
 /// This function will panic if the [`Input`] is not [`Input::ToKey`]
-///
 fn ki_from_input(input: &Input) -> [u8; 32] {
     match input {
         Input::ToKey { key_image, .. } => key_image.compress().0,

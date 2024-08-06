@@ -1,12 +1,15 @@
-mod config;
+pub mod config;
 mod free;
 mod ops;
-mod service;
+pub mod service;
 mod tables;
 mod types;
 
 pub use config::Config;
 pub use free::open;
+
+//re-exports
+pub use cuprate_database;
 
 #[derive(thiserror::Error, Debug)]
 pub enum TxPoolWriteError {

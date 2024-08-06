@@ -13,7 +13,7 @@ default    = ["blockchain", "epee", "serde"]
 blockchain = []
 epee       = ["dep:cuprate-epee-encoding"]
 serde      = ["dep:serde"]
-protptest  = ["dep:proptest-derive"]
+proptest  = ["dep:proptest-derive"]
 
 [dependencies]
 cuprate-epee-encoding = { path = "../net/epee-encoding", optional = true }

@@ -11,7 +11,7 @@ keywords    = ["cuprate", "txpool", "transaction", "pool", "database"]
 [features]
 
 [dependencies]
-cuprate-database = { path = "../database" }
+cuprate-database = { path = "../database", features = ["heed"] }
 cuprate-database-service = { path = "../service" }
 cuprate-types    = { path = "../../types" }
 cuprate-helper   = { path = "../../helper" , default-features = false, features = ["constants"] }
@@ -26,3 +26,8 @@ tower            = { workspace = true }
 rayon            = { workspace = true }
 
 [dev-dependencies]
+cuprate-test-utils = { path = "../../test-utils" }
+
+tokio              = { workspace = true }
+tempfile           = { workspace = true }
+hex-literal        = { workspace = true }

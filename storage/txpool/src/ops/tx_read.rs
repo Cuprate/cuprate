@@ -1,9 +1,13 @@
-use crate::tables::{Tables, TransactionBlobs};
-use crate::types::TransactionHash;
-use cuprate_database::{DatabaseRw, RuntimeError};
+//! Transaction read ops.
+//!
+//! This module handles reading full transaction data, like getting a transaction from the pool.
+use std::sync::Mutex;
+
+use cuprate_database::RuntimeError;
 use cuprate_types::TransactionVerificationData;
 use monero_serai::transaction::Transaction;
-use std::sync::Mutex;
+
+use crate::{tables::Tables, types::TransactionHash};
 
 /// Gets the [`TransactionVerificationData`] of a transaction in the tx-pool, leaving the tx in the pool.
 pub fn get_transaction_verification_data(

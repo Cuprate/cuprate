@@ -2,9 +2,14 @@ use std::sync::Arc;
 
 use cuprate_database::{ConcreteEnv, InitError};
 
-use crate::service::read::init_read_service;
-use crate::service::types::{TxpoolReadHandle, TxpoolWriteHandle};
-use crate::Config;
+use crate::{
+    service::{
+        read::init_read_service,
+        types::{TxpoolReadHandle, TxpoolWriteHandle},
+        write::init_write_service,
+    },
+    Config,
+};
 
 //---------------------------------------------------------------------------------------------------- Init
 #[cold]
