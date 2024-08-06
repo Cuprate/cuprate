@@ -50,6 +50,7 @@ cargo doc --open --package cuprate-blockchain
 | [`cuprate-json-rpc`](https://doc.cuprate.org/cuprate_json_rpc) | [`rpc/json-rpc/`](https://github.com/Cuprate/cuprate/tree/main/rpc/json-rpc) | JSON-RPC 2.0 implementation
 | [`cuprate-rpc-types`](https://doc.cuprate.org/cuprate_rpc_types) | [`rpc/types/`](https://github.com/Cuprate/cuprate/tree/main/rpc/types) | Monero RPC types and traits
 | [`cuprate-rpc-interface`](https://doc.cuprate.org/cuprate_rpc_interface) | [`rpc/interface/`](https://github.com/Cuprate/cuprate/tree/main/rpc/interface) | RPC interface & routing
+| [`cuprate-rpc-handler`](https://doc.cuprate.org/cuprate_rpc_handler) | [`rpc/handler/`](https://github.com/Cuprate/cuprate/tree/main/rpc/handler) | RPC inner handlers
 
 ## 1-off crates
 | Crate | In-tree path | Purpose |
