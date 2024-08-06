@@ -113,53 +113,6 @@ mod tests {
         assert_eq!(res_hex, EXPECTED);
     }
 
-    /*    #[test]
-       fn test_aesb_pseudo_round() {
-           let input = [0u8; 16];
-           let mut output = [0u8; 16];
-
-           let key = [0u8; 16];
-           let key_ref: Key<Aes128> = key.into();
-           let cipher = Aes128::new(&key_ref);
-           #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-           {
-               let mut expanded_key = [0u8; 176];
-               cipher.expand_key(&mut expanded_key);
-               expanded_key
-           }
-
-           let expanded_key = [0u8; 240];
-           unsafe {
-               //aesb_pseudo_round(input.as_ptr(), output.as_mut_ptr(), expanded_key.as_ptr() as *mut u8);
-               aesb_single_round(input.as_ptr(), output.as_mut_ptr(), expanded_key.as_ptr() as *mut u8);
-           }
-           //assert_eq!(output, [0u8; 16]);
-           println!("pseudo round: {}", hex::encode(output));
-       }
-    */
-
-    #[test]
-    fn test_aesb_pseudo_round() {
-        const EXPECTED_OUT: &str = "4c3673357a3f3e4817ab38fece836666";
-        let input = [0u8; 16];
-        let mut output = [0u8; 16];
-        let key = [0u8; 16];
-
-        //let expanded_key = [0u8; 240];
-        let expanded_key = cnaes::key_schedule(&key);
-        let expanded_key = expanded_key.iter().flatten().copied().collect::<Vec<u8>>();
-        unsafe {
-            aesb_pseudo_round(
-                input.as_ptr(),
-                output.as_mut_ptr(),
-                expanded_key.as_ptr() as *mut u8,
-            );
-        }
-        //cnaes::aesb_pseudo_round(&input, &mut output, &expanded_key);
-        assert_eq!(hex::encode(output), EXPECTED_OUT);
-        println!("{}", hex::encode(output))
-    }
-
     #[test]
     fn slow_hash_1() {
         let test = |inp: &str, exp: &str| {
@@ -249,57 +202,57 @@ mod tests {
         test(
             "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374",
             "f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc",
-            1806260
+            1806260,
         );
         test(
             "4c6f72656d20697073756d20646f6c6f722073697420616d65742c20636f6e73656374657475722061646970697363696e67",
             "5bb833deca2bdd7252a9ccd7b4ce0b6a4854515794b56c207262f7a5b9bdb566",
-            1806261
+            1806261,
         );
         test(
             "656c69742c2073656420646f20656975736d6f642074656d706f7220696e6369646964756e74207574206c61626f7265",
             "1ee6728da60fbd8d7d55b2b1ade487a3cf52a2c3ac6f520db12c27d8921f6cab",
-            1806262
+            1806262,
         );
         test(
             "657420646f6c6f7265206d61676e6120616c697175612e20557420656e696d206164206d696e696d2076656e69616d2c",
             "6969fe2ddfb758438d48049f302fc2108a4fcc93e37669170e6db4b0b9b4c4cb",
-            1806263
+            1806263,
         );
         test(
             "71756973206e6f737472756420657865726369746174696f6e20756c6c616d636f206c61626f726973206e697369",
             "7f3048b4e90d0cbe7a57c0394f37338a01fae3adfdc0e5126d863a895eb04e02",
-            1806264
+            1806264,
         );
         test(
             "757420616c697175697020657820656120636f6d6d6f646f20636f6e7365717561742e20447569732061757465",
             "1d290443a4b542af04a82f6b2494a6ee7f20f2754c58e0849032483a56e8e2ef",
-            1806265
+            1806265,
         );
         test(
             "757420616c697175697020657820656120636f6d6d6f646f20636f6e7365717561742e20447569732061757465",
             "1d290443a4b542af04a82f6b2494a6ee7f20f2754c58e0849032483a56e8e2ef",
-            1806265
+            1806265,
         );
         test(
             "697275726520646f6c6f7220696e20726570726568656e646572697420696e20766f6c7570746174652076656c6974",
             "c43cc6567436a86afbd6aa9eaa7c276e9806830334b614b2bee23cc76634f6fd",
-            1806266
+            1806266,
         );
         test(
             "657373652063696c6c756d20646f6c6f726520657520667567696174206e756c6c612070617269617475722e",
             "87be2479c0c4e8edfdfaa5603e93f4265b3f8224c1c5946feb424819d18990a4",
-            1806267
+            1806267,
         );
         test(
             "4578636570746575722073696e74206f6363616563617420637570696461746174206e6f6e2070726f6964656e742c",
             "dd9d6a6d8e47465cceac0877ef889b93e7eba979557e3935d7f86dce11b070f3",
-            1806268
+            1806268,
         );
         test(
             "73756e7420696e2063756c706120717569206f666669636961206465736572756e74206d6f6c6c697420616e696d20696420657374206c61626f72756d2e",
             "75c6f2ae49a20521de97285b431e717125847fb8935ed84a61e7f8d36a2c3d8e",
-            1806269
+            1806269,
         );
     }
 }

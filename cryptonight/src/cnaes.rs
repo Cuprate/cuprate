@@ -400,37 +400,35 @@ pub(crate) fn round_fwd(state: &mut [[u8; 4]; 4], keys: &[[u8; 4]]) {
 }
 
 pub(crate) fn aesb_pseudo_round(
-    input: &[u8],
-    output: &mut [u8],
+    block: &mut [u8],
     expanded_key: &[[u8; 4]; 40],
 ) {
-    debug_assert!(input.len() == AES_BLOCK_SIZE && output.len() == AES_BLOCK_SIZE);
+    debug_assert!(block.len() == AES_BLOCK_SIZE);
 
     let mut state = [[0u8; 4]; 4];
 
-    state_in(&mut state, input);
+    state_in(&mut state, block);
 
     for i in (0..40).step_by(4) {
         round_fwd(&mut state, &expanded_key[i..i + 4]);
     }
 
-    state_out(output, state);
+    state_out(block, state);
 }
 
 fn aesb_single_round(
-    input: &[u8],
-    output: &mut [u8],
+    block: &mut [u8],
     expanded_key: &[[u8; 4]; 40],
 ) {
-    debug_assert!(input.len() == AES_BLOCK_SIZE && output.len() == AES_BLOCK_SIZE);
+    debug_assert!(block.len() == AES_BLOCK_SIZE);
 
     let mut state = [[0u8; 4]; 4];
 
-    state_in(&mut state, input);
+    state_in(&mut state, block);
 
     round_fwd(&mut state, &expanded_key[0..4]);
 
-    state_out(output, state);
+    state_out(block, state);
 }
 
 #[cfg(test)]
@@ -485,11 +483,10 @@ mod tests {
         let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
             let key: [u8; 32] = decode_hex_to_array(key_hex);
             let extended_key = key_extend(&key.into());
-            let input: [u8; 16] = decode_hex_to_array(input_hex);
-            let mut output = [0u8; AES_BLOCK_SIZE];
+            let mut block: [u8; 16] = decode_hex_to_array(input_hex);
 
-            aesb_pseudo_round(&input, &mut output, &extended_key);
-            assert_eq!(expected_out, hex::encode(output));
+            aesb_pseudo_round(&mut block, &extended_key);
+            assert_eq!(expected_out, hex::encode(block));
         };
 
         test(
@@ -549,11 +546,10 @@ mod tests {
         let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
             let key: [u8; 32] = decode_hex_to_array(key_hex);
             let extended_key = key_extend(&key.into());
-            let input: [u8; 16] = decode_hex_to_array(input_hex);
-            let mut output = [0u8; AES_BLOCK_SIZE];
+            let mut block: [u8; 16] = decode_hex_to_array(input_hex);
 
-            aesb_single_round(&input, &mut output, &extended_key);
-            assert_eq!(expected_out, hex::encode(output));
+            aesb_single_round(&mut block, &extended_key);
+            assert_eq!(expected_out, hex::encode(block));
         };
 
         test(

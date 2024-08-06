@@ -290,23 +290,44 @@ void print_r_and_code(const uint32_t r[9], const struct V4_Instruction code[NUM_
   printf("        ];\n");
 }
 
+void print_text_a_and_b(const uint8_t text[INIT_SIZE_BYTE], const uint8_t a[AES_BLOCK_SIZE], const uint8_t b[AES_BLOCK_SIZE * 2]) {
+  printf("text: ");
+    for (int i = 0; i < INIT_SIZE_BYTE; ++i) {
+        printf("%02x", text[i]);
+    }
+    printf("\n");
+
+    printf("a: ");
+    for (int i = 0; i < AES_BLOCK_SIZE; ++i) {
+        printf("%02x", a[i]);
+    }
+    printf("\n");
+
+    printf("b: ");
+    for (int i = 0; i < AES_BLOCK_SIZE * 2; ++i) {
+        printf("%02x", b[i]);
+    }
+    printf("\n");
+}
+
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint64_t height) {
   uint8_t long_state[MEMORY];
 
   union cn_slow_hash_state state;
-  uint8_t text[INIT_SIZE_BYTE];
-  uint8_t a[AES_BLOCK_SIZE];
-  uint8_t a1[AES_BLOCK_SIZE];
-  uint8_t b[AES_BLOCK_SIZE * 2];
-  uint8_t c1[AES_BLOCK_SIZE];
-  uint8_t c2[AES_BLOCK_SIZE];
-  uint8_t d[AES_BLOCK_SIZE];
+  uint8_t text[INIT_SIZE_BYTE] = {0};
+  uint8_t a[AES_BLOCK_SIZE] = {0};
+  uint8_t a1[AES_BLOCK_SIZE] = {0};
+  uint8_t b[AES_BLOCK_SIZE * 2] = {0};
+  uint8_t c1[AES_BLOCK_SIZE] = {0};
+  uint8_t c2[AES_BLOCK_SIZE] = {0};
+  uint8_t d[AES_BLOCK_SIZE] = {0};
   size_t i, j;
-  uint8_t aes_key[AES_KEY_SIZE];
-  oaes_ctx *aes_ctx;
+  uint8_t aes_key[AES_KEY_SIZE] = {0};
+  oaes_ctx *aes_ctx = NULL;
 
   keccak1600(data, length, state.hs.b);
   memcpy(text, state.init, INIT_SIZE_BYTE);
+  print_hex("text(1): ", text, sizeof(text));
   memcpy(aes_key, state.hs.b, AES_KEY_SIZE);
   aes_ctx = (oaes_ctx *) oaes_alloc();
 
@@ -349,7 +370,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     v4_random_math_init(code, height);
   }
 
-    print_r_and_code(r, code);
+    //print_r_and_code(r, code);
 
   oaes_key_import_data(aes_ctx, aes_key, AES_KEY_SIZE);
   for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
@@ -358,11 +379,14 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     }
     memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
   }
+  print_hex("text(2): ", text, sizeof(text));
 
   for (i = 0; i < AES_BLOCK_SIZE; i++) {
     a[i] = state.k[i] ^ state.k[AES_BLOCK_SIZE * 2 + i];
     b[i] = state.k[AES_BLOCK_SIZE + i] ^ state.k[AES_BLOCK_SIZE * 3 + i];
   }
+
+  print_text_a_and_b(text, a, b);
 
   for (i = 0; i < ITER / 2; i++) {
     /* Dependency chain: address -> read value ------+
