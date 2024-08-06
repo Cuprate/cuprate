@@ -115,7 +115,6 @@ fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInfo
 ///
 /// # Panics
 /// This will panic if the inputs overflow or the transaction outputs too much.
-///
 pub fn tx_fee(tx: &Transaction) -> u64 {
     let mut fee = 0_u64;
 
