@@ -1,0 +1,30 @@
+# This action attempts to build the Monero book, if changed.
+
+name: Monero mdBook
+
+on:
+  push:
+    paths:
+      - 'books/protocol/**'
+
+env:
+  # Version of `mdbook` to install.
+  MDBOOK_VERSION: 0.4.36
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/mdbook
+          key: monero-book
+
+      - name: Install mdBook
+        run: cargo install --version ${MDBOOK_VERSION} mdbook
+
+      - name: Build
+        run: mdbook build books/protocol
