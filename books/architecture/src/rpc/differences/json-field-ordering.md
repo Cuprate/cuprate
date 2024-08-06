@@ -24,7 +24,7 @@ For example:
   }
 }
 ```
-In the main `{}`, `id` comes before `jsonrpc` comes before `result`.
+In the main `{}`, `id` comes before `jsonrpc`, which comes before `result`.
 
 The same alphabetical ordering is applied to the fields within `result`.
 
@@ -48,4 +48,4 @@ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get
 ```
 It will be `"height": 3195018` in `monerod`'s case, but may not necessarily be for Cuprate.
 
-By all means, this shouldn't be relied upon in the first place, although it is shown as an example.
+By all means, this should not be relied upon in the first place, although it is shown as an example.

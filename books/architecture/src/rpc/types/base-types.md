@@ -1,6 +1,6 @@
 # Base RPC types
 There exists a few "base" types that many types are built on-top of in `monerod`.
-These are also implemented in [this crate](https://doc.cuprate.org/cuprate_rpc_types/base/index.html).
+These are also implemented in [`cuprate-rpc-types`](https://doc.cuprate.org/cuprate_rpc_types/base/index.html).
 
 For example, many requests include these 2 fields:
 ```json
@@ -11,8 +11,8 @@ For example, many requests include these 2 fields:
 ```
 This is [`rpc_response_base`](https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server_commands_defs.h#L101-L112) in `monerod`, and [`ResponseBase`](https://doc.cuprate.org/cuprate_rpc_types/base/struct.ResponseBase.html) in Cuprate.
 
-These types are [flattened](https://serde.rs/field-attrs.html#flatten) into types, i.e. the fields
-from these base types are injected into the given type. For example, [`get_block_count`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block_count)'s response type is defined like such in Cuprate:
+These types are [flattened](https://serde.rs/field-attrs.html#flatten) into other types, i.e. the fields
+from these base types are injected into the given type. For example, [`get_block_count`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block_count)'s response type is defined [like such in Cuprate](https://doc.cuprate.org/cuprate_rpc_types/json/struct.GetBlockCountResponse.html):
 ```rust
 struct GetBlockCountResponse {
 	// The fields of this `base` type are directly

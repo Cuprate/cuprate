@@ -14,4 +14,4 @@ This is sending an HTTP `DELETE` request, which should be a `GET`.
 `monerod` will respond to this the same as `GET`, `POST`, `PUT`, and `TRACE`.
 
 ## Cuprate's behavior
-> TODO: decide what to support when handlers are created, document here.
+> TODO: decide allowed HTTP methods for Cuprate <https://github.com/Cuprate/cuprate/pull/233#discussion_r1700934928>.

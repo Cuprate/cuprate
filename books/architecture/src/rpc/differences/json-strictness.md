@@ -3,18 +3,29 @@ This is a list of behavior that `monerod`'s JSON parser allows, that Cuprate's J
 
 In general, `monerod`'s parser is quite lenient, allowing invalid JSON in many cases.
 Cuprate's (really, `serde_json`) JSON parser is quite strict, essentially sticking to
-the JSON specification.
+the [JSON specification](https://datatracker.ietf.org/doc/html/rfc8259).
 
 Cuprate also makes some decisions that are _different_ than `monerod`, but are not necessarily more or less strict.
 
 ## Missing closing bracket
-`monerod` will accept JSON missing a closing `}`.
+`monerod` will accept JSON missing a final closing `}`.
 
 Example:
 ```bash
 curl \
 	http://127.0.0.1:18081/json_rpc \
 	-d '{"jsonrpc":"2.0","id":"0","method":"get_block_count"' \
+	-H 'Content-Type: application/json'
+```
+
+## Trailing ending comma
+`monerod` will accept JSON containing a final trailing `,`.
+
+Example:
+```bash
+curl \
+	http://127.0.0.1:18081/json_rpc \
+	-d '{"jsonrpc":"2.0","id":"0","method":"get_block_count",}' \
 	-H 'Content-Type: application/json'
 ```
 

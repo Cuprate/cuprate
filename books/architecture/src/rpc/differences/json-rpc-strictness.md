@@ -39,6 +39,8 @@ curl \
 ```
 
 ## Responding to notifications
+> TODO: decide on Cuprate behavior <https://github.com/Cuprate/cuprate/pull/233#discussion_r1704611186>
+
 Requests that have no `id` field are "notifications".
 
 [The JSON-RPC 2.0 specification states that requests without
