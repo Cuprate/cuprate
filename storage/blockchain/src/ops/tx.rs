@@ -150,13 +150,10 @@ pub fn add_tx(
                         .commitments[i]
                 };
 
-                (commitment, output.key.0)
-            })
-            .map(|(commitment, key)| {
                 // Add the RCT output.
                 add_rct_output(
                     &RctOutput {
-                        key,
+                        key: output.key.0,
                         height,
                         output_flags,
                         tx_idx: tx_id,

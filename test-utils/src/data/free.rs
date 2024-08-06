@@ -103,7 +103,6 @@ fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInfo
     let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
     VerifiedTransactionInformation {
         tx_weight: tx.weight(),
-        // TODO:
         fee: tx_fee(&tx),
         tx_hash: tx.hash(),
         tx_blob,
