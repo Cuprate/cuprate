@@ -89,6 +89,7 @@ pub fn calculate_pow_hash<R: RandomX>(
     } else if hf < &HardFork::V10 {
         cryptonight_hash_v2(buf)
     } else if hf < &HardFork::V12 {
+        // FIXME: https://github.com/Cuprate/cuprate/issues/167.
         cryptonight_hash_r(buf, height as u64)
     } else {
         randomx_vm
