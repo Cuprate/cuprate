@@ -1,0 +1,22 @@
+[package]
+name        = "cuprate-database-service"
+version     = "0.1.0"
+edition     = "2021"
+description = "Cuprate's database service abstraction"
+license     = "MIT"
+authors     = ["Boog900"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/service"
+keywords    = ["cuprate", "service", "database"]
+
+[dependencies]
+cuprate-database = { path = "../database" }
+cuprate-helper   = { path = "../../helper", features = ["fs", "thread", "map"] }
+
+serde     = { workspace = true, optional = true }
+rayon     = { workspace = true }
+tower     = { workspace = true }
+futures   = { workspace = true }
+crossbeam = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true

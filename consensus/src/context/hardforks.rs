@@ -5,7 +5,7 @@ use tracing::instrument;
 
 use cuprate_consensus_rules::{HFVotes, HFsInfo, HardFork};
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
 };
 
@@ -86,10 +86,10 @@ impl HardForkState {
             debug_assert_eq!(votes.total_votes(), config.window)
         }
 
-        let BCResponse::BlockExtendedHeader(ext_header) = database
+        let BlockchainResponse::BlockExtendedHeader(ext_header) = database
             .ready()
             .await?
-            .call(BCReadRequest::BlockExtendedHeader(chain_height - 1))
+            .call(BlockchainReadRequest::BlockExtendedHeader(chain_height - 1))
             .await?
         else {
             panic!("Database sent incorrect response!");
@@ -209,8 +209,8 @@ async fn get_votes_in_range<D: Database>(
 ) -> Result<HFVotes, ExtendedConsensusError> {
     let mut votes = HFVotes::new(window_size);
 
-    let BCResponse::BlockExtendedHeaderInRange(vote_list) = database
-        .oneshot(BCReadRequest::BlockExtendedHeaderInRange(
+    let BlockchainResponse::BlockExtendedHeaderInRange(vote_list) = database
+        .oneshot(BlockchainReadRequest::BlockExtendedHeaderInRange(
             block_heights,
             Chain::Main,
         ))

@@ -22,7 +22,7 @@ use cuprate_consensus_rules::{
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
 };
 
@@ -139,8 +139,8 @@ impl RandomXVMCache {
     ) -> Result<Arc<RandomXVM>, ExtendedConsensusError> {
         let seed_height = randomx_seed_height(height);
 
-        let BCResponse::BlockHash(seed_hash) = database
-            .oneshot(BCReadRequest::BlockHash(seed_height, chain))
+        let BlockchainResponse::BlockHash(seed_hash) = database
+            .oneshot(BlockchainReadRequest::BlockHash(seed_height, chain))
             .await?
         else {
             panic!("Database returned wrong response!");
@@ -274,9 +274,9 @@ async fn get_block_hashes<D: Database + Clone>(
     for height in heights {
         let db = database.clone();
         fut.push_back(async move {
-            let BCResponse::BlockHash(hash) = db
+            let BlockchainResponse::BlockHash(hash) = db
                 .clone()
-                .oneshot(BCReadRequest::BlockHash(height, Chain::Main))
+                .oneshot(BlockchainReadRequest::BlockHash(height, Chain::Main))
                 .await?
             else {
                 panic!("Database sent incorrect response!");
