@@ -143,13 +143,11 @@ pub fn add_tx(
                     ED25519_BASEPOINT_POINT
                         + *monero_serai::generators::H * Scalar::from(output.amount.unwrap_or(0))
                 } else {
-                    let commitment = proofs
+                    proofs
                         .as_ref()
                         .expect("A V2 transaction with no RCT proofs is a miner tx")
                         .base
-                        .commitments[i];
-
-                    commitment
+                        .commitments[i]
                 };
 
                 (commitment, output.key.0)
