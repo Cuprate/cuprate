@@ -23,7 +23,7 @@ jobs:
       - name: Cache
         uses: actions/cache@v4
         with:
-          path:
+          path: |
             ~/.cargo/bin/mdbook
             ~/.cargo/bin/mdbook-svgbob
           key: monero-book
