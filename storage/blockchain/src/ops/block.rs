@@ -8,7 +8,7 @@ use cuprate_database::{
     RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
 };
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
-use cuprate_types::{ExtendedBlockHeader, VerifiedBlockInformation};
+use cuprate_types::{ExtendedBlockHeader, HardFork, VerifiedBlockInformation};
 
 use crate::{
     ops::{
@@ -200,7 +200,7 @@ pub fn get_block_extended_header_from_height(
     #[allow(clippy::cast_possible_truncation)]
     Ok(ExtendedBlockHeader {
         cumulative_difficulty,
-        version: block.header.hardfork_version,
+        version: HardFork::from_version(block.header.hardfork_version).expect("Stored block must have a valid hard-fork"),
         vote: block.header.hardfork_signal,
         timestamp: block.header.timestamp,
         block_weight: block_info.weight as usize,
@@ -369,7 +369,7 @@ mod test {
                 let b1 = block_header_from_hash;
                 let b2 = block;
                 assert_eq!(b1, block_header_from_height);
-                assert_eq!(b1.version, b2.block.header.hardfork_version);
+                assert_eq!(b1.version as u8, b2.block.header.hardfork_version);
                 assert_eq!(b1.vote, b2.block.header.hardfork_signal);
                 assert_eq!(b1.timestamp, b2.block.header.timestamp);
                 assert_eq!(b1.cumulative_difficulty, b2.cumulative_difficulty);
