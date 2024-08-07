@@ -72,8 +72,8 @@ impl PreparedBlockExPow {
     /// - Hard-fork values are invalid
     /// - Miner transaction is missing a miner input
     pub fn new(block: Block) -> Result<PreparedBlockExPow, ConsensusError> {
-        let (hf_version, hf_vote) =
-            HardFork::from_block_header(&block.header).map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
+        let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
+            .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
         let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
@@ -126,8 +126,8 @@ impl PreparedBlock {
         block: Block,
         randomx_vm: Option<&R>,
     ) -> Result<PreparedBlock, ConsensusError> {
-        let (hf_version, hf_vote) =
-            HardFork::from_block_header(&block.header).map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
+        let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
+            .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
         let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
