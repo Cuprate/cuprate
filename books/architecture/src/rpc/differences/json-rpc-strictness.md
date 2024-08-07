@@ -76,6 +76,31 @@ The response:
 }
 ```
 
+## Responding with `id:0` on error
+The JSON-RPC [specification states](https://www.jsonrpc.org/specification#response_object):
+
+> If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid Request), it MUST be Null.
+
+Although, `monerod` will respond with `id:0` in these cases.
+
+```bash
+curl \
+    http://127.0.0.1:18081/json_rpc \
+	-d '{"jsonrpc":"2.0","id":asdf,"method":"get_block_count"}' \
+	-H 'Content-Type: application/json'
+```
+Response:
+```bash
+{
+  "error": {
+    "code": -32700,
+    "message": "Parse error"
+  },
+  "id": 0,
+  "jsonrpc": "2.0"
+}
+```
+
 ## Responding to notifications
 > TODO: decide on Cuprate behavior <https://github.com/Cuprate/cuprate/pull/233#discussion_r1704611186>
 
