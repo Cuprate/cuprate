@@ -34,7 +34,7 @@ pub async fn download_batch_task<N: NetworkZone>(
     client: ClientPoolDropGuard<N>,
     ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
-    expected_start_height: u64,
+    expected_start_height: usize,
     _attempt: usize,
 ) -> BlockDownloadTaskResponse<N> {
     BlockDownloadTaskResponse {
@@ -51,7 +51,7 @@ async fn request_batch_from_peer<N: NetworkZone>(
     mut client: ClientPoolDropGuard<N>,
     ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
-    expected_start_height: u64,
+    expected_start_height: usize,
 ) -> Result<(ClientPoolDropGuard<N>, BlockBatch), BlockDownloadError> {
     let request = PeerRequest::Protocol(ProtocolRequest::GetObjects(GetObjectsRequest {
         blocks: ids.clone(),
@@ -105,7 +105,7 @@ async fn request_batch_from_peer<N: NetworkZone>(
 
 fn deserialize_batch(
     blocks_response: GetObjectsResponse,
-    expected_start_height: u64,
+    expected_start_height: usize,
     requested_ids: ByteArrayVec<32>,
     previous_id: [u8; 32],
     peer_handle: ConnectionHandle,
@@ -115,7 +115,7 @@ fn deserialize_batch(
         .into_par_iter()
         .enumerate()
         .map(|(i, block_entry)| {
-            let expected_height = u64::try_from(i).unwrap() + expected_start_height;
+            let expected_height = i + expected_start_height;
 
             let mut size = block_entry.block.len();
 
@@ -125,7 +125,7 @@ fn deserialize_batch(
             let block_hash = block.hash();
 
             // Check the block matches the one requested and the peer sent enough transactions.
-            if requested_ids[i] != block_hash || block.txs.len() != block_entry.txs.len() {
+            if requested_ids[i] != block_hash || block.transactions.len() != block_entry.txs.len() {
                 return Err(BlockDownloadError::PeersResponseWasInvalid);
             }
 
@@ -177,7 +177,7 @@ fn deserialize_batch(
                 .collect::<Result<Vec<_>, _>>()?;
 
             // Make sure the transactions in the block were the ones the peer sent.
-            let mut expected_txs = block.txs.iter().collect::<HashSet<_>>();
+            let mut expected_txs = block.transactions.iter().collect::<HashSet<_>>();
 
             for tx in &txs {
                 if !expected_txs.remove(&tx.hash()) {

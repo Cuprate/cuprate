@@ -17,13 +17,13 @@ pub struct ExtendedBlockHeader {
     ///
     /// This can also be represented with `cuprate_consensus::HardFork`.
     ///
-    /// This is the same value as [`monero_serai::block::BlockHeader::major_version`].
+    /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_version`].
     pub version: u8,
     /// The block's hard-fork vote.
     ///
     /// This can also be represented with `cuprate_consensus::HardFork`.
     ///
-    /// This is the same value as [`monero_serai::block::BlockHeader::minor_version`].
+    /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_signal`].
     pub vote: u8,
     /// The UNIX time at which the block was mined.
     pub timestamp: u64,
@@ -72,7 +72,7 @@ pub struct VerifiedBlockInformation {
     ///
     /// [`Block::serialize`].
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_tx`].
+    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
     pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///
@@ -81,7 +81,7 @@ pub struct VerifiedBlockInformation {
     /// The block's proof-of-work hash.
     pub pow_hash: [u8; 32],
     /// The block's height.
-    pub height: u64,
+    pub height: usize,
     /// The amount of generated coins (atomic units) in this block.
     pub generated_coins: u64,
     /// The adjusted block size, in bytes.
@@ -119,7 +119,7 @@ pub struct AltBlockInformation {
     ///
     /// [`Block::serialize`].
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_tx`].
+    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
     pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///
@@ -128,7 +128,7 @@ pub struct AltBlockInformation {
     /// The block's proof-of-work hash.
     pub pow_hash: [u8; 32],
     /// The block's height.
-    pub height: u64,
+    pub height: usize,
     /// The adjusted block size, in bytes.
     pub weight: usize,
     /// The long term block weight, which is the weight factored in with previous block weights.
@@ -144,7 +144,7 @@ pub struct AltBlockInformation {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OutputOnChain {
     /// The block height this output belongs to.
-    pub height: u64,
+    pub height: usize,
     /// The timelock of this output, if any.
     pub time_lock: Timelock,
     /// The public key of this output, if any.

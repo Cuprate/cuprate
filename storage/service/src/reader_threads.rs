@@ -1,23 +1,36 @@
-//! Database [`Env`](crate::Env) configuration.
+//! Reader thread-pool configuration and initiation.
 //!
-//! This module contains the main [`Config`]uration struct
-//! for the database [`Env`](crate::Env)ironment, and data
-//! structures related to any configuration setting.
+//! This module contains [`ReaderThreads`] which allow specifying the amount of
+//! reader threads for the [`rayon::ThreadPool`].
 //!
-//! These configurations are processed at runtime, meaning
-//! the `Env` can/will dynamically adjust its behavior
-//! based on these values.
+//! It also contains [`init_thread_pool`] which initiates the thread-pool.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, sync::Arc};
 
+use rayon::ThreadPool;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+//---------------------------------------------------------------------------------------------------- init_thread_pool
+/// Initialize the reader thread-pool backed by `rayon`.
+pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
+    // How many reader threads to spawn?
+    let reader_count = reader_threads.as_threads().get();
+
+    Arc::new(
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(reader_count)
+            .thread_name(|i| format!("{}::DatabaseReader({i})", module_path!()))
+            .build()
+            .unwrap(),
+    )
+}
+
 //---------------------------------------------------------------------------------------------------- ReaderThreads
-/// Amount of database reader threads to spawn when using [`service`](crate::service).
+/// Amount of database reader threads to spawn.
 ///
-/// This controls how many reader thread `service`'s
+/// This controls how many reader threads the [`DatabaseReadService`](crate::DatabaseReadService)
 /// thread-pool will spawn to receive and send requests/responses.
 ///
 /// # Invariant
@@ -48,7 +61,7 @@ pub enum ReaderThreads {
     /// as such, it is equal to [`ReaderThreads::OnePerThread`].
     ///
     /// ```rust
-    /// # use cuprate_blockchain::config::*;
+    /// # use cuprate_database_service::*;
     /// let reader_threads = ReaderThreads::from(0_usize);
     /// assert!(matches!(reader_threads, ReaderThreads::OnePerThread));
     /// ```
@@ -80,7 +93,7 @@ pub enum ReaderThreads {
     /// non-zero, but not 1 thread, the minimum value 1 will be returned.
     ///
     /// ```rust
-    /// # use cuprate_blockchain::config::*;
+    /// # use cuprate_database_service::ReaderThreads;
     /// assert_eq!(ReaderThreads::Percent(0.000000001).as_threads().get(), 1);
     /// ```
     Percent(f32),
@@ -96,7 +109,7 @@ impl ReaderThreads {
     ///
     /// # Example
     /// ```rust
-    /// use cuprate_blockchain::config::ReaderThreads as R;
+    /// use cuprate_database_service::ReaderThreads as R;
     ///
     /// let total_threads: std::num::NonZeroUsize =
     ///     cuprate_helper::thread::threads();

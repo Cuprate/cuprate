@@ -7,8 +7,8 @@
 //! - [`TxVerifierService`] Which handles transaction verification.
 //!
 //! This crate is generic over the database which is implemented as a [`tower::Service`]. To
-//! implement a database you need to have a service which accepts [`BCReadRequest`] and responds
-//! with [`BCResponse`].
+//! implement a database you need to have a service which accepts [`BlockchainReadRequest`] and responds
+//! with [`BlockchainResponse`].
 //!
 use cuprate_consensus_rules::{ConsensusError, HardFork};
 
@@ -27,7 +27,7 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
-pub use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+pub use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
 /// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]
@@ -83,7 +83,7 @@ use __private::Database;
 pub mod __private {
     use std::future::Future;
 
-    use cuprate_types::blockchain::{BCReadRequest, BCResponse};
+    use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 
     /// A type alias trait used to represent a database, so we don't have to write [`tower::Service`] bounds
     /// everywhere.
@@ -94,8 +94,8 @@ pub mod __private {
     /// ```
     pub trait Database:
         tower::Service<
-        BCReadRequest,
-        Response = BCResponse,
+        BlockchainReadRequest,
+        Response = BlockchainResponse,
         Error = tower::BoxError,
         Future = Self::Future2,
     >
@@ -103,8 +103,13 @@ pub mod __private {
         type Future2: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static;
     }
 
-    impl<T: tower::Service<BCReadRequest, Response = BCResponse, Error = tower::BoxError>>
-        crate::Database for T
+    impl<
+            T: tower::Service<
+                BlockchainReadRequest,
+                Response = BlockchainResponse,
+                Error = tower::BoxError,
+            >,
+        > crate::Database for T
     where
         T::Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
     {

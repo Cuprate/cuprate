@@ -16,7 +16,7 @@ use proptest_derive::Arbitrary;
 use tower::{BoxError, Service};
 
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     ExtendedBlockHeader,
 };
 
@@ -133,8 +133,8 @@ impl DummyDatabase {
     }
 }
 
-impl Service<BCReadRequest> for DummyDatabase {
-    type Response = BCResponse;
+impl Service<BlockchainReadRequest> for DummyDatabase {
+    type Response = BlockchainResponse;
     type Error = BoxError;
     type Future =
         Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
@@ -143,21 +143,21 @@ impl Service<BCReadRequest> for DummyDatabase {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: BCReadRequest) -> Self::Future {
+    fn call(&mut self, req: BlockchainReadRequest) -> Self::Future {
         let blocks = self.blocks.clone();
         let dummy_height = self.dummy_height;
 
         async move {
             Ok(match req {
-                BCReadRequest::BlockExtendedHeader(id) => {
-                    let mut id = usize::try_from(id).unwrap();
+                BlockchainReadRequest::BlockExtendedHeader(id) => {
+                    let mut id = id;
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();
 
                         id -= dummy_height - block_len;
                     }
 
-                    BCResponse::BlockExtendedHeader(
+                    BlockchainResponse::BlockExtendedHeader(
                         blocks
                             .read()
                             .unwrap()
@@ -167,14 +167,14 @@ impl Service<BCReadRequest> for DummyDatabase {
                             .ok_or("block not in database!")?,
                     )
                 }
-                BCReadRequest::BlockHash(id, _) => {
+                BlockchainReadRequest::BlockHash(id, _) => {
                     let mut hash = [0; 32];
                     hash[0..8].copy_from_slice(&id.to_le_bytes());
-                    BCResponse::BlockHash(hash)
+                    BlockchainResponse::BlockHash(hash)
                 }
-                BCReadRequest::BlockExtendedHeaderInRange(range, _) => {
-                    let mut end = usize::try_from(range.end).unwrap();
-                    let mut start = usize::try_from(range.start).unwrap();
+                BlockchainReadRequest::BlockExtendedHeaderInRange(range, _) => {
+                    let mut end = range.end;
+                    let mut start = range.start;
 
                     if let Some(dummy_height) = dummy_height {
                         let block_len = blocks.read().unwrap().len();
@@ -183,7 +183,7 @@ impl Service<BCReadRequest> for DummyDatabase {
                         start -= dummy_height - block_len;
                     }
 
-                    BCResponse::BlockExtendedHeaderInRange(
+                    BlockchainResponse::BlockExtendedHeaderInRange(
                         blocks
                             .read()
                             .unwrap()
@@ -195,18 +195,15 @@ impl Service<BCReadRequest> for DummyDatabase {
                             .collect(),
                     )
                 }
-                BCReadRequest::ChainHeight => {
-                    let height: u64 = dummy_height
-                        .unwrap_or(blocks.read().unwrap().len())
-                        .try_into()
-                        .unwrap();
+                BlockchainReadRequest::ChainHeight => {
+                    let height = dummy_height.unwrap_or(blocks.read().unwrap().len());
 
                     let mut top_hash = [0; 32];
                     top_hash[0..8].copy_from_slice(&height.to_le_bytes());
 
-                    BCResponse::ChainHeight(height, top_hash)
+                    BlockchainResponse::ChainHeight(height, top_hash)
                 }
-                BCReadRequest::GeneratedCoins(_) => BCResponse::GeneratedCoins(0),
+                BlockchainReadRequest::GeneratedCoins(_) => BlockchainResponse::GeneratedCoins(0),
                 _ => unimplemented!("the context svc should not need these requests!"),
             })
         }

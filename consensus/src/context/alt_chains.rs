@@ -4,7 +4,7 @@ use tower::ServiceExt;
 
 use cuprate_consensus_rules::{blocks::BlockError, ConsensusError};
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, ChainId,
 };
 
@@ -32,10 +32,10 @@ pub struct AltChainContextCache {
     pub difficulty_cache: Option<DifficultyCache>,
 
     /// A cached RX VM.
-    pub cached_rx_vm: Option<(u64, Arc<RandomXVM>)>,
+    pub cached_rx_vm: Option<(usize, Arc<RandomXVM>)>,
 
     /// The chain height of the alt chain.
-    pub chain_height: u64,
+    pub chain_height: usize,
     /// The top hash of the alt chain.
     pub top_hash: [u8; 32],
     /// The [`ChainID`] of the alt chain.
@@ -48,7 +48,7 @@ impl AltChainContextCache {
     /// Add a new block to the cache.
     pub fn add_new_block(
         &mut self,
-        height: u64,
+        height: usize,
         block_hash: [u8; 32],
         block_weight: usize,
         long_term_block_weight: usize,
@@ -100,8 +100,9 @@ impl AltChainMap {
         }
 
         // find the block with hash == prev_id.
-        let BCResponse::FindBlock(res) =
-            database.oneshot(BCReadRequest::FindBlock(prev_id)).await?
+        let BlockchainResponse::FindBlock(res) = database
+            .oneshot(BlockchainReadRequest::FindBlock(prev_id))
+            .await?
         else {
             panic!("Database returned wrong response");
         };
@@ -130,10 +131,10 @@ pub async fn get_alt_chain_difficulty_cache<D: Database + Clone>(
     mut database: D,
 ) -> Result<DifficultyCache, ExtendedConsensusError> {
     // find the block with hash == prev_id.
-    let BCResponse::FindBlock(res) = database
+    let BlockchainResponse::FindBlock(res) = database
         .ready()
         .await?
-        .call(BCReadRequest::FindBlock(prev_id))
+        .call(BlockchainReadRequest::FindBlock(prev_id))
         .await?
     else {
         panic!("Database returned wrong response");
@@ -177,10 +178,10 @@ pub async fn get_alt_chain_weight_cache<D: Database + Clone>(
     mut database: D,
 ) -> Result<BlockWeightsCache, ExtendedConsensusError> {
     // find the block with hash == prev_id.
-    let BCResponse::FindBlock(res) = database
+    let BlockchainResponse::FindBlock(res) = database
         .ready()
         .await?
-        .call(BCReadRequest::FindBlock(prev_id))
+        .call(BlockchainReadRequest::FindBlock(prev_id))
         .await?
     else {
         panic!("Database returned wrong response");

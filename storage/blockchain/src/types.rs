@@ -68,7 +68,7 @@ pub type BlockBlob = StorableVec<u8>;
 pub type BlockHash = [u8; 32];
 
 /// A block's height.
-pub type BlockHeight = u64;
+pub type BlockHeight = usize;
 
 /// A key image.
 pub type KeyImage = [u8; 32];

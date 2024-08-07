@@ -10,7 +10,7 @@ use crate::{
     },
 };
 
-const TEST_WINDOW_SIZE: u64 = 25;
+const TEST_WINDOW_SIZE: usize = 25;
 
 const TEST_HFS: [HFInfo; NUMB_OF_HARD_FORKS] = [
     HFInfo::new(0, 0),
@@ -79,7 +79,7 @@ async fn hf_v15_v16_correct() {
 
     for (i, (_, vote)) in HFS_2688888_2689608.into_iter().enumerate() {
         assert_eq!(state.current_hardfork, HardFork::V15);
-        state.new_block(vote, (2688888 + i) as u64);
+        state.new_block(vote, 2688888 + i);
     }
 
     assert_eq!(state.current_hardfork, HardFork::V16);
@@ -91,8 +91,8 @@ proptest! {
         extra_hfs in vec(any::<HardFork>(), 0..100)
     ) {
         tokio_test::block_on(async move {
-            let numb_hfs = hfs.len() as u64;
-            let numb_pop_blocks = extra_hfs.len() as u64;
+            let numb_hfs = hfs.len();
+            let numb_pop_blocks = extra_hfs.len();
 
             let mut db_builder = DummyDatabaseBuilder::default();
 
@@ -102,7 +102,7 @@ proptest! {
                 );
             }
 
-            let db = db_builder.finish(Some(numb_hfs as usize));
+            let db = db_builder.finish(Some(numb_hfs ));
 
             let mut state = HardForkState::init_from_chain_height(
                 numb_hfs,
@@ -114,7 +114,7 @@ proptest! {
             let state_clone = state.clone();
 
             for (i, hf) in extra_hfs.into_iter().enumerate() {
-                state.new_block(hf, state.last_height + u64::try_from(i).unwrap() + 1);
+                state.new_block(hf, state.last_height + i + 1);
             }
 
             state.pop_blocks_main_chain(numb_pop_blocks, db).await?;
