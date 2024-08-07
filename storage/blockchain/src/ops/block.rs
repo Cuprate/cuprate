@@ -182,6 +182,7 @@ pub fn get_block_extended_header(
 
 /// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
 #[doc = doc_error!()]
+#[allow(clippy::missing_panics_doc)] // The panic is only possible with a corrupt DB
 #[inline]
 pub fn get_block_extended_header_from_height(
     block_height: &BlockHeight,
