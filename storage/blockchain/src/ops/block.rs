@@ -200,7 +200,8 @@ pub fn get_block_extended_header_from_height(
     #[allow(clippy::cast_possible_truncation)]
     Ok(ExtendedBlockHeader {
         cumulative_difficulty,
-        version: HardFork::from_version(block.header.hardfork_version).expect("Stored block must have a valid hard-fork"),
+        version: HardFork::from_version(block.header.hardfork_version)
+            .expect("Stored block must have a valid hard-fork"),
         vote: block.header.hardfork_signal,
         timestamp: block.header.timestamp,
         block_weight: block_info.weight as usize,
