@@ -416,17 +416,27 @@ pub(crate) fn aesb_pseudo_round(
     state_out(block, state);
 }
 
-fn aesb_single_round(
+pub(crate) fn aesb_single_round(
     block: &mut [u8],
-    expanded_key: &[[u8; 4]; 40],
+    round_key_flat: &[u8; ROUND_KEY_SIZE],
 ) {
     debug_assert!(block.len() == AES_BLOCK_SIZE);
+
+    let mut round_key = [[0u8; 4]; 4];
+    for i in 0..4 {
+        round_key[i] = [
+                round_key_flat[4 * i],
+                round_key_flat[4 * i + 1],
+                round_key_flat[4 * i + 2],
+                round_key_flat[4 * i + 3]
+            ];
+    }
 
     let mut state = [[0u8; 4]; 4];
 
     state_in(&mut state, block);
 
-    round_fwd(&mut state, &expanded_key[0..4]);
+    round_fwd(&mut state, &round_key[..]);
 
     state_out(block, state);
 }
@@ -544,61 +554,60 @@ mod tests {
     #[test]
     fn test_aesb_single_round() {
         let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
-            let key: [u8; 32] = decode_hex_to_array(key_hex);
-            let extended_key = key_extend(&key.into());
-            let mut block: [u8; 16] = decode_hex_to_array(input_hex);
+            let round_key: [u8;ROUND_KEY_SIZE] = decode_hex_to_array(key_hex);
+            let mut block: [u8; AES_BLOCK_SIZE] = decode_hex_to_array(input_hex);
 
-            aesb_single_round(&mut block, &extended_key);
+            aesb_single_round(&mut block, &round_key);
             assert_eq!(expected_out, hex::encode(block));
         };
 
         test(
-            "9af7bd044f96bba5251ebd8065f4c757a3cee41e045f95107f8ee3b76754147a",
+            "9af7bd044f96bba5251ebd8065f4c757",
             "8844d7f6f6aa2df5706ef0e7b26a3410",
             "a03593fc2b9b906069bfc3a86a12e7fe",
         );
         test(
-            "9749a59d1ee692c3b70b9c38a0c88369aa1b1c958006d898cd08629ce889949a",
+            "9749a59d1ee692c3b70b9c38a0c88369",
             "f96b5a1984f7c57b92d7b2e82dd0ce46",
             "6b03d4c6edf7a914265ca765b784c5ee",
         );
         test(
-            "20959275e137a08267e35afe66f9adeb6ea78b5d9dd88ba81c021bde93973b35",
+            "20959275e137a08267e35afe66f9adeb",
             "3fce6f546d8fbc15bd9c6ac7d533eae4",
             "34692b49471e37df3cbe43a9459ebe97",
         );
         test(
-            "5c429524d022dc5dd48f7cd529fdf4f211c54d0b2e25ccd0d7174360dc3b6c76",
+            "5c429524d022dc5dd48f7cd529fdf4f2",
             "3edae93308c9aab4dfb6bfcd8e4012af",
             "2e3061ce680d75177bac5b7af3182543",
         );
         test(
-            "e76c56ca69a7309866a730e8976da086fbb82029a3d686a6ffa61a33f1a0425b",
+            "e76c56ca69a7309866a730e8976da086",
             "39d8ee732a115b6b21f89ca181bd9ddc",
             "069ef0b7aaada2b65ea9665827dae9ae",
         );
         test(
-            "afd540af324c4fcda6246c657424a3cee4daac626f0ab1019d5a6c68f63ed8f0",
+            "afd540af324c4fcda6246c657424a3ce",
             "a5a01d75141522ff1ea717083abc5b5e",
             "e0320cbc9dd8279c5f7d121ef7e1ae46",
         );
         test(
-            "dfe9ba9468ccf1ac20a305730d1bdcb7d472bb020b316e85d493586296051752",
+            "dfe9ba9468ccf1ac20a305730d1bdcb7",
             "7be56ce9d924bf2fc4b574e225676f3c",
             "bee2b49ed0b578b2c94b03a8930d990c",
         );
         test(
-            "381e788a8d3389f27fe9aff054a0b4079ac35334f2784fbeb99cded3b9ce4dc9",
+            "381e788a8d3389f27fe9aff054a0b407",
             "b8d2600f71b0e9535d17c00ba90246f6",
             "2a305ae7f7f3f44a43cd0342180b9394",
         );
         test(
-            "16a94460158a5512052626f6cb080d6d612b2285316247636ed0d82e40413c07",
+            "16a94460158a5512052626f6cb080d6d",
             "5ea0c238c05b8f3a913c1b36102eabeb",
             "ab8040d7395cc940ea2a47610989ceb1",
         );
         test(
-            "7e584682efb38bf2adfc6f1958fe08ff712c8b514d759edf39a2fc1a03600ad2",
+            "7e584682efb38bf2adfc6f1958fe08ff",
             "80c78bb6ca2f114cbcb49fbaadaee9d1",
             "25f7717cdbaa9c614424ef3d4e9543ec",
         );
