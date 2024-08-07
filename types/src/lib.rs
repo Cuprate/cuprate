@@ -81,15 +81,16 @@
 
 mod block_complete_entry;
 mod types;
+mod hard_fork;
 
 pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
 pub use types::{
     AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
     VerifiedBlockInformation, VerifiedTransactionInformation,
 };
+pub use hard_fork::{HardFork, HardForkError};
 
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "blockchain")]
 pub mod blockchain;
-
 //---------------------------------------------------------------------------------------------------- Private

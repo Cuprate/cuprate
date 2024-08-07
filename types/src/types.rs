@@ -7,6 +7,8 @@ use monero_serai::{
     transaction::{Timelock, Transaction},
 };
 
+use crate::HardFork;
+
 //---------------------------------------------------------------------------------------------------- ExtendedBlockHeader
 /// Extended header data of a block.
 ///
@@ -15,13 +17,11 @@ use monero_serai::{
 pub struct ExtendedBlockHeader {
     /// The block's major version.
     ///
-    /// This can also be represented with `cuprate_consensus::HardFork`.
-    ///
     /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_version`].
-    pub version: u8,
+    pub version: HardFork,
     /// The block's hard-fork vote.
     ///
-    /// This can also be represented with `cuprate_consensus::HardFork`.
+    /// This can't be represented with [`HardFork`] as raw-votes can be out of the range of [`HardFork`]s.
     ///
     /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_signal`].
     pub vote: u8,

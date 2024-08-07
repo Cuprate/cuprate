@@ -39,6 +39,7 @@ mod free;
 
 use alt_block::sanity_check_alt_block;
 use batch_prepare::batch_prepare_main_chain_block;
+use cuprate_consensus_rules::hard_forks::HardForkError;
 use free::pull_ordered_transactions;
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.
@@ -72,7 +73,7 @@ impl PreparedBlockExPow {
     /// - Miner transaction is missing a miner input
     pub fn new(block: Block) -> Result<PreparedBlockExPow, ConsensusError> {
         let (hf_version, hf_vote) =
-            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
+            HardFork::from_block_header(&block.header).map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
         let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
@@ -126,7 +127,7 @@ impl PreparedBlock {
         randomx_vm: Option<&R>,
     ) -> Result<PreparedBlock, ConsensusError> {
         let (hf_version, hf_vote) =
-            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
+            HardFork::from_block_header(&block.header).map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
         let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
             Err(ConsensusError::Block(BlockError::MinerTxError(

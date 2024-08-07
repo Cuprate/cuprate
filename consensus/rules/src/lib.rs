@@ -9,7 +9,7 @@ pub mod miner_tx;
 pub mod transactions;
 
 pub use decomposed_amount::is_decomposed_amount;
-pub use hard_forks::{HFVotes, HFsInfo, HardFork};
+pub use hard_forks::{HFVotes, HFsInfo, HardFork, check_block_version_vote};
 pub use transactions::TxVersion;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]

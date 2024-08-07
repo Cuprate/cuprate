@@ -1,40 +1,37 @@
 //! # Hard-Forks
 //!
-//! Monero use hard-forks to update it's protocol, this module contains a [`HardFork`] enum which is
-//! an identifier for every current hard-fork.
-//!
-//! This module also contains a [`HFVotes`] struct which keeps track of current blockchain voting, and
-//! has a method [`HFVotes::current_fork`] to check if the next hard-fork should be activated.
-//!
-use monero_serai::block::BlockHeader;
+//! Monero use hard-forks to update it's protocol, this module contains a [`HFVotes`] struct which
+//! keeps track of current blockchain voting, and has a method [`HFVotes::current_fork`] to check
+//! if the next hard-fork should be activated.
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter},
-    time::Duration,
 };
+
+pub use cuprate_types::{HardFork, HardForkError};
 
 #[cfg(test)]
 mod tests;
 
-/// Target block time for hf 1.
-///
-/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds>
-const BLOCK_TIME_V1: Duration = Duration::from_secs(60);
-/// Target block time from v2.
-///
-/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds>
-const BLOCK_TIME_V2: Duration = Duration::from_secs(120);
-
 pub const NUMB_OF_HARD_FORKS: usize = 16;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum HardForkError {
-    #[error("The hard-fork is unknown")]
-    HardForkUnknown,
-    #[error("The block is on an incorrect hard-fork")]
-    VersionIncorrect,
-    #[error("The block's vote is for a previous hard-fork")]
-    VoteTooLow,
+/// Checks a blocks version and vote, assuming that `hf` is the current hard-fork.
+///
+/// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
+pub fn check_block_version_vote(
+    hf: &HardFork,
+    version: &HardFork,
+    vote: &HardFork,
+) -> Result<(), HardForkError> {
+    // self = current hf
+    if hf != version {
+        Err(HardForkError::VersionIncorrect)?;
+    }
+    if hf > vote {
+        Err(HardForkError::VoteTooLow)?;
+    }
+
+    Ok(())
 }
 
 /// Information about a given hard-fork.
@@ -132,113 +129,6 @@ impl HFsInfo {
             HFInfo::new(1151000, 0),
             HFInfo::new(1151720, 0),
         ])
-    }
-}
-
-/// An identifier for every hard-fork Monero has had.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
-#[cfg_attr(any(feature = "proptest", test), derive(proptest_derive::Arbitrary))]
-#[repr(u8)]
-pub enum HardFork {
-    V1 = 1,
-    V2,
-    V3,
-    V4,
-    V5,
-    V6,
-    V7,
-    V8,
-    V9,
-    V10,
-    V11,
-    V12,
-    V13,
-    V14,
-    V15,
-    // remember to update from_vote!
-    V16,
-}
-
-impl HardFork {
-    /// Returns the hard-fork for a blocks `major_version` field.
-    ///
-    /// <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
-    #[inline]
-    pub fn from_version(version: u8) -> Result<HardFork, HardForkError> {
-        Ok(match version {
-            1 => HardFork::V1,
-            2 => HardFork::V2,
-            3 => HardFork::V3,
-            4 => HardFork::V4,
-            5 => HardFork::V5,
-            6 => HardFork::V6,
-            7 => HardFork::V7,
-            8 => HardFork::V8,
-            9 => HardFork::V9,
-            10 => HardFork::V10,
-            11 => HardFork::V11,
-            12 => HardFork::V12,
-            13 => HardFork::V13,
-            14 => HardFork::V14,
-            15 => HardFork::V15,
-            16 => HardFork::V16,
-            _ => return Err(HardForkError::HardForkUnknown),
-        })
-    }
-
-    /// Returns the hard-fork for a blocks `minor_version` (vote) field.
-    ///
-    /// <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
-    #[inline]
-    pub fn from_vote(vote: u8) -> HardFork {
-        if vote == 0 {
-            // A vote of 0 is interpreted as 1 as that's what Monero used to default to.
-            return HardFork::V1;
-        }
-        // This must default to the latest hard-fork!
-        Self::from_version(vote).unwrap_or(HardFork::V16)
-    }
-
-    #[inline]
-    pub fn from_block_header(header: &BlockHeader) -> Result<(HardFork, HardFork), HardForkError> {
-        Ok((
-            HardFork::from_version(header.hardfork_version)?,
-            HardFork::from_vote(header.hardfork_signal),
-        ))
-    }
-
-    /// Returns the next hard-fork.
-    pub fn next_fork(&self) -> Option<HardFork> {
-        HardFork::from_version(*self as u8 + 1).ok()
-    }
-
-    /// Returns the target block time for this hardfork.
-    ///
-    /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds>
-    pub fn block_time(&self) -> Duration {
-        match self {
-            HardFork::V1 => BLOCK_TIME_V1,
-            _ => BLOCK_TIME_V2,
-        }
-    }
-
-    /// Checks a blocks version and vote, assuming that `self` is the current hard-fork.
-    ///
-    /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
-    pub fn check_block_version_vote(
-        &self,
-        version: &HardFork,
-        vote: &HardFork,
-    ) -> Result<(), HardForkError> {
-        // self = current hf
-        if self != version {
-            Err(HardForkError::VersionIncorrect)?;
-        }
-        if self > vote {
-            Err(HardForkError::VoteTooLow)?;
-        }
-
-        Ok(())
     }
 }
 
