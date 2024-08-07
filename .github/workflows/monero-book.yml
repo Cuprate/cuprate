@@ -10,6 +10,9 @@ on:
 env:
   # Version of `mdbook` to install.
   MDBOOK_VERSION: 0.4.36
+  # Version of `mdbook-svgbob` to install.
+  # <https://github.com/boozook/mdbook-svgbob>.
+  MDBOOK_SVGBOB_VERSION: 0.2.1
 
 jobs:
   build:
@@ -20,11 +23,15 @@ jobs:
       - name: Cache
         uses: actions/cache@v4
         with:
-          path: ~/.cargo/bin/mdbook
+          path:
+            ~/.cargo/bin/mdbook
+            ~/.cargo/bin/mdbook-svgbob
           key: monero-book
 
       - name: Install mdBook
-        run: cargo install --version ${MDBOOK_VERSION} mdbook
+        run: |
+          cargo install --version ${MDBOOK_VERSION} mdbook
+          cargo install --version ${MDBOOK_SVGBOB_VERSION} mdbook-svgbob
 
       - name: Build
         run: mdbook build books/protocol
