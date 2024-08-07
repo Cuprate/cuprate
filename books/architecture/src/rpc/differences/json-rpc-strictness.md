@@ -6,15 +6,37 @@ Cuprate's JSON-RPC implementation is slightly more strict.
 
 Cuprate also makes some decisions that are _different_ than `monerod`, but are not necessarily more or less strict.
 
-## Allowing anything in the `jsonrpc` field
+## Allowing an incorrect `jsonrpc` field
 [The JSON-RPC 2.0 specification states that the `jsonrpc` field must be exactly `"2.0"`](https://www.jsonrpc.org/specification#request_object).
 
-`monerod` allows:
-- The field to be any string
-- The field to be any type
-- The field to not even exist at all
+`monerod` allows `jsonrpc` to:
+- Be any string
+- Be an empty array
+- Be `null`
+- Not exist at all
 
-Example:
+Examples:
+```bash
+curl \
+	http://127.0.0.1:18081/json_rpc \
+	-d '{"jsonrpc":"???","method":"get_block_count"}' \
+	-H 'Content-Type: application/json'
+```
+
+```bash
+curl \
+	http://127.0.0.1:18081/json_rpc \
+	-d '{"jsonrpc":[],"method":"get_block_count"}' \
+	-H 'Content-Type: application/json'
+```
+
+```bash
+curl \
+	http://127.0.0.1:18081/json_rpc \
+	-d '{"jsonrpc":null,"method":"get_block_count"}' \
+	-H 'Content-Type: application/json'
+```
+
 ```bash
 curl \
 	http://127.0.0.1:18081/json_rpc \
@@ -22,20 +44,36 @@ curl \
 	-H 'Content-Type: application/json'
 ```
 
-## Allowing `-` in the `id` field
-`monerod` allows `-` to be in the `id` field, **not a string `"-"`, but just the character `-`**.
+## Allowing `id` to be any type
+JSON-RPC 2.0 responses must contain the same `id` as the original request.
 
-The [JSON-RPC 2.0 specification does state that the response `id` should be `null` upon errors in detecting the request `id`](https://www.jsonrpc.org/specification#response_object), although in this case, this is invalid JSON and should not make it this far.
+However, the [specification states](https://www.jsonrpc.org/specification#request_object):
 
-The response also contains `id: 0` instead.
+> An identifier established by the Client that MUST contain a String, Number, or NULL value if included
 
-Example:
+`monerod` does not check this and allows `id` to be any JSON type, for example, a map:
 ```bash
 curl \
-	http://127.0.0.1:18081/json_rpc \
-	-d '{"jsonrpc":"2.0","id":------,"method":"get_block_count"}' \
+    http://127.0.0.1:18081/json_rpc \
+	-d '{"jsonrpc":"2.0","id":{"THIS":{"IS":"ALLOWED"}},"method":"get_block_count"}' \
 	-H 'Content-Type: application/json'
+```
 
+The response:
+```json
+{
+  "id": {
+    "THIS": {
+      "IS": "ALLOWED"
+    }
+  },
+  "jsonrpc": "2.0",
+  "result": {
+    "count": 3210225,
+    "status": "OK",
+    "untrusted": false
+  }
+}
 ```
 
 ## Responding to notifications

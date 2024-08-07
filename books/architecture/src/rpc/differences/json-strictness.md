@@ -29,15 +29,21 @@ curl \
 	-H 'Content-Type: application/json'
 ```
 
-## Extra fields
-`monerod` will ignore extra fields within JSON from the user.
+## Allowing `-` in fields
+`monerod` allows `-` as a valid value in certain fields, **not a string `"-"`, but the character `-`**.
 
-Cuprate will return an error if any unknown field is present.
+The fields where this is allowed seems to be any field `monerod` does not explicitly look for, examples include:
+- `jsonrpc`
+- `id`
+- `params` (where parameters are not expected)
+- Any ignored field
+
+The [JSON-RPC 2.0 specification does state that the response `id` should be `null` upon errors in detecting the request `id`](https://wwwjsonrpc.org/specification#response_object), although in this case, this is invalid JSON and should not make it this far. The response will contain the default `id: 0` in this case.
 
 Example:
 ```bash
 curl \
 	http://127.0.0.1:18081/json_rpc \
-	-d '{"jsonrpc":"2.0","id":"0","method":"get_block_count","IGNORED_FIELD":0}' \
+	-d '{"jsonrpc":-,"id":-,"params":-,"IGNORED_FIELD":-,"method":"get_block_count"}' \
 	-H 'Content-Type: application/json'
 ```
