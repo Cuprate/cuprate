@@ -35,15 +35,27 @@
 
 ---
 
-- [🔴 RPC](rpc/intro.md)
-    - [⚪️ Types](rpc/types/intro.md)
-        - [⚪️ JSON](rpc/types/json.md)
-        - [⚪️ Binary](rpc/types/binary.md)
-        - [⚪️ Other](rpc/types/other.md)
-    - [⚪️ Interface](rpc/interface.md)
-    - [⚪️ Router](rpc/router.md)
-    - [⚪️ Handler](rpc/handler.md)
-    - [⚪️ Methods](rpc/methods/intro.md)
+- [🟢 RPC](rpc/intro.md)
+    - [🟡 JSON-RPC 2.0](rpc/json-rpc.md)
+    - [🟢 The types](rpc/types/intro.md)
+        - [🟢 Misc types](rpc/types/misc-types.md)
+        - [🟢 Base RPC types](rpc/types/base-types.md)
+        - [🟢 The type generator macro](rpc/types/macro.md)
+        - [🟢 Metadata](rpc/types/metadata.md)
+        - [🟡 (De)serialization](rpc/types/deserialization.md)
+    - [🟢 The interface](rpc/interface.md)
+    - [🔴 The handler](rpc/handler/intro.md)
+    - [🔴 The server](rpc/server/intro.md)
+    - [🟢 Differences with `monerod`](rpc/differences/intro.md)
+        - [🟢 JSON field ordering](rpc/differences/json-field-ordering.md)
+        - [🟢 JSON formatting](rpc/differences/json-formatting.md)
+        - [🟢 JSON strictness](rpc/differences/json-strictness.md)
+        - [🟡 JSON-RPC strictness](rpc/differences/json-rpc-strictness.md)
+        - [🟡 HTTP methods](rpc/differences/http-methods.md)
+        - [🟡 RPC payment](rpc/differences/rpc-payment.md)
+        - [🟢 Custom strings](rpc/differences/custom-strings.md)
+        - [🔴 Unsupported RPC calls](rpc/differences/unsupported-rpc-calls.md)
+        - [🔴 RPC calls with different behavior](rpc/differences/rpc-calls-with-different-behavior.md)
 
 ---
 
