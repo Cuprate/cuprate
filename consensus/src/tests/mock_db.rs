@@ -61,8 +61,8 @@ pub struct DummyBlockExtendedHeader {
 impl From<DummyBlockExtendedHeader> for ExtendedBlockHeader {
     fn from(value: DummyBlockExtendedHeader) -> Self {
         ExtendedBlockHeader {
-            version: value.version.unwrap_or(HardFork::V1) as u8,
-            vote: value.vote.unwrap_or(HardFork::V1) as u8,
+            version: value.version.unwrap_or(HardFork::V1),
+            vote: value.vote.unwrap_or(HardFork::V1).as_u8(),
             timestamp: value.timestamp.unwrap_or_default(),
             cumulative_difficulty: value.cumulative_difficulty.unwrap_or_default(),
             block_weight: value.block_weight.unwrap_or_default(),

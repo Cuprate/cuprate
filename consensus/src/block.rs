@@ -16,20 +16,22 @@ use tower::{Service, ServiceExt};
 
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
-    AltBlockInformation, VerifiedBlockInformation, VerifiedTransactionInformation,
+    AltBlockInformation, TransactionVerificationData, VerifiedBlockInformation,
+    VerifiedTransactionInformation,
 };
 
 use cuprate_consensus_rules::{
     blocks::{
         calculate_pow_hash, check_block, check_block_pow, randomx_seed_height, BlockError, RandomX,
     },
+    hard_forks::HardForkError,
     miner_tx::MinerTxError,
     ConsensusError, HardFork,
 };
 
 use crate::{
     context::{BlockChainContextRequest, BlockChainContextResponse, RawBlockChainContext},
-    transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
+    transactions::{VerifyTxRequest, VerifyTxResponse},
     Database, ExtendedConsensusError,
 };
 
@@ -71,8 +73,8 @@ impl PreparedBlockExPow {
     /// - Hard-fork values are invalid
     /// - Miner transaction is missing a miner input
     pub fn new(block: Block) -> Result<PreparedBlockExPow, ConsensusError> {
-        let (hf_version, hf_vote) =
-            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
+        let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
+            .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
         let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
             Err(ConsensusError::Block(BlockError::MinerTxError(
@@ -125,8 +127,8 @@ impl PreparedBlock {
         block: Block,
         randomx_vm: Option<&R>,
     ) -> Result<PreparedBlock, ConsensusError> {
-        let (hf_version, hf_vote) =
-            HardFork::from_block_header(&block.header).map_err(BlockError::HardForkError)?;
+        let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
+            .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
         let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
             Err(ConsensusError::Block(BlockError::MinerTxError(

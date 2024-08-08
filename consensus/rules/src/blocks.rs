@@ -6,7 +6,7 @@ use monero_serai::block::Block;
 use cuprate_cryptonight::*;
 
 use crate::{
-    current_unix_timestamp,
+    check_block_version_vote, current_unix_timestamp,
     hard_forks::HardForkError,
     miner_tx::{check_miner_tx, MinerTxError},
     HardFork,
@@ -249,11 +249,10 @@ pub fn check_block(
     block_blob_len: usize,
     block_chain_ctx: &ContextToVerifyBlock,
 ) -> Result<(HardFork, u64), BlockError> {
-    let (version, vote) = HardFork::from_block_header(&block.header)?;
+    let (version, vote) =
+        HardFork::from_block_header(&block.header).map_err(|_| HardForkError::HardForkUnknown)?;
 
-    block_chain_ctx
-        .current_hf
-        .check_block_version_vote(&version, &vote)?;
+    check_block_version_vote(&block_chain_ctx.current_hf, &version, &vote)?;
 
     if let Some(median_timestamp) = block_chain_ctx.median_block_timestamp {
         check_timestamp(block, median_timestamp)?;

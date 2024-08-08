@@ -16,7 +16,7 @@ use tower::{Service, ServiceExt};
 
 use cuprate_consensus::{
     context::{BlockChainContextRequest, BlockChainContextResponse},
-    transactions::TransactionVerificationData,
+    transactions::new_tx_verification_data,
 };
 use cuprate_consensus_rules::{miner_tx::MinerTxError, ConsensusError};
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
@@ -257,7 +257,7 @@ where
             .remove(tx)
             .ok_or(FastSyncError::TxsIncludedWithBlockIncorrect)?;
 
-        let data = TransactionVerificationData::new(tx)?;
+        let data = new_tx_verification_data(tx)?;
         verified_txs.push(VerifiedTransactionInformation {
             tx_blob: data.tx_blob,
             tx_weight: data.tx_weight,

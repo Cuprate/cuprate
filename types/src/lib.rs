@@ -80,9 +80,15 @@
 // Documentation for each module is located in the respective file.
 
 mod block_complete_entry;
+mod hard_fork;
+mod transaction_verification_data;
 mod types;
 
 pub use block_complete_entry::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
+pub use hard_fork::{HardFork, HardForkError};
+pub use transaction_verification_data::{
+    CachedVerificationState, TransactionVerificationData, TxVersion,
+};
 pub use types::{
     AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
     VerifiedBlockInformation, VerifiedTransactionInformation,
@@ -91,5 +97,4 @@ pub use types::{
 //---------------------------------------------------------------------------------------------------- Feature-gated
 #[cfg(feature = "blockchain")]
 pub mod blockchain;
-
 //---------------------------------------------------------------------------------------------------- Private

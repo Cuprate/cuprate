@@ -16,7 +16,7 @@ use cuprate_helper::asynch::rayon_spawn_async;
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
     context::rx_vms::RandomXVM,
-    transactions::TransactionVerificationData,
+    transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     VerifyBlockResponse,
 };
@@ -185,7 +185,7 @@ where
                 let txs = txs
                     .into_par_iter()
                     .map(|tx| {
-                        let tx = TransactionVerificationData::new(tx)?;
+                        let tx = new_tx_verification_data(tx)?;
                         Ok::<_, ConsensusError>((tx.tx_hash, tx))
                     })
                     .collect::<Result<HashMap<_, _>, _>>()?;

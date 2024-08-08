@@ -7,11 +7,12 @@ authors = ["Boog900"]
 
 [features]
 default = []
-proptest = ["dep:proptest", "dep:proptest-derive"]
+proptest = ["dep:proptest", "dep:proptest-derive", "cuprate-types/proptest"]
 rayon = ["dep:rayon"]
 
 [dependencies]
 cuprate-helper = { path = "../../helper", default-features = false, features = ["std"] }
+cuprate-types = { path = "../../types", default-features = false }
 cuprate-cryptonight = {path = "../../cryptonight"}
 
 monero-serai = { workspace = true, features = ["std"] }

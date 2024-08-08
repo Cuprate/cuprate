@@ -7,7 +7,7 @@ use std::{
     future::Future,
     ops::Deref,
     pin::Pin,
-    sync::{Arc, Mutex as StdMutex},
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -22,10 +22,13 @@ use cuprate_consensus_rules::{
         check_decoy_info, check_transaction_contextual, check_transaction_semantic,
         output_unlocked, TransactionError,
     },
-    ConsensusError, HardFork, TxVersion,
+    ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    CachedVerificationState, TransactionVerificationData, TxVersion,
+};
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,
@@ -36,6 +39,8 @@ use crate::{
 pub mod contextual_data;
 mod free;
 
+pub use free::new_tx_verification_data;
+
 /// A struct representing the type of validation that needs to be completed for this transaction.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum VerificationNeeded {
@@ -43,79 +48,6 @@ enum VerificationNeeded {
     SemanticAndContextual,
     /// Only contextual validation is needed.
     Contextual,
-}
-
-/// Represents if a transaction has been fully validated and under what conditions
-/// the transaction is valid in the future.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum CachedVerificationState {
-    /// The transaction has not been validated.
-    NotVerified,
-    /// The transaction is valid* if the block represented by this hash is in the blockchain and the [`HardFork`]
-    /// is the same.
-    ///
-    /// *V1 transactions require checks on their ring-length even if this hash is in the blockchain.
-    ValidAtHashAndHF([u8; 32], HardFork),
-    /// The transaction is valid* if the block represented by this hash is in the blockchain _and_ this
-    /// given time lock is unlocked. The time lock here will represent the youngest used time based lock
-    /// (If the transaction uses any time based time locks). This is because time locks are not monotonic
-    /// so unlocked outputs could become re-locked.
-    ///
-    /// *V1 transactions require checks on their ring-length even if this hash is in the blockchain.
-    ValidAtHashAndHFWithTimeBasedLock([u8; 32], HardFork, Timelock),
-}
-
-impl CachedVerificationState {
-    /// Returns the block hash this is valid for if in state [`CachedVerificationState::ValidAtHashAndHF`] or [`CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock`].
-    fn verified_at_block_hash(&self) -> Option<[u8; 32]> {
-        match self {
-            CachedVerificationState::NotVerified => None,
-            CachedVerificationState::ValidAtHashAndHF(hash, _)
-            | CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock(hash, _, _) => Some(*hash),
-        }
-    }
-}
-
-/// Data needed to verify a transaction.
-#[derive(Debug)]
-pub struct TransactionVerificationData {
-    /// The transaction we are verifying
-    pub tx: Transaction,
-    /// The [`TxVersion`] of this tx.
-    pub version: TxVersion,
-    /// The serialised transaction.
-    pub tx_blob: Vec<u8>,
-    /// The weight of the transaction.
-    pub tx_weight: usize,
-    /// The fee this transaction has paid.
-    pub fee: u64,
-    /// The hash of this transaction.
-    pub tx_hash: [u8; 32],
-    /// The verification state of this transaction.
-    pub cached_verification_state: StdMutex<CachedVerificationState>,
-}
-
-impl TransactionVerificationData {
-    /// Creates a new [`TransactionVerificationData`] from the given [`Transaction`].
-    pub fn new(tx: Transaction) -> Result<TransactionVerificationData, ConsensusError> {
-        let tx_hash = tx.hash();
-        let tx_blob = tx.serialize();
-
-        let tx_weight = free::tx_weight(&tx, &tx_blob);
-
-        let fee = free::tx_fee(&tx)?;
-
-        Ok(TransactionVerificationData {
-            tx_hash,
-            tx_blob,
-            tx_weight,
-            fee,
-            cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
-            version: TxVersion::from_raw(tx.version())
-                .ok_or(TransactionError::TransactionVersionInvalid)?,
-            tx,
-        })
-    }
 }
 
 /// A request to verify a transaction.
@@ -252,7 +184,7 @@ where
     tracing::debug!(parent: &span, "prepping transactions for verification.");
     let txs = rayon_spawn_async(|| {
         txs.into_par_iter()
-            .map(|tx| TransactionVerificationData::new(tx).map(Arc::new))
+            .map(|tx| new_tx_verification_data(tx).map(Arc::new))
             .collect::<Result<Vec<_>, _>>()
     })
     .await?;
@@ -399,7 +331,7 @@ fn transactions_needing_verification(
                     .push((tx.clone(), VerificationNeeded::SemanticAndContextual));
                 continue;
             }
-            CachedVerificationState::ValidAtHashAndHF(hash, hf) => {
+            CachedVerificationState::ValidAtHashAndHF { block_hash, hf } => {
                 if current_hf != hf {
                     drop(guard);
                     full_validation_transactions
@@ -407,13 +339,17 @@ fn transactions_needing_verification(
                     continue;
                 }
 
-                if !hashes_in_main_chain.contains(hash) {
+                if !hashes_in_main_chain.contains(block_hash) {
                     drop(guard);
                     full_validation_transactions.push((tx.clone(), VerificationNeeded::Contextual));
                     continue;
                 }
             }
-            CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock(hash, hf, lock) => {
+            CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
+                block_hash,
+                hf,
+                time_lock,
+            } => {
                 if current_hf != hf {
                     drop(guard);
                     full_validation_transactions
@@ -421,14 +357,14 @@ fn transactions_needing_verification(
                     continue;
                 }
 
-                if !hashes_in_main_chain.contains(hash) {
+                if !hashes_in_main_chain.contains(block_hash) {
                     drop(guard);
                     full_validation_transactions.push((tx.clone(), VerificationNeeded::Contextual));
                     continue;
                 }
 
                 // If the time lock is still locked then the transaction is invalid.
-                if !output_unlocked(lock, current_chain_height, time_for_time_lock, hf) {
+                if !output_unlocked(time_lock, current_chain_height, time_for_time_lock, hf) {
                     return Err(ConsensusError::Transaction(
                         TransactionError::OneOrMoreRingMembersLocked,
                     ));
@@ -517,10 +453,15 @@ where
         txs.iter()
             .zip(txs_ring_member_info)
             .for_each(|((tx, _), ring)| {
-                if ring.time_locked_outs.is_empty() {
-                    *tx.cached_verification_state.lock().unwrap() =
-                        CachedVerificationState::ValidAtHashAndHF(top_hash, hf);
+                *tx.cached_verification_state.lock().unwrap() = if ring.time_locked_outs.is_empty()
+                {
+                    // no outputs with time-locks used.
+                    CachedVerificationState::ValidAtHashAndHF {
+                        block_hash: top_hash,
+                        hf,
+                    }
                 } else {
+                    // an output with a time-lock was used, check if it was time-based.
                     let youngest_timebased_lock = ring
                         .time_locked_outs
                         .iter()
@@ -530,16 +471,20 @@ where
                         })
                         .min();
 
-                    *tx.cached_verification_state.lock().unwrap() =
-                        if let Some(time) = youngest_timebased_lock {
-                            CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock(
-                                top_hash,
-                                hf,
-                                Timelock::Time(time),
-                            )
-                        } else {
-                            CachedVerificationState::ValidAtHashAndHF(top_hash, hf)
-                        };
+                    if let Some(time) = youngest_timebased_lock {
+                        // time-based lock used.
+                        CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
+                            block_hash: top_hash,
+                            hf,
+                            time_lock: Timelock::Time(time),
+                        }
+                    } else {
+                        // no time-based locked output was used.
+                        CachedVerificationState::ValidAtHashAndHF {
+                            block_hash: top_hash,
+                            hf,
+                        }
+                    }
                 }
             });
 

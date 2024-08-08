@@ -573,6 +573,7 @@ dependencies = [
  "crypto-bigint",
  "cuprate-cryptonight",
  "cuprate-helper",
+ "cuprate-types",
  "curve25519-dalek",
  "hex",
  "hex-literal",
@@ -860,7 +861,10 @@ dependencies = [
  "cuprate-fixed-bytes",
  "curve25519-dalek",
  "monero-serai",
+ "proptest",
+ "proptest-derive",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

@@ -1,9 +1,40 @@
+use std::sync::Mutex as StdMutex;
+
 use monero_serai::{
     ringct::{bulletproofs::Bulletproof, RctType},
     transaction::{Input, Transaction},
 };
 
-use cuprate_consensus_rules::transactions::TransactionError;
+use cuprate_consensus_rules::{transactions::TransactionError, ConsensusError};
+use cuprate_types::{CachedVerificationState, TransactionVerificationData, TxVersion};
+
+/// Creates a new [`TransactionVerificationData`] from a [`Transaction`].
+///
+/// # Errors
+///
+/// This function will return [`Err`] if the transaction is malformed, although returning [`Ok`] does
+/// not necessarily mean the tx is correctly formed.
+pub fn new_tx_verification_data(
+    tx: Transaction,
+) -> Result<TransactionVerificationData, ConsensusError> {
+    let tx_hash = tx.hash();
+    let tx_blob = tx.serialize();
+
+    let tx_weight = tx_weight(&tx, &tx_blob);
+
+    let fee = tx_fee(&tx)?;
+
+    Ok(TransactionVerificationData {
+        tx_hash,
+        version: TxVersion::from_raw(tx.version())
+            .ok_or(TransactionError::TransactionVersionInvalid)?,
+        tx_blob,
+        tx_weight,
+        fee,
+        cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
+        tx,
+    })
+}
 
 /// Calculates the weight of a [`Transaction`].
 ///

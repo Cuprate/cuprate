@@ -15,7 +15,10 @@ use cuprate_consensus_rules::{
     ConsensusError,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::{AltBlockInformation, Chain, ChainId, VerifiedTransactionInformation};
+use cuprate_types::{
+    AltBlockInformation, Chain, ChainId, TransactionVerificationData,
+    VerifiedTransactionInformation,
+};
 
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock},
@@ -25,7 +28,6 @@ use crate::{
         weight::{self, BlockWeightsCache},
         AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
     },
-    transactions::TransactionVerificationData,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     VerifyBlockResponse,
 };

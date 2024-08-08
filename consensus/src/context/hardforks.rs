@@ -95,8 +95,7 @@ impl HardForkState {
             panic!("Database sent incorrect response!");
         };
 
-        let current_hardfork =
-            HardFork::from_version(ext_header.version).expect("Stored block has invalid hardfork");
+        let current_hardfork = ext_header.version;
 
         let mut hfs = HardForkState {
             config,
