@@ -12,7 +12,7 @@ const BLOCK_TIME_V1: Duration = Duration::from_secs(60);
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds>
 const BLOCK_TIME_V2: Duration = Duration::from_secs(120);
 
-/// The raw hard-fork value was not a valid [`HardFork`].
+/// An error working with a [`HardFork`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum HardForkError {
     /// The raw-HF value is not a valid [`HardFork`].

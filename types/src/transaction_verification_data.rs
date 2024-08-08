@@ -6,20 +6,6 @@ use monero_serai::transaction::{Timelock, Transaction};
 
 use crate::HardFork;
 
-/// An error when creating a [`TransactionVerificationData`] from a [`Transaction`].
-#[derive(Debug, Copy, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum TxVerificationDataErr {
-    /// The inputs overflow a [`u64`]
-    #[error("Tx inputs overflow")]
-    InputsOverflow,
-    /// The tx outputs more than the inputs sum to.
-    #[error("Tx outputs too much")]
-    OutputsTooHigh,
-    /// The transaction has an invalid version.
-    #[error("Tx version invalid")]
-    TransactionVersionInvalid,
-}
-
 /// An enum representing all valid Monero transaction versions.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum TxVersion {
