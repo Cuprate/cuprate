@@ -371,7 +371,7 @@ mod test {
                 let b1 = block_header_from_hash;
                 let b2 = block;
                 assert_eq!(b1, block_header_from_height);
-                assert_eq!(b1.version as u8, b2.block.header.hardfork_version);
+                assert_eq!(b1.version.as_u8(), b2.block.header.hardfork_version);
                 assert_eq!(b1.vote, b2.block.header.hardfork_signal);
                 assert_eq!(b1.timestamp, b2.block.header.timestamp);
                 assert_eq!(b1.cumulative_difficulty, b2.cumulative_difficulty);

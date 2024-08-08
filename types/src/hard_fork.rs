@@ -109,6 +109,11 @@ impl HardFork {
         ))
     }
 
+    /// Returns the raw hard-fork value, as it would appear in [`BlockHeader::hardfork_version`].
+    pub const fn as_u8(&self) -> u8 {
+        *self as u8
+    }
+
     /// Returns the next hard-fork.
     pub fn next_fork(&self) -> Option<Self> {
         Self::from_version(*self as u8 + 1).ok()

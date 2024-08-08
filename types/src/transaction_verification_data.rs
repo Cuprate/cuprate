@@ -1,6 +1,6 @@
 //! Contains [`TransactionVerificationData`] and the related types.
 
-use std::sync::Mutex as StdMutex;
+use std::sync::Mutex;
 
 use monero_serai::transaction::{Timelock, Transaction};
 
@@ -90,5 +90,5 @@ pub struct TransactionVerificationData {
     /// The hash of this transaction.
     pub tx_hash: [u8; 32],
     /// The verification state of this transaction.
-    pub cached_verification_state: StdMutex<CachedVerificationState>,
+    pub cached_verification_state: Mutex<CachedVerificationState>,
 }
