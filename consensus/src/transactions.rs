@@ -25,8 +25,10 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork,
 };
 use cuprate_helper::asynch::rayon_spawn_async;
-use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
-use cuprate_types::{CachedVerificationState, TransactionVerificationData};
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    CachedVerificationState, TransactionVerificationData, TxVersion,
+};
 
 use crate::{
     batch_verifier::MultiThreadedBatchVerifier,
@@ -370,7 +372,7 @@ fn transactions_needing_verification(
             }
         }
 
-        if tx.tx.version() == 1 {
+        if tx.version == TxVersion::RingSignatures {
             drop(guard);
             partial_validation_transactions.push(tx.clone());
             continue;
@@ -453,11 +455,13 @@ where
             .for_each(|((tx, _), ring)| {
                 *tx.cached_verification_state.lock().unwrap() = if ring.time_locked_outs.is_empty()
                 {
+                    // no outputs with time-locks used.
                     CachedVerificationState::ValidAtHashAndHF {
                         block_hash: top_hash,
                         hf,
                     }
                 } else {
+                    // an output with a time-lock was used, check if it was time-based.
                     let youngest_timebased_lock = ring
                         .time_locked_outs
                         .iter()
@@ -468,12 +472,14 @@ where
                         .min();
 
                     if let Some(time) = youngest_timebased_lock {
+                        // time-based lock used.
                         CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
                             block_hash: top_hash,
                             hf,
                             time_lock: Timelock::Time(time),
                         }
                     } else {
+                        // no time-based locked output was used.
                         CachedVerificationState::ValidAtHashAndHF {
                             block_hash: top_hash,
                             hf,

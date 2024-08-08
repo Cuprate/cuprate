@@ -24,6 +24,7 @@ use cuprate_consensus_rules::{
     blocks::{
         calculate_pow_hash, check_block, check_block_pow, randomx_seed_height, BlockError, RandomX,
     },
+    hard_forks::HardForkError,
     miner_tx::MinerTxError,
     ConsensusError, HardFork,
 };
@@ -40,7 +41,6 @@ mod free;
 
 use alt_block::sanity_check_alt_block;
 use batch_prepare::batch_prepare_main_chain_block;
-use cuprate_consensus_rules::hard_forks::HardForkError;
 use free::pull_ordered_transactions;
 
 /// A pre-prepared block with all data needed to verify it, except the block's proof of work.

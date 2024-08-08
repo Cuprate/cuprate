@@ -13,10 +13,10 @@ use cuprate_consensus_rules::{
 };
 use cuprate_helper::asynch::rayon_spawn_async;
 
-use crate::transactions::new_tx_verification_data;
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
     context::rx_vms::RandomXVM,
+    transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     VerifyBlockResponse,
 };
