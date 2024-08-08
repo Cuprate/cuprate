@@ -1,8 +1,11 @@
 use std::cmp::Ordering;
 
-use monero_serai::ringct::RctType;
+use monero_serai::{
+    ringct::RctType,
+    transaction::{Input, Output, Timelock, Transaction},
+};
 
-use monero_serai::transaction::{Input, Output, Timelock, Transaction};
+pub use cuprate_types::TxVersion;
 
 use crate::{
     batch_verifier::BatchVerifier, blocks::penalty_free_zone, check_point_canonically_encoded,
@@ -73,31 +76,6 @@ pub enum TransactionError {
     //-------------------------------------------------------- RingCT
     #[error("RingCT Error: {0}.")]
     RingCTError(#[from] RingCTError),
-}
-
-/// An enum representing all valid Monero transaction versions.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum TxVersion {
-    /// Legacy ring signatures.
-    RingSignatures,
-    /// RingCT
-    RingCT,
-}
-
-impl TxVersion {
-    /// Converts a `raw` version value to a [`TxVersion`].
-    ///
-    /// This will return `None` on invalid values.
-    ///
-    /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions.html#version>
-    ///  &&  <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#version>
-    pub fn from_raw(version: u8) -> Option<TxVersion> {
-        Some(match version {
-            1 => TxVersion::RingSignatures,
-            2 => TxVersion::RingCT,
-            _ => return None,
-        })
-    }
 }
 
 //----------------------------------------------------------------------------------------------------------- OUTPUTS

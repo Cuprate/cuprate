@@ -16,7 +16,8 @@ use tower::{Service, ServiceExt};
 
 use cuprate_helper::asynch::rayon_spawn_async;
 use cuprate_types::{
-    AltBlockInformation, VerifiedBlockInformation, VerifiedTransactionInformation,
+    AltBlockInformation, TransactionVerificationData, VerifiedBlockInformation,
+    VerifiedTransactionInformation,
 };
 
 use cuprate_consensus_rules::{
@@ -29,7 +30,7 @@ use cuprate_consensus_rules::{
 
 use crate::{
     context::{BlockChainContextRequest, BlockChainContextResponse, RawBlockChainContext},
-    transactions::{TransactionVerificationData, VerifyTxRequest, VerifyTxResponse},
+    transactions::{VerifyTxRequest, VerifyTxResponse},
     Database, ExtendedConsensusError,
 };
 

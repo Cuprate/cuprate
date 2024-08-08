@@ -3,7 +3,9 @@ use std::collections::HashMap;
 
 use monero_serai::block::Block;
 
-use crate::{transactions::TransactionVerificationData, ExtendedConsensusError};
+use cuprate_types::TransactionVerificationData;
+
+use crate::ExtendedConsensusError;
 
 /// Returns a list of transactions, pulled from `txs` in the order they are in the [`Block`].
 ///
