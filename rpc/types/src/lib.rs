@@ -73,23 +73,11 @@
 	// FIXME: good lint but is less clear in most cases.
 	clippy::items_after_statements,
 
-	// TODO
-	rustdoc::bare_urls,
-
+    clippy::multiple_crate_versions,
 	clippy::module_name_repetitions,
 	clippy::module_inception,
 	clippy::redundant_pub_crate,
 	clippy::option_if_let_else,
-)]
-// Allow some lints when running in debug mode.
-#![cfg_attr(
-    debug_assertions,
-    allow(
-        clippy::todo,
-        clippy::multiple_crate_versions,
-        unused_imports,
-        unused_variables
-    )
 )]
 // Allow some lints in tests.
 #![cfg_attr(
@@ -100,11 +88,6 @@
         clippy::cast_possible_truncation,
         clippy::too_many_lines
     )
-)]
-// TODO: remove me after finishing impl
-#![allow(
-	dead_code,
-    rustdoc::broken_intra_doc_links // TODO: remove after `{bin,json,other}.rs` gets merged
 )]
 
 //---------------------------------------------------------------------------------------------------- Mod

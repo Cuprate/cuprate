@@ -1,17 +1,14 @@
 //! Output distributions for [`crate::json::GetOutputDistributionResponse`].
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::mem::size_of;
-
 #[cfg(feature = "serde")]
-use serde::{ser::SerializeStruct, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
     epee_object, error,
     macros::bytes::{Buf, BufMut},
-    read_epee_value, read_varint, write_field, write_varint, EpeeObject, EpeeObjectBuilder,
-    EpeeValue, Marker,
+    read_epee_value, write_field, EpeeObject, EpeeObjectBuilder, EpeeValue,
 };
 
 //---------------------------------------------------------------------------------------------------- Free
@@ -24,7 +21,7 @@ use cuprate_epee_encoding::{
     45..=55
 )]
 #[cfg(feature = "epee")]
-fn compress_integer_array(array: &[u64]) -> error::Result<Vec<u8>> {
+fn compress_integer_array(_: &[u64]) -> error::Result<Vec<u8>> {
     todo!()
 }
 
@@ -36,7 +33,7 @@ fn compress_integer_array(array: &[u64]) -> error::Result<Vec<u8>> {
     "rpc/core_rpc_server_commands_defs.h",
     57..=72
 )]
-fn decompress_integer_array(array: &[u8]) -> Vec<u64> {
+fn decompress_integer_array(_: &[u8]) -> Vec<u64> {
     todo!()
 }
 
@@ -281,9 +278,9 @@ impl EpeeObject for Distribution {
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::assert_eq;
+    // use pretty_assertions::assert_eq;
 
-    use super::*;
+    // use super::*;
 
     // TODO: re-enable tests after (de)compression functions are implemented.
 
