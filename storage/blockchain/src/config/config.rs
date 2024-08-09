@@ -7,7 +7,7 @@ use std::{borrow::Cow, path::Path};
 use serde::{Deserialize, Serialize};
 
 use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
-use cuprate_helper::fs::cuprate_blockchain_dir;
+use cuprate_helper::fs::CUPRATE_BLOCKCHAIN_DIR;
 
 // re-exports
 pub use cuprate_database_service::ReaderThreads;
@@ -38,7 +38,7 @@ impl ConfigBuilder {
         Self {
             db_directory: None,
             db_config: cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(
-                cuprate_blockchain_dir(),
+                &*CUPRATE_BLOCKCHAIN_DIR,
             )),
             reader_threads: None,
         }
@@ -56,7 +56,7 @@ impl ConfigBuilder {
         // in `helper::fs`. No need to do them here.
         let db_directory = self
             .db_directory
-            .unwrap_or_else(|| Cow::Borrowed(cuprate_blockchain_dir()));
+            .unwrap_or_else(|| Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR));
 
         let reader_threads = self.reader_threads.unwrap_or_default();
         let db_config = self
@@ -106,7 +106,7 @@ impl ConfigBuilder {
     #[must_use]
     pub fn fast(mut self) -> Self {
         self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_blockchain_dir()))
+            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR))
                 .fast();
 
         self.reader_threads = Some(ReaderThreads::OnePerThread);
@@ -120,7 +120,7 @@ impl ConfigBuilder {
     #[must_use]
     pub fn low_power(mut self) -> Self {
         self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_blockchain_dir()))
+            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_BLOCKCHAIN_DIR))
                 .low_power();
 
         self.reader_threads = Some(ReaderThreads::One);
@@ -130,7 +130,7 @@ impl ConfigBuilder {
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
-        let db_directory = Cow::Borrowed(cuprate_blockchain_dir());
+        let db_directory = Cow::Borrowed(&**CUPRATE_BLOCKCHAIN_DIR);
         Self {
             db_directory: Some(db_directory.clone()),
             db_config: cuprate_database::config::ConfigBuilder::new(db_directory),
