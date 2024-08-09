@@ -81,7 +81,7 @@ macro_rules! generate_endpoints_inner {
                 // Serialize to bytes and respond.
                 match cuprate_epee_encoding::to_bytes(response) {
                     Ok(bytes) => Ok(bytes.freeze()),
-                    Err(e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+                    Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
                 }
             }
         }

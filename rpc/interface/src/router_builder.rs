@@ -1,12 +1,7 @@
 //! Free functions.
 
-use std::marker::PhantomData;
-
 //---------------------------------------------------------------------------------------------------- Use
-use axum::{
-    routing::{method_routing::get, post},
-    Router,
-};
+use axum::Router;
 
 use crate::{
     route::{bin, fallback, json_rpc, other},
