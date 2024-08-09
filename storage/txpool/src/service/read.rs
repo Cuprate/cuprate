@@ -2,13 +2,18 @@ use std::sync::Arc;
 
 use rayon::ThreadPool;
 
-use crate::ops::get_transaction_verification_data;
-use crate::service::interface::{TxpoolReadRequest, TxpoolReadResponse};
-use crate::service::types::{ReadResponseResult, TxpoolReadHandle};
-use crate::tables::{OpenTables, TransactionBlobs};
-use crate::types::TransactionHash;
-use cuprate_database::{ConcreteEnv, Env, EnvInner, RuntimeError};
+use cuprate_database::{ConcreteEnv, Env, EnvInner};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+
+use crate::{
+    ops::get_transaction_verification_data,
+    service::{
+        interface::{TxpoolReadRequest, TxpoolReadResponse},
+        types::{ReadResponseResult, TxpoolReadHandle},
+    },
+    tables::{OpenTables, TransactionBlobs},
+    types::TransactionHash,
+};
 
 // TODO: update the docs here
 //---------------------------------------------------------------------------------------------------- init_read_service

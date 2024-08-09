@@ -10,8 +10,6 @@ pub enum TxpoolReadRequest {
     TxBlob(TransactionHash),
     /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
-    /// Returns if we have a transaction in the pool.
-    TxInPool(TransactionHash),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
@@ -21,26 +19,20 @@ pub enum TxpoolReadResponse {
     TxBlob(Vec<u8>),
     /// A response of [`TransactionVerificationData`].
     TxVerificationData(TransactionVerificationData),
-    TxInPool(Option<State>),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
 pub enum TxpoolWriteRequest {
     AddTransaction {
         tx: Arc<TransactionVerificationData>,
-        state_stem: bool
+        state_stem: bool,
     },
     RemoveTransaction(TransactionHash),
-    PromoteTransactionToFluffPool(TransactionHash),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TxpoolWriteResponse {
-    AddTransaction
-}
-
-pub struct NewTransaction {
-    tx: Arc<TransactionVerificationData>,
-    dpp_state: State,
+    AddTransaction(Option<TransactionHash>),
+    Ok,
 }

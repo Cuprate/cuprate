@@ -22,8 +22,8 @@ use crate::{
 ///
 /// # Panics
 /// This function will panic if the transactions inputs are not all of type [`Input::ToKey`].
-fn add_transaction(
-    tx: Arc<TransactionVerificationData>,
+pub fn add_transaction(
+    tx: &TransactionVerificationData,
     state_stem: bool,
     tables: &mut impl TablesMut,
 ) -> Result<(), TxPoolWriteError> {
@@ -39,7 +39,6 @@ fn add_transaction(
             fee: tx.fee,
             weight: tx.tx_weight,
             state_stem,
-            double_spend_seen: false,
         },
     )?;
 
@@ -57,10 +56,7 @@ fn add_transaction(
 }
 
 /// Removes a transaction from the transaction pool.
-///
-/// # Panics
-/// This function will panic if the transactions inputs are not all of type [`Input::ToKey`].
-fn remove_transaction(
+pub fn remove_transaction(
     tx_hash: &TransactionHash,
     tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {

@@ -1,9 +1,9 @@
 use cuprate_database::config::{Config as DbConfig, SyncMode};
+use cuprate_database::resize::ResizeAlgorithm;
 use cuprate_database_service::ReaderThreads;
 use cuprate_helper::fs::{cuprate_blockchain_dir, cuprate_txpool_dir};
 use std::borrow::Cow;
 use std::path::Path;
-use cuprate_database::resize::ResizeAlgorithm;
 
 /// The default transaction pool weight limit.
 const DEFAULT_TXPOOL_WEIGHT_LIMIT: usize = 600 * 1024 * 1024;
@@ -40,7 +40,7 @@ impl ConfigBuilder {
                 cuprate_blockchain_dir(),
             )),
             reader_threads: None,
-            max_txpool_weight: None
+            max_txpool_weight: None,
         }
     }
 
@@ -60,7 +60,9 @@ impl ConfigBuilder {
 
         let reader_threads = self.reader_threads.unwrap_or_default();
 
-        let max_txpool_weight = self.max_txpool_weight.unwrap_or(DEFAULT_TXPOOL_WEIGHT_LIMIT);
+        let max_txpool_weight = self
+            .max_txpool_weight
+            .unwrap_or(DEFAULT_TXPOOL_WEIGHT_LIMIT);
 
         let db_config = self
             .db_config
@@ -71,7 +73,7 @@ impl ConfigBuilder {
         Config {
             db_config,
             reader_threads,
-            max_txpool_weight
+            max_txpool_weight,
         }
     }
 
@@ -145,7 +147,7 @@ impl Default for ConfigBuilder {
             db_directory: Some(db_directory.clone()),
             db_config: cuprate_database::config::ConfigBuilder::new(db_directory),
             reader_threads: Some(ReaderThreads::default()),
-            max_txpool_weight: Some(DEFAULT_TXPOOL_WEIGHT_LIMIT)
+            max_txpool_weight: Some(DEFAULT_TXPOOL_WEIGHT_LIMIT),
         }
     }
 }
@@ -167,6 +169,7 @@ pub struct Config {
     pub reader_threads: ReaderThreads,
 
     /// The maximum weight of the transaction pool, after which we will start dropping transactions.
+    // TODO: enforce this max size.
     pub max_txpool_weight: usize,
 }
 

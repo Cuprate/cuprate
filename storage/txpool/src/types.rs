@@ -1,25 +1,25 @@
 use bytemuck::{Pod, Zeroable};
 
-use cuprate_dandelion_tower::State;
-use cuprate_types::{CachedVerificationState, HardFork};
 use monero_serai::transaction::Timelock;
 
+use cuprate_types::{CachedVerificationState, HardFork};
+
+/// An inputs key image.
 pub type KeyImage = [u8; 32];
 
+/// A transaction hash.
 pub type TransactionHash = [u8; 32];
 
+/// Information on a tx-pool transaction.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct TransactionInfo {
+    /// The transaction's fee.
     pub fee: u64,
+    /// The transactions weight.
     pub weight: usize,
+    /// This will be [`true`] if the transaction is in the stem state.
     pub state_stem: bool,
-
-    pub double_spend_seen: bool,
-}
-
-impl TransactionInfo {
-    pub fn dpp_state(&self) -> State {}
 }
 
 /// [`CachedVerificationState`] in a format that can be stored into the database.

@@ -806,7 +806,6 @@ name = "cuprate-txpool"
 version = "0.0.0"
 dependencies = [
  "bytemuck",
- "cuprate-dandelion-tower",
  "cuprate-database",
  "cuprate-database-service",
  "cuprate-helper",
