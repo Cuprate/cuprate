@@ -1,4 +1,4 @@
-//! Free functions to access data.
+//! `static LazyLock`s to access data.
 
 #![allow(
     const_item_mutation, // `R: Read` needs `&mut self`
@@ -6,7 +6,7 @@
 )]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
@@ -141,8 +141,7 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
 }
 
 //---------------------------------------------------------------------------------------------------- Blocks
-/// Generate a block accessor function with this signature:
-///     `fn() -> &'static VerifiedBlockInformation`
+/// Generate a `static LazyLock<VerifiedBlockInformation>`.
 ///
 /// This will use `VerifiedBlockMap` type above to do various
 /// checks on the input data and makes sure it seems correct.
@@ -153,9 +152,9 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
 /// - Monero RPC (see cuprate_test_utils::rpc for this)
 ///
 /// See below for actual usage.
-macro_rules! verified_block_information_fn {
+macro_rules! verified_block_information {
     (
-        fn_name: $fn_name:ident, // Name of the function created
+        name: $name:ident, // Name of the `LazyLock` created
         block_blob: $block_blob:ident, // Block blob ([u8], found in `constants.rs`)
         tx_blobs: [$($tx_blob:ident),*], // Array of contained transaction blobs
         pow_hash: $pow_hash:literal, // PoW hash as a string literal
@@ -201,28 +200,25 @@ macro_rules! verified_block_information_fn {
             "));"
         )]
         /// ```
-        pub fn $fn_name() -> &'static VerifiedBlockInformation {
-            static BLOCK: OnceLock<VerifiedBlockInformation> = OnceLock::new();
-            BLOCK.get_or_init(|| {
-                VerifiedBlockMap {
-                    block_blob: $block_blob,
-                    pow_hash: hex!($pow_hash),
-                    height: $height,
-                    generated_coins: $generated_coins,
-                    weight: $weight,
-                    long_term_weight: $long_term_weight,
-                    cumulative_difficulty_low: $cumulative_difficulty_low,
-                    cumulative_difficulty_high: $cumulative_difficulty_high,
-                    txs: &[$($tx_blob),*],
-                }
-                .into_verified()
-            })
-        }
+        pub static $name: LazyLock<VerifiedBlockInformation> = LazyLock::new(|| {
+            VerifiedBlockMap {
+                block_blob: $block_blob,
+                pow_hash: hex!($pow_hash),
+                height: $height,
+                generated_coins: $generated_coins,
+                weight: $weight,
+                long_term_weight: $long_term_weight,
+                cumulative_difficulty_low: $cumulative_difficulty_low,
+                cumulative_difficulty_high: $cumulative_difficulty_high,
+                txs: &[$($tx_blob),*],
+            }
+            .into_verified()
+        });
     };
 }
 
-verified_block_information_fn! {
-    fn_name: block_v1_tx2,
+verified_block_information! {
+    name: BLOCK_V1_TX2,
     block_blob: BLOCK_5ECB7E,
     tx_blobs: [TX_2180A8, TX_D7FEBD],
     pow_hash: "c960d540000459480560b7816de968c7470083e5874e10040bdd4cc501000000",
@@ -235,8 +231,8 @@ verified_block_information_fn! {
     tx_len: 2,
 }
 
-verified_block_information_fn! {
-    fn_name: block_v9_tx3,
+verified_block_information! {
+    name: BLOCK_V9_TX3,
     block_blob: BLOCK_F91043,
     tx_blobs: [TX_E2D393, TX_E57440, TX_B6B439],
     pow_hash: "7c78b5b67a112a66ea69ea51477492057dba9cfeaa2942ee7372c61800000000",
@@ -249,8 +245,8 @@ verified_block_information_fn! {
     tx_len: 3,
 }
 
-verified_block_information_fn! {
-    fn_name: block_v16_tx0,
+verified_block_information! {
+    name: BLOCK_V16_TX0,
     block_blob: BLOCK_43BD1F,
     tx_blobs: [],
     pow_hash: "10b473b5d097d6bfa0656616951840724dfe38c6fb9c4adf8158800300000000",
@@ -264,13 +260,12 @@ verified_block_information_fn! {
 }
 
 //---------------------------------------------------------------------------------------------------- Transactions
-/// Generate a transaction accessor function with this signature:
-///     `fn() -> &'static VerifiedTransactionInformation`
+/// Generate a `const LazyLock<VerifiedTransactionInformation>`.
 ///
-/// Same as [`verified_block_information_fn`] but for transactions.
-macro_rules! transaction_verification_data_fn {
+/// Same as [`verified_block_information`] but for transactions.
+macro_rules! transaction_verification_data {
     (
-        fn_name: $fn_name:ident, // Name of the function created
+        name: $name:ident, // Name of the `LazyLock` created
         tx_blobs: $tx_blob:ident, // Transaction blob ([u8], found in `constants.rs`)
         weight: $weight:literal, // Transaction weight
         hash: $hash:literal, // Transaction hash as a string literal
@@ -286,29 +281,28 @@ macro_rules! transaction_verification_data_fn {
         #[doc = concat!("assert_eq!(tx.tx_weight, ", $weight, ");")]
         #[doc = concat!("assert_eq!(tx.tx_hash, hex!(\"", $hash, "\"));")]
         /// ```
-        pub fn $fn_name() -> &'static VerifiedTransactionInformation {
-            static TX: OnceLock<VerifiedTransactionInformation> = OnceLock::new();
-            TX.get_or_init(|| to_tx_verification_data($tx_blob))
-        }
+        pub static $name: LazyLock<VerifiedTransactionInformation> = LazyLock::new(|| {
+            to_tx_verification_data($tx_blob)
+        });
     };
 }
 
-transaction_verification_data_fn! {
-    fn_name: tx_v1_sig0,
+transaction_verification_data! {
+    name: TX_V1_SIG0,
     tx_blobs: TX_3BC7FF,
     weight: 248,
     hash: "3bc7ff015b227e7313cc2e8668bfbb3f3acbee274a9c201d6211cf681b5f6bb1",
 }
 
-transaction_verification_data_fn! {
-    fn_name: tx_v1_sig2,
+transaction_verification_data! {
+    name: TX_V1_SIG2,
     tx_blobs: TX_9E3F73,
     weight: 448,
     hash: "9e3f73e66d7c7293af59c59c1ff5d6aae047289f49e5884c66caaf4aea49fb34",
 }
 
-transaction_verification_data_fn! {
-    fn_name: tx_v2_rct3,
+transaction_verification_data! {
+    name: TX_V2_RCT3,
     tx_blobs: TX_84D48D,
     weight: 2743,
     hash: "84d48dc11ec91950f8b70a85af9db91fe0c8abef71ef5db08304f7344b99ea66",
@@ -328,7 +322,7 @@ mod tests {
     #[tokio::test]
     async fn block_same_as_rpc() {
         let rpc = HttpRpcClient::new(None).await;
-        for block in [block_v1_tx2(), block_v9_tx3(), block_v16_tx0()] {
+        for block in [&*BLOCK_V1_TX2, &*BLOCK_V9_TX3, &*BLOCK_V16_TX0] {
             println!("block_height: {}", block.height);
             let block_rpc = rpc.get_verified_block_information(block.height).await;
             assert_eq!(block, &block_rpc);
@@ -342,16 +336,12 @@ mod tests {
     async fn tx_same_as_rpc() {
         let rpc = HttpRpcClient::new(None).await;
 
-        let mut txs = [block_v1_tx2(), block_v9_tx3(), block_v16_tx0()]
+        let mut txs = [&*BLOCK_V1_TX2, &*BLOCK_V9_TX3, &*BLOCK_V16_TX0]
             .into_iter()
             .flat_map(|block| block.txs.iter().cloned())
             .collect::<Vec<VerifiedTransactionInformation>>();
 
-        txs.extend([
-            tx_v1_sig0().clone(),
-            tx_v1_sig2().clone(),
-            tx_v2_rct3().clone(),
-        ]);
+        txs.extend([TX_V1_SIG0.clone(), TX_V1_SIG2.clone(), TX_V2_RCT3.clone()]);
 
         for tx in txs {
             println!("tx_hash: {:?}", tx.tx_hash);

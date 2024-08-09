@@ -322,7 +322,7 @@ mod test {
     use pretty_assertions::assert_eq;
 
     use cuprate_database::{Env, EnvInner, TxRw};
-    use cuprate_test_utils::data::{tx_v1_sig0, tx_v1_sig2, tx_v2_rct3};
+    use cuprate_test_utils::data::{TX_V1_SIG0, TX_V1_SIG2, TX_V2_RCT3};
 
     use crate::{
         tables::{OpenTables, Tables},
@@ -337,7 +337,7 @@ mod test {
         assert_all_tables_are_empty(&env);
 
         // Monero `Transaction`, not database tx.
-        let txs = [tx_v1_sig0(), tx_v1_sig2(), tx_v2_rct3()];
+        let txs = [&*TX_V1_SIG0, &*TX_V1_SIG2, &*TX_V2_RCT3];
 
         // Add transactions.
         let tx_ids = {
