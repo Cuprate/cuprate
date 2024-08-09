@@ -10,11 +10,11 @@ use proptest::{collection::vec, prelude::*};
 use monero_serai::transaction::Output;
 
 use super::*;
-use crate::decomposed_amount::decomposed_amounts;
+use crate::decomposed_amount::DECOMPOSED_AMOUNTS;
 
 #[test]
 fn test_check_output_amount_v1() {
-    for amount in decomposed_amounts() {
+    for amount in DECOMPOSED_AMOUNTS.iter() {
         assert!(check_output_amount_v1(*amount, &HardFork::V2).is_ok())
     }
 

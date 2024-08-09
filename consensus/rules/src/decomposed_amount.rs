@@ -1,13 +1,9 @@
-use std::sync::OnceLock;
-
-/// Decomposed amount table.
-///
-static DECOMPOSED_AMOUNTS: OnceLock<[u64; 172]> = OnceLock::new();
+use std::sync::LazyLock;
 
 #[rustfmt::skip]
-pub fn decomposed_amounts() -> &'static [u64; 172] {
-    DECOMPOSED_AMOUNTS.get_or_init(|| {
-        [
+/// Decomposed amount table.
+pub static DECOMPOSED_AMOUNTS: LazyLock<[u64; 172]> = LazyLock::new(|| {
+    [
         1,                   2,                   3,                   4,                   5,                   6,                   7,                   8,                   9,
         10,                  20,                  30,                  40,                  50,                  60,                  70,                  80,                  90,
         100,                 200,                 300,                 400,                 500,                 600,                 700,                 800,                 900,
@@ -28,9 +24,8 @@ pub fn decomposed_amounts() -> &'static [u64; 172] {
         100000000000000000,  200000000000000000,  300000000000000000,  400000000000000000,  500000000000000000,  600000000000000000,  700000000000000000,  800000000000000000,  900000000000000000,
         1000000000000000000, 2000000000000000000, 3000000000000000000, 4000000000000000000, 5000000000000000000, 6000000000000000000, 7000000000000000000, 8000000000000000000, 9000000000000000000,
         10000000000000000000
-        ]
-    })
-}
+    ]
+});
 
 /// Checks that an output amount is decomposed.
 ///
@@ -40,7 +35,7 @@ pub fn decomposed_amounts() -> &'static [u64; 172] {
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#output-amounts>
 #[inline]
 pub fn is_decomposed_amount(amount: &u64) -> bool {
-    decomposed_amounts().binary_search(amount).is_ok()
+    DECOMPOSED_AMOUNTS.binary_search(amount).is_ok()
 }
 
 #[cfg(test)]
@@ -49,7 +44,7 @@ mod tests {
 
     #[test]
     fn decomposed_amounts_return_decomposed() {
-        for amount in decomposed_amounts() {
+        for amount in DECOMPOSED_AMOUNTS.iter() {
             assert!(is_decomposed_amount(amount))
         }
     }
