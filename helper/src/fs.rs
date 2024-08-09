@@ -4,7 +4,7 @@
 //! Note that this module's functions uses [`dirs`],
 //! which adheres to the XDG standard on Linux.
 //!
-//! This means that the values returned by these functions
+//! This means that the values returned by these statics
 //! may change at runtime depending on environment variables,
 //! for example:
 //!
@@ -28,10 +28,7 @@
 //! - <https://docs.rs/dirs>
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
+use std::{path::PathBuf, sync::LazyLock};
 
 //---------------------------------------------------------------------------------------------------- Const
 /// Cuprate's main directory.

@@ -182,7 +182,7 @@ macro_rules! verified_block_information {
         #[doc = "# use hex_literal::hex;"]
         #[doc = "use cuprate_helper::map::combine_low_high_bits_to_u128;"]
         #[doc = ""]
-        #[doc = concat!("let block = ", stringify!($fn_name), "();")]
+        #[doc = concat!("let block = &*", stringify!($name), ";")]
         #[doc = concat!("assert_eq!(&block.block.serialize(), ", stringify!($block_blob), ");")]
         #[doc = concat!("assert_eq!(block.pow_hash, hex!(\"", $pow_hash, "\"));")]
         #[doc = concat!("assert_eq!(block.height, ", $height, ");")]
@@ -275,7 +275,7 @@ macro_rules! transaction_verification_data {
         /// ```rust
         #[doc = "# use cuprate_test_utils::data::*;"]
         #[doc = "# use hex_literal::hex;"]
-        #[doc = concat!("let tx = ", stringify!($fn_name), "();")]
+        #[doc = concat!("let tx = &*", stringify!($name), ";")]
         #[doc = concat!("assert_eq!(&tx.tx.serialize(), ", stringify!($tx_blob), ");")]
         #[doc = concat!("assert_eq!(tx.tx_blob, ", stringify!($tx_blob), ");")]
         #[doc = concat!("assert_eq!(tx.tx_weight, ", $weight, ");")]

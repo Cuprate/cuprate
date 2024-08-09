@@ -15,14 +15,14 @@
 //! let tx: Transaction = Transaction::read(&mut TX_E57440).unwrap();
 //! ```
 //!
-//! ## Functions
-//! The free functions provide access to typed data found in `cuprate_types`:
+//! ## Statics
+//! The statics provide access to typed data found in `cuprate_types`:
 //! ```rust
 //! # use cuprate_test_utils::data::*;
 //! use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 //!
 //! let block: VerifiedBlockInformation = BLOCK_V16_TX0.clone();
-//! let tx: VerifiedTransactionInformation = tx_v1_sig0().clone();
+//! let tx: VerifiedTransactionInformation = TX_V1_SIG0.clone();
 //! ```
 
 mod constants;

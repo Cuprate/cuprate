@@ -10,7 +10,7 @@
 //!
 //! # Page size
 //! All free functions in this module will
-//! return a multiple of the OS page size ([`page_size()`]),
+//! return a multiple of the OS page size ([`PAGE_SIZE`]),
 //! [LMDB will error](http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5)
 //! if this is not the case.
 //!
@@ -18,7 +18,7 @@
 //! All returned [`NonZeroUsize`] values of the free functions in this module
 //! (including [`ResizeAlgorithm::resize`]) uphold the following invariants:
 //! 1. It will always be `>=` the input `current_size_bytes`
-//! 2. It will always be a multiple of [`page_size()`]
+//! 2. It will always be a multiple of [`PAGE_SIZE`]
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{num::NonZeroUsize, sync::LazyLock};
@@ -160,7 +160,7 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
 ///
 /// ```rust
 /// # use cuprate_database::resize::*;
-/// let page_size: usize = page_size().get();
+/// let page_size: usize = PAGE_SIZE.get();
 ///
 /// // Anything below the page size will round up to the page size.
 /// for i in 0..=page_size {
@@ -215,7 +215,7 @@ pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize 
 ///
 /// ```rust
 /// # use cuprate_database::resize::*;
-/// let page_size: usize = page_size().get();
+/// let page_size: usize = PAGE_SIZE.get();
 ///
 /// // Anything below the page size will round up to the page size.
 /// for i in 0..=page_size {
