@@ -70,7 +70,7 @@ pub struct TxRingMembersInfo {
     pub rings: Rings,
     /// Information on the structure of the decoys, must be [`None`] for txs before [`HardFork::V1`]
     pub decoy_info: Option<DecoyInfo>,
-    pub youngest_used_out_height: u64,
+    pub youngest_used_out_height: usize,
     pub time_locked_outs: Vec<Timelock>,
 }
 

@@ -67,7 +67,7 @@ ID: `1007`[^support-flags]
 
 #### Request [^sf-req] { #support-flags-request }
 
-No data is serialized for a ping request.
+No data is serialized for a support flags request.
 
 #### Response [^sf-res] { #support-flags-response }
 

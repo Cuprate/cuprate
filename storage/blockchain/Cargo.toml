@@ -21,10 +21,10 @@ service     = ["dep:thread_local", "dep:rayon"]
 # FIXME:
 # We only need the `thread` feature if `service` is enabled.
 # Figure out how to enable features of an already pulled in dependency conditionally.
-cuprate-database = { path = "../database" }
+cuprate-database         = { path = "../database" }
 cuprate-database-service = { path = "../service" }
-cuprate-helper   = { path = "../../helper", features = ["fs", "thread", "map"] }
-cuprate-types    = { path = "../../types", features = ["blockchain"] }
+cuprate-helper           = { path = "../../helper", features = ["fs", "thread", "map"] }
+cuprate-types            = { path = "../../types", features = ["blockchain"] }
 
 bitflags         = { workspace = true, features = ["serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }

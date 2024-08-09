@@ -5,12 +5,13 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::task::spawn_blocking;
 
-use monero_serai::{
-    block::Block,
-    rpc::{HttpRpc, Rpc},
-};
+use monero_rpc::Rpc;
+use monero_serai::block::Block;
+use monero_simple_request_rpc::SimpleRequestRpc;
 
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
+
+use crate::data::tx_fee;
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// The default URL used for Monero RPC connections.
@@ -20,7 +21,7 @@ pub const LOCALHOST_RPC_URL: &str = "http://127.0.0.1:18081";
 /// An HTTP RPC client for Monero.
 pub struct HttpRpcClient {
     address: String,
-    rpc: Rpc<HttpRpc>,
+    rpc: SimpleRequestRpc,
 }
 
 impl HttpRpcClient {
@@ -40,7 +41,7 @@ impl HttpRpcClient {
         let address = address.unwrap_or_else(|| LOCALHOST_RPC_URL.to_string());
 
         Self {
-            rpc: HttpRpc::new(address.clone()).await.unwrap(),
+            rpc: SimpleRequestRpc::new(address.clone()).await.unwrap(),
             address,
         }
     }
@@ -53,7 +54,7 @@ impl HttpRpcClient {
 
     /// Access to the inner RPC client for other usage.
     #[allow(dead_code)]
-    const fn rpc(&self) -> &Rpc<HttpRpc> {
+    const fn rpc(&self) -> &SimpleRequestRpc {
         &self.rpc
     }
 
@@ -62,7 +63,7 @@ impl HttpRpcClient {
     /// # Panics
     /// This function will panic at any error point, e.g.,
     /// if the node cannot be connected to, if deserialization fails, etc.
-    pub async fn get_verified_block_information(&self, height: u64) -> VerifiedBlockInformation {
+    pub async fn get_verified_block_information(&self, height: usize) -> VerifiedBlockInformation {
         #[derive(Debug, Deserialize)]
         struct Result {
             blob: String,
@@ -75,7 +76,7 @@ impl HttpRpcClient {
             long_term_weight: usize,
             cumulative_difficulty: u128,
             hash: String,
-            height: u64,
+            height: usize,
             pow_hash: String,
             reward: u64, // generated_coins + total_tx_fees
         }
@@ -111,7 +112,7 @@ impl HttpRpcClient {
         .unwrap();
 
         let txs: Vec<VerifiedTransactionInformation> = self
-            .get_transaction_verification_data(&block.txs)
+            .get_transaction_verification_data(&block.transactions)
             .await
             .collect();
 
@@ -124,8 +125,8 @@ impl HttpRpcClient {
 
         let total_tx_fees = txs.iter().map(|tx| tx.fee).sum::<u64>();
         let generated_coins = block
-            .miner_tx
-            .prefix
+            .miner_transaction
+            .prefix()
             .outputs
             .iter()
             .map(|output| output.amount.expect("miner_tx amount was None"))
@@ -173,7 +174,7 @@ impl HttpRpcClient {
                     tx_blob: tx.serialize(),
                     tx_weight: tx.weight(),
                     tx_hash,
-                    fee: tx.rct_signatures.base.fee,
+                    fee: tx_fee(&tx),
                     tx,
                 }
             })
@@ -199,7 +200,7 @@ mod tests {
         #[allow(clippy::too_many_arguments)]
         async fn assert_eq(
             rpc: &HttpRpcClient,
-            height: u64,
+            height: usize,
             block_hash: [u8; 32],
             pow_hash: [u8; 32],
             generated_coins: u64,

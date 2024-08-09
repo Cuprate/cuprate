@@ -11,7 +11,6 @@ use futures::{FutureExt, StreamExt};
 use indexmap::IndexMap;
 use monero_serai::{
     block::{Block, BlockHeader},
-    ringct::{RctBase, RctPrunable, RctSignatures},
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
 use proptest::{collection::vec, prelude::*};
@@ -90,30 +89,20 @@ proptest! {
 
 prop_compose! {
     /// Returns a strategy to generate a [`Transaction`] that is valid for the block downloader.
-    fn dummy_transaction_stragtegy(height: u64)
+    fn dummy_transaction_stragtegy(height: usize)
         (
             extra in vec(any::<u8>(), 0..1_000),
             timelock in 1_usize..50_000_000,
         )
     -> Transaction {
-        Transaction {
+        Transaction::V1 {
             prefix: TransactionPrefix {
-                version: 1,
-                timelock: Timelock::Block(timelock),
+                additional_timelock: Timelock::Block(timelock),
                 inputs: vec![Input::Gen(height)],
                 outputs: vec![],
                 extra,
             },
             signatures: vec![],
-            rct_signatures: RctSignatures {
-                base: RctBase {
-                    fee: 0,
-                    pseudo_outs: vec![],
-                    encrypted_amounts: vec![],
-                    commitments: vec![],
-                },
-                prunable: RctPrunable::Null
-            },
         }
     }
 }
@@ -121,25 +110,25 @@ prop_compose! {
 prop_compose! {
     /// Returns a strategy to generate a [`Block`] that is valid for the block downloader.
     fn dummy_block_stragtegy(
-            height: u64,
+            height: usize,
             previous: [u8; 32],
         )
         (
-            miner_tx in dummy_transaction_stragtegy(height),
+            miner_transaction in dummy_transaction_stragtegy(height),
             txs in vec(dummy_transaction_stragtegy(height), 0..25)
         )
     -> (Block, Vec<Transaction>) {
        (
            Block {
                 header: BlockHeader {
-                    major_version: 0,
-                    minor_version: 0,
+                    hardfork_version: 0,
+                    hardfork_signal: 0,
                     timestamp: 0,
                     previous,
                     nonce: 0,
                 },
-                miner_tx,
-                txs: txs.iter().map(Transaction::hash).collect(),
+                miner_transaction,
+                transactions: txs.iter().map(Transaction::hash).collect(),
            },
            txs
        )
@@ -167,7 +156,7 @@ prop_compose! {
         for (height, mut block) in  blocks.into_iter().enumerate() {
             if let Some(last) = blockchain.last() {
                 block.0.header.previous = *last.0;
-                block.0.miner_tx.prefix.inputs = vec![Input::Gen(height as u64)]
+                block.0.miner_transaction.prefix_mut().inputs = vec![Input::Gen(height)]
             }
 
             blockchain.insert(block.0.hash(), block);

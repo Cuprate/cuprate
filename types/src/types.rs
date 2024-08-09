@@ -1,16 +1,13 @@
 //! Various shared data types in Cuprate.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::sync::Mutex as StdMutex;
-
 use curve25519_dalek::edwards::EdwardsPoint;
 use monero_serai::{
     block::Block,
-    ringct::RctType,
     transaction::{Timelock, Transaction},
 };
 
-use crate::hard_fork::HardFork;
+use crate::HardFork;
 
 //---------------------------------------------------------------------------------------------------- ExtendedBlockHeader
 /// Extended header data of a block.
@@ -18,13 +15,15 @@ use crate::hard_fork::HardFork;
 /// This contains various metadata of a block, but not the block blob itself.
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExtendedBlockHeader {
-    /// The block's major version, also the hard-fork of the block.
+    /// The block's major version.
+    ///
+    /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_version`].
     pub version: HardFork,
     /// The block's hard-fork vote.
     ///
-    /// This can't be represented using [`HardFork`] as blocks can vote for future HFs unknown to our node.
+    /// This can't be represented with [`HardFork`] as raw-votes can be out of the range of [`HardFork`]s.
     ///
-    /// This is the same value as [`monero_serai::block::BlockHeader::minor_version`].
+    /// This is the same value as [`monero_serai::block::BlockHeader::hardfork_signal`].
     pub vote: u8,
     /// The UNIX time at which the block was mined.
     pub timestamp: u64,
@@ -39,7 +38,8 @@ pub struct ExtendedBlockHeader {
 //---------------------------------------------------------------------------------------------------- VerifiedTransactionInformation
 /// Verified information of a transaction.
 ///
-/// This represents a transaction in a valid block.
+/// - If this is in a [`VerifiedBlockInformation`] this represents a valid transaction
+/// - If this is in an [`AltBlockInformation`] this represents a potentially valid transaction
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedTransactionInformation {
     /// The transaction itself.
@@ -72,7 +72,7 @@ pub struct VerifiedBlockInformation {
     ///
     /// [`Block::serialize`].
     pub block_blob: Vec<u8>,
-    /// All the transactions in the block, excluding the [`Block::miner_tx`].
+    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
     pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///
@@ -81,7 +81,7 @@ pub struct VerifiedBlockInformation {
     /// The block's proof-of-work hash.
     pub pow_hash: [u8; 32],
     /// The block's height.
-    pub height: u64,
+    pub height: usize,
     /// The amount of generated coins (atomic units) in this block.
     pub generated_coins: u64,
     /// The adjusted block size, in bytes.
@@ -92,108 +92,65 @@ pub struct VerifiedBlockInformation {
     pub cumulative_difficulty: u128,
 }
 
+//---------------------------------------------------------------------------------------------------- ChainID
+/// A unique ID for an alt chain.
+///
+/// The inner value is meaningless.
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub struct ChainId(pub u64);
+
+//---------------------------------------------------------------------------------------------------- Chain
+/// An identifier for a chain.
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
+pub enum Chain {
+    /// The main chain.
+    Main,
+    /// An alt chain.
+    Alt(ChainId),
+}
+
+//---------------------------------------------------------------------------------------------------- AltBlockInformation
+/// A block on an alternative chain.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AltBlockInformation {
+    /// The block itself.
+    pub block: Block,
+    /// The serialized byte form of [`Self::block`].
+    ///
+    /// [`Block::serialize`].
+    pub block_blob: Vec<u8>,
+    /// All the transactions in the block, excluding the [`Block::miner_transaction`].
+    pub txs: Vec<VerifiedTransactionInformation>,
+    /// The block's hash.
+    ///
+    /// [`Block::hash`].
+    pub block_hash: [u8; 32],
+    /// The block's proof-of-work hash.
+    pub pow_hash: [u8; 32],
+    /// The block's height.
+    pub height: usize,
+    /// The adjusted block size, in bytes.
+    pub weight: usize,
+    /// The long term block weight, which is the weight factored in with previous block weights.
+    pub long_term_weight: usize,
+    /// The cumulative difficulty of all blocks up until and including this block.
+    pub cumulative_difficulty: u128,
+    /// The [`ChainId`] of the chain this alt block is on.
+    pub chain_id: ChainId,
+}
+
 //---------------------------------------------------------------------------------------------------- OutputOnChain
 /// An already existing transaction output.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct OutputOnChain {
     /// The block height this output belongs to.
-    pub height: u64,
+    pub height: usize,
     /// The timelock of this output, if any.
     pub time_lock: Timelock,
     /// The public key of this output, if any.
     pub key: Option<EdwardsPoint>,
     /// The output's commitment.
     pub commitment: EdwardsPoint,
-}
-
-/// Represents if a transaction has been fully validated and under what conditions
-/// the transaction is valid in the future.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum CachedVerificationState {
-    /// The transaction has not been validated.
-    NotVerified,
-    /// The transaction is valid* if the block represented by this hash is in the blockchain and the [`HardFork`]
-    /// is the same.
-    ///
-    /// *V1 transactions require checks on their ring-length even if this hash is in the blockchain.
-    ValidAtHashAndHF {
-        /// The block hash that was in the chain when this transaction was validated.
-        block_hash: [u8; 32],
-        /// The hf this transaction was validated against.
-        hf: HardFork,
-    },
-    /// The transaction is valid* if the block represented by this hash is in the blockchain _and_ this
-    /// given time lock is unlocked. The time lock here will represent the youngest used time based lock
-    /// (If the transaction uses any time based time locks). This is because time locks are not monotonic
-    /// so unlocked outputs could become re-locked.
-    ///
-    /// *V1 transactions require checks on their ring-length even if this hash is in the blockchain.
-    ValidAtHashAndHFWithTimeBasedLock {
-        /// The block hash that was in the chain when this transaction was validated.
-        block_hash: [u8; 32],
-        /// The hf this transaction was validated against.
-        hf: HardFork,
-        /// The youngest used time based lock.
-        time_lock: Timelock,
-    },
-}
-
-/// Data needed to verify a transaction.
-#[derive(Debug)]
-pub struct TransactionVerificationData {
-    /// The transaction we are verifying
-    pub tx: Transaction,
-    /// The serialised transaction.
-    pub tx_blob: Vec<u8>,
-    /// The weight of the transaction.
-    pub tx_weight: usize,
-    /// The fee this transaction has paid.
-    pub fee: u64,
-    /// The hash of this transaction.
-    pub tx_hash: [u8; 32],
-    /// The verification state of this transaction.
-    pub cached_verification_state: StdMutex<CachedVerificationState>,
-}
-
-impl TransactionVerificationData {
-    /// Creates a new [`TransactionVerificationData`] from the given [`Transaction`].
-    pub fn new(tx: Transaction) -> TransactionVerificationData {
-        let tx_hash = tx.hash();
-        let tx_blob = tx.serialize();
-
-        // the tx weight is only different from the blobs length for bp(+) txs.
-        let tx_weight = match tx.rct_signatures.rct_type() {
-            RctType::Bulletproofs
-            | RctType::BulletproofsCompactAmount
-            | RctType::Clsag
-            | RctType::BulletproofsPlus => tx.weight(),
-            _ => tx_blob.len(),
-        };
-
-        TransactionVerificationData {
-            tx_hash,
-            tx_blob,
-            tx_weight,
-            fee: tx.rct_signatures.base.fee,
-            cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
-            tx,
-        }
-    }
-}
-
-// This impl is mainly for testing, going from a verified tx to a tx-pool tx doesn't have
-// many use cases.
-impl From<VerifiedTransactionInformation> for TransactionVerificationData {
-    fn from(value: VerifiedTransactionInformation) -> Self {
-        TransactionVerificationData {
-            tx: value.tx,
-            tx_blob: value.tx_blob,
-            tx_weight: value.tx_weight,
-            fee: value.fee,
-            tx_hash: value.tx_hash,
-            cached_verification_state: StdMutex::new(CachedVerificationState::NotVerified),
-        }
-    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

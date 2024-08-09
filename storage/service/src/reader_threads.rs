@@ -1,12 +1,9 @@
-//! Database [`Env`](crate::Env) configuration.
+//! Reader thread-pool configuration and initiation.
 //!
-//! This module contains the main [`Config`]uration struct
-//! for the database [`Env`](crate::Env)ironment, and data
-//! structures related to any configuration setting.
+//! This module contains [`ReaderThreads`] which allow specifying the amount of
+//! reader threads for the [`rayon::ThreadPool`].
 //!
-//! These configurations are processed at runtime, meaning
-//! the `Env` can/will dynamically adjust its behavior
-//! based on these values.
+//! It also contains [`init_thread_pool`] which initiates the thread-pool.
 
 //---------------------------------------------------------------------------------------------------- Import
 use std::{num::NonZeroUsize, sync::Arc};
@@ -31,7 +28,9 @@ pub fn init_thread_pool(reader_threads: ReaderThreads) -> Arc<ThreadPool> {
 }
 
 //---------------------------------------------------------------------------------------------------- ReaderThreads
-/// This controls how many reader thread `service`'s
+/// Amount of database reader threads to spawn.
+///
+/// This controls how many reader threads the [`DatabaseReadService`](crate::DatabaseReadService)
 /// thread-pool will spawn to receive and send requests/responses.
 ///
 /// # Invariant

@@ -57,6 +57,64 @@ pub struct ResponseBase {
     pub untrusted: bool,
 }
 
+impl ResponseBase {
+    /// `const` version of [`Default::default`].
+    ///
+    /// ```rust
+    /// use cuprate_rpc_types::{misc::*, base::*};
+    ///
+    /// let new = ResponseBase::new();
+    /// assert_eq!(new, ResponseBase {
+    ///     status: Status::Ok,
+    ///     untrusted: false,
+    /// });
+    /// ```
+    pub const fn new() -> Self {
+        Self {
+            status: Status::Ok,
+            untrusted: false,
+        }
+    }
+
+    /// Returns OK and trusted [`Self`].
+    ///
+    /// This is the most common version of [`Self`].
+    ///
+    /// ```rust
+    /// use cuprate_rpc_types::{misc::*, base::*};
+    ///
+    /// let ok = ResponseBase::ok();
+    /// assert_eq!(ok, ResponseBase {
+    ///     status: Status::Ok,
+    ///     untrusted: false,
+    /// });
+    /// ```
+    pub const fn ok() -> Self {
+        Self {
+            status: Status::Ok,
+            untrusted: false,
+        }
+    }
+
+    /// Same as [`Self::ok`] but with [`Self::untrusted`] set to `true`.
+    ///
+    /// ```rust
+    /// use cuprate_rpc_types::{misc::*, base::*};
+    ///
+    /// let ok_untrusted = ResponseBase::ok_untrusted();
+    /// assert_eq!(ok_untrusted, ResponseBase {
+    ///     status: Status::Ok,
+    ///     untrusted: true,
+    /// });
+    /// ```
+    pub const fn ok_untrusted() -> Self {
+        Self {
+            status: Status::Ok,
+            untrusted: true,
+        }
+    }
+}
+
 #[cfg(feature = "epee")]
 epee_object! {
     ResponseBase,
@@ -78,6 +136,74 @@ pub struct AccessResponseBase {
     /// If payment for RPC is enabled, the hash of the
     /// highest block in the chain. Otherwise, empty.
     pub top_hash: String,
+}
+
+impl AccessResponseBase {
+    /// Creates a new [`Self`] with default values.
+    ///
+    /// Since RPC payment is semi-deprecated, [`Self::credits`]
+    /// and [`Self::top_hash`] will always be set to the default
+    /// values.
+    ///
+    /// ```rust
+    /// use cuprate_rpc_types::{misc::*, base::*};
+    ///
+    /// let new = AccessResponseBase::new(ResponseBase::ok());
+    /// assert_eq!(new, AccessResponseBase {
+    ///     response_base: ResponseBase::ok(),
+    ///     credits: 0,
+    ///     top_hash: "".into(),
+    /// });
+    /// ```
+    pub const fn new(response_base: ResponseBase) -> Self {
+        Self {
+            response_base,
+            credits: 0,
+            top_hash: String::new(),
+        }
+    }
+
+    /// Returns OK and trusted [`Self`].
+    ///
+    /// This is the most common version of [`Self`].
+    ///
+    /// ```rust
+    /// use cuprate_rpc_types::{misc::*, base::*};
+    ///
+    /// let ok = AccessResponseBase::ok();
+    /// assert_eq!(ok, AccessResponseBase {
+    ///     response_base: ResponseBase::ok(),
+    ///     credits: 0,
+    ///     top_hash: "".into(),
+    /// });
+    /// ```
+    pub const fn ok() -> Self {
+        Self {
+            response_base: ResponseBase::ok(),
+            credits: 0,
+            top_hash: String::new(),
+        }
+    }
+
+    /// Same as [`Self::ok`] but with `untrusted` set to `true`.
+    ///
+    /// ```rust
+    /// use cuprate_rpc_types::{misc::*, base::*};
+    ///
+    /// let ok_untrusted = AccessResponseBase::ok_untrusted();
+    /// assert_eq!(ok_untrusted, AccessResponseBase {
+    ///     response_base: ResponseBase::ok_untrusted(),
+    ///     credits: 0,
+    ///     top_hash: "".into(),
+    /// });
+    /// ```
+    pub const fn ok_untrusted() -> Self {
+        Self {
+            response_base: ResponseBase::ok_untrusted(),
+            credits: 0,
+            top_hash: String::new(),
+        }
+    }
 }
 
 #[cfg(feature = "epee")]

@@ -6,26 +6,29 @@ use std::sync::Arc;
 use cuprate_database::{ConcreteEnv, Env, EnvInner, RuntimeError, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::{
-    blockchain::{BCResponse, BCWriteRequest},
+    blockchain::{BlockchainResponse, BlockchainWriteRequest},
     VerifiedBlockInformation,
 };
 
 use crate::{
-    service::types::{BCWriteHandle, ResponseResult},
+    service::types::{BlockchainWriteHandle, ResponseResult},
     tables::OpenTables,
 };
 
 //---------------------------------------------------------------------------------------------------- init_write_service
 /// Initialize the blockchain write service from a [`ConcreteEnv`].
-pub fn init_write_service(env: Arc<ConcreteEnv>) -> BCWriteHandle {
-    DatabaseWriteHandle::init(env, handle_bc_request)
+pub fn init_write_service(env: Arc<ConcreteEnv>) -> BlockchainWriteHandle {
+    DatabaseWriteHandle::init(env, handle_blockchain_request)
 }
 
 //---------------------------------------------------------------------------------------------------- handle_bc_request
-/// Handle an incoming [`BCWriteRequest`], returning a [`BCResponse`].
-fn handle_bc_request(env: &ConcreteEnv, req: &BCWriteRequest) -> Result<BCResponse, RuntimeError> {
+/// Handle an incoming [`BlockchainWriteRequest`], returning a [`BlockchainResponse`].
+fn handle_blockchain_request(
+    env: &ConcreteEnv,
+    req: &BlockchainWriteRequest,
+) -> Result<BlockchainResponse, RuntimeError> {
     match req {
-        BCWriteRequest::WriteBlock(block) => write_block(env, block),
+        BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
     }
 }
 
@@ -38,7 +41,7 @@ fn handle_bc_request(env: &ConcreteEnv, req: &BCWriteRequest) -> Result<BCRespon
 // Each function will return the [`Response`] that we
 // should send back to the caller in [`map_request()`].
 
-/// [`BCWriteRequest::WriteBlock`].
+/// [`BlockchainWriteRequest::WriteBlock`].
 #[inline]
 fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseResult {
     let env_inner = env.env_inner();
@@ -52,7 +55,7 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
     match result {
         Ok(()) => {
             TxRw::commit(tx_rw)?;
-            Ok(BCResponse::WriteBlockOk)
+            Ok(BlockchainResponse::WriteBlockOk)
         }
         Err(e) => {
             // INVARIANT: ensure database atomicity by aborting

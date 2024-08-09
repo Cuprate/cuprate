@@ -1,20 +1,20 @@
 //! Database service type aliases.
-//!
-//! Only used internally for our `tower::Service` impls.
 
 //---------------------------------------------------------------------------------------------------- Use
 use cuprate_database::RuntimeError;
 use cuprate_database_service::{DatabaseReadService, DatabaseWriteHandle};
-use cuprate_types::blockchain::{BCReadRequest, BCResponse, BCWriteRequest};
+use cuprate_types::blockchain::{
+    BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,
+};
 
 //---------------------------------------------------------------------------------------------------- Types
 /// The actual type of the response.
 ///
-/// Either our [`BCResponse`], or a database error occurred.
-pub(super) type ResponseResult = Result<BCResponse, RuntimeError>;
+/// Either our [`BlockchainResponse`], or a database error occurred.
+pub(super) type ResponseResult = Result<BlockchainResponse, RuntimeError>;
 
 /// The blockchain database write service.
-pub type BCWriteHandle = DatabaseWriteHandle<BCWriteRequest, BCResponse>;
+pub type BlockchainWriteHandle = DatabaseWriteHandle<BlockchainWriteRequest, BlockchainResponse>;
 
 /// The blockchain database read service.
-pub type BCReadHandle = DatabaseReadService<BCReadRequest, BCResponse>;
+pub type BlockchainReadHandle = DatabaseReadService<BlockchainReadRequest, BlockchainResponse>;

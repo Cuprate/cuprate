@@ -27,7 +27,7 @@ use cuprate_consensus_rules::{
     ConsensusError, HardFork, TxVersion,
 };
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
     OutputOnChain,
 };
 
@@ -149,23 +149,23 @@ pub async fn batch_get_ring_member_info<D: Database>(
     let mut output_ids = HashMap::new();
 
     for tx_v_data in txs_verification_data.clone() {
-        insert_ring_member_ids(&tx_v_data.tx.prefix.inputs, &mut output_ids)
+        insert_ring_member_ids(&tx_v_data.tx.prefix().inputs, &mut output_ids)
             .map_err(ConsensusError::Transaction)?;
     }
 
-    let BCResponse::Outputs(outputs) = database
+    let BlockchainResponse::Outputs(outputs) = database
         .ready()
         .await?
-        .call(BCReadRequest::Outputs(output_ids))
+        .call(BlockchainReadRequest::Outputs(output_ids))
         .await?
     else {
         panic!("Database sent incorrect response!")
     };
 
-    let BCResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+    let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
         .ready()
         .await?
-        .call(BCReadRequest::NumberOutputsWithAmount(
+        .call(BlockchainReadRequest::NumberOutputsWithAmount(
             outputs.keys().copied().collect(),
         ))
         .await?
@@ -179,14 +179,14 @@ pub async fn batch_get_ring_member_info<D: Database>(
 
             let ring_members_for_tx = get_ring_members_for_inputs(
                 |amt, idx| outputs.get(&amt)?.get(&idx).copied(),
-                &tx_v_data.tx.prefix.inputs,
+                &tx_v_data.tx.prefix().inputs,
             )
             .map_err(ConsensusError::Transaction)?;
 
             let decoy_info = if hf != &HardFork::V1 {
                 // this data is only needed after hard-fork 1.
                 Some(
-                    DecoyInfo::new(&tx_v_data.tx.prefix.inputs, numb_outputs, hf)
+                    DecoyInfo::new(&tx_v_data.tx.prefix().inputs, numb_outputs, hf)
                         .map_err(ConsensusError::Transaction)?,
                 )
             } else {
@@ -222,7 +222,7 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
     let unique_input_amounts = txs_verification_data
         .iter()
         .flat_map(|tx_info| {
-            tx_info.tx.prefix.inputs.iter().map(|input| match input {
+            tx_info.tx.prefix().inputs.iter().map(|input| match input {
                 Input::ToKey { amount, .. } => amount.unwrap_or(0),
                 _ => 0,
             })
@@ -234,10 +234,10 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
         unique_input_amounts.len()
     );
 
-    let BCResponse::NumberOutputsWithAmount(outputs_with_amount) = database
+    let BlockchainResponse::NumberOutputsWithAmount(outputs_with_amount) = database
         .ready()
         .await?
-        .call(BCReadRequest::NumberOutputsWithAmount(
+        .call(BlockchainReadRequest::NumberOutputsWithAmount(
             unique_input_amounts.into_iter().collect(),
         ))
         .await?
@@ -247,7 +247,7 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
 
     Ok(txs_verification_data.iter().map(move |tx_v_data| {
         DecoyInfo::new(
-            &tx_v_data.tx.prefix.inputs,
+            &tx_v_data.tx.prefix().inputs,
             |amt| outputs_with_amount.get(&amt).copied().unwrap_or(0),
             &hf,
         )

@@ -6,16 +6,18 @@ use std::{
     sync::Arc,
 };
 
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon::ThreadPool;
+use rayon::{
+    iter::{IntoParallelIterator, ParallelIterator},
+    ThreadPool,
+};
 use thread_local::ThreadLocal;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse},
-    ExtendedBlockHeader, OutputOnChain,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Chain, ExtendedBlockHeader, OutputOnChain,
 };
 
 use crate::{
@@ -29,33 +31,37 @@ use crate::{
     },
     service::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
-        types::{BCReadHandle, ResponseResult},
+        types::{BlockchainReadHandle, ResponseResult},
     },
-    tables::OpenTables,
-    tables::{BlockHeights, BlockInfos, Tables},
+    tables::{BlockHeights, BlockInfos, OpenTables, Tables},
     types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
 //---------------------------------------------------------------------------------------------------- init_read_service
-/// Initialize the [`BCReadHandle`] thread-pool backed by `rayon`.
+/// Initialize the [`BlockchainReadHandle`] thread-pool backed by [`rayon`].
 ///
 /// This spawns `threads` amount of reader threads
 /// attached to `env` and returns a handle to the pool.
 ///
-/// Should be called _once_ per actual database.
+/// Should be called _once_ per actual database. Calling this function more than once will create
+/// multiple unnecessary rayon thread-pools.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BCReadHandle {
+pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> BlockchainReadHandle {
     init_read_service_with_pool(env, init_thread_pool(threads))
 }
 
 /// Initialize the blockchain database read service, with a specific rayon thread-pool instead of
 /// creating a new one.
 ///
-/// Should be called _once_ per actual database.
+/// Should be called _once_ per actual database, although nothing bad will happen, cloning the [`BlockchainReadHandle`]
+/// is the correct way to get multiple handles to the database.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> BCReadHandle {
+pub fn init_read_service_with_pool(
+    env: Arc<ConcreteEnv>,
+    pool: Arc<ThreadPool>,
+) -> BlockchainReadHandle {
     DatabaseReadService::new(env, pool, map_request)
 }
 
@@ -69,22 +75,25 @@ pub fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>)
 /// The basic structure is:
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
-/// 3. [`BCResponse`] is returned
+/// 3. [`BlockchainResponse`] is returned
 fn map_request(
-    env: &ConcreteEnv,      // Access to the database
-    request: BCReadRequest, // The request we must fulfill
+    env: &ConcreteEnv,              // Access to the database
+    request: BlockchainReadRequest, // The request we must fulfill
 ) -> ResponseResult {
-    use BCReadRequest as R;
+    use BlockchainReadRequest as R;
 
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
-        R::BlockHash(block) => block_hash(env, block),
+        R::BlockHash(block, chain) => block_hash(env, block, chain),
+        R::FindBlock(_) => todo!("Add alt blocks to DB"),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
-        R::BlockExtendedHeaderInRange(range) => block_extended_header_in_range(env, range),
+        R::BlockExtendedHeaderInRange(range, chain) => {
+            block_extended_header_in_range(env, range, chain)
+        }
         R::ChainHeight => chain_height(env),
-        R::GeneratedCoins => generated_coins(env),
+        R::GeneratedCoins(height) => generated_coins(env, height),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
@@ -166,7 +175,7 @@ macro_rules! get_tables {
 // TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
 // amount of parallelism.
 
-/// [`BCReadRequest::BlockExtendedHeader`].
+/// [`BlockchainReadRequest::BlockExtendedHeader`].
 #[inline]
 fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -174,25 +183,28 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
     let tx_ro = env_inner.tx_ro()?;
     let tables = env_inner.open_tables(&tx_ro)?;
 
-    Ok(BCResponse::BlockExtendedHeader(
+    Ok(BlockchainResponse::BlockExtendedHeader(
         get_block_extended_header_from_height(&block_height, &tables)?,
     ))
 }
 
-/// [`BCReadRequest::BlockHash`].
+/// [`BlockchainReadRequest::BlockHash`].
 #[inline]
-fn block_hash(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    Ok(BCResponse::BlockHash(
-        get_block_info(&block_height, &table_block_infos)?.block_hash,
-    ))
+    let block_hash = match chain {
+        Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
+        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+    };
+
+    Ok(BlockchainResponse::BlockHash(block_hash))
 }
 
-/// [`BCReadRequest::FilterUnknownHashes`].
+/// [`BlockchainReadRequest::FilterUnknownHashes`].
 #[inline]
 fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -216,15 +228,16 @@ fn filter_unknown_hashes(env: &ConcreteEnv, mut hashes: HashSet<BlockHash>) -> R
     if let Some(e) = err {
         Err(e)
     } else {
-        Ok(BCResponse::FilterUnknownHashes(hashes))
+        Ok(BlockchainResponse::FilterUnknownHashes(hashes))
     }
 }
 
-/// [`BCReadRequest::BlockExtendedHeaderInRange`].
+/// [`BlockchainReadRequest::BlockExtendedHeaderInRange`].
 #[inline]
 fn block_extended_header_in_range(
     env: &ConcreteEnv,
     range: std::ops::Range<BlockHeight>,
+    chain: Chain,
 ) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
     let env_inner = env.env_inner();
@@ -232,19 +245,22 @@ fn block_extended_header_in_range(
     let tables = thread_local(env);
 
     // Collect results using `rayon`.
-    let vec = range
-        .into_par_iter()
-        .map(|block_height| {
-            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
-            get_block_extended_header_from_height(&block_height, tables)
-        })
-        .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?;
+    let vec = match chain {
+        Chain::Main => range
+            .into_par_iter()
+            .map(|block_height| {
+                let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+                let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+                get_block_extended_header_from_height(&block_height, tables)
+            })
+            .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
+        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+    };
 
-    Ok(BCResponse::BlockExtendedHeaderInRange(vec))
+    Ok(BlockchainResponse::BlockExtendedHeaderInRange(vec))
 }
 
-/// [`BCReadRequest::ChainHeight`].
+/// [`BlockchainReadRequest::ChainHeight`].
 #[inline]
 fn chain_height(env: &ConcreteEnv) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
@@ -257,27 +273,23 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
     let block_hash =
         get_block_info(&chain_height.saturating_sub(1), &table_block_infos)?.block_hash;
 
-    Ok(BCResponse::ChainHeight(chain_height, block_hash))
+    Ok(BlockchainResponse::ChainHeight(chain_height, block_hash))
 }
 
-/// [`BCReadRequest::GeneratedCoins`].
+/// [`BlockchainReadRequest::GeneratedCoins`].
 #[inline]
-fn generated_coins(env: &ConcreteEnv) -> ResponseResult {
+fn generated_coins(env: &ConcreteEnv, height: usize) -> ResponseResult {
     // Single-threaded, no `ThreadLocal` required.
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
-    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    let top_height = top_block_height(&table_block_heights)?;
-
-    Ok(BCResponse::GeneratedCoins(cumulative_generated_coins(
-        &top_height,
-        &table_block_infos,
-    )?))
+    Ok(BlockchainResponse::GeneratedCoins(
+        cumulative_generated_coins(&height, &table_block_infos)?,
+    ))
 }
 
-/// [`BCReadRequest::Outputs`].
+/// [`BlockchainReadRequest::Outputs`].
 #[inline]
 fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
@@ -315,10 +327,10 @@ fn outputs(env: &ConcreteEnv, outputs: HashMap<Amount, HashSet<AmountIndex>>) ->
         })
         .collect::<Result<HashMap<Amount, HashMap<AmountIndex, OutputOnChain>>, RuntimeError>>()?;
 
-    Ok(BCResponse::Outputs(map))
+    Ok(BlockchainResponse::Outputs(map))
 }
 
-/// [`BCReadRequest::NumberOutputsWithAmount`].
+/// [`BlockchainReadRequest::NumberOutputsWithAmount`].
 #[inline]
 fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
@@ -360,10 +372,10 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         })
         .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
 
-    Ok(BCResponse::NumberOutputsWithAmount(map))
+    Ok(BlockchainResponse::NumberOutputsWithAmount(map))
 }
 
-/// [`BCReadRequest::KeyImagesSpent`].
+/// [`BlockchainReadRequest::KeyImagesSpent`].
 #[inline]
 fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> ResponseResult {
     // Prepare tx/tables in `ThreadLocal`.
@@ -394,13 +406,13 @@ fn key_images_spent(env: &ConcreteEnv, key_images: HashSet<KeyImage>) -> Respons
         // Else, `Ok(false)` will continue the iterator.
         .find_any(|result| !matches!(result, Ok(false)))
     {
-        None | Some(Ok(false)) => Ok(BCResponse::KeyImagesSpent(false)), // Key image was NOT found.
-        Some(Ok(true)) => Ok(BCResponse::KeyImagesSpent(true)),          // Key image was found.
+        None | Some(Ok(false)) => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
+        Some(Ok(true)) => Ok(BlockchainResponse::KeyImagesSpent(true)), // Key image was found.
         Some(Err(e)) => Err(e), // A database error occurred.
     }
 }
 
-/// [`BCReadRequest::CompactChainHistory`]
+/// [`BlockchainReadRequest::CompactChainHistory`]
 fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro()?;
@@ -417,7 +429,7 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
     );
 
     /// The amount of top block IDs in the compact chain.
-    const INITIAL_BLOCKS: u64 = 11;
+    const INITIAL_BLOCKS: usize = 11;
 
     // rayon is not used here because the amount of block IDs is expected to be small.
     let mut block_ids = (0..)
@@ -430,13 +442,13 @@ fn compact_chain_history(env: &ConcreteEnv) -> ResponseResult {
         block_ids.push(get_block_info(&0, &table_block_infos)?.block_hash);
     }
 
-    Ok(BCResponse::CompactChainHistory {
+    Ok(BlockchainResponse::CompactChainHistory {
         cumulative_difficulty,
         block_ids,
     })
 }
 
-/// [`BCReadRequest::FindFirstUnknown`]
+/// [`BlockchainReadRequest::FindFirstUnknown`]
 ///
 /// # Invariant
 /// `block_ids` must be sorted in chronological block order, or else
@@ -468,12 +480,12 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
     }
 
     Ok(if idx == block_ids.len() {
-        BCResponse::FindFirstUnknown(None)
+        BlockchainResponse::FindFirstUnknown(None)
     } else if idx == 0 {
-        BCResponse::FindFirstUnknown(Some((0, 0)))
+        BlockchainResponse::FindFirstUnknown(Some((0, 0)))
     } else {
         let last_known_height = get_block_height(&block_ids[idx - 1], &table_block_heights)?;
 
-        BCResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
+        BlockchainResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
     })
 }

@@ -8,7 +8,7 @@ use cuprate_database::{ConcreteEnv, InitError};
 use crate::service::{init_read_service, init_write_service};
 use crate::{
     config::Config,
-    service::types::{BCReadHandle, BCWriteHandle},
+    service::types::{BlockchainReadHandle, BlockchainWriteHandle},
 };
 
 //---------------------------------------------------------------------------------------------------- Init
@@ -21,7 +21,16 @@ use crate::{
 ///
 /// # Errors
 /// This will forward the error if [`crate::open`] failed.
-pub fn init(config: Config) -> Result<(BCReadHandle, BCWriteHandle, Arc<ConcreteEnv>), InitError> {
+pub fn init(
+    config: Config,
+) -> Result<
+    (
+        BlockchainReadHandle,
+        BlockchainWriteHandle,
+        Arc<ConcreteEnv>,
+    ),
+    InitError,
+> {
     let reader_threads = config.reader_threads;
 
     // Initialize the database itself.
@@ -39,9 +48,9 @@ pub fn init(config: Config) -> Result<(BCReadHandle, BCWriteHandle, Arc<Concrete
 ///
 /// The height offset is the difference between the top block's height and the block height that should be in that position.
 #[inline]
-pub(super) const fn compact_history_index_to_height_offset<const INITIAL_BLOCKS: u64>(
-    i: u64,
-) -> u64 {
+pub(super) const fn compact_history_index_to_height_offset<const INITIAL_BLOCKS: usize>(
+    i: usize,
+) -> usize {
     // If the position is below the initial blocks just return the position back
     if i <= INITIAL_BLOCKS {
         i
@@ -57,8 +66,8 @@ pub(super) const fn compact_history_index_to_height_offset<const INITIAL_BLOCKS:
 ///
 /// The genesis must always be included in the compact history.
 #[inline]
-pub(super) const fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u64>(
-    top_block_height: u64,
+pub(super) const fn compact_history_genesis_not_included<const INITIAL_BLOCKS: usize>(
+    top_block_height: usize,
 ) -> bool {
     // If the top block height is less than the initial blocks then it will always be included.
     // Otherwise, we use the fact that to reach the genesis block this statement must be true (for a
@@ -82,7 +91,7 @@ mod tests {
 
     proptest! {
         #[test]
-        fn compact_history(top_height in 0_u64..500_000_000) {
+        fn compact_history(top_height in 0_usize..500_000_000) {
             let mut heights = (0..)
                 .map(compact_history_index_to_height_offset::<11>)
                 .map_while(|i| top_height.checked_sub(i))

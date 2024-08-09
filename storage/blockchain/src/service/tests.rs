@@ -18,8 +18,8 @@ use tower::{Service, ServiceExt};
 use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
 use cuprate_types::{
-    blockchain::{BCReadRequest, BCResponse, BCWriteRequest},
-    OutputOnChain, VerifiedBlockInformation,
+    blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
+    Chain, OutputOnChain, VerifiedBlockInformation,
 };
 
 use crate::{
@@ -29,7 +29,7 @@ use crate::{
         blockchain::chain_height,
         output::id_to_output_on_chain,
     },
-    service::{init, BCReadHandle, BCWriteHandle},
+    service::{init, BlockchainReadHandle, BlockchainWriteHandle},
     tables::{OpenTables, Tables, TablesIter},
     tests::AssertTableLen,
     types::{Amount, AmountIndex, PreRctOutputId},
@@ -38,8 +38,8 @@ use crate::{
 //---------------------------------------------------------------------------------------------------- Helper functions
 /// Initialize the `service`.
 fn init_service() -> (
-    BCReadHandle,
-    BCWriteHandle,
+    BlockchainReadHandle,
+    BlockchainWriteHandle,
     Arc<ConcreteEnv>,
     tempfile::TempDir,
 ) {
@@ -78,13 +78,13 @@ async fn test_template(
     // cannot be added, to get around this, manually edit the block height.
     for (i, block_fn) in block_fns.iter().enumerate() {
         let mut block = block_fn().clone();
-        block.height = i as u64;
+        block.height = i;
 
         // Request a block to be written, assert it was written.
-        let request = BCWriteRequest::WriteBlock(block);
+        let request = BlockchainWriteRequest::WriteBlock(block);
         let response_channel = writer.call(request);
         let response = response_channel.await.unwrap();
-        assert_eq!(response, BCResponse::WriteBlockOk);
+        assert_eq!(response, BlockchainResponse::WriteBlockOk);
     }
 
     //----------------------------------------------------------------------- Reset the transaction
@@ -100,36 +100,36 @@ async fn test_template(
     // Next few lines are just for preparing the expected responses,
     // see further below for usage.
 
-    let extended_block_header_0 = Ok(BCResponse::BlockExtendedHeader(
+    let extended_block_header_0 = Ok(BlockchainResponse::BlockExtendedHeader(
         get_block_extended_header_from_height(&0, &tables).unwrap(),
     ));
 
     let extended_block_header_1 = if block_fns.len() > 1 {
-        Ok(BCResponse::BlockExtendedHeader(
+        Ok(BlockchainResponse::BlockExtendedHeader(
             get_block_extended_header_from_height(&1, &tables).unwrap(),
         ))
     } else {
         Err(RuntimeError::KeyNotFound)
     };
 
-    let block_hash_0 = Ok(BCResponse::BlockHash(
+    let block_hash_0 = Ok(BlockchainResponse::BlockHash(
         get_block_info(&0, tables.block_infos()).unwrap().block_hash,
     ));
 
     let block_hash_1 = if block_fns.len() > 1 {
-        Ok(BCResponse::BlockHash(
+        Ok(BlockchainResponse::BlockHash(
             get_block_info(&1, tables.block_infos()).unwrap().block_hash,
         ))
     } else {
         Err(RuntimeError::KeyNotFound)
     };
 
-    let range_0_1 = Ok(BCResponse::BlockExtendedHeaderInRange(vec![
+    let range_0_1 = Ok(BlockchainResponse::BlockExtendedHeaderInRange(vec![
         get_block_extended_header_from_height(&0, &tables).unwrap(),
     ]));
 
     let range_0_2 = if block_fns.len() >= 2 {
-        Ok(BCResponse::BlockExtendedHeaderInRange(vec![
+        Ok(BlockchainResponse::BlockExtendedHeaderInRange(vec![
             get_block_extended_header_from_height(&0, &tables).unwrap(),
             get_block_extended_header_from_height(&1, &tables).unwrap(),
         ]))
@@ -137,13 +137,20 @@ async fn test_template(
         Err(RuntimeError::KeyNotFound)
     };
 
+    let test_chain_height = chain_height(tables.block_heights()).unwrap();
+
     let chain_height = {
-        let height = chain_height(tables.block_heights()).unwrap();
-        let block_info = get_block_info(&height.saturating_sub(1), tables.block_infos()).unwrap();
-        Ok(BCResponse::ChainHeight(height, block_info.block_hash))
+        let block_info =
+            get_block_info(&test_chain_height.saturating_sub(1), tables.block_infos()).unwrap();
+        Ok(BlockchainResponse::ChainHeight(
+            test_chain_height,
+            block_info.block_hash,
+        ))
     };
 
-    let cumulative_generated_coins = Ok(BCResponse::GeneratedCoins(cumulative_generated_coins));
+    let cumulative_generated_coins = Ok(BlockchainResponse::GeneratedCoins(
+        cumulative_generated_coins,
+    ));
 
     let num_req = tables
         .outputs_iter()
@@ -153,7 +160,7 @@ async fn test_template(
         .map(|key| key.amount)
         .collect::<Vec<Amount>>();
 
-    let num_resp = Ok(BCResponse::NumberOutputsWithAmount(
+    let num_resp = Ok(BlockchainResponse::NumberOutputsWithAmount(
         num_req
             .iter()
             .map(|amount| match tables.num_outputs().get(amount) {
@@ -168,27 +175,45 @@ async fn test_template(
 
     // Contains a fake non-spent key-image.
     let ki_req = HashSet::from([[0; 32]]);
-    let ki_resp = Ok(BCResponse::KeyImagesSpent(false));
+    let ki_resp = Ok(BlockchainResponse::KeyImagesSpent(false));
 
     //----------------------------------------------------------------------- Assert expected response
     // Assert read requests lead to the expected responses.
     for (request, expected_response) in [
         (
-            BCReadRequest::BlockExtendedHeader(0),
+            BlockchainReadRequest::BlockExtendedHeader(0),
             extended_block_header_0,
         ),
         (
-            BCReadRequest::BlockExtendedHeader(1),
+            BlockchainReadRequest::BlockExtendedHeader(1),
             extended_block_header_1,
         ),
-        (BCReadRequest::BlockHash(0), block_hash_0),
-        (BCReadRequest::BlockHash(1), block_hash_1),
-        (BCReadRequest::BlockExtendedHeaderInRange(0..1), range_0_1),
-        (BCReadRequest::BlockExtendedHeaderInRange(0..2), range_0_2),
-        (BCReadRequest::ChainHeight, chain_height),
-        (BCReadRequest::GeneratedCoins, cumulative_generated_coins),
-        (BCReadRequest::NumberOutputsWithAmount(num_req), num_resp),
-        (BCReadRequest::KeyImagesSpent(ki_req), ki_resp),
+        (
+            BlockchainReadRequest::BlockHash(0, Chain::Main),
+            block_hash_0,
+        ),
+        (
+            BlockchainReadRequest::BlockHash(1, Chain::Main),
+            block_hash_1,
+        ),
+        (
+            BlockchainReadRequest::BlockExtendedHeaderInRange(0..1, Chain::Main),
+            range_0_1,
+        ),
+        (
+            BlockchainReadRequest::BlockExtendedHeaderInRange(0..2, Chain::Main),
+            range_0_2,
+        ),
+        (BlockchainReadRequest::ChainHeight, chain_height),
+        (
+            BlockchainReadRequest::GeneratedCoins(test_chain_height),
+            cumulative_generated_coins,
+        ),
+        (
+            BlockchainReadRequest::NumberOutputsWithAmount(num_req),
+            num_resp,
+        ),
+        (BlockchainReadRequest::KeyImagesSpent(ki_req), ki_resp),
     ] {
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, expected_response: {expected_response:#?}");
@@ -202,10 +227,10 @@ async fn test_template(
     // Assert each key image we inserted comes back as "spent".
     for key_image in tables.key_images_iter().keys().unwrap() {
         let key_image = key_image.unwrap();
-        let request = BCReadRequest::KeyImagesSpent(HashSet::from([key_image]));
+        let request = BlockchainReadRequest::KeyImagesSpent(HashSet::from([key_image]));
         let response = reader.clone().oneshot(request).await;
         println!("response: {response:#?}, key_image: {key_image:#?}");
-        assert_eq!(response.unwrap(), BCResponse::KeyImagesSpent(true));
+        assert_eq!(response.unwrap(), BlockchainResponse::KeyImagesSpent(true));
     }
 
     //----------------------------------------------------------------------- Output checks
@@ -266,10 +291,10 @@ async fn test_template(
         .collect::<Vec<OutputOnChain>>();
 
     // Send a request for every output we inserted before.
-    let request = BCReadRequest::Outputs(map.clone());
+    let request = BlockchainReadRequest::Outputs(map.clone());
     let response = reader.clone().oneshot(request).await;
     println!("Response::Outputs response: {response:#?}");
-    let Ok(BCResponse::Outputs(response)) = response else {
+    let Ok(BlockchainResponse::Outputs(response)) = response else {
         panic!("{response:#?}")
     };
 

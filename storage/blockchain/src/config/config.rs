@@ -11,6 +11,7 @@ use cuprate_helper::fs::cuprate_blockchain_dir;
 
 // re-exports
 pub use cuprate_database_service::ReaderThreads;
+
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
 ///

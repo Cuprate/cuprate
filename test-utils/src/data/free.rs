@@ -8,11 +8,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::OnceLock;
 
-use hex_literal::hex;
-use monero_serai::{block::Block, transaction::Transaction};
-
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
+use hex_literal::hex;
+use monero_serai::transaction::Input;
+use monero_serai::{block::Block, transaction::Transaction};
 
 use crate::data::constants::{
     BLOCK_43BD1F, BLOCK_5ECB7E, BLOCK_F91043, TX_2180A8, TX_3BC7FF, TX_84D48D, TX_9E3F73,
@@ -31,7 +31,7 @@ use crate::data::constants::{
 struct VerifiedBlockMap {
     block_blob: &'static [u8],
     pow_hash: [u8; 32],
-    height: u64,
+    height: usize,
     generated_coins: u64,
     weight: usize,
     long_term_weight: usize,
@@ -68,11 +68,11 @@ impl VerifiedBlockMap {
 
         assert_eq!(
             txs.len(),
-            block.txs.len(),
+            block.transactions.len(),
             "(deserialized txs).len() != (txs hashes in block).len()"
         );
 
-        for (tx, tx_hash_in_block) in txs.iter().zip(&block.txs) {
+        for (tx, tx_hash_in_block) in txs.iter().zip(&block.transactions) {
             assert_eq!(
                 &tx.tx_hash, tx_hash_in_block,
                 "deserialized tx hash is not the same as the one in the parent block"
@@ -103,11 +103,41 @@ fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInfo
     let tx = Transaction::read(&mut tx_blob.as_slice()).unwrap();
     VerifiedTransactionInformation {
         tx_weight: tx.weight(),
-        fee: tx.rct_signatures.base.fee,
+        fee: tx_fee(&tx),
         tx_hash: tx.hash(),
         tx_blob,
         tx,
     }
+}
+
+/// Calculates the fee of the [`Transaction`].
+///
+/// # Panics
+/// This will panic if the inputs overflow or the transaction outputs too much.
+pub fn tx_fee(tx: &Transaction) -> u64 {
+    let mut fee = 0_u64;
+
+    match &tx {
+        Transaction::V1 { prefix, .. } => {
+            for input in &prefix.inputs {
+                match input {
+                    Input::Gen(_) => return 0,
+                    Input::ToKey { amount, .. } => {
+                        fee = fee.checked_add(amount.unwrap_or(0)).unwrap();
+                    }
+                }
+            }
+
+            for output in &prefix.outputs {
+                fee.checked_sub(output.amount.unwrap_or(0)).unwrap();
+            }
+        }
+        Transaction::V2 { proofs, .. } => {
+            fee = proofs.as_ref().unwrap().base.fee;
+        }
+    };
+
+    fee
 }
 
 //---------------------------------------------------------------------------------------------------- Blocks
@@ -255,7 +285,6 @@ macro_rules! transaction_verification_data_fn {
         #[doc = concat!("assert_eq!(tx.tx_blob, ", stringify!($tx_blob), ");")]
         #[doc = concat!("assert_eq!(tx.tx_weight, ", $weight, ");")]
         #[doc = concat!("assert_eq!(tx.tx_hash, hex!(\"", $hash, "\"));")]
-        #[doc = "assert_eq!(tx.fee, tx.tx.rct_signatures.base.fee);"]
         /// ```
         pub fn $fn_name() -> &'static VerifiedTransactionInformation {
             static TX: OnceLock<VerifiedTransactionInformation> = OnceLock::new();
