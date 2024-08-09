@@ -33,7 +33,7 @@ jobs:
 
       - name: Install mdBook
         run: |
-          cargo install --version ${MDBOOK_VERSION} mdbook || echo "mdbook already exists"
+          cargo install --locked --version ${MDBOOK_VERSION} mdbook || echo "mdbook already exists"
           cargo install --locked --version ${MDBOOK_SVGBOB_VERSION} mdbook-svgbob || echo "mdbook-svgbob already exists"
 
       - name: Build
