@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use monero_serai::transaction::{Timelock, Transaction};
 
-use crate::HardFork;
+use crate::{HardFork, VerifiedTransactionInformation};
 
 /// An enum representing all valid Monero transaction versions.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
@@ -91,4 +91,24 @@ pub struct TransactionVerificationData {
     pub tx_hash: [u8; 32],
     /// The verification state of this transaction.
     pub cached_verification_state: Mutex<CachedVerificationState>,
+}
+
+#[derive(Debug, Copy, Clone, thiserror::Error)]
+#[error("Error converting a verified tx to a cached verification data tx.")]
+pub struct TxConversionError;
+
+impl TryFrom<VerifiedTransactionInformation> for TransactionVerificationData {
+    type Error = TxConversionError;
+
+    fn try_from(value: VerifiedTransactionInformation) -> Result<Self, Self::Error> {
+        Ok(Self {
+            version: TxVersion::from_raw(value.tx.version()).ok_or(TxConversionError)?,
+            tx: value.tx,
+            tx_blob: value.tx_blob,
+            tx_weight: value.tx_weight,
+            fee: value.fee,
+            tx_hash: value.tx_hash,
+            cached_verification_state: Mutex::new(CachedVerificationState::NotVerified),
+        })
+    }
 }

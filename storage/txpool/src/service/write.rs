@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cuprate_database::{ConcreteEnv, Env, EnvInner, RuntimeError, TxRo, TxRw};
+use cuprate_database::{ConcreteEnv, Env, EnvInner, RuntimeError, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::TransactionVerificationData;
 

@@ -25,6 +25,8 @@ tower            = { workspace = true }
 
 rayon            = { workspace = true }
 
+serde            = { workspace = true, optional = true }
+
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }
 

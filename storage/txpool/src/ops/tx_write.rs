@@ -1,10 +1,8 @@
 //! Transaction writing ops.
 //!
 //! This module handles writing full transaction data, like removing or adding a transaction.
-use std::sync::Arc;
-
 use bytemuck::TransparentWrapper;
-use monero_serai::transaction::{Input, NotPruned, Transaction};
+use monero_serai::transaction::{NotPruned, Transaction};
 
 use cuprate_database::{RuntimeError, StorableVec, DatabaseRw};
 use cuprate_types::TransactionVerificationData;
@@ -12,7 +10,7 @@ use cuprate_types::TransactionVerificationData;
 use crate::{
     ops::key_images::{add_tx_key_images, remove_tx_key_images},
     tables::TablesMut,
-    types::{TransactionHash, TransactionInfo},
+    types::{TransactionHash, TransactionInfo, TxStateFlags},
     TxPoolWriteError,
 };
 
@@ -31,6 +29,9 @@ pub fn add_transaction(
     tables
         .transaction_blobs_mut()
         .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))?;
+    
+    let mut flags = TxStateFlags::empty();
+    flags.set(TxStateFlags::STATE_STEM, state_stem);
 
     // Add the tx info to table 1.
     tables.transaction_infomation_mut().put(
@@ -38,7 +39,7 @@ pub fn add_transaction(
         &TransactionInfo {
             fee: tx.fee,
             weight: tx.tx_weight,
-            flags: todo!(),
+            flags,
             _padding:  [0; 7],
         },
     )?;
@@ -59,7 +60,7 @@ pub fn add_transaction(
 /// Removes a transaction from the transaction pool.
 pub fn remove_transaction(
     tx_hash: &TransactionHash,
-    mut tables: &mut impl TablesMut,
+    tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
     // Remove the tx blob from table 0.
     let tx_blob = tables.transaction_blobs_mut().take(tx_hash)?.0;
