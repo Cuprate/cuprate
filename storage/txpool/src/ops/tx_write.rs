@@ -4,7 +4,7 @@
 use bytemuck::TransparentWrapper;
 use monero_serai::transaction::{NotPruned, Transaction};
 
-use cuprate_database::{RuntimeError, StorableVec, DatabaseRw};
+use cuprate_database::{DatabaseRw, RuntimeError, StorableVec};
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
@@ -29,18 +29,18 @@ pub fn add_transaction(
     tables
         .transaction_blobs_mut()
         .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))?;
-    
+
     let mut flags = TxStateFlags::empty();
     flags.set(TxStateFlags::STATE_STEM, state_stem);
 
     // Add the tx info to table 1.
-    tables.transaction_infomation_mut().put(
+    tables.transaction_information_mut().put(
         &tx.tx_hash,
         &TransactionInfo {
             fee: tx.fee,
             weight: tx.tx_weight,
             flags,
-            _padding:  [0; 7],
+            _padding: [0; 7],
         },
     )?;
 
@@ -66,14 +66,14 @@ pub fn remove_transaction(
     let tx_blob = tables.transaction_blobs_mut().take(tx_hash)?.0;
 
     // Remove the tx info from table 1.
-    tables.transaction_infomation_mut().delete(tx_hash)?;
+    tables.transaction_information_mut().delete(tx_hash)?;
 
     // Remove the cached verification state from table 2.
     tables.cached_verification_state_mut().delete(tx_hash)?;
 
     // Remove the tx key images from table 3.
-    let tx =
-        Transaction::<NotPruned>::read(&mut tx_blob.as_slice()).expect("Tx in the tx-pool must be parseable");
+    let tx = Transaction::<NotPruned>::read(&mut tx_blob.as_slice())
+        .expect("Tx in the tx-pool must be parseable");
     let kis_table = tables.spent_key_images_mut();
     remove_tx_key_images(&tx.prefix().inputs, kis_table)?;
 

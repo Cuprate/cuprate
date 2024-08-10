@@ -2,7 +2,7 @@ pub mod config;
 mod free;
 mod ops;
 pub mod service;
-mod tables;
+pub mod tables;
 mod types;
 
 pub use config::Config;

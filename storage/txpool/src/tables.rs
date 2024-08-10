@@ -6,7 +6,7 @@ define_tables! {
     0 => TransactionBlobs,
     TransactionHash => StorableVec<u8>,
 
-    1 => TransactionInfomation,
+    1 => TransactionInformation,
     TransactionHash => TransactionInfo,
 
     2 => CachedVerificationState,

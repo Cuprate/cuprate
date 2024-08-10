@@ -32,7 +32,7 @@ pub struct TransactionInfo {
     pub weight: usize,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
-    
+
     pub _padding: [u8; 7],
 }
 

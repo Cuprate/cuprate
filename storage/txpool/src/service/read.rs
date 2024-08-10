@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rayon::ThreadPool;
 
-use cuprate_database::{ConcreteEnv, Env, EnvInner, DatabaseRo};
+use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
 use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 
 use crate::{
@@ -101,5 +101,6 @@ fn tx_verification_data(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadRes
 
     let mut tables = inner_env.open_tables(&tx_ro)?;
 
-    get_transaction_verification_data(tx_hash, &mut tables).map(TxpoolReadResponse::TxVerificationData)
+    get_transaction_verification_data(tx_hash, &mut tables)
+        .map(TxpoolReadResponse::TxVerificationData)
 }

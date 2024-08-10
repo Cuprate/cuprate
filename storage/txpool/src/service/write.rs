@@ -93,7 +93,7 @@ fn remove_transaction(
         // error removing the tx, abort the DB transaction.
         TxRw::abort(tx_rw)
             .expect("could not maintain database atomicity by aborting write transaction");
-        
+
         return Err(e);
     }
 

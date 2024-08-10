@@ -14,8 +14,8 @@
 //!
 //! ## Handles
 //! The 2 handles to the database are:
-//! - [`BCReadHandle`]
-//! - [`BCWriteHandle`]
+//! - [`TxpoolReadHandle`]
+//! - [`TxpoolWriteHandle`]
 //!
 //! The 1st allows any caller to send [`ReadRequest`][req_r]s.
 //!
@@ -33,8 +33,8 @@
 //!
 //! ## Shutdown
 //! Upon the above handles being dropped, the corresponding thread(s) will automatically exit, i.e:
-//! - The last [`BCReadHandle`] is dropped => reader thread-pool exits
-//! - The last [`BCWriteHandle`] is dropped => writer thread exits
+//! - The last [`TxpoolReadHandle`] is dropped => reader thread-pool exits
+//! - The last [`TxpoolWriteHandle`] is dropped => writer thread exits
 //!
 //! Upon dropping the [`cuprate_database::Env`]:
 //! - All un-processed database transactions are completed
@@ -50,11 +50,13 @@
 //! This channel can be `.await`ed upon to (eventually) receive
 //! the corresponding `Response` to your `Request`.
 //!
-//! [req_r]: cuprate_types::blockchain::BCReadRequest
+//! [req_r]: interface::TxpoolReadRequest
 //!
-//! [req_w]: cuprate_types::blockchain::BCWriteRequest
+//! [req_w]: interface::TxpoolWriteRequest
 //!
-//! [resp]: cuprate_types::blockchain::BCResponse
+//! // TODO: we have 2 responses 
+//! 
+//! [resp]: interface::TxpoolWriteResponse
 //!
 //! # Example
 //! Simple usage of `service`.
@@ -131,3 +133,4 @@ mod types;
 mod write;
 
 pub use free::init;
+pub use types::{TxpoolWriteHandle, TxpoolReadHandle};

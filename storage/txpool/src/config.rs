@@ -5,6 +5,9 @@ use cuprate_helper::fs::{cuprate_blockchain_dir, cuprate_txpool_dir};
 use std::borrow::Cow;
 use std::path::Path;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// The default transaction pool weight limit.
 const DEFAULT_TXPOOL_WEIGHT_LIMIT: usize = 600 * 1024 * 1024;
 

@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use monero_serai::transaction::Transaction;
 
-use cuprate_database::{RuntimeError, DatabaseRo};
+use cuprate_database::{DatabaseRo, RuntimeError};
 use cuprate_types::{TransactionVerificationData, TxVersion};
 
 use crate::{tables::Tables, types::TransactionHash};
@@ -17,12 +17,12 @@ pub fn get_transaction_verification_data(
 ) -> Result<TransactionVerificationData, RuntimeError> {
     let tx_blob = tables.transaction_blobs().get(tx_hash)?.0;
 
-    let tx_info = tables.transaction_infomation().get(tx_hash)?;
+    let tx_info = tables.transaction_information().get(tx_hash)?;
 
     let cached_verification_state = tables.cached_verification_state().get(tx_hash)?.into();
-    
-    let tx = Transaction::read(&mut tx_blob.as_slice())
-        .expect("Tx in the tx-pool must be parseable");
+
+    let tx =
+        Transaction::read(&mut tx_blob.as_slice()).expect("Tx in the tx-pool must be parseable");
 
     Ok(TransactionVerificationData {
         version: TxVersion::from_raw(tx.version()).expect("Tx in tx-pool has invalid version"),
