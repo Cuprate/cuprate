@@ -4,14 +4,6 @@
 #include <math.h>
 #include <float.h>
 
-#define VARIANT2_INTEGER_MATH_SQRT_STEP_SSE2() \
-  do { \
-    const __m128i exp_double_bias = _mm_set_epi64x(0, 1023ULL << 52); \
-    __m128d x = _mm_castsi128_pd(_mm_add_epi64(_mm_cvtsi64_si128(sqrt_input >> 12), exp_double_bias)); \
-    x = _mm_sqrt_sd(_mm_setzero_pd(), x); \
-    sqrt_result = (uint64_t)(_mm_cvtsi128_si64(_mm_sub_epi64(_mm_castpd_si128(x), exp_double_bias))) >> 19; \
-  } while(0)
-
 #define VARIANT2_INTEGER_MATH_SQRT_STEP_FP64() \
   do { \
     sqrt_result = sqrt(sqrt_input + 18446744073709551616.0) * 2.0 - 8589934592.0; \

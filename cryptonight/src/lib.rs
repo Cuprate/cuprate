@@ -3,6 +3,7 @@ extern crate core;
 mod cnaes;
 mod hash;
 mod hash_v4;
+mod variant2_int_sqrt;
 
 #[link(name = "cryptonight")]
 extern "C" {

@@ -512,7 +512,11 @@ static uint32_t oaes_get_seed(void)
 	char * _test = NULL;
 	uint32_t _ret = 0;
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 	ftime (&timer);
+#pragma GCC diagnostic pop
+
 	gmTimer = gmtime( &timer.time );
 	_test = (char *) calloc( sizeof( char ), timer.millitm );
 	_ret = gmTimer->tm_year + 1900 + gmTimer->tm_mon + 1 + gmTimer->tm_mday +
