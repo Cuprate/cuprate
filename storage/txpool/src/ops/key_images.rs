@@ -2,7 +2,7 @@ use monero_serai::transaction::Input;
 
 use cuprate_database::{DatabaseRw, RuntimeError};
 
-use crate::{tables::SpentKeyImages, types::TransactionHash, TxPoolWriteError};
+use crate::{tables::SpentKeyImages, types::TransactionHash, ops::TxPoolWriteError};
 
 /// Adds the transaction key images to the [`SpentKeyImages`] table.
 ///

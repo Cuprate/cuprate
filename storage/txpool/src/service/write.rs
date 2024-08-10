@@ -5,14 +5,13 @@ use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
-    ops,
+    ops::{self, TxPoolWriteError},
     service::{
         interface::{TxpoolWriteRequest, TxpoolWriteResponse},
         types::TxpoolWriteHandle,
     },
     tables::OpenTables,
     types::TransactionHash,
-    TxPoolWriteError,
 };
 
 //---------------------------------------------------------------------------------------------------- init_write_service

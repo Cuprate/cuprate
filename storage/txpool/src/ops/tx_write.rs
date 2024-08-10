@@ -7,12 +7,7 @@ use monero_serai::transaction::{NotPruned, Transaction};
 use cuprate_database::{DatabaseRw, RuntimeError, StorableVec};
 use cuprate_types::TransactionVerificationData;
 
-use crate::{
-    ops::key_images::{add_tx_key_images, remove_tx_key_images},
-    tables::TablesMut,
-    types::{TransactionHash, TransactionInfo, TxStateFlags},
-    TxPoolWriteError,
-};
+use crate::{ops::{key_images::{add_tx_key_images, remove_tx_key_images}, TxPoolWriteError}, tables::TablesMut, types::{TransactionHash, TransactionInfo, TxStateFlags}};
 
 /// Adds a transaction to the tx-pool.
 ///
