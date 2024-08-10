@@ -18,6 +18,7 @@ cuprate-helper   = { path = "../../helper" , default-features = false, features 
 
 monero-serai     = { workspace = true, features = ["std"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 thiserror        = { workspace = true }
 hex              = { workspace = true }
 tower            = { workspace = true }

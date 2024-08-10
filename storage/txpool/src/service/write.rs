@@ -56,6 +56,7 @@ fn add_transaction(
     let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
     if let Err(e) = ops::add_transaction(tx, state_stem, &mut tables_mut) {
+        drop(tables_mut);
         // error adding the tx, abort the DB transaction.
         TxRw::abort(tx_rw)
             .expect("could not maintain database atomicity by aborting write transaction");
@@ -71,8 +72,9 @@ fn add_transaction(
         };
     };
 
+    drop(tables_mut);
     // The tx was added to the pool successfully.
-    tx_rw.commit()?;
+    TxRw::commit(tx_rw)?;
     Ok(TxpoolWriteResponse::AddTransaction(None))
 }
 
@@ -86,12 +88,17 @@ fn remove_transaction(
 
     let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
-    ops::remove_transaction(tx_hash, &mut tables_mut).inspect_err(|_| {
+    if let Err(e) = ops::remove_transaction(tx_hash, &mut tables_mut) {
+        drop(tables_mut);
         // error removing the tx, abort the DB transaction.
         TxRw::abort(tx_rw)
             .expect("could not maintain database atomicity by aborting write transaction");
-    })?;
+        
+        return Err(e);
+    }
 
-    tx_rw.commit()?;
+    drop(tables_mut);
+
+    TxRw::commit(tx_rw)?;
     Ok(TxpoolWriteResponse::Ok)
 }

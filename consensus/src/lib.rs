@@ -27,7 +27,7 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
-pub use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+pub use cuprate_types::{blockchain::{BlockchainReadRequest, BlockchainResponse}, HardFork};
 
 /// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]

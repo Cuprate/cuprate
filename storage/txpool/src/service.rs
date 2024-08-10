@@ -91,7 +91,7 @@
 //! let (mut read_handle, mut write_handle, _) = cuprate_txpool::service::init(config)?;
 //!
 //! // Prepare a request to write block.
-//! let tx = tx_v1_sig0();
+//! let tx = tx_v1_sig0().clone();
 //! let request = TxpoolWriteRequest::AddTransaction {
 //!     tx: Arc::new(tx.into()),
 //!     state_stem: false,

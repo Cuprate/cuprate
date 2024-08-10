@@ -4,9 +4,9 @@
 use std::sync::Arc;
 
 use bytemuck::TransparentWrapper;
-use monero_serai::transaction::{Input, Transaction};
+use monero_serai::transaction::{Input, NotPruned, Transaction};
 
-use cuprate_database::{RuntimeError, StorableVec};
+use cuprate_database::{RuntimeError, StorableVec, DatabaseRw};
 use cuprate_types::TransactionVerificationData;
 
 use crate::{
@@ -38,19 +38,20 @@ pub fn add_transaction(
         &TransactionInfo {
             fee: tx.fee,
             weight: tx.tx_weight,
-            state_stem,
+            flags: todo!(),
+            _padding:  [0; 7],
         },
     )?;
 
     // Add the cached verification state to table 2.
-    let cached_verification_state = tx.cached_verification_state.lock().unwrap().into();
+    let cached_verification_state = tx.cached_verification_state.lock().unwrap().clone().into();
     tables
         .cached_verification_state_mut()
         .put(&tx.tx_hash, &cached_verification_state)?;
 
     // Add the tx key images to table 3.
     let kis_table = tables.spent_key_images_mut();
-    add_tx_key_images(&tx.tx.prefix.inputs, &tx.tx_hash, kis_table)?;
+    add_tx_key_images(&tx.tx.prefix().inputs, &tx.tx_hash, kis_table)?;
 
     Ok(())
 }
@@ -58,7 +59,7 @@ pub fn add_transaction(
 /// Removes a transaction from the transaction pool.
 pub fn remove_transaction(
     tx_hash: &TransactionHash,
-    tables: &mut impl TablesMut,
+    mut tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
     // Remove the tx blob from table 0.
     let tx_blob = tables.transaction_blobs_mut().take(tx_hash)?.0;
@@ -71,9 +72,9 @@ pub fn remove_transaction(
 
     // Remove the tx key images from table 3.
     let tx =
-        Transaction::read(&mut tx_blob.as_slice()).expect("Tx in the tx-pool must be parseable");
+        Transaction::<NotPruned>::read(&mut tx_blob.as_slice()).expect("Tx in the tx-pool must be parseable");
     let kis_table = tables.spent_key_images_mut();
-    remove_tx_key_images(&tx.prefix.inputs, kis_table)?;
+    remove_tx_key_images(&tx.prefix().inputs, kis_table)?;
 
     Ok(())
 }

@@ -1,5 +1,4 @@
 use crate::types::TransactionHash;
-use cuprate_dandelion_tower::State;
 use cuprate_types::TransactionVerificationData;
 use std::sync::Arc;
 

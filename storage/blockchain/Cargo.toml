@@ -26,7 +26,7 @@ cuprate-database-service = { path = "../service" }
 cuprate-helper           = { path = "../../helper", features = ["fs", "thread", "map"] }
 cuprate-types            = { path = "../../types", features = ["blockchain"] }
 
-bitflags         = { workspace = true, features = ["serde", "bytemuck"] }
+bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 curve25519-dalek = { workspace = true }
 cuprate-pruning  = { path = "../../pruning" }

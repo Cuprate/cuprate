@@ -10,6 +10,18 @@ pub type KeyImage = [u8; 32];
 /// A transaction hash.
 pub type TransactionHash = [u8; 32];
 
+bitflags::bitflags! {
+    /// Flags representing the state of the transaction in the pool.
+    #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+    #[repr(transparent)]
+    pub struct TxStateFlags: u8 {
+        /// A flag for if the transaction is in the stem state.
+        const STATE_STEM   = 0b0000_0001;
+        /// A flag for if we have seen another tx double spending this tx.
+        const DOUBLE_SPENT = 0b0000_0010;
+    }
+}
+
 /// Information on a tx-pool transaction.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
@@ -18,8 +30,10 @@ pub struct TransactionInfo {
     pub fee: u64,
     /// The transactions weight.
     pub weight: usize,
-    /// This will be [`true`] if the transaction is in the stem state.
-    pub state_stem: bool,
+    /// [`TxStateFlags`] of this transaction.
+    pub flags: TxStateFlags,
+    
+    pub _padding: [u8; 7],
 }
 
 /// [`CachedVerificationState`] in a format that can be stored into the database.
