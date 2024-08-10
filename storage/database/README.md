@@ -66,8 +66,8 @@ As `ConcreteEnv` is just a re-exposed type which has varying inner types,
 it means some properties will change depending on the backend used.
 
 For example:
-- [`std::mem::size_of::<ConcreteEnv>`]
-- [`std::mem::align_of::<ConcreteEnv>`]
+- [`size_of::<ConcreteEnv>`]
+- [`align_of::<ConcreteEnv>`]
 
 Things like these functions are affected by the backend and inner data,
 and should not be relied upon. This extends to any `struct/enum` that contains `ConcreteEnv`.

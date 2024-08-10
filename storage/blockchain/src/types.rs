@@ -121,7 +121,6 @@ pub type UnlockTime = u64;
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// # use std::mem::*;
 /// assert_eq!(size_of::<PreRctOutputId>(), 16);
 /// assert_eq!(align_of::<PreRctOutputId>(), 8);
 /// ```
@@ -174,7 +173,6 @@ impl Key for PreRctOutputId {}
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// # use std::mem::*;
 /// assert_eq!(size_of::<BlockInfo>(), 88);
 /// assert_eq!(align_of::<BlockInfo>(), 8);
 /// ```
@@ -226,7 +224,6 @@ bitflags::bitflags! {
     /// # Size & Alignment
     /// ```rust
     /// # use cuprate_blockchain::types::*;
-    /// # use std::mem::*;
     /// assert_eq!(size_of::<OutputFlags>(), 4);
     /// assert_eq!(align_of::<OutputFlags>(), 4);
     /// ```
@@ -262,7 +259,6 @@ bitflags::bitflags! {
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// # use std::mem::*;
 /// assert_eq!(size_of::<Output>(), 48);
 /// assert_eq!(align_of::<Output>(), 8);
 /// ```
@@ -306,7 +302,6 @@ pub struct Output {
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// # use std::mem::*;
 /// assert_eq!(size_of::<RctOutput>(), 80);
 /// assert_eq!(align_of::<RctOutput>(), 8);
 /// ```
