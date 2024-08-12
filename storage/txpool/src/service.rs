@@ -54,8 +54,8 @@
 //!
 //! [req_w]: interface::TxpoolWriteRequest
 //!
-//! // TODO: we have 2 responses 
-//! 
+//! // TODO: we have 2 responses
+//!
 //! [resp]: interface::TxpoolWriteResponse
 //!
 //! # Example
@@ -133,4 +133,4 @@ mod types;
 mod write;
 
 pub use free::init;
-pub use types::{TxpoolWriteHandle, TxpoolReadHandle};
+pub use types::{TxpoolReadHandle, TxpoolWriteHandle};

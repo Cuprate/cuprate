@@ -1,3 +1,10 @@
+//! Tx-pool [table](crate::tables) types.
+//!
+//! This module contains all types used by the database tables,
+//! and aliases for common  types that use the same underlying
+//! primitive type.
+//!
+//! <!-- FIXME: Add schema here or a link to it when complete -->
 use bytemuck::{Pod, Zeroable};
 
 use monero_serai::transaction::Timelock;
@@ -32,7 +39,9 @@ pub struct TransactionInfo {
     pub weight: usize,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
-
+    /// Explicit padding so that we have no implicit padding bytes in `repr(C)`.
+    ///
+    /// Allows potential future expansion of this type.
     pub _padding: [u8; 7],
 }
 
@@ -48,6 +57,8 @@ pub struct RawCachedVerificationState {
     raw_hf: u8,
     /// The raw timestamp, will be `0` if there is no timestamp that needs to be passed for this to
     /// be valid.
+    ///
+    /// Not a [`u64`] as if it was this type would have an alignment requirement.
     raw_valid_past_timestamp: [u8; 8],
 }
 

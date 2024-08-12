@@ -1,4 +1,4 @@
-//! General free functions (related to the database).
+//! General free functions (related to the tx-pool database).
 
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database::{ConcreteEnv, Env, EnvInner, InitError, RuntimeError, TxRw};
