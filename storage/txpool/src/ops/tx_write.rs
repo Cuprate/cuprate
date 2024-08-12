@@ -36,7 +36,7 @@ pub fn add_transaction(
     flags.set(TxStateFlags::STATE_STEM, state_stem);
 
     // Add the tx info to table 1.
-    tables.transaction_information_mut().put(
+    tables.transaction_infos_mut().put(
         &tx.tx_hash,
         &TransactionInfo {
             fee: tx.fee,
@@ -47,7 +47,7 @@ pub fn add_transaction(
     )?;
 
     // Add the cached verification state to table 2.
-    let cached_verification_state = tx.cached_verification_state.lock().unwrap().clone().into();
+    let cached_verification_state = (*tx.cached_verification_state.lock().unwrap()).into();
     tables
         .cached_verification_state_mut()
         .put(&tx.tx_hash, &cached_verification_state)?;
@@ -68,7 +68,7 @@ pub fn remove_transaction(
     let tx_blob = tables.transaction_blobs_mut().take(tx_hash)?.0;
 
     // Remove the tx info from table 1.
-    tables.transaction_information_mut().delete(tx_hash)?;
+    tables.transaction_infos_mut().delete(tx_hash)?;
 
     // Remove the cached verification state from table 2.
     tables.cached_verification_state_mut().delete(tx_hash)?;

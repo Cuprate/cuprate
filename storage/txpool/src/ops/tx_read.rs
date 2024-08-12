@@ -17,7 +17,7 @@ pub fn get_transaction_verification_data(
 ) -> Result<TransactionVerificationData, RuntimeError> {
     let tx_blob = tables.transaction_blobs().get(tx_hash)?.0;
 
-    let tx_info = tables.transaction_information().get(tx_hash)?;
+    let tx_info = tables.transaction_infos().get(tx_hash)?;
 
     let cached_verification_state = tables.cached_verification_state().get(tx_hash)?.into();
 

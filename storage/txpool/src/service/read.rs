@@ -99,8 +99,7 @@ fn tx_verification_data(env: &ConcreteEnv, tx_hash: &TransactionHash) -> ReadRes
     let inner_env = env.env_inner();
     let tx_ro = inner_env.tx_ro()?;
 
-    let mut tables = inner_env.open_tables(&tx_ro)?;
+    let tables = inner_env.open_tables(&tx_ro)?;
 
-    get_transaction_verification_data(tx_hash, &mut tables)
-        .map(TxpoolReadResponse::TxVerificationData)
+    get_transaction_verification_data(tx_hash, &tables).map(TxpoolReadResponse::TxVerificationData)
 }

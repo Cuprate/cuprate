@@ -18,6 +18,7 @@ pub enum TxpoolReadRequest {
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
 /// The transaction pool [`tower::Service`] read response type.
+#[allow(clippy::large_enum_variant)]
 pub enum TxpoolReadResponse {
     /// A response containing the raw bytes of a transaction.
     // TODO: use bytes::Bytes.
