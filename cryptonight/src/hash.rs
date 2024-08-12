@@ -5,7 +5,7 @@ use std::io::Write;
 use std::u64;
 
 use crate::hash_v4::variant4_random_math;
-use crate::{cnaes, hash_v4 as v4, variant2_int_sqrt::variant2_integer_math_sqrt_fixup};
+use crate::{cnaes, hash_v4 as v4};
 
 const MEMORY: usize = 1 << 21; // 2MB scratchpad
 const ITER: usize = 1 << 20;
@@ -235,10 +235,35 @@ fn variant2_portable_integer_math(
 
     let sqrt_input =
         u64::from_le_bytes(ptr[0..8].try_into().unwrap()).wrapping_add(*division_result);
+    *sqrt_result = variant2_integer_math_sqrt(sqrt_input);
+}
 
-    *sqrt_result =
+fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
+    // Get an approximation using floating point math
+    let mut sqrt_result =
         ((sqrt_input as f64 + 18446744073709551616.0).sqrt() * 2.0 - 8589934592.0) as u64;
-    variant2_integer_math_sqrt_fixup(sqrt_result, sqrt_input);
+
+    // Fixup the edge cases to get the exact integer result. For more information,
+    // see: https://github.com/monero-project/monero/blob/v0.18.3.3/src/crypto/variant2_int_sqrt.h#L65-L152
+    let sqrt_div2 = sqrt_result >> 1;
+    let lsb = sqrt_result & 1;
+    let r2 = sqrt_div2
+        .wrapping_mul(sqrt_div2 + lsb)
+        .wrapping_add(sqrt_result << 32);
+
+    if r2.wrapping_add(lsb) > sqrt_input {
+        sqrt_result = sqrt_result.wrapping_sub(1);
+    }
+    if r2.wrapping_add(1 << 32) < sqrt_input.wrapping_sub(sqrt_div2) {
+        // Not sure that this is possible. I tried writing a test program
+        // to search subsets of u64 for a value that can trigger this
+        // branch, but couldn't find anything. The Go implementation came
+        // to the same conclusion:
+        // https://github.com/Equim-chan/cryptonight/blob/v0.3.0/arith_ref.go#L39-L45
+        sqrt_result = sqrt_result.wrapping_add(1);
+    }
+
+    sqrt_result
 }
 
 fn variant2_integer_math(
@@ -264,24 +289,7 @@ fn variant2_integer_math(
 
         let sqrt_input =
             u64::from_le_bytes(c2[0..8].try_into().unwrap()).wrapping_add(*division_result);
-        *sqrt_result =
-            ((sqrt_input as f64 + 18446744073709551616.0).sqrt() * 2.0 - 8589934592.0) as u64;
-
-        let sqrt_div2 = *sqrt_result >> 1;
-        let lsb = *sqrt_result & 1;
-        let r2 = sqrt_div2
-            .wrapping_mul(sqrt_div2 + lsb)
-            .wrapping_add(*sqrt_result << 32);
-
-        // TODO: Find way to get code coverage here.
-        if r2.wrapping_add(lsb) > sqrt_input {
-            println!("made it to fixup 1");
-            *sqrt_result = sqrt_result.wrapping_sub(u64::MAX);
-        }
-        if r2.wrapping_add(1 << 32) < sqrt_input.wrapping_sub(sqrt_div2) {
-            println!("made it to fixup 2");
-            *sqrt_result = sqrt_result.wrapping_add(1);
-        }
+        *sqrt_result = variant2_integer_math_sqrt(sqrt_input);
     }
 }
 
@@ -447,7 +455,7 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 3
 
 #[cfg(test)]
 mod tests {
-    use crate::hash::{cn_slow_hash, Variant};
+    use crate::hash::{cn_slow_hash, variant2_integer_math_sqrt, Variant};
 
     #[test]
     fn test_keccak1600() {
@@ -487,6 +495,32 @@ mod tests {
             "d8e42f12da72202a",
             "1f531a54b7110e2710c8c956b3f98f90",
         );
+    }
+
+    #[test]
+    fn test_variant2_integer_math_sqrt() {
+        // Edge case values taken from here:
+        // https://github.com/monero-project/monero/blob/v0.18.3.3/src/crypto/variant2_int_sqrt.h#L33-L43
+        let test_cases = [
+            (0, 0),
+            (1 << 32, 0),
+            ((1 << 32) + 1, 1),
+            (1 << 50, 262140),
+            ((1 << 55) + 20963331, 8384515),
+            ((1 << 55) + 20963332, 8384516),
+            ((1 << 62) + 26599786, 1013904242),
+            ((1 << 62) + 26599787, 1013904243),
+            (u64::MAX, 3558067407),
+        ];
+
+        for &(input, expected) in &test_cases {
+            assert_eq!(
+                variant2_integer_math_sqrt(input),
+                expected,
+                "input = {}",
+                input
+            );
+        }
     }
 
     #[test]

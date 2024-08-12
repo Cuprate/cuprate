@@ -146,7 +146,7 @@ void variant2_portable_shuffle_add(
 
 // double precision floating point type has enough bits of precision on current platform
 void variant2_integer_math(
-        volatile uint8_t c1[16],
+        uint8_t c1[16],
         const uint8_t c2[16],
         uint64_t *division_result,
         uint64_t *sqrt_result, // in-out parameter
