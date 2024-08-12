@@ -23,6 +23,21 @@ extern void aesb_single_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
 
 extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey);
 
+void print_hex(const char *name, const void *memory, size_t size) {
+  const unsigned char *bytes = (const unsigned char *) memory;
+  if (strlen(name) > 0) {
+    printf("%s: ", name);
+  } else {
+    printf("    ");
+  }
+  printf("\"");
+  for (size_t i = 0; i < size; ++i) {
+    printf("%02x", bytes[i]);
+  }
+  printf("\",\n");
+}
+
+
 #define VARIANT1_1(p) \
   do if (variant == 1) \
   { \
@@ -75,7 +90,7 @@ extern void aesb_pseudo_round(const uint8_t *in, uint8_t *out, const uint8_t *ex
 void variant2_portable_shuffle_add(
         uint8_t out[16],
         const uint8_t a[16],
-        const uint8_t b[16*2],
+        const uint8_t b[16 * 2],
         const uint8_t long_state[2097152],
         const size_t offset,
         const int variant) {
@@ -130,13 +145,49 @@ void variant2_portable_shuffle_add(
 
 
 // double precision floating point type has enough bits of precision on current platform
-#define VARIANT2_PORTABLE_INTEGER_MATH(b, ptr) \
-    do if ((variant == 2) || (variant == 3)) \
-    { \
-      VARIANT2_INTEGER_MATH_DIVISION_STEP(b, ptr); \
-      VARIANT2_INTEGER_MATH_SQRT_STEP_FP64(); \
-      VARIANT2_INTEGER_MATH_SQRT_FIXUP(sqrt_result); \
-    } while (0)
+void variant2_integer_math(
+        volatile uint8_t c1[16],
+        const uint8_t c2[16],
+        uint64_t *division_result,
+        uint64_t *sqrt_result, // in-out parameter
+        const int variant
+) {
+  //    static size_t i = 0;
+  //    const size_t INTERVAL = 250000;
+  //    if (i % INTERVAL == 0) {
+  //      printf("test(\n");
+  //      print_hex("", c1, 16);
+  //      print_hex("", c2, 16);
+  //      printf("%lu,\n", *division_result);
+  //      printf("%lu,\n", *sqrt_result);
+  //    }
+  if ((variant == 2) || (variant == 3)) {
+    uint64_t tmpx = *division_result ^ (*sqrt_result << 32);
+    ((uint64_t *) (c1))[0] ^= ((uint64_t) (tmpx));
+
+    const uint64_t dividend = ((uint64_t) SWAP64LE(((uint64_t *) (c2))[1]));
+    const uint32_t divisor =
+            (((uint64_t) SWAP64LE(((uint64_t *) (c2))[0])) + (uint32_t) (*sqrt_result << 1)) | 0x80000001UL;
+    *division_result = ((uint32_t) (dividend / divisor)) + SWAP64LE(((uint64_t) (dividend % divisor)) << 32);
+
+    const uint64_t sqrt_input = SWAP64LE((uint64_t) (((uint64_t *) (c2))[0])) + *division_result;
+    *sqrt_result = sqrt(sqrt_input + 18446744073709551616.0) * 2.0 - 8589934592.0;
+    const uint64_t sr_div2 = *sqrt_result >> 1;
+    const uint64_t lsb = *sqrt_result & 1;
+    const uint64_t r2 = (uint64_t) (sr_div2) * (sr_div2 + lsb) + (*sqrt_result << 32);
+    *sqrt_result += ((r2 + lsb > sqrt_input) ? -1 : 0) + ((r2 + (1ULL << 32) < sqrt_input - sr_div2) ? 1 : 0);
+
+    //      if (i % INTERVAL == 0) {
+    //        print_hex("", c1, 16);
+    //        printf("    %lu,\n", *division_result);
+    //        printf("    %lu,\n", *sqrt_result);
+    //        printf(");\n");
+    //        fflush(stdout);
+    //      }
+    //      i++;
+
+  }
+}
 
 
 /*
@@ -172,26 +223,26 @@ void VARIANT4_RANDOM_MATH(
         uint8_t b_1st16[16],
         uint8_t b_2nd16[16],
         int variant,
-        const struct V4_Instruction* code) {
+        const struct V4_Instruction *code) {
   if (variant >= 4) {
     uint64_t t[2];
     memcpy(t, c2, sizeof(uint64_t));
 
-    t[0] ^= SWAP64LE((r[0] + r[1]) | ((uint64_t)(r[2] + r[3]) << 32));
+    t[0] ^= SWAP64LE((r[0] + r[1]) | ((uint64_t) (r[2] + r[3]) << 32));
     memcpy(c2, t, sizeof(uint64_t));
 
     V4_REG_LOAD(r + 4, a1);
-    V4_REG_LOAD(r + 5, (uint64_t*)(a1) + 1);
+    V4_REG_LOAD(r + 5, (uint64_t *) (a1) + 1);
     V4_REG_LOAD(r + 6, b_1st16);
     V4_REG_LOAD(r + 7, b_2nd16);
-    V4_REG_LOAD(r + 8, (uint64_t*)(b_2nd16) + 1);
+    V4_REG_LOAD(r + 8, (uint64_t *) (b_2nd16) + 1);
 
     v4_random_math(code, r);
 
     memcpy(t, a1, sizeof(uint64_t) * 2);
 
-    t[0] ^= SWAP64LE(r[2] | ((uint64_t)(r[3]) << 32));
-    t[1] ^= SWAP64LE(r[0] | ((uint64_t)(r[1]) << 32));
+    t[0] ^= SWAP64LE(r[2] | ((uint64_t) (r[3]) << 32));
+    t[1] ^= SWAP64LE(r[0] | ((uint64_t) (r[1]) << 32));
 
     memcpy(a1, t, sizeof(uint64_t) * 2);
   }
@@ -268,14 +319,7 @@ union cn_slow_hash_state {
 };
 #pragma pack(pop)
 
-void print_hex(const char *name, const void* memory, size_t size) {
-    const unsigned char* bytes = (const unsigned char*)memory;
-    printf("%s: ", name);
-    for (size_t i = 0; i < size; ++i) {
-        printf("%02x", bytes[i]);
-    }
-    printf("\n");
-}
+
 
 /*
 void print_r_and_code(const uint32_t r[9], const struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1]) {
@@ -340,7 +384,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
 
   keccak1600(data, length, state.hs.b);
   memcpy(text, state.init, INIT_SIZE_BYTE);
-  print_hex("text(1): ", text, sizeof(text));
+  //print_hex("text(1): ", text, sizeof(text));
   memcpy(aes_key, state.hs.b, AES_KEY_SIZE);
   aes_ctx = (oaes_ctx *) oaes_alloc();
 
@@ -368,10 +412,10 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     sqrt_result = SWAP64LE(state.hs.w[13]);
   }
 
-//    print_hex("b", b, 32);
-//    print_hex("state.hs.b", state.hs.b, 200);
-//    printf("division_result: %lu\n", division_result);
-//    printf("sqrt_result: %lu\n", sqrt_result);
+  //    print_hex("b", b, 32);
+  //    print_hex("state.hs.b", state.hs.b, 200);
+  //    printf("division_result: %lu\n", division_result);
+  //    printf("sqrt_result: %lu\n", sqrt_result);
 
   // VARIANT4_RANDOM_MATH_INIT();
   uint32_t r[9];
@@ -383,7 +427,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     v4_random_math_init(code, height);
   }
 
-    //print_r_and_code(r, code);
+  //print_r_and_code(r, code);
 
   oaes_key_import_data(aes_ctx, aes_key, AES_KEY_SIZE);
   for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
@@ -410,13 +454,13 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     copy_block(c1, &long_state[j]);
     aesb_single_round(c1, c1, a);
     variant2_portable_shuffle_add(c1, a, b, long_state, j, variant);
-    if (i == 0) {
-      printf("i = %ld, j = %ld\n", i, j);
-      print_hex("c1", c1, sizeof(c1));
-      uint8_t output[32];
-      hash_extra_blake(long_state, 32, (char *)output);
-      print_hex("long_state", output, 32);
-    }
+//    if (i == 0) {
+//      printf("i = %ld, j = %ld\n", i, j);
+//      print_hex("c1", c1, sizeof(c1));
+//      uint8_t output[32];
+//      hash_extra_blake(long_state, 32, (char *)output);
+//      print_hex("long_state", output, 32);
+//    }
     copy_block(&long_state[j], c1);
     xor_blocks(&long_state[j], b);
     assert(j == e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE);
@@ -426,7 +470,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     j = e2i(c1, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
     copy_block(c2, &long_state[j]);
     copy_block(a1, a);
-    VARIANT2_PORTABLE_INTEGER_MATH(c2, c1);
+    variant2_integer_math(c2, c1, &division_result, &sqrt_result, variant);
     VARIANT4_RANDOM_MATH(a1, c2, r, b, b + AES_BLOCK_SIZE, variant, code);
     mul(c1, c2, d);
 
@@ -449,8 +493,8 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     copy_block(a, a1);
   }
 
-  print_hex("a", text, sizeof(a));
-  print_hex("b", text, sizeof(b));
+  //print_hex("a", text, sizeof(a));
+  //print_hex("b", text, sizeof(b));
 
   memcpy(text, state.init, INIT_SIZE_BYTE);
   oaes_key_import_data(aes_ctx, &state.hs.b[32], AES_KEY_SIZE);

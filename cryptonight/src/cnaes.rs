@@ -399,10 +399,7 @@ pub(crate) fn round_fwd(state: &mut [[u8; 4]; 4], keys: &[[u8; 4]]) {
     }
 }
 
-pub(crate) fn aesb_pseudo_round(
-    block: &mut [u8],
-    expanded_key: &[[u8; 4]; 40],
-) {
+pub(crate) fn aesb_pseudo_round(block: &mut [u8], expanded_key: &[[u8; 4]; 40]) {
     debug_assert!(block.len() == AES_BLOCK_SIZE);
 
     let mut state = [[0u8; 4]; 4];
@@ -416,20 +413,17 @@ pub(crate) fn aesb_pseudo_round(
     state_out(block, state);
 }
 
-pub(crate) fn aesb_single_round(
-    block: &mut [u8],
-    round_key_flat: &[u8; ROUND_KEY_SIZE],
-) {
+pub(crate) fn aesb_single_round(block: &mut [u8], round_key_flat: &[u8; ROUND_KEY_SIZE]) {
     debug_assert!(block.len() == AES_BLOCK_SIZE);
 
     let mut round_key = [[0u8; 4]; 4];
     for i in 0..4 {
         round_key[i] = [
-                round_key_flat[4 * i],
-                round_key_flat[4 * i + 1],
-                round_key_flat[4 * i + 2],
-                round_key_flat[4 * i + 3]
-            ];
+            round_key_flat[4 * i],
+            round_key_flat[4 * i + 1],
+            round_key_flat[4 * i + 2],
+            round_key_flat[4 * i + 3],
+        ];
     }
 
     let mut state = [[0u8; 4]; 4];
@@ -554,7 +548,7 @@ mod tests {
     #[test]
     fn test_aesb_single_round() {
         let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
-            let round_key: [u8;ROUND_KEY_SIZE] = decode_hex_to_array(key_hex);
+            let round_key: [u8; ROUND_KEY_SIZE] = decode_hex_to_array(key_hex);
             let mut block: [u8; AES_BLOCK_SIZE] = decode_hex_to_array(input_hex);
 
             aesb_single_round(&mut block, &round_key);

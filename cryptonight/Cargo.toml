@@ -14,6 +14,7 @@ static_assertions = "1.1.0"
 memoffset = "0.9.1"
 byteorder = "1.5.0"
 blake = "2.0.2"
+hex = "0.4.3"
 
 [build-dependencies]
 cc = "1"

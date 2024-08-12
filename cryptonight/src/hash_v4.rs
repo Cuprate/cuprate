@@ -9,7 +9,8 @@ pub const NUM_INSTRUCTIONS_MAX: usize = 70;
 const ALU_COUNT_MUL: usize = 1;
 const ALU_COUNT: usize = 3;
 
-#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InstructionList {
     Mul, // a*b
     Add, // a+b + C, C is an unsigned 32-bit constant
@@ -19,6 +20,14 @@ pub enum InstructionList {
     Xor, // a^b
     Ret, // finish execution
 }
+
+impl Default for InstructionList {
+    fn default() -> Self {
+        InstructionList::Ret
+    }
+}
+
+use InstructionList::*;
 
 const INSTRUCTION_COUNT: usize = InstructionList::Ret as usize;
 
@@ -40,7 +49,7 @@ const _: () = {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Instruction {
-    pub(crate) opcode: u8,
+    pub(crate) opcode: InstructionList,
     pub(crate) dst_index: u8,
     pub(crate) src_index: u8,
     pub(crate) c: u32,
@@ -158,22 +167,22 @@ pub(crate) fn random_math_init(
             // SUB = opcode 4
             // ROR/ROL = opcode 5, shift direction is selected randomly
             // XOR = opcodes 6-7
-            let mut opcode = c & ((1 << INSTRUCTION_OPCODE_BITS) - 1);
-            if opcode == 5 {
+            let mut opcode_bits = c & ((1 << INSTRUCTION_OPCODE_BITS) - 1);
+            let mut opcode: InstructionList;
+            if opcode_bits == 5 {
                 check_data(&mut data_index, 1, &mut data);
-                opcode = if data[data_index as usize] >= 0 {
-                    InstructionList::Ror as u8
-                } else {
-                    InstructionList::Rol as u8
-                };
+                opcode = if data[data_index] >= 0 { Ror } else { Rol };
                 data_index += 1;
-            } else if opcode >= 6 {
-                opcode = InstructionList::Xor as u8;
+            } else if opcode_bits >= 6 {
+                opcode = Xor;
+            } else if opcode_bits <= 2 {
+                opcode = Mul;
             } else {
-                opcode = if opcode <= 2 {
-                    InstructionList::Mul as u8
-                } else {
-                    opcode - 2
+                // remaining values are 3-4
+                opcode = match opcode_bits {
+                    3 => Add,
+                    4 => Sub,
+                    _ => unreachable!(),
                 };
             }
 
@@ -186,11 +195,7 @@ pub(crate) fn random_math_init(
             let mut b = src_index as usize;
 
             // Don't do ADD/SUB/XOR with the same register
-            if ((opcode == InstructionList::Add as u8)
-                || (opcode == InstructionList::Sub as u8)
-                || (opcode == InstructionList::Xor as u8))
-                && (a == b)
-            {
+            if ((opcode == Add) || (opcode == Sub) || (opcode == Xor)) && (a == b) {
                 b = 8;
                 src_index = 8;
             }
@@ -203,7 +208,7 @@ pub(crate) fn random_math_init(
             // Don't do the same instruction (except MUL) with the same source value twice because all other cases can be optimized:
             // 2xADD(a, b, C) = ADD(a, b*2, C1+C2), same for SUB and rotations
             // 2xXOR(a, b) = NOP
-            if (opcode != InstructionList::Mul as u8)
+            if (opcode != Mul)
                 && ((inst_data[a] & 0xFFFF00)
                     == ((opcode as usize) << 8) + ((inst_data[b] & 255) << 16))
             {
@@ -220,7 +225,7 @@ pub(crate) fn random_math_init(
             while next_latency < TOTAL_LATENCY {
                 for i in (0..OP_ALUS[opcode as usize]).rev() {
                     if !alu_busy[next_latency][i] {
-                        if (opcode == InstructionList::Add as u8) && alu_busy[next_latency + 1][i] {
+                        if (opcode == Add) && alu_busy[next_latency + 1][i] {
                             continue;
                         }
 
@@ -273,7 +278,7 @@ pub(crate) fn random_math_init(
                     r8_used = true;
                 }
 
-                if opcode == InstructionList::Add as u8 {
+                if opcode == InstructionList::Add {
                     alu_busy[next_latency - OP_LATENCY[opcode as usize] + 1][alu_index as usize] =
                         true;
 
@@ -313,11 +318,7 @@ pub(crate) fn random_math_init(
                 }
             }
 
-            let pattern = [
-                InstructionList::Ror as u8,
-                InstructionList::Mul as u8,
-                InstructionList::Mul as u8,
-            ];
+            let pattern = [Ror, Mul, Mul];
             let opcode = pattern[(code_size - prev_code_size) % 3];
             latency[min_idx] = latency[max_idx] + OP_LATENCY[opcode as usize];
             asic_latency[min_idx] = asic_latency[max_idx] + ASIC_OP_LATENCY[opcode as usize];
@@ -331,8 +332,8 @@ pub(crate) fn random_math_init(
             code_size += 1;
         }
 
-        //	// There is ~98.15% chance that loop condition is false, so this loop will execute only 1 iteration most of the time
-        //	// It never does more than 4 iterations for all block heights < 10,000,000
+        // There is ~98.15% chance that loop condition is false, so this loop will execute only 1 iteration most of the time
+        // It never does more than 4 iterations for all block heights < 10,000,000
         if r8_used && (code_size >= NUM_INSTRUCTIONS_MIN) && (code_size <= NUM_INSTRUCTIONS_MAX) {
             break;
         }
@@ -340,10 +341,96 @@ pub(crate) fn random_math_init(
 
     // It's guaranteed that NUM_INSTRUCTIONS_MIN <= code_size <= NUM_INSTRUCTIONS_MAX here
     // Add final instruction to stop the interpreter
-    code[code_size].opcode = InstructionList::Ret as u8;
+    code[code_size].opcode = Ret;
     code[code_size].dst_index = 0;
     code[code_size].src_index = 0;
     code[code_size].c = 0;
 
     code_size
+}
+
+fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
+    const REG_BITS: u32 = 32;
+
+    macro_rules! v4_exec {
+        ($i:expr) => {
+            let op = &code[$i];
+            let src: u32 = r[op.src_index as usize];
+            let dst = &mut r[op.dst_index as usize];
+            match op.opcode {
+                Mul => *dst = dst.wrapping_mul(src),
+                Add => *dst = dst.wrapping_add(src).wrapping_add(op.c),
+                Sub => *dst = dst.wrapping_sub(src),
+                Ror => {
+                    let shift = src % REG_BITS;
+                    *dst = dst.rotate_right(shift);
+                }
+                Rol => {
+                    let shift = src % REG_BITS;
+                    *dst = dst.rotate_left(shift);
+                }
+                Xor => *dst ^= src,
+                Ret => return,
+                //_ => unreachable!(),
+            }
+        };
+    }
+
+    macro_rules! v4_exec_10 {
+        ($j:expr) => {
+            v4_exec!($j + 0);
+            v4_exec!($j + 1);
+            v4_exec!($j + 2);
+            v4_exec!($j + 3);
+            v4_exec!($j + 4);
+            v4_exec!($j + 5);
+            v4_exec!($j + 6);
+            v4_exec!($j + 7);
+            v4_exec!($j + 8);
+            v4_exec!($j + 9);
+        };
+    }
+
+    v4_exec_10!(0); // instructions 0-9
+    v4_exec_10!(10); // instructions 10-19
+    v4_exec_10!(20); // instructions 20-29
+    v4_exec_10!(30); // instructions 30-39
+    v4_exec_10!(40); // instructions 40-49
+    v4_exec_10!(50); // instructions 50-59
+    v4_exec_10!(60); // instructions 60-69
+}
+
+pub fn variant4_random_math(
+    a: &mut [u8; 16],
+    b: &mut [u8; 16],
+    r: &mut [u32; 9],
+    _b: &[u8; 4],
+    _b1: &[u8; 8],
+    code: &[Instruction; 71],
+) {
+    let mut t = [0u8; 8];
+    t.copy_from_slice(&b[..8]);
+
+    let t0 = u64::from_le_bytes(t)
+        ^ (u64::from(r[0]) + u64::from(r[1]) | (u64::from(r[2]) + u64::from(r[3]) << 32));
+    b[..8].copy_from_slice(&t0.to_le_bytes());
+
+    r[4] = u32::from_le_bytes(a[..4].try_into().unwrap());
+    r[5] = u32::from_le_bytes(a[4..8].try_into().unwrap());
+    r[6] = u32::from_le_bytes(_b[..4].try_into().unwrap());
+    r[7] = u32::from_le_bytes(_b1[..4].try_into().unwrap());
+    r[8] = u32::from_le_bytes(_b1[4..8].try_into().unwrap());
+
+    v4_random_math(code, r);
+
+    let mut t = [0u8; 16];
+    t.copy_from_slice(a);
+
+    let t0 = u64::from_le_bytes(t[..8].try_into().unwrap())
+        ^ (u64::from(r[2]) | (u64::from(r[3]) << 32));
+    let t1 = u64::from_le_bytes(t[8..16].try_into().unwrap())
+        ^ (u64::from(r[0]) | (u64::from(r[1]) << 32));
+
+    a[..8].copy_from_slice(&t0.to_le_bytes());
+    a[8..16].copy_from_slice(&t1.to_le_bytes());
 }

@@ -8,8 +8,7 @@ mod variant2_int_sqrt;
 #[link(name = "cryptonight")]
 extern "C" {
     fn cn_slow_hash(data: *const u8, length: usize, hash: *mut u8, variant: i32, height: u64);
-    fn aesb_single_round(input: *const u8, output: *mut u8, expanded_key: *mut u8);
-    fn aesb_pseudo_round(input: *const u8, output: *mut u8, expanded_key: *mut u8);
+    //fn aesb_single_round(input: *const u8, output: *mut u8, expanded_key: *mut u8);
 }
 
 /// Calculates the CryptoNight v0 hash of buf (legacy C version).
@@ -74,9 +73,6 @@ pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
-    use core::arch::aarch64::uint8x16_t;
-
     use crate::*;
 
     #[test]
