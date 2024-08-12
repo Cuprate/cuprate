@@ -17,7 +17,7 @@ use crate::{
 
 // TODO: update the docs here
 //---------------------------------------------------------------------------------------------------- init_read_service
-/// Initialize the [`BCReadHandle`] thread-pool backed by `rayon`.
+/// Initialize the [`TxpoolReadHandle`] thread-pool backed by `rayon`.
 ///
 /// This spawns `threads` amount of reader threads
 /// attached to `env` and returns a handle to the pool.
@@ -29,7 +29,7 @@ pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> Txpoo
     init_read_service_with_pool(env, init_thread_pool(threads))
 }
 
-/// Initialize the blockchain database read service, with a specific rayon thread-pool instead of
+/// Initialize the [`TxpoolReadHandle`], with a specific rayon thread-pool instead of
 /// creating a new one.
 ///
 /// Should be called _once_ per actual database.

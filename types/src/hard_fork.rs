@@ -1,3 +1,4 @@
+//! The [`HardFork`] type.
 use std::time::Duration;
 
 use monero_serai::block::BlockHeader;
