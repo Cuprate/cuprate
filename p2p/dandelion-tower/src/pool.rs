@@ -16,6 +16,9 @@
 //!
 //! When using your handle to the backing store it must be remembered to keep transactions in the stem pool hidden.
 //! So handle any requests to the tx-pool like the stem side of the pool does not exist.
+
+mod interface;
+
 use std::{
     collections::{HashMap, HashSet},
     future::Future,
