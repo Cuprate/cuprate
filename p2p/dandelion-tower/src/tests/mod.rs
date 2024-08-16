@@ -76,11 +76,9 @@ pub fn mock_in_memory_backing_pool<
     TxID: Clone + Hash + Eq + Send + 'static,
 >() -> (
     impl Service<
-            TxStoreRequest<Tx, TxID>,
-            Response = TxStoreResponse<Tx, TxID>,
-            Future = impl Future<Output = Result<TxStoreResponse<Tx, TxID>, tower::BoxError>>
-                         + Send
-                         + 'static,
+            TxStoreRequest<TxID>,
+            Response = TxStoreResponse<Tx>,
+            Future = impl Future<Output = Result<TxStoreResponse<Tx>, tower::BoxError>> + Send + 'static,
             Error = tower::BoxError,
         > + Send
         + 'static,
@@ -90,32 +88,13 @@ pub fn mock_in_memory_backing_pool<
     let txs_2 = txs.clone();
 
     (
-        service_fn(move |req: TxStoreRequest<Tx, TxID>| {
+        service_fn(move |req: TxStoreRequest<TxID>| {
             let txs = txs.clone();
             async move {
                 match req {
-                    TxStoreRequest::Store(tx, tx_id, state) => {
-                        txs.lock().unwrap().insert(tx_id, (tx, state));
-                        Ok(TxStoreResponse::Ok)
-                    }
                     TxStoreRequest::Get(tx_id) => {
                         let tx_state = txs.lock().unwrap().get(&tx_id).cloned();
                         Ok(TxStoreResponse::Transaction(tx_state))
-                    }
-                    TxStoreRequest::Contains(tx_id) => Ok(TxStoreResponse::Contains(
-                        txs.lock().unwrap().get(&tx_id).map(|res| res.1),
-                    )),
-                    TxStoreRequest::IDsInStemPool => {
-                        // horribly inefficient, but it's test code :)
-                        let ids = txs
-                            .lock()
-                            .unwrap()
-                            .iter()
-                            .filter(|(_, (_, state))| matches!(state, State::Stem))
-                            .map(|tx| tx.0.clone())
-                            .collect::<Vec<_>>();
-
-                        Ok(TxStoreResponse::IDs(ids))
                     }
                     TxStoreRequest::Promote(tx_id) => {
                         let _ = txs

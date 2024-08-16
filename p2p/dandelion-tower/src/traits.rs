@@ -8,12 +8,7 @@ pub struct StemRequest<Tx>(pub Tx);
 
 #[cfg(feature = "txpool")]
 /// A request sent to the backing transaction pool storage.
-pub enum TxStoreRequest<Tx, TxID> {
-    /// A request to store a transaction with the ID to store it under and the pool to store it in.
-    ///
-    /// If the tx is already in the pool then do nothing, unless the tx is in the stem pool then move it
-    /// to the fluff pool, _if this request state is fluff_.
-    Store(Tx, TxID, crate::State),
+pub enum TxStoreRequest<TxID> {
     /// A request to retrieve a `Tx` with the given ID from the pool, should not remove that tx from the pool.
     ///
     /// Must return [`TxStoreResponse::Transaction`]
@@ -24,26 +19,13 @@ pub enum TxStoreRequest<Tx, TxID> {
     ///
     /// This should not error if the tx isn't in the pool at all.
     Promote(TxID),
-    /// A request to check if a translation is in the pool.
-    ///
-    /// Must return [`TxStoreResponse::Contains`]
-    Contains(TxID),
-    /// Returns the IDs of all the transaction in the stem pool.
-    ///
-    /// Must return [`TxStoreResponse::IDs`]
-    IDsInStemPool,
 }
 
 #[cfg(feature = "txpool")]
 /// A response sent back from the backing transaction pool.
-pub enum TxStoreResponse<Tx, TxID> {
+pub enum TxStoreResponse<Tx> {
     /// A generic ok response.
     Ok,
-    /// A response containing a [`Option`] for if the transaction is in the pool (Some) or not (None) and in which pool
-    /// the tx is in.
-    Contains(Option<crate::State>),
     /// A response containing a requested transaction.
     Transaction(Option<(Tx, crate::State)>),
-    /// A list of transaction IDs.
-    IDs(Vec<TxID>),
 }
