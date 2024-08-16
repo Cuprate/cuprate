@@ -1,0 +1,13 @@
+[package]
+name = "cuprated"
+version = "0.1.0"
+edition = "2021"
+description = "The Cuprate Monero Rust node."
+license = "AGPL-3.0-only"
+authors = ["Boog900", "hinto-janai", "SyntheticBird45"]
+repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
+
+[dependencies]
+
+[lints]
+workspace = true
