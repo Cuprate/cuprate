@@ -60,7 +60,7 @@ where
     R: Service<DandelionRouteReq<Tx, PID>, Response = State, Error = DandelionRouterError>,
     R::Future: Send + 'static,
 {
-    /// TODO.
+    /// Adds a new embargo timer to the running timers, with a duration pulled from [`Self::embargo_dist`]
     fn add_embargo_timer_for_tx(&mut self, tx_id: TxID) {
         let embargo_timer = self.embargo_dist.sample(&mut thread_rng());
         tracing::debug!(
