@@ -37,7 +37,7 @@ use tower::Service;
 use tracing::Instrument;
 
 use crate::{
-    pool::manager::{DandelionPoolManager, DandelionPoolShutDown},
+    pool::manager::DandelionPoolShutDown,
     traits::{TxStoreRequest, TxStoreResponse},
     DandelionConfig, DandelionRouteReq, DandelionRouterError, State,
 };
@@ -46,6 +46,7 @@ mod incoming_tx;
 mod manager;
 
 pub use incoming_tx::{IncomingTx, IncomingTxBuilder};
+pub use manager::DandelionPoolManager;
 
 /// Start the [`DandelionPoolManager`].
 ///

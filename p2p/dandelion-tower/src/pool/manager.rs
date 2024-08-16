@@ -30,24 +30,24 @@ pub struct DandelionPoolShutDown;
 /// See the [module docs](super) for more.
 pub struct DandelionPoolManager<P, R, Tx, TxID, PID> {
     /// The dandelion++ router
-    pub dandelion_router: R,
+    pub(crate) dandelion_router: R,
     /// The backing tx storage.
-    pub backing_pool: P,
+    pub(crate) backing_pool: P,
     /// The set of tasks that are running the future returned from `dandelion_router`.
-    pub routing_set: JoinSet<(TxID, Result<State, TxState<PID>>)>,
+    pub(crate) routing_set: JoinSet<(TxID, Result<State, TxState<PID>>)>,
 
     /// The origin of stem transactions.
-    pub stem_origins: HashMap<TxID, HashSet<PID>>,
+    pub(crate) stem_origins: HashMap<TxID, HashSet<PID>>,
 
     /// Current stem pool embargo timers.
-    pub embargo_timers: DelayQueue<TxID>,
+    pub(crate) embargo_timers: DelayQueue<TxID>,
     /// The distrobution to sample to get embargo timers.
-    pub embargo_dist: Exp<f64>,
+    pub(crate) embargo_dist: Exp<f64>,
 
     /// The d++ config.
-    pub config: DandelionConfig,
+    pub(crate) config: DandelionConfig,
 
-    pub _tx: PhantomData<Tx>,
+    pub(crate) _tx: PhantomData<Tx>,
 }
 
 impl<P, R, Tx, TxID, PID> DandelionPoolManager<P, R, Tx, TxID, PID>
