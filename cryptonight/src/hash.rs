@@ -131,88 +131,66 @@ fn xor_blocks(a: &mut [u8], b: &[u8]) {
 }
 
 fn variant2_portable_shuffle_add(
-    out: &mut [u8; 16],
-    a_: &[u8; 16],
-    base_ptr: &mut [u8],
+    c1: &mut [u8; AES_BLOCK_SIZE],
+    a: &[u8; AES_BLOCK_SIZE],
+    b: &[u8; AES_BLOCK_SIZE * 2],
+    long_state: &mut [u8; MEMORY],
     offset: usize,
     variant: Variant,
 ) {
     if variant == Variant::V2 || variant == Variant::R {
-        let chunk1_offset = offset ^ 0x10;
-        let chunk2_offset = offset ^ 0x20;
-        let chunk3_offset = offset ^ 0x30;
+        let chunk1_start = offset ^ 0x10;
+        let chunk2_start = offset ^ 0x20;
+        let chunk3_start = offset ^ 0x30;
 
-        let mut chunk1 = [
-            u64::from_le_bytes(
-                base_ptr[chunk1_offset..chunk1_offset + 8]
-                    .try_into()
-                    .unwrap(),
-            ),
-            u64::from_le_bytes(
-                base_ptr[chunk1_offset + 8..chunk1_offset + 16]
-                    .try_into()
-                    .unwrap(),
-            ),
-        ];
-        let chunk2 = [
-            u64::from_le_bytes(
-                base_ptr[chunk2_offset..chunk2_offset + 8]
-                    .try_into()
-                    .unwrap(),
-            ),
-            u64::from_le_bytes(
-                base_ptr[chunk2_offset + 8..chunk2_offset + 16]
-                    .try_into()
-                    .unwrap(),
-            ),
-        ];
-        let chunk3 = [
-            u64::from_le_bytes(
-                base_ptr[chunk3_offset..chunk3_offset + 8]
-                    .try_into()
-                    .unwrap(),
-            ),
-            u64::from_le_bytes(
-                base_ptr[chunk3_offset + 8..chunk3_offset + 16]
-                    .try_into()
-                    .unwrap(),
-            ),
-        ];
+        let chunk1 = &long_state[chunk1_start..chunk1_start + 16];
+        let chunk2 = &long_state[chunk2_start..chunk2_start + 16];
+        let chunk3 = &long_state[chunk3_start..chunk3_start + 16];
+
+        let mut chunk1_old = [u64::from_le_bytes(chunk1[0..8].try_into().unwrap()), u64::from_le_bytes(chunk1[8..16].try_into().unwrap())];
+        let chunk2_old = [u64::from_le_bytes(chunk2[0..8].try_into().unwrap()), u64::from_le_bytes(chunk2[8..16].try_into().unwrap())];
+        let chunk3_old = [u64::from_le_bytes(chunk3[0..8].try_into().unwrap()), u64::from_le_bytes(chunk3[8..16].try_into().unwrap())];
 
         let b1 = [
-            u64::from_le_bytes(base_ptr[16..24].try_into().unwrap()),
-            u64::from_le_bytes(base_ptr[24..32].try_into().unwrap()),
+            u64::from_le_bytes(b[16..24].try_into().unwrap()),
+            u64::from_le_bytes(b[24..32].try_into().unwrap()),
         ];
-        chunk1[0] = chunk3[0].wrapping_add(b1[0]).to_le();
-        chunk1[1] = chunk3[1].wrapping_add(b1[1]).to_le();
+        let chunk1 = &mut long_state[chunk1_start..chunk1_start + 16];
+        chunk1[0..8].copy_from_slice(&(chunk3_old[0].wrapping_add(b1[0]).to_le_bytes()));
+        chunk1[8..16].copy_from_slice(&(chunk3_old[1].wrapping_add(b1[1]).to_le_bytes()));
 
         let a0 = [
-            u64::from_le_bytes(a_[..8].try_into().unwrap()),
-            u64::from_le_bytes(a_[8..16].try_into().unwrap()),
+            u64::from_le_bytes(a[0..8].try_into().unwrap()),
+            u64::from_le_bytes(a[8..16].try_into().unwrap()),
         ];
-        base_ptr[chunk3_offset..chunk3_offset + 8].copy_from_slice(&a0[0].to_le_bytes());
-        base_ptr[chunk3_offset + 8..chunk3_offset + 16].copy_from_slice(&a0[1].to_le_bytes());
+
+        let chunk3 = &mut long_state[chunk3_start..chunk3_start + 16];
+        chunk3[0..8].copy_from_slice(&(chunk2_old[0].wrapping_add(a0[0])).to_le_bytes());
+        chunk3[8..16].copy_from_slice(&(chunk2_old[1].wrapping_add(a0[1])).to_le_bytes());
 
         let b0 = [
-            u64::from_le_bytes(base_ptr[..8].try_into().unwrap()),
-            u64::from_le_bytes(base_ptr[8..16].try_into().unwrap()),
+            u64::from_le_bytes(b[0..8].try_into().unwrap()),
+            u64::from_le_bytes(b[8..16].try_into().unwrap()),
         ];
-        base_ptr[chunk2_offset..chunk2_offset + 8].copy_from_slice(&chunk1[0].to_le_bytes());
-        base_ptr[chunk2_offset + 8..chunk2_offset + 16].copy_from_slice(&chunk1[1].to_le_bytes());
+        let chunk2 = &mut long_state[chunk2_start..chunk2_start + 16];
+        chunk2[0..8].copy_from_slice(&(chunk1_old[0].wrapping_add(b0[0])).to_le_bytes());
+        chunk2[8..16].copy_from_slice(&(chunk1_old[1].wrapping_add(b0[1])).to_le_bytes());
 
         if variant == Variant::R {
             let mut out_copy = [
-                u64::from_le_bytes(out[..8].try_into().unwrap()),
-                u64::from_le_bytes(out[8..16].try_into().unwrap()),
+                u64::from_le_bytes(c1[0..8].try_into().unwrap()),
+                u64::from_le_bytes(c1[8..16].try_into().unwrap()),
             ];
-            chunk1[0] ^= chunk2[0];
-            chunk1[1] ^= chunk2[1];
-            out_copy[0] ^= chunk3[0];
-            out_copy[1] ^= chunk3[1];
-            out_copy[0] ^= chunk1[0];
-            out_copy[1] ^= chunk1[1];
-            out[..8].copy_from_slice(&out_copy[0].to_le_bytes());
-            out[8..16].copy_from_slice(&out_copy[1].to_le_bytes());
+
+            chunk1_old[0] ^= chunk2_old[0];
+            chunk1_old[1] ^= chunk2_old[1];
+            out_copy[0] ^= chunk3_old[0];
+            out_copy[1] ^= chunk3_old[1];
+            out_copy[0] ^= chunk1_old[0];
+            out_copy[1] ^= chunk1_old[1];
+
+            c1[0..8].copy_from_slice(&out_copy[0].to_le_bytes());
+            c1[8..16].copy_from_slice(&out_copy[1].to_le_bytes());
         }
     }
 }
@@ -363,7 +341,8 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 3
         v4::random_math_init(&mut code, height);
     }
 
-    let mut long_state = vec![0u8; MEMORY];
+    let mut long_state = vec![0u8; MEMORY]; // use vec to allocate on heap
+    let mut long_state: [u8; MEMORY] = long_state.as_mut_slice().try_into().unwrap();
 
     for i in 0..MEMORY / INIT_SIZE_BYTE {
         for j in 0..INIT_SIZE_BLK {
@@ -396,7 +375,7 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 3
         let mut j = e2i(&a[..8], MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
         copy_block(&mut c1[..], &long_state[j..j + AES_BLOCK_SIZE]);
         cnaes::aesb_single_round(&mut c1, &a);
-        variant2_portable_shuffle_add(&mut c1, &a, &mut long_state, j, variant);
+        variant2_portable_shuffle_add(&mut c1, &a, &b, long_state.as_mut_slice().try_into().unwrap(), j, variant);
         if i == 0 {
             println!("i={}, j={}", i, j);
             println!("c1: {}", hex::encode(&c1));
@@ -433,7 +412,7 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 3
             xor_blocks(&mut d, &long_state[j ^ 0x20..]);
         }
 
-        variant2_portable_shuffle_add(&mut c1, &a, &mut long_state, j, variant);
+        variant2_portable_shuffle_add(&mut c1, &a, &b, &mut long_state, j, variant);
         sum_half_blocks(&mut a1, &d);
         swap_blocks(&mut a1, &mut c2);
         xor_blocks(&mut a1, &mut c2);
@@ -455,7 +434,8 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 3
 
 #[cfg(test)]
 mod tests {
-    use crate::hash::{cn_slow_hash, variant2_integer_math_sqrt, Variant};
+    use crate::hash::{cn_slow_hash, variant2_integer_math_sqrt, Variant, AES_BLOCK_SIZE, MEMORY};
+    use groestl::{Digest, Groestl256};
 
     #[test]
     fn test_keccak1600() {
@@ -735,6 +715,82 @@ mod tests {
             "623403e9d4ecc77a451dcb2a2efd8022",
             12914179687381327414,
             495045866,
+        );
+    }
+
+    #[test]
+    fn test_groestl256() {
+        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc").unwrap();
+        let hash = Groestl256::digest(&input);
+        let expected_hex = "3085f5b0f7126a1d10e6da550ee44c51f0fcad91a80e78268ca5669f0bff0a4e";
+        assert_eq!(hex::encode(hash), expected_hex);
+    }
+
+    #[test]
+    fn test_variant2_portable_shuffle_add() {
+        let test = |c1_hex: &str,
+                    a_hex: &str,
+                    b_hex: &str,
+                    offset: usize,
+                    variant: Variant,
+                    c1_hex_end: &str,
+                    long_state_end_hash: &str| {
+            let mut c1: [u8; AES_BLOCK_SIZE] = hex::decode(c1_hex).unwrap().as_slice().try_into().unwrap();
+            let a: [u8; AES_BLOCK_SIZE] = hex::decode(a_hex).unwrap().as_slice().try_into().unwrap();
+            let b: [u8; AES_BLOCK_SIZE * 2] = hex::decode(b_hex).unwrap().as_slice().try_into().unwrap();
+
+            let mut long_state = Box::new([0u8; MEMORY]);
+            for (i, byte) in long_state.iter_mut().enumerate() {
+                *byte = i as u8;
+            }
+
+            super::variant2_portable_shuffle_add(
+                &mut c1,
+                &a[0..16].try_into().unwrap(),
+                &b[0..32].try_into().unwrap(),
+                &mut long_state,
+                offset,
+                variant,
+            );
+            assert_eq!(hex::encode(c1), c1_hex_end);
+            let hash = Groestl256::digest(long_state.as_slice());
+            assert_eq!(hex::encode(hash), long_state_end_hash);
+        };
+        test(
+            "d7143e3b6ffdeae4b2ceea30e9889c8a",
+            "875fa34de3af48f15638bad52581ef4c",
+            "b07d6f24f19434289b305525f094d8d7bd9d3c9bc956ac081d6186432a282a36",
+            221056,
+            Variant::R,
+            "5795bcb8eb786c633a4760bb65051205",
+            "26c32c4c2eeec340d62b88f5261d1a264c74240c2f8424c6e7101cf490e5772e",
+        );
+        test(
+            "c7d6fe95ffd8d902d2cfc1883f7a2bc3",
+            "bceb9d8cb71c2ac85c24129c94708e17",
+            "4b3a589c187e26bea487b19ea36eb19e8369f4825642eb467c75bf07466b87ba",
+            1960880,
+            Variant::V2,
+            "c7d6fe95ffd8d902d2cfc1883f7a2bc3",
+            "2d4ddadd0e53a02797c62bf37d11bb2de73e6769abd834a81c1262752176a024",
+        );
+        test(
+            "92ad41fc1596244e2e0f0bfed6555cef",
+            "d1f0337e48c4f53742cedd78b6b33b67",
+            "b17bce6c44e0f680aa0f0a28a4e3865b43cdd18644a383e7a9d2f17310e5b6aa",
+            1306832,
+            Variant::R,
+            "427c932fc143f299f6d6d1250a888230",
+            "984440e0b9f77f1159f09b13d2d455292d5a9b4095037f4e8ca2a0ed982bee8f",
+        );
+        test(
+            "7e2c813d10f06d4b8af85389bc82eb18",
+            "74fc41829b88f55e62aec4749685b323",
+            "7a00c480b31d851359d78fad279dcd343bcd6a5f902ac0b55da656d735dbf329",
+            130160,
+            Variant::V2,
+            "7e2c813d10f06d4b8af85389bc82eb18",
+            "6ccb68ee6fc38a6e91f546f62b8e1a64b5223a4a0ef916e6062188c4ee15a879",
         );
     }
 

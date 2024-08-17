@@ -88,10 +88,10 @@ void print_hex(const char *name, const void *memory, size_t size) {
   } while (0)
 
 void variant2_portable_shuffle_add(
-        uint8_t out[16],
-        const uint8_t a[16],
-        const uint8_t b[16 * 2],
-        const uint8_t long_state[2097152],
+        uint8_t c1[AES_BLOCK_SIZE],
+        const uint8_t a[AES_BLOCK_SIZE],
+        const uint8_t b[AES_BLOCK_SIZE * 2],
+        uint8_t long_state[MEMORY],
         const size_t offset,
         const int variant) {
   if (variant >= 2) {
@@ -103,31 +103,31 @@ void variant2_portable_shuffle_add(
     const uint64_t chunk2_old[2] = {SWAP64LE(chunk2[0]), SWAP64LE(chunk2[1])};
     const uint64_t chunk3_old[2] = {SWAP64LE(chunk3[0]), SWAP64LE(chunk3[1])};
 
-    uint64_t b1[2];
+    uint64_t b1[2] = {0};
     memcpy_swap64le(b1, b + 16, 2);
     chunk1[0] = SWAP64LE(chunk3_old[0] + b1[0]);
     chunk1[1] = SWAP64LE(chunk3_old[1] + b1[1]);
 
-    uint64_t a0[2];
+    uint64_t a0[2] = {0};
     memcpy_swap64le(a0, a, 2);
     chunk3[0] = SWAP64LE(chunk2_old[0] + a0[0]);
     chunk3[1] = SWAP64LE(chunk2_old[1] + a0[1]);
 
-    uint64_t b0[2];
+    uint64_t b0[2] = {0};
     memcpy_swap64le(b0, b, 2);
     chunk2[0] = SWAP64LE(chunk1_old[0] + b0[0]);
     chunk2[1] = SWAP64LE(chunk1_old[1] + b0[1]);
 
     if (variant >= 4) {
-      uint64_t out_copy[2];
-      memcpy_swap64le(out_copy, out, 2);
+      uint64_t out_copy[2] = {0};
+      memcpy_swap64le(out_copy, c1, 2);
       chunk1_old[0] ^= chunk2_old[0];
       chunk1_old[1] ^= chunk2_old[1];
       out_copy[0] ^= chunk3_old[0];
       out_copy[1] ^= chunk3_old[1];
       out_copy[0] ^= chunk1_old[0];
       out_copy[1] ^= chunk1_old[1];
-      memcpy_swap64le(out, out_copy, 2);
+      memcpy_swap64le(c1, out_copy, 2);
     }
   }
 }
@@ -252,7 +252,7 @@ static void (*const extra_hashes[4])(const void *, size_t, char *) = {
         hash_extra_blake, hash_extra_groestl, hash_extra_jh, hash_extra_skein
 };
 
-static size_t e2i(const uint8_t *a, size_t count) {
+size_t e2i(const uint8_t *a, size_t count) {
   return (SWAP64LE(*((uint64_t *) a)) / AES_BLOCK_SIZE) & (count - 1);
 }
 
