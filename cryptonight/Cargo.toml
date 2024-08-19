@@ -17,6 +17,8 @@ blake = "2.0.2"
 hex = "0.4.3"
 rand = "0.9.0-alpha.2"
 groestl = "0.10.1"
+skein = "0.1.0"
+jh = "0.1.0"
 
 [build-dependencies]
 cc = "1"

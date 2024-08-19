@@ -147,9 +147,18 @@ fn variant2_portable_shuffle_add(
         let chunk2 = &long_state[chunk2_start..chunk2_start + 16];
         let chunk3 = &long_state[chunk3_start..chunk3_start + 16];
 
-        let mut chunk1_old = [u64::from_le_bytes(chunk1[0..8].try_into().unwrap()), u64::from_le_bytes(chunk1[8..16].try_into().unwrap())];
-        let chunk2_old = [u64::from_le_bytes(chunk2[0..8].try_into().unwrap()), u64::from_le_bytes(chunk2[8..16].try_into().unwrap())];
-        let chunk3_old = [u64::from_le_bytes(chunk3[0..8].try_into().unwrap()), u64::from_le_bytes(chunk3[8..16].try_into().unwrap())];
+        let mut chunk1_old = [
+            u64::from_le_bytes(chunk1[0..8].try_into().unwrap()),
+            u64::from_le_bytes(chunk1[8..16].try_into().unwrap()),
+        ];
+        let chunk2_old = [
+            u64::from_le_bytes(chunk2[0..8].try_into().unwrap()),
+            u64::from_le_bytes(chunk2[8..16].try_into().unwrap()),
+        ];
+        let chunk3_old = [
+            u64::from_le_bytes(chunk3[0..8].try_into().unwrap()),
+            u64::from_le_bytes(chunk3[8..16].try_into().unwrap()),
+        ];
 
         let b1 = [
             u64::from_le_bytes(b[16..24].try_into().unwrap()),
@@ -375,7 +384,14 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 3
         let mut j = e2i(&a[..8], MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
         copy_block(&mut c1[..], &long_state[j..j + AES_BLOCK_SIZE]);
         cnaes::aesb_single_round(&mut c1, &a);
-        variant2_portable_shuffle_add(&mut c1, &a, &b, long_state.as_mut_slice().try_into().unwrap(), j, variant);
+        variant2_portable_shuffle_add(
+            &mut c1,
+            &a,
+            &b,
+            long_state.as_mut_slice().try_into().unwrap(),
+            j,
+            variant,
+        );
         if i == 0 {
             println!("i={}, j={}", i, j);
             println!("c1: {}", hex::encode(&c1));
@@ -435,7 +451,9 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 3
 #[cfg(test)]
 mod tests {
     use crate::hash::{cn_slow_hash, variant2_integer_math_sqrt, Variant, AES_BLOCK_SIZE, MEMORY};
+    use groestl::digest::typenum::U32;
     use groestl::{Digest, Groestl256};
+    use skein::consts::U8;
 
     #[test]
     fn test_keccak1600() {
@@ -720,7 +738,8 @@ mod tests {
 
     #[test]
     fn test_groestl256() {
-        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc").unwrap();
+        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
+            .unwrap();
         let hash = Groestl256::digest(&input);
         let expected_hex = "3085f5b0f7126a1d10e6da550ee44c51f0fcad91a80e78268ca5669f0bff0a4e";
         assert_eq!(hex::encode(hash), expected_hex);
@@ -735,9 +754,12 @@ mod tests {
                     variant: Variant,
                     c1_hex_end: &str,
                     long_state_end_hash: &str| {
-            let mut c1: [u8; AES_BLOCK_SIZE] = hex::decode(c1_hex).unwrap().as_slice().try_into().unwrap();
-            let a: [u8; AES_BLOCK_SIZE] = hex::decode(a_hex).unwrap().as_slice().try_into().unwrap();
-            let b: [u8; AES_BLOCK_SIZE * 2] = hex::decode(b_hex).unwrap().as_slice().try_into().unwrap();
+            let mut c1: [u8; AES_BLOCK_SIZE] =
+                hex::decode(c1_hex).unwrap().as_slice().try_into().unwrap();
+            let a: [u8; AES_BLOCK_SIZE] =
+                hex::decode(a_hex).unwrap().as_slice().try_into().unwrap();
+            let b: [u8; AES_BLOCK_SIZE * 2] =
+                hex::decode(b_hex).unwrap().as_slice().try_into().unwrap();
 
             let mut long_state = Box::new([0u8; MEMORY]);
             for (i, byte) in long_state.iter_mut().enumerate() {
@@ -804,5 +826,27 @@ mod tests {
 
         assert_eq!(hex::encode(a), a_hex);
         assert_eq!(hex::encode(b), b_hex);
+    }
+
+    #[test]
+    fn test_skein_hash() {
+        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
+            .unwrap();
+        let mut hasher = skein::Skein512::<U32>::default();
+        hasher.update(&input);
+        let hash = hasher.finalize();
+        let expected_hex = "64fa505e60b4c6592a4574922a19098e4c99c529d5bb99455f70b7b9a8eb0502";
+        assert_eq!(hex::encode(hash), expected_hex);
+    }
+
+    #[test]
+    fn test_jh() {
+        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
+            .unwrap();
+        let mut hasher = jh::Jh256::default();
+        hasher.update(&input);
+        let hash = hasher.finalize();
+        let expected_hex = "85a348a76c019e45812e1df5edc4554fe3d04b54f7955765b60ca9b5bace2813";
+        assert_eq!(hex::encode(hash), expected_hex);
     }
 }
