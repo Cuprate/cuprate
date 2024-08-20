@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 #[rustfmt::skip]
 /// Decomposed amount table.
 pub static DECOMPOSED_AMOUNTS: [u64; 172] = [
