@@ -126,7 +126,7 @@ fn resize() {
     let (env, _tempdir) = tmp_concrete_env();
 
     // Resize by the OS page size.
-    let page_size = crate::resize::page_size();
+    let page_size = *crate::resize::PAGE_SIZE;
     let old_size = env.current_map_size();
     env.resize_map(Some(ResizeAlgorithm::FixedBytes(page_size)));
 

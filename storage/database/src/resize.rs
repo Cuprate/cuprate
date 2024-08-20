@@ -10,7 +10,7 @@
 //!
 //! # Page size
 //! All free functions in this module will
-//! return a multiple of the OS page size ([`page_size()`]),
+//! return a multiple of the OS page size ([`PAGE_SIZE`]),
 //! [LMDB will error](http://www.lmdb.tech/doc/group__mdb.html#gaa2506ec8dab3d969b0e609cd82e619e5)
 //! if this is not the case.
 //!
@@ -18,10 +18,10 @@
 //! All returned [`NonZeroUsize`] values of the free functions in this module
 //! (including [`ResizeAlgorithm::resize`]) uphold the following invariants:
 //! 1. It will always be `>=` the input `current_size_bytes`
-//! 2. It will always be a multiple of [`page_size()`]
+//! 2. It will always be a multiple of [`PAGE_SIZE`]
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::{num::NonZeroUsize, sync::OnceLock};
+use std::{num::NonZeroUsize, sync::LazyLock};
 
 //---------------------------------------------------------------------------------------------------- ResizeAlgorithm
 /// The function/algorithm used by the
@@ -85,21 +85,14 @@ impl Default for ResizeAlgorithm {
 }
 
 //---------------------------------------------------------------------------------------------------- Free functions
-/// This function retrieves the system’s memory page size.
+/// This retrieves the system’s memory page size.
 ///
 /// It is just [`page_size::get`](https://docs.rs/page_size) internally.
 ///
-/// This caches the result, so this function is cheap after the 1st call.
-///
 /// # Panics
-/// This function will panic if the OS returns of page size of `0` (impossible?).
-#[inline]
-pub fn page_size() -> NonZeroUsize {
-    /// Cached result of [`page_size()`].
-    static PAGE_SIZE: OnceLock<NonZeroUsize> = OnceLock::new();
-    *PAGE_SIZE
-        .get_or_init(|| NonZeroUsize::new(page_size::get()).expect("page_size::get() returned 0"))
-}
+/// Accessing this [`LazyLock`] will panic if the OS returns of page size of `0` (impossible?).
+pub static PAGE_SIZE: LazyLock<NonZeroUsize> =
+    LazyLock::new(|| NonZeroUsize::new(page_size::get()).expect("page_size::get() returned 0"));
 
 /// Memory map resize closely matching `monerod`.
 ///
@@ -122,7 +115,7 @@ pub fn page_size() -> NonZeroUsize {
 /// assert_eq!(monero(0).get(), N);
 ///
 /// // Rounds up to nearest OS page size.
-/// assert_eq!(monero(1).get(), N + page_size().get());
+/// assert_eq!(monero(1).get(), N + PAGE_SIZE.get());
 /// ```
 ///
 /// # Panics
@@ -143,7 +136,7 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
     /// <https://github.com/monero-project/monero/blob/059028a30a8ae9752338a7897329fe8012a310d5/src/blockchain_db/lmdb/db_lmdb.cpp#L553>
     const ADD_SIZE: usize = 1_usize << 30;
 
-    let page_size = page_size().get();
+    let page_size = PAGE_SIZE.get();
     let new_size_bytes = current_size_bytes + ADD_SIZE;
 
     // Round up the new size to the
@@ -167,7 +160,7 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
 ///
 /// ```rust
 /// # use cuprate_database::resize::*;
-/// let page_size: usize = page_size().get();
+/// let page_size: usize = PAGE_SIZE.get();
 ///
 /// // Anything below the page size will round up to the page size.
 /// for i in 0..=page_size {
@@ -190,7 +183,7 @@ pub fn monero(current_size_bytes: usize) -> NonZeroUsize {
 /// fixed_bytes(1, usize::MAX);
 /// ```
 pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize {
-    let page_size = page_size();
+    let page_size = *PAGE_SIZE;
     let new_size_bytes = current_size_bytes + add_bytes;
 
     // Guard against < page_size.
@@ -222,7 +215,7 @@ pub fn fixed_bytes(current_size_bytes: usize, add_bytes: usize) -> NonZeroUsize 
 ///
 /// ```rust
 /// # use cuprate_database::resize::*;
-/// let page_size: usize = page_size().get();
+/// let page_size: usize = PAGE_SIZE.get();
 ///
 /// // Anything below the page size will round up to the page size.
 /// for i in 0..=page_size {
@@ -265,7 +258,7 @@ pub fn percent(current_size_bytes: usize, percent: f32) -> NonZeroUsize {
         _ => 1.0,
     };
 
-    let page_size = page_size();
+    let page_size = *PAGE_SIZE;
 
     // INVARIANT: Allow `f32` <-> `usize` casting, we handle all cases.
     #[allow(
