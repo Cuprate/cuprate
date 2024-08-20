@@ -8,6 +8,19 @@ authors = ["Boog900", "hinto-janai", "SyntheticBird45"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 
 [dependencies]
+cuprate-consensus  = { path = "../../consensus" }
+cuprate-blockchain = { path = "../../storage/blockchain" }
+cuprate-p2p        = { path = "../../p2p/p2p" }
+cuprate-p2p-core   = { path = "../../p2p/p2p-core" }
+cuprate-types      = { path = "../../types" }
+
+rayon              = { workspace = true }
+futures            = { workspace = true }
+tokio              = { workspace = true }
+tower              = { workspace = true }
+tracing            = { workspace = true }
+thiserror          = { workspace = true }
+hex                = { workspace = true }
 
 [lints]
 workspace = true

@@ -40,11 +40,12 @@ static HASHES_OF_HASHES: &[HashOfHashes] = &[
 const BATCH_SIZE: usize = 4;
 
 #[inline]
-fn max_height() -> u64 {
+pub fn max_height() -> u64 {
     (HASHES_OF_HASHES.len() * BATCH_SIZE) as u64
 }
 
 #[derive(Debug, PartialEq)]
+#[repr(transparent)]
 pub struct ValidBlockId(BlockId);
 
 fn valid_block_ids(block_ids: &[BlockId]) -> Vec<ValidBlockId> {

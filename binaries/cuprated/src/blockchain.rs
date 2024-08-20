@@ -4,3 +4,4 @@
 
 mod manager;
 mod syncer;
+mod types;

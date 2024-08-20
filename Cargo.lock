@@ -884,6 +884,20 @@ dependencies = [
 [[package]]
 name = "cuprated"
 version = "0.1.0"
+dependencies = [
+ "cuprate-blockchain",
+ "cuprate-consensus",
+ "cuprate-p2p",
+ "cuprate-p2p-core",
+ "cuprate-types",
+ "futures",
+ "hex",
+ "rayon",
+ "thiserror",
+ "tokio",
+ "tower",
+ "tracing",
+]
 
 [[package]]
 name = "curve25519-dalek"

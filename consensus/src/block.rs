@@ -250,7 +250,7 @@ where
         + Clone
         + Send
         + 'static,
-    D: Database + Clone + Send + Sync + 'static,
+    D: Database + Clone + Send + 'static,
     D::Future: Send + 'static,
 {
     /// Creates a new block verifier.
@@ -284,7 +284,7 @@ where
         + 'static,
     TxV::Future: Send + 'static,
 
-    D: Database + Clone + Send + Sync + 'static,
+    D: Database + Clone + Send + 'static,
     D::Future: Send + 'static,
 {
     type Response = VerifyBlockResponse;
