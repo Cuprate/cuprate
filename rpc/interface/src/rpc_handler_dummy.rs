@@ -3,14 +3,13 @@
 //---------------------------------------------------------------------------------------------------- Use
 use std::task::Poll;
 
-use futures::{channel::oneshot::channel, FutureExt};
+use futures::channel::oneshot::channel;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_json_rpc::Id;
-use cuprate_rpc_types::json::JsonRpcRequest;
 
 use crate::{
     rpc_error::RpcError, rpc_handler::RpcHandler, rpc_request::RpcRequest,
@@ -48,7 +47,7 @@ impl Service<RpcRequest> for RpcHandlerDummy {
     type Error = RpcError;
     type Future = InfallibleOneshotReceiver<Result<RpcResponse, RpcError>>;
 
-    fn poll_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
