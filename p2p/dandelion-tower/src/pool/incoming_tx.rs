@@ -13,9 +13,10 @@ pub struct IncomingTx<Tx, TxId, PId> {
 
 /// An [`IncomingTx`] builder.
 ///
-// The const generics here are used to restrict what methods can be called.
-// RS: a bool for if the routing state is set.
-// DBS: a bool for if the state in DB is set.
+/// The const generics here are used to restrict what methods can be called.
+///
+/// - `RS`: routing state; a `bool` for if the routing state is set
+/// - `DBS`: database state; a `bool` for if the state in the DB is set
 pub struct IncomingTxBuilder<const RS: bool, const DBS: bool, Tx, TxId, PId> {
     /// The transaction.
     tx: Tx,
