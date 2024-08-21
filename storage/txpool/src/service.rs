@@ -67,7 +67,7 @@
 //! use hex_literal::hex;
 //! use tower::{Service, ServiceExt};
 //!
-//! use cuprate_test_utils::data::tx_v1_sig2;
+//! use cuprate_test_utils::data::TX_V1_SIG2;
 //!
 //! use cuprate_txpool::{
 //!     cuprate_database::Env,
@@ -83,7 +83,7 @@
 //! # #[tokio::main]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a configuration for the database environment.
-//! use cuprate_test_utils::data::tx_v1_sig2;
+//! use cuprate_test_utils::data::TX_V1_SIG2;
 //! let tmp_dir = tempfile::tempdir()?;
 //! let db_dir = tmp_dir.path().to_owned();
 //! let config = ConfigBuilder::new()
@@ -94,7 +94,7 @@
 //! let (mut read_handle, mut write_handle, _) = cuprate_txpool::service::init(config)?;
 //!
 //! // Prepare a request to write block.
-//! let tx = tx_v1_sig2().clone();
+//! let tx = TX_V1_SIG2.clone();
 //! let request = TxpoolWriteRequest::AddTransaction {
 //!     tx: Arc::new(tx.try_into().unwrap()),
 //!     state_stem: false,
@@ -114,7 +114,7 @@
 //!
 //! // Now, let's try getting the block hash
 //! // of the block we just wrote.
-//! let request = TxpoolReadRequest::TxBlob(tx_v1_sig2().tx_hash);
+//! let request = TxpoolReadRequest::TxBlob(TX_V1_SIG2.tx_hash);
 //! let response_channel = read_handle.ready().await?.call(request);
 //! let response = response_channel.await?;
 //!
