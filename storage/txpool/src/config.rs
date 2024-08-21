@@ -6,7 +6,7 @@ use cuprate_database::{
     resize::ResizeAlgorithm,
 };
 use cuprate_database_service::ReaderThreads;
-use cuprate_helper::fs::cuprate_txpool_dir;
+use cuprate_helper::fs::CUPRATE_TXPOOL_DIR;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,7 @@ impl ConfigBuilder {
         Self {
             db_directory: None,
             db_config: cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(
-                cuprate_txpool_dir(),
+                &*CUPRATE_TXPOOL_DIR,
             )),
             reader_threads: None,
             max_txpool_weight: None,
@@ -62,7 +62,7 @@ impl ConfigBuilder {
         // in `helper::fs`. No need to do them here.
         let db_directory = self
             .db_directory
-            .unwrap_or_else(|| Cow::Borrowed(cuprate_txpool_dir()));
+            .unwrap_or_else(|| Cow::Borrowed(&*CUPRATE_TXPOOL_DIR));
 
         let reader_threads = self.reader_threads.unwrap_or_default();
 
@@ -125,7 +125,7 @@ impl ConfigBuilder {
     #[must_use]
     pub fn fast(mut self) -> Self {
         self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_txpool_dir()))
+            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR))
                 .fast();
 
         self.reader_threads = Some(ReaderThreads::OnePerThread);
@@ -139,7 +139,7 @@ impl ConfigBuilder {
     #[must_use]
     pub fn low_power(mut self) -> Self {
         self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_txpool_dir()))
+            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR))
                 .low_power();
 
         self.reader_threads = Some(ReaderThreads::One);
@@ -149,7 +149,7 @@ impl ConfigBuilder {
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
-        let db_directory = Cow::Borrowed(cuprate_txpool_dir());
+        let db_directory = Cow::Borrowed(CUPRATE_TXPOOL_DIR.as_path());
         Self {
             db_directory: Some(db_directory.clone()),
             db_config: cuprate_database::config::ConfigBuilder::new(db_directory),
@@ -203,8 +203,8 @@ impl Config {
     ///
     /// let config = Config::new();
     ///
-    /// assert_eq!(config.db_config.db_directory(), cuprate_txpool_dir());
-    /// assert!(config.db_config.db_file().starts_with(cuprate_txpool_dir()));
+    /// assert_eq!(config.db_config.db_directory(), &*CUPRATE_TXPOOL_DIR);
+    /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_TXPOOL_DIR));
     /// assert!(config.db_config.db_file().ends_with(DATABASE_DATA_FILENAME));
     /// assert_eq!(config.db_config.sync_mode, SyncMode::default());
     /// assert_eq!(config.db_config.resize_algorithm, ResizeAlgorithm::default());
@@ -212,7 +212,7 @@ impl Config {
     /// ```
     pub fn new() -> Self {
         Config {
-            db_config: DbConfig::new(Cow::Borrowed(cuprate_txpool_dir())),
+            db_config: DbConfig::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR)),
             reader_threads: ReaderThreads::default(),
             max_txpool_weight: 0,
         }

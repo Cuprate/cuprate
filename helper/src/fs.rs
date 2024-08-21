@@ -173,7 +173,7 @@ impl_path_lazylock! {
     /// | Windows | `C:\Users\Alice\AppData\Roaming\Cuprate\txpool\`           |
     /// | macOS   | `/Users/Alice/Library/Application Support/Cuprate/txpool/` |
     /// | Linux   | `/home/alice/.local/share/cuprate/txpool/`                 |
-    cuprate_txpool_dir,
+    CUPRATE_TXPOOL_DIR,
     data_dir,
     "txpool",
 }
@@ -212,7 +212,7 @@ mod test {
             println!("cuprate_blockchain_dir: {dir:?}");
             assert!(dir.ends_with(r"AppData\Roaming\Cuprate\blockchain"));
 
-            let dir = cuprate_txpool_dir();
+            let dir = &*CUPRATE_TXPOOL_DIR;
             println!("cuprate_txpool_dir: {dir:?}");
             assert!(dir.ends_with(r"AppData\Roaming\Cuprate\txpool"));
         } else if cfg!(target_os = "macos") {
@@ -232,7 +232,7 @@ mod test {
             println!("cuprate_blockchain_dir: {dir:?}");
             assert!(dir.ends_with("Library/Application Support/Cuprate/blockchain"));
 
-            let dir = cuprate_txpool_dir();
+            let dir = &*CUPRATE_TXPOOL_DIR;
             println!("cuprate_txpool_dir: {dir:?}");
             assert!(dir.ends_with("Library/Application Support/Cuprate/txpool"));
         } else {
@@ -253,7 +253,7 @@ mod test {
             println!("cuprate_blockchain_dir: {dir:?}");
             assert!(dir.ends_with(".local/share/cuprate/blockchain"));
 
-            let dir = cuprate_txpool_dir();
+            let dir = &*CUPRATE_TXPOOL_DIR;
             println!("cuprate_txpool_dir: {dir:?}");
             assert!(dir.ends_with(".local/share/cuprate/txpool"));
         }
