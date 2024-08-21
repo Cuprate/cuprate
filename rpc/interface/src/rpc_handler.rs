@@ -1,15 +1,9 @@
 //! RPC handler trait.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::{future::Future, task::Poll};
+use std::future::Future;
 
-use axum::{http::StatusCode, response::IntoResponse};
-use futures::{channel::oneshot::channel, FutureExt};
 use tower::Service;
-
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_json_rpc::Id;
-use cuprate_rpc_types::json::JsonRpcRequest;
 
 use crate::{rpc_error::RpcError, rpc_request::RpcRequest, rpc_response::RpcResponse};
 

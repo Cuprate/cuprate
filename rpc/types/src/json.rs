@@ -12,12 +12,11 @@ use crate::{
         default_false, default_height, default_one, default_string, default_true, default_vec,
         default_zero,
     },
-    free::{is_one, is_zero},
     macros::define_request_and_response,
     misc::{
         AuxPow, BlockHeader, ChainInfo, ConnectionInfo, Distribution, GetBan,
-        GetMinerDataTxBacklogEntry, HardforkEntry, HistogramEntry, OutputDistributionData, SetBan,
-        Span, Status, SyncInfoPeer, TxBacklogEntry,
+        GetMinerDataTxBacklogEntry, HardforkEntry, HistogramEntry, SetBan, Span, Status,
+        SyncInfoPeer, TxBacklogEntry,
     },
     rpc_call::RpcCallValue,
 };

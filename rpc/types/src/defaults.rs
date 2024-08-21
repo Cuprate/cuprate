@@ -8,7 +8,6 @@
 //! `height`, it will use [`default_height`] to fill that in.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::borrow::Cow;
 
 //---------------------------------------------------------------------------------------------------- TODO
 /// Default [`bool`] type used in request/response types, `false`.
@@ -21,12 +20,6 @@ pub(crate) const fn default_false() -> bool {
 #[inline]
 pub(crate) const fn default_true() -> bool {
     true
-}
-
-/// Default `Cow<'static, str` type used in request/response types.
-#[inline]
-pub(crate) const fn default_cow_str() -> Cow<'static, str> {
-    Cow::Borrowed("")
 }
 
 /// Default [`String`] type used in request/response types.

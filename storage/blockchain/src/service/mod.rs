@@ -66,7 +66,7 @@
 //! use tower::{Service, ServiceExt};
 //!
 //! use cuprate_types::{blockchain::{BlockchainReadRequest, BlockchainWriteRequest, BlockchainResponse}, Chain};
-//! use cuprate_test_utils::data::block_v16_tx0;
+//! use cuprate_test_utils::data::BLOCK_V16_TX0;
 //!
 //! use cuprate_blockchain::{
 //!     cuprate_database::Env,
@@ -86,7 +86,7 @@
 //! let (mut read_handle, mut write_handle, _) = cuprate_blockchain::service::init(config)?;
 //!
 //! // Prepare a request to write block.
-//! let mut block = block_v16_tx0().clone();
+//! let mut block = BLOCK_V16_TX0.clone();
 //! # block.height = 0_usize; // must be 0th height or panic in `add_block()`
 //! let request = BlockchainWriteRequest::WriteBlock(block);
 //!

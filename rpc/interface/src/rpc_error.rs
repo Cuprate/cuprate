@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 pub enum RpcError {}
 
 impl From<RpcError> for StatusCode {
-    fn from(value: RpcError) -> Self {
+    fn from(_: RpcError) -> Self {
         // TODO
         Self::INTERNAL_SERVER_ERROR
     }
