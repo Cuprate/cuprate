@@ -34,7 +34,7 @@
 //! ```rust
 //! use hex_literal::hex;
 //!
-//! use cuprate_test_utils::data::tx_v1_sig2;
+//! use cuprate_test_utils::data::TX_V1_SIG2;
 //! use cuprate_txpool::{
 //!     cuprate_database::{
 //!         ConcreteEnv,
@@ -63,7 +63,7 @@
 //! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
 //!
 //! // Write a tx to the database.
-//! let mut tx = tx_v1_sig2().clone();
+//! let mut tx = TX_V1_SIG2.clone();
 //! let tx_hash = tx.tx_hash;
 //! add_transaction(&tx.try_into().unwrap(), true, &mut tables)?;
 //!
@@ -77,7 +77,7 @@
 //! let tx = get_transaction_verification_data(&tx_hash, &mut tables)?;
 //!
 //! assert_eq!(tx.tx_hash, tx_hash);
-//! assert_eq!(tx.tx, tx_v1_sig2().tx);
+//! assert_eq!(tx.tx, TX_V1_SIG2.tx);
 //! # Ok(()) }
 //! ```
 
