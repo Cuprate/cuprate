@@ -14,7 +14,7 @@ use cuprate_p2p_core::ClearNet;
 
 /// An error returned from the [`syncer`].
 #[derive(Debug, thiserror::Error)]
-enum SyncerError {
+pub enum SyncerError {
     #[error("Incoming block channel closed.")]
     IncomingBlockChannelClosed,
     #[error("One of our services returned an error: {0}.")]
@@ -58,7 +58,7 @@ where
     tracing::debug!("Waiting for new sync info in top sync channel");
 
     while let Some(top_sync_info) = peer_sync_watch.next().await {
-        tracing::debug!(
+        tracing::info!(
             "New sync info seen, top height: {}, top block hash: {}",
             top_sync_info.chain_height,
             hex::encode(top_sync_info.top_hash)

@@ -16,11 +16,13 @@ cuprate-types      = { path = "../../types" }
 
 rayon              = { workspace = true }
 futures            = { workspace = true }
-tokio              = { workspace = true }
+tokio              = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tower              = { workspace = true }
 tracing            = { workspace = true }
 thiserror          = { workspace = true }
 hex                = { workspace = true }
 
-[lints]
-workspace = true
+clap               = { workspace = true, features = ["default", "derive"] }
+
+#[lints]
+#workspace = true
