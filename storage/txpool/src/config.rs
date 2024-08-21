@@ -54,7 +54,7 @@ impl ConfigBuilder {
     ///
     /// # Default values
     /// If [`ConfigBuilder::db_directory`] was not called,
-    /// the default [`cuprate_txpool_dir`] will be used.
+    /// the default [`CUPRATE_TXPOOL_DIR`] will be used.
     ///
     /// For all other values, [`Default::default`] is used.
     pub fn build(self) -> Config {
@@ -184,7 +184,7 @@ impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
     /// The [`DbConfig::db_directory`]
-    /// will be set to [`cuprate_txpool_dir`].
+    /// will be set to [`CUPRATE_TXPOOL_DIR`].
     ///
     /// All other values will be [`Default::default`].
     ///
