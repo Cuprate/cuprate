@@ -36,7 +36,7 @@ pub enum TxpoolWriteRequest {
     AddTransaction {
         /// The tx to add.
         tx: Arc<TransactionVerificationData>,
-        /// A bool denoting the routing state of this tx.
+        /// A [`bool`] denoting the routing state of this tx.
         ///
         /// [`true`] if this tx is in the stem state.
         state_stem: bool,

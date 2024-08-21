@@ -35,7 +35,7 @@ bitflags::bitflags! {
 pub struct TransactionInfo {
     /// The transaction's fee.
     pub fee: u64,
-    /// The transactions weight.
+    /// The transaction`s weight.
     pub weight: usize,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
@@ -55,7 +55,9 @@ pub struct RawCachedVerificationState {
     raw_valid_at_hash: [u8; 32],
     /// The raw hard-fork, will be `0` if there is no hf this was validated at.
     raw_hf: u8,
-    /// The raw timestamp, will be `0` if there is no timestamp that needs to be passed for this to
+    /// The raw [`u64`] timestamp as little endian bytes ([`u64::to_le_bytes`]).
+    ///
+    /// This will be `0` if there is no timestamp that needs to be passed for this to
     /// be valid.
     ///
     /// Not a [`u64`] as if it was this type would have an alignment requirement.
@@ -99,7 +101,7 @@ impl From<CachedVerificationState> for RawCachedVerificationState {
             },
             CachedVerificationState::ValidAtHashAndHF { block_hash, hf } => Self {
                 raw_valid_at_hash: block_hash,
-                raw_hf: hf as u8,
+                raw_hf: hf.as_u8(),
                 raw_valid_past_timestamp: [0; 8],
             },
             CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
@@ -113,7 +115,7 @@ impl From<CachedVerificationState> for RawCachedVerificationState {
 
                 Self {
                     raw_valid_at_hash: block_hash,
-                    raw_hf: hf as u8,
+                    raw_hf: hf.as_u8(),
                     raw_valid_past_timestamp: time.to_le_bytes(),
                 }
             }

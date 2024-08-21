@@ -226,6 +226,10 @@ mod test {
             let dir = cuprate_blockchain_dir();
             println!("cuprate_blockchain_dir: {dir:?}");
             assert!(dir.ends_with(r"AppData\Roaming\Cuprate\blockchain"));
+
+            let dir = cuprate_txpool_dir();
+            println!("cuprate_txpool_dir: {dir:?}");
+            assert!(dir.ends_with(r"AppData\Roaming\Cuprate\txpool"));
         } else if cfg!(target_os = "macos") {
             let dir = cuprate_cache_dir();
             println!("cuprate_cache_dir: {dir:?}");
@@ -242,6 +246,10 @@ mod test {
             let dir = cuprate_blockchain_dir();
             println!("cuprate_blockchain_dir: {dir:?}");
             assert!(dir.ends_with("Library/Application Support/Cuprate/blockchain"));
+
+            let dir = cuprate_txpool_dir();
+            println!("cuprate_txpool_dir: {dir:?}");
+            assert!(dir.ends_with("Library/Application Support/Cuprate/txpool"));
         } else {
             // Assumes Linux.
             let dir = cuprate_cache_dir();
@@ -259,6 +267,10 @@ mod test {
             let dir = cuprate_blockchain_dir();
             println!("cuprate_blockchain_dir: {dir:?}");
             assert!(dir.ends_with(".local/share/cuprate/blockchain"));
+
+            let dir = cuprate_txpool_dir();
+            println!("cuprate_txpool_dir: {dir:?}");
+            assert!(dir.ends_with(".local/share/cuprate/txpool"));
         }
     }
 }

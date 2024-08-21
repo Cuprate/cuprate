@@ -84,6 +84,7 @@ impl ConfigBuilder {
     }
 
     /// Sets a new maximum weight for the transaction pool.
+    #[must_use]
     pub const fn max_txpool_weight(mut self, max_txpool_weight: usize) -> Self {
         self.max_txpool_weight = Some(max_txpool_weight);
         self
