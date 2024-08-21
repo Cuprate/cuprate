@@ -53,17 +53,7 @@ The default is `heed`.
 
 # Invariants when not using `service`
 
-`cuprate_txpool` can be used without the `service` feature enabled but
-there are some things that must be kept in mind when doing so.
-
-Failing to uphold these invariants may cause panics.
-
-1. `LMDB` requires the user to resize the memory map resizing (see [`cuprate_database::RuntimeError::ResizeNeeded`]
-1. `LMDB` has a maximum reader transaction count,
-   currently, [it is set to `126`](https://github.com/LMDB/lmdb/blob/b8e54b4c31378932b69f1298972de54a565185b1/libraries/liblmdb/mdb.c#L794-L799)
-1. `LMDB`
-   has [maximum key/value byte size](http://www.lmdb.tech/doc/group__internal.html#gac929399f5d93cef85f874b9e9b1d09e0)
-   which must not be exceeded
+See `cuprate_blockchain`, the invariants are the same.
 
 # Examples
 
