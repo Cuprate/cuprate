@@ -28,16 +28,16 @@ pub struct DandelionPoolShutDown;
 /// The dandelion++ pool manager.
 ///
 /// See the [module docs](super) for more.
-pub struct DandelionPoolManager<P, R, Tx, TxId, PId> {
+pub struct DandelionPoolManager<P, R, Tx, TxId, PeerId> {
     /// The dandelion++ router
     pub(crate) dandelion_router: R,
     /// The backing tx storage.
     pub(crate) backing_pool: P,
     /// The set of tasks that are running the future returned from `dandelion_router`.
-    pub(crate) routing_set: JoinSet<(TxId, Result<State, TxState<PId>>)>,
+    pub(crate) routing_set: JoinSet<(TxId, Result<State, TxState<PeerId>>)>,
 
     /// The origin of stem transactions.
-    pub(crate) stem_origins: HashMap<TxId, HashSet<PId>>,
+    pub(crate) stem_origins: HashMap<TxId, HashSet<PeerId>>,
 
     /// Current stem pool embargo timers.
     pub(crate) embargo_timers: DelayQueue<TxId>,
@@ -50,14 +50,14 @@ pub struct DandelionPoolManager<P, R, Tx, TxId, PId> {
     pub(crate) _tx: PhantomData<Tx>,
 }
 
-impl<P, R, Tx, TxId, PId> DandelionPoolManager<P, R, Tx, TxId, PId>
+impl<P, R, Tx, TxId, PeerId> DandelionPoolManager<P, R, Tx, TxId, PeerId>
 where
     Tx: Clone + Send,
     TxId: Hash + Eq + Clone + Send + 'static,
-    PId: Hash + Eq + Clone + Send + 'static,
+    PeerId: Hash + Eq + Clone + Send + 'static,
     P: Service<TxStoreRequest<TxId>, Response = TxStoreResponse<Tx>, Error = tower::BoxError>,
     P::Future: Send + 'static,
-    R: Service<DandelionRouteReq<Tx, PId>, Response = State, Error = DandelionRouterError>,
+    R: Service<DandelionRouteReq<Tx, PeerId>, Response = State, Error = DandelionRouterError>,
     R::Future: Send + 'static,
 {
     /// Adds a new embargo timer to the running timers, with a duration pulled from [`Self::embargo_dist`]
@@ -79,7 +79,7 @@ where
         &mut self,
         tx: Tx,
         tx_id: TxId,
-        from: Option<PId>,
+        from: Option<PeerId>,
     ) -> Result<(), tower::BoxError> {
         if let Some(peer) = &from {
             self.stem_origins
@@ -126,7 +126,7 @@ where
     async fn handle_incoming_tx(
         &mut self,
         tx: Tx,
-        tx_state: TxState<PId>,
+        tx_state: TxState<PeerId>,
         tx_id: TxId,
     ) -> Result<(), tower::BoxError> {
         match tx_state {
@@ -225,7 +225,7 @@ where
     /// Starts the [`DandelionPoolManager`].
     pub(crate) async fn run(
         mut self,
-        mut rx: mpsc::Receiver<(IncomingTx<Tx, TxId, PId>, oneshot::Sender<()>)>,
+        mut rx: mpsc::Receiver<(IncomingTx<Tx, TxId, PeerId>, oneshot::Sender<()>)>,
     ) {
         tracing::debug!("Starting dandelion++ tx-pool, config: {:?}", self.config);
 
