@@ -28,19 +28,19 @@ pub struct DandelionPoolShutDown;
 /// The dandelion++ pool manager.
 ///
 /// See the [module docs](super) for more.
-pub struct DandelionPoolManager<P, R, Tx, TxID, PID> {
+pub struct DandelionPoolManager<P, R, Tx, TxId, PId> {
     /// The dandelion++ router
     pub(crate) dandelion_router: R,
     /// The backing tx storage.
     pub(crate) backing_pool: P,
     /// The set of tasks that are running the future returned from `dandelion_router`.
-    pub(crate) routing_set: JoinSet<(TxID, Result<State, TxState<PID>>)>,
+    pub(crate) routing_set: JoinSet<(TxId, Result<State, TxState<PId>>)>,
 
     /// The origin of stem transactions.
-    pub(crate) stem_origins: HashMap<TxID, HashSet<PID>>,
+    pub(crate) stem_origins: HashMap<TxId, HashSet<PId>>,
 
     /// Current stem pool embargo timers.
-    pub(crate) embargo_timers: DelayQueue<TxID>,
+    pub(crate) embargo_timers: DelayQueue<TxId>,
     /// The distrobution to sample to get embargo timers.
     pub(crate) embargo_dist: Exp<f64>,
 
@@ -50,18 +50,18 @@ pub struct DandelionPoolManager<P, R, Tx, TxID, PID> {
     pub(crate) _tx: PhantomData<Tx>,
 }
 
-impl<P, R, Tx, TxID, PID> DandelionPoolManager<P, R, Tx, TxID, PID>
+impl<P, R, Tx, TxId, PId> DandelionPoolManager<P, R, Tx, TxId, PId>
 where
     Tx: Clone + Send,
-    TxID: Hash + Eq + Clone + Send + 'static,
-    PID: Hash + Eq + Clone + Send + 'static,
-    P: Service<TxStoreRequest<TxID>, Response = TxStoreResponse<Tx>, Error = tower::BoxError>,
+    TxId: Hash + Eq + Clone + Send + 'static,
+    PId: Hash + Eq + Clone + Send + 'static,
+    P: Service<TxStoreRequest<TxId>, Response = TxStoreResponse<Tx>, Error = tower::BoxError>,
     P::Future: Send + 'static,
-    R: Service<DandelionRouteReq<Tx, PID>, Response = State, Error = DandelionRouterError>,
+    R: Service<DandelionRouteReq<Tx, PId>, Response = State, Error = DandelionRouterError>,
     R::Future: Send + 'static,
 {
     /// Adds a new embargo timer to the running timers, with a duration pulled from [`Self::embargo_dist`]
-    fn add_embargo_timer_for_tx(&mut self, tx_id: TxID) {
+    fn add_embargo_timer_for_tx(&mut self, tx_id: TxId) {
         let embargo_timer = self.embargo_dist.sample(&mut thread_rng());
         tracing::debug!(
             "Setting embargo timer for stem tx: {} seconds.",
@@ -78,8 +78,8 @@ where
     async fn stem_tx(
         &mut self,
         tx: Tx,
-        tx_id: TxID,
-        from: Option<PID>,
+        tx_id: TxId,
+        from: Option<PId>,
     ) -> Result<(), tower::BoxError> {
         if let Some(peer) = &from {
             self.stem_origins
@@ -107,7 +107,7 @@ where
     }
 
     /// Fluffs a tx, does not add the tx to the tx pool.
-    async fn fluff_tx(&mut self, tx: Tx, tx_id: TxID) -> Result<(), tower::BoxError> {
+    async fn fluff_tx(&mut self, tx: Tx, tx_id: TxId) -> Result<(), tower::BoxError> {
         let fut = self
             .dandelion_router
             .ready()
@@ -126,8 +126,8 @@ where
     async fn handle_incoming_tx(
         &mut self,
         tx: Tx,
-        tx_state: TxState<PID>,
-        tx_id: TxID,
+        tx_state: TxState<PId>,
+        tx_id: TxId,
     ) -> Result<(), tower::BoxError> {
         match tx_state {
             TxState::Stem { from } => {
@@ -162,7 +162,7 @@ where
     }
 
     /// Promotes a tx to the clear pool.
-    async fn promote_tx(&mut self, tx_id: TxID) -> Result<(), tower::BoxError> {
+    async fn promote_tx(&mut self, tx_id: TxId) -> Result<(), tower::BoxError> {
         // Remove the tx from the maps used during the stem phase.
         self.stem_origins.remove(&tx_id);
 
@@ -180,7 +180,7 @@ where
     }
 
     /// Promotes a tx to the public fluff pool and fluffs the tx.
-    async fn promote_and_fluff_tx(&mut self, tx_id: TxID) -> Result<(), tower::BoxError> {
+    async fn promote_and_fluff_tx(&mut self, tx_id: TxId) -> Result<(), tower::BoxError> {
         tracing::debug!("Promoting transaction to public pool and fluffing it.");
 
         let TxStoreResponse::Transaction(tx) = self
@@ -208,7 +208,7 @@ where
     }
 
     /// Returns a tx stored in the fluff _OR_ stem pool.
-    async fn get_tx_from_pool(&mut self, tx_id: TxID) -> Result<Option<Tx>, tower::BoxError> {
+    async fn get_tx_from_pool(&mut self, tx_id: TxId) -> Result<Option<Tx>, tower::BoxError> {
         let TxStoreResponse::Transaction(tx) = self
             .backing_pool
             .ready()
@@ -225,7 +225,7 @@ where
     /// Starts the [`DandelionPoolManager`].
     pub(crate) async fn run(
         mut self,
-        mut rx: mpsc::Receiver<(IncomingTx<Tx, TxID, PID>, oneshot::Sender<()>)>,
+        mut rx: mpsc::Receiver<(IncomingTx<Tx, TxId, PId>, oneshot::Sender<()>)>,
     ) {
         tracing::debug!("Starting dandelion++ tx-pool, config: {:?}", self.config);
 

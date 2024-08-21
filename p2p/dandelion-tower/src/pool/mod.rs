@@ -60,21 +60,21 @@ pub use manager::DandelionPoolManager;
 ///   user to customise routing functionality.
 /// - `backing_pool` is the backing transaction storage service
 /// - `config` is [`DandelionConfig`].
-pub fn start_dandelion_pool_manager<P, R, Tx, TxID, PID>(
+pub fn start_dandelion_pool_manager<P, R, Tx, TxId, PId>(
     buffer_size: usize,
     dandelion_router: R,
     backing_pool: P,
     config: DandelionConfig,
-) -> DandelionPoolService<Tx, TxID, PID>
+) -> DandelionPoolService<Tx, TxId, PId>
 where
     Tx: Clone + Send + 'static,
-    TxID: Hash + Eq + Clone + Send + 'static,
-    PID: Hash + Eq + Clone + Send + 'static,
-    P: Service<TxStoreRequest<TxID>, Response = TxStoreResponse<Tx>, Error = tower::BoxError>
+    TxId: Hash + Eq + Clone + Send + 'static,
+    PId: Hash + Eq + Clone + Send + 'static,
+    P: Service<TxStoreRequest<TxId>, Response = TxStoreResponse<Tx>, Error = tower::BoxError>
         + Send
         + 'static,
     P::Future: Send + 'static,
-    R: Service<DandelionRouteReq<Tx, PID>, Response = State, Error = DandelionRouterError>
+    R: Service<DandelionRouteReq<Tx, PId>, Response = State, Error = DandelionRouterError>
         + Send
         + 'static,
     R::Future: Send + 'static,
@@ -105,16 +105,16 @@ where
 ///
 /// Used to send [`IncomingTx`]s to the [`DandelionPoolManager`]
 #[derive(Clone)]
-pub struct DandelionPoolService<Tx, TxID, PID> {
+pub struct DandelionPoolService<Tx, TxId, PId> {
     /// The channel to [`DandelionPoolManager`].
-    tx: PollSender<(IncomingTx<Tx, TxID, PID>, oneshot::Sender<()>)>,
+    tx: PollSender<(IncomingTx<Tx, TxId, PId>, oneshot::Sender<()>)>,
 }
 
-impl<Tx, TxID, PID> Service<IncomingTx<Tx, TxID, PID>> for DandelionPoolService<Tx, TxID, PID>
+impl<Tx, TxId, PId> Service<IncomingTx<Tx, TxId, PId>> for DandelionPoolService<Tx, TxId, PId>
 where
     Tx: Clone + Send,
-    TxID: Hash + Eq + Clone + Send + 'static,
-    PID: Hash + Eq + Clone + Send + 'static,
+    TxId: Hash + Eq + Clone + Send + 'static,
+    PId: Hash + Eq + Clone + Send + 'static,
 {
     type Response = ();
     type Error = DandelionPoolShutDown;
@@ -124,7 +124,7 @@ where
         self.tx.poll_reserve(cx).map_err(|_| DandelionPoolShutDown)
     }
 
-    fn call(&mut self, req: IncomingTx<Tx, TxID, PID>) -> Self::Future {
+    fn call(&mut self, req: IncomingTx<Tx, TxId, PId>) -> Self::Future {
         // although the channel isn't sending anything we want to wait for the request to be handled before continuing.
         let (tx, rx) = oneshot::channel();
 

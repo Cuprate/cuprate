@@ -43,9 +43,9 @@ pub enum DandelionRouterError {
 }
 
 /// A response from an attempt to retrieve an outbound peer.
-pub enum OutboundPeer<ID, T> {
+pub enum OutboundPeer<Id, T> {
     /// A peer.
-    Peer(ID, T),
+    Peer(Id, T),
     /// The peer store is exhausted and has no more to return.
     Exhausted,
 }
@@ -61,28 +61,28 @@ pub enum State {
 
 /// The routing state of a transaction.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum TxState<ID> {
+pub enum TxState<Id> {
     /// Fluff state.
     Fluff,
     /// Stem state.
     Stem {
-        /// The peer who sent us this transaction's ID.
-        from: ID,
+        /// The peer who sent us this transaction's Id.
+        from: Id,
     },
     /// Local - the transaction originated from our node.
     Local,
 }
 
 /// A request to route a transaction.
-pub struct DandelionRouteReq<Tx, ID> {
+pub struct DandelionRouteReq<Tx, Id> {
     /// The transaction.
     pub tx: Tx,
     /// The transaction state.
-    pub state: TxState<ID>,
+    pub state: TxState<Id>,
 }
 
 /// The dandelion router service.
-pub struct DandelionRouter<P, B, ID, S, Tx> {
+pub struct DandelionRouter<P, B, Id, S, Tx> {
     // pub(crate) is for tests
     /// A [`Discover`] where we can get outbound peers from.
     outbound_peer_discover: Pin<Box<P>>,
@@ -95,14 +95,14 @@ pub struct DandelionRouter<P, B, ID, S, Tx> {
     epoch_start: Instant,
 
     /// The stem our local transactions will be sent to.
-    local_route: Option<ID>,
-    /// A [`HashMap`] linking peer's IDs to IDs in `stem_peers`.
-    stem_routes: HashMap<ID, ID>,
+    local_route: Option<Id>,
+    /// A [`HashMap`] linking peer's Ids to Ids in `stem_peers`.
+    stem_routes: HashMap<Id, Id>,
     /// Peers we are using for stemming.
     ///
     /// This will contain peers, even in [`State::Fluff`] to allow us to stem [`TxState::Local`]
     /// transactions.
-    pub(crate) stem_peers: HashMap<ID, S>,
+    pub(crate) stem_peers: HashMap<Id, S>,
 
     /// The distribution to sample to get the [`State`], true is [`State::Fluff`].
     state_dist: Bernoulli,
@@ -116,10 +116,10 @@ pub struct DandelionRouter<P, B, ID, S, Tx> {
     _tx: PhantomData<Tx>,
 }
 
-impl<Tx, ID, P, B, S> DandelionRouter<P, B, ID, S, Tx>
+impl<Tx, Id, P, B, S> DandelionRouter<P, B, Id, S, Tx>
 where
-    ID: Hash + Eq + Clone,
-    P: TryStream<Ok = OutboundPeer<ID, S>, Error = tower::BoxError>,
+    Id: Hash + Eq + Clone,
+    P: TryStream<Ok = OutboundPeer<Id, S>, Error = tower::BoxError>,
     B: Service<DiffuseRequest<Tx>, Error = tower::BoxError>,
     B::Future: Send + 'static,
     S: Service<StemRequest<Tx>, Error = tower::BoxError>,
@@ -198,7 +198,7 @@ where
     fn stem_tx(
         &mut self,
         tx: Tx,
-        from: ID,
+        from: Id,
     ) -> BoxFuture<'static, Result<State, DandelionRouterError>> {
         if self.stem_peers.is_empty() {
             tracing::debug!("Stem peers are empty, fluffing stem transaction.");
@@ -258,19 +258,10 @@ where
     }
 }
 
-/*
-## Generics ##
-
-Tx: The tx type
-ID: Peer Id type - unique identifier for nodes.
-P: Peer Set discover - where we can get outbound peers from
-B: Broadcast service - where we send txs to get diffused.
-S: The Peer service - handles routing messages to a single node.
- */
-impl<Tx, ID, P, B, S> Service<DandelionRouteReq<Tx, ID>> for DandelionRouter<P, B, ID, S, Tx>
+impl<Tx, Id, P, B, S> Service<DandelionRouteReq<Tx, Id>> for DandelionRouter<P, B, Id, S, Tx>
 where
-    ID: Hash + Eq + Clone,
-    P: TryStream<Ok = OutboundPeer<ID, S>, Error = tower::BoxError>,
+    Id: Hash + Eq + Clone,
+    P: TryStream<Ok = OutboundPeer<Id, S>, Error = tower::BoxError>,
     B: Service<DiffuseRequest<Tx>, Error = tower::BoxError>,
     B::Future: Send + 'static,
     S: Service<StemRequest<Tx>, Error = tower::BoxError>,
@@ -336,7 +327,7 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, req: DandelionRouteReq<Tx, ID>) -> Self::Future {
+    fn call(&mut self, req: DandelionRouteReq<Tx, Id>) -> Self::Future {
         tracing::trace!(parent: &self.span,  "Handling route request.");
 
         match req.state {
