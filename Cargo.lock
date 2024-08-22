@@ -850,6 +850,24 @@ dependencies = [
 [[package]]
 name = "cuprate-txpool"
 version = "0.0.0"
+dependencies = [
+ "bitflags 2.5.0",
+ "bytemuck",
+ "cuprate-database",
+ "cuprate-database-service",
+ "cuprate-helper",
+ "cuprate-test-utils",
+ "cuprate-types",
+ "hex",
+ "hex-literal",
+ "monero-serai",
+ "rayon",
+ "serde",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tower",
+]
 
 [[package]]
 name = "cuprate-types"

@@ -4,12 +4,40 @@ version     = "0.0.0"
 edition     = "2021"
 description = "Cuprate's transaction pool database"
 license     = "MIT"
-authors     = ["hinto-janai"]
-repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/cuprate-txpool"
+authors     = ["Boog900"]
+repository  = "https://github.com/Cuprate/cuprate/tree/main/storage/txpool"
 keywords    = ["cuprate", "txpool", "transaction", "pool", "database"]
 
 [features]
+default     = ["heed", "service"]
+# default   = ["redb", "service"]
+# default   = ["redb-memory", "service"]
+heed        = ["cuprate-database/heed"]
+redb        = ["cuprate-database/redb"]
+redb-memory = ["cuprate-database/redb-memory"]
+service     = ["dep:tower", "dep:rayon", "dep:cuprate-database-service"]
+serde       = ["dep:serde", "cuprate-database/serde", "cuprate-database-service/serde"]
 
 [dependencies]
+cuprate-database         = { path = "../database", features = ["heed"] }
+cuprate-database-service = { path = "../service", optional = true }
+cuprate-types            = { path = "../../types" }
+cuprate-helper           = { path = "../../helper", default-features = false, features = ["constants"] }
+
+monero-serai             = { workspace = true, features = ["std"] }
+bytemuck                 = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
+bitflags                 = { workspace = true, features = ["std", "serde", "bytemuck"] }
+thiserror                = { workspace = true }
+hex                      = { workspace = true }
+
+tower                    = { workspace = true, optional = true }
+rayon                    = { workspace = true, optional = true }
+
+serde                    = { workspace = true, optional = true }
 
 [dev-dependencies]
+cuprate-test-utils = { path = "../../test-utils" }
+
+tokio              = { workspace = true }
+tempfile           = { workspace = true }
+hex-literal        = { workspace = true }

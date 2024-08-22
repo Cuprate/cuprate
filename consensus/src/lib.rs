@@ -10,7 +10,7 @@
 //! implement a database you need to have a service which accepts [`BlockchainReadRequest`] and responds
 //! with [`BlockchainResponse`].
 //!
-use cuprate_consensus_rules::{ConsensusError, HardFork};
+use cuprate_consensus_rules::ConsensusError;
 
 mod batch_verifier;
 pub mod block;
@@ -27,7 +27,10 @@ pub use context::{
 pub use transactions::{TxVerifierService, VerifyTxRequest, VerifyTxResponse};
 
 // re-export.
-pub use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
+pub use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    HardFork,
+};
 
 /// An Error returned from one of the consensus services.
 #[derive(Debug, thiserror::Error)]
