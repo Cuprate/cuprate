@@ -53,7 +53,7 @@ The default is `heed`.
 
 # Invariants when not using `service`
 
-See `cuprate_blockchain`, the invariants are the same.
+See [`cuprate_blockchain`](https://doc.cuprate.org/cuprate_blockchain), the invariants are the same.
 
 # Examples
 
