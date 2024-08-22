@@ -2,17 +2,17 @@
 //!
 //! This crate implements [dandelion++](https://arxiv.org/pdf/1805.11060.pdf), using [`tower`].
 //!  
-//! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPool`](pool::DandelionPool).
+//! This crate provides 2 [`tower::Service`]s, a [`DandelionRouter`] and a [`DandelionPoolManager`](pool::DandelionPoolManager).
 //! The router is pretty minimal and only handles the absolute necessary data to route transactions, whereas the
 //! pool keeps track of all data necessary for dandelion++ but requires you to provide a backing tx-pool.
 //!
-//! This split was done not because the [`DandelionPool`](pool::DandelionPool) is unnecessary but because it is hard
-//! to cover a wide range of projects when abstracting over the tx-pool. Not using the [`DandelionPool`](pool::DandelionPool)
+//! This split was done not because the [`DandelionPoolManager`](pool::DandelionPoolManager) is unnecessary but because it is hard
+//! to cover a wide range of projects when abstracting over the tx-pool. Not using the [`DandelionPoolManager`](pool::DandelionPoolManager)
 //! requires you to implement part of the paper yourself.
 //!
 //! # Features
 //!
-//! This crate only has one feature `txpool` which enables [`DandelionPool`](pool::DandelionPool).
+//! This crate only has one feature `txpool` which enables [`DandelionPoolManager`](pool::DandelionPoolManager).
 //!
 //! # Needed Services
 //!
@@ -45,7 +45,7 @@
 //!
 //! ## Backing Pool
 //!
-//! ([`DandelionPool`](pool::DandelionPool) only)
+//! ([`DandelionPoolManager`](pool::DandelionPoolManager) only)
 //!
 //! This service is a backing tx-pool, in memory or on disk.
 //! The backing pool should have a request of [`TxStoreRequest`](traits::TxStoreRequest) and a response of
