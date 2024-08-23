@@ -123,7 +123,7 @@ impl PreparedBlock {
     ///
     /// The randomX VM must be Some if RX is needed or this will panic.
     /// The randomX VM must also be initialised with the correct seed.
-    fn new<R: RandomX>(
+    pub fn new<R: RandomX>(
         block: Block,
         randomx_vm: Option<&R>,
     ) -> Result<PreparedBlock, ConsensusError> {

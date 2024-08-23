@@ -939,6 +939,7 @@ dependencies = [
  "clap",
  "cuprate-blockchain",
  "cuprate-consensus",
+ "cuprate-cryptonight",
  "cuprate-p2p",
  "cuprate-p2p-core",
  "cuprate-types",
@@ -949,6 +950,7 @@ dependencies = [
  "tokio",
  "tower",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -983,7 +985,7 @@ dependencies = [
 [[package]]
 name = "dalek-ff-group"
 version = "0.4.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -1138,7 +1140,7 @@ dependencies = [
 [[package]]
 name = "flexible-transcript"
 version = "0.3.2"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "blake2",
  "digest",
@@ -1802,7 +1804,7 @@ dependencies = [
 [[package]]
 name = "monero-address"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-io",
@@ -1815,7 +1817,7 @@ dependencies = [
 [[package]]
 name = "monero-borromean"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -1828,7 +1830,7 @@ dependencies = [
 [[package]]
 name = "monero-bulletproofs"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -1843,7 +1845,7 @@ dependencies = [
 [[package]]
 name = "monero-clsag"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -1863,7 +1865,7 @@ dependencies = [
 [[package]]
 name = "monero-generators"
 version = "0.4.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -1877,7 +1879,7 @@ dependencies = [
 [[package]]
 name = "monero-io"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "std-shims",
@@ -1886,7 +1888,7 @@ dependencies = [
 [[package]]
 name = "monero-mlsag"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -1900,7 +1902,7 @@ dependencies = [
 [[package]]
 name = "monero-primitives"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -1913,7 +1915,7 @@ dependencies = [
 [[package]]
 name = "monero-rpc"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "async-trait",
  "curve25519-dalek",
@@ -1930,7 +1932,7 @@ dependencies = [
 [[package]]
 name = "monero-serai"
 version = "0.1.4-alpha"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "hex-literal",
@@ -1948,7 +1950,7 @@ dependencies = [
 [[package]]
 name = "monero-simple-request-rpc"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "async-trait",
  "digest_auth",
@@ -1956,6 +1958,16 @@ dependencies = [
  "monero-rpc",
  "simple-request",
  "tokio",
+]
+
+[[package]]
+name = "nu-ansi-term"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77a8165726e8236064dbb45459242600304b42a5ea24ee2948e18e023bf7ba84"
+dependencies = [
+ "overload",
+ "winapi",
 ]
 
 [[package]]
@@ -2004,6 +2016,12 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
+name = "overload"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "page_size"
@@ -2608,6 +2626,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sharded-slab"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2619,7 +2646,7 @@ dependencies = [
 [[package]]
 name = "simple-request"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "http-body-util",
  "hyper",
@@ -2675,7 +2702,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "std-shims"
 version = "0.1.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "hashbrown",
  "spin",
@@ -2974,6 +3001,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 dependencies = [
  "once_cell",
+ "valuable",
+]
+
+[[package]]
+name = "tracing-log"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
+dependencies = [
+ "log",
+ "once_cell",
+ "tracing-core",
 ]
 
 [[package]]
@@ -2982,7 +3021,12 @@ version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
 dependencies = [
+ "nu-ansi-term",
+ "sharded-slab",
+ "smallvec",
+ "thread_local",
  "tracing-core",
+ "tracing-log",
 ]
 
 [[package]]
@@ -3061,6 +3105,12 @@ name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
+
+[[package]]
+name = "valuable"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
 
 [[package]]
 name = "version_check"

@@ -33,7 +33,7 @@ mod sync_states;
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
 use client_pool::ClientPoolDropGuard;
-pub use config::P2PConfig;
+pub use config::{AddressBookConfig, P2PConfig};
 use connection_maintainer::MakeConnectionRequest;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].

@@ -39,18 +39,20 @@ impl BlockchainManager {
     }
 
     pub async fn run(mut self, mut batch_rx: Receiver<BlockBatch>) {
-        tokio::select! {
-            Some(batch) = batch_rx.recv() => {
-                handle_incoming_block_batch(
-                    batch,
-                    &mut self.block_verifier_service,
-                    &mut self.blockchain_context_service,
-                    &mut self.blockchain_read_handle,
-                    &mut self.blockchain_write_handle
-                ).await;
-            }
-            else => {
-                todo!("Exit the BC manager")
+        loop {
+            tokio::select! {
+                Some(batch) = batch_rx.recv() => {
+                    handle_incoming_block_batch(
+                        batch,
+                        &mut self.block_verifier_service,
+                        &mut self.blockchain_context_service,
+                        &mut self.blockchain_read_handle,
+                        &mut self.blockchain_write_handle
+                    ).await;
+                }
+                else => {
+                    todo!("TODO: exit the BC manager")
+                }
             }
         }
     }

@@ -65,7 +65,7 @@ futures               = { version = "0.3.29", default-features = false }
 hex                   = { version = "0.4.3", default-features = false }
 hex-literal           = { version = "0.4", default-features = false }
 indexmap              = { version = "2.2.5", default-features = false }
-monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce", default-features = false }
+monero-serai          = { git = "https://github.com/Cuprate/serai.git", rev = "50686e8", default-features = false }
 paste                 = { version = "1.0.14", default-features = false }
 pin-project           = { version = "1.1.3", default-features = false }
 randomx-rs            = { git = "https://github.com/Cuprate/randomx-rs.git", rev = "0028464", default-features = false }
@@ -85,8 +85,8 @@ tracing-subscriber    = { version = "0.3.17", default-features = false }
 tracing               = { version = "0.1.40", default-features = false }
 
 ## workspace.dev-dependencies
-monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
-monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "d5205ce" }
+monero-rpc                = { git = "https://github.com/Cuprate/serai.git", rev = "50686e8" }
+monero-simple-request-rpc = { git = "https://github.com/Cuprate/serai.git", rev = "50686e8" }
 tempfile                  = { version = "3" }
 pretty_assertions         = { version = "1.4.0" }
 proptest                  = { version = "1" }

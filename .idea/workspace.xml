@@ -1,0 +1,637 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="d1032f99-e09e-480f-a744-beb0ea7b1d5e" name="Changes" comment="`PId` -&gt; `PeerId`">
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/binaries/cuprated/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/binaries/cuprated/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/binaries/cuprated/src/blockchain.rs" beforeDir="false" afterPath="$PROJECT_DIR$/binaries/cuprated/src/blockchain.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/binaries/cuprated/src/blockchain/manager.rs" beforeDir="false" afterPath="$PROJECT_DIR$/binaries/cuprated/src/blockchain/manager.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/binaries/cuprated/src/blockchain/manager/batch_handler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/binaries/cuprated/src/blockchain/manager/batch_handler.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/binaries/cuprated/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/binaries/cuprated/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/binaries/cuprated/src/p2p.rs" beforeDir="false" afterPath="$PROJECT_DIR$/binaries/cuprated/src/p2p.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/binaries/cuprated/src/p2p/request_handler.rs" beforeDir="false" afterPath="$PROJECT_DIR$/binaries/cuprated/src/p2p/request_handler.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/consensus/src/block.rs" beforeDir="false" afterPath="$PROJECT_DIR$/consensus/src/block.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/consensus/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/consensus/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/consensus/src/transactions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/consensus/src/transactions.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/consensus/src/transactions/free.rs" beforeDir="false" afterPath="$PROJECT_DIR$/consensus/src/transactions/free.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/p2p/p2p-core/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/p2p/p2p-core/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/p2p/p2p/src/config.rs" beforeDir="false" afterPath="$PROJECT_DIR$/p2p/p2p/src/config.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/p2p/p2p/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/p2p/p2p/src/lib.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
+  </component>
+  <component name="FormatOnSaveOptions">
+    <option name="myRunOnSave" value="true" />
+    <option name="myAllFileTypesSelected" value="false" />
+    <option name="mySelectedFileTypes">
+      <set>
+        <option value="CSS" />
+        <option value="DTD" />
+        <option value="ECMAScript 6" />
+        <option value="Flow" />
+        <option value="HTML" />
+        <option value="HTTP Request" />
+        <option value="JSHint" />
+        <option value="JSON" />
+        <option value="JSON-lines" />
+        <option value="JSON5" />
+        <option value="JSX Harmony" />
+        <option value="JavaScript" />
+        <option value="Markdown" />
+        <option value="NatVis" />
+        <option value="QmlType" />
+        <option value="Qt UI file" />
+        <option value="RNG Compact" />
+        <option value="Rust" />
+        <option value="SVG" />
+        <option value="Shell Script" />
+        <option value="TypeScript" />
+        <option value="TypeScript JSX" />
+        <option value="XHTML" />
+        <option value="XML" />
+        <option value="YAML" />
+        <option value="qrc" />
+        <option value="tsconfig" />
+      </set>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="proto-req-hdlr" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/storage/txpool/src/service/write.rs" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="r6zcvbq1" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4
+}</component>
+  <component name="ProjectId" id="2kFBaFNVkzv8EcH0EAfSrXZRAks" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Doctest of ops (line 34).executor": "Run",
+    "Cargo.Doctest of service (line 62).executor": "Run",
+    "Cargo.Run cuprated.executor": "Debug",
+    "Cargo.Test pool::incoming_tx::tests::test_builder.executor": "Run",
+    "Cargo.Test test.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "git-widget-placeholder": "cuprated-blockchain",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.cargo.project.model.impl.CargoExternalSystemProjectAware.subscribe.first.balloon": "",
+    "settings.editor.selected.configurable": "actions.on.save"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/binaries/cuprated/src/p2p" />
+      <recent name="$PROJECT_DIR$/storage/blockchain/src" />
+    </key>
+  </component>
+  <component name="RsExternalLinterProjectSettings">
+    <option name="runOnTheFly" value="true" />
+    <option name="tool" value="Clippy" />
+  </component>
+  <component name="RunManager" selected="Cargo.Run cuprated">
+    <configuration name="Run cuprated" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="run --package cuprated --bin cuprated" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test p2p::admin::tests::serde_handshake_res" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package monero-wire --lib p2p::admin::tests::serde_handshake_res -- --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test p2p_handshake" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package epee-encoding --test p2p p2p_handshake -- --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test rpc::client::tests::tt" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package cuprate-test-utils --lib rpc::client::tests::tt -- --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test test" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package cuprate-epee-encoding --test tt test -- --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Cargo.Run cuprated" />
+        <item itemvalue="Cargo.Test test" />
+        <item itemvalue="Cargo.Test rpc::client::tests::tt" />
+        <item itemvalue="Cargo.Test p2p_handshake" />
+        <item itemvalue="Cargo.Test p2p::admin::tests::serde_handshake_res" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="RustfmtProjectSettings">
+    <option name="useRustfmt" value="true" />
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="d1032f99-e09e-480f-a744-beb0ea7b1d5e" name="Changes" comment="`bc` -&gt; `blockchain`" />
+      <created>1722869508802</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1722869508802</updated>
+      <workItem from="1722869510290" duration="81000" />
+      <workItem from="1722869600374" duration="26571000" />
+      <workItem from="1722955003374" duration="24174000" />
+      <workItem from="1723037908706" duration="17266000" />
+      <workItem from="1723122880698" duration="21168000" />
+      <workItem from="1723218016483" duration="15810000" />
+      <workItem from="1723249920813" duration="3297000" />
+      <workItem from="1723332579446" duration="912000" />
+      <workItem from="1723409128770" duration="3156000" />
+      <workItem from="1723468396917" duration="21588000" />
+      <workItem from="1723559211981" duration="10367000" />
+      <workItem from="1723591724462" duration="5241000" />
+      <workItem from="1723643320504" duration="15530000" />
+      <workItem from="1723723944792" duration="29923000" />
+      <workItem from="1723814422068" duration="17808000" />
+      <workItem from="1723925675252" duration="10774000" />
+      <workItem from="1724018660196" duration="2078000" />
+      <workItem from="1724072530739" duration="28867000" />
+      <workItem from="1724161208151" duration="26928000" />
+      <workItem from="1724249809783" duration="14832000" />
+      <workItem from="1724333484896" duration="8324000" />
+      <workItem from="1724418469082" duration="13533000" />
+      <workItem from="1724439928196" duration="8647000" />
+    </task>
+    <task id="LOCAL-00001" summary="`bc` -&gt; `blockchain`">
+      <option name="closed" value="true" />
+      <created>1722869881493</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1722869881493</updated>
+    </task>
+    <task id="LOCAL-00002" summary="doc fixes">
+      <option name="closed" value="true" />
+      <created>1722870056808</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1722870056808</updated>
+    </task>
+    <task id="LOCAL-00003" summary="cargo fmt">
+      <option name="closed" value="true" />
+      <created>1722870767745</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1722870767745</updated>
+    </task>
+    <task id="LOCAL-00004" summary="cargo fmt">
+      <option name="closed" value="true" />
+      <created>1722871328779</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1722871328779</updated>
+    </task>
+    <task id="LOCAL-00005" summary="add more docs">
+      <option name="closed" value="true" />
+      <created>1722906207310</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1722906207310</updated>
+    </task>
+    <task id="LOCAL-00006" summary="fixes">
+      <option name="closed" value="true" />
+      <created>1722907656548</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1722907656548</updated>
+    </task>
+    <task id="LOCAL-00007" summary="move `HardFork` to `types`">
+      <option name="closed" value="true" />
+      <created>1722992299543</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1722992299543</updated>
+    </task>
+    <task id="LOCAL-00008" summary="fmt">
+      <option name="closed" value="true" />
+      <created>1722992779351</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1722992779351</updated>
+    </task>
+    <task id="LOCAL-00009" summary="fix tests &amp; doc">
+      <option name="closed" value="true" />
+      <created>1722994414575</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1722994414575</updated>
+    </task>
+    <task id="LOCAL-00010" summary="fix clippy">
+      <option name="closed" value="true" />
+      <created>1723040367937</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1723040367937</updated>
+    </task>
+    <task id="LOCAL-00011" summary="move transaction verification data">
+      <option name="closed" value="true" />
+      <created>1723125824866</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1723125824866</updated>
+    </task>
+    <task id="LOCAL-00012" summary="misc fixes">
+      <option name="closed" value="true" />
+      <created>1723127416195</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1723127416195</updated>
+    </task>
+    <task id="LOCAL-00013" summary="doc fixes">
+      <option name="closed" value="true" />
+      <created>1723133261401</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1723133261401</updated>
+    </task>
+    <task id="LOCAL-00014" summary="start proptest arbitrary chain">
+      <option name="closed" value="true" />
+      <created>1723148800683</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1723148800683</updated>
+    </task>
+    <task id="LOCAL-00015" summary="update README.md">
+      <option name="closed" value="true" />
+      <created>1723159166301</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1723159166301</updated>
+    </task>
+    <task id="LOCAL-00016" summary="review fixes">
+      <option name="closed" value="true" />
+      <created>1723159709038</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1723159709038</updated>
+    </task>
+    <task id="LOCAL-00017" summary="add write functions + docs">
+      <option name="closed" value="true" />
+      <created>1723225457199</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1723225457199</updated>
+    </task>
+    <task id="LOCAL-00018" summary="fix merge">
+      <option name="closed" value="true" />
+      <created>1723249397528</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1723249397528</updated>
+    </task>
+    <task id="LOCAL-00019" summary="fix test">
+      <option name="closed" value="true" />
+      <created>1723250798381</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1723250798381</updated>
+    </task>
+    <task id="LOCAL-00020" summary="fix ci">
+      <option name="closed" value="true" />
+      <created>1723251564499</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1723251564499</updated>
+    </task>
+    <task id="LOCAL-00021" summary="move `TxPoolWriteError`">
+      <option name="closed" value="true" />
+      <created>1723251946498</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1723251946498</updated>
+    </task>
+    <task id="LOCAL-00022" summary="add more docs">
+      <option name="closed" value="true" />
+      <created>1723499207124</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1723499207124</updated>
+    </task>
+    <task id="LOCAL-00023" summary="fix toml formatting">
+      <option name="closed" value="true" />
+      <created>1723500679410</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1723500679410</updated>
+    </task>
+    <task id="LOCAL-00024" summary="fix some docs">
+      <option name="closed" value="true" />
+      <created>1723500847360</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1723500847360</updated>
+    </task>
+    <task id="LOCAL-00025" summary="fix clippy">
+      <option name="closed" value="true" />
+      <created>1723501335763</created>
+      <option name="number" value="00025" />
+      <option name="presentableId" value="LOCAL-00025" />
+      <option name="project" value="LOCAL" />
+      <updated>1723501335763</updated>
+    </task>
+    <task id="LOCAL-00026" summary="init">
+      <option name="closed" value="true" />
+      <created>1723512507585</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1723512507585</updated>
+    </task>
+    <task id="LOCAL-00027" summary="reduce the jobs handled by the dandelion pool">
+      <option name="closed" value="true" />
+      <created>1723767027153</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1723767027153</updated>
+    </task>
+    <task id="LOCAL-00028" summary="fix docs">
+      <option name="closed" value="true" />
+      <created>1723767615139</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1723767615139</updated>
+    </task>
+    <task id="LOCAL-00029" summary="resolve todo">
+      <option name="closed" value="true" />
+      <created>1723768785884</created>
+      <option name="number" value="00029" />
+      <option name="presentableId" value="LOCAL-00029" />
+      <option name="project" value="LOCAL" />
+      <updated>1723768785884</updated>
+    </task>
+    <task id="LOCAL-00030" summary="add cuprated skeleton">
+      <option name="closed" value="true" />
+      <created>1723771471205</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1723771471205</updated>
+    </task>
+    <task id="LOCAL-00031" summary="fmt and add deny exception">
+      <option name="closed" value="true" />
+      <created>1723816913395</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1723816913395</updated>
+    </task>
+    <task id="LOCAL-00032" summary="add main chain batch handler">
+      <option name="closed" value="true" />
+      <created>1724168407863</created>
+      <option name="number" value="00032" />
+      <option name="presentableId" value="LOCAL-00032" />
+      <option name="project" value="LOCAL" />
+      <updated>1724168407864</updated>
+    </task>
+    <task id="LOCAL-00033" summary="add blockchain init">
+      <option name="closed" value="true" />
+      <created>1724252529611</created>
+      <option name="number" value="00033" />
+      <option name="presentableId" value="LOCAL-00033" />
+      <option name="project" value="LOCAL" />
+      <updated>1724252529611</updated>
+    </task>
+    <task id="LOCAL-00034" summary="review changes">
+      <option name="closed" value="true" />
+      <created>1724253642047</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1724253642047</updated>
+    </task>
+    <task id="LOCAL-00035" summary="review fixes">
+      <option name="closed" value="true" />
+      <created>1724254915004</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1724254915004</updated>
+    </task>
+    <task id="LOCAL-00036" summary="update docs">
+      <option name="closed" value="true" />
+      <created>1724255395365</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1724255395365</updated>
+    </task>
+    <task id="LOCAL-00037" summary="fix merge">
+      <option name="closed" value="true" />
+      <created>1724255786382</created>
+      <option name="number" value="00037" />
+      <option name="presentableId" value="LOCAL-00037" />
+      <option name="project" value="LOCAL" />
+      <updated>1724255786382</updated>
+    </task>
+    <task id="LOCAL-00038" summary="fix docs">
+      <option name="closed" value="true" />
+      <created>1724258898859</created>
+      <option name="number" value="00038" />
+      <option name="presentableId" value="LOCAL-00038" />
+      <option name="project" value="LOCAL" />
+      <updated>1724258898859</updated>
+    </task>
+    <task id="LOCAL-00039" summary="fix tests">
+      <option name="closed" value="true" />
+      <created>1724267338063</created>
+      <option name="number" value="00039" />
+      <option name="presentableId" value="LOCAL-00039" />
+      <option name="project" value="LOCAL" />
+      <updated>1724267338063</updated>
+    </task>
+    <task id="LOCAL-00040" summary="fix tests">
+      <option name="closed" value="true" />
+      <created>1724282276348</created>
+      <option name="number" value="00040" />
+      <option name="presentableId" value="LOCAL-00040" />
+      <option name="project" value="LOCAL" />
+      <updated>1724282276348</updated>
+    </task>
+    <task id="LOCAL-00041" summary="`PId` -&gt; `PeerId`">
+      <option name="closed" value="true" />
+      <created>1724282489662</created>
+      <option name="number" value="00041" />
+      <option name="presentableId" value="LOCAL-00041" />
+      <option name="project" value="LOCAL" />
+      <updated>1724282489662</updated>
+    </task>
+    <task id="LOCAL-00042" summary="`PId` -&gt; `PeerId`">
+      <option name="closed" value="true" />
+      <created>1724282501646</created>
+      <option name="number" value="00042" />
+      <option name="presentableId" value="LOCAL-00042" />
+      <option name="project" value="LOCAL" />
+      <updated>1724282501646</updated>
+    </task>
+    <task id="LOCAL-00043" summary="`PId` -&gt; `PeerId`">
+      <option name="closed" value="true" />
+      <created>1724282545275</created>
+      <option name="number" value="00043" />
+      <option name="presentableId" value="LOCAL-00043" />
+      <option name="project" value="LOCAL" />
+      <updated>1724282545275</updated>
+    </task>
+    <option name="localTasksCounter" value="44" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="doc fixes" />
+    <MESSAGE value="start proptest arbitrary chain" />
+    <MESSAGE value="update README.md" />
+    <MESSAGE value="add write functions + docs" />
+    <MESSAGE value="fix test" />
+    <MESSAGE value="fix ci" />
+    <MESSAGE value="move `TxPoolWriteError`" />
+    <MESSAGE value="add more docs" />
+    <MESSAGE value="fix toml formatting" />
+    <MESSAGE value="fix some docs" />
+    <MESSAGE value="fix clippy" />
+    <MESSAGE value="init" />
+    <MESSAGE value="reduce the jobs handled by the dandelion pool" />
+    <MESSAGE value="resolve todo" />
+    <MESSAGE value="add cuprated skeleton" />
+    <MESSAGE value="fmt and add deny exception" />
+    <MESSAGE value="add main chain batch handler" />
+    <MESSAGE value="add blockchain init" />
+    <MESSAGE value="review changes" />
+    <MESSAGE value="review fixes" />
+    <MESSAGE value="update docs" />
+    <MESSAGE value="fix merge" />
+    <MESSAGE value="fix docs" />
+    <MESSAGE value="fix tests" />
+    <MESSAGE value="`PId` -&gt; `PeerId`" />
+    <option name="LAST_COMMIT_MESSAGE" value="`PId` -&gt; `PeerId`" />
+  </component>
+</project>

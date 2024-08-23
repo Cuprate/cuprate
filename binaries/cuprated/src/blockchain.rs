@@ -8,17 +8,63 @@ use crate::blockchain::types::{
     ConsensusBlockchainReadHandle,
 };
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_consensus::{
-    BlockChainContextService, BlockVerifierService, ContextConfig, TxVerifierService,
-};
+use cuprate_consensus::{generate_genesis_block, BlockChainContextService, ContextConfig};
+use cuprate_cryptonight::cryptonight_hash_v0;
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p::NetworkInterface;
-use cuprate_p2p_core::ClearNet;
+use cuprate_p2p_core::{ClearNet, Network};
+use cuprate_types::blockchain::{
+    BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,
+};
+use cuprate_types::VerifiedBlockInformation;
 use tokio::sync::mpsc;
+use tower::{Service, ServiceExt};
 
 mod manager;
 mod syncer;
 mod types;
+
+pub async fn check_add_genesis(
+    blockchain_read_handle: &mut BlockchainReadHandle,
+    blockchain_write_handle: &mut BlockchainWriteHandle,
+    network: &Network,
+) {
+    if blockchain_read_handle
+        .ready()
+        .await
+        .unwrap()
+        .call(BlockchainReadRequest::ChainHeight)
+        .await
+        .is_ok()
+    {
+        return;
+    }
+
+    let genesis = generate_genesis_block(network);
+
+    blockchain_write_handle
+        .ready()
+        .await
+        .unwrap()
+        .call(BlockchainWriteRequest::WriteBlock(
+            VerifiedBlockInformation {
+                block_blob: genesis.serialize(),
+                txs: vec![],
+                block_hash: genesis.hash(),
+                pow_hash: cryptonight_hash_v0(&genesis.serialize_pow_hash()),
+                height: 0,
+                generated_coins: genesis.miner_transaction.prefix().outputs[0]
+                    .amount
+                    .unwrap(),
+                weight: genesis.miner_transaction.weight(),
+                long_term_weight: genesis.miner_transaction.weight(),
+                cumulative_difficulty: 1,
+                block: genesis,
+            },
+        ))
+        .await
+        .unwrap();
+}
 
 pub async fn init_consensus(
     blockchain_read_handle: BlockchainReadHandle,

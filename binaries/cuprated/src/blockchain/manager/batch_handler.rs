@@ -41,6 +41,16 @@ pub async fn handle_incoming_block_batch<C, TxV>(
         .first()
         .expect("Block batch should not be empty");
 
+    handle_incoming_block_batch_main_chain(
+        batch,
+        block_verifier_service,
+        blockchain_context_service,
+        blockchain_write_handle,
+    )
+    .await;
+
+    // TODO: alt block to the DB
+    /*
     match blockchain_read_handle
         .oneshot(BlockchainReadRequest::FindBlock(
             first_block.header.previous,
@@ -67,6 +77,8 @@ pub async fn handle_incoming_block_batch<C, TxV>(
 
         Ok(_) => panic!("Blockchain service returned incorrect response"),
     }
+
+     */
 }
 
 async fn handle_incoming_block_batch_main_chain<C, TxV>(
@@ -90,7 +102,12 @@ async fn handle_incoming_block_batch_main_chain<C, TxV>(
         + 'static,
     TxV::Future: Send + 'static,
 {
-    let Ok(VerifyBlockResponse::MainChainBatchPrepped(prepped)) = block_verifier_service
+    info!(
+        "Handling batch to main chain height: {}",
+        batch.blocks.first().unwrap().0.number().unwrap()
+    );
+
+    let VerifyBlockResponse::MainChainBatchPrepped(prepped) = block_verifier_service
         .ready()
         .await
         .expect("TODO")
@@ -98,21 +115,21 @@ async fn handle_incoming_block_batch_main_chain<C, TxV>(
             blocks: batch.blocks,
         })
         .await
+        .unwrap()
     else {
-        info!("Error verifying batch, banning peer");
-        todo!()
+        panic!("Incorrect response!");
     };
 
     for (block, txs) in prepped {
-        let Ok(VerifyBlockResponse::MainChain(verified_block)) = block_verifier_service
+        let VerifyBlockResponse::MainChain(verified_block) = block_verifier_service
             .ready()
             .await
             .expect("TODO")
             .call(VerifyBlockRequest::MainChainPrepped { block, txs })
             .await
+            .unwrap()
         else {
-            info!("Error verifying batch, banning peer");
-            todo!()
+            panic!("Incorrect response!");
         };
 
         blockchain_context_service

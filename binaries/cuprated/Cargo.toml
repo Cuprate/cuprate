@@ -13,6 +13,7 @@ cuprate-blockchain = { path = "../../storage/blockchain" }
 cuprate-p2p        = { path = "../../p2p/p2p" }
 cuprate-p2p-core   = { path = "../../p2p/p2p-core" }
 cuprate-types      = { path = "../../types" }
+cuprate-cryptonight = { path = "../../cryptonight" }
 
 rayon              = { workspace = true }
 futures            = { workspace = true }
@@ -23,6 +24,13 @@ thiserror          = { workspace = true }
 hex                = { workspace = true }
 
 clap               = { workspace = true, features = ["default", "derive"] }
+tracing-subscriber = { workspace = true, features = ["default"] }
 
 #[lints]
 #workspace = true
+
+[profile.dev]
+panic = 'abort'
+
+[profile.release]
+panic = 'abort'
