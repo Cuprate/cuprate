@@ -61,7 +61,7 @@ fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [i8]) {
         // SAFETY: data is a valid slice of i8, which is cast to a slice of u8 to be compatible
         // with the blake hash input. While it requires access to the raw pointer, it is
         // safe and preferable to copying to a new slice of u8.
-        let mut data: &mut [u8] =
+        let data: &mut [u8] =
             unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, data.len()) };
         let mut output = [0u8; 32];
 
@@ -111,11 +111,10 @@ pub(crate) fn random_math_init(
     // before we start using it
     let mut data_index: usize = data.len();
 
-    let mut code_size: usize = 0;
+    let mut code_size: usize;
 
     // There is a small chance (1.8%) that register R8 won't be used in the generated program
     // So we keep track of it and try again if it's not used
-    let mut r8_used = false;
     loop {
         let mut latency = [0usize; 9];
         let mut asic_latency = [0usize; 9];
@@ -141,7 +140,7 @@ pub(crate) fn random_math_init(
         code_size = 0;
 
         let mut total_iterations = 0usize;
-        r8_used = false;
+        let mut r8_used = false;
 
         // Generate random code to achieve minimal required latency for our abstract CPU
         // Try to get this latency for all 4 registers
@@ -167,8 +166,8 @@ pub(crate) fn random_math_init(
             // SUB = opcode 4
             // ROR/ROL = opcode 5, shift direction is selected randomly
             // XOR = opcodes 6-7
-            let mut opcode_bits = c & ((1 << INSTRUCTION_OPCODE_BITS) - 1);
-            let mut opcode: InstructionList;
+            let opcode_bits = c & ((1 << INSTRUCTION_OPCODE_BITS) - 1);
+            let opcode: InstructionList;
             if opcode_bits == 5 {
                 check_data(&mut data_index, 1, &mut data);
                 opcode = if data[data_index] >= 0 { Ror } else { Rol };
@@ -400,37 +399,545 @@ fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
     v4_exec_10!(60); // instructions 60-69
 }
 
-pub fn variant4_random_math(
-    a: &mut [u8; 16],
-    b: &mut [u8; 16],
+pub(crate) fn variant4_random_math(
+    a1: &mut [u8; 16],
+    c2: &mut [u8; 16],
     r: &mut [u32; 9],
-    _b: &[u8; 4],
-    _b1: &[u8; 8],
+    b: &[u8; 32],
     code: &[Instruction; 71],
 ) {
-    let mut t = [0u8; 8];
-    t.copy_from_slice(&b[..8]);
+    let mut t = [0u64; 2];
+    t[0] = u64::from_le_bytes(c2[0..8].try_into().unwrap());
 
-    let t0 = u64::from_le_bytes(t)
-        ^ (u64::from(r[0]) + u64::from(r[1]) | (u64::from(r[2]) + u64::from(r[3]) << 32));
-    b[..8].copy_from_slice(&t0.to_le_bytes());
+    t[0] ^= u64::from(r[0].wrapping_add(r[1])) | (u64::from(r[2].wrapping_add(r[3])) << 32);
+    c2[..8].copy_from_slice(&t[0].to_le_bytes());
 
-    r[4] = u32::from_le_bytes(a[..4].try_into().unwrap());
-    r[5] = u32::from_le_bytes(a[4..8].try_into().unwrap());
-    r[6] = u32::from_le_bytes(_b[..4].try_into().unwrap());
-    r[7] = u32::from_le_bytes(_b1[..4].try_into().unwrap());
-    r[8] = u32::from_le_bytes(_b1[4..8].try_into().unwrap());
+    r[4] = u32::from_le_bytes(a1[0..4].try_into().unwrap());
+    r[5] = u32::from_le_bytes(a1[8..12].try_into().unwrap());
+    r[6] = u32::from_le_bytes(b[0..4].try_into().unwrap());
+    r[7] = u32::from_le_bytes(b[16..20].try_into().unwrap());
+    r[8] = u32::from_le_bytes(b[24..28].try_into().unwrap());
 
     v4_random_math(code, r);
 
-    let mut t = [0u8; 16];
-    t.copy_from_slice(a);
+    t[0] = u64::from_le_bytes(a1[0..8].try_into().unwrap());
+    t[1] = u64::from_le_bytes(a1[8..16].try_into().unwrap());
 
-    let t0 = u64::from_le_bytes(t[..8].try_into().unwrap())
-        ^ (u64::from(r[2]) | (u64::from(r[3]) << 32));
-    let t1 = u64::from_le_bytes(t[8..16].try_into().unwrap())
-        ^ (u64::from(r[0]) | (u64::from(r[1]) << 32));
+    t[0] ^= u64::from(r[2]) | u64::from(r[3]) << 32;
+    t[1] ^= u64::from(r[0]) | (u64::from(r[1]) << 32);
 
-    a[..8].copy_from_slice(&t0.to_le_bytes());
-    a[8..16].copy_from_slice(&t1.to_le_bytes());
+    a1[0..8].copy_from_slice(&t[0].to_le_bytes());
+    a1[8..16].copy_from_slice(&t[1].to_le_bytes());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::convert::TryInto;
+
+    #[test]
+    fn test_random_math_init() {
+        // TODO
+    }
+
+    const CODE: [Instruction; 71] = [
+        Instruction {
+            opcode: Rol,
+            dst_index: 0,
+            src_index: 7,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 3,
+            src_index: 1,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 2,
+            src_index: 7,
+            c: 3553557725,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 0,
+            src_index: 8,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 3,
+            src_index: 4,
+            c: 3590470404,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 1,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 1,
+            src_index: 5,
+            c: 0,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 1,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 7,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 2,
+            src_index: 1,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 2,
+            src_index: 4,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 2,
+            src_index: 7,
+            c: 0,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 1,
+            src_index: 8,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 0,
+            src_index: 6,
+            c: 1516169632,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 2,
+            src_index: 0,
+            c: 1587456779,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 3,
+            src_index: 5,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 1,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 2,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 3,
+            src_index: 6,
+            c: 0,
+        },
+        Instruction {
+            opcode: Rol,
+            dst_index: 3,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 2,
+            src_index: 4,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 3,
+            src_index: 5,
+            c: 0,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 2,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Rol,
+            dst_index: 2,
+            src_index: 4,
+            c: 0,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 3,
+            src_index: 8,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 4,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 2,
+            src_index: 3,
+            c: 2235486112,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 0,
+            src_index: 3,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 2,
+            c: 0,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 2,
+            src_index: 7,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 7,
+            c: 0,
+        },
+        Instruction {
+            opcode: Ror,
+            dst_index: 0,
+            src_index: 4,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 3,
+            src_index: 2,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 2,
+            src_index: 3,
+            c: 382729823,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 1,
+            src_index: 4,
+            c: 0,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 3,
+            src_index: 5,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 3,
+            src_index: 7,
+            c: 446636115,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 0,
+            src_index: 5,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 1,
+            src_index: 8,
+            c: 1136500848,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 3,
+            src_index: 8,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 4,
+            c: 0,
+        },
+        Instruction {
+            opcode: Ror,
+            dst_index: 3,
+            src_index: 5,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 2,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Ror,
+            dst_index: 0,
+            src_index: 1,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 0,
+            src_index: 7,
+            c: 4221005163,
+        },
+        Instruction {
+            opcode: Rol,
+            dst_index: 0,
+            src_index: 2,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 0,
+            src_index: 7,
+            c: 1789679560,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 0,
+            src_index: 3,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 2,
+            src_index: 8,
+            c: 2725270475,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 1,
+            src_index: 4,
+            c: 0,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 3,
+            src_index: 8,
+            c: 0,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 3,
+            src_index: 5,
+            c: 0,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 3,
+            src_index: 2,
+            c: 0,
+        },
+        Instruction {
+            opcode: Rol,
+            dst_index: 2,
+            src_index: 2,
+            c: 0,
+        },
+        Instruction {
+            opcode: Add,
+            dst_index: 3,
+            src_index: 6,
+            c: 4110965463,
+        },
+        Instruction {
+            opcode: Xor,
+            dst_index: 2,
+            src_index: 6,
+            c: 0,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 2,
+            src_index: 7,
+            c: 0,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 3,
+            src_index: 1,
+            c: 0,
+        },
+        Instruction {
+            opcode: Sub,
+            dst_index: 1,
+            src_index: 8,
+            c: 0,
+        },
+        Instruction {
+            opcode: Ror,
+            dst_index: 1,
+            src_index: 2,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 1,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 2,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Ret,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+        Instruction {
+            opcode: Mul,
+            dst_index: 0,
+            src_index: 0,
+            c: 0,
+        },
+    ];
+
+    #[test]
+    fn test1_variant4_random_math() {
+        const AES_BLOCK_SIZE: usize = 16;
+        let mut a1: [u8; AES_BLOCK_SIZE] = hex::decode("969ecd223474a6bb3be76c637db7457b")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let mut c2: [u8; AES_BLOCK_SIZE] = hex::decode("dbd1f6404d4826c52f209951334e6ea7")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let mut r: [u32; 9] = [1336109178, 464004736, 1552145461, 3528897376, 0, 0, 0, 0, 0];
+        let b: [u8; AES_BLOCK_SIZE * 2] =
+            hex::decode("8dfa6d2c82e1806367b844c15f0439ced99c9a4bae0badfb8a8cf8504b813b7d")
+                .unwrap()
+                .try_into()
+                .unwrap();
+
+        variant4_random_math(&mut a1, &mut c2, &mut r, &b, &CODE);
+
+        assert_eq!(hex::encode(a1), "1cb6fe7738de9e764dd73ea37c438056");
+        assert_eq!(hex::encode(c2), "215fbd2bd8c7fceb2f209951334e6ea7");
+        assert_eq!(
+            r,
+            [
+                3226611830, 767947777, 1429416074, 3443042828, 583900822, 1668081467, 745405069,
+                1268423897, 1358466186
+            ]
+        );
+    }
+
+    #[test]
+    fn test2_variant4_random_math() {
+        const AES_BLOCK_SIZE: usize = 16;
+        let mut a1: [u8; AES_BLOCK_SIZE] = hex::decode("643955bde578c845e4898703c3ce5eaa")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let mut c2: [u8; AES_BLOCK_SIZE] = hex::decode("787e2613b8fd0a2dadad16d4ec189035")
+            .unwrap()
+            .try_into()
+            .unwrap();
+        let mut r: [u32; 9] = [
+            3226611830, 767947777, 1429416074, 3443042828, 583900822, 1668081467, 745405069,
+            1268423897, 1358466186,
+        ];
+        let b: [u8; AES_BLOCK_SIZE * 2] =
+            hex::decode("d4d1e70f7da4089ae53b2e7545e4242a8dfa6d2c82e1806367b844c15f0439ce")
+                .unwrap()
+                .try_into()
+                .unwrap();
+
+        variant4_random_math(&mut a1, &mut c2, &mut r, &b, &CODE);
+
+        assert_eq!(hex::encode(a1), "c40cb4b3a3640a958cc919ccb4ff29e6");
+        assert_eq!(hex::encode(c2), "0f5a3efd2e2f610fadad16d4ec189035");
+        assert_eq!(
+            r,
+            [
+                3483254888u32,
+                1282879863,
+                249640352,
+                3502382150,
+                3176479076,
+                59214308,
+                266850772,
+                745405069,
+                3242506343
+            ]
+        );
+    }
 }

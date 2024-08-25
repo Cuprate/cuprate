@@ -37,6 +37,11 @@ void print_hex(const char *name, const void *memory, size_t size) {
   printf("\",\n");
 }
 
+void print_long_state(const char *name, const uint8_t long_state[MEMORY]) {
+  uint8_t output[32] = {0};
+  hash_extra_blake(long_state, MEMORY, (char *)output);
+  print_hex(name, output, 32);
+}
 
 #define VARIANT1_1(p) \
   do if (variant == 1) \
@@ -146,8 +151,8 @@ void variant2_portable_shuffle_add(
 
 // double precision floating point type has enough bits of precision on current platform
 void variant2_integer_math(
-        uint8_t c1[16],
-        const uint8_t c2[16],
+        uint8_t c2[16],
+        const uint8_t c1[16],
         uint64_t *division_result,
         uint64_t *sqrt_result, // in-out parameter
         const int variant
@@ -163,14 +168,14 @@ void variant2_integer_math(
   //    }
   if ((variant == 2) || (variant == 3)) {
     uint64_t tmpx = *division_result ^ (*sqrt_result << 32);
-    ((uint64_t *) (c1))[0] ^= ((uint64_t) (tmpx));
+    ((uint64_t *) (c2))[0] ^= ((uint64_t) (tmpx));
 
-    const uint64_t dividend = ((uint64_t) SWAP64LE(((uint64_t *) (c2))[1]));
+    const uint64_t dividend = ((uint64_t) SWAP64LE(((uint64_t *) (c1))[1]));
     const uint32_t divisor =
-            (((uint64_t) SWAP64LE(((uint64_t *) (c2))[0])) + (uint32_t) (*sqrt_result << 1)) | 0x80000001UL;
+            (((uint64_t) SWAP64LE(((uint64_t *) (c1))[0])) + (uint32_t) (*sqrt_result << 1)) | 0x80000001UL;
     *division_result = ((uint32_t) (dividend / divisor)) + SWAP64LE(((uint64_t) (dividend % divisor)) << 32);
 
-    const uint64_t sqrt_input = SWAP64LE((uint64_t) (((uint64_t *) (c2))[0])) + *division_result;
+    const uint64_t sqrt_input = SWAP64LE((uint64_t) (((uint64_t *) (c1))[0])) + *division_result;
     *sqrt_result = sqrt(sqrt_input + 18446744073709551616.0) * 2.0 - 8589934592.0;
     const uint64_t sr_div2 = *sqrt_result >> 1;
     const uint64_t lsb = *sqrt_result & 1;
@@ -216,7 +221,7 @@ void variant2_integer_math(
   } while (0)
 */
 
-void VARIANT4_RANDOM_MATH(
+void variant4_random_math(
         uint8_t a1[16],
         uint8_t c2[16],
         uint32_t r[9],
@@ -225,7 +230,7 @@ void VARIANT4_RANDOM_MATH(
         int variant,
         const struct V4_Instruction *code) {
   if (variant >= 4) {
-    uint64_t t[2];
+    uint64_t t[2] = {0};
     memcpy(t, c2, sizeof(uint64_t));
 
     t[0] ^= SWAP64LE((r[0] + r[1]) | ((uint64_t) (r[2] + r[3]) << 32));
@@ -320,8 +325,6 @@ union cn_slow_hash_state {
 #pragma pack(pop)
 
 
-
-/*
 void print_r_and_code(const uint32_t r[9], const struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1]) {
   printf("        let r: [u32; 9] = [");
   for (int i = 0; i < 9; ++i) {
@@ -334,8 +337,35 @@ void print_r_and_code(const uint32_t r[9], const struct V4_Instruction code[NUM_
 
   printf("        let code:[Instruction; 71] = [\n");
   for (int i = 0; i < NUM_INSTRUCTIONS_MAX + 1; ++i) {
-    printf("            Instruction {opcode: %u, dst_index: %u, src_index: %u, c: %u}",
-           code[i].opcode, code[i].dst_index, code[i].src_index, code[i].C);
+    char *opcode_name = NULL;
+    switch (code[i].opcode) {
+      case 0:
+        opcode_name = "Mul";
+        break;
+      case 1:
+        opcode_name = "Add";
+        break;
+      case 2:
+        opcode_name = "Sub";
+        break;
+      case 3:
+        opcode_name = "Ror";
+        break;
+      case 4:
+        opcode_name = "Rol";
+        break;
+      case 5:
+        opcode_name = "Xor";
+        break;
+      case 6:
+        opcode_name = "Ret";
+        break;
+      default:
+        opcode_name = "Unknown(opcode)";
+        break;
+    }
+    printf("            Instruction {opcode: %s, dst_index: %u, src_index: %u, c: %u}",
+           opcode_name, code[i].dst_index, code[i].src_index, code[i].C);
     if (i < NUM_INSTRUCTIONS_MAX) {
       printf(",\n");
     } else {
@@ -344,8 +374,8 @@ void print_r_and_code(const uint32_t r[9], const struct V4_Instruction code[NUM_
   }
   printf("        ];\n");
 }
-*/
-/*
+
+
 void print_text_a_and_b(const uint8_t text[INIT_SIZE_BYTE], const uint8_t a[AES_BLOCK_SIZE], const uint8_t b[AES_BLOCK_SIZE * 2]) {
   printf("text: ");
     for (int i = 0; i < INIT_SIZE_BYTE; ++i) {
@@ -365,11 +395,9 @@ void print_text_a_and_b(const uint8_t text[INIT_SIZE_BYTE], const uint8_t a[AES_
     }
     printf("\n");
 }
-*/
+
 
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint64_t height) {
-  uint8_t long_state[MEMORY] = {0};
-
   union cn_slow_hash_state state = {0};
   uint8_t text[INIT_SIZE_BYTE] = {0};
   uint8_t a[AES_BLOCK_SIZE] = {0};
@@ -384,7 +412,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
 
   keccak1600(data, length, state.hs.b);
   memcpy(text, state.init, INIT_SIZE_BYTE);
-  //print_hex("text(1): ", text, sizeof(text));
+
   memcpy(aes_key, state.hs.b, AES_KEY_SIZE);
   aes_ctx = (oaes_ctx *) oaes_alloc();
 
@@ -412,14 +440,9 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     sqrt_result = SWAP64LE(state.hs.w[13]);
   }
 
-  //    print_hex("b", b, 32);
-  //    print_hex("state.hs.b", state.hs.b, 200);
-  //    printf("division_result: %lu\n", division_result);
-  //    printf("sqrt_result: %lu\n", sqrt_result);
-
   // VARIANT4_RANDOM_MATH_INIT();
-  uint32_t r[9];
-  struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1];
+  uint32_t r[9] = {0};
+  struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1] = {0};
   if (variant >= 4) {
     for (i = 0; i < 4; ++i) {
       V4_REG_LOAD(r + i, (uint8_t *) (state.hs.w + 12) + sizeof(uint32_t) * i);
@@ -428,7 +451,14 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
   }
 
   //print_r_and_code(r, code);
+  uint8_t *long_state = calloc(MEMORY, sizeof(uint8_t));
+  if (data == NULL) {
+    fprintf(stderr, "Memory allocation failed\n");
+    exit(1);
+  }
 
+//  print_hex("aes_key", aes_key, sizeof(aes_key));
+//  print_long_state("long_state zero:", long_state);
   oaes_key_import_data(aes_ctx, aes_key, AES_KEY_SIZE);
   for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
     for (j = 0; j < INIT_SIZE_BLK; j++) {
@@ -437,12 +467,18 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
   }
 
+//  print_hex("text after AES: ", text, sizeof(text));
+//  print_long_state("long_state after AES:", long_state);
+
   for (i = 0; i < AES_BLOCK_SIZE; i++) {
     a[i] = state.k[i] ^ state.k[AES_BLOCK_SIZE * 2 + i];
     b[i] = state.k[AES_BLOCK_SIZE + i] ^ state.k[AES_BLOCK_SIZE * 3 + i];
   }
 
-  //print_text_a_and_b(text, a, b);
+//  printf("Before loop\n");
+//  print_text_a_and_b(text, a, b);
+//  print_long_state("long_state before loop:", long_state);
+//  printf("=================\n");
 
   for (i = 0; i < ITER / 2; i++) {
     /* Dependency chain: address -> read value ------+
@@ -452,15 +488,11 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     /* Iteration 1 */
     j = e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
     copy_block(c1, &long_state[j]);
+
     aesb_single_round(c1, c1, a);
+
     variant2_portable_shuffle_add(c1, a, b, long_state, j, variant);
-//    if (i == 0) {
-//      printf("i = %ld, j = %ld\n", i, j);
-//      print_hex("c1", c1, sizeof(c1));
-//      uint8_t output[32];
-//      hash_extra_blake(long_state, 32, (char *)output);
-//      print_hex("long_state", output, 32);
-//    }
+
     copy_block(&long_state[j], c1);
     xor_blocks(&long_state[j], b);
     assert(j == e2i(a, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE);
@@ -471,7 +503,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     copy_block(c2, &long_state[j]);
     copy_block(a1, a);
     variant2_integer_math(c2, c1, &division_result, &sqrt_result, variant);
-    VARIANT4_RANDOM_MATH(a1, c2, r, b, b + AES_BLOCK_SIZE, variant, code);
+    variant4_random_math(a1, c2, r, b, b + AES_BLOCK_SIZE, variant, code);
     mul(c1, c2, d);
 
     // VARIANT2_2_PORTABLE();
@@ -481,9 +513,11 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     }
 
     variant2_portable_shuffle_add(c1, a, b, long_state, j, variant);
+
     sum_half_blocks(a1, d);
     swap_blocks(a1, c2);
     xor_blocks(a1, c2);
+
     VARIANT1_2(c2 + 8);
     copy_block(&long_state[j], c2);
     if (variant >= 2) {
@@ -491,10 +525,11 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     }
     copy_block(b, c1);
     copy_block(a, a1);
+
   }
 
-  //print_hex("a", text, sizeof(a));
-  //print_hex("b", text, sizeof(b));
+  print_hex("a", a, sizeof(a));
+  print_hex("b", b, sizeof(b));
 
   memcpy(text, state.init, INIT_SIZE_BYTE);
   oaes_key_import_data(aes_ctx, &state.hs.b[32], AES_KEY_SIZE);
@@ -509,4 +544,5 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
   /*memcpy(hash, &state, 32);*/
   extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
   oaes_free((OAES_CTX **) &aes_ctx);
+  free(long_state);
 }
