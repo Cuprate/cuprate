@@ -43,31 +43,46 @@ pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
         return Err(DataCanNotBeHashed);
     }
 
-    let mut hash = [0; 32];
+    let mut hash_c = [0; 32];
     unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 1, 0);
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash_c.as_mut_ptr(), 1, 0);
     }
-    Ok(hash)
+
+    let hash_rust = hash::cn_slow_hash(buf, hash::Variant::V1, 0);
+
+    assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
+
+    Ok(hash_rust)
 }
 
 /// Calculates the CryptoNight v2 hash of buf.
 ///
 pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
-    let mut hash = [0; 32];
+    let mut hash_c = [0; 32];
+
     unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 2, 0);
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash_c.as_mut_ptr(), 2, 0);
     }
-    hash
+
+    let hash_rust = hash::cn_slow_hash(buf, hash::Variant::V2, 0);
+    assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
+
+    hash_rust
 }
 
 /// Calculates the CryptoNight R hash of buf.
 ///
 pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
-    let mut hash = [0; 32];
+    let mut hash_c = [0; 32];
+
     unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 4, height);
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash_c.as_mut_ptr(), 4, height);
     }
-    hash
+
+    let hash_rust = hash::cn_slow_hash(buf, hash::Variant::R, height);
+    assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
+
+    hash_rust
 }
 
 #[cfg(test)]

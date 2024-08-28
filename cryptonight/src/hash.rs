@@ -1,7 +1,11 @@
 use crate::hash_v4::variant4_random_math;
 use crate::{cnaes, hash_v4 as v4};
-use hex;
-use sha3::Digest;
+use digest::Digest;
+use groestl::Groestl256;
+use jh::Jh256;
+use sha3::Digest as _;
+use skein::consts::U32;
+use skein::Skein512;
 use std::cmp::PartialEq;
 use std::io::Write;
 use std::u64;
@@ -14,7 +18,7 @@ const INIT_SIZE_BLK: usize = 8;
 const INIT_SIZE_BYTE: usize = INIT_SIZE_BLK * AES_BLOCK_SIZE;
 
 #[derive(PartialEq, Eq, Clone, Copy)]
-enum Variant {
+pub(crate) enum Variant {
     #[allow(dead_code)]
     V0,
     V1,
@@ -55,8 +59,12 @@ impl CnSlowHashState {
     //     (&mut self.b[0..64]).try_into().unwrap()
     // }
 
-    fn get_init(&mut self) -> [u8; INIT_SIZE_BYTE] {
+    fn get_init(&self) -> [u8; INIT_SIZE_BYTE] {
         self.b[64..64 + INIT_SIZE_BYTE].try_into().unwrap()
+    }
+
+    fn get_init_mut(&mut self) -> &mut [u8; INIT_SIZE_BYTE] {
+        (&mut self.b[64..64 + INIT_SIZE_BYTE]).try_into().unwrap()
     }
 }
 
@@ -302,13 +310,38 @@ fn keccak1600(input: &[u8], out: &mut [u8; 200]) {
 
 const NONCE_PTR_INDEX: usize = 35;
 
-fn hashed(data: &[u8]) -> String {
-    let mut output = [0u8; 32];
-    blake::hash(256, data, &mut output).expect("blake hash failed");
-    hex::encode(output)
+// fn hashed(data: &[u8]) -> String {
+//     let mut output = [0u8; 32];
+//     blake::hash(256, data, &mut output).expect("blake hash failed");
+//     hex::encode(output)
+// }
+
+fn hash_permutation(b: &mut [u8; 200]) {
+    let mut state = [0u64; 25];
+
+    for (i, chunk) in state.iter_mut().enumerate() {
+        *chunk = u64::from_le_bytes(b[i * 8..(i + 1) * 8].try_into().unwrap());
+    }
+
+    keccak::keccak_p(&mut state, 24);
+
+    for (i, chunk) in state.iter().enumerate() {
+        b[i * 8..(i + 1) * 8].copy_from_slice(&chunk.to_le_bytes());
+    }
 }
 
-fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 32]) {
+fn extra_hashes(input: &[u8; 200], output: &mut [u8; 32]) {
+    // Note: the Rust Crypto library only has Blake2, not Blake
+    match input[0] & 0x3 {
+        0 => blake::hash(256, input, output).unwrap(),
+        1 => output.copy_from_slice(Groestl256::digest(input).as_slice()),
+        2 => output.copy_from_slice(Jh256::digest(input).as_slice()),
+        3 => output.copy_from_slice(Skein512::<U32>::digest(input).as_slice()),
+        _ => unreachable!(),
+    }
+}
+
+pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 32] {
     let mut b = [0u8; AES_BLOCK_SIZE * 2];
     let mut aes_key = [0u8; AES_KEY_SIZE];
 
@@ -448,16 +481,37 @@ fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> ([u8; 16], [u8; 3
         copy_block(&mut a, &a1);
     }
 
-    (a, b)
+    text.copy_from_slice(&state.get_init());
+    aes_key.copy_from_slice(&state.get_k()[AES_KEY_SIZE..]);
+    let aes_expanded_key = cnaes::key_extend(&aes_key);
+    for i in 0..MEMORY / INIT_SIZE_BYTE {
+        for j in 0..INIT_SIZE_BLK {
+            let mut block = &mut text[AES_BLOCK_SIZE * j..AES_BLOCK_SIZE * (j + 1)];
+            xor_blocks(
+                &mut block,
+                &long_state[i * INIT_SIZE_BYTE + j * AES_BLOCK_SIZE..],
+            );
+            cnaes::aesb_pseudo_round(&mut block, &aes_expanded_key);
+        }
+    }
+    state.get_init_mut().copy_from_slice(&text);
+
+    hash_permutation(&mut state.get_keccak_bytes_mut());
+
+    let mut hash = [0u8; 32];
+    extra_hashes(state.get_keccak_bytes(), &mut hash);
+    hash
 }
 
 #[cfg(test)]
 mod tests {
     use crate::hash::{
-        cn_slow_hash, hashed, variant2_integer_math_sqrt, Variant, AES_BLOCK_SIZE, MEMORY,
+        cn_slow_hash, extra_hashes, variant2_integer_math_sqrt, Variant, AES_BLOCK_SIZE, MEMORY,
     };
     use groestl::digest::typenum::U32;
     use groestl::{Digest, Groestl256};
+    use hex_literal::hex;
+    use keccak;
 
     #[test]
     fn test_keccak1600() {
@@ -743,11 +797,12 @@ mod tests {
 
     #[test]
     fn test_groestl256() {
-        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
-            .unwrap();
-        let hash = Groestl256::digest(&input);
+        let input: [u8; 32] =
+            hex!("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc");
+        let mut output = [0u8; 32];
+        output.copy_from_slice(Groestl256::digest(&input).as_slice());
         let expected_hex = "3085f5b0f7126a1d10e6da550ee44c51f0fcad91a80e78268ca5669f0bff0a4e";
-        assert_eq!(hex::encode(hash), expected_hex);
+        assert_eq!(hex::encode(output), expected_hex);
     }
 
     #[test]
@@ -824,19 +879,15 @@ mod tests {
     #[test]
     fn test_cn_slow_hash() {
         let input = hex::decode("5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374").unwrap();
-        let (a, b) = cn_slow_hash(&input, Variant::R, 1806260);
-
-        let a_hex = "ccf71f311b0df152f3d430774ffedf1c";
-        let b_hex = "8df0259a4a677d2cd8e654ce03955a926e6c809d019ad16790dcb612eaf91f2f";
-
-        assert_eq!(hex::encode(a), a_hex);
-        assert_eq!(hex::encode(b), b_hex);
+        const EXPECTED: &str = "f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc";
+        let hash = cn_slow_hash(&input, Variant::R, 1806260);
+        assert_eq!(hex::encode(hash), EXPECTED);
     }
 
     #[test]
     fn test_skein_hash() {
-        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
-            .unwrap();
+        let input: [u8; 32] =
+            hex!("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc");
         let mut hasher = skein::Skein512::<U32>::default();
         hasher.update(&input);
         let hash = hasher.finalize();
@@ -846,8 +897,9 @@ mod tests {
 
     #[test]
     fn test_jh() {
-        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
-            .unwrap();
+        let input: [u8; 32] =
+            hex!("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc");
+
         let mut hasher = jh::Jh256::default();
         hasher.update(&input);
         let hash = hasher.finalize();
@@ -857,20 +909,93 @@ mod tests {
 
     #[test]
     fn test_blake() {
-        let input = hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
-            .unwrap();
+        let input: [u8; 32] =
+            hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
+                .unwrap()
+                .try_into()
+                .unwrap();
         let mut output = [0u8; 32];
         blake::hash(256, &input, &mut output).expect("blake hash failed");
-        let expected_hex = "0ddf9a49c3695ba94e0860742a2b913ee3646e55b95918e782cefeca6e240063";
-        assert_eq!(hex::encode(output), expected_hex);
+        const EXPECTED: &str = "0ddf9a49c3695ba94e0860742a2b913ee3646e55b95918e782cefeca6e240063";
+        assert_eq!(hex::encode(output), EXPECTED);
     }
 
     #[test]
-    fn test_blake_long_state() {
-        let mut input = vec![0u8; MEMORY];
-        let input: &mut [u8; MEMORY] = (&mut input[..]).try_into().unwrap();
-        input[0] = 0;
-        let expected_hex = "535a20c8ec1e747c4de830487803f358dc88fa37dab56ae6486cf9ae0219de1e";
-        assert_eq!(hashed(input), expected_hex);
+    fn test_keccakf() {
+        let mut st: [u64; 25] = [0; 25];
+
+        keccak::keccak_p(&mut st, 24);
+
+        let expected: [u64; 25] = [
+            0xf1258f7940e1dde7,
+            0x84d5ccf933c0478a,
+            0xd598261ea65aa9ee,
+            0xbd1547306f80494d,
+            0x8b284e056253d057,
+            0xff97a42d7f8e6fd4,
+            0x90fee5a0a44647c4,
+            0x8c5bda0cd6192e76,
+            0xad30a6f71b19059c,
+            0x30935ab7d08ffc64,
+            0xeb5aa93f2317d635,
+            0xa9a6e6260d712103,
+            0x81a57c16dbcf555f,
+            0x43b831cd0347c826,
+            0x1f22f1a11a5569f,
+            0x5e5635a21d9ae61,
+            0x64befef28cc970f2,
+            0x613670957bc46611,
+            0xb87c5a554fd00ecb,
+            0x8c3ee88a1ccf32c8,
+            0x940c7922ae3a2614,
+            0x1841f924a2c509e4,
+            0x16f53526e70465c2,
+            0x75f644e97f30a13b,
+            0xeaf1ff7b5ceca249,
+        ];
+
+        assert_eq!(st, expected);
+    }
+
+    #[test]
+    fn test_hash_permutations() {
+        let mut state_bytes: [u8; 200] = hex::decode(
+            "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f2622fea9d7982e587e6612c4e6a1d28fdbaba4af1aea99e63322a632d514f35b4fc5cf231e9a6328efb5eb22ad2cfabe571ee8b6ef7dbc64f63185d54a771bdccd207b75e10547b4928f5dcb309192d88bf313d8bc53c8fe71da7ea93355d266c5cc8d39a1273e44b074d143849a3b302edad73c2e61f936c502f6bbabb972b616062b66d56cd8136"
+        ).unwrap().try_into().unwrap();
+        const EXPECTED: &str = "31e2fb6eb8e2e376d42a53bc88166378f2a23cf9be54645ff69e8ade3aa4b7ad35040d0e3ad0ee0d8562d53a51acdf14f44de5c097c48a29f63676346194b3af13c3c45af214335a14329491081068a32ea29b3a6856e0efa737dff49d3b5dbf3f7847f058bb41d36347c19d5cd5bdb354ac64a86156c8194e19b0f62d109a8112024a7734730a2bb221c137d3034204e1e57d9cec9689bc199de684f38aeed4624b84c39675a4755ce9b69fde9d36cabd12f1aef4a5b2bb6c6126900799f2109e9b6b55d7bb3ff5";
+        super::hash_permutation(&mut state_bytes);
+        assert_eq!(hex::encode(state_bytes), EXPECTED);
+    }
+
+    #[test]
+    fn test_extra_hashes() {
+        let mut input = [0u8; 200];
+        for i in 0..input.len() {
+            input[i] = i as u8;
+        }
+
+        let mut output = [0u8; 32];
+
+        const EXPECTED_BLAKE: &str =
+            "c4d944c2b1c00a8ee627726b35d4cd7fe018de090bc637553cc782e25f974cba";
+        const EXPECTED_GROESTL: &str =
+            "73905cfed57520c60eb468defc58a925170cecc6b4a9f2f6e56d34d674d64111";
+        const EXPECTED_JH: &str =
+            "71a4f8ae96c48df7ace370854824a60a2f247fbf903c7b936f6f99d164c2f6b1";
+        const EXPECTED_SKEIN: &str =
+            "040e79b9daa0fc6219234a06b3889f86f8b02b78dcc25a9874ca95630cf6b5e6";
+
+        const EXPECTED: [&str; 4] = [
+            EXPECTED_BLAKE,
+            EXPECTED_GROESTL,
+            EXPECTED_JH,
+            EXPECTED_SKEIN,
+        ];
+
+        for (i, expected) in EXPECTED.iter().enumerate() {
+            input[0] = i as u8;
+            extra_hashes(&input, &mut output);
+            assert_eq!(hex::encode(&output), *expected, "hash {}", i);
+        }
     }
 }

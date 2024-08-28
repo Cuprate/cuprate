@@ -157,15 +157,6 @@ void variant2_integer_math(
         uint64_t *sqrt_result, // in-out parameter
         const int variant
 ) {
-  //    static size_t i = 0;
-  //    const size_t INTERVAL = 250000;
-  //    if (i % INTERVAL == 0) {
-  //      printf("test(\n");
-  //      print_hex("", c1, 16);
-  //      print_hex("", c2, 16);
-  //      printf("%lu,\n", *division_result);
-  //      printf("%lu,\n", *sqrt_result);
-  //    }
   if ((variant == 2) || (variant == 3)) {
     uint64_t tmpx = *division_result ^ (*sqrt_result << 32);
     ((uint64_t *) (c2))[0] ^= ((uint64_t) (tmpx));
@@ -181,16 +172,6 @@ void variant2_integer_math(
     const uint64_t lsb = *sqrt_result & 1;
     const uint64_t r2 = (uint64_t) (sr_div2) * (sr_div2 + lsb) + (*sqrt_result << 32);
     *sqrt_result += ((r2 + lsb > sqrt_input) ? -1 : 0) + ((r2 + (1ULL << 32) < sqrt_input - sr_div2) ? 1 : 0);
-
-    //      if (i % INTERVAL == 0) {
-    //        print_hex("", c1, 16);
-    //        printf("    %lu,\n", *division_result);
-    //        printf("    %lu,\n", *sqrt_result);
-    //        printf(");\n");
-    //        fflush(stdout);
-    //      }
-    //      i++;
-
   }
 }
 
@@ -325,78 +306,6 @@ union cn_slow_hash_state {
 #pragma pack(pop)
 
 
-void print_r_and_code(const uint32_t r[9], const struct V4_Instruction code[NUM_INSTRUCTIONS_MAX + 1]) {
-  printf("        let r: [u32; 9] = [");
-  for (int i = 0; i < 9; ++i) {
-    printf("%u", r[i]);
-    if (i < 8) {
-      printf(", ");
-    }
-  }
-  printf("];\n");
-
-  printf("        let code:[Instruction; 71] = [\n");
-  for (int i = 0; i < NUM_INSTRUCTIONS_MAX + 1; ++i) {
-    char *opcode_name = NULL;
-    switch (code[i].opcode) {
-      case 0:
-        opcode_name = "Mul";
-        break;
-      case 1:
-        opcode_name = "Add";
-        break;
-      case 2:
-        opcode_name = "Sub";
-        break;
-      case 3:
-        opcode_name = "Ror";
-        break;
-      case 4:
-        opcode_name = "Rol";
-        break;
-      case 5:
-        opcode_name = "Xor";
-        break;
-      case 6:
-        opcode_name = "Ret";
-        break;
-      default:
-        opcode_name = "Unknown(opcode)";
-        break;
-    }
-    printf("            Instruction {opcode: %s, dst_index: %u, src_index: %u, c: %u}",
-           opcode_name, code[i].dst_index, code[i].src_index, code[i].C);
-    if (i < NUM_INSTRUCTIONS_MAX) {
-      printf(",\n");
-    } else {
-      printf("\n");
-    }
-  }
-  printf("        ];\n");
-}
-
-
-void print_text_a_and_b(const uint8_t text[INIT_SIZE_BYTE], const uint8_t a[AES_BLOCK_SIZE], const uint8_t b[AES_BLOCK_SIZE * 2]) {
-  printf("text: ");
-    for (int i = 0; i < INIT_SIZE_BYTE; ++i) {
-        printf("%02x", text[i]);
-    }
-    printf("\n");
-
-    printf("a: ");
-    for (int i = 0; i < AES_BLOCK_SIZE; ++i) {
-        printf("%02x", a[i]);
-    }
-    printf("\n");
-
-    printf("b: ");
-    for (int i = 0; i < AES_BLOCK_SIZE * 2; ++i) {
-        printf("%02x", b[i]);
-    }
-    printf("\n");
-}
-
-
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint64_t height) {
   union cn_slow_hash_state state = {0};
   uint8_t text[INIT_SIZE_BYTE] = {0};
@@ -450,15 +359,12 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     v4_random_math_init(code, height);
   }
 
-  //print_r_and_code(r, code);
   uint8_t *long_state = calloc(MEMORY, sizeof(uint8_t));
   if (data == NULL) {
     fprintf(stderr, "Memory allocation failed\n");
     exit(1);
   }
 
-//  print_hex("aes_key", aes_key, sizeof(aes_key));
-//  print_long_state("long_state zero:", long_state);
   oaes_key_import_data(aes_ctx, aes_key, AES_KEY_SIZE);
   for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
     for (j = 0; j < INIT_SIZE_BLK; j++) {
@@ -467,18 +373,10 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     memcpy(&long_state[i * INIT_SIZE_BYTE], text, INIT_SIZE_BYTE);
   }
 
-//  print_hex("text after AES: ", text, sizeof(text));
-//  print_long_state("long_state after AES:", long_state);
-
   for (i = 0; i < AES_BLOCK_SIZE; i++) {
     a[i] = state.k[i] ^ state.k[AES_BLOCK_SIZE * 2 + i];
     b[i] = state.k[AES_BLOCK_SIZE + i] ^ state.k[AES_BLOCK_SIZE * 3 + i];
   }
-
-//  printf("Before loop\n");
-//  print_text_a_and_b(text, a, b);
-//  print_long_state("long_state before loop:", long_state);
-//  printf("=================\n");
 
   for (i = 0; i < ITER / 2; i++) {
     /* Dependency chain: address -> read value ------+
@@ -527,10 +425,6 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     copy_block(a, a1);
 
   }
-
-  print_hex("a", a, sizeof(a));
-  print_hex("b", b, sizeof(b));
-
   memcpy(text, state.init, INIT_SIZE_BYTE);
   oaes_key_import_data(aes_ctx, &state.hs.b[32], AES_KEY_SIZE);
   for (i = 0; i < MEMORY / INIT_SIZE_BYTE; i++) {
@@ -540,7 +434,9 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, uint
     }
   }
   memcpy(state.init, text, INIT_SIZE_BYTE);
+
   hash_permutation(&state.hs);
+
   /*memcpy(hash, &state, 32);*/
   extra_hashes[state.hs.b[0] & 3](&state, 200, hash);
   oaes_free((OAES_CTX **) &aes_ctx);
