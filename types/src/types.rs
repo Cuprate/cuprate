@@ -1,5 +1,6 @@
 //! Various shared data types in Cuprate.
 
+use std::num::NonZero;
 //---------------------------------------------------------------------------------------------------- Import
 use curve25519_dalek::edwards::EdwardsPoint;
 use monero_serai::{
@@ -97,7 +98,7 @@ pub struct VerifiedBlockInformation {
 ///
 /// The inner value is meaningless.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct ChainId(pub u64);
+pub struct ChainId(pub NonZero<u64>);
 
 //---------------------------------------------------------------------------------------------------- Chain
 /// An identifier for a chain.

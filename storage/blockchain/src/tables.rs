@@ -16,11 +16,7 @@
 //! accessing _all_ tables defined here at once.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::types::{
-    Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
-    Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash,
-    TxId, UnlockTime,
-};
+use crate::types::{Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash, TxId, UnlockTime, RawChainId, AltChainInfo, AltBlockHeight, CompactAltBlockInfo, AltTransactionInfo};
 
 //---------------------------------------------------------------------------------------------------- Tables
 // Notes:
@@ -129,6 +125,25 @@ cuprate_database::define_tables! {
     /// Transactions without unlock times will not exist in this table.
     14 => TxUnlockTime,
     TxId => UnlockTime,
+
+    15 => AltChainInfos,
+    RawChainId => AltChainInfo,
+
+    16 => AltBlockHeights,
+    BlockHash => AltBlockHeight,
+
+    17 => AltBlocksInfo,
+    AltBlockHeight => CompactAltBlockInfo,
+
+    18 => AltBlockBlobs,
+    AltBlockHeight => BlockBlob,
+
+    19 => AltTransactionBlobs,
+    TxHash => TxBlob,
+
+    20 => AltTransactionInfos,
+    TxHash => AltTransactionInfo,
+
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -41,13 +41,15 @@
 #![forbid(unsafe_code)] // if you remove this line i will steal your monero
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::num::NonZero;
+
 use bytemuck::{Pod, Zeroable};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use cuprate_database::{Key, StorableVec};
-
+use cuprate_types::{Chain, ChainId};
 //---------------------------------------------------------------------------------------------------- Aliases
 // These type aliases exist as many Monero-related types are the exact same.
 // For clarity, they're given type aliases as to not confuse them.
@@ -323,6 +325,103 @@ pub struct RctOutput {
     pub commitment: [u8; 32],
 }
 // TODO: local_index?
+
+//---------------------------------------------------------------------------------------------------- RawChain
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(transparent)]
+pub struct RawChain(u64);
+
+impl From<Chain> for RawChain {
+    fn from(value: Chain) -> Self {
+        match value {
+            Chain::Main => RawChain(0),
+            Chain::Alt(chain_id) => RawChain(chain_id.0.get()),
+        }
+    }
+}
+
+impl From<RawChain> for Chain {
+    fn from(value: RawChain) -> Self {
+        NonZero::new(value.0)
+            .map(|id| Chain::Alt(ChainId(id)))
+            .unwrap_or(Chain::Main)
+    }
+}
+
+//---------------------------------------------------------------------------------------------------- RawChainId
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(transparent)]
+pub struct RawChainId(u64);
+
+impl From<ChainId> for RawChainId {
+    fn from(value: ChainId) -> Self {
+        RawChainId(value.0.get())
+    }
+}
+
+impl From<RawChainId> for ChainId {
+    fn from(value: RawChainId) -> Self {
+        ChainId(NonZero::new(value.0).expect("RawChainId mut not have a value of `0`"))
+    }
+}
+
+impl Key for RawChainId {}
+
+//---------------------------------------------------------------------------------------------------- AltChainInfo
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct AltChainInfo {
+    parent_chain: RawChain,
+    common_ancestor_height: u64
+}
+
+//---------------------------------------------------------------------------------------------------- AltBlockHeight
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct AltBlockHeight {
+    chain_id: u64,
+    height: u64,
+}
+
+impl Key for AltBlockHeight {}
+
+//---------------------------------------------------------------------------------------------------- CompactAltBlockInfo
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct CompactAltBlockInfo {
+    /// The block's hash.
+    ///
+    /// [`Block::hash`].
+    pub block_hash: [u8; 32],
+    /// The block's proof-of-work hash.
+    pub pow_hash: [u8; 32],
+    /// The block's height.
+    pub height: u64,
+    /// The adjusted block size, in bytes.
+    pub weight: usize,
+    /// The long term block weight, which is the weight factored in with previous block weights.
+    pub long_term_weight: usize,
+    /// The cumulative difficulty of all blocks up until and including this block.
+    pub cumulative_difficulty_low: u64,
+    pub cumulative_difficulty_high: u64,
+
+}
+
+//---------------------------------------------------------------------------------------------------- AltTransactionInfo
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
+#[repr(C)]
+pub struct AltTransactionInfo {
+    /// The transaction's weight.
+    ///
+    /// [`Transaction::weight`].
+    pub tx_weight: usize,
+    /// The transaction's total fees.
+    pub fee: u64,
+    /// The transaction's hash.
+    ///
+    /// [`Transaction::hash`].
+    pub tx_hash: [u8; 32],
+}
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]

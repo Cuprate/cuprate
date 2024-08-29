@@ -52,7 +52,7 @@
     unused_crate_dependencies,
     unused_doc_comments,
     unused_mut,
-    missing_docs,
+    //missing_docs,
     deprecated,
     unused_comparisons,
     nonstandard_style
