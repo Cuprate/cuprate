@@ -1,7 +1,6 @@
 //! Blockchain
 //!
 //! Will contain the chain manager and syncer.
-
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 
@@ -25,11 +24,13 @@ use types::{
     ConsensusBlockchainReadHandle,
 };
 
+/// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(
     blockchain_read_handle: &mut BlockchainReadHandle,
     blockchain_write_handle: &mut BlockchainWriteHandle,
     network: &Network,
 ) {
+    // Try to get the chain height, will fail if the genesis block is not in the DB.
     if blockchain_read_handle
         .ready()
         .await
@@ -67,6 +68,7 @@ pub async fn check_add_genesis(
         .unwrap();
 }
 
+/// Initializes the consensus services.
 pub async fn init_consensus(
     blockchain_read_handle: BlockchainReadHandle,
     context_config: ContextConfig,
@@ -92,13 +94,14 @@ pub async fn init_consensus(
     Ok((block_verifier_svc, tx_verifier_svc, ctx_service))
 }
 
+/// Initializes the blockchain manager task and syncer.
 pub fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
-    block_downloader_config: BlockDownloaderConfig,
     blockchain_write_handle: BlockchainWriteHandle,
     blockchain_read_handle: BlockchainReadHandle,
     blockchain_context_service: BlockChainContextService,
     block_verifier_service: ConcreteBlockVerifierService,
+    block_downloader_config: BlockDownloaderConfig,
 ) {
     let (batch_tx, batch_rx) = mpsc::channel(1);
 
