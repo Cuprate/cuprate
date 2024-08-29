@@ -393,7 +393,7 @@ async fn verify_transactions_decoy_info<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
-    if hf == HardFork::V1 {
+    if hf == HardFork::V1 || txs.is_empty() {
         return Ok(());
     }
 

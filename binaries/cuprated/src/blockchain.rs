@@ -2,27 +2,28 @@
 //!
 //! Will contain the chain manager and syncer.
 
-use crate::blockchain::manager::BlockchainManager;
-use crate::blockchain::types::{
-    ChainService, ConcreteBlockVerifierService, ConcreteTxVerifierService,
-    ConsensusBlockchainReadHandle,
-};
+use tokio::sync::mpsc;
+use tower::{Service, ServiceExt};
+
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::{generate_genesis_block, BlockChainContextService, ContextConfig};
 use cuprate_cryptonight::cryptonight_hash_v0;
-use cuprate_p2p::block_downloader::BlockDownloaderConfig;
-use cuprate_p2p::NetworkInterface;
+use cuprate_p2p::{block_downloader::BlockDownloaderConfig, NetworkInterface};
 use cuprate_p2p_core::{ClearNet, Network};
-use cuprate_types::blockchain::{
-    BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest,
+use cuprate_types::{
+    blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
+    VerifiedBlockInformation,
 };
-use cuprate_types::VerifiedBlockInformation;
-use tokio::sync::mpsc;
-use tower::{Service, ServiceExt};
 
 mod manager;
 mod syncer;
 mod types;
+
+use manager::BlockchainManager;
+use types::{
+    ChainService, ConcreteBlockVerifierService, ConcreteTxVerifierService,
+    ConsensusBlockchainReadHandle,
+};
 
 pub async fn check_add_genesis(
     blockchain_read_handle: &mut BlockchainReadHandle,

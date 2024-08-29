@@ -1,9 +1,11 @@
 use crate::blockchain::check_add_genesis;
+use crate::config::CupratedConfig;
 use clap::Parser;
 use cuprate_p2p::block_downloader::BlockDownloaderConfig;
 use cuprate_p2p::P2PConfig;
 use cuprate_p2p_core::Network;
 use std::time::Duration;
+use tokio::runtime::Runtime;
 use tracing::Level;
 
 mod blockchain;
@@ -12,22 +14,15 @@ mod p2p;
 mod rpc;
 mod txpool;
 
-#[derive(Parser)]
-struct Args {}
 fn main() {
-    let _args = Args::parse();
+    let config = config::config();
 
-    tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG)
-        .init();
+    init_log(&config);
 
     let (mut bc_read_handle, mut bc_write_handle, _) =
-        cuprate_blockchain::service::init(cuprate_blockchain::config::Config::default()).unwrap();
+        cuprate_blockchain::service::init(config.blockchain_config()).unwrap();
 
-    let async_rt = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
+    let async_rt = init_tokio_rt(&config);
 
     async_rt.block_on(async move {
         check_add_genesis(&mut bc_read_handle, &mut bc_write_handle, &Network::Mainnet).await;
@@ -62,6 +57,21 @@ fn main() {
             block_verifier,
         );
 
-        tokio::time::sleep(Duration::MAX).await;
+        futures::future::pending::<()>().await;
     });
+
+    // TODO: add command handling.
+}
+
+fn init_log(_config: &CupratedConfig) {
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .init();
+}
+
+fn init_tokio_rt(_config: &CupratedConfig) -> Runtime {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
 }

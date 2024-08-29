@@ -30,7 +30,7 @@ tracing-subscriber = { workspace = true, features = ["default"] }
 #workspace = true
 
 [profile.dev]
-panic = 'abort'
+panic = "abort"
 
 [profile.release]
-panic = 'abort'
+panic = "abort"
