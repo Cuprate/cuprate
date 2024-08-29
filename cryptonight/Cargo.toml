@@ -22,6 +22,7 @@ jh = "0.1.0"
 keccak = "0.2.0-pre.0"
 hex-literal = "0.4.1"
 digest = "0.10.7"
+ittapi = "0.4.0"
 
 [build-dependencies]
 cc = "1"

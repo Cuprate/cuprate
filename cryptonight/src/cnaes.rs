@@ -1,17 +1,21 @@
+use crate::subarray_copy;
+
 const AES_BLOCK_SIZE: usize = 16;
 
 // 16 bytes just like all AES 128 and 256
 const ROUND_KEY_SIZE: usize = 16;
-
-// Cryptonight's hash uses the key size of AES256, but it only does 10 AES rounds
-// like AES128.
-const CN_AES_KEY_SIZE: usize = 32;
 
 // AES-128 uses 11 round keys and AES-256 uses 15 round keys. Cryptonight's
 // version of AES uses one less round key than AES-128 (which does 10 rounds
 // like Cryptonight), because it doesn't mix the first round key into the state
 // and uses the 0th key in the first round instead of the 1st.
 const NUM_AES_ROUND_KEYS: usize = 10;
+
+const EXPANDED_KEY_SIZE: usize = NUM_AES_ROUND_KEYS * ROUND_KEY_SIZE;
+
+// Cryptonight's hash uses the key size of AES256, but it only does 10 AES rounds
+// like AES128.
+const CN_AES_KEY_SIZE: usize = 32;
 
 #[rustfmt::skip]
 const AES_SBOX: [[u8; 16]; 16] = [
@@ -321,16 +325,14 @@ fn xor_words(w1: &[u8; 4], w2: &[u8; 4]) -> [u8; 4] {
 /// Extends the key in the same way as it is extended for AES256, but for
 /// Cryptonight's hash we only need to extend to 10 round keys instead of 15
 /// like AES256.
-pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [[u8; 4]; NUM_AES_ROUND_KEYS * 4] {
+pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY_SIZE] {
     // NK comes from the AES specification, it is the number of 32-bit words in
     // the non-expanded key (For AES-256: 32/4 = 8)
     const NK: usize = 8;
-    const WORDS_PER_ROUND_KEY: usize = 4;
-    let mut expanded_key = [[0u8; 4]; NUM_AES_ROUND_KEYS * 4];
+    let mut expanded_key = [0u8; EXPANDED_KEY_SIZE];
 
-    // The base key forms
     for i in 0..CN_AES_KEY_SIZE {
-        expanded_key[i / 4][i % 4] = key_bytes[i];
+        expanded_key[i] = key_bytes[i];
     }
 
     /// See FIPS-197, especially figure 11 to better understand how the expansion
@@ -339,22 +341,26 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [[u8; 4]; NUM_AES
         0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36,
     ];
 
-    // expand to 10 round keys (40 total words, 160 total bytes)
-    const EXPAND_START: usize = CN_AES_KEY_SIZE / WORDS_PER_ROUND_KEY;
-    const EXPAND_END: usize = NUM_AES_ROUND_KEYS * WORDS_PER_ROUND_KEY;
-    for i in EXPAND_START..EXPAND_END {
-        let mut temp = expanded_key[i - 1];
-        if i % NK == 0 {
-            let rc = [ROUND_CONSTS[i / NK], 0, 0, 0];
+    // expand to 10, 16-byte round keys (160 total bytes, or 40 4-byte words)
+    for i in (CN_AES_KEY_SIZE..EXPANDED_KEY_SIZE).step_by(4) {
+        let mut temp = expanded_key[i - 4..i].try_into().unwrap();
+        let word_num = i / 4;
+        assert_eq!(i % 4, 0);
+
+        if word_num % NK == 0 {
+            let rc = [ROUND_CONSTS[word_num / NK], 0, 0, 0];
             temp = xor_words(&substitute_word(&rotate_word(&temp)), &rc);
-        } else if i % NK == 4 {
+        } else if word_num % NK == 4 {
             temp = substitute_word(&temp)
         }
 
-        expanded_key[i] = xor_words(&expanded_key[i - CN_AES_KEY_SIZE / 4], &temp);
+        let temp2: [u8; 4] = expanded_key[i - CN_AES_KEY_SIZE..(i - CN_AES_KEY_SIZE) + 4]
+            .try_into()
+            .unwrap();
+        expanded_key[i..i + 4].copy_from_slice(&xor_words(&temp2, &temp));
     }
 
-    return expanded_key;
+    expanded_key
 }
 
 fn state_in(state: &mut [[u8; 4]; 4], input: &[u8]) {
@@ -373,7 +379,7 @@ fn state_out(output: &mut [u8], state: [[u8; 4]; 4]) {
     }
 }
 
-pub(crate) fn round_fwd(state: &mut [[u8; 4]; 4], keys: &[[u8; 4]]) {
+pub(crate) fn round_fwd(state: &mut [[u8; 4]; 4], keys: &[[u8; 4]; 4]) {
     debug_assert_eq!(keys.len(), 4);
 
     #[rustfmt::skip]
@@ -399,15 +405,24 @@ pub(crate) fn round_fwd(state: &mut [[u8; 4]; 4], keys: &[[u8; 4]]) {
     }
 }
 
-pub(crate) fn aesb_pseudo_round(block: &mut [u8], expanded_key: &[[u8; 4]; 40]) {
-    debug_assert!(block.len() == AES_BLOCK_SIZE);
-
+pub(crate) fn aesb_pseudo_round(
+    block: &mut [u8; AES_BLOCK_SIZE],
+    expanded_key: &[u8; EXPANDED_KEY_SIZE],
+) {
     let mut state = [[0u8; 4]; 4];
 
     state_in(&mut state, block);
 
-    for i in (0..40).step_by(4) {
-        round_fwd(&mut state, &expanded_key[i..i + 4]);
+    for i in 0..NUM_AES_ROUND_KEYS {
+        let round_key_flat = &expanded_key[i * ROUND_KEY_SIZE..(i + 1) * ROUND_KEY_SIZE];
+        let round_key: [[u8; 4]; 4] = [
+            subarray_copy!(round_key_flat, 0, 4),
+            subarray_copy!(round_key_flat, 4, 4),
+            subarray_copy!(round_key_flat, 8, 4),
+            subarray_copy!(round_key_flat, 12, 4),
+        ];
+
+        round_fwd(&mut state, &round_key);
     }
 
     state_out(block, state);
@@ -430,7 +445,7 @@ pub(crate) fn aesb_single_round(block: &mut [u8], round_key_flat: &[u8; ROUND_KE
 
     state_in(&mut state, block);
 
-    round_fwd(&mut state, &round_key[..]);
+    round_fwd(&mut state, &round_key[0..4].try_into().unwrap());
 
     state_out(block, state);
 }
@@ -438,27 +453,14 @@ pub(crate) fn aesb_single_round(block: &mut [u8], round_key_flat: &[u8; ROUND_KE
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn decode_hex_to_array<const N: usize>(hex: &str) -> [u8; N] {
-        assert_eq!(
-            hex.len(),
-            N * 2,
-            "Hex string length must be twice the array size"
-        );
-        let mut bytes = [0u8; N];
-        for i in 0..N {
-            bytes[i] = u8::from_str_radix(&hex[2 * i..2 * i + 2], 16).expect("Invalid hex string");
-        }
-        bytes
-    }
+    use crate::util::hex_to_array;
 
     #[test]
     fn test_key_schedule() {
         let test = |key_hex: &str, expected_out: &str| {
-            let key = decode_hex_to_array(key_hex);
+            let key = hex_to_array(key_hex);
             let expanded_key = key_extend(&key.into());
-            let flat_expanded_key = expanded_key.iter().flatten().copied().collect::<Vec<u8>>();
-            assert_eq!(expected_out, hex::encode(flat_expanded_key));
+            assert_eq!(expected_out, hex::encode(expanded_key));
         };
         test(
             "ac156e17cdabc0b92e3e724a06ef21e5317eb71fbc7f1587403b30ae6962a21a",
@@ -485,9 +487,9 @@ mod tests {
     #[test]
     fn test_aesb_pseudo_round() {
         let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
-            let key: [u8; 32] = decode_hex_to_array(key_hex);
+            let key: [u8; 32] = hex_to_array(key_hex);
             let extended_key = key_extend(&key.into());
-            let mut block: [u8; 16] = decode_hex_to_array(input_hex);
+            let mut block: [u8; 16] = hex_to_array(input_hex);
 
             aesb_pseudo_round(&mut block, &extended_key);
             assert_eq!(expected_out, hex::encode(block));
@@ -548,8 +550,8 @@ mod tests {
     #[test]
     fn test_aesb_single_round() {
         let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
-            let round_key: [u8; ROUND_KEY_SIZE] = decode_hex_to_array(key_hex);
-            let mut block: [u8; AES_BLOCK_SIZE] = decode_hex_to_array(input_hex);
+            let round_key: [u8; ROUND_KEY_SIZE] = hex_to_array(key_hex);
+            let mut block: [u8; AES_BLOCK_SIZE] = hex_to_array(input_hex);
 
             aesb_single_round(&mut block, &round_key);
             assert_eq!(expected_out, hex::encode(block));

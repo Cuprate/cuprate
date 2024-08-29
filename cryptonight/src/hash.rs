@@ -80,14 +80,6 @@ fn xor64(left: &mut [u8], right: &[u8]) {
     }
 }
 
-/*
-#[inline]
-fn v4_reg_load(dst: &mut u32, src: &[u8]) {
-    debug_assert!(src.len() >= 4, "Source must have at least 4 bytes.");
-    *dst = u32::from_le_bytes([src[0], src[1], src[2], src[3]]);
-}
-*/
-
 fn e2i(a: &[u8], count: usize) -> usize {
     let value: usize = u64::from_le_bytes(a[..8].try_into().unwrap()) as usize;
     (value / AES_BLOCK_SIZE) & (count - 1)
@@ -134,9 +126,7 @@ fn swap_blocks(a: &mut [u8], b: &mut [u8]) {
     b[..AES_BLOCK_SIZE].copy_from_slice(&t);
 }
 
-fn xor_blocks(a: &mut [u8], b: &[u8]) {
-    assert!(a.len() >= AES_BLOCK_SIZE);
-    assert!(b.len() >= AES_BLOCK_SIZE);
+fn xor_blocks(a: &mut [u8; AES_BLOCK_SIZE], b: &[u8; AES_BLOCK_SIZE]) {
     for i in 0..AES_BLOCK_SIZE {
         a[i] ^= b[i];
     }
@@ -215,27 +205,6 @@ fn variant2_portable_shuffle_add(
         }
     }
 }
-
-// fn variant2_integer_math(
-//     b: &mut [u8],
-//     ptr: &[u8],
-//     division_result: &mut u64,
-//     sqrt_result: &mut u64,
-// ) {
-//     let tmpx = *division_result ^ (*sqrt_result << 32);
-//     let b0 = u64::from_le_bytes(b[0..8].try_into().unwrap()) ^ tmpx.to_le();
-//     b[0..8].copy_from_slice(&b0.to_le_bytes());
-//
-//     let dividend = u64::from_le_bytes(ptr[8..16].try_into().unwrap());
-//     let divisor = (u64::from_le_bytes(ptr[0..8].try_into().unwrap())
-//         .wrapping_add(*sqrt_result << 1))
-//         | 0x80000001;
-//     *division_result = (dividend / divisor) as u64 + ((dividend % divisor) << 32);
-//
-//     let sqrt_input =
-//         u64::from_le_bytes(ptr[0..8].try_into().unwrap()).wrapping_add(*division_result);
-//     *sqrt_result = variant2_integer_math_sqrt(sqrt_input);
-// }
 
 fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
     // Get an approximation using floating point math
@@ -392,8 +361,11 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
 
     for i in 0..MEMORY / INIT_SIZE_BYTE {
         for j in 0..INIT_SIZE_BLK {
-            let mut block = &mut text[AES_BLOCK_SIZE * j..AES_BLOCK_SIZE * (j + 1)];
-            cnaes::aesb_pseudo_round(&mut block, &aes_expanded_key);
+            let block: &mut [u8; AES_BLOCK_SIZE] = (&mut text
+                [AES_BLOCK_SIZE * j..AES_BLOCK_SIZE * (j + 1)])
+                .try_into()
+                .unwrap();
+            cnaes::aesb_pseudo_round(block, &aes_expanded_key);
         }
 
         let start = i * INIT_SIZE_BYTE;
@@ -427,7 +399,10 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
             &mut long_state[j..j + AES_BLOCK_SIZE],
             &c1[..AES_BLOCK_SIZE],
         );
-        xor_blocks(&mut long_state[j..j + AES_BLOCK_SIZE], &b[..AES_BLOCK_SIZE]);
+        xor_blocks(
+            (&mut long_state[j..j + AES_BLOCK_SIZE]).try_into().unwrap(),
+            (&b[..AES_BLOCK_SIZE]).try_into().unwrap(),
+        );
         assert_eq!(j, e2i(&a[..8], MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE);
         variant1_1(&mut long_state[j..], variant);
 
@@ -458,8 +433,20 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
 
         // VARIANT2_2_PORTABLE
         if variant == Variant::V2 {
-            xor_blocks(&mut long_state[j ^ 0x10..], &d);
-            xor_blocks(&mut d, &long_state[j ^ 0x20..]);
+            let chunk1_start = j ^ 0x10;
+            let chunk2_start = j ^ 0x20;
+            xor_blocks(
+                (&mut long_state[chunk1_start..chunk1_start + AES_BLOCK_SIZE])
+                    .try_into()
+                    .unwrap(),
+                &d,
+            );
+            xor_blocks(
+                &mut d,
+                (&long_state[chunk2_start..chunk2_start + AES_BLOCK_SIZE])
+                    .try_into()
+                    .unwrap(),
+            );
         }
 
         variant2_portable_shuffle_add(&mut c1, &a, &b, &mut long_state, j, variant);
@@ -486,10 +473,16 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     let aes_expanded_key = cnaes::key_extend(&aes_key);
     for i in 0..MEMORY / INIT_SIZE_BYTE {
         for j in 0..INIT_SIZE_BLK {
-            let mut block = &mut text[AES_BLOCK_SIZE * j..AES_BLOCK_SIZE * (j + 1)];
+            let mut block: &mut [u8; AES_BLOCK_SIZE] = (&mut text
+                [AES_BLOCK_SIZE * j..AES_BLOCK_SIZE * (j + 1)])
+                .try_into()
+                .unwrap();
+            let ls_index = i * INIT_SIZE_BYTE + j * AES_BLOCK_SIZE;
             xor_blocks(
                 &mut block,
-                &long_state[i * INIT_SIZE_BYTE + j * AES_BLOCK_SIZE..],
+                (&long_state[ls_index..ls_index + AES_BLOCK_SIZE])
+                    .try_into()
+                    .unwrap(),
             );
             cnaes::aesb_pseudo_round(&mut block, &aes_expanded_key);
         }
@@ -515,7 +508,9 @@ mod tests {
 
     #[test]
     fn test_keccak1600() {
-        let input = hex::decode("5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374").unwrap();
+        let input = hex!(
+            "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374"
+        );
         let mut output = [0u8; 200];
         super::keccak1600(&input, &mut output);
         let output_hex = "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f266110665e23e891ea4ee2337fb304b35bf8d9c2e4c3524e52e62db67b0b170487a68a34f8026a81b35dc835c60b356d2c411ad227b6c67e30e9b57ba34b3cf27fccecae972850cf3889bb3ff8347b55a5710d58086973d12d75a3340a39430b65ee2f4be27c21e7b39f47341dd036fe13bf43bb2c55bce498a3adcbf07397ea66062b66d56cd8136";
@@ -878,7 +873,7 @@ mod tests {
 
     #[test]
     fn test_cn_slow_hash() {
-        let input = hex::decode("5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374").unwrap();
+        let input = hex!("5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374");
         const EXPECTED: &str = "f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc";
         let hash = cn_slow_hash(&input, Variant::R, 1806260);
         assert_eq!(hex::encode(hash), EXPECTED);
@@ -910,10 +905,7 @@ mod tests {
     #[test]
     fn test_blake() {
         let input: [u8; 32] =
-            hex::decode("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            hex!("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc");
         let mut output = [0u8; 32];
         blake::hash(256, &input, &mut output).expect("blake hash failed");
         const EXPECTED: &str = "0ddf9a49c3695ba94e0860742a2b913ee3646e55b95918e782cefeca6e240063";
@@ -959,9 +951,9 @@ mod tests {
 
     #[test]
     fn test_hash_permutations() {
-        let mut state_bytes: [u8; 200] = hex::decode(
+        let mut state_bytes: [u8; 200] = hex!(
             "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f2622fea9d7982e587e6612c4e6a1d28fdbaba4af1aea99e63322a632d514f35b4fc5cf231e9a6328efb5eb22ad2cfabe571ee8b6ef7dbc64f63185d54a771bdccd207b75e10547b4928f5dcb309192d88bf313d8bc53c8fe71da7ea93355d266c5cc8d39a1273e44b074d143849a3b302edad73c2e61f936c502f6bbabb972b616062b66d56cd8136"
-        ).unwrap().try_into().unwrap();
+        );
         const EXPECTED: &str = "31e2fb6eb8e2e376d42a53bc88166378f2a23cf9be54645ff69e8ade3aa4b7ad35040d0e3ad0ee0d8562d53a51acdf14f44de5c097c48a29f63676346194b3af13c3c45af214335a14329491081068a32ea29b3a6856e0efa737dff49d3b5dbf3f7847f058bb41d36347c19d5cd5bdb354ac64a86156c8194e19b0f62d109a8112024a7734730a2bb221c137d3034204e1e57d9cec9689bc199de684f38aeed4624b84c39675a4755ce9b69fde9d36cabd12f1aef4a5b2bb6c6126900799f2109e9b6b55d7bb3ff5";
         super::hash_permutation(&mut state_bytes);
         assert_eq!(hex::encode(state_bytes), EXPECTED);

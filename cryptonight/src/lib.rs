@@ -4,30 +4,26 @@ mod cnaes;
 mod hash;
 mod hash_v4;
 
+#[macro_use]
+pub(crate) mod util;
+
 #[link(name = "cryptonight")]
 extern "C" {
     fn cn_slow_hash(data: *const u8, length: usize, hash: *mut u8, variant: i32, height: u64);
-    //fn aesb_single_round(input: *const u8, output: *mut u8, expanded_key: *mut u8);
-}
-
-/// Calculates the CryptoNight v0 hash of buf (legacy C version).
-///
-pub fn cryptonight_hash_v0_legacy(buf: &[u8]) -> [u8; 32] {
-    let mut hash = [0; 32];
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 0, 0);
-    }
-    hash
 }
 
 /// Calculates the CryptoNight v0 hash of buf.
 ///
 pub fn cryptonight_hash_v0(buf: &[u8]) -> [u8; 32] {
-    let mut hash = [0; 32];
+    let mut hash_c = [0; 32];
+
     unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash.as_mut_ptr(), 0, 0);
+        cn_slow_hash(buf.as_ptr(), buf.len(), hash_c.as_mut_ptr(), 0, 0);
     }
-    hash
+
+    let hash_rust = hash::cn_slow_hash(buf, hash::Variant::V0, 0);
+    assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
+    hash_rust
 }
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
@@ -49,9 +45,7 @@ pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
     }
 
     let hash_rust = hash::cn_slow_hash(buf, hash::Variant::V1, 0);
-
     assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
-
     Ok(hash_rust)
 }
 
@@ -66,7 +60,6 @@ pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
 
     let hash_rust = hash::cn_slow_hash(buf, hash::Variant::V2, 0);
     assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
-
     hash_rust
 }
 
@@ -88,6 +81,7 @@ pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use crate::*;
+    use rand::Rng;
 
     #[test]
     fn slow_hash_0() {
@@ -265,5 +259,21 @@ mod tests {
             "75c6f2ae49a20521de97285b431e717125847fb8935ed84a61e7f8d36a2c3d8e",
             1806269,
         );
+    }
+
+    #[test]
+    fn test_random_hashes() {
+        const COUNT: usize = 10;
+
+        for _ in 0..COUNT {
+            let mut rng = rand::thread_rng();
+            let length = rng.gen_range(43..=500);
+            let mut input = vec![0u8; length];
+            rng.fill(&mut input[..]);
+
+            let _ = cryptonight_hash_v0(&input);
+            let _ = cryptonight_hash_v1(&input).unwrap();
+            let _ = cryptonight_hash_r(&input, rng.random::<u64>());
+        }
     }
 }
