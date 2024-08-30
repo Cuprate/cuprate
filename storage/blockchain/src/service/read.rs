@@ -22,6 +22,7 @@ use cuprate_types::{
 
 use crate::{
     ops::{
+        alt_block::{alt_block_hash, alt_extended_headers_in_range},
         block::{
             block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
         },
@@ -33,7 +34,7 @@ use crate::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         types::{BlockchainReadHandle, ResponseResult},
     },
-    tables::{BlockHeights, BlockInfos, OpenTables, Tables},
+    tables::{AltBlockHeights, BlockHeights, BlockInfos, OpenTables, Tables},
     types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
@@ -87,7 +88,7 @@ fn map_request(
     match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
-        R::FindBlock(_) => todo!("Add alt blocks to DB"),
+        R::FindBlock(block_hash) => find_block(env, block_hash),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
         R::BlockExtendedHeaderInRange(range, chain) => {
             block_extended_header_in_range(env, range, chain)
@@ -198,10 +199,37 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> Res
 
     let block_hash = match chain {
         Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
-        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+        Chain::Alt(chain) => {
+            alt_block_hash(&block_height, chain, &mut env_inner.open_tables(&tx_ro)?)?
+        }
     };
 
     Ok(BlockchainResponse::BlockHash(block_hash))
+}
+
+/// [`BlockchainReadRequest::FindBlock`]
+fn find_block(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+
+    // Check the main chain first.
+    match table_block_heights.get(&block_hash) {
+        Ok(height) => return Ok(BlockchainResponse::FindBlock(Some((Chain::Main, height)))),
+        Err(RuntimeError::KeyNotFound) => (),
+        Err(e) => return Err(e),
+    }
+
+    let table_alt_block_heights = env_inner.open_db_ro::<AltBlockHeights>(&tx_ro)?;
+
+    let height = table_alt_block_heights.get(&block_hash)?;
+
+    Ok(BlockchainResponse::FindBlock(Some((
+        Chain::Alt(height.chain_id.into()),
+        height.height,
+    ))))
 }
 
 /// [`BlockchainReadRequest::FilterUnknownHashes`].
@@ -254,7 +282,14 @@ fn block_extended_header_in_range(
                 get_block_extended_header_from_height(&block_height, tables)
             })
             .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
-        Chain::Alt(_) => todo!("Add alt blocks to DB"),
+        Chain::Alt(chain_id) => {
+            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+            alt_extended_headers_in_range(
+                range,
+                chain_id,
+                get_tables!(env_inner, tx_ro, tables)?.as_ref(),
+            )?
+        }
     };
 
     Ok(BlockchainResponse::BlockExtendedHeaderInRange(vec))

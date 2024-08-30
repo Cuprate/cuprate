@@ -2,7 +2,7 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use monero_serai::block::Block;
+use monero_serai::block::{Block, BlockHeader};
 
 use cuprate_database::{
     RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
@@ -190,7 +190,7 @@ pub fn get_block_extended_header_from_height(
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
     let block_info = tables.block_infos().get(block_height)?;
     let block_blob = tables.block_blobs().get(block_height)?.0;
-    let block = Block::read(&mut block_blob.as_slice())?;
+    let block_header = BlockHeader::read(&mut block_blob.as_slice())?;
 
     let cumulative_difficulty = combine_low_high_bits_to_u128(
         block_info.cumulative_difficulty_low,
@@ -201,10 +201,10 @@ pub fn get_block_extended_header_from_height(
     #[allow(clippy::cast_possible_truncation)]
     Ok(ExtendedBlockHeader {
         cumulative_difficulty,
-        version: HardFork::from_version(block.header.hardfork_version)
+        version: HardFork::from_version(block_header.hardfork_version)
             .expect("Stored block must have a valid hard-fork"),
-        vote: block.header.hardfork_signal,
-        timestamp: block.header.timestamp,
+        vote: block_header.hardfork_signal,
+        timestamp: block_header.timestamp,
         block_weight: block_info.weight as usize,
         long_term_weight: block_info.long_term_weight as usize,
     })

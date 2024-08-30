@@ -98,6 +98,8 @@
         clippy::too_many_lines
     )
 )]
+extern crate core;
+
 // Only allow building 64-bit targets.
 //
 // This allows us to assume 64-bit
