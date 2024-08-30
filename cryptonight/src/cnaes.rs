@@ -1,4 +1,4 @@
-use crate::subarray_copy;
+use crate::{subarray, subarray_copy};
 
 const AES_BLOCK_SIZE: usize = 16;
 
@@ -300,26 +300,14 @@ const CRYPTONIGHT_SBOX: [u8; 4096] = [
     0xb0, 0xb0, 0xcb, 0x7b, 0x54, 0x54, 0xfc, 0xa8, 0xbb, 0xbb, 0xd6, 0x6d, 0x16, 0x16, 0x3a, 0x2c,
 ];
 
-#[inline]
-fn rotate_word(word: &[u8; 4]) -> [u8; 4] {
-    [word[1], word[2], word[3], word[0]]
-}
-
-fn substitute_word(word: &[u8; 4]) -> [u8; 4] {
-    let mut result = [0u8; 4];
-
-    for i in 0..4 {
-        let row = (word[i] >> 4) as usize;
-        let col = (word[i] & 0x0F) as usize;
-        result[i] = AES_SBOX[row][col];
-    }
-
-    result
-}
-
-#[inline]
-fn xor_words(w1: &[u8; 4], w2: &[u8; 4]) -> [u8; 4] {
-    [w1[0] ^ w2[0], w1[1] ^ w2[1], w1[2] ^ w2[2], w1[3] ^ w2[3]]
+fn substitute_word(word: u32) -> u32 {
+    let wb: [u8; 4] = word.to_be_bytes();
+    u32::from_be_bytes([
+        AES_SBOX[(wb[0] >> 4) as usize][(wb[0] & 0x0F) as usize],
+        AES_SBOX[(wb[1] >> 4) as usize][(wb[1] & 0x0F) as usize],
+        AES_SBOX[(wb[2] >> 4) as usize][(wb[2] & 0x0F) as usize],
+        AES_SBOX[(wb[3] >> 4) as usize][(wb[3] & 0x0F) as usize],
+    ])
 }
 
 /// Extends the key in the same way as it is extended for AES256, but for
@@ -343,51 +331,30 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
 
     // expand to 10, 16-byte round keys (160 total bytes, or 40 4-byte words)
     for i in (CN_AES_KEY_SIZE..EXPANDED_KEY_SIZE).step_by(4) {
-        let mut temp = expanded_key[i - 4..i].try_into().unwrap();
+        let mut temp = u32::from_be_bytes(subarray_copy!(expanded_key, i - 4, 4));
         let word_num = i / 4;
-        assert_eq!(i % 4, 0);
 
         if word_num % NK == 0 {
-            let rc = [ROUND_CONSTS[word_num / NK], 0, 0, 0];
-            temp = xor_words(&substitute_word(&rotate_word(&temp)), &rc);
+            let rc = u32::from_be_bytes([ROUND_CONSTS[word_num / NK], 0, 0, 0]);
+            temp = substitute_word(temp.rotate_left(8)) ^ rc;
         } else if word_num % NK == 4 {
-            temp = substitute_word(&temp)
+            temp = substitute_word(temp);
         }
 
-        let temp2: [u8; 4] = expanded_key[i - CN_AES_KEY_SIZE..(i - CN_AES_KEY_SIZE) + 4]
-            .try_into()
-            .unwrap();
-        expanded_key[i..i + 4].copy_from_slice(&xor_words(&temp2, &temp));
+        temp ^= u32::from_be_bytes(subarray_copy!(expanded_key, i - CN_AES_KEY_SIZE, 4));
+        expanded_key[i..i + 4].copy_from_slice(&temp.to_be_bytes());
     }
 
     expanded_key
 }
 
-fn state_in(state: &mut [[u8; 4]; 4], input: &[u8]) {
-    for i in 0..4 {
-        for j in 0..4 {
-            state[i][j] = input[i * 4 + j];
-        }
-    }
-}
-
-fn state_out(output: &mut [u8], state: [[u8; 4]; 4]) {
-    for i in 0..4 {
-        for j in 0..4 {
-            output[i * 4 + j] = state[i][j];
-        }
-    }
-}
-
-pub(crate) fn round_fwd(state: &mut [[u8; 4]; 4], keys: &[[u8; 4]; 4]) {
-    debug_assert_eq!(keys.len(), 4);
-
+pub(crate) fn round_fwd(state: &mut [u8; AES_BLOCK_SIZE], key: &[u8; ROUND_KEY_SIZE]) {
     #[rustfmt::skip]
-    const INDEX_ROTATIONS: [[u8; 4]; 4] = [
-        [0, 1, 2, 3],
-        [1, 2, 3, 0],
-        [2, 3, 0, 1],
-        [3, 0, 1, 2],
+    const INDEX_ROTATIONS: [u8; 16] = [
+        0, 1, 2, 3,
+        1, 2, 3, 0,
+        2, 3, 0, 1,
+        3, 0, 1, 2,
     ];
 
     let start_state = state.clone();
@@ -396,11 +363,11 @@ pub(crate) fn round_fwd(state: &mut [[u8; 4]; 4], keys: &[[u8; 4]; 4]) {
         for i in 0..4 {
             let mut r = 0u8;
             for j in 0..4 {
-                let w = INDEX_ROTATIONS[j][c] as usize;
-                let s = start_state[w][j] as usize;
+                let w = INDEX_ROTATIONS[c * 4 + j] as usize;
+                let s = start_state[w * 4 + j] as usize;
                 r ^= CRYPTONIGHT_SBOX[j * 256 * 4 + s * 4 + i]; // max: 3*256*4 + 255*4 + 3 = 4095
             }
-            state[c][i] = r ^ keys[c][i];
+            state[c * 4 + i] = r ^ key[c * 4 + i];
         }
     }
 }
@@ -409,51 +376,32 @@ pub(crate) fn aesb_pseudo_round(
     block: &mut [u8; AES_BLOCK_SIZE],
     expanded_key: &[u8; EXPANDED_KEY_SIZE],
 ) {
-    let mut state = [[0u8; 4]; 4];
-
-    state_in(&mut state, block);
-
     for i in 0..NUM_AES_ROUND_KEYS {
-        let round_key_flat = &expanded_key[i * ROUND_KEY_SIZE..(i + 1) * ROUND_KEY_SIZE];
-        let round_key: [[u8; 4]; 4] = [
-            subarray_copy!(round_key_flat, 0, 4),
-            subarray_copy!(round_key_flat, 4, 4),
-            subarray_copy!(round_key_flat, 8, 4),
-            subarray_copy!(round_key_flat, 12, 4),
-        ];
-
-        round_fwd(&mut state, &round_key);
+        let round_key = subarray!(expanded_key, i * ROUND_KEY_SIZE, ROUND_KEY_SIZE);
+        round_fwd(block, round_key);
     }
-
-    state_out(block, state);
 }
 
-pub(crate) fn aesb_single_round(block: &mut [u8], round_key_flat: &[u8; ROUND_KEY_SIZE]) {
-    debug_assert!(block.len() == AES_BLOCK_SIZE);
-
-    let mut round_key = [[0u8; 4]; 4];
-    for i in 0..4 {
-        round_key[i] = [
-            round_key_flat[4 * i],
-            round_key_flat[4 * i + 1],
-            round_key_flat[4 * i + 2],
-            round_key_flat[4 * i + 3],
-        ];
-    }
-
-    let mut state = [[0u8; 4]; 4];
-
-    state_in(&mut state, block);
-
-    round_fwd(&mut state, &round_key[0..4].try_into().unwrap());
-
-    state_out(block, state);
+pub(crate) fn aesb_single_round(
+    block: &mut [u8; AES_BLOCK_SIZE],
+    round_key: &[u8; ROUND_KEY_SIZE],
+) {
+    round_fwd(block, round_key);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::util::hex_to_array;
+
+    #[test]
+    fn test_substitute_word() {
+        assert_eq!(substitute_word(0x12345678), 3373838780);
+        assert_eq!(substitute_word(0x00000000), 1667457891);
+        assert_eq!(substitute_word(0xFFFFFFFF), 370546198);
+        assert_eq!(substitute_word(0xAAAAAAAA), 2896997548);
+        assert_eq!(substitute_word(0x55555555), 4244438268);
+    }
 
     #[test]
     fn test_key_schedule() {
