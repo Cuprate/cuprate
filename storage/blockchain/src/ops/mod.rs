@@ -108,5 +108,6 @@ pub mod key_image;
 pub mod output;
 pub mod property;
 pub mod tx;
+pub mod alt_block;
 
 mod macros;

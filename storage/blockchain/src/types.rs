@@ -348,6 +348,14 @@ impl From<RawChain> for Chain {
     }
 }
 
+impl From<RawChainId> for RawChain {
+    fn from(value: RawChainId) -> Self {
+        assert_ne!(value.0, 0);
+
+        RawChain(value.0)
+    }
+}
+
 //---------------------------------------------------------------------------------------------------- RawChainId
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(transparent)]
@@ -371,16 +379,16 @@ impl Key for RawChainId {}
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct AltChainInfo {
-    parent_chain: RawChain,
-    common_ancestor_height: u64
+    pub parent_chain: RawChain,
+    pub common_ancestor_height: usize,
 }
 
 //---------------------------------------------------------------------------------------------------- AltBlockHeight
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash, Pod, Zeroable)]
 #[repr(C)]
 pub struct AltBlockHeight {
-    chain_id: u64,
-    height: u64,
+    pub chain_id: RawChainId,
+    pub height: usize,
 }
 
 impl Key for AltBlockHeight {}
@@ -396,7 +404,7 @@ pub struct CompactAltBlockInfo {
     /// The block's proof-of-work hash.
     pub pow_hash: [u8; 32],
     /// The block's height.
-    pub height: u64,
+    pub height: usize,
     /// The adjusted block size, in bytes.
     pub weight: usize,
     /// The long term block weight, which is the weight factored in with previous block weights.
@@ -404,7 +412,6 @@ pub struct CompactAltBlockInfo {
     /// The cumulative difficulty of all blocks up until and including this block.
     pub cumulative_difficulty_low: u64,
     pub cumulative_difficulty_high: u64,
-
 }
 
 //---------------------------------------------------------------------------------------------------- AltTransactionInfo

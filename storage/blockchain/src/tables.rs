@@ -16,7 +16,12 @@
 //! accessing _all_ tables defined here at once.
 
 //---------------------------------------------------------------------------------------------------- Import
-use crate::types::{Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash, TxId, UnlockTime, RawChainId, AltChainInfo, AltBlockHeight, CompactAltBlockInfo, AltTransactionInfo};
+use crate::types::{
+    AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndex, AmountIndices,
+    BlockBlob, BlockHash, BlockHeight, BlockInfo, CompactAltBlockInfo, KeyImage, Output,
+    PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RawChainId, RctOutput, TxBlob, TxHash,
+    TxId, UnlockTime,
+};
 
 //---------------------------------------------------------------------------------------------------- Tables
 // Notes:
