@@ -1,6 +1,6 @@
 use crate::{subarray, subarray_copy};
 
-const AES_BLOCK_SIZE: usize = 16;
+pub(crate) const AES_BLOCK_SIZE: usize = 16;
 
 // 16 bytes just like all AES 128 and 256
 const ROUND_KEY_SIZE: usize = 16;
@@ -15,7 +15,7 @@ const EXPANDED_KEY_SIZE: usize = NUM_AES_ROUND_KEYS * ROUND_KEY_SIZE;
 
 // Cryptonight's hash uses the key size of AES256, but it only does 10 AES rounds
 // like AES128.
-const CN_AES_KEY_SIZE: usize = 32;
+pub(crate) const CN_AES_KEY_SIZE: usize = 32;
 
 #[rustfmt::skip]
 const AES_SBOX: [[u8; 16]; 16] = [
@@ -319,9 +319,7 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
     const NK: usize = 8;
     let mut expanded_key = [0u8; EXPANDED_KEY_SIZE];
 
-    for i in 0..CN_AES_KEY_SIZE {
-        expanded_key[i] = key_bytes[i];
-    }
+    expanded_key[0..CN_AES_KEY_SIZE].copy_from_slice(key_bytes);
 
     /// See FIPS-197, especially figure 11 to better understand how the expansion
     /// happens: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.197.pdf

@@ -2,6 +2,7 @@ extern crate core;
 
 mod cnaes;
 mod hash;
+mod hash_v2;
 mod hash_v4;
 
 #[macro_use]

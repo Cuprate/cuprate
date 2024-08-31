@@ -1,7 +1,8 @@
-use std::cmp::max;
-
+use crate::subarray_copy;
 use blake;
 use static_assertions::const_assert_eq;
+use std::cmp::max;
+use InstructionList::*;
 
 const TOTAL_LATENCY: usize = 15 * 3;
 const NUM_INSTRUCTIONS_MIN: usize = 60;
@@ -10,7 +11,7 @@ const ALU_COUNT_MUL: usize = 1;
 const ALU_COUNT: usize = 3;
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InstructionList {
     Mul, // a*b
     Add, // a+b + C, C is an unsigned 32-bit constant
@@ -18,16 +19,9 @@ pub enum InstructionList {
     Ror, // rotate right "a" by "b & 31" bits
     Rol, // rotate left "a" by "b & 31" bits
     Xor, // a^b
+    #[default]
     Ret, // finish execution
 }
-
-impl Default for InstructionList {
-    fn default() -> Self {
-        InstructionList::Ret
-    }
-}
-
-use InstructionList::*;
 
 const INSTRUCTION_COUNT: usize = InstructionList::Ret as usize;
 
@@ -158,7 +152,7 @@ pub(crate) fn random_math_init(
 
             check_data(&mut data_index, 1, &mut data);
 
-            let c = data[data_index as usize] as u8;
+            let c = data[data_index] as u8;
             data_index += 1;
 
             // MUL = opcodes 0-2
@@ -412,16 +406,16 @@ pub(crate) fn variant4_random_math(
     t[0] ^= u64::from(r[0].wrapping_add(r[1])) | (u64::from(r[2].wrapping_add(r[3])) << 32);
     c2[..8].copy_from_slice(&t[0].to_le_bytes());
 
-    r[4] = u32::from_le_bytes(a1[0..4].try_into().unwrap());
-    r[5] = u32::from_le_bytes(a1[8..12].try_into().unwrap());
-    r[6] = u32::from_le_bytes(b[0..4].try_into().unwrap());
-    r[7] = u32::from_le_bytes(b[16..20].try_into().unwrap());
-    r[8] = u32::from_le_bytes(b[24..28].try_into().unwrap());
+    r[4] = u32::from_le_bytes(subarray_copy!(a1, 0, 4));
+    r[5] = u32::from_le_bytes(subarray_copy!(a1, 8, 4));
+    r[6] = u32::from_le_bytes(subarray_copy!(b, 0, 4));
+    r[7] = u32::from_le_bytes(subarray_copy!(b, 16, 4));
+    r[8] = u32::from_le_bytes(subarray_copy!(b, 24, 4));
 
     v4_random_math(code, r);
 
-    t[0] = u64::from_le_bytes(a1[0..8].try_into().unwrap());
-    t[1] = u64::from_le_bytes(a1[8..16].try_into().unwrap());
+    t[0] = u64::from_le_bytes(subarray_copy!(a1, 0, 8));
+    t[1] = u64::from_le_bytes(subarray_copy!(a1, 8, 8));
 
     t[0] ^= u64::from(r[2]) | u64::from(r[3]) << 32;
     t[1] ^= u64::from(r[0]) | (u64::from(r[1]) << 32);
@@ -433,7 +427,7 @@ pub(crate) fn variant4_random_math(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::convert::TryInto;
+    use crate::util::hex_to_array;
 
     #[test]
     fn test_random_math_init() {
@@ -872,20 +866,11 @@ mod tests {
     #[test]
     fn test1_variant4_random_math() {
         const AES_BLOCK_SIZE: usize = 16;
-        let mut a1: [u8; AES_BLOCK_SIZE] = hex::decode("969ecd223474a6bb3be76c637db7457b")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let mut c2: [u8; AES_BLOCK_SIZE] = hex::decode("dbd1f6404d4826c52f209951334e6ea7")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let mut a1: [u8; AES_BLOCK_SIZE] = hex_to_array("969ecd223474a6bb3be76c637db7457b");
+        let mut c2: [u8; AES_BLOCK_SIZE] = hex_to_array("dbd1f6404d4826c52f209951334e6ea7");
         let mut r: [u32; 9] = [1336109178, 464004736, 1552145461, 3528897376, 0, 0, 0, 0, 0];
         let b: [u8; AES_BLOCK_SIZE * 2] =
-            hex::decode("8dfa6d2c82e1806367b844c15f0439ced99c9a4bae0badfb8a8cf8504b813b7d")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            hex_to_array("8dfa6d2c82e1806367b844c15f0439ced99c9a4bae0badfb8a8cf8504b813b7d");
 
         variant4_random_math(&mut a1, &mut c2, &mut r, &b, &CODE);
 
@@ -903,23 +888,14 @@ mod tests {
     #[test]
     fn test2_variant4_random_math() {
         const AES_BLOCK_SIZE: usize = 16;
-        let mut a1: [u8; AES_BLOCK_SIZE] = hex::decode("643955bde578c845e4898703c3ce5eaa")
-            .unwrap()
-            .try_into()
-            .unwrap();
-        let mut c2: [u8; AES_BLOCK_SIZE] = hex::decode("787e2613b8fd0a2dadad16d4ec189035")
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let mut a1: [u8; AES_BLOCK_SIZE] = hex_to_array("643955bde578c845e4898703c3ce5eaa");
+        let mut c2: [u8; AES_BLOCK_SIZE] = hex_to_array("787e2613b8fd0a2dadad16d4ec189035");
         let mut r: [u32; 9] = [
             3226611830, 767947777, 1429416074, 3443042828, 583900822, 1668081467, 745405069,
             1268423897, 1358466186,
         ];
         let b: [u8; AES_BLOCK_SIZE * 2] =
-            hex::decode("d4d1e70f7da4089ae53b2e7545e4242a8dfa6d2c82e1806367b844c15f0439ce")
-                .unwrap()
-                .try_into()
-                .unwrap();
+            hex_to_array("d4d1e70f7da4089ae53b2e7545e4242a8dfa6d2c82e1806367b844c15f0439ce");
 
         variant4_random_math(&mut a1, &mut c2, &mut r, &b, &CODE);
 
