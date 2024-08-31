@@ -8,7 +8,7 @@ use std::{
     collections::{HashMap, HashSet},
     ops::Range,
 };
-
+use crate::{AltBlockInformation, ChainId};
 use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -112,6 +112,27 @@ pub enum BlockchainWriteRequest {
     ///
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
+    /// Write an alternative block to the database,
+    ///
+    /// Input is the alternative block.
+    WriteAltBlock(AltBlockInformation),
+    /// A request to start the re-org process.
+    ///
+    /// The inner value is the [`ChainId`] of the alt-chain we want to re-org to.
+    ///
+    /// This will:
+    /// - pop blocks from the main chain
+    /// - retrieve all alt-blocks in this alt-chain
+    /// - flush all other alt blocks
+    StartReorg(ChainId),
+    /// A request to reverse the re-org process.
+    ///
+    /// The inner value is the [`ChainId`] of the old main chain.
+    ///
+    /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::StartReorg`].
+    ReverseReorg(ChainId),
+    /// A request to flush all alternative blocks.
+    FlushAltBlocks,
 }
 
 //---------------------------------------------------------------------------------------------------- Response
@@ -198,11 +219,20 @@ pub enum BlockchainResponse {
     FindFirstUnknown(Option<(usize, usize)>),
 
     //------------------------------------------------------ Writes
-    /// Response to [`BlockchainWriteRequest::WriteBlock`].
+    /// A generic Ok response to indicate a request was successfully handled.
     ///
-    /// This response indicates that the requested block has
-    /// successfully been written to the database without error.
-    WriteBlockOk,
+    /// currently the response for:
+    /// - [`BlockchainWriteRequest::WriteBlock`]
+    /// - [`BlockchainWriteRequest::ReverseReorg`]
+    /// - [`BlockchainWriteRequest::FlushAltBlocks`]
+    Ok,
+    /// The response for [`BlockchainWriteRequest::StartReorg`].
+    StartReorg {
+        /// The [`ChainId`] of the old main chain blocks that were popped.
+        old_main_chain_id: ChainId,
+        /// The next alt chain blocks.
+        alt_chain: Vec<AltBlockInformation>
+    },
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

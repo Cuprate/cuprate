@@ -29,6 +29,10 @@ fn handle_blockchain_request(
 ) -> Result<BlockchainResponse, RuntimeError> {
     match req {
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
+        BlockchainWriteRequest::WriteAltBlock(_) => todo!(),
+        BlockchainWriteRequest::StartReorg(_) => todo!(),
+        BlockchainWriteRequest::ReverseReorg(_) => todo!(),
+        BlockchainWriteRequest::FlushAltBlocks => todo!(),
     }
 }
 
