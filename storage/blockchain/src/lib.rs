@@ -1,5 +1,21 @@
 #![doc = include_str!("../README.md")]
 
+#![allow(
+	// This lint is allowed because the following
+	// code exists a lot in this crate:
+	//
+	// ```rust
+    // let env_inner = env.env_inner();
+    // let tx_rw = env_inner.tx_rw()?;
+    // OpenTables::create_tables(&env_inner, &tx_rw)?;
+	// ```
+	//
+	// Rust thinks `env_inner` can be dropped earlier
+	// but it cannot, we need it for the lifetime of
+	// the database transaction + tables.
+	clippy::significant_drop_tightening
+)]
+
 // Only allow building 64-bit targets.
 //
 // This allows us to assume 64-bit
