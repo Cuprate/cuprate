@@ -17,3 +17,12 @@ pub use rpc_handler::RpcHandler;
 pub use rpc_handler_dummy::RpcHandlerDummy;
 pub use rpc_request::RpcRequest;
 pub use rpc_response::RpcResponse;
+
+// false-positive: used in `README.md`'s doc-test.
+#[cfg(test)]
+mod test {
+    use axum as _;
+    use serde_json as _;
+    use tokio as _;
+    use ureq as _;
+}
