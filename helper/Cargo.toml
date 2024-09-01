@@ -39,3 +39,6 @@ target_os_lib = { package = "libc", version = "0.2.151", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
+
+[lints]
+workspace = true

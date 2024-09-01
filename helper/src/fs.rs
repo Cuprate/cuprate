@@ -190,72 +190,41 @@ mod test {
     // - It must `ends_with()` the expected end PATH for the OS
     #[test]
     fn path_sanity_check() {
-        assert!(CUPRATE_CACHE_DIR.is_absolute());
-        assert!(CUPRATE_CONFIG_DIR.is_absolute());
-        assert!(CUPRATE_DATA_DIR.is_absolute());
-        assert!(CUPRATE_BLOCKCHAIN_DIR.is_absolute());
+        // Array of (PATH, expected_path_as_string).
+        //
+        // The different OS's will set the expected path below.
+        let mut array = [
+            (&*CUPRATE_CACHE_DIR, ""),
+            (&*CUPRATE_CONFIG_DIR, ""),
+            (&*CUPRATE_DATA_DIR, ""),
+            (&*CUPRATE_BLOCKCHAIN_DIR, ""),
+            (&*CUPRATE_TXPOOL_DIR, ""),
+        ];
 
         if cfg!(target_os = "windows") {
-            let dir = &*CUPRATE_CACHE_DIR;
-            println!("cuprate_cache_dir: {dir:?}");
-            assert!(dir.ends_with(r"AppData\Local\Cuprate"));
-
-            let dir = &*CUPRATE_CONFIG_DIR;
-            println!("cuprate_config_dir: {dir:?}");
-            assert!(dir.ends_with(r"AppData\Roaming\Cuprate"));
-
-            let dir = &*CUPRATE_DATA_DIR;
-            println!("cuprate_data_dir: {dir:?}");
-            assert!(dir.ends_with(r"AppData\Roaming\Cuprate"));
-
-            let dir = &*CUPRATE_BLOCKCHAIN_DIR;
-            println!("cuprate_blockchain_dir: {dir:?}");
-            assert!(dir.ends_with(r"AppData\Roaming\Cuprate\blockchain"));
-
-            let dir = &*CUPRATE_TXPOOL_DIR;
-            println!("cuprate_txpool_dir: {dir:?}");
-            assert!(dir.ends_with(r"AppData\Roaming\Cuprate\txpool"));
+            array[0].1 = r"AppData\Local\Cuprate";
+            array[1].1 = r"AppData\Roaming\Cuprate";
+            array[2].1 = r"AppData\Roaming\Cuprate";
+            array[3].1 = r"AppData\Roaming\Cuprate\blockchain";
+            array[4].1 = r"AppData\Roaming\Cuprate\txpool";
         } else if cfg!(target_os = "macos") {
-            let dir = &*CUPRATE_CACHE_DIR;
-            println!("cuprate_cache_dir: {dir:?}");
-            assert!(dir.ends_with("Library/Caches/Cuprate"));
-
-            let dir = &*CUPRATE_CONFIG_DIR;
-            println!("cuprate_config_dir: {dir:?}");
-            assert!(dir.ends_with("Library/Application Support/Cuprate"));
-
-            let dir = &*CUPRATE_DATA_DIR;
-            println!("cuprate_data_dir: {dir:?}");
-            assert!(dir.ends_with("Library/Application Support/Cuprate"));
-
-            let dir = &*CUPRATE_BLOCKCHAIN_DIR;
-            println!("cuprate_blockchain_dir: {dir:?}");
-            assert!(dir.ends_with("Library/Application Support/Cuprate/blockchain"));
-
-            let dir = &*CUPRATE_TXPOOL_DIR;
-            println!("cuprate_txpool_dir: {dir:?}");
-            assert!(dir.ends_with("Library/Application Support/Cuprate/txpool"));
+            array[0].1 = "Library/Caches/Cuprate";
+            array[1].1 = "Library/Application Support/Cuprate";
+            array[2].1 = "Library/Application Support/Cuprate";
+            array[3].1 = "Library/Application Support/Cuprate/blockchain";
+            array[4].1 = "Library/Application Support/Cuprate/txpool";
         } else {
             // Assumes Linux.
-            let dir = &*CUPRATE_CACHE_DIR;
-            println!("cuprate_cache_dir: {dir:?}");
-            assert!(dir.ends_with(".cache/cuprate"));
+            array[0].1 = ".cache/cuprate";
+            array[1].1 = ".config/cuprate";
+            array[2].1 = ".local/share/cuprate";
+            array[3].1 = ".local/share/cuprate/blockchain";
+            array[4].1 = ".local/share/cuprate/txpool";
+        };
 
-            let dir = &*CUPRATE_CONFIG_DIR;
-            println!("cuprate_config_dir: {dir:?}");
-            assert!(dir.ends_with(".config/cuprate"));
-
-            let dir = &*CUPRATE_DATA_DIR;
-            println!("cuprate_data_dir: {dir:?}");
-            assert!(dir.ends_with(".local/share/cuprate"));
-
-            let dir = &*CUPRATE_BLOCKCHAIN_DIR;
-            println!("cuprate_blockchain_dir: {dir:?}");
-            assert!(dir.ends_with(".local/share/cuprate/blockchain"));
-
-            let dir = &*CUPRATE_TXPOOL_DIR;
-            println!("cuprate_txpool_dir: {dir:?}");
-            assert!(dir.ends_with(".local/share/cuprate/txpool"));
+        for (path, expected) in array {
+            assert!(path.is_absolute());
+            assert!(path.ends_with(expected));
         }
     }
 }

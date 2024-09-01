@@ -27,6 +27,7 @@ use monero_serai::transaction::Timelock;
 /// ```
 #[inline]
 pub const fn split_u128_into_low_high_bits(value: u128) -> (u64, u64) {
+    #[allow(clippy::cast_possible_truncation)]
     (value as u64, (value >> 64) as u64)
 }
 
@@ -58,7 +59,7 @@ pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u12
 /// Map a [`u64`] to a [`Timelock`].
 ///
 /// Height/time is not differentiated via type, but rather:
-/// "height is any value less than 500_000_000 and timestamp is any value above"
+/// "height is any value less than `500_000_000` and timestamp is any value above"
 /// so the `u64/usize` is stored without any tag.
 ///
 /// See [`timelock_to_u64`] for the inverse function.
