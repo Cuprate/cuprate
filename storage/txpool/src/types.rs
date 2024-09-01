@@ -35,10 +35,11 @@ bitflags::bitflags! {
 pub struct TransactionInfo {
     /// The transaction's fee.
     pub fee: u64,
-    /// The transaction`s weight.
+    /// The transaction's weight.
     pub weight: usize,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
+    #[allow(clippy::pub_underscore_fields)]
     /// Explicit padding so that we have no implicit padding bytes in `repr(C)`.
     ///
     /// Allows potential future expansion of this type.
@@ -68,21 +69,21 @@ impl From<RawCachedVerificationState> for CachedVerificationState {
     fn from(value: RawCachedVerificationState) -> Self {
         // if the hash is all `0`s then there is no hash this is valid at.
         if value.raw_valid_at_hash == [0; 32] {
-            return CachedVerificationState::NotVerified;
+            return Self::NotVerified;
         }
 
         let raw_valid_past_timestamp = u64::from_le_bytes(value.raw_valid_past_timestamp);
 
         // if the timestamp is 0, there is no timestamp that needs to be passed.
         if raw_valid_past_timestamp == 0 {
-            return CachedVerificationState::ValidAtHashAndHF {
+            return Self::ValidAtHashAndHF {
                 block_hash: value.raw_valid_at_hash,
                 hf: HardFork::from_version(value.raw_hf)
                     .expect("hard-fork values stored in the DB should always be valid"),
             };
         }
 
-        CachedVerificationState::ValidAtHashAndHFWithTimeBasedLock {
+        Self::ValidAtHashAndHFWithTimeBasedLock {
             block_hash: value.raw_valid_at_hash,
             hf: HardFork::from_version(value.raw_hf)
                 .expect("hard-fork values stored in the DB should always be valid"),
@@ -91,6 +92,7 @@ impl From<RawCachedVerificationState> for CachedVerificationState {
     }
 }
 
+#[allow(clippy::fallible_impl_from)] // only panics in invalid states
 impl From<CachedVerificationState> for RawCachedVerificationState {
     fn from(value: CachedVerificationState) -> Self {
         match value {
