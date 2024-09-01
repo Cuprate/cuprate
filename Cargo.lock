@@ -902,6 +902,67 @@ dependencies = [
 [[package]]
 name = "cuprated"
 version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bitflags 2.5.0",
+ "borsh",
+ "bytemuck",
+ "bytes",
+ "cfg-if",
+ "chrono",
+ "clap",
+ "crossbeam",
+ "crypto-bigint",
+ "cuprate-address-book",
+ "cuprate-async-buffer",
+ "cuprate-blockchain",
+ "cuprate-consensus",
+ "cuprate-consensus-rules",
+ "cuprate-cryptonight",
+ "cuprate-dandelion-tower",
+ "cuprate-database",
+ "cuprate-database-service",
+ "cuprate-epee-encoding",
+ "cuprate-fast-sync",
+ "cuprate-fixed-bytes",
+ "cuprate-helper",
+ "cuprate-json-rpc",
+ "cuprate-levin",
+ "cuprate-p2p",
+ "cuprate-p2p-core",
+ "cuprate-pruning",
+ "cuprate-rpc-interface",
+ "cuprate-rpc-types",
+ "cuprate-test-utils",
+ "cuprate-txpool",
+ "cuprate-types",
+ "cuprate-wire",
+ "curve25519-dalek",
+ "dashmap",
+ "dirs",
+ "futures",
+ "hex",
+ "hex-literal",
+ "indexmap",
+ "monero-serai",
+ "paste",
+ "pin-project",
+ "rand",
+ "rand_distr",
+ "randomx-rs",
+ "rayon",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "thiserror",
+ "thread_local",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "curve25519-dalek"
@@ -2486,6 +2547,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7253ab4de971e72fb7be983802300c30b5a7f0c2e56fab8abfc6a214307c0094"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "387cc504cb06bb40a96c8e04e951fe01854cf6bc921053c954e4a606d9675c6a"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
