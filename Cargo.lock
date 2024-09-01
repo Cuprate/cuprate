@@ -844,7 +844,6 @@ dependencies = [
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
- "borsh",
  "bytes",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
