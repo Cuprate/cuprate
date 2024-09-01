@@ -145,10 +145,6 @@ cuprate_database::define_tables! {
 
     19 => AltTransactionBlobs,
     TxHash => TxBlob,
-
-    20 => AltTransactionInfos,
-    TxHash => AltTransactionInfo,
-
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

@@ -22,7 +22,7 @@ use cuprate_types::{
 
 use crate::{
     ops::{
-        alt_block::{alt_block_hash, alt_extended_headers_in_range},
+        alt_block::{get_alt_block_hash, get_alt_extended_headers_in_range},
         block::{
             block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
         },
@@ -200,7 +200,7 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> Res
     let block_hash = match chain {
         Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
         Chain::Alt(chain) => {
-            alt_block_hash(&block_height, chain, &mut env_inner.open_tables(&tx_ro)?)?
+            get_alt_block_hash(&block_height, chain, &mut env_inner.open_tables(&tx_ro)?)?
         }
     };
 
@@ -284,7 +284,7 @@ fn block_extended_header_in_range(
             .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
         Chain::Alt(chain_id) => {
             let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            alt_extended_headers_in_range(
+            get_alt_extended_headers_in_range(
                 range,
                 chain_id,
                 get_tables!(env_inner, tx_ro, tables)?.as_ref(),

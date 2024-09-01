@@ -1,22 +1,20 @@
-use std::cmp::max;
-
+use crate::ops::alt_block::{
+    add_alt_transaction_blob, check_add_alt_chain_info, get_alt_chain_history_ranges,
+    get_alt_transaction_blob,
+};
+use crate::ops::block::{get_block_extended_header_from_height, get_block_info};
+use crate::tables::{Tables, TablesMut};
+use crate::types::{
+    AltBlockHeight, AltTransactionInfo, BlockHash, BlockHeight, CompactAltBlockInfo,
+};
 use bytemuck::TransparentWrapper;
-use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
+use cuprate_database::{RuntimeError, StorableVec};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{
     AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork,
     VerifiedTransactionInformation,
 };
-use monero_serai::block::BlockHeader;
-
-use crate::{
-    ops::block::{get_block_extended_header_from_height, get_block_info},
-    tables::{Tables, TablesMut},
-    types::{
-        AltBlockHeight, AltChainInfo, AltTransactionInfo, BlockHash, BlockHeight,
-        CompactAltBlockInfo,
-    },
-};
+use monero_serai::block::{Block, BlockHeader};
 
 pub fn add_alt_block(
     alt_block: &AltBlockInformation,
@@ -55,64 +53,48 @@ pub fn add_alt_block(
         StorableVec::wrap_ref(&alt_block.block_blob),
     )?;
 
-    for tx in &alt_block.txs {
-        add_alt_transaction(&tx, tables)?;
+    assert_eq!(alt_block.txs.len(), alt_block.block.transactions.len());
+    for (tx, tx_hash) in alt_block.txs.iter().zip(&alt_block.block.transactions) {
+        add_alt_transaction_blob(tx_hash, StorableVec::wrap_ref(tx), tables)?;
     }
 
     Ok(())
 }
 
-pub fn add_alt_transaction(
-    tx: &VerifiedTransactionInformation,
-    tables: &mut impl TablesMut,
-) -> Result<(), RuntimeError> {
-    if tables.tx_ids().get(&tx.tx_hash).is_ok()
-        || tables.alt_transaction_infos().get(&tx.tx_hash).is_ok()
-    {
-        return Ok(());
-    }
-
-    tables.alt_transaction_infos_mut().put(
-        &tx.tx_hash,
-        &AltTransactionInfo {
-            tx_weight: tx.tx_weight,
-            fee: tx.fee,
-            tx_hash: tx.tx_hash,
-        },
-    )?;
-
-    tables
-        .alt_transaction_blobs_mut()
-        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))
-}
-
-pub fn check_add_alt_chain_info(
+pub fn get_alt_block(
     alt_block_height: &AltBlockHeight,
-    prev_hash: &BlockHash,
-    tables: &mut impl TablesMut,
-) -> Result<(), RuntimeError> {
-    match tables.alt_chain_infos().get(&alt_block_height.chain_id) {
-        Ok(_) => return Ok(()),
-        Err(RuntimeError::KeyNotFound) => (),
-        Err(e) => return Err(e),
-    }
+    tables: &impl Tables,
+) -> Result<AltBlockInformation, RuntimeError> {
+    let block_info = tables.alt_blocks_info().get(alt_block_height)?;
 
-    let parent_chain = match tables.alt_block_heights().get(prev_hash) {
-        Ok(alt_parent_height) => Chain::Alt(alt_parent_height.chain_id.into()),
-        Err(RuntimeError::KeyNotFound) => Chain::Main,
-        Err(e) => return Err(e),
-    };
+    let block_blob = tables.alt_block_blobs().get(alt_block_height)?.0;
 
-    tables.alt_chain_infos_mut().put(
-        &alt_block_height.chain_id,
-        &AltChainInfo {
-            parent_chain: parent_chain.into(),
-            common_ancestor_height: alt_block_height.height - 1,
-        },
-    )
+    let block = Block::read(&mut block_blob.as_slice())?;
+
+    let txs = block
+        .transactions
+        .iter()
+        .map(|tx_hash| get_alt_transaction_blob(tx_hash, tables))
+        .collect()?;
+
+    Ok(AltBlockInformation {
+        block,
+        block_blob,
+        txs,
+        block_hash: block_info.block_hash,
+        pow_hash: block_info.pow_hash,
+        height: block_info.height,
+        weight: block_info.weight,
+        long_term_weight: block_info.long_term_weight,
+        cumulative_difficulty: combine_low_high_bits_to_u128(
+            block_info.cumulative_difficulty_low,
+            block_info.cumulative_difficulty_high,
+        ),
+        chain_id: alt_block_height.chain_id.into(),
+    })
 }
 
-pub fn alt_block_hash(
+pub fn get_alt_block_hash(
     block_height: &BlockHeight,
     alt_chain: ChainId,
     tables: &mut impl Tables,
@@ -152,37 +134,15 @@ pub fn alt_block_hash(
     }
 }
 
-pub fn alt_extended_headers_in_range(
+pub fn get_alt_extended_headers_in_range(
     range: std::ops::Range<BlockHeight>,
     alt_chain: ChainId,
     tables: &impl Tables,
 ) -> Result<Vec<ExtendedBlockHeader>, RuntimeError> {
     // TODO: this function does not use rayon, however it probably should.
 
-    let mut ranges = Vec::with_capacity(5);
     let alt_chains = tables.alt_chain_infos();
-
-    let mut i = range.end;
-    let mut current_chain_id = alt_chain.into();
-    while i > range.start {
-        let chain_info = alt_chains.get(&current_chain_id)?;
-
-        let start_height = max(range.start, chain_info.common_ancestor_height + 1);
-
-        ranges.push((chain_info.parent_chain.into(), start_height..i));
-        i = chain_info.common_ancestor_height;
-
-        match chain_info.parent_chain.into() {
-            Chain::Main => {
-                ranges.push((Chain::Main, range.start..i));
-                break;
-            }
-            Chain::Alt(alt_chain_id) => {
-                current_chain_id = alt_chain_id.into();
-                continue;
-            }
-        }
-    }
+    let ranges = get_alt_chain_history_ranges(range, alt_chain, alt_chains)?;
 
     let res = ranges
         .into_iter()

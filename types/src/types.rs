@@ -39,8 +39,7 @@ pub struct ExtendedBlockHeader {
 //---------------------------------------------------------------------------------------------------- VerifiedTransactionInformation
 /// Verified information of a transaction.
 ///
-/// - If this is in a [`VerifiedBlockInformation`] this represents a valid transaction
-/// - If this is in an [`AltBlockInformation`] this represents a potentially valid transaction
+/// This represents a valid transaction
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedTransactionInformation {
     /// The transaction itself.
@@ -121,7 +120,7 @@ pub struct AltBlockInformation {
     /// [`Block::serialize`].
     pub block_blob: Vec<u8>,
     /// All the transactions in the block, excluding the [`Block::miner_transaction`].
-    pub txs: Vec<VerifiedTransactionInformation>,
+    pub txs: Vec<Vec<u8>>,
     /// The block's hash.
     ///
     /// [`Block::hash`].

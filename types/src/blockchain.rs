@@ -4,12 +4,12 @@
 //! responses are also tested in Cuprate's blockchain database crate.
 
 //---------------------------------------------------------------------------------------------------- Import
+use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
+use crate::{AltBlockInformation, ChainId};
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
 };
-use crate::{AltBlockInformation, ChainId};
-use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.
@@ -223,6 +223,7 @@ pub enum BlockchainResponse {
     ///
     /// currently the response for:
     /// - [`BlockchainWriteRequest::WriteBlock`]
+    /// - [`BlockchainWriteRequest::WriteAltBlock`]
     /// - [`BlockchainWriteRequest::ReverseReorg`]
     /// - [`BlockchainWriteRequest::FlushAltBlocks`]
     Ok,
@@ -231,7 +232,7 @@ pub enum BlockchainResponse {
         /// The [`ChainId`] of the old main chain blocks that were popped.
         old_main_chain_id: ChainId,
         /// The next alt chain blocks.
-        alt_chain: Vec<AltBlockInformation>
+        alt_chain: Vec<AltBlockInformation>,
     },
 }
 
