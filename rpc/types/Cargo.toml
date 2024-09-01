@@ -28,3 +28,6 @@ cuprate-json-rpc   = { path = "../json-rpc" }
 
 serde_json        = { workspace = true }
 pretty_assertions = { workspace = true }
+
+[lints]
+workspace = true
