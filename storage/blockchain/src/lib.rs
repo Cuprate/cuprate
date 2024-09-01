@@ -1,5 +1,4 @@
 #![doc = include_str!("../README.md")]
-
 #![allow(
 	// This lint is allowed because the following
 	// code exists a lot in this crate:

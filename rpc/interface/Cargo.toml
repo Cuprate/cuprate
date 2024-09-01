@@ -20,7 +20,6 @@ cuprate-helper        = { path = "../../helper", features = ["asynch"], default-
 
 axum       = { version = "0.7.5", features = ["json"], default-features = false }
 serde      = { workspace = true, optional = true }
-serde_json = { workspace = true, features = ["std"] }
 tower      = { workspace = true }
 paste      = { workspace = true }
 futures    = { workspace = true }
