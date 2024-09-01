@@ -45,7 +45,7 @@ pub struct ContextTask<D: Database> {
     /// The weight cache.
     weight_cache: weight::BlockWeightsCache,
     /// The RX VM cache.
-    rx_vm_cache: rx_vms::RandomXVMCache,
+    rx_vm_cache: rx_vms::RandomXVmCache,
     /// The hard-fork state cache.
     hardfork_state: hardforks::HardForkState,
 
@@ -127,7 +127,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
 
         let db = database.clone();
         let rx_seed_handle = tokio::spawn(async move {
-            rx_vms::RandomXVMCache::init_from_chain_height(chain_height, &current_hf, db).await
+            rx_vms::RandomXVmCache::init_from_chain_height(chain_height, &current_hf, db).await
         });
 
         let context_svc = ContextTask {

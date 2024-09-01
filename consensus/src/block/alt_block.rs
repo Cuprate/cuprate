@@ -24,7 +24,7 @@ use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock},
     context::{
         difficulty::DifficultyCache,
-        rx_vms::RandomXVM,
+        rx_vms::RandomXVm,
         weight::{self, BlockWeightsCache},
         AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
     },
@@ -195,7 +195,7 @@ async fn alt_rx_vm<C>(
     parent_chain: Chain,
     alt_chain_context: &mut AltChainContextCache,
     context_svc: C,
-) -> Result<Option<Arc<RandomXVM>>, ExtendedConsensusError>
+) -> Result<Option<Arc<RandomXVm>>, ExtendedConsensusError>
 where
     C: Service<
             BlockChainContextRequest,
