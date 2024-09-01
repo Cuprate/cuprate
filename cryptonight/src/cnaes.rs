@@ -355,7 +355,7 @@ pub(crate) fn round_fwd(state: &mut [u8; AES_BLOCK_SIZE], key: &[u8; ROUND_KEY_S
         3, 0, 1, 2,
     ];
 
-    let start_state = state.clone();
+    let start_state = *state;
 
     for c in 0..4 {
         for i in 0..4 {
@@ -405,7 +405,7 @@ mod tests {
     fn test_key_schedule() {
         let test = |key_hex: &str, expected_out: &str| {
             let key = hex_to_array(key_hex);
-            let expanded_key = key_extend(&key.into());
+            let expanded_key = key_extend(&key);
             assert_eq!(expected_out, hex::encode(expanded_key));
         };
         test(
@@ -434,7 +434,7 @@ mod tests {
     fn test_aesb_pseudo_round() {
         let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
             let key: [u8; 32] = hex_to_array(key_hex);
-            let extended_key = key_extend(&key.into());
+            let extended_key = key_extend(&key);
             let mut block: [u8; 16] = hex_to_array(input_hex);
 
             aesb_pseudo_round(&mut block, &extended_key);

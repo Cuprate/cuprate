@@ -1,5 +1,4 @@
 use crate::subarray_copy;
-use blake;
 use static_assertions::const_assert_eq;
 use std::cmp::max;
 use InstructionList::*;
@@ -327,7 +326,8 @@ pub(crate) fn random_math_init(
 
         // There is ~98.15% chance that loop condition is false, so this loop will execute only 1 iteration most of the time
         // It never does more than 4 iterations for all block heights < 10,000,000
-        if r8_used && (code_size >= NUM_INSTRUCTIONS_MIN) && (code_size <= NUM_INSTRUCTIONS_MAX) {
+
+        if r8_used && (NUM_INSTRUCTIONS_MIN..=NUM_INSTRUCTIONS_MAX).contains(&code_size) {
             break;
         }
     }
@@ -401,7 +401,7 @@ pub(crate) fn variant4_random_math(
     code: &[Instruction; 71],
 ) {
     let mut t = [0u64; 2];
-    t[0] = u64::from_le_bytes(c2[0..8].try_into().unwrap());
+    t[0] = u64::from_le_bytes(subarray_copy!(c2, 0, 8));
 
     t[0] ^= u64::from(r[0].wrapping_add(r[1])) | (u64::from(r[2].wrapping_add(r[3])) << 32);
     c2[..8].copy_from_slice(&t[0].to_le_bytes());

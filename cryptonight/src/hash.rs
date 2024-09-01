@@ -1,5 +1,5 @@
 use crate::hash_v4::variant4_random_math;
-use crate::{cnaes, hash_v2 as v2, hash_v4 as v4, mut_subarray, subarray, subarray_copy};
+use crate::{cnaes, hash_v2 as v2, hash_v4 as v4, subarray, subarray_copy, subarray_mut};
 use cnaes::AES_BLOCK_SIZE;
 use cnaes::CN_AES_KEY_SIZE;
 use digest::Digest;
@@ -10,7 +10,6 @@ use skein::consts::U32;
 use skein::Skein512;
 use std::cmp::PartialEq;
 use std::io::Write;
-use std::u64;
 
 pub(crate) const MEMORY: usize = 1 << 21; // 2MB scratchpad
 const ITER: usize = 1 << 20;
@@ -66,38 +65,37 @@ impl CnSlowHashState {
         subarray!(self.b, AES_KEY_SIZE, AES_KEY_SIZE)
     }
 
-    fn get_init(&self) -> [u8; INIT_SIZE_BYTE] {
-        self.b[64..64 + INIT_SIZE_BYTE].try_into().unwrap()
+    fn get_init(&self) -> &[u8; INIT_SIZE_BYTE] {
+        subarray!(self.b, 64, INIT_SIZE_BYTE)
     }
 
     fn get_init_mut(&mut self) -> &mut [u8; INIT_SIZE_BYTE] {
-        (&mut self.b[64..64 + INIT_SIZE_BYTE]).try_into().unwrap()
+        subarray_mut!(self.b, 64, INIT_SIZE_BYTE)
     }
 }
 
 /// Performs an XOR operation on the first 8-bytes of two slices placing
 /// the result in the 'left' slice.
 #[inline]
-fn xor64(left: &mut [u8], right: &[u8]) {
-    debug_assert!(left.len() >= 8);
-    debug_assert!(right.len() >= 8);
+fn xor64(left: &mut [u8; 8], right: &[u8; 8]) {
     // the compiler is smart enough to unroll this loop and use a single xorq on x86_64
     for i in 0..8 {
         left[i] ^= right[i];
     }
 }
 
-fn e2i(a: &[u8], count: usize) -> usize {
-    let value: usize = u64::from_le_bytes(a[..8].try_into().unwrap()) as usize;
+fn e2i(a: &[u8; 8], count: usize) -> usize {
+    let value: usize = u64::from_le_bytes(*a) as usize;
     (value / AES_BLOCK_SIZE) & (count - 1)
 }
 
 fn mul(a: &[u8; 8], b: &[u8; 8], res: &mut [u8; 16]) {
-    let a0 = u64::from_le_bytes(a[0..8].try_into().unwrap()) as u128;
-    let b0 = u64::from_le_bytes(b[0..8].try_into().unwrap()) as u128;
+    let a0 = u64::from_le_bytes(*a) as u128;
+    let b0 = u64::from_le_bytes(*b) as u128;
     let product = a0.wrapping_mul(b0);
     let hi = (product >> 64) as u64;
     let lo = product as u64;
+    // Note: this is a mix of little and big endian below, as high is stored first
     res[0..8].copy_from_slice(&hi.to_le_bytes());
     res[8..16].copy_from_slice(&lo.to_le_bytes());
 }
@@ -114,11 +112,9 @@ fn sum_half_blocks(a: &mut [u8; 16], b: &[u8; 16]) {
     a[8..16].copy_from_slice(&sum1.to_le_bytes());
 }
 
-// TODO: fixed size paramaters
-fn copy_block(dst: &mut [u8], src: &[u8]) {
-    assert!(dst.len() >= AES_BLOCK_SIZE);
-    assert!(src.len() >= AES_BLOCK_SIZE);
-    dst[..AES_BLOCK_SIZE].copy_from_slice(&src[..AES_BLOCK_SIZE]);
+#[inline]
+fn copy_block(dst: &mut [u8; AES_BLOCK_SIZE], src: &[u8; AES_BLOCK_SIZE]) {
+    dst.copy_from_slice(src);
 }
 
 fn swap_blocks(a: &mut [u8; AES_BLOCK_SIZE], b: &mut [u8; AES_BLOCK_SIZE]) {
@@ -134,18 +130,18 @@ fn xor_blocks(a: &mut [u8; AES_BLOCK_SIZE], b: &[u8; AES_BLOCK_SIZE]) {
     }
 }
 
-fn variant1_1(p: &mut [u8], variant: Variant) {
+fn variant1_1(p11: &mut u8, variant: Variant) {
     if variant == Variant::V1 {
-        let tmp = p[11];
+        let tmp = *p11;
         let table = 0x75310u32;
         let index = (((tmp >> 3) & 6) | (tmp & 1)) << 1;
-        p[11] = tmp ^ ((table >> index) & 0x30) as u8;
+        *p11 = tmp ^ ((table >> index) & 0x30) as u8;
     }
 }
 
 fn keccak1600(input: &[u8], out: &mut [u8; KECCAK1600_BYTE_SIZE]) {
     let mut hasher = sha3::Keccak256Full::new();
-    hasher.write(input).unwrap();
+    _ = hasher.write(input).unwrap();
     let result = hasher.finalize();
     out.copy_from_slice(result.as_slice());
 }
@@ -156,15 +152,13 @@ fn hash_permutation(b: &mut [u8; KECCAK1600_BYTE_SIZE]) {
     let mut state = [0u64; 25];
 
     for (i, chunk) in state.iter_mut().enumerate() {
-        let start = i * 8;
-        *chunk = u64::from_le_bytes(b[start..start + 8].try_into().unwrap());
+        *chunk = u64::from_le_bytes(subarray_copy!(b, i * 8, 8));
     }
 
     keccak::keccak_p(&mut state, 24);
 
     for (i, chunk) in state.iter().enumerate() {
-        let start = i * 8;
-        b[start..start + 8].copy_from_slice(&chunk.to_le_bytes());
+        subarray_mut!(b, i * 8, 8).copy_from_slice(&chunk.to_le_bytes());
     }
 }
 
@@ -183,9 +177,9 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     let mut b = [0u8; AES_BLOCK_SIZE * 2];
 
     let mut state = CnSlowHashState::default();
-    keccak1600(data, &mut state.get_keccak_bytes_mut());
+    keccak1600(data, state.get_keccak_bytes_mut());
     let aes_expanded_key = cnaes::key_extend(state.get_aes_key0());
-    let mut text: [u8; INIT_SIZE_BYTE] = state.get_init();
+    let mut text = *state.get_init();
 
     // Variant 1 Init
     let mut tweak1_2 = [0u8; 8];
@@ -199,7 +193,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
                 .iter()
                 .as_slice(),
         );
-        xor64(&mut tweak1_2, &data[NONCE_PTR_INDEX..NONCE_PTR_INDEX + 8]);
+        xor64(&mut tweak1_2, subarray!(data, NONCE_PTR_INDEX, 8));
     }
 
     // Variant 2 Init
@@ -209,8 +203,14 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
         let keccak_state_bytes = state.get_keccak_bytes();
         b[AES_BLOCK_SIZE..AES_BLOCK_SIZE + AES_BLOCK_SIZE]
             .copy_from_slice(&keccak_state_bytes[64..64 + AES_BLOCK_SIZE]);
-        xor64(&mut b[AES_BLOCK_SIZE..], &keccak_state_bytes[80..]);
-        xor64(&mut b[AES_BLOCK_SIZE + 8..], &keccak_state_bytes[88..]);
+        xor64(
+            subarray_mut!(b, AES_BLOCK_SIZE, 8),
+            subarray!(keccak_state_bytes, 80, 8),
+        );
+        xor64(
+            subarray_mut!(b, AES_BLOCK_SIZE + 8, 8),
+            subarray!(keccak_state_bytes, 88, 8),
+        );
         division_result = state.get_keccak_word(12);
         sqrt_result = state.get_keccak_word(13);
     }
@@ -221,18 +221,17 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     let keccak_state_bytes = state.get_keccak_bytes();
     if variant == Variant::R {
         for i in 0..4 {
-            let j = 12 * 8 + 4 * i;
-            r[i] = u32::from_le_bytes(keccak_state_bytes[j..j + 4].try_into().unwrap());
+            r[i] = u32::from_le_bytes(subarray_copy!(keccak_state_bytes, (24 + i) * 4, 4));
         }
         v4::random_math_init(&mut code, height);
     }
 
     let mut long_state = vec![0u8; MEMORY]; // use vec to allocate on heap
-    let mut long_state: &mut [u8; MEMORY] = (&mut long_state[..]).try_into().unwrap();
+    let long_state: &mut [u8; MEMORY] = subarray_mut!(long_state, 0, MEMORY);
 
     for i in 0..MEMORY / INIT_SIZE_BYTE {
         for j in 0..INIT_SIZE_BLK {
-            let block = mut_subarray!(text, AES_BLOCK_SIZE * j, AES_BLOCK_SIZE);
+            let block = subarray_mut!(text, AES_BLOCK_SIZE * j, AES_BLOCK_SIZE);
             cnaes::aesb_pseudo_round(block, &aes_expanded_key);
         }
 
@@ -258,28 +257,23 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
          * next address  <-+
          */
         // Iteration
-        let mut j = e2i(&a[..8], MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
-        copy_block(&mut c1[..], &long_state[j..j + AES_BLOCK_SIZE]);
+        let mut j = e2i(subarray!(a, 0, 8), MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+        copy_block(&mut c1, subarray_mut!(long_state, j, AES_BLOCK_SIZE));
         cnaes::aesb_single_round(&mut c1, &a);
-        v2::variant2_portable_shuffle_add(&mut c1, &a, &b, &mut long_state, j, variant);
+        v2::variant2_portable_shuffle_add(&mut c1, &a, &b, long_state, j, variant);
 
-        copy_block(
-            &mut long_state[j..j + AES_BLOCK_SIZE],
-            &c1[..AES_BLOCK_SIZE],
-        );
-        xor_blocks(
-            (&mut long_state[j..j + AES_BLOCK_SIZE]).try_into().unwrap(),
-            (&b[..AES_BLOCK_SIZE]).try_into().unwrap(),
-        );
-        assert_eq!(j, e2i(&a[..8], MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE);
-        variant1_1(&mut long_state[j..], variant);
+        let long_state_block = subarray_mut!(long_state, j, AES_BLOCK_SIZE);
+        copy_block(long_state_block, &c1);
+        xor_blocks(long_state_block, subarray!(b, 0, AES_BLOCK_SIZE));
+        variant1_1(&mut long_state_block[11], variant);
 
         /* Iteration 2 */
-        j = e2i(&c1, MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
-        copy_block(&mut c2, &long_state[j..]);
+        j = e2i(subarray!(c1, 0, 8), MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+        let long_state_block = subarray_mut!(long_state, j, AES_BLOCK_SIZE);
+        copy_block(&mut c2, long_state_block);
         copy_block(&mut a1, &a);
         v2::variant2_integer_math(
-            &mut c2,
+            subarray_mut!(c2, 0, 8),
             &c1,
             &mut division_result,
             &mut sqrt_result,
@@ -289,7 +283,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
             &mut a1,
             &mut c2,
             (&mut r[0..9]).try_into().unwrap(),
-            &mut b,
+            &b,
             &code,
         );
         let mut d = [0u8; AES_BLOCK_SIZE]; // TODO: have mul return d
@@ -300,44 +294,40 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
         if variant == Variant::V2 {
             let chunk1_start = j ^ 0x10;
             let chunk2_start = j ^ 0x20;
-            xor_blocks(
-                (&mut long_state[chunk1_start..chunk1_start + AES_BLOCK_SIZE])
-                    .try_into()
-                    .unwrap(),
-                &d,
-            );
+            xor_blocks(subarray_mut!(long_state, chunk1_start, AES_BLOCK_SIZE), &d);
             xor_blocks(
                 &mut d,
-                (&long_state[chunk2_start..chunk2_start + AES_BLOCK_SIZE])
-                    .try_into()
-                    .unwrap(),
+                subarray_mut!(long_state, chunk2_start, AES_BLOCK_SIZE),
             );
         }
 
-        v2::variant2_portable_shuffle_add(&mut c1, &a, &b, &mut long_state, j, variant);
+        v2::variant2_portable_shuffle_add(&mut c1, &a, &b, long_state, j, variant);
 
         sum_half_blocks(&mut a1, &d);
         swap_blocks(&mut a1, &mut c2);
-        xor_blocks(&mut a1, &mut c2);
+        xor_blocks(&mut a1, &c2);
 
         // VARIANT1_2
         if variant == Variant::V1 {
-            xor64(&mut c2[8..16], &tweak1_2);
+            xor64(subarray_mut!(c2, 8, 8), &tweak1_2);
         }
-        copy_block(&mut long_state[j..], &c2);
+        copy_block(subarray_mut!(long_state, j, AES_BLOCK_SIZE), &c2);
         if variant == Variant::V2 || variant == Variant::R {
-            let (b_start, mut b_rest) = b.split_at_mut(AES_BLOCK_SIZE);
-            copy_block(&mut b_rest, &b_start);
+            let (b_half1, b_half2) = b.split_at_mut(AES_BLOCK_SIZE);
+            copy_block(
+                subarray_mut!(b_half2, 0, AES_BLOCK_SIZE),
+                subarray!(b_half1, 0, AES_BLOCK_SIZE),
+            );
         }
-        copy_block(&mut b, &c1);
+        copy_block(subarray_mut!(b, 0, AES_BLOCK_SIZE), &c1);
         copy_block(&mut a, &a1);
     }
 
-    text.copy_from_slice(&state.get_init());
+    text.copy_from_slice(state.get_init());
     let aes_expanded_key = cnaes::key_extend(state.get_aes_key1());
     for i in 0..MEMORY / INIT_SIZE_BYTE {
         for j in 0..INIT_SIZE_BLK {
-            let block = mut_subarray!(text, AES_BLOCK_SIZE * j, AES_BLOCK_SIZE);
+            let block = subarray_mut!(text, AES_BLOCK_SIZE * j, AES_BLOCK_SIZE);
             let ls_index = i * INIT_SIZE_BYTE + j * AES_BLOCK_SIZE;
             xor_blocks(block, subarray!(long_state, ls_index, AES_BLOCK_SIZE));
             cnaes::aesb_pseudo_round(block, &aes_expanded_key);
@@ -345,7 +335,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     }
     state.get_init_mut().copy_from_slice(&text);
 
-    hash_permutation(&mut state.get_keccak_bytes_mut());
+    hash_permutation(state.get_keccak_bytes_mut());
 
     let mut hash = [0u8; 32];
     extra_hashes(state.get_keccak_bytes(), &mut hash);

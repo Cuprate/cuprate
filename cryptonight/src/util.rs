@@ -53,9 +53,9 @@ macro_rules! subarray_copy {
 ///
 /// # Panics
 /// Panics if $start + $len > $array.len().
-/// ```
+///
 #[macro_export]
-macro_rules! mut_subarray {
+macro_rules! subarray_mut {
     ($array:expr, $start:expr, $len:expr) => {{
         let sub: &mut [u8; $len] = (&mut $array[$start..$start + $len]).try_into().unwrap();
         sub
@@ -92,9 +92,9 @@ mod tests {
     }
 
     #[test]
-    fn test_mut_subarray() {
+    fn test_subarray_mut() {
         let mut array = [1u8, 2, 3, 4, 5];
-        let sub = mut_subarray!(array, 1, 2);
+        let sub = subarray_mut!(array, 1, 2);
         assert_eq!(sub, &[2u8, 3]);
         sub[0] = 10;
         assert_eq!(array, [1u8, 10, 3, 4, 5]); // original array modified

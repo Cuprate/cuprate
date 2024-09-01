@@ -2,7 +2,6 @@ use crate::hash::{Variant, MEMORY};
 // TODO: remove bidirectional dependencies
 use crate::{cnaes, subarray, subarray_copy};
 use cnaes::AES_BLOCK_SIZE;
-use std::u64;
 
 fn block_to_u64le(block: &[u8; AES_BLOCK_SIZE]) -> [u64; 2] {
     [
@@ -95,8 +94,8 @@ pub fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
 }
 
 pub fn variant2_integer_math(
-    c1: &mut [u8; 16],
-    c2: &[u8; 16],
+    c2: &mut [u8; 8],
+    c1: &[u8; AES_BLOCK_SIZE],
     division_result: &mut u64,
     sqrt_result: &mut u64,
     variant: Variant,
@@ -105,18 +104,17 @@ pub fn variant2_integer_math(
 
     if variant == Variant::V2 {
         let tmpx = *division_result ^ (*sqrt_result << 32);
-        let c1_0 = u64::from_le_bytes(c1[0..8].try_into().unwrap());
-        let c1_0 = c1_0 ^ tmpx;
-        c1[0..8].copy_from_slice(&c1_0.to_le_bytes());
+        *c2 = (u64::from_le_bytes(*c2) ^ tmpx).to_le_bytes();
 
-        let dividend = u64::from_le_bytes(c2[8..16].try_into().unwrap());
-        let mut divisor = u64::from_le_bytes(c2[0..8].try_into().unwrap());
+        let c1_64 = block_to_u64le(c1);
+        let mut divisor = c1_64[0];
+        let dividend = c1_64[1];
+
         divisor = ((divisor + ((*sqrt_result << 1) & U32_MASK)) | 0x80000001) & U32_MASK;
         *division_result =
             ((dividend / divisor) & U32_MASK).wrapping_add((dividend % divisor) << 32);
 
-        let sqrt_input =
-            u64::from_le_bytes(c2[0..8].try_into().unwrap()).wrapping_add(*division_result);
+        let sqrt_input = c1_64[0].wrapping_add(*division_result);
         *sqrt_result = variant2_integer_math_sqrt(sqrt_input);
     }
 }
@@ -124,9 +122,11 @@ pub fn variant2_integer_math(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::subarray_mut;
     use crate::util::hex_to_array;
     use digest::Digest;
     use groestl::Groestl256;
+
     #[test]
     fn test_variant2_integer_math() {
         let test = |c2_hex: &str,
@@ -142,7 +142,7 @@ mod tests {
             let mut sqrt_result = sqrt_result;
 
             variant2_integer_math(
-                &mut c2,
+                subarray_mut!(c2, 0, 8),
                 &c1,
                 &mut division_result,
                 &mut sqrt_result,
