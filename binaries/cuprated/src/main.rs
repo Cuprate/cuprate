@@ -13,7 +13,6 @@
     redundant_semicolons,
     unused_allocation,
     coherence_leak_check,
-    while_true,
 
     // Maybe can be put into `#[deny]`.
     unconditional_recursion,
