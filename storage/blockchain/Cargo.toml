@@ -48,3 +48,6 @@ pretty_assertions = { workspace = true }
 proptest          = { workspace = true }
 hex               = { workspace = true }
 hex-literal       = { workspace = true }
+
+[lints]
+workspace = true
