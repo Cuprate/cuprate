@@ -814,7 +814,6 @@ dependencies = [
  "cuprate-json-rpc",
  "cuprate-test-utils",
  "cuprate-types",
- "monero-serai",
  "paste",
  "pretty_assertions",
  "serde",

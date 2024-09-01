@@ -18,7 +18,6 @@ cuprate-epee-encoding = { path = "../../net/epee-encoding", optional = true }
 cuprate-fixed-bytes   = { path = "../../net/fixed-bytes" }
 cuprate-types         = { path = "../../types" }
 
-monero-serai = { workspace = true }
 paste        = { workspace = true }
 serde        = { workspace = true, optional = true }
 
