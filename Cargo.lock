@@ -802,6 +802,7 @@ dependencies = [
  "cuprate-helper",
  "cuprate-json-rpc",
  "cuprate-rpc-types",
+ "cuprate-test-utils",
  "futures",
  "paste",
  "serde",
@@ -817,9 +818,11 @@ version = "0.0.0"
 dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-test-utils",
  "cuprate-types",
  "paste",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

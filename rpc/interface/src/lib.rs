@@ -21,8 +21,9 @@ pub use rpc_response::RpcResponse;
 // false-positive: used in `README.md`'s doc-test.
 #[cfg(test)]
 mod test {
-    use axum as _;
-    use serde_json as _;
-    use tokio as _;
-    use ureq as _;
+    extern crate axum;
+    extern crate cuprate_test_utils;
+    extern crate serde_json;
+    extern crate tokio;
+    extern crate ureq;
 }

@@ -74,7 +74,7 @@ pub fn low_priority_thread() {
         // SAFETY: calling C.
         // We are _lowering_ our priority, not increasing, so this function should never fail.
         unsafe {
-            let _ = SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
+            SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
         }
     }
 
@@ -87,7 +87,7 @@ pub fn low_priority_thread() {
         // SAFETY: calling C.
         // We are _lowering_ our priority, not increasing, so this function should never fail.
         unsafe {
-            let _ = libc::nice(NICE_MAX);
+            libc::nice(NICE_MAX);
         }
     }
 }

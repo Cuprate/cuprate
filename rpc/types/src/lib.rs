@@ -22,3 +22,10 @@ pub use constants::{
     CORE_RPC_VERSION_MINOR,
 };
 pub use rpc_call::{RpcCall, RpcCallValue};
+
+// false-positive: used in tests
+#[cfg(test)]
+mod test {
+    extern crate cuprate_test_utils;
+    extern crate serde_json;
+}
