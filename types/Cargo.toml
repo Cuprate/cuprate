@@ -30,3 +30,6 @@ proptest = { workspace = true, optional = true }
 proptest-derive  = { workspace = true, optional = true }
 
 [dev-dependencies]
+
+[lints]
+workspace = true
