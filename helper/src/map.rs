@@ -76,7 +76,7 @@ pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u12
 /// assert_eq!(u64_to_timelock(499_999_999), Timelock::Block(499_999_999));
 /// assert_eq!(u64_to_timelock(500_000_000), Timelock::Time(500_000_000));
 /// ```
-pub fn u64_to_timelock(u: u64) -> Timelock {
+pub const fn u64_to_timelock(u: u64) -> Timelock {
     if u == 0 {
         Timelock::None
     } else if u < 500_000_000 {
@@ -97,7 +97,7 @@ pub fn u64_to_timelock(u: u64) -> Timelock {
 /// assert_eq!(timelock_to_u64(Timelock::Block(499_999_999)), 499_999_999);
 /// assert_eq!(timelock_to_u64(Timelock::Time(500_000_000)), 500_000_000);
 /// ```
-pub fn timelock_to_u64(timelock: Timelock) -> u64 {
+pub const fn timelock_to_u64(timelock: Timelock) -> u64 {
     match timelock {
         Timelock::None => 0,
         Timelock::Block(u) => usize_to_u64(u),
