@@ -8,6 +8,8 @@ use tokio::{
 };
 use tokio_util::codec::{FramedRead, FramedWrite};
 
+use cuprate_helper::cast::u64_to_usize;
+
 use cuprate_levin::{
     message::make_fragmented_messages, BucketBuilder, BucketError, LevinBody, LevinCommand,
     LevinMessageCodec, MessageType, Protocol,
@@ -54,7 +56,7 @@ impl LevinBody for TestBody {
         _: MessageType,
         _: Self::Command,
     ) -> Result<Self, BucketError> {
-        let size = body.get_u64_le().try_into().unwrap();
+        let size = u64_to_usize(body.get_u64_le());
         // bucket
         Ok(TestBody::Bytes(size, body.copy_to_bytes(size)))
     }

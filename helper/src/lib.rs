@@ -40,6 +40,9 @@ pub mod asynch; // async collides
 #[cfg(feature = "atomic")]
 pub mod atomic;
 
+#[cfg(feature = "cast")]
+pub mod cast;
+
 #[cfg(feature = "constants")]
 pub mod constants;
 
