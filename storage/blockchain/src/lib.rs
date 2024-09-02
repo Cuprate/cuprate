@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 #![allow(
-	// See `cuprate-database` for reasoning.
-	clippy::significant_drop_tightening
+    // See `cuprate-database` for reasoning.
+    clippy::significant_drop_tightening
 )]
 
 // Only allow building 64-bit targets.
