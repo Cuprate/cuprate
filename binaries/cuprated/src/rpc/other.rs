@@ -17,7 +17,10 @@ use cuprate_rpc_types::other::{
 
 use crate::rpc::CupratedRpcHandler;
 
-async fn map_request(state: CupratedRpcHandler, request: OtherRpcRequest) -> OtherRpcResponse {
+pub(super) async fn map_request(
+    state: CupratedRpcHandler,
+    request: OtherRpcRequest,
+) -> OtherRpcResponse {
     use OtherRpcRequest as Req;
     use OtherRpcResponse as Resp;
 

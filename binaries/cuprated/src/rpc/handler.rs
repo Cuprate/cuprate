@@ -53,27 +53,19 @@ impl Service<RpcRequest> for CupratedRpcHandler {
         Poll::Ready(Ok(()))
     }
 
+    /// INVARIANT:
+    ///
+    /// We don't need to check for `self.is_restricted()`
+    /// here because `cuprate-rpc-interface` handles that.
+    ///
+    /// We can assume the request coming has the required permissions.
     fn call(&mut self, req: RpcRequest) -> Self::Future {
-        use cuprate_rpc_types::bin::BinRequest as BReq;
-        use cuprate_rpc_types::bin::BinResponse as BResp;
-        use cuprate_rpc_types::json::JsonRpcRequest as JReq;
-        use cuprate_rpc_types::json::JsonRpcResponse as JResp;
-        use cuprate_rpc_types::other::OtherRequest as OReq;
-        use cuprate_rpc_types::other::OtherResponse as OResp;
-
-        // INVARIANT:
-        //
-        // We don't need to check for `self.is_restricted()`
-        // here because `cuprate-rpc-interface` handles that.
-        //
-        // We can assume the request coming has the required permissions.
-
         let state = CupratedRpcHandler::clone(self);
 
         let resp = match req {
-            RpcRequest::JsonRpc(r) => json::map_request(r), // JSON-RPC 2.0 requests.
-            RpcRequest::Binary(r) => bin::map_request(r),   // Binary requests.
-            RpcRequest::Other(o) => other::map_request(r),  // JSON (but not JSON-RPC) requests.
+            RpcRequest::JsonRpc(r) => json::map_request(state, r), // JSON-RPC 2.0 requests.
+            RpcRequest::Binary(r) => bin::map_request(state, r),   // Binary requests.
+            RpcRequest::Other(o) => other::map_request(state, r), // JSON (but not JSON-RPC) requests.
         };
 
         let (tx, rx) = channel();

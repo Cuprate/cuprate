@@ -8,7 +8,7 @@ use cuprate_rpc_types::bin::{
 
 use crate::rpc::CupratedRpcHandler;
 
-async fn map_request(state: CupratedRpcHandler, request: BinRpcRequest) -> BinRpcResponse {
+pub(super) async fn map_request(state: CupratedRpcHandler, request: BinRpcRequest) -> BinRpcResponse {
     use BinRpcRequest as Req;
     use BinRpcResponse as Resp;
 
@@ -59,6 +59,7 @@ async fn get_transaction_pool_hashes(
 ) -> GetTransactionPoolHashesResponse {
     todo!()
 }
+
 async fn get_output_distribution(
     state: CupratedRpcHandler,
     request: GetOutputDistributionRequest,

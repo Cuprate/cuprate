@@ -22,7 +22,10 @@ use cuprate_rpc_types::json::{
 
 use crate::rpc::CupratedRpcHandler;
 
-async fn map_request(state: CupratedRpcHandler, request: JsonRpcRequest) -> JsonRpcResponse {
+pub(super) async fn map_request(
+    state: CupratedRpcHandler,
+    request: JsonRpcRequest,
+) -> JsonRpcResponse {
     use JsonRpcRequest as Req;
     use JsonRpcResponse as Resp;
 
