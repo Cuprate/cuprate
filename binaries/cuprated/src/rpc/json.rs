@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cuprate_rpc_interface::{RpcError, RpcResponse};
 use cuprate_rpc_types::json::{
     AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
     CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTransactionPoolRequest,
@@ -22,230 +23,260 @@ use cuprate_rpc_types::json::{
 
 use crate::rpc::CupratedRpcHandler;
 
-pub(super) async fn map_request(
+pub(super) fn map_request(
     state: CupratedRpcHandler,
     request: JsonRpcRequest,
-) -> JsonRpcResponse {
+) -> Result<JsonRpcResponse, RpcError> {
     use JsonRpcRequest as Req;
     use JsonRpcResponse as Resp;
 
-    match request {
-        Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r)),
-        Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r)),
-        Req::SubmitBlock(r) => Resp::SubmitBlock(submit_block(state, r)),
-        Req::GenerateBlocks(r) => Resp::GenerateBlocks(generate_blocks(state, r)),
-        Req::GetLastBlockHeader(r) => Resp::GetLastBlockHeader(get_last_block_header(state, r)),
+    Ok(match request {
+        Req::GetBlockCount(r) => Resp::GetBlockCount(get_block_count(state, r)?),
+        Req::OnGetBlockHash(r) => Resp::OnGetBlockHash(on_get_block_hash(state, r)?),
+        Req::SubmitBlock(r) => Resp::SubmitBlock(submit_block(state, r)?),
+        Req::GenerateBlocks(r) => Resp::GenerateBlocks(generate_blocks(state, r)?),
+        Req::GetLastBlockHeader(r) => Resp::GetLastBlockHeader(get_last_block_header(state, r)?),
         Req::GetBlockHeaderByHash(r) => {
-            Resp::GetBlockHeaderByHash(get_block_header_by_hash(state, r))
+            Resp::GetBlockHeaderByHash(get_block_header_by_hash(state, r)?)
         }
         Req::GetBlockHeaderByHeight(r) => {
-            Resp::GetBlockHeaderByHeight(get_block_header_by_height(state, r))
+            Resp::GetBlockHeaderByHeight(get_block_header_by_height(state, r)?)
         }
         Req::GetBlockHeadersRange(r) => {
-            Resp::GetBlockHeadersRange(get_block_headers_range(state, r))
+            Resp::GetBlockHeadersRange(get_block_headers_range(state, r)?)
         }
-        Req::GetBlock(r) => Resp::GetBlock(get_block(state, r)),
-        Req::GetConnections(r) => Resp::GetConnections(get_connections(state, r)),
-        Req::GetInfo(r) => Resp::GetInfo(get_info(state, r)),
-        Req::HardForkInfo(r) => Resp::HardForkInfo(hard_fork_info(state, r)),
-        Req::SetBans(r) => Resp::SetBans(set_bans(state, r)),
-        Req::GetBans(r) => Resp::GetBans(get_bans(state, r)),
-        Req::Banned(r) => Resp::Banned(banned(state, r)),
+        Req::GetBlock(r) => Resp::GetBlock(get_block(state, r)?),
+        Req::GetConnections(r) => Resp::GetConnections(get_connections(state, r)?),
+        Req::GetInfo(r) => Resp::GetInfo(get_info(state, r)?),
+        Req::HardForkInfo(r) => Resp::HardForkInfo(hard_fork_info(state, r)?),
+        Req::SetBans(r) => Resp::SetBans(set_bans(state, r)?),
+        Req::GetBans(r) => Resp::GetBans(get_bans(state, r)?),
+        Req::Banned(r) => Resp::Banned(banned(state, r)?),
         Req::FlushTransactionPool(r) => {
-            Resp::FlushTransactionPool(flush_transaction_pool(state, r))
+            Resp::FlushTransactionPool(flush_transaction_pool(state, r)?)
         }
-        Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(get_output_histogram(state, r)),
-        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(get_coinbase_tx_sum(state, r)),
-        Req::GetVersion(r) => Resp::GetVersion(get_version(state, r)),
-        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(get_fee_estimate(state, r)),
-        Req::GetAlternateChains(r) => Resp::GetAlternateChains(get_alternate_chains(state, r)),
-        Req::RelayTx(r) => Resp::RelayTx(relay_tx(state, r)),
-        Req::SyncInfo(r) => Resp::SyncInfo(sync_info(state, r)),
+        Req::GetOutputHistogram(r) => Resp::GetOutputHistogram(get_output_histogram(state, r)?),
+        Req::GetCoinbaseTxSum(r) => Resp::GetCoinbaseTxSum(get_coinbase_tx_sum(state, r)?),
+        Req::GetVersion(r) => Resp::GetVersion(get_version(state, r)?),
+        Req::GetFeeEstimate(r) => Resp::GetFeeEstimate(get_fee_estimate(state, r)?),
+        Req::GetAlternateChains(r) => Resp::GetAlternateChains(get_alternate_chains(state, r)?),
+        Req::RelayTx(r) => Resp::RelayTx(relay_tx(state, r)?),
+        Req::SyncInfo(r) => Resp::SyncInfo(sync_info(state, r)?),
         Req::GetTransactionPoolBacklog(r) => {
-            Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r))
+            Resp::GetTransactionPoolBacklog(get_transaction_pool_backlog(state, r)?)
         }
-        Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r)),
-        Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r)),
-        Req::CalcPow(r) => Resp::CalcPow(calc_pow(state, r)),
-        Req::FlushCache(r) => Resp::FlushCache(flush_cache(state, r)),
-        Req::AddAuxPow(r) => Resp::AddAuxPow(add_aux_pow(state, r)),
-        Req::GetTxIdsLoose(r) => Resp::GetTxIdsLoose(get_tx_ids_loose(state, r)),
-    }
+        Req::GetMinerData(r) => Resp::GetMinerData(get_miner_data(state, r)?),
+        Req::PruneBlockchain(r) => Resp::PruneBlockchain(prune_blockchain(state, r)?),
+        Req::CalcPow(r) => Resp::CalcPow(calc_pow(state, r)?),
+        Req::FlushCache(r) => Resp::FlushCache(flush_cache(state, r)?),
+        Req::AddAuxPow(r) => Resp::AddAuxPow(add_aux_pow(state, r)?),
+        Req::GetTxIdsLoose(r) => Resp::GetTxIdsLoose(get_tx_ids_loose(state, r)?),
+    })
 }
 
-async fn get_block_count(
+fn get_block_count(
     state: CupratedRpcHandler,
     request: GetBlockCountRequest,
-) -> GetBlockCountResponse {
+) -> Result<GetBlockCountResponse, RpcError> {
     todo!()
 }
 
-async fn on_get_block_hash(
+fn on_get_block_hash(
     state: CupratedRpcHandler,
     request: OnGetBlockHashRequest,
-) -> OnGetBlockHashResponse {
+) -> Result<OnGetBlockHashResponse, RpcError> {
     todo!()
 }
 
-async fn submit_block(
+fn submit_block(
     state: CupratedRpcHandler,
     request: SubmitBlockRequest,
-) -> SubmitBlockResponse {
+) -> Result<SubmitBlockResponse, RpcError> {
     todo!()
 }
 
-async fn generate_blocks(
+fn generate_blocks(
     state: CupratedRpcHandler,
     request: GenerateBlocksRequest,
-) -> GenerateBlocksResponse {
+) -> Result<GenerateBlocksResponse, RpcError> {
     todo!()
 }
 
-async fn get_last_block_header(
+fn get_last_block_header(
     state: CupratedRpcHandler,
     request: GetLastBlockHeaderRequest,
-) -> GetLastBlockHeaderResponse {
+) -> Result<GetLastBlockHeaderResponse, RpcError> {
     todo!()
 }
 
-async fn get_block_header_by_hash(
+fn get_block_header_by_hash(
     state: CupratedRpcHandler,
     request: GetBlockHeaderByHashRequest,
-) -> GetBlockHeaderByHashResponse {
+) -> Result<GetBlockHeaderByHashResponse, RpcError> {
     todo!()
 }
 
-async fn get_block_header_by_height(
+fn get_block_header_by_height(
     state: CupratedRpcHandler,
     request: GetBlockHeaderByHeightRequest,
-) -> GetBlockHeaderByHeightResponse {
+) -> Result<GetBlockHeaderByHeightResponse, RpcError> {
     todo!()
 }
 
-async fn get_block_headers_range(
+fn get_block_headers_range(
     state: CupratedRpcHandler,
     request: GetBlockHeadersRangeRequest,
-) -> GetBlockHeadersRangeResponse {
+) -> Result<GetBlockHeadersRangeResponse, RpcError> {
     todo!()
 }
 
-async fn get_block(state: CupratedRpcHandler, request: GetBlockRequest) -> GetBlockResponse {
+fn get_block(
+    state: CupratedRpcHandler,
+    request: GetBlockRequest,
+) -> Result<GetBlockResponse, RpcError> {
     todo!()
 }
 
-async fn get_connections(
+fn get_connections(
     state: CupratedRpcHandler,
     request: GetConnectionsRequest,
-) -> GetConnectionsResponse {
+) -> Result<GetConnectionsResponse, RpcError> {
     todo!()
 }
 
-async fn get_info(state: CupratedRpcHandler, request: GetInfoRequest) -> GetInfoResponse {
+fn get_info(
+    state: CupratedRpcHandler,
+    request: GetInfoRequest,
+) -> Result<GetInfoResponse, RpcError> {
     todo!()
 }
 
-async fn hard_fork_info(
+fn hard_fork_info(
     state: CupratedRpcHandler,
     request: HardForkInfoRequest,
-) -> HardForkInfoResponse {
+) -> Result<HardForkInfoResponse, RpcError> {
     todo!()
 }
 
-async fn set_bans(state: CupratedRpcHandler, request: SetBansRequest) -> SetBansResponse {
+fn set_bans(
+    state: CupratedRpcHandler,
+    request: SetBansRequest,
+) -> Result<SetBansResponse, RpcError> {
     todo!()
 }
 
-async fn get_bans(state: CupratedRpcHandler, request: GetBansRequest) -> GetBansResponse {
+fn get_bans(
+    state: CupratedRpcHandler,
+    request: GetBansRequest,
+) -> Result<GetBansResponse, RpcError> {
     todo!()
 }
 
-async fn banned(state: CupratedRpcHandler, request: BannedRequest) -> BannedResponse {
+fn banned(state: CupratedRpcHandler, request: BannedRequest) -> Result<BannedResponse, RpcError> {
     todo!()
 }
 
-async fn flush_transaction_pool(
+fn flush_transaction_pool(
     state: CupratedRpcHandler,
     request: FlushTransactionPoolRequest,
-) -> FlushTransactionPoolResponse {
+) -> Result<FlushTransactionPoolResponse, RpcError> {
     todo!()
 }
 
-async fn get_output_histogram(
+fn get_output_histogram(
     state: CupratedRpcHandler,
     request: GetOutputHistogramRequest,
-) -> GetOutputHistogramResponse {
+) -> Result<GetOutputHistogramResponse, RpcError> {
     todo!()
 }
 
-async fn get_coinbase_tx_sum(
+fn get_coinbase_tx_sum(
     state: CupratedRpcHandler,
     request: GetCoinbaseTxSumRequest,
-) -> GetCoinbaseTxSumResponse {
+) -> Result<GetCoinbaseTxSumResponse, RpcError> {
     todo!()
 }
 
-async fn get_version(state: CupratedRpcHandler, request: GetVersionRequest) -> GetVersionResponse {
+fn get_version(
+    state: CupratedRpcHandler,
+    request: GetVersionRequest,
+) -> Result<GetVersionResponse, RpcError> {
     todo!()
 }
 
-async fn get_fee_estimate(
+fn get_fee_estimate(
     state: CupratedRpcHandler,
     request: GetFeeEstimateRequest,
-) -> GetFeeEstimateResponse {
+) -> Result<GetFeeEstimateResponse, RpcError> {
     todo!()
 }
 
-async fn get_alternate_chains(
+fn get_alternate_chains(
     state: CupratedRpcHandler,
     request: GetAlternateChainsRequest,
-) -> GetAlternateChainsResponse {
+) -> Result<GetAlternateChainsResponse, RpcError> {
     todo!()
 }
 
-async fn relay_tx(state: CupratedRpcHandler, request: RelayTxRequest) -> RelayTxResponse {
+fn relay_tx(
+    state: CupratedRpcHandler,
+    request: RelayTxRequest,
+) -> Result<RelayTxResponse, RpcError> {
     todo!()
 }
 
-async fn sync_info(state: CupratedRpcHandler, request: SyncInfoRequest) -> SyncInfoResponse {
+fn sync_info(
+    state: CupratedRpcHandler,
+    request: SyncInfoRequest,
+) -> Result<SyncInfoResponse, RpcError> {
     todo!()
 }
 
-async fn get_transaction_pool_backlog(
+fn get_transaction_pool_backlog(
     state: CupratedRpcHandler,
     request: GetTransactionPoolBacklogRequest,
-) -> GetTransactionPoolBacklogResponse {
+) -> Result<GetTransactionPoolBacklogResponse, RpcError> {
     todo!()
 }
 
-async fn get_miner_data(
+fn get_miner_data(
     state: CupratedRpcHandler,
     request: GetMinerDataRequest,
-) -> GetMinerDataResponse {
+) -> Result<GetMinerDataResponse, RpcError> {
     todo!()
 }
 
-async fn prune_blockchain(
+fn prune_blockchain(
     state: CupratedRpcHandler,
     request: PruneBlockchainRequest,
-) -> PruneBlockchainResponse {
+) -> Result<PruneBlockchainResponse, RpcError> {
     todo!()
 }
 
-async fn calc_pow(state: CupratedRpcHandler, request: CalcPowRequest) -> CalcPowResponse {
+fn calc_pow(
+    state: CupratedRpcHandler,
+    request: CalcPowRequest,
+) -> Result<CalcPowResponse, RpcError> {
     todo!()
 }
 
-async fn flush_cache(state: CupratedRpcHandler, request: FlushCacheRequest) -> FlushCacheResponse {
+fn flush_cache(
+    state: CupratedRpcHandler,
+    request: FlushCacheRequest,
+) -> Result<FlushCacheResponse, RpcError> {
     todo!()
 }
 
-async fn add_aux_pow(state: CupratedRpcHandler, request: AddAuxPowRequest) -> AddAuxPowResponse {
+fn add_aux_pow(
+    state: CupratedRpcHandler,
+    request: AddAuxPowRequest,
+) -> Result<AddAuxPowResponse, RpcError> {
     todo!()
 }
 
-async fn get_tx_ids_loose(
+fn get_tx_ids_loose(
     state: CupratedRpcHandler,
     request: GetTxIdsLooseRequest,
-) -> GetTxIdsLooseResponse {
+) -> Result<GetTxIdsLooseResponse, RpcError> {
     todo!()
 }

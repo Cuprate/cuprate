@@ -62,7 +62,7 @@ impl Service<RpcRequest> for RpcHandlerDummy {
         #[rustfmt::skip]
         #[allow(clippy::default_trait_access)]
         let resp = match req {
-            RpcRequest::JsonRpc(j) => RpcResponse::JsonRpc(cuprate_json_rpc::Response::ok(Id::Null, match j.body {
+            RpcRequest::JsonRpc(j) => RpcResponse::JsonRpc(match j {
                 JReq::GetBlockCount(_) => JResp::GetBlockCount(Default::default()),
                 JReq::OnGetBlockHash(_) => JResp::OnGetBlockHash(Default::default()),
                 JReq::SubmitBlock(_) => JResp::SubmitBlock(Default::default()),
@@ -93,7 +93,7 @@ impl Service<RpcRequest> for RpcHandlerDummy {
                 JReq::FlushCache(_) => JResp::FlushCache(Default::default()),
                 JReq::AddAuxPow(_) => JResp::AddAuxPow(Default::default()),
                 JReq::GetTxIdsLoose(_) => JResp::GetTxIdsLoose(Default::default()),
-            })),
+            }),
             RpcRequest::Binary(b) => RpcResponse::Binary(match b {
                 BReq::GetBlocks(_) => BResp::GetBlocks(Default::default()),
                 BReq::GetBlocksByHeight(_) => BResp::GetBlocksByHeight(Default::default()),

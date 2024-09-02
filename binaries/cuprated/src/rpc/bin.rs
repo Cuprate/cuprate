@@ -1,68 +1,83 @@
-use cuprate_rpc_types::bin::{
-    GetBlocksByHeightRequest, GetBlocksByHeightResponse, GetBlocksRequest, GetBlocksResponse,
-    GetHashesRequest, GetHashesResponse, GetOutputDistributionRequest,
-    GetOutputDistributionResponse, GetOutputIndexesRequest, GetOutputIndexesResponse,
-    GetOutsRequest, GetOutsResponse, GetTransactionPoolHashesRequest,
-    GetTransactionPoolHashesResponse,
+use cuprate_rpc_interface::{RpcError, RpcResponse};
+use cuprate_rpc_types::{
+    bin::{
+        BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse,
+        GetBlocksRequest, GetBlocksResponse, GetHashesRequest, GetHashesResponse,
+        GetOutputIndexesRequest, GetOutputIndexesResponse, GetOutsRequest, GetOutsResponse,
+        GetTransactionPoolHashesRequest, GetTransactionPoolHashesResponse,
+    },
+    json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
 };
 
 use crate::rpc::CupratedRpcHandler;
 
-pub(super) async fn map_request(state: CupratedRpcHandler, request: BinRpcRequest) -> BinRpcResponse {
-    use BinRpcRequest as Req;
-    use BinRpcResponse as Resp;
+pub(super) fn map_request(
+    state: CupratedRpcHandler,
+    request: BinRequest,
+) -> Result<BinResponse, RpcError> {
+    use BinRequest as Req;
+    use BinResponse as Resp;
 
-    match request {
-        Req::GetBlocks(r) => Resp::GetBlocks(get_blocks(state, r)),
-        Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(get_blocks_by_height(state, r)),
-        Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r)),
-        Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(get_output_indexes(state, r)),
-        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r)),
+    Ok(match request {
+        Req::GetBlocks(r) => Resp::GetBlocks(get_blocks(state, r)?),
+        Req::GetBlocksByHeight(r) => Resp::GetBlocksByHeight(get_blocks_by_height(state, r)?),
+        Req::GetHashes(r) => Resp::GetHashes(get_hashes(state, r)?),
+        Req::GetOutputIndexes(r) => Resp::GetOutputIndexes(get_output_indexes(state, r)?),
+        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r)?),
         Req::GetTransactionPoolHashes(r) => {
-            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r))
+            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r)?)
         }
         Req::GetOutputDistribution(r) => {
-            Resp::GetOutputDistribution(get_output_distribution(state, r))
+            Resp::GetOutputDistribution(get_output_distribution(state, r)?)
         }
-    }
+    })
 }
 
-async fn get_blocks(state: CupratedRpcHandler, request: GetBlocksRequest) -> GetBlocksResponse {
+fn get_blocks(
+    state: CupratedRpcHandler,
+    request: GetBlocksRequest,
+) -> Result<GetBlocksResponse, RpcError> {
     todo!()
 }
 
-async fn get_blocks_by_height(
+fn get_blocks_by_height(
     state: CupratedRpcHandler,
     request: GetBlocksByHeightRequest,
-) -> GetBlocksByHeightResponse {
+) -> Result<GetBlocksByHeightResponse, RpcError> {
     todo!()
 }
 
-async fn get_hashes(state: CupratedRpcHandler, request: GetHashesRequest) -> GetHashesResponse {
+fn get_hashes(
+    state: CupratedRpcHandler,
+    request: GetHashesRequest,
+) -> Result<GetHashesResponse, RpcError> {
     todo!()
 }
 
-async fn get_output_indexes(
+fn get_output_indexes(
     state: CupratedRpcHandler,
     request: GetOutputIndexesRequest,
-) -> GetOutputIndexesResponse {
+) -> Result<GetOutputIndexesResponse, RpcError> {
     todo!()
 }
 
-async fn get_outs(state: CupratedRpcHandler, request: GetOutsRequest) -> GetOutsResponse {
+fn get_outs(
+    state: CupratedRpcHandler,
+    request: GetOutsRequest,
+) -> Result<GetOutsResponse, RpcError> {
     todo!()
 }
 
-async fn get_transaction_pool_hashes(
+fn get_transaction_pool_hashes(
     state: CupratedRpcHandler,
     request: GetTransactionPoolHashesRequest,
-) -> GetTransactionPoolHashesResponse {
+) -> Result<GetTransactionPoolHashesResponse, RpcError> {
     todo!()
 }
 
-async fn get_output_distribution(
+fn get_output_distribution(
     state: CupratedRpcHandler,
     request: GetOutputDistributionRequest,
-) -> GetOutputDistributionResponse {
+) -> Result<GetOutputDistributionResponse, RpcError> {
     todo!()
 }

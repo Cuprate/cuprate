@@ -1,3 +1,4 @@
+use cuprate_rpc_interface::{RpcError, RpcResponse};
 use cuprate_rpc_types::other::{
     GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
     GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
@@ -6,211 +7,238 @@ use cuprate_rpc_types::other::{
     GetTransactionPoolRequest, GetTransactionPoolResponse, GetTransactionPoolStatsRequest,
     GetTransactionPoolStatsResponse, GetTransactionsRequest, GetTransactionsResponse,
     InPeersRequest, InPeersResponse, IsKeyImageSpentRequest, IsKeyImageSpentResponse,
-    MiningStatusRequest, MiningStatusResponse, OutPeersRequest, OutPeersResponse, PopBlocksRequest,
-    PopBlocksResponse, SaveBcRequest, SaveBcResponse, SendRawTransactionRequest,
-    SendRawTransactionResponse, SetBootstrapDaemonRequest, SetBootstrapDaemonResponse,
-    SetLimitRequest, SetLimitResponse, SetLogCategoriesRequest, SetLogCategoriesResponse,
-    SetLogHashRateRequest, SetLogHashRateResponse, SetLogLevelRequest, SetLogLevelResponse,
-    StartMiningRequest, StartMiningResponse, StopDaemonRequest, StopDaemonResponse,
-    StopMiningRequest, StopMiningResponse, UpdateRequest, UpdateResponse,
+    MiningStatusRequest, MiningStatusResponse, OtherRequest, OtherResponse, OutPeersRequest,
+    OutPeersResponse, PopBlocksRequest, PopBlocksResponse, SaveBcRequest, SaveBcResponse,
+    SendRawTransactionRequest, SendRawTransactionResponse, SetBootstrapDaemonRequest,
+    SetBootstrapDaemonResponse, SetLimitRequest, SetLimitResponse, SetLogCategoriesRequest,
+    SetLogCategoriesResponse, SetLogHashRateRequest, SetLogHashRateResponse, SetLogLevelRequest,
+    SetLogLevelResponse, StartMiningRequest, StartMiningResponse, StopDaemonRequest,
+    StopDaemonResponse, StopMiningRequest, StopMiningResponse, UpdateRequest, UpdateResponse,
 };
 
 use crate::rpc::CupratedRpcHandler;
 
-pub(super) async fn map_request(
+pub(super) fn map_request(
     state: CupratedRpcHandler,
-    request: OtherRpcRequest,
-) -> OtherRpcResponse {
-    use OtherRpcRequest as Req;
-    use OtherRpcResponse as Resp;
+    request: OtherRequest,
+) -> Result<OtherResponse, RpcError> {
+    use OtherRequest as Req;
+    use OtherResponse as Resp;
 
-    match request {
-        Req::GetHeight(r) => Resp::GetHeight(get_height(state, r)),
-        Req::GetTransactions(r) => Resp::GetTransactions(get_transactions(state, r)),
-        Req::GetAltBlocksHashes(r) => Resp::GetAltBlocksHashes(get_alt_blocks_hashes(state, r)),
-        Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(is_key_image_spent(state, r)),
-        Req::SendRawTransaction(r) => Resp::SendRawTransaction(send_raw_transaction(state, r)),
-        Req::StartMining(r) => Resp::StartMining(start_mining(state, r)),
-        Req::StopMining(r) => Resp::StopMining(stop_mining(state, r)),
-        Req::MiningStatus(r) => Resp::MiningStatus(mining_status(state, r)),
-        Req::SaveBc(r) => Resp::SaveBc(save_bc(state, r)),
-        Req::GetPeerList(r) => Resp::GetPeerList(get_peer_list(state, r)),
-        Req::SetLogHashRate(r) => Resp::SetLogHashRate(set_log_hash_rate(state, r)),
-        Req::SetLogLevel(r) => Resp::SetLogLevel(set_log_level(state, r)),
-        Req::SetLogCategories(r) => Resp::SetLogCategories(set_log_categories(state, r)),
-        Req::SetBootstrapDaemon(r) => Resp::SetBootstrapDaemon(set_bootstrap_daemon(state, r)),
-        Req::GetTransactionPool(r) => Resp::GetTransactionPool(get_transaction_pool(state, r)),
+    Ok(match request {
+        Req::GetHeight(r) => Resp::GetHeight(get_height(state, r)?),
+        Req::GetTransactions(r) => Resp::GetTransactions(get_transactions(state, r)?),
+        Req::GetAltBlocksHashes(r) => Resp::GetAltBlocksHashes(get_alt_blocks_hashes(state, r)?),
+        Req::IsKeyImageSpent(r) => Resp::IsKeyImageSpent(is_key_image_spent(state, r)?),
+        Req::SendRawTransaction(r) => Resp::SendRawTransaction(send_raw_transaction(state, r)?),
+        Req::StartMining(r) => Resp::StartMining(start_mining(state, r)?),
+        Req::StopMining(r) => Resp::StopMining(stop_mining(state, r)?),
+        Req::MiningStatus(r) => Resp::MiningStatus(mining_status(state, r)?),
+        Req::SaveBc(r) => Resp::SaveBc(save_bc(state, r)?),
+        Req::GetPeerList(r) => Resp::GetPeerList(get_peer_list(state, r)?),
+        Req::SetLogHashRate(r) => Resp::SetLogHashRate(set_log_hash_rate(state, r)?),
+        Req::SetLogLevel(r) => Resp::SetLogLevel(set_log_level(state, r)?),
+        Req::SetLogCategories(r) => Resp::SetLogCategories(set_log_categories(state, r)?),
+        Req::SetBootstrapDaemon(r) => Resp::SetBootstrapDaemon(set_bootstrap_daemon(state, r)?),
+        Req::GetTransactionPool(r) => Resp::GetTransactionPool(get_transaction_pool(state, r)?),
         Req::GetTransactionPoolStats(r) => {
-            Resp::GetTransactionPoolStats(get_transaction_pool_stats(state, r))
+            Resp::GetTransactionPoolStats(get_transaction_pool_stats(state, r)?)
         }
-        Req::StopDaemon(r) => Resp::StopDaemon(stop_daemon(state, r)),
-        Req::GetLimit(r) => Resp::GetLimit(get_limit(state, r)),
-        Req::SetLimit(r) => Resp::SetLimit(set_limit(state, r)),
-        Req::OutPeers(r) => Resp::OutPeers(out_peers(state, r)),
-        Req::InPeers(r) => Resp::InPeers(in_peers(state, r)),
-        Req::GetNetStats(r) => Resp::GetNetStats(get_net_stats(state, r)),
-        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r)),
-        Req::Update(r) => Resp::Update(update(state, r)),
-        Req::PopBlocks(r) => Resp::PopBlocks(pop_blocks(state, r)),
+        Req::StopDaemon(r) => Resp::StopDaemon(stop_daemon(state, r)?),
+        Req::GetLimit(r) => Resp::GetLimit(get_limit(state, r)?),
+        Req::SetLimit(r) => Resp::SetLimit(set_limit(state, r)?),
+        Req::OutPeers(r) => Resp::OutPeers(out_peers(state, r)?),
+        Req::InPeers(r) => Resp::InPeers(in_peers(state, r)?),
+        Req::GetNetStats(r) => Resp::GetNetStats(get_net_stats(state, r)?),
+        Req::GetOuts(r) => Resp::GetOuts(get_outs(state, r)?),
+        Req::Update(r) => Resp::Update(update(state, r)?),
+        Req::PopBlocks(r) => Resp::PopBlocks(pop_blocks(state, r)?),
         Req::GetTransactionPoolHashes(r) => {
-            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r))
+            Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r)?)
         }
-        Req::GetPublicNodes(r) => Resp::GetPublicNodes(get_public_nodes(state, r)),
-    }
+        Req::GetPublicNodes(r) => Resp::GetPublicNodes(get_public_nodes(state, r)?),
+    })
 }
 
-async fn get_height(state: CupratedRpcHandler, request: GetHeightRequest) -> GetHeightResponse {
+fn get_height(
+    state: CupratedRpcHandler,
+    request: GetHeightRequest,
+) -> Result<GetHeightResponse, RpcError> {
     todo!()
 }
 
-async fn get_transactions(
+fn get_transactions(
     state: CupratedRpcHandler,
     request: GetTransactionsRequest,
-) -> GetTransactionsResponse {
+) -> Result<GetTransactionsResponse, RpcError> {
     todo!()
 }
 
-async fn get_alt_blocks_hashes(
+fn get_alt_blocks_hashes(
     state: CupratedRpcHandler,
     request: GetAltBlocksHashesRequest,
-) -> GetAltBlocksHashesResponse {
+) -> Result<GetAltBlocksHashesResponse, RpcError> {
     todo!()
 }
 
-async fn is_key_image_spent(
+fn is_key_image_spent(
     state: CupratedRpcHandler,
     request: IsKeyImageSpentRequest,
-) -> IsKeyImageSpentResponse {
+) -> Result<IsKeyImageSpentResponse, RpcError> {
     todo!()
 }
 
-async fn send_raw_transaction(
+fn send_raw_transaction(
     state: CupratedRpcHandler,
     request: SendRawTransactionRequest,
-) -> SendRawTransactionResponse {
+) -> Result<SendRawTransactionResponse, RpcError> {
     todo!()
 }
 
-async fn start_mining(
+fn start_mining(
     state: CupratedRpcHandler,
     request: StartMiningRequest,
-) -> StartMiningResponse {
+) -> Result<StartMiningResponse, RpcError> {
     todo!()
 }
 
-async fn stop_mining(state: CupratedRpcHandler, request: StopMiningRequest) -> StopMiningResponse {
+fn stop_mining(
+    state: CupratedRpcHandler,
+    request: StopMiningRequest,
+) -> Result<StopMiningResponse, RpcError> {
     todo!()
 }
 
-async fn mining_status(
+fn mining_status(
     state: CupratedRpcHandler,
     request: MiningStatusRequest,
-) -> MiningStatusResponse {
+) -> Result<MiningStatusResponse, RpcError> {
     todo!()
 }
 
-async fn save_bc(state: CupratedRpcHandler, request: SaveBcRequest) -> SaveBcResponse {
+fn save_bc(state: CupratedRpcHandler, request: SaveBcRequest) -> Result<SaveBcResponse, RpcError> {
     todo!()
 }
 
-async fn get_peer_list(
+fn get_peer_list(
     state: CupratedRpcHandler,
     request: GetPeerListRequest,
-) -> GetPeerListResponse {
+) -> Result<GetPeerListResponse, RpcError> {
     todo!()
 }
 
-async fn set_log_hash_rate(
+fn set_log_hash_rate(
     state: CupratedRpcHandler,
     request: SetLogHashRateRequest,
-) -> SetLogHashRateResponse {
+) -> Result<SetLogHashRateResponse, RpcError> {
     todo!()
 }
 
-async fn set_log_level(
+fn set_log_level(
     state: CupratedRpcHandler,
     request: SetLogLevelRequest,
-) -> SetLogLevelResponse {
+) -> Result<SetLogLevelResponse, RpcError> {
     todo!()
 }
 
-async fn set_log_categories(
+fn set_log_categories(
     state: CupratedRpcHandler,
     request: SetLogCategoriesRequest,
-) -> SetLogCategoriesResponse {
+) -> Result<SetLogCategoriesResponse, RpcError> {
     todo!()
 }
 
-async fn set_bootstrap_daemon(
+fn set_bootstrap_daemon(
     state: CupratedRpcHandler,
     request: SetBootstrapDaemonRequest,
-) -> SetBootstrapDaemonResponse {
+) -> Result<SetBootstrapDaemonResponse, RpcError> {
     todo!()
 }
 
-async fn get_transaction_pool(
+fn get_transaction_pool(
     state: CupratedRpcHandler,
     request: GetTransactionPoolRequest,
-) -> GetTransactionPoolResponse {
+) -> Result<GetTransactionPoolResponse, RpcError> {
     todo!()
 }
 
-async fn get_transaction_pool_stats(
+fn get_transaction_pool_stats(
     state: CupratedRpcHandler,
     request: GetTransactionPoolStatsRequest,
-) -> GetTransactionPoolStatsResponse {
+) -> Result<GetTransactionPoolStatsResponse, RpcError> {
     todo!()
 }
 
-async fn stop_daemon(state: CupratedRpcHandler, request: StopDaemonRequest) -> StopDaemonResponse {
+fn stop_daemon(
+    state: CupratedRpcHandler,
+    request: StopDaemonRequest,
+) -> Result<StopDaemonResponse, RpcError> {
     todo!()
 }
 
-async fn get_limit(state: CupratedRpcHandler, request: GetLimitRequest) -> GetLimitResponse {
+fn get_limit(
+    state: CupratedRpcHandler,
+    request: GetLimitRequest,
+) -> Result<GetLimitResponse, RpcError> {
     todo!()
 }
 
-async fn set_limit(state: CupratedRpcHandler, request: SetLimitRequest) -> SetLimitResponse {
+fn set_limit(
+    state: CupratedRpcHandler,
+    request: SetLimitRequest,
+) -> Result<SetLimitResponse, RpcError> {
     todo!()
 }
 
-async fn out_peers(state: CupratedRpcHandler, request: OutPeersRequest) -> OutPeersResponse {
+fn out_peers(
+    state: CupratedRpcHandler,
+    request: OutPeersRequest,
+) -> Result<OutPeersResponse, RpcError> {
     todo!()
 }
 
-async fn in_peers(state: CupratedRpcHandler, request: InPeersRequest) -> InPeersResponse {
+fn in_peers(
+    state: CupratedRpcHandler,
+    request: InPeersRequest,
+) -> Result<InPeersResponse, RpcError> {
     todo!()
 }
 
-async fn get_net_stats(
+fn get_net_stats(
     state: CupratedRpcHandler,
     request: GetNetStatsRequest,
-) -> GetNetStatsResponse {
+) -> Result<GetNetStatsResponse, RpcError> {
     todo!()
 }
 
-async fn get_outs(state: CupratedRpcHandler, request: GetOutsRequest) -> GetOutsResponse {
+fn get_outs(
+    state: CupratedRpcHandler,
+    request: GetOutsRequest,
+) -> Result<GetOutsResponse, RpcError> {
     todo!()
 }
 
-async fn update(state: CupratedRpcHandler, request: UpdateRequest) -> UpdateResponse {
+fn update(state: CupratedRpcHandler, request: UpdateRequest) -> Result<UpdateResponse, RpcError> {
     todo!()
 }
 
-async fn pop_blocks(state: CupratedRpcHandler, request: PopBlocksRequest) -> PopBlocksResponse {
+fn pop_blocks(
+    state: CupratedRpcHandler,
+    request: PopBlocksRequest,
+) -> Result<PopBlocksResponse, RpcError> {
     todo!()
 }
 
-async fn get_transaction_pool_hashes(
+fn get_transaction_pool_hashes(
     state: CupratedRpcHandler,
     request: GetTransactionPoolHashesRequest,
-) -> GetTransactionPoolHashesResponse {
+) -> Result<GetTransactionPoolHashesResponse, RpcError> {
     todo!()
 }
 
-async fn get_public_nodes(
+fn get_public_nodes(
     state: CupratedRpcHandler,
     request: GetPublicNodesRequest,
-) -> GetPublicNodesResponse {
+) -> Result<GetPublicNodesResponse, RpcError> {
     todo!()
 }

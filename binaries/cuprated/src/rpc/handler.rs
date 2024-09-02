@@ -7,34 +7,26 @@ use futures::channel::oneshot::channel;
 use serde::{Deserialize, Serialize};
 use tower::Service;
 
-use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
+use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_json_rpc::Id;
 use cuprate_rpc_interface::{RpcError, RpcHandler, RpcRequest, RpcResponse};
-use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
+use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::rpc::{bin, json, other};
 
 //---------------------------------------------------------------------------------------------------- CupratedRpcHandler
 /// TODO
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+#[derive(Clone)]
 pub struct CupratedRpcHandler {
     /// Should this RPC server be [restricted](RpcHandler::restricted)?
     pub restricted: bool,
 
     /// Read handle to the blockchain database.
-    pub blockchain_read: BlockchainReadHandle,
-    /// Write handle to the blockchain database.
-    pub blockchain_write: BlockchainWriteHandle,
-    /// Direct handle to the blockchain database.
-    pub blockchain_db: Arc<ConcreteEnv>,
+    pub blockchain: BlockchainReadHandle,
 
     /// Read handle to the transaction pool database.
-    pub txpool_read: TxpoolReadHandle,
-    /// Write handle to the transaction pool database.
-    pub txpool_write: TxpoolWriteHandle,
-    /// Direct handle to the transaction pool database.
-    pub txpool_db: Arc<ConcreteEnv>,
+    pub txpool: TxpoolReadHandle,
 }
 
 //---------------------------------------------------------------------------------------------------- RpcHandler Impl
@@ -60,16 +52,19 @@ impl Service<RpcRequest> for CupratedRpcHandler {
     ///
     /// We can assume the request coming has the required permissions.
     fn call(&mut self, req: RpcRequest) -> Self::Future {
-        let state = CupratedRpcHandler::clone(self);
+        let state = Self::clone(self);
 
         let resp = match req {
-            RpcRequest::JsonRpc(r) => json::map_request(state, r), // JSON-RPC 2.0 requests.
-            RpcRequest::Binary(r) => bin::map_request(state, r),   // Binary requests.
-            RpcRequest::Other(o) => other::map_request(state, r), // JSON (but not JSON-RPC) requests.
+            RpcRequest::JsonRpc(r) => {
+                RpcResponse::JsonRpc(json::map_request(state, r).expect("TODO"))
+            } // JSON-RPC 2.0 requests.
+            RpcRequest::Binary(r) => RpcResponse::Binary(bin::map_request(state, r).expect("TODO")), // Binary requests.
+            RpcRequest::Other(r) => RpcResponse::Other(other::map_request(state, r).expect("TODO")), // JSON (but not JSON-RPC) requests.
         };
 
-        let (tx, rx) = channel();
-        drop(tx.send(Ok(resp)));
-        InfallibleOneshotReceiver::from(rx)
+        todo!()
+        // let (tx, rx) = channel();
+        // drop(tx.send(Ok(resp)));
+        // InfallibleOneshotReceiver::from(rx)
     }
 }

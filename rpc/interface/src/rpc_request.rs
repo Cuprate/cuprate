@@ -19,7 +19,7 @@ use cuprate_rpc_types::{bin::BinRequest, json::JsonRpcRequest, other::OtherReque
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 pub enum RpcRequest {
     /// JSON-RPC 2.0 requests.
-    JsonRpc(cuprate_json_rpc::Request<JsonRpcRequest>),
+    JsonRpc(JsonRpcRequest),
     /// Binary requests.
     Binary(BinRequest),
     /// Other JSON requests.

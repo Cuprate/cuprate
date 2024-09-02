@@ -50,13 +50,15 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
     }
 
     // Send request.
-    let request = RpcRequest::JsonRpc(request);
+    let request = RpcRequest::JsonRpc(request.body);
     let channel = handler.oneshot(request).await?;
 
     // Assert the response from the inner handler is correct.
     let RpcResponse::JsonRpc(response) = channel else {
         panic!("RPC handler returned incorrect response");
     };
+
+    let response = todo!();
 
     Ok(Json(response))
 }
