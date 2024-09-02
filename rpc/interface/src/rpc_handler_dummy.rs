@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_json_rpc::Id;
 
 use crate::{
     rpc_error::RpcError, rpc_handler::RpcHandler, rpc_request::RpcRequest,

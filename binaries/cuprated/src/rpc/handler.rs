@@ -63,8 +63,5 @@ impl Service<RpcRequest> for CupratedRpcHandler {
         };
 
         todo!()
-        // let (tx, rx) = channel();
-        // drop(tx.send(Ok(resp)));
-        // InfallibleOneshotReceiver::from(rx)
     }
 }

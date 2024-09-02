@@ -2,7 +2,8 @@
 //!
 //! Will contain the code to initiate the RPC and a request handler.
 
-#![allow(clippy::needless_pass_by_value)] // TODO: remove after impl.
+// TODO: remove after impl.
+#![allow(dead_code, unused_variables, clippy::needless_pass_by_value)]
 
 mod bin;
 mod handler;
