@@ -4,14 +4,16 @@
 //!
 //! `#[no_std]` compatible.
 
+#![allow(clippy::cast_possible_truncation)]
+
 #[rustfmt::skip]
 //============================ SAFETY: DO NOT REMOVE ===========================//
 //                                                                              //
 //                                                                              //
-//                      Only allow building 64-bit targets.                     //
-//             This allows us to assume 64-bit invariants in this file.         //
+//                     Only allow building 64-bit targets.                      //
+//            This allows us to assume 64-bit invariants in this file.          //
                        #[cfg(not(target_pointer_width = "64"))]
-            compile_error!("Cuprate is only compatible with 64-bit CPUs");
+           compile_error!("Cuprate is only compatible with 64-bit CPUs");
 //                                                                              //
 //                                                                              //
 //============================ SAFETY: DO NOT REMOVE ===========================//
