@@ -7,6 +7,8 @@
 //---------------------------------------------------------------------------------------------------- Use
 use monero_serai::transaction::Timelock;
 
+use crate::cast::{u64_to_usize, usize_to_u64};
+
 //---------------------------------------------------------------------------------------------------- `(u64, u64) <-> u128`
 /// Split a [`u128`] value into 2 64-bit values.
 ///
@@ -27,6 +29,7 @@ use monero_serai::transaction::Timelock;
 /// ```
 #[inline]
 pub const fn split_u128_into_low_high_bits(value: u128) -> (u64, u64) {
+    #[allow(clippy::cast_possible_truncation)]
     (value as u64, (value >> 64) as u64)
 }
 
@@ -58,7 +61,7 @@ pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u12
 /// Map a [`u64`] to a [`Timelock`].
 ///
 /// Height/time is not differentiated via type, but rather:
-/// "height is any value less than 500_000_000 and timestamp is any value above"
+/// "height is any value less than `500_000_000` and timestamp is any value above"
 /// so the `u64/usize` is stored without any tag.
 ///
 /// See [`timelock_to_u64`] for the inverse function.
@@ -77,7 +80,7 @@ pub fn u64_to_timelock(u: u64) -> Timelock {
     if u == 0 {
         Timelock::None
     } else if u < 500_000_000 {
-        Timelock::Block(usize::try_from(u).unwrap())
+        Timelock::Block(u64_to_usize(u))
     } else {
         Timelock::Time(u)
     }
@@ -97,7 +100,7 @@ pub fn u64_to_timelock(u: u64) -> Timelock {
 pub fn timelock_to_u64(timelock: Timelock) -> u64 {
     match timelock {
         Timelock::None => 0,
-        Timelock::Block(u) => u64::try_from(u).unwrap(),
+        Timelock::Block(u) => usize_to_u64(u),
         Timelock::Time(u) => u,
     }
 }

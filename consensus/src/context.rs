@@ -33,7 +33,7 @@ mod tokens;
 
 use cuprate_types::Chain;
 use difficulty::DifficultyCache;
-use rx_vms::RandomXVM;
+use rx_vms::RandomXVm;
 use weight::BlockWeightsCache;
 
 pub(crate) use alt_chains::{sealed::AltChainRequestToken, AltChainContextCache};
@@ -236,7 +236,7 @@ pub enum BlockChainContextRequest {
     /// seed.
     ///
     /// This should include the seed used to init this VM and the VM.
-    NewRXVM(([u8; 32], Arc<RandomXVM>)),
+    NewRXVM(([u8; 32], Arc<RandomXVm>)),
     /// A request to add a new block to the cache.
     Update(NewBlockData),
     /// Pop blocks from the cache to the specified height.
@@ -313,7 +313,7 @@ pub enum BlockChainContextResponse {
     /// Blockchain context response.
     Context(BlockChainContext),
     /// A map of seed height to RandomX VMs.
-    RxVms(HashMap<usize, Arc<RandomXVM>>),
+    RxVms(HashMap<usize, Arc<RandomXVm>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
     /// An alt chain context cache.
@@ -321,7 +321,7 @@ pub enum BlockChainContextResponse {
     /// A difficulty cache for an alt chain.
     AltChainDifficultyCache(DifficultyCache),
     /// A randomX VM for an alt chain.
-    AltChainRxVM(Arc<RandomXVM>),
+    AltChainRxVM(Arc<RandomXVm>),
     /// A weight cache for an alt chain
     AltChainWeightCache(BlockWeightsCache),
     /// A generic Ok response.

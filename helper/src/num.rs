@@ -89,8 +89,9 @@ where
 /// assert_eq!(median(vec), 5);
 /// ```
 ///
-/// # Safety
+/// # Invariant
 /// If not sorted the output will be invalid.
+#[allow(clippy::debug_assert_with_mut_call)]
 pub fn median<T>(array: impl AsRef<[T]>) -> T
 where
     T: Add<Output = T>

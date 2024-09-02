@@ -11,7 +11,7 @@ use cuprate_types::{
 use crate::{
     ExtendedConsensusError,
     __private::Database,
-    context::{difficulty::DifficultyCache, rx_vms::RandomXVM, weight::BlockWeightsCache},
+    context::{difficulty::DifficultyCache, rx_vms::RandomXVm, weight::BlockWeightsCache},
 };
 
 pub(crate) mod sealed {
@@ -32,7 +32,7 @@ pub struct AltChainContextCache {
     pub difficulty_cache: Option<DifficultyCache>,
 
     /// A cached RX VM.
-    pub cached_rx_vm: Option<(usize, Arc<RandomXVM>)>,
+    pub cached_rx_vm: Option<(usize, Arc<RandomXVm>)>,
 
     /// The chain height of the alt chain.
     pub chain_height: usize,

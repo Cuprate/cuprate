@@ -10,14 +10,15 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 [features]
 # All features on by default.
-default   = ["std", "atomic", "asynch", "fs", "num", "map", "time", "thread", "constants"]
+default   = ["std", "atomic", "asynch", "cast", "fs", "num", "map", "time", "thread", "constants"]
 std       = []
 atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
+cast      = []
 constants = []
 fs        = ["dep:dirs"]
 num       = []
-map       = ["dep:monero-serai"]
+map       = ["cast", "dep:monero-serai"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
 
@@ -39,3 +40,6 @@ target_os_lib = { package = "libc", version = "0.2.151", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
+
+[lints]
+workspace = true

@@ -20,6 +20,8 @@ use std::{fmt::Debug, marker::PhantomData};
 use bytes::{Buf, BufMut, BytesMut};
 use tokio_util::codec::{Decoder, Encoder};
 
+use cuprate_helper::cast::u64_to_usize;
+
 use crate::{
     header::{Flags, HEADER_SIZE},
     message::{make_dummy_message, LevinMessage},
@@ -114,10 +116,7 @@ impl<C: LevinCommand + Debug> Decoder for LevinBucketCodec<C> {
                         std::mem::replace(&mut self.state, LevinBucketState::WaitingForBody(head));
                 }
                 LevinBucketState::WaitingForBody(head) => {
-                    let body_len = head
-                        .size
-                        .try_into()
-                        .map_err(|_| BucketError::BucketExceededMaxSize)?;
+                    let body_len = u64_to_usize(head.size);
                     if src.len() < body_len {
                         src.reserve(body_len - src.len());
                         return Ok(None);
@@ -255,13 +254,11 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         continue;
                     };
 
-                    let max_size = if self.bucket_codec.handshake_message_seen {
+                    let max_size = u64_to_usize(if self.bucket_codec.handshake_message_seen {
                         self.bucket_codec.protocol.max_packet_size
                     } else {
                         self.bucket_codec.protocol.max_packet_size_before_handshake
-                    }
-                    .try_into()
-                    .expect("Levin max message size is too large, does not fit into a usize.");
+                    });
 
                     if bytes.len().saturating_add(bucket.body.len()) > max_size {
                         return Err(BucketError::InvalidFragmentedMessage(
@@ -300,12 +297,7 @@ impl<T: LevinBody> Decoder for LevinMessageCodec<T> {
                         }
 
                         // Check the fragmented message contains enough bytes to build the message.
-                        if bytes.len().saturating_sub(HEADER_SIZE)
-                            < header
-                                .size
-                                .try_into()
-                                .map_err(|_| BucketError::BucketExceededMaxSize)?
-                        {
+                        if bytes.len().saturating_sub(HEADER_SIZE) < u64_to_usize(header.size) {
                             return Err(BucketError::InvalidFragmentedMessage(
                                 "Fragmented message does not have enough bytes to fill bucket body",
                             ));

@@ -15,6 +15,7 @@ default = ["std"]
 std = ["dep:thiserror", "bytes/std", "cuprate-fixed-bytes/std"]
 
 [dependencies]
+cuprate-helper = { path = "../../helper", default-features = false, features = ["cast"] }
 cuprate-fixed-bytes = { path = "../fixed-bytes", default-features = false }
 
 paste = "1.0.14"

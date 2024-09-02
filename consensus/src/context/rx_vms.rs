@@ -9,7 +9,7 @@ use std::{
 };
 
 use futures::{stream::FuturesOrdered, StreamExt};
-use randomx_rs::{RandomXCache, RandomXError, RandomXFlag, RandomXVM as VMInner};
+use randomx_rs::{RandomXCache, RandomXError, RandomXFlag, RandomXVM as VmInner};
 use rayon::prelude::*;
 use thread_local::ThreadLocal;
 use tower::ServiceExt;
@@ -33,16 +33,16 @@ const RX_SEEDS_CACHED: usize = 2;
 
 /// A multithreaded randomX VM.
 #[derive(Debug)]
-pub struct RandomXVM {
+pub struct RandomXVm {
     /// These RandomX VMs all share the same cache.
-    vms: ThreadLocal<VMInner>,
+    vms: ThreadLocal<VmInner>,
     /// The RandomX cache.
     cache: RandomXCache,
     /// The flags used to start the RandomX VMs.
     flags: RandomXFlag,
 }
 
-impl RandomXVM {
+impl RandomXVm {
     /// Create a new multithreaded randomX VM with the provided seed.
     pub fn new(seed: &[u8; 32]) -> Result<Self, RandomXError> {
         // TODO: allow passing in flags.
@@ -50,7 +50,7 @@ impl RandomXVM {
 
         let cache = RandomXCache::new(flags, seed.as_slice())?;
 
-        Ok(RandomXVM {
+        Ok(RandomXVm {
             vms: ThreadLocal::new(),
             cache,
             flags,
@@ -58,12 +58,12 @@ impl RandomXVM {
     }
 }
 
-impl RandomX for RandomXVM {
+impl RandomX for RandomXVm {
     type Error = RandomXError;
 
     fn calculate_hash(&self, buf: &[u8]) -> Result<[u8; 32], Self::Error> {
         self.vms
-            .get_or_try(|| VMInner::new(self.flags, Some(self.cache.clone()), None))?
+            .get_or_try(|| VmInner::new(self.flags, Some(self.cache.clone()), None))?
             .calculate_hash(buf)
             .map(|out| out.try_into().unwrap())
     }
@@ -72,17 +72,17 @@ impl RandomX for RandomXVM {
 /// The randomX VMs cache, keeps the VM needed to calculate the current block's PoW hash (if a VM is needed) and a
 /// couple more around this VM.
 #[derive(Clone, Debug)]
-pub struct RandomXVMCache {
+pub struct RandomXVmCache {
     /// The top [`RX_SEEDS_CACHED`] RX seeds.  
     pub(crate) seeds: VecDeque<(usize, [u8; 32])>,
     /// The VMs for `seeds` (if after hf 12, otherwise this will be empty).
-    pub(crate) vms: HashMap<usize, Arc<RandomXVM>>,
+    pub(crate) vms: HashMap<usize, Arc<RandomXVm>>,
 
     /// A single cached VM that was given to us from a part of Cuprate.
-    pub(crate) cached_vm: Option<([u8; 32], Arc<RandomXVM>)>,
+    pub(crate) cached_vm: Option<([u8; 32], Arc<RandomXVm>)>,
 }
 
-impl RandomXVMCache {
+impl RandomXVmCache {
     #[instrument(name = "init_rx_vm_cache", level = "info", skip(database))]
     pub async fn init_from_chain_height<D: Database + Clone>(
         chain_height: usize,
@@ -106,7 +106,7 @@ impl RandomXVMCache {
                     .map(|(height, seed)| {
                         (
                             *height,
-                            Arc::new(RandomXVM::new(seed).expect("Failed to create RandomX VM!")),
+                            Arc::new(RandomXVm::new(seed).expect("Failed to create RandomX VM!")),
                         )
                     })
                     .collect()
@@ -117,7 +117,7 @@ impl RandomXVMCache {
             HashMap::new()
         };
 
-        Ok(RandomXVMCache {
+        Ok(RandomXVmCache {
             seeds,
             vms,
             cached_vm: None,
@@ -125,7 +125,7 @@ impl RandomXVMCache {
     }
 
     /// Add a randomX VM to the cache, with the seed it was created with.
-    pub fn add_vm(&mut self, vm: ([u8; 32], Arc<RandomXVM>)) {
+    pub fn add_vm(&mut self, vm: ([u8; 32], Arc<RandomXVm>)) {
         self.cached_vm.replace(vm);
     }
 
@@ -136,7 +136,7 @@ impl RandomXVMCache {
         height: usize,
         chain: Chain,
         database: D,
-    ) -> Result<Arc<RandomXVM>, ExtendedConsensusError> {
+    ) -> Result<Arc<RandomXVm>, ExtendedConsensusError> {
         let seed_height = randomx_seed_height(height);
 
         let BlockchainResponse::BlockHash(seed_hash) = database
@@ -156,13 +156,13 @@ impl RandomXVMCache {
             }
         }
 
-        let alt_vm = rayon_spawn_async(move || Arc::new(RandomXVM::new(&seed_hash).unwrap())).await;
+        let alt_vm = rayon_spawn_async(move || Arc::new(RandomXVm::new(&seed_hash).unwrap())).await;
 
         Ok(alt_vm)
     }
 
     /// Get the main-chain RandomX VMs.
-    pub async fn get_vms(&mut self) -> HashMap<usize, Arc<RandomXVM>> {
+    pub async fn get_vms(&mut self) -> HashMap<usize, Arc<RandomXVm>> {
         match self.seeds.len().checked_sub(self.vms.len()) {
             // No difference in the amount of seeds to VMs.
             Some(0) => (),
@@ -184,7 +184,7 @@ impl RandomXVMCache {
                         }
                     };
 
-                    rayon_spawn_async(move || Arc::new(RandomXVM::new(&next_seed_hash).unwrap()))
+                    rayon_spawn_async(move || Arc::new(RandomXVm::new(&next_seed_hash).unwrap()))
                         .await
                 };
 
@@ -200,7 +200,7 @@ impl RandomXVMCache {
                     seeds_clone
                         .par_iter()
                         .map(|(height, seed)| {
-                            let vm = RandomXVM::new(seed).expect("Failed to create RandomX VM!");
+                            let vm = RandomXVm::new(seed).expect("Failed to create RandomX VM!");
                             let vm = Arc::new(vm);
                             (*height, vm)
                         })
