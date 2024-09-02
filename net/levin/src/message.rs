@@ -4,6 +4,7 @@
 //! The codec will not return [`LevinMessage`] instead it will only return bucket body's. [`LevinMessage`] allows
 //! for more control over what is actually sent over the wire at certain times.
 use bytes::{Bytes, BytesMut};
+
 use cuprate_helper::cast::usize_to_u64;
 
 use crate::{
