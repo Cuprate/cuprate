@@ -7,6 +7,8 @@
 //---------------------------------------------------------------------------------------------------- Use
 use monero_serai::transaction::Timelock;
 
+use crate::cast::{u64_to_usize, usize_to_u64};
+
 //---------------------------------------------------------------------------------------------------- `(u64, u64) <-> u128`
 /// Split a [`u128`] value into 2 64-bit values.
 ///
@@ -77,7 +79,7 @@ pub fn u64_to_timelock(u: u64) -> Timelock {
     if u == 0 {
         Timelock::None
     } else if u < 500_000_000 {
-        Timelock::Block(usize::try_from(u).unwrap())
+        Timelock::Block(u64_to_usize(u))
     } else {
         Timelock::Time(u)
     }
@@ -97,7 +99,7 @@ pub fn u64_to_timelock(u: u64) -> Timelock {
 pub fn timelock_to_u64(timelock: Timelock) -> u64 {
     match timelock {
         Timelock::None => 0,
-        Timelock::Block(u) => u64::try_from(u).unwrap(),
+        Timelock::Block(u) => usize_to_u64(u),
         Timelock::Time(u) => u,
     }
 }

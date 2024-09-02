@@ -9,6 +9,7 @@ use tower::ServiceExt;
 use tracing::Instrument;
 
 use cuprate_consensus_rules::blocks::ContextToVerifyBlock;
+use cuprate_helper::cast::u64_to_usize;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain,
@@ -168,9 +169,9 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                                 .weight_cache
                                 .effective_median_block_weight(&current_hf),
                             top_hash: self.top_block_hash,
-                            median_block_timestamp: self.difficulty_cache.median_timestamp(
-                                usize::try_from(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW).unwrap(),
-                            ),
+                            median_block_timestamp: self
+                                .difficulty_cache
+                                .median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)),
                             chain_height: self.chain_height,
                             current_hf,
                             next_difficulty: self.difficulty_cache.next_difficulty(&current_hf),

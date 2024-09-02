@@ -39,7 +39,7 @@ thread_local = { workspace = true, optional = true }
 rayon        = { workspace = true, optional = true }
 
 [dev-dependencies]
-cuprate-helper     = { path = "../../helper", features = ["thread"] }
+cuprate-helper     = { path = "../../helper", features = ["thread", "cast"] }
 cuprate-test-utils = { path = "../../test-utils" }
 
 tokio             = { workspace = true, features = ["full"] }

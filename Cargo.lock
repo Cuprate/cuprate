@@ -646,6 +646,7 @@ version = "0.5.0"
 dependencies = [
  "bytes",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
  "hex",
  "paste",
  "ref-cast",
@@ -713,6 +714,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.5.0",
  "bytes",
+ "cuprate-helper",
  "futures",
  "proptest",
  "rand",
@@ -893,6 +895,7 @@ dependencies = [
  "bytes",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
  "cuprate-levin",
  "cuprate-types",
  "hex",

@@ -5,7 +5,7 @@
 //! `#[no_std]` compatible.
 
 #[rustfmt::skip]
-// =========================== SAFETY: DO NOT REMOVE ===========================//
+//============================ SAFETY: DO NOT REMOVE ===========================//
 //                                                                              //
 //                                                                              //
 //                      Only allow building 64-bit targets.                     //
@@ -14,7 +14,7 @@
             compile_error!("Cuprate is only compatible with 64-bit CPUs");
 //                                                                              //
 //                                                                              //
-// =========================== SAFETY: DO NOT REMOVE ===========================//
+//============================ SAFETY: DO NOT REMOVE ===========================//
 
 //---------------------------------------------------------------------------------------------------- Free functions
 /// Cast [`u64`] to [`usize`].

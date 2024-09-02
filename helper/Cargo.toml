@@ -18,7 +18,7 @@ cast      = []
 constants = []
 fs        = ["dep:dirs"]
 num       = []
-map       = ["dep:monero-serai"]
+map       = ["cast", "dep:monero-serai"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
 
