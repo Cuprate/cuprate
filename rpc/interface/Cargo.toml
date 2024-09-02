@@ -20,13 +20,17 @@ cuprate-helper        = { path = "../../helper", features = ["asynch"], default-
 
 axum       = { version = "0.7.5", features = ["json"], default-features = false }
 serde      = { workspace = true, optional = true }
-serde_json = { workspace = true, features = ["std"] }
 tower      = { workspace = true }
 paste      = { workspace = true }
 futures    = { workspace = true }
 
 [dev-dependencies]
+cuprate-test-utils = { path = "../../test-utils" }
+
 axum       = { version = "0.7.5", features = ["json", "tokio", "http2"] }
 serde_json = { workspace = true, features = ["std"] }
 tokio      = { workspace = true, features = ["full"] }
 ureq       = { version = "2.10.0", features = ["json"] }
+
+[lints]
+workspace = true

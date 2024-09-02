@@ -49,6 +49,8 @@ pub type AtomicF64 = AtomicCell<f64>;
 //---------------------------------------------------------------------------------------------------- TESTS
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::float_cmp)]
+
     use super::*;
 
     #[test]

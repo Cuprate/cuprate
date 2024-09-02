@@ -211,7 +211,7 @@ impl Config {
     /// assert_eq!(config.reader_threads, ReaderThreads::default());
     /// ```
     pub fn new() -> Self {
-        Config {
+        Self {
             db_config: DbConfig::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR)),
             reader_threads: ReaderThreads::default(),
             max_txpool_weight: 0,

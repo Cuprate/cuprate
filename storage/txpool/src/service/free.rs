@@ -30,8 +30,8 @@ pub fn init(
     let db = Arc::new(crate::open(config)?);
 
     // Spawn the Reader thread pool and Writer.
-    let readers = init_read_service(db.clone(), reader_threads);
-    let writer = init_write_service(db.clone());
+    let readers = init_read_service(Arc::clone(&db), reader_threads);
+    let writer = init_write_service(Arc::clone(&db));
 
     Ok((readers, writer, db))
 }

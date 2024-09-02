@@ -78,8 +78,8 @@ mod test {
             println!("left: {left:?}, right: {right:?}, expected: {expected:?}");
             assert_eq!(
                 <StorableHeed::<T> as heed::Comparator>::compare(
-                    &<StorableHeed::<T> as heed::BytesEncode>::bytes_encode(&left).unwrap(),
-                    &<StorableHeed::<T> as heed::BytesEncode>::bytes_encode(&right).unwrap()
+                    &<StorableHeed::<T> as BytesEncode>::bytes_encode(&left).unwrap(),
+                    &<StorableHeed::<T> as BytesEncode>::bytes_encode(&right).unwrap()
                 ),
                 expected
             );

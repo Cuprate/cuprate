@@ -16,7 +16,7 @@ use crate::{
 
 //---------------------------------------------------------------------------------------------------- init_write_service
 /// Initialize the txpool write service from a [`ConcreteEnv`].
-pub fn init_write_service(env: Arc<ConcreteEnv>) -> TxpoolWriteHandle {
+pub(super) fn init_write_service(env: Arc<ConcreteEnv>) -> TxpoolWriteHandle {
     DatabaseWriteHandle::init(env, handle_txpool_request)
 }
 

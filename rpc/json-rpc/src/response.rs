@@ -304,14 +304,14 @@ where
                             if payload.is_none() {
                                 payload = Some(Ok(map.next_value::<T>()?));
                             } else {
-                                return Err(serde::de::Error::duplicate_field("result/error"));
+                                return Err(Error::duplicate_field("result/error"));
                             }
                         }
                         Key::Error => {
                             if payload.is_none() {
                                 payload = Some(Err(map.next_value::<ErrorObject>()?));
                             } else {
-                                return Err(serde::de::Error::duplicate_field("result/error"));
+                                return Err(Error::duplicate_field("result/error"));
                             }
                         }
                         Key::Unknown => {

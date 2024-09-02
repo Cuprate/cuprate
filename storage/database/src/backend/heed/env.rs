@@ -70,7 +70,7 @@ impl Drop for ConcreteEnv {
         // We need to do `mdb_env_set_flags(&env, MDB_NOSYNC|MDB_ASYNCMAP, 0)`
         // to clear the no sync and async flags such that the below `self.sync()`
         // _actually_ synchronously syncs.
-        if let Err(_e) = crate::Env::sync(self) {
+        if let Err(_e) = Env::sync(self) {
             // TODO: log error?
         }
 
