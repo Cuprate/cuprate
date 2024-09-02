@@ -74,7 +74,7 @@ pub fn low_priority_thread() {
         // SAFETY: calling C.
         // We are _lowering_ our priority, not increasing, so this function should never fail.
         unsafe {
-            SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE);
+            drop(SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_IDLE));
         }
     }
 
