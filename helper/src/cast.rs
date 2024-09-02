@@ -62,8 +62,8 @@ mod test {
 
     #[test]
     fn max_unsigned() {
-        assert_eq!(u32_to_usize(u32::MAX), u32::MAX as usize);
-        assert_eq!(usize_to_u64(u32_to_usize(u32::MAX)), u32::MAX as u64);
+        assert_eq!(u32_to_usize(u32::MAX), usize::try_from(u32::MAX).unwrap());
+        assert_eq!(usize_to_u64(u32_to_usize(u32::MAX)), u64::from(u32::MAX));
 
         assert_eq!(u64_to_usize(u64::MAX), usize::MAX);
         assert_eq!(usize_to_u64(u64_to_usize(u64::MAX)), u64::MAX);
@@ -74,8 +74,8 @@ mod test {
 
     #[test]
     fn max_signed() {
-        assert_eq!(i32_to_isize(i32::MAX), i32::MAX as isize);
-        assert_eq!(isize_to_i64(i32_to_isize(i32::MAX)), i32::MAX as i64);
+        assert_eq!(i32_to_isize(i32::MAX), isize::try_from(i32::MAX).unwrap());
+        assert_eq!(isize_to_i64(i32_to_isize(i32::MAX)), i64::from(i32::MAX));
 
         assert_eq!(i64_to_isize(i64::MAX), isize::MAX);
         assert_eq!(isize_to_i64(i64_to_isize(i64::MAX)), i64::MAX);
