@@ -262,6 +262,7 @@ empty_structs_with_brackets = "deny"
 empty_enum_variants_with_brackets = "deny"
 empty_drop = "deny"
 clone_on_ref_ptr = "deny"
+upper_case_acronyms  = "deny"
 
 # Hot
 # inline_always = "deny"
@@ -309,6 +310,7 @@ let_underscore_drop = "deny"
 unreachable_pub = "deny"
 unused_qualifications = "deny"
 variant_size_differences = "deny"
+non_camel_case_types = "deny"
 
 # Hot
 # unused_results = "deny"
