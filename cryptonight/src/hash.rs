@@ -1,5 +1,5 @@
 use crate::hash_v4::variant4_random_math;
-use crate::{cnaes, hash_v2 as v2, hash_v4 as v4, subarray, subarray_copy, subarray_mut};
+use crate::{blake256, cnaes, hash_v2 as v2, hash_v4 as v4, subarray, subarray_copy, subarray_mut};
 use cnaes::AES_BLOCK_SIZE;
 use cnaes::CN_AES_KEY_SIZE;
 use digest::Digest;
@@ -89,15 +89,18 @@ fn e2i(a: &[u8; 8], count: usize) -> usize {
     (value / AES_BLOCK_SIZE) & (count - 1)
 }
 
-fn mul(a: &[u8; 8], b: &[u8; 8], res: &mut [u8; 16]) {
+fn mul(a: &[u8; 8], b: &[u8; 8]) -> [u8; AES_BLOCK_SIZE] {
     let a0 = u64::from_le_bytes(*a) as u128;
     let b0 = u64::from_le_bytes(*b) as u128;
     let product = a0.wrapping_mul(b0);
     let hi = (product >> 64) as u64;
     let lo = product as u64;
+
     // Note: this is a mix of little and big endian below, as high is stored first
+    let mut res = [0u8; AES_BLOCK_SIZE];
     res[0..8].copy_from_slice(&hi.to_le_bytes());
     res[8..16].copy_from_slice(&lo.to_le_bytes());
+    res
 }
 
 fn sum_half_blocks(a: &mut [u8; 16], b: &[u8; 16]) {
@@ -162,13 +165,12 @@ fn hash_permutation(b: &mut [u8; KECCAK1600_BYTE_SIZE]) {
     }
 }
 
-fn extra_hashes(input: &[u8; KECCAK1600_BYTE_SIZE], output: &mut [u8; 32]) {
-    // Note: the Rust Crypto library only has Blake2, not Blake
+fn extra_hashes(input: &[u8; KECCAK1600_BYTE_SIZE]) -> [u8; 32] {
     match input[0] & 0x3 {
-        0 => blake::hash(256, input, output).unwrap(),
-        1 => output.copy_from_slice(Groestl256::digest(input).as_slice()),
-        2 => output.copy_from_slice(Jh256::digest(input).as_slice()),
-        3 => output.copy_from_slice(Skein512::<U32>::digest(input).as_slice()),
+        0 => blake256::digest(input),
+        1 => Groestl256::digest(input).into(),
+        2 => Jh256::digest(input).into(),
+        3 => Skein512::<U32>::digest(input).into(),
         _ => unreachable!(),
     }
 }
@@ -286,8 +288,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
             &b,
             &code,
         );
-        let mut d = [0u8; AES_BLOCK_SIZE]; // TODO: have mul return d
-        mul(subarray!(c1, 0, 8), subarray!(c2, 0, 8), &mut d);
+        let mut d = mul(subarray!(c1, 0, 8), subarray!(c2, 0, 8));
 
         // VARIANT2_2_PORTABLE
         // TODO: move some of this code to hash_v2???
@@ -337,9 +338,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
 
     hash_permutation(state.get_keccak_bytes_mut());
 
-    let mut hash = [0u8; 32];
-    extra_hashes(state.get_keccak_bytes(), &mut hash);
-    hash
+    extra_hashes(state.get_keccak_bytes())
 }
 
 #[cfg(test)]
@@ -354,7 +353,7 @@ mod tests {
             "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374"
         );
         let mut output = [0u8; KECCAK1600_BYTE_SIZE];
-        super::keccak1600(&input, &mut output);
+        keccak1600(&input, &mut output);
         let output_hex = "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f266110665e23e891ea4ee2337fb304b35bf8d9c2e4c3524e52e62db67b0b170487a68a34f8026a81b35dc835c60b356d2c411ad227b6c67e30e9b57ba34b3cf27fccecae972850cf3889bb3ff8347b55a5710d58086973d12d75a3340a39430b65ee2f4be27c21e7b39f47341dd036fe13bf43bb2c55bce498a3adcbf07397ea66062b66d56cd8136";
         assert_eq!(hex::encode(output), output_hex);
     }
@@ -364,8 +363,7 @@ mod tests {
         let test = |a_hex: &str, b_hex: &str, expected_hex: &str| {
             let a: [u8; 8] = hex_to_array(a_hex);
             let b: [u8; 8] = hex_to_array(b_hex);
-            let mut res = [0u8; 16];
-            super::mul(&a, &b, &mut res);
+            let res = mul(&a, &b);
             assert_eq!(hex::encode(res), expected_hex);
         };
         test(
@@ -426,8 +424,6 @@ mod tests {
             input[i] = i as u8;
         }
 
-        let mut output = [0u8; 32];
-
         const EXPECTED_BLAKE: &str =
             "c4d944c2b1c00a8ee627726b35d4cd7fe018de090bc637553cc782e25f974cba";
         const EXPECTED_GROESTL: &str =
@@ -446,7 +442,7 @@ mod tests {
 
         for (i, expected) in EXPECTED.iter().enumerate() {
             input[0] = i as u8;
-            extra_hashes(&input, &mut output);
+            let output = extra_hashes(&input);
             assert_eq!(hex::encode(&output), *expected, "hash {}", i);
         }
     }

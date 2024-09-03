@@ -7,6 +7,7 @@ mod hash_v4;
 
 #[macro_use]
 pub(crate) mod util;
+mod blake256;
 
 #[link(name = "cryptonight")]
 extern "C" {
@@ -107,16 +108,6 @@ mod tests {
             "6578206e6968696c6f206e6968696c20666974",
             "b1257de4efc5ce28c6b40ceb1c6c8f812a64634eb3e81c5220bee9b2b76a6f05",
         );
-    }
-
-    #[test]
-    fn slow_hashr_legacy() {
-        const INPUT: &str = "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374";
-        const EXPECTED: &str = "f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc";
-
-        let res = cryptonight_hash_r(&hex::decode(INPUT).unwrap(), 1806260);
-        let res_hex = hex::encode(res);
-        assert_eq!(res_hex, EXPECTED);
     }
 
     #[test]

@@ -54,8 +54,14 @@ const uint32_t cst[16] = {
 };
 
 static const uint8_t padding[] = {
-    0x80,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    0x80,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0
 };
 
 
@@ -194,7 +200,7 @@ void blake256_final(state *S, uint8_t *digest) {
 
 // inlen = number of bytes
 void blake256_hash(uint8_t *out, const uint8_t *in, uint64_t inlen) {
-    state S;
+    state S = {0};
     blake256_init(&S);
     blake256_update(&S, in, inlen * 8);
     blake256_final(&S, out);

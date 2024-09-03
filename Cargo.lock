@@ -236,16 +236,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blake"
-version = "2.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee55e9ca33be1f257d8356cfb29b10b1c8f86dc38cf1344ca01525464356cd0c"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "blake2"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -639,7 +629,6 @@ dependencies = [
 name = "cuprate-cryptonight"
 version = "0.1.0"
 dependencies = [
- "blake",
  "byteorder",
  "cc",
  "digest 0.10.7",

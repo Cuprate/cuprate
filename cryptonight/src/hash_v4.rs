@@ -1,4 +1,4 @@
-use crate::subarray_copy;
+use crate::{blake256, subarray_copy};
 use static_assertions::const_assert_eq;
 use std::cmp::max;
 use InstructionList::*;
@@ -49,16 +49,9 @@ pub struct Instruction {
 }
 
 // If we don't have enough data available, generate more
-fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [i8]) {
+fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [u8]) {
     if *data_index + bytes_needed > data.len() {
-        // SAFETY: data is a valid slice of i8, which is cast to a slice of u8 to be compatible
-        // with the blake hash input. While it requires access to the raw pointer, it is
-        // safe and preferable to copying to a new slice of u8.
-        let data: &mut [u8] =
-            unsafe { std::slice::from_raw_parts_mut(data.as_mut_ptr() as *mut u8, data.len()) };
-        let mut output = [0u8; 32];
-
-        blake::hash(256, data, &mut output).expect("blake hash failed");
+        let output = blake256::digest(data);
         data.copy_from_slice(&output);
         *data_index = 0;
     }
@@ -92,12 +85,10 @@ pub(crate) fn random_math_init(
         ALU_COUNT,
     ];
 
-    let mut data = [0i8; 32];
-    for (i, b) in height.to_le_bytes().iter().enumerate() {
-        data[i] = *b as i8;
-    }
+    let mut data = [0u8; 32];
+    data[0..8].copy_from_slice(&height.to_le_bytes());
 
-    data[20] = -38; // change seed
+    data[20] = -38i8 as u8; // change seed
 
     // Set data_index past the last byte in data
     // to trigger full data update with blake hash
@@ -151,7 +142,7 @@ pub(crate) fn random_math_init(
 
             check_data(&mut data_index, 1, &mut data);
 
-            let c = data[data_index] as u8;
+            let c = data[data_index];
             data_index += 1;
 
             // MUL = opcodes 0-2
@@ -163,7 +154,11 @@ pub(crate) fn random_math_init(
             let opcode: InstructionList;
             if opcode_bits == 5 {
                 check_data(&mut data_index, 1, &mut data);
-                opcode = if data[data_index] >= 0 { Ror } else { Rol };
+                opcode = if data[data_index] as i8 >= 0 {
+                    Ror
+                } else {
+                    Rol
+                };
                 data_index += 1;
             } else if opcode_bits >= 6 {
                 opcode = Xor;
@@ -275,13 +270,8 @@ pub(crate) fn random_math_init(
                         true;
 
                     check_data(&mut data_index, std::mem::size_of::<u32>(), &mut data);
-                    code[code_size].c = u32::from_le_bytes([
-                        data[data_index] as u8,
-                        data[data_index + 1] as u8,
-                        data[data_index + 2] as u8,
-                        data[data_index + 3] as u8,
-                    ]);
-                    data_index += std::mem::size_of::<u32>();
+                    code[code_size].c = u32::from_le_bytes(subarray_copy!(data, data_index, 4));
+                    data_index += 4;
                 }
                 code_size += 1;
                 if code_size >= NUM_INSTRUCTIONS_MIN {
