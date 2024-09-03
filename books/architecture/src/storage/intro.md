@@ -1,1 +1,34 @@
-# ⚪️ Storage
+# Storage
+This section covers all things related to the long-term on-disk storage of data within Cuprate.
+
+## Overview
+The quick overview is that Cuprate has a [database abstraction crate](./database-abstraction.md)
+that handles "low-level" database details such as key and value (de)serialization, tables, transactions, etc.
+
+This database abstraction crate is then used by all crates that need on-disk storage, i.e. the
+- [Blockchain database](./blockchain.md)
+- [Transaction pool database](./transaction-pool.md)
+
+## Service
+The interface provided by all crates building on-top of the
+database abstraction is a [`tower::Service`](https://docs.rs/tower), i.e.
+database requests are sent, and database responses are received asynchronously.
+
+As the interface details are similar across databases (threadpool, read operations, write operations),
+the interface itself is abstracted in the [`cuprate_database_service`](./db/layers/intro.md) crate,
+which is then used by the crates.
+
+## Diagram
+This is a roughly how database crates are set up.
+
+```text
+                                                           ┌─────────────────┐
+┌──────────────────────────────────┐                       │                 │
+│ Some crate that needs a database │  ┌────────────────┐   │                 │
+│                                  │  │     Public     │   │                 │
+│ ┌──────────────────────────────┐ │─►│ tower::Service │◄─►│ Rest of Cuprate │
+│ │     Database abstraction     │ │  │      API       │   │                 │
+│ └──────────────────────────────┘ │  └────────────────┘   │                 │
+└──────────────────────────────────┘                       │                 │
+                                                           └─────────────────┘
+```
