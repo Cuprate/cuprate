@@ -15,12 +15,12 @@ use crate::RpcService;
 /// This trait represents a type that can turn `Request`s into `Response`s.
 ///
 /// Implementors of this trait must be:
-/// - A [`tower::Service`]s that use [`JsonRpcRequest`] & [`JsonRpcResponse`]
-/// - A [`tower::Service`]s that use [`BinRequest`] & [`BinResponse`]
-/// - A [`tower::Service`]s that use [`OtherRequest`] & [`OtherResponse`]
+/// - A [`tower::Service`] that uses [`JsonRpcRequest`] & [`JsonRpcResponse`]
+/// - A [`tower::Service`] that uses [`BinRequest`] & [`BinResponse`]
+/// - A [`tower::Service`] that uses [`OtherRequest`] & [`OtherResponse`]
 ///
 /// In other words, an [`RpcHandler`] is a type that implements [`tower::Service`] 3 times,
-/// one for each endpoint enum type found in [`cuprate_rpc_types`].
+/// one for each request/response enum type found in [`cuprate_rpc_types`].
 ///
 /// The error type must always be [`RpcError`](crate::RpcError).
 ///
@@ -30,7 +30,7 @@ use crate::RpcService;
 /// Your [`RpcHandler`] must reply to `Request`s with the correct
 /// `Response` or else this crate will panic during routing functions.
 ///
-/// For example, upon a [`JsonRpcRequest::GetBlockCount`] must be replied with
+/// For example, a [`JsonRpcRequest::GetBlockCount`] must be replied with
 /// [`JsonRpcResponse::GetBlockCount`]. If anything else is returned,
 /// this crate may panic.
 pub trait RpcHandler:

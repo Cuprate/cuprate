@@ -19,6 +19,9 @@ use crate::rpc_error::RpcError;
 ///
 /// The error type is always [`RpcError`].
 ///
+/// There is a blanket implementation that implements this
+/// trait on types that implement `tower::Service` correctly.
+///
 /// See [`RpcHandler`](crate::RpcHandler) for more information.
 pub trait RpcService<Request, Response>:
     Clone
