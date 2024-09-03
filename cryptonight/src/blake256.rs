@@ -8,7 +8,21 @@
 /// Note: The Rust Crypto project only provides the newer BLAKE2 variants. There is
 /// a blake crate, but it is using C wrappers.
 ///
-pub struct State {
+
+pub trait Digest {
+    fn new() -> Self;
+
+    /// Process data, updating the internal state.
+    fn update(&mut self, data: impl AsRef<[u8]>);
+
+    /// Retrieve result and consume hasher instance.
+    fn finalize(self) -> [u8; 32];
+
+    /// Compute hash of `data`.
+    fn digest(data: impl AsRef<[u8]>) -> [u8; 32];
+}
+
+pub struct Blake256 {
     h: [u32; 8],
     s: [u32; 4],
     t: [u32; 2],
@@ -50,8 +64,8 @@ const PADDING: [u8; 64] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-impl Default for State {
-    fn default() -> Self {
+impl Digest for Blake256 {
+    fn new() -> Self {
         Self {
             #[rustfmt::skip]
             h: [
@@ -65,9 +79,94 @@ impl Default for State {
             buf: [0; 64],
         }
     }
+    fn update(&mut self, data: impl AsRef<[u8]>) {
+        let data = data.as_ref();
+        let mut datalenbits = data.len() * 8;
+        let mut data = data;
+        let mut left = self.buflen >> 3;
+        let fill = 64 - left;
+
+        if left != 0 && (datalenbits >> 3) >= fill {
+            self.buf[left..(left + fill)].copy_from_slice(&data[..fill]);
+            self.t[0] = self.t[0].wrapping_add(512);
+            if self.t[0] == 0 {
+                self.t[1] = self.t[1].wrapping_add(1);
+            }
+            self.compress(&self.buf.clone());
+            data = &data[fill..];
+            datalenbits -= fill << 3;
+            left = 0;
+        }
+
+        while datalenbits >= 512 {
+            self.t[0] = self.t[0].wrapping_add(512);
+            if self.t[0] == 0 {
+                self.t[1] = self.t[1].wrapping_add(1);
+            }
+            self.compress(subarray!(data, 0, 64));
+            data = &data[64..];
+            datalenbits -= 512;
+        }
+
+        if datalenbits > 0 {
+            self.buf[left..left + (datalenbits >> 3)].copy_from_slice(&data[..(datalenbits >> 3)]);
+            self.buflen = (left << 3) + datalenbits;
+        } else {
+            self.buflen = 0;
+        }
+    }
+
+    fn finalize(mut self) -> [u8; 32] {
+        const PA: &[u8; 1] = &[0x81];
+        const PB: &[u8; 1] = &[0x01];
+
+        let mut msglen = [0u8; 8];
+        let lo = self.t[0].wrapping_add(self.buflen as u32);
+        let mut hi = self.t[1];
+        if lo < self.buflen as u32 {
+            hi = hi.wrapping_add(1);
+        }
+        msglen[0..4].copy_from_slice(&hi.to_be_bytes());
+        msglen[4..8].copy_from_slice(&lo.to_be_bytes());
+
+        if self.buflen == 440 {
+            self.t[0] = self.t[0].wrapping_sub(8);
+            self.update(PA);
+        } else {
+            if self.buflen < 440 {
+                if self.buflen == 0 {
+                    self.nullt = true;
+                }
+                self.t[0] = self.t[0].wrapping_sub(440u32.wrapping_sub(self.buflen as u32));
+                self.update(&PADDING[..(440 - self.buflen) / 8]);
+            } else {
+                self.t[0] = self.t[0].wrapping_sub(512u32.wrapping_sub(self.buflen as u32));
+                self.update(&PADDING[..(512 - self.buflen) / 8]);
+                self.t[0] = self.t[0].wrapping_sub(440);
+                self.update(&PADDING[1..(440 / 8) + 1]);
+                self.nullt = true;
+            }
+            self.update(PB);
+            self.t[0] = self.t[0].wrapping_sub(8);
+        }
+        self.t[0] = self.t[0].wrapping_sub(64);
+        self.update(msglen);
+
+        let mut digest = [0u8; 32];
+        for (i, chunk) in digest.chunks_mut(4).enumerate() {
+            chunk.copy_from_slice(&self.h[i].to_be_bytes());
+        }
+        digest
+    }
+
+    fn digest(data: impl AsRef<[u8]>) -> [u8; 32] {
+        let mut state = Self::new();
+        state.update(data.as_ref());
+        state.finalize()
+    }
 }
 
-impl State {
+impl Blake256 {
     fn compress(&mut self, block: &[u8; 64]) {
         let mut v = [0u32; 16];
         let mut m = [0u32; 16];
@@ -129,91 +228,6 @@ impl State {
             self.h[i] ^= self.s[i % 4];
         }
     }
-
-    pub fn update(&mut self, data: &[u8]) {
-        let mut datalenbits = data.len() * 8;
-        let mut data = data;
-        let mut left = self.buflen >> 3;
-        let fill = 64 - left;
-
-        if left != 0 && (datalenbits >> 3) >= fill {
-            self.buf[left..(left + fill)].copy_from_slice(&data[..fill]);
-            self.t[0] = self.t[0].wrapping_add(512);
-            if self.t[0] == 0 {
-                self.t[1] = self.t[1].wrapping_add(1);
-            }
-            self.compress(&self.buf.clone());
-            data = &data[fill..];
-            datalenbits -= fill << 3;
-            left = 0;
-        }
-
-        while datalenbits >= 512 {
-            self.t[0] = self.t[0].wrapping_add(512);
-            if self.t[0] == 0 {
-                self.t[1] = self.t[1].wrapping_add(1);
-            }
-            self.compress(subarray!(data, 0, 64));
-            data = &data[64..];
-            datalenbits -= 512;
-        }
-
-        if datalenbits > 0 {
-            self.buf[left..left + (datalenbits >> 3)].copy_from_slice(&data[..(datalenbits >> 3)]);
-            self.buflen = (left << 3) + datalenbits;
-        } else {
-            self.buflen = 0;
-        }
-    }
-
-    pub fn finalize(&mut self, digest: &mut [u8]) {
-        const PA: &[u8; 1] = &[0x81];
-        const PB: &[u8; 1] = &[0x01];
-
-        let mut msglen = [0u8; 8];
-        let lo = self.t[0].wrapping_add(self.buflen as u32);
-        let mut hi = self.t[1];
-        if lo < self.buflen as u32 {
-            hi = hi.wrapping_add(1);
-        }
-        msglen[0..4].copy_from_slice(&hi.to_be_bytes());
-        msglen[4..8].copy_from_slice(&lo.to_be_bytes());
-
-        if self.buflen == 440 {
-            self.t[0] = self.t[0].wrapping_sub(8);
-            self.update(PA);
-        } else {
-            if self.buflen < 440 {
-                if self.buflen == 0 {
-                    self.nullt = true;
-                }
-                self.t[0] = self.t[0].wrapping_sub(440u32.wrapping_sub(self.buflen as u32));
-                self.update(&PADDING[..(440 - self.buflen) / 8]);
-            } else {
-                self.t[0] = self.t[0].wrapping_sub(512u32.wrapping_sub(self.buflen as u32));
-                self.update(&PADDING[..(512 - self.buflen) / 8]);
-                self.t[0] = self.t[0].wrapping_sub(440);
-                self.update(&PADDING[1..(440 / 8) + 1]);
-                self.nullt = true;
-            }
-            self.update(PB);
-            self.t[0] = self.t[0].wrapping_sub(8);
-        }
-        self.t[0] = self.t[0].wrapping_sub(64);
-        self.update(&msglen);
-
-        for (i, chunk) in digest.chunks_mut(4).enumerate() {
-            chunk.copy_from_slice(&self.h[i].to_be_bytes());
-        }
-    }
-}
-
-pub(crate) fn digest(data: &[u8]) -> [u8; 32] {
-    let mut state = State::default();
-    state.update(data);
-    let mut digest = [0u8; 32];
-    state.finalize(&mut digest);
-    digest
 }
 
 #[cfg(test)]
@@ -559,7 +573,7 @@ mod tests {
     fn test_digest() {
         for t in TESTS.iter() {
             let input = hex::decode(t.input).unwrap();
-            let digest = digest(&input);
+            let digest = Blake256::digest(&input);
             let digest_hex = hex::encode(digest);
             assert_eq!(digest_hex, t.expected_digest);
         }

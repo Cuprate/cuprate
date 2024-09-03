@@ -1,13 +1,15 @@
 use crate::hash_v4::variant4_random_math;
-use crate::{blake256, cnaes, hash_v2 as v2, hash_v4 as v4, subarray, subarray_copy, subarray_mut};
+use crate::{
+    blake256::Blake256, blake256::Digest as _, cnaes, hash_v2 as v2, hash_v4 as v4, subarray,
+    subarray_copy, subarray_mut,
+};
 use cnaes::AES_BLOCK_SIZE;
 use cnaes::CN_AES_KEY_SIZE;
-use digest::Digest;
+use digest::Digest as _;
 use groestl::Groestl256;
 use jh::Jh256;
 use sha3::Digest as _;
-use skein::consts::U32;
-use skein::Skein512;
+use skein::{consts::U32, Skein512};
 use std::cmp::PartialEq;
 use std::io::Write;
 
@@ -167,7 +169,7 @@ fn hash_permutation(b: &mut [u8; KECCAK1600_BYTE_SIZE]) {
 
 fn extra_hashes(input: &[u8; KECCAK1600_BYTE_SIZE]) -> [u8; 32] {
     match input[0] & 0x3 {
-        0 => blake256::digest(input),
+        0 => Blake256::digest(input),
         1 => Groestl256::digest(input).into(),
         2 => Jh256::digest(input).into(),
         3 => Skein512::<U32>::digest(input).into(),
@@ -393,7 +395,7 @@ mod tests {
         let input: [u8; 32] =
             hex_to_array("f759588ad57e758467295443a9bd71490abff8e9dad1b95b6bf2f5d0d78387bc");
         let mut output = [0u8; 32];
-        output.copy_from_slice(Groestl256::digest(&input).as_slice());
+        output.copy_from_slice(Groestl256::digest(input).as_slice());
         let expected_hex = "3085f5b0f7126a1d10e6da550ee44c51f0fcad91a80e78268ca5669f0bff0a4e";
         assert_eq!(hex::encode(output), expected_hex);
     }
@@ -420,8 +422,8 @@ mod tests {
     #[test]
     fn test_extra_hashes() {
         let mut input = [0u8; KECCAK1600_BYTE_SIZE];
-        for i in 0..input.len() {
-            input[i] = i as u8;
+        for (i, val) in input.iter_mut().enumerate() {
+            *val = i as u8;
         }
 
         const EXPECTED_BLAKE: &str =
@@ -443,7 +445,7 @@ mod tests {
         for (i, expected) in EXPECTED.iter().enumerate() {
             input[0] = i as u8;
             let output = extra_hashes(&input);
-            assert_eq!(hex::encode(&output), *expected, "hash {}", i);
+            assert_eq!(hex::encode(output), *expected, "hash {}", i);
         }
     }
 }

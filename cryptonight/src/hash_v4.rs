@@ -1,4 +1,5 @@
-use crate::{blake256, subarray_copy};
+use crate::blake256::{Blake256, Digest};
+use crate::subarray_copy;
 use static_assertions::const_assert_eq;
 use std::cmp::max;
 use InstructionList::*;
@@ -51,7 +52,7 @@ pub struct Instruction {
 // If we don't have enough data available, generate more
 fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [u8]) {
     if *data_index + bytes_needed > data.len() {
-        let output = blake256::digest(data);
+        let output = Blake256::digest(&data);
         data.copy_from_slice(&output);
         *data_index = 0;
     }

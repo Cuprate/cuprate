@@ -25,5 +25,5 @@ fn main() {
     // Optimization flags are automatically added.
     // https://docs.rs/cc/latest/cc/struct.Build.html#method.opt_level
 
-    cfg.compile("cryptonight")
+    cfg.compile("cryptonight");
 }
