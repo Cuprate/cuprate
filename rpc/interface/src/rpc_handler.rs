@@ -1,43 +1,42 @@
 //! RPC handler trait.
 
 //---------------------------------------------------------------------------------------------------- Use
-use std::future::Future;
+use cuprate_rpc_types::{
+    bin::{BinRequest, BinResponse},
+    json::{JsonRpcRequest, JsonRpcResponse},
+    other::{OtherRequest, OtherResponse},
+};
 
-use tower::Service;
-
-use crate::{rpc_error::RpcError, rpc_request::RpcRequest, rpc_response::RpcResponse};
+use crate::RpcService;
 
 //---------------------------------------------------------------------------------------------------- RpcHandler
 /// An RPC handler.
 ///
-/// This trait represents a type that can turn [`RpcRequest`]s into [`RpcResponse`]s.
+/// This trait represents a type that can turn `Request`s into `Response`s.
 ///
-/// Implementors of this trait must be [`tower::Service`]s that use:
-/// - [`RpcRequest`] as the generic `Request` type
-/// - [`RpcResponse`] as the associated `Response` type
-/// - [`RpcError`] as the associated `Error` type
-/// - A generic [`Future`] that outputs `Result<RpcResponse, RpcError>`
+/// Implementors of this trait must be:
+/// - A [`tower::Service`]s that use [`JsonRpcRequest`] & [`JsonRpcResponse`]
+/// - A [`tower::Service`]s that use [`BinRequest`] & [`BinResponse`]
+/// - A [`tower::Service`]s that use [`OtherRequest`] & [`OtherResponse`]
+///
+/// In other words, an [`RpcHandler`] is a type that implements [`tower::Service`] 3 times,
+/// one for each endpoint enum type found in [`cuprate_rpc_types`].
+///
+/// The error type must always be [`RpcError`](crate::RpcError).
 ///
 /// See this crate's `RpcHandlerDummy` for an implementation example of this trait.
 ///
 /// # Panics
-/// Your [`RpcHandler`] must reply to [`RpcRequest`]s with the correct
-/// [`RpcResponse`] or else this crate will panic during routing functions.
+/// Your [`RpcHandler`] must reply to `Request`s with the correct
+/// `Response` or else this crate will panic during routing functions.
 ///
-/// For example, upon a [`RpcRequest::Binary`] must be replied with
-/// [`RpcRequest::Binary`]. If an [`RpcRequest::Other`] were returned instead,
-/// this crate would panic.
+/// For example, upon a [`JsonRpcRequest::GetBlockCount`] must be replied with
+/// [`JsonRpcResponse::GetBlockCount`]. If anything else is returned,
+/// this crate may panic.
 pub trait RpcHandler:
-    Clone
-    + Send
-    + Sync
-    + 'static
-    + Service<
-        RpcRequest,
-        Response = RpcResponse,
-        Error = RpcError,
-        Future: Future<Output = Result<RpcResponse, RpcError>> + Send + Sync + 'static,
-    >
+    RpcService<JsonRpcRequest, JsonRpcResponse>
+    + RpcService<BinRequest, BinResponse>
+    + RpcService<OtherRequest, OtherResponse>
 {
     /// Is this [`RpcHandler`] restricted?
     ///
