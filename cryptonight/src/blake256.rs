@@ -1,3 +1,13 @@
+/// This module implements the original BLAKE-256 algorithm.
+///
+/// The code below is a port of these C files. The BLAKE-244 and HMAC
+/// methods where omitted as Monero does not use them.
+/// * https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.h
+/// * https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.c
+///
+/// Note: The Rust Crypto project only provides the newer BLAKE2 variants. There is
+/// a blake crate, but it is using C wrappers.
+///
 pub struct State {
     h: [u32; 8],
     s: [u32; 4],
