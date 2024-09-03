@@ -85,7 +85,7 @@ use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse, GetBlockCountResponse},
     other::{OtherRequest, OtherResponse},
 };
-use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy, Request};
+use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy};
 
 // Send a `/get_height` request. This endpoint has no inputs.
 async fn get_height(port: u16) -> OtherResponse {
