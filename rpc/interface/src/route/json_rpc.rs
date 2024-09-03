@@ -15,7 +15,7 @@ use cuprate_rpc_types::{
     RpcCallValue,
 };
 
-use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
+use crate::rpc_handler::RpcHandler;
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// The `/json_rpc` route function used in [`crate::RouterBuilder`].

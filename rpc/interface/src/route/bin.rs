@@ -7,7 +7,7 @@ use tower::ServiceExt;
 use cuprate_epee_encoding::from_bytes;
 use cuprate_rpc_types::bin::{BinRequest, BinResponse, GetTransactionPoolHashesRequest};
 
-use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
+use crate::rpc_handler::RpcHandler;
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// This macro generates route functions that expect input.

@@ -1,4 +1,4 @@
-use cuprate_rpc_interface::{RpcError, RpcResponse};
+use cuprate_rpc_interface::RpcError;
 use cuprate_rpc_types::{
     bin::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse,

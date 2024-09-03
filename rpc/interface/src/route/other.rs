@@ -25,7 +25,7 @@ use cuprate_rpc_types::{
     RpcCall,
 };
 
-use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
+use crate::rpc_handler::RpcHandler;
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// This macro generates route functions that expect input.

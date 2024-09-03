@@ -15,7 +15,7 @@ use tower::Service;
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_json_rpc::Id;
-use cuprate_rpc_interface::{RpcError, RpcHandler, RpcRequest, RpcResponse};
+use cuprate_rpc_interface::{RpcError, RpcHandler};
 use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::rpc::{bin, json, other};

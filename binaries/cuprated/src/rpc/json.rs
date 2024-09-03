@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cuprate_rpc_interface::{RpcError, RpcResponse};
+use cuprate_rpc_interface::RpcError;
 use cuprate_rpc_types::json::{
     AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
     CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTransactionPoolRequest,

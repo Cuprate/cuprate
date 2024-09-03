@@ -15,10 +15,7 @@ use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 
-use crate::{
-    rpc_error::RpcError, rpc_handler::RpcHandler, rpc_request::RpcRequest,
-    rpc_response::RpcResponse,
-};
+use crate::{rpc_error::RpcError, rpc_handler::RpcHandler};
 
 //---------------------------------------------------------------------------------------------------- RpcHandlerDummy
 /// An [`RpcHandler`] that always returns [`Default::default`].
