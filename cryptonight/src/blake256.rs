@@ -84,30 +84,33 @@ impl State {
             v[15] ^= self.t[1];
         }
 
-        macro_rules! G {
-            ($i:expr, $a:expr, $b:expr, $c:expr, $d:expr, $e:expr) => {
-                v[$a] = v[$a].wrapping_add(m[SIGMA[$i][$e] as usize] ^ CST[SIGMA[$i][$e + 1] as usize]).wrapping_add(v[$b]);
-                v[$d] = (v[$d] ^ v[$a]).rotate_right(16);
-                v[$c] = v[$c].wrapping_add(v[$d]);
-                v[$b] = (v[$b] ^ v[$c]).rotate_right(12);
-                v[$a] = v[$a].wrapping_add(m[SIGMA[$i][$e + 1] as usize] ^ CST[SIGMA[$i][$e] as usize]).wrapping_add(v[$b]);
-                v[$d] = (v[$d] ^ v[$a]).rotate_right(8);
-                v[$c] = v[$c].wrapping_add(v[$d]);
-                v[$b] = (v[$b] ^ v[$c]).rotate_right(7);
-            };
-        }
+        let mut g = |i: usize, a: usize, b: usize, c: usize, d: usize, e: usize| {
+            v[a] = v[a]
+                .wrapping_add(m[SIGMA[i][e] as usize] ^ CST[SIGMA[i][e + 1] as usize])
+                .wrapping_add(v[b]);
+            v[d] = (v[d] ^ v[a]).rotate_right(16);
+            v[c] = v[c].wrapping_add(v[d]);
+            v[b] = (v[b] ^ v[c]).rotate_right(12);
+            v[a] = v[a]
+                .wrapping_add(m[SIGMA[i][e + 1] as usize] ^ CST[SIGMA[i][e] as usize])
+                .wrapping_add(v[b]);
+            v[d] = (v[d] ^ v[a]).rotate_right(8);
+            v[c] = v[c].wrapping_add(v[d]);
+            v[b] = (v[b] ^ v[c]).rotate_right(7);
+        };
 
         for i in 0..14 {
-            G!(i, 0, 4, 8, 12, 0);
-            G!(i, 1, 5, 9, 13, 2);
-            G!(i, 2, 6, 10, 14, 4);
-            G!(i, 3, 7, 11, 15, 6);
-            G!(i, 3, 4, 9, 14, 14);
-            G!(i, 2, 7, 8, 13, 12);
-            G!(i, 0, 5, 10, 15, 8);
-            G!(i, 1, 6, 11, 12, 10);
+            g(i, 0, 4, 8, 12, 0);
+            g(i, 1, 5, 9, 13, 2);
+            g(i, 2, 6, 10, 14, 4);
+            g(i, 3, 7, 11, 15, 6);
+            g(i, 3, 4, 9, 14, 14);
+            g(i, 2, 7, 8, 13, 12);
+            g(i, 0, 5, 10, 15, 8);
+            g(i, 1, 6, 11, 12, 10);
         }
 
+        #[allow(clippy::needless_range_loop)]
         for i in 0..16 {
             self.h[i % 8] ^= v[i];
         }
