@@ -3,6 +3,11 @@
 //---------------------------------------------------------------------------------------------------- Use
 use std::future::Future;
 
+use cuprate_rpc_types::{
+    bin::{BinRequest, BinResponse},
+    json::{JsonRpcRequest, JsonRpcResponse},
+    other::{OtherRequest, OtherResponse},
+};
 use tower::Service;
 
 use crate::{rpc_error::RpcError, rpc_request::RpcRequest, rpc_response::RpcResponse};
@@ -33,10 +38,22 @@ pub trait RpcHandler:
     + Sync
     + 'static
     + Service<
-        RpcRequest,
-        Response = RpcResponse,
+        JsonRpcRequest,
+        Response = JsonRpcResponse,
         Error = RpcError,
-        Future: Future<Output = Result<RpcResponse, RpcError>> + Send + Sync + 'static,
+        Future: Future<Output = Result<JsonRpcResponse, RpcError>> + Send + Sync + 'static,
+    >
+    + Service<
+        OtherRequest,
+        Response = OtherResponse,
+        Error = RpcError,
+        Future: Future<Output = Result<OtherResponse, RpcError>> + Send + Sync + 'static,
+    >
+    + Service<
+        BinRequest,
+        Response = BinResponse,
+        Error = RpcError,
+        Future: Future<Output = Result<BinResponse, RpcError>> + Send + Sync + 'static,
     >
 {
     /// Is this [`RpcHandler`] restricted?

@@ -81,13 +81,9 @@ macro_rules! generate_endpoints_inner {
                 }
 
                 // Send request.
-                let request = RpcRequest::Other(OtherRequest::$variant($request));
-                let channel = $handler.oneshot(request).await?;
+                let request = OtherRequest::$variant($request);
+                let response = $handler.oneshot(request).await?;
 
-                // Assert the response from the inner handler is correct.
-                let RpcResponse::Other(response) = channel else {
-                    panic!("RPC handler did not return a binary response");
-                };
                 let OtherResponse::$variant(response) = response else {
                     panic!("RPC handler returned incorrect response")
                 };
