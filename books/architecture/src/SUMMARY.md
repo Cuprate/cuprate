@@ -52,7 +52,7 @@
             - [🟢 Resizing](storage/common/service/resizing.md)
             - [🟢 Thread model](storage/common/service/thread-model.md)
             - [🟢 Shutdown](storage/common/service/shutdown.md)
-    - [⚪️ Blockchain](storage/blockchain/intro.md)
+    - [🟢 Blockchain](storage/blockchain/intro.md)
         - [🟢 Schema](storage/blockchain/schema/intro.md)
             - [🟢 Tables](storage/blockchain/schema/tables.md)
             - [🟢 Multimap tables](storage/blockchain/schema/multimap.md)
