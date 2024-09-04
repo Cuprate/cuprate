@@ -41,7 +41,7 @@
             - [🟢 Hot-swap](storage/db/issues/hot-swap.md)
             - [🟢 Unaligned bytes](storage/db/issues/unaligned.md)
             - [🟢 Endianness](storage/db/issues/endian.md)
-            - [🟢 Extra table data](storage/db/issues/extra.md)
+            - [🟢 Multimap](storage/db/issues/multimap.md)
     - [🟢 Common behavior](storage/common/intro.md)
         - [🟢 Types](storage/common/types.md)
         - [🟢 `ops`](storage/common/ops.md)
