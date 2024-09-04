@@ -49,7 +49,9 @@ pub struct Instruction {
     pub(crate) c: u32,
 }
 
-// If we don't have enough data available, generate more
+// If we don't have enough data available, generate more.
+// Original C code:
+// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L171-L178
 fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [u8]) {
     if *data_index + bytes_needed > data.len() {
         let output = Blake256::digest(&data);
@@ -58,19 +60,27 @@ fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [u8]) {
     }
 }
 
-// Generates as many random math operations as possible with given latency and ALU restrictions
-// "code" array must have space for NUM_INSTRUCTIONS_MAX+1 instructions
+// Generates as many random math operations as possible with given latency and
+// ALU restrictions "code" array must have space for NUM_INSTRUCTIONS_MAX+1
+// instructions.
+//
+// Original C code:
+// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439
+//
 pub(crate) fn random_math_init(
     code: &mut [Instruction; NUM_INSTRUCTIONS_MAX + 1],
     height: u64,
 ) -> usize {
-    // MUL is 3 cycles, 3-way addition and rotations are 2 cycles, SUB/XOR are 1 cycle
-    // These latencies match real-life instruction latencies for Intel CPUs starting from Sandy Bridge and up to Skylake/Coffee lake
+    // MUL is 3 cycles, 3-way addition and rotations are 2 cycles, SUB/XOR are 1
+    // cycle These latencies match real-life instruction latencies for Intel
+    // CPUs starting from Sandy Bridge and up to Skylake/Coffee lake
     //
-    // AMD Ryzen has the same latencies except 1-cycle ROR/ROL, so it'll be a bit faster than Intel Sandy Bridge and newer processors
-    // Surprisingly, Intel Nehalem also has 1-cycle ROR/ROL, so it'll also be faster than Intel Sandy Bridge and newer processors
-    // AMD Bulldozer has 4 cycles latency for MUL (slower than Intel) and 1 cycle for ROR/ROL (faster than Intel), so average performance will be the same
-    // Source: https://www.agner.org/optimize/instruction_tables.pdf
+    // AMD Ryzen has the same latencies except 1-cycle ROR/ROL, so it'll be a bit
+    // faster than Intel Sandy Bridge and newer processors Surprisingly, Intel
+    // Nehalem also has 1-cycle ROR/ROL, so it'll also be faster than Intel Sandy
+    // Bridge and newer processors AMD Bulldozer has 4 cycles latency for MUL
+    // (slower than Intel) and 1 cycle for ROR/ROL (faster than Intel), so average
+    // performance will be the same Source: https://www.agner.org/optimize/instruction_tables.pdf
     const OP_LATENCY: [usize; INSTRUCTION_COUNT] = [3, 2, 1, 2, 2, 1];
 
     // Instruction latencies for theoretical ASIC implementation
@@ -98,19 +108,21 @@ pub(crate) fn random_math_init(
 
     let mut code_size: usize;
 
-    // There is a small chance (1.8%) that register R8 won't be used in the generated program
-    // So we keep track of it and try again if it's not used
+    // There is a small chance (1.8%) that register R8 won't be used in the
+    // generated program, so we keep track of it and try again if it's not used
     loop {
         let mut latency = [0usize; 9];
         let mut asic_latency = [0usize; 9];
 
-        // Tracks previous instruction and value of the source operand for registers R0-R3 throughout code execution
+        // Tracks previous instruction and value of the source operand for
+        // registers R0-R3 throughout code execution:
         // byte 0: current value of the destination register
         // byte 1: instruction opcode
         // byte 2: current value of the source register
         //
-        // Registers R4-R8 are constant and are treated as having the same value because when we do
-        // the same operation twice with two constant source registers, it can be optimized into a single operation
+        // Registers R4-R8 are constant and are treated as having the same
+        // value, because when we do the same operation twice with two constant
+        // source registers, it can be optimized into a single operation.
         let mut inst_data: [usize; 9] =
             [0, 1, 2, 3, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF, 0xFFFFFF];
 
@@ -188,14 +200,17 @@ pub(crate) fn random_math_init(
                 src_index = 8;
             }
 
-            // Don't do rotation with the same destination twice because it's equal to a single rotation
+            // Don't do rotation with the same destination twice because it's equal to a
+            // single rotation
             if is_rotation[opcode as usize] && rotated[a] {
                 continue;
             }
 
-            // Don't do the same instruction (except MUL) with the same source value twice because all other cases can be optimized:
-            // 2xADD(a, b, C) = ADD(a, b*2, C1+C2), same for SUB and rotations
-            // 2xXOR(a, b) = NOP
+            // Don't do the same instruction (except MUL) with the same source value twice,
+            // because all other cases can be optimized:
+            //      2xADD(a, b, C) = ADD(a,b*2, C1+C2),
+            // Same for SUB and rotations:
+            //      2xXOR(a, b) = NOP
             if (opcode != Mul)
                 && ((inst_data[a] & 0xFFFF00)
                     == ((opcode as usize) << 8) + ((inst_data[b] & 255) << 16))
@@ -233,7 +248,8 @@ pub(crate) fn random_math_init(
                 next_latency += 1;
             }
 
-            // Don't generate instructions that leave some register unchanged for more than 7 cycles
+            // Don't generate instructions that leave some register unchanged for more than
+            // 7 cycles
             if next_latency > latency[a] + 7 {
                 continue;
             }
@@ -245,11 +261,13 @@ pub(crate) fn random_math_init(
                     rotate_count += 1;
                 }
 
-                // Mark ALU as busy only for the first cycle when it starts executing the instruction because ALUs are fully pipelined
+                // Mark ALU as busy only for the first cycle when it starts executing the
+                // instruction because ALUs are fully pipelined.
                 alu_busy[next_latency - OP_LATENCY[opcode as usize]][alu_index as usize] = true;
                 latency[a] = next_latency;
 
-                // ASIC is supposed to have enough ALUs to run as many independent instructions per cycle as possible, so latency calculation for ASIC is simple
+                // ASIC is supposed to have enough ALUs to run as many independent instructions
+                // per cycle as possible, so latency calculation for ASIC is straightforward.
                 asic_latency[a] =
                     max(asic_latency[a], asic_latency[b]) + ASIC_OP_LATENCY[opcode as usize];
 
@@ -283,9 +301,10 @@ pub(crate) fn random_math_init(
             }
         }
 
-        // ASIC has more execution resources and can extract as much parallelism from the code as possible
-        // We need to add a few more MUL and ROR instructions to achieve minimal required latency for ASIC
-        // Get this latency for at least 1 of the 4 registers
+        // ASIC has more execution resources and can extract as much parallelism
+        // from the code as possible. We need to add a few more MUL and ROR
+        // instructions to achieve minimal required latency for ASIC. Get this
+        // latency for at least 1 of the 4 registers.
         let prev_code_size = code_size;
         while code_size < NUM_INSTRUCTIONS_MAX
             && asic_latency.iter().take(4).all(|&lat| lat < TOTAL_LATENCY)
@@ -315,16 +334,17 @@ pub(crate) fn random_math_init(
             code_size += 1;
         }
 
-        // There is ~98.15% chance that loop condition is false, so this loop will execute only 1 iteration most of the time
-        // It never does more than 4 iterations for all block heights < 10,000,000
+        // There is ~98.15% chance that loop condition is false, so this loop will
+        // execute only 1 iteration most of the time. It never does more than 4
+        // iterations for all block heights < 10,000,000.
 
         if r8_used && (NUM_INSTRUCTIONS_MIN..=NUM_INSTRUCTIONS_MAX).contains(&code_size) {
             break;
         }
     }
 
-    // It's guaranteed that NUM_INSTRUCTIONS_MIN <= code_size <= NUM_INSTRUCTIONS_MAX here
-    // Add final instruction to stop the interpreter
+    // It's guaranteed that NUM_INSTRUCTIONS_MIN <= code_size <= NUM_INSTRUCTIONS_MAX
+    // here. Add final instruction to stop the interpreter.
     code[code_size].opcode = Ret;
     code[code_size].dst_index = 0;
     code[code_size].src_index = 0;
@@ -333,6 +353,8 @@ pub(crate) fn random_math_init(
     code_size
 }
 
+// Original C code:
+// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439
 fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
     const REG_BITS: u32 = 32;
 
@@ -384,6 +406,8 @@ fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
     v4_exec_10!(60); // instructions 60-69
 }
 
+// Original C code:
+// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L336-L370
 pub(crate) fn variant4_random_math(
     a1: &mut [u8; 16],
     c2: &mut [u8; 16],

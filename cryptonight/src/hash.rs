@@ -80,7 +80,8 @@ impl CnSlowHashState {
 /// the result in the 'left' slice.
 #[inline]
 fn xor64(left: &mut [u8; 8], right: &[u8; 8]) {
-    // the compiler is smart enough to unroll this loop and use a single xorq on x86_64
+    // the compiler is smart enough to unroll this loop and use a single xorq on
+    // x86_64
     for i in 0..8 {
         left[i] ^= right[i];
     }
@@ -177,6 +178,8 @@ fn extra_hashes(input: &[u8; KECCAK1600_BYTE_SIZE]) -> [u8; 32] {
     }
 }
 
+// Original C code:
+// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1776-L1873
 pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 32] {
     let mut b = [0u8; AES_BLOCK_SIZE * 2];
 

@@ -13,8 +13,8 @@ const NUM_AES_ROUND_KEYS: usize = 10;
 
 const EXPANDED_KEY_SIZE: usize = NUM_AES_ROUND_KEYS * ROUND_KEY_SIZE;
 
-// Cryptonight's hash uses the key size of AES256, but it only does 10 AES rounds
-// like AES128.
+// Cryptonight's hash uses the key size of AES256, but it only does 10 AES
+// rounds like AES128.
 pub(crate) const CN_AES_KEY_SIZE: usize = 32;
 
 #[rustfmt::skip]
@@ -321,8 +321,8 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
 
     expanded_key[0..CN_AES_KEY_SIZE].copy_from_slice(key_bytes);
 
-    /// See FIPS-197, especially figure 11 to better understand how the expansion
-    /// happens: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.197.pdf
+    /// See FIPS-197, especially figure 11 to better understand how the
+    /// expansion happens: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.197.pdf
     const ROUND_CONSTS: [u8; 11] = [
         0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36,
     ];
@@ -363,7 +363,7 @@ pub(crate) fn round_fwd(state: &mut [u8; AES_BLOCK_SIZE], key: &[u8; ROUND_KEY_S
             for j in 0..4 {
                 let w = INDEX_ROTATIONS[c * 4 + j] as usize;
                 let s = start_state[w * 4 + j] as usize;
-                r ^= CRYPTONIGHT_SBOX[j * 256 * 4 + s * 4 + i]; // max: 3*256*4 + 255*4 + 3 = 4095
+                r ^= CRYPTONIGHT_SBOX[j * 256 * 4 + s * 4 + i];
             }
             state[c * 4 + i] = r ^ key[c * 4 + i];
         }

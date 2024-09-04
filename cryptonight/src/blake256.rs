@@ -5,9 +5,8 @@
 /// * https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.h
 /// * https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.c
 ///
-/// Note: The Rust Crypto project only provides the newer BLAKE2 variants. There is
-/// a blake crate, but it is using C wrappers.
-///
+/// Note: The Rust Crypto project only provides the newer BLAKE2 variants. There
+/// is a blake crate, but it is using C wrappers.
 
 pub trait Digest {
     fn new() -> Self;
@@ -245,6 +244,9 @@ mod tests {
             input,
         }
     }
+
+    // Test vectors are from:
+    // https://github.com/monero-project/monero/blob/v0.18.3.4/tests/hash/tests-extra-blake.txt
     const TESTS: [Blake256Test; 321] = [
         tc("716f6e863f744b9ac22c97ec7b76ea5f5908bc5b2f67c61510bfc4751384ea7a", ""),
         tc("e104256a2bc501f459d03fac96b9014f593e22d30f4de525fa680c3aa189eb4f", "cc"),

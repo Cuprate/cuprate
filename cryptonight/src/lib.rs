@@ -15,7 +15,6 @@ extern "C" {
 }
 
 /// Calculates the CryptoNight v0 hash of buf.
-///
 pub fn cryptonight_hash_v0(buf: &[u8]) -> [u8; 32] {
     let mut hash_c = [0; 32];
 
@@ -35,7 +34,6 @@ pub struct DataCanNotBeHashed;
 /// Calculates the CryptoNight v1 hash of buf.
 ///
 /// This will return an error if buf is less than43 bytes.
-///
 pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
     if buf.len() < 43 {
         return Err(DataCanNotBeHashed);
@@ -52,7 +50,6 @@ pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
 }
 
 /// Calculates the CryptoNight v2 hash of buf.
-///
 pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
     let mut hash_c = [0; 32];
 
@@ -66,7 +63,6 @@ pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
 }
 
 /// Calculates the CryptoNight R hash of buf.
-///
 pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
     let mut hash_c = [0; 32];
 

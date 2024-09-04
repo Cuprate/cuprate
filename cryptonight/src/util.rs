@@ -53,7 +53,6 @@ macro_rules! subarray_copy {
 ///
 /// # Panics
 /// Panics if $start + $len > $array.len().
-///
 #[macro_export]
 macro_rules! subarray_mut {
     ($array:expr, $start:expr, $len:expr) => {{
