@@ -1,5 +1,4 @@
-use crate::hash::{Variant, MEMORY};
-// TODO: remove bidirectional dependencies
+use crate::slow_hash::{Variant, MEMORY};
 use crate::{cnaes, subarray, subarray_copy};
 use cnaes::AES_BLOCK_SIZE;
 

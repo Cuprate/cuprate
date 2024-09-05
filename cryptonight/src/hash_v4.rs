@@ -212,7 +212,7 @@ pub(crate) fn random_math_init(
             //      2xXOR(a, b) = NOP
             if (opcode != Mul)
                 && ((inst_data[a] & 0xFFFF00)
-                == ((opcode as usize) << 8) + ((inst_data[b] & 255) << 16))
+                    == ((opcode as usize) << 8) + ((inst_data[b] & 255) << 16))
             {
                 continue;
             }
