@@ -5,4 +5,4 @@ Along with the 2 handles, there are 2 types of requests:
 
 Quite obviously:
 - Read requests are for retrieving various data from the database
-- Write requests are for writing data to the databases
+- Write requests are for writing data to the database

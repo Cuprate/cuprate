@@ -28,7 +28,7 @@
 ---
 
 - [🟢 Storage](storage/intro.md)
-    - [🟢 Database abstraction](storage/db/database-abstraction.md)
+    - [🟢 Database abstraction](storage/db/intro.md)
         - [🟢 Abstraction](storage/db/abstraction/intro.md)
             - [🟢 Backend](storage/db/abstraction/backend.md)
             - [🟢 ConcreteEnv](storage/db/abstraction/concrete_env.md)
@@ -57,7 +57,7 @@
             - [🟢 Tables](storage/blockchain/schema/tables.md)
             - [🟢 Multimap tables](storage/blockchain/schema/multimap.md)
     - [⚪️ Transaction pool](storage/txpool/intro.md)
-    - [⚪️ Pruning](storage/pruning.md)
+    - [⚪️ Pruning](storage/pruning/intro.md)
 
 ---
 

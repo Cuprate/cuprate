@@ -4,7 +4,7 @@ After a backend is selected, the main database environment struct is "abstracted
 This is the main object used when handling the database directly.
 
 This struct contains all the data necessary to operate the database.
-The actual database backend `ConcreteEnv` will use internally depends on which backend feature is used.
+The actual database backend `ConcreteEnv` will use internally [depends on which backend feature is used](https://github.com/Cuprate/cuprate/blob/0941f68efcd7dfe66124ad0c1934277f47da9090/storage/database/src/backend/mod.rs#L3-L13).
 
 `ConcreteEnv` itself is not too important, what is important is that:
 1. It allows callers to not directly reference any particular backend environment

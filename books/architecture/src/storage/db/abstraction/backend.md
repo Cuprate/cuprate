@@ -8,7 +8,7 @@ This page is an enumeration of all the backends Cuprate has, has tried, and may 
 ## `heed`
 The default database used is [`heed`](https://github.com/meilisearch/heed) (LMDB). The upstream versions from [`crates.io`](https://crates.io/crates/heed) are used. `LMDB` should not need to be installed as `heed` has a build script that pulls it in automatically.
 
-`heed`'s filenames inside Cuprate's database folder (`~/.local/share/cuprate/database/`) are:
+`heed`'s filenames inside Cuprate's data folder are:
 
 | Filename   | Purpose |
 |------------|---------|
@@ -24,7 +24,7 @@ The 2nd database backend is the 100% Rust [`redb`](https://github.com/cberner/re
 
 The upstream versions from [`crates.io`](https://crates.io/crates/redb) are used.
 
-`redb`'s filenames inside Cuprate's database folder (`~/.local/share/cuprate/database/`) are:
+`redb`'s filenames inside Cuprate's data folder are:
 
 | Filename    | Purpose |
 |-------------|---------|
