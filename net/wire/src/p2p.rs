@@ -99,7 +99,7 @@ impl LevinCommandTrait for LevinCommand {
             LevinCommand::FluffyMissingTxsRequest => 1024 * 1024,  // 1 MB
             LevinCommand::GetTxPoolCompliment => 1024 * 1024 * 4,  // 4 MB
 
-            LevinCommand::Unknown(_) => usize::MAX.try_into().unwrap_or(u64::MAX),
+            LevinCommand::Unknown(_) => u64::MAX,
         }
     }
 

@@ -9,7 +9,7 @@ use cuprate_consensus_rules::{
 };
 
 use crate::{
-    context::rx_vms::{get_last_rx_seed_heights, RandomXVMCache},
+    context::rx_vms::{get_last_rx_seed_heights, RandomXVmCache},
     tests::mock_db::*,
 };
 
@@ -42,7 +42,7 @@ fn rx_heights_consistent() {
 async fn rx_vm_created_on_hf_12() {
     let db = DummyDatabaseBuilder::default().finish(Some(10));
 
-    let mut cache = RandomXVMCache::init_from_chain_height(10, &HardFork::V11, db)
+    let mut cache = RandomXVmCache::init_from_chain_height(10, &HardFork::V11, db)
         .await
         .unwrap();
 
@@ -67,7 +67,7 @@ proptest! {
         let rt = Builder::new_multi_thread().enable_all().build().unwrap();
 
         rt.block_on(async move {
-            let cache = RandomXVMCache::init_from_chain_height(10, &hf, db).await.unwrap();
+            let cache = RandomXVmCache::init_from_chain_height(10, &hf, db).await.unwrap();
             assert!(cache.seeds.len() == cache.vms.len() || hf < HardFork::V12);
         });
     }

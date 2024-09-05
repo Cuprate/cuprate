@@ -11,7 +11,7 @@ use crate::{ops::TxPoolWriteError, tables::SpentKeyImages, types::TransactionHas
 ///
 /// # Panics
 /// This function will panic if any of the [`Input`]s are not [`Input::ToKey`]
-pub fn add_tx_key_images(
+pub(super) fn add_tx_key_images(
     inputs: &[Input],
     tx_hash: &TransactionHash,
     kis_table: &mut impl DatabaseRw<SpentKeyImages>,
@@ -31,7 +31,7 @@ pub fn add_tx_key_images(
 ///
 /// # Panics
 /// This function will panic if any of the [`Input`]s are not [`Input::ToKey`]
-pub fn remove_tx_key_images(
+pub(super) fn remove_tx_key_images(
     inputs: &[Input],
     kis_table: &mut impl DatabaseRw<SpentKeyImages>,
 ) -> Result<(), RuntimeError> {

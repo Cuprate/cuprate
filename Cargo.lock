@@ -684,6 +684,7 @@ version = "0.5.0"
 dependencies = [
  "bytes",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
  "hex",
  "paste",
  "ref-cast",
@@ -751,6 +752,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.5.0",
  "bytes",
+ "cuprate-helper",
  "futures",
  "proptest",
  "rand 0.8.5",
@@ -834,6 +836,7 @@ dependencies = [
  "cuprate-helper",
  "cuprate-json-rpc",
  "cuprate-rpc-types",
+ "cuprate-test-utils",
  "futures",
  "paste",
  "serde",
@@ -849,12 +852,9 @@ version = "0.0.0"
 dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
- "cuprate-json-rpc",
  "cuprate-test-utils",
  "cuprate-types",
- "monero-serai",
  "paste",
- "pretty_assertions",
  "serde",
  "serde_json",
 ]
@@ -911,7 +911,6 @@ dependencies = [
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
- "borsh",
  "bytes",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
@@ -931,6 +930,7 @@ dependencies = [
  "bytes",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
  "cuprate-levin",
  "cuprate-types",
  "hex",
@@ -2523,9 +2523,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "976295e77ce332211c0d24d92c0e83e50f5c5f046d11082cea19f3df13a3562d"
+checksum = "fc0a2ce646f8655401bb81e7927b812614bd5d91dbc968696be50603510fcaf0"
 
 [[package]]
 name = "rustls-webpki"
@@ -3235,9 +3235,9 @@ checksum = "af190c94f2773fdb3729c55b007a722abb5384da03bc0986df4c289bf5567e96"
 
 [[package]]
 name = "webpki-roots"
-version = "0.26.3"
+version = "0.26.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd7c23921eeb1713a4e851530e9b9756e4fb0e89978582942612524cf09f01cd"
+checksum = "0bd24728e5af82c6c4ec1b66ac4844bdf8156257fccda846ec58b42cd0cdbe6a"
 dependencies = [
  "rustls-pki-types",
 ]

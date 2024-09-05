@@ -7,7 +7,7 @@ use tower::ServiceExt;
 use cuprate_epee_encoding::from_bytes;
 use cuprate_rpc_types::bin::{BinRequest, BinResponse, GetTransactionPoolHashesRequest};
 
-use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
+use crate::rpc_handler::RpcHandler;
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// This macro generates route functions that expect input.
@@ -67,13 +67,8 @@ macro_rules! generate_endpoints_inner {
         paste::paste! {
             {
                 // Send request.
-                let request = RpcRequest::Binary($request);
-                let channel = $handler.oneshot(request).await?;
+                let response = $handler.oneshot($request).await?;
 
-                // Assert the response from the inner handler is correct.
-                let RpcResponse::Binary(response) = channel else {
-                    panic!("RPC handler did not return a binary response");
-                };
                 let BinResponse::$variant(response) = response else {
                     panic!("RPC handler returned incorrect response");
                 };

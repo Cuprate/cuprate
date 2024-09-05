@@ -304,8 +304,9 @@ async fn test_template(
     // Assert we get back the same map of
     // `Amount`'s and `AmountIndex`'s.
     let mut response_output_count = 0;
+    #[allow(clippy::iter_over_hash_type)] // order doesn't matter in this test
     for (amount, output_map) in response {
-        let amount_index_set = map.get(&amount).unwrap();
+        let amount_index_set = &map[&amount];
 
         for (amount_index, output) in output_map {
             response_output_count += 1;

@@ -7,6 +7,7 @@ use core::fmt::Debug;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use cuprate_fixed_bytes::{ByteArray, ByteArrayVec};
+use cuprate_helper::cast::u64_to_usize;
 
 use crate::{
     io::{checked_read_primitive, checked_write_primitive},
@@ -66,11 +67,11 @@ impl<T: EpeeObject> EpeeValue for Vec<T> {
                 "Marker is not sequence when a sequence was expected",
             ));
         }
-        let len = read_varint(r)?;
+        let len = u64_to_usize(read_varint(r)?);
 
         let individual_marker = Marker::new(marker.inner_marker);
 
-        let mut res = Vec::with_capacity(len.try_into()?);
+        let mut res = Vec::with_capacity(len);
         for _ in 0..len {
             res.push(T::read(r, &individual_marker)?);
         }
@@ -167,11 +168,13 @@ impl EpeeValue for Vec<u8> {
             return Err(Error::Format("Byte array exceeded max length"));
         }
 
-        if r.remaining() < len.try_into()? {
+        let len = u64_to_usize(len);
+
+        if r.remaining() < len {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 
-        let mut res = vec![0; len.try_into()?];
+        let mut res = vec![0; len];
         r.copy_to_slice(&mut res);
 
         Ok(res)
@@ -203,11 +206,13 @@ impl EpeeValue for Bytes {
             return Err(Error::Format("Byte array exceeded max length"));
         }
 
-        if r.remaining() < len.try_into()? {
+        let len = u64_to_usize(len);
+
+        if r.remaining() < len {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 
-        Ok(r.copy_to_bytes(len.try_into()?))
+        Ok(r.copy_to_bytes(len))
     }
 
     fn epee_default_value() -> Option<Self> {
@@ -236,11 +241,13 @@ impl EpeeValue for BytesMut {
             return Err(Error::Format("Byte array exceeded max length"));
         }
 
-        if r.remaining() < len.try_into()? {
+        let len = u64_to_usize(len);
+
+        if r.remaining() < len {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 
-        let mut bytes = BytesMut::zeroed(len.try_into()?);
+        let mut bytes = BytesMut::zeroed(len);
         r.copy_to_slice(&mut bytes);
 
         Ok(bytes)
@@ -272,11 +279,13 @@ impl<const N: usize> EpeeValue for ByteArrayVec<N> {
             return Err(Error::Format("Byte array exceeded max length"));
         }
 
-        if r.remaining() < usize::try_from(len)? {
+        let len = u64_to_usize(len);
+
+        if r.remaining() < len {
             return Err(Error::IO("Not enough bytes to fill object"));
         }
 
-        ByteArrayVec::try_from(r.copy_to_bytes(usize::try_from(len)?))
+        ByteArrayVec::try_from(r.copy_to_bytes(len))
             .map_err(|_| Error::Format("Field has invalid length"))
     }
 
@@ -302,7 +311,7 @@ impl<const N: usize> EpeeValue for ByteArray<N> {
             return Err(Error::Format("Marker does not match expected Marker"));
         }
 
-        let len: usize = read_varint(r)?.try_into()?;
+        let len = u64_to_usize(read_varint(r)?);
         if len != N {
             return Err(Error::Format("Byte array has incorrect length"));
         }
@@ -370,11 +379,11 @@ impl<const N: usize> EpeeValue for Vec<[u8; N]> {
             ));
         }
 
-        let len = read_varint(r)?;
+        let len = u64_to_usize(read_varint(r)?);
 
         let individual_marker = Marker::new(marker.inner_marker);
 
-        let mut res = Vec::with_capacity(len.try_into()?);
+        let mut res = Vec::with_capacity(len);
         for _ in 0..len {
             res.push(<[u8; N]>::read(r, &individual_marker)?);
         }
@@ -406,11 +415,11 @@ macro_rules! epee_seq {
                     ));
                 }
 
-                let len = read_varint(r)?;
+                let len = u64_to_usize(read_varint(r)?);
 
                 let individual_marker = Marker::new(marker.inner_marker.clone());
 
-                let mut res = Vec::with_capacity(len.try_into()?);
+                let mut res = Vec::with_capacity(len);
                 for _ in 0..len {
                     res.push(<$val>::read(r, &individual_marker)?);
                 }
