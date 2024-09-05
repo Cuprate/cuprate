@@ -14,7 +14,7 @@ use cuprate_consensus_rules::{
     miner_tx::MinerTxError,
     ConsensusError,
 };
-use cuprate_helper::asynch::rayon_spawn_async;
+use cuprate_helper::{asynch::rayon_spawn_async, cast::u64_to_usize};
 use cuprate_types::{
     AltBlockInformation, Chain, ChainId, TransactionVerificationData,
     VerifiedTransactionInformation,
@@ -24,7 +24,7 @@ use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock},
     context::{
         difficulty::DifficultyCache,
-        rx_vms::RandomXVM,
+        rx_vms::RandomXVm,
         weight::{self, BlockWeightsCache},
         AltChainContextCache, AltChainRequestToken, BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW,
     },
@@ -101,7 +101,7 @@ where
 
     // Check the alt block timestamp is in the correct range.
     if let Some(median_timestamp) =
-        difficulty_cache.median_timestamp(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW.try_into().unwrap())
+        difficulty_cache.median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW))
     {
         check_timestamp(&prepped_block.block, median_timestamp).map_err(ConsensusError::Block)?
     };
@@ -195,7 +195,7 @@ async fn alt_rx_vm<C>(
     parent_chain: Chain,
     alt_chain_context: &mut AltChainContextCache,
     context_svc: C,
-) -> Result<Option<Arc<RandomXVM>>, ExtendedConsensusError>
+) -> Result<Option<Arc<RandomXVm>>, ExtendedConsensusError>
 where
     C: Service<
             BlockChainContextRequest,

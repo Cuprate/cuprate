@@ -653,6 +653,7 @@ version = "0.5.0"
 dependencies = [
  "bytes",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
  "hex",
  "paste",
  "ref-cast",
@@ -720,6 +721,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.5.0",
  "bytes",
+ "cuprate-helper",
  "futures",
  "proptest",
  "rand",
@@ -803,6 +805,7 @@ dependencies = [
  "cuprate-helper",
  "cuprate-json-rpc",
  "cuprate-rpc-types",
+ "cuprate-test-utils",
  "futures",
  "paste",
  "serde",
@@ -818,12 +821,9 @@ version = "0.0.0"
 dependencies = [
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
- "cuprate-json-rpc",
  "cuprate-test-utils",
  "cuprate-types",
- "monero-serai",
  "paste",
- "pretty_assertions",
  "serde",
  "serde_json",
 ]
@@ -880,7 +880,6 @@ dependencies = [
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
- "borsh",
  "bytes",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
@@ -900,6 +899,7 @@ dependencies = [
  "bytes",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
  "cuprate-levin",
  "cuprate-types",
  "hex",

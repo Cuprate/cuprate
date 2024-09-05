@@ -163,7 +163,7 @@ pub trait Env: Sized {
         // We have the direct PATH to the file,
         // no need to use backend-specific functions.
         //
-        // SAFETY: as we are only accessing the metadata of
+        // INVARIANT: as we are only accessing the metadata of
         // the file and not reading the bytes, it should be
         // fine even with a memory mapped file being actively
         // written to.

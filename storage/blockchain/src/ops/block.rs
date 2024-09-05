@@ -475,7 +475,7 @@ mod test {
 
         let mut block = BLOCK_V9_TX3.clone();
 
-        block.height = usize::try_from(u32::MAX).unwrap() + 1;
+        block.height = cuprate_helper::cast::u32_to_usize(u32::MAX) + 1;
         add_block(&block, &mut tables).unwrap();
     }
 

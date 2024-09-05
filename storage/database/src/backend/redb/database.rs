@@ -23,7 +23,7 @@ use crate::{
 /// Shared [`DatabaseRo::get()`].
 #[inline]
 fn get<T: Table + 'static>(
-    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
     key: &T::Key,
 ) -> Result<T::Value, RuntimeError> {
     Ok(db.get(key)?.ok_or(RuntimeError::KeyNotFound)?.value())
@@ -32,7 +32,7 @@ fn get<T: Table + 'static>(
 /// Shared [`DatabaseRo::len()`].
 #[inline]
 fn len<T: Table>(
-    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
 ) -> Result<u64, RuntimeError> {
     Ok(db.len()?)
 }
@@ -40,7 +40,7 @@ fn len<T: Table>(
 /// Shared [`DatabaseRo::first()`].
 #[inline]
 fn first<T: Table>(
-    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
 ) -> Result<(T::Key, T::Value), RuntimeError> {
     let (key, value) = db.first()?.ok_or(RuntimeError::KeyNotFound)?;
     Ok((key.value(), value.value()))
@@ -49,7 +49,7 @@ fn first<T: Table>(
 /// Shared [`DatabaseRo::last()`].
 #[inline]
 fn last<T: Table>(
-    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
 ) -> Result<(T::Key, T::Value), RuntimeError> {
     let (key, value) = db.last()?.ok_or(RuntimeError::KeyNotFound)?;
     Ok((key.value(), value.value()))
@@ -58,7 +58,7 @@ fn last<T: Table>(
 /// Shared [`DatabaseRo::is_empty()`].
 #[inline]
 fn is_empty<T: Table>(
-    db: &impl redb::ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
+    db: &impl ReadableTable<StorableRedb<T::Key>, StorableRedb<T::Value>>,
 ) -> Result<bool, RuntimeError> {
     Ok(db.is_empty()?)
 }

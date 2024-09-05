@@ -25,7 +25,7 @@ use crate::{
 /// Should be called _once_ per actual database.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> TxpoolReadHandle {
+pub(super) fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> TxpoolReadHandle {
     init_read_service_with_pool(env, init_thread_pool(threads))
 }
 
@@ -35,10 +35,7 @@ pub fn init_read_service(env: Arc<ConcreteEnv>, threads: ReaderThreads) -> Txpoo
 /// Should be called _once_ per actual database.
 #[cold]
 #[inline(never)] // Only called once.
-pub fn init_read_service_with_pool(
-    env: Arc<ConcreteEnv>,
-    pool: Arc<ThreadPool>,
-) -> TxpoolReadHandle {
+fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> TxpoolReadHandle {
     DatabaseReadService::new(env, pool, map_request)
 }
 
@@ -53,6 +50,7 @@ pub fn init_read_service_with_pool(
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`TxpoolReadResponse`] is returned
+#[allow(clippy::needless_pass_by_value)]
 fn map_request(
     env: &ConcreteEnv,          // Access to the database
     request: TxpoolReadRequest, // The request we must fulfill

@@ -163,11 +163,11 @@ impl KeyCompare {
     #[inline]
     pub const fn as_compare_fn<K: Key>(self) -> fn(&[u8], &[u8]) -> Ordering {
         match self {
-            Self::Default => std::cmp::Ord::cmp,
+            Self::Default => Ord::cmp,
             Self::Number => |left, right| {
                 let left = <K as Storable>::from_bytes(left);
                 let right = <K as Storable>::from_bytes(right);
-                std::cmp::Ord::cmp(&left, &right)
+                Ord::cmp(&left, &right)
             },
             Self::Custom(f) => f,
         }
