@@ -1,1 +1,1 @@
-# ⚪️ Resources
+# Resources
