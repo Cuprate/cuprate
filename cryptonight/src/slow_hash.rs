@@ -194,7 +194,7 @@ fn variant1_1(p11: &mut u8, variant: Variant) {
 
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L129C1-L133C13
-fn variant1_2(c2: &[u8; 16], tweak1_2: &[u8; 8], variant: Variant) {
+fn variant1_2(c2: &mut [u8; 16], tweak1_2: &[u8; 8], variant: Variant) {
     if variant == Variant::V1 {
         xor64(subarray_mut!(c2, 8, 8), &tweak1_2);
     }
@@ -362,7 +362,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
         sum_half_blocks(&mut a1, &d);
         swap_blocks(&mut a1, &mut c2);
         xor_blocks(&mut a1, &c2);
-        variant1_2(&c2, &tweak1_2, variant);
+        variant1_2(&mut c2, &tweak1_2, variant);
         copy_block(subarray_mut!(long_state, j, AES_BLOCK_SIZE), &c2);
 
         if variant == Variant::V2 || variant == Variant::R {
