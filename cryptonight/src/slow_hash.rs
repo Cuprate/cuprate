@@ -196,7 +196,7 @@ fn variant1_1(p11: &mut u8, variant: Variant) {
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L129C1-L133C13
 fn variant1_2(c2: &mut [u8; 16], tweak1_2: &[u8; 8], variant: Variant) {
     if variant == Variant::V1 {
-        xor64(subarray_mut!(c2, 8, 8), &tweak1_2);
+        xor64(subarray_mut!(c2, 8, 8), tweak1_2);
     }
 }
 
