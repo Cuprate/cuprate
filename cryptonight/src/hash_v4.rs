@@ -1,6 +1,5 @@
 use crate::blake256::{Blake256, Digest};
 use crate::subarray_copy;
-use static_assertions::const_assert_eq;
 use std::cmp::max;
 use InstructionList::*;
 
@@ -36,10 +35,6 @@ const INSTRUCTION_COUNT: usize = InstructionList::Ret as usize;
 const INSTRUCTION_OPCODE_BITS: usize = 3;
 const INSTRUCTION_DST_INDEX_BITS: usize = 2;
 const INSTRUCTION_SRC_INDEX_BITS: usize = 3;
-
-const _: () = {
-    const_assert_eq!(INSTRUCTION_COUNT, 6);
-};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Instruction {

@@ -8,22 +8,11 @@ mod slow_hash;
 pub(crate) mod util;
 mod blake256;
 
-#[link(name = "cryptonight")]
-extern "C" {
-    fn cn_slow_hash(data: *const u8, length: usize, hash: *mut u8, variant: i32, height: u64);
-}
+use slow_hash::cn_slow_hash;
 
 /// Calculates the CryptoNight v0 hash of buf.
 pub fn cryptonight_hash_v0(buf: &[u8]) -> [u8; 32] {
-    let mut hash_c = [0; 32];
-
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash_c.as_mut_ptr(), 0, 0);
-    }
-
-    let hash_rust = slow_hash::cn_slow_hash(buf, slow_hash::Variant::V0, 0);
-    assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
-    hash_rust
+    cn_slow_hash(buf, slow_hash::Variant::V0, 0)
 }
 
 #[derive(thiserror::Error, Debug, Copy, Clone, Eq, PartialEq)]
@@ -38,41 +27,17 @@ pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
         return Err(DataCanNotBeHashed);
     }
 
-    let mut hash_c = [0; 32];
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash_c.as_mut_ptr(), 1, 0);
-    }
-
-    let hash_rust = slow_hash::cn_slow_hash(buf, slow_hash::Variant::V1, 0);
-    assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
-    Ok(hash_rust)
+    Ok(cn_slow_hash(buf, slow_hash::Variant::V1, 0))
 }
 
 /// Calculates the CryptoNight v2 hash of buf.
 pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
-    let mut hash_c = [0; 32];
-
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash_c.as_mut_ptr(), 2, 0);
-    }
-
-    let hash_rust = slow_hash::cn_slow_hash(buf, slow_hash::Variant::V2, 0);
-    assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
-    hash_rust
+    cn_slow_hash(buf, slow_hash::Variant::V2, 0)
 }
 
 /// Calculates the CryptoNight R hash of buf.
 pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
-    let mut hash_c = [0; 32];
-
-    unsafe {
-        cn_slow_hash(buf.as_ptr(), buf.len(), hash_c.as_mut_ptr(), 4, height);
-    }
-
-    let hash_rust = slow_hash::cn_slow_hash(buf, slow_hash::Variant::R, height);
-    assert_eq!(hex::encode(hash_c), hex::encode(hash_rust));
-
-    hash_rust
+    cn_slow_hash(buf, slow_hash::Variant::R, height)
 }
 
 #[cfg(test)]
