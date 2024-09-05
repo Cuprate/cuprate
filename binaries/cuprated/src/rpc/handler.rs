@@ -1,6 +1,5 @@
 //! Dummy implementation of [`RpcHandler`].
 
-//---------------------------------------------------------------------------------------------------- Use
 use std::task::Poll;
 
 use cuprate_rpc_types::{
@@ -8,7 +7,7 @@ use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
     other::{OtherRequest, OtherResponse},
 };
-use futures::channel::oneshot::channel;
+use futures::{channel::oneshot::channel, future::BoxFuture};
 use serde::{Deserialize, Serialize};
 use tower::Service;
 
@@ -20,7 +19,6 @@ use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::rpc::{bin, json, other};
 
-//---------------------------------------------------------------------------------------------------- CupratedRpcHandler
 /// TODO
 #[derive(Clone)]
 pub struct CupratedRpcHandler {
@@ -34,7 +32,6 @@ pub struct CupratedRpcHandler {
     pub txpool: TxpoolReadHandle,
 }
 
-//---------------------------------------------------------------------------------------------------- RpcHandler Impl
 impl RpcHandler for CupratedRpcHandler {
     fn restricted(&self) -> bool {
         self.restricted
@@ -51,7 +48,7 @@ impl RpcHandler for CupratedRpcHandler {
 impl Service<JsonRpcRequest> for CupratedRpcHandler {
     type Response = JsonRpcResponse;
     type Error = RpcError;
-    type Future = InfallibleOneshotReceiver<Result<JsonRpcResponse, RpcError>>;
+    type Future = BoxFuture<'static, Result<JsonRpcResponse, RpcError>>;
 
     fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -59,15 +56,14 @@ impl Service<JsonRpcRequest> for CupratedRpcHandler {
 
     fn call(&mut self, request: JsonRpcRequest) -> Self::Future {
         let state = Self::clone(self);
-        let response = json::map_request(state, request).expect("TODO");
-        todo!()
+        Box::pin(json::map_request(state, request))
     }
 }
 
 impl Service<BinRequest> for CupratedRpcHandler {
     type Response = BinResponse;
     type Error = RpcError;
-    type Future = InfallibleOneshotReceiver<Result<BinResponse, RpcError>>;
+    type Future = BoxFuture<'static, Result<BinResponse, RpcError>>;
 
     fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -75,15 +71,14 @@ impl Service<BinRequest> for CupratedRpcHandler {
 
     fn call(&mut self, request: BinRequest) -> Self::Future {
         let state = Self::clone(self);
-        let response = bin::map_request(state, request).expect("TODO");
-        todo!()
+        Box::pin(bin::map_request(state, request))
     }
 }
 
 impl Service<OtherRequest> for CupratedRpcHandler {
     type Response = OtherResponse;
     type Error = RpcError;
-    type Future = InfallibleOneshotReceiver<Result<OtherResponse, RpcError>>;
+    type Future = BoxFuture<'static, Result<OtherResponse, RpcError>>;
 
     fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -91,7 +86,6 @@ impl Service<OtherRequest> for CupratedRpcHandler {
 
     fn call(&mut self, request: OtherRequest) -> Self::Future {
         let state = Self::clone(self);
-        let response = other::map_request(state, request).expect("TODO");
-        todo!()
+        Box::pin(other::map_request(state, request))
     }
 }
