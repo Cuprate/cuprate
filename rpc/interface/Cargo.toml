@@ -9,18 +9,20 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/rpc/cuprate-rpc-inte
 keywords    = ["cuprate", "rpc", "interface"]
 
 [features]
-default = ["dummy", "serde"]
-dummy   = []
+default  = ["dummy", "serde"]
+dummy    = []
 
 [dependencies]
 cuprate-epee-encoding = { path = "../../net/epee-encoding", default-features = false }
 cuprate-json-rpc      = { path = "../json-rpc", default-features = false }
 cuprate-rpc-types     = { path = "../types", features = ["serde", "epee"], default-features = false }
 cuprate-helper        = { path = "../../helper", features = ["asynch"], default-features = false }
+cuprate-database      = { path = "../../storage/database" }
 
 axum       = { version = "0.7.5", features = ["json"], default-features = false }
 serde      = { workspace = true, optional = true }
 tower      = { workspace = true }
+thiserror  = { workspace = true }
 paste      = { workspace = true }
 futures    = { workspace = true }
 

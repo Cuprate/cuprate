@@ -33,7 +33,7 @@ This crate simply handles:
 - Defining handler function signatures
 - (De)serialization of requests/responses (JSON-RPC, binary, JSON)
 
-The actual server details are all handled by the [`axum`] and [`tower`] ecosystem.a
+The actual server details are all handled by the [`axum`] and [`tower`] ecosystem.
 
 The proper usage of this crate is to:
 1. Implement a [`RpcHandler`]
@@ -45,8 +45,8 @@ The proper usage of this crate is to:
 This is your [`tower::Service`] that converts `Request`s into `Response`s,
 i.e. the "inner handler".
 
-Said concretely, `RpcHandler` is 3 `tower::Service`s where the associated types are
-the 3 endpoint enums from [`cuprate_rpc_types`] and the error type from this crate:
+Said concretely, `RpcHandler` is 3 `tower::Service`s where the request/response types are
+the 3 endpoint enums from [`cuprate_rpc_types`] and the error type is from this crate:
 - [`JsonRpcRequest`](cuprate_rpc_types::json::JsonRpcRequest) & [`JsonRpcResponse`](cuprate_rpc_types::json::JsonRpcResponse)
 - [`BinRequest`](cuprate_rpc_types::bin::BinRequest) & [`BinResponse`](cuprate_rpc_types::bin::BinRequest)
 - [`OtherRequest`](cuprate_rpc_types::other::OtherRequest) & [`OtherResponse`](cuprate_rpc_types::other::OtherRequest)

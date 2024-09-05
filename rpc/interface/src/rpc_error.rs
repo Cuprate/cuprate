@@ -2,8 +2,8 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use axum::http::StatusCode;
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+
+use cuprate_database::RuntimeError;
 
 //---------------------------------------------------------------------------------------------------- RpcError
 /// Possible errors during RPC operation.
@@ -16,14 +16,33 @@ use serde::{Deserialize, Serialize};
 ///
 /// TODO: This is empty as possible errors will be
 /// enumerated when the handler functions are created.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
-pub enum RpcError {}
+#[derive(Debug, thiserror::Error)]
+pub enum RpcError {
+    /// A [`std::io::Error`] from the database.
+    #[error("database I/O error: {0}")]
+    DatabaseIo(#[from] std::io::Error),
+
+    /// A (non-I/O related) database error.
+    #[error("database error: {0}")]
+    DatabaseError(RuntimeError),
+}
 
 impl From<RpcError> for StatusCode {
     fn from(_: RpcError) -> Self {
         // TODO
         Self::INTERNAL_SERVER_ERROR
+    }
+}
+
+impl From<RuntimeError> for RpcError {
+    fn from(error: RuntimeError) -> Self {
+        match error {
+            RuntimeError::Io(io) => Self::DatabaseIo(io),
+            RuntimeError::KeyExists
+            | RuntimeError::KeyNotFound
+            | RuntimeError::ResizeNeeded
+            | RuntimeError::TableNotFound => Self::DatabaseError(error),
+        }
     }
 }
 

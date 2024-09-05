@@ -800,6 +800,7 @@ name = "cuprate-rpc-interface"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "cuprate-database",
  "cuprate-epee-encoding",
  "cuprate-helper",
  "cuprate-json-rpc",
@@ -809,6 +810,7 @@ dependencies = [
  "paste",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tower",
  "ureq",

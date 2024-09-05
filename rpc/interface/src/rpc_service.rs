@@ -32,7 +32,7 @@ pub trait RpcService<Request, Response>:
         Request,
         Response = Response,
         Error = RpcError,
-        Future: Future<Output = Result<Response, RpcError>> + Send + Sync + 'static,
+        Future: Future<Output = Result<Response, RpcError>> + Send + 'static,
     >
 {
 }
@@ -46,7 +46,7 @@ impl<Request, Response, T> RpcService<Request, Response> for T where
             Request,
             Response = Response,
             Error = RpcError,
-            Future: Future<Output = Result<Response, RpcError>> + Send + Sync + 'static,
+            Future: Future<Output = Result<Response, RpcError>> + Send + 'static,
         >
 {
 }
