@@ -9,4 +9,4 @@ mod handler;
 mod json;
 mod other;
 
-pub use handler::CupratedRpcHandler;
+pub use handler::{CupratedRpcHandler, CupratedRpcHandlerState};

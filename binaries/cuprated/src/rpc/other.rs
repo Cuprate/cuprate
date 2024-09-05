@@ -16,11 +16,11 @@ use cuprate_rpc_types::other::{
     StopDaemonResponse, StopMiningRequest, StopMiningResponse, UpdateRequest, UpdateResponse,
 };
 
-use crate::rpc::CupratedRpcHandler;
+use crate::rpc::CupratedRpcHandlerState;
 
 /// Map a [`OtherRequest`] to the function that will lead to a [`OtherResponse`].
 pub(super) async fn map_request(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: OtherRequest,
 ) -> Result<OtherResponse, RpcError> {
     use OtherRequest as Req;
@@ -70,189 +70,189 @@ pub(super) async fn map_request(
 }
 
 async fn get_height(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetHeightRequest,
 ) -> Result<GetHeightResponse, RpcError> {
     todo!()
 }
 
 async fn get_transactions(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetTransactionsRequest,
 ) -> Result<GetTransactionsResponse, RpcError> {
     todo!()
 }
 
 async fn get_alt_blocks_hashes(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetAltBlocksHashesRequest,
 ) -> Result<GetAltBlocksHashesResponse, RpcError> {
     todo!()
 }
 
 async fn is_key_image_spent(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: IsKeyImageSpentRequest,
 ) -> Result<IsKeyImageSpentResponse, RpcError> {
     todo!()
 }
 
 async fn send_raw_transaction(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: SendRawTransactionRequest,
 ) -> Result<SendRawTransactionResponse, RpcError> {
     todo!()
 }
 
 async fn start_mining(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: StartMiningRequest,
 ) -> Result<StartMiningResponse, RpcError> {
     todo!()
 }
 
 async fn stop_mining(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: StopMiningRequest,
 ) -> Result<StopMiningResponse, RpcError> {
     todo!()
 }
 
 async fn mining_status(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: MiningStatusRequest,
 ) -> Result<MiningStatusResponse, RpcError> {
     todo!()
 }
 
 async fn save_bc(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: SaveBcRequest,
 ) -> Result<SaveBcResponse, RpcError> {
     todo!()
 }
 
 async fn get_peer_list(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetPeerListRequest,
 ) -> Result<GetPeerListResponse, RpcError> {
     todo!()
 }
 
 async fn set_log_hash_rate(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: SetLogHashRateRequest,
 ) -> Result<SetLogHashRateResponse, RpcError> {
     todo!()
 }
 
 async fn set_log_level(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: SetLogLevelRequest,
 ) -> Result<SetLogLevelResponse, RpcError> {
     todo!()
 }
 
 async fn set_log_categories(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: SetLogCategoriesRequest,
 ) -> Result<SetLogCategoriesResponse, RpcError> {
     todo!()
 }
 
 async fn set_bootstrap_daemon(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: SetBootstrapDaemonRequest,
 ) -> Result<SetBootstrapDaemonResponse, RpcError> {
     todo!()
 }
 
 async fn get_transaction_pool(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetTransactionPoolRequest,
 ) -> Result<GetTransactionPoolResponse, RpcError> {
     todo!()
 }
 
 async fn get_transaction_pool_stats(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetTransactionPoolStatsRequest,
 ) -> Result<GetTransactionPoolStatsResponse, RpcError> {
     todo!()
 }
 
 async fn stop_daemon(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: StopDaemonRequest,
 ) -> Result<StopDaemonResponse, RpcError> {
     todo!()
 }
 
 async fn get_limit(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetLimitRequest,
 ) -> Result<GetLimitResponse, RpcError> {
     todo!()
 }
 
 async fn set_limit(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: SetLimitRequest,
 ) -> Result<SetLimitResponse, RpcError> {
     todo!()
 }
 
 async fn out_peers(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: OutPeersRequest,
 ) -> Result<OutPeersResponse, RpcError> {
     todo!()
 }
 
 async fn in_peers(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: InPeersRequest,
 ) -> Result<InPeersResponse, RpcError> {
     todo!()
 }
 
 async fn get_net_stats(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetNetStatsRequest,
 ) -> Result<GetNetStatsResponse, RpcError> {
     todo!()
 }
 
 async fn get_outs(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, RpcError> {
     todo!()
 }
 
 async fn update(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: UpdateRequest,
 ) -> Result<UpdateResponse, RpcError> {
     todo!()
 }
 
 async fn pop_blocks(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: PopBlocksRequest,
 ) -> Result<PopBlocksResponse, RpcError> {
     todo!()
 }
 
 async fn get_transaction_pool_hashes(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, RpcError> {
     todo!()
 }
 
 async fn get_public_nodes(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetPublicNodesRequest,
 ) -> Result<GetPublicNodesResponse, RpcError> {
     todo!()

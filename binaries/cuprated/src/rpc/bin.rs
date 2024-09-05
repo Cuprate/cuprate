@@ -9,11 +9,11 @@ use cuprate_rpc_types::{
     json::{GetOutputDistributionRequest, GetOutputDistributionResponse},
 };
 
-use crate::rpc::CupratedRpcHandler;
+use crate::rpc::CupratedRpcHandlerState;
 
 /// Map a [`BinRequest`] to the function that will lead to a [`BinResponse`].
 pub(super) async fn map_request(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: BinRequest,
 ) -> Result<BinResponse, RpcError> {
     use BinRequest as Req;
@@ -35,49 +35,49 @@ pub(super) async fn map_request(
 }
 
 async fn get_blocks(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetBlocksRequest,
 ) -> Result<GetBlocksResponse, RpcError> {
     todo!()
 }
 
 async fn get_blocks_by_height(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetBlocksByHeightRequest,
 ) -> Result<GetBlocksByHeightResponse, RpcError> {
     todo!()
 }
 
 async fn get_hashes(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetHashesRequest,
 ) -> Result<GetHashesResponse, RpcError> {
     todo!()
 }
 
 async fn get_output_indexes(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetOutputIndexesRequest,
 ) -> Result<GetOutputIndexesResponse, RpcError> {
     todo!()
 }
 
 async fn get_outs(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, RpcError> {
     todo!()
 }
 
 async fn get_transaction_pool_hashes(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, RpcError> {
     todo!()
 }
 
 async fn get_output_distribution(
-    state: CupratedRpcHandler,
+    state: CupratedRpcHandlerState,
     request: GetOutputDistributionRequest,
 ) -> Result<GetOutputDistributionResponse, RpcError> {
     todo!()

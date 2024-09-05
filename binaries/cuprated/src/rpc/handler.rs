@@ -23,8 +23,19 @@ use crate::rpc::{bin, json, other};
 #[derive(Clone)]
 pub struct CupratedRpcHandler {
     /// Should this RPC server be [restricted](RpcHandler::restricted)?
+    //
+    // INVARIANT:
+    // We don't need to include this in `state` and check for
+    // `self.is_restricted()` because `cuprate-rpc-interface` handles that.
     pub restricted: bool,
 
+    /// State needed for request -> response mapping.
+    pub state: CupratedRpcHandlerState,
+}
+
+/// TODO
+#[derive(Clone)]
+pub struct CupratedRpcHandlerState {
     /// Read handle to the blockchain database.
     pub blockchain: BlockchainReadHandle,
 
@@ -38,13 +49,6 @@ impl RpcHandler for CupratedRpcHandler {
     }
 }
 
-// INVARIANT:
-//
-// We don't need to check for `self.is_restricted()`
-// here because `cuprate-rpc-interface` handles that.
-//
-// We can assume the request coming has the required permissions.
-
 impl Service<JsonRpcRequest> for CupratedRpcHandler {
     type Response = JsonRpcResponse;
     type Error = RpcError;
@@ -55,7 +59,7 @@ impl Service<JsonRpcRequest> for CupratedRpcHandler {
     }
 
     fn call(&mut self, request: JsonRpcRequest) -> Self::Future {
-        let state = Self::clone(self);
+        let state = CupratedRpcHandlerState::clone(&self.state);
         Box::pin(json::map_request(state, request))
     }
 }
@@ -70,7 +74,7 @@ impl Service<BinRequest> for CupratedRpcHandler {
     }
 
     fn call(&mut self, request: BinRequest) -> Self::Future {
-        let state = Self::clone(self);
+        let state = CupratedRpcHandlerState::clone(&self.state);
         Box::pin(bin::map_request(state, request))
     }
 }
@@ -85,7 +89,7 @@ impl Service<OtherRequest> for CupratedRpcHandler {
     }
 
     fn call(&mut self, request: OtherRequest) -> Self::Future {
-        let state = Self::clone(self);
+        let state = CupratedRpcHandlerState::clone(&self.state);
         Box::pin(other::map_request(state, request))
     }
 }
