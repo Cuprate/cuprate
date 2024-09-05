@@ -193,6 +193,14 @@ fn variant1_1(p11: &mut u8, variant: Variant) {
 }
 
 // Original C code:
+// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L129C1-L133C13
+fn variant1_2(c2: &[u8; 16], tweak1_2: &[u8; 8], variant: Variant) {
+    if variant == Variant::V1 {
+        xor64(subarray_mut!(c2, 8, 8), &tweak1_2);
+    }
+}
+
+// Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L171-L181
 fn variant_2_init(
     b: &mut [u8; AES_BLOCK_SIZE * 2],
@@ -274,14 +282,13 @@ fn extra_hashes(input: &[u8; KECCAK1600_BYTE_SIZE]) -> [u8; 32] {
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1776-L1873
 pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 32] {
-    let mut b = [0u8; AES_BLOCK_SIZE * 2];
-
     let mut state = CnSlowHashState::default();
     keccak1600(data, state.get_keccak_bytes_mut());
     let aes_expanded_key = cnaes::key_extend(state.get_aes_key0());
     let mut text = *state.get_init();
 
     let tweak1_2 = variant1_init(&state, data, variant);
+    let mut b = [0u8; AES_BLOCK_SIZE * 2];
     let (mut division_result, mut sqrt_result) = variant_2_init(&mut b, &state, variant);
     let (mut r, code) = variant4_math_init(height, &state, variant);
 
@@ -333,6 +340,7 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
         j = e2i(subarray!(c1, 0, 8), MEMORY / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
         let long_state_block = subarray_mut!(long_state, j, AES_BLOCK_SIZE);
         copy_block(&mut c2, long_state_block);
+
         copy_block(&mut a1, &a);
         v2::variant2_integer_math(
             subarray_mut!(c2, 0, 8),
@@ -349,19 +357,14 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
             &code,
         );
         let mut d = mul(subarray!(c1, 0, 8), subarray!(c2, 0, 8));
-
         variant_2_2(long_state, j, &mut d, variant);
         v2::variant2_shuffle_add(&mut c1, &a, &b, long_state, j, variant);
-
         sum_half_blocks(&mut a1, &d);
         swap_blocks(&mut a1, &mut c2);
         xor_blocks(&mut a1, &c2);
-
-        // VARIANT1_2
-        if variant == Variant::V1 {
-            xor64(subarray_mut!(c2, 8, 8), &tweak1_2);
-        }
+        variant1_2(&c2, &tweak1_2, variant);
         copy_block(subarray_mut!(long_state, j, AES_BLOCK_SIZE), &c2);
+
         if variant == Variant::V2 || variant == Variant::R {
             let (b_half1, b_half2) = b.split_at_mut(AES_BLOCK_SIZE);
             copy_block(

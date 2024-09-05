@@ -1,7 +1,7 @@
 /// This module implements the original BLAKE-256 algorithm.
 ///
-/// The code below is a port of these C files. The BLAKE-244 and HMAC
-/// methods where omitted as Monero does not use them.
+/// The code below is ported from these C files omitting BLAKE-244 and the
+/// HMAC methods that are not used by Monero.
 /// * https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.h
 /// * https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.c
 ///
