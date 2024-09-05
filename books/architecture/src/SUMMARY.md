@@ -99,14 +99,14 @@
     - [⚪️ Sockets](resources/sockets/index.md)
         - [🔴 Index of ports](resources/sockets/ports.md)
     - [⚪️ Memory](resources/memory.md)
-    - [🟡 Concurrency and parallelism](resources/concurrency-and-parallelism/intro.md)
-        - [⚪️ Map](resources/concurrency-and-parallelism/map.md)
-        - [⚪️ The RPC server](resources/concurrency-and-parallelism/the-rpc-server.md)
-        - [⚪️ The database](resources/concurrency-and-parallelism/the-database.md)
-        - [⚪️ The block downloader](resources/concurrency-and-parallelism/the-block-downloader.md)
-        - [⚪️ The verifier](resources/concurrency-and-parallelism/the-verifier.md)
-        - [⚪️ Thread exit](resources/concurrency-and-parallelism/thread-exit.md)
-        - [🔴 Index of threads](resources/concurrency-and-parallelism/threads.md)
+    - [🟡 Concurrency and parallelism](resources/cap/intro.md)
+        - [⚪️ Map](resources/cap/map.md)
+        - [⚪️ The RPC server](resources/cap/the-rpc-server.md)
+        - [⚪️ The database](resources/cap/the-database.md)
+        - [⚪️ The block downloader](resources/cap/the-block-downloader.md)
+        - [⚪️ The verifier](resources/cap/the-verifier.md)
+        - [⚪️ Thread exit](resources/cap/thread-exit.md)
+        - [🔴 Index of threads](resources/cap/threads.md)
 
 ---
 
