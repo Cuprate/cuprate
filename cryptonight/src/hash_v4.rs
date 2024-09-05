@@ -61,8 +61,7 @@ fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [u8]) {
 }
 
 // Generates as many random math operations as possible with given latency and
-// ALU restrictions "code" array must have space for NUM_INSTRUCTIONS_MAX+1
-// instructions.
+// ALU restrictions.
 //
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439
@@ -213,7 +212,7 @@ pub(crate) fn random_math_init(
             //      2xXOR(a, b) = NOP
             if (opcode != Mul)
                 && ((inst_data[a] & 0xFFFF00)
-                    == ((opcode as usize) << 8) + ((inst_data[b] & 255) << 16))
+                == ((opcode as usize) << 8) + ((inst_data[b] & 255) << 16))
             {
                 continue;
             }
@@ -343,8 +342,8 @@ pub(crate) fn random_math_init(
         }
     }
 
-    // It's guaranteed that NUM_INSTRUCTIONS_MIN <= code_size <= NUM_INSTRUCTIONS_MAX
-    // here. Add final instruction to stop the interpreter.
+    // It's guaranteed that NUM_INSTRUCTIONS_MIN <= code_size <=
+    // NUM_INSTRUCTIONS_MAX here. Add final instruction to stop the interpreter.
     code[code_size].opcode = Ret;
     code[code_size].dst_index = 0;
     code[code_size].src_index = 0;
@@ -355,7 +354,7 @@ pub(crate) fn random_math_init(
 
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439
-fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
+pub(crate) fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
     const REG_BITS: u32 = 32;
 
     macro_rules! v4_exec {
@@ -408,6 +407,8 @@ fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
 
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L336-L370
+// To match the C code organization, this function would be in slow_hash.rs, but
+// the test code for it is so large, that it was moved here.
 pub(crate) fn variant4_random_math(
     a1: &mut [u8; 16],
     c2: &mut [u8; 16],
@@ -444,438 +445,79 @@ mod tests {
     use super::*;
     use crate::util::hex_to_array;
 
-    #[test]
-    fn test_random_math_init() {
-        // TODO
-    }
-
+    #[rustfmt::skip]
     const CODE: [Instruction; 71] = [
-        Instruction {
-            opcode: Rol,
-            dst_index: 0,
-            src_index: 7,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 3,
-            src_index: 1,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 2,
-            src_index: 7,
-            c: 3553557725,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 0,
-            src_index: 8,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 3,
-            src_index: 4,
-            c: 3590470404,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 1,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 1,
-            src_index: 5,
-            c: 0,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 1,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 7,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 2,
-            src_index: 1,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 2,
-            src_index: 4,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 2,
-            src_index: 7,
-            c: 0,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 1,
-            src_index: 8,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 0,
-            src_index: 6,
-            c: 1516169632,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 2,
-            src_index: 0,
-            c: 1587456779,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 3,
-            src_index: 5,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 1,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 2,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 3,
-            src_index: 6,
-            c: 0,
-        },
-        Instruction {
-            opcode: Rol,
-            dst_index: 3,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 2,
-            src_index: 4,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 3,
-            src_index: 5,
-            c: 0,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 2,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Rol,
-            dst_index: 2,
-            src_index: 4,
-            c: 0,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 3,
-            src_index: 8,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 4,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 2,
-            src_index: 3,
-            c: 2235486112,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 0,
-            src_index: 3,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 2,
-            c: 0,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 2,
-            src_index: 7,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 7,
-            c: 0,
-        },
-        Instruction {
-            opcode: Ror,
-            dst_index: 0,
-            src_index: 4,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 3,
-            src_index: 2,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 2,
-            src_index: 3,
-            c: 382729823,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 1,
-            src_index: 4,
-            c: 0,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 3,
-            src_index: 5,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 3,
-            src_index: 7,
-            c: 446636115,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 0,
-            src_index: 5,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 1,
-            src_index: 8,
-            c: 1136500848,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 3,
-            src_index: 8,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 4,
-            c: 0,
-        },
-        Instruction {
-            opcode: Ror,
-            dst_index: 3,
-            src_index: 5,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 2,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Ror,
-            dst_index: 0,
-            src_index: 1,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 0,
-            src_index: 7,
-            c: 4221005163,
-        },
-        Instruction {
-            opcode: Rol,
-            dst_index: 0,
-            src_index: 2,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 0,
-            src_index: 7,
-            c: 1789679560,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 0,
-            src_index: 3,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 2,
-            src_index: 8,
-            c: 2725270475,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 1,
-            src_index: 4,
-            c: 0,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 3,
-            src_index: 8,
-            c: 0,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 3,
-            src_index: 5,
-            c: 0,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 3,
-            src_index: 2,
-            c: 0,
-        },
-        Instruction {
-            opcode: Rol,
-            dst_index: 2,
-            src_index: 2,
-            c: 0,
-        },
-        Instruction {
-            opcode: Add,
-            dst_index: 3,
-            src_index: 6,
-            c: 4110965463,
-        },
-        Instruction {
-            opcode: Xor,
-            dst_index: 2,
-            src_index: 6,
-            c: 0,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 2,
-            src_index: 7,
-            c: 0,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 3,
-            src_index: 1,
-            c: 0,
-        },
-        Instruction {
-            opcode: Sub,
-            dst_index: 1,
-            src_index: 8,
-            c: 0,
-        },
-        Instruction {
-            opcode: Ror,
-            dst_index: 1,
-            src_index: 2,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 1,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 2,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Ret,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
-        Instruction {
-            opcode: Mul,
-            dst_index: 0,
-            src_index: 0,
-            c: 0,
-        },
+        Instruction { opcode: Rol, dst_index: 0, src_index: 7, c: 0 },
+        Instruction { opcode: Mul, dst_index: 3, src_index: 1, c: 0 },
+        Instruction { opcode: Add, dst_index: 2, src_index: 7, c: 3553557725 },
+        Instruction { opcode: Sub, dst_index: 0, src_index: 8, c: 0 },
+        Instruction { opcode: Add, dst_index: 3, src_index: 4, c: 3590470404 },
+        Instruction { opcode: Xor, dst_index: 1, src_index: 0, c: 0 },
+        Instruction { opcode: Xor, dst_index: 1, src_index: 5, c: 0 },
+        Instruction { opcode: Xor, dst_index: 1, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 7, c: 0 },
+        Instruction { opcode: Mul, dst_index: 2, src_index: 1, c: 0 },
+        Instruction { opcode: Mul, dst_index: 2, src_index: 4, c: 0 },
+        Instruction { opcode: Mul, dst_index: 2, src_index: 7, c: 0 },
+        Instruction { opcode: Sub, dst_index: 1, src_index: 8, c: 0 },
+        Instruction { opcode: Add, dst_index: 0, src_index: 6, c: 1516169632 },
+        Instruction { opcode: Add, dst_index: 2, src_index: 0, c: 1587456779 },
+        Instruction { opcode: Mul, dst_index: 3, src_index: 5, c: 0 },
+        Instruction { opcode: Mul, dst_index: 1, src_index: 0, c: 0 },
+        Instruction { opcode: Xor, dst_index: 2, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 0, c: 0 },
+        Instruction { opcode: Sub, dst_index: 3, src_index: 6, c: 0 },
+        Instruction { opcode: Rol, dst_index: 3, src_index: 0, c: 0 },
+        Instruction { opcode: Xor, dst_index: 2, src_index: 4, c: 0 },
+        Instruction { opcode: Mul, dst_index: 3, src_index: 5, c: 0 },
+        Instruction { opcode: Xor, dst_index: 2, src_index: 0, c: 0 },
+        Instruction { opcode: Rol, dst_index: 2, src_index: 4, c: 0 },
+        Instruction { opcode: Xor, dst_index: 3, src_index: 8, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 4, c: 0 },
+        Instruction { opcode: Add, dst_index: 2, src_index: 3, c: 2235486112 },
+        Instruction { opcode: Xor, dst_index: 0, src_index: 3, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 2, c: 0 },
+        Instruction { opcode: Xor, dst_index: 2, src_index: 7, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 7, c: 0 },
+        Instruction { opcode: Ror, dst_index: 0, src_index: 4, c: 0 },
+        Instruction { opcode: Mul, dst_index: 3, src_index: 2, c: 0 },
+        Instruction { opcode: Add, dst_index: 2, src_index: 3, c: 382729823 },
+        Instruction { opcode: Mul, dst_index: 1, src_index: 4, c: 0 },
+        Instruction { opcode: Sub, dst_index: 3, src_index: 5, c: 0 },
+        Instruction { opcode: Add, dst_index: 3, src_index: 7, c: 446636115 },
+        Instruction { opcode: Sub, dst_index: 0, src_index: 5, c: 0 },
+        Instruction { opcode: Add, dst_index: 1, src_index: 8, c: 1136500848 },
+        Instruction { opcode: Xor, dst_index: 3, src_index: 8, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 4, c: 0 },
+        Instruction { opcode: Ror, dst_index: 3, src_index: 5, c: 0 },
+        Instruction { opcode: Mul, dst_index: 2, src_index: 0, c: 0 },
+        Instruction { opcode: Ror, dst_index: 0, src_index: 1, c: 0 },
+        Instruction { opcode: Add, dst_index: 0, src_index: 7, c: 4221005163 },
+        Instruction { opcode: Rol, dst_index: 0, src_index: 2, c: 0 },
+        Instruction { opcode: Add, dst_index: 0, src_index: 7, c: 1789679560 },
+        Instruction { opcode: Xor, dst_index: 0, src_index: 3, c: 0 },
+        Instruction { opcode: Add, dst_index: 2, src_index: 8, c: 2725270475 },
+        Instruction { opcode: Xor, dst_index: 1, src_index: 4, c: 0 },
+        Instruction { opcode: Sub, dst_index: 3, src_index: 8, c: 0 },
+        Instruction { opcode: Xor, dst_index: 3, src_index: 5, c: 0 },
+        Instruction { opcode: Sub, dst_index: 3, src_index: 2, c: 0 },
+        Instruction { opcode: Rol, dst_index: 2, src_index: 2, c: 0 },
+        Instruction { opcode: Add, dst_index: 3, src_index: 6, c: 4110965463 },
+        Instruction { opcode: Xor, dst_index: 2, src_index: 6, c: 0 },
+        Instruction { opcode: Sub, dst_index: 2, src_index: 7, c: 0 },
+        Instruction { opcode: Sub, dst_index: 3, src_index: 1, c: 0 },
+        Instruction { opcode: Sub, dst_index: 1, src_index: 8, c: 0 },
+        Instruction { opcode: Ror, dst_index: 1, src_index: 2, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 1, c: 0 },
+        Instruction { opcode: Mul, dst_index: 2, src_index: 0, c: 0 },
+        Instruction { opcode: Ret, dst_index: 0, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 0, c: 0 },
+        Instruction { opcode: Mul, dst_index: 0, src_index: 0, c: 0 },
     ];
 
     #[test]
@@ -891,13 +533,11 @@ mod tests {
 
         assert_eq!(hex::encode(a1), "1cb6fe7738de9e764dd73ea37c438056");
         assert_eq!(hex::encode(c2), "215fbd2bd8c7fceb2f209951334e6ea7");
-        assert_eq!(
-            r,
-            [
-                3226611830, 767947777, 1429416074, 3443042828, 583900822, 1668081467, 745405069,
-                1268423897, 1358466186
-            ]
-        );
+        #[rustfmt::skip]
+        assert_eq!(r, [
+            3226611830, 767947777, 1429416074, 3443042828, 583900822, 1668081467, 745405069,
+            1268423897, 1358466186
+        ]);
     }
 
     #[test]
@@ -916,19 +556,10 @@ mod tests {
 
         assert_eq!(hex::encode(a1), "c40cb4b3a3640a958cc919ccb4ff29e6");
         assert_eq!(hex::encode(c2), "0f5a3efd2e2f610fadad16d4ec189035");
-        assert_eq!(
-            r,
-            [
-                3483254888u32,
-                1282879863,
-                249640352,
-                3502382150,
-                3176479076,
-                59214308,
-                266850772,
-                745405069,
-                3242506343
-            ]
-        );
+        #[rustfmt::skip]
+        assert_eq!(r, [
+            3483254888u32, 1282879863, 249640352, 3502382150, 3176479076, 59214308, 266850772,
+            745405069, 3242506343
+        ]);
     }
 }

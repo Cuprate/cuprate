@@ -10,7 +10,11 @@ fn block_to_u64le(block: &[u8; AES_BLOCK_SIZE]) -> [u64; 2] {
     ]
 }
 
-pub fn variant2_portable_shuffle_add(
+// Original C code:
+// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L217-L254
+// If we kept the C code organization, this function would be in slow_hash.rs, but it's
+// here in the rust code to keep the slow_hash.rs file size manageable.
+pub fn variant2_shuffle_add(
     c1: &mut [u8; AES_BLOCK_SIZE],
     a: &[u8; AES_BLOCK_SIZE],
     b: &[u8; AES_BLOCK_SIZE * 2],
@@ -34,7 +38,6 @@ pub fn variant2_portable_shuffle_add(
         let b1 = block_to_u64le(subarray!(b, 16, 16));
 
         let chunk1 = &mut long_state[chunk1_start..chunk1_start + 16];
-        // TODO: Isn't this what our sum_half_blocks method does???
         chunk1[0..8].copy_from_slice(&(chunk3_old[0].wrapping_add(b1[0]).to_le_bytes()));
         chunk1[8..16].copy_from_slice(&(chunk3_old[1].wrapping_add(b1[1]).to_le_bytes()));
 
@@ -389,7 +392,7 @@ mod tests {
                 *byte = i as u8;
             }
 
-            variant2_portable_shuffle_add(&mut c1, &a, &b, &mut long_state, offset, variant);
+            variant2_shuffle_add(&mut c1, &a, &b, &mut long_state, offset, variant);
             assert_eq!(hex::encode(c1), c1_hex_end);
             let hash = Groestl256::digest(long_state.as_slice());
             assert_eq!(hex::encode(hash), long_state_end_hash);
