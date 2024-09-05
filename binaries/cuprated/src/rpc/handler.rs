@@ -1,6 +1,6 @@
 //! Dummy implementation of [`RpcHandler`].
 
-use std::task::Poll;
+use std::task::{Context, Poll};
 
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
@@ -43,6 +43,13 @@ pub struct CupratedRpcHandlerState {
     pub txpool: TxpoolReadHandle,
 }
 
+impl CupratedRpcHandler {
+    /// TODO
+    pub fn init() {
+        todo!()
+    }
+}
+
 impl RpcHandler for CupratedRpcHandler {
     fn restricted(&self) -> bool {
         self.restricted
@@ -54,7 +61,7 @@ impl Service<JsonRpcRequest> for CupratedRpcHandler {
     type Error = RpcError;
     type Future = BoxFuture<'static, Result<JsonRpcResponse, RpcError>>;
 
-    fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
@@ -69,7 +76,7 @@ impl Service<BinRequest> for CupratedRpcHandler {
     type Error = RpcError;
     type Future = BoxFuture<'static, Result<BinResponse, RpcError>>;
 
-    fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
@@ -84,7 +91,7 @@ impl Service<OtherRequest> for CupratedRpcHandler {
     type Error = RpcError;
     type Future = BoxFuture<'static, Result<OtherResponse, RpcError>>;
 
-    fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
     }
 
