@@ -189,7 +189,7 @@ pub struct BlockInfo {
     /// The adjusted block size, in bytes.
     ///
     /// See [`block_weight`](https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#blocks-weight).
-    pub weight: u64,
+    pub weight: usize,
     /// Least-significant 64 bits of the 128-bit cumulative difficulty.
     pub cumulative_difficulty_low: u64,
     /// Most-significant 64 bits of the 128-bit cumulative difficulty.
@@ -201,7 +201,7 @@ pub struct BlockInfo {
     /// The long term block weight, based on the median weight of the preceding `100_000` blocks.
     ///
     /// See [`long_term_weight`](https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#long-term-block-weight).
-    pub long_term_weight: u64,
+    pub long_term_weight: usize,
 }
 
 //---------------------------------------------------------------------------------------------------- OutputFlags
@@ -381,6 +381,7 @@ impl Key for RawChainId {}
 pub struct AltChainInfo {
     pub parent_chain: RawChain,
     pub common_ancestor_height: usize,
+    pub chain_height: usize,
 }
 
 //---------------------------------------------------------------------------------------------------- AltBlockHeight

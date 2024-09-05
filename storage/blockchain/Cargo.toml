@@ -25,11 +25,12 @@ cuprate-database         = { path = "../database" }
 cuprate-database-service = { path = "../service" }
 cuprate-helper           = { path = "../../helper", features = ["fs", "thread", "map"] }
 cuprate-types            = { path = "../../types", features = ["blockchain"] }
+cuprate-pruning          = { path = "../../pruning" }
 
 bitflags         = { workspace = true, features = ["std", "serde", "bytemuck"] }
 bytemuck         = { workspace = true, features = ["must_cast", "derive", "min_const_generics", "extern_crate_alloc"] }
 curve25519-dalek = { workspace = true }
-cuprate-pruning  = { path = "../../pruning" }
+rand             = { workspace = true }
 monero-serai     = { workspace = true, features = ["std"] }
 serde            = { workspace = true, optional = true }
 

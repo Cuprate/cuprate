@@ -1,19 +1,14 @@
 use crate::ops::alt_block::{
     add_alt_transaction_blob, check_add_alt_chain_info, get_alt_chain_history_ranges,
-    get_alt_transaction_blob,
+    get_alt_transaction,
 };
 use crate::ops::block::{get_block_extended_header_from_height, get_block_info};
 use crate::tables::{Tables, TablesMut};
-use crate::types::{
-    AltBlockHeight, AltTransactionInfo, BlockHash, BlockHeight, CompactAltBlockInfo,
-};
+use crate::types::{AltBlockHeight, BlockHash, BlockHeight, CompactAltBlockInfo};
 use bytemuck::TransparentWrapper;
-use cuprate_database::{RuntimeError, StorableVec};
+use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
-use cuprate_types::{
-    AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork,
-    VerifiedTransactionInformation,
-};
+use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
 use monero_serai::block::{Block, BlockHeader};
 
 pub fn add_alt_block(
@@ -54,8 +49,8 @@ pub fn add_alt_block(
     )?;
 
     assert_eq!(alt_block.txs.len(), alt_block.block.transactions.len());
-    for (tx, tx_hash) in alt_block.txs.iter().zip(&alt_block.block.transactions) {
-        add_alt_transaction_blob(tx_hash, StorableVec::wrap_ref(tx), tables)?;
+    for tx in alt_block.txs.iter() {
+        add_alt_transaction_blob(tx, tables)?;
     }
 
     Ok(())
@@ -74,8 +69,8 @@ pub fn get_alt_block(
     let txs = block
         .transactions
         .iter()
-        .map(|tx_hash| get_alt_transaction_blob(tx_hash, tables))
-        .collect()?;
+        .map(|tx_hash| get_alt_transaction(tx_hash, tables))
+        .collect::<Result<_, RuntimeError>>()?;
 
     Ok(AltBlockInformation {
         block,

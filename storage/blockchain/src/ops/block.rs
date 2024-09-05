@@ -8,8 +8,13 @@ use cuprate_database::{
     RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
 };
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
-use cuprate_types::{ExtendedBlockHeader, HardFork, VerifiedBlockInformation};
+use cuprate_types::{
+    AltBlockInformation, ChainId, ExtendedBlockHeader, HardFork, VerifiedBlockInformation,
+    VerifiedTransactionInformation,
+};
 
+use crate::free::tx_fee;
+use crate::ops::alt_block;
 use crate::{
     ops::{
         blockchain::{chain_height, cumulative_generated_coins},
@@ -106,9 +111,8 @@ pub fn add_block(
             cumulative_rct_outs,
             timestamp: block.block.header.timestamp,
             block_hash: block.block_hash,
-            // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-            weight: block.weight as u64,
-            long_term_weight: block.long_term_weight as u64,
+            weight: block.weight,
+            long_term_weight: block.long_term_weight,
         },
     )?;
 
@@ -135,17 +139,15 @@ pub fn add_block(
 /// will be returned if there are no blocks left.
 // no inline, too big
 pub fn pop_block(
+    move_to_alt_chain: Option<ChainId>,
     tables: &mut impl TablesMut,
 ) -> Result<(BlockHeight, BlockHash, Block), RuntimeError> {
     //------------------------------------------------------ Block Info
     // Remove block data from tables.
-    let (block_height, block_hash) = {
-        let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
-        (block_height, block_info.block_hash)
-    };
+    let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
 
     // Block heights.
-    tables.block_heights_mut().delete(&block_hash)?;
+    tables.block_heights_mut().delete(&block_info.block_hash)?;
 
     // Block blobs.
     // We deserialize the block blob into a `Block`, such
@@ -154,12 +156,42 @@ pub fn pop_block(
     let block = Block::read(&mut block_blob.as_slice())?;
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
+    let mut txs = Vec::with_capacity(block.transactions.len());
+
     remove_tx(&block.miner_transaction.hash(), tables)?;
     for tx_hash in &block.transactions {
-        remove_tx(tx_hash, tables)?;
+        let (_, tx) = remove_tx(tx_hash, tables)?;
+
+        if move_to_alt_chain.is_some() {
+            txs.push(VerifiedTransactionInformation {
+                tx_weight: tx.weight(),
+                tx_blob: tx.serialize(),
+                tx_hash: tx.hash(),
+                fee: tx_fee(&tx),
+                tx,
+            })
+        }
     }
 
-    Ok((block_height, block_hash, block))
+    if let Some(chain_id) = move_to_alt_chain {
+        alt_block::add_alt_block(
+            &AltBlockInformation {
+                block: block.clone(),
+                block_blob,
+                txs,
+                block_hash: block_info.block_hash,
+                pow_hash: [255; 32],
+                height: block_height,
+                weight: block_info.weight,
+                long_term_weight: block_info.long_term_weight,
+                cumulative_difficulty: 0,
+                chain_id,
+            },
+            tables,
+        )?;
+    }
+
+    Ok((block_height, block_info.block_hash, block))
 }
 
 //---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
@@ -205,8 +237,8 @@ pub fn get_block_extended_header_from_height(
             .expect("Stored block must have a valid hard-fork"),
         vote: block_header.hardfork_signal,
         timestamp: block_header.timestamp,
-        block_weight: block_info.weight as usize,
-        long_term_weight: block_info.long_term_weight as usize,
+        block_weight: block_info.weight,
+        long_term_weight: block_info.long_term_weight,
     })
 }
 
@@ -412,7 +444,8 @@ mod test {
             for block_hash in block_hashes.into_iter().rev() {
                 println!("pop_block(): block_hash: {}", hex::encode(block_hash));
 
-                let (_popped_height, popped_hash, _popped_block) = pop_block(&mut tables).unwrap();
+                let (_popped_height, popped_hash, _popped_block) =
+                    pop_block(None, &mut tables).unwrap();
 
                 assert_eq!(block_hash, popped_hash);
 

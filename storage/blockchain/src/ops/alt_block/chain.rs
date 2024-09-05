@@ -1,6 +1,6 @@
 use crate::tables::{AltChainInfos, TablesMut};
 use crate::types::{AltBlockHeight, AltChainInfo, BlockHash, BlockHeight};
-use cuprate_database::{DatabaseRo, RuntimeError};
+use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError};
 use cuprate_types::{Chain, ChainId};
 use std::cmp::max;
 
@@ -26,6 +26,7 @@ pub fn check_add_alt_chain_info(
         &AltChainInfo {
             parent_chain: parent_chain.into(),
             common_ancestor_height: alt_block_height.height - 1,
+            chain_height: alt_block_height.height,
         },
     )
 }

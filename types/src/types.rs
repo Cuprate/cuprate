@@ -79,6 +79,7 @@ pub struct VerifiedBlockInformation {
     /// [`Block::hash`].
     pub block_hash: [u8; 32],
     /// The block's proof-of-work hash.
+    // TODO: make this an option.
     pub pow_hash: [u8; 32],
     /// The block's height.
     pub height: usize,
@@ -120,7 +121,7 @@ pub struct AltBlockInformation {
     /// [`Block::serialize`].
     pub block_blob: Vec<u8>,
     /// All the transactions in the block, excluding the [`Block::miner_transaction`].
-    pub txs: Vec<Vec<u8>>,
+    pub txs: Vec<VerifiedTransactionInformation>,
     /// The block's hash.
     ///
     /// [`Block::hash`].

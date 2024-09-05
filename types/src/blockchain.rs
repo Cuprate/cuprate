@@ -116,20 +116,17 @@ pub enum BlockchainWriteRequest {
     ///
     /// Input is the alternative block.
     WriteAltBlock(AltBlockInformation),
-    /// A request to start the re-org process.
+    /// A request to pop some blocks from the top of the main chain
     ///
-    /// The inner value is the [`ChainId`] of the alt-chain we want to re-org to.
+    /// Input is the amount of blocks to pop.
     ///
-    /// This will:
-    /// - pop blocks from the main chain
-    /// - retrieve all alt-blocks in this alt-chain
-    /// - flush all other alt blocks
-    StartReorg(ChainId),
+    /// This request flush all alt-chains from the cache before adding the popped blocks to the alt cache.
+    PopBlocks(usize),
     /// A request to reverse the re-org process.
     ///
     /// The inner value is the [`ChainId`] of the old main chain.
     ///
-    /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::StartReorg`].
+    /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::PopBlocks`].
     ReverseReorg(ChainId),
     /// A request to flush all alternative blocks.
     FlushAltBlocks,
@@ -227,13 +224,10 @@ pub enum BlockchainResponse {
     /// - [`BlockchainWriteRequest::ReverseReorg`]
     /// - [`BlockchainWriteRequest::FlushAltBlocks`]
     Ok,
-    /// The response for [`BlockchainWriteRequest::StartReorg`].
-    StartReorg {
-        /// The [`ChainId`] of the old main chain blocks that were popped.
-        old_main_chain_id: ChainId,
-        /// The next alt chain blocks.
-        alt_chain: Vec<AltBlockInformation>,
-    },
+    /// The response for [`BlockchainWriteRequest::PopBlocks`].
+    ///
+    /// The inner value is the alt-chain ID for the old main chain blocks.
+    PopBlocks(ChainId),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
