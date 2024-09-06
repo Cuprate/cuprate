@@ -1,5 +1,3 @@
-extern crate core;
-
 mod cnaes;
 mod hash_v2;
 mod hash_v4;
@@ -10,7 +8,7 @@ mod blake256;
 
 use slow_hash::cn_slow_hash;
 
-/// Calculates the CryptoNight v0 hash of buf.
+/// Calculates the `CryptoNight` v0 hash of buf.
 pub fn cryptonight_hash_v0(buf: &[u8]) -> [u8; 32] {
     cn_slow_hash(buf, slow_hash::Variant::V0, 0)
 }
@@ -19,7 +17,7 @@ pub fn cryptonight_hash_v0(buf: &[u8]) -> [u8; 32] {
 #[error("Data can't be hashed")]
 pub struct DataCanNotBeHashed;
 
-/// Calculates the CryptoNight v1 hash of buf.
+/// Calculates the `CryptoNight` v1 hash of buf.
 ///
 /// This will return an error if buf is less than43 bytes.
 pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
@@ -30,12 +28,12 @@ pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
     Ok(cn_slow_hash(buf, slow_hash::Variant::V1, 0))
 }
 
-/// Calculates the CryptoNight v2 hash of buf.
+/// Calculates the `CryptoNight` v2 hash of buf.
 pub fn cryptonight_hash_v2(buf: &[u8]) -> [u8; 32] {
     cn_slow_hash(buf, slow_hash::Variant::V2, 0)
 }
 
-/// Calculates the CryptoNight R hash of buf.
+/// Calculates the `CryptoNight` R hash of buf.
 pub fn cryptonight_hash_r(buf: &[u8], height: u64) -> [u8; 32] {
     cn_slow_hash(buf, slow_hash::Variant::R, height)
 }

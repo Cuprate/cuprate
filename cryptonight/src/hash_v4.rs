@@ -1,17 +1,17 @@
 use crate::blake256::{Blake256, Digest};
 use crate::subarray_copy;
 use std::cmp::max;
-use InstructionList::*;
+use InstructionList::{Add, Mul, Ret, Rol, Ror, Sub, Xor};
 
 const TOTAL_LATENCY: usize = 15 * 3;
 const NUM_INSTRUCTIONS_MIN: usize = 60;
-pub const NUM_INSTRUCTIONS_MAX: usize = 70;
+pub(crate) const NUM_INSTRUCTIONS_MAX: usize = 70;
 const ALU_COUNT_MUL: usize = 1;
 const ALU_COUNT: usize = 3;
 
 #[repr(u8)]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum InstructionList {
+pub(crate) enum InstructionList {
     Mul, // a*b
     Add, // a+b + C, C is an unsigned 32-bit constant
     Sub, // a-b
@@ -22,7 +22,7 @@ pub enum InstructionList {
     Ret, // finish execution
 }
 
-const INSTRUCTION_COUNT: usize = InstructionList::Ret as usize;
+const INSTRUCTION_COUNT: usize = Ret as usize;
 
 // These instruction bit constants are used to generate code from random data.
 // Every random sequence of bytes is a valid code.
@@ -37,7 +37,7 @@ const INSTRUCTION_DST_INDEX_BITS: usize = 2;
 const INSTRUCTION_SRC_INDEX_BITS: usize = 3;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Instruction {
+pub(crate) struct Instruction {
     pub(crate) opcode: InstructionList,
     pub(crate) dst_index: u8,
     pub(crate) src_index: u8,
@@ -90,10 +90,10 @@ pub(crate) fn random_math_init(
         ALU_COUNT,
     ];
 
-    let mut data = [0u8; 32];
+    let mut data = [0_u8; 32];
     data[0..8].copy_from_slice(&height.to_le_bytes());
 
-    data[20] = -38i8 as u8; // change seed
+    data[20] = -38_i8 as u8; // change seed
 
     // Set data_index past the last byte in data
     // to trigger full data update with blake hash
@@ -105,8 +105,8 @@ pub(crate) fn random_math_init(
     // There is a small chance (1.8%) that register R8 won't be used in the
     // generated program, so we keep track of it and try again if it's not used
     loop {
-        let mut latency = [0usize; 9];
-        let mut asic_latency = [0usize; 9];
+        let mut latency = [0_usize; 9];
+        let mut asic_latency = [0_usize; 9];
 
         // Tracks previous instruction and value of the source operand for
         // registers R0-R3 throughout code execution:
@@ -122,15 +122,15 @@ pub(crate) fn random_math_init(
 
         let mut alu_busy = [[false; ALU_COUNT]; TOTAL_LATENCY + 1];
         let mut is_rotation = [false; INSTRUCTION_COUNT];
-        is_rotation[InstructionList::Ror as usize] = true;
-        is_rotation[InstructionList::Rol as usize] = true;
+        is_rotation[Ror as usize] = true;
+        is_rotation[Rol as usize] = true;
         let mut rotated = [false; 4];
-        let mut rotate_count = 0usize;
+        let mut rotate_count = 0_usize;
 
-        let mut num_retries = 0usize;
+        let mut num_retries = 0_usize;
         code_size = 0;
 
-        let mut total_iterations = 0usize;
+        let mut total_iterations = 0_usize;
         let mut r8_used = false;
 
         // Generate random code to achieve minimal required latency for our abstract CPU
@@ -278,11 +278,11 @@ pub(crate) fn random_math_init(
                     r8_used = true;
                 }
 
-                if opcode == InstructionList::Add {
+                if opcode == Add {
                     alu_busy[next_latency - OP_LATENCY[opcode as usize] + 1][alu_index as usize] =
                         true;
 
-                    check_data(&mut data_index, std::mem::size_of::<u32>(), &mut data);
+                    check_data(&mut data_index, size_of::<u32>(), &mut data);
                     code[code_size].c = u32::from_le_bytes(subarray_copy!(data, data_index, 4));
                     data_index += 4;
                 }
@@ -411,7 +411,7 @@ pub(crate) fn variant4_random_math(
     b: &[u8; 32],
     code: &[Instruction; 71],
 ) {
-    let mut t = [0u64; 2];
+    let mut t = [0_u64; 2];
     t[0] = u64::from_le_bytes(subarray_copy!(c2, 0, 8));
 
     t[0] ^= u64::from(r[0].wrapping_add(r[1])) | (u64::from(r[2].wrapping_add(r[3])) << 32);
@@ -553,7 +553,7 @@ mod tests {
         assert_eq!(hex::encode(c2), "0f5a3efd2e2f610fadad16d4ec189035");
         #[rustfmt::skip]
         assert_eq!(r, [
-            3483254888u32, 1282879863, 249640352, 3502382150, 3176479076, 59214308, 266850772,
+            3483254888_u32, 1282879863, 249640352, 3502382150, 3176479076, 59214308, 266850772,
             745405069, 3242506343
         ]);
     }

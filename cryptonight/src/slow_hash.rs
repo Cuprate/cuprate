@@ -36,14 +36,14 @@ struct CnSlowHashState {
 
 impl Default for CnSlowHashState {
     fn default() -> Self {
-        CnSlowHashState {
+        Self {
             b: [0; KECCAK1600_BYTE_SIZE],
         }
     }
 }
 
 impl CnSlowHashState {
-    fn get_keccak_bytes(&self) -> &[u8; KECCAK1600_BYTE_SIZE] {
+    const fn get_keccak_bytes(&self) -> &[u8; KECCAK1600_BYTE_SIZE] {
         &self.b
     }
 
@@ -79,7 +79,7 @@ impl CnSlowHashState {
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/hash.c#L38-L47
 fn hash_permutation(b: &mut [u8; KECCAK1600_BYTE_SIZE]) {
-    let mut state = [0u64; 25];
+    let mut state = [0_u64; 25];
 
     for (i, chunk) in state.iter_mut().enumerate() {
         *chunk = u64::from_le_bytes(subarray_copy!(b, i * 8, 8));
@@ -111,7 +111,7 @@ fn xor64(left: &mut [u8; 8], right: &[u8; 8]) {
 
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1709C1-L1709C27
-fn e2i(a: &[u8; 8], count: usize) -> usize {
+const fn e2i(a: &[u8; 8], count: usize) -> usize {
     let value: usize = u64::from_le_bytes(*a) as usize;
     (value / AES_BLOCK_SIZE) & (count - 1)
 }
@@ -119,14 +119,14 @@ fn e2i(a: &[u8; 8], count: usize) -> usize {
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1711-L1720
 fn mul(a: &[u8; 8], b: &[u8; 8]) -> [u8; AES_BLOCK_SIZE] {
-    let a0 = u64::from_le_bytes(*a) as u128;
-    let b0 = u64::from_le_bytes(*b) as u128;
+    let a0 = u128::from(u64::from_le_bytes(*a));
+    let b0 = u128::from(u64::from_le_bytes(*b));
     let product = a0.wrapping_mul(b0);
     let hi = (product >> 64) as u64;
     let lo = product as u64;
 
     // Note: this is a mix of little and big endian below, as high is stored first
-    let mut res = [0u8; AES_BLOCK_SIZE];
+    let mut res = [0_u8; AES_BLOCK_SIZE];
     res[0..8].copy_from_slice(&hi.to_le_bytes());
     res[8..16].copy_from_slice(&lo.to_le_bytes());
     res
@@ -152,7 +152,7 @@ fn copy_block(dst: &mut [u8; AES_BLOCK_SIZE], src: &[u8; AES_BLOCK_SIZE]) {
 }
 
 fn swap_blocks(a: &mut [u8; AES_BLOCK_SIZE], b: &mut [u8; AES_BLOCK_SIZE]) {
-    let mut t = [0u8; AES_BLOCK_SIZE];
+    let mut t = [0_u8; AES_BLOCK_SIZE];
     t.copy_from_slice(&a[..AES_BLOCK_SIZE]);
     a[..AES_BLOCK_SIZE].copy_from_slice(&b[..AES_BLOCK_SIZE]);
     b[..AES_BLOCK_SIZE].copy_from_slice(&t);
@@ -169,7 +169,7 @@ fn xor_blocks(a: &mut [u8; AES_BLOCK_SIZE], b: &[u8; AES_BLOCK_SIZE]) {
 fn variant1_init(state: &CnSlowHashState, data: &[u8], variant: Variant) -> [u8; 8] {
     const NONCE_PTR_INDEX: usize = 35;
 
-    let mut tweak1_2 = [0u8; 8];
+    let mut tweak1_2 = [0_u8; 8];
     if variant == Variant::V1 {
         assert!(
             data.len() >= 43,
@@ -186,7 +186,7 @@ fn variant1_init(state: &CnSlowHashState, data: &[u8], variant: Variant) -> [u8;
 fn variant1_1(p11: &mut u8, variant: Variant) {
     if variant == Variant::V1 {
         let tmp = *p11;
-        let table = 0x75310u32;
+        let table = 0x75310_u32;
         let index = (((tmp >> 3) & 6) | (tmp & 1)) << 1;
         *p11 = tmp ^ ((table >> index) & 0x30) as u8;
     }
@@ -257,7 +257,7 @@ fn variant4_math_init(
     [u32; v4::NUM_INSTRUCTIONS_MAX + 1],
     [v4::Instruction; v4::NUM_INSTRUCTIONS_MAX + 1],
 ) {
-    let mut r = [0u32; v4::NUM_INSTRUCTIONS_MAX + 1];
+    let mut r = [0_u32; v4::NUM_INSTRUCTIONS_MAX + 1];
     let mut code = [v4::Instruction::default(); v4::NUM_INSTRUCTIONS_MAX + 1];
     let keccak_state_bytes = state.get_keccak_bytes();
     if variant == Variant::R {
@@ -288,14 +288,14 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     let mut text = *state.get_init();
 
     let tweak1_2 = variant1_init(&state, data, variant);
-    let mut b = [0u8; AES_BLOCK_SIZE * 2];
+    let mut b = [0_u8; AES_BLOCK_SIZE * 2];
     let (mut division_result, mut sqrt_result) = variant_2_init(&mut b, &state, variant);
     let (mut r, code) = variant4_math_init(height, &state, variant);
 
     // Use a vector so the memory is allocated on the heap. We might have 2MB
     // available on the stack, but that optimization would only be meaningful if
     // this code was still used for mining.
-    let mut long_state = vec![0u8; MEMORY];
+    let mut long_state = vec![0_u8; MEMORY];
     let long_state: &mut [u8; MEMORY] = subarray_mut!(long_state, 0, MEMORY);
 
     for i in 0..MEMORY / INIT_SIZE_BYTE {
@@ -310,15 +310,15 @@ pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 3
     }
 
     let k = state.get_k();
-    let mut a = [0u8; AES_BLOCK_SIZE];
+    let mut a = [0_u8; AES_BLOCK_SIZE];
     for i in 0..AES_BLOCK_SIZE {
         a[i] = k[i] ^ k[AES_BLOCK_SIZE * 2 + i];
         b[i] = k[AES_BLOCK_SIZE + i] ^ k[AES_BLOCK_SIZE * 3 + i];
     }
 
-    let mut c1 = [0u8; AES_BLOCK_SIZE];
-    let mut c2 = [0u8; AES_BLOCK_SIZE];
-    let mut a1 = [0u8; AES_BLOCK_SIZE];
+    let mut c1 = [0_u8; AES_BLOCK_SIZE];
+    let mut c2 = [0_u8; AES_BLOCK_SIZE];
+    let mut a1 = [0_u8; AES_BLOCK_SIZE];
 
     for _ in 0..ITER / 2 {
         /* Dependency chain: address -> read value ------+
@@ -403,7 +403,7 @@ mod tests {
         let input: [u8; 44] = hex_to_array(
             "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374"
         );
-        let mut output = [0u8; KECCAK1600_BYTE_SIZE];
+        let mut output = [0_u8; KECCAK1600_BYTE_SIZE];
         keccak1600(&input, &mut output);
         let output_hex = "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f266110665e23e891ea4ee2337fb304b35bf8d9c2e4c3524e52e62db67b0b170487a68a34f8026a81b35dc835c60b356d2c411ad227b6c67e30e9b57ba34b3cf27fccecae972850cf3889bb3ff8347b55a5710d58086973d12d75a3340a39430b65ee2f4be27c21e7b39f47341dd036fe13bf43bb2c55bce498a3adcbf07397ea66062b66d56cd8136";
         assert_eq!(hex::encode(output), output_hex);
@@ -445,13 +445,13 @@ mod tests {
             "af6fe96f8cb409bdd2a61fb837e346f1a28007b0f078a8d68bc1224b6fcfcc3c39f1244db8c0af06e94173db4a54038a2f7a6a9c729928b5ec79668a30cbf5f2622fea9d7982e587e6612c4e6a1d28fdbaba4af1aea99e63322a632d514f35b4fc5cf231e9a6328efb5eb22ad2cfabe571ee8b6ef7dbc64f63185d54a771bdccd207b75e10547b4928f5dcb309192d88bf313d8bc53c8fe71da7ea93355d266c5cc8d39a1273e44b074d143849a3b302edad73c2e61f936c502f6bbabb972b616062b66d56cd8136"
         );
         const EXPECTED: &str = "31e2fb6eb8e2e376d42a53bc88166378f2a23cf9be54645ff69e8ade3aa4b7ad35040d0e3ad0ee0d8562d53a51acdf14f44de5c097c48a29f63676346194b3af13c3c45af214335a14329491081068a32ea29b3a6856e0efa737dff49d3b5dbf3f7847f058bb41d36347c19d5cd5bdb354ac64a86156c8194e19b0f62d109a8112024a7734730a2bb221c137d3034204e1e57d9cec9689bc199de684f38aeed4624b84c39675a4755ce9b69fde9d36cabd12f1aef4a5b2bb6c6126900799f2109e9b6b55d7bb3ff5";
-        super::hash_permutation(&mut state_bytes);
+        hash_permutation(&mut state_bytes);
         assert_eq!(hex::encode(state_bytes), EXPECTED);
     }
 
     #[test]
     fn test_extra_hashes() {
-        let mut input = [0u8; KECCAK1600_BYTE_SIZE];
+        let mut input = [0_u8; KECCAK1600_BYTE_SIZE];
         for (i, val) in input.iter_mut().enumerate() {
             *val = i as u8;
         }
@@ -475,7 +475,7 @@ mod tests {
         for (i, expected) in EXPECTED.iter().enumerate() {
             input[0] = i as u8;
             let output = extra_hashes(&input);
-            assert_eq!(hex::encode(output), *expected, "hash {}", i);
+            assert_eq!(hex::encode(output), *expected, "hash {i}");
         }
     }
 

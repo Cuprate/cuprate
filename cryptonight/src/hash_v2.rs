@@ -13,7 +13,7 @@ fn block_to_u64le(block: &[u8; AES_BLOCK_SIZE]) -> [u64; 2] {
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L217-L254
 // If we kept the C code organization, this function would be in slow_hash.rs, but it's
 // here in the rust code to keep the slow_hash.rs file size manageable.
-pub fn variant2_shuffle_add(
+pub(crate) fn variant2_shuffle_add(
     c1: &mut [u8; AES_BLOCK_SIZE],
     a: &[u8; AES_BLOCK_SIZE],
     b: &[u8; AES_BLOCK_SIZE * 2],
@@ -67,10 +67,10 @@ pub fn variant2_shuffle_add(
     }
 }
 
-pub fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
+pub(crate) fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
     // Get an approximation using floating point math
     let mut sqrt_result =
-        ((sqrt_input as f64 + 18446744073709551616.0).sqrt() * 2.0 - 8589934592.0) as u64;
+        ((sqrt_input as f64 + 18_446_744_073_709_552_000.0).sqrt() * 2.0 - 8589934592.0) as u64;
 
     // Fixup the edge cases to get the exact integer result. For more information,
     // see: https://github.com/monero-project/monero/blob/v0.18.3.3/src/crypto/variant2_int_sqrt.h#L65-L152
@@ -95,7 +95,7 @@ pub fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
     sqrt_result
 }
 
-pub fn variant2_integer_math(
+pub(crate) fn variant2_integer_math(
     c2: &mut [u8; 8],
     c1: &[u8; AES_BLOCK_SIZE],
     division_result: &mut u64,
@@ -367,8 +367,7 @@ mod tests {
             assert_eq!(
                 variant2_integer_math_sqrt(input),
                 expected,
-                "input = {}",
-                input
+                "input = {input}"
             );
         }
     }
@@ -386,7 +385,7 @@ mod tests {
             let a: [u8; AES_BLOCK_SIZE] = hex_to_array(a_hex);
             let b: [u8; AES_BLOCK_SIZE * 2] = hex_to_array(b_hex);
 
-            let mut long_state = Box::new([0u8; MEMORY]);
+            let mut long_state = Box::new([0_u8; MEMORY]);
             for (i, byte) in long_state.iter_mut().enumerate() {
                 *byte = i as u8;
             }

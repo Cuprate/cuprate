@@ -10,7 +10,7 @@
 /// A reference to a fixed-size subarray of type `[u8; $len]`.
 ///
 /// # Panics
-/// Panics if $start + $len > $array.len().
+/// Panics if $start + $len > $`array.len()`.
 #[macro_export]
 macro_rules! subarray {
     ($array:expr, $start:expr, $len:expr) => {{
@@ -31,7 +31,7 @@ macro_rules! subarray {
 /// A new fixed-size array of type `[u8; $len]`.
 ///
 /// # Panics
-/// Panics if $start + $len > $array.len().
+/// Panics if $start + $len > $`array.len()`.
 #[macro_export]
 macro_rules! subarray_copy {
     ($array:expr, $start:expr, $len:expr) => {{
@@ -52,7 +52,7 @@ macro_rules! subarray_copy {
 /// A mutable reference to a fixed-size array of type `[u8; $len]`.
 ///
 /// # Panics
-/// Panics if $start + $len > $array.len().
+/// Panics if $start + $len > $`array.len()`.
 #[macro_export]
 macro_rules! subarray_mut {
     ($array:expr, $start:expr, $len:expr) => {{
@@ -75,7 +75,7 @@ pub(crate) fn hex_to_array<const N: usize>(hex: &str) -> [u8; N] {
 mod tests {
     #[test]
     fn test_subarray() {
-        let array = [1u8, 2, 3, 4, 5];
+        let array = [1_u8, 2, 3, 4, 5];
         let sub = subarray!(array, 1, 3);
         assert_eq!(sub, &[2, 3, 4]);
         assert!(std::ptr::eq(&array[1], &sub[0])); // same memory, not copy
@@ -83,7 +83,7 @@ mod tests {
 
     #[test]
     fn test_subarray_copy() {
-        let mut array = [1u8, 2, 3, 4, 5];
+        let mut array = [1_u8, 2, 3, 4, 5];
         let sub_copied = subarray_copy!(array, 1, 3);
         assert_eq!(sub_copied, [2, 3, 4]);
         array[1] = 10;
@@ -92,10 +92,10 @@ mod tests {
 
     #[test]
     fn test_subarray_mut() {
-        let mut array = [1u8, 2, 3, 4, 5];
+        let mut array = [1_u8, 2, 3, 4, 5];
         let sub = subarray_mut!(array, 1, 2);
-        assert_eq!(sub, &[2u8, 3]);
+        assert_eq!(sub, &[2_u8, 3]);
         sub[0] = 10;
-        assert_eq!(array, [1u8, 10, 3, 4, 5]); // original array modified
+        assert_eq!(array, [1_u8, 10, 3, 4, 5]); // original array modified
     }
 }

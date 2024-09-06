@@ -301,7 +301,7 @@ const CRYPTONIGHT_SBOX: [u8; 4096] = [
     0xb0, 0xb0, 0xcb, 0x7b, 0x54, 0x54, 0xfc, 0xa8, 0xbb, 0xbb, 0xd6, 0x6d, 0x16, 0x16, 0x3a, 0x2c,
 ];
 
-fn substitute_word(word: u32) -> u32 {
+const fn substitute_word(word: u32) -> u32 {
     let wb: [u8; 4] = word.to_be_bytes();
     u32::from_be_bytes([
         AES_SBOX[(wb[0] >> 4) as usize][(wb[0] & 0x0F) as usize],
@@ -318,12 +318,12 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
     // NK comes from the AES specification, it is the number of 32-bit words in
     // the non-expanded key (For AES-256: 32/4 = 8)
     const NK: usize = 8;
-    let mut expanded_key = [0u8; EXPANDED_KEY_SIZE];
+    let mut expanded_key = [0_u8; EXPANDED_KEY_SIZE];
 
     expanded_key[0..CN_AES_KEY_SIZE].copy_from_slice(key_bytes);
 
     /// See FIPS-197, especially figure 11 to better understand how the
-    /// expansion happens: https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.197.pdf
+    /// expansion happens: <https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.197.pdf>
     const ROUND_CONSTS: [u8; 11] = [
         0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36,
     ];
@@ -360,7 +360,7 @@ pub(crate) fn round_fwd(state: &mut [u8; AES_BLOCK_SIZE], key: &[u8; ROUND_KEY_S
 
     for c in 0..4 {
         for i in 0..4 {
-            let mut r = 0u8;
+            let mut r = 0_u8;
             for j in 0..4 {
                 let w = INDEX_ROTATIONS[c * 4 + j] as usize;
                 let s = start_state[w * 4 + j] as usize;

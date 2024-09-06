@@ -2,13 +2,13 @@
 ///
 /// The code below is ported from these C files omitting BLAKE-244 and the
 /// HMAC methods that are not used by Monero.
-/// * https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.h
-/// * https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.c
+/// * <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.h>
+/// * <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.c>
 ///
 /// Note: The Rust Crypto project only provides the newer BLAKE2 variants. There
 /// is a blake crate, but it is using C wrappers.
 
-pub trait Digest {
+pub(crate) trait Digest {
     fn new() -> Self;
 
     /// Process data, updating the internal state.
@@ -21,7 +21,7 @@ pub trait Digest {
     fn digest(data: impl AsRef<[u8]>) -> [u8; 32];
 }
 
-pub struct Blake256 {
+pub(crate) struct Blake256 {
     h: [u32; 8],
     s: [u32; 4],
     t: [u32; 2],
@@ -119,7 +119,7 @@ impl Digest for Blake256 {
         const PA: &[u8; 1] = &[0x81];
         const PB: &[u8; 1] = &[0x01];
 
-        let mut msglen = [0u8; 8];
+        let mut msglen = [0_u8; 8];
         let lo = self.t[0].wrapping_add(self.buflen as u32);
         let mut hi = self.t[1];
         if lo < self.buflen as u32 {
@@ -136,13 +136,13 @@ impl Digest for Blake256 {
                 if self.buflen == 0 {
                     self.nullt = true;
                 }
-                self.t[0] = self.t[0].wrapping_sub(440u32.wrapping_sub(self.buflen as u32));
+                self.t[0] = self.t[0].wrapping_sub(440_u32.wrapping_sub(self.buflen as u32));
                 self.update(&PADDING[..(440 - self.buflen) / 8]);
             } else {
-                self.t[0] = self.t[0].wrapping_sub(512u32.wrapping_sub(self.buflen as u32));
+                self.t[0] = self.t[0].wrapping_sub(512_u32.wrapping_sub(self.buflen as u32));
                 self.update(&PADDING[..(512 - self.buflen) / 8]);
                 self.t[0] = self.t[0].wrapping_sub(440);
-                self.update(&PADDING[1..(440 / 8) + 1]);
+                self.update(&PADDING[1..=(440 / 8)]);
                 self.nullt = true;
             }
             self.update(PB);
@@ -151,7 +151,7 @@ impl Digest for Blake256 {
         self.t[0] = self.t[0].wrapping_sub(64);
         self.update(msglen);
 
-        let mut digest = [0u8; 32];
+        let mut digest = [0_u8; 32];
         for (i, chunk) in digest.chunks_mut(4).enumerate() {
             chunk.copy_from_slice(&self.h[i].to_be_bytes());
         }
@@ -167,8 +167,8 @@ impl Digest for Blake256 {
 
 impl Blake256 {
     fn compress(&mut self, block: &[u8; 64]) {
-        let mut v = [0u32; 16];
-        let mut m = [0u32; 16];
+        let mut v = [0_u32; 16];
+        let mut m = [0_u32; 16];
 
         for i in 0..16 {
             m[i] = u32::from_be_bytes(subarray_copy!(block, 4 * i, 4));
@@ -573,7 +573,7 @@ mod tests {
 
     #[test]
     fn test_digest() {
-        for t in TESTS.iter() {
+        for t in &TESTS {
             let input = hex::decode(t.input).unwrap();
             let digest = Blake256::digest(&input);
             let digest_hex = hex::encode(digest);
