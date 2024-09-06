@@ -27,6 +27,11 @@ pub enum BlockchainReadRequest {
     /// The input is the block's height.
     BlockExtendedHeader(usize),
 
+    /// Request a block's extended header.
+    ///
+    /// The input is the block's hash.
+    BlockExtendedHeaderByHash([u8; 32]),
+
     /// Request a block's hash.
     ///
     /// The input is the block's height and the chain it is on.
@@ -128,6 +133,11 @@ pub enum BlockchainResponse {
     ///
     /// Inner value is the extended headed of the requested block.
     BlockExtendedHeader(ExtendedBlockHeader),
+
+    /// Response to [`BlockchainReadRequest::BlockExtendedHeaderByHash`].
+    ///
+    /// Inner value is the extended headed of the requested block.
+    BlockExtendedHeaderByHash(ExtendedBlockHeader),
 
     /// Response to [`BlockchainReadRequest::BlockHash`].
     ///

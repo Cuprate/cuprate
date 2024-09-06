@@ -23,7 +23,8 @@ use cuprate_types::{
 use crate::{
     ops::{
         block::{
-            block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
+            block_exists, get_block_extended_header, get_block_extended_header_from_height,
+            get_block_height, get_block_info,
         },
         blockchain::{cumulative_generated_coins, top_block_height},
         key_image::key_image_exists,
@@ -86,6 +87,7 @@ fn map_request(
 
     match request {
         R::BlockExtendedHeader(block) => block_extended_header(env, block),
+        R::BlockExtendedHeaderByHash(block) => block_extended_header_by_hash(env, block),
         R::BlockHash(block, chain) => block_hash(env, block, chain),
         R::FindBlock(_) => todo!("Add alt blocks to DB"),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
@@ -185,6 +187,19 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 
     Ok(BlockchainResponse::BlockExtendedHeader(
         get_block_extended_header_from_height(&block_height, &tables)?,
+    ))
+}
+
+/// [`BlockchainReadRequest::BlockExtendedHeaderByHash`].
+#[inline]
+fn block_extended_header_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::BlockExtendedHeaderByHash(
+        get_block_extended_header(&block_hash, &tables)?,
     ))
 }
 
