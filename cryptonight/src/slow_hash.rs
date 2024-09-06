@@ -7,7 +7,6 @@ use cnaes::CN_AES_KEY_SIZE;
 use digest::Digest as _;
 use groestl::Groestl256;
 use jh::Jh256;
-use sha3::Digest as _;
 use skein::{consts::U32, Skein512};
 use std::cmp::PartialEq;
 use std::io::Write;
