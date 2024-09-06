@@ -1,29 +1,40 @@
 use std::sync::Arc;
 
-use tower::ServiceExt;
+use futures::StreamExt;
+use tower::{Service, ServiceExt};
 
+use cuprate_consensus::BlockchainResponse;
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_rpc_interface::RpcError;
-use cuprate_rpc_types::json::{
-    AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
-    CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTransactionPoolRequest,
-    FlushTransactionPoolResponse, GenerateBlocksRequest, GenerateBlocksResponse,
-    GetAlternateChainsRequest, GetAlternateChainsResponse, GetBansRequest, GetBansResponse,
-    GetBlockCountRequest, GetBlockCountResponse, GetBlockHeaderByHashRequest,
-    GetBlockHeaderByHashResponse, GetBlockHeaderByHeightRequest, GetBlockHeaderByHeightResponse,
-    GetBlockHeadersRangeRequest, GetBlockHeadersRangeResponse, GetBlockRequest, GetBlockResponse,
-    GetCoinbaseTxSumRequest, GetCoinbaseTxSumResponse, GetConnectionsRequest,
-    GetConnectionsResponse, GetFeeEstimateRequest, GetFeeEstimateResponse, GetInfoRequest,
-    GetInfoResponse, GetLastBlockHeaderRequest, GetLastBlockHeaderResponse, GetMinerDataRequest,
-    GetMinerDataResponse, GetOutputHistogramRequest, GetOutputHistogramResponse,
-    GetTransactionPoolBacklogRequest, GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest,
-    GetTxIdsLooseResponse, GetVersionRequest, GetVersionResponse, HardForkInfoRequest,
-    HardForkInfoResponse, JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest,
-    OnGetBlockHashResponse, PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest,
-    RelayTxResponse, SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse,
-    SyncInfoRequest, SyncInfoResponse,
+use cuprate_rpc_types::{
+    base::{AccessResponseBase, ResponseBase},
+    json::{
+        AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
+        CalcPowResponse, FlushCacheRequest, FlushCacheResponse, FlushTransactionPoolRequest,
+        FlushTransactionPoolResponse, GenerateBlocksRequest, GenerateBlocksResponse,
+        GetAlternateChainsRequest, GetAlternateChainsResponse, GetBansRequest, GetBansResponse,
+        GetBlockCountRequest, GetBlockCountResponse, GetBlockHeaderByHashRequest,
+        GetBlockHeaderByHashResponse, GetBlockHeaderByHeightRequest,
+        GetBlockHeaderByHeightResponse, GetBlockHeadersRangeRequest, GetBlockHeadersRangeResponse,
+        GetBlockRequest, GetBlockResponse, GetCoinbaseTxSumRequest, GetCoinbaseTxSumResponse,
+        GetConnectionsRequest, GetConnectionsResponse, GetFeeEstimateRequest,
+        GetFeeEstimateResponse, GetInfoRequest, GetInfoResponse, GetLastBlockHeaderRequest,
+        GetLastBlockHeaderResponse, GetMinerDataRequest, GetMinerDataResponse,
+        GetOutputHistogramRequest, GetOutputHistogramResponse, GetTransactionPoolBacklogRequest,
+        GetTransactionPoolBacklogResponse, GetTxIdsLooseRequest, GetTxIdsLooseResponse,
+        GetVersionRequest, GetVersionResponse, HardForkInfoRequest, HardForkInfoResponse,
+        JsonRpcRequest, JsonRpcResponse, OnGetBlockHashRequest, OnGetBlockHashResponse,
+        PruneBlockchainRequest, PruneBlockchainResponse, RelayTxRequest, RelayTxResponse,
+        SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
+        SyncInfoResponse,
+    },
+    misc::BlockHeader,
 };
+use cuprate_types::{blockchain::BlockchainReadRequest, Chain};
 
 use crate::rpc::CupratedRpcHandlerState;
+
+use super::RESTRICTED_BLOCK_COUNT;
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
@@ -87,14 +98,38 @@ async fn get_block_count(
     state: CupratedRpcHandlerState,
     request: GetBlockCountRequest,
 ) -> Result<GetBlockCountResponse, RpcError> {
-    todo!()
+    let BlockchainResponse::ChainHeight(count, hash) = state
+        .blockchain
+        .oneshot(BlockchainReadRequest::ChainHeight)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(GetBlockCountResponse {
+        base: ResponseBase::ok(),
+        count: usize_to_u64(count),
+    })
 }
 
 async fn on_get_block_hash(
     state: CupratedRpcHandlerState,
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, RpcError> {
-    todo!()
+    let BlockchainResponse::BlockHash(hash) = state
+        .blockchain
+        .oneshot(BlockchainReadRequest::BlockHash(
+            u64_to_usize(request.block_height[0]),
+            Chain::Main,
+        ))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(OnGetBlockHashResponse {
+        block_hash: hex::encode(hash),
+    })
 }
 
 async fn submit_block(
@@ -119,10 +154,85 @@ async fn get_last_block_header(
 }
 
 async fn get_block_header_by_hash(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetBlockHeaderByHashRequest,
 ) -> Result<GetBlockHeaderByHashResponse, RpcError> {
-    todo!()
+    let restricted = todo!();
+    if restricted && request.hashes.len() > RESTRICTED_BLOCK_COUNT {
+        let message = "Too many block headers requested in restricted mode";
+        return Err(todo!());
+    }
+
+    async fn get(
+        state: &mut CupratedRpcHandlerState,
+        hex: String,
+        fill_pow_hash: bool,
+    ) -> Result<BlockHeader, ()> {
+        let Ok(bytes) = hex::decode(&hex) else {
+            let message = format!("Failed to parse hex representation of block hash. Hex = {hex}.");
+            return Err(todo!());
+        };
+
+        let Ok(hash) = bytes.try_into() else {
+            let message = "TODO";
+            return Err(todo!());
+        };
+
+        let ready = state.blockchain.ready().await.expect("TODO");
+
+        let BlockchainResponse::BlockExtendedHeaderByHash(header) = ready
+            .call(BlockchainReadRequest::BlockExtendedHeaderByHash(hash))
+            .await
+            .expect("TODO")
+        else {
+            unreachable!();
+        };
+
+        let block_header = BlockHeader {
+            block_size: todo!(),
+            block_weight: todo!(),
+            cumulative_difficulty_top64: todo!(),
+            cumulative_difficulty: todo!(),
+            depth: todo!(),
+            difficulty_top64: todo!(),
+            difficulty: todo!(),
+            hash: todo!(),
+            height: todo!(),
+            long_term_weight: todo!(),
+            major_version: todo!(),
+            miner_tx_hash: todo!(),
+            minor_version: todo!(),
+            nonce: todo!(),
+            num_txes: todo!(),
+            orphan_status: todo!(),
+            pow_hash: todo!(),
+            prev_hash: todo!(),
+            reward: todo!(),
+            timestamp: todo!(),
+            wide_cumulative_difficulty: todo!(),
+            wide_difficulty: todo!(),
+        };
+
+        Ok(block_header)
+    }
+
+    let block_header = get(&mut state, request.hash, request.fill_pow_hash)
+        .await
+        .unwrap();
+
+    let block_headers = Vec::with_capacity(request.hashes.len());
+    for hash in request.hashes {
+        let hash = get(&mut state, hash, request.fill_pow_hash)
+            .await
+            .expect("TODO");
+        block_headers.push(hash);
+    }
+
+    Ok(GetBlockHeaderByHashResponse {
+        base: AccessResponseBase::ok(),
+        block_header,
+        block_headers,
+    })
 }
 
 async fn get_block_header_by_height(
