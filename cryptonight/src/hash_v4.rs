@@ -371,7 +371,6 @@ pub(crate) fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
                 }
                 Xor => *dst ^= src,
                 Ret => return,
-                //_ => unreachable!(),
             }
         };
     }
