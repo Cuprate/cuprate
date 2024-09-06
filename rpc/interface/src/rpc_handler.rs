@@ -22,7 +22,7 @@ use crate::RpcService;
 /// In other words, an [`RpcHandler`] is a type that implements [`tower::Service`] 3 times,
 /// one for each request/response enum type found in [`cuprate_rpc_types`].
 ///
-/// The error type must always be [`RpcError`](crate::RpcError).
+/// The error type must always be [`anyhow::Error`].
 ///
 /// See this crate's `RpcHandlerDummy` for an implementation example of this trait.
 ///
