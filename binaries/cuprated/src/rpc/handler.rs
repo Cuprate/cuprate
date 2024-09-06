@@ -2,11 +2,6 @@
 
 use std::task::{Context, Poll};
 
-use cuprate_rpc_types::{
-    bin::{BinRequest, BinResponse},
-    json::{JsonRpcRequest, JsonRpcResponse},
-    other::{OtherRequest, OtherResponse},
-};
 use futures::{channel::oneshot::channel, future::BoxFuture};
 use serde::{Deserialize, Serialize};
 use tower::Service;
@@ -15,6 +10,11 @@ use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_json_rpc::Id;
 use cuprate_rpc_interface::{RpcError, RpcHandler};
+use cuprate_rpc_types::{
+    bin::{BinRequest, BinResponse},
+    json::{JsonRpcRequest, JsonRpcResponse},
+    other::{OtherRequest, OtherResponse},
+};
 use cuprate_txpool::service::TxpoolReadHandle;
 
 use crate::rpc::{bin, json, other};

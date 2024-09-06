@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use tower::ServiceExt;
+
 use cuprate_rpc_interface::RpcError;
 use cuprate_rpc_types::json::{
     AddAuxPowRequest, AddAuxPowResponse, BannedRequest, BannedResponse, CalcPowRequest,
@@ -20,7 +22,6 @@ use cuprate_rpc_types::json::{
     RelayTxResponse, SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse,
     SyncInfoRequest, SyncInfoResponse,
 };
-use tower::ServiceExt;
 
 use crate::rpc::CupratedRpcHandlerState;
 
