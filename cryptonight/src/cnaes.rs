@@ -1,4 +1,4 @@
-use crate::{subarray, subarray_copy};
+use crate::util::{subarray, subarray_copy};
 
 pub(crate) const AES_BLOCK_SIZE: usize = 16;
 

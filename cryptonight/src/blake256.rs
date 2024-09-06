@@ -8,6 +8,8 @@
 //! Note: The Rust Crypto project only provides the newer BLAKE2 variants. There
 //! is a blake crate, but it is using C wrappers.
 
+use crate::util::{subarray, subarray_copy};
+
 pub(crate) trait Digest {
     fn new() -> Self;
 

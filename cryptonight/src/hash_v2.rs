@@ -1,5 +1,8 @@
 use crate::slow_hash::{Variant, MEMORY};
-use crate::{cnaes, subarray, subarray_copy};
+use crate::{
+    cnaes,
+    util::{subarray, subarray_copy},
+};
 use cnaes::AES_BLOCK_SIZE;
 
 fn block_to_u64le(block: &[u8; AES_BLOCK_SIZE]) -> [u64; 2] {
@@ -129,8 +132,8 @@ pub(crate) fn variant2_integer_math(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::subarray_mut;
     use crate::util::hex_to_array;
+    use crate::util::subarray_mut;
     use digest::Digest;
     use groestl::Groestl256;
 

@@ -1,5 +1,5 @@
 use crate::blake256::{Blake256, Digest};
-use crate::subarray_copy;
+use crate::util::subarray_copy;
 use std::cmp::max;
 use InstructionList::{Add, Mul, Ret, Rol, Ror, Sub, Xor};
 

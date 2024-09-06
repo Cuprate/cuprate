@@ -1,10 +1,9 @@
+mod blake256;
 mod cnaes;
 mod hash_v2;
 mod hash_v4;
 mod slow_hash;
-#[macro_use]
 pub(crate) mod util;
-mod blake256;
 
 use slow_hash::cn_slow_hash;
 

@@ -11,13 +11,13 @@
 ///
 /// # Panics
 /// Panics if $start + $len > $`array.len()`.
-#[macro_export]
 macro_rules! subarray {
     ($array:expr, $start:expr, $len:expr) => {{
         let sub: &[u8; $len] = (&$array[$start..$start + $len]).try_into().unwrap();
         sub
     }};
 }
+pub(crate) use subarray;
 
 /// Creates a new fixed-size array copying the bytes from the specified subarray
 /// of a parent array, slice or vector uf u8.
@@ -32,13 +32,13 @@ macro_rules! subarray {
 ///
 /// # Panics
 /// Panics if $start + $len > $`array.len()`.
-#[macro_export]
 macro_rules! subarray_copy {
     ($array:expr, $start:expr, $len:expr) => {{
         let sub: [u8; $len] = $array[$start..$start + $len].try_into().unwrap();
         sub
     }};
 }
+pub(crate) use subarray_copy;
 
 /// Extracts a mutable subarray from a given array. Changes to the subarray will
 /// be reflected in the original array.
@@ -53,13 +53,13 @@ macro_rules! subarray_copy {
 ///
 /// # Panics
 /// Panics if $start + $len > $`array.len()`.
-#[macro_export]
 macro_rules! subarray_mut {
     ($array:expr, $start:expr, $len:expr) => {{
         let sub: &mut [u8; $len] = (&mut $array[$start..$start + $len]).try_into().unwrap();
         sub
     }};
 }
+pub(crate) use subarray_mut;
 
 #[cfg(test)]
 pub(crate) fn hex_to_array<const N: usize>(hex: &str) -> [u8; N] {
