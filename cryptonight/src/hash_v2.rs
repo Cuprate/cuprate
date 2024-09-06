@@ -67,6 +67,9 @@ pub(crate) fn variant2_shuffle_add(
     }
 }
 
+#[expect(clippy::cast_sign_loss)]
+#[expect(clippy::cast_precision_loss)]
+#[expect(clippy::cast_possible_truncation)]
 pub(crate) fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
     // Get an approximation using floating point math
     let mut sqrt_result =
@@ -95,6 +98,8 @@ pub(crate) fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
     sqrt_result
 }
 
+// Original C code:
+// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L277-L283
 pub(crate) fn variant2_integer_math(
     c2: &mut [u8; 8],
     c1: &[u8; AES_BLOCK_SIZE],
@@ -373,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn test_variant2_portable_shuffle_add() {
+    fn test_variant2_shuffle_add() {
         let test = |c1_hex: &str,
                     a_hex: &str,
                     b_hex: &str,
@@ -385,12 +390,13 @@ mod tests {
             let a: [u8; AES_BLOCK_SIZE] = hex_to_array(a_hex);
             let b: [u8; AES_BLOCK_SIZE * 2] = hex_to_array(b_hex);
 
-            let mut long_state = Box::new([0_u8; MEMORY]);
+            let mut long_state = vec![0_u8; MEMORY];
+            let long_state: &mut [u8; MEMORY] = subarray_mut!(long_state, 0, MEMORY);
             for (i, byte) in long_state.iter_mut().enumerate() {
                 *byte = i as u8;
             }
 
-            variant2_shuffle_add(&mut c1, &a, &b, &mut long_state, offset, variant);
+            variant2_shuffle_add(&mut c1, &a, &b, long_state, offset, variant);
             assert_eq!(hex::encode(c1), c1_hex_end);
             let hash = Groestl256::digest(long_state.as_slice());
             assert_eq!(hex::encode(hash), long_state_end_hash);

@@ -61,6 +61,9 @@ fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [u8]) {
 // Original C code:
 // https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439
 //
+#[expect(clippy::cast_sign_loss)]
+#[expect(clippy::cast_possible_wrap)]
+#[expect(clippy::cast_possible_truncation)]
 pub(crate) fn random_math_init(
     code: &mut [Instruction; NUM_INSTRUCTIONS_MAX + 1],
     height: u64,

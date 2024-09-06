@@ -1,12 +1,12 @@
-/// This module implements the original BLAKE-256 algorithm.
-///
-/// The code below is ported from these C files omitting BLAKE-244 and the
-/// HMAC methods that are not used by Monero.
-/// * <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.h>
-/// * <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.c>
-///
-/// Note: The Rust Crypto project only provides the newer BLAKE2 variants. There
-/// is a blake crate, but it is using C wrappers.
+//! This module implements the original BLAKE-256 algorithm.
+//!
+//! The code below is ported from these C files omitting BLAKE-244 and the
+//! HMAC methods that are not used by Monero.
+//! * <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.h>
+//! * <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/blake256.c>
+//!
+//! Note: The Rust Crypto project only provides the newer BLAKE2 variants. There
+//! is a blake crate, but it is using C wrappers.
 
 pub(crate) trait Digest {
     fn new() -> Self;
@@ -78,6 +78,7 @@ impl Digest for Blake256 {
             buf: [0; 64],
         }
     }
+
     fn update(&mut self, data: impl AsRef<[u8]>) {
         let data = data.as_ref();
         let mut datalenbits = data.len() * 8;
@@ -115,9 +116,12 @@ impl Digest for Blake256 {
         }
     }
 
+    #[expect(clippy::cast_possible_truncation)]
     fn finalize(mut self) -> [u8; 32] {
         const PA: &[u8; 1] = &[0x81];
         const PB: &[u8; 1] = &[0x01];
+
+        assert!(u32::try_from(self.buflen).is_ok());
 
         let mut msglen = [0_u8; 8];
         let lo = self.t[0].wrapping_add(self.buflen as u32);
