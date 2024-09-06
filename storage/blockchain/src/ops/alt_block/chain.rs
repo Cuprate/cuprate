@@ -45,7 +45,7 @@ pub fn get_alt_chain_history_ranges(
 
         let start_height = max(range.start, chain_info.common_ancestor_height + 1);
 
-        ranges.push((chain_info.parent_chain.into(), start_height..i));
+        ranges.push((Chain::Alt(current_chain_id.into()), start_height..i));
         i = chain_info.common_ancestor_height;
 
         match chain_info.parent_chain.into() {

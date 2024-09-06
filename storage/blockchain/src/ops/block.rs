@@ -180,7 +180,7 @@ pub fn pop_block(
                 block_blob,
                 txs,
                 block_hash: block_info.block_hash,
-                pow_hash: [255; 32],
+                pow_hash: [0; 32],
                 height: block_height,
                 weight: block_info.weight,
                 long_term_weight: block_info.long_term_weight,

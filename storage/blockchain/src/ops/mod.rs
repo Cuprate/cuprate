@@ -94,7 +94,7 @@
 //! // Read the data, assert it is correct.
 //! let tx_rw = env_inner.tx_rw()?;
 //! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
-//! let (height, hash, serai_block) = pop_block(&mut tables)?;
+//! let (height, hash, serai_block) = pop_block(None, &mut tables)?;
 //!
 //! assert_eq!(height, 0);
 //! assert_eq!(serai_block, block.block);

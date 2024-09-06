@@ -84,7 +84,7 @@ async fn test_template(
         let request = BlockchainWriteRequest::WriteBlock(block);
         let response_channel = writer.call(request);
         let response = response_channel.await.unwrap();
-        assert_eq!(response, BlockchainResponse::WriteBlockOk);
+        assert_eq!(response, BlockchainResponse::Ok);
     }
 
     //----------------------------------------------------------------------- Reset the transaction

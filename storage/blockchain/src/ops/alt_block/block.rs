@@ -171,7 +171,7 @@ pub fn get_alt_block_extended_header_from_height(
     let block_header = BlockHeader::read(&mut block_blob.as_slice())?;
 
     Ok(ExtendedBlockHeader {
-        version: HardFork::from_version(0).expect("Block in DB must have correct version"),
+        version: HardFork::from_version(block_header.hardfork_version).expect("Block in DB must have correct version"),
         vote: block_header.hardfork_version,
         timestamp: block_header.timestamp,
         cumulative_difficulty: combine_low_high_bits_to_u128(
@@ -181,4 +181,102 @@ pub fn get_alt_block_extended_header_from_height(
         block_weight: block_info.weight,
         long_term_weight: block_info.long_term_weight,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZero;
+    use cuprate_database::{Env, EnvInner, TxRw};
+    use cuprate_test_utils::data::{BLOCK_V1_TX2, BLOCK_V9_TX3, BLOCK_V16_TX0};
+    use cuprate_types::ChainId;
+    use crate::ops::alt_block::{add_alt_block, flush_alt_blocks, get_alt_block, get_alt_extended_headers_in_range};
+    use crate::ops::block::{add_block, pop_block};
+    use crate::tables::OpenTables;
+    use crate::tests::{assert_all_tables_are_empty, map_verified_block_to_alt, tmp_concrete_env};
+    use crate::types::AltBlockHeight;
+
+    #[test]
+    fn all_alt_blocks() {
+        let (env, _tmp) = tmp_concrete_env();
+        let env_inner = env.env_inner();
+        assert_all_tables_are_empty(&env);
+
+        let chain_id = ChainId(NonZero::new(1).unwrap()).into();
+
+        // Add initial block.
+        {
+            let tx_rw = env_inner.tx_rw().unwrap();
+            let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+            let mut initial_block = BLOCK_V1_TX2.clone();
+            initial_block.height = 0;
+
+            add_block(&initial_block, &mut tables).unwrap();
+
+            drop(tables);
+            TxRw::commit(tx_rw).unwrap();
+        }
+
+        let alt_blocks = [
+            map_verified_block_to_alt(BLOCK_V9_TX3.clone(), chain_id),
+            map_verified_block_to_alt(BLOCK_V16_TX0.clone(), chain_id),
+        ];
+
+        // Add alt-blocks
+        {
+            let tx_rw = env_inner.tx_rw().unwrap();
+            let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+
+            let mut prev_hash = BLOCK_V1_TX2.block_hash;
+            for (i, mut alt_block) in alt_blocks.into_iter().enumerate() {
+                let height = i + 1;
+
+                alt_block.height = height;
+                alt_block.block.header.previous = prev_hash;
+                alt_block.block_blob = alt_block.block.serialize();
+
+                add_alt_block(&alt_block, &mut tables).unwrap();
+
+                let alt_height = AltBlockHeight {
+                    chain_id: chain_id.into(),
+                    height,
+                };
+
+                let alt_block_2 = get_alt_block(&alt_height, &tables).unwrap();
+                assert_eq!(alt_block.block, alt_block_2.block);
+
+                let headers = get_alt_extended_headers_in_range(0..(height + 1), chain_id, &tables).unwrap();
+                assert_eq!(headers.len(), height);
+
+                let last_header = headers.last().unwrap();
+                assert_eq!(last_header.timestamp, alt_block.block.header.timestamp);
+                assert_eq!(last_header.block_weight, alt_block.weight);
+                assert_eq!(last_header.long_term_weight, alt_block.long_term_weight);
+                assert_eq!(last_header.cumulative_difficulty, alt_block.cumulative_difficulty);
+                assert_eq!(last_header.version.as_u8(), alt_block.block.header.hardfork_version);
+                assert_eq!(last_header.vote, alt_block.block.header.hardfork_signal);
+
+                prev_hash = alt_block.block_hash;
+            }
+
+            drop(tables);
+            TxRw::commit(tx_rw).unwrap();
+        }
+
+
+        {
+            let mut tx_rw = env_inner.tx_rw().unwrap();
+
+            flush_alt_blocks(&env_inner, &mut tx_rw).unwrap();
+
+            let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
+            pop_block(None, &mut tables).unwrap();
+
+            drop(tables);
+            TxRw::commit(tx_rw).unwrap();
+        }
+
+        assert_all_tables_are_empty(&env);
+    }
+
 }
