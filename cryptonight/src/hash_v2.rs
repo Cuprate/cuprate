@@ -393,7 +393,7 @@ mod tests {
             let mut long_state = vec![0_u8; MEMORY];
             let long_state: &mut [u8; MEMORY] = subarray_mut!(long_state, 0, MEMORY);
             for (i, byte) in long_state.iter_mut().enumerate() {
-                *byte = i as u8;
+                *byte = u8::try_from(i & 0xFF).unwrap();
             }
 
             variant2_shuffle_add(&mut c1, &a, &b, long_state, offset, variant);

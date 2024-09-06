@@ -454,7 +454,7 @@ mod tests {
     fn test_extra_hashes() {
         let mut input = [0_u8; KECCAK1600_BYTE_SIZE];
         for (i, val) in input.iter_mut().enumerate() {
-            *val = i as u8;
+            *val = u8::try_from(i & 0xFF).unwrap();
         }
 
         const EXPECTED_BLAKE: &str =
@@ -474,7 +474,7 @@ mod tests {
         ];
 
         for (i, expected) in EXPECTED.iter().enumerate() {
-            input[0] = i as u8;
+            input[0] = u8::try_from(i).unwrap();
             let output = extra_hashes(&input);
             assert_eq!(hex::encode(output), *expected, "hash {i}");
         }
