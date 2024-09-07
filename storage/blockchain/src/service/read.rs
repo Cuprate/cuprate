@@ -86,9 +86,11 @@ fn map_request(
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     match request {
-        R::BlockExtendedHeader(block) => block_extended_header(env, block),
-        R::BlockExtendedHeaderByHash(block) => block_extended_header_by_hash(env, block),
-        R::BlockHash(block, chain) => block_hash(env, block, chain),
+        R::Block(height) => block(env, height),
+        R::BlockByHash(hash) => block_by_hash(env, hash),
+        R::BlockExtendedHeader(height) => block_extended_header(env, height),
+        R::BlockExtendedHeaderByHash(hash) => block_extended_header_by_hash(env, hash),
+        R::BlockHash(height, chain) => block_hash(env, height, chain),
         R::FindBlock(_) => todo!("Add alt blocks to DB"),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
         R::BlockExtendedHeaderInRange(range, chain) => {
@@ -176,6 +178,28 @@ macro_rules! get_tables {
 
 // TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
 // amount of parallelism.
+
+/// [`BlockchainReadRequest::Block`].
+#[inline]
+fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::Block(todo!()))
+}
+
+/// [`BlockchainReadRequest::BlockByHash`].
+#[inline]
+fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::BlockByHash(todo!()))
+}
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
 #[inline]

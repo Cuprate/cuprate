@@ -22,6 +22,16 @@ use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInfor
 /// See `Response` for the expected responses per `Request`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainReadRequest {
+    /// Request a block.
+    ///
+    /// The input is the block's height.
+    Block(usize),
+
+    /// Request a block.
+    ///
+    /// The input is the block's hash.
+    BlockByHash([u8; 32]),
+
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -129,6 +139,12 @@ pub enum BlockchainWriteRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
+    /// Response to [`BlockchainReadRequest::Block`].
+    Block(VerifiedBlockInformation),
+
+    /// Response to [`BlockchainReadRequest::BlockByHash`].
+    BlockByHash(VerifiedBlockInformation),
+
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///
     /// Inner value is the extended headed of the requested block.
