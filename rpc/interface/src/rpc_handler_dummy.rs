@@ -3,19 +3,20 @@
 //---------------------------------------------------------------------------------------------------- Use
 use std::task::Poll;
 
-use cuprate_rpc_types::{
-    bin::{BinRequest, BinResponse},
-    json::{JsonRpcRequest, JsonRpcResponse},
-    other::{OtherRequest, OtherResponse},
-};
+use anyhow::Error;
 use futures::channel::oneshot::channel;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use tower::Service;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_rpc_types::{
+    bin::{BinRequest, BinResponse},
+    json::{JsonRpcRequest, JsonRpcResponse},
+    other::{OtherRequest, OtherResponse},
+};
 
-use crate::{rpc_error::RpcError, rpc_handler::RpcHandler};
+use crate::rpc_handler::RpcHandler;
 
 //---------------------------------------------------------------------------------------------------- RpcHandlerDummy
 /// An [`RpcHandler`] that always returns [`Default::default`].
@@ -45,8 +46,8 @@ impl RpcHandler for RpcHandlerDummy {
 
 impl Service<JsonRpcRequest> for RpcHandlerDummy {
     type Response = JsonRpcResponse;
-    type Error = RpcError;
-    type Future = InfallibleOneshotReceiver<Result<JsonRpcResponse, RpcError>>;
+    type Error = Error;
+    type Future = InfallibleOneshotReceiver<Result<JsonRpcResponse, Error>>;
 
     fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -100,8 +101,8 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
 
 impl Service<BinRequest> for RpcHandlerDummy {
     type Response = BinResponse;
-    type Error = RpcError;
-    type Future = InfallibleOneshotReceiver<Result<BinResponse, RpcError>>;
+    type Error = Error;
+    type Future = InfallibleOneshotReceiver<Result<BinResponse, Error>>;
 
     fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -130,8 +131,8 @@ impl Service<BinRequest> for RpcHandlerDummy {
 
 impl Service<OtherRequest> for RpcHandlerDummy {
     type Response = OtherResponse;
-    type Error = RpcError;
-    type Future = InfallibleOneshotReceiver<Result<OtherResponse, RpcError>>;
+    type Error = Error;
+    type Future = InfallibleOneshotReceiver<Result<OtherResponse, Error>>;
 
     fn poll_ready(&mut self, _: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

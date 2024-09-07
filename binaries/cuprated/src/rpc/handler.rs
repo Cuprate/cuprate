@@ -2,6 +2,7 @@
 
 use std::task::{Context, Poll};
 
+use anyhow::Error;
 use futures::{channel::oneshot::channel, future::BoxFuture};
 use serde::{Deserialize, Serialize};
 use tower::Service;
@@ -9,7 +10,7 @@ use tower::Service;
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_json_rpc::Id;
-use cuprate_rpc_interface::{RpcError, RpcHandler};
+use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
     json::{JsonRpcRequest, JsonRpcResponse},
@@ -58,8 +59,8 @@ impl RpcHandler for CupratedRpcHandler {
 
 impl Service<JsonRpcRequest> for CupratedRpcHandler {
     type Response = JsonRpcResponse;
-    type Error = RpcError;
-    type Future = BoxFuture<'static, Result<JsonRpcResponse, RpcError>>;
+    type Error = Error;
+    type Future = BoxFuture<'static, Result<JsonRpcResponse, Error>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -73,8 +74,8 @@ impl Service<JsonRpcRequest> for CupratedRpcHandler {
 
 impl Service<BinRequest> for CupratedRpcHandler {
     type Response = BinResponse;
-    type Error = RpcError;
-    type Future = BoxFuture<'static, Result<BinResponse, RpcError>>;
+    type Error = Error;
+    type Future = BoxFuture<'static, Result<BinResponse, Error>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))
@@ -88,8 +89,8 @@ impl Service<BinRequest> for CupratedRpcHandler {
 
 impl Service<OtherRequest> for CupratedRpcHandler {
     type Response = OtherResponse;
-    type Error = RpcError;
-    type Future = BoxFuture<'static, Result<OtherResponse, RpcError>>;
+    type Error = Error;
+    type Future = BoxFuture<'static, Result<OtherResponse, Error>>;
 
     fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

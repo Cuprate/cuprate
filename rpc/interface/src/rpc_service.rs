@@ -5,8 +5,6 @@ use std::future::Future;
 
 use tower::Service;
 
-use crate::rpc_error::RpcError;
-
 //---------------------------------------------------------------------------------------------------- RpcService
 /// An RPC [`tower::Service`].
 ///
@@ -17,7 +15,7 @@ use crate::rpc_error::RpcError;
 /// The `Request` and `Response` are generic and
 /// are used in the [`tower::Service`] bounds.
 ///
-/// The error type is always [`RpcError`].
+/// The error type is always [`anyhow::Error`].
 ///
 /// There is a blanket implementation that implements this
 /// trait on types that implement `tower::Service` correctly.
@@ -31,8 +29,8 @@ pub trait RpcService<Request, Response>:
     + Service<
         Request,
         Response = Response,
-        Error = RpcError,
-        Future: Future<Output = Result<Response, RpcError>> + Send + 'static,
+        Error = anyhow::Error,
+        Future: Future<Output = Result<Response, anyhow::Error>> + Send + 'static,
     >
 {
 }
@@ -45,8 +43,8 @@ impl<Request, Response, T> RpcService<Request, Response> for T where
         + Service<
             Request,
             Response = Response,
-            Error = RpcError,
-            Future: Future<Output = Result<Response, RpcError>> + Send + 'static,
+            Error = anyhow::Error,
+            Future: Future<Output = Result<Response, anyhow::Error>> + Send + 'static,
         >
 {
 }

@@ -45,15 +45,16 @@ The proper usage of this crate is to:
 This is your [`tower::Service`] that converts `Request`s into `Response`s,
 i.e. the "inner handler".
 
-Said concretely, `RpcHandler` is 3 `tower::Service`s where the request/response types are
-the 3 endpoint enums from [`cuprate_rpc_types`] and the error type is from this crate:
+Said concretely, `RpcHandler` is 3 `tower::Service`s where the
+request/response types are the 3 endpoint enums from [`cuprate_rpc_types`]:
 - [`JsonRpcRequest`](cuprate_rpc_types::json::JsonRpcRequest) & [`JsonRpcResponse`](cuprate_rpc_types::json::JsonRpcResponse)
 - [`BinRequest`](cuprate_rpc_types::bin::BinRequest) & [`BinResponse`](cuprate_rpc_types::bin::BinRequest)
 - [`OtherRequest`](cuprate_rpc_types::other::OtherRequest) & [`OtherResponse`](cuprate_rpc_types::other::OtherRequest)
-- [`RpcError`]
 
 `RpcHandler`'s [`Future`](std::future::Future) is generic, _although_,
-it must output `Result<$RESPONSE, RpcError>`.
+it must output `Result<$RESPONSE, anyhow::Error>`.
+
+The error type must always be [`anyhow::Error`].
 
 The `RpcHandler` must also hold some state that is required
 for RPC server operation.

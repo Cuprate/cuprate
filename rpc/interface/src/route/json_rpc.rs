@@ -50,7 +50,9 @@ pub(crate) async fn json_rpc<H: RpcHandler>(
     }
 
     // Send request.
-    let response = handler.oneshot(request.body).await?;
+    let Ok(response) = handler.oneshot(request.body).await else {
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    };
 
     Ok(Json(Response::ok(id, response)))
 }
