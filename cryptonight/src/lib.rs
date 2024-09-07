@@ -3,7 +3,7 @@ mod cnaes;
 mod hash_v2;
 mod hash_v4;
 mod slow_hash;
-pub(crate) mod util;
+mod util;
 
 use slow_hash::cn_slow_hash;
 

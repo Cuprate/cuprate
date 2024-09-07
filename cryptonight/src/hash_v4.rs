@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use InstructionList::*;
+use InstructionList::{Add, Mul, Ret, Rol, Ror, Sub, Xor};
 
 use crate::{
     blake256::{Blake256, Digest},
@@ -290,7 +290,7 @@ pub(crate) fn random_math_init(
                         true;
 
                     check_data(&mut data_index, size_of::<u32>(), &mut data);
-                    code[code_size].c = u32::from_le_bytes(subarray_copy!(data, data_index, 4));
+                    code[code_size].c = u32::from_le_bytes(subarray_copy(&data, data_index));
                     data_index += 4;
                 }
                 code_size += 1;
@@ -418,21 +418,21 @@ pub(crate) fn variant4_random_math(
     code: &[Instruction; 71],
 ) {
     let mut t = [0_u64; 2];
-    t[0] = u64::from_le_bytes(subarray_copy!(c2, 0, 8));
+    t[0] = u64::from_le_bytes(subarray_copy(c2, 0));
 
     t[0] ^= u64::from(r[0].wrapping_add(r[1])) | (u64::from(r[2].wrapping_add(r[3])) << 32);
     c2[..8].copy_from_slice(&t[0].to_le_bytes());
 
-    r[4] = u32::from_le_bytes(subarray_copy!(a1, 0, 4));
-    r[5] = u32::from_le_bytes(subarray_copy!(a1, 8, 4));
-    r[6] = u32::from_le_bytes(subarray_copy!(b, 0, 4));
-    r[7] = u32::from_le_bytes(subarray_copy!(b, 16, 4));
-    r[8] = u32::from_le_bytes(subarray_copy!(b, 24, 4));
+    r[4] = u32::from_le_bytes(subarray_copy(a1, 0));
+    r[5] = u32::from_le_bytes(subarray_copy(a1, 8));
+    r[6] = u32::from_le_bytes(subarray_copy(b, 0));
+    r[7] = u32::from_le_bytes(subarray_copy(b, 16));
+    r[8] = u32::from_le_bytes(subarray_copy(b, 24));
 
     v4_random_math(code, r);
 
-    t[0] = u64::from_le_bytes(subarray_copy!(a1, 0, 8));
-    t[1] = u64::from_le_bytes(subarray_copy!(a1, 8, 8));
+    t[0] = u64::from_le_bytes(subarray_copy(a1, 0));
+    t[1] = u64::from_le_bytes(subarray_copy(a1, 8));
 
     t[0] ^= u64::from(r[2]) | u64::from(r[3]) << 32;
     t[1] ^= u64::from(r[0]) | (u64::from(r[1]) << 32);

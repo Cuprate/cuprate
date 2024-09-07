@@ -330,7 +330,7 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
 
     // expand to 10, 16-byte round keys (160 total bytes, or 40 4-byte words)
     for i in (CN_AES_KEY_SIZE..EXPANDED_KEY_SIZE).step_by(4) {
-        let mut temp = u32::from_be_bytes(subarray_copy!(expanded_key, i - 4, 4));
+        let mut temp = u32::from_be_bytes(subarray_copy(&expanded_key, i - 4));
         let word_num = i / 4;
 
         if word_num % NK == 0 {
@@ -340,7 +340,7 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
             temp = substitute_word(temp);
         }
 
-        temp ^= u32::from_be_bytes(subarray_copy!(expanded_key, i - CN_AES_KEY_SIZE, 4));
+        temp ^= u32::from_be_bytes(subarray_copy(&expanded_key, i - CN_AES_KEY_SIZE));
         expanded_key[i..i + 4].copy_from_slice(&temp.to_be_bytes());
     }
 
@@ -376,8 +376,7 @@ pub(crate) fn aesb_pseudo_round(
     expanded_key: &[u8; EXPANDED_KEY_SIZE],
 ) {
     for i in 0..NUM_AES_ROUND_KEYS {
-        let round_key = subarray!(expanded_key, i * ROUND_KEY_SIZE, ROUND_KEY_SIZE);
-        round_fwd(block, round_key);
+        round_fwd(block, subarray(expanded_key, i * ROUND_KEY_SIZE));
     }
 }
 

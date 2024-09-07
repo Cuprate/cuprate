@@ -105,7 +105,7 @@ impl Digest for Blake256 {
             if self.t[0] == 0 {
                 self.t[1] = self.t[1].wrapping_add(1);
             }
-            self.compress(subarray!(data, 0, 64));
+            self.compress(subarray(data, 0));
             data = &data[64..];
             datalenbits -= 512;
         }
@@ -176,8 +176,8 @@ impl Blake256 {
         let mut v = [0_u32; 16];
         let mut m = [0_u32; 16];
 
-        for i in 0..16 {
-            m[i] = u32::from_be_bytes(subarray_copy!(block, 4 * i, 4));
+        for (i, m_i) in m.iter_mut().enumerate() {
+            *m_i = u32::from_be_bytes(subarray_copy(block, i * 4));
         }
 
         v[0..8].copy_from_slice(&self.h);

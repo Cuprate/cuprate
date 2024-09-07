@@ -8,8 +8,8 @@ use crate::{
 
 fn block_to_u64le(block: &[u8; AES_BLOCK_SIZE]) -> [u64; 2] {
     [
-        u64::from_le_bytes(subarray_copy!(block, 0, 8)),
-        u64::from_le_bytes(subarray_copy!(block, 8, 8)),
+        u64::from_le_bytes(subarray_copy(block, 0)),
+        u64::from_le_bytes(subarray_copy(block, 8)),
     ]
 }
 
@@ -30,15 +30,15 @@ pub(crate) fn variant2_shuffle_add(
         let chunk2_start = offset ^ 0x20;
         let chunk3_start = offset ^ 0x30;
 
-        let chunk1 = subarray!(long_state, chunk1_start, 16);
-        let chunk2 = subarray!(long_state, chunk2_start, 16);
-        let chunk3 = subarray!(long_state, chunk3_start, 16);
+        let chunk1: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk1_start);
+        let chunk2: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk2_start);
+        let chunk3: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk3_start);
 
         let mut chunk1_old = block_to_u64le(chunk1);
         let chunk2_old = block_to_u64le(chunk2);
         let chunk3_old = block_to_u64le(chunk3);
 
-        let b1 = block_to_u64le(subarray!(b, 16, 16));
+        let b1 = block_to_u64le(subarray(b, 16));
 
         let chunk1 = &mut long_state[chunk1_start..chunk1_start + 16];
         chunk1[0..8].copy_from_slice(&(chunk3_old[0].wrapping_add(b1[0]).to_le_bytes()));
@@ -50,7 +50,7 @@ pub(crate) fn variant2_shuffle_add(
         chunk3[0..8].copy_from_slice(&(chunk2_old[0].wrapping_add(a0[0])).to_le_bytes());
         chunk3[8..16].copy_from_slice(&(chunk2_old[1].wrapping_add(a0[1])).to_le_bytes());
 
-        let b0 = block_to_u64le(subarray!(b, 0, 16));
+        let b0 = block_to_u64le(subarray(b, 0));
         let chunk2 = &mut long_state[chunk2_start..chunk2_start + 16];
         chunk2[0..8].copy_from_slice(&(chunk1_old[0].wrapping_add(b0[0])).to_le_bytes());
         chunk2[8..16].copy_from_slice(&(chunk1_old[1].wrapping_add(b0[1])).to_le_bytes());
@@ -153,7 +153,7 @@ mod tests {
             let mut sqrt_result = sqrt_result;
 
             variant2_integer_math(
-                subarray_mut!(c2, 0, 8),
+                subarray_mut(&mut c2, 0),
                 &c1,
                 &mut division_result,
                 &mut sqrt_result,
@@ -395,7 +395,7 @@ mod tests {
             let b: [u8; AES_BLOCK_SIZE * 2] = hex_to_array(b_hex);
 
             let mut long_state = vec![0_u8; MEMORY];
-            let long_state: &mut [u8; MEMORY] = subarray_mut!(long_state, 0, MEMORY);
+            let long_state: &mut [u8; MEMORY] = subarray_mut(&mut long_state, 0);
             for (i, byte) in long_state.iter_mut().enumerate() {
                 *byte = u8::try_from(i & 0xFF).unwrap();
             }
