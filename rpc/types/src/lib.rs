@@ -4,6 +4,7 @@
 mod constants;
 mod defaults;
 mod free;
+mod from;
 mod macros;
 mod rpc_call;
 
