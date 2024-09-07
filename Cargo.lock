@@ -57,6 +57,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "038dfcf04a5feb68e9c60b21c9625a54c2c0616e79b72b0fd87075a056ae1d1b"
 
 [[package]]
+name = "anyhow"
+version = "1.0.87"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10f00e1f6e58a40e807377c75c6a7f97bf9044fab57816f2414e6f5f4499d7b8"
+
+[[package]]
 name = "async-stream"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -799,6 +805,7 @@ dependencies = [
 name = "cuprate-rpc-interface"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "axum",
  "cuprate-epee-encoding",
  "cuprate-helper",
@@ -809,7 +816,6 @@ dependencies = [
  "paste",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "tower",
  "ureq",
@@ -910,6 +916,7 @@ dependencies = [
 name = "cuprated"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "bitflags 2.5.0",
  "borsh",

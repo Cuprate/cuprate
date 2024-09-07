@@ -1,4 +1,5 @@
-use cuprate_rpc_interface::RpcError;
+use anyhow::Error;
+
 use cuprate_rpc_types::{
     bin::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse,
@@ -15,7 +16,7 @@ use crate::rpc::CupratedRpcHandlerState;
 pub(super) async fn map_request(
     state: CupratedRpcHandlerState,
     request: BinRequest,
-) -> Result<BinResponse, RpcError> {
+) -> Result<BinResponse, Error> {
     use BinRequest as Req;
     use BinResponse as Resp;
 
@@ -37,48 +38,48 @@ pub(super) async fn map_request(
 async fn get_blocks(
     state: CupratedRpcHandlerState,
     request: GetBlocksRequest,
-) -> Result<GetBlocksResponse, RpcError> {
+) -> Result<GetBlocksResponse, Error> {
     todo!()
 }
 
 async fn get_blocks_by_height(
     state: CupratedRpcHandlerState,
     request: GetBlocksByHeightRequest,
-) -> Result<GetBlocksByHeightResponse, RpcError> {
+) -> Result<GetBlocksByHeightResponse, Error> {
     todo!()
 }
 
 async fn get_hashes(
     state: CupratedRpcHandlerState,
     request: GetHashesRequest,
-) -> Result<GetHashesResponse, RpcError> {
+) -> Result<GetHashesResponse, Error> {
     todo!()
 }
 
 async fn get_output_indexes(
     state: CupratedRpcHandlerState,
     request: GetOutputIndexesRequest,
-) -> Result<GetOutputIndexesResponse, RpcError> {
+) -> Result<GetOutputIndexesResponse, Error> {
     todo!()
 }
 
 async fn get_outs(
     state: CupratedRpcHandlerState,
     request: GetOutsRequest,
-) -> Result<GetOutsResponse, RpcError> {
+) -> Result<GetOutsResponse, Error> {
     todo!()
 }
 
 async fn get_transaction_pool_hashes(
     state: CupratedRpcHandlerState,
     request: GetTransactionPoolHashesRequest,
-) -> Result<GetTransactionPoolHashesResponse, RpcError> {
+) -> Result<GetTransactionPoolHashesResponse, Error> {
     todo!()
 }
 
 async fn get_output_distribution(
     state: CupratedRpcHandlerState,
     request: GetOutputDistributionRequest,
-) -> Result<GetOutputDistributionResponse, RpcError> {
+) -> Result<GetOutputDistributionResponse, Error> {
     todo!()
 }

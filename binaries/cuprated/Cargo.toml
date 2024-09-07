@@ -35,6 +35,7 @@ cuprate-rpc-interface    = { path = "../../rpc/interface" }
 cuprate-rpc-types        = { path = "../../rpc/types" }
 
 # TODO: after v1.0.0, remove unneeded dependencies.
+anyhow                = { workspace = true }
 async-trait           = { workspace = true }
 bitflags              = { workspace = true }
 borsh                 = { workspace = true }
