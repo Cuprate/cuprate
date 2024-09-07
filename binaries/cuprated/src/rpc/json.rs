@@ -5,7 +5,10 @@ use futures::StreamExt;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus::BlockchainResponse;
-use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
+use cuprate_helper::{
+    cast::{u64_to_usize, usize_to_u64},
+    map::split_u128_into_low_high_bits,
+};
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
     json::{
@@ -180,38 +183,15 @@ async fn get_block_header_by_hash(
 
         let ready = state.blockchain.ready().await.expect("TODO");
 
-        let BlockchainResponse::BlockExtendedHeaderByHash(header) = ready
-            .call(BlockchainReadRequest::BlockExtendedHeaderByHash(hash))
+        let BlockchainResponse::BlockByHash(block) = ready
+            .call(BlockchainReadRequest::BlockByHash(hash))
             .await
             .expect("TODO")
         else {
             unreachable!();
         };
 
-        let block_header = BlockHeader {
-            block_size: todo!(),
-            block_weight: todo!(),
-            cumulative_difficulty_top64: todo!(),
-            cumulative_difficulty: todo!(),
-            depth: todo!(),
-            difficulty_top64: todo!(),
-            difficulty: todo!(),
-            hash: todo!(),
-            height: todo!(),
-            long_term_weight: todo!(),
-            major_version: todo!(),
-            miner_tx_hash: todo!(),
-            minor_version: todo!(),
-            nonce: todo!(),
-            num_txes: todo!(),
-            orphan_status: todo!(),
-            pow_hash: todo!(),
-            prev_hash: todo!(),
-            reward: todo!(),
-            timestamp: todo!(),
-            wide_cumulative_difficulty: todo!(),
-            wide_difficulty: todo!(),
-        };
+        let block_header = BlockHeader::from(&block);
 
         Ok(block_header)
     }
