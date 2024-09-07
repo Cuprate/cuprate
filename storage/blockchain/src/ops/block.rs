@@ -38,11 +38,6 @@ use crate::{
 /// This function will panic if:
 /// - `block.height > u32::MAX` (not normally possible)
 /// - `block.height` is not != [`chain_height`]
-///
-/// # Already exists
-/// This function will operate normally even if `block` already
-/// exists, i.e., this function will not return `Err` even if you
-/// call this function infinitely with the same block.
 // no inline, too big.
 pub fn add_block(
     block: &VerifiedBlockInformation,
@@ -133,6 +128,9 @@ pub fn add_block(
 /// Remove the top/latest block from the database.
 ///
 /// The removed block's data is returned.
+///
+/// If a [`ChainId`] is specified the popped block will be added to the alt block tables under
+/// that [`ChainId`]. Otherwise, the block will be completely removed from the DB.
 #[doc = doc_error!()]
 ///
 /// In `pop_block()`'s case, [`RuntimeError::KeyNotFound`]
@@ -169,7 +167,7 @@ pub fn pop_block(
                 tx_hash: tx.hash(),
                 fee: tx_fee(&tx),
                 tx,
-            })
+            });
         }
     }
 
@@ -180,11 +178,16 @@ pub fn pop_block(
                 block_blob,
                 txs,
                 block_hash: block_info.block_hash,
+                // We know the PoW is valid for this block so just set it so it will always verify as
+                // valid.
                 pow_hash: [0; 32],
                 height: block_height,
                 weight: block_info.weight,
                 long_term_weight: block_info.long_term_weight,
-                cumulative_difficulty: 0,
+                cumulative_difficulty: combine_low_high_bits_to_u128(
+                    block_info.cumulative_difficulty_low,
+                    block_info.cumulative_difficulty_high,
+                ),
                 chain_id,
             },
             tables,
@@ -229,8 +232,6 @@ pub fn get_block_extended_header_from_height(
         block_info.cumulative_difficulty_high,
     );
 
-    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-    #[allow(clippy::cast_possible_truncation)]
     Ok(ExtendedBlockHeader {
         cumulative_difficulty,
         version: HardFork::from_version(block_header.hardfork_version)
@@ -302,13 +303,13 @@ mod test {
     use cuprate_database::{Env, EnvInner, TxRw};
     use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
 
-    use super::*;
-
     use crate::{
         ops::tx::{get_tx, tx_exists},
         tables::OpenTables,
         tests::{assert_all_tables_are_empty, tmp_concrete_env, AssertTableLen},
     };
+
+    use super::*;
 
     /// Tests all above block functions.
     ///

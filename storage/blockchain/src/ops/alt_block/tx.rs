@@ -1,10 +1,22 @@
-use crate::tables::{Tables, TablesMut};
-use crate::types::{AltTransactionInfo, TxHash};
 use bytemuck::TransparentWrapper;
-use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
-use cuprate_types::VerifiedTransactionInformation;
 use monero_serai::transaction::Transaction;
 
+use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
+use cuprate_types::VerifiedTransactionInformation;
+
+use crate::ops::macros::{doc_add_alt_block_inner_invariant, doc_error};
+use crate::tables::{Tables, TablesMut};
+use crate::types::{AltTransactionInfo, TxHash};
+
+/// Adds a [`VerifiedTransactionInformation`] form an alt-block to the DB, if
+/// that transaction is not already in the DB.
+///
+/// If the transaction is in the main-chain this function will still fill in the
+/// [`AltTransactionInfos`](crate::tables::AltTransactionInfos) table, as that
+/// table holds data which we don't keep around for main-chain txs.
+///
+#[doc = doc_add_alt_block_inner_invariant!()]
+#[doc = doc_error!()]
 pub fn add_alt_transaction_blob(
     tx: &VerifiedTransactionInformation,
     tables: &mut impl TablesMut,
@@ -29,6 +41,9 @@ pub fn add_alt_transaction_blob(
         .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))
 }
 
+/// Retrieve a [`VerifiedTransactionInformation`] from the database.
+///
+#[doc = doc_error!()]
 pub fn get_alt_transaction(
     tx_hash: &TxHash,
     tables: &impl Tables,

@@ -3,13 +3,14 @@
 //! Tests that assert particular requests lead to particular
 //! responses are also tested in Cuprate's blockchain database crate.
 
-//---------------------------------------------------------------------------------------------------- Import
-use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
-use crate::{AltBlockInformation, ChainId};
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
 };
+
+use crate::{AltBlockInformation, ChainId};
+//---------------------------------------------------------------------------------------------------- Import
+use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.
@@ -92,12 +93,14 @@ pub enum BlockchainReadRequest {
     CompactChainHistory,
 
     /// A request to find the first unknown block ID in a list of block IDs.
-    ////
+    ///
     /// # Invariant
     /// The [`Vec`] containing the block IDs must be sorted in chronological block
     /// order, or else the returned response is unspecified and meaningless,
     /// as this request performs a binary search.
     FindFirstUnknown(Vec<[u8; 32]>),
+    /// A request for all alt blocks in the chain with the given [`ChainId`].
+    AltBlocksInChain(ChainId),
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -120,12 +123,14 @@ pub enum BlockchainWriteRequest {
     ///
     /// Input is the amount of blocks to pop.
     ///
-    /// This request flush all alt-chains from the cache before adding the popped blocks to the alt cache.
+    /// This request flushes all alt-chains from the cache before adding the popped blocks to the
+    /// alt cache.
     PopBlocks(usize),
     /// A request to reverse the re-org process.
     ///
     /// The inner value is the [`ChainId`] of the old main chain.
     ///
+    /// # Invariant
     /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::PopBlocks`].
     ReverseReorg(ChainId),
     /// A request to flush all alternative blocks.
@@ -214,6 +219,11 @@ pub enum BlockchainResponse {
     ///
     /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, usize)>),
+
+    /// The response for [`BlockchainReadRequest::AltBlocksInChain`].
+    ///
+    /// Contains all the alt blocks in the alt-chain in chronological order.
+    AltBlocksInChain(Vec<AltBlockInformation>),
 
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.

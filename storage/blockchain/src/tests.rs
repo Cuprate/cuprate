@@ -90,7 +90,10 @@ pub(crate) fn assert_all_tables_are_empty(env: &ConcreteEnv) {
     assert_eq!(crate::ops::tx::get_num_tx(tables.tx_ids()).unwrap(), 0);
 }
 
-pub(crate) fn map_verified_block_to_alt(verified_block: VerifiedBlockInformation, chain_id: ChainId) -> AltBlockInformation {
+pub(crate) fn map_verified_block_to_alt(
+    verified_block: VerifiedBlockInformation,
+    chain_id: ChainId,
+) -> AltBlockInformation {
     AltBlockInformation {
         block: verified_block.block,
         block_blob: verified_block.block_blob,

@@ -9,12 +9,13 @@ use cuprate_types::{
     AltBlockInformation, Chain, ChainId, VerifiedBlockInformation,
 };
 
-use crate::service::free::map_valid_alt_block_to_verified_block;
-use crate::types::AltBlockHeight;
 use crate::{
-    service::types::{BlockchainWriteHandle, ResponseResult},
+    service::{
+        free::map_valid_alt_block_to_verified_block,
+        types::{BlockchainWriteHandle, ResponseResult},
+    },
     tables::{OpenTables, Tables, TablesMut},
-    types::AltChainInfo,
+    types::{AltBlockHeight, AltChainInfo},
 };
 
 //---------------------------------------------------------------------------------------------------- init_write_service
@@ -106,19 +107,23 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
+    // TODO: try blocks
     let result = {
+        // flush all the current alt blocks as they may reference blocks to be popped.
         crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
 
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-
+        // generate a `ChainId` for the popped blocks.
         let old_main_chain_id = ChainId(rand::random());
 
+        // pop the blocks
         let mut last_block_height = 0;
         for _ in 0..numb_blocks {
             (last_block_height, _, _) =
                 crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut)?;
         }
 
+        // Update the alt_chain_info with the correct information.
         tables_mut.alt_chain_infos_mut().put(
             &old_main_chain_id.into(),
             &AltChainInfo {
@@ -155,11 +160,14 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
         let chain_info = tables_mut.alt_chain_infos().get(&chain_id.into())?;
+        // Although this doesn't guarantee the chain was popped from the main-chain, it's an easy
+        // thing for us to check.
         assert_eq!(Chain::from(chain_info.parent_chain), Chain::Main);
 
         let tob_block_height =
             crate::ops::blockchain::top_block_height(tables_mut.block_heights())?;
 
+        // pop any blocks that were added as part of a re-org.
         for _ in chain_info.common_ancestor_height..tob_block_height {
             crate::ops::block::pop_block(None, &mut tables_mut)?;
         }
@@ -177,6 +185,7 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
             })
             .collect::<Vec<_>>();
 
+        // Add the old main chain blocks back to the main chain.
         for res_alt_block in alt_blocks {
             let alt_block = res_alt_block?;
 

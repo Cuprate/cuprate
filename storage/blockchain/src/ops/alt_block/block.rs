@@ -1,16 +1,35 @@
-use crate::ops::alt_block::{
-    add_alt_transaction_blob, check_add_alt_chain_info, get_alt_chain_history_ranges,
-    get_alt_transaction,
-};
-use crate::ops::block::{get_block_extended_header_from_height, get_block_info};
-use crate::tables::{Tables, TablesMut};
-use crate::types::{AltBlockHeight, BlockHash, BlockHeight, CompactAltBlockInfo};
 use bytemuck::TransparentWrapper;
+use monero_serai::block::{Block, BlockHeader};
+
 use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
 use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
 use cuprate_types::{AltBlockInformation, Chain, ChainId, ExtendedBlockHeader, HardFork};
-use monero_serai::block::{Block, BlockHeader};
 
+use crate::{
+    ops::{
+        alt_block::{add_alt_transaction_blob, get_alt_transaction, update_alt_chain_info},
+        block::get_block_info,
+        macros::doc_error,
+    },
+    tables::{Tables, TablesMut},
+    types::{AltBlockHeight, BlockHash, BlockHeight, CompactAltBlockInfo},
+};
+
+/// Add a [`AltBlockInformation`] to the database.
+///
+/// This extracts all the data from the input block and
+/// maps/adds them to the appropriate database tables.
+///
+#[doc = doc_error!()]
+///
+/// # Panics
+/// This function will panic if:
+/// - `block.height` is == `0`
+///
+/// # Already exists
+/// This function will operate normally even if `block` already
+/// exists, i.e., this function will not return `Err` even if you
+/// call this function infinitely with the same block.
 pub fn add_alt_block(
     alt_block: &AltBlockInformation,
     tables: &mut impl TablesMut,
@@ -24,7 +43,7 @@ pub fn add_alt_block(
         .alt_block_heights_mut()
         .put(&alt_block.block_hash, &alt_block_height)?;
 
-    check_add_alt_chain_info(&alt_block_height, &alt_block.block.header.previous, tables)?;
+    update_alt_chain_info(&alt_block_height, &alt_block.block.header.previous, tables)?;
 
     let (cumulative_difficulty_low, cumulative_difficulty_high) =
         split_u128_into_low_high_bits(alt_block.cumulative_difficulty);
@@ -49,13 +68,18 @@ pub fn add_alt_block(
     )?;
 
     assert_eq!(alt_block.txs.len(), alt_block.block.transactions.len());
-    for tx in alt_block.txs.iter() {
+    for tx in &alt_block.txs {
         add_alt_transaction_blob(tx, tables)?;
     }
 
     Ok(())
 }
 
+/// Retrieves an [`AltBlockInformation`] from the database.
+///
+/// This function will look at only the blocks with the given [`AltBlockHeight::chain_id`], no others
+/// even if they are technically part of this chain.
+#[doc = doc_error!()]
 pub fn get_alt_block(
     alt_block_height: &AltBlockHeight,
     tables: &impl Tables,
@@ -89,13 +113,21 @@ pub fn get_alt_block(
     })
 }
 
+/// Retrieves the hash of the block at the given `block_height` on the alt chain with
+/// the given [`ChainId`].
+///
+/// This function will get blocks from the whole chain, for example if you were to ask for height
+/// `0` with any [`ChainId`] (as long that chain actually exists) you will get the main chain genesis.
+///
+#[doc = doc_error!()]
 pub fn get_alt_block_hash(
     block_height: &BlockHeight,
     alt_chain: ChainId,
-    tables: &mut impl Tables,
+    tables: &impl Tables,
 ) -> Result<BlockHash, RuntimeError> {
     let alt_chains = tables.alt_chain_infos();
 
+    // First find what [`ChainId`] this block would be stored under.
     let original_chain = {
         let mut chain = alt_chain.into();
         loop {
@@ -115,9 +147,10 @@ pub fn get_alt_block_hash(
         }
     };
 
+    // Get the block hash.
     match original_chain {
         Chain::Main => {
-            get_block_info(&block_height, tables.block_infos()).map(|info| info.block_hash)
+            get_block_info(block_height, tables.block_infos()).map(|info| info.block_hash)
         }
         Chain::Alt(chain_id) => tables
             .alt_blocks_info()
@@ -129,37 +162,12 @@ pub fn get_alt_block_hash(
     }
 }
 
-pub fn get_alt_extended_headers_in_range(
-    range: std::ops::Range<BlockHeight>,
-    alt_chain: ChainId,
-    tables: &impl Tables,
-) -> Result<Vec<ExtendedBlockHeader>, RuntimeError> {
-    // TODO: this function does not use rayon, however it probably should.
-
-    let alt_chains = tables.alt_chain_infos();
-    let ranges = get_alt_chain_history_ranges(range, alt_chain, alt_chains)?;
-
-    let res = ranges
-        .into_iter()
-        .rev()
-        .map(|(chain, range)| {
-            range.into_iter().map(move |height| match chain {
-                Chain::Main => get_block_extended_header_from_height(&height, tables),
-                Chain::Alt(chain_id) => get_alt_block_extended_header_from_height(
-                    &AltBlockHeight {
-                        chain_id: chain_id.into(),
-                        height,
-                    },
-                    tables,
-                ),
-            })
-        })
-        .flatten()
-        .collect::<Result<_, _>>()?;
-
-    Ok(res)
-}
-
+/// Retrieves the [`ExtendedBlockHeader`] of the alt-block with an exact [`AltBlockHeight`].
+///
+/// This function will look at only the blocks with the given [`AltBlockHeight::chain_id`], no others
+/// even if they are technically part of this chain.
+///
+#[doc = doc_error!()]
 pub fn get_alt_block_extended_header_from_height(
     height: &AltBlockHeight,
     table: &impl Tables,
@@ -171,7 +179,8 @@ pub fn get_alt_block_extended_header_from_height(
     let block_header = BlockHeader::read(&mut block_blob.as_slice())?;
 
     Ok(ExtendedBlockHeader {
-        version: HardFork::from_version(block_header.hardfork_version).expect("Block in DB must have correct version"),
+        version: HardFork::from_version(block_header.hardfork_version)
+            .expect("Block in DB must have correct version"),
         vote: block_header.hardfork_version,
         timestamp: block_header.timestamp,
         cumulative_difficulty: combine_low_high_bits_to_u128(
@@ -186,22 +195,33 @@ pub fn get_alt_block_extended_header_from_height(
 #[cfg(test)]
 mod tests {
     use std::num::NonZero;
-    use cuprate_database::{Env, EnvInner, TxRw};
-    use cuprate_test_utils::data::{BLOCK_V1_TX2, BLOCK_V9_TX3, BLOCK_V16_TX0};
-    use cuprate_types::ChainId;
-    use crate::ops::alt_block::{add_alt_block, flush_alt_blocks, get_alt_block, get_alt_extended_headers_in_range};
-    use crate::ops::block::{add_block, pop_block};
-    use crate::tables::OpenTables;
-    use crate::tests::{assert_all_tables_are_empty, map_verified_block_to_alt, tmp_concrete_env};
-    use crate::types::AltBlockHeight;
 
+    use cuprate_database::{Env, EnvInner, TxRw};
+    use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
+    use cuprate_types::{Chain, ChainId};
+
+    use crate::{
+        ops::{
+            alt_block::{
+                add_alt_block, flush_alt_blocks, get_alt_block,
+                get_alt_block_extended_header_from_height, get_alt_block_hash,
+                get_alt_chain_history_ranges,
+            },
+            block::{add_block, pop_block},
+        },
+        tables::{OpenTables, Tables},
+        tests::{assert_all_tables_are_empty, map_verified_block_to_alt, tmp_concrete_env},
+        types::AltBlockHeight,
+    };
+
+    #[allow(clippy::range_plus_one)]
     #[test]
     fn all_alt_blocks() {
         let (env, _tmp) = tmp_concrete_env();
         let env_inner = env.env_inner();
         assert_all_tables_are_empty(&env);
 
-        let chain_id = ChainId(NonZero::new(1).unwrap()).into();
+        let chain_id = ChainId(NonZero::new(1).unwrap());
 
         // Add initial block.
         {
@@ -245,24 +265,43 @@ mod tests {
                 let alt_block_2 = get_alt_block(&alt_height, &tables).unwrap();
                 assert_eq!(alt_block.block, alt_block_2.block);
 
-                let headers = get_alt_extended_headers_in_range(0..(height + 1), chain_id, &tables).unwrap();
-                assert_eq!(headers.len(), height);
+                let headers = get_alt_chain_history_ranges(
+                    0..(height + 1),
+                    chain_id,
+                    tables.alt_chain_infos(),
+                )
+                .unwrap();
 
-                let last_header = headers.last().unwrap();
-                assert_eq!(last_header.timestamp, alt_block.block.header.timestamp);
-                assert_eq!(last_header.block_weight, alt_block.weight);
-                assert_eq!(last_header.long_term_weight, alt_block.long_term_weight);
-                assert_eq!(last_header.cumulative_difficulty, alt_block.cumulative_difficulty);
-                assert_eq!(last_header.version.as_u8(), alt_block.block.header.hardfork_version);
-                assert_eq!(last_header.vote, alt_block.block.header.hardfork_signal);
+                assert_eq!(headers.len(), 2);
+                assert_eq!(headers[1], (Chain::Main, 0..1));
+                assert_eq!(headers[0], (Chain::Alt(chain_id), 1..(height + 1)));
 
                 prev_hash = alt_block.block_hash;
+
+                let header =
+                    get_alt_block_extended_header_from_height(&alt_height, &tables).unwrap();
+
+                assert_eq!(header.timestamp, alt_block.block.header.timestamp);
+                assert_eq!(header.block_weight, alt_block.weight);
+                assert_eq!(header.long_term_weight, alt_block.long_term_weight);
+                assert_eq!(
+                    header.cumulative_difficulty,
+                    alt_block.cumulative_difficulty
+                );
+                assert_eq!(
+                    header.version.as_u8(),
+                    alt_block.block.header.hardfork_version
+                );
+                assert_eq!(header.vote, alt_block.block.header.hardfork_signal);
+
+                let block_hash = get_alt_block_hash(&height, chain_id, &tables).unwrap();
+
+                assert_eq!(block_hash, alt_block.block_hash);
             }
 
             drop(tables);
             TxRw::commit(tx_rw).unwrap();
         }
-
 
         {
             let mut tx_rw = env_inner.tx_rw().unwrap();
@@ -278,5 +317,4 @@ mod tests {
 
         assert_all_tables_are_empty(&env);
     }
-
 }

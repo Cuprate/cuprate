@@ -1,28 +1,32 @@
 //! Database reader thread-pool definitions and logic.
 
-//---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
 
+//---------------------------------------------------------------------------------------------------- Import
 use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
+    prelude::*,
     ThreadPool,
 };
 use thread_local::ThreadLocal;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_database_service::{DatabaseReadService, init_thread_pool, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
-    Chain, ExtendedBlockHeader, OutputOnChain,
+    Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
 };
 
 use crate::{
     ops::{
-        alt_block::{get_alt_block_hash, get_alt_extended_headers_in_range},
+        alt_block::{
+            get_alt_block_extended_header_from_height, get_alt_block_hash,
+            get_alt_chain_history_ranges,
+        },
         block::{
             block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
         },
@@ -35,8 +39,11 @@ use crate::{
         types::{BlockchainReadHandle, ResponseResult},
     },
     tables::{AltBlockHeights, BlockHeights, BlockInfos, OpenTables, Tables},
-    types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
+    types::{
+        AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
+    },
 };
+use crate::ops::alt_block::get_alt_block;
 
 //---------------------------------------------------------------------------------------------------- init_read_service
 /// Initialize the [`BlockchainReadHandle`] thread-pool backed by [`rayon`].
@@ -100,6 +107,7 @@ fn map_request(
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
+        R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -200,7 +208,7 @@ fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> Res
     let block_hash = match chain {
         Chain::Main => get_block_info(&block_height, &table_block_infos)?.block_hash,
         Chain::Alt(chain) => {
-            get_alt_block_hash(&block_height, chain, &mut env_inner.open_tables(&tx_ro)?)?
+            get_alt_block_hash(&block_height, chain, &env_inner.open_tables(&tx_ro)?)?
         }
     };
 
@@ -283,12 +291,36 @@ fn block_extended_header_in_range(
             })
             .collect::<Result<Vec<ExtendedBlockHeader>, RuntimeError>>()?,
         Chain::Alt(chain_id) => {
-            let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
-            get_alt_extended_headers_in_range(
-                range,
-                chain_id,
-                get_tables!(env_inner, tx_ro, tables)?.as_ref(),
-            )?
+            let ranges = {
+                let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+                let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+                let alt_chains = tables.alt_chain_infos();
+
+                get_alt_chain_history_ranges(range, chain_id, alt_chains)?
+            };
+
+            ranges
+                .par_iter()
+                .rev()
+                .map(|(chain, range)| {
+                    range.clone().into_par_iter().map(|height| {
+                        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+                        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+                        match *chain {
+                            Chain::Main => get_block_extended_header_from_height(&height, tables),
+                            Chain::Alt(chain_id) => get_alt_block_extended_header_from_height(
+                                &AltBlockHeight {
+                                    chain_id: chain_id.into(),
+                                    height,
+                                },
+                                tables,
+                            ),
+                        }
+                    })
+                })
+                .flatten()
+                .collect::<Result<Vec<_>, _>>()?
         }
     };
 
@@ -523,4 +555,46 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
 
         BlockchainResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
     })
+}
+
+/// [`BlockchainReadRequest::AltBlocksInChain`]
+fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
+    // Prepare tx/tables in `ThreadLocal`.
+    let env_inner = env.env_inner();
+    let tx_ro = thread_local(env);
+    let tables = thread_local(env);
+
+    // Get the history of this alt-chain.
+    let history = {
+        let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+        let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+        get_alt_chain_history_ranges(0..usize::MAX, chain_id, tables.alt_chain_infos())?
+    };
+
+    // Get all the blocks until we join the main-chain.
+    let blocks = history
+        .par_iter()
+        .rev()
+        .skip(1)
+        .flat_map(|(chain_id, range)| {
+            let Chain::Alt(chain_id) = chain_id else {
+                panic!("Should not have main chain blocks here we skipped last range");
+            };
+
+            range.clone().into_par_iter().map(|height| {
+                let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
+                let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
+
+                get_alt_block(
+                    &AltBlockHeight {
+                        chain_id: (*chain_id).into(),
+                        height,
+                    },
+                    tables,
+                )
+            })
+        })
+        .collect::<Result<_, _>>()?;
+
+    Ok(BlockchainResponse::AltBlocksInChain(blocks))
 }
