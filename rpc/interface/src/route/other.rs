@@ -82,7 +82,9 @@ macro_rules! generate_endpoints_inner {
 
                 // Send request.
                 let request = OtherRequest::$variant($request);
-                let response = $handler.oneshot(request).await?;
+                let Ok(response) = $handler.oneshot(request).await else {
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                };
 
                 let OtherResponse::$variant(response) = response else {
                     panic!("RPC handler returned incorrect response")

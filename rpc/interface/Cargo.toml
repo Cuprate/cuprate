@@ -22,7 +22,6 @@ anyhow     = { workspace = true }
 axum       = { version = "0.7.5", features = ["json"], default-features = false }
 serde      = { workspace = true, optional = true }
 tower      = { workspace = true }
-thiserror  = { workspace = true }
 paste      = { workspace = true }
 futures    = { workspace = true }
 
