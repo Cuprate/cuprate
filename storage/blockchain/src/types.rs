@@ -44,12 +44,12 @@
 use std::num::NonZero;
 
 use bytemuck::{Pod, Zeroable};
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use cuprate_database::{Key, StorableVec};
 use cuprate_types::{Chain, ChainId};
+
 //---------------------------------------------------------------------------------------------------- Aliases
 // These type aliases exist as many Monero-related types are the exact same.
 // For clarity, they're given type aliases as to not confuse them.
@@ -334,17 +334,15 @@ pub struct RawChain(u64);
 impl From<Chain> for RawChain {
     fn from(value: Chain) -> Self {
         match value {
-            Chain::Main => RawChain(0),
-            Chain::Alt(chain_id) => RawChain(chain_id.0.get()),
+            Chain::Main => Self(0),
+            Chain::Alt(chain_id) => Self(chain_id.0.get()),
         }
     }
 }
 
 impl From<RawChain> for Chain {
     fn from(value: RawChain) -> Self {
-        NonZero::new(value.0)
-            .map(|id| Chain::Alt(ChainId(id)))
-            .unwrap_or(Chain::Main)
+        NonZero::new(value.0).map_or(Self::Main, |id| Self::Alt(ChainId(id)))
     }
 }
 
@@ -352,7 +350,7 @@ impl From<RawChainId> for RawChain {
     fn from(value: RawChainId) -> Self {
         assert_ne!(value.0, 0);
 
-        RawChain(value.0)
+        Self(value.0)
     }
 }
 
@@ -363,13 +361,13 @@ pub struct RawChainId(u64);
 
 impl From<ChainId> for RawChainId {
     fn from(value: ChainId) -> Self {
-        RawChainId(value.0.get())
+        Self(value.0.get())
     }
 }
 
 impl From<RawChainId> for ChainId {
     fn from(value: RawChainId) -> Self {
-        ChainId(NonZero::new(value.0).expect("RawChainId mut not have a value of `0`"))
+        Self(NonZero::new(value.0).expect("RawChainId mut not have a value of `0`"))
     }
 }
 

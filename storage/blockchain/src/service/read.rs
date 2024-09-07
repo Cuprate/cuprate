@@ -14,13 +14,14 @@ use rayon::{
 use thread_local::ThreadLocal;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{DatabaseReadService, init_thread_pool, ReaderThreads};
+use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
 };
 
+use crate::ops::alt_block::get_alt_block;
 use crate::{
     ops::{
         alt_block::{
@@ -43,7 +44,6 @@ use crate::{
         AltBlockHeight, Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId,
     },
 };
-use crate::ops::alt_block::get_alt_block;
 
 //---------------------------------------------------------------------------------------------------- init_read_service
 /// Initialize the [`BlockchainReadHandle`] thread-pool backed by [`rayon`].
