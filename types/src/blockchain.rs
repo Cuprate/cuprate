@@ -105,10 +105,6 @@ pub enum BlockchainReadRequest {
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
 /// A write request to the blockchain database.
-///
-/// There is currently only 1 write request to the database,
-/// as such, the only valid [`BlockchainResponse`] to this request is
-/// the proper response for a [`BlockchainResponse::WriteBlockOk`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainWriteRequest {
     /// Request that a block be written to the database.
