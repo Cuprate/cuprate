@@ -1,15 +1,16 @@
-use crate::{
-    blake256::Blake256, blake256::Digest as _, cnaes, hash_v2 as v2, hash_v4 as v4, util::subarray,
-    util::subarray_copy, util::subarray_mut,
-};
-use cnaes::AES_BLOCK_SIZE;
-use cnaes::CN_AES_KEY_SIZE;
+use std::{cmp::PartialEq, io::Write};
+
+use cnaes::{AES_BLOCK_SIZE, CN_AES_KEY_SIZE};
 use digest::Digest as _;
 use groestl::Groestl256;
 use jh::Jh256;
 use skein::{consts::U32, Skein512};
-use std::cmp::PartialEq;
-use std::io::Write;
+
+use crate::{
+    blake256::{Blake256, Digest as _},
+    cnaes, hash_v2 as v2, hash_v4 as v4,
+    util::{subarray, subarray_copy, subarray_mut},
+};
 
 pub(crate) const MEMORY: usize = 1 << 21; // 2MB scratchpad
 const ITER: usize = 1 << 20;

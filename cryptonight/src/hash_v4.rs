@@ -1,7 +1,11 @@
-use crate::blake256::{Blake256, Digest};
-use crate::util::subarray_copy;
 use std::cmp::max;
-use InstructionList::{Add, Mul, Ret, Rol, Ror, Sub, Xor};
+
+use InstructionList::*;
+
+use crate::{
+    blake256::{Blake256, Digest},
+    util::subarray_copy,
+};
 
 const TOTAL_LATENCY: usize = 15 * 3;
 const NUM_INSTRUCTIONS_MIN: usize = 60;
