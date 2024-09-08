@@ -3,6 +3,17 @@
     // See `cuprate-database` for reasoning.
     clippy::significant_drop_tightening
 )]
+#![allow(
+    unused_imports,
+    unreachable_pub,
+    unused_crate_dependencies,
+    dead_code,
+    unused_variables,
+    clippy::needless_pass_by_value,
+    clippy::unused_async,
+    unreachable_code,
+    reason = "TODO: remove after cuprated RpcHandler impl"
+)]
 
 // Only allow building 64-bit targets.
 //
