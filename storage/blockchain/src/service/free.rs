@@ -8,9 +8,11 @@ use cuprate_types::{AltBlockInformation, VerifiedBlockInformation};
 
 use crate::{
     config::Config,
-    service::types::{BlockchainReadHandle, BlockchainWriteHandle},
+    service::{
+        init_read_service, init_write_service,
+        types::{BlockchainReadHandle, BlockchainWriteHandle},
+    },
 };
-use crate::service::{init_read_service, init_write_service};
 
 //---------------------------------------------------------------------------------------------------- Init
 #[cold]
