@@ -35,9 +35,7 @@ use cuprate_rpc_types::{
 };
 use cuprate_types::{blockchain::BlockchainReadRequest, Chain};
 
-use crate::rpc::CupratedRpcHandlerState;
-
-use super::RESTRICTED_BLOCK_COUNT;
+use crate::rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE};
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
@@ -161,8 +159,9 @@ async fn get_block_header_by_hash(
     request: GetBlockHeaderByHashRequest,
 ) -> Result<GetBlockHeaderByHashResponse, Error> {
     if state.restricted && request.hashes.len() > RESTRICTED_BLOCK_COUNT {
-        let err = anyhow!("Too many block headers requested in restricted mode");
-        return Err(err);
+        return Err(anyhow!(
+            "Too many block headers requested in restricted mode"
+        ));
     }
 
     async fn get(
@@ -171,13 +170,13 @@ async fn get_block_header_by_hash(
         fill_pow_hash: bool,
     ) -> Result<BlockHeader, Error> {
         let Ok(bytes) = hex::decode(&hex) else {
-            let err = anyhow!("Failed to parse hex representation of block hash. Hex = {hex}.");
-            return Err(err);
+            return Err(anyhow!(
+                "Failed to parse hex representation of block hash. Hex = {hex}."
+            ));
         };
 
         let Ok(hash) = bytes.try_into() else {
-            let err = anyhow!("TODO");
-            return Err(err);
+            return Err(anyhow!("TODO"));
         };
 
         let BlockchainResponse::BlockByHash(block) = state
@@ -227,11 +226,10 @@ async fn get_block_header_by_height(
     let height = chain_height.saturating_sub(1);
 
     if request.height > usize_to_u64(height) {
-        let err = anyhow!(
+        return Err(anyhow!(
             "Requested block height: {} greater than current top block height: {height}",
             request.height
-        );
-        return Err(err);
+        ));
     }
 
     let BlockchainResponse::Block(block) = state
@@ -251,10 +249,59 @@ async fn get_block_header_by_height(
 }
 
 async fn get_block_headers_range(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetBlockHeadersRangeRequest,
 ) -> Result<GetBlockHeadersRangeResponse, Error> {
-    todo!()
+    let BlockchainResponse::ChainHeight(chain_height, _) = state
+        .blockchain
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::ChainHeight)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    let height = chain_height.saturating_sub(1);
+    let height_u64 = usize_to_u64(height);
+
+    if request.start_height >= height_u64
+        || request.end_height >= height_u64
+        || request.start_height > request.end_height
+    {
+        return Err(anyhow!("Invalid start/end heights"));
+    }
+
+    if state.restricted
+        && request.end_height.saturating_sub(request.start_height) + 1
+            > RESTRICTED_BLOCK_HEADER_RANGE
+    {
+        return Err(anyhow!("Too many block headers requested."));
+    }
+
+    let block_len = u64_to_usize(request.end_height.saturating_sub(request.start_height));
+    let mut tasks = Vec::with_capacity(block_len);
+    let mut headers = Vec::with_capacity(block_len);
+
+    {
+        let ready = state.blockchain.ready().await?;
+        for block in request.start_height..=request.end_height {
+            let task = tokio::task::spawn(ready.call(BlockchainReadRequest::Block(height)));
+            tasks.push(task);
+        }
+    }
+
+    for task in tasks {
+        let BlockchainResponse::Block(header) = task.await?? else {
+            unreachable!();
+        };
+        headers.push((&header).into());
+    }
+
+    Ok(GetBlockHeadersRangeResponse {
+        base: AccessResponseBase::ok(),
+        headers,
+    })
 }
 
 async fn get_block(
