@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 use futures::StreamExt;
 use tower::{Service, ServiceExt};
 
@@ -160,33 +160,32 @@ async fn get_block_header_by_hash(
     mut state: CupratedRpcHandlerState,
     request: GetBlockHeaderByHashRequest,
 ) -> Result<GetBlockHeaderByHashResponse, Error> {
-    let restricted = todo!();
-    if restricted && request.hashes.len() > RESTRICTED_BLOCK_COUNT {
-        let message = "Too many block headers requested in restricted mode";
-        return Err(todo!());
+    if state.restricted && request.hashes.len() > RESTRICTED_BLOCK_COUNT {
+        let err = anyhow!("Too many block headers requested in restricted mode");
+        return Err(err);
     }
 
     async fn get(
         state: &mut CupratedRpcHandlerState,
         hex: String,
         fill_pow_hash: bool,
-    ) -> Result<BlockHeader, ()> {
+    ) -> Result<BlockHeader, Error> {
         let Ok(bytes) = hex::decode(&hex) else {
-            let message = format!("Failed to parse hex representation of block hash. Hex = {hex}.");
-            return Err(todo!());
+            let err = anyhow!("Failed to parse hex representation of block hash. Hex = {hex}.");
+            return Err(err);
         };
 
         let Ok(hash) = bytes.try_into() else {
-            let message = "TODO";
-            return Err(todo!());
+            let err = anyhow!("TODO");
+            return Err(err);
         };
 
-        let ready = state.blockchain.ready().await.expect("TODO");
-
-        let BlockchainResponse::BlockByHash(block) = ready
+        let BlockchainResponse::BlockByHash(block) = state
+            .blockchain
+            .ready()
+            .await?
             .call(BlockchainReadRequest::BlockByHash(hash))
-            .await
-            .expect("TODO")
+            .await?
         else {
             unreachable!();
         };
@@ -196,15 +195,11 @@ async fn get_block_header_by_hash(
         Ok(block_header)
     }
 
-    let block_header = get(&mut state, request.hash, request.fill_pow_hash)
-        .await
-        .unwrap();
+    let block_header = get(&mut state, request.hash, request.fill_pow_hash).await?;
 
-    let block_headers = Vec::with_capacity(request.hashes.len());
+    let mut block_headers = Vec::with_capacity(request.hashes.len());
     for hash in request.hashes {
-        let hash = get(&mut state, hash, request.fill_pow_hash)
-            .await
-            .expect("TODO");
+        let hash = get(&mut state, hash, request.fill_pow_hash).await?;
         block_headers.push(hash);
     }
 
@@ -216,10 +211,43 @@ async fn get_block_header_by_hash(
 }
 
 async fn get_block_header_by_height(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetBlockHeaderByHeightRequest,
 ) -> Result<GetBlockHeaderByHeightResponse, Error> {
-    todo!()
+    let BlockchainResponse::ChainHeight(chain_height, _) = state
+        .blockchain
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::ChainHeight)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    let height = chain_height.saturating_sub(1);
+
+    if request.height > usize_to_u64(height) {
+        let err = anyhow!(
+            "Requested block height: {} greater than current top block height: {height}",
+            request.height
+        );
+        return Err(err);
+    }
+
+    let BlockchainResponse::Block(block) = state
+        .blockchain
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::Block(height))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(GetBlockHeaderByHeightResponse {
+        base: AccessResponseBase::ok(),
+        block_header: BlockHeader::from(&block),
+    })
 }
 
 async fn get_block_headers_range(

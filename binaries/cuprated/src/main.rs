@@ -8,6 +8,7 @@
     unused_variables,
     clippy::needless_pass_by_value,
     clippy::unused_async,
+    unreachable_code,
     reason = "TODO: remove after v1.0.0"
 )]
 

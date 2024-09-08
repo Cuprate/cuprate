@@ -23,13 +23,6 @@ use crate::rpc::{bin, json, other};
 /// TODO
 #[derive(Clone)]
 pub struct CupratedRpcHandler {
-    /// Should this RPC server be [restricted](RpcHandler::restricted)?
-    //
-    // INVARIANT:
-    // We don't need to include this in `state` and check for
-    // `self.is_restricted()` because `cuprate-rpc-interface` handles that.
-    pub restricted: bool,
-
     /// State needed for request -> response mapping.
     pub state: CupratedRpcHandlerState,
 }
@@ -37,6 +30,13 @@ pub struct CupratedRpcHandler {
 /// TODO
 #[derive(Clone)]
 pub struct CupratedRpcHandlerState {
+    /// Should this RPC server be [restricted](RpcHandler::restricted)?
+    //
+    // INVARIANT:
+    // We don't need to include this in `state` and check for
+    // `self.is_restricted()` because `cuprate-rpc-interface` handles that.
+    pub restricted: bool,
+
     /// Read handle to the blockchain database.
     pub blockchain: BlockchainReadHandle,
 
@@ -53,7 +53,7 @@ impl CupratedRpcHandler {
 
 impl RpcHandler for CupratedRpcHandler {
     fn restricted(&self) -> bool {
-        self.restricted
+        self.state.restricted
     }
 }
 
