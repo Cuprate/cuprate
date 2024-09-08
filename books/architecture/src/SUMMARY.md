@@ -93,17 +93,20 @@
 
 ---
 
-- [⚪️ Resource model](resource-model/intro.md)
-    - [⚪️ File system](resource-model/file-system.md)
-    - [⚪️ Sockets](resource-model/sockets.md)
-    - [⚪️ Memory](resource-model/memory.md)
-    - [🟡 Concurrency and parallelism](resource-model/concurrency-and-parallelism/intro.md)
-        - [⚪️ Map](resource-model/concurrency-and-parallelism/map.md)
-        - [⚪️ The RPC server](resource-model/concurrency-and-parallelism/the-rpc-server.md)
-        - [⚪️ The database](resource-model/concurrency-and-parallelism/the-database.md)
-        - [⚪️ The block downloader](resource-model/concurrency-and-parallelism/the-block-downloader.md)
-        - [⚪️ The verifier](resource-model/concurrency-and-parallelism/the-verifier.md)
-        - [⚪️ Thread exit](resource-model/concurrency-and-parallelism/thread-exit.md)
+- [⚪️ Resources](resources/intro.md)
+    - [⚪️ File system](resources/fs/intro.md)
+        - [🟡 Index of PATHs](resources/fs/paths.md)
+    - [⚪️ Sockets](resources/sockets/index.md)
+        - [🔴 Index of ports](resources/sockets/ports.md)
+    - [⚪️ Memory](resources/memory.md)
+    - [🟡 Concurrency and parallelism](resources/cap/intro.md)
+        - [⚪️ Map](resources/cap/map.md)
+        - [⚪️ The RPC server](resources/cap/the-rpc-server.md)
+        - [⚪️ The database](resources/cap/the-database.md)
+        - [⚪️ The block downloader](resources/cap/the-block-downloader.md)
+        - [⚪️ The verifier](resources/cap/the-verifier.md)
+        - [⚪️ Thread exit](resources/cap/thread-exit.md)
+        - [🔴 Index of threads](resources/cap/threads.md)
 
 ---
 
