@@ -2,15 +2,17 @@
 //!
 //! Tests that assert particular requests lead to particular
 //! responses are also tested in Cuprate's blockchain database crate.
-
+//!
+//---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
 };
 
-use crate::{AltBlockInformation, ChainId};
-//---------------------------------------------------------------------------------------------------- Import
-use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
+use crate::{
+    types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
+    AltBlockInformation, ChainId,
+};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.

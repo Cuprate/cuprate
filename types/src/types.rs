@@ -1,7 +1,8 @@
 //! Various shared data types in Cuprate.
 
-use std::num::NonZero;
 //---------------------------------------------------------------------------------------------------- Import
+use std::num::NonZero;
+
 use curve25519_dalek::edwards::EdwardsPoint;
 use monero_serai::{
     block::Block,
