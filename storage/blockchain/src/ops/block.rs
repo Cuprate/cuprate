@@ -7,16 +7,18 @@ use monero_serai::block::{Block, BlockHeader};
 use cuprate_database::{
     RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
 };
-use cuprate_helper::map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits};
+use cuprate_helper::{
+    map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
+    tx_utils::tx_fee,
+};
 use cuprate_types::{
     AltBlockInformation, ChainId, ExtendedBlockHeader, HardFork, VerifiedBlockInformation,
     VerifiedTransactionInformation,
 };
 
-use crate::free::tx_fee;
-use crate::ops::alt_block;
 use crate::{
     ops::{
+        alt_block,
         blockchain::{chain_height, cumulative_generated_coins},
         macros::doc_error,
         output::get_rct_num_outputs,

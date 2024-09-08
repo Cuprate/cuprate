@@ -9,8 +9,9 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 
 [features]
+# TODO: I don't think this is a good idea
 # All features on by default.
-default   = ["std", "atomic", "asynch", "cast", "fs", "num", "map", "time", "thread", "constants"]
+default   = ["std", "atomic", "asynch", "cast", "fs", "num", "map", "time", "thread", "constants", "tx-utils"]
 std       = []
 atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
@@ -21,6 +22,7 @@ num       = []
 map       = ["cast", "dep:monero-serai"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
+tx-utils  = ["dep:monero-serai"]
 
 [dependencies]
 crossbeam    = { workspace = true, optional = true }
