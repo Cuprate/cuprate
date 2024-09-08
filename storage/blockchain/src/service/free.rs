@@ -3,13 +3,14 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::Arc;
 
-use crate::service::{init_read_service, init_write_service};
+use cuprate_database::{ConcreteEnv, InitError};
+use cuprate_types::{AltBlockInformation, VerifiedBlockInformation};
+
 use crate::{
     config::Config,
     service::types::{BlockchainReadHandle, BlockchainWriteHandle},
 };
-use cuprate_database::{ConcreteEnv, InitError};
-use cuprate_types::{AltBlockInformation, VerifiedBlockInformation};
+use crate::service::{init_read_service, init_write_service};
 
 //---------------------------------------------------------------------------------------------------- Init
 #[cold]
@@ -81,7 +82,12 @@ pub(super) const fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u
     top_block_height > INITIAL_BLOCKS && !(top_block_height - INITIAL_BLOCKS + 2).is_power_of_two()
 }
 
-//---------------------------------------------------------------------------------------------------- Compact history
+//---------------------------------------------------------------------------------------------------- Map Block
+/// Maps [`AltBlockInformation`] to [`VerifiedBlockInformation`]
+///
+/// # Panics
+/// This will panic if the block is invalid, so should only be used on blocks that have been popped from
+/// the main-chain.
 pub(super) fn map_valid_alt_block_to_verified_block(
     alt_block: AltBlockInformation,
 ) -> VerifiedBlockInformation {

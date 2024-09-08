@@ -25,13 +25,11 @@
 //! let tx: VerifiedTransactionInformation = TX_V1_SIG0.clone();
 //! ```
 
-mod constants;
 pub use constants::{
     BLOCK_43BD1F, BLOCK_5ECB7E, BLOCK_BBD604, BLOCK_F91043, TX_2180A8, TX_3BC7FF, TX_84D48D,
     TX_9E3F73, TX_B6B439, TX_D7FEBD, TX_E2D393, TX_E57440,
 };
+pub use statics::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3, TX_V1_SIG0, TX_V1_SIG2, TX_V2_RCT3};
 
+mod constants;
 mod statics;
-pub use statics::{
-    tx_fee, BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3, TX_V1_SIG0, TX_V1_SIG2, TX_V2_RCT3,
-};

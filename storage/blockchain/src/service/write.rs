@@ -5,8 +5,8 @@ use std::sync::Arc;
 use cuprate_database::{ConcreteEnv, DatabaseRo, DatabaseRw, Env, EnvInner, RuntimeError, TxRw};
 use cuprate_database_service::DatabaseWriteHandle;
 use cuprate_types::{
-    blockchain::{BlockchainResponse, BlockchainWriteRequest},
-    AltBlockInformation, Chain, ChainId, VerifiedBlockInformation,
+    AltBlockInformation,
+    blockchain::{BlockchainResponse, BlockchainWriteRequest}, Chain, ChainId, VerifiedBlockInformation,
 };
 
 use crate::{
@@ -107,8 +107,8 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
-    // TODO: try blocks
-    let result = {
+    // TODO: turn this function into a try block once stable.
+    let mut result = || {
         // flush all the current alt blocks as they may reference blocks to be popped.
         crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
 
@@ -136,7 +136,7 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
         Ok(old_main_chain_id)
     };
 
-    match result {
+    match result() {
         Ok(old_main_chain_id) => {
             TxRw::commit(tx_rw)?;
             Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
@@ -156,7 +156,8 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
-    let result = {
+    // TODO: turn this function into a try block once stable.
+    let result = || {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
         let chain_info = tables_mut.alt_chain_infos().get(&chain_id.into())?;
@@ -197,7 +198,7 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
         Ok(())
     };
 
-    match result {
+    match result() {
         Ok(()) => {
             TxRw::commit(tx_rw)?;
             Ok(BlockchainResponse::Ok)
@@ -218,7 +219,7 @@ fn flush_alt_blocks(env: &ConcreteEnv) -> ResponseResult {
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
-    let result = { crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw) };
+    let result = crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw);
 
     match result {
         Ok(()) => {

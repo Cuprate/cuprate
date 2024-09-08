@@ -24,12 +24,9 @@ use crate::{
 ///
 /// # Panics
 /// This function will panic if:
-/// - `block.height` is == `0`
+/// - `alt_block.height` is == `0`
+/// - `alt_block.txs.len()` != `alt_block.block.transactions.len()`
 ///
-/// # Already exists
-/// This function will operate normally even if `block` already
-/// exists, i.e., this function will not return `Err` even if you
-/// call this function infinitely with the same block.
 pub fn add_alt_block(
     alt_block: &AltBlockInformation,
     tables: &mut impl TablesMut,

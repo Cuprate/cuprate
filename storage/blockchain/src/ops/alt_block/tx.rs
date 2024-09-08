@@ -4,9 +4,11 @@ use monero_serai::transaction::Transaction;
 use cuprate_database::{DatabaseRo, DatabaseRw, RuntimeError, StorableVec};
 use cuprate_types::VerifiedTransactionInformation;
 
-use crate::ops::macros::{doc_add_alt_block_inner_invariant, doc_error};
-use crate::tables::{Tables, TablesMut};
-use crate::types::{AltTransactionInfo, TxHash};
+use crate::{
+    ops::macros::{doc_add_alt_block_inner_invariant, doc_error},
+    tables::{Tables, TablesMut},
+    types::{AltTransactionInfo, TxHash},
+};
 
 /// Adds a [`VerifiedTransactionInformation`] form an alt-block to the DB, if
 /// that transaction is not already in the DB.

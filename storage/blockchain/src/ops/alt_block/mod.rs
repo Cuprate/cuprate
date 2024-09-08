@@ -18,8 +18,8 @@
 //! ```
 //!
 //! In that example if we were to receive an alt-block which immediately follows the top block of `ChainID(X)`
-//! then that block will also be stored under `ChainID(X)`. However if it follows from another block from `ChainID(X)`
-//! we will split into a chain with a different ID.
+//! then that block will also be stored under `ChainID(X)`. However, if it follows from another block from `ChainID(X)`
+//! we will split into a chain with a different ID:
 //!
 //! ```text
 //!      |
@@ -39,7 +39,7 @@
 //! [`get_alt_chain_history_ranges`] covers this and is the method to get the ranges of heights needed from each [`ChainID`](cuprate_types::ChainId)
 //! to get all the alt-blocks in a given [`ChainID`](cuprate_types::ChainId).
 //!
-//! Although this should be kept in mind as a possibility because Cuprate's block downloader will only track a single chain it is
+//! Although this should be kept in mind as a possibility, because Cuprate's block downloader will only track a single chain it is
 //! unlikely that we will be tracking [`ChainID`](cuprate_types::ChainId) that don't immediately connect to the main-chain.
 //!
 //! ## Why not use block's previous field?

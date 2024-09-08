@@ -1,17 +1,15 @@
 //! HTTP RPC client.
 
 //---------------------------------------------------------------------------------------------------- Use
+use monero_rpc::Rpc;
+use monero_serai::block::Block;
+use monero_simple_request_rpc::SimpleRequestRpc;
 use serde::Deserialize;
 use serde_json::json;
 use tokio::task::spawn_blocking;
 
-use monero_rpc::Rpc;
-use monero_serai::block::Block;
-use monero_simple_request_rpc::SimpleRequestRpc;
-
+use cuprate_helper::tx_utils::tx_fee;
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
-
-use crate::data::tx_fee;
 
 //---------------------------------------------------------------------------------------------------- Constants
 /// The default URL used for Monero RPC connections.
@@ -184,8 +182,9 @@ impl HttpRpcClient {
 //---------------------------------------------------------------------------------------------------- TESTS
 #[cfg(test)]
 mod tests {
-    use super::*;
     use hex_literal::hex;
+
+    use super::*;
 
     /// Assert the default address is localhost.
     #[tokio::test]

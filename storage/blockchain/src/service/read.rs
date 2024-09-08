@@ -1,11 +1,11 @@
 //! Database reader thread-pool definitions and logic.
 
+//---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
 
-//---------------------------------------------------------------------------------------------------- Import
 use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     prelude::*,
@@ -14,18 +14,17 @@ use rayon::{
 use thread_local::ThreadLocal;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_database_service::{init_thread_pool, DatabaseReadService, ReaderThreads};
+use cuprate_database_service::{DatabaseReadService, init_thread_pool, ReaderThreads};
 use cuprate_helper::map::combine_low_high_bits_to_u128;
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse},
     Chain, ChainId, ExtendedBlockHeader, OutputOnChain,
 };
 
-use crate::ops::alt_block::get_alt_block;
 use crate::{
     ops::{
         alt_block::{
-            get_alt_block_extended_header_from_height, get_alt_block_hash,
+            get_alt_block, get_alt_block_extended_header_from_height, get_alt_block_hash,
             get_alt_chain_history_ranges,
         },
         block::{
