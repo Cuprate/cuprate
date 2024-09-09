@@ -98,6 +98,7 @@ pub(super) async fn map_request(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1790-L1804>
 async fn get_block_count(
     mut state: CupratedRpcHandlerState,
     request: GetBlockCountRequest,
@@ -108,6 +109,7 @@ async fn get_block_count(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1806-L1831>
 async fn on_get_block_hash(
     mut state: CupratedRpcHandlerState,
     request: OnGetBlockHashRequest,
@@ -119,6 +121,7 @@ async fn on_get_block_hash(
     Ok(OnGetBlockHashResponse { block_hash })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2209-L2266>
 async fn submit_block(
     state: CupratedRpcHandlerState,
     request: SubmitBlockRequest,
@@ -129,6 +132,7 @@ async fn submit_block(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2268-L2340>
 async fn generate_blocks(
     state: CupratedRpcHandlerState,
     request: GenerateBlocksRequest,
@@ -140,6 +144,7 @@ async fn generate_blocks(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2468-L2498>
 async fn get_last_block_header(
     mut state: CupratedRpcHandlerState,
     request: GetLastBlockHeaderRequest,
@@ -153,6 +158,7 @@ async fn get_last_block_header(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2468-L2498>
 async fn get_block_header_by_hash(
     mut state: CupratedRpcHandlerState,
     request: GetBlockHeaderByHashRequest,
@@ -169,14 +175,13 @@ async fn get_block_header_by_hash(
         fill_pow_hash: bool,
     ) -> Result<BlockHeader, Error> {
         let hash = helper::hex_to_hash(hex)?;
-        let block = blockchain::block_by_hash(state, hash).await?;
-        let block_header = BlockHeader::from(&block);
-
+        let (_, block_header) = helper::block_header_by_hash(state, hash, fill_pow_hash).await?;
         Ok(block_header)
     }
 
     let block_header = get(&mut state, request.hash, request.fill_pow_hash).await?;
 
+    // FIXME PERF: could make a `Vec` on await on all tasks at the same time.
     let mut block_headers = Vec::with_capacity(request.hashes.len());
     for hash in request.hashes {
         let hash = get(&mut state, hash, request.fill_pow_hash).await?;
@@ -190,19 +195,22 @@ async fn get_block_header_by_hash(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2629-L2662>
 async fn get_block_header_by_height(
     mut state: CupratedRpcHandlerState,
     request: GetBlockHeaderByHeightRequest,
 ) -> Result<GetBlockHeaderByHeightResponse, Error> {
     helper::check_height(&mut state, request.height).await?;
-    let block = blockchain::block(&mut state, request.height).await?;
+    let (_, block_header) =
+        helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
 
     Ok(GetBlockHeaderByHeightResponse {
         base: AccessResponseBase::ok(),
-        block_header: BlockHeader::from(&block),
+        block_header,
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2569-L2627>
 async fn get_block_headers_range(
     mut state: CupratedRpcHandlerState,
     request: GetBlockHeadersRangeRequest,
@@ -249,6 +257,7 @@ async fn get_block_headers_range(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2664-L2727>
 async fn get_block(
     mut state: CupratedRpcHandlerState,
     request: GetBlockRequest,
@@ -280,6 +289,7 @@ async fn get_block(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2729-L2738>
 async fn get_connections(
     state: CupratedRpcHandlerState,
     request: GetConnectionsRequest,
@@ -290,6 +300,7 @@ async fn get_connections(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L501-L582>
 async fn get_info(
     state: CupratedRpcHandlerState,
     request: GetInfoRequest,
@@ -338,6 +349,7 @@ async fn get_info(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2751-L2766>
 async fn hard_fork_info(
     state: CupratedRpcHandlerState,
     request: HardForkInfoRequest,
@@ -355,6 +367,7 @@ async fn hard_fork_info(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2832-L2878>
 async fn set_bans(
     state: CupratedRpcHandlerState,
     request: SetBansRequest,
@@ -366,6 +379,7 @@ async fn set_bans(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2768-L2801>
 async fn get_bans(
     state: CupratedRpcHandlerState,
     request: GetBansRequest,
@@ -376,6 +390,7 @@ async fn get_bans(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2803-L2830>
 async fn banned(
     state: CupratedRpcHandlerState,
     request: BannedRequest,
@@ -387,6 +402,7 @@ async fn banned(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2880-L2932>
 async fn flush_transaction_pool(
     state: CupratedRpcHandlerState,
     request: FlushTransactionPoolRequest,
@@ -395,6 +411,7 @@ async fn flush_transaction_pool(
     Ok(FlushTransactionPoolResponse { status: Status::Ok })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2934-L2979>
 async fn get_output_histogram(
     state: CupratedRpcHandlerState,
     request: GetOutputHistogramRequest,
@@ -405,6 +422,7 @@ async fn get_output_histogram(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2998-L3013>
 async fn get_coinbase_tx_sum(
     state: CupratedRpcHandlerState,
     request: GetCoinbaseTxSumRequest,
@@ -420,6 +438,7 @@ async fn get_coinbase_tx_sum(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2981-L2996>
 async fn get_version(
     state: CupratedRpcHandlerState,
     request: GetVersionRequest,
@@ -434,6 +453,7 @@ async fn get_version(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3015-L3031>
 async fn get_fee_estimate(
     state: CupratedRpcHandlerState,
     request: GetFeeEstimateRequest,
@@ -446,6 +466,7 @@ async fn get_fee_estimate(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3033-L3064>
 async fn get_alternate_chains(
     state: CupratedRpcHandlerState,
     request: GetAlternateChainsRequest,
@@ -456,6 +477,7 @@ async fn get_alternate_chains(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3254-L3304>
 async fn relay_tx(
     state: CupratedRpcHandlerState,
     request: RelayTxRequest,
@@ -463,6 +485,7 @@ async fn relay_tx(
     Ok(RelayTxResponse { status: todo!() })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3306-L3330>
 async fn sync_info(
     state: CupratedRpcHandlerState,
     request: SyncInfoRequest,
@@ -478,6 +501,7 @@ async fn sync_info(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3332-L3350>
 async fn get_transaction_pool_backlog(
     state: CupratedRpcHandlerState,
     request: GetTransactionPoolBacklogRequest,
@@ -488,6 +512,7 @@ async fn get_transaction_pool_backlog(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1998-L2033>
 async fn get_miner_data(
     state: CupratedRpcHandlerState,
     request: GetMinerDataRequest,
@@ -505,6 +530,7 @@ async fn get_miner_data(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3453-L3476>
 async fn prune_blockchain(
     state: CupratedRpcHandlerState,
     request: PruneBlockchainRequest,
@@ -516,6 +542,7 @@ async fn prune_blockchain(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2035-L2070>
 async fn calc_pow(
     state: CupratedRpcHandlerState,
     request: CalcPowRequest,
@@ -523,6 +550,7 @@ async fn calc_pow(
     Ok(CalcPowResponse { pow_hash: todo!() })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3542-L3551>
 async fn flush_cache(
     state: CupratedRpcHandlerState,
     request: FlushCacheRequest,
@@ -534,6 +562,7 @@ async fn flush_cache(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2072-L2207>
 async fn add_aux_pow(
     state: CupratedRpcHandlerState,
     request: AddAuxPowRequest,
@@ -548,6 +577,7 @@ async fn add_aux_pow(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3553-L3627>
 async fn get_tx_ids_loose(
     state: CupratedRpcHandlerState,
     request: GetTxIdsLooseRequest,

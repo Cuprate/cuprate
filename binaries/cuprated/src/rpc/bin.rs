@@ -35,6 +35,7 @@ pub(super) async fn map_request(
     })
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L611-L789>
 async fn get_blocks(
     state: CupratedRpcHandlerState,
     request: GetBlocksRequest,
@@ -42,6 +43,7 @@ async fn get_blocks(
     todo!()
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L817-L857>
 async fn get_blocks_by_height(
     state: CupratedRpcHandlerState,
     request: GetBlocksByHeightRequest,
@@ -49,6 +51,7 @@ async fn get_blocks_by_height(
     todo!()
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L859-L880>
 async fn get_hashes(
     state: CupratedRpcHandlerState,
     request: GetHashesRequest,
@@ -56,6 +59,7 @@ async fn get_hashes(
     todo!()
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L959-L977>
 async fn get_output_indexes(
     state: CupratedRpcHandlerState,
     request: GetOutputIndexesRequest,
@@ -63,6 +67,7 @@ async fn get_output_indexes(
     todo!()
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L882-L910>
 async fn get_outs(
     state: CupratedRpcHandlerState,
     request: GetOutsRequest,
@@ -70,6 +75,7 @@ async fn get_outs(
     todo!()
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1689-L1711>
 async fn get_transaction_pool_hashes(
     state: CupratedRpcHandlerState,
     request: GetTransactionPoolHashesRequest,
@@ -77,6 +83,7 @@ async fn get_transaction_pool_hashes(
     todo!()
 }
 
+/// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
 async fn get_output_distribution(
     state: CupratedRpcHandlerState,
     request: GetOutputDistributionRequest,
