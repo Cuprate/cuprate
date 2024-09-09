@@ -36,7 +36,7 @@ use cuprate_rpc_types::{
 use cuprate_types::{blockchain::BlockchainReadRequest, Chain};
 
 use crate::{
-    rpc::helper,
+    rpc::{blockchain, helper},
     rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
 
@@ -104,7 +104,7 @@ async fn get_block_count(
 ) -> Result<GetBlockCountResponse, Error> {
     Ok(GetBlockCountResponse {
         base: ResponseBase::ok(),
-        count: helper::top_height(&mut state).await?,
+        count: helper::top_height(&mut state).await?.0,
     })
 }
 
@@ -113,7 +113,7 @@ async fn on_get_block_hash(
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, Error> {
     let [height] = request.block_height;
-    let hash = helper::block_hash(&mut state, height).await?;
+    let hash = blockchain::block_hash(&mut state, height).await?;
     let block_hash = hex::encode(hash);
 
     Ok(OnGetBlockHashResponse { block_hash })
@@ -145,7 +145,7 @@ async fn get_last_block_header(
     request: GetLastBlockHeaderRequest,
 ) -> Result<GetLastBlockHeaderResponse, Error> {
     Ok(GetLastBlockHeaderResponse {
-        base: ResponseBase::ok(),
+        base: AccessResponseBase::ok(),
         block_header: todo!(),
     })
 }
@@ -165,17 +165,8 @@ async fn get_block_header_by_hash(
         hex: String,
         fill_pow_hash: bool,
     ) -> Result<BlockHeader, Error> {
-        let Ok(bytes) = hex::decode(&hex) else {
-            return Err(anyhow!(
-                "Failed to parse hex representation of block hash. Hex = {hex}."
-            ));
-        };
-
-        let Ok(hash) = bytes.try_into() else {
-            return Err(anyhow!("TODO"));
-        };
-
-        let block = helper::block_by_hash(state, hash).await?;
+        let hash = helper::hex_to_hash(hex)?;
+        let block = blockchain::block_by_hash(state, hash).await?;
         let block_header = BlockHeader::from(&block);
 
         Ok(block_header)
@@ -200,16 +191,8 @@ async fn get_block_header_by_height(
     mut state: CupratedRpcHandlerState,
     request: GetBlockHeaderByHeightRequest,
 ) -> Result<GetBlockHeaderByHeightResponse, Error> {
-    let (height, _) = helper::top_height(&mut state).await?;
-
-    if request.height > height {
-        return Err(anyhow!(
-            "Requested block height: {} greater than current top block height: {height}",
-            request.height
-        ));
-    }
-
-    let block = helper::block(&mut state, height).await?;
+    helper::check_height(&mut state, request.height).await?;
+    let block = blockchain::block(&mut state, request.height).await?;
 
     Ok(GetBlockHeaderByHeightResponse {
         base: AccessResponseBase::ok(),
@@ -221,10 +204,10 @@ async fn get_block_headers_range(
     mut state: CupratedRpcHandlerState,
     request: GetBlockHeadersRangeRequest,
 ) -> Result<GetBlockHeadersRangeResponse, Error> {
-    let (height, _) = helper::top_height(&mut state).await?;
+    let (top_height, _) = helper::top_height(&mut state).await?;
 
-    if request.start_height >= height
-        || request.end_height >= height
+    if request.start_height >= top_height
+        || request.end_height >= top_height
         || request.start_height > request.end_height
     {
         return Err(anyhow!("Invalid start/end heights"));
@@ -243,8 +226,8 @@ async fn get_block_headers_range(
 
     {
         let ready = state.blockchain.ready().await?;
-        let height = u64_to_usize(height);
-        for block in request.start_height..=request.end_height {
+        for height in request.start_height..=request.end_height {
+            let height = u64_to_usize(height);
             let task = tokio::task::spawn(ready.call(BlockchainReadRequest::Block(height)));
             tasks.push(task);
         }
@@ -267,31 +250,12 @@ async fn get_block(
     mut state: CupratedRpcHandlerState,
     request: GetBlockRequest,
 ) -> Result<GetBlockResponse, Error> {
-    let block = if !request.hash.is_empty() {
-        let hex = request.hash;
-
-        let Ok(bytes) = hex::decode(&hex) else {
-            return Err(anyhow!(
-                "Failed to parse hex representation of block hash. Hex = {hex}."
-            ));
-        };
-
-        let Ok(hash) = bytes.try_into() else {
-            return Err(anyhow!("TODO"));
-        };
-
-        helper::block_by_hash(&mut state, hash).await?
+    let block = if request.hash.is_empty() {
+        helper::check_height(&mut state, request.height).await?;
+        blockchain::block(&mut state, request.height).await?
     } else {
-        let (height, _) = helper::top_height(&mut state).await?;
-
-        if request.height > height {
-            return Err(anyhow!(
-                "Requested block height: {} greater than current top block height: {height}",
-                request.height
-            ));
-        }
-
-        helper::block(&mut state, height).await?
+        let hash = helper::hex_to_hash(request.hash)?;
+        blockchain::block_by_hash(&mut state, hash).await?
     };
 
     let block_header = (&block).into();
@@ -458,7 +422,7 @@ async fn get_version(
     request: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     Ok(GetVersionResponse {
-        base: AccessResponseBase::ok(),
+        base: ResponseBase::ok(),
         version: todo!(),
         release: todo!(),
         current_height: todo!(),
@@ -484,7 +448,7 @@ async fn get_alternate_chains(
     request: GetAlternateChainsRequest,
 ) -> Result<GetAlternateChainsResponse, Error> {
     Ok(GetAlternateChainsResponse {
-        base: AccessResponseBase::ok(),
+        base: ResponseBase::ok(),
         chains: todo!(),
     })
 }
@@ -516,7 +480,7 @@ async fn get_transaction_pool_backlog(
     request: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
     Ok(GetTransactionPoolBacklogResponse {
-        base: AccessResponseBase::ok(),
+        base: ResponseBase::ok(),
         backlog: todo!(),
     })
 }
@@ -526,7 +490,7 @@ async fn get_miner_data(
     request: GetMinerDataRequest,
 ) -> Result<GetMinerDataResponse, Error> {
     Ok(GetMinerDataResponse {
-        base: AccessResponseBase::ok(),
+        base: ResponseBase::ok(),
         major_version: todo!(),
         height: todo!(),
         prev_id: todo!(),
@@ -543,7 +507,7 @@ async fn prune_blockchain(
     request: PruneBlockchainRequest,
 ) -> Result<PruneBlockchainResponse, Error> {
     Ok(PruneBlockchainResponse {
-        base: AccessResponseBase::ok(),
+        base: ResponseBase::ok(),
         pruned: todo!(),
         pruning_seed: todo!(),
     })

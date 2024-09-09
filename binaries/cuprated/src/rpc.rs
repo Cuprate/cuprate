@@ -3,6 +3,7 @@
 //! Will contain the code to initiate the RPC and a request handler.
 
 mod bin;
+mod blockchain;
 mod constants;
 mod handler;
 mod helper;

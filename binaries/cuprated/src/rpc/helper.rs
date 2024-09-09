@@ -3,7 +3,7 @@
 //! Many of the handlers have bodies with only small differences,
 //! the identical code is extracted and reused here in these functions.
 //!
-//! They typically map to database requests.
+//! These build on-top of [`crate::rpc::blockchain`] functions.
 
 use std::sync::Arc;
 
@@ -20,144 +20,51 @@ use cuprate_types::{
     blockchain::BlockchainReadRequest, Chain, ExtendedBlockHeader, VerifiedBlockInformation,
 };
 
-use crate::rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE};
+use crate::{
+    rpc::helper,
+    rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
+};
 
-/// [`BlockchainResponse::ChainHeight`].
-pub(super) async fn chain_height(
+/// Check if `height` is greater than the [`top_height`].
+///
+/// # Errors
+/// This returns the [`top_height`] on [`Ok`] and
+/// returns [`Error`] if `height` is greater than [`top_height`].
+pub(super) async fn check_height(
     state: &mut CupratedRpcHandlerState,
-) -> Result<(u64, [u8; 32]), Error> {
-    let BlockchainResponse::ChainHeight(height, hash) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::ChainHeight)
-        .await?
-    else {
-        unreachable!();
+    height: u64,
+) -> Result<u64, Error> {
+    let (top_height, _) = top_height(state).await?;
+
+    if height > top_height {
+        return Err(anyhow!(
+            "Requested block height: {height} greater than current top block height: {top_height}",
+        ));
+    }
+
+    Ok(top_height)
+}
+
+/// Parse a hexadecimal [`String`] as a 32-byte hash.
+pub(super) fn hex_to_hash(hex: String) -> Result<[u8; 32], Error> {
+    let error = || anyhow!("Failed to parse hex representation of hash. Hex = {hex}.");
+
+    let Ok(bytes) = hex::decode(&hex) else {
+        return Err(error());
     };
 
-    Ok((usize_to_u64(height), hash))
+    let Ok(hash) = bytes.try_into() else {
+        return Err(error());
+    };
+
+    Ok(hash)
 }
 
 /// [`BlockchainResponse::ChainHeight`] minus 1.
 pub(super) async fn top_height(
     state: &mut CupratedRpcHandlerState,
 ) -> Result<(u64, [u8; 32]), Error> {
-    let BlockchainResponse::ChainHeight(height, hash) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::ChainHeight)
-        .await?
-    else {
-        unreachable!();
-    };
-
+    let (chain_height, hash) = helper::chain_height().await?;
+    let height = chain_height.saturating_sub(1);
     Ok((usize_to_u64(height), hash))
 }
-
-/// [`BlockchainResponse::Block`].
-pub(super) async fn block(
-    state: &mut CupratedRpcHandlerState,
-    height: u64,
-) -> Result<VerifiedBlockInformation, Error> {
-    let BlockchainResponse::Block(block) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::Block(u64_to_usize(height)))
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(block)
-}
-
-/// [`BlockchainResponse::BlockByHash`].
-pub(super) async fn block_by_hash(
-    state: &mut CupratedRpcHandlerState,
-    hash: [u8; 32],
-) -> Result<VerifiedBlockInformation, Error> {
-    let BlockchainResponse::BlockByHash(block) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::BlockByHash(hash))
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(block)
-}
-
-/// [`BlockchainResponse::BlockExtendedHeader`].
-pub(super) async fn block_extended_header(
-    state: &mut CupratedRpcHandlerState,
-    height: u64,
-) -> Result<ExtendedBlockHeader, Error> {
-    let BlockchainResponse::BlockExtendedHeader(header) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::BlockExtendedHeader(u64_to_usize(
-            height,
-        )))
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(header)
-}
-
-/// [`BlockchainResponse::BlockExtendedHeaderByHash`].
-pub(super) async fn block_extended_header_by_hash(
-    state: &mut CupratedRpcHandlerState,
-    hash: [u8; 32],
-) -> Result<ExtendedBlockHeader, Error> {
-    let BlockchainResponse::BlockExtendedHeaderByHash(header) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::BlockExtendedHeaderByHash(hash))
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(header)
-}
-
-/// [`BlockchainResponse::BlockHash`] with [`Chain::Main`].
-pub(super) async fn block_hash(
-    state: &mut CupratedRpcHandlerState,
-    height: u64,
-) -> Result<[u8; 32], Error> {
-    let BlockchainResponse::BlockHash(hash) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::BlockHash(
-            u64_to_usize(height),
-            Chain::Main,
-        ))
-        .await?
-    else {
-        unreachable!();
-    };
-
-    Ok(hash)
-}
-
-// FindBlock([u8; 32]),
-// FilterUnknownHashes(HashSet<[u8; 32]>),
-// BlockExtendedHeaderInRange(Range<usize>, Chain),
-// ChainHeight,
-// GeneratedCoins(usize),
-// Outputs(HashMap<u64, HashSet<u64>>),
-// NumberOutputsWithAmount(Vec<u64>),
-// KeyImagesSpent(HashSet<[u8; 32]>),
-// CompactChainHistory,
-// FindFirstUnknown(Vec<[u8; 32]>),
