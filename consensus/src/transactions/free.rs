@@ -78,7 +78,7 @@ pub fn tx_fee(tx: &Transaction) -> Result<u64, TransactionError> {
             }
 
             for output in &prefix.outputs {
-                fee.checked_sub(output.amount.unwrap_or(0))
+                fee = fee.checked_sub(output.amount.unwrap_or(0))
                     .ok_or(TransactionError::OutputsTooHigh)?;
             }
         }
