@@ -5,6 +5,7 @@
 mod bin;
 mod constants;
 mod handler;
+mod helper;
 mod json;
 mod other;
 

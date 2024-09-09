@@ -31,11 +31,14 @@ use cuprate_rpc_types::{
         SetBansRequest, SetBansResponse, SubmitBlockRequest, SubmitBlockResponse, SyncInfoRequest,
         SyncInfoResponse,
     },
-    misc::BlockHeader,
+    misc::{BlockHeader, Status},
 };
 use cuprate_types::{blockchain::BlockchainReadRequest, Chain};
 
-use crate::rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE};
+use crate::{
+    rpc::helper,
+    rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
+};
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
@@ -96,62 +99,55 @@ pub(super) async fn map_request(
 }
 
 async fn get_block_count(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetBlockCountRequest,
 ) -> Result<GetBlockCountResponse, Error> {
-    let BlockchainResponse::ChainHeight(count, hash) = state
-        .blockchain
-        .oneshot(BlockchainReadRequest::ChainHeight)
-        .await?
-    else {
-        unreachable!();
-    };
-
     Ok(GetBlockCountResponse {
         base: ResponseBase::ok(),
-        count: usize_to_u64(count),
+        count: helper::top_height(&mut state).await?,
     })
 }
 
 async fn on_get_block_hash(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: OnGetBlockHashRequest,
 ) -> Result<OnGetBlockHashResponse, Error> {
-    let BlockchainResponse::BlockHash(hash) = state
-        .blockchain
-        .oneshot(BlockchainReadRequest::BlockHash(
-            u64_to_usize(request.block_height[0]),
-            Chain::Main,
-        ))
-        .await?
-    else {
-        unreachable!();
-    };
+    let [height] = request.block_height;
+    let hash = helper::block_hash(&mut state, height).await?;
+    let block_hash = hex::encode(hash);
 
-    Ok(OnGetBlockHashResponse {
-        block_hash: hex::encode(hash),
-    })
+    Ok(OnGetBlockHashResponse { block_hash })
 }
 
 async fn submit_block(
     state: CupratedRpcHandlerState,
     request: SubmitBlockRequest,
 ) -> Result<SubmitBlockResponse, Error> {
-    todo!()
+    Ok(SubmitBlockResponse {
+        base: ResponseBase::ok(),
+        block_id: todo!(),
+    })
 }
 
 async fn generate_blocks(
     state: CupratedRpcHandlerState,
     request: GenerateBlocksRequest,
 ) -> Result<GenerateBlocksResponse, Error> {
-    todo!()
+    Ok(GenerateBlocksResponse {
+        base: ResponseBase::ok(),
+        blocks: todo!(),
+        height: todo!(),
+    })
 }
 
 async fn get_last_block_header(
     state: CupratedRpcHandlerState,
     request: GetLastBlockHeaderRequest,
 ) -> Result<GetLastBlockHeaderResponse, Error> {
-    todo!()
+    Ok(GetLastBlockHeaderResponse {
+        base: ResponseBase::ok(),
+        block_header: todo!(),
+    })
 }
 
 async fn get_block_header_by_hash(
@@ -179,16 +175,7 @@ async fn get_block_header_by_hash(
             return Err(anyhow!("TODO"));
         };
 
-        let BlockchainResponse::BlockByHash(block) = state
-            .blockchain
-            .ready()
-            .await?
-            .call(BlockchainReadRequest::BlockByHash(hash))
-            .await?
-        else {
-            unreachable!();
-        };
-
+        let block = helper::block_by_hash(state, hash).await?;
         let block_header = BlockHeader::from(&block);
 
         Ok(block_header)
@@ -213,34 +200,16 @@ async fn get_block_header_by_height(
     mut state: CupratedRpcHandlerState,
     request: GetBlockHeaderByHeightRequest,
 ) -> Result<GetBlockHeaderByHeightResponse, Error> {
-    let BlockchainResponse::ChainHeight(chain_height, _) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::ChainHeight)
-        .await?
-    else {
-        unreachable!();
-    };
+    let (height, _) = helper::top_height(&mut state).await?;
 
-    let height = chain_height.saturating_sub(1);
-
-    if request.height > usize_to_u64(height) {
+    if request.height > height {
         return Err(anyhow!(
             "Requested block height: {} greater than current top block height: {height}",
             request.height
         ));
     }
 
-    let BlockchainResponse::Block(block) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::Block(height))
-        .await?
-    else {
-        unreachable!();
-    };
+    let block = helper::block(&mut state, height).await?;
 
     Ok(GetBlockHeaderByHeightResponse {
         base: AccessResponseBase::ok(),
@@ -252,21 +221,10 @@ async fn get_block_headers_range(
     mut state: CupratedRpcHandlerState,
     request: GetBlockHeadersRangeRequest,
 ) -> Result<GetBlockHeadersRangeResponse, Error> {
-    let BlockchainResponse::ChainHeight(chain_height, _) = state
-        .blockchain
-        .ready()
-        .await?
-        .call(BlockchainReadRequest::ChainHeight)
-        .await?
-    else {
-        unreachable!();
-    };
+    let (height, _) = helper::top_height(&mut state).await?;
 
-    let height = chain_height.saturating_sub(1);
-    let height_u64 = usize_to_u64(height);
-
-    if request.start_height >= height_u64
-        || request.end_height >= height_u64
+    if request.start_height >= height
+        || request.end_height >= height
         || request.start_height > request.end_height
     {
         return Err(anyhow!("Invalid start/end heights"));
@@ -285,6 +243,7 @@ async fn get_block_headers_range(
 
     {
         let ready = state.blockchain.ready().await?;
+        let height = u64_to_usize(height);
         for block in request.start_height..=request.end_height {
             let task = tokio::task::spawn(ready.call(BlockchainReadRequest::Block(height)));
             tasks.push(task);
@@ -305,155 +264,329 @@ async fn get_block_headers_range(
 }
 
 async fn get_block(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetBlockRequest,
 ) -> Result<GetBlockResponse, Error> {
-    todo!()
+    let block = if !request.hash.is_empty() {
+        let hex = request.hash;
+
+        let Ok(bytes) = hex::decode(&hex) else {
+            return Err(anyhow!(
+                "Failed to parse hex representation of block hash. Hex = {hex}."
+            ));
+        };
+
+        let Ok(hash) = bytes.try_into() else {
+            return Err(anyhow!("TODO"));
+        };
+
+        helper::block_by_hash(&mut state, hash).await?
+    } else {
+        let (height, _) = helper::top_height(&mut state).await?;
+
+        if request.height > height {
+            return Err(anyhow!(
+                "Requested block height: {} greater than current top block height: {height}",
+                request.height
+            ));
+        }
+
+        helper::block(&mut state, height).await?
+    };
+
+    let block_header = (&block).into();
+    let blob = hex::encode(block.block_blob);
+    let miner_tx_hash = hex::encode(block.block.miner_transaction.hash());
+    let tx_hashes = block
+        .txs
+        .into_iter()
+        .map(|tx| hex::encode(tx.tx_hash))
+        .collect();
+
+    Ok(GetBlockResponse {
+        base: AccessResponseBase::ok(),
+        blob,
+        json: todo!(), // TODO: make `JSON` type in `cuprate_rpc_types`
+        miner_tx_hash,
+        tx_hashes,
+        block_header,
+    })
 }
 
 async fn get_connections(
     state: CupratedRpcHandlerState,
     request: GetConnectionsRequest,
 ) -> Result<GetConnectionsResponse, Error> {
-    todo!()
+    Ok(GetConnectionsResponse {
+        base: ResponseBase::ok(),
+        connections: todo!(),
+    })
 }
 
 async fn get_info(
     state: CupratedRpcHandlerState,
     request: GetInfoRequest,
 ) -> Result<GetInfoResponse, Error> {
-    todo!()
+    Ok(GetInfoResponse {
+        base: AccessResponseBase::ok(),
+        adjusted_time: todo!(),
+        alt_blocks_count: todo!(),
+        block_size_limit: todo!(),
+        block_size_median: todo!(),
+        block_weight_limit: todo!(),
+        block_weight_median: todo!(),
+        bootstrap_daemon_address: todo!(),
+        busy_syncing: todo!(),
+        cumulative_difficulty_top64: todo!(),
+        cumulative_difficulty: todo!(),
+        database_size: todo!(),
+        difficulty_top64: todo!(),
+        difficulty: todo!(),
+        free_space: todo!(),
+        grey_peerlist_size: todo!(),
+        height: todo!(),
+        height_without_bootstrap: todo!(),
+        incoming_connections_count: todo!(),
+        mainnet: todo!(),
+        nettype: todo!(),
+        offline: todo!(),
+        outgoing_connections_count: todo!(),
+        restricted: todo!(),
+        rpc_connections_count: todo!(),
+        stagenet: todo!(),
+        start_time: todo!(),
+        synchronized: todo!(),
+        target_height: todo!(),
+        target: todo!(),
+        testnet: todo!(),
+        top_block_hash: todo!(),
+        tx_count: todo!(),
+        tx_pool_size: todo!(),
+        update_available: todo!(),
+        version: todo!(),
+        was_bootstrap_ever_used: todo!(),
+        white_peerlist_size: todo!(),
+        wide_cumulative_difficulty: todo!(),
+        wide_difficulty: todo!(),
+    })
 }
 
 async fn hard_fork_info(
     state: CupratedRpcHandlerState,
     request: HardForkInfoRequest,
 ) -> Result<HardForkInfoResponse, Error> {
-    todo!()
+    Ok(HardForkInfoResponse {
+        base: AccessResponseBase::ok(),
+        earliest_height: todo!(),
+        enabled: todo!(),
+        state: todo!(),
+        threshold: todo!(),
+        version: todo!(),
+        votes: todo!(),
+        voting: todo!(),
+        window: todo!(),
+    })
 }
 
 async fn set_bans(
     state: CupratedRpcHandlerState,
     request: SetBansRequest,
 ) -> Result<SetBansResponse, Error> {
-    todo!()
+    todo!();
+
+    Ok(SetBansResponse {
+        base: ResponseBase::ok(),
+    })
 }
 
 async fn get_bans(
     state: CupratedRpcHandlerState,
     request: GetBansRequest,
 ) -> Result<GetBansResponse, Error> {
-    todo!()
+    Ok(GetBansResponse {
+        base: ResponseBase::ok(),
+        bans: todo!(),
+    })
 }
 
 async fn banned(
     state: CupratedRpcHandlerState,
     request: BannedRequest,
 ) -> Result<BannedResponse, Error> {
-    todo!()
+    Ok(BannedResponse {
+        banned: todo!(),
+        seconds: todo!(),
+        status: todo!(),
+    })
 }
 
 async fn flush_transaction_pool(
     state: CupratedRpcHandlerState,
     request: FlushTransactionPoolRequest,
 ) -> Result<FlushTransactionPoolResponse, Error> {
-    todo!()
+    todo!();
+    Ok(FlushTransactionPoolResponse { status: Status::Ok })
 }
 
 async fn get_output_histogram(
     state: CupratedRpcHandlerState,
     request: GetOutputHistogramRequest,
 ) -> Result<GetOutputHistogramResponse, Error> {
-    todo!()
+    Ok(GetOutputHistogramResponse {
+        base: AccessResponseBase::ok(),
+        histogram: todo!(),
+    })
 }
 
 async fn get_coinbase_tx_sum(
     state: CupratedRpcHandlerState,
     request: GetCoinbaseTxSumRequest,
 ) -> Result<GetCoinbaseTxSumResponse, Error> {
-    todo!()
+    Ok(GetCoinbaseTxSumResponse {
+        base: AccessResponseBase::ok(),
+        emission_amount: todo!(),
+        emission_amount_top64: todo!(),
+        fee_amount: todo!(),
+        fee_amount_top64: todo!(),
+        wide_emission_amount: todo!(),
+        wide_fee_amount: todo!(),
+    })
 }
 
 async fn get_version(
     state: CupratedRpcHandlerState,
     request: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
-    todo!()
+    Ok(GetVersionResponse {
+        base: AccessResponseBase::ok(),
+        version: todo!(),
+        release: todo!(),
+        current_height: todo!(),
+        target_height: todo!(),
+        hard_forks: todo!(),
+    })
 }
 
 async fn get_fee_estimate(
     state: CupratedRpcHandlerState,
     request: GetFeeEstimateRequest,
 ) -> Result<GetFeeEstimateResponse, Error> {
-    todo!()
+    Ok(GetFeeEstimateResponse {
+        base: AccessResponseBase::ok(),
+        fee: todo!(),
+        fees: todo!(),
+        quantization_mask: todo!(),
+    })
 }
 
 async fn get_alternate_chains(
     state: CupratedRpcHandlerState,
     request: GetAlternateChainsRequest,
 ) -> Result<GetAlternateChainsResponse, Error> {
-    todo!()
+    Ok(GetAlternateChainsResponse {
+        base: AccessResponseBase::ok(),
+        chains: todo!(),
+    })
 }
 
 async fn relay_tx(
     state: CupratedRpcHandlerState,
     request: RelayTxRequest,
 ) -> Result<RelayTxResponse, Error> {
-    todo!()
+    Ok(RelayTxResponse { status: todo!() })
 }
 
 async fn sync_info(
     state: CupratedRpcHandlerState,
     request: SyncInfoRequest,
 ) -> Result<SyncInfoResponse, Error> {
-    todo!()
+    Ok(SyncInfoResponse {
+        base: AccessResponseBase::ok(),
+        height: todo!(),
+        next_needed_pruning_seed: todo!(),
+        overview: todo!(),
+        peers: todo!(),
+        spans: todo!(),
+        target_height: todo!(),
+    })
 }
 
 async fn get_transaction_pool_backlog(
     state: CupratedRpcHandlerState,
     request: GetTransactionPoolBacklogRequest,
 ) -> Result<GetTransactionPoolBacklogResponse, Error> {
-    todo!()
+    Ok(GetTransactionPoolBacklogResponse {
+        base: AccessResponseBase::ok(),
+        backlog: todo!(),
+    })
 }
 
 async fn get_miner_data(
     state: CupratedRpcHandlerState,
     request: GetMinerDataRequest,
 ) -> Result<GetMinerDataResponse, Error> {
-    todo!()
+    Ok(GetMinerDataResponse {
+        base: AccessResponseBase::ok(),
+        major_version: todo!(),
+        height: todo!(),
+        prev_id: todo!(),
+        seed_hash: todo!(),
+        difficulty: todo!(),
+        median_weight: todo!(),
+        already_generated_coins: todo!(),
+        tx_backlog: todo!(),
+    })
 }
 
 async fn prune_blockchain(
     state: CupratedRpcHandlerState,
     request: PruneBlockchainRequest,
 ) -> Result<PruneBlockchainResponse, Error> {
-    todo!()
+    Ok(PruneBlockchainResponse {
+        base: AccessResponseBase::ok(),
+        pruned: todo!(),
+        pruning_seed: todo!(),
+    })
 }
 
 async fn calc_pow(
     state: CupratedRpcHandlerState,
     request: CalcPowRequest,
 ) -> Result<CalcPowResponse, Error> {
-    todo!()
+    Ok(CalcPowResponse { pow_hash: todo!() })
 }
 
 async fn flush_cache(
     state: CupratedRpcHandlerState,
     request: FlushCacheRequest,
 ) -> Result<FlushCacheResponse, Error> {
-    todo!()
+    todo!();
+
+    Ok(FlushCacheResponse {
+        base: ResponseBase::ok(),
+    })
 }
 
 async fn add_aux_pow(
     state: CupratedRpcHandlerState,
     request: AddAuxPowRequest,
 ) -> Result<AddAuxPowResponse, Error> {
-    todo!()
+    Ok(AddAuxPowResponse {
+        base: ResponseBase::ok(),
+        blocktemplate_blob: todo!(),
+        blockhashing_blob: todo!(),
+        merkle_root: todo!(),
+        merkle_tree_depth: todo!(),
+        aux_pow: todo!(),
+    })
 }
 
 async fn get_tx_ids_loose(
     state: CupratedRpcHandlerState,
     request: GetTxIdsLooseRequest,
 ) -> Result<GetTxIdsLooseResponse, Error> {
-    todo!()
+    Ok(GetTxIdsLooseResponse {
+        base: ResponseBase::ok(),
+        txids: todo!(),
+    })
 }
