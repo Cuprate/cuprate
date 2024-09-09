@@ -93,7 +93,7 @@ pub fn add_block(
 
     let cumulative_generated_coins =
         cumulative_generated_coins(&block.height.saturating_sub(1), tables.block_infos())?
-            + block.generated_coins;
+            .saturating_add(block.generated_coins);
 
     let (cumulative_difficulty_low, cumulative_difficulty_high) =
         split_u128_into_low_high_bits(block.cumulative_difficulty);
