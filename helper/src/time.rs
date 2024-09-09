@@ -129,6 +129,7 @@ pub const fn secs_to_clock(seconds: u32) -> (u8, u8, u8) {
     debug_assert!(m < 60);
     debug_assert!(s < 60);
 
+    #[allow(clippy::cast_possible_truncation)] // checked above
     (h as u8, m, s)
 }
 
@@ -153,6 +154,7 @@ pub fn time() -> u32 {
 ///
 /// This is guaranteed to return a value between `0..=86399`
 pub fn time_utc() -> u32 {
+    #[allow(clippy::cast_sign_loss)] // checked in function calls
     unix_clock(chrono::offset::Local::now().timestamp() as u64)
 }
 

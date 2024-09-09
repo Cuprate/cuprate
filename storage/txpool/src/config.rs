@@ -1,16 +1,18 @@
-//! The main [`Config`] struct, holding all configurable values.
-
-//---------------------------------------------------------------------------------------------------- Import
+//! The transaction pool [`Config`].
 use std::{borrow::Cow, path::Path};
+
+use cuprate_database::{
+    config::{Config as DbConfig, SyncMode},
+    resize::ResizeAlgorithm,
+};
+use cuprate_database_service::ReaderThreads;
+use cuprate_helper::fs::CUPRATE_TXPOOL_DIR;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use cuprate_database::{config::SyncMode, resize::ResizeAlgorithm};
-use cuprate_helper::fs::cuprate_blockchain_dir;
-
-// re-exports
-pub use cuprate_database_service::ReaderThreads;
+/// The default transaction pool weight limit.
+const DEFAULT_TXPOOL_WEIGHT_LIMIT: usize = 600 * 1024 * 1024;
 
 //---------------------------------------------------------------------------------------------------- ConfigBuilder
 /// Builder for [`Config`].
@@ -27,6 +29,9 @@ pub struct ConfigBuilder {
 
     /// [`Config::reader_threads`].
     reader_threads: Option<ReaderThreads>,
+
+    /// [`Config::max_txpool_weight`].
+    max_txpool_weight: Option<usize>,
 }
 
 impl ConfigBuilder {
@@ -38,9 +43,10 @@ impl ConfigBuilder {
         Self {
             db_directory: None,
             db_config: cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(
-                cuprate_blockchain_dir(),
+                &*CUPRATE_TXPOOL_DIR,
             )),
             reader_threads: None,
+            max_txpool_weight: None,
         }
     }
 
@@ -48,7 +54,7 @@ impl ConfigBuilder {
     ///
     /// # Default values
     /// If [`ConfigBuilder::db_directory`] was not called,
-    /// the default [`cuprate_blockchain_dir`] will be used.
+    /// the default [`CUPRATE_TXPOOL_DIR`] will be used.
     ///
     /// For all other values, [`Default::default`] is used.
     pub fn build(self) -> Config {
@@ -56,9 +62,14 @@ impl ConfigBuilder {
         // in `helper::fs`. No need to do them here.
         let db_directory = self
             .db_directory
-            .unwrap_or_else(|| Cow::Borrowed(cuprate_blockchain_dir()));
+            .unwrap_or_else(|| Cow::Borrowed(&*CUPRATE_TXPOOL_DIR));
 
         let reader_threads = self.reader_threads.unwrap_or_default();
+
+        let max_txpool_weight = self
+            .max_txpool_weight
+            .unwrap_or(DEFAULT_TXPOOL_WEIGHT_LIMIT);
+
         let db_config = self
             .db_config
             .db_directory(db_directory)
@@ -68,7 +79,15 @@ impl ConfigBuilder {
         Config {
             db_config,
             reader_threads,
+            max_txpool_weight,
         }
+    }
+
+    /// Sets a new maximum weight for the transaction pool.
+    #[must_use]
+    pub const fn max_txpool_weight(mut self, max_txpool_weight: usize) -> Self {
+        self.max_txpool_weight = Some(max_txpool_weight);
+        self
     }
 
     /// Set a custom database directory (and file) [`Path`].
@@ -106,7 +125,7 @@ impl ConfigBuilder {
     #[must_use]
     pub fn fast(mut self) -> Self {
         self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_blockchain_dir()))
+            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR))
                 .fast();
 
         self.reader_threads = Some(ReaderThreads::OnePerThread);
@@ -120,7 +139,7 @@ impl ConfigBuilder {
     #[must_use]
     pub fn low_power(mut self) -> Self {
         self.db_config =
-            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(cuprate_blockchain_dir()))
+            cuprate_database::config::ConfigBuilder::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR))
                 .low_power();
 
         self.reader_threads = Some(ReaderThreads::One);
@@ -130,38 +149,42 @@ impl ConfigBuilder {
 
 impl Default for ConfigBuilder {
     fn default() -> Self {
-        let db_directory = Cow::Borrowed(cuprate_blockchain_dir());
+        let db_directory = Cow::Borrowed(CUPRATE_TXPOOL_DIR.as_path());
         Self {
             db_directory: Some(db_directory.clone()),
             db_config: cuprate_database::config::ConfigBuilder::new(db_directory),
             reader_threads: Some(ReaderThreads::default()),
+            max_txpool_weight: Some(DEFAULT_TXPOOL_WEIGHT_LIMIT),
         }
     }
 }
 
 //---------------------------------------------------------------------------------------------------- Config
-/// `cuprate_blockchain` configuration.
+/// `cuprate_txpool` configuration.
 ///
-/// This is a configuration built on-top of [`cuprate_database::config::Config`].
+/// This is a configuration built on-top of [`DbConfig`].
 ///
 /// It contains configuration specific to this crate, plus the database config.
 ///
 /// For construction, either use [`ConfigBuilder`] or [`Config::default`].
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Config {
     /// The database configuration.
-    pub db_config: cuprate_database::config::Config,
+    pub db_config: DbConfig,
 
     /// Database reader thread count.
     pub reader_threads: ReaderThreads,
+
+    /// The maximum weight of the transaction pool, after which we will start dropping transactions.
+    // TODO: enforce this max size.
+    pub max_txpool_weight: usize,
 }
 
 impl Config {
     /// Create a new [`Config`] with sane default settings.
     ///
-    /// The [`cuprate_database::config::Config::db_directory`]
-    /// will be set to [`cuprate_blockchain_dir`].
+    /// The [`DbConfig::db_directory`]
+    /// will be set to [`CUPRATE_TXPOOL_DIR`].
     ///
     /// All other values will be [`Default::default`].
     ///
@@ -173,21 +196,26 @@ impl Config {
     ///     resize::ResizeAlgorithm,
     ///     DATABASE_DATA_FILENAME,
     /// };
+    /// use cuprate_database_service::ReaderThreads;
     /// use cuprate_helper::fs::*;
     ///
-    /// use cuprate_blockchain::config::*;
+    /// use cuprate_txpool::Config;
     ///
     /// let config = Config::new();
     ///
-    /// assert_eq!(config.db_config.db_directory(), cuprate_blockchain_dir());
-    /// assert!(config.db_config.db_file().starts_with(cuprate_blockchain_dir()));
+    /// assert_eq!(config.db_config.db_directory(), &*CUPRATE_TXPOOL_DIR);
+    /// assert!(config.db_config.db_file().starts_with(&*CUPRATE_TXPOOL_DIR));
     /// assert!(config.db_config.db_file().ends_with(DATABASE_DATA_FILENAME));
     /// assert_eq!(config.db_config.sync_mode, SyncMode::default());
     /// assert_eq!(config.db_config.resize_algorithm, ResizeAlgorithm::default());
     /// assert_eq!(config.reader_threads, ReaderThreads::default());
     /// ```
     pub fn new() -> Self {
-        ConfigBuilder::default().build()
+        Self {
+            db_config: DbConfig::new(Cow::Borrowed(&*CUPRATE_TXPOOL_DIR)),
+            reader_threads: ReaderThreads::default(),
+            max_txpool_weight: 0,
+        }
     }
 }
 
@@ -195,7 +223,7 @@ impl Default for Config {
     /// Same as [`Config::new`].
     ///
     /// ```rust
-    /// # use cuprate_blockchain::config::*;
+    /// # use cuprate_txpool::Config;
     /// assert_eq!(Config::default(), Config::new());
     /// ```
     fn default() -> Self {

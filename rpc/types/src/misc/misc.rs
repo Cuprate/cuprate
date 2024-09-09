@@ -5,23 +5,13 @@
 //! the [`crate::misc::ConnectionInfo`] struct defined here.
 
 //---------------------------------------------------------------------------------------------------- Import
-use std::fmt::Display;
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
-use cuprate_epee_encoding::{
-    epee_object,
-    macros::bytes::{Buf, BufMut},
-    EpeeValue, Marker,
-};
+use cuprate_epee_encoding::epee_object;
 
 use crate::{
-    constants::{
-        CORE_RPC_STATUS_BUSY, CORE_RPC_STATUS_NOT_MINING, CORE_RPC_STATUS_OK,
-        CORE_RPC_STATUS_PAYMENT_REQUIRED,
-    },
     defaults::{default_string, default_zero},
     macros::monero_definition_link,
 };

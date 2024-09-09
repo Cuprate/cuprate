@@ -13,22 +13,17 @@ use cuprate_epee_encoding::{
     container_as_blob::ContainerAsBlob,
     epee_object, error,
     macros::bytes::{Buf, BufMut},
-    read_epee_value, write_field, EpeeObject, EpeeObjectBuilder, EpeeValue,
+    read_epee_value, write_field, EpeeObject, EpeeObjectBuilder,
 };
 
 use cuprate_types::BlockCompleteEntry;
 
 use crate::{
-    base::{AccessResponseBase, ResponseBase},
-    defaults::{default_false, default_height, default_string, default_vec, default_zero},
-    free::{is_one, is_zero},
+    base::AccessResponseBase,
+    defaults::{default_false, default_zero},
     macros::{define_request, define_request_and_response, define_request_and_response_doc},
-    misc::{
-        AuxPow, BlockHeader, BlockOutputIndices, ChainInfo, ConnectionInfo, GetBan, GetOutputsOut,
-        HardforkEntry, HistogramEntry, OutKeyBin, OutputDistributionData, Peer, PoolInfoExtent,
-        PoolTxInfo, SetBan, Span, Status, TxBacklogEntry,
-    },
-    rpc_call::{RpcCall, RpcCallValue},
+    misc::{BlockOutputIndices, GetOutputsOut, OutKeyBin, PoolInfoExtent, PoolTxInfo, Status},
+    rpc_call::RpcCallValue,
 };
 
 //---------------------------------------------------------------------------------------------------- Definitions

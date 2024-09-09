@@ -15,7 +15,7 @@ use cuprate_helper::asynch::rayon_spawn_async;
 
 use crate::{
     block::{free::pull_ordered_transactions, PreparedBlock, PreparedBlockExPow},
-    context::rx_vms::RandomXVM,
+    context::rx_vms::RandomXVm,
     transactions::new_tx_verification_data,
     BlockChainContextRequest, BlockChainContextResponse, ExtendedConsensusError,
     VerifyBlockResponse,
@@ -148,7 +148,7 @@ where
         tracing::debug!("New randomX seed in batch, initialising VM");
 
         let new_vm = rayon_spawn_async(move || {
-            Arc::new(RandomXVM::new(&new_vm_seed).expect("RandomX VM gave an error on set up!"))
+            Arc::new(RandomXVm::new(&new_vm_seed).expect("RandomX VM gave an error on set up!"))
         })
         .await;
 

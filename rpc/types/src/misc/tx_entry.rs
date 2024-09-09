@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{
-    epee_object, error,
+    error,
     macros::bytes::{Buf, BufMut},
-    read_epee_value, write_field, EpeeObject, EpeeObjectBuilder, EpeeValue, Marker,
+    EpeeObject, EpeeObjectBuilder,
 };
 
 //---------------------------------------------------------------------------------------------------- TxEntry
@@ -123,7 +123,7 @@ impl Default for TxEntry {
 //---------------------------------------------------------------------------------------------------- Epee
 #[cfg(feature = "epee")]
 impl EpeeObjectBuilder<TxEntry> for () {
-    fn add_field<B: Buf>(&mut self, name: &str, r: &mut B) -> error::Result<bool> {
+    fn add_field<B: Buf>(&mut self, _: &str, _: &mut B) -> error::Result<bool> {
         unreachable!()
     }
 
@@ -140,7 +140,7 @@ impl EpeeObject for TxEntry {
         unreachable!()
     }
 
-    fn write_fields<B: BufMut>(self, w: &mut B) -> error::Result<()> {
+    fn write_fields<B: BufMut>(self, _: &mut B) -> error::Result<()> {
         unreachable!()
     }
 }

@@ -11,10 +11,9 @@ use crate::{
     defaults::{default_false, default_string, default_true, default_vec, default_zero},
     macros::define_request_and_response,
     misc::{
-        GetOutputsOut, KeyImageSpentStatus, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status,
-        TxEntry, TxInfo, TxpoolStats,
+        GetOutputsOut, OutKey, Peer, PublicNode, SpentKeyImageInfo, Status, TxEntry, TxInfo,
+        TxpoolStats,
     },
-    rpc_call::RpcCall,
     RpcCallValue,
 };
 
@@ -191,7 +190,7 @@ define_request_and_response! {
         }
     )]
     AccessResponseBase {
-        /// FIXME: These are [`KeyImageSpentStatus`] in [`u8`] form.
+        /// FIXME: These are [`KeyImageSpentStatus`](crate::misc::KeyImageSpentStatus) in [`u8`] form.
         spent_status: Vec<u8>,
     }
 }

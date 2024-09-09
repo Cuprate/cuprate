@@ -10,7 +10,7 @@
 //! implement a database you need to have a service which accepts [`BlockchainReadRequest`] and responds
 //! with [`BlockchainResponse`].
 //!
-use cuprate_consensus_rules::{ConsensusError, HardFork};
+use cuprate_consensus_rules::ConsensusError;
 
 mod batch_verifier;
 pub mod block;

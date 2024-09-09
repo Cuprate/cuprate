@@ -5,9 +5,16 @@ use axum::{body::Bytes, extract::State, http::StatusCode};
 use tower::ServiceExt;
 
 use cuprate_epee_encoding::from_bytes;
-use cuprate_rpc_types::bin::{BinRequest, BinResponse, GetTransactionPoolHashesRequest};
+use cuprate_rpc_types::{
+    bin::{
+        BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksRequest, GetHashesRequest,
+        GetOutputIndexesRequest, GetOutsRequest, GetTransactionPoolHashesRequest,
+    },
+    json::GetOutputDistributionRequest,
+    RpcCall,
+};
 
-use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
+use crate::rpc_handler::RpcHandler;
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// This macro generates route functions that expect input.
@@ -66,14 +73,17 @@ macro_rules! generate_endpoints_inner {
     ($variant:ident, $handler:ident, $request:expr) => {
         paste::paste! {
             {
-                // Send request.
-                let request = RpcRequest::Binary($request);
-                let channel = $handler.oneshot(request).await?;
+                // Check if restricted.
+                if [<$variant Request>]::IS_RESTRICTED && $handler.restricted() {
+                    // TODO: mimic `monerod` behavior.
+                    return Err(StatusCode::FORBIDDEN);
+                }
 
-                // Assert the response from the inner handler is correct.
-                let RpcResponse::Binary(response) = channel else {
-                    panic!("RPC handler did not return a binary response");
+                // Send request.
+                let Ok(response) = $handler.oneshot($request).await else {
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
                 };
+
                 let BinResponse::$variant(response) = response else {
                     panic!("RPC handler returned incorrect response");
                 };
@@ -81,7 +91,7 @@ macro_rules! generate_endpoints_inner {
                 // Serialize to bytes and respond.
                 match cuprate_epee_encoding::to_bytes(response) {
                     Ok(bytes) => Ok(bytes.freeze()),
-                    Err(e) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+                    Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
                 }
             }
         }

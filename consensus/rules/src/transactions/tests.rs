@@ -9,12 +9,14 @@ use proptest::{collection::vec, prelude::*};
 
 use monero_serai::transaction::Output;
 
+use cuprate_helper::cast::u64_to_usize;
+
 use super::*;
-use crate::decomposed_amount::decomposed_amounts;
+use crate::decomposed_amount::DECOMPOSED_AMOUNTS;
 
 #[test]
 fn test_check_output_amount_v1() {
-    for amount in decomposed_amounts() {
+    for amount in DECOMPOSED_AMOUNTS.iter() {
         assert!(check_output_amount_v1(*amount, &HardFork::V2).is_ok())
     }
 
@@ -164,7 +166,7 @@ prop_compose! {
         if timebased || lock_height > 500_000_000 {
             Timelock::Time(time_for_time_lock)
         } else {
-            Timelock::Block(usize::try_from(lock_height).unwrap())
+            Timelock::Block(u64_to_usize(lock_height))
         }
     }
 }
@@ -179,7 +181,7 @@ prop_compose! {
         match ty {
             0 => Timelock::None,
             1 => Timelock::Time(time_for_time_lock),
-            _ =>  Timelock::Block(usize::try_from(lock_height).unwrap())
+            _ =>  Timelock::Block(u64_to_usize(lock_height))
         }
     }
 }

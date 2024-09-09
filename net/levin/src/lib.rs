@@ -38,6 +38,8 @@ use std::fmt::Debug;
 use bytes::{Buf, Bytes};
 use thiserror::Error;
 
+use cuprate_helper::cast::usize_to_u64;
+
 pub mod codec;
 pub mod header;
 pub mod message;
@@ -212,7 +214,7 @@ impl<C: LevinCommand> BucketBuilder<C> {
         Bucket {
             header: BucketHead {
                 signature: self.signature.unwrap(),
-                size: body.len().try_into().unwrap(),
+                size: usize_to_u64(body.len()),
                 have_to_return_data: ty.have_to_return_data(),
                 command: self.command.unwrap(),
                 return_code: self.return_code.unwrap(),

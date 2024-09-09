@@ -54,7 +54,7 @@
 //! ```rust
 //! use hex_literal::hex;
 //!
-//! use cuprate_test_utils::data::block_v16_tx0;
+//! use cuprate_test_utils::data::BLOCK_V16_TX0;
 //! use cuprate_blockchain::{
 //!     cuprate_database::{
 //!         ConcreteEnv,
@@ -83,7 +83,7 @@
 //! let mut tables = env_inner.open_tables_mut(&tx_rw)?;
 //!
 //! // Write a block to the database.
-//! let mut block = block_v16_tx0().clone();
+//! let mut block = BLOCK_V16_TX0.clone();
 //! # block.height = 0;
 //! add_block(&block, &mut tables)?;
 //!

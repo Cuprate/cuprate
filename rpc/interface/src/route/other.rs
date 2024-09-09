@@ -25,7 +25,7 @@ use cuprate_rpc_types::{
     RpcCall,
 };
 
-use crate::{rpc_handler::RpcHandler, rpc_request::RpcRequest, rpc_response::RpcResponse};
+use crate::rpc_handler::RpcHandler;
 
 //---------------------------------------------------------------------------------------------------- Routes
 /// This macro generates route functions that expect input.
@@ -81,13 +81,11 @@ macro_rules! generate_endpoints_inner {
                 }
 
                 // Send request.
-                let request = RpcRequest::Other(OtherRequest::$variant($request));
-                let channel = $handler.oneshot(request).await?;
-
-                // Assert the response from the inner handler is correct.
-                let RpcResponse::Other(response) = channel else {
-                    panic!("RPC handler did not return a binary response");
+                let request = OtherRequest::$variant($request);
+                let Ok(response) = $handler.oneshot(request).await else {
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
                 };
+
                 let OtherResponse::$variant(response) = response else {
                     panic!("RPC handler returned incorrect response")
                 };

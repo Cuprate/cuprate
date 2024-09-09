@@ -9,12 +9,12 @@ epee_object!(
     a: u8,
 );
 
-struct TT {
+struct T2 {
     a: u8,
 }
 
 epee_object!(
-    TT,
+    T2,
     a: u8 = 0,
 );
 
@@ -35,5 +35,5 @@ fn duplicate_key_with_default() {
         b'a', 0x0B, 0x00,
     ];
 
-    assert!(from_bytes::<TT, _>(&mut &data[..]).is_err());
+    assert!(from_bytes::<T2, _>(&mut &data[..]).is_err());
 }

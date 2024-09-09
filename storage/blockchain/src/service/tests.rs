@@ -16,7 +16,7 @@ use pretty_assertions::assert_eq;
 use tower::{Service, ServiceExt};
 
 use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
-use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
+use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     Chain, OutputOnChain, VerifiedBlockInformation,
@@ -61,7 +61,7 @@ fn init_service() -> (
 #[allow(clippy::future_not_send)] // INVARIANT: tests are using a single threaded runtime
 async fn test_template(
     // Which block(s) to add?
-    block_fns: &[fn() -> &'static VerifiedBlockInformation],
+    blocks: &[&VerifiedBlockInformation],
     // Total amount of generated coins after the block(s) have been added.
     cumulative_generated_coins: u64,
     // What are the table lengths be after the block(s) have been added?
@@ -76,8 +76,8 @@ async fn test_template(
 
     // HACK: `add_block()` asserts blocks with non-sequential heights
     // cannot be added, to get around this, manually edit the block height.
-    for (i, block_fn) in block_fns.iter().enumerate() {
-        let mut block = block_fn().clone();
+    for (i, block) in blocks.iter().enumerate() {
+        let mut block = (*block).clone();
         block.height = i;
 
         // Request a block to be written, assert it was written.
@@ -104,7 +104,7 @@ async fn test_template(
         get_block_extended_header_from_height(&0, &tables).unwrap(),
     ));
 
-    let extended_block_header_1 = if block_fns.len() > 1 {
+    let extended_block_header_1 = if blocks.len() > 1 {
         Ok(BlockchainResponse::BlockExtendedHeader(
             get_block_extended_header_from_height(&1, &tables).unwrap(),
         ))
@@ -116,7 +116,7 @@ async fn test_template(
         get_block_info(&0, tables.block_infos()).unwrap().block_hash,
     ));
 
-    let block_hash_1 = if block_fns.len() > 1 {
+    let block_hash_1 = if blocks.len() > 1 {
         Ok(BlockchainResponse::BlockHash(
             get_block_info(&1, tables.block_infos()).unwrap().block_hash,
         ))
@@ -128,7 +128,7 @@ async fn test_template(
         get_block_extended_header_from_height(&0, &tables).unwrap(),
     ]));
 
-    let range_0_2 = if block_fns.len() >= 2 {
+    let range_0_2 = if blocks.len() >= 2 {
         Ok(BlockchainResponse::BlockExtendedHeaderInRange(vec![
             get_block_extended_header_from_height(&0, &tables).unwrap(),
             get_block_extended_header_from_height(&1, &tables).unwrap(),
@@ -304,8 +304,9 @@ async fn test_template(
     // Assert we get back the same map of
     // `Amount`'s and `AmountIndex`'s.
     let mut response_output_count = 0;
+    #[allow(clippy::iter_over_hash_type)] // order doesn't matter in this test
     for (amount, output_map) in response {
-        let amount_index_set = map.get(&amount).unwrap();
+        let amount_index_set = &map[&amount];
 
         for (amount_index, output) in output_map {
             response_output_count += 1;
@@ -333,7 +334,7 @@ fn init_drop() {
 #[tokio::test]
 async fn v1_tx2() {
     test_template(
-        &[block_v1_tx2],
+        &[&*BLOCK_V1_TX2],
         14_535_350_982_449,
         AssertTableLen {
             block_infos: 1,
@@ -359,7 +360,7 @@ async fn v1_tx2() {
 #[tokio::test]
 async fn v9_tx3() {
     test_template(
-        &[block_v9_tx3],
+        &[&*BLOCK_V9_TX3],
         3_403_774_022_163,
         AssertTableLen {
             block_infos: 1,
@@ -385,7 +386,7 @@ async fn v9_tx3() {
 #[tokio::test]
 async fn v16_tx0() {
     test_template(
-        &[block_v16_tx0],
+        &[&*BLOCK_V16_TX0],
         600_000_000_000,
         AssertTableLen {
             block_infos: 1,

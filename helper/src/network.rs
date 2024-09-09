@@ -30,11 +30,11 @@ pub enum Network {
 
 impl Network {
     /// Returns the network ID for the current network.
-    pub fn network_id(&self) -> [u8; 16] {
+    pub const fn network_id(&self) -> [u8; 16] {
         match self {
-            Network::Mainnet => MAINNET_NETWORK_ID,
-            Network::Testnet => TESTNET_NETWORK_ID,
-            Network::Stagenet => STAGENET_NETWORK_ID,
+            Self::Mainnet => MAINNET_NETWORK_ID,
+            Self::Testnet => TESTNET_NETWORK_ID,
+            Self::Stagenet => STAGENET_NETWORK_ID,
         }
     }
 }

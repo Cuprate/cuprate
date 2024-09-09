@@ -17,7 +17,7 @@ CLIENT ─► ROUTE ─► REQUEST ─► HANDLER ─► RESPONSE ─► CLIENT
 
 Everything coming _in_ from a client is handled by this crate.
 
-This is where your [`RpcHandler`] turns this [`RpcRequest`] into a [`RpcResponse`].
+This is where your [`RpcHandler`] turns this `Request` into a `Response`.
 
 You hand this `Response` back to `cuprate-rpc-interface` and it will take care of sending it back to the client.
 
@@ -42,16 +42,19 @@ The proper usage of this crate is to:
 3. Do whatever with it
 
 # The [`RpcHandler`]
-This is your [`tower::Service`] that converts [`RpcRequest`]s into [`RpcResponse`]s,
+This is your [`tower::Service`] that converts `Request`s into `Response`s,
 i.e. the "inner handler".
 
-Said concretely, `RpcHandler` is a `tower::Service` where the associated types are from this crate:
-- [`RpcRequest`]
-- [`RpcResponse`]
-- [`RpcError`]
+Said concretely, `RpcHandler` is 3 `tower::Service`s where the
+request/response types are the 3 endpoint enums from [`cuprate_rpc_types`]:
+- [`JsonRpcRequest`](cuprate_rpc_types::json::JsonRpcRequest) & [`JsonRpcResponse`](cuprate_rpc_types::json::JsonRpcResponse)
+- [`BinRequest`](cuprate_rpc_types::bin::BinRequest) & [`BinResponse`](cuprate_rpc_types::bin::BinRequest)
+- [`OtherRequest`](cuprate_rpc_types::other::OtherRequest) & [`OtherResponse`](cuprate_rpc_types::other::OtherRequest)
 
 `RpcHandler`'s [`Future`](std::future::Future) is generic, _although_,
-it must output `Result<RpcResponse, RpcError>`.
+it must output `Result<$RESPONSE, anyhow::Error>`.
+
+The error type must always be [`anyhow::Error`].
 
 The `RpcHandler` must also hold some state that is required
 for RPC server operation.
@@ -83,7 +86,7 @@ use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse, GetBlockCountResponse},
     other::{OtherRequest, OtherResponse},
 };
-use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy, RpcRequest};
+use cuprate_rpc_interface::{RouterBuilder, RpcHandlerDummy};
 
 // Send a `/get_height` request. This endpoint has no inputs.
 async fn get_height(port: u16) -> OtherResponse {

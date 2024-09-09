@@ -8,23 +8,69 @@ authors = ["Boog900", "hinto-janai", "SyntheticBird45"]
 repository = "https://github.com/Cuprate/cuprate/tree/main/binaries/cuprated"
 
 [dependencies]
-cuprate-consensus  = { path = "../../consensus" }
-cuprate-blockchain = { path = "../../storage/blockchain" }
-cuprate-p2p        = { path = "../../p2p/p2p" }
-cuprate-p2p-core   = { path = "../../p2p/p2p-core" }
-cuprate-types      = { path = "../../types" }
-cuprate-cryptonight = { path = "../../cryptonight" }
+# TODO: after v1.0.0, remove unneeded dependencies.
+cuprate-consensus        = { path = "../../consensus" }
+cuprate-fast-sync        = { path = "../../consensus/fast-sync" }
+cuprate-consensus-rules  = { path = "../../consensus/rules" }
+cuprate-cryptonight      = { path = "../../cryptonight" }
+cuprate-helper           = { path = "../../helper" }
+cuprate-epee-encoding    = { path = "../../net/epee-encoding" }
+cuprate-fixed-bytes      = { path = "../../net/fixed-bytes" }
+cuprate-levin            = { path = "../../net/levin" }
+cuprate-wire             = { path = "../../net/wire" }
+cuprate-p2p              = { path = "../../p2p/p2p" }
+cuprate-p2p-core         = { path = "../../p2p/p2p-core" }
+cuprate-dandelion-tower  = { path = "../../p2p/dandelion-tower" }
+cuprate-async-buffer     = { path = "../../p2p/async-buffer" }
+cuprate-address-book     = { path = "../../p2p/address-book" }
+cuprate-blockchain       = { path = "../../storage/blockchain" }
+cuprate-database-service = { path = "../../storage/service" }
+cuprate-txpool           = { path = "../../storage/txpool" }
+cuprate-database         = { path = "../../storage/database" }
+cuprate-pruning          = { path = "../../pruning" }
+cuprate-test-utils       = { path = "../../test-utils" }
+cuprate-types            = { path = "../../types" }
+cuprate-json-rpc         = { path = "../../rpc/json-rpc" }
+cuprate-rpc-interface    = { path = "../../rpc/interface" }
+cuprate-rpc-types        = { path = "../../rpc/types" }
 
-rayon              = { workspace = true }
-futures            = { workspace = true }
-tokio              = { workspace = true, features = ["rt-multi-thread", "macros"] }
-tower              = { workspace = true }
-tracing            = { workspace = true }
-thiserror          = { workspace = true }
-hex                = { workspace = true }
-
-clap               = { workspace = true, features = ["default", "derive"] }
-tracing-subscriber = { workspace = true, features = ["default"] }
+# TODO: after v1.0.0, remove unneeded dependencies.
+anyhow                = { workspace = true }
+async-trait           = { workspace = true }
+bitflags              = { workspace = true }
+borsh                 = { workspace = true }
+bytemuck              = { workspace = true }
+bytes                 = { workspace = true }
+cfg-if                = { workspace = true }
+clap                  = { workspace = true }
+chrono                = { workspace = true }
+crypto-bigint         = { workspace = true }
+crossbeam             = { workspace = true }
+curve25519-dalek      = { workspace = true }
+dashmap               = { workspace = true }
+dirs                  = { workspace = true }
+futures               = { workspace = true }
+hex                   = { workspace = true }
+hex-literal           = { workspace = true }
+indexmap              = { workspace = true }
+monero-serai          = { workspace = true }
+paste                 = { workspace = true }
+pin-project           = { workspace = true }
+randomx-rs            = { workspace = true }
+rand                  = { workspace = true }
+rand_distr            = { workspace = true }
+rayon                 = { workspace = true }
+serde_bytes           = { workspace = true }
+serde_json            = { workspace = true }
+serde                 = { workspace = true }
+thiserror             = { workspace = true }
+thread_local          = { workspace = true }
+tokio-util            = { workspace = true }
+tokio-stream          = { workspace = true }
+tokio                 = { workspace = true }
+tower                 = { workspace = true }
+tracing-subscriber    = { workspace = true }
+tracing               = { workspace = true }
 
 #[lints]
 #workspace = true

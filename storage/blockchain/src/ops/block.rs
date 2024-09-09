@@ -268,7 +268,7 @@ mod test {
     use pretty_assertions::assert_eq;
 
     use cuprate_database::{Env, EnvInner, TxRw};
-    use cuprate_test_utils::data::{block_v16_tx0, block_v1_tx2, block_v9_tx3};
+    use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
 
     use super::*;
 
@@ -292,9 +292,9 @@ mod test {
         assert_all_tables_are_empty(&env);
 
         let mut blocks = [
-            block_v1_tx2().clone(),
-            block_v9_tx3().clone(),
-            block_v16_tx0().clone(),
+            BLOCK_V1_TX2.clone(),
+            BLOCK_V9_TX3.clone(),
+            BLOCK_V16_TX0.clone(),
         ];
         // HACK: `add_block()` asserts blocks with non-sequential heights
         // cannot be added, to get around this, manually edit the block height.
@@ -440,9 +440,9 @@ mod test {
         let tx_rw = env_inner.tx_rw().unwrap();
         let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
-        let mut block = block_v9_tx3().clone();
+        let mut block = BLOCK_V9_TX3.clone();
 
-        block.height = usize::try_from(u32::MAX).unwrap() + 1;
+        block.height = cuprate_helper::cast::u32_to_usize(u32::MAX) + 1;
         add_block(&block, &mut tables).unwrap();
     }
 
@@ -459,7 +459,7 @@ mod test {
         let tx_rw = env_inner.tx_rw().unwrap();
         let mut tables = env_inner.open_tables_mut(&tx_rw).unwrap();
 
-        let mut block = block_v9_tx3().clone();
+        let mut block = BLOCK_V9_TX3.clone();
         // HACK: `add_block()` asserts blocks with non-sequential heights
         // cannot be added, to get around this, manually edit the block height.
         block.height = 0;
