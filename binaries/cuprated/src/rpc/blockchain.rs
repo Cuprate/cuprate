@@ -130,6 +130,24 @@ pub(super) async fn block_hash(
     Ok(hash)
 }
 
+/// [`BlockchainResponse::KeyImageSpent`]
+pub(super) async fn key_image_spent(
+    state: &mut CupratedRpcHandlerState,
+    key_image: [u8; 32],
+) -> Result<bool, Error> {
+    let BlockchainResponse::KeyImageSpent(is_spent) = state
+        .blockchain
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::KeyImageSpent(key_image))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(is_spent)
+}
+
 // FindBlock([u8; 32]),
 // FilterUnknownHashes(HashSet<[u8; 32]>),
 // BlockExtendedHeaderInRange(Range<usize>, Chain),

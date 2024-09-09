@@ -1,8 +1,8 @@
-use anyhow::Error;
+use anyhow::{anyhow, Error};
 
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
-    misc::Status,
+    misc::{KeyImageSpentStatus, Status},
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
         GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
@@ -22,7 +22,12 @@ use cuprate_rpc_types::{
     },
 };
 
-use crate::rpc::CupratedRpcHandlerState;
+use crate::{
+    rpc::CupratedRpcHandlerState,
+    rpc::{blockchain, helper},
+};
+
+use super::RESTRICTED_SPENT_KEY_IMAGES_COUNT;
 
 /// Map a [`OtherRequest`] to the function that will lead to a [`OtherResponse`].
 pub(super) async fn map_request(
@@ -77,12 +82,16 @@ pub(super) async fn map_request(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L486-L499>
 async fn get_height(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetHeightRequest,
 ) -> Result<GetHeightResponse, Error> {
+    let (height, hash) = helper::top_height(&mut state).await?;
+    let hash = hex::encode(hash);
+
     Ok(GetHeightResponse {
         base: ResponseBase::ok(),
-        ..todo!()
+        height,
+        hash,
     })
 }
 
@@ -110,12 +119,24 @@ async fn get_alt_blocks_hashes(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1229-L1305>
 async fn is_key_image_spent(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: IsKeyImageSpentRequest,
 ) -> Result<IsKeyImageSpentResponse, Error> {
+    if state.restricted && request.key_images.len() > RESTRICTED_SPENT_KEY_IMAGES_COUNT {
+        return Err(anyhow!("Too many key images queried in restricted mode"));
+    }
+
+    let mut spent_status = Vec::with_capacity(request.key_images.len());
+
+    for hex in request.key_images {
+        let key_image = helper::hex_to_hash(hex)?;
+        let status = helper::key_image_spent(&mut state, key_image).await?;
+        spent_status.push(status.to_u8());
+    }
+
     Ok(IsKeyImageSpentResponse {
         base: AccessResponseBase::ok(),
-        ..todo!()
+        spent_status,
     })
 }
 

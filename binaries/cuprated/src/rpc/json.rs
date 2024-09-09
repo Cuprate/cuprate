@@ -486,7 +486,8 @@ async fn relay_tx(
     state: CupratedRpcHandlerState,
     request: RelayTxRequest,
 ) -> Result<RelayTxResponse, Error> {
-    Ok(RelayTxResponse { status: todo!() })
+    todo!();
+    Ok(RelayTxResponse { status: Status::Ok })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3306-L3330>

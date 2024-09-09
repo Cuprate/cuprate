@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error};
-use cuprate_rpc_types::misc::BlockHeader;
+use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
 use futures::StreamExt;
 use tower::{Service, ServiceExt};
 
@@ -96,4 +96,18 @@ pub(super) async fn top_height(
     let (chain_height, hash) = blockchain::chain_height(state).await?;
     let height = chain_height.saturating_sub(1);
     Ok((height, hash))
+}
+
+/// TODO
+pub(super) async fn key_image_spent(
+    state: &mut CupratedRpcHandlerState,
+    key_image: [u8; 32],
+) -> Result<KeyImageSpentStatus, Error> {
+    if blockchain::key_image_spent(state, key_image).await? {
+        Ok(KeyImageSpentStatus::SpentInBlockchain)
+    } else if todo!("key image is spent in tx pool") {
+        Ok(KeyImageSpentStatus::SpentInPool)
+    } else {
+        Ok(KeyImageSpentStatus::Unspent)
+    }
 }
