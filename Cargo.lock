@@ -1010,7 +1010,7 @@ dependencies = [
 [[package]]
 name = "dalek-ff-group"
 version = "0.4.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "crypto-bigint",
  "curve25519-dalek",
@@ -1165,7 +1165,7 @@ dependencies = [
 [[package]]
 name = "flexible-transcript"
 version = "0.3.2"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "blake2",
  "digest",
@@ -1832,7 +1832,7 @@ dependencies = [
 [[package]]
 name = "monero-address"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-io",
@@ -1845,7 +1845,7 @@ dependencies = [
 [[package]]
 name = "monero-borromean"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -1858,7 +1858,7 @@ dependencies = [
 [[package]]
 name = "monero-bulletproofs"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -1873,7 +1873,7 @@ dependencies = [
 [[package]]
 name = "monero-clsag"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -1893,7 +1893,7 @@ dependencies = [
 [[package]]
 name = "monero-generators"
 version = "0.4.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "dalek-ff-group",
@@ -1907,7 +1907,7 @@ dependencies = [
 [[package]]
 name = "monero-io"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "std-shims",
@@ -1916,7 +1916,7 @@ dependencies = [
 [[package]]
 name = "monero-mlsag"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -1930,7 +1930,7 @@ dependencies = [
 [[package]]
 name = "monero-primitives"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "monero-generators",
@@ -1943,7 +1943,7 @@ dependencies = [
 [[package]]
 name = "monero-rpc"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "async-trait",
  "curve25519-dalek",
@@ -1960,7 +1960,7 @@ dependencies = [
 [[package]]
 name = "monero-serai"
 version = "0.1.4-alpha"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "curve25519-dalek",
  "hex-literal",
@@ -1978,7 +1978,7 @@ dependencies = [
 [[package]]
 name = "monero-simple-request-rpc"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "async-trait",
  "digest_auth",
@@ -2647,6 +2647,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sharded-slab"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
+dependencies = [
+ "lazy_static",
+]
+
+[[package]]
 name = "signal-hook-registry"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2658,7 +2667,7 @@ dependencies = [
 [[package]]
 name = "simple-request"
 version = "0.1.0"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "http-body-util",
  "hyper",
@@ -2714,7 +2723,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 [[package]]
 name = "std-shims"
 version = "0.1.1"
-source = "git+https://github.com/Cuprate/serai.git?rev=d5205ce#d5205ce2319e09414eb91d12cf38e83a08165f79"
+source = "git+https://github.com/Cuprate/serai.git?rev=50686e8#50686e84022edbd0065d2af655ea4aa5faf486b8"
 dependencies = [
  "hashbrown",
  "spin",
@@ -3015,6 +3024,8 @@ version = "0.3.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ad0f048c97dbd9faa9b7df56362b8ebcaa52adb06b498c050d2f4e32f90a7a8b"
 dependencies = [
+ "sharded-slab",
+ "thread_local",
  "tracing-core",
 ]
 
