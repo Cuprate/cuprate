@@ -1,6 +1,7 @@
 use anyhow::Error;
 
 use cuprate_rpc_types::{
+    base::{AccessResponseBase, ResponseBase},
     bin::{
         BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksByHeightResponse,
         GetBlocksRequest, GetBlocksResponse, GetHashesRequest, GetHashesResponse,
@@ -40,7 +41,11 @@ async fn get_blocks(
     state: CupratedRpcHandlerState,
     request: GetBlocksRequest,
 ) -> Result<GetBlocksResponse, Error> {
-    todo!()
+    // Ok(GetBlocksResponse {
+    //     base: ResponseBase::ok(),
+    //     ..todo!()
+    // })
+    Ok(todo!())
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L817-L857>
@@ -48,7 +53,10 @@ async fn get_blocks_by_height(
     state: CupratedRpcHandlerState,
     request: GetBlocksByHeightRequest,
 ) -> Result<GetBlocksByHeightResponse, Error> {
-    todo!()
+    Ok(GetBlocksByHeightResponse {
+        base: AccessResponseBase::ok(),
+        ..todo!()
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L859-L880>
@@ -56,7 +64,10 @@ async fn get_hashes(
     state: CupratedRpcHandlerState,
     request: GetHashesRequest,
 ) -> Result<GetHashesResponse, Error> {
-    todo!()
+    Ok(GetHashesResponse {
+        base: AccessResponseBase::ok(),
+        ..todo!()
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L959-L977>
@@ -64,7 +75,10 @@ async fn get_output_indexes(
     state: CupratedRpcHandlerState,
     request: GetOutputIndexesRequest,
 ) -> Result<GetOutputIndexesResponse, Error> {
-    todo!()
+    Ok(GetOutputIndexesResponse {
+        base: AccessResponseBase::ok(),
+        ..todo!()
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L882-L910>
@@ -72,7 +86,10 @@ async fn get_outs(
     state: CupratedRpcHandlerState,
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, Error> {
-    todo!()
+    Ok(GetOutsResponse {
+        base: AccessResponseBase::ok(),
+        ..todo!()
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L1689-L1711>
@@ -80,7 +97,10 @@ async fn get_transaction_pool_hashes(
     state: CupratedRpcHandlerState,
     request: GetTransactionPoolHashesRequest,
 ) -> Result<GetTransactionPoolHashesResponse, Error> {
-    todo!()
+    Ok(GetTransactionPoolHashesResponse {
+        base: AccessResponseBase::ok(),
+        ..todo!()
+    })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3352-L3398>
@@ -88,5 +108,8 @@ async fn get_output_distribution(
     state: CupratedRpcHandlerState,
     request: GetOutputDistributionRequest,
 ) -> Result<GetOutputDistributionResponse, Error> {
-    todo!()
+    Ok(GetOutputDistributionResponse {
+        base: AccessResponseBase::ok(),
+        ..todo!()
+    })
 }
