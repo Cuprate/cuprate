@@ -22,7 +22,7 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
             }
 
             for output in &prefix.outputs {
-                fee.checked_sub(output.amount.unwrap_or(0)).unwrap();
+                fee = fee.checked_sub(output.amount.unwrap_or(0)).unwrap();
             }
         }
         Transaction::V2 { proofs, .. } => {
