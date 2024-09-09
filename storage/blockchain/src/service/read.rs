@@ -34,7 +34,7 @@ use crate::{
         free::{compact_history_genesis_not_included, compact_history_index_to_height_offset},
         types::{BlockchainReadHandle, ResponseResult},
     },
-    tables::{BlockHeights, BlockInfos, OpenTables, Tables},
+    tables::{BlockHeights, BlockInfos, KeyImages, OpenTables, Tables},
     types::{Amount, AmountIndex, BlockHash, BlockHeight, KeyImage, PreRctOutputId},
 };
 
@@ -100,6 +100,7 @@ fn map_request(
         R::GeneratedCoins(height) => generated_coins(env, height),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
+        R::KeyImageSpent(set) => key_image_spent(env, set),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
@@ -412,6 +413,21 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
 
     Ok(BlockchainResponse::NumberOutputsWithAmount(map))
+}
+
+/// [`BlockchainReadRequest::KeyImageSpent`].
+#[inline]
+fn key_image_spent(env: &ConcreteEnv, key_image: KeyImage) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let table_key_images = env_inner.open_db_ro::<KeyImages>(&tx_ro)?;
+
+    match key_image_exists(&key_image, &table_key_images) {
+        Ok(false) => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
+        Ok(true) => Ok(BlockchainResponse::KeyImagesSpent(true)),   // Key image was found.
+        Err(e) => Err(e),                                           // A database error occurred.
+    }
 }
 
 /// [`BlockchainReadRequest::KeyImagesSpent`].

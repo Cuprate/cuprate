@@ -98,6 +98,11 @@ pub enum BlockchainReadRequest {
     /// The input is a list of output amounts.
     NumberOutputsWithAmount(Vec<u64>),
 
+    /// Check that a single key image is not spent.
+    ///
+    /// Input is a key image hash.
+    KeyImageSpent([u8; 32]),
+
     /// Check that all key images within a set are not spent.
     ///
     /// Input is a set of key images.
@@ -197,6 +202,13 @@ pub enum BlockchainResponse {
     /// - Key = output amount
     /// - Value = count of outputs with the same amount
     NumberOutputsWithAmount(HashMap<u64, usize>),
+
+    /// Response to [`BlockchainReadRequest::KeyImageSpent`].
+    ///
+    /// The inner value is `true` if the key image
+    /// was spent (existed in the database already),
+    /// else `false`.
+    KeyImageSpent(bool),
 
     /// Response to [`BlockchainReadRequest::KeyImagesSpent`].
     ///
