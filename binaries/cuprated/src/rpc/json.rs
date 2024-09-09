@@ -32,12 +32,16 @@ use cuprate_rpc_types::{
         SyncInfoResponse,
     },
     misc::{BlockHeader, Status},
+    CORE_RPC_VERSION,
 };
 use cuprate_types::{blockchain::BlockchainReadRequest, Chain};
 
 use crate::{
-    rpc::{blockchain, helper},
-    rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
+    rpc::{
+        blockchain, helper, CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT,
+        RESTRICTED_BLOCK_HEADER_RANGE,
+    },
+    version::CUPRATED_VERSION_IS_RELEASE,
 };
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
@@ -440,14 +444,14 @@ async fn get_coinbase_tx_sum(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2981-L2996>
 async fn get_version(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetVersionRequest,
 ) -> Result<GetVersionResponse, Error> {
     Ok(GetVersionResponse {
         base: ResponseBase::ok(),
-        version: todo!(),
-        release: todo!(),
-        current_height: todo!(),
+        version: CORE_RPC_VERSION,
+        release: CUPRATED_VERSION_IS_RELEASE,
+        current_height: helper::top_height(&mut state).await?.0,
         target_height: todo!(),
         hard_forks: todo!(),
     })

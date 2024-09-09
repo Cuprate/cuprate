@@ -17,6 +17,7 @@ mod config;
 mod p2p;
 mod rpc;
 mod txpool;
+mod version;
 
 fn main() {
     todo!()
