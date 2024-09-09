@@ -17,8 +17,9 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::types::{
-    Amount, AmountIndex, AmountIndices, BlockBlob, BlockHash, BlockHeight, BlockInfo, KeyImage,
-    Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RctOutput, TxBlob, TxHash,
+    AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndex, AmountIndices,
+    BlockBlob, BlockHash, BlockHeight, BlockInfo, CompactAltBlockInfo, KeyImage, Output,
+    PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob, RawChainId, RctOutput, TxBlob, TxHash,
     TxId, UnlockTime,
 };
 
@@ -129,6 +130,40 @@ cuprate_database::define_tables! {
     /// Transactions without unlock times will not exist in this table.
     14 => TxUnlockTime,
     TxId => UnlockTime,
+
+    /// Information on alt-chains.
+    15 => AltChainInfos,
+    RawChainId => AltChainInfo,
+
+    /// Alt-block heights.
+    ///
+    /// Contains the height of all alt-blocks.
+    16 => AltBlockHeights,
+    BlockHash => AltBlockHeight,
+
+    /// Alt-block information.
+    ///
+    /// Contains information on all alt-blocks.
+    17 => AltBlocksInfo,
+    AltBlockHeight => CompactAltBlockInfo,
+
+    /// Alt-block blobs.
+    ///
+    /// Contains the raw bytes of all alt-blocks.
+    18 => AltBlockBlobs,
+    AltBlockHeight => BlockBlob,
+
+    /// Alt-Block transactions blobs.
+    ///
+    /// Contains the raw bytes of alt transactions, if those transactions are not in the main-chain.
+    19 => AltTransactionBlobs,
+    TxHash => TxBlob,
+
+    /// Alt-Block transactions information.
+    ///
+    /// Contains information on all alt transactions, even if they are in the main-chain.
+    20 => AltTransactionInfos,
+    TxHash => AltTransactionInfo,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
