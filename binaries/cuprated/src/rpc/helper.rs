@@ -8,6 +8,7 @@
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error};
+use cuprate_rpc_types::misc::BlockHeader;
 use futures::StreamExt;
 use tower::{Service, ServiceExt};
 
@@ -21,9 +22,37 @@ use cuprate_types::{
 };
 
 use crate::{
-    rpc::helper,
+    rpc::blockchain,
     rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
+
+/// Get a [`VerifiedBlockInformation`] and map it to a [`BlockHeader`].
+pub(super) async fn block_header(
+    state: &mut CupratedRpcHandlerState,
+    height: u64,
+    fill_pow_hash: bool,
+) -> Result<(VerifiedBlockInformation, BlockHeader), Error> {
+    let block = blockchain::block(state, height).await?;
+    let mut block_header = BlockHeader::from(&block);
+    if !fill_pow_hash {
+        block_header.pow_hash = String::new();
+    }
+    Ok((block, block_header))
+}
+
+/// Same as [`block_header`] but with the block's hash.
+pub(super) async fn block_header_by_hash(
+    state: &mut CupratedRpcHandlerState,
+    hash: [u8; 32],
+    fill_pow_hash: bool,
+) -> Result<(VerifiedBlockInformation, BlockHeader), Error> {
+    let block = blockchain::block_by_hash(state, hash).await?;
+    let mut block_header = BlockHeader::from(&block);
+    if !fill_pow_hash {
+        block_header.pow_hash = String::new();
+    }
+    Ok((block, block_header))
+}
 
 /// Check if `height` is greater than the [`top_height`].
 ///
@@ -64,7 +93,7 @@ pub(super) fn hex_to_hash(hex: String) -> Result<[u8; 32], Error> {
 pub(super) async fn top_height(
     state: &mut CupratedRpcHandlerState,
 ) -> Result<(u64, [u8; 32]), Error> {
-    let (chain_height, hash) = helper::chain_height().await?;
+    let (chain_height, hash) = blockchain::chain_height(state).await?;
     let height = chain_height.saturating_sub(1);
-    Ok((usize_to_u64(height), hash))
+    Ok((height, hash))
 }

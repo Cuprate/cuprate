@@ -141,12 +141,15 @@ async fn generate_blocks(
 }
 
 async fn get_last_block_header(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetLastBlockHeaderRequest,
 ) -> Result<GetLastBlockHeaderResponse, Error> {
+    let (height, _) = helper::top_height(&mut state).await?;
+    let (_, block_header) = helper::block_header(&mut state, height, request.fill_pow_hash).await?;
+
     Ok(GetLastBlockHeaderResponse {
         base: AccessResponseBase::ok(),
-        block_header: todo!(),
+        block_header,
     })
 }
 
