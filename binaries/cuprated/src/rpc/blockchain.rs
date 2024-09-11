@@ -175,19 +175,15 @@ pub(super) async fn pop_blocks(
     state: &mut CupratedRpcHandlerState,
     nblocks: u64,
 ) -> Result<u64, Error> {
-    // TODO: we need access to `BlockchainWriteHandle`
-
-    // let BlockchainResponse::PopBlocks(height) = state
-    //     .blockchain_write
-    //     .ready()
-    //     .await?
-    //     .call(BlockchainWriteRequest::PopBlocks(nblocks))
-    //     .await?
-    // else {
-    //     unreachable!();
-    // };
-
-    let height = todo!();
+    let BlockchainResponse::PopBlocks(height) = state
+        .blockchain_write
+        .ready()
+        .await?
+        .call(BlockchainWriteRequest::PopBlocks(nblocks))
+        .await?
+    else {
+        unreachable!();
+    };
 
     Ok(usize_to_u64(height))
 }

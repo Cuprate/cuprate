@@ -40,12 +40,14 @@ pub struct CupratedRpcHandlerState {
     /// Read handle to the blockchain database.
     pub blockchain_read: BlockchainReadHandle,
 
-    // /// Write handle to the blockchain database.
-    // pub blockchain_write: BlockchainWriteHandle,
+    /// Write handle to the blockchain database.
+    pub blockchain_write: BlockchainWriteHandle,
+
     /// Read handle to the transaction pool database.
     pub txpool_read: TxpoolReadHandle,
-    // /// Write handle to the transaction pool database.
-    // pub txpool_write: TxpoolWriteHandle,
+
+    /// Write handle to the transaction pool database.
+    pub txpool_write: TxpoolWriteHandle,
 }
 
 impl CupratedRpcHandler {

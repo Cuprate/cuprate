@@ -19,6 +19,7 @@ pub enum TxpoolReadRequest {
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
 /// The transaction pool [`tower::Service`] read response type.
 #[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 pub enum TxpoolReadResponse {
     /// A response containing the raw bytes of a transaction.
     // TODO: use bytes::Bytes.
@@ -29,6 +30,7 @@ pub enum TxpoolReadResponse {
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
 /// The transaction pool [`tower::Service`] write request type.
+#[derive(Debug, Clone)]
 pub enum TxpoolWriteRequest {
     /// Add a transaction to the pool.
     ///
@@ -49,7 +51,7 @@ pub enum TxpoolWriteRequest {
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse
 /// The transaction pool [`tower::Service`] write response type.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TxpoolWriteResponse {
     /// A [`TxpoolWriteRequest::AddTransaction`] response.
     ///
