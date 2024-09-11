@@ -1,7 +1,10 @@
 //! These are convenience functions that make
 //! sending [`BlockchainReadRequest`] less verbose.
 
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use anyhow::{anyhow, Error};
 use futures::StreamExt;
@@ -13,7 +16,8 @@ use cuprate_helper::{
     map::split_u128_into_low_high_bits,
 };
 use cuprate_types::{
-    blockchain::BlockchainReadRequest, Chain, ExtendedBlockHeader, VerifiedBlockInformation,
+    blockchain::BlockchainReadRequest, Chain, ExtendedBlockHeader, OutputOnChain,
+    VerifiedBlockInformation,
 };
 
 use crate::rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE};
@@ -146,6 +150,24 @@ pub(super) async fn key_image_spent(
     };
 
     Ok(is_spent)
+}
+
+/// [`BlockchainResponse::Outputs`]
+pub(super) async fn outputs(
+    state: &mut CupratedRpcHandlerState,
+    outputs: HashMap<u64, HashSet<u64>>,
+) -> Result<HashMap<u64, HashMap<u64, OutputOnChain>>, Error> {
+    let BlockchainResponse::Outputs(outputs) = state
+        .blockchain
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::Outputs(outputs))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(outputs)
 }
 
 // FindBlock([u8; 32]),

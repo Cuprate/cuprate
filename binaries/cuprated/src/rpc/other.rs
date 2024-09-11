@@ -1,8 +1,11 @@
+use std::collections::{HashMap, HashSet};
+
 use anyhow::{anyhow, Error};
 
+use cuprate_helper::cast::usize_to_u64;
 use cuprate_rpc_types::{
     base::{AccessResponseBase, ResponseBase},
-    misc::{KeyImageSpentStatus, Status},
+    misc::{KeyImageSpentStatus, OutKey, Status},
     other::{
         GetAltBlocksHashesRequest, GetAltBlocksHashesResponse, GetHeightRequest, GetHeightResponse,
         GetLimitRequest, GetLimitResponse, GetNetStatsRequest, GetNetStatsResponse, GetOutsRequest,
@@ -27,7 +30,7 @@ use crate::{
     rpc::{blockchain, helper},
 };
 
-use super::RESTRICTED_SPENT_KEY_IMAGES_COUNT;
+use super::{MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT, RESTRICTED_SPENT_KEY_IMAGES_COUNT};
 
 /// Map a [`OtherRequest`] to the function that will lead to a [`OtherResponse`].
 pub(super) async fn map_request(
@@ -47,12 +50,8 @@ pub(super) async fn map_request(
         Req::SendRawTransaction(r) => {
             Resp::SendRawTransaction(send_raw_transaction(state, r).await?)
         }
-        Req::StartMining(r) => Resp::StartMining(start_mining(state, r).await?),
-        Req::StopMining(r) => Resp::StopMining(stop_mining(state, r).await?),
-        Req::MiningStatus(r) => Resp::MiningStatus(mining_status(state, r).await?),
         Req::SaveBc(r) => Resp::SaveBc(save_bc(state, r).await?),
         Req::GetPeerList(r) => Resp::GetPeerList(get_peer_list(state, r).await?),
-        Req::SetLogHashRate(r) => Resp::SetLogHashRate(set_log_hash_rate(state, r).await?),
         Req::SetLogLevel(r) => Resp::SetLogLevel(set_log_level(state, r).await?),
         Req::SetLogCategories(r) => Resp::SetLogCategories(set_log_categories(state, r).await?),
         Req::SetBootstrapDaemon(r) => {
@@ -77,6 +76,14 @@ pub(super) async fn map_request(
             Resp::GetTransactionPoolHashes(get_transaction_pool_hashes(state, r).await?)
         }
         Req::GetPublicNodes(r) => Resp::GetPublicNodes(get_public_nodes(state, r).await?),
+
+        // Unsupported requests.
+        Req::StartMining(_)
+        | Req::StopMining(_)
+        | Req::MiningStatus(_)
+        | Req::SetLogHashRate(_) => {
+            return Err(anyhow!("Mining RPC calls are not supported by Cuprate"))
+        }
     })
 }
 
@@ -156,7 +163,7 @@ async fn start_mining(
     state: CupratedRpcHandlerState,
     request: StartMiningRequest,
 ) -> Result<StartMiningResponse, Error> {
-    todo!();
+    unreachable!();
     Ok(StartMiningResponse {
         base: ResponseBase::ok(),
     })
@@ -167,7 +174,7 @@ async fn stop_mining(
     state: CupratedRpcHandlerState,
     request: StopMiningRequest,
 ) -> Result<StopMiningResponse, Error> {
-    todo!();
+    unreachable!();
     Ok(StopMiningResponse {
         base: ResponseBase::ok(),
     })
@@ -178,6 +185,7 @@ async fn mining_status(
     state: CupratedRpcHandlerState,
     request: MiningStatusRequest,
 ) -> Result<MiningStatusResponse, Error> {
+    unreachable!();
     Ok(MiningStatusResponse {
         base: ResponseBase::ok(),
         ..todo!()
@@ -211,7 +219,7 @@ async fn set_log_hash_rate(
     state: CupratedRpcHandlerState,
     request: SetLogHashRateRequest,
 ) -> Result<SetLogHashRateResponse, Error> {
-    todo!();
+    unreachable!();
     Ok(SetLogHashRateResponse {
         base: ResponseBase::ok(),
     })
@@ -336,12 +344,42 @@ async fn get_net_stats(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L912-L957>
 async fn get_outs(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: GetOutsRequest,
 ) -> Result<GetOutsResponse, Error> {
+    if state.restricted && request.outputs.len() > MAX_RESTRICTED_GLOBAL_FAKE_OUTS_COUNT {
+        return Err(anyhow!("Too many outs requested"));
+    }
+
+    let mut outputs = HashMap::<u64, HashSet<u64>>::with_capacity(request.outputs.len());
+    for out in request.outputs {
+        outputs
+            .entry(out.amount)
+            .and_modify(|set| {
+                set.insert(out.index);
+            })
+            .or_insert_with(|| HashSet::from([out.index]));
+    }
+
+    let outs = blockchain::outputs(&mut state, outputs)
+        .await?
+        .into_iter()
+        .flat_map(|(amount, index_map)| {
+            index_map.into_iter().map(|(index, out)| OutKey {
+                key: todo!(),
+                mask: todo!(),
+                unlocked: todo!(),
+                height: usize_to_u64(out.height),
+                txid: todo!(),
+            })
+        })
+        .collect::<Vec<OutKey>>();
+
+    // TODO: check txpool
+
     Ok(GetOutsResponse {
         base: ResponseBase::ok(),
-        ..todo!()
+        outs,
     })
 }
 
