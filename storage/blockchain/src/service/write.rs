@@ -11,6 +11,7 @@ use cuprate_types::{
 };
 
 use crate::{
+    ops,
     service::types::{BlockchainWriteHandle, ResponseResult},
     tables::OpenTables,
 };
@@ -29,6 +30,7 @@ fn handle_blockchain_request(
 ) -> Result<BlockchainResponse, RuntimeError> {
     match req {
         BlockchainWriteRequest::WriteBlock(block) => write_block(env, block),
+        BlockchainWriteRequest::PopBlocks(nblocks) => pop_blocks(env, *nblocks),
     }
 }
 
@@ -49,13 +51,42 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::block::add_block(block, &mut tables_mut)
+        ops::block::add_block(block, &mut tables_mut)
     };
 
     match result {
         Ok(()) => {
             TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::WriteBlockOk)
+            Ok(BlockchainResponse::WriteBlock)
+        }
+        Err(e) => {
+            // INVARIANT: ensure database atomicity by aborting
+            // the transaction on `add_block()` failures.
+            TxRw::abort(tx_rw)
+                .expect("could not maintain database atomicity by aborting write transaction");
+            Err(e)
+        }
+    }
+}
+
+/// [`BlockchainWriteRequest::PopBlocks`].
+#[inline]
+fn pop_blocks(env: &ConcreteEnv, nblocks: u64) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_rw = env_inner.tx_rw()?;
+
+    let result = || {
+        let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+        for _ in 0..nblocks {
+            ops::block::pop_block(&mut tables_mut)?;
+        }
+        Ok(())
+    };
+
+    match result() {
+        Ok(()) => {
+            TxRw::commit(tx_rw)?;
+            Ok(BlockchainResponse::WriteBlock)
         }
         Err(e) => {
             // INVARIANT: ensure database atomicity by aborting

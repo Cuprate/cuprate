@@ -125,13 +125,17 @@ pub enum BlockchainReadRequest {
 ///
 /// There is currently only 1 write request to the database,
 /// as such, the only valid [`BlockchainResponse`] to this request is
-/// the proper response for a [`BlockchainResponse::WriteBlockOk`].
+/// the proper response for a [`BlockchainResponse::WriteBlock`].
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)] // TODO
 pub enum BlockchainWriteRequest {
     /// Request that a block be written to the database.
     ///
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
+
+    /// TODO
+    PopBlocks(u64),
 }
 
 //---------------------------------------------------------------------------------------------------- Response
@@ -240,7 +244,10 @@ pub enum BlockchainResponse {
     ///
     /// This response indicates that the requested block has
     /// successfully been written to the database without error.
-    WriteBlockOk,
+    WriteBlock,
+
+    /// TODO
+    PopBlocks,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
