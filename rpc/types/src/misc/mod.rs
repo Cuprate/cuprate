@@ -18,6 +18,7 @@ mod key_image_spent_status;
 #[allow(clippy::module_inception)]
 mod misc;
 mod pool_info_extent;
+mod requested_info;
 mod status;
 mod tx_entry;
 
@@ -31,5 +32,6 @@ pub use misc::{
     SyncInfoPeer, TxBacklogEntry, TxInfo, TxOutputIndices, TxpoolHisto, TxpoolStats,
 };
 pub use pool_info_extent::PoolInfoExtent;
+pub use requested_info::RequestedInfo;
 pub use status::Status;
 pub use tx_entry::TxEntry;

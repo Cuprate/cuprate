@@ -188,6 +188,24 @@ pub(super) async fn pop_blocks(
     Ok(usize_to_u64(height))
 }
 
+/// [`BlockchainResponse::FindFirstUnknown`]
+pub(super) async fn find_first_unknown(
+    state: &mut CupratedRpcHandlerState,
+    hashes: Vec<[u8; 32]>,
+) -> Result<Option<(usize, u64)>, Error> {
+    let BlockchainResponse::FindFirstUnknown(resp) = state
+        .blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::FindFirstUnknown(hashes))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(resp.map(|(index, height)| (index, usize_to_u64(height))))
+}
+
 // FindBlock([u8; 32]),
 // FilterUnknownHashes(HashSet<[u8; 32]>),
 // BlockExtendedHeaderInRange(Range<usize>, Chain),

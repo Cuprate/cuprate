@@ -154,6 +154,26 @@ impl<const N: usize> ByteArrayVec<N> {
         self.0
     }
 
+    pub fn first(&self) -> Option<[u8; N]> {
+        let len = self.len();
+
+        if len == 0 {
+            return None;
+        }
+
+        Some(self[0])
+    }
+
+    pub fn last(&self) -> Option<[u8; N]> {
+        let len = self.len();
+
+        if len == 0 {
+            return None;
+        }
+
+        Some(self[len - 1])
+    }
+
     /// Splits the byte array vec into two at the given index.
     ///
     /// Afterwards self contains elements [0, at), and the returned [`ByteArrayVec`] contains elements [at, len).
@@ -243,6 +263,13 @@ impl<const N: usize> Index<usize> for ByteArrayVec<N> {
             .as_ref()
             .try_into()
             .unwrap()
+    }
+}
+
+impl<const N: usize> From<ByteArrayVec<N>> for Vec<[u8; N]> {
+    fn from(value: ByteArrayVec<N>) -> Self {
+        let len = value.len();
+        (0..len).map(|i| value[i]).collect()
     }
 }
 
