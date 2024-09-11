@@ -16,8 +16,8 @@ use cuprate_helper::{
     map::split_u128_into_low_high_bits,
 };
 use cuprate_types::{
-    blockchain::BlockchainReadRequest, Chain, ExtendedBlockHeader, OutputOnChain,
-    VerifiedBlockInformation,
+    blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
+    Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation,
 };
 
 use crate::rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE};
@@ -27,7 +27,7 @@ pub(super) async fn chain_height(
     state: &mut CupratedRpcHandlerState,
 ) -> Result<(u64, [u8; 32]), Error> {
     let BlockchainResponse::ChainHeight(height, hash) = state
-        .blockchain
+        .blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::ChainHeight)
@@ -45,7 +45,7 @@ pub(super) async fn block(
     height: u64,
 ) -> Result<VerifiedBlockInformation, Error> {
     let BlockchainResponse::Block(block) = state
-        .blockchain
+        .blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::Block(u64_to_usize(height)))
@@ -63,7 +63,7 @@ pub(super) async fn block_by_hash(
     hash: [u8; 32],
 ) -> Result<VerifiedBlockInformation, Error> {
     let BlockchainResponse::BlockByHash(block) = state
-        .blockchain
+        .blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::BlockByHash(hash))
@@ -81,7 +81,7 @@ pub(super) async fn block_extended_header(
     height: u64,
 ) -> Result<ExtendedBlockHeader, Error> {
     let BlockchainResponse::BlockExtendedHeader(header) = state
-        .blockchain
+        .blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::BlockExtendedHeader(u64_to_usize(
@@ -101,7 +101,7 @@ pub(super) async fn block_extended_header_by_hash(
     hash: [u8; 32],
 ) -> Result<ExtendedBlockHeader, Error> {
     let BlockchainResponse::BlockExtendedHeaderByHash(header) = state
-        .blockchain
+        .blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::BlockExtendedHeaderByHash(hash))
@@ -119,7 +119,7 @@ pub(super) async fn block_hash(
     height: u64,
 ) -> Result<[u8; 32], Error> {
     let BlockchainResponse::BlockHash(hash) = state
-        .blockchain
+        .blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::BlockHash(
@@ -140,7 +140,7 @@ pub(super) async fn key_image_spent(
     key_image: [u8; 32],
 ) -> Result<bool, Error> {
     let BlockchainResponse::KeyImageSpent(is_spent) = state
-        .blockchain
+        .blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::KeyImageSpent(key_image))
@@ -158,7 +158,7 @@ pub(super) async fn outputs(
     outputs: HashMap<u64, HashSet<u64>>,
 ) -> Result<HashMap<u64, HashMap<u64, OutputOnChain>>, Error> {
     let BlockchainResponse::Outputs(outputs) = state
-        .blockchain
+        .blockchain_read
         .ready()
         .await?
         .call(BlockchainReadRequest::Outputs(outputs))
@@ -168,6 +168,28 @@ pub(super) async fn outputs(
     };
 
     Ok(outputs)
+}
+
+/// [`BlockchainResponse::PopBlocks`]
+pub(super) async fn pop_blocks(
+    state: &mut CupratedRpcHandlerState,
+    nblocks: u64,
+) -> Result<u64, Error> {
+    // TODO: we need access to `BlockchainWriteHandle`
+
+    // let BlockchainResponse::PopBlocks(height) = state
+    //     .blockchain_write
+    //     .ready()
+    //     .await?
+    //     .call(BlockchainWriteRequest::PopBlocks(nblocks))
+    //     .await?
+    // else {
+    //     unreachable!();
+    // };
+
+    let height = todo!();
+
+    Ok(usize_to_u64(height))
 }
 
 // FindBlock([u8; 32]),

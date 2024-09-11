@@ -396,12 +396,14 @@ async fn update(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L3242-L3252>
 async fn pop_blocks(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: PopBlocksRequest,
 ) -> Result<PopBlocksResponse, Error> {
+    let height = blockchain::pop_blocks(&mut state, request.nblocks).await?;
+
     Ok(PopBlocksResponse {
         base: ResponseBase::ok(),
-        ..todo!()
+        height,
     })
 }
 

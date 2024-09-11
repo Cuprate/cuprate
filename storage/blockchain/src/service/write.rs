@@ -77,16 +77,19 @@ fn pop_blocks(env: &ConcreteEnv, nblocks: u64) -> ResponseResult {
 
     let result = || {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
+        let mut height = 0;
+
         for _ in 0..nblocks {
-            ops::block::pop_block(&mut tables_mut)?;
+            (height, _, _) = ops::block::pop_block(&mut tables_mut)?;
         }
-        Ok(())
+
+        Ok(height)
     };
 
     match result() {
-        Ok(()) => {
+        Ok(height) => {
             TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::WriteBlock)
+            Ok(BlockchainResponse::PopBlocks(height))
         }
         Err(e) => {
             // INVARIANT: ensure database atomicity by aborting

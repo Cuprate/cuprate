@@ -240,7 +240,7 @@ async fn get_block_headers_range(
     let mut headers = Vec::with_capacity(block_len);
 
     {
-        let ready = state.blockchain.ready().await?;
+        let ready = state.blockchain_read.ready().await?;
         for height in request.start_height..=request.end_height {
             let height = u64_to_usize(height);
             let task = tokio::task::spawn(ready.call(BlockchainReadRequest::Block(height)));

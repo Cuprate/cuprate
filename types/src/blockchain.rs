@@ -247,7 +247,7 @@ pub enum BlockchainResponse {
     WriteBlock,
 
     /// TODO
-    PopBlocks,
+    PopBlocks(usize),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
