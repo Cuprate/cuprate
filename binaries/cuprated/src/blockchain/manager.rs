@@ -1,6 +1,6 @@
-mod batch_handler;
 mod handler;
 
+use std::collections::HashMap;
 use crate::blockchain::types::ConsensusBlockchainReadHandle;
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::context::RawBlockChainContext;
@@ -11,11 +11,19 @@ use cuprate_consensus::{
 };
 use cuprate_p2p::block_downloader::BlockBatch;
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
-use cuprate_types::Chain;
+use cuprate_types::{Chain, TransactionVerificationData};
 use futures::StreamExt;
-use tokio::sync::mpsc::Receiver;
+use monero_serai::block::Block;
+use tokio::sync::mpsc;
+use tokio::sync::{Notify, oneshot};
 use tower::{Service, ServiceExt};
 use tracing::error;
+
+pub struct IncomingBlock {
+    block: Block,
+    prepped_txs: HashMap<[u8; 32], TransactionVerificationData>,
+    response_tx: oneshot::Sender<Result<(), anyhow::Error>>,
+}
 
 pub struct BlockchainManager {
     blockchain_write_handle: BlockchainWriteHandle,
@@ -27,104 +35,57 @@ pub struct BlockchainManager {
         TxVerifierService<ConsensusBlockchainReadHandle>,
         ConsensusBlockchainReadHandle,
     >,
+
+    // TODO: stop_current_block_downloader: Notify,
 }
 
 impl BlockchainManager {
-    pub const fn new(
+    pub async fn new(
         blockchain_write_handle: BlockchainWriteHandle,
         blockchain_read_handle: BlockchainReadHandle,
-        blockchain_context_service: BlockChainContextService,
+        mut blockchain_context_service: BlockChainContextService,
         block_verifier_service: BlockVerifierService<
             BlockChainContextService,
             TxVerifierService<ConsensusBlockchainReadHandle>,
             ConsensusBlockchainReadHandle,
         >,
     ) -> Self {
+        let BlockChainContextResponse::Context(blockchain_context) = blockchain_context_service
+            .ready()
+            .await
+            .expect("TODO")
+            .call(BlockChainContextRequest::GetContext)
+            .await
+            .expect("TODO") else {
+            panic!("Blockchain context service returned wrong response!");
+        };
+
         Self {
             blockchain_write_handle,
             blockchain_read_handle,
             blockchain_context_service,
-            cached_blockchain_context: todo!(),
+            cached_blockchain_context: blockchain_context.unchecked_blockchain_context().clone(),
             block_verifier_service,
         }
     }
 
-    async fn handle_incoming_main_chain_batch(
-        &mut self,
-        batch: BlockBatch,
-    ) -> Result<(), anyhow::Error> {
-        let VerifyBlockResponse::MainChainBatchPrepped(prepped) = self
-            .block_verifier_service
-            .ready()
-            .await
-            .expect("TODO")
-            .call(VerifyBlockRequest::MainChainBatchPrepareBlocks {
-                blocks: batch.blocks,
-            })
-            .await?
-        else {
-            panic!("Incorrect response!");
-        };
-
-        for (block, txs) in prepped {
-            let VerifyBlockResponse::MainChain(verified_block) = block_verifier_service
-                .ready()
-                .await
-                .expect("TODO")
-                .call(VerifyBlockRequest::MainChainPrepped { block, txs })
-                .await
-                .unwrap()
-            else {
-                panic!("Incorrect response!");
-            };
-
-            blockchain_context_service
-                .ready()
-                .await
-                .expect("TODO")
-                .call(BlockChainContextRequest::Update(NewBlockData {
-                    block_hash: verified_block.block_hash,
-                    height: verified_block.height,
-                    timestamp: verified_block.block.header.timestamp,
-                    weight: verified_block.weight,
-                    long_term_weight: verified_block.long_term_weight,
-                    generated_coins: verified_block.generated_coins,
-                    vote: HardFork::from_vote(verified_block.block.header.hardfork_signal),
-                    cumulative_difficulty: verified_block.cumulative_difficulty,
-                }))
-                .await
-                .expect("TODO");
-
-            blockchain_write_handle
-                .ready()
-                .await
-                .expect("TODO")
-                .call(BlockchainWriteRequest::WriteBlock(verified_block))
-                .await
-                .expect("TODO");
-        }
-    }
-
-    async fn handle_incoming_block_batch(&mut self, batch: BlockBatch) {
-        let (first_block, _) = batch
-            .blocks
-            .first()
-            .expect("Block batch should not be empty");
-
-        if first_block.header.previous == self.cached_blockchain_context.top_hash {
-            todo!("Main chain")
-        } else {
-            todo!("Alt chain")
-        }
-    }
-
-    pub async fn run(mut self, mut batch_rx: Receiver<BlockBatch>) {
+    pub async fn run(mut self, mut block_batch_rx: mpsc::Receiver<BlockBatch>, mut block_single_rx: mpsc::Receiver<IncomingBlock>) {
         loop {
             tokio::select! {
-                Some(batch) = batch_rx.recv() => {
+                Some(batch) = block_batch_rx.recv() => {
                     self.handle_incoming_block_batch(
                         batch,
                     ).await;
+                }
+                Some(incoming_block) = block_single_rx.recv() => {
+                    let IncomingBlock {
+                        block,
+                        prepped_txs,
+                        response_tx
+                    } = incoming_block;
+
+                    let res = self.handle_incoming_block(block, prepped_txs).await;
+                    let _ = response_tx.send(res);
                 }
                 else => {
                     todo!("TODO: exit the BC manager")

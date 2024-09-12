@@ -18,6 +18,7 @@ mod blockchain;
 mod config;
 mod p2p;
 mod rpc;
+mod signals;
 mod txpool;
 
 use blockchain::check_add_genesis;
@@ -58,7 +59,7 @@ fn main() {
             context_svc,
             block_verifier,
             config.block_downloader_config(),
-        );
+        ).await;
 
         // TODO: this can be removed as long as the main thread does not exit, so when command handling
         // is added

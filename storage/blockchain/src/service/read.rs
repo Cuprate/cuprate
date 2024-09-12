@@ -628,7 +628,7 @@ fn next_missing_chain_entry(env: &ConcreteEnv, block_hashes: Vec<[u8; 32]>) -> R
     let block_hashes: Vec<_> = table_block_infos
         .get_range(start_height..end_height)?
         .map(|block_info| Ok(block_info?.block_hash))
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_, RuntimeError>>()?;
 
     let first_missing_block = if block_hashes.len() > 1 {
         let table_block_blobs = env_inner.open_db_ro::<BlockBlobs>(&tx_ro)?;

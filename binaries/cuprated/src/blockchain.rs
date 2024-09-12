@@ -1,6 +1,8 @@
 //! Blockchain
 //!
 //! Will contain the chain manager and syncer.
+
+use futures::FutureExt;
 use tokio::sync::mpsc;
 use tower::{Service, ServiceExt};
 
@@ -95,7 +97,7 @@ pub async fn init_consensus(
 }
 
 /// Initializes the blockchain manager task and syncer.
-pub fn init_blockchain_manager(
+pub async fn init_blockchain_manager(
     clearnet_interface: NetworkInterface<ClearNet>,
     blockchain_write_handle: BlockchainWriteHandle,
     blockchain_read_handle: BlockchainReadHandle,
@@ -118,7 +120,7 @@ pub fn init_blockchain_manager(
         blockchain_read_handle,
         blockchain_context_service,
         block_verifier_service,
-    );
+    ).await;
 
     tokio::spawn(manager.run(batch_rx));
 }
