@@ -23,7 +23,7 @@ cuprate-p2p-core         = { path = "../../p2p/p2p-core" }
 cuprate-dandelion-tower  = { path = "../../p2p/dandelion-tower" }
 cuprate-async-buffer     = { path = "../../p2p/async-buffer" }
 cuprate-address-book     = { path = "../../p2p/address-book" }
-cuprate-blockchain       = { path = "../../storage/blockchain" }
+cuprate-blockchain       = { path = "../../storage/blockchain", features = ["service"] }
 cuprate-database-service = { path = "../../storage/service" }
 cuprate-txpool           = { path = "../../storage/txpool" }
 cuprate-database         = { path = "../../storage/database" }

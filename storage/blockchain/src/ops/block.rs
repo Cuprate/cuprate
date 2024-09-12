@@ -2,20 +2,23 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use monero_serai::block::{Block, BlockHeader};
+use bytes::Bytes;
 
 use cuprate_database::{
-    RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
+    RuntimeError, StorableVec, {DatabaseIter, DatabaseRo, DatabaseRw},
 };
+use cuprate_helper::cast::usize_to_u64;
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
     tx_utils::tx_fee,
 };
 use cuprate_types::{
-    AltBlockInformation, ChainId, ExtendedBlockHeader, HardFork, VerifiedBlockInformation,
-    VerifiedTransactionInformation,
+    AltBlockInformation, BlockCompleteEntry, ChainId, ExtendedBlockHeader, HardFork,
+    TransactionBlobs, VerifiedBlockInformation, VerifiedTransactionInformation,
 };
+use monero_serai::block::{Block, BlockHeader};
 
+use crate::tables::TablesIter;
 use crate::{
     ops::{
         alt_block,
@@ -254,6 +257,40 @@ pub fn get_block_extended_header_top(
     let height = chain_height(tables.block_heights())?.saturating_sub(1);
     let header = get_block_extended_header_from_height(&height, tables)?;
     Ok((header, height))
+}
+
+//---------------------------------------------------------------------------------------------------- `get_block_complete_entry`
+
+pub fn get_block_complete_entry(
+    block_hash: &BlockHash,
+    tables: &impl TablesIter,
+) -> Result<BlockCompleteEntry, RuntimeError> {
+    let height = tables.block_heights().get(block_hash)?;
+
+    let block_blob = tables.block_blobs().get(&height)?.0;
+
+    let block = Block::read(&mut block_blob.as_slice()).expect("Valid block failed to be read");
+
+    let txs = if let Some(first_tx) = block.transactions.first() {
+        let first_tx_idx = tables.tx_ids().get(first_tx)?;
+        let end_tx_idx = first_tx_idx + usize_to_u64(block.transactions.len());
+
+        let tx_blobs = tables.tx_blobs_iter().get_range(first_tx_idx..end_tx_idx)?;
+
+        tx_blobs
+            .map(|res| Ok(Bytes::from(res?.0)))
+            .collect::<Result<_, RuntimeError>>()?
+    } else {
+        vec![]
+    };
+
+    Ok(BlockCompleteEntry {
+        block: Bytes::from(block_blob),
+        txs: TransactionBlobs::Normal(txs),
+        pruned: false,
+        // This is only needed when pruned.
+        block_weight: 0,
+    })
 }
 
 //---------------------------------------------------------------------------------------------------- Misc

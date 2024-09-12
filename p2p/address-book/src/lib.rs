@@ -88,14 +88,19 @@ mod sealed {
 
     /// An internal trait for the address book for a [`NetworkZone`] that adds the requirement of [`borsh`] traits
     /// onto the network address.
-    pub trait BorshNetworkZone: NetworkZone<Addr = Self::BorshAddr> {
-        type BorshAddr: NetZoneAddress + borsh::BorshDeserialize + borsh::BorshSerialize;
+    pub trait BorshNetworkZone:
+        NetworkZone<
+        Addr: NetZoneAddress<BanID: borsh::BorshDeserialize + borsh::BorshSerialize>
+                  + borsh::BorshDeserialize
+                  + borsh::BorshSerialize,
+    >
+    {
     }
 
     impl<T: NetworkZone> BorshNetworkZone for T
     where
         T::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
+        <T::Addr as NetZoneAddress>::BanID: borsh::BorshDeserialize + borsh::BorshSerialize,
     {
-        type BorshAddr = T::Addr;
     }
 }

@@ -3,6 +3,7 @@
 use crate::blockchain::types::ConsensusBlockchainReadHandle;
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::context::NewBlockData;
+use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_consensus::{
     BlockChainContextRequest, BlockChainContextResponse, BlockChainContextService,
     BlockVerifierService, BlockchainReadRequest, BlockchainResponse, ExtendedConsensusError,
@@ -11,82 +12,17 @@ use cuprate_consensus::{
 use cuprate_p2p::block_downloader::BlockBatch;
 use cuprate_types::blockchain::BlockchainWriteRequest;
 use cuprate_types::{Chain, HardFork};
+use rayon::prelude::*;
 use tower::{Service, ServiceExt};
 use tracing::{debug, error, info};
-
-pub async fn handle_incoming_block_batch<C, TxV>(
-    batch: BlockBatch,
-    block_verifier_service: &mut BlockVerifierService<C, TxV, ConsensusBlockchainReadHandle>,
-    blockchain_context_service: &mut C,
-    blockchain_read_handle: &mut BlockchainReadHandle,
-    blockchain_write_handle: &mut BlockchainWriteHandle,
-) where
-    C: Service<
-            BlockChainContextRequest,
-            Response = BlockChainContextResponse,
-            Error = tower::BoxError,
-        > + Clone
-        + Send
-        + 'static,
-    C::Future: Send + 'static,
-
-    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>
-        + Clone
-        + Send
-        + 'static,
-    TxV::Future: Send + 'static,
-{
-    let (first_block, _) = batch
-        .blocks
-        .first()
-        .expect("Block batch should not be empty");
-
-    handle_incoming_block_batch_main_chain(
-        batch,
-        block_verifier_service,
-        blockchain_context_service,
-        blockchain_write_handle,
-    )
-    .await;
-
-    // TODO: alt block to the DB
-    /*
-    match blockchain_read_handle
-        .oneshot(BlockchainReadRequest::FindBlock(
-            first_block.header.previous,
-        ))
-        .await
-    {
-        Err(_) | Ok(BlockchainResponse::FindBlock(None)) => {
-            // The block downloader shouldn't be downloading orphan blocks
-            error!("Failed to find parent block for first block in batch.");
-            return;
-        }
-        Ok(BlockchainResponse::FindBlock(Some((chain, _)))) => match chain {
-            Chain::Main => {
-                handle_incoming_block_batch_main_chain(
-                    batch,
-                    block_verifier_service,
-                    blockchain_context_service,
-                    blockchain_write_handle,
-                )
-                .await;
-            }
-            Chain::Alt(_) => todo!(),
-        },
-
-        Ok(_) => panic!("Blockchain service returned incorrect response"),
-    }
-
-     */
-}
 
 async fn handle_incoming_block_batch_main_chain<C, TxV>(
     batch: BlockBatch,
     block_verifier_service: &mut BlockVerifierService<C, TxV, ConsensusBlockchainReadHandle>,
     blockchain_context_service: &mut C,
     blockchain_write_handle: &mut BlockchainWriteHandle,
-) where
+) -> Result<(), anyhow::Error>
+where
     C: Service<
             BlockChainContextRequest,
             Response = BlockChainContextResponse,
@@ -114,8 +50,7 @@ async fn handle_incoming_block_batch_main_chain<C, TxV>(
         .call(VerifyBlockRequest::MainChainBatchPrepareBlocks {
             blocks: batch.blocks,
         })
-        .await
-        .unwrap()
+        .await?
     else {
         panic!("Incorrect response!");
     };
@@ -126,8 +61,7 @@ async fn handle_incoming_block_batch_main_chain<C, TxV>(
             .await
             .expect("TODO")
             .call(VerifyBlockRequest::MainChainPrepped { block, txs })
-            .await
-            .unwrap()
+            .await?
         else {
             panic!("Incorrect response!");
         };
@@ -156,5 +90,32 @@ async fn handle_incoming_block_batch_main_chain<C, TxV>(
             .call(BlockchainWriteRequest::WriteBlock(verified_block))
             .await
             .expect("TODO");
+    }
+}
+
+async fn handle_incoming_block_batch_alt_chain<C, TxV>(
+    batch: BlockBatch,
+    block_verifier_service: &mut BlockVerifierService<C, TxV, ConsensusBlockchainReadHandle>,
+    blockchain_context_service: &mut C,
+    blockchain_write_handle: &mut BlockchainWriteHandle,
+) -> Result<(), anyhow::Error>
+where
+    C: Service<
+            BlockChainContextRequest,
+            Response = BlockChainContextResponse,
+            Error = tower::BoxError,
+        > + Clone
+        + Send
+        + 'static,
+    C::Future: Send + 'static,
+
+    TxV: Service<VerifyTxRequest, Response = VerifyTxResponse, Error = ExtendedConsensusError>
+        + Clone
+        + Send
+        + 'static,
+    TxV::Future: Send + 'static,
+{
+    for (block, txs) in batch.blocks {
+        alt_block_info.cumulative_difficulty
     }
 }

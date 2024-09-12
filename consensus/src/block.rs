@@ -8,6 +8,7 @@ use std::{
 };
 
 use futures::FutureExt;
+use monero_serai::generators::H;
 use monero_serai::{
     block::Block,
     transaction::{Input, Transaction},
@@ -179,6 +180,19 @@ impl PreparedBlock {
                 &block.hf_version,
             )?,
 
+            miner_tx_weight: block.block.miner_transaction.weight(),
+            block: block.block,
+        })
+    }
+
+    pub fn new_alt_block(block: AltBlockInformation) -> Result<PreparedBlock, ConsensusError> {
+        Ok(PreparedBlock {
+            block_blob: block.block_blob,
+            hf_vote: HardFork::from_version(block.block.header.hardfork_version)
+                .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?,
+            hf_version: HardFork::from_vote(block.block.header.hardfork_signal),
+            block_hash: block.block_hash,
+            pow_hash: block.pow_hash,
             miner_tx_weight: block.block.miner_transaction.weight(),
             block: block.block,
         })

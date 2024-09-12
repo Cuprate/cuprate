@@ -26,7 +26,7 @@ mod broadcast;
 mod client_pool;
 pub mod config;
 pub mod connection_maintainer;
-mod constants;
+pub mod constants;
 mod inbound_server;
 mod sync_states;
 

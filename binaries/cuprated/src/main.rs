@@ -42,7 +42,9 @@ fn main() {
                 .unwrap();
 
         let net = cuprate_p2p::initialize_network(
-            p2p::request_handler::P2pProtocolRequestHandler,
+            p2p::request_handler::P2pProtocolRequestHandler {
+                blockchain_read_handle: bc_read_handle.clone(),
+            },
             p2p::core_sync_svc::CoreSyncService(context_svc.clone()),
             config.clearnet_config(),
         )
