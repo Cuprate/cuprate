@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{anyhow, Error};
 use futures::StreamExt;
+use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus::BlockchainResponse;
@@ -43,7 +44,7 @@ pub(super) async fn chain_height(
 pub(super) async fn block(
     state: &mut CupratedRpcHandlerState,
     height: u64,
-) -> Result<VerifiedBlockInformation, Error> {
+) -> Result<Block, Error> {
     let BlockchainResponse::Block(block) = state
         .blockchain_read
         .ready()
@@ -61,7 +62,7 @@ pub(super) async fn block(
 pub(super) async fn block_by_hash(
     state: &mut CupratedRpcHandlerState,
     hash: [u8; 32],
-) -> Result<VerifiedBlockInformation, Error> {
+) -> Result<Block, Error> {
     let BlockchainResponse::BlockByHash(block) = state
         .blockchain_read
         .ready()
@@ -111,6 +112,23 @@ pub(super) async fn block_extended_header_by_hash(
     };
 
     Ok(header)
+}
+
+/// [`BlockchainResponse::TopBlockFull`].
+pub(super) async fn top_block_full(
+    state: &mut CupratedRpcHandlerState,
+) -> Result<(Block, ExtendedBlockHeader), Error> {
+    let BlockchainResponse::TopBlockFull(block, header) = state
+        .blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::TopBlockFull)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok((block, header))
 }
 
 /// [`BlockchainResponse::BlockHash`] with [`Chain::Main`].

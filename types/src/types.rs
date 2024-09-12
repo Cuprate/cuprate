@@ -33,6 +33,8 @@ pub struct ExtendedBlockHeader {
     pub block_weight: usize,
     /// The long term block weight, based on the median weight of the preceding `100_000` blocks.
     pub long_term_weight: usize,
+    /// TODO
+    pub height: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- VerifiedTransactionInformation

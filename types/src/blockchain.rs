@@ -9,6 +9,8 @@ use std::{
     ops::Range,
 };
 
+use monero_serai::block::Block;
+
 use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -32,6 +34,9 @@ pub enum BlockchainReadRequest {
     /// The input is the block's hash.
     BlockByHash([u8; 32]),
 
+    /// TODO
+    TopBlock,
+
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
@@ -41,6 +46,12 @@ pub enum BlockchainReadRequest {
     ///
     /// The input is the block's hash.
     BlockExtendedHeaderByHash([u8; 32]),
+
+    /// TODO
+    TopBlockExtendedHeader,
+
+    /// TODO
+    TopBlockFull,
 
     /// Request a block's hash.
     ///
@@ -152,10 +163,13 @@ pub enum BlockchainWriteRequest {
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
     /// Response to [`BlockchainReadRequest::Block`].
-    Block(VerifiedBlockInformation),
+    Block(Block),
 
     /// Response to [`BlockchainReadRequest::BlockByHash`].
-    BlockByHash(VerifiedBlockInformation),
+    BlockByHash(Block),
+
+    /// Response to [`BlockchainReadRequest::TopBlock`].
+    TopBlock(Block),
 
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///
@@ -166,6 +180,16 @@ pub enum BlockchainResponse {
     ///
     /// Inner value is the extended headed of the requested block.
     BlockExtendedHeaderByHash(ExtendedBlockHeader),
+
+    /// Response to [`BlockchainReadRequest::TopBlockExtendedHeader`].
+    ///
+    /// Inner value is the extended headed of the requested block.
+    TopBlockExtendedHeader(ExtendedBlockHeader),
+
+    /// Response to [`BlockchainReadRequest::TopBlockFull`].
+    ///
+    /// Inner value is TODO.
+    TopBlockFull(Block, ExtendedBlockHeader),
 
     /// Response to [`BlockchainReadRequest::BlockHash`].
     ///

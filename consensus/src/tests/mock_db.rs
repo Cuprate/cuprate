@@ -56,6 +56,9 @@ pub struct DummyBlockExtendedHeader {
     pub block_weight: Option<usize>,
     #[proptest(strategy = "any::<usize>().prop_map(|x| Some(x % 100_000_000))")]
     pub long_term_weight: Option<usize>,
+
+    #[proptest(strategy = "any::<u64>().prop_map(Some)")]
+    pub height: Option<u64>,
 }
 
 impl From<DummyBlockExtendedHeader> for ExtendedBlockHeader {
@@ -67,6 +70,7 @@ impl From<DummyBlockExtendedHeader> for ExtendedBlockHeader {
             cumulative_difficulty: value.cumulative_difficulty.unwrap_or_default(),
             block_weight: value.block_weight.unwrap_or_default(),
             long_term_weight: value.long_term_weight.unwrap_or_default(),
+            height: value.height.unwrap_or_default(),
         }
     }
 }

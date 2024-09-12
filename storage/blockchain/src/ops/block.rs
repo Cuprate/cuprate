@@ -17,9 +17,11 @@ use crate::{
         output::get_rct_num_outputs,
         tx::{add_tx, remove_tx},
     },
-    tables::{BlockHeights, BlockInfos, Tables, TablesMut},
+    tables::{BlockBlobs, BlockHeights, BlockInfos, Tables, TablesMut},
     types::{BlockHash, BlockHeight, BlockInfo},
 };
+
+use super::blockchain::top_block_height;
 
 //---------------------------------------------------------------------------------------------------- `add_block_*`
 /// Add a [`VerifiedBlockInformation`] to the database.
@@ -162,6 +164,53 @@ pub fn pop_block(
     Ok((block_height, block_hash, block))
 }
 
+//---------------------------------------------------------------------------------------------------- `get_block_*`
+/// Retrieve a [`Block`] via its [`BlockHeight`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block(
+    block_height: &BlockHeight,
+    table_block_blobs: &impl DatabaseRo<BlockBlobs>,
+) -> Result<Block, RuntimeError> {
+    let block_blob = table_block_blobs.get(block_height)?;
+    Ok(Block::read(&mut block_blob.0.as_slice())?)
+}
+
+/// Retrieve a [`Block`] via its [`BlockHash`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_block_by_hash(
+    block_hash: &BlockHash,
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
+    table_block_blobs: &impl DatabaseRo<BlockBlobs>,
+) -> Result<Block, RuntimeError> {
+    let block_height = table_block_heights.get(block_hash)?;
+    get_block(&block_height, table_block_blobs)
+}
+
+/// Retrieve the top [`Block`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_top_block(
+    table_block_heights: &impl DatabaseRo<BlockHeights>,
+    table_block_blobs: &impl DatabaseRo<BlockBlobs>,
+) -> Result<Block, RuntimeError> {
+    let top_height = top_block_height(table_block_heights)?;
+    get_block(&top_height, table_block_blobs)
+}
+
+/// [`get_top_block`] and [`get_block_extended_header_top`].
+#[doc = doc_error!()]
+#[inline]
+pub fn get_top_block_full(
+    tables: &impl Tables,
+) -> Result<(Block, ExtendedBlockHeader), RuntimeError> {
+    let (header, _) = get_block_extended_header_top(tables)?;
+    let block = get_top_block(tables.block_heights(), tables.block_blobs())?;
+
+    Ok((block, header))
+}
+
 //---------------------------------------------------------------------------------------------------- `get_block_extended_header_*`
 /// Retrieve a [`ExtendedBlockHeader`] from the database.
 ///
@@ -207,6 +256,7 @@ pub fn get_block_extended_header_from_height(
         timestamp: block.header.timestamp,
         block_weight: block_info.weight as usize,
         long_term_weight: block_info.long_term_weight as usize,
+        height: *block_height as u64,
     })
 }
 

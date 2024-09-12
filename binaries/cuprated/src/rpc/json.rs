@@ -1,4 +1,3 @@
-use core::slice::SlicePattern;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error};
@@ -174,7 +173,7 @@ async fn get_last_block_header(
     request: GetLastBlockHeaderRequest,
 ) -> Result<GetLastBlockHeaderResponse, Error> {
     let (height, _) = helper::top_height(&mut state).await?;
-    let (_, block_header) = helper::block_header(&mut state, height, request.fill_pow_hash).await?;
+    let block_header = helper::block_header(&mut state, height, request.fill_pow_hash).await?;
 
     Ok(GetLastBlockHeaderResponse {
         base: AccessResponseBase::ok(),
@@ -199,7 +198,7 @@ async fn get_block_header_by_hash(
         fill_pow_hash: bool,
     ) -> Result<BlockHeader, Error> {
         let hash = helper::hex_to_hash(hex)?;
-        let (_, block_header) = helper::block_header_by_hash(state, hash, fill_pow_hash).await?;
+        let block_header = helper::block_header_by_hash(state, hash, fill_pow_hash).await?;
         Ok(block_header)
     }
 
@@ -225,7 +224,7 @@ async fn get_block_header_by_height(
     request: GetBlockHeaderByHeightRequest,
 ) -> Result<GetBlockHeaderByHeightResponse, Error> {
     helper::check_height(&mut state, request.height).await?;
-    let (_, block_header) =
+    let block_header =
         helper::block_header(&mut state, request.height, request.fill_pow_hash).await?;
 
     Ok(GetBlockHeaderByHeightResponse {
@@ -272,7 +271,8 @@ async fn get_block_headers_range(
         let BlockchainResponse::Block(header) = task.await?? else {
             unreachable!();
         };
-        headers.push((&header).into());
+        // headers.push((&header).into());
+        headers.push(todo!());
     }
 
     Ok(GetBlockHeadersRangeResponse {
@@ -294,23 +294,25 @@ async fn get_block(
         blockchain::block_by_hash(&mut state, hash).await?
     };
 
-    let block_header = (&block).into();
-    let blob = hex::encode(block.block_blob);
-    let miner_tx_hash = hex::encode(block.block.miner_transaction.hash());
-    let tx_hashes = block
-        .txs
-        .into_iter()
-        .map(|tx| hex::encode(tx.tx_hash))
-        .collect();
+    Ok(todo!())
 
-    Ok(GetBlockResponse {
-        base: AccessResponseBase::ok(),
-        blob,
-        json: todo!(), // TODO: make `JSON` type in `cuprate_rpc_types`
-        miner_tx_hash,
-        tx_hashes,
-        block_header,
-    })
+    // let block_header = (&block).into();
+    // let blob = hex::encode(block.block_blob);
+    // let miner_tx_hash = hex::encode(block.block.miner_transaction.hash());
+    // let tx_hashes = block
+    //     .txs
+    //     .into_iter()
+    //     .map(|tx| hex::encode(tx.tx_hash))
+    //     .collect();
+
+    // Ok(GetBlockResponse {
+    //     base: AccessResponseBase::ok(),
+    //     blob,
+    //     json: todo!(), // TODO: make `JSON` type in `cuprate_rpc_types`
+    //     miner_tx_hash,
+    //     tx_hashes,
+    //     block_header,
+    // })
 }
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2729-L2738>

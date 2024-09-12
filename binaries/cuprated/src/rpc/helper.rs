@@ -27,18 +27,61 @@ use crate::{
     rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE},
 };
 
+fn into_block_header(
+    height: u64,
+    top_height: u64,
+    fill_pow_hash: bool,
+    block: Block,
+    header: ExtendedBlockHeader,
+) -> BlockHeader {
+    let block_weight = usize_to_u64(header.block_weight);
+    let depth = top_height.saturating_sub(height);
+    let (cumulative_difficulty_top64, cumulative_difficulty) =
+        split_u128_into_low_high_bits(header.cumulative_difficulty);
+
+    BlockHeader {
+        block_size: block_weight,
+        block_weight,
+        cumulative_difficulty_top64,
+        cumulative_difficulty,
+        depth,
+        difficulty_top64: todo!(),
+        difficulty: todo!(),
+        hash: hex::encode(block.hash()),
+        height,
+        long_term_weight: usize_to_u64(header.long_term_weight),
+        major_version: header.version.as_u8(),
+        miner_tx_hash: hex::encode(block.miner_transaction.hash()),
+        minor_version: header.vote,
+        nonce: block.header.nonce,
+        num_txes: usize_to_u64(block.transactions.len()),
+        orphan_status: todo!(),
+        pow_hash: if fill_pow_hash {
+            todo!()
+        } else {
+            String::new()
+        },
+        prev_hash: hex::encode(block.header.previous),
+        reward: todo!(),
+        timestamp: block.header.timestamp,
+        wide_cumulative_difficulty: hex::encode(u128::to_le_bytes(header.cumulative_difficulty)),
+        wide_difficulty: todo!(),
+    }
+}
+
 /// Get a [`VerifiedBlockInformation`] and map it to a [`BlockHeader`].
 pub(super) async fn block_header(
     state: &mut CupratedRpcHandlerState,
     height: u64,
     fill_pow_hash: bool,
-) -> Result<(VerifiedBlockInformation, BlockHeader), Error> {
+) -> Result<BlockHeader, Error> {
+    let (top_height, _) = top_height(state).await?;
     let block = blockchain::block(state, height).await?;
-    let mut block_header = BlockHeader::from(&block);
-    if !fill_pow_hash {
-        block_header.pow_hash = String::new();
-    }
-    Ok((block, block_header))
+    let header = blockchain::block_extended_header(state, height).await?;
+
+    let block_header = into_block_header(height, top_height, fill_pow_hash, block, header);
+
+    Ok(block_header)
 }
 
 /// Same as [`block_header`] but with the block's hash.
@@ -46,13 +89,27 @@ pub(super) async fn block_header_by_hash(
     state: &mut CupratedRpcHandlerState,
     hash: [u8; 32],
     fill_pow_hash: bool,
-) -> Result<(VerifiedBlockInformation, BlockHeader), Error> {
+) -> Result<BlockHeader, Error> {
+    let (top_height, _) = top_height(state).await?;
     let block = blockchain::block_by_hash(state, hash).await?;
-    let mut block_header = BlockHeader::from(&block);
-    if !fill_pow_hash {
-        block_header.pow_hash = String::new();
-    }
-    Ok((block, block_header))
+    let header = blockchain::block_extended_header_by_hash(state, hash).await?;
+
+    let block_header = into_block_header(header.height, top_height, fill_pow_hash, block, header);
+
+    Ok(block_header)
+}
+
+/// TODO
+pub(super) async fn top_block_header(
+    state: &mut CupratedRpcHandlerState,
+    fill_pow_hash: bool,
+) -> Result<BlockHeader, Error> {
+    let (block, header) = blockchain::top_block_full(state).await?;
+
+    let block_header =
+        into_block_header(header.height, header.height, fill_pow_hash, block, header);
+
+    Ok(block_header)
 }
 
 /// Check if `height` is greater than the [`top_height`].
