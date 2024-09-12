@@ -10,6 +10,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Error};
 use cuprate_rpc_types::misc::{BlockHeader, KeyImageSpentStatus};
 use futures::StreamExt;
+use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus::BlockchainResponse;

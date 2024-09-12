@@ -1,7 +1,9 @@
+use core::slice::SlicePattern;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Error};
 use futures::StreamExt;
+use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus::BlockchainResponse;
@@ -43,6 +45,8 @@ use crate::{
     },
     version::CUPRATED_VERSION_IS_RELEASE,
 };
+
+use super::constants::BLOCK_SIZE_SANITY_LEEWAY;
 
 /// Map a [`JsonRpcRequest`] to the function that will lead to a [`JsonRpcResponse`].
 pub(super) async fn map_request(
@@ -127,12 +131,28 @@ async fn on_get_block_hash(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2209-L2266>
 async fn submit_block(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: SubmitBlockRequest,
 ) -> Result<SubmitBlockResponse, Error> {
+    let [blob] = request.block_blob;
+
+    let limit = blockchain::cumulative_block_weight_limit(&mut state).await?;
+
+    if blob.len() > limit + BLOCK_SIZE_SANITY_LEEWAY {
+        return Err(anyhow!("Block size is too big, rejecting block"));
+    }
+
+    let bytes = hex::decode(blob)?;
+    let block = Block::read(&mut bytes.as_slice())?;
+
+    // <https://github.com/monero-project/monero/blob/master/src/cryptonote_core/cryptonote_core.cpp#L1540>
+    let block_id = todo!("submit block to DB");
+    todo!("relay to P2P");
+    todo!("send to txpool");
+
     Ok(SubmitBlockResponse {
         base: ResponseBase::ok(),
-        block_id: todo!(),
+        block_id,
     })
 }
 

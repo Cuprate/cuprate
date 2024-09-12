@@ -206,6 +206,23 @@ pub(super) async fn find_first_unknown(
     Ok(resp.map(|(index, height)| (index, usize_to_u64(height))))
 }
 
+/// [`BlockchainResponse::CumulativeBlockWeightLimit`]
+pub(super) async fn cumulative_block_weight_limit(
+    state: &mut CupratedRpcHandlerState,
+) -> Result<usize, Error> {
+    let BlockchainResponse::CumulativeBlockWeightLimit(limit) = state
+        .blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::CumulativeBlockWeightLimit)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(limit)
+}
+
 // FindBlock([u8; 32]),
 // FilterUnknownHashes(HashSet<[u8; 32]>),
 // BlockExtendedHeaderInRange(Range<usize>, Chain),

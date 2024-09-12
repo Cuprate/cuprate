@@ -118,6 +118,9 @@ pub enum BlockchainReadRequest {
     /// order, or else the returned response is unspecified and meaningless,
     /// as this request performs a binary search.
     FindFirstUnknown(Vec<[u8; 32]>),
+
+    /// TODO
+    CumulativeBlockWeightLimit,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -238,6 +241,9 @@ pub enum BlockchainResponse {
     ///
     /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, usize)>),
+
+    /// TODO
+    CumulativeBlockWeightLimit(usize),
 
     //------------------------------------------------------ Writes
     /// Response to [`BlockchainWriteRequest::WriteBlock`].

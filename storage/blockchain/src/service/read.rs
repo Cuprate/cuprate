@@ -104,6 +104,7 @@ fn map_request(
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
+        R::CumulativeBlockWeightLimit => cumulative_block_weight_limit(env),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -543,4 +544,15 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
 
         BlockchainResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
     })
+}
+
+/// [`BlockchainReadRequest::CumulativeBlockWeightLimit`]
+fn cumulative_block_weight_limit(env: &ConcreteEnv) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_blocks = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+    let limit = todo!();
+
+    Ok(BlockchainResponse::CumulativeBlockWeightLimit(limit))
 }
