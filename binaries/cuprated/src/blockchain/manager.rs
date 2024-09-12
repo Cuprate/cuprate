@@ -1,6 +1,5 @@
 mod handler;
 
-use std::collections::HashMap;
 use crate::blockchain::types::ConsensusBlockchainReadHandle;
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::context::RawBlockChainContext;
@@ -14,15 +13,16 @@ use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_types::{Chain, TransactionVerificationData};
 use futures::StreamExt;
 use monero_serai::block::Block;
+use std::collections::HashMap;
 use tokio::sync::mpsc;
-use tokio::sync::{Notify, oneshot};
+use tokio::sync::{oneshot, Notify};
 use tower::{Service, ServiceExt};
 use tracing::error;
 
 pub struct IncomingBlock {
-    block: Block,
-    prepped_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    response_tx: oneshot::Sender<Result<(), anyhow::Error>>,
+    pub block: Block,
+    pub prepped_txs: HashMap<[u8; 32], TransactionVerificationData>,
+    pub response_tx: oneshot::Sender<Result<(), anyhow::Error>>,
 }
 
 pub struct BlockchainManager {
@@ -35,7 +35,6 @@ pub struct BlockchainManager {
         TxVerifierService<ConsensusBlockchainReadHandle>,
         ConsensusBlockchainReadHandle,
     >,
-
     // TODO: stop_current_block_downloader: Notify,
 }
 
@@ -56,7 +55,8 @@ impl BlockchainManager {
             .expect("TODO")
             .call(BlockChainContextRequest::GetContext)
             .await
-            .expect("TODO") else {
+            .expect("TODO")
+        else {
             panic!("Blockchain context service returned wrong response!");
         };
 
@@ -69,7 +69,11 @@ impl BlockchainManager {
         }
     }
 
-    pub async fn run(mut self, mut block_batch_rx: mpsc::Receiver<BlockBatch>, mut block_single_rx: mpsc::Receiver<IncomingBlock>) {
+    pub async fn run(
+        mut self,
+        mut block_batch_rx: mpsc::Receiver<BlockBatch>,
+        mut block_single_rx: mpsc::Receiver<IncomingBlock>,
+    ) {
         loop {
             tokio::select! {
                 Some(batch) = block_batch_rx.recv() => {

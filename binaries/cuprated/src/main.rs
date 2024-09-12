@@ -59,7 +59,8 @@ fn main() {
             context_svc,
             block_verifier,
             config.block_downloader_config(),
-        ).await;
+        )
+        .await;
 
         // TODO: this can be removed as long as the main thread does not exit, so when command handling
         // is added

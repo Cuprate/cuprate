@@ -98,5 +98,4 @@ mod sealed {
     {
         type BorshAddr = T::Addr;
     }
-
 }

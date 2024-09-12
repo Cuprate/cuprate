@@ -16,6 +16,7 @@ use cuprate_types::{
     VerifiedBlockInformation,
 };
 
+mod free;
 mod manager;
 mod syncer;
 mod types;
@@ -120,7 +121,8 @@ pub async fn init_blockchain_manager(
         blockchain_read_handle,
         blockchain_context_service,
         block_verifier_service,
-    ).await;
+    )
+    .await;
 
     tokio::spawn(manager.run(batch_rx));
 }

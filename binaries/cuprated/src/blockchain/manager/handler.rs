@@ -63,9 +63,13 @@ impl super::BlockchainManager {
             .expect("Block batch should not be empty");
 
         if first_block.header.previous == self.cached_blockchain_context.top_hash {
-            self.handle_incoming_block_batch_main_chain(batch).await.expect("TODO");
+            self.handle_incoming_block_batch_main_chain(batch)
+                .await
+                .expect("TODO");
         } else {
-            self.handle_incoming_block_batch_alt_chain(batch).await.expect("TODO");
+            self.handle_incoming_block_batch_alt_chain(batch)
+                .await
+                .expect("TODO");
         }
     }
 
@@ -295,7 +299,8 @@ impl super::BlockchainManager {
             .expect("TODO")
             .call(BlockChainContextRequest::GetContext)
             .await
-            .expect("TODO") else {
+            .expect("TODO")
+        else {
             panic!("Incorrect response!");
         };
 
