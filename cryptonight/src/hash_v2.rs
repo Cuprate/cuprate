@@ -25,49 +25,51 @@ pub(crate) fn variant2_shuffle_add(
     offset: usize,
     variant: Variant,
 ) {
-    if variant == Variant::V2 || variant == Variant::R {
-        let chunk1_start = offset ^ 0x10;
-        let chunk2_start = offset ^ 0x20;
-        let chunk3_start = offset ^ 0x30;
+    if !matches!(variant, Variant::V2 | Variant::R) {
+        return;
+    }
 
-        let chunk1: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk1_start);
-        let chunk2: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk2_start);
-        let chunk3: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk3_start);
+    let chunk1_start = offset ^ 0x10;
+    let chunk2_start = offset ^ 0x20;
+    let chunk3_start = offset ^ 0x30;
 
-        let mut chunk1_old = block_to_u64le(chunk1);
-        let chunk2_old = block_to_u64le(chunk2);
-        let chunk3_old = block_to_u64le(chunk3);
+    let chunk1: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk1_start);
+    let chunk2: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk2_start);
+    let chunk3: &[u8; AES_BLOCK_SIZE] = subarray(long_state, chunk3_start);
 
-        let b1 = block_to_u64le(subarray(b, 16));
+    let mut chunk1_old = block_to_u64le(chunk1);
+    let chunk2_old = block_to_u64le(chunk2);
+    let chunk3_old = block_to_u64le(chunk3);
 
-        let chunk1 = &mut long_state[chunk1_start..chunk1_start + 16];
-        chunk1[0..8].copy_from_slice(&(chunk3_old[0].wrapping_add(b1[0]).to_le_bytes()));
-        chunk1[8..16].copy_from_slice(&(chunk3_old[1].wrapping_add(b1[1]).to_le_bytes()));
+    let b1 = block_to_u64le(subarray(b, 16));
 
-        let a0 = block_to_u64le(a);
+    let chunk1 = &mut long_state[chunk1_start..chunk1_start + 16];
+    chunk1[0..8].copy_from_slice(&(chunk3_old[0].wrapping_add(b1[0]).to_le_bytes()));
+    chunk1[8..16].copy_from_slice(&(chunk3_old[1].wrapping_add(b1[1]).to_le_bytes()));
 
-        let chunk3 = &mut long_state[chunk3_start..chunk3_start + 16];
-        chunk3[0..8].copy_from_slice(&(chunk2_old[0].wrapping_add(a0[0])).to_le_bytes());
-        chunk3[8..16].copy_from_slice(&(chunk2_old[1].wrapping_add(a0[1])).to_le_bytes());
+    let a0 = block_to_u64le(a);
 
-        let b0 = block_to_u64le(subarray(b, 0));
-        let chunk2 = &mut long_state[chunk2_start..chunk2_start + 16];
-        chunk2[0..8].copy_from_slice(&(chunk1_old[0].wrapping_add(b0[0])).to_le_bytes());
-        chunk2[8..16].copy_from_slice(&(chunk1_old[1].wrapping_add(b0[1])).to_le_bytes());
+    let chunk3 = &mut long_state[chunk3_start..chunk3_start + 16];
+    chunk3[0..8].copy_from_slice(&(chunk2_old[0].wrapping_add(a0[0])).to_le_bytes());
+    chunk3[8..16].copy_from_slice(&(chunk2_old[1].wrapping_add(a0[1])).to_le_bytes());
 
-        if variant == Variant::R {
-            let mut out_copy = block_to_u64le(c1);
+    let b0 = block_to_u64le(subarray(b, 0));
+    let chunk2 = &mut long_state[chunk2_start..chunk2_start + 16];
+    chunk2[0..8].copy_from_slice(&(chunk1_old[0].wrapping_add(b0[0])).to_le_bytes());
+    chunk2[8..16].copy_from_slice(&(chunk1_old[1].wrapping_add(b0[1])).to_le_bytes());
 
-            chunk1_old[0] ^= chunk2_old[0];
-            chunk1_old[1] ^= chunk2_old[1];
-            out_copy[0] ^= chunk3_old[0];
-            out_copy[1] ^= chunk3_old[1];
-            out_copy[0] ^= chunk1_old[0];
-            out_copy[1] ^= chunk1_old[1];
+    if variant == Variant::R {
+        let mut out_copy = block_to_u64le(c1);
 
-            c1[0..8].copy_from_slice(&out_copy[0].to_le_bytes());
-            c1[8..16].copy_from_slice(&out_copy[1].to_le_bytes());
-        }
+        chunk1_old[0] ^= chunk2_old[0];
+        chunk1_old[1] ^= chunk2_old[1];
+        out_copy[0] ^= chunk3_old[0];
+        out_copy[1] ^= chunk3_old[1];
+        out_copy[0] ^= chunk1_old[0];
+        out_copy[1] ^= chunk1_old[1];
+
+        c1[0..8].copy_from_slice(&out_copy[0].to_le_bytes());
+        c1[8..16].copy_from_slice(&out_copy[1].to_le_bytes());
     }
 }
 
