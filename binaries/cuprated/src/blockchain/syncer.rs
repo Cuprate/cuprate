@@ -1,7 +1,11 @@
+use std::pin::pin;
 use std::time::Duration;
 
 use futures::StreamExt;
-use tokio::{sync::mpsc, time::sleep};
+use tokio::{
+    sync::{mpsc, Notify},
+    time::sleep,
+};
 use tower::{Service, ServiceExt};
 use tracing::instrument;
 
@@ -27,6 +31,7 @@ pub async fn syncer<C, CN>(
     our_chain: CN,
     clearnet_interface: NetworkInterface<ClearNet>,
     incoming_block_batch_tx: mpsc::Sender<BlockBatch>,
+    stop_current_block_downloader: Notify,
     block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
 where
@@ -82,10 +87,18 @@ where
         let mut block_batch_stream =
             clearnet_interface.block_downloader(our_chain.clone(), block_downloader_config);
 
-        while let Some(batch) = block_batch_stream.next().await {
-            tracing::debug!("Got batch, len: {}", batch.blocks.len());
-            if incoming_block_batch_tx.send(batch).await.is_err() {
-                return Err(SyncerError::IncomingBlockChannelClosed);
+        loop {
+            tokio::select! {
+                _ = stop_current_block_downloader.notified() => {
+                    tracing::info!("Stopping block downloader");
+                    break;
+                }
+                Some(batch) = block_batch_stream.next() => {
+                    tracing::debug!("Got batch, len: {}", batch.blocks.len());
+                    if incoming_block_batch_tx.send(batch).await.is_err() {
+                        return Err(SyncerError::IncomingBlockChannelClosed);
+                    }
+                }
             }
         }
     }

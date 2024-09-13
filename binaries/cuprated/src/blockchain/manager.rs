@@ -22,7 +22,7 @@ use tracing::error;
 pub struct IncomingBlock {
     pub block: Block,
     pub prepped_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    pub response_tx: oneshot::Sender<Result<(), anyhow::Error>>,
+    pub response_tx: oneshot::Sender<Result<bool, anyhow::Error>>,
 }
 
 pub struct BlockchainManager {
@@ -35,7 +35,7 @@ pub struct BlockchainManager {
         TxVerifierService<ConsensusBlockchainReadHandle>,
         ConsensusBlockchainReadHandle,
     >,
-    // TODO: stop_current_block_downloader: Notify,
+    stop_current_block_downloader: Notify,
 }
 
 impl BlockchainManager {
