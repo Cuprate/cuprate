@@ -145,13 +145,15 @@ mod tests {
 
     #[test]
     fn test_variant2_integer_math() {
-        let test = |c2_hex: &str,
-                    c1_hex: &str,
-                    division_result: u64,
-                    sqrt_result: u64,
-                    c2_hex_end: &str,
-                    division_result_end: u64,
-                    sqrt_result_end: u64| {
+        fn test(
+            c2_hex: &str,
+            c1_hex: &str,
+            division_result: u64,
+            sqrt_result: u64,
+            c2_hex_end: &str,
+            division_result_end: u64,
+            sqrt_result_end: u64,
+        ) {
             let mut c2: [u8; 16] = hex_to_array(c2_hex);
             let c1: [u8; 16] = hex_to_array(c1_hex);
             let mut division_result = division_result;
@@ -168,7 +170,8 @@ mod tests {
             assert_eq!(hex::encode(c2), c2_hex_end);
             assert_eq!(division_result, division_result_end);
             assert_eq!(sqrt_result, sqrt_result_end);
-        };
+        }
+
         test(
             "8b4d610801fe2049741c4cf1a11912d5",
             "ef9d5925ad73f044f6310bce80f333a4",
