@@ -99,4 +99,24 @@ mod tests {
         sub[0] = 10;
         assert_eq!(array, [1_u8, 10, 3, 4, 5]); // original array modified
     }
+    #[test]
+    #[should_panic(expected = "range end index 4 out of range for slice of length 1")]
+    fn subarray_panic() {
+        let array = [1_u8];
+        let _: &[u8; 3] = subarray(&array, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "range end index 4 out of range for slice of length 1")]
+    fn subarray_copy_panic() {
+        let array = [1_u8];
+        let _: [u8; 3] = subarray_copy(&array, 1);
+    }
+
+    #[test]
+    #[should_panic(expected = "range end index 4 out of range for slice of length 1")]
+    fn subarray_mut_panic() {
+        let mut array = [1_u8];
+        let _: &mut [u8; 3] = subarray_mut(&mut array, 1);
+    }
 }
