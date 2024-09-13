@@ -2,10 +2,11 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use cuprate_database::{DatabaseRo, RuntimeError};
+use cuprate_types::HardFork;
 
 use crate::{
-    ops::macros::doc_error,
-    tables::{BlockHeights, BlockInfos},
+    ops::{block, macros::doc_error},
+    tables::{BlockHeights, BlockInfos, Tables},
     types::BlockHeight,
 };
 
@@ -76,6 +77,15 @@ pub fn cumulative_generated_coins(
         Err(RuntimeError::KeyNotFound) if block_height == &0 => Ok(0),
         Err(e) => Err(e),
     }
+}
+
+/// TODO
+///
+#[doc = doc_error!()]
+#[inline]
+pub fn current_hard_fork(tables: &impl Tables) -> Result<HardFork, RuntimeError> {
+    let (header, _) = block::get_block_extended_header_top(tables)?;
+    Ok(header.version)
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

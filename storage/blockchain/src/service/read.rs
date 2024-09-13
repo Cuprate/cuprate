@@ -95,6 +95,7 @@ fn map_request(
         R::BlockExtendedHeaderByHash(hash) => block_extended_header_by_hash(env, hash),
         R::TopBlockExtendedHeader => top_block_extended_header_by_hash(env),
         R::TopBlockFull => top_block_full(env),
+        R::CurrentHardFork => current_hard_fork(env),
         R::BlockHash(height, chain) => block_hash(env, height, chain),
         R::FindBlock(_) => todo!("Add alt blocks to DB"),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
@@ -283,6 +284,19 @@ fn top_block_full(env: &ConcreteEnv) -> ResponseResult {
     Ok(BlockchainResponse::TopBlockFull(block, header))
 }
 
+/// [`BlockchainReadRequest::CurrentHardFork`].
+#[inline]
+fn current_hard_fork(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::CurrentHardFork(
+        blockchain::current_hard_fork(&tables)?,
+    ))
+}
+
 /// [`BlockchainReadRequest::BlockHash`].
 #[inline]
 fn block_hash(env: &ConcreteEnv, block_height: BlockHeight, chain: Chain) -> ResponseResult {
@@ -364,7 +378,7 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    let chain_height = crate::ops::blockchain::chain_height(&table_block_heights)?;
+    let chain_height = blockchain::chain_height(&table_block_heights)?;
     let block_hash =
         get_block_info(&chain_height.saturating_sub(1), &table_block_infos)?.block_hash;
 

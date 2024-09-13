@@ -11,7 +11,10 @@ use std::{
 
 use monero_serai::block::Block;
 
-use crate::types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation};
+use crate::{
+    types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
+    HardFork,
+};
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
 /// A read request to the blockchain database.
@@ -52,6 +55,9 @@ pub enum BlockchainReadRequest {
 
     /// TODO
     TopBlockFull,
+
+    /// TODO
+    CurrentHardFork,
 
     /// Request a block's hash.
     ///
@@ -163,13 +169,24 @@ pub enum BlockchainWriteRequest {
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
     /// Response to [`BlockchainReadRequest::Block`].
+    ///
+    /// Inner value is TODO.
     Block(Block),
 
     /// Response to [`BlockchainReadRequest::BlockByHash`].
+    ///
+    /// Inner value is TODO.
     BlockByHash(Block),
 
     /// Response to [`BlockchainReadRequest::TopBlock`].
+    ///
+    /// Inner value is TODO.
     TopBlock(Block),
+
+    /// Response to [`BlockchainReadRequest::CurrentHardFork`].
+    ///
+    /// Inner value is TODO.
+    CurrentHardFork(HardFork),
 
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///

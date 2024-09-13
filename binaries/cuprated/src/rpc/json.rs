@@ -35,7 +35,7 @@ use cuprate_rpc_types::{
     misc::{BlockHeader, Status},
     CORE_RPC_VERSION,
 };
-use cuprate_types::{blockchain::BlockchainReadRequest, Chain};
+use cuprate_types::{blockchain::BlockchainReadRequest, Chain, HardFork};
 
 use crate::{
     rpc::{
@@ -377,16 +377,22 @@ async fn get_info(
 
 /// <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L2751-L2766>
 async fn hard_fork_info(
-    state: CupratedRpcHandlerState,
+    mut state: CupratedRpcHandlerState,
     request: HardForkInfoRequest,
 ) -> Result<HardForkInfoResponse, Error> {
+    let hard_fork = if request.version > 0 {
+        HardFork::from_version(request.version)?
+    } else {
+        blockchain::current_hard_fork(&mut state).await?
+    };
+
     Ok(HardForkInfoResponse {
         base: AccessResponseBase::ok(),
         earliest_height: todo!(),
-        enabled: todo!(),
+        enabled: hard_fork.is_current(),
         state: todo!(),
         threshold: todo!(),
-        version: todo!(),
+        version: hard_fork.as_u8(),
         votes: todo!(),
         voting: todo!(),
         window: todo!(),

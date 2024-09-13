@@ -815,8 +815,17 @@ define_request_and_response! {
     hard_fork_info,
     cc73fe71162d564ffda8e549b79a350bca53c454 =>
     core_rpc_server_commands_defs.h => 1958..=1995,
-    HardForkInfo (empty),
-    Request {},
+    HardForkInfo,
+
+    #[doc = serde_doc_test!(
+        HARD_FORK_INFO => HardForkInfo {
+            version: 16,
+        }
+    )]
+    #[derive(Copy)]
+    Request {
+        version: u8,
+    },
 
     #[doc = serde_doc_test!(
         HARD_FORK_INFO_RESPONSE => HardForkInfoResponse {
@@ -825,9 +834,9 @@ define_request_and_response! {
             enabled: true,
             state: 0,
             threshold: 0,
-            version: 16,
+            version: 3,
             votes: 10080,
-            voting: 16,
+            voting: 3,
             window: 10080
         }
     )]

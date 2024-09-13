@@ -18,7 +18,7 @@ use cuprate_helper::{
 };
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
-    Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation,
+    Chain, ExtendedBlockHeader, HardFork, OutputOnChain, VerifiedBlockInformation,
 };
 
 use crate::rpc::{CupratedRpcHandlerState, RESTRICTED_BLOCK_COUNT, RESTRICTED_BLOCK_HEADER_RANGE};
@@ -129,6 +129,23 @@ pub(super) async fn top_block_full(
     };
 
     Ok((block, header))
+}
+
+/// [`BlockchainResponse::CurrentHardFork`]
+pub(super) async fn current_hard_fork(
+    state: &mut CupratedRpcHandlerState,
+) -> Result<HardFork, Error> {
+    let BlockchainResponse::CurrentHardFork(hard_fork) = state
+        .blockchain_read
+        .ready()
+        .await?
+        .call(BlockchainReadRequest::CurrentHardFork)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(hard_fork)
 }
 
 /// [`BlockchainResponse::BlockHash`] with [`Chain::Main`].

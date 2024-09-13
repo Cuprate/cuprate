@@ -48,11 +48,14 @@ pub enum HardFork {
     V13,
     V14,
     V15,
-    // remember to update from_vote!
+    // remember to update [`Self::CURRENT`]!
     V16,
 }
 
 impl HardFork {
+    /// TODO
+    pub const CURRENT: Self = Self::V16;
+
     /// Returns the hard-fork for a blocks [`BlockHeader::hardfork_version`] field.
     ///
     /// ref: <https://monero-book.cuprate.org/consensus_rules/hardforks.html#blocks-version-and-vote>
@@ -93,7 +96,7 @@ impl HardFork {
             return Self::V1;
         }
         // This must default to the latest hard-fork!
-        Self::from_version(vote).unwrap_or(Self::V16)
+        Self::from_version(vote).unwrap_or(Self::CURRENT)
     }
 
     /// Returns the [`HardFork`] version and vote from this block header.
@@ -127,5 +130,10 @@ impl HardFork {
             Self::V1 => BLOCK_TIME_V1,
             _ => BLOCK_TIME_V2,
         }
+    }
+
+    /// TODO
+    pub const fn is_current(self) -> bool {
+        matches!(self, Self::CURRENT)
     }
 }
