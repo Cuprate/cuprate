@@ -162,7 +162,7 @@ pub const BLOCKS_SYNCHRONIZING_DEFAULT_COUNT: u64 = 20; //by default, blocks cou
 pub const BLOCKS_SYNCHRONIZING_MAX_COUNT: u64 = 2048; //must be a power of 2, greater than 128, equal to ;SEEDHASH_EPOCH_BLOCKS
 
 /// TODO
-pub const CRYPTONOTE_MEMPOOL_TX_LIVETIME: u64 = (86400 * 3); //seconds, three days;
+pub const CRYPTONOTE_MEMPOOL_TX_LIFETIME: u64 = (86400 * 3); //seconds, three days;
 
 /// TODO
 pub const CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME: u64 = 604800; //seconds, one week;
