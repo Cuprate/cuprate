@@ -226,20 +226,22 @@ pub(crate) fn random_math_init(
             let mut alu_index = -1;
             while next_latency < TOTAL_LATENCY {
                 for i in (0..OP_ALUS[opcode as usize]).rev() {
-                    if !alu_busy[next_latency][i] {
-                        if (opcode == Add) && alu_busy[next_latency + 1][i] {
-                            continue;
-                        }
-
-                        if is_rotation[opcode as usize]
-                            && next_latency < (rotate_count * OP_LATENCY[opcode as usize])
-                        {
-                            continue;
-                        }
-
-                        alu_index = i as isize;
-                        break;
+                    if alu_busy[next_latency][i] {
+                        continue;
                     }
+
+                    if opcode == Add && alu_busy[next_latency + 1][i] {
+                        continue;
+                    }
+
+                    if is_rotation[opcode as usize]
+                        && next_latency < (rotate_count * OP_LATENCY[opcode as usize])
+                    {
+                        continue;
+                    }
+
+                    alu_index = i as isize;
+                    break;
                 }
                 if alu_index >= 0 {
                     break;
