@@ -117,21 +117,22 @@ pub(crate) fn variant2_integer_math(
 ) {
     const U32_MASK: u64 = u32::MAX as u64;
 
-    if variant == Variant::V2 {
-        let tmpx = *division_result ^ (*sqrt_result << 32);
-        *c2 = (u64::from_le_bytes(*c2) ^ tmpx).to_le_bytes();
-
-        let c1_64 = block_to_u64le(c1);
-        let mut divisor = c1_64[0];
-        let dividend = c1_64[1];
-
-        divisor = ((divisor + ((*sqrt_result << 1) & U32_MASK)) | 0x80000001) & U32_MASK;
-        *division_result =
-            ((dividend / divisor) & U32_MASK).wrapping_add((dividend % divisor) << 32);
-
-        let sqrt_input = c1_64[0].wrapping_add(*division_result);
-        *sqrt_result = variant2_integer_math_sqrt(sqrt_input);
+    if variant != Variant::V2 {
+        return;
     }
+
+    let tmpx = *division_result ^ (*sqrt_result << 32);
+    *c2 = (u64::from_le_bytes(*c2) ^ tmpx).to_le_bytes();
+
+    let c1_64 = block_to_u64le(c1);
+    let mut divisor = c1_64[0];
+    let dividend = c1_64[1];
+
+    divisor = ((divisor + ((*sqrt_result << 1) & U32_MASK)) | 0x80000001) & U32_MASK;
+    *division_result = ((dividend / divisor) & U32_MASK).wrapping_add((dividend % divisor) << 32);
+
+    let sqrt_input = c1_64[0].wrapping_add(*division_result);
+    *sqrt_result = variant2_integer_math_sqrt(sqrt_input);
 }
 
 #[cfg(test)]
