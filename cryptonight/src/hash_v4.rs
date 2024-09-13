@@ -140,11 +140,11 @@ pub(crate) fn random_math_init(
 
         // Generate random code to achieve minimal required latency for our abstract CPU
         // Try to get this latency for all 4 registers
-        while ((latency[0] < TOTAL_LATENCY)
-            || (latency[1] < TOTAL_LATENCY)
-            || (latency[2] < TOTAL_LATENCY)
-            || (latency[3] < TOTAL_LATENCY))
-            && (num_retries < 64)
+        while (latency[0] < TOTAL_LATENCY
+            || latency[1] < TOTAL_LATENCY
+            || latency[2] < TOTAL_LATENCY
+            || latency[3] < TOTAL_LATENCY)
+            && num_retries < 64
         {
             // Fail-safe to guarantee loop termination
             total_iterations += 1;
