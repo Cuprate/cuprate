@@ -17,9 +17,13 @@ mod blockchain;
 mod config;
 mod p2p;
 mod rpc;
+mod statics;
 mod txpool;
 mod version;
 
+use std::sync::LazyLock;
+
 fn main() {
-    todo!()
+    // Initialize global static `LazyLock` data.
+    statics::init_lazylock_statics();
 }
