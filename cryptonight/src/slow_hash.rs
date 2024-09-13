@@ -248,7 +248,7 @@ fn variant_2_2(
 
 /// Original C code:
 /// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L319-L334>
-/// The compiler would inline this code even without the #[inline] attribute, but we'd like
+/// The compiler would inline this code even without the `#[inline]` attribute, but we'd like
 /// to avoid coping `r` and `code` between stack addresses.
 #[inline]
 fn variant4_math_init(

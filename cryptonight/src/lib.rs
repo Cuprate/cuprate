@@ -18,7 +18,7 @@ pub struct DataCanNotBeHashed;
 
 /// Calculates the `CryptoNight` v1 hash of buf.
 ///
-/// This will return an error if buf is less than43 bytes.
+/// This will return an error if buf is less than 43 bytes.
 pub fn cryptonight_hash_v1(buf: &[u8]) -> Result<[u8; 32], DataCanNotBeHashed> {
     if buf.len() < 43 {
         return Err(DataCanNotBeHashed);
