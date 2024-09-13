@@ -391,13 +391,15 @@ mod tests {
 
     #[test]
     fn test_variant2_shuffle_add() {
-        let test = |c1_hex: &str,
-                    a_hex: &str,
-                    b_hex: &str,
-                    offset: usize,
-                    variant: Variant,
-                    c1_hex_end: &str,
-                    long_state_end_hash: &str| {
+        fn test(
+            c1_hex: &str,
+            a_hex: &str,
+            b_hex: &str,
+            offset: usize,
+            variant: Variant,
+            c1_hex_end: &str,
+            long_state_end_hash: &str,
+        ) {
             let mut c1: [u8; AES_BLOCK_SIZE] = hex_to_array(c1_hex);
             let a: [u8; AES_BLOCK_SIZE] = hex_to_array(a_hex);
             let b: [u8; AES_BLOCK_SIZE * 2] = hex_to_array(b_hex);
@@ -412,7 +414,8 @@ mod tests {
             assert_eq!(hex::encode(c1), c1_hex_end);
             let hash = Groestl256::digest(long_state.as_slice());
             assert_eq!(hex::encode(hash), long_state_end_hash);
-        };
+        }
+
         test(
             "d7143e3b6ffdeae4b2ceea30e9889c8a",
             "875fa34de3af48f15638bad52581ef4c",
