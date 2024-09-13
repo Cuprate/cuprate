@@ -210,9 +210,9 @@ pub(crate) fn random_math_init(
             //      2xADD(a, b, C) = ADD(a,b*2, C1+C2),
             // Same for SUB and rotations:
             //      2xXOR(a, b) = NOP
-            if (opcode != Mul)
-                && ((inst_data[a] & 0xFFFF00)
-                    == ((opcode as usize) << 8) + ((inst_data[b] & 255) << 16))
+            if opcode != Mul
+                && inst_data[a] & 0xFFFF00
+                    == ((opcode as usize) << 8) + ((inst_data[b] & 255) << 16)
             {
                 continue;
             }
