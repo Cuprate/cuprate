@@ -600,6 +600,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuprate-constants"
+version = "0.0.0"
+
+[[package]]
 name = "cuprate-cryptonight"
 version = "0.1.0"
 dependencies = [
