@@ -73,9 +73,11 @@ pub(crate) fn variant2_shuffle_add(
     }
 }
 
-#[expect(clippy::cast_sign_loss)]
-#[expect(clippy::cast_precision_loss)]
-#[expect(clippy::cast_possible_truncation)]
+#[expect(
+    clippy::cast_sign_loss,
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation
+)]
 pub(crate) fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
     // Get an approximation using floating point math
     let mut sqrt_result =
