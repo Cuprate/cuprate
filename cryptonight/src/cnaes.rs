@@ -403,11 +403,12 @@ mod tests {
 
     #[test]
     fn test_key_schedule() {
-        let test = |key_hex: &str, expected_out: &str| {
+        fn test(key_hex: &str, expected_out: &str) {
             let key = hex_to_array(key_hex);
             let expanded_key = key_extend(&key);
             assert_eq!(expected_out, hex::encode(expanded_key));
-        };
+        }
+
         test(
             "ac156e17cdabc0b92e3e724a06ef21e5317eb71fbc7f1587403b30ae6962a21a",
             "ac156e17cdabc0b92e3e724a06ef21e5317eb71fbc7f1587403b30ae6962a21a072fcceeca840c57e4ba7e1de2555ff8a982785e15fd6dd955c65d773ca4ff6d4c39f00586bdfc526207824f8052ddb76482b9f7717fd42e24b98959181d7634ec01e8a86abc14fa08bb96b588e94b02a09c0a80d1e3deaef55a57f7ed4721c344fcc6fd2e40d20726fb44b2ae120fb044557c6795b6a2c960ecf53e8dabd4fd",
