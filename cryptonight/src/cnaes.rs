@@ -2,19 +2,19 @@ use crate::util::{subarray, subarray_copy};
 
 pub(crate) const AES_BLOCK_SIZE: usize = 16;
 
-// 16 bytes just like all AES 128 and 256
+/// 16 bytes, the same as AES 128 and 256
 const ROUND_KEY_SIZE: usize = 16;
 
-// AES-128 uses 11 round keys and AES-256 uses 15 round keys. Cryptonight's
-// version of AES uses one less round key than AES-128 (even though they both
-// perform 10 rounds), because Cryptonight uses the first (0th) round in the
-// first round, while AES mixes the first round key into the state.
+/// AES-128 uses 11 round keys and AES-256 uses 15 round keys. Cryptonight's
+/// version of AES uses one less round key than AES-128 (even though they both
+/// perform 10 rounds), because Cryptonight uses the first (0th) round in the
+/// first round, while AES mixes the first round key into the state.
 const NUM_AES_ROUND_KEYS: usize = 10;
 
 const EXPANDED_KEY_SIZE: usize = NUM_AES_ROUND_KEYS * ROUND_KEY_SIZE;
 
-// Cryptonight's hash uses the key size of AES256, but it only does 10 AES
-// rounds like AES128.
+/// Cryptonight's hash uses the key size of AES256, but it only does 10 AES
+/// rounds like AES128.
 pub(crate) const CN_AES_KEY_SIZE: usize = 32;
 
 #[rustfmt::skip]
@@ -37,10 +37,10 @@ const AES_SBOX: [[u8; 16]; 16] = [
     [0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16]
 ];
 
-// Cryptonight extends the AES S-Box to 4096 bytes using a complicated system of
-// nested macros:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/aesb.c#L64-L142
-// The table below is what those macros produce.
+/// Cryptonight extends the AES S-Box to 4096 bytes using a complicated system of
+/// nested macros:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/aesb.c#L64-L142>
+/// The table below is what those macros produce.
 #[rustfmt::skip]
 const CRYPTONIGHT_SBOX: [u8; 4096] = [
     0xc6, 0x63, 0x63, 0xa5, 0xf8, 0x7c, 0x7c, 0x84, 0xee, 0x77, 0x77, 0x99, 0xf6, 0x7b, 0x7b, 0x8d,

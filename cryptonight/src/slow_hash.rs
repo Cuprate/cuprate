@@ -28,8 +28,8 @@ pub(crate) enum Variant {
     R,
 }
 
-// Equivalent struct in the C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L469-L477
+/// Equivalent struct in the C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L469-L477>
 struct CnSlowHashState {
     b: [u8; KECCAK1600_BYTE_SIZE],
 }
@@ -76,8 +76,8 @@ impl CnSlowHashState {
     }
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/hash.c#L38-L47
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/hash.c#L38-L47>
 fn hash_permutation(b: &mut [u8; KECCAK1600_BYTE_SIZE]) {
     let mut state = [0_u64; 25];
 
@@ -109,16 +109,16 @@ fn xor64(left: &mut [u8; 8], right: [u8; 8]) {
     }
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1709C1-L1709C27
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1709C1-L1709C27>
 const fn e2i(a: [u8; 8]) -> usize {
     let value = u64::from_le_bytes(a) / AES_BLOCK_SIZE as u64;
     const MASK: u64 = ((MEMORY / AES_BLOCK_SIZE) - 1) as u64;
     (value & MASK) as usize
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1711-L1720
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1711-L1720>
 #[expect(clippy::cast_possible_truncation)]
 fn mul(a: [u8; 8], b: [u8; 8]) -> [u8; AES_BLOCK_SIZE] {
     let a0 = u128::from(u64::from_le_bytes(a));
@@ -134,8 +134,8 @@ fn mul(a: [u8; 8], b: [u8; 8]) -> [u8; AES_BLOCK_SIZE] {
     res
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1722-L1733
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1722-L1733>
 fn sum_half_blocks(a: &mut [u8; 16], b: &[u8; 16]) {
     let a0 = u64::from_le_bytes(subarray_copy(a, 0));
     let b0 = u64::from_le_bytes(subarray_copy(b, 0));
@@ -166,8 +166,8 @@ fn xor_blocks(a: &mut [u8; AES_BLOCK_SIZE], b: &[u8; AES_BLOCK_SIZE]) {
     }
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L144-L151
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L144-L151>
 fn variant1_init(state: &CnSlowHashState, data: &[u8], variant: Variant) -> [u8; 8] {
     const NONCE_PTR_INDEX: usize = 35;
 
@@ -183,8 +183,8 @@ fn variant1_init(state: &CnSlowHashState, data: &[u8], variant: Variant) -> [u8;
     tweak1_2
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L120-L127
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L120-L127>
 fn variant1_1(p11: &mut u8, variant: Variant) {
     if variant == Variant::V1 {
         let tmp = *p11;
@@ -194,16 +194,16 @@ fn variant1_1(p11: &mut u8, variant: Variant) {
     }
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L129C1-L133C13
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L129C1-L133C13>
 fn variant1_2(c2: &mut [u8; 16], tweak1_2: [u8; 8], variant: Variant) {
     if variant == Variant::V1 {
         xor64(subarray_mut(c2, 8), tweak1_2);
     }
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L171-L181
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L171-L181>
 fn variant_2_init(
     b: &mut [u8; AES_BLOCK_SIZE * 2],
     state: &CnSlowHashState,
@@ -230,8 +230,8 @@ fn variant_2_init(
     (division_result, sqrt_result)
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L295-L299
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L295-L299>
 fn variant_2_2(
     long_state: &mut [u8; MEMORY],
     j: usize,
@@ -246,10 +246,10 @@ fn variant_2_2(
     }
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L319-L334
-// The compiler would inline this code even without the #[inline] attribute, but we'd like
-// to avoid coping `r` and `code` between stack addresses.
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L319-L334>
+/// The compiler would inline this code even without the #[inline] attribute, but we'd like
+/// to avoid coping `r` and `code` between stack addresses.
 #[inline]
 fn variant4_math_init(
     height: u64,
@@ -281,8 +281,8 @@ fn extra_hashes(input: &[u8; KECCAK1600_BYTE_SIZE]) -> [u8; 32] {
     }
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1776-L1873
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L1776-L1873>
 pub(crate) fn cn_slow_hash(data: &[u8], variant: Variant, height: u64) -> [u8; 32] {
     let mut state = CnSlowHashState::default();
     keccak1600(data, state.get_keccak_bytes_mut());

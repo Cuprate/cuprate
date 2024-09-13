@@ -28,14 +28,12 @@ pub(crate) enum InstructionList {
 
 const INSTRUCTION_COUNT: usize = Ret as usize;
 
-// These instruction bit constants are used to generate code from random data.
-// Every random sequence of bytes is a valid code.
-//
-// There are 9 registers in total:
-// - 4 variable registers
-// - 5 constant registers initialized from loop variables
-// This is why dst_index is 2 bits
-
+/// INSTRUCTION_* constants are used to generate code from random data.
+/// Every random sequence of bytes is a valid code.
+///
+/// There are 9 registers in total:
+/// - 4 variable registers
+/// - 5 constant registers initialized from loop variables
 const INSTRUCTION_OPCODE_BITS: usize = 3;
 const INSTRUCTION_DST_INDEX_BITS: usize = 2;
 const INSTRUCTION_SRC_INDEX_BITS: usize = 3;
@@ -48,9 +46,9 @@ pub(crate) struct Instruction {
     pub(crate) c: u32,
 }
 
-// If we don't have enough data available, generate more.
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L171-L178
+/// If we don't have enough data available, generate more.
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L171-L178>
 fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [u8]) {
     if *data_index + bytes_needed > data.len() {
         let output = Blake256::digest(&data);
@@ -59,12 +57,12 @@ fn check_data(data_index: &mut usize, bytes_needed: usize, data: &mut [u8]) {
     }
 }
 
-// Generates as many random math operations as possible with given latency and
-// ALU restrictions.
-//
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439
-//
+/// Generates as many random math operations as possible with given latency and
+/// ALU restrictions.
+///
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439>
+///
 #[expect(clippy::cast_sign_loss)]
 #[expect(clippy::cast_possible_wrap)]
 #[expect(clippy::cast_possible_truncation)]
@@ -354,8 +352,8 @@ pub(crate) fn random_math_init(
     code_size
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/variant4_random_math.h#L180-L439>
 pub(crate) fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
     const REG_BITS: u32 = 32;
 
@@ -406,10 +404,10 @@ pub(crate) fn v4_random_math(code: &[Instruction; 71], r: &mut [u32; 9]) {
     v4_exec_10!(60); // instructions 60-69
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L336-L370
-// To match the C code organization, this function would be in slow_hash.rs, but
-// the test code for it is so large, that it was moved here.
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L336-L370>
+/// To match the C code organization, this function would be in `slow_hash.rs`, but
+/// the test code for it is so large, that it was moved here.
 pub(crate) fn variant4_random_math(
     a1: &mut [u8; 16],
     c2: &mut [u8; 16],

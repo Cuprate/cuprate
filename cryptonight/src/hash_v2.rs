@@ -13,10 +13,10 @@ fn block_to_u64le(block: &[u8; AES_BLOCK_SIZE]) -> [u64; 2] {
     ]
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L217-L254
-// If we kept the C code organization, this function would be in slow_hash.rs, but it's
-// here in the rust code to keep the slow_hash.rs file size manageable.
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L217-L254>
+/// If we kept the C code organization, this function would be in `slow_hash.rs`, but it's
+/// here in the rust code to keep the `slow_hash.rs` file size manageable.
 pub(crate) fn variant2_shuffle_add(
     c1: &mut [u8; AES_BLOCK_SIZE],
     a: &[u8; AES_BLOCK_SIZE],
@@ -102,8 +102,8 @@ pub(crate) fn variant2_integer_math_sqrt(sqrt_input: u64) -> u64 {
     sqrt_result
 }
 
-// Original C code:
-// https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L277-L283
+/// Original C code:
+/// <https://github.com/monero-project/monero/blob/v0.18.3.4/src/crypto/slow-hash.c#L277-L283>
 pub(crate) fn variant2_integer_math(
     c2: &mut [u8; 8],
     c1: &[u8; AES_BLOCK_SIZE],
