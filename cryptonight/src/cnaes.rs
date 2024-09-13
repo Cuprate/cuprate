@@ -433,14 +433,14 @@ mod tests {
 
     #[test]
     fn test_aesb_pseudo_round() {
-        let test = |key_hex: &str, input_hex: &str, expected_out: &str| {
+        fn test(key_hex: &str, input_hex: &str, expected_out: &str) {
             let key: [u8; 32] = hex_to_array(key_hex);
             let extended_key = key_extend(&key);
             let mut block: [u8; 16] = hex_to_array(input_hex);
 
             aesb_pseudo_round(&mut block, &extended_key);
             assert_eq!(expected_out, hex::encode(block));
-        };
+        }
 
         test(
             "1d0b47a047340e32cbe890ca0d61720a09bcfb39e01b7541d1100d1ef91f955f",
