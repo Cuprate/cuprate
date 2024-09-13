@@ -194,7 +194,7 @@ pub(crate) fn random_math_init(
             let mut b = src_index as usize;
 
             // Don't do ADD/SUB/XOR with the same register
-            if ((opcode == Add) || (opcode == Sub) || (opcode == Xor)) && (a == b) {
+            if matches!(opcode, Add | Sub | Xor) && a == b {
                 b = 8;
                 src_index = 8;
             }
