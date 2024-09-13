@@ -43,10 +43,11 @@ mod tests {
 
     #[test]
     fn slow_hash_0() {
-        let test = |inp: &str, exp: &str| {
+        fn test(inp: &str, exp: &str) {
             let res = hex::encode(cryptonight_hash_v0(&hex::decode(inp).unwrap()));
             assert_eq!(&res, exp);
-        };
+        }
+
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow.txt
         test(
             "6465206f6d6e69627573206475626974616e64756d",
@@ -68,10 +69,11 @@ mod tests {
 
     #[test]
     fn slow_hash_1() {
-        let test = |inp: &str, exp: &str| {
+        fn test(inp: &str, exp: &str) {
             let res = hex::encode(cryptonight_hash_v1(&hex::decode(inp).unwrap()).unwrap());
             assert_eq!(&res, exp);
-        };
+        }
+
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow-1.txt
         test(
             "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -97,10 +99,11 @@ mod tests {
 
     #[test]
     fn slow_hash_2() {
-        let test = |inp: &str, exp: &str| {
+        fn test(inp: &str, exp: &str) {
             let res = hex::encode(cryptonight_hash_v2(&hex::decode(inp).unwrap()));
             assert_eq!(&res, exp);
-        };
+        }
+
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow-2.txt
         test(
             "5468697320697320612074657374205468697320697320612074657374205468697320697320612074657374",
@@ -146,10 +149,10 @@ mod tests {
 
     #[test]
     fn slow_hash_r() {
-        let test = |inp: &str, exp: &str, height: u64| {
+        fn test(inp: &str, exp: &str, height: u64) {
             let res = hex::encode(cryptonight_hash_r(&hex::decode(inp).unwrap(), height));
             assert_eq!(&res, exp);
-        };
+        }
 
         // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/tests/hash/tests-slow-4.txt
         test(
