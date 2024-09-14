@@ -1,4 +1,5 @@
 # This runs `cargo audit` on all dependencies (only if Cargo deps changed)
+# <https://github.com/RustSec/rustsec/tree/main/cargo-audit>
 
 name: Audit
 
@@ -28,7 +29,9 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: recursive
+
     - name: Install dependencies
       run: cargo install cargo-audit --locked
+
     - name: Audit
       run: cargo audit

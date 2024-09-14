@@ -81,7 +81,7 @@ pub struct TxRingMembersInfo {
 /// - The input amounts are *ALL* 0 (RCT)
 /// - The top block hash is the same as when this data was retrieved (the blockchain state is unchanged).
 ///
-/// <https://cuprate.github.io/monero-book/consensus_rules/transactions/decoys.html>
+/// <https://cuprate.github.io/monero-book/consensus_rules/transactions/inputs.html>
 #[derive(Debug, Copy, Clone)]
 pub struct DecoyInfo {
     /// The number of inputs that have enough outputs on the chain to mix with.

@@ -123,6 +123,9 @@ jobs:
         wget https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
         pacman -U --noconfirm mingw-w64-x86_64-gcc-13.2.0-6-any.pkg.tar.zst mingw-w64-x86_64-gcc-libs-13.2.0-6-any.pkg.tar.zst
 
+    - name: Install dependencies (All)
+      run: cargo install lychee
+
     - name: Documentation
       run: cargo doc --workspace --all-features --no-deps
 
@@ -134,6 +137,14 @@ jobs:
       run: |
         cargo test --all-features --workspace
         cargo test --package cuprate-blockchain --no-default-features --features redb --features service
+
+    # Run `lychee` at:
+    # 1. The repo root (excluding `target/`)
+    # 2. Cuprate's cargo documentation
+    - name: Lychee
+      run: |
+        lychee . --exclude target
+        lychee target/doc/cuprate_*
 
     # TODO: upload binaries with `actions/upload-artifact@v3`
     - name: Build
