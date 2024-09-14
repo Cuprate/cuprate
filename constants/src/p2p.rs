@@ -1,0 +1,76 @@
+//! TODO
+
+/// TODO
+pub const CRYPTONOTE_DNS_TIMEOUT_MS: u64 = 20000;
+
+/// TODO
+pub const DNS_BLOCKLIST_LIFETIME: u64 = 86400 * 8;
+
+/// TODO
+pub const P2P_LOCAL_WHITE_PEERLIST_LIMIT: u64 = 1000;
+
+/// TODO
+pub const P2P_LOCAL_GRAY_PEERLIST_LIMIT: u64 = 5000;
+
+/// TODO
+pub const P2P_DEFAULT_CONNECTIONS_COUNT: u64 = 12;
+
+/// TODO
+pub const P2P_DEFAULT_HANDSHAKE_INTERVAL: u64 = 60; //secondes
+
+/// TODO
+pub const P2P_DEFAULT_PACKET_MAX_SIZE: u64 = 50000000; //50000000 bytes maximum packet size
+
+/// TODO
+pub const P2P_DEFAULT_PEERS_IN_HANDSHAKE: u64 = 250;
+
+/// TODO
+pub const P2P_MAX_PEERS_IN_HANDSHAKE: u64 = 250;
+
+/// TODO
+pub const P2P_DEFAULT_CONNECTION_TIMEOUT: u64 = 5000; //5 seconds
+
+/// TODO
+pub const P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT: u64 = 45; // seconds
+
+/// TODO
+pub const P2P_DEFAULT_PING_CONNECTION_TIMEOUT: u64 = 2000; //2 seconds
+
+/// TODO
+pub const P2P_DEFAULT_INVOKE_TIMEOUT: u64 = 60 * 2 * 1000; //2 minutes
+
+/// TODO
+pub const P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT: u64 = 5000; //5 seconds
+
+/// TODO
+pub const P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT: u64 = 70;
+
+/// TODO
+pub const P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT: u64 = 2;
+
+/// TODO
+pub const P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT: u64 = 2;
+
+/// TODO
+pub const P2P_DEFAULT_LIMIT_RATE_UP: u64 = 2048; // kB/s
+
+/// TODO
+pub const P2P_DEFAULT_LIMIT_RATE_DOWN: u64 = 8192; // kB/s
+
+/// TODO
+pub const P2P_FAILED_ADDR_FORGET_SECONDS: u64 = 60 * 60; //1 hour
+
+/// TODO
+pub const P2P_IP_BLOCKTIME: u64 = 60 * 60 * 24; //24 hour
+
+/// TODO
+pub const P2P_IP_FAILS_BEFORE_BLOCK: u64 = 10;
+
+/// TODO
+pub const P2P_IDLE_CONNECTION_KILL_INTERVAL: u64 = 5 * 60; //5 minutes
+
+/// TODO
+pub const P2P_SUPPORT_FLAG_FLUFFY_BLOCKS: u64 = 0x01;
+
+/// TODO
+pub const P2P_SUPPORT_FLAGS: u64 = P2P_SUPPORT_FLAG_FLUFFY_BLOCKS;

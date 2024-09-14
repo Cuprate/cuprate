@@ -1,0 +1,7 @@
+//! TODO
+
+/// TODO
+pub const CRYPTONOTE_DNS_TIMEOUT_MS: u64 = 20000;
+
+/// TODO
+pub const DNS_BLOCKLIST_LIFETIME: u64 = 86400 * 8;

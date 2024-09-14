@@ -11,9 +11,6 @@ pub mod atomic;
 #[cfg(feature = "cast")]
 pub mod cast;
 
-#[cfg(feature = "constants")]
-pub mod constants;
-
 #[cfg(feature = "fs")]
 pub mod fs;
 

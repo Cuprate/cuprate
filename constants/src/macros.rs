@@ -6,7 +6,8 @@ macro_rules! monero_definition_link {
         $start:literal$(..=$end:literal)? // File lines, e.g. `0..=123` or `0`
     ) => {
         concat!(
-            "[Definition](https://github.com/monero-project/monero/blob/",
+            "",
+            "[Original definition](https://github.com/monero-project/monero/blob/",
             stringify!($commit),
             "/src/",
             $file_path,

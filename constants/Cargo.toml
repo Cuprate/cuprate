@@ -10,7 +10,6 @@ keywords    = ["cuprate", "constants"]
 
 [features]
 default    = []
-cryptonote = []
 
 [dependencies]
 
