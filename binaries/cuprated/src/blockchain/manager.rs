@@ -1,4 +1,5 @@
 mod handler;
+pub(super) mod commands;
 
 use crate::blockchain::types::ConsensusBlockchainReadHandle;
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
@@ -9,21 +10,20 @@ use cuprate_consensus::{
     VerifyBlockResponse, VerifyTxRequest, VerifyTxResponse,
 };
 use cuprate_p2p::block_downloader::BlockBatch;
+use cuprate_p2p::BroadcastSvc;
+use cuprate_p2p_core::ClearNet;
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_types::{Chain, TransactionVerificationData};
 use futures::StreamExt;
 use monero_serai::block::Block;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::{oneshot, Notify};
 use tower::{Service, ServiceExt};
 use tracing::error;
-
-pub struct IncomingBlock {
-    pub block: Block,
-    pub prepped_txs: HashMap<[u8; 32], TransactionVerificationData>,
-    pub response_tx: oneshot::Sender<Result<bool, anyhow::Error>>,
-}
+use tracing_subscriber::fmt::time::FormatTime;
+use crate::blockchain::manager::commands::BlockchainManagerCommand;
 
 pub struct BlockchainManager {
     blockchain_write_handle: BlockchainWriteHandle,
@@ -35,7 +35,8 @@ pub struct BlockchainManager {
         TxVerifierService<ConsensusBlockchainReadHandle>,
         ConsensusBlockchainReadHandle,
     >,
-    stop_current_block_downloader: Notify,
+    stop_current_block_downloader: Arc<Notify>,
+    broadcast_svc: BroadcastSvc<ClearNet>,
 }
 
 impl BlockchainManager {
@@ -48,6 +49,8 @@ impl BlockchainManager {
             TxVerifierService<ConsensusBlockchainReadHandle>,
             ConsensusBlockchainReadHandle,
         >,
+        stop_current_block_downloader: Arc<Notify>,
+        broadcast_svc: BroadcastSvc<ClearNet>,
     ) -> Self {
         let BlockChainContextResponse::Context(blockchain_context) = blockchain_context_service
             .ready()
@@ -66,13 +69,15 @@ impl BlockchainManager {
             blockchain_context_service,
             cached_blockchain_context: blockchain_context.unchecked_blockchain_context().clone(),
             block_verifier_service,
+            stop_current_block_downloader,
+            broadcast_svc,
         }
     }
 
     pub async fn run(
         mut self,
         mut block_batch_rx: mpsc::Receiver<BlockBatch>,
-        mut block_single_rx: mpsc::Receiver<IncomingBlock>,
+        mut command_rx: mpsc::Receiver<BlockchainManagerCommand>,
     ) {
         loop {
             tokio::select! {
@@ -81,15 +86,8 @@ impl BlockchainManager {
                         batch,
                     ).await;
                 }
-                Some(incoming_block) = block_single_rx.recv() => {
-                    let IncomingBlock {
-                        block,
-                        prepped_txs,
-                        response_tx
-                    } = incoming_block;
-
-                    let res = self.handle_incoming_block(block, prepped_txs).await;
-                    let _ = response_tx.send(res);
+                Some(incoming_command) = command_rx.recv() => {
+                    self.handle_command(incoming_command).await;
                 }
                 else => {
                     todo!("TODO: exit the BC manager")

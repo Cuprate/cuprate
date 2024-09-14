@@ -1,4 +1,3 @@
-use crate::blockchain::manager::IncomingBlock;
 use cuprate_blockchain::service::BlockchainReadHandle;
 use cuprate_consensus::transactions::new_tx_verification_data;
 use cuprate_helper::cast::usize_to_u64;
@@ -11,10 +10,11 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
+use crate::blockchain::manager::commands::BlockchainManagerCommand;
 
-static INCOMING_BLOCK_TX: OnceLock<mpsc::Sender<IncomingBlock>> = OnceLock::new();
+pub static INCOMING_BLOCK_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
 
-#[derive(thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum IncomingBlockError {
     #[error("Unknown transactions in block.")]
     UnknownTransactions(Vec<u64>),
@@ -28,8 +28,8 @@ pub async fn handle_incoming_block(
     block: Block,
     given_txs: Vec<Transaction>,
     blockchain_read_handle: &mut BlockchainReadHandle,
-) -> Result<(), IncomingBlockError> {
-    if !block_exists(block.header.previous, blockchain_read_handle).expect("TODO") {
+) -> Result<bool, IncomingBlockError> {
+    if !block_exists(block.header.previous, blockchain_read_handle).await.expect("TODO") {
         return Err(IncomingBlockError::Orphan);
     }
 
@@ -39,7 +39,14 @@ pub async fn handle_incoming_block(
         .await
         .expect("TODO")
     {
-        return Ok(());
+        return Ok(false);
+    }
+
+    // TODO: Get transactions from the tx pool first.
+    if given_txs.len() != block.transactions.len() {
+        return Err(IncomingBlockError::UnknownTransactions(
+            (0..usize_to_u64(block.transactions.len())).collect(),
+        ));
     }
 
     let prepped_txs = given_txs
@@ -51,21 +58,14 @@ pub async fn handle_incoming_block(
         .collect::<Result<_, anyhow::Error>>()
         .map_err(IncomingBlockError::InvalidBlock)?;
 
-    // TODO: Get transactions from the tx pool first.
-    if given_txs.len() != block.transactions.len() {
-        return Err(IncomingBlockError::UnknownTransactions(
-            (0..usize_to_u64(block.transactions.len())).collect(),
-        ));
-    }
-
     let Some(incoming_block_tx) = INCOMING_BLOCK_TX.get() else {
-        return Ok(());
+        return Ok(false);
     };
 
     let (response_tx, response_rx) = oneshot::channel();
 
     incoming_block_tx
-        .send(IncomingBlock {
+        .send(  BlockchainManagerCommand::AddBlock {
             block,
             prepped_txs,
             response_tx,
@@ -73,7 +73,7 @@ pub async fn handle_incoming_block(
         .await
         .expect("TODO: don't actually panic here");
 
-    response_rx.await.map_err(IncomingBlockError::InvalidBlock)
+    response_rx.await.unwrap().map_err(IncomingBlockError::InvalidBlock)
 }
 
 async fn block_exists(

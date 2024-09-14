@@ -1,8 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
-
+use bytes::Bytes;
 use futures::{TryFutureExt, TryStreamExt};
 use monero_serai::{block::Block, transaction::Transaction};
 use rayon::prelude::*;
+use std::{collections::HashMap, sync::Arc};
 use tower::{Service, ServiceExt};
 use tracing::info;
 
@@ -13,15 +13,45 @@ use cuprate_consensus::{
     ExtendedConsensusError, VerifyBlockRequest, VerifyBlockResponse, VerifyTxRequest,
     VerifyTxResponse,
 };
-use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN};
+use cuprate_helper::cast::usize_to_u64;
+use cuprate_p2p::{block_downloader::BlockBatch, constants::LONG_BAN, BroadcastRequest};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
     AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
 use crate::{blockchain::types::ConsensusBlockchainReadHandle, signals::REORG_LOCK};
+use crate::blockchain::manager::commands::BlockchainManagerCommand;
 
 impl super::BlockchainManager {
+    pub async fn handle_command(&mut self, command: BlockchainManagerCommand) {
+        match command {
+            BlockchainManagerCommand::AddBlock {
+                block,
+                prepped_txs,
+                response_tx
+            } => {
+                let res = self.handle_incoming_block(block, prepped_txs).await;
+
+                drop(response_tx.send(res));
+            }
+            BlockchainManagerCommand::PopBlocks => todo!()
+        }
+    }
+
+    async fn broadcast_block(&mut self, block_bytes: Bytes, blockchain_height: usize) {
+        self.broadcast_svc
+            .ready()
+            .await
+            .expect("TODO")
+            .call(BroadcastRequest::Block {
+                block_bytes,
+                current_blockchain_height: usize_to_u64(blockchain_height),
+            })
+            .await
+            .expect("TODO");
+    }
+
     /// Handle an incoming [`Block`].
     ///
     /// This function will route to [`Self::handle_incoming_alt_block`] if the block does not follow
@@ -56,7 +86,11 @@ impl super::BlockchainManager {
             panic!("Incorrect response!");
         };
 
+        let block_blob = Bytes::copy_from_slice(&verified_block.block_blob);
         self.add_valid_block_to_main_chain(verified_block).await;
+
+        self.broadcast_block(block_blob, self.cached_blockchain_context.chain_height)
+            .await;
 
         Ok(true)
     }
@@ -101,11 +135,6 @@ impl super::BlockchainManager {
             batch.blocks.first().unwrap().0.number().unwrap()
         );
 
-        let ban_cancel_download = || {
-            batch.peer_handle.ban_peer(LONG_BAN);
-            self.stop_current_block_downloader.notify_one();
-        };
-
         let batch_prep_res = self
             .block_verifier_service
             .ready()
@@ -119,7 +148,8 @@ impl super::BlockchainManager {
         let prepped_blocks = match batch_prep_res {
             Ok(VerifyBlockResponse::MainChainBatchPrepped(prepped_blocks)) => prepped_blocks,
             Err(_) => {
-                ban_cancel_download();
+                batch.peer_handle.ban_peer(LONG_BAN);
+                self.stop_current_block_downloader.notify_one();
                 return;
             }
             _ => panic!("Incorrect response!"),
@@ -134,10 +164,11 @@ impl super::BlockchainManager {
                 .call(VerifyBlockRequest::MainChainPrepped { block, txs })
                 .await;
 
-            let VerifyBlockResponse::MainChain(verified_block) = match verify_res {
+            let verified_block = match verify_res {
                 Ok(VerifyBlockResponse::MainChain(verified_block)) => verified_block,
                 Err(_) => {
-                    ban_cancel_download();
+                    batch.peer_handle.ban_peer(LONG_BAN);
+                    self.stop_current_block_downloader.notify_one();
                     return;
                 }
                 _ => panic!("Incorrect response!"),
@@ -145,8 +176,6 @@ impl super::BlockchainManager {
 
             self.add_valid_block_to_main_chain(verified_block).await;
         }
-
-        Ok(())
     }
 
     /// Handles an incoming [`BlockBatch`] that does not follow the main-chain.
@@ -175,7 +204,7 @@ impl super::BlockchainManager {
 
                 self.handle_incoming_alt_block(block, txs).await?;
 
-                Ok(())
+                Ok::<_, anyhow::Error>(())
             }
             .await;
 

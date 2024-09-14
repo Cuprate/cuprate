@@ -1,4 +1,5 @@
 use std::pin::pin;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::StreamExt;
@@ -31,7 +32,7 @@ pub async fn syncer<C, CN>(
     our_chain: CN,
     clearnet_interface: NetworkInterface<ClearNet>,
     incoming_block_batch_tx: mpsc::Sender<BlockBatch>,
-    stop_current_block_downloader: Notify,
+    stop_current_block_downloader: Arc<Notify>,
     block_downloader_config: BlockDownloaderConfig,
 ) -> Result<(), SyncerError>
 where

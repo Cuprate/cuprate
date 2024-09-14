@@ -3,7 +3,8 @@
 //! Will contain the chain manager and syncer.
 
 use futures::FutureExt;
-use tokio::sync::mpsc;
+use std::sync::Arc;
+use tokio::sync::{mpsc, Notify};
 use tower::{Service, ServiceExt};
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
@@ -26,6 +27,7 @@ use types::{
     ChainService, ConcreteBlockVerifierService, ConcreteTxVerifierService,
     ConsensusBlockchainReadHandle,
 };
+use crate::blockchain::free::INCOMING_BLOCK_TX;
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(
@@ -107,12 +109,17 @@ pub async fn init_blockchain_manager(
     block_downloader_config: BlockDownloaderConfig,
 ) {
     let (batch_tx, batch_rx) = mpsc::channel(1);
+    let stop_current_block_downloader = Arc::new(Notify::new());
+    let (command_tx, command_rx) = mpsc::channel(1);
+
+    INCOMING_BLOCK_TX.set(command_tx).unwrap();
 
     tokio::spawn(syncer::syncer(
         blockchain_context_service.clone(),
         ChainService(blockchain_read_handle.clone()),
-        clearnet_interface,
+        clearnet_interface.clone(),
         batch_tx,
+        stop_current_block_downloader.clone(),
         block_downloader_config,
     ));
 
@@ -121,8 +128,10 @@ pub async fn init_blockchain_manager(
         blockchain_read_handle,
         blockchain_context_service,
         block_verifier_service,
+        stop_current_block_downloader,
+        clearnet_interface.broadcast_svc(),
     )
     .await;
 
-    tokio::spawn(manager.run(batch_rx));
+    tokio::spawn(manager.run(batch_rx, command_rx));
 }
