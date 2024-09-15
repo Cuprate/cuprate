@@ -9,7 +9,7 @@ use cuprate_database::{
 };
 use cuprate_helper::{
     map::{combine_low_high_bits_to_u128, split_u128_into_low_high_bits},
-    tx_utils::tx_fee,
+    tx::tx_fee,
 };
 use cuprate_types::{
     AltBlockInformation, ChainId, ExtendedBlockHeader, HardFork, VerifiedBlockInformation,
@@ -156,7 +156,11 @@ pub fn pop_block(
     let block = Block::read(&mut block_blob.as_slice())?;
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    let mut txs = Vec::with_capacity(block.transactions.len());
+    let mut txs = if move_to_alt_chain.is_some() {
+        Vec::with_capacity(block.transactions.len())
+    } else {
+        Vec::new()
+    };
 
     remove_tx(&block.miner_transaction.hash(), tables)?;
     for tx_hash in &block.transactions {

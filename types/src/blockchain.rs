@@ -2,7 +2,6 @@
 //!
 //! Tests that assert particular requests lead to particular
 //! responses are also tested in Cuprate's blockchain database crate.
-//!
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
@@ -114,10 +113,12 @@ pub enum BlockchainWriteRequest {
     ///
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
+
     /// Write an alternative block to the database,
     ///
     /// Input is the alternative block.
     WriteAltBlock(AltBlockInformation),
+
     /// A request to pop some blocks from the top of the main chain
     ///
     /// Input is the amount of blocks to pop.
@@ -125,6 +126,7 @@ pub enum BlockchainWriteRequest {
     /// This request flushes all alt-chains from the cache before adding the popped blocks to the
     /// alt cache.
     PopBlocks(usize),
+
     /// A request to reverse the re-org process.
     ///
     /// The inner value is the [`ChainId`] of the old main chain.
@@ -132,6 +134,7 @@ pub enum BlockchainWriteRequest {
     /// # Invariant
     /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::PopBlocks`].
     ReverseReorg(ChainId),
+
     /// A request to flush all alternative blocks.
     FlushAltBlocks,
 }

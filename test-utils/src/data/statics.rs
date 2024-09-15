@@ -11,7 +11,7 @@ use std::sync::LazyLock;
 use hex_literal::hex;
 use monero_serai::{block::Block, transaction::Transaction};
 
-use cuprate_helper::{map::combine_low_high_bits_to_u128, tx_utils::tx_fee};
+use cuprate_helper::{map::combine_low_high_bits_to_u128, tx::tx_fee};
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::data::constants::{

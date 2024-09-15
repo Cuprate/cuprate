@@ -8,7 +8,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::task::spawn_blocking;
 
-use cuprate_helper::tx_utils::tx_fee;
+use cuprate_helper::tx::tx_fee;
 use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 //---------------------------------------------------------------------------------------------------- Constants
