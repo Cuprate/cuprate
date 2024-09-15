@@ -64,13 +64,13 @@ pub async fn handle_incoming_block(
         .collect::<Result<_, anyhow::Error>>()
         .map_err(IncomingBlockError::InvalidBlock)?;
 
-    if !BLOCKS_BEING_HANDLED.get_or_init(|| Mutex::new(HashSet::new())).lock().unwrap().insert(block_hash) {
-        return Ok(false);
-    }
-
     let Some(incoming_block_tx) = INCOMING_BLOCK_TX.get() else {
         return Ok(false);
     };
+
+    if !BLOCKS_BEING_HANDLED.get_or_init(|| Mutex::new(HashSet::new())).lock().unwrap().insert(block_hash) {
+        return Ok(false);
+    }
 
     let (response_tx, response_rx) = oneshot::channel();
 

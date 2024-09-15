@@ -35,7 +35,6 @@ impl super::BlockchainManager {
 
                 drop(response_tx.send(res));
             }
-            BlockchainManagerCommand::PopBlocks => todo!(),
         }
     }
 

@@ -11,6 +11,4 @@ pub enum BlockchainManagerCommand {
         prepped_txs: HashMap<[u8; 32], TransactionVerificationData>,
         response_tx: oneshot::Sender<Result<bool, anyhow::Error>>,
     },
-
-    PopBlocks,
 }
