@@ -20,8 +20,8 @@ use cuprate_types::{
     AltBlockInformation, HardFork, TransactionVerificationData, VerifiedBlockInformation,
 };
 
-use crate::{blockchain::types::ConsensusBlockchainReadHandle, signals::REORG_LOCK};
 use crate::blockchain::manager::commands::BlockchainManagerCommand;
+use crate::{blockchain::types::ConsensusBlockchainReadHandle, signals::REORG_LOCK};
 
 impl super::BlockchainManager {
     pub async fn handle_command(&mut self, command: BlockchainManagerCommand) {
@@ -29,13 +29,13 @@ impl super::BlockchainManager {
             BlockchainManagerCommand::AddBlock {
                 block,
                 prepped_txs,
-                response_tx
+                response_tx,
             } => {
                 let res = self.handle_incoming_block(block, prepped_txs).await;
 
                 drop(response_tx.send(res));
             }
-            BlockchainManagerCommand::PopBlocks => todo!()
+            BlockchainManagerCommand::PopBlocks => todo!(),
         }
     }
 

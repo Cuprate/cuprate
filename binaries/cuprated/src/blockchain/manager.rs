@@ -1,6 +1,7 @@
-mod handler;
 pub(super) mod commands;
+mod handler;
 
+use crate::blockchain::manager::commands::BlockchainManagerCommand;
 use crate::blockchain::types::ConsensusBlockchainReadHandle;
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_consensus::context::RawBlockChainContext;
@@ -23,7 +24,6 @@ use tokio::sync::{oneshot, Notify};
 use tower::{Service, ServiceExt};
 use tracing::error;
 use tracing_subscriber::fmt::time::FormatTime;
-use crate::blockchain::manager::commands::BlockchainManagerCommand;
 
 pub struct BlockchainManager {
     blockchain_write_handle: BlockchainWriteHandle,

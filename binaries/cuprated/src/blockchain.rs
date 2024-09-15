@@ -22,12 +22,14 @@ mod manager;
 mod syncer;
 mod types;
 
+use crate::blockchain::free::INCOMING_BLOCK_TX;
 use manager::BlockchainManager;
 use types::{
     ChainService, ConcreteBlockVerifierService, ConcreteTxVerifierService,
     ConsensusBlockchainReadHandle,
 };
-use crate::blockchain::free::INCOMING_BLOCK_TX;
+
+pub use free::{handle_incoming_block, IncomingBlockError};
 
 /// Checks if the genesis block is in the blockchain and adds it if not.
 pub async fn check_add_genesis(

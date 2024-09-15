@@ -14,4 +14,3 @@ pub enum BlockchainManagerCommand {
 
     PopBlocks,
 }
-
