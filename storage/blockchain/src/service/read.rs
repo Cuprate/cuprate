@@ -268,12 +268,14 @@ fn find_block(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
 
     let table_alt_block_heights = env_inner.open_db_ro::<AltBlockHeights>(&tx_ro)?;
 
-    let height = table_alt_block_heights.get(&block_hash)?;
-
-    Ok(BlockchainResponse::FindBlock(Some((
-        Chain::Alt(height.chain_id.into()),
-        height.height,
-    ))))
+    match table_alt_block_heights.get(&block_hash) {
+        Ok(height) => Ok(BlockchainResponse::FindBlock(Some((
+            Chain::Alt(height.chain_id.into()),
+            height.height,
+        )))),
+        Err(RuntimeError::KeyNotFound) => Ok(BlockchainResponse::FindBlock(None)),
+        Err(e) => return Err(e),
+    }
 }
 
 /// [`BlockchainReadRequest::FilterUnknownHashes`].

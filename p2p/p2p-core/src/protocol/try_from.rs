@@ -75,7 +75,9 @@ impl TryFrom<ProtocolResponse> for ProtocolMessage {
             ProtocolResponse::NewFluffyBlock(val) => ProtocolMessage::NewFluffyBlock(val),
             ProtocolResponse::GetChain(val) => ProtocolMessage::ChainEntryResponse(val),
             ProtocolResponse::GetObjects(val) => ProtocolMessage::GetObjectsResponse(val),
-            ProtocolResponse::FluffyMissingTxs(val) => ProtocolMessage::FluffyMissingTransactionsRequest(val),
+            ProtocolResponse::FluffyMissingTxs(val) => {
+                ProtocolMessage::FluffyMissingTransactionsRequest(val)
+            }
             ProtocolResponse::NA => return Err(MessageConversionError),
         })
     }

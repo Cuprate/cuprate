@@ -19,7 +19,10 @@ use cuprate_helper::map::split_u128_into_low_high_bits;
 use cuprate_p2p::constants::{MAX_BLOCKCHAIN_SUPPLEMENT_LEN, MAX_BLOCK_BATCH_LEN};
 use cuprate_types::blockchain::{BlockchainReadRequest, BlockchainResponse};
 use cuprate_types::BlockCompleteEntry;
-use cuprate_wire::protocol::{ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest, GetObjectsResponse, NewFluffyBlock};
+use cuprate_wire::protocol::{
+    ChainRequest, ChainResponse, FluffyMissingTransactionsRequest, GetObjectsRequest,
+    GetObjectsResponse, NewFluffyBlock,
+};
 
 #[derive(Clone)]
 pub struct P2pProtocolRequestHandler {
@@ -46,7 +49,9 @@ impl Service<ProtocolRequest> for P2pProtocolRequestHandler {
             ProtocolRequest::FluffyMissingTxs(_) => async { Ok(ProtocolResponse::NA) }.boxed(),
             ProtocolRequest::GetTxPoolCompliment(_) => async { Ok(ProtocolResponse::NA) }.boxed(),
             ProtocolRequest::NewBlock(_) => async { Ok(ProtocolResponse::NA) }.boxed(),
-            ProtocolRequest::NewFluffyBlock(block) => new_fluffy_block(self.blockchain_read_handle.clone(), block).boxed(),
+            ProtocolRequest::NewFluffyBlock(block) => {
+                new_fluffy_block(self.blockchain_read_handle.clone(), block).boxed()
+            }
             ProtocolRequest::NewTransactions(_) => async { Ok(ProtocolResponse::NA) }.boxed(),
         }
     }
@@ -158,14 +163,16 @@ async fn new_fluffy_block(
     .await?;
 
     let res = handle_incoming_block(block, txs, &mut blockchain_read_handle).await;
-    
-    match res { 
+
+    match res {
         Err(IncomingBlockError::UnknownTransactions(block_hash, tx_indexes)) => {
-            return Ok(ProtocolResponse::FluffyMissingTxs(FluffyMissingTransactionsRequest{
-                block_hash: ByteArray::from(block_hash),
-                current_blockchain_height: peer_blockchain_height,
-                missing_tx_indices: tx_indexes,
-            }))
+            return Ok(ProtocolResponse::FluffyMissingTxs(
+                FluffyMissingTransactionsRequest {
+                    block_hash: ByteArray::from(block_hash),
+                    current_blockchain_height: peer_blockchain_height,
+                    missing_tx_indices: tx_indexes,
+                },
+            ))
         }
         Err(IncomingBlockError::InvalidBlock(e)) => Err(e)?,
         Err(IncomingBlockError::Orphan) | Ok(_) => Ok(ProtocolResponse::NA),

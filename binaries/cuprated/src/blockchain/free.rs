@@ -7,12 +7,14 @@ use cuprate_types::Chain;
 use monero_serai::block::Block;
 use monero_serai::transaction::Transaction;
 use rayon::prelude::*;
-use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Mutex, OnceLock};
 use tokio::sync::{mpsc, oneshot};
 use tower::{Service, ServiceExt};
 
 pub static INCOMING_BLOCK_TX: OnceLock<mpsc::Sender<BlockchainManagerCommand>> = OnceLock::new();
+
+pub static BLOCKS_BEING_HANDLED: OnceLock<Mutex<HashSet<[u8; 32]>>> = OnceLock::new();
 
 #[derive(Debug, thiserror::Error)]
 pub enum IncomingBlockError {
@@ -62,6 +64,10 @@ pub async fn handle_incoming_block(
         .collect::<Result<_, anyhow::Error>>()
         .map_err(IncomingBlockError::InvalidBlock)?;
 
+    if !BLOCKS_BEING_HANDLED.get_or_init(|| Mutex::new(HashSet::new())).lock().unwrap().insert(block_hash) {
+        return Ok(false);
+    }
+
     let Some(incoming_block_tx) = INCOMING_BLOCK_TX.get() else {
         return Ok(false);
     };
@@ -77,10 +83,14 @@ pub async fn handle_incoming_block(
         .await
         .expect("TODO: don't actually panic here");
 
-    response_rx
+    let res =response_rx
         .await
         .unwrap()
-        .map_err(IncomingBlockError::InvalidBlock)
+        .map_err(IncomingBlockError::InvalidBlock);
+
+    BLOCKS_BEING_HANDLED.get().unwrap().lock().unwrap().remove(&block_hash);
+
+    res
 }
 
 async fn block_exists(
