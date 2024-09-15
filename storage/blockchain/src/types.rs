@@ -414,7 +414,7 @@ impl From<ChainId> for RawChainId {
 
 impl From<RawChainId> for ChainId {
     fn from(value: RawChainId) -> Self {
-        Self(NonZero::new(value.0).expect("RawChainId mut not have a value of `0`"))
+        Self(NonZero::new(value.0).expect("RawChainId cannot have a value of `0`"))
     }
 }
 

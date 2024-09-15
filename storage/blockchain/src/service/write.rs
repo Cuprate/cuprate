@@ -107,7 +107,7 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
-    // TODO: turn this function into a try block once stable.
+    // FIXME: turn this function into a try block once stable.
     let mut result = || {
         // flush all the current alt blocks as they may reference blocks to be popped.
         crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
@@ -156,7 +156,7 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
     let env_inner = env.env_inner();
     let tx_rw = env_inner.tx_rw()?;
 
-    // TODO: turn this function into a try block once stable.
+    // FIXME: turn this function into a try block once stable.
     let result = || {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
@@ -165,11 +165,11 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
         // thing for us to check.
         assert_eq!(Chain::from(chain_info.parent_chain), Chain::Main);
 
-        let tob_block_height =
+        let top_block_height =
             crate::ops::blockchain::top_block_height(tables_mut.block_heights())?;
 
         // pop any blocks that were added as part of a re-org.
-        for _ in chain_info.common_ancestor_height..tob_block_height {
+        for _ in chain_info.common_ancestor_height..top_block_height {
             crate::ops::block::pop_block(None, &mut tables_mut)?;
         }
 

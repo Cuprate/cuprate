@@ -153,13 +153,13 @@ cuprate_database::define_tables! {
     18 => AltBlockBlobs,
     AltBlockHeight => BlockBlob,
 
-    /// Alt-Block transactions blobs.
+    /// Alt-block transaction blobs.
     ///
     /// Contains the raw bytes of alt transactions, if those transactions are not in the main-chain.
     19 => AltTransactionBlobs,
     TxHash => TxBlob,
 
-    /// Alt-Block transactions information.
+    /// Alt-block transaction information.
     ///
     /// Contains information on all alt transactions, even if they are in the main-chain.
     20 => AltTransactionInfos,

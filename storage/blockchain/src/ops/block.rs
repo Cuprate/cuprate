@@ -180,8 +180,7 @@ pub fn pop_block(
                 block_blob,
                 txs,
                 block_hash: block_info.block_hash,
-                // We know the PoW is valid for this block so just set it so it will always verify as
-                // valid.
+                // We know the PoW is valid for this block so just set it so it will always verify as valid.
                 pow_hash: [0; 32],
                 height: block_height,
                 weight: block_info.weight,

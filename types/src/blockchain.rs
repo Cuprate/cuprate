@@ -101,6 +101,7 @@ pub enum BlockchainReadRequest {
     /// order, or else the returned response is unspecified and meaningless,
     /// as this request performs a binary search.
     FindFirstUnknown(Vec<[u8; 32]>),
+
     /// A request for all alt blocks in the chain with the given [`ChainId`].
     AltBlocksInChain(ChainId),
 }

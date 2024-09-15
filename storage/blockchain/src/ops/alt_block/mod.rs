@@ -40,12 +40,12 @@
 //! to get all the alt-blocks in a given [`ChainID`](cuprate_types::ChainId).
 //!
 //! Although this should be kept in mind as a possibility, because Cuprate's block downloader will only track a single chain it is
-//! unlikely that we will be tracking [`ChainID`](cuprate_types::ChainId) that don't immediately connect to the main-chain.
+//! unlikely that we will be tracking [`ChainID`](cuprate_types::ChainId)s that don't immediately connect to the main-chain.
 //!
-//! ## Why not use block's previous field?
+//! ## Why not use the block's `previous` field?
 //!
 //! Although that would be easier, it makes getting a range of block extremely slow, as we have to build the weight cache to verify
-//! blocks, roughly 100,000 block headers needed, this cost was seen as too high.
+//! blocks, roughly 100,000 block headers needed, this cost is too high.
 pub use block::*;
 pub use chain::*;
 pub use tx::*;

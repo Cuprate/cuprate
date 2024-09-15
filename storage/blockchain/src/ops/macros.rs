@@ -32,10 +32,11 @@ When calling this function, ensure that either:
 }
 pub(super) use doc_add_block_inner_invariant;
 
-// This is pretty much the same as [`doc_add_block_inner_invariant`], it's not worth the effort to reduce
-// the duplication.
 /// Generate `# Invariant` documentation for internal alt block `fn`'s
 /// that should be called directly with caution.
+///
+/// This is pretty much the same as [`doc_add_block_inner_invariant`],
+/// it's not worth the effort to reduce the duplication.
 macro_rules! doc_add_alt_block_inner_invariant {
     () => {
             r#"# ⚠️ Invariant ⚠️
