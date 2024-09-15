@@ -9,9 +9,8 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 
 [features]
-# TODO: I don't think this is a good idea
-# All features on by default.
-default   = ["std", "atomic", "asynch", "cast", "fs", "num", "map", "time", "thread", "constants", "tx-utils"]
+# All features off by default.
+default   = []
 std       = []
 atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
