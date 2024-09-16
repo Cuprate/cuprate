@@ -154,10 +154,10 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
 /// [`BlockchainWriteRequest::ReverseReorg`].
 fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
     let env_inner = env.env_inner();
-    let tx_rw = env_inner.tx_rw()?;
+    let mut tx_rw = env_inner.tx_rw()?;
 
     // FIXME: turn this function into a try block once stable.
-    let result = || {
+    let mut result = || {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
 
         let chain_info = tables_mut.alt_chain_infos().get(&chain_id.into())?;
@@ -174,7 +174,7 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
         }
 
         // Rust borrow rules requires us to collect into a Vec first before looping over the Vec.
-        let alt_blocks = (chain_info.common_ancestor_height..chain_info.chain_height)
+        let alt_blocks = ((chain_info.common_ancestor_height + 1)..chain_info.chain_height)
             .map(|height| {
                 crate::ops::alt_block::get_alt_block(
                     &AltBlockHeight {
@@ -194,6 +194,9 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
 
             crate::ops::block::add_block(&verified_block, &mut tables_mut)?;
         }
+
+        drop(tables_mut);
+        crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
 
         Ok(())
     };

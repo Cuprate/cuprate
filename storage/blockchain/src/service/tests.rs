@@ -13,15 +13,17 @@ use std::{
 };
 
 use pretty_assertions::assert_eq;
+use rand::Rng;
 use tower::{Service, ServiceExt};
 
 use cuprate_database::{ConcreteEnv, DatabaseIter, DatabaseRo, Env, EnvInner, RuntimeError};
 use cuprate_test_utils::data::{BLOCK_V16_TX0, BLOCK_V1_TX2, BLOCK_V9_TX3};
 use cuprate_types::{
     blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    Chain, OutputOnChain, VerifiedBlockInformation,
+    Chain, ChainId, OutputOnChain, VerifiedBlockInformation,
 };
 
+use crate::tests::map_verified_block_to_alt;
 use crate::{
     config::ConfigBuilder,
     ops::{
@@ -406,4 +408,93 @@ async fn v16_tx0() {
         },
     )
     .await;
+}
+
+/// Tests the alt-chain requests and responses.
+#[tokio::test]
+async fn alt_chain_requests() {
+    let (reader, mut writer, _, _tempdir) = init_service();
+
+    // Set up the test by adding blocks to the main-chain.
+    for (i, mut block) in [BLOCK_V9_TX3.clone(), BLOCK_V16_TX0.clone()]
+        .into_iter()
+        .enumerate()
+    {
+        block.height = i;
+
+        let request = BlockchainWriteRequest::WriteBlock(block);
+        writer.call(request).await.unwrap();
+    }
+
+    // Generate the alt-blocks.
+    let mut prev_hash = BLOCK_V9_TX3.block_hash;
+    let mut chain_id = 1;
+    let alt_blocks = [&BLOCK_V16_TX0, &BLOCK_V9_TX3, &BLOCK_V1_TX2]
+        .into_iter()
+        .enumerate()
+        .map(|(i, block)| {
+            let mut block = (**block).clone();
+            block.height = i + 1;
+            block.block.header.previous = prev_hash;
+            block.block_blob = block.block.serialize();
+
+            prev_hash = block.block_hash;
+            // Randomly either keep the [`ChainId`] the same or change it to a new value.
+            chain_id += rand::thread_rng().gen_range(0..=1);
+
+            map_verified_block_to_alt(block, ChainId(chain_id.try_into().unwrap()))
+        })
+        .collect::<Vec<_>>();
+
+    for block in alt_blocks.iter() {
+        // Request a block to be written, assert it was written.
+        let request = BlockchainWriteRequest::WriteAltBlock(block.clone());
+        let response_channel = writer.call(request);
+        let response = response_channel.await.unwrap();
+        assert_eq!(response, BlockchainResponse::Ok);
+    }
+
+    // Get the full alt-chain
+    let request = BlockchainReadRequest::AltBlocksInChain(ChainId(chain_id.try_into().unwrap()));
+    let response = reader.clone().oneshot(request).await.unwrap();
+
+    let BlockchainResponse::AltBlocksInChain(blocks) = response else {
+        panic!("Wrong response type was returned");
+    };
+
+    assert_eq!(blocks.len(), alt_blocks.len());
+    for (got_block, alt_block) in blocks.into_iter().zip(alt_blocks) {
+        assert_eq!(got_block.block_blob, alt_block.block_blob);
+        assert_eq!(got_block.block_hash, alt_block.block_hash);
+        assert_eq!(got_block.chain_id, alt_block.chain_id);
+        assert_eq!(got_block.txs, alt_block.txs);
+    }
+
+    // Flush all alt blocks.
+    let request = BlockchainWriteRequest::FlushAltBlocks;
+    let response = writer.ready().await.unwrap().call(request).await.unwrap();
+    assert_eq!(response, BlockchainResponse::Ok);
+
+    // Pop blocks from the main chain
+    let request = BlockchainWriteRequest::PopBlocks(1);
+    let response = writer.ready().await.unwrap().call(request).await.unwrap();
+
+    let BlockchainResponse::PopBlocks(old_main_chain_id) = response else {
+        panic!("Wrong response type was returned");
+    };
+
+    // Check we have popped the top block.
+    let request = BlockchainReadRequest::ChainHeight;
+    let response = reader.clone().oneshot(request).await.unwrap();
+    assert!(matches!(response, BlockchainResponse::ChainHeight(1, _)));
+
+    // Attempt to add the popped block back.
+    let request = BlockchainWriteRequest::ReverseReorg(old_main_chain_id);
+    let response = writer.ready().await.unwrap().call(request).await.unwrap();
+    assert_eq!(response, BlockchainResponse::Ok);
+
+    // Check we have the popped block back.
+    let request = BlockchainReadRequest::ChainHeight;
+    let response = reader.clone().oneshot(request).await.unwrap();
+    assert!(matches!(response, BlockchainResponse::ChainHeight(2, _)));
 }
