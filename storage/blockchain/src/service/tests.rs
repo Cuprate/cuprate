@@ -23,7 +23,6 @@ use cuprate_types::{
     Chain, ChainId, OutputOnChain, VerifiedBlockInformation,
 };
 
-use crate::tests::map_verified_block_to_alt;
 use crate::{
     config::ConfigBuilder,
     ops::{
@@ -33,7 +32,7 @@ use crate::{
     },
     service::{init, BlockchainReadHandle, BlockchainWriteHandle},
     tables::{OpenTables, Tables, TablesIter},
-    tests::AssertTableLen,
+    tests::{AssertTableLen, map_verified_block_to_alt},
     types::{Amount, AmountIndex, PreRctOutputId},
 };
 
@@ -446,7 +445,7 @@ async fn alt_chain_requests() {
         })
         .collect::<Vec<_>>();
 
-    for block in alt_blocks.iter() {
+    for block in &alt_blocks {
         // Request a block to be written, assert it was written.
         let request = BlockchainWriteRequest::WriteAltBlock(block.clone());
         let response_channel = writer.call(request);
