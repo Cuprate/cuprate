@@ -26,7 +26,7 @@ impl CupratedConfig {
     pub fn clearnet_config(&self) -> P2PConfig<ClearNet> {
         P2PConfig {
             network: Network::Mainnet,
-            outbound_connections: 16,
+            outbound_connections: 64,
             extra_outbound_connections: 0,
             max_inbound_connections: 0,
             gray_peers_percent: 0.7,
