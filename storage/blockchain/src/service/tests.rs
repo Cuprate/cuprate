@@ -32,7 +32,7 @@ use crate::{
     },
     service::{init, BlockchainReadHandle, BlockchainWriteHandle},
     tables::{OpenTables, Tables, TablesIter},
-    tests::{AssertTableLen, map_verified_block_to_alt},
+    tests::{map_verified_block_to_alt, AssertTableLen},
     types::{Amount, AmountIndex, PreRctOutputId},
 };
 
