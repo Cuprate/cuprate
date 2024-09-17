@@ -148,8 +148,8 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
 ///
 /// This requires some static block/tx input (from data) and some fields.
 /// This data can be accessed more easily via:
-/// - A block explorer (https://xmrchain.net)
-/// - Monero RPC (see cuprate_test_utils::rpc for this)
+/// - A block explorer (<https://xmrchain.net>)
+/// - Monero RPC (see `cuprate_test_utils::rpc` for this)
 ///
 /// See below for actual usage.
 macro_rules! verified_block_information {

@@ -156,13 +156,5 @@ macro_rules! define_request_and_response_doc_test {
             "```\n",
         )
     };
-
-    // No doc test.
-    (
-        $name:ident,
-        $test:ident,
-    ) => {
-        ""
-    };
 }
 pub(super) use define_request_and_response_doc_test;
