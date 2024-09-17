@@ -348,27 +348,53 @@ pub(crate) fn key_extend(key_bytes: &[u8; CN_AES_KEY_SIZE]) -> [u8; EXPANDED_KEY
 }
 
 pub(crate) fn round_fwd(state: &mut [u8; AES_BLOCK_SIZE], key: &[u8; ROUND_KEY_SIZE]) {
-    #[rustfmt::skip]
-    const INDEX_ROTATIONS: [u8; 16] = [
-        0, 1, 2, 3,
-        1, 2, 3, 0,
-        2, 3, 0, 1,
-        3, 0, 1, 2,
-    ];
+    let s0 = state[0] as usize;
+    let s1 = state[1] as usize;
+    let s2 = state[2] as usize;
+    let s3 = state[3] as usize;
+    let s5 = state[5] as usize;
+    let s10 = state[10] as usize;
+    let s15 = state[15] as usize;
 
-    let start_state = *state;
+    let mut r = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, s0 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + s5 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + s10 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + s15 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(key, 0));
+    state[0..4].copy_from_slice(&r.to_ne_bytes());
 
-    for c in 0..4 {
-        for i in 0..4 {
-            let mut r = 0_u8;
-            for j in 0..4 {
-                let w = INDEX_ROTATIONS[c * 4 + j] as usize;
-                let s = start_state[w * 4 + j] as usize;
-                r ^= CRYPTONIGHT_SBOX[j * 256 * 4 + s * 4 + i];
-            }
-            state[c * 4 + i] = r ^ key[c * 4 + i];
-        }
-    }
+    let s4 = state[4] as usize;
+    let s6 = state[6] as usize;
+    let s7 = state[7] as usize;
+    let s9 = state[9] as usize;
+    let s14 = state[14] as usize;
+
+    let mut r = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, s4 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + s9 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + s14 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + s3 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(key, 4));
+    state[4..8].copy_from_slice(&r.to_ne_bytes());
+
+    let s8 = state[8] as usize;
+    let s11 = state[11] as usize;
+    let s13 = state[13] as usize;
+
+    let mut r = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, s8 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + s13 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + s2 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + s7 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(key, 8));
+    state[8..12].copy_from_slice(&r.to_ne_bytes());
+
+    let s12 = state[12] as usize;
+
+    let mut r = u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, s12 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 1024 + s1 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + s6 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + s11 * 4));
+    r ^= u32::from_ne_bytes(subarray_copy(key, 12));
+    state[12..16].copy_from_slice(&r.to_ne_bytes());
 }
 
 pub(crate) fn aesb_pseudo_round(
