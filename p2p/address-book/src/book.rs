@@ -109,7 +109,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             match handle.poll_unpin(cx) {
                 Poll::Pending => return,
                 Poll::Ready(Ok(Err(e))) => {
-                    tracing::error!("Could not save peer list to disk, got error: {}", e);
+                    tracing::error!("Could not save peer list to disk, got error: {e}");
                 }
                 Poll::Ready(Err(e)) => {
                     if e.is_panic() {
