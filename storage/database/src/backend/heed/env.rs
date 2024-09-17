@@ -144,7 +144,7 @@ impl Env for ConcreteEnv {
         // (current disk size) + (a bit of leeway)
         // to account for empty databases where we
         // need to write same tables.
-        #[allow(clippy::cast_possible_truncation)] // only 64-bit targets
+        #[expect(clippy::cast_possible_truncation)] // only 64-bit targets
         let disk_size_bytes = match std::fs::File::open(&config.db_file) {
             Ok(file) => file.metadata()?.len() as usize,
             // The database file doesn't exist, 0 bytes.

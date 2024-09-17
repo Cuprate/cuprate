@@ -194,7 +194,7 @@ fn db_read_write() {
 
     // Insert keys.
     let mut key = KEY;
-    #[allow(clippy::explicit_counter_loop)] // we need the +1 side effect
+    #[expect(clippy::explicit_counter_loop)] // we need the +1 side effect
     for _ in 0..N {
         table.put(&key, &VALUE).unwrap();
         key += 1;
@@ -269,7 +269,7 @@ fn db_read_write() {
 
         assert_ne!(table.get(&KEY).unwrap(), NEW_VALUE);
 
-        #[allow(unused_assignments)]
+        #[expect(unused_assignments)]
         table
             .update(&KEY, |mut value| {
                 value = NEW_VALUE;

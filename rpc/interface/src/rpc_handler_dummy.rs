@@ -57,7 +57,7 @@ impl Service<JsonRpcRequest> for RpcHandlerDummy {
         use cuprate_rpc_types::json::JsonRpcRequest as Req;
         use cuprate_rpc_types::json::JsonRpcResponse as Resp;
 
-        #[allow(clippy::default_trait_access)]
+        #[expect(clippy::default_trait_access)]
         let resp = match req {
             Req::GetBlockCount(_) => Resp::GetBlockCount(Default::default()),
             Req::OnGetBlockHash(_) => Resp::OnGetBlockHash(Default::default()),
@@ -112,7 +112,7 @@ impl Service<BinRequest> for RpcHandlerDummy {
         use cuprate_rpc_types::bin::BinRequest as Req;
         use cuprate_rpc_types::bin::BinResponse as Resp;
 
-        #[allow(clippy::default_trait_access)]
+        #[expect(clippy::default_trait_access)]
         let resp = match req {
             Req::GetBlocks(_) => Resp::GetBlocks(Default::default()),
             Req::GetBlocksByHeight(_) => Resp::GetBlocksByHeight(Default::default()),
@@ -142,7 +142,7 @@ impl Service<OtherRequest> for RpcHandlerDummy {
         use cuprate_rpc_types::other::OtherRequest as Req;
         use cuprate_rpc_types::other::OtherResponse as Resp;
 
-        #[allow(clippy::default_trait_access)]
+        #[expect(clippy::default_trait_access)]
         let resp = match req {
             Req::GetHeight(_) => Resp::GetHeight(Default::default()),
             Req::GetTransactions(_) => Resp::GetTransactions(Default::default()),

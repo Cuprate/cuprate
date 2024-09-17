@@ -122,7 +122,7 @@ pub trait Env: Sized {
     /// This function _must_ be re-implemented if [`Env::MANUAL_RESIZE`] is `true`.
     ///
     /// Otherwise, this function will panic with `unreachable!()`.
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     fn resize_map(&self, resize_algorithm: Option<ResizeAlgorithm>) -> NonZeroUsize {
         unreachable!()
     }

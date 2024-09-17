@@ -57,7 +57,7 @@ impl From<heed::Error> for crate::InitError {
 }
 
 //---------------------------------------------------------------------------------------------------- RuntimeError
-#[allow(clippy::fallible_impl_from)] // We need to panic sometimes.
+#[expect(clippy::fallible_impl_from)] // We need to panic sometimes.
 impl From<heed::Error> for crate::RuntimeError {
     /// # Panics
     /// This will panic on unrecoverable errors for safety.
