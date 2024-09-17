@@ -504,7 +504,6 @@ dependencies = [
  "cuprate-p2p-core",
  "cuprate-pruning",
  "cuprate-test-utils",
- "cuprate-wire",
  "futures",
  "indexmap",
  "rand",
