@@ -194,7 +194,7 @@ fn db_read_write() {
 
     // Insert keys.
     let mut key = KEY;
-    #[expect(clippy::explicit_counter_loop)] // we need the +1 side effect
+    #[expect(clippy::explicit_counter_loop, reason = "we need the +1 side effect")]
     for _ in 0..N {
         table.put(&key, &VALUE).unwrap();
         key += 1;
