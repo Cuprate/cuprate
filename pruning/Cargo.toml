@@ -13,3 +13,6 @@ borsh = ["dep:borsh"]
 thiserror = { workspace = true }
 
 borsh = { workspace = true, features = ["derive", "std"], optional = true }
+
+[lints]
+workspace = true
