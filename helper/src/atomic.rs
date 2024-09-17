@@ -28,9 +28,9 @@ const _: () = {
 /// This is an alias for
 /// [`crossbeam::atomic::AtomicCell<f32>`](https://docs.rs/crossbeam/latest/crossbeam/atomic/struct.AtomicCell.html).
 ///
-/// Note that there are no [`Ordering`] parameters,
-/// atomic loads use [`Acquire`](a),
-/// and atomic stores use [`Release`](r).
+/// Note that there are no [Ordering] parameters,
+/// atomic loads use [Acquire],
+/// and atomic stores use [Release].
 ///
 /// [Ordering]: std::sync::atomic::Ordering
 /// [Acquire]: std::sync::atomic::Ordering::Acquire
@@ -42,9 +42,9 @@ pub type AtomicF32 = AtomicCell<f32>;
 /// This is an alias for
 /// [`crossbeam::atomic::AtomicCell<f64>`](https://docs.rs/crossbeam/latest/crossbeam/atomic/struct.AtomicCell.html).
 ///
-/// Note that there are no [`Ordering`] parameters,
-/// atomic loads use [`Acquire`],
-/// and atomic stores use [`Release`].
+/// Note that there are no [Ordering] parameters,
+/// atomic loads use [Acquire],
+/// and atomic stores use [Release].
 ///
 /// [Ordering]: std::sync::atomic::Ordering
 /// [Acquire]: std::sync::atomic::Ordering::Acquire
