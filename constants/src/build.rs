@@ -9,7 +9,7 @@
 ///
 /// ```rust
 /// # use cuprate_constants::build::*;
-/// assert_eq!(COMMIT.is_ascii());
+/// assert!(COMMIT.is_ascii());
 /// assert_eq!(COMMIT.as_bytes().len(), 40);
 /// assert_eq!(COMMIT.to_lowercase(), COMMIT);
 /// ```

@@ -62,3 +62,6 @@ pub const BULLETPROOF_MAX_OUTPUTS: u64 = 16;
 
 /// TODO
 pub const BULLETPROOF_PLUS_MAX_OUTPUTS: u64 = 16;
+
+/// TODO
+pub const BLOCK_SIZE_SANITY_LEEWAY: usize = 100;

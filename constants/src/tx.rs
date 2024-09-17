@@ -55,7 +55,7 @@ pub const MEMPOOL_TX_LIFETIME: Duration = Duration::from_secs(86_400 * 3);
 /// # use cuprate_constants::tx::*;
 /// assert_eq!(MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME.as_secs(), 86_400 * 7);
 /// ```
-pub const MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME: u64 = 86_400 * 7;
+pub const MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME: Duration = Duration::from_secs(86_400 * 7);
 
 /// TODO
 pub const PER_KB_FEE_QUANTIZATION_DECIMALS: u64 = 8;

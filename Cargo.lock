@@ -602,6 +602,11 @@ dependencies = [
 [[package]]
 name = "cuprate-constants"
 version = "0.0.0"
+dependencies = [
+ "hex",
+ "monero-serai",
+ "pretty_assertions",
+]
 
 [[package]]
 name = "cuprate-cryptonight"

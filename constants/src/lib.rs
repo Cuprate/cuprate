@@ -6,6 +6,7 @@ mod macros;
 pub mod block;
 pub mod build;
 pub mod difficulty;
+pub mod genesis;
 pub mod hard_fork;
 pub mod money;
 pub mod net;

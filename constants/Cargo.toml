@@ -9,11 +9,16 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/constants"
 keywords    = ["cuprate", "constants"]
 
 [features]
-default    = []
+default      = ["monero-serai"]
+monero-serai = ["dep:monero-serai"]
 
 [dependencies]
+monero-serai = { workspace = true, optional = true }
 
 [dev-dependencies]
+monero-serai      = { workspace = true }
+hex               = { workspace = true, features = ["std"] }
+pretty_assertions = { workspace = true }
 
 [lints]
 workspace = true
