@@ -54,8 +54,13 @@ impl NetworkZone for ClearNet {
     const NAME: &'static str = "ClearNet";
 
     const SEEDS: &'static [Self::Addr] = &[
-        ip_v4(37, 187, 74, 171, 18080),
+        ip_v4(176, 9, 0, 187, 18080),
+        ip_v4(88, 198, 163, 90, 18080),
+        ip_v4(66, 85, 74, 134, 18080),
+        ip_v4(51, 79, 173, 165, 18080),
         ip_v4(192, 99, 8, 110, 18080),
+        ip_v4(37, 187, 74, 171, 18080),
+        ip_v4(77, 172, 183, 193, 18080),
     ];
 
     const ALLOW_SYNC: bool = true;

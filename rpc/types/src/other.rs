@@ -973,7 +973,6 @@ define_request_and_response! {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-#[allow(missing_docs)]
 pub enum OtherRequest {
     GetHeight(GetHeightRequest),
     GetTransactions(GetTransactionsRequest),
@@ -1092,7 +1091,6 @@ impl RpcCallValue for OtherRequest {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-#[allow(missing_docs)]
 pub enum OtherResponse {
     GetHeight(GetHeightResponse),
     GetTransactions(GetTransactionsResponse),
