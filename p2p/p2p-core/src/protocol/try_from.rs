@@ -13,9 +13,7 @@ impl From<ProtocolRequest> for ProtocolMessage {
         match value {
             ProtocolRequest::GetObjects(val) => Self::GetObjectsRequest(val),
             ProtocolRequest::GetChain(val) => Self::ChainRequest(val),
-            ProtocolRequest::FluffyMissingTxs(val) => {
-                Self::FluffyMissingTransactionsRequest(val)
-            }
+            ProtocolRequest::FluffyMissingTxs(val) => Self::FluffyMissingTransactionsRequest(val),
             ProtocolRequest::GetTxPoolCompliment(val) => Self::GetTxPoolCompliment(val),
             ProtocolRequest::NewBlock(val) => Self::NewBlock(val),
             ProtocolRequest::NewFluffyBlock(val) => Self::NewFluffyBlock(val),
@@ -31,9 +29,7 @@ impl TryFrom<ProtocolMessage> for ProtocolRequest {
         Ok(match value {
             ProtocolMessage::GetObjectsRequest(val) => Self::GetObjects(val),
             ProtocolMessage::ChainRequest(val) => Self::GetChain(val),
-            ProtocolMessage::FluffyMissingTransactionsRequest(val) => {
-                Self::FluffyMissingTxs(val)
-            }
+            ProtocolMessage::FluffyMissingTransactionsRequest(val) => Self::FluffyMissingTxs(val),
             ProtocolMessage::GetTxPoolCompliment(val) => Self::GetTxPoolCompliment(val),
             ProtocolMessage::NewBlock(val) => Self::NewBlock(val),
             ProtocolMessage::NewFluffyBlock(val) => Self::NewFluffyBlock(val),

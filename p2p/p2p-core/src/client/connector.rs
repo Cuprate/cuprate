@@ -40,7 +40,9 @@ impl<Z: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     Connector<Z, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
 {
     /// Create a new connector from a handshaker.
-    pub const fn new(handshaker: HandShaker<Z, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>) -> Self {
+    pub const fn new(
+        handshaker: HandShaker<Z, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>,
+    ) -> Self {
         Self { handshaker }
     }
 }
