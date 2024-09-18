@@ -303,7 +303,7 @@ fn block_extended_header_in_range(
             ranges
                 .par_iter()
                 .rev()
-                .map(|(chain, range)| {
+                .flat_map(|(chain, range)| {
                     range.clone().into_par_iter().map(|height| {
                         let tx_ro = tx_ro.get_or_try(|| env_inner.tx_ro())?;
                         let tables = get_tables!(env_inner, tx_ro, tables)?.as_ref();
@@ -320,7 +320,6 @@ fn block_extended_header_in_range(
                         }
                     })
                 })
-                .flatten()
                 .collect::<Result<Vec<_>, _>>()?
         }
     };

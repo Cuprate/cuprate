@@ -22,10 +22,26 @@ pub fn update_alt_chain_info(
     prev_hash: &BlockHash,
     tables: &mut impl TablesMut,
 ) -> Result<(), RuntimeError> {
+    let parent_chain = match tables.alt_block_heights().get(prev_hash) {
+        Ok(alt_parent_height) => Chain::Alt(alt_parent_height.chain_id.into()),
+        Err(RuntimeError::KeyNotFound) => Chain::Main,
+        Err(e) => return Err(e),
+    };
+
     // try update the info if one exists for this chain.
     let update = tables
         .alt_chain_infos_mut()
         .update(&alt_block_height.chain_id, |mut info| {
+            if info.chain_height < alt_block_height.height + 1 {
+                // If the chain height is increasing we only need to update the chain height.
+                info.chain_height = alt_block_height.height + 1;
+            } else {
+                // If the chain height is not increasing we are popping blocks and need to update the
+                // split point.
+                info.common_ancestor_height = alt_block_height.height.checked_sub(1).unwrap();
+                info.parent_chain = parent_chain.into();
+            }
+
             info.chain_height = alt_block_height.height + 1;
             Some(info)
         });
@@ -37,12 +53,6 @@ pub fn update_alt_chain_info(
     }
 
     // If one doesn't already exist add it.
-
-    let parent_chain = match tables.alt_block_heights().get(prev_hash) {
-        Ok(alt_parent_height) => Chain::Alt(alt_parent_height.chain_id.into()),
-        Err(RuntimeError::KeyNotFound) => Chain::Main,
-        Err(e) => return Err(e),
-    };
 
     tables.alt_chain_infos_mut().put(
         &alt_block_height.chain_id,
