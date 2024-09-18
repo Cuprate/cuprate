@@ -91,9 +91,10 @@ pub fn add_block(
     // RCT output count needs account for _this_ block's outputs.
     let cumulative_rct_outs = get_rct_num_outputs(tables.rct_outputs())?;
 
+    // `saturating_add` is used here as cumulative generated coins overflows due to tail emission.
     let cumulative_generated_coins =
         cumulative_generated_coins(&block.height.saturating_sub(1), tables.block_infos())?
-            + block.generated_coins;
+            .saturating_add(block.generated_coins);
 
     let (cumulative_difficulty_low, cumulative_difficulty_high) =
         split_u128_into_low_high_bits(block.cumulative_difficulty);
@@ -225,7 +226,10 @@ pub fn get_block_extended_header(
 
 /// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
 #[doc = doc_error!()]
-#[allow(clippy::missing_panics_doc)] // The panic is only possible with a corrupt DB
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "The panic is only possible with a corrupt DB"
+)]
 #[inline]
 pub fn get_block_extended_header_from_height(
     block_height: &BlockHeight,
@@ -300,11 +304,7 @@ pub fn block_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(
-    clippy::significant_drop_tightening,
-    clippy::cognitive_complexity,
-    clippy::too_many_lines
-)]
+#[expect(clippy::significant_drop_tightening, clippy::too_many_lines)]
 mod test {
     use pretty_assertions::assert_eq;
 

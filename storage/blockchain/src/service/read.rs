@@ -150,7 +150,6 @@ fn thread_local<T: Send>(env: &impl Env) -> ThreadLocal<T> {
 macro_rules! get_tables {
     ($env_inner:ident, $tx_ro:ident, $tables:ident) => {{
         $tables.get_or_try(|| {
-            #[allow(clippy::significant_drop_in_scrutinee)]
             match $env_inner.open_tables($tx_ro) {
                 // SAFETY: see above macro doc comment.
                 Ok(tables) => Ok(unsafe { crate::unsafe_sendable::UnsafeSendable::new(tables) }),
@@ -406,8 +405,10 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
     let tables = thread_local(env);
 
     // Cache the amount of RCT outputs once.
-    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+    )]
     let num_rct_outputs = {
         let tx_ro = env_inner.tx_ro()?;
         let tables = env_inner.open_tables(&tx_ro)?;
@@ -427,8 +428,10 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
             } else {
                 // v1 transactions.
                 match tables.num_outputs().get(&amount) {
-                    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-                    #[allow(clippy::cast_possible_truncation)]
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+                    )]
                     Ok(count) => Ok((amount, count as usize)),
                     // If we get a request for an `amount` that doesn't exist,
                     // we return `0` instead of an error.

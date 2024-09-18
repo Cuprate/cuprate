@@ -27,7 +27,6 @@ pub enum HardForkError {
 }
 
 /// An identifier for every hard-fork Monero has had.
-#[allow(missing_docs)]
 #[derive(Default, Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Hash)]
 #[cfg_attr(any(feature = "proptest"), derive(proptest_derive::Arbitrary))]
 #[repr(u8)]
