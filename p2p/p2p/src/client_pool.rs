@@ -121,7 +121,6 @@ impl<N: NetworkZone> ClientPool<N> {
     /// Note that the returned iterator is not guaranteed to contain every peer asked for.
     ///
     /// See [`Self::borrow_client`] for borrowing a single client.
-    #[allow(private_interfaces)] // TODO: Remove me when 2024 Rust
     pub fn borrow_clients<'a, 'b>(
         self: &'a Arc<Self>,
         peers: &'b [InternalPeerID<N::Addr>],

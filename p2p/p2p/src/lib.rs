@@ -155,7 +155,7 @@ pub struct NetworkInterface<N: NetworkZone> {
     /// on that claimed chain.
     top_block_watch: watch::Receiver<sync_states::NewSyncInfo>,
     /// A channel to request extra connections.
-    #[allow(dead_code)] // will be used eventually
+    #[expect(dead_code, reason = "will be used eventually")]
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,

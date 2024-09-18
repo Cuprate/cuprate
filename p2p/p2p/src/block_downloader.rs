@@ -219,7 +219,7 @@ struct BlockDownloader<N: NetworkZone, S, C> {
     /// The running chain entry tasks.
     ///
     /// Returns a result of the chain entry or an error.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     chain_entry_task: JoinSet<Result<(ClientPoolDropGuard<N>, ChainEntry<N>), BlockDownloadError>>,
 
     /// The current inflight requests.
