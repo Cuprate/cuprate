@@ -8,7 +8,7 @@
 //! returns the peer to the pool when it is dropped.
 //!
 //! Internally the pool is a [`DashMap`] which means care should be taken in `async` code
-//! as internally this uses blocking RwLocks.
+//! as internally this uses blocking `RwLocks`.
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -24,7 +24,7 @@ use cuprate_p2p_core::{
 pub(crate) mod disconnect_monitor;
 mod drop_guard_client;
 
-pub use drop_guard_client::ClientPoolDropGuard;
+pub(crate) use drop_guard_client::ClientPoolDropGuard;
 
 /// The client pool, which holds currently connected free peers.
 ///
@@ -38,16 +38,17 @@ pub struct ClientPool<N: NetworkZone> {
 
 impl<N: NetworkZone> ClientPool<N> {
     /// Returns a new [`ClientPool`] wrapped in an [`Arc`].
-    pub fn new() -> Arc<ClientPool<N>> {
+    pub fn new() -> Arc<Self> {
         let (tx, rx) = mpsc::unbounded_channel();
 
-        let pool = Arc::new(ClientPool {
+        let pool = Arc::new(Self {
             clients: DashMap::new(),
             new_connection_tx: tx,
         });
 
         tokio::spawn(
-            disconnect_monitor::disconnect_monitor(rx, pool.clone()).instrument(Span::current()),
+            disconnect_monitor::disconnect_monitor(rx, Arc::clone(&pool))
+                .instrument(Span::current()),
         );
 
         pool
@@ -69,8 +70,7 @@ impl<N: NetworkZone> ClientPool<N> {
             return;
         }
 
-        let res = self.clients.insert(id, client);
-        assert!(res.is_none());
+        assert!(self.clients.insert(id, client).is_none());
 
         // We have to check this again otherwise we could have a race condition where a
         // peer is disconnected after the first check, the disconnect monitor tries to remove it,
@@ -133,7 +133,7 @@ impl<N: NetworkZone> ClientPool<N> {
 mod sealed {
     /// TODO: Remove me when 2024 Rust
     ///
-    /// https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick
+    /// <https://rust-lang.github.io/rfcs/3498-lifetime-capture-rules-2024.html#the-captures-trick>
     pub trait Captures<U> {}
 
     impl<T: ?Sized, U> Captures<U> for T {}

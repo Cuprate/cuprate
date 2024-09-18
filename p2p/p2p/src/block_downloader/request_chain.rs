@@ -30,7 +30,7 @@ use crate::{
 ///
 /// Because the block downloader only follows and downloads one chain we only have to send the block hash of
 /// top block we have found and the genesis block, this is then called `short_history`.
-pub async fn request_chain_entry_from_peer<N: NetworkZone>(
+pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
     mut client: ClientPoolDropGuard<N>,
     short_history: [[u8; 32]; 2],
 ) -> Result<(ClientPoolDropGuard<N>, ChainEntry<N>), BlockDownloadError> {
@@ -179,7 +179,7 @@ where
             Some(res) => {
                 // res has already been set, replace it if this peer claims higher cumulative difficulty
                 if res.0.cumulative_difficulty() < task_res.0.cumulative_difficulty() {
-                    let _ = mem::replace(res, task_res);
+                    let _unused = mem::replace(res, task_res);
                 }
             }
             None => {
