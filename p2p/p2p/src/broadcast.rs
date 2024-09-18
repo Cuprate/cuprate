@@ -193,7 +193,7 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
                 };
 
                 // An error here means _all_ receivers were dropped which we assume will never happen.
-                let _unused = match direction {
+                drop(match direction {
                     Some(ConnectionDirection::Inbound) => {
                         self.tx_broadcast_channel_inbound.send(nex_tx_info)
                     }
@@ -201,10 +201,10 @@ impl<N: NetworkZone> Service<BroadcastRequest<N>> for BroadcastSvc<N> {
                         self.tx_broadcast_channel_outbound.send(nex_tx_info)
                     }
                     None => {
-                        let _unused = self.tx_broadcast_channel_outbound.send(nex_tx_info.clone());
+                        drop(self.tx_broadcast_channel_outbound.send(nex_tx_info.clone()));
                         self.tx_broadcast_channel_inbound.send(nex_tx_info)
                     }
-                };
+                });
             }
         }
 
@@ -336,10 +336,9 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
             Poll::Ready(Some(BroadcastMessage::NewTransaction(txs)))
         } else {
             tracing::trace!("Diffusion flush timer expired but no txs to diffuse");
-            #[expect(
-                clippy::let_underscore_must_use,
-                reason = "poll next_flush now to register the waker with it. the waker will already be registered with the block broadcast channel."
-            )]
+            // poll next_flush now to register the waker with it.
+            // the waker will already be registered with the block broadcast channel."
+            #[expect(clippy::let_underscore_must_use)]
             let _ = this.next_flush.poll(cx);
             Poll::Pending
         }

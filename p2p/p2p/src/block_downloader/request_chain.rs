@@ -179,7 +179,7 @@ where
             Some(res) => {
                 // res has already been set, replace it if this peer claims higher cumulative difficulty
                 if res.0.cumulative_difficulty() < task_res.0.cumulative_difficulty() {
-                    let _unused = mem::replace(res, task_res);
+                    drop(mem::replace(res, task_res));
                 }
             }
             None => {

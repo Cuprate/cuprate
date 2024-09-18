@@ -8,7 +8,7 @@
 //! returns the peer to the pool when it is dropped.
 //!
 //! Internally the pool is a [`DashMap`] which means care should be taken in `async` code
-//! as internally this uses blocking `RwLocks`.
+//! as internally this uses blocking `RwLock`s.
 use std::sync::Arc;
 
 use dashmap::DashMap;
