@@ -88,8 +88,7 @@ where
                 .insert(peer.clone());
         }
 
-        let state = from
-            .map_or(TxState::Local, |from| TxState::Stem { from });
+        let state = from.map_or(TxState::Local, |from| TxState::Stem { from });
 
         let fut = self
             .dandelion_router
