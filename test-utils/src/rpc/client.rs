@@ -47,13 +47,13 @@ impl HttpRpcClient {
     }
 
     /// The address used for this [`HttpRpcClient`].
-    #[allow(dead_code)]
+    #[allow(clippy::allow_attributes, dead_code, reason = "expect doesn't work")]
     const fn address(&self) -> &String {
         &self.address
     }
 
     /// Access to the inner RPC client for other usage.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     const fn rpc(&self) -> &SimpleRequestRpc {
         &self.rpc
     }
@@ -197,7 +197,7 @@ mod tests {
     #[ignore] // FIXME: doesn't work in CI, we need a real unrestricted node
     #[tokio::test]
     async fn get() {
-        #[allow(clippy::too_many_arguments)]
+        #[expect(clippy::too_many_arguments)]
         async fn assert_eq(
             rpc: &HttpRpcClient,
             height: usize,

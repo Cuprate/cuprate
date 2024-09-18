@@ -840,7 +840,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "borsh",
- "bytes",
  "cuprate-helper",
  "cuprate-p2p-core",
  "cuprate-types",
