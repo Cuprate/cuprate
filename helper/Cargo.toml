@@ -21,7 +21,7 @@ num       = []
 map       = ["cast", "dep:monero-serai"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
-tx-utils  = ["dep:monero-serai"]
+tx        = ["dep:monero-serai"]
 
 [dependencies]
 crossbeam    = { workspace = true, optional = true }

@@ -40,7 +40,9 @@ pub fn add_alt_transaction_blob(
 
     tables
         .alt_transaction_blobs_mut()
-        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))
+        .put(&tx.tx_hash, StorableVec::wrap_ref(&tx.tx_blob))?;
+
+    Ok(())
 }
 
 /// Retrieve a [`VerifiedTransactionInformation`] from the database.

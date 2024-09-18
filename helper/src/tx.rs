@@ -32,3 +32,39 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
 
     fee
 }
+
+#[cfg(test)]
+mod test {
+    use curve25519_dalek::{edwards::CompressedEdwardsY, EdwardsPoint};
+    use monero_serai::transaction::{NotPruned, Output, Timelock, TransactionPrefix};
+
+    use super::*;
+
+    #[test]
+    #[should_panic(expected = "called `Option::unwrap()` on a `None` value")]
+    fn tx_fee_panic() {
+        let input = Input::ToKey {
+            amount: Some(u64::MAX),
+            key_offsets: vec![],
+            key_image: EdwardsPoint::default(),
+        };
+
+        let output = Output {
+            amount: Some(u64::MAX),
+            key: CompressedEdwardsY::default(),
+            view_tag: None,
+        };
+
+        let tx = Transaction::<NotPruned>::V1 {
+            prefix: TransactionPrefix {
+                additional_timelock: Timelock::None,
+                inputs: vec![input; 2],
+                outputs: vec![output],
+                extra: vec![],
+            },
+            signatures: vec![],
+        };
+
+        tx_fee(&tx);
+    }
+}

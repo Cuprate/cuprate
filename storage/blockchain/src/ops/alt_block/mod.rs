@@ -46,13 +46,15 @@
 //!
 //! Although that would be easier, it makes getting a range of block extremely slow, as we have to build the weight cache to verify
 //! blocks, roughly 100,000 block headers needed, this cost is too high.
-pub use block::*;
-pub use chain::*;
-pub use tx::*;
-
 mod block;
 mod chain;
 mod tx;
+
+pub use block::{
+    add_alt_block, get_alt_block, get_alt_block_extended_header_from_height, get_alt_block_hash,
+};
+pub use chain::{get_alt_chain_history_ranges, update_alt_chain_info};
+pub use tx::{add_alt_transaction_blob, get_alt_transaction};
 
 /// Flush all alt-block data from all the alt-block tables.
 ///

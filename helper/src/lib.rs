@@ -31,7 +31,7 @@ pub mod thread;
 #[cfg(feature = "time")]
 pub mod time;
 
-#[cfg(feature = "tx-utils")]
+#[cfg(feature = "tx")]
 pub mod tx;
 //---------------------------------------------------------------------------------------------------- Private Usage
 
