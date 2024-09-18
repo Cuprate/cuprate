@@ -143,7 +143,7 @@ fn new_rings(
 /// them.
 pub async fn batch_get_ring_member_info<D: Database>(
     txs_verification_data: impl Iterator<Item = &Arc<TransactionVerificationData>> + Clone,
-    hf: &HardFork,
+    hf: HardFork,
     mut database: D,
 ) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
     let mut output_ids = HashMap::new();
@@ -183,7 +183,7 @@ pub async fn batch_get_ring_member_info<D: Database>(
             )
             .map_err(ConsensusError::Transaction)?;
 
-            let decoy_info = if hf == &HardFork::V1 {
+            let decoy_info = if hf == HardFork::V1 {
                 None
             } else {
                 // this data is only needed after hard-fork 1.
@@ -249,7 +249,7 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
         DecoyInfo::new(
             &tx_v_data.tx.prefix().inputs,
             |amt| outputs_with_amount.get(&amt).copied().unwrap_or(0),
-            &hf,
+            hf,
         )
         .map_err(ConsensusError::Transaction)
     }))

@@ -215,7 +215,6 @@ pub enum VerifyBlockRequest {
 }
 
 /// A response from a verify block request.
-#[allow(clippy::large_enum_variant)] // The largest variant is most common ([`MainChain`])
 pub enum VerifyBlockResponse {
     /// This block is valid.
     MainChain(VerifiedBlockInformation),

@@ -1,3 +1,10 @@
+#[cfg(test)]
+use proptest as _;
+#[cfg(test)]
+use proptest_derive as _;
+#[cfg(test)]
+use tokio as _;
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub mod batch_verifier;

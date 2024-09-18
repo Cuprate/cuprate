@@ -44,22 +44,22 @@ pub enum BlockError {
     MinerTxError(#[from] MinerTxError),
 }
 
-/// A trait to represent the RandomX VM.
+/// A trait to represent the `RandomX` VM.
 pub trait RandomX {
     type Error;
 
     fn calculate_hash(&self, buf: &[u8]) -> Result<[u8; 32], Self::Error>;
 }
 
-/// Returns if this height is a RandomX seed height.
-pub fn is_randomx_seed_height(height: usize) -> bool {
+/// Returns if this height is a `RandomX` seed height.
+pub const fn is_randomx_seed_height(height: usize) -> bool {
     height % RX_SEEDHASH_EPOCH_BLOCKS == 0
 }
 
-/// Returns the RandomX seed height for this block.
+/// Returns the `RandomX` seed height for this block.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#randomx-seed>
-pub fn randomx_seed_height(height: usize) -> usize {
+pub const fn randomx_seed_height(height: usize) -> usize {
     if height <= RX_SEEDHASH_EPOCH_BLOCKS + RX_SEEDHASH_EPOCH_LAG {
         0
     } else {
@@ -135,7 +135,7 @@ pub fn penalty_free_zone(hf: HardFork) -> usize {
 /// Sanity check on the block blob size.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size>
-fn block_size_sanity_check(
+const fn block_size_sanity_check(
     block_blob_len: usize,
     effective_median: usize,
 ) -> Result<(), BlockError> {
@@ -149,7 +149,7 @@ fn block_size_sanity_check(
 /// Sanity check on the block weight.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#block-weight-and-size>
-pub fn check_block_weight(
+pub const fn check_block_weight(
     block_weight: usize,
     median_for_block_reward: usize,
 ) -> Result<(), BlockError> {
@@ -163,7 +163,7 @@ pub fn check_block_weight(
 /// Sanity check on number of txs in the block.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#amount-of-transactions>
-fn check_amount_txs(number_none_miner_txs: usize) -> Result<(), BlockError> {
+const fn check_amount_txs(number_none_miner_txs: usize) -> Result<(), BlockError> {
     if number_none_miner_txs + 1 > 0x10000000 {
         Err(BlockError::TooManyTxs)
     } else {
@@ -175,10 +175,10 @@ fn check_amount_txs(number_none_miner_txs: usize) -> Result<(), BlockError> {
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/blocks.html#previous-id>
 fn check_prev_id(block: &Block, top_hash: &[u8; 32]) -> Result<(), BlockError> {
-    if &block.header.previous != top_hash {
-        Err(BlockError::PreviousIDIncorrect)
-    } else {
+    if &block.header.previous == top_hash {
         Ok(())
+    } else {
+        Err(BlockError::PreviousIDIncorrect)
     }
 }
 

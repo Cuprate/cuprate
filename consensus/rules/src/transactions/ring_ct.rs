@@ -40,10 +40,10 @@ pub enum RingCTError {
     CLSAGError(#[from] ClsagError),
 }
 
-/// Checks the RingCT type is allowed for the current hard fork.
+/// Checks the `RingCT` type is allowed for the current hard fork.
 ///
 /// <https://monero-book.cuprate.org/consensus_rules/ring_ct.html#type>
-fn check_rct_type(ty: &RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), RingCTError> {
+fn check_rct_type(ty: RctType, hf: HardFork, tx_hash: &[u8; 32]) -> Result<(), RingCTError> {
     use HardFork as F;
     use RctType as T;
 
@@ -129,7 +129,7 @@ pub(crate) fn ring_ct_semantic_checks(
 ) -> Result<(), RingCTError> {
     let rct_type = proofs.rct_type();
 
-    check_rct_type(&rct_type, hf, tx_hash)?;
+    check_rct_type(rct_type, hf, tx_hash)?;
     check_output_range_proofs(proofs, verifier)?;
 
     if rct_type != RctType::AggregateMlsagBorromean {
@@ -154,7 +154,7 @@ pub(crate) fn check_input_signatures(
     };
 
     if rings.is_empty() {
-        Err(RingCTError::RingInvalid)?;
+        return Err(RingCTError::RingInvalid);
     }
 
     let pseudo_outs = match &proofs.prunable {
@@ -222,20 +222,20 @@ mod tests {
     #[test]
     fn grandfathered_bulletproofs2() {
         assert!(check_rct_type(
-            &RctType::MlsagBulletproofsCompactAmount,
+            RctType::MlsagBulletproofsCompactAmount,
             HardFork::V14,
             &[0; 32]
         )
         .is_err());
 
         assert!(check_rct_type(
-            &RctType::MlsagBulletproofsCompactAmount,
+            RctType::MlsagBulletproofsCompactAmount,
             HardFork::V14,
             &GRANDFATHERED_TRANSACTIONS[0]
         )
         .is_ok());
         assert!(check_rct_type(
-            &RctType::MlsagBulletproofsCompactAmount,
+            RctType::MlsagBulletproofsCompactAmount,
             HardFork::V14,
             &GRANDFATHERED_TRANSACTIONS[1]
         )

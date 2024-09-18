@@ -673,15 +673,14 @@ dependencies = [
  "cuprate-blockchain",
  "cuprate-consensus",
  "cuprate-consensus-rules",
+ "cuprate-helper",
  "cuprate-types",
  "hex",
  "hex-literal",
  "monero-serai",
- "rayon",
  "sha3",
  "thiserror",
  "tokio",
- "tokio-test",
  "tower",
 ]
 

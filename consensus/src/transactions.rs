@@ -301,7 +301,7 @@ where
     Ok(VerifyTxResponse::Ok)
 }
 
-#[allow(
+#[expect(
     clippy::type_complexity,
     reason = "I don't think the return is too complex"
 )]
@@ -368,7 +368,7 @@ fn transactions_needing_verification(
                 }
 
                 // If the time lock is still locked then the transaction is invalid.
-                if !output_unlocked(time_lock, current_chain_height, time_for_time_lock, hf) {
+                if !output_unlocked(time_lock, current_chain_height, time_for_time_lock, *hf) {
                     return Err(ConsensusError::Transaction(
                         TransactionError::OneOrMoreRingMembersLocked,
                     ));
@@ -404,7 +404,7 @@ where
 
     batch_get_decoy_info(&txs, hf, database)
         .await?
-        .try_for_each(|decoy_info| decoy_info.and_then(|di| Ok(check_decoy_info(&di, &hf)?)))?;
+        .try_for_each(|decoy_info| decoy_info.and_then(|di| Ok(check_decoy_info(&di, hf)?)))?;
 
     Ok(())
 }
@@ -421,7 +421,7 @@ where
     D: Database + Clone + Sync + Send + 'static,
 {
     let txs_ring_member_info =
-        batch_get_ring_member_info(txs.iter().map(|(tx, _)| tx), &hf, database).await?;
+        batch_get_ring_member_info(txs.iter().map(|(tx, _)| tx), hf, database).await?;
 
     rayon_spawn_async(move || {
         let batch_verifier = MultiThreadedBatchVerifier::new(rayon::current_num_threads());
@@ -449,7 +449,7 @@ where
                     ring,
                     current_chain_height,
                     current_time_lock_timestamp,
-                    &hf,
+                    hf,
                 )?;
 
                 Ok::<_, ConsensusError>(())
