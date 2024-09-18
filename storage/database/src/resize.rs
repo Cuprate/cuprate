@@ -261,7 +261,7 @@ pub fn percent(current_size_bytes: usize, percent: f32) -> NonZeroUsize {
     let page_size = *PAGE_SIZE;
 
     // INVARIANT: Allow `f32` <-> `usize` casting, we handle all cases.
-    #[allow(
+    #[expect(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
         clippy::cast_precision_loss

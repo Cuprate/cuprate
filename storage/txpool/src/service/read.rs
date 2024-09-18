@@ -50,7 +50,7 @@ fn init_read_service_with_pool(env: Arc<ConcreteEnv>, pool: Arc<ThreadPool>) -> 
 /// 1. `Request` is mapped to a handler function
 /// 2. Handler function is called
 /// 3. [`TxpoolReadResponse`] is returned
-#[allow(clippy::needless_pass_by_value)]
+#[expect(clippy::needless_pass_by_value)]
 fn map_request(
     env: &ConcreteEnv,          // Access to the database
     request: TxpoolReadRequest, // The request we must fulfill

@@ -69,7 +69,6 @@ macro_rules! generate_router_builder {
         ///     .all()
         ///     .build();
         /// ```
-        #[allow(clippy::struct_excessive_bools)]
         #[derive(Clone)]
         pub struct RouterBuilder<H: RpcHandler> {
             router: Router<H>,
