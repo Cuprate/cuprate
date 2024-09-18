@@ -332,11 +332,7 @@ impl EpeeObject for SkipObject {
 fn skip_epee_value<B: Buf>(r: &mut B, skipped_objects: &mut u8) -> Result<()> {
     let marker = read_marker(r)?;
 
-    let len = if marker.is_seq {
-        read_varint(r)?
-    } else {
-        1
-    };
+    let len = if marker.is_seq { read_varint(r)? } else { 1 };
 
     if let Some(size) = marker.inner_marker.size() {
         let bytes_to_skip = size
