@@ -6,7 +6,6 @@
 use std::{cmp::max, num::NonZeroUsize};
 
 //---------------------------------------------------------------------------------------------------- Thread Count & Percent
-#[allow(non_snake_case)]
 /// Get the total amount of system threads.
 ///
 /// ```rust
@@ -28,10 +27,15 @@ macro_rules! impl_thread_percent {
 		$(
 			$(#[$doc])*
 			pub fn $fn_name() -> NonZeroUsize {
-		        // unwrap here is okay because:
-		        // - THREADS().get() is always non-zero
-		        // - max() guards against 0
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss, clippy::cast_precision_loss)]
+                // unwrap here is okay because:
+                // - THREADS().get() is always non-zero
+                // - max() guards against 0
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    clippy::cast_sign_loss,
+                    clippy::cast_precision_loss,
+                    reason = "we need to round integers"
+                )]
 		        NonZeroUsize::new(max(1, (threads().get() as f64 * $percent).floor() as usize)).unwrap()
 		    }
 		)*
