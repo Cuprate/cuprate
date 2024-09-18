@@ -27,3 +27,6 @@ rand = { workspace = true, features = ["std", "std_rng"] }
 tokio-util = { workspace = true, features = ["io-util"]}
 tokio = { workspace = true, features = ["full"] }
 futures = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true
