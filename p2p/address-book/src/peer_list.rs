@@ -64,14 +64,13 @@ impl<Z: NetworkZone> PeerList<Z> {
     /// Adds a new peer to the peer list
     pub(crate) fn add_new_peer(&mut self, peer: ZoneSpecificPeerListEntryBase<Z::Addr>) {
         if self.peers.insert(peer.adr, peer).is_none() {
-            // It's more clear with this
-            #[allow(clippy::unwrap_or_default)]
+            #[expect(clippy::unwrap_or_default, reason = "It's more clear with this")]
             self.pruning_seeds
                 .entry(peer.pruning_seed)
                 .or_insert_with(Vec::new)
                 .push(peer.adr);
 
-            #[allow(clippy::unwrap_or_default)]
+            #[expect(clippy::unwrap_or_default)]
             self.ban_ids
                 .entry(peer.adr.ban_id())
                 .or_insert_with(Vec::new)
