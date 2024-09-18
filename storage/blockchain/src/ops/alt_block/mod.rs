@@ -55,23 +55,3 @@ pub use block::{
 };
 pub use chain::{get_alt_chain_history_ranges, update_alt_chain_info};
 pub use tx::{add_alt_transaction_blob, get_alt_transaction};
-
-/// Flush all alt-block data from all the alt-block tables.
-///
-/// This function completely empties the alt block tables.
-pub fn flush_alt_blocks<'a, E: cuprate_database::EnvInner<'a>>(
-    env_inner: &E,
-    tx_rw: &mut E::Rw<'_>,
-) -> Result<(), cuprate_database::RuntimeError> {
-    use crate::tables::{
-        AltBlockBlobs, AltBlockHeights, AltBlocksInfo, AltChainInfos, AltTransactionBlobs,
-        AltTransactionInfos,
-    };
-
-    env_inner.clear_db::<AltChainInfos>(tx_rw)?;
-    env_inner.clear_db::<AltBlockHeights>(tx_rw)?;
-    env_inner.clear_db::<AltBlocksInfo>(tx_rw)?;
-    env_inner.clear_db::<AltBlockBlobs>(tx_rw)?;
-    env_inner.clear_db::<AltTransactionBlobs>(tx_rw)?;
-    env_inner.clear_db::<AltTransactionInfos>(tx_rw)
-}
