@@ -99,11 +99,8 @@ fn check_output_keys(outputs: &[Output]) -> Result<(), TransactionError> {
 ///
 /// <https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#output-type>
 /// <https://monero-book.cuprate.org/consensus_rules/blocks/miner_tx.html#output-type>
-pub(crate) fn check_output_types(
-    outputs: &[Output],
-    hf: &HardFork,
-) -> Result<(), TransactionError> {
-    if hf == &HardFork::V15 {
+pub(crate) fn check_output_types(outputs: &[Output], hf: HardFork) -> Result<(), TransactionError> {
+    if hf == HardFork::V15 {
         for outs in outputs.windows(2) {
             if outs[0].view_tag.is_some() != outs[1].view_tag.is_some() {
                 return Err(TransactionError::OutputTypeInvalid);
@@ -113,8 +110,8 @@ pub(crate) fn check_output_types(
     }
 
     for out in outputs {
-        if hf <= &HardFork::V14 && out.view_tag.is_some()
-            || hf >= &HardFork::V16 && out.view_tag.is_none()
+        if hf <= HardFork::V14 && out.view_tag.is_some()
+            || hf >= HardFork::V16 && out.view_tag.is_none()
         {
             return Err(TransactionError::OutputTypeInvalid);
         }
@@ -125,12 +122,12 @@ pub(crate) fn check_output_types(
 /// Checks the individual outputs amount for version 1 txs.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#output-amount>
-fn check_output_amount_v1(amount: u64, hf: &HardFork) -> Result<(), TransactionError> {
+fn check_output_amount_v1(amount: u64, hf: HardFork) -> Result<(), TransactionError> {
     if amount == 0 {
         return Err(TransactionError::ZeroOutputForV1);
     }
 
-    if hf >= &HardFork::V2 && !is_decomposed_amount(&amount) {
+    if hf >= HardFork::V2 && !is_decomposed_amount(&amount) {
         return Err(TransactionError::AmountNotDecomposed);
     }
 
@@ -154,7 +151,7 @@ fn check_output_amount_v2(amount: u64) -> Result<(), TransactionError> {
 /// &&   <https://monero-book.cuprate.org/consensus_rules/transactions/outputs.html#outputs-must-not-overflow>
 fn sum_outputs(
     outputs: &[Output],
-    hf: &HardFork,
+    hf: HardFork,
     tx_version: &TxVersion,
 ) -> Result<u64, TransactionError> {
     let mut sum: u64 = 0;
@@ -181,7 +178,7 @@ fn sum_outputs(
 /// &&   <https://monero-book.cuprate.org/consensus_rules/transactions/ring_ct/bulletproofs+.html#max-outputs>
 fn check_number_of_outputs(
     outputs: usize,
-    hf: &HardFork,
+    hf: HardFork,
     tx_version: &TxVersion,
     bp_or_bpp: bool,
 ) -> Result<(), TransactionError> {
@@ -189,7 +186,7 @@ fn check_number_of_outputs(
         return Ok(());
     }
 
-    if hf >= &HardFork::V12 && outputs < 2 {
+    if hf >= HardFork::V12 && outputs < 2 {
         return Err(TransactionError::InvalidNumberOfOutputs);
     }
 
@@ -207,7 +204,7 @@ fn check_number_of_outputs(
 /// &&   <https://monero-book.cuprate.org/consensus_rules/transactions/ring_ct/bulletproofs+.html#max-outputs>
 fn check_outputs_semantics(
     outputs: &[Output],
-    hf: &HardFork,
+    hf: HardFork,
     tx_version: &TxVersion,
     bp_or_bpp: bool,
 ) -> Result<u64, TransactionError> {
@@ -369,8 +366,8 @@ fn check_input_has_decoys(input: &Input) -> Result<(), TransactionError> {
 /// Checks that the ring members for the input are unique after hard-fork 6.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#unique-ring-members>
-fn check_ring_members_unique(input: &Input, hf: &HardFork) -> Result<(), TransactionError> {
-    if hf >= &HardFork::V6 {
+fn check_ring_members_unique(input: &Input, hf: HardFork) -> Result<(), TransactionError> {
+    if hf >= HardFork::V6 {
         match input {
             Input::ToKey { key_offsets, .. } => key_offsets.iter().skip(1).try_for_each(|offset| {
                 if *offset == 0 {
@@ -389,13 +386,13 @@ fn check_ring_members_unique(input: &Input, hf: &HardFork) -> Result<(), Transac
 /// Checks that from hf 7 the inputs are sorted by key image.
 ///
 /// ref: <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#sorted-inputs>
-fn check_inputs_sorted(inputs: &[Input], hf: &HardFork) -> Result<(), TransactionError> {
+fn check_inputs_sorted(inputs: &[Input], hf: HardFork) -> Result<(), TransactionError> {
     let get_ki = |inp: &Input| match inp {
         Input::ToKey { key_image, .. } => Ok(key_image.compress().to_bytes()),
         _ => Err(TransactionError::IncorrectInputType),
     };
 
-    if hf >= &HardFork::V7 {
+    if hf >= HardFork::V7 {
         for inps in inputs.windows(2) {
             match get_ki(&inps[0])?.cmp(&get_ki(&inps[1])?) {
                 Ordering::Greater => (),
@@ -454,7 +451,7 @@ fn sum_inputs_check_overflow(inputs: &[Input]) -> Result<u64, TransactionError> 
 /// Semantic rules are rules that don't require blockchain context, the hard-fork does not require blockchain context as:
 /// - The tx-pool will use the current hard-fork
 /// - When syncing the hard-fork is in the block header.
-fn check_inputs_semantics(inputs: &[Input], hf: &HardFork) -> Result<u64, TransactionError> {
+fn check_inputs_semantics(inputs: &[Input], hf: HardFork) -> Result<u64, TransactionError> {
     // <https://monero-book.cuprate.org/consensus_rules/transactions/inputs.html#no-empty-inputs>
     if inputs.is_empty() {
         return Err(TransactionError::NoInputs);
@@ -558,7 +555,7 @@ fn min_tx_version(hf: &HardFork) -> TxVersion {
     }
 }
 
-fn transaction_weight_limit(hf: &HardFork) -> usize {
+fn transaction_weight_limit(hf: HardFork) -> usize {
     penalty_free_zone(hf) / 2 - 600
 }
 
@@ -575,12 +572,12 @@ pub fn check_transaction_semantic(
     tx_blob_size: usize,
     tx_weight: usize,
     tx_hash: &[u8; 32],
-    hf: &HardFork,
+    hf: HardFork,
     verifier: impl BatchVerifier,
 ) -> Result<u64, TransactionError> {
     // <https://monero-book.cuprate.org/consensus_rules/transactions.html#transaction-size>
     if tx_blob_size > MAX_TX_BLOB_SIZE
-        || (hf >= &HardFork::V8 && tx_weight > transaction_weight_limit(hf))
+        || (hf >= HardFork::V8 && tx_weight > transaction_weight_limit(hf))
     {
         Err(TransactionError::TooBig)?;
     }

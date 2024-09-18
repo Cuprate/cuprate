@@ -1,3 +1,9 @@
+#![expect(
+    clippy::tests_outside_test_module,
+    unused_crate_dependencies,
+    reason = "external test module"
+)]
+
 use std::{
     collections::{BTreeMap, HashMap},
     future::ready,
@@ -29,7 +35,7 @@ fn dummy_database(outputs: BTreeMap<u64, OutputOnChain>) -> impl Database + Clon
                 BlockchainResponse::NumberOutputsWithAmount(HashMap::new())
             }
             BlockchainReadRequest::Outputs(outs) => {
-                let idxs = outs.get(&0).unwrap();
+                let idxs = &outs[&0];
 
                 let mut ret = HashMap::new();
 

@@ -1,6 +1,6 @@
-//! RandomX VM Cache
+//! `RandomX` VM Cache
 //!
-//! This module keeps track of the RandomX VM to calculate the next blocks PoW, if the block needs a randomX VM and potentially
+//! This module keeps track of the `RandomX` VM to calculate the next blocks `PoW`, if the block needs a randomX VM and potentially
 //! more VMs around this height.
 //!
 use std::{
@@ -34,11 +34,11 @@ const RX_SEEDS_CACHED: usize = 2;
 /// A multithreaded randomX VM.
 #[derive(Debug)]
 pub struct RandomXVm {
-    /// These RandomX VMs all share the same cache.
+    /// These `RandomX` VMs all share the same cache.
     vms: ThreadLocal<VmInner>,
-    /// The RandomX cache.
+    /// The `RandomX` cache.
     cache: RandomXCache,
-    /// The flags used to start the RandomX VMs.
+    /// The flags used to start the `RandomX` VMs.
     flags: RandomXFlag,
 }
 
@@ -50,7 +50,7 @@ impl RandomXVm {
 
         let cache = RandomXCache::new(flags, seed.as_slice())?;
 
-        Ok(RandomXVm {
+        Ok(Self {
             vms: ThreadLocal::new(),
             cache,
             flags,
@@ -69,10 +69,10 @@ impl RandomX for RandomXVm {
     }
 }
 
-/// The randomX VMs cache, keeps the VM needed to calculate the current block's PoW hash (if a VM is needed) and a
+/// The randomX VMs cache, keeps the VM needed to calculate the current block's `PoW` hash (if a VM is needed) and a
 /// couple more around this VM.
 #[derive(Clone, Debug)]
-pub struct RandomXVmCache {
+pub(crate) struct RandomXVmCache {
     /// The top [`RX_SEEDS_CACHED`] RX seeds.  
     pub(crate) seeds: VecDeque<(usize, [u8; 32])>,
     /// The VMs for `seeds` (if after hf 12, otherwise this will be empty).
@@ -117,7 +117,7 @@ impl RandomXVmCache {
             HashMap::new()
         };
 
-        Ok(RandomXVmCache {
+        Ok(Self {
             seeds,
             vms,
             cached_vm: None,
@@ -125,14 +125,14 @@ impl RandomXVmCache {
     }
 
     /// Add a randomX VM to the cache, with the seed it was created with.
-    pub fn add_vm(&mut self, vm: ([u8; 32], Arc<RandomXVm>)) {
+    pub(crate) fn add_vm(&mut self, vm: ([u8; 32], Arc<RandomXVm>)) {
         self.cached_vm.replace(vm);
     }
 
     /// Creates a RX VM for an alt chain, looking at the main chain RX VMs to see if we can use one
     /// of them first.
-    pub async fn get_alt_vm<D: Database>(
-        &mut self,
+    pub(crate) async fn get_alt_vm<D: Database>(
+        &self,
         height: usize,
         chain: Chain,
         database: D,
@@ -152,7 +152,7 @@ impl RandomXVmCache {
                     break;
                 };
 
-                return Ok(vm.clone());
+                return Ok(Arc::clone(vm));
             }
         }
 
@@ -161,8 +161,8 @@ impl RandomXVmCache {
         Ok(alt_vm)
     }
 
-    /// Get the main-chain RandomX VMs.
-    pub async fn get_vms(&mut self) -> HashMap<usize, Arc<RandomXVm>> {
+    /// Get the main-chain `RandomX` VMs.
+    pub(crate) async fn get_vms(&mut self) -> HashMap<usize, Arc<RandomXVm>> {
         match self.seeds.len().checked_sub(self.vms.len()) {
             // No difference in the amount of seeds to VMs.
             Some(0) => (),
@@ -206,23 +206,23 @@ impl RandomXVmCache {
                         })
                         .collect()
                 })
-                .await
+                .await;
             }
         }
 
         self.vms.clone()
     }
 
-    /// Removes all the RandomX VMs above the `new_height`.
-    pub fn pop_blocks_main_chain(&mut self, new_height: usize) {
+    /// Removes all the `RandomX` VMs above the `new_height`.
+    pub(crate) fn pop_blocks_main_chain(&mut self, new_height: usize) {
         self.seeds.retain(|(height, _)| *height < new_height);
         self.vms.retain(|height, _| *height < new_height);
     }
 
     /// Add a new block to the VM cache.
     ///
-    /// hash is the block hash not the blocks PoW hash.
-    pub fn new_block(&mut self, height: usize, hash: &[u8; 32]) {
+    /// hash is the block hash not the blocks `PoW` hash.
+    pub(crate) fn new_block(&mut self, height: usize, hash: &[u8; 32]) {
         if is_randomx_seed_height(height) {
             tracing::debug!("Block {height} is a randomX seed height, adding it to the cache.",);
 
@@ -235,7 +235,7 @@ impl RandomXVmCache {
                     self.seeds
                         .iter()
                         .any(|(cached_height, _)| height == cached_height)
-                })
+                });
             }
         }
     }
@@ -258,7 +258,7 @@ pub(crate) fn get_last_rx_seed_heights(mut last_height: usize, mut amount: usize
         // We don't include the lag as we only want seeds not the specific seed for this height.
         let seed_height = (last_height - 1) & !(RX_SEEDHASH_EPOCH_BLOCKS - 1);
         seeds.push(seed_height);
-        last_height = seed_height
+        last_height = seed_height;
     }
 
     seeds

@@ -122,10 +122,10 @@ pub fn check_block_pow(hash: &[u8; 32], difficulty: u128) -> Result<(), BlockErr
 /// Returns the penalty free zone
 ///
 /// <https://cuprate.github.io/monero-book/consensus_rules/blocks/weight_limit.html#penalty-free-zone>
-pub fn penalty_free_zone(hf: &HardFork) -> usize {
-    if hf == &HardFork::V1 {
+pub fn penalty_free_zone(hf: HardFork) -> usize {
+    if hf == HardFork::V1 {
         PENALTY_FREE_ZONE_1
-    } else if hf >= &HardFork::V2 && hf < &HardFork::V5 {
+    } else if hf >= HardFork::V2 && hf < HardFork::V5 {
         PENALTY_FREE_ZONE_2
     } else {
         PENALTY_FREE_ZONE_5
@@ -273,7 +273,7 @@ pub fn check_block(
         block_weight,
         block_chain_ctx.median_weight_for_block_reward,
         block_chain_ctx.already_generated_coins,
-        &block_chain_ctx.current_hf,
+        block_chain_ctx.current_hf,
     )?;
 
     Ok((vote, generated_coins))

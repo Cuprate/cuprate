@@ -72,17 +72,17 @@ impl PreparedBlockExPow {
     /// This errors if either the `block`'s:
     /// - Hard-fork values are invalid
     /// - Miner transaction is missing a miner input
-    pub fn new(block: Block) -> Result<PreparedBlockExPow, ConsensusError> {
+    pub fn new(block: Block) -> Result<Self, ConsensusError> {
         let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
             .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
         let Some(Input::Gen(height)) = block.miner_transaction.prefix().inputs.first() else {
-            Err(ConsensusError::Block(BlockError::MinerTxError(
+            return Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
-            )))?
+            )));
         };
 
-        Ok(PreparedBlockExPow {
+        Ok(Self {
             block_blob: block.serialize(),
             hf_vote,
             hf_version,
@@ -123,20 +123,17 @@ impl PreparedBlock {
     ///
     /// The randomX VM must be Some if RX is needed or this will panic.
     /// The randomX VM must also be initialised with the correct seed.
-    fn new<R: RandomX>(
-        block: Block,
-        randomx_vm: Option<&R>,
-    ) -> Result<PreparedBlock, ConsensusError> {
+    fn new<R: RandomX>(block: Block, randomx_vm: Option<&R>) -> Result<Self, ConsensusError> {
         let (hf_version, hf_vote) = HardFork::from_block_header(&block.header)
             .map_err(|_| BlockError::HardForkError(HardForkError::HardForkUnknown))?;
 
         let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
-            Err(ConsensusError::Block(BlockError::MinerTxError(
+            return Err(ConsensusError::Block(BlockError::MinerTxError(
                 MinerTxError::InputNotOfTypeGen,
-            )))?
+            )));
         };
 
-        Ok(PreparedBlock {
+        Ok(Self {
             block_blob: block.serialize(),
             hf_vote,
             hf_version,
@@ -156,17 +153,17 @@ impl PreparedBlock {
 
     /// Creates a new [`PreparedBlock`] from a [`PreparedBlockExPow`].
     ///
-    /// This function will give an invalid PoW hash if `randomx_vm` is not initialised
+    /// This function will give an invalid `PoW` hash if `randomx_vm` is not initialised
     /// with the correct seed.
     ///
     /// # Panics
     /// This function will panic if `randomx_vm` is
-    /// [`None`] even though RandomX is needed.
+    /// [`None`] even though `RandomX` is needed.
     fn new_prepped<R: RandomX>(
         block: PreparedBlockExPow,
         randomx_vm: Option<&R>,
-    ) -> Result<PreparedBlock, ConsensusError> {
-        Ok(PreparedBlock {
+    ) -> Result<Self, ConsensusError> {
+        Ok(Self {
             block_blob: block.block_blob,
             hf_vote: block.hf_vote,
             hf_version: block.hf_version,
@@ -254,12 +251,8 @@ where
     D::Future: Send + 'static,
 {
     /// Creates a new block verifier.
-    pub(crate) fn new(
-        context_svc: C,
-        tx_verifier_svc: TxV,
-        database: D,
-    ) -> BlockVerifierService<C, TxV, D> {
-        BlockVerifierService {
+    pub(crate) const fn new(context_svc: C, tx_verifier_svc: TxV, database: D) -> Self {
+        Self {
             context_svc,
             tx_verifier_svc,
             _database: database,

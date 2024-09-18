@@ -5,7 +5,6 @@
 use std::{
     collections::HashSet,
     future::Future,
-    ops::Deref,
     pin::Pin,
     sync::Arc,
     task::{Context, Poll},
@@ -102,8 +101,8 @@ where
     D::Future: Send + 'static,
 {
     /// Creates a new [`TxVerifierService`].
-    pub fn new(database: D) -> TxVerifierService<D> {
-        TxVerifierService { database }
+    pub const fn new(database: D) -> Self {
+        Self { database }
     }
 }
 
@@ -244,7 +243,7 @@ where
 
     if kis_spent {
         tracing::debug!("One or more key images in batch already spent.");
-        Err(ConsensusError::Transaction(TransactionError::KeyImageSpent))?;
+        return Err(ConsensusError::Transaction(TransactionError::KeyImageSpent).into());
     }
 
     let mut verified_at_block_hashes = txs
@@ -281,8 +280,8 @@ where
     let (txs_needing_full_verification, txs_needing_partial_verification) =
         transactions_needing_verification(
             txs,
-            verified_at_block_hashes,
-            &hf,
+            &verified_at_block_hashes,
+            hf,
             current_chain_height,
             time_for_time_lock,
         )?;
@@ -302,11 +301,14 @@ where
     Ok(VerifyTxResponse::Ok)
 }
 
-#[allow(clippy::type_complexity)] // I don't think the return is too complex
+#[allow(
+    clippy::type_complexity,
+    reason = "I don't think the return is too complex"
+)]
 fn transactions_needing_verification(
     txs: &[Arc<TransactionVerificationData>],
-    hashes_in_main_chain: HashSet<[u8; 32]>,
-    current_hf: &HardFork,
+    hashes_in_main_chain: &HashSet<[u8; 32]>,
+    current_hf: HardFork,
     current_chain_height: usize,
     time_for_time_lock: u64,
 ) -> Result<
@@ -321,27 +323,28 @@ fn transactions_needing_verification(
     // txs needing partial _contextual_ validation, not semantic.
     let mut partial_validation_transactions = Vec::new();
 
-    for tx in txs.iter() {
+    for tx in txs {
         let guard = tx.cached_verification_state.lock().unwrap();
 
-        match guard.deref() {
+        match &*guard {
             CachedVerificationState::NotVerified => {
                 drop(guard);
                 full_validation_transactions
-                    .push((tx.clone(), VerificationNeeded::SemanticAndContextual));
+                    .push((Arc::clone(tx), VerificationNeeded::SemanticAndContextual));
                 continue;
             }
             CachedVerificationState::ValidAtHashAndHF { block_hash, hf } => {
-                if current_hf != hf {
+                if current_hf != *hf {
                     drop(guard);
                     full_validation_transactions
-                        .push((tx.clone(), VerificationNeeded::SemanticAndContextual));
+                        .push((Arc::clone(tx), VerificationNeeded::SemanticAndContextual));
                     continue;
                 }
 
                 if !hashes_in_main_chain.contains(block_hash) {
                     drop(guard);
-                    full_validation_transactions.push((tx.clone(), VerificationNeeded::Contextual));
+                    full_validation_transactions
+                        .push((Arc::clone(tx), VerificationNeeded::Contextual));
                     continue;
                 }
             }
@@ -350,16 +353,17 @@ fn transactions_needing_verification(
                 hf,
                 time_lock,
             } => {
-                if current_hf != hf {
+                if current_hf != *hf {
                     drop(guard);
                     full_validation_transactions
-                        .push((tx.clone(), VerificationNeeded::SemanticAndContextual));
+                        .push((Arc::clone(tx), VerificationNeeded::SemanticAndContextual));
                     continue;
                 }
 
                 if !hashes_in_main_chain.contains(block_hash) {
                     drop(guard);
-                    full_validation_transactions.push((tx.clone(), VerificationNeeded::Contextual));
+                    full_validation_transactions
+                        .push((Arc::clone(tx), VerificationNeeded::Contextual));
                     continue;
                 }
 
@@ -374,7 +378,7 @@ fn transactions_needing_verification(
 
         if tx.version == TxVersion::RingSignatures {
             drop(guard);
-            partial_validation_transactions.push(tx.clone());
+            partial_validation_transactions.push(Arc::clone(tx));
             continue;
         }
     }
@@ -432,7 +436,7 @@ where
                         tx.tx_blob.len(),
                         tx.tx_weight,
                         &tx.tx_hash,
-                        &hf,
+                        hf,
                         &batch_verifier,
                     )?;
                     // make sure we calculated the right fee.

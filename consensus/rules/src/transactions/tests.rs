@@ -17,12 +17,12 @@ use crate::decomposed_amount::DECOMPOSED_AMOUNTS;
 #[test]
 fn test_check_output_amount_v1() {
     for amount in DECOMPOSED_AMOUNTS.iter() {
-        assert!(check_output_amount_v1(*amount, &HardFork::V2).is_ok())
+        assert!(check_output_amount_v1(*amount, HardFork::V2).is_ok())
     }
 
     proptest!(|(amount in any::<u64>().prop_filter("value_decomposed", |val| !is_decomposed_amount(val)))| {
-        prop_assert!(check_output_amount_v1(amount, &HardFork::V2).is_err());
-        prop_assert!(check_output_amount_v1(amount, &HardFork::V1).is_ok())
+        prop_assert!(check_output_amount_v1(amount, HardFork::V2).is_err());
+        prop_assert!(check_output_amount_v1(amount, HardFork::V1).is_ok())
     });
 }
 
@@ -41,10 +41,10 @@ fn test_sum_outputs() {
 
     let outs = [output_10, outputs_20];
 
-    let sum = sum_outputs(&outs, &HardFork::V16, &TxVersion::RingSignatures).unwrap();
+    let sum = sum_outputs(&outs, HardFork::V16, &TxVersion::RingSignatures).unwrap();
     assert_eq!(sum, 30);
 
-    assert!(sum_outputs(&outs, &HardFork::V16, &TxVersion::RingCT).is_err())
+    assert!(sum_outputs(&outs, HardFork::V16, &TxVersion::RingCT).is_err())
 }
 
 #[test]
@@ -203,27 +203,27 @@ proptest! {
         hf_no_view_tags in hf_in_range(1..14),
         hf_view_tags in hf_in_range(16..17),
     ) {
-        prop_assert!(check_output_types(&view_tag_outs, &hf_view_tags).is_ok());
-        prop_assert!(check_output_types(&view_tag_outs, &hf_no_view_tags).is_err());
+        prop_assert!(check_output_types(&view_tag_outs, hf_view_tags).is_ok());
+        prop_assert!(check_output_types(&view_tag_outs, hf_no_view_tags).is_err());
 
 
-        prop_assert!(check_output_types(&non_view_tag_outs, &hf_no_view_tags).is_ok());
-        prop_assert!(check_output_types(&non_view_tag_outs, &hf_view_tags).is_err());
+        prop_assert!(check_output_types(&non_view_tag_outs, hf_no_view_tags).is_ok());
+        prop_assert!(check_output_types(&non_view_tag_outs, hf_view_tags).is_err());
 
-        prop_assert!(check_output_types(&non_view_tag_outs, &HardFork::V15).is_ok());
-        prop_assert!(check_output_types(&view_tag_outs, &HardFork::V15).is_ok());
+        prop_assert!(check_output_types(&non_view_tag_outs, HardFork::V15).is_ok());
+        prop_assert!(check_output_types(&view_tag_outs, HardFork::V15).is_ok());
         view_tag_outs.append(&mut non_view_tag_outs);
-        prop_assert!(check_output_types(&view_tag_outs, &HardFork::V15).is_err());
+        prop_assert!(check_output_types(&view_tag_outs, HardFork::V15).is_err());
     }
 
     #[test]
     fn test_valid_number_of_outputs(valid_numb_outs in 2..17_usize) {
-        prop_assert!(check_number_of_outputs(valid_numb_outs, &HardFork::V16, &TxVersion::RingCT, true).is_ok());
+        prop_assert!(check_number_of_outputs(valid_numb_outs, HardFork::V16, &TxVersion::RingCT, true).is_ok());
     }
 
     #[test]
     fn test_invalid_number_of_outputs(numb_outs in 17..usize::MAX) {
-        prop_assert!(check_number_of_outputs(numb_outs, &HardFork::V16, &TxVersion::RingCT, true).is_err());
+        prop_assert!(check_number_of_outputs(numb_outs, HardFork::V16, &TxVersion::RingCT, true).is_err());
     }
 
     #[test]
