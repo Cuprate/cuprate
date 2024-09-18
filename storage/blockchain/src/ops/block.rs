@@ -156,28 +156,27 @@ pub fn pop_block(
     let block = Block::read(&mut block_blob.as_slice())?;
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
-    let mut txs = if move_to_alt_chain.is_some() {
-        Vec::with_capacity(block.transactions.len())
-    } else {
-        Vec::new()
-    };
-
     remove_tx(&block.miner_transaction.hash(), tables)?;
-    for tx_hash in &block.transactions {
-        let (_, tx) = remove_tx(tx_hash, tables)?;
 
-        if move_to_alt_chain.is_some() {
-            txs.push(VerifiedTransactionInformation {
-                tx_weight: tx.weight(),
-                tx_blob: tx.serialize(),
-                tx_hash: tx.hash(),
-                fee: tx_fee(&tx),
-                tx,
-            });
-        }
-    }
+    let remove_tx_iter = block.transactions.iter().map(|tx_hash| {
+        let (_, tx) = remove_tx(tx_hash, tables)?;
+        Ok::<_, RuntimeError>(tx)
+    });
 
     if let Some(chain_id) = move_to_alt_chain {
+        let txs = remove_tx_iter
+            .map(|result| {
+                let tx = result?;
+                Ok(VerifiedTransactionInformation {
+                    tx_weight: tx.weight(),
+                    tx_blob: tx.serialize(),
+                    tx_hash: tx.hash(),
+                    fee: tx_fee(&tx),
+                    tx,
+                })
+            })
+            .collect::<Result<Vec<VerifiedTransactionInformation>, RuntimeError>>()?;
+
         alt_block::add_alt_block(
             &AltBlockInformation {
                 block: block.clone(),
@@ -197,6 +196,10 @@ pub fn pop_block(
             },
             tables,
         )?;
+    } else {
+        for result in remove_tx_iter {
+            drop(result?);
+        }
     }
 
     Ok((block_height, block_info.block_hash, block))
