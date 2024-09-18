@@ -1581,7 +1581,6 @@ define_request_and_response! {
     feature = "serde",
     serde(rename_all = "snake_case", tag = "method", content = "params")
 )]
-#[allow(missing_docs)]
 pub enum JsonRpcRequest {
     GetBlockCount(GetBlockCountRequest),
     OnGetBlockHash(OnGetBlockHashRequest),
@@ -1714,7 +1713,6 @@ impl RpcCallValue for JsonRpcRequest {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged, rename_all = "snake_case"))]
-#[allow(missing_docs)]
 pub enum JsonRpcResponse {
     GetBlockCount(GetBlockCountResponse),
     OnGetBlockHash(OnGetBlockHashResponse),

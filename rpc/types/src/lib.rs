@@ -1,5 +1,9 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+#![allow(
+    clippy::allow_attributes,
+    reason = "macros (internal + serde) make this lint hard to satisfy"
+)]
 
 mod constants;
 mod defaults;
