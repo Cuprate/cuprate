@@ -19,13 +19,13 @@ pub enum InnerMarker {
 }
 
 impl InnerMarker {
-    pub fn size(&self) -> Option<usize> {
+    pub const fn size(&self) -> Option<usize> {
         Some(match self {
-            InnerMarker::I64 | InnerMarker::U64 | InnerMarker::F64 => 8,
-            InnerMarker::I32 | InnerMarker::U32 => 4,
-            InnerMarker::I16 | InnerMarker::U16 => 2,
-            InnerMarker::I8 | InnerMarker::U8 | InnerMarker::Bool => 1,
-            InnerMarker::String | InnerMarker::Object => return None,
+            Self::I64 | Self::U64 | Self::F64 => 8,
+            Self::I32 | Self::U32 => 4,
+            Self::I16 | Self::U16 => 2,
+            Self::I8 | Self::U8 | Self::Bool => 1,
+            Self::String | Self::Object => return None,
         })
     }
 }
@@ -40,23 +40,23 @@ pub struct Marker {
 
 impl Marker {
     pub(crate) const fn new(inner_marker: InnerMarker) -> Self {
-        Marker {
+        Self {
             inner_marker,
             is_seq: false,
         }
     }
+
+    #[must_use]
     pub const fn into_seq(self) -> Self {
-        if self.is_seq {
-            panic!("Sequence of sequence not allowed!");
-        }
+        assert!(!self.is_seq, "Sequence of sequence not allowed!");
         if matches!(self.inner_marker, InnerMarker::U8) {
-            return Marker {
+            return Self {
                 inner_marker: InnerMarker::String,
                 is_seq: false,
             };
         }
 
-        Marker {
+        Self {
             inner_marker: self.inner_marker,
             is_seq: true,
         }
@@ -112,7 +112,7 @@ impl TryFrom<u8> for Marker {
             _ => return Err(Error::Format("Unknown value Marker")),
         };
 
-        Ok(Marker {
+        Ok(Self {
             inner_marker,
             is_seq,
         })

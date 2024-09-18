@@ -1,3 +1,9 @@
+#![expect(
+    clippy::tests_outside_test_module,
+    unused_crate_dependencies,
+    reason = "outer test module"
+)]
+
 use cuprate_epee_encoding::{epee_object, from_bytes, to_bytes};
 use std::ops::Deref;
 
@@ -28,6 +34,6 @@ fn optional_val_in_data() {
     ];
     let t: T = from_bytes(&mut &bytes[..]).unwrap();
     let bytes2 = to_bytes(t.clone()).unwrap();
-    assert_eq!(bytes.as_slice(), bytes2.deref());
+    assert_eq!(bytes.as_slice(), &*bytes2);
     assert_eq!(t.val.unwrap(), 21);
 }
