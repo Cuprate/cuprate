@@ -216,7 +216,7 @@ where
             });
 
             let Some(peer) = self.stem_peers.get_mut(stem_route) else {
-                self.stem_routes.remove(&from);
+                self.stem_routes.remove(from);
                 continue;
             };
 
