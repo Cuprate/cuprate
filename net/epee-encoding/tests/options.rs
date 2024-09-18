@@ -5,7 +5,6 @@
 )]
 
 use cuprate_epee_encoding::{epee_object, from_bytes, to_bytes};
-use std::ops::Deref;
 
 #[derive(Clone)]
 struct T {
