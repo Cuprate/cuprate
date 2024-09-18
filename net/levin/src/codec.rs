@@ -112,8 +112,10 @@ impl<C: LevinCommand + Debug> Decoder for LevinBucketCodec<C> {
                         }
                     }
 
-                    let _unused =
-                        std::mem::replace(&mut self.state, LevinBucketState::WaitingForBody(head));
+                    drop(std::mem::replace(
+                        &mut self.state,
+                        LevinBucketState::WaitingForBody(head),
+                    ));
                 }
                 LevinBucketState::WaitingForBody(head) => {
                     let body_len = u64_to_usize(head.size);
