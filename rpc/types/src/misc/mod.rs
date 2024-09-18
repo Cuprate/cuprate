@@ -15,7 +15,7 @@
 mod binary_string;
 mod distribution;
 mod key_image_spent_status;
-#[allow(clippy::module_inception)]
+#[expect(clippy::module_inception)]
 mod misc;
 mod pool_info_extent;
 mod status;

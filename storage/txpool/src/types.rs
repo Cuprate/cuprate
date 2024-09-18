@@ -39,7 +39,7 @@ pub struct TransactionInfo {
     pub weight: usize,
     /// [`TxStateFlags`] of this transaction.
     pub flags: TxStateFlags,
-    #[allow(clippy::pub_underscore_fields)]
+    #[expect(clippy::pub_underscore_fields)]
     /// Explicit padding so that we have no implicit padding bytes in `repr(C)`.
     ///
     /// Allows potential future expansion of this type.
@@ -92,7 +92,7 @@ impl From<RawCachedVerificationState> for CachedVerificationState {
     }
 }
 
-#[allow(clippy::fallible_impl_from)] // only panics in invalid states
+#[expect(clippy::fallible_impl_from, reason = "only panics in invalid states")]
 impl From<CachedVerificationState> for RawCachedVerificationState {
     fn from(value: CachedVerificationState) -> Self {
         match value {

@@ -58,7 +58,10 @@ fn init_service() -> (
 /// - Receive response(s)
 /// - Assert proper tables were mutated
 /// - Assert read requests lead to expected responses
-#[allow(clippy::future_not_send)] // INVARIANT: tests are using a single threaded runtime
+#[expect(
+    clippy::future_not_send,
+    reason = "INVARIANT: tests are using a single threaded runtime"
+)]
 async fn test_template(
     // Which block(s) to add?
     blocks: &[&VerifiedBlockInformation],
@@ -164,8 +167,10 @@ async fn test_template(
         num_req
             .iter()
             .map(|amount| match tables.num_outputs().get(amount) {
-                // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-                #[allow(clippy::cast_possible_truncation)]
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+                )]
                 Ok(count) => (*amount, count as usize),
                 Err(RuntimeError::KeyNotFound) => (*amount, 0),
                 Err(e) => panic!("{e:?}"),
@@ -304,7 +309,10 @@ async fn test_template(
     // Assert we get back the same map of
     // `Amount`'s and `AmountIndex`'s.
     let mut response_output_count = 0;
-    #[allow(clippy::iter_over_hash_type)] // order doesn't matter in this test
+    #[expect(
+        clippy::iter_over_hash_type,
+        reason = "order doesn't matter in this test"
+    )]
     for (amount, output_map) in response {
         let amount_index_set = &map[&amount];
 
