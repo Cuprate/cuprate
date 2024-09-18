@@ -138,7 +138,8 @@ mod test {
             // Assert reads are correct.
             AssertTableLen {
                 block_infos: 3,
-                block_blobs: 3,
+                block_header_blobs: 3,
+                block_txs_hashes: 3,
                 block_heights: 3,
                 key_images: 69,
                 num_outputs: 41,

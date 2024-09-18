@@ -64,6 +64,12 @@ pub type AmountIndices = StorableVec<AmountIndex>;
 /// A serialized block.
 pub type BlockBlob = StorableVec<u8>;
 
+/// A serialized block header
+pub type BlockHeaderBlob = StorableVec<u8>;
+
+/// A block transaction hashes
+pub type BlockTxHashes = StorableVec<[u8; 32]>;
+
 /// A block's hash.
 pub type BlockHash = [u8; 32];
 
@@ -164,6 +170,7 @@ impl Key for PreRctOutputId {}
 ///     block_hash: [54; 32],
 ///     cumulative_rct_outs: 2389,
 ///     long_term_weight: 2389,
+///     mining_tx_index: 23
 /// };
 /// let b = Storable::as_bytes(&a);
 /// let c: BlockInfo = Storable::from_bytes(b);
@@ -173,7 +180,7 @@ impl Key for PreRctOutputId {}
 /// # Size & Alignment
 /// ```rust
 /// # use cuprate_blockchain::types::*;
-/// assert_eq!(size_of::<BlockInfo>(), 88);
+/// assert_eq!(size_of::<BlockInfo>(), 96);
 /// assert_eq!(align_of::<BlockInfo>(), 8);
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -200,6 +207,8 @@ pub struct BlockInfo {
     ///
     /// See [`long_term_weight`](https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#long-term-block-weight).
     pub long_term_weight: u64,
+    /// `TxId` (u64) of the block coinbase transaction.
+    pub mining_tx_index: u64,
 }
 
 //---------------------------------------------------------------------------------------------------- OutputFlags

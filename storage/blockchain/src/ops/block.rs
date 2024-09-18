@@ -2,7 +2,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use monero_serai::block::Block;
+use monero_serai::{
+    block::{Block, BlockHeader},
+    transaction::{NotPruned, Transaction},
+};
 
 use cuprate_database::{
     RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
@@ -74,10 +77,10 @@ pub fn add_block(
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
-    {
+    let mining_tx_index = {
         let tx = &block.block.miner_transaction;
-        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?;
-    }
+        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?
+    };
 
     for tx in &block.txs {
         add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, tables)?;
@@ -110,13 +113,21 @@ pub fn add_block(
             // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
             weight: block.weight as u64,
             long_term_weight: block.long_term_weight as u64,
+            mining_tx_index,
         },
     )?;
 
-    // Block blobs.
-    tables
-        .block_blobs_mut()
-        .put(&block.height, StorableVec::wrap_ref(&block.block_blob))?;
+    // Block header blob.
+    tables.block_header_blobs_mut().put(
+        &block.height,
+        StorableVec::wrap_ref(&block.block.header.serialize()),
+    )?;
+
+    // Block transaction hashes
+    tables.block_txs_hashes_mut().put(
+        &block.height,
+        StorableVec::wrap_ref(&block.block.transactions),
+    )?;
 
     // Block heights.
     tables
@@ -140,19 +151,31 @@ pub fn pop_block(
 ) -> Result<(BlockHeight, BlockHash, Block), RuntimeError> {
     //------------------------------------------------------ Block Info
     // Remove block data from tables.
-    let (block_height, block_hash) = {
+    let (block_height, block_hash, mining_tx_index) = {
         let (block_height, block_info) = tables.block_infos_mut().pop_last()?;
-        (block_height, block_info.block_hash)
+        (
+            block_height,
+            block_info.block_hash,
+            block_info.mining_tx_index,
+        )
     };
 
     // Block heights.
     tables.block_heights_mut().delete(&block_hash)?;
 
     // Block blobs.
-    // We deserialize the block blob into a `Block`, such
-    // that we can remove the associated transactions later.
-    let block_blob = tables.block_blobs_mut().take(&block_height)?.0;
-    let block = Block::read(&mut block_blob.as_slice())?;
+    //
+    // We deserialize the block header blob and mining transaction blob
+    // to form a `Block`, such that we can remove the associated transactions
+    // later.
+    let block_header = tables.block_header_blobs_mut().take(&block_height)?.0;
+    let block_txs_hashes = tables.block_txs_hashes_mut().take(&block_height)?.0;
+    let miner_transaction = tables.tx_blobs().get(&mining_tx_index)?.0;
+    let block = Block {
+        header: BlockHeader::read(&mut block_header.as_slice())?,
+        miner_transaction: Transaction::<NotPruned>::read(&mut miner_transaction.as_slice())?,
+        transactions: block_txs_hashes,
+    };
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     remove_tx(&block.miner_transaction.hash(), tables)?;
@@ -190,8 +213,8 @@ pub fn get_block_extended_header_from_height(
     tables: &impl Tables,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
     let block_info = tables.block_infos().get(block_height)?;
-    let block_blob = tables.block_blobs().get(block_height)?.0;
-    let block = Block::read(&mut block_blob.as_slice())?;
+    let block_header_blob = tables.block_header_blobs().get(block_height)?.0;
+    let block_header = BlockHeader::read(&mut block_header_blob.as_slice())?;
 
     let cumulative_difficulty = combine_low_high_bits_to_u128(
         block_info.cumulative_difficulty_low,
@@ -202,10 +225,10 @@ pub fn get_block_extended_header_from_height(
     #[allow(clippy::cast_possible_truncation)]
     Ok(ExtendedBlockHeader {
         cumulative_difficulty,
-        version: HardFork::from_version(block.header.hardfork_version)
+        version: HardFork::from_version(block_header.hardfork_version)
             .expect("Stored block must have a valid hard-fork"),
-        vote: block.header.hardfork_signal,
-        timestamp: block.header.timestamp,
+        vote: block_header.hardfork_signal,
+        timestamp: block_header.timestamp,
         block_weight: block_info.weight as usize,
         long_term_weight: block_info.long_term_weight as usize,
     })
@@ -330,7 +353,8 @@ mod test {
             // Assert only the proper tables were added to.
             AssertTableLen {
                 block_infos: 3,
-                block_blobs: 3,
+                block_header_blobs: 3,
+                block_txs_hashes: 3,
                 block_heights: 3,
                 key_images: 69,
                 num_outputs: 41,
