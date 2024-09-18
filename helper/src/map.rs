@@ -29,7 +29,7 @@ use crate::cast::{u64_to_usize, usize_to_u64};
 /// ```
 #[inline]
 pub const fn split_u128_into_low_high_bits(value: u128) -> (u64, u64) {
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     (value as u64, (value >> 64) as u64)
 }
 
