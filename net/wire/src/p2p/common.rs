@@ -18,6 +18,7 @@
 use bitflags::bitflags;
 
 use cuprate_epee_encoding::epee_object;
+use cuprate_helper::map::split_u128_into_low_high_bits;
 pub use cuprate_types::{BlockCompleteEntry, PrunedTxBlobEntry, TransactionBlobs};
 
 use crate::NetworkAddress;
@@ -34,7 +35,7 @@ bitflags! {
 
 impl From<u32> for PeerSupportFlags {
     fn from(value: u32) -> Self {
-        PeerSupportFlags(value)
+        Self(value)
     }
 }
 
@@ -113,16 +114,17 @@ epee_object! {
 }
 
 impl CoreSyncData {
-    pub fn new(
+    pub const fn new(
         cumulative_difficulty_128: u128,
         current_height: u64,
         pruning_seed: u32,
         top_id: [u8; 32],
         top_version: u8,
-    ) -> CoreSyncData {
-        let cumulative_difficulty = cumulative_difficulty_128 as u64;
-        let cumulative_difficulty_top64 = (cumulative_difficulty_128 >> 64) as u64;
-        CoreSyncData {
+    ) -> Self {
+        let (cumulative_difficulty, cumulative_difficulty_top64) =
+            split_u128_into_low_high_bits(cumulative_difficulty_128);
+
+        Self {
             cumulative_difficulty,
             cumulative_difficulty_top64,
             current_height,
@@ -139,7 +141,7 @@ impl CoreSyncData {
     }
 }
 
-/// PeerListEntryBase, information kept on a peer which will be entered
+/// `PeerListEntryBase`, information kept on a peer which will be entered
 /// in a peer list/store.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct PeerListEntryBase {
