@@ -75,7 +75,13 @@ impl<N: NetworkZone> ChainTracker<N> {
         let mut entries = VecDeque::with_capacity(1);
         entries.push_back(new_entry);
 
-        Self { entries, first_height, top_seen_hash, previous_hash, our_genesis }
+        Self {
+            entries,
+            first_height,
+            top_seen_hash,
+            previous_hash,
+            our_genesis,
+        }
     }
 
     /// Returns `true` if the peer is expected to have the next block after our highest seen block
@@ -112,7 +118,10 @@ impl<N: NetworkZone> ChainTracker<N> {
     }
 
     /// Attempts to add an incoming [`ChainEntry`] to the chain tracker.
-    pub(crate) fn add_entry(&mut self, mut chain_entry: ChainEntry<N>) -> Result<(), ChainTrackerError> {
+    pub(crate) fn add_entry(
+        &mut self,
+        mut chain_entry: ChainEntry<N>,
+    ) -> Result<(), ChainTrackerError> {
         if chain_entry.ids.is_empty() {
             // The peer must send at lest one overlapping block.
             chain_entry.handle.ban_peer(MEDIUM_BAN);
