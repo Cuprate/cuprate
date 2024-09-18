@@ -183,7 +183,10 @@ pub fn get_block_extended_header(
 
 /// Same as [`get_block_extended_header`] but with a [`BlockHeight`].
 #[doc = doc_error!()]
-#[allow(clippy::missing_panics_doc)] // The panic is only possible with a corrupt DB
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "The panic is only possible with a corrupt DB"
+)]
 #[inline]
 pub fn get_block_extended_header_from_height(
     block_height: &BlockHeight,
@@ -198,8 +201,10 @@ pub fn get_block_extended_header_from_height(
         block_info.cumulative_difficulty_high,
     );
 
-    // INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "INVARIANT: #[cfg] @ lib.rs asserts `usize == u64`"
+    )]
     Ok(ExtendedBlockHeader {
         cumulative_difficulty,
         version: HardFork::from_version(block.header.hardfork_version)
@@ -260,11 +265,7 @@ pub fn block_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[allow(
-    clippy::significant_drop_tightening,
-    clippy::cognitive_complexity,
-    clippy::too_many_lines
-)]
+#[expect(clippy::significant_drop_tightening, clippy::too_many_lines)]
 mod test {
     use pretty_assertions::assert_eq;
 

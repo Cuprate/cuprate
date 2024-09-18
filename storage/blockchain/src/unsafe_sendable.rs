@@ -26,7 +26,7 @@ use bytemuck::TransparentWrapper;
 /// Notably, `heed`'s table type uses this inside `service`.
 pub(crate) struct UnsafeSendable<T>(T);
 
-#[allow(clippy::non_send_fields_in_send_ty)]
+#[expect(clippy::non_send_fields_in_send_ty)]
 // SAFETY: Users ensure that their usage of this type is safe.
 unsafe impl<T> Send for UnsafeSendable<T> {}
 
@@ -41,7 +41,7 @@ impl<T> UnsafeSendable<T> {
     }
 
     /// Extract the inner `T`.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub(crate) fn into_inner(self) -> T {
         self.0
     }

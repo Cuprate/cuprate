@@ -138,7 +138,6 @@ define_request! {
 )]
 ///
 /// This response's variant depends upon [`PoolInfoExtent`].
-#[allow(dead_code, missing_docs)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum GetBlocksResponse {
@@ -157,7 +156,6 @@ impl Default for GetBlocksResponse {
 }
 
 /// Data within [`GetBlocksResponse::PoolInfoNone`].
-#[allow(dead_code, missing_docs)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GetBlocksResponsePoolInfoNone {
@@ -183,7 +181,6 @@ epee_object! {
 }
 
 /// Data within [`GetBlocksResponse::PoolInfoIncremental`].
-#[allow(dead_code, missing_docs)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GetBlocksResponsePoolInfoIncremental {
@@ -215,7 +212,6 @@ epee_object! {
 }
 
 /// Data within [`GetBlocksResponse::PoolInfoFull`].
-#[allow(dead_code, missing_docs)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GetBlocksResponsePoolInfoFull {
@@ -248,7 +244,6 @@ epee_object! {
 /// [`EpeeObjectBuilder`] for [`GetBlocksResponse`].
 ///
 /// Not for public usage.
-#[allow(dead_code, missing_docs)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct __GetBlocksResponseEpeeBuilder {
@@ -354,7 +349,6 @@ impl EpeeObjectBuilder<GetBlocksResponse> for __GetBlocksResponseEpeeBuilder {
 }
 
 #[cfg(feature = "epee")]
-#[allow(clippy::cognitive_complexity)]
 impl EpeeObject for GetBlocksResponse {
     type Builder = __GetBlocksResponseEpeeBuilder;
 
@@ -397,7 +391,6 @@ impl EpeeObject for GetBlocksResponse {
 /// See also: [`BinResponse`].
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-#[allow(missing_docs)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum BinRequest {
     GetBlocks(GetBlocksRequest),
@@ -444,7 +437,6 @@ impl RpcCallValue for BinRequest {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-#[allow(missing_docs)]
 pub enum BinResponse {
     GetBlocks(GetBlocksResponse),
     GetBlocksByHeight(GetBlocksByHeightResponse),
