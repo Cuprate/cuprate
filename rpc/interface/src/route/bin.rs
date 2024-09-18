@@ -28,7 +28,6 @@ macro_rules! generate_endpoints_with_input {
     ),*) => { paste::paste! {
         $(
             /// TODO
-            #[allow(unused_mut)]
             pub(crate) async fn $endpoint<H: RpcHandler>(
                 State(handler): State<H>,
                 mut request: Bytes,
@@ -55,7 +54,6 @@ macro_rules! generate_endpoints_with_no_input {
     ),*) => { paste::paste! {
         $(
             /// TODO
-            #[allow(unused_mut)]
             pub(crate) async fn $endpoint<H: RpcHandler>(
                 State(handler): State<H>,
             ) -> Result<Bytes, StatusCode> {
