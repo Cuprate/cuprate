@@ -18,11 +18,12 @@ pub struct HandleBuilder {
 
 impl HandleBuilder {
     /// Create a new builder.
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { permit: None }
     }
 
     /// Sets the permit for this connection.
+    #[must_use]
     pub fn with_permit(mut self, permit: Option<OwnedSemaphorePermit>) -> Self {
         self.permit = permit;
         self
@@ -40,7 +41,7 @@ impl HandleBuilder {
                 _permit: self.permit,
             },
             ConnectionHandle {
-                token: token.clone(),
+                token,
                 ban: Arc::new(OnceLock::new()),
             },
         )
@@ -66,13 +67,13 @@ impl ConnectionGuard {
     ///
     /// This will be called on [`Drop::drop`].
     pub fn connection_closed(&self) {
-        self.token.cancel()
+        self.token.cancel();
     }
 }
 
 impl Drop for ConnectionGuard {
     fn drop(&mut self) {
-        self.token.cancel()
+        self.token.cancel();
     }
 }
 
@@ -90,6 +91,7 @@ impl ConnectionHandle {
     }
     /// Bans the peer for the given `duration`.
     pub fn ban_peer(&self, duration: Duration) {
+        #[expect(clippy::let_underscore_must_use, reason = "TODO: handle error")]
         let _ = self.ban.set(BanPeer(duration));
         self.token.cancel();
     }
@@ -103,6 +105,6 @@ impl ConnectionHandle {
     }
     /// Sends the signal to the connection task to disconnect.
     pub fn send_close_signal(&self) {
-        self.token.cancel()
+        self.token.cancel();
     }
 }

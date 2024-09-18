@@ -1,15 +1,14 @@
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
+use cuprate_test_utils::monerod::monerod;
 use cuprate_wire::{common::PeerSupportFlags, protocol::GetObjectsRequest, BasicNodeData};
 
-use cuprate_p2p_core::{
+use crate::{
     client::{handshaker::HandshakerBuilder, ConnectRequest, Connector},
     protocol::{PeerRequest, PeerResponse},
     ClearNet, ProtocolRequest, ProtocolResponse,
 };
-
-use cuprate_test_utils::monerod::monerod;
 
 #[tokio::test]
 async fn get_single_block_from_monerod() {

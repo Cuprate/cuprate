@@ -113,7 +113,7 @@ impl<Z: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     HandShaker<Z, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
 {
     /// Creates a new handshaker.
-    fn new(
+    const fn new(
         address_book: AdrBook,
         peer_sync_svc: PSync,
         core_sync_svc: CSync,
@@ -226,7 +226,8 @@ pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> 
     Err(BucketError::IO(std::io::Error::new(
         std::io::ErrorKind::ConnectionAborted,
         "The peer stream returned None",
-    )))?
+    ))
+    .into())
 }
 
 /// This function completes a handshake with the requested peer.
@@ -403,7 +404,10 @@ where
                         break 'check_out_addr None;
                     };
 
-                    // u32 does not make sense as a port so just truncate it.
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        reason = "u32 does not make sense as a port so just truncate it."
+                    )]
                     outbound_address.set_port(peer_node_data.my_port as u16);
 
                     let Ok(Ok(ping_peer_id)) = timeout(
@@ -508,7 +512,7 @@ where
         info.id,
         info.handle.clone(),
         connection_tx.clone(),
-        semaphore.clone(),
+        Arc::clone(&semaphore),
         address_book,
         core_sync_svc,
         peer_sync_svc,
@@ -671,7 +675,7 @@ async fn wait_for_message<Z: NetworkZone>(
                     _ => {
                         return Err(HandshakeError::PeerSentInvalidMessage(
                             "Peer sent an admin request before responding to the handshake",
-                        ))
+                        ));
                     }
                 }
             }
@@ -686,16 +690,17 @@ async fn wait_for_message<Z: NetworkZone>(
                 ));
             }
 
-            _ => Err(HandshakeError::PeerSentInvalidMessage(
+            Message::Response(_) => Err(HandshakeError::PeerSentInvalidMessage(
                 "Peer sent an incorrect message",
             )),
-        }?
+        }?;
     }
 
     Err(BucketError::IO(std::io::Error::new(
         std::io::ErrorKind::ConnectionAborted,
         "The peer stream returned None",
-    )))?
+    ))
+    .into())
 }
 
 /// Sends a [`AdminResponseMessage::SupportFlags`] down the peer sink.

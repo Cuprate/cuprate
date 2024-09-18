@@ -1,4 +1,5 @@
 //! This file contains a test for a handshake with monerod but uses fragmented messages.
+
 use std::{
     net::SocketAddr,
     pin::Pin,
@@ -21,20 +22,20 @@ use tokio_util::{
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
-use cuprate_p2p_core::{
-    client::{
-        handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
-        InternalPeerID,
-    },
-    ClearNetServerCfg, ConnectionDirection, NetworkZone,
-};
+use cuprate_test_utils::monerod::monerod;
 use cuprate_wire::{
     common::PeerSupportFlags,
     levin::{message::make_fragmented_messages, LevinMessage, Protocol},
     BasicNodeData, Message, MoneroWireCodec,
 };
 
-use cuprate_test_utils::monerod::monerod;
+use crate::{
+    client::{
+        handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
+        InternalPeerID,
+    },
+    ClearNetServerCfg, ConnectionDirection, NetworkZone,
+};
 
 /// A network zone equal to clear net where every message sent is turned into a fragmented message.
 /// Does not support sending fragmented or dummy messages manually.
@@ -184,7 +185,7 @@ async fn fragmented_handshake_monerod_to_cuprate() {
     let next_connection_fut = timeout(Duration::from_secs(30), listener.next());
 
     if let Some(Ok((addr, stream, sink))) = next_connection_fut.await.unwrap() {
-        let _ = handshaker
+        let _unused = handshaker
             .ready()
             .await
             .unwrap()

@@ -26,7 +26,7 @@ use crate::{
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
-pub struct ConnectionTaskRequest {
+pub(crate) struct ConnectionTaskRequest {
     /// The request.
     pub request: PeerRequest,
     /// The response channel.
@@ -36,7 +36,7 @@ pub struct ConnectionTaskRequest {
 }
 
 /// The connection state.
-pub enum State {
+pub(crate) enum State {
     /// Waiting for a request from Cuprate or the connected peer.
     WaitingForRequest,
     /// Waiting for a response from the peer.
@@ -53,7 +53,7 @@ pub enum State {
 /// Returns if the [`LevinCommand`] is the correct response message for our request.
 ///
 /// e.g. that we didn't get a block for a txs request.
-fn levin_command_response(message_id: &MessageID, command: LevinCommand) -> bool {
+const fn levin_command_response(message_id: MessageID, command: LevinCommand) -> bool {
     matches!(
         (message_id, command),
         (MessageID::Handshake, LevinCommand::Handshake)
@@ -71,7 +71,7 @@ fn levin_command_response(message_id: &MessageID, command: LevinCommand) -> bool
 }
 
 /// This represents a connection to a peer.
-pub struct Connection<Z: NetworkZone, A, CS, PS, PR, BrdcstStrm> {
+pub(crate) struct Connection<Z: NetworkZone, A, CS, PS, PR, BrdcstStrm> {
     /// The peer sink - where we send messages to the peer.
     peer_sink: Z::Sink,
 
@@ -104,15 +104,15 @@ where
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
 {
     /// Create a new connection struct.
-    pub fn new(
+    pub(crate) fn new(
         peer_sink: Z::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
         broadcast_stream: BrdcstStrm,
         peer_request_handler: PeerRequestHandler<Z, A, CS, PS, PR>,
         connection_guard: ConnectionGuard,
         error: SharedError<PeerError>,
-    ) -> Connection<Z, A, CS, PS, PR, BrdcstStrm> {
-        Connection {
+    ) -> Self {
+        Self {
             peer_sink,
             state: State::WaitingForRequest,
             request_timeout: None,
@@ -174,14 +174,14 @@ where
         if let Err(e) = res {
             // can't clone the error so turn it to a string first, hacky but oh well.
             let err_str = e.to_string();
-            let _ = req.response_channel.send(Err(err_str.clone().into()));
+            let _unused = req.response_channel.send(Err(err_str.into()));
             return Err(e);
-        } else {
-            // We still need to respond even if the response is this.
-            let _ = req
-                .response_channel
-                .send(Ok(PeerResponse::Protocol(ProtocolResponse::NA)));
         }
+
+        // We still need to respond even if the response is this.
+        let _unused = req
+            .response_channel
+            .send(Ok(PeerResponse::Protocol(ProtocolResponse::NA)));
 
         Ok(())
     }
@@ -215,7 +215,7 @@ where
         };
 
         // Check if the message is a response to our request.
-        if levin_command_response(request_id, mes.command()) {
+        if levin_command_response(*request_id, mes.command()) {
             // TODO: Do more checks before returning response.
 
             let State::WaitingForResponse { tx, .. } =
@@ -224,7 +224,7 @@ where
                 panic!("Not in correct state, can't receive response!")
             };
 
-            let _ = tx.send(Ok(mes
+            let _unused = tx.send(Ok(mes
                 .try_into()
                 .map_err(|_| PeerError::PeerSentInvalidMessage)?));
 
@@ -282,7 +282,7 @@ where
 
         tokio::select! {
             biased;
-            _ = self.request_timeout.as_mut().expect("Request timeout was not set!") => {
+            () = self.request_timeout.as_mut().expect("Request timeout was not set!") => {
                 Err(PeerError::ClientChannelClosed)
             }
             broadcast_req = self.broadcast_stream.next() => {
@@ -306,8 +306,11 @@ where
     /// Runs the Connection handler logic, this should be put in a separate task.
     ///
     /// `eager_protocol_messages` are protocol messages that we received during a handshake.
-    pub async fn run<Str>(mut self, mut stream: Str, eager_protocol_messages: Vec<ProtocolMessage>)
-    where
+    pub(crate) async fn run<Str>(
+        mut self,
+        mut stream: Str,
+        eager_protocol_messages: Vec<ProtocolMessage>,
+    ) where
         Str: FusedStream<Item = Result<Message, cuprate_wire::BucketError>> + Unpin,
     {
         tracing::debug!(
@@ -348,6 +351,7 @@ where
 
     /// Shutdowns the connection, flushing pending requests and setting the error slot, if it hasn't been
     /// set already.
+    #[expect(clippy::significant_drop_tightening)]
     fn shutdown(mut self, err: PeerError) {
         tracing::debug!("Connection task shutting down: {}", err);
 
@@ -362,11 +366,11 @@ where
         if let State::WaitingForResponse { tx, .. } =
             std::mem::replace(&mut self.state, State::WaitingForRequest)
         {
-            let _ = tx.send(Err(err_str.clone().into()));
+            let _unused = tx.send(Err(err_str.clone().into()));
         }
 
         while let Ok(req) = client_rx.try_recv() {
-            let _ = req.response_channel.send(Err(err_str.clone().into()));
+            let _unused = req.response_channel.send(Err(err_str.clone().into()));
         }
 
         self.connection_guard.connection_closed();

@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use tokio::sync::Semaphore;
 
-use cuprate_p2p_core::handles::HandleBuilder;
+use crate::handles::HandleBuilder;
 
 #[test]
 fn send_ban_signal() {

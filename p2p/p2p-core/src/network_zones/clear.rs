@@ -19,7 +19,7 @@ impl NetZoneAddress for SocketAddr {
     type BanID = IpAddr;
 
     fn set_port(&mut self, port: u16) {
-        SocketAddr::set_port(self, port)
+        Self::set_port(self, port);
     }
 
     fn ban_id(&self) -> Self::BanID {

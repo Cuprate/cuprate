@@ -43,8 +43,8 @@ pub enum InternalPeerID<A> {
 impl<A: Display> Display for InternalPeerID<A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            InternalPeerID::KnownAddr(addr) => addr.fmt(f),
-            InternalPeerID::Unknown(id) => f.write_str(&format!("Unknown, ID: {id}")),
+            Self::KnownAddr(addr) => addr.fmt(f),
+            Self::Unknown(id) => f.write_str(&format!("Unknown, ID: {id}")),
         }
     }
 }
@@ -113,7 +113,7 @@ impl<Z: NetworkZone> Client<Z> {
     fn set_err(&self, err: PeerError) -> tower::BoxError {
         let err_str = err.to_string();
         match self.error.try_insert_err(err) {
-            Ok(_) => err_str,
+            Ok(()) => err_str,
             Err(e) => e.to_string(),
         }
         .into()
@@ -169,7 +169,7 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
                 TrySendError::Closed(req) | TrySendError::Full(req) => {
                     self.set_err(PeerError::ClientChannelClosed);
 
-                    let _ = req
+                    let _unused = req
                         .response_channel
                         .send(Err(PeerError::ClientChannelClosed.into()));
                 }
@@ -216,7 +216,7 @@ where
 
                 tracing::debug!("Sending back response");
 
-                let _ = req.response_channel.send(Ok(res));
+                let _unused = req.response_channel.send(Ok(res));
             }
         }
         .instrument(task_span),

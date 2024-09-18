@@ -87,14 +87,13 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NAdrBook: AddressBook<N> + Clone,
     {
-        let HandshakerBuilder {
+        let Self {
             core_sync_svc,
             peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            _zone,
             ..
         } = self;
 
@@ -106,7 +105,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            _zone,
+            _zone: PhantomData,
         }
     }
 
@@ -130,14 +129,13 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NCSync: CoreSyncSvc + Clone,
     {
-        let HandshakerBuilder {
+        let Self {
             address_book,
             peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            _zone,
             ..
         } = self;
 
@@ -149,7 +147,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            _zone,
+            _zone: PhantomData,
         }
     }
 
@@ -167,14 +165,13 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NPSync: PeerSyncSvc<N> + Clone,
     {
-        let HandshakerBuilder {
+        let Self {
             address_book,
             core_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            _zone,
             ..
         } = self;
 
@@ -186,7 +183,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            _zone,
+            _zone: PhantomData,
         }
     }
 
@@ -204,14 +201,13 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NProtoHdlr: ProtocolRequestHandler + Clone,
     {
-        let HandshakerBuilder {
+        let Self {
             address_book,
             core_sync_svc,
             peer_sync_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            _zone,
             ..
         } = self;
 
@@ -223,7 +219,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
-            _zone,
+            _zone: PhantomData,
         }
     }
 
@@ -242,14 +238,13 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
         NBrdcstStrmMkr: Fn(InternalPeerID<N::Addr>) -> BrdcstStrm + Clone + Send + 'static,
     {
-        let HandshakerBuilder {
+        let Self {
             address_book,
             core_sync_svc,
             peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             connection_parent_span,
-            _zone,
             ..
         } = self;
 
@@ -261,7 +256,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             our_basic_node_data,
             broadcast_stream_maker: new_broadcast_stream_maker,
             connection_parent_span,
-            _zone,
+            _zone: PhantomData,
         }
     }
 
@@ -270,6 +265,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     /// ## Default Connection Parent Span
     ///
     /// The default connection span will be [`Span::none`].
+    #[must_use]
     pub fn with_connection_parent_span(self, connection_parent_span: Span) -> Self {
         Self {
             connection_parent_span: Some(connection_parent_span),

@@ -9,19 +9,18 @@ use tokio_util::codec::{FramedRead, FramedWrite};
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
+use cuprate_test_utils::{
+    monerod::monerod,
+    test_netzone::{TestNetZone, TestNetZoneAddr},
+};
 use cuprate_wire::{common::PeerSupportFlags, BasicNodeData, MoneroWireCodec};
 
-use cuprate_p2p_core::{
+use crate::{
     client::{
         handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
         InternalPeerID,
     },
     ClearNet, ClearNetServerCfg, ConnectionDirection, NetworkZone,
-};
-
-use cuprate_test_utils::{
-    monerod::monerod,
-    test_netzone::{TestNetZone, TestNetZoneAddr},
 };
 
 #[tokio::test]
@@ -147,7 +146,7 @@ async fn handshake_monerod_to_cuprate() {
     let next_connection_fut = timeout(Duration::from_secs(30), listener.next());
 
     if let Some(Ok((addr, stream, sink))) = next_connection_fut.await.unwrap() {
-        let _ = handshaker
+        let _unused = handshaker
             .ready()
             .await
             .unwrap()

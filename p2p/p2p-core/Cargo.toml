@@ -28,9 +28,12 @@ hex-literal = { workspace = true }
 borsh = { workspace = true, features = ["derive", "std"], optional = true }
 
 [dev-dependencies]
-cuprate-test-utils = {path = "../../test-utils"}
+cuprate-test-utils = { path = "../../test-utils" }
 
 hex = { workspace = true, features = ["std"] }
 tokio = { workspace = true, features = ["net", "rt-multi-thread", "rt", "macros"]}
-tokio-test = { workspace = true }
-tracing-subscriber = { workspace = true }
+# tokio-test = { workspace = true }
+# tracing-subscriber = { workspace = true }
+
+[lints]
+workspace = true
