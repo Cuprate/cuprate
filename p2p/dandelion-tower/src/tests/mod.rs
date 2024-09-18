@@ -70,7 +70,7 @@ pub(crate) fn mock_broadcast_svc<Req: Send + 'static>() -> (
     )
 }
 
-#[allow(clippy::type_complexity)] // just test code.
+#[expect(clippy::type_complexity, reason = "just test code.")]
 pub(crate) fn mock_in_memory_backing_pool<
     Tx: Clone + Send + 'static,
     TxID: Clone + Hash + Eq + Send + 'static,
