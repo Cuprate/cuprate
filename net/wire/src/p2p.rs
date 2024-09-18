@@ -83,17 +83,22 @@ impl std::fmt::Display for LevinCommand {
 impl LevinCommandTrait for LevinCommand {
     fn bucket_size_limit(&self) -> u64 {
         // https://github.com/monero-project/monero/blob/00fd416a99686f0956361d1cd0337fe56e58d4a7/src/cryptonote_basic/connection_context.cpp#L37
+        #[expect(clippy::match_same_arms, reason = "formatting is more clear")]
         match self {
-            Self::Handshake | Self::TimedSync => 65536,
-            Self::Ping | Self::SupportFlags => 4096,
+            Self::Handshake => 65536,
+            Self::TimedSync => 65536,
+            Self::Ping => 4096,
+            Self::SupportFlags => 4096,
 
-            Self::NewBlock | Self::NewTransactions | Self::GetObjectsResponse => 1024 * 1024 * 128, // 128 MB (max packet is a bit less than 100 MB though)
+            Self::NewBlock => 1024 * 1024 * 128, // 128 MB (max packet is a bit less than 100 MB though)
+            Self::NewTransactions => 1024 * 1024 * 128, // 128 MB (max packet is a bit less than 100 MB though)
             Self::GetObjectsRequest => 1024 * 1024 * 2, // 2 MB
-            Self::ChainRequest => 512 * 1024,           // 512 kB
-            Self::ChainResponse | Self::NewFluffyBlock | Self::GetTxPoolCompliment => {
-                1024 * 1024 * 4
-            } // 4 MB
-            Self::FluffyMissingTxsRequest => 1024 * 1024, // 1 MB
+            Self::GetObjectsResponse => 1024 * 1024 * 128, // 128 MB (max packet is a bit less than 100 MB though)
+            Self::ChainRequest => 512 * 1024,              // 512 kB
+            Self::ChainResponse => 1024 * 1024 * 4,        // 4 MB
+            Self::NewFluffyBlock => 1024 * 1024 * 4,       // 4 MB
+            Self::FluffyMissingTxsRequest => 1024 * 1024,  // 1 MB
+            Self::GetTxPoolCompliment => 1024 * 1024 * 4,  // 4 MB
 
             Self::Unknown(_) => u64::MAX,
         }
