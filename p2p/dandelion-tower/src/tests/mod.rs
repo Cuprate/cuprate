@@ -85,11 +85,11 @@ pub(crate) fn mock_in_memory_backing_pool<
     Arc<std::sync::Mutex<HashMap<TxID, (Tx, State)>>>,
 ) {
     let txs = Arc::new(std::sync::Mutex::new(HashMap::new()));
-    let txs_2 = txs.clone();
+    let txs_2 = Arc::clone(&txs);
 
     (
         service_fn(move |req: TxStoreRequest<TxID>| {
-            let txs = txs.clone();
+            let txs = Arc::clone(&txs);
             async move {
                 match req {
                     TxStoreRequest::Get(tx_id) => {

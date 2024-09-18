@@ -198,7 +198,7 @@ where
     fn stem_tx(
         &mut self,
         tx: Tx,
-        from: Id,
+        from: &Id,
     ) -> BoxFuture<'static, Result<State, DandelionRouterError>> {
         if self.stem_peers.is_empty() {
             tracing::debug!("Stem peers are empty, fluffing stem transaction.");
@@ -341,7 +341,7 @@ where
                 State::Stem => {
                     tracing::trace!(parent: &self.span, "Steming transaction");
 
-                    self.stem_tx(req.tx, from)
+                    self.stem_tx(req.tx, &from)
                 }
             },
             TxState::Local => {
