@@ -140,7 +140,7 @@ where
             State::Stem
         };
 
-        DandelionRouter {
+        Self {
             outbound_peer_discover: Box::pin(outbound_peer_discover),
             broadcast_svc,
             current_state,
@@ -302,7 +302,7 @@ where
                         tracing::debug!(
                             parent: span,
                             "Peer returned an error on `poll_ready`: {e}, removing from router.",
-                        )
+                        );
                     })
                     .is_ok(),
                 Poll::Pending => {

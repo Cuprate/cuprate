@@ -89,8 +89,7 @@ where
         }
 
         let state = from
-            .map(|from| TxState::Stem { from })
-            .unwrap_or(TxState::Local);
+            .map_or(TxState::Local, |from| TxState::Stem { from });
 
         let fut = self
             .dandelion_router
