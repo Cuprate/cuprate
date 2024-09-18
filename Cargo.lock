@@ -917,7 +917,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bitflags 2.5.0",
+ "bitflags 2.6.0",
  "borsh",
  "bytemuck",
  "bytes",
