@@ -55,27 +55,27 @@ pub enum LevinCommand {
 
 impl std::fmt::Display for LevinCommand {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let LevinCommand::Unknown(id) = self {
-            return f.write_str(&format!("unknown id: {}", id));
+        if let Self::Unknown(id) = self {
+            return f.write_str(&format!("unknown id: {id}"));
         }
 
         f.write_str(match self {
-            LevinCommand::Handshake => "handshake",
-            LevinCommand::TimedSync => "timed sync",
-            LevinCommand::Ping => "ping",
-            LevinCommand::SupportFlags => "support flags",
+            Self::Handshake => "handshake",
+            Self::TimedSync => "timed sync",
+            Self::Ping => "ping",
+            Self::SupportFlags => "support flags",
 
-            LevinCommand::NewBlock => "new block",
-            LevinCommand::NewTransactions => "new transactions",
-            LevinCommand::GetObjectsRequest => "get objects request",
-            LevinCommand::GetObjectsResponse => "get objects response",
-            LevinCommand::ChainRequest => "chain request",
-            LevinCommand::ChainResponse => "chain response",
-            LevinCommand::NewFluffyBlock => "new fluffy block",
-            LevinCommand::FluffyMissingTxsRequest => "fluffy missing transaction request",
-            LevinCommand::GetTxPoolCompliment => "get transaction pool compliment",
+            Self::NewBlock => "new block",
+            Self::NewTransactions => "new transactions",
+            Self::GetObjectsRequest => "get objects request",
+            Self::GetObjectsResponse => "get objects response",
+            Self::ChainRequest => "chain request",
+            Self::ChainResponse => "chain response",
+            Self::NewFluffyBlock => "new fluffy block",
+            Self::FluffyMissingTxsRequest => "fluffy missing transaction request",
+            Self::GetTxPoolCompliment => "get transaction pool compliment",
 
-            LevinCommand::Unknown(_) => unreachable!(),
+            Self::Unknown(_) => unreachable!(),
         })
     }
 }
@@ -84,49 +84,45 @@ impl LevinCommandTrait for LevinCommand {
     fn bucket_size_limit(&self) -> u64 {
         // https://github.com/monero-project/monero/blob/00fd416a99686f0956361d1cd0337fe56e58d4a7/src/cryptonote_basic/connection_context.cpp#L37
         match self {
-            LevinCommand::Handshake => 65536,
-            LevinCommand::TimedSync => 65536,
-            LevinCommand::Ping => 4096,
-            LevinCommand::SupportFlags => 4096,
+            Self::Handshake | Self::TimedSync => 65536,
+            Self::Ping | Self::SupportFlags => 4096,
 
-            LevinCommand::NewBlock => 1024 * 1024 * 128, // 128 MB (max packet is a bit less than 100 MB though)
-            LevinCommand::NewTransactions => 1024 * 1024 * 128, // 128 MB (max packet is a bit less than 100 MB though)
-            LevinCommand::GetObjectsRequest => 1024 * 1024 * 2, // 2 MB
-            LevinCommand::GetObjectsResponse => 1024 * 1024 * 128, // 128 MB (max packet is a bit less than 100 MB though)
-            LevinCommand::ChainRequest => 512 * 1024,              // 512 kB
-            LevinCommand::ChainResponse => 1024 * 1024 * 4,        // 4 MB
-            LevinCommand::NewFluffyBlock => 1024 * 1024 * 4,       // 4 MB
-            LevinCommand::FluffyMissingTxsRequest => 1024 * 1024,  // 1 MB
-            LevinCommand::GetTxPoolCompliment => 1024 * 1024 * 4,  // 4 MB
+            Self::NewBlock | Self::NewTransactions | Self::GetObjectsResponse => 1024 * 1024 * 128, // 128 MB (max packet is a bit less than 100 MB though)
+            Self::GetObjectsRequest => 1024 * 1024 * 2, // 2 MB
+            Self::ChainRequest => 512 * 1024,           // 512 kB
+            Self::ChainResponse | Self::NewFluffyBlock | Self::GetTxPoolCompliment => {
+                1024 * 1024 * 4
+            } // 4 MB
+            Self::FluffyMissingTxsRequest => 1024 * 1024, // 1 MB
 
-            LevinCommand::Unknown(_) => u64::MAX,
+            Self::Unknown(_) => u64::MAX,
         }
     }
 
     fn is_handshake(&self) -> bool {
-        matches!(self, LevinCommand::Handshake)
+        matches!(self, Self::Handshake)
     }
 }
 
 impl From<u32> for LevinCommand {
     fn from(value: u32) -> Self {
         match value {
-            1001 => LevinCommand::Handshake,
-            1002 => LevinCommand::TimedSync,
-            1003 => LevinCommand::Ping,
-            1007 => LevinCommand::SupportFlags,
+            1001 => Self::Handshake,
+            1002 => Self::TimedSync,
+            1003 => Self::Ping,
+            1007 => Self::SupportFlags,
 
-            2001 => LevinCommand::NewBlock,
-            2002 => LevinCommand::NewTransactions,
-            2003 => LevinCommand::GetObjectsRequest,
-            2004 => LevinCommand::GetObjectsResponse,
-            2006 => LevinCommand::ChainRequest,
-            2007 => LevinCommand::ChainResponse,
-            2008 => LevinCommand::NewFluffyBlock,
-            2009 => LevinCommand::FluffyMissingTxsRequest,
-            2010 => LevinCommand::GetTxPoolCompliment,
+            2001 => Self::NewBlock,
+            2002 => Self::NewTransactions,
+            2003 => Self::GetObjectsRequest,
+            2004 => Self::GetObjectsResponse,
+            2006 => Self::ChainRequest,
+            2007 => Self::ChainResponse,
+            2008 => Self::NewFluffyBlock,
+            2009 => Self::FluffyMissingTxsRequest,
+            2010 => Self::GetTxPoolCompliment,
 
-            x => LevinCommand::Unknown(x),
+            x => Self::Unknown(x),
         }
     }
 }
@@ -191,19 +187,19 @@ pub enum ProtocolMessage {
 }
 
 impl ProtocolMessage {
-    pub fn command(&self) -> LevinCommand {
+    pub const fn command(&self) -> LevinCommand {
         use LevinCommand as C;
 
         match self {
-            ProtocolMessage::NewBlock(_) => C::NewBlock,
-            ProtocolMessage::NewFluffyBlock(_) => C::NewFluffyBlock,
-            ProtocolMessage::GetObjectsRequest(_) => C::GetObjectsRequest,
-            ProtocolMessage::GetObjectsResponse(_) => C::GetObjectsResponse,
-            ProtocolMessage::ChainRequest(_) => C::ChainRequest,
-            ProtocolMessage::ChainEntryResponse(_) => C::ChainResponse,
-            ProtocolMessage::NewTransactions(_) => C::NewTransactions,
-            ProtocolMessage::FluffyMissingTransactionsRequest(_) => C::FluffyMissingTxsRequest,
-            ProtocolMessage::GetTxPoolCompliment(_) => C::GetTxPoolCompliment,
+            Self::NewBlock(_) => C::NewBlock,
+            Self::NewFluffyBlock(_) => C::NewFluffyBlock,
+            Self::GetObjectsRequest(_) => C::GetObjectsRequest,
+            Self::GetObjectsResponse(_) => C::GetObjectsResponse,
+            Self::ChainRequest(_) => C::ChainRequest,
+            Self::ChainEntryResponse(_) => C::ChainResponse,
+            Self::NewTransactions(_) => C::NewTransactions,
+            Self::FluffyMissingTransactionsRequest(_) => C::FluffyMissingTxsRequest,
+            Self::GetTxPoolCompliment(_) => C::GetTxPoolCompliment,
         }
     }
 
@@ -230,26 +226,26 @@ impl ProtocolMessage {
         use LevinCommand as C;
 
         match self {
-            ProtocolMessage::NewBlock(val) => build_message(C::NewBlock, val, builder)?,
-            ProtocolMessage::NewTransactions(val) => {
-                build_message(C::NewTransactions, val, builder)?
+            Self::NewBlock(val) => build_message(C::NewBlock, val, builder)?,
+            Self::NewTransactions(val) => {
+                build_message(C::NewTransactions, val, builder)?;
             }
-            ProtocolMessage::GetObjectsRequest(val) => {
-                build_message(C::GetObjectsRequest, val, builder)?
+            Self::GetObjectsRequest(val) => {
+                build_message(C::GetObjectsRequest, val, builder)?;
             }
-            ProtocolMessage::GetObjectsResponse(val) => {
-                build_message(C::GetObjectsResponse, val, builder)?
+            Self::GetObjectsResponse(val) => {
+                build_message(C::GetObjectsResponse, val, builder)?;
             }
-            ProtocolMessage::ChainRequest(val) => build_message(C::ChainRequest, val, builder)?,
-            ProtocolMessage::ChainEntryResponse(val) => {
-                build_message(C::ChainResponse, val, builder)?
+            Self::ChainRequest(val) => build_message(C::ChainRequest, val, builder)?,
+            Self::ChainEntryResponse(val) => {
+                build_message(C::ChainResponse, val, builder)?;
             }
-            ProtocolMessage::NewFluffyBlock(val) => build_message(C::NewFluffyBlock, val, builder)?,
-            ProtocolMessage::FluffyMissingTransactionsRequest(val) => {
-                build_message(C::FluffyMissingTxsRequest, val, builder)?
+            Self::NewFluffyBlock(val) => build_message(C::NewFluffyBlock, val, builder)?,
+            Self::FluffyMissingTransactionsRequest(val) => {
+                build_message(C::FluffyMissingTxsRequest, val, builder)?;
             }
-            ProtocolMessage::GetTxPoolCompliment(val) => {
-                build_message(C::GetTxPoolCompliment, val, builder)?
+            Self::GetTxPoolCompliment(val) => {
+                build_message(C::GetTxPoolCompliment, val, builder)?;
             }
         }
         Ok(())
@@ -265,14 +261,14 @@ pub enum AdminRequestMessage {
 }
 
 impl AdminRequestMessage {
-    pub fn command(&self) -> LevinCommand {
+    pub const fn command(&self) -> LevinCommand {
         use LevinCommand as C;
 
         match self {
-            AdminRequestMessage::Handshake(_) => C::Handshake,
-            AdminRequestMessage::Ping => C::Ping,
-            AdminRequestMessage::SupportFlags => C::SupportFlags,
-            AdminRequestMessage::TimedSync(_) => C::TimedSync,
+            Self::Handshake(_) => C::Handshake,
+            Self::Ping => C::Ping,
+            Self::SupportFlags => C::SupportFlags,
+            Self::TimedSync(_) => C::TimedSync,
         }
     }
 
@@ -286,13 +282,13 @@ impl AdminRequestMessage {
                 cuprate_epee_encoding::from_bytes::<EmptyMessage, _>(buf)
                     .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
 
-                AdminRequestMessage::Ping
+                Self::Ping
             }
             C::SupportFlags => {
                 cuprate_epee_encoding::from_bytes::<EmptyMessage, _>(buf)
                     .map_err(|e| BucketError::BodyDecodingError(e.into()))?;
 
-                AdminRequestMessage::SupportFlags
+                Self::SupportFlags
             }
             _ => return Err(BucketError::UnknownCommand),
         })
@@ -302,11 +298,11 @@ impl AdminRequestMessage {
         use LevinCommand as C;
 
         match self {
-            AdminRequestMessage::Handshake(val) => build_message(C::Handshake, val, builder)?,
-            AdminRequestMessage::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
-            AdminRequestMessage::Ping => build_message(C::Ping, EmptyMessage, builder)?,
-            AdminRequestMessage::SupportFlags => {
-                build_message(C::SupportFlags, EmptyMessage, builder)?
+            Self::Handshake(val) => build_message(C::Handshake, val, builder)?,
+            Self::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
+            Self::Ping => build_message(C::Ping, EmptyMessage, builder)?,
+            Self::SupportFlags => {
+                build_message(C::SupportFlags, EmptyMessage, builder)?;
             }
         }
         Ok(())
@@ -322,14 +318,14 @@ pub enum AdminResponseMessage {
 }
 
 impl AdminResponseMessage {
-    pub fn command(&self) -> LevinCommand {
+    pub const fn command(&self) -> LevinCommand {
         use LevinCommand as C;
 
         match self {
-            AdminResponseMessage::Handshake(_) => C::Handshake,
-            AdminResponseMessage::Ping(_) => C::Ping,
-            AdminResponseMessage::SupportFlags(_) => C::SupportFlags,
-            AdminResponseMessage::TimedSync(_) => C::TimedSync,
+            Self::Handshake(_) => C::Handshake,
+            Self::Ping(_) => C::Ping,
+            Self::SupportFlags(_) => C::SupportFlags,
+            Self::TimedSync(_) => C::TimedSync,
         }
     }
 
@@ -349,11 +345,11 @@ impl AdminResponseMessage {
         use LevinCommand as C;
 
         match self {
-            AdminResponseMessage::Handshake(val) => build_message(C::Handshake, val, builder)?,
-            AdminResponseMessage::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
-            AdminResponseMessage::Ping(val) => build_message(C::Ping, val, builder)?,
-            AdminResponseMessage::SupportFlags(val) => {
-                build_message(C::SupportFlags, val, builder)?
+            Self::Handshake(val) => build_message(C::Handshake, val, builder)?,
+            Self::TimedSync(val) => build_message(C::TimedSync, val, builder)?,
+            Self::Ping(val) => build_message(C::Ping, val, builder)?,
+            Self::SupportFlags(val) => {
+                build_message(C::SupportFlags, val, builder)?;
             }
         }
         Ok(())
@@ -368,23 +364,23 @@ pub enum Message {
 }
 
 impl Message {
-    pub fn is_request(&self) -> bool {
-        matches!(self, Message::Request(_))
+    pub const fn is_request(&self) -> bool {
+        matches!(self, Self::Request(_))
     }
 
-    pub fn is_response(&self) -> bool {
-        matches!(self, Message::Response(_))
+    pub const fn is_response(&self) -> bool {
+        matches!(self, Self::Response(_))
     }
 
-    pub fn is_protocol(&self) -> bool {
-        matches!(self, Message::Protocol(_))
+    pub const fn is_protocol(&self) -> bool {
+        matches!(self, Self::Protocol(_))
     }
 
-    pub fn command(&self) -> LevinCommand {
+    pub const fn command(&self) -> LevinCommand {
         match self {
-            Message::Request(mes) => mes.command(),
-            Message::Response(mes) => mes.command(),
-            Message::Protocol(mes) => mes.command(),
+            Self::Request(mes) => mes.command(),
+            Self::Response(mes) => mes.command(),
+            Self::Protocol(mes) => mes.command(),
         }
     }
 }
@@ -398,27 +394,25 @@ impl LevinBody for Message {
         command: LevinCommand,
     ) -> Result<Self, BucketError> {
         Ok(match typ {
-            MessageType::Request => Message::Request(AdminRequestMessage::decode(body, command)?),
-            MessageType::Response => {
-                Message::Response(AdminResponseMessage::decode(body, command)?)
-            }
-            MessageType::Notification => Message::Protocol(ProtocolMessage::decode(body, command)?),
+            MessageType::Request => Self::Request(AdminRequestMessage::decode(body, command)?),
+            MessageType::Response => Self::Response(AdminResponseMessage::decode(body, command)?),
+            MessageType::Notification => Self::Protocol(ProtocolMessage::decode(body, command)?),
         })
     }
 
     fn encode(self, builder: &mut BucketBuilder<LevinCommand>) -> Result<(), BucketError> {
         match self {
-            Message::Protocol(pro) => {
+            Self::Protocol(pro) => {
                 builder.set_message_type(MessageType::Notification);
                 builder.set_return_code(0);
                 pro.build(builder)
             }
-            Message::Request(req) => {
+            Self::Request(req) => {
                 builder.set_message_type(MessageType::Request);
                 builder.set_return_code(0);
                 req.build(builder)
             }
-            Message::Response(res) => {
+            Self::Response(res) => {
                 builder.set_message_type(MessageType::Response);
                 builder.set_return_code(1);
                 res.build(builder)

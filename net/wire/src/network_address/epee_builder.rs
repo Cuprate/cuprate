@@ -74,7 +74,7 @@ impl From<NetworkAddress> for TaggedNetworkAddress {
     fn from(value: NetworkAddress) -> Self {
         match value {
             NetworkAddress::Clear(addr) => match addr {
-                SocketAddr::V4(addr) => TaggedNetworkAddress {
+                SocketAddr::V4(addr) => Self {
                     ty: Some(1),
                     addr: Some(AllFieldsNetworkAddress {
                         m_ip: Some(u32::from_be_bytes(addr.ip().octets())),
@@ -82,7 +82,7 @@ impl From<NetworkAddress> for TaggedNetworkAddress {
                         addr: None,
                     }),
                 },
-                SocketAddr::V6(addr) => TaggedNetworkAddress {
+                SocketAddr::V6(addr) => Self {
                     ty: Some(2),
                     addr: Some(AllFieldsNetworkAddress {
                         addr: Some(addr.ip().octets()),
