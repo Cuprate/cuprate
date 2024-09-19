@@ -10,6 +10,7 @@ use std::{borrow::Cow, fmt::Debug};
 use pretty_assertions::assert_eq;
 
 use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
+use cuprate_types::{AltBlockInformation, ChainId, VerifiedBlockInformation};
 
 use crate::{
     config::ConfigBuilder,
@@ -87,4 +88,22 @@ pub(crate) fn assert_all_tables_are_empty(env: &ConcreteEnv) {
     let tables = env_inner.open_tables(&tx_ro).unwrap();
     assert!(tables.all_tables_empty().unwrap());
     assert_eq!(crate::ops::tx::get_num_tx(tables.tx_ids()).unwrap(), 0);
+}
+
+pub(crate) fn map_verified_block_to_alt(
+    verified_block: VerifiedBlockInformation,
+    chain_id: ChainId,
+) -> AltBlockInformation {
+    AltBlockInformation {
+        block: verified_block.block,
+        block_blob: verified_block.block_blob,
+        txs: verified_block.txs,
+        block_hash: verified_block.block_hash,
+        pow_hash: verified_block.pow_hash,
+        height: verified_block.height,
+        weight: verified_block.weight,
+        long_term_weight: verified_block.long_term_weight,
+        cumulative_difficulty: verified_block.cumulative_difficulty,
+        chain_id,
+    }
 }
