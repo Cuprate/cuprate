@@ -9,8 +9,8 @@ repository = "https://github.com/Cuprate/cuprate/tree/main/consensus"
 
 
 [features]
-# All features on by default.
-default   = ["std", "atomic", "asynch", "cast", "fs", "num", "map", "time", "thread", "constants"]
+# All features off by default.
+default   = []
 std       = []
 atomic    = ["dep:crossbeam"]
 asynch    = ["dep:futures", "dep:rayon"]
@@ -21,6 +21,7 @@ num       = []
 map       = ["cast", "dep:monero-serai"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
+tx        = ["dep:monero-serai"]
 
 [dependencies]
 crossbeam    = { workspace = true, optional = true }
@@ -39,7 +40,8 @@ target_os_lib = { package = "windows", version = ">=0.51", features = ["Win32_Sy
 target_os_lib = { package = "libc", version = "0.2.151", optional = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["full"] }
+tokio            = { workspace = true, features = ["full"] }
+curve25519-dalek = { workspace = true }
 
 [lints]
 workspace = true

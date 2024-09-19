@@ -8,11 +8,11 @@
 //---------------------------------------------------------------------------------------------------- Import
 use std::sync::LazyLock;
 
-use cuprate_helper::map::combine_low_high_bits_to_u128;
-use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 use hex_literal::hex;
-use monero_serai::transaction::Input;
 use monero_serai::{block::Block, transaction::Transaction};
+
+use cuprate_helper::{map::combine_low_high_bits_to_u128, tx::tx_fee};
+use cuprate_types::{VerifiedBlockInformation, VerifiedTransactionInformation};
 
 use crate::data::constants::{
     BLOCK_43BD1F, BLOCK_5ECB7E, BLOCK_F91043, TX_2180A8, TX_3BC7FF, TX_84D48D, TX_9E3F73,
@@ -110,36 +110,6 @@ fn to_tx_verification_data(tx_blob: impl AsRef<[u8]>) -> VerifiedTransactionInfo
     }
 }
 
-/// Calculates the fee of the [`Transaction`].
-///
-/// # Panics
-/// This will panic if the inputs overflow or the transaction outputs too much.
-pub fn tx_fee(tx: &Transaction) -> u64 {
-    let mut fee = 0_u64;
-
-    match &tx {
-        Transaction::V1 { prefix, .. } => {
-            for input in &prefix.inputs {
-                match input {
-                    Input::Gen(_) => return 0,
-                    Input::ToKey { amount, .. } => {
-                        fee = fee.checked_add(amount.unwrap_or(0)).unwrap();
-                    }
-                }
-            }
-
-            for output in &prefix.outputs {
-                fee.checked_sub(output.amount.unwrap_or(0)).unwrap();
-            }
-        }
-        Transaction::V2 { proofs, .. } => {
-            fee = proofs.as_ref().unwrap().base.fee;
-        }
-    };
-
-    fee
-}
-
 //---------------------------------------------------------------------------------------------------- Blocks
 /// Generate a `static LazyLock<VerifiedBlockInformation>`.
 ///
@@ -148,8 +118,8 @@ pub fn tx_fee(tx: &Transaction) -> u64 {
 ///
 /// This requires some static block/tx input (from data) and some fields.
 /// This data can be accessed more easily via:
-/// - A block explorer (https://xmrchain.net)
-/// - Monero RPC (see cuprate_test_utils::rpc for this)
+/// - A block explorer (<https://xmrchain.net>)
+/// - Monero RPC (see `cuprate_test_utils::rpc` for this)
 ///
 /// See below for actual usage.
 macro_rules! verified_block_information {
@@ -311,11 +281,11 @@ transaction_verification_data! {
 //---------------------------------------------------------------------------------------------------- TESTS
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use pretty_assertions::assert_eq;
 
     use crate::rpc::client::HttpRpcClient;
+
+    use super::*;
 
     /// Assert the defined blocks are the same compared to ones received from a local RPC call.
     #[ignore] // FIXME: doesn't work in CI, we need a real unrestricted node
