@@ -1,8 +1,10 @@
+#![expect(unused_crate_dependencies, reason = "external test module")]
+
 use std::{sync::Arc, time::Duration};
 
 use tokio::sync::Semaphore;
 
-use crate::handles::HandleBuilder;
+use cuprate_p2p_core::handles::HandleBuilder;
 
 #[test]
 fn send_ban_signal() {

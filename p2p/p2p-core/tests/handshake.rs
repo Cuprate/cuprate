@@ -1,3 +1,5 @@
+#![expect(unused_crate_dependencies, reason = "external test module")]
+
 use std::time::Duration;
 
 use futures::StreamExt;
@@ -15,7 +17,7 @@ use cuprate_test_utils::{
 };
 use cuprate_wire::{common::PeerSupportFlags, BasicNodeData, MoneroWireCodec};
 
-use crate::{
+use cuprate_p2p_core::{
     client::{
         handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
         InternalPeerID,
@@ -24,6 +26,7 @@ use crate::{
 };
 
 #[tokio::test]
+#[expect(clippy::significant_drop_tightening)]
 async fn handshake_cuprate_to_cuprate() {
     // Tests a Cuprate <-> Cuprate handshake by making 2 handshake services and making them talk to
     // each other.

@@ -1,5 +1,7 @@
 //! This file contains a test for a handshake with monerod but uses fragmented messages.
 
+#![expect(unused_crate_dependencies, reason = "external test module")]
+
 use std::{
     net::SocketAddr,
     pin::Pin,
@@ -29,7 +31,7 @@ use cuprate_wire::{
     BasicNodeData, Message, MoneroWireCodec,
 };
 
-use crate::{
+use cuprate_p2p_core::{
     client::{
         handshaker::HandshakerBuilder, ConnectRequest, Connector, DoHandshakeRequest,
         InternalPeerID,

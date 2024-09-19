@@ -21,6 +21,7 @@ futures = { workspace = true, features = ["std"] }
 async-trait = { workspace = true }
 tower = { workspace = true, features = ["util", "tracing"] }
 
+cfg-if = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true, features = ["std", "attributes"] }
 hex-literal = { workspace = true }

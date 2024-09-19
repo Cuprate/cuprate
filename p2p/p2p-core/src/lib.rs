@@ -56,6 +56,15 @@
 //!     .unwrap();
 //! # });
 //! ```
+
+cfg_if::cfg_if! {
+    // Used in `tests/`
+    if #[cfg(test)] {
+        use cuprate_test_utils as _;
+        use hex as _;
+    }
+}
+
 use std::{fmt::Debug, future::Future, hash::Hash};
 
 use futures::{Sink, Stream};
@@ -64,9 +73,6 @@ use cuprate_wire::{
     levin::LevinMessage, network_address::NetworkAddressIncorrectZone, BucketError, Message,
     NetworkAddress,
 };
-
-#[cfg(test)]
-mod tests;
 
 pub mod client;
 mod constants;

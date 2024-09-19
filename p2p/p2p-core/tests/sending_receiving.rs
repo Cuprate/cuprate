@@ -1,10 +1,12 @@
+#![expect(unused_crate_dependencies, reason = "external test module")]
+
 use tower::{Service, ServiceExt};
 
 use cuprate_helper::network::Network;
 use cuprate_test_utils::monerod::monerod;
 use cuprate_wire::{common::PeerSupportFlags, protocol::GetObjectsRequest, BasicNodeData};
 
-use crate::{
+use cuprate_p2p_core::{
     client::{handshaker::HandshakerBuilder, ConnectRequest, Connector},
     protocol::{PeerRequest, PeerResponse},
     ClearNet, ProtocolRequest, ProtocolResponse,
