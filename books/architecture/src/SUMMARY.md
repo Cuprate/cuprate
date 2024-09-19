@@ -81,8 +81,7 @@
 ---
 
 - [🔴 Instrumentation](instrumentation/intro.md)
-    - [⚪️ Logging](instrumentation/logging.md)
-    - [⚪️ Data collection](instrumentation/data-collection.md)
+    - [⚪️ Targets](instrumentation/targets.md)
 
 ---
 
