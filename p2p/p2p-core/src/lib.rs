@@ -61,6 +61,7 @@ cfg_if::cfg_if! {
     // Used in `tests/`
     if #[cfg(test)] {
         use cuprate_test_utils as _;
+        use tokio_test as _;
         use hex as _;
     }
 }
