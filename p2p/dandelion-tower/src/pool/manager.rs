@@ -278,15 +278,15 @@ where
                     };
 
                     if let Err(e) = self.handle_incoming_tx(tx, routing_state, tx_id).await {
-                        #[expect(clippy::let_underscore_must_use, reason = "TODO")]
+                        #[expect(clippy::let_underscore_must_use, reason = "dropped receivers can be ignored")]
                         let _ = res_tx.send(());
 
                         tracing::error!("Error handling transaction in dandelion pool: {e}");
                         return;
                     }
-                    #[expect(clippy::let_underscore_must_use, reason = "TODO")]
-                    let _ = res_tx.send(());
 
+                    #[expect(clippy::let_underscore_must_use)]
+                    let _ = res_tx.send(());
                 }
             }
         }
