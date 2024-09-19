@@ -316,7 +316,8 @@ mod test {
             // Assert proper tables were added to.
             AssertTableLen {
                 block_infos: 0,
-                block_blobs: 0,
+                block_header_blobs: 0,
+                block_txs_hashes: 0,
                 block_heights: 0,
                 key_images: 0,
                 num_outputs: 1,

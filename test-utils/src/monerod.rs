@@ -178,6 +178,7 @@ impl Drop for SpawnedMoneroD {
             println!("------END-MONEROD-LOGS------");
         }
 
+        #[expect(clippy::manual_assert, reason = "`if` is more clear")]
         if error && !panicking() {
             // `println` only outputs in a test when panicking so if there is an error while
             // dropping monerod but not an error in the test then we need to panic to make sure

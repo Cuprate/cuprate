@@ -45,7 +45,7 @@ pub struct HandshakeResponse {
     pub node_data: BasicNodeData,
     /// Core Sync Data
     pub payload_data: CoreSyncData,
-    /// PeerList
+    /// `PeerList`
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
@@ -56,7 +56,7 @@ epee_object!(
     local_peerlist_new: Vec<PeerListEntryBase>,
 );
 
-/// A TimedSync Request
+/// A `TimedSync` Request
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TimedSyncRequest {
     /// Core Sync Data
@@ -68,12 +68,12 @@ epee_object!(
     payload_data: CoreSyncData,
 );
 
-/// A TimedSync Response
+/// A `TimedSync` Response
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TimedSyncResponse {
     /// Core Sync Data
     pub payload_data: CoreSyncData,
-    /// PeerList
+    /// `PeerList`
     pub local_peerlist_new: Vec<PeerListEntryBase>,
 }
 
