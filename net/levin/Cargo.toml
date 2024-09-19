@@ -14,6 +14,7 @@ tracing = ["dep:tracing", "tokio-util/tracing"]
 [dependencies]
 cuprate-helper = { path = "../../helper", default-features = false, features = ["cast"] }
 
+cfg-if = { workspace = true }
 thiserror = { workspace = true }
 bytes = { workspace = true, features = ["std"] }
 bitflags = { workspace = true }

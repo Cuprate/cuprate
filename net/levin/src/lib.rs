@@ -33,15 +33,15 @@
 #![deny(unused_mut)]
 //#![deny(missing_docs)]
 
-// Used in `tests/`.
-#[cfg(test)]
-use futures as _;
-#[cfg(test)]
-use proptest as _;
-#[cfg(test)]
-use rand as _;
-#[cfg(test)]
-use tokio as _;
+cfg_if::cfg_if! {
+    // Used in `tests/`.
+    if #[cfg(test)] {
+        use futures as _;
+        use proptest as _;
+        use rand as _;
+        use tokio as _;
+    }
+}
 
 use std::fmt::Debug;
 
