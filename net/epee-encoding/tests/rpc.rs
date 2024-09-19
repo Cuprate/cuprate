@@ -1,5 +1,4 @@
 #![expect(
-    clippy::tests_outside_test_module,
     unused_crate_dependencies,
     reason = "outer test module"
 )]

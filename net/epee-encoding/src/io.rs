@@ -17,10 +17,10 @@ pub(crate) fn checked_read<B: Buf, R>(
     size: usize,
 ) -> Result<R> {
     if b.remaining() < size {
-        return Err(Error::IO("Not enough bytes in buffer to build object."));
+        Err(Error::IO("Not enough bytes in buffer to build object."))
+    } else {
+        Ok(read(b))
     }
-
-    Ok(read(b))
 }
 
 #[inline]
@@ -40,9 +40,9 @@ pub(crate) fn checked_write<B: BufMut, T>(
     size: usize,
 ) -> Result<()> {
     if b.remaining_mut() < size {
-        return Err(Error::IO("Not enough capacity to write object."));
+        Err(Error::IO("Not enough capacity to write object."))
+    } else {
+        write(b, t);
+        Ok(())
     }
-
-    write(b, t);
-    Ok(())
 }

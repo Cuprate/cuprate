@@ -1,8 +1,4 @@
-#![expect(
-    clippy::tests_outside_test_module,
-    unused_crate_dependencies,
-    reason = "outer test module"
-)]
+#![expect(unused_crate_dependencies, reason = "outer test module")]
 
 use cuprate_epee_encoding::{epee_object, from_bytes, to_bytes};
 

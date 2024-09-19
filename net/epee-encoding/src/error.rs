@@ -7,7 +7,7 @@ use core::{
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[expect(clippy::error_impl_error, reason = "TODO: rename this type")]
+#[expect(clippy::error_impl_error, reason = "FIXME: rename this type")]
 pub enum Error {
     #[cfg_attr(feature = "std", error("IO error: {0}"))]
     IO(&'static str),
