@@ -209,8 +209,8 @@ pub struct BlockInfo {
     ///
     /// See [`long_term_weight`](https://monero-book.cuprate.org/consensus_rules/blocks/weights.html#long-term-block-weight).
     pub long_term_weight: usize,
-    /// `TxId` (u64) of the block coinbase transaction.
-    pub mining_tx_index: u64,
+    /// [`TxId`] (u64) of the block coinbase transaction.
+    pub mining_tx_index: TxId,
 }
 
 //---------------------------------------------------------------------------------------------------- OutputFlags
