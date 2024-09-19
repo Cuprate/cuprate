@@ -2,7 +2,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use bytemuck::TransparentWrapper;
-use monero_serai::block::{Block, BlockHeader};
+use monero_serai::{
+    block::{Block, BlockHeader},
+    transaction::Transaction,
+};
 
 use cuprate_database::{
     RuntimeError, StorableVec, {DatabaseRo, DatabaseRw},
@@ -76,10 +79,10 @@ pub fn add_block(
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     // Add the miner transaction first.
-    {
+    let mining_tx_index = {
         let tx = &block.block.miner_transaction;
-        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?;
-    }
+        add_tx(tx, &tx.serialize(), &tx.hash(), &chain_height, tables)?
+    };
 
     for tx in &block.txs {
         add_tx(&tx.tx, &tx.tx_blob, &tx.tx_hash, &chain_height, tables)?;
@@ -111,13 +114,21 @@ pub fn add_block(
             block_hash: block.block_hash,
             weight: block.weight,
             long_term_weight: block.long_term_weight,
+            mining_tx_index,
         },
     )?;
 
-    // Block blobs.
-    tables
-        .block_blobs_mut()
-        .put(&block.height, StorableVec::wrap_ref(&block.block_blob))?;
+    // Block header blob.
+    tables.block_header_blobs_mut().put(
+        &block.height,
+        StorableVec::wrap_ref(&block.block.header.serialize()),
+    )?;
+
+    // Block transaction hashes
+    tables.block_txs_hashes_mut().put(
+        &block.height,
+        StorableVec::wrap_ref(&block.block.transactions),
+    )?;
 
     // Block heights.
     tables
@@ -151,10 +162,18 @@ pub fn pop_block(
     tables.block_heights_mut().delete(&block_info.block_hash)?;
 
     // Block blobs.
-    // We deserialize the block blob into a `Block`, such
-    // that we can remove the associated transactions later.
-    let block_blob = tables.block_blobs_mut().take(&block_height)?.0;
-    let block = Block::read(&mut block_blob.as_slice())?;
+    //
+    // We deserialize the block header blob and mining transaction blob
+    // to form a `Block`, such that we can remove the associated transactions
+    // later.
+    let block_header = tables.block_header_blobs_mut().take(&block_height)?.0;
+    let block_txs_hashes = tables.block_txs_hashes_mut().take(&block_height)?.0;
+    let miner_transaction = tables.tx_blobs().get(&block_info.mining_tx_index)?.0;
+    let block = Block {
+        header: BlockHeader::read(&mut block_header.as_slice())?,
+        miner_transaction: Transaction::read(&mut miner_transaction.as_slice())?,
+        transactions: block_txs_hashes,
+    };
 
     //------------------------------------------------------ Transaction / Outputs / Key Images
     remove_tx(&block.miner_transaction.hash(), tables)?;
@@ -181,7 +200,7 @@ pub fn pop_block(
         alt_block::add_alt_block(
             &AltBlockInformation {
                 block: block.clone(),
-                block_blob,
+                block_blob: block.serialize(),
                 txs,
                 block_hash: block_info.block_hash,
                 // We know the PoW is valid for this block so just set it so it will always verify as valid.
@@ -236,8 +255,8 @@ pub fn get_block_extended_header_from_height(
     tables: &impl Tables,
 ) -> Result<ExtendedBlockHeader, RuntimeError> {
     let block_info = tables.block_infos().get(block_height)?;
-    let block_blob = tables.block_blobs().get(block_height)?.0;
-    let block_header = BlockHeader::read(&mut block_blob.as_slice())?;
+    let block_header_blob = tables.block_header_blobs().get(block_height)?.0;
+    let block_header = BlockHeader::read(&mut block_header_blob.as_slice())?;
 
     let cumulative_difficulty = combine_low_high_bits_to_u128(
         block_info.cumulative_difficulty_low,
@@ -304,7 +323,7 @@ pub fn block_exists(
 
 //---------------------------------------------------------------------------------------------------- Tests
 #[cfg(test)]
-#[expect(clippy::significant_drop_tightening, clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 mod test {
     use pretty_assertions::assert_eq;
 
@@ -370,7 +389,8 @@ mod test {
             // Assert only the proper tables were added to.
             AssertTableLen {
                 block_infos: 3,
-                block_blobs: 3,
+                block_header_blobs: 3,
+                block_txs_hashes: 3,
                 block_heights: 3,
                 key_images: 69,
                 num_outputs: 41,

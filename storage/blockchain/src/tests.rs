@@ -9,7 +9,7 @@ use std::{borrow::Cow, fmt::Debug};
 
 use pretty_assertions::assert_eq;
 
-use cuprate_database::{ConcreteEnv, DatabaseRo, Env, EnvInner};
+use cuprate_database::{DatabaseRo, Env, EnvInner};
 use cuprate_types::{AltBlockInformation, ChainId, VerifiedBlockInformation};
 
 use crate::{
@@ -26,7 +26,8 @@ use crate::{
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct AssertTableLen {
     pub(crate) block_infos: u64,
-    pub(crate) block_blobs: u64,
+    pub(crate) block_header_blobs: u64,
+    pub(crate) block_txs_hashes: u64,
     pub(crate) block_heights: u64,
     pub(crate) key_images: u64,
     pub(crate) num_outputs: u64,
@@ -46,7 +47,8 @@ impl AssertTableLen {
     pub(crate) fn assert(self, tables: &impl Tables) {
         let other = Self {
             block_infos: tables.block_infos().len().unwrap(),
-            block_blobs: tables.block_blobs().len().unwrap(),
+            block_header_blobs: tables.block_header_blobs().len().unwrap(),
+            block_txs_hashes: tables.block_txs_hashes().len().unwrap(),
             block_heights: tables.block_heights().len().unwrap(),
             key_images: tables.key_images().len().unwrap(),
             num_outputs: tables.num_outputs().len().unwrap(),
@@ -69,8 +71,7 @@ impl AssertTableLen {
 /// Create an `Env` in a temporarily directory.
 /// The directory is automatically removed after the `TempDir` is dropped.
 ///
-/// FIXME: changing this to `-> impl Env` causes lifetime errors...
-pub(crate) fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
+pub(crate) fn tmp_concrete_env() -> (impl Env, tempfile::TempDir) {
     let tempdir = tempfile::tempdir().unwrap();
     let config = ConfigBuilder::new()
         .db_directory(Cow::Owned(tempdir.path().into()))
@@ -82,7 +83,7 @@ pub(crate) fn tmp_concrete_env() -> (ConcreteEnv, tempfile::TempDir) {
 }
 
 /// Assert all the tables in the environment are empty.
-pub(crate) fn assert_all_tables_are_empty(env: &ConcreteEnv) {
+pub(crate) fn assert_all_tables_are_empty(env: &impl Env) {
     let env_inner = env.env_inner();
     let tx_ro = env_inner.tx_ro().unwrap();
     let tables = env_inner.open_tables(&tx_ro).unwrap();

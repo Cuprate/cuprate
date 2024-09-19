@@ -241,42 +241,38 @@ async fn test_template(
 
     //----------------------------------------------------------------------- Output checks
     // Create the map of amounts and amount indices.
-    //
-    // FIXME: There's definitely a better way to map
-    // `Vec<PreRctOutputId>` -> `HashMap<u64, HashSet<u64>>`
     let (map, output_count) = {
-        let mut ids = tables
-            .outputs_iter()
-            .keys()
-            .unwrap()
-            .map(Result::unwrap)
-            .collect::<Vec<PreRctOutputId>>();
-
-        ids.extend(
-            tables
-                .rct_outputs_iter()
-                .keys()
-                .unwrap()
-                .map(Result::unwrap)
-                .map(|amount_index| PreRctOutputId {
-                    amount: 0,
-                    amount_index,
-                }),
-        );
+        let mut map = HashMap::<Amount, HashSet<AmountIndex>>::new();
 
         // Used later to compare the amount of Outputs
         // returned in the Response is equal to the amount
         // we asked for.
-        let output_count = ids.len();
+        let mut output_count: usize = 0;
 
-        let mut map = HashMap::<Amount, HashSet<AmountIndex>>::new();
-        for id in ids {
-            map.entry(id.amount)
-                .and_modify(|set| {
-                    set.insert(id.amount_index);
-                })
-                .or_insert_with(|| HashSet::from([id.amount_index]));
-        }
+        tables
+            .outputs_iter()
+            .keys()
+            .unwrap()
+            .map(Result::unwrap)
+            .chain(
+                tables
+                    .rct_outputs_iter()
+                    .keys()
+                    .unwrap()
+                    .map(Result::unwrap)
+                    .map(|amount_index| PreRctOutputId {
+                        amount: 0,
+                        amount_index,
+                    }),
+            )
+            .for_each(|id| {
+                output_count += 1;
+                map.entry(id.amount)
+                    .and_modify(|set| {
+                        set.insert(id.amount_index);
+                    })
+                    .or_insert_with(|| HashSet::from([id.amount_index]));
+            });
 
         (map, output_count)
     };
@@ -347,7 +343,8 @@ async fn v1_tx2() {
         14_535_350_982_449,
         AssertTableLen {
             block_infos: 1,
-            block_blobs: 1,
+            block_header_blobs: 1,
+            block_txs_hashes: 1,
             block_heights: 1,
             key_images: 65,
             num_outputs: 41,
@@ -373,7 +370,8 @@ async fn v9_tx3() {
         3_403_774_022_163,
         AssertTableLen {
             block_infos: 1,
-            block_blobs: 1,
+            block_header_blobs: 1,
+            block_txs_hashes: 1,
             block_heights: 1,
             key_images: 4,
             num_outputs: 0,
@@ -399,7 +397,8 @@ async fn v16_tx0() {
         600_000_000_000,
         AssertTableLen {
             block_infos: 1,
-            block_blobs: 1,
+            block_header_blobs: 1,
+            block_txs_hashes: 1,
             block_heights: 1,
             key_images: 0,
             num_outputs: 0,
