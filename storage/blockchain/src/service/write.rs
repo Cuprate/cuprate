@@ -74,8 +74,6 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
             Ok(BlockchainResponse::Ok)
         }
         Err(e) => {
-            // INVARIANT: ensure database atomicity by aborting
-            // the transaction on `add_block()` failures.
             TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
             Err(e)
         }
@@ -99,8 +97,6 @@ fn write_alt_block(env: &ConcreteEnv, block: &AltBlockInformation) -> ResponseRe
             Ok(BlockchainResponse::Ok)
         }
         Err(e) => {
-            // INVARIANT: ensure database atomicity by aborting
-            // the transaction on `add_block()` failures.
             TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
             Err(e)
         }
@@ -135,8 +131,6 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
             Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
         }
         Err(e) => {
-            // INVARIANT: ensure database atomicity by aborting
-            // the transaction on `add_block()` failures.
             TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
             Err(e)
         }
@@ -190,8 +184,6 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
             Ok(BlockchainResponse::Ok)
         }
         Err(e) => {
-            // INVARIANT: ensure database atomicity by aborting
-            // the transaction on `add_block()` failures.
             TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
             Err(e)
         }
@@ -212,8 +204,6 @@ fn flush_alt_blocks(env: &ConcreteEnv) -> ResponseResult {
             Ok(BlockchainResponse::Ok)
         }
         Err(e) => {
-            // INVARIANT: ensure database atomicity by aborting
-            // the transaction on `add_block()` failures.
             TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
             Err(e)
         }
