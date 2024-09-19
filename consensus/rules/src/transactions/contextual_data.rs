@@ -103,7 +103,7 @@ impl DecoyInfo {
     ///
     /// So:
     ///
-    /// `amount_outs_on_chain(inputs``[X]`) == `outputs_with_amount``[X]`
+    /// `amount_outs_on_chain(inputs[X]) == outputs_with_amount[X]`
     ///
     /// Do not rely on this function to do consensus checks!
     ///

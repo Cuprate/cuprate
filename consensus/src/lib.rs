@@ -11,13 +11,14 @@
 //! with [`BlockchainResponse`].
 //!
 
-// Used in external `tests/`.
-#[cfg(test)]
-use cuprate_test_utils as _;
-#[cfg(test)]
-use curve25519_dalek as _;
-#[cfg(test)]
-use hex_literal as _;
+cfg_if::cfg_if! {
+    // Used in external `tests/`.
+    if #[cfg(test)] {
+        use cuprate_test_utils as _;
+        use curve25519_dalek as _;
+        use hex_literal as _;
+    }
+}
 
 use cuprate_consensus_rules::ConsensusError;
 

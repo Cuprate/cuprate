@@ -12,6 +12,7 @@ cuprate-helper = { path = "../helper", default-features = false, features = ["st
 cuprate-consensus-rules = { path = "./rules", features = ["rayon"] }
 cuprate-types = { path = "../types" }
 
+cfg-if = { workspace = true }
 thiserror = { workspace = true }
 tower = { workspace = true, features = ["util"] }
 tracing = { workspace = true, features = ["std", "attributes"] }

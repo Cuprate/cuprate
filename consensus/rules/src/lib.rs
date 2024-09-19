@@ -1,9 +1,11 @@
-#[cfg(test)]
-use proptest as _;
-#[cfg(test)]
-use proptest_derive as _;
-#[cfg(test)]
-use tokio as _;
+cfg_if::cfg_if! {
+    // Used in external `tests/`.
+    if #[cfg(test)] {
+        use proptest as _;
+        use proptest_derive as _;
+        use tokio as _;
+    }
+}
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

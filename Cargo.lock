@@ -552,6 +552,7 @@ dependencies = [
 name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-test-utils",
@@ -579,6 +580,7 @@ dependencies = [
 name = "cuprate-consensus-rules"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "crypto-bigint",
  "cuprate-cryptonight",
  "cuprate-helper",

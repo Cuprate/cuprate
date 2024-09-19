@@ -333,7 +333,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
     pub(crate) async fn run(mut self, mut rx: mpsc::Receiver<ContextTaskRequest>) {
         while let Some(req) = rx.recv().await {
             let res = self.handle_req(req.req).instrument(req.span).await;
-            let _unused = req.tx.send(res);
+            drop(req.tx.send(res));
         }
 
         tracing::info!("Shutting down blockchain context task.");

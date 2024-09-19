@@ -1,8 +1,4 @@
-#![expect(
-    clippy::tests_outside_test_module,
-    unused_crate_dependencies,
-    reason = "external test module"
-)]
+#![expect(unused_crate_dependencies, reason = "external test module")]
 #![expect(clippy::allow_attributes, reason = "usage inside macro")]
 
 use std::{
