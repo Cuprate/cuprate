@@ -76,7 +76,6 @@ impl Default for Distribution {
 }
 
 /// Data within [`Distribution::Uncompressed`].
-#[allow(dead_code, missing_docs)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DistributionUncompressed {
@@ -99,7 +98,6 @@ epee_object! {
 }
 
 /// Data within [`Distribution::CompressedBinary`].
-#[allow(dead_code, missing_docs)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DistributionCompressedBinary {
@@ -132,7 +130,7 @@ epee_object! {
 /// 1. Compresses the distribution array
 /// 2. Serializes the compressed data
 #[cfg(feature = "serde")]
-#[allow(clippy::ptr_arg)]
+#[expect(clippy::ptr_arg)]
 fn serialize_distribution_as_compressed_data<S>(v: &Vec<u64>, s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
@@ -162,7 +160,6 @@ where
 /// [`EpeeObjectBuilder`] for [`Distribution`].
 ///
 /// Not for public usage.
-#[allow(dead_code, missing_docs)]
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct __DistributionEpeeBuilder {

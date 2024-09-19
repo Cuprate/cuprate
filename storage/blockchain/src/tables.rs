@@ -17,9 +17,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::types::{
-    Amount, AmountIndex, AmountIndices, BlockHash, BlockHeaderBlob, BlockHeight, BlockInfo,
-    BlockTxHashes, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob,
-    RctOutput, TxBlob, TxHash, TxId, UnlockTime,
+    AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndex, AmountIndices, 
+    BlockHash, BlockHeaderBlob, BlockHeight, BlockInfo, BlockTxHashes, KeyImage, Output, 
+    PreRctOutputId, PrunableBlob, BlockBlob, RawChainId, CompactAltBlockInfo, PrunableHash, 
+    PrunedBlob, RctOutput, TxBlob, TxHash, TxId, UnlockTime
 };
 
 //---------------------------------------------------------------------------------------------------- Tables
@@ -135,6 +136,40 @@ cuprate_database::define_tables! {
     /// Transactions without unlock times will not exist in this table.
     15 => TxUnlockTime,
     TxId => UnlockTime,
+
+    /// Information on alt-chains.
+    16 => AltChainInfos,
+    RawChainId => AltChainInfo,
+
+    /// Alt-block heights.
+    ///
+    /// Contains the height of all alt-blocks.
+    17 => AltBlockHeights,
+    BlockHash => AltBlockHeight,
+
+    /// Alt-block information.
+    ///
+    /// Contains information on all alt-blocks.
+    18 => AltBlocksInfo,
+    AltBlockHeight => CompactAltBlockInfo,
+
+    /// Alt-block blobs.
+    ///
+    /// Contains the raw bytes of all alt-blocks.
+    19 => AltBlockBlobs,
+    AltBlockHeight => BlockBlob,
+
+    /// Alt-block transaction blobs.
+    ///
+    /// Contains the raw bytes of alt transactions, if those transactions are not in the main-chain.
+    20 => AltTransactionBlobs,
+    TxHash => TxBlob,
+
+    /// Alt-block transaction information.
+    ///
+    /// Contains information on all alt transactions, even if they are in the main-chain.
+    21 => AltTransactionInfos,
+    TxHash => AltTransactionInfo,
 }
 
 //---------------------------------------------------------------------------------------------------- Tests
