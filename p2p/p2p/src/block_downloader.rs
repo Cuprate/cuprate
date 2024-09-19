@@ -699,7 +699,7 @@ struct BlockDownloadTaskResponse<N: NetworkZone> {
 }
 
 /// Returns if a peer has all the blocks in a range, according to its [`PruningSeed`].
-fn client_has_block_in_range(
+const fn client_has_block_in_range(
     pruning_seed: &PruningSeed,
     start_height: usize,
     length: usize,
