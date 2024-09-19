@@ -8,8 +8,7 @@ define_request_and_response! {
     // `(other)` adds a JSON sanity-check test.
     get_height (other),
     GET_HEIGHT: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "hash": "68bb1a1cff8e2a44c3221e8e1aff80bc6ca45d06fa8eff4d2a3a7ac31d4efe3f",
@@ -53,8 +52,7 @@ r#"{
 define_request_and_response! {
     get_alt_blocks_hashes (other),
     GET_ALT_BLOCKS_HASHES: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "blks_hashes": ["8ee10db35b1baf943f201b303890a29e7d45437bd76c2bd4df0d2f2ee34be109"],
@@ -134,8 +132,7 @@ r#"{
 define_request_and_response! {
     stop_mining (other),
     STOP_MINING: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "status": "OK",
@@ -146,8 +143,7 @@ r#"{
 define_request_and_response! {
     mining_status (other),
     MINING_STATUS: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "active": false,
@@ -173,8 +169,7 @@ r#"{
 define_request_and_response! {
     save_bc (other),
     SAVE_BC: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "status": "OK",
@@ -185,8 +180,7 @@ r#"{
 define_request_and_response! {
     get_peer_list (other),
     GET_PEER_LIST: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "gray_list": [{
@@ -291,8 +285,7 @@ r#"{
 define_request_and_response! {
     get_transaction_pool (other),
     GET_TRANSACTION_POOL: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "credits": 0,
@@ -598,8 +591,7 @@ r#"{
 define_request_and_response! {
     get_transaction_pool_stats (other),
     GET_TRANSACTION_POOL_STATS: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "credits": 0,
@@ -657,8 +649,7 @@ r#"{
 define_request_and_response! {
     stop_daemon (other),
     STOP_DAEMON: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "status": "OK"
@@ -668,8 +659,7 @@ r#"{
 define_request_and_response! {
     get_limit (other),
     GET_LIMIT: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "limit_down": 1280000,
@@ -713,8 +703,7 @@ r#"{
 define_request_and_response! {
     get_net_stats (other),
     GET_NET_STATS: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "start_time": 1721251858,
@@ -801,8 +790,7 @@ r#"{
 define_request_and_response! {
     UNDOCUMENTED_ENDPOINT (other),
     GET_TRANSACTION_POOL_HASHES: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "credits": 0,
@@ -835,8 +823,7 @@ r#"{
 define_request_and_response! {
     UNDOCUMENTED_ENDPOINT (other),
     GET_PUBLIC_NODES: &str,
-    Request =
-r#"{}"#;
+    Request = "{}";
     Response =
 r#"{
   "status": "OK",

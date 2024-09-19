@@ -86,9 +86,8 @@ impl<const ALLOW_SYNC: bool, const DANDELION_PP: bool, const CHECK_NODE_ID: bool
     type Sink = FramedWrite<WriteHalf<DuplexStream>, MoneroWireCodec>;
     type Listener = Pin<
         Box<
-            dyn Stream<
-                    Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), std::io::Error>,
-                > + Send
+            dyn Stream<Item = Result<(Option<Self::Addr>, Self::Stream, Self::Sink), Error>>
+                + Send
                 + 'static,
         >,
     >;

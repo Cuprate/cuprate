@@ -36,7 +36,7 @@ use crate::{
 mod tests;
 
 /// An entry in the connected list.
-pub struct ConnectionPeerEntry<Z: NetworkZone> {
+pub(crate) struct ConnectionPeerEntry<Z: NetworkZone> {
     addr: Option<Z::Addr>,
     id: u64,
     handle: ConnectionHandle,
@@ -109,14 +109,14 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             match handle.poll_unpin(cx) {
                 Poll::Pending => return,
                 Poll::Ready(Ok(Err(e))) => {
-                    tracing::error!("Could not save peer list to disk, got error: {}", e)
+                    tracing::error!("Could not save peer list to disk, got error: {e}");
                 }
                 Poll::Ready(Err(e)) => {
                     if e.is_panic() {
                         panic::resume_unwind(e.into_panic())
                     }
                 }
-                _ => (),
+                Poll::Ready(_) => (),
             }
         }
         // the task is finished.
@@ -144,6 +144,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         let mut internal_addr_disconnected = Vec::new();
         let mut addrs_to_ban = Vec::new();
 
+        #[expect(clippy::iter_over_hash_type, reason = "ordering doesn't matter here")]
         for (internal_addr, peer) in &mut self.connected_peers {
             if let Some(time) = peer.handle.check_should_ban() {
                 match internal_addr {
@@ -158,7 +159,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
             }
         }
 
-        for (addr, time) in addrs_to_ban.into_iter() {
+        for (addr, time) in addrs_to_ban {
             self.ban_peer(addr, time);
         }
 
@@ -172,12 +173,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
                     .remove(&addr);
 
                 // If the amount of peers with this ban id is 0 remove the whole set.
-                if self
-                    .connected_peers_ban_id
-                    .get(&addr.ban_id())
-                    .unwrap()
-                    .is_empty()
-                {
+                if self.connected_peers_ban_id[&addr.ban_id()].is_empty() {
                     self.connected_peers_ban_id.remove(&addr.ban_id());
                 }
                 // remove the peer from the anchor list.
@@ -188,7 +184,7 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
 
     fn ban_peer(&mut self, addr: Z::Addr, time: Duration) {
         if self.banned_peers.contains_key(&addr.ban_id()) {
-            tracing::error!("Tried to ban peer twice, this shouldn't happen.")
+            tracing::error!("Tried to ban peer twice, this shouldn't happen.");
         }
 
         if let Some(connected_peers_with_ban_id) = self.connected_peers_ban_id.get(&addr.ban_id()) {
@@ -242,10 +238,10 @@ impl<Z: BorshNetworkZone> AddressBook<Z> {
         peer_list.retain_mut(|peer| {
             peer.adr.make_canonical();
 
-            if !peer.adr.should_add_to_peer_list() {
-                false
-            } else {
+            if peer.adr.should_add_to_peer_list() {
                 !self.is_peer_banned(&peer.adr)
+            } else {
+                false
             }
             // TODO: check rpc/ p2p ports not the same
         });
@@ -391,7 +387,7 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
                         rpc_credits_per_hash,
                     },
                 )
-                .map(|_| AddressBookResponse::Ok),
+                .map(|()| AddressBookResponse::Ok),
             AddressBookRequest::IncomingPeerList(peer_list) => {
                 self.handle_incoming_peer_list(peer_list);
                 Ok(AddressBookResponse::Ok)
