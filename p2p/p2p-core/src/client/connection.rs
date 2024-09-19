@@ -174,14 +174,13 @@ where
         if let Err(e) = res {
             // can't clone the error so turn it to a string first, hacky but oh well.
             let err_str = e.to_string();
-            let _unused = req.response_channel.send(Err(err_str.into()));
+            drop(req.response_channel.send(Err(err_str.into())));
             return Err(e);
         }
 
         // We still need to respond even if the response is this.
-        let _unused = req
-            .response_channel
-            .send(Ok(PeerResponse::Protocol(ProtocolResponse::NA)));
+        let resp = Ok(PeerResponse::Protocol(ProtocolResponse::NA));
+        drop(req.response_channel.send(resp));
 
         Ok(())
     }
@@ -224,9 +223,11 @@ where
                 panic!("Not in correct state, can't receive response!")
             };
 
-            let _unused = tx.send(Ok(mes
+            let resp = Ok(mes
                 .try_into()
-                .map_err(|_| PeerError::PeerSentInvalidMessage)?));
+                .map_err(|_| PeerError::PeerSentInvalidMessage)?);
+
+            drop(tx.send(resp));
 
             self.request_timeout = None;
 
@@ -366,11 +367,11 @@ where
         if let State::WaitingForResponse { tx, .. } =
             std::mem::replace(&mut self.state, State::WaitingForRequest)
         {
-            let _unused = tx.send(Err(err_str.clone().into()));
+            drop(tx.send(Err(err_str.clone().into())));
         }
 
         while let Ok(req) = client_rx.try_recv() {
-            let _unused = req.response_channel.send(Err(err_str.clone().into()));
+            drop(req.response_channel.send(Err(err_str.clone().into())));
         }
 
         self.connection_guard.connection_closed();

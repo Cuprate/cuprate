@@ -149,7 +149,7 @@ async fn handshake_monerod_to_cuprate() {
     let next_connection_fut = timeout(Duration::from_secs(30), listener.next());
 
     if let Some(Ok((addr, stream, sink))) = next_connection_fut.await.unwrap() {
-        let _unused = handshaker
+        handshaker
             .ready()
             .await
             .unwrap()

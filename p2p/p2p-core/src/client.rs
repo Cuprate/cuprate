@@ -169,9 +169,8 @@ impl<Z: NetworkZone> Service<PeerRequest> for Client<Z> {
                 TrySendError::Closed(req) | TrySendError::Full(req) => {
                     self.set_err(PeerError::ClientChannelClosed);
 
-                    let _unused = req
-                        .response_channel
-                        .send(Err(PeerError::ClientChannelClosed.into()));
+                    let resp = Err(PeerError::ClientChannelClosed.into());
+                    drop(req.response_channel.send(resp));
                 }
             }
         }
@@ -216,7 +215,7 @@ where
 
                 tracing::debug!("Sending back response");
 
-                let _unused = req.response_channel.send(Ok(res));
+                drop(req.response_channel.send(Ok(res)));
             }
         }
         .instrument(task_span),
