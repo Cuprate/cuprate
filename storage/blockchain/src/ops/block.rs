@@ -171,7 +171,7 @@ pub fn pop_block(
     let miner_transaction = tables.tx_blobs().get(&block_info.mining_tx_index)?.0;
     let block = Block {
         header: BlockHeader::read(&mut block_header.as_slice())?,
-        miner_transaction: Transaction::<NotPruned>::read(&mut miner_transaction.as_slice())?,
+        miner_transaction: Transaction::read(&mut miner_transaction.as_slice())?,
         transactions: block_txs_hashes,
     };
 
