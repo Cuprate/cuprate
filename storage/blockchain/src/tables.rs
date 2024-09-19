@@ -17,10 +17,10 @@
 
 //---------------------------------------------------------------------------------------------------- Import
 use crate::types::{
-    AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndex, AmountIndices, 
-    BlockHash, BlockHeaderBlob, BlockHeight, BlockInfo, BlockTxHashes, KeyImage, Output, 
-    PreRctOutputId, PrunableBlob, BlockBlob, RawChainId, CompactAltBlockInfo, PrunableHash, 
-    PrunedBlob, RctOutput, TxBlob, TxHash, TxId, UnlockTime
+    AltBlockHeight, AltChainInfo, AltTransactionInfo, Amount, AmountIndex, AmountIndices,
+    BlockBlob, BlockHash, BlockHeaderBlob, BlockHeight, BlockInfo, BlockTxHashes,
+    CompactAltBlockInfo, KeyImage, Output, PreRctOutputId, PrunableBlob, PrunableHash, PrunedBlob,
+    RawChainId, RctOutput, TxBlob, TxHash, TxId, UnlockTime,
 };
 
 //---------------------------------------------------------------------------------------------------- Tables
