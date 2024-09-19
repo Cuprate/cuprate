@@ -4,7 +4,7 @@
 use bytemuck::TransparentWrapper;
 use monero_serai::{
     block::{Block, BlockHeader},
-    transaction::{NotPruned, Transaction},
+    transaction::Transaction,
 };
 
 use cuprate_database::{
