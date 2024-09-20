@@ -128,7 +128,7 @@ pub(crate) fn variant2_integer_math(
     let mut divisor = c1_64[0];
     let dividend = c1_64[1];
 
-    divisor = ((divisor + ((*sqrt_result << 1) & U32_MASK)) | 0x80000001) & U32_MASK;
+    divisor = ((divisor.wrapping_add((*sqrt_result << 1) & U32_MASK)) | 0x80000001) & U32_MASK;
     *division_result = ((dividend / divisor) & U32_MASK).wrapping_add((dividend % divisor) << 32);
 
     let sqrt_input = c1_64[0].wrapping_add(*division_result);
@@ -172,6 +172,15 @@ mod tests {
             assert_eq!(sqrt_result, sqrt_result_end);
         }
 
+        test(
+            "00000000000000000000000000000000",
+            "0100000000000000ffffffffffffffff",
+            u64::MAX,
+            u64::MAX,
+            "ffffffff000000000000000000000000",
+            1,
+            0,
+        );
         test(
             "8b4d610801fe2049741c4cf1a11912d5",
             "ef9d5925ad73f044f6310bce80f333a4",
