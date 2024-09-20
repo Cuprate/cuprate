@@ -337,7 +337,7 @@ impl<N: NetworkZone> Stream for BroadcastMessageStream<N> {
         } else {
             tracing::trace!("Diffusion flush timer expired but no txs to diffuse");
             // poll next_flush now to register the waker with it.
-            // the waker will already be registered with the block broadcast channel."
+            // the waker will already be registered with the block broadcast channel.
             #[expect(clippy::let_underscore_must_use)]
             let _ = this.next_flush.poll(cx);
             Poll::Pending

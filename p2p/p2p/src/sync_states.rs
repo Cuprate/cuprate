@@ -193,7 +193,10 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             tracing::debug!(
                 "Updating sync watcher channel with new highest seen cumulative difficulty: {new_cumulative_difficulty}"
             );
-            #[expect(clippy::let_underscore_must_use, reason = "TODO")]
+            #[expect(
+                clippy::let_underscore_must_use,
+                reason = "dropped receivers can be ignored"
+            )]
             let _ = self.new_height_watcher.send(NewSyncInfo {
                 top_hash: core_sync_data.top_id,
                 chain_height: core_sync_data.current_height,
