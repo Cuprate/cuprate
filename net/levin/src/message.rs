@@ -33,13 +33,13 @@ pub enum LevinMessage<T: LevinBody> {
 
 impl<T: LevinBody> From<T> for LevinMessage<T> {
     fn from(value: T) -> Self {
-        LevinMessage::Body(value)
+        Self::Body(value)
     }
 }
 
 impl<T: LevinBody> From<Bucket<T::Command>> for LevinMessage<T> {
     fn from(value: Bucket<T::Command>) -> Self {
-        LevinMessage::Bucket(value)
+        Self::Bucket(value)
     }
 }
 
@@ -58,7 +58,7 @@ pub struct Dummy(pub usize);
 
 impl<T: LevinBody> From<Dummy> for LevinMessage<T> {
     fn from(value: Dummy) -> Self {
-        LevinMessage::Dummy(value.0)
+        Self::Dummy(value.0)
     }
 }
 
@@ -76,12 +76,11 @@ pub fn make_fragmented_messages<T: LevinBody>(
     fragment_size: usize,
     message: T,
 ) -> Result<Vec<Bucket<T::Command>>, BucketError> {
-    if fragment_size * 2 < HEADER_SIZE {
-        panic!(
-            "Fragment size: {fragment_size}, is too small, must be at least {}",
-            2 * HEADER_SIZE
-        );
-    }
+    assert!(
+        fragment_size * 2 >= HEADER_SIZE,
+        "Fragment size: {fragment_size}, is too small, must be at least {}",
+        2 * HEADER_SIZE
+    );
 
     let mut builder = BucketBuilder::new(protocol);
     message.encode(&mut builder)?;

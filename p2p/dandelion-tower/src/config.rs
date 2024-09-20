@@ -8,7 +8,7 @@ use std::{
 /// (1 - ep) is the probability that a transaction travels for `k` hops before a nodes embargo timeout fires, this constant is (1 - ep).
 const EMBARGO_FULL_TRAVEL_PROBABILITY: f64 = 0.90;
 
-/// The graph type to use for dandelion routing, the dandelion paper recommends [Graph::FourRegular].
+/// The graph type to use for dandelion routing, the dandelion paper recommends [`Graph::FourRegular`].
 ///
 /// The decision between line graphs and 4-regular graphs depend on the priorities of the system, if
 /// linkability of transactions is a first order concern then line graphs may be better, however 4-regular graphs
@@ -66,7 +66,7 @@ impl DandelionConfig {
     /// Returns the number of outbound peers to use to stem transactions.
     ///
     /// This value depends on the [`Graph`] chosen.
-    pub fn number_of_stems(&self) -> usize {
+    pub const fn number_of_stems(&self) -> usize {
         match self.graph {
             Graph::Line => 1,
             Graph::FourRegular => 2,

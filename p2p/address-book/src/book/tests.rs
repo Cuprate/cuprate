@@ -109,7 +109,7 @@ async fn add_new_peer_already_connected() {
             },
         ),
         Err(AddressBookError::PeerAlreadyConnected)
-    )
+    );
 }
 
 #[tokio::test]
@@ -143,5 +143,5 @@ async fn banned_peer_removed_from_peer_lists() {
             .unwrap()
             .into_inner(),
         TestNetZoneAddr(1)
-    )
+    );
 }

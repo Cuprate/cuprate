@@ -52,7 +52,7 @@ where
 }
 
 /// Tests an input JSON string matches an expected type `T`.
-#[allow(clippy::needless_pass_by_value)] // serde signature
+#[expect(clippy::needless_pass_by_value, reason = "serde signature")]
 fn assert_de<T>(json: &'static str, expected: T)
 where
     T: DeserializeOwned + std::fmt::Debug + Clone + PartialEq,

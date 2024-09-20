@@ -5,7 +5,14 @@ use axum::{body::Bytes, extract::State, http::StatusCode};
 use tower::ServiceExt;
 
 use cuprate_epee_encoding::from_bytes;
-use cuprate_rpc_types::bin::{BinRequest, BinResponse, GetTransactionPoolHashesRequest};
+use cuprate_rpc_types::{
+    bin::{
+        BinRequest, BinResponse, GetBlocksByHeightRequest, GetBlocksRequest, GetHashesRequest,
+        GetOutputIndexesRequest, GetOutsRequest, GetTransactionPoolHashesRequest,
+    },
+    json::GetOutputDistributionRequest,
+    RpcCall,
+};
 
 use crate::rpc_handler::RpcHandler;
 
@@ -21,7 +28,6 @@ macro_rules! generate_endpoints_with_input {
     ),*) => { paste::paste! {
         $(
             /// TODO
-            #[allow(unused_mut)]
             pub(crate) async fn $endpoint<H: RpcHandler>(
                 State(handler): State<H>,
                 mut request: Bytes,
@@ -48,7 +54,6 @@ macro_rules! generate_endpoints_with_no_input {
     ),*) => { paste::paste! {
         $(
             /// TODO
-            #[allow(unused_mut)]
             pub(crate) async fn $endpoint<H: RpcHandler>(
                 State(handler): State<H>,
             ) -> Result<Bytes, StatusCode> {
@@ -66,8 +71,16 @@ macro_rules! generate_endpoints_inner {
     ($variant:ident, $handler:ident, $request:expr) => {
         paste::paste! {
             {
+                // Check if restricted.
+                if [<$variant Request>]::IS_RESTRICTED && $handler.restricted() {
+                    // TODO: mimic `monerod` behavior.
+                    return Err(StatusCode::FORBIDDEN);
+                }
+
                 // Send request.
-                let response = $handler.oneshot($request).await?;
+                let Ok(response) = $handler.oneshot($request).await else {
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                };
 
                 let BinResponse::$variant(response) = response else {
                     panic!("RPC handler returned incorrect response");

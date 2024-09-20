@@ -25,7 +25,7 @@ use crate::{
 pub fn chain_height(
     table_block_heights: &impl DatabaseRo<BlockHeights>,
 ) -> Result<BlockHeight, RuntimeError> {
-    #[allow(clippy::cast_possible_truncation)] // we enforce 64-bit
+    #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
     table_block_heights.len().map(|height| height as usize)
 }
 
@@ -48,7 +48,7 @@ pub fn top_block_height(
 ) -> Result<BlockHeight, RuntimeError> {
     match table_block_heights.len()? {
         0 => Err(RuntimeError::KeyNotFound),
-        #[allow(clippy::cast_possible_truncation)] // we enforce 64-bit
+        #[expect(clippy::cast_possible_truncation, reason = "we enforce 64-bit")]
         height => Ok(height as usize - 1),
     }
 }
@@ -138,7 +138,8 @@ mod test {
             // Assert reads are correct.
             AssertTableLen {
                 block_infos: 3,
-                block_blobs: 3,
+                block_header_blobs: 3,
+                block_txs_hashes: 3,
                 block_heights: 3,
                 key_images: 69,
                 num_outputs: 41,
