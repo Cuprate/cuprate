@@ -14,6 +14,8 @@ monero-serai = ["dep:monero-serai"]
 
 [dependencies]
 monero-serai = { workspace = true, optional = true }
+hex-literal  = { workspace = true }
+paste        = { workspace = true }
 
 [dev-dependencies]
 monero-serai      = { workspace = true }

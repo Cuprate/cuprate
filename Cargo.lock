@@ -604,7 +604,9 @@ name = "cuprate-constants"
 version = "0.1.0"
 dependencies = [
  "hex",
+ "hex-literal",
  "monero-serai",
+ "paste",
  "pretty_assertions",
 ]
 
