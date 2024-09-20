@@ -74,9 +74,9 @@ pub const fn combine_low_high_bits_to_u128(low_bits: u64, high_bits: u64) -> u12
 /// ```rust
 /// # use cuprate_helper::map::*;
 /// # use monero_serai::transaction::*;
-/// use cuprate_constants::block::MAX_BLOCK_HEIGHT;
+/// use cuprate_constants::block::{MAX_BLOCK_HEIGHT, MAX_BLOCK_HEIGHT_USIZE};
 /// assert_eq!(u64_to_timelock(0), Timelock::None);
-/// assert_eq!(u64_to_timelock(MAX_BLOCK_HEIGHT-1), Timelock::Block(MAX_BLOCK_HEIGHT-1));
+/// assert_eq!(u64_to_timelock(MAX_BLOCK_HEIGHT-1), Timelock::Block(MAX_BLOCK_HEIGHT_USIZE-1));
 /// assert_eq!(u64_to_timelock(MAX_BLOCK_HEIGHT), Timelock::Time(MAX_BLOCK_HEIGHT));
 /// ```
 pub const fn u64_to_timelock(u: u64) -> Timelock {
@@ -96,9 +96,9 @@ pub const fn u64_to_timelock(u: u64) -> Timelock {
 /// ```rust
 /// # use cuprate_helper::map::*;
 /// # use monero_serai::transaction::*;
-/// use cuprate_constants::block::MAX_BLOCK_HEIGHT;
+/// use cuprate_constants::block::{MAX_BLOCK_HEIGHT, MAX_BLOCK_HEIGHT_USIZE};
 /// assert_eq!(timelock_to_u64(Timelock::None), 0);
-/// assert_eq!(timelock_to_u64(Timelock::Block(MAX_BLOCK_HEIGHT-1)), MAX_BLOCK_HEIGHT-1);
+/// assert_eq!(timelock_to_u64(Timelock::Block(MAX_BLOCK_HEIGHT_USIZE-1)), MAX_BLOCK_HEIGHT-1);
 /// assert_eq!(timelock_to_u64(Timelock::Time(MAX_BLOCK_HEIGHT)), MAX_BLOCK_HEIGHT);
 /// ```
 pub const fn timelock_to_u64(timelock: Timelock) -> u64 {
