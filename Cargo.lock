@@ -498,6 +498,7 @@ name = "cuprate-address-book"
 version = "0.1.0"
 dependencies = [
  "borsh",
+ "cuprate-constants",
  "cuprate-p2p-core",
  "cuprate-pruning",
  "cuprate-test-utils",
@@ -527,6 +528,7 @@ version = "0.0.0"
 dependencies = [
  "bitflags 2.6.0",
  "bytemuck",
+ "cuprate-constants",
  "cuprate-database",
  "cuprate-database-service",
  "cuprate-helper",
@@ -580,6 +582,7 @@ name = "cuprate-consensus-rules"
 version = "0.1.0"
 dependencies = [
  "crypto-bigint",
+ "cuprate-constants",
  "cuprate-cryptonight",
  "cuprate-helper",
  "cuprate-types",
@@ -707,6 +710,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "crossbeam",
+ "cuprate-constants",
  "curve25519-dalek",
  "dirs",
  "futures",
@@ -751,6 +755,7 @@ dependencies = [
  "bytes",
  "cuprate-address-book",
  "cuprate-async-buffer",
+ "cuprate-constants",
  "cuprate-fixed-bytes",
  "cuprate-helper",
  "cuprate-p2p-core",
@@ -805,6 +810,7 @@ name = "cuprate-pruning"
 version = "0.1.0"
 dependencies = [
  "borsh",
+ "cuprate-constants",
  "thiserror",
 ]
 

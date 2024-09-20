@@ -9,6 +9,7 @@ use proptest::{collection::vec, prelude::*};
 
 use monero_serai::transaction::Output;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT;
 use cuprate_helper::cast::u64_to_usize;
 
 use super::*;
@@ -160,10 +161,10 @@ prop_compose! {
     /// Returns a [`Timelock`] that is locked given a height and time.
     fn locked_timelock(height: u64, time_for_time_lock: u64)(
         timebased in any::<bool>(),
-        lock_height in (height+1)..500_000_001,
+        lock_height in (height+1)..MAX_BLOCK_HEIGHT+1,
         time_for_time_lock in (time_for_time_lock+121)..,
     ) -> Timelock {
-        if timebased || lock_height > 500_000_000 {
+        if timebased || lock_height > MAX_BLOCK_HEIGHT {
             Timelock::Time(time_for_time_lock)
         } else {
             Timelock::Block(u64_to_usize(lock_height))
@@ -240,7 +241,7 @@ proptest! {
     }
 
     #[test]
-    fn test_timestamp_time_lock(timestamp in 500_000_001..u64::MAX) {
+    fn test_timestamp_time_lock(timestamp in MAX_BLOCK_HEIGHT+1..u64::MAX) {
         prop_assert!(check_timestamp_time_lock(timestamp, timestamp - 120, &HardFork::V16));
         prop_assert!(!check_timestamp_time_lock(timestamp, timestamp - 121, &HardFork::V16));
         prop_assert!(check_timestamp_time_lock(timestamp, timestamp, &HardFork::V16));

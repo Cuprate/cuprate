@@ -2,8 +2,9 @@ use std::{cmp::min, collections::VecDeque};
 
 use cuprate_fixed_bytes::ByteArrayVec;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_p2p_core::{client::InternalPeerID, handles::ConnectionHandle, NetworkZone};
-use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_pruning::PruningSeed;
 
 use crate::constants::MEDIUM_BAN;
 
@@ -87,7 +88,7 @@ impl<N: NetworkZone> ChainTracker<N> {
     /// Returns `true` if the peer is expected to have the next block after our highest seen block
     /// according to their pruning seed.
     pub fn should_ask_for_next_chain_entry(&self, seed: &PruningSeed) -> bool {
-        seed.has_full_block(self.top_height(), CRYPTONOTE_MAX_BLOCK_HEIGHT)
+        seed.has_full_block(self.top_height(), MAX_BLOCK_HEIGHT_USIZE)
     }
 
     /// Returns the simple history, the highest seen block and the genesis block.
@@ -159,7 +160,7 @@ impl<N: NetworkZone> ChainTracker<N> {
         pruning_seed: &PruningSeed,
         max_blocks: usize,
     ) -> Option<BlocksToRetrieve<N>> {
-        if !pruning_seed.has_full_block(self.first_height, CRYPTONOTE_MAX_BLOCK_HEIGHT) {
+        if !pruning_seed.has_full_block(self.first_height, MAX_BLOCK_HEIGHT_USIZE) {
             return None;
         }
 
@@ -172,10 +173,10 @@ impl<N: NetworkZone> ChainTracker<N> {
         let end_idx = min(
             min(entry.ids.len(), max_blocks),
                 pruning_seed
-                    .get_next_pruned_block(self.first_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                    .get_next_pruned_block(self.first_height, MAX_BLOCK_HEIGHT_USIZE)
                     .expect("We use local values to calculate height which should be below the sanity limit")
                     // Use a big value as a fallback if the seed does no pruning.
-                    .unwrap_or(CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                    .unwrap_or(MAX_BLOCK_HEIGHT_USIZE)
                     - self.first_height,
         );
 

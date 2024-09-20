@@ -119,12 +119,13 @@ mod tests {
     use proptest::{collection::vec, prelude::*};
     use tokio_test::block_on;
 
+    use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
     use cuprate_p2p_core::handles::HandleBuilder;
 
     use super::*;
 
     prop_compose! {
-        fn ready_batch_strategy()(start_height in 0_usize..500_000_000) -> ReadyQueueBatch {
+        fn ready_batch_strategy()(start_height in 0..MAX_BLOCK_HEIGHT_USIZE) -> ReadyQueueBatch {
             let (_, peer_handle)  = HandleBuilder::new().build();
 
             ReadyQueueBatch {

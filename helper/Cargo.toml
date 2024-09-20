@@ -18,12 +18,14 @@ cast      = []
 constants = []
 fs        = ["dep:dirs"]
 num       = []
-map       = ["cast", "dep:monero-serai"]
+map       = ["cast", "dep:monero-serai", "dep:cuprate-constants"]
 time      = ["dep:chrono", "std"]
 thread    = ["std", "dep:target_os_lib"]
 tx        = ["dep:monero-serai"]
 
 [dependencies]
+cuprate-constants = { path = "../constants", optional = true }
+
 crossbeam    = { workspace = true, optional = true }
 chrono       = { workspace = true, optional = true, features = ["std", "clock"] }
 dirs         = { workspace = true, optional = true }

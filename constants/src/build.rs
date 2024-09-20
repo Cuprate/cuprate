@@ -15,8 +15,8 @@
 /// ```
 pub const COMMIT: &str = core::env!("COMMIT"); // Set in `helper/build.rs`.
 
-/// TODO
+/// `true` if debug build, else `false`.
 pub const DEBUG: bool = cfg!(debug_assertions);
 
-/// TODO
+/// `true` if release build, else `false`.
 pub const RELEASE: bool = !DEBUG;

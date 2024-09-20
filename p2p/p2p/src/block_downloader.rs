@@ -22,12 +22,13 @@ use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_async_buffer::{BufferAppender, BufferStream};
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_p2p_core::{
     handles::ConnectionHandle,
     services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone, PeerSyncSvc,
 };
-use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_pruning::PruningSeed;
 
 use crate::{
     client_pool::{ClientPool, ClientPoolDropGuard},
@@ -703,8 +704,8 @@ fn client_has_block_in_range(
     start_height: usize,
     length: usize,
 ) -> bool {
-    pruning_seed.has_full_block(start_height, CRYPTONOTE_MAX_BLOCK_HEIGHT)
-        && pruning_seed.has_full_block(start_height + length, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+    pruning_seed.has_full_block(start_height, MAX_BLOCK_HEIGHT_USIZE)
+        && pruning_seed.has_full_block(start_height + length, MAX_BLOCK_HEIGHT_USIZE)
 }
 
 /// Calculates the next amount of blocks to request in a batch.

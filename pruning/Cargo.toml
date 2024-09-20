@@ -10,6 +10,8 @@ default = []
 borsh = ["dep:borsh"]
 
 [dependencies]
+cuprate-constants = { path = "../constants" }
+
 thiserror = { workspace = true }
 
 borsh = { workspace = true, features = ["derive", "std"], optional = true }

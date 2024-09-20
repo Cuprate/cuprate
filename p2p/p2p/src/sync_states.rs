@@ -13,13 +13,14 @@ use futures::{stream::FuturesUnordered, StreamExt};
 use tokio::sync::watch;
 use tower::Service;
 
+use cuprate_constants::block::MAX_BLOCK_HEIGHT_USIZE;
 use cuprate_p2p_core::{
     client::InternalPeerID,
     handles::ConnectionHandle,
     services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone,
 };
-use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};
+use cuprate_pruning::PruningSeed;
 use cuprate_wire::CoreSyncData;
 
 use crate::{client_pool::disconnect_monitor::PeerDisconnectFut, constants::SHORT_BAN};
@@ -106,13 +107,13 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             .flat_map(|(_, peers)| peers)
             .filter(|peer| {
                 if let Some(block_needed) = block_needed {
-                    // we just use CRYPTONOTE_MAX_BLOCK_HEIGHT as the blockchain height, this only means
+                    // we just use `MAX_BLOCK_HEIGHT_USIZE` as the blockchain height, this only means
                     // we don't take into account the tip blocks which are not pruned.
                     self.peers
                         .get(peer)
                         .unwrap()
                         .1
-                        .has_full_block(block_needed, CRYPTONOTE_MAX_BLOCK_HEIGHT)
+                        .has_full_block(block_needed, MAX_BLOCK_HEIGHT_USIZE)
                 } else {
                     true
                 }
