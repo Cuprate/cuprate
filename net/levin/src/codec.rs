@@ -47,7 +47,7 @@ pub struct LevinBucketCodec<C> {
 
 impl<C> Default for LevinBucketCodec<C> {
     fn default() -> Self {
-        LevinBucketCodec {
+        Self {
             state: LevinBucketState::WaitingForHeader,
             protocol: Protocol::default(),
             handshake_message_seen: false,
@@ -56,8 +56,8 @@ impl<C> Default for LevinBucketCodec<C> {
 }
 
 impl<C> LevinBucketCodec<C> {
-    pub fn new(protocol: Protocol) -> Self {
-        LevinBucketCodec {
+    pub const fn new(protocol: Protocol) -> Self {
+        Self {
             state: LevinBucketState::WaitingForHeader,
             protocol,
             handshake_message_seen: false,
@@ -112,8 +112,10 @@ impl<C: LevinCommand + Debug> Decoder for LevinBucketCodec<C> {
                         }
                     }
 
-                    let _ =
-                        std::mem::replace(&mut self.state, LevinBucketState::WaitingForBody(head));
+                    drop(std::mem::replace(
+                        &mut self.state,
+                        LevinBucketState::WaitingForBody(head),
+                    ));
                 }
                 LevinBucketState::WaitingForBody(head) => {
                     let body_len = u64_to_usize(head.size);
@@ -145,7 +147,7 @@ impl<C: LevinCommand> Encoder<Bucket<C>> for LevinBucketCodec<C> {
     type Error = BucketError;
     fn encode(&mut self, item: Bucket<C>, dst: &mut BytesMut) -> Result<(), Self::Error> {
         if let Some(additional) = (HEADER_SIZE + item.body.len()).checked_sub(dst.capacity()) {
-            dst.reserve(additional)
+            dst.reserve(additional);
         }
 
         item.header.write_bytes_into(dst);
