@@ -26,7 +26,7 @@
 //! The diffuse service should have a request of [`DiffuseRequest`](traits::DiffuseRequest) and it's error
 //! should be [`tower::BoxError`].
 //!
-//! ## Outbound Peer TryStream
+//! ## Outbound Peer `TryStream`
 //!
 //! The outbound peer [`TryStream`](futures::TryStream) should provide a stream of randomly selected outbound
 //! peers, these peers will then be used to route stem txs to.
@@ -37,7 +37,7 @@
 //! ## Peer Service
 //!
 //! This service represents a connection to an individual peer, this should be returned from the Outbound Peer
-//! TryStream. This should immediately send the transaction to the peer when requested, it should _not_ set
+//! `TryStream`. This should immediately send the transaction to the peer when requested, it should _not_ set
 //! a timer.
 //!
 //! The peer service should have a request of [`StemRequest`](traits::StemRequest) and its error
