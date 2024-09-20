@@ -36,7 +36,7 @@ use crate::{
 ///
 /// Returns [`AltBlockInformation`], which contains the cumulative difficulty of the alt chain.
 ///
-/// This function only checks the block's `PoW` and its weight.
+/// This function only checks the block's proof-of-work and its weight.
 pub(crate) async fn sanity_check_alt_block<C>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,

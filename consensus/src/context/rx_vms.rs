@@ -1,6 +1,6 @@
 //! `RandomX` VM Cache
 //!
-//! This module keeps track of the `RandomX` VM to calculate the next blocks `PoW`, if the block needs a randomX VM and potentially
+//! This module keeps track of the `RandomX` VM to calculate the next blocks proof-of-work, if the block needs a randomX VM and potentially
 //! more VMs around this height.
 //!
 use std::{
@@ -69,7 +69,7 @@ impl RandomX for RandomXVm {
     }
 }
 
-/// The randomX VMs cache, keeps the VM needed to calculate the current block's `PoW` hash (if a VM is needed) and a
+/// The randomX VMs cache, keeps the VM needed to calculate the current block's proof-of-work hash (if a VM is needed) and a
 /// couple more around this VM.
 #[derive(Clone, Debug)]
 pub(crate) struct RandomXVmCache {
@@ -221,7 +221,7 @@ impl RandomXVmCache {
 
     /// Add a new block to the VM cache.
     ///
-    /// hash is the block hash not the blocks `PoW` hash.
+    /// hash is the block hash not the blocks proof-of-work hash.
     pub(crate) fn new_block(&mut self, height: usize, hash: &[u8; 32]) {
         if is_randomx_seed_height(height) {
             tracing::debug!("Block {height} is a randomX seed height, adding it to the cache.",);

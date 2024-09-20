@@ -153,7 +153,7 @@ impl PreparedBlock {
 
     /// Creates a new [`PreparedBlock`] from a [`PreparedBlockExPow`].
     ///
-    /// This function will give an invalid `PoW` hash if `randomx_vm` is not initialised
+    /// This function will give an invalid proof-of-work hash if `randomx_vm` is not initialised
     /// with the correct seed.
     ///
     /// # Panics
