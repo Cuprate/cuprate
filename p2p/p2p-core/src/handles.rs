@@ -91,7 +91,10 @@ impl ConnectionHandle {
     }
     /// Bans the peer for the given `duration`.
     pub fn ban_peer(&self, duration: Duration) {
-        #[expect(clippy::let_underscore_must_use, reason = "TODO: handle error")]
+        #[expect(
+            clippy::let_underscore_must_use,
+            reason = "error means peer is already banned; fine to ignore"
+        )]
         let _ = self.ban.set(BanPeer(duration));
         self.token.cancel();
     }
