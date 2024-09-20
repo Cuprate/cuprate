@@ -18,13 +18,10 @@ macro_rules! generate_genesis_consts {
         $(
             #[doc = concat!(stringify!([<$network:camel>]), " data.")]
             pub mod [<$network:lower>] {
-                #[cfg(feature = "monero-serai")]
                 use monero_serai::{block::Block, transaction::Transaction};
-                #[cfg(feature = "monero-serai")]
                 use std::sync::LazyLock;
 
                 #[doc = concat!("The ", stringify!([<$network:lower>]), " genesis block in [`Block`] form.")]
-                #[cfg(feature = "monero-serai")]
                 pub static GENESIS_BLOCK: LazyLock<Block> =
                     LazyLock::new(|| Block::read(&mut GENESIS_BLOCK_BYTES).unwrap());
 
@@ -41,7 +38,6 @@ macro_rules! generate_genesis_consts {
                 pub const GENESIS_BLOCK_HASH_BYTES: [u8; 32] = hex_literal::hex!($block_hash);
 
                 #[doc = concat!("The ", stringify!([<$network:lower>]), " genesis block in [`Transaction`] form.")]
-                #[cfg(feature = "monero-serai")]
                 pub static GENESIS_TX: LazyLock<Transaction> =
                     LazyLock::new(|| Transaction::read(&mut GENESIS_TX_BYTES).unwrap());
 

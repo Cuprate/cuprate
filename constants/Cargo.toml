@@ -22,7 +22,6 @@ hex-literal  = { workspace = true, optional = true }
 paste        = { workspace = true, optional = true }
 
 [dev-dependencies]
-monero-serai      = { workspace = true }
 hex               = { workspace = true, features = ["std"] }
 pretty_assertions = { workspace = true }
 

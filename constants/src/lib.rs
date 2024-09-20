@@ -5,7 +5,6 @@ cfg_if::cfg_if! {
     // Used in test modules.
     if #[cfg(test)] {
         use hex as _;
-        use monero_serai as _;
         use pretty_assertions as _;
     }
 }
