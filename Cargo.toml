@@ -265,6 +265,7 @@ empty_enum_variants_with_brackets = "deny"
 empty_drop = "deny"
 clone_on_ref_ptr = "deny"
 upper_case_acronyms  = "deny"
+allow_attributes = "deny"
 
 # Hot
 # inline_always = "deny"

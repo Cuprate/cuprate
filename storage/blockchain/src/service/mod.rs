@@ -98,7 +98,7 @@
 //!
 //! // Block write was OK.
 //! let response = response_channel.await?;
-//! assert_eq!(response, BlockchainResponse::WriteBlockOk);
+//! assert_eq!(response, BlockchainResponse::Ok);
 //!
 //! // Now, let's try getting the block hash
 //! // of the block we just wrote.

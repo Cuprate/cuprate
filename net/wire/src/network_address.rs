@@ -51,38 +51,38 @@ impl EpeeObject for NetworkAddress {
 }
 
 impl NetworkAddress {
-    pub fn get_zone(&self) -> NetZone {
+    pub const fn get_zone(&self) -> NetZone {
         match self {
-            NetworkAddress::Clear(_) => NetZone::Public,
+            Self::Clear(_) => NetZone::Public,
         }
     }
 
-    pub fn is_loopback(&self) -> bool {
+    pub const fn is_loopback(&self) -> bool {
         // TODO
         false
     }
 
-    pub fn is_local(&self) -> bool {
+    pub const fn is_local(&self) -> bool {
         // TODO
         false
     }
 
-    pub fn port(&self) -> u16 {
+    pub const fn port(&self) -> u16 {
         match self {
-            NetworkAddress::Clear(ip) => ip.port(),
+            Self::Clear(ip) => ip.port(),
         }
     }
 }
 
 impl From<net::SocketAddrV4> for NetworkAddress {
     fn from(value: net::SocketAddrV4) -> Self {
-        NetworkAddress::Clear(value.into())
+        Self::Clear(value.into())
     }
 }
 
 impl From<net::SocketAddrV6> for NetworkAddress {
     fn from(value: net::SocketAddrV6) -> Self {
-        NetworkAddress::Clear(value.into())
+        Self::Clear(value.into())
     }
 }
 
