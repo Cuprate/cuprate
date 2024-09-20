@@ -1,4 +1,9 @@
 /// Output a string link to `monerod` source code.
+#[allow(
+    clippy::allow_attributes,
+    unused_macros,
+    reason = "used in feature gated modules"
+)]
 macro_rules! monero_definition_link {
     (
         $commit:ident, // Git commit hash
@@ -21,4 +26,10 @@ macro_rules! monero_definition_link {
         )
     };
 }
+
+#[allow(
+    clippy::allow_attributes,
+    unused_imports,
+    reason = "used in feature gated modules"
+)]
 pub(crate) use monero_definition_link;

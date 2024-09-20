@@ -9,13 +9,17 @@ repository  = "https://github.com/Cuprate/cuprate/tree/main/constants"
 keywords    = ["cuprate", "constants"]
 
 [features]
-default      = ["monero-serai"]
-monero-serai = ["dep:monero-serai"]
+default = []
+block   = []
+build   = []
+genesis = ["dep:monero-serai", "dep:hex-literal", "dep:paste"]
+rpc     = []
 
 [dependencies]
+cfg-if       = { workspace = true }
 monero-serai = { workspace = true, optional = true }
-hex-literal  = { workspace = true }
-paste        = { workspace = true }
+hex-literal  = { workspace = true, optional = true }
+paste        = { workspace = true, optional = true }
 
 [dev-dependencies]
 monero-serai      = { workspace = true }

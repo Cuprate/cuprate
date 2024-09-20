@@ -1,7 +1,7 @@
 //! Contains [`BlockCompleteEntry`] and the related types.
 
 //---------------------------------------------------------------------------------------------------- Import
-// #[cfg(feature = "epee")]
+#[cfg(feature = "epee")]
 use bytes::Bytes;
 
 #[cfg(feature = "serde")]

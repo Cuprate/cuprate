@@ -603,6 +603,7 @@ dependencies = [
 name = "cuprate-constants"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "hex",
  "hex-literal",
  "monero-serai",

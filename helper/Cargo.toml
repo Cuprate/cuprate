@@ -24,7 +24,7 @@ thread    = ["std", "dep:target_os_lib"]
 tx        = ["dep:monero-serai"]
 
 [dependencies]
-cuprate-constants = { path = "../constants", optional = true }
+cuprate-constants = { path = "../constants", optional = true, features = ["block"] }
 
 crossbeam    = { workspace = true, optional = true }
 chrono       = { workspace = true, optional = true, features = ["std", "clock"] }
