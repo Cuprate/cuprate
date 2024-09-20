@@ -1,6 +1,6 @@
 //! Genesis block/transaction data.
 
-#![allow(const_item_mutation, reason = "&mut is needed for `Read`")]
+#![expect(const_item_mutation, reason = "&mut is needed for `Read`")]
 
 #[cfg(feature = "monero-serai")]
 use monero_serai::{block::Block, transaction::Transaction};

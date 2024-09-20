@@ -1,4 +1,4 @@
-//! TODO
+//! Build related metadata.
 
 /// The current commit hash of the root Cuprate repository.
 ///

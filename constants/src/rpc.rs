@@ -1,7 +1,4 @@
-//! TODO
-//!
-//! - <https://github.com/monero-project/monero/blob/cc73fe71162d564ffda8e549b79a350bca53c454/src/rpc/core_rpc_server.cpp#L63-L77>
-//! - <https://github.com/monero-project/monero/blob/a1dc85c5373a30f14aaf7dcfdd95f5a7375d3623/src/cryptonote_core/cryptonote_core.cpp#L63-L72>
+//! RPC related.
 
 use std::time::Duration;
 
