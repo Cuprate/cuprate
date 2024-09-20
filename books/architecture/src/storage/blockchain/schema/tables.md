@@ -17,22 +17,23 @@ Many of the data types stored are the same data types, although are different se
 
 ---
 
-| Table             | Key                  | Value              | Description |
-|-------------------|----------------------|--------------------|-------------|
-| `BlockBlobs`      | BlockHeight          | `StorableVec<u8>`  | Maps a block's height to a serialized byte form of a block
-| `BlockHeights`    | BlockHash            | BlockHeight        | Maps a block's hash to its height
-| `BlockInfos`      | BlockHeight          | `BlockInfo`        | Contains metadata of all blocks
-| `KeyImages`       | KeyImage             | ()                 | This table is a set with no value, it stores transaction key images
-| `NumOutputs`      | Amount               | u64                | Maps an output's amount to the number of outputs with that amount
-| `Outputs`         | `PreRctOutputId`     | `Output`           | This table contains legacy CryptoNote outputs which have clear amounts. This table will not contain an output with 0 amount.
-| `PrunedTxBlobs`   | TxId                 | `StorableVec<u8>`  | Contains pruned transaction blobs (even if the database is not pruned)
-| `PrunableTxBlobs` | TxId                 | `StorableVec<u8>`  | Contains the prunable part of a transaction
-| `PrunableHashes`  | TxId                 | PrunableHash       | Contains the hash of the prunable part of a transaction
-| `RctOutputs`      | AmountIndex          | `RctOutput`        | Contains RingCT outputs mapped from their global RCT index
-| `TxBlobs`         | TxId                 | `StorableVec<u8>`  | Serialized transaction blobs (bytes)
-| `TxIds`           | TxHash               | TxId               | Maps a transaction's hash to its index/ID
-| `TxHeights`       | TxId                 | BlockHeight        | Maps a transaction's ID to the height of the block it comes from
-| `TxOutputs`       | TxId                 | `StorableVec<u64>` | Gives the amount indices of a transaction's outputs
-| `TxUnlockTime`    | TxId                 | UnlockTime         | Stores the unlock time of a transaction (only if it has a non-zero lock time)
+| Table              | Key                  | Value                   | Description |
+|--------------------|----------------------|-------------------------|-------------|
+| `BlockHeaderBlobs` | BlockHeight          | `StorableVec<u8>`       | Maps a block's height to a serialized byte form of its header
+| `BlockTxsHashes`   | BlockHeight          | `StorableVec<[u8; 32]>` | Maps a block's height to the block's transaction hashes
+| `BlockHeights`     | BlockHash            | BlockHeight             | Maps a block's hash to its height
+| `BlockInfos`       | BlockHeight          | `BlockInfo`             | Contains metadata of all blocks
+| `KeyImages`        | KeyImage             | ()                      | This table is a set with no value, it stores transaction key images
+| `NumOutputs`       | Amount               | u64                     | Maps an output's amount to the number of outputs with that amount
+| `Outputs`          | `PreRctOutputId`     | `Output`                | This table contains legacy CryptoNote outputs which have clear amounts. This table will not contain an output with 0 amount.
+| `PrunedTxBlobs`    | TxId                 | `StorableVec<u8>`       | Contains pruned transaction blobs (even if the database is not pruned)
+| `PrunableTxBlobs`  | TxId                 | `StorableVec<u8>`       | Contains the prunable part of a transaction
+| `PrunableHashes`   | TxId                 | PrunableHash            | Contains the hash of the prunable part of a transaction
+| `RctOutputs`       | AmountIndex          | `RctOutput`             | Contains RingCT outputs mapped from their global RCT index
+| `TxBlobs`          | TxId                 | `StorableVec<u8>`       | Serialized transaction blobs (bytes)
+| `TxIds`            | TxHash               | TxId                    | Maps a transaction's hash to its index/ID
+| `TxHeights`        | TxId                 | BlockHeight             | Maps a transaction's ID to the height of the block it comes from
+| `TxOutputs`        | TxId                 | `StorableVec<u64>`      | Gives the amount indices of a transaction's outputs
+| `TxUnlockTime`     | TxId                 | UnlockTime              | Stores the unlock time of a transaction (only if it has a non-zero lock time)
 
 <!-- TODO(Boog900): We could split this table again into `RingCT (non-miner) Outputs` and `RingCT (miner) Outputs` as for miner outputs we can store the amount instead of commitment saving 24 bytes per miner output. -->
