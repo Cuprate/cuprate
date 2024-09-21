@@ -1,3 +1,5 @@
+#![expect(unused_crate_dependencies, reason = "outer test module")]
+
 use cuprate_epee_encoding::{epee_object, from_bytes, to_bytes};
 
 pub struct Optional {
@@ -58,7 +60,7 @@ fn epee_non_default_does_encode() {
 
     let val: Optional = from_bytes(&mut bytes).unwrap();
     assert_eq!(val.optional_val, -3);
-    assert_eq!(val.val, 8)
+    assert_eq!(val.val, 8);
 }
 
 #[test]
@@ -70,5 +72,5 @@ fn epee_value_not_present_with_default() {
 
     let val: Optional = from_bytes(&mut bytes).unwrap();
     assert_eq!(val.optional_val, -4);
-    assert_eq!(val.val, 76)
+    assert_eq!(val.val, 76);
 }

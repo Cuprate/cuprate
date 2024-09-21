@@ -71,7 +71,7 @@ impl PruningSeed {
     ///
     /// See: [`DecompressedPruningSeed::new`]
     pub fn new_pruned(stripe: u32, log_stripes: u32) -> Result<Self, PruningError> {
-        Ok(PruningSeed::Pruned(DecompressedPruningSeed::new(
+        Ok(Self::Pruned(DecompressedPruningSeed::new(
             stripe,
             log_stripes,
         )?))
@@ -81,9 +81,7 @@ impl PruningSeed {
     ///
     /// An error means the pruning seed was invalid.
     pub fn decompress(seed: u32) -> Result<Self, PruningError> {
-        Ok(DecompressedPruningSeed::decompress(seed)?
-            .map(PruningSeed::Pruned)
-            .unwrap_or(PruningSeed::NotPruned))
+        Ok(DecompressedPruningSeed::decompress(seed)?.map_or(Self::NotPruned, Self::Pruned))
     }
 
     /// Decompresses the seed, performing the same checks as [`PruningSeed::decompress`] and some more according to
@@ -103,34 +101,34 @@ impl PruningSeed {
     }
 
     /// Compresses this pruning seed to a u32.
-    pub fn compress(&self) -> u32 {
+    pub const fn compress(&self) -> u32 {
         match self {
-            PruningSeed::NotPruned => 0,
-            PruningSeed::Pruned(seed) => seed.compress(),
+            Self::NotPruned => 0,
+            Self::Pruned(seed) => seed.compress(),
         }
     }
 
     /// Returns the `log_stripes` for this seed, if this seed is pruned otherwise [`None`] is returned.
-    pub fn get_log_stripes(&self) -> Option<u32> {
+    pub const fn get_log_stripes(&self) -> Option<u32> {
         match self {
-            PruningSeed::NotPruned => None,
-            PruningSeed::Pruned(seed) => Some(seed.log_stripes),
+            Self::NotPruned => None,
+            Self::Pruned(seed) => Some(seed.log_stripes),
         }
     }
 
     /// Returns the `stripe` for this seed, if this seed is pruned otherwise [`None`] is returned.
-    pub fn get_stripe(&self) -> Option<u32> {
+    pub const fn get_stripe(&self) -> Option<u32> {
         match self {
-            PruningSeed::NotPruned => None,
-            PruningSeed::Pruned(seed) => Some(seed.stripe),
+            Self::NotPruned => None,
+            Self::Pruned(seed) => Some(seed.stripe),
         }
     }
 
     /// Returns `true` if a peer with this pruning seed should have a non-pruned version of a block.
-    pub fn has_full_block(&self, height: usize, blockchain_height: usize) -> bool {
+    pub const fn has_full_block(&self, height: usize, blockchain_height: usize) -> bool {
         match self {
-            PruningSeed::NotPruned => true,
-            PruningSeed::Pruned(seed) => seed.has_full_block(height, blockchain_height),
+            Self::NotPruned => true,
+            Self::Pruned(seed) => seed.has_full_block(height, blockchain_height),
         }
     }
 
@@ -155,10 +153,8 @@ impl PruningSeed {
         blockchain_height: usize,
     ) -> Result<Option<usize>, PruningError> {
         Ok(match self {
-            PruningSeed::NotPruned => None,
-            PruningSeed::Pruned(seed) => {
-                seed.get_next_pruned_block(block_height, blockchain_height)?
-            }
+            Self::NotPruned => None,
+            Self::Pruned(seed) => seed.get_next_pruned_block(block_height, blockchain_height)?,
         })
     }
 
@@ -181,10 +177,8 @@ impl PruningSeed {
         blockchain_height: usize,
     ) -> Result<usize, PruningError> {
         Ok(match self {
-            PruningSeed::NotPruned => block_height,
-            PruningSeed::Pruned(seed) => {
-                seed.get_next_unpruned_block(block_height, blockchain_height)?
-            }
+            Self::NotPruned => block_height,
+            Self::Pruned(seed) => seed.get_next_unpruned_block(block_height, blockchain_height)?,
         })
     }
 }
@@ -199,11 +193,11 @@ impl Ord for PruningSeed {
     fn cmp(&self, other: &Self) -> Ordering {
         match (self, other) {
             // Make sure pruning seeds storing more blocks are greater.
-            (PruningSeed::NotPruned, PruningSeed::NotPruned) => Ordering::Equal,
-            (PruningSeed::NotPruned, PruningSeed::Pruned(_)) => Ordering::Greater,
-            (PruningSeed::Pruned(_), PruningSeed::NotPruned) => Ordering::Less,
+            (Self::NotPruned, Self::NotPruned) => Ordering::Equal,
+            (Self::NotPruned, Self::Pruned(_)) => Ordering::Greater,
+            (Self::Pruned(_), Self::NotPruned) => Ordering::Less,
 
-            (PruningSeed::Pruned(seed1), PruningSeed::Pruned(seed2)) => seed1.cmp(seed2),
+            (Self::Pruned(seed1), Self::Pruned(seed2)) => seed1.cmp(seed2),
         }
     }
 }
@@ -222,7 +216,7 @@ pub struct DecompressedPruningSeed {
     log_stripes: u32,
     /// The specific portion this peer keeps.
     ///
-    /// *MUST* be between 1..=2^log_stripes
+    /// *MUST* be between `1..=2^log_stripes`
     stripe: u32,
 }
 
@@ -268,13 +262,13 @@ impl DecompressedPruningSeed {
     /// a valid seed you currently MUST pass in a number 1 to 8 for `stripe`
     /// and 3 for `log_stripes`.*
     ///
-    pub fn new(stripe: u32, log_stripes: u32) -> Result<Self, PruningError> {
+    pub const fn new(stripe: u32, log_stripes: u32) -> Result<Self, PruningError> {
         if log_stripes > PRUNING_SEED_LOG_STRIPES_MASK {
             Err(PruningError::LogStripesOutOfRange)
         } else if !(stripe > 0 && stripe <= (1 << log_stripes)) {
             Err(PruningError::StripeOutOfRange)
         } else {
-            Ok(DecompressedPruningSeed {
+            Ok(Self {
                 log_stripes,
                 stripe,
             })
@@ -286,7 +280,7 @@ impl DecompressedPruningSeed {
     /// Will return Ok(None) if the pruning seed means no pruning.
     ///
     /// An error means the pruning seed was invalid.
-    pub fn decompress(seed: u32) -> Result<Option<Self>, PruningError> {
+    pub const fn decompress(seed: u32) -> Result<Option<Self>, PruningError> {
         if seed == 0 {
             // No pruning.
             return Ok(None);
@@ -299,20 +293,20 @@ impl DecompressedPruningSeed {
             return Err(PruningError::StripeOutOfRange);
         }
 
-        Ok(Some(DecompressedPruningSeed {
+        Ok(Some(Self {
             log_stripes,
             stripe,
         }))
     }
 
     /// Compresses the pruning seed into a u32.
-    pub fn compress(&self) -> u32 {
+    pub const fn compress(&self) -> u32 {
         (self.log_stripes << PRUNING_SEED_LOG_STRIPES_SHIFT)
             | ((self.stripe - 1) << PRUNING_SEED_STRIPE_SHIFT)
     }
 
     /// Returns `true` if a peer with this pruning seed should have a non-pruned version of a block.
-    pub fn has_full_block(&self, height: usize, blockchain_height: usize) -> bool {
+    pub const fn has_full_block(&self, height: usize, blockchain_height: usize) -> bool {
         match get_block_pruning_stripe(height, blockchain_height, self.log_stripes) {
             Some(block_stripe) => self.stripe == block_stripe,
             None => true,
@@ -419,7 +413,7 @@ impl DecompressedPruningSeed {
         // We can get the end of our "non-pruning" cycle by getting the next stripe's first un-pruned block height.
         // So we calculate the next un-pruned block for the next stripe and return it as our next pruned block
         let next_stripe = 1 + (self.stripe & ((1 << self.log_stripes) - 1));
-        let seed = DecompressedPruningSeed::new(next_stripe, self.log_stripes)
+        let seed = Self::new(next_stripe, self.log_stripes)
             .expect("We just made sure this stripe is in range for this log_stripe");
 
         let calculated_height = seed.get_next_unpruned_block(block_height, blockchain_height)?;
@@ -433,7 +427,7 @@ impl DecompressedPruningSeed {
     }
 }
 
-fn get_block_pruning_stripe(
+const fn get_block_pruning_stripe(
     block_height: usize,
     blockchain_height: usize,
     log_stripe: u32,
@@ -441,9 +435,14 @@ fn get_block_pruning_stripe(
     if block_height + CRYPTONOTE_PRUNING_TIP_BLOCKS >= blockchain_height {
         None
     } else {
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            reason = "it's trivial to prove it's ok to us `as` here"
+        )]
         Some(
             (((block_height / CRYPTONOTE_PRUNING_STRIPE_SIZE) & ((1 << log_stripe) as usize - 1))
-                + 1) as u32, // it's trivial to prove it's ok to us `as` here
+                + 1) as u32,
         )
     }
 }
@@ -483,16 +482,17 @@ mod tests {
     #[test]
     fn get_pruning_log_stripe() {
         let all_valid_seeds = make_all_pruning_seeds();
-        for seed in all_valid_seeds.iter() {
-            assert_eq!(seed.get_log_stripes().unwrap(), 3)
+        for seed in &all_valid_seeds {
+            assert_eq!(seed.get_log_stripes().unwrap(), 3);
         }
     }
 
     #[test]
     fn get_pruning_stripe() {
         let all_valid_seeds = make_all_pruning_seeds();
+        #[expect(clippy::cast_possible_truncation)]
         for (i, seed) in all_valid_seeds.iter().enumerate() {
-            assert_eq!(seed.get_stripe().unwrap(), i as u32 + 1)
+            assert_eq!(seed.get_stripe().unwrap(), i as u32 + 1);
         }
     }
 
@@ -554,7 +554,7 @@ mod tests {
             assert_eq!(
                 seed.get_next_unpruned_block(0, blockchain_height).unwrap(),
                 i * 4096
-            )
+            );
         }
 
         for (i, seed) in all_valid_seeds.iter().enumerate() {
@@ -562,7 +562,7 @@ mod tests {
                 seed.get_next_unpruned_block((i + 1) * 4096, blockchain_height)
                     .unwrap(),
                 i * 4096 + 32768
-            )
+            );
         }
 
         for (i, seed) in all_valid_seeds.iter().enumerate() {
@@ -570,15 +570,15 @@ mod tests {
                 seed.get_next_unpruned_block((i + 8) * 4096, blockchain_height)
                     .unwrap(),
                 i * 4096 + 32768
-            )
+            );
         }
 
-        for seed in all_valid_seeds.iter() {
+        for seed in &all_valid_seeds {
             assert_eq!(
                 seed.get_next_unpruned_block(76437863 - 1, blockchain_height)
                     .unwrap(),
                 76437863 - 1
-            )
+            );
         }
 
         let zero_seed = PruningSeed::NotPruned;
@@ -591,7 +591,7 @@ mod tests {
         let seed = PruningSeed::decompress(384).unwrap();
 
         // the next unpruned block is the first tip block
-        assert_eq!(seed.get_next_unpruned_block(5000, 11000).unwrap(), 5500)
+        assert_eq!(seed.get_next_unpruned_block(5000, 11000).unwrap(), 5500);
     }
 
     #[test]
@@ -605,7 +605,7 @@ mod tests {
                     .unwrap()
                     .unwrap(),
                 0
-            )
+            );
         }
 
         for (i, seed) in all_valid_seeds.iter().enumerate() {
@@ -614,7 +614,7 @@ mod tests {
                     .unwrap()
                     .unwrap(),
                 (i + 1) * 4096
-            )
+            );
         }
 
         for (i, seed) in all_valid_seeds.iter().enumerate() {
@@ -623,15 +623,15 @@ mod tests {
                     .unwrap()
                     .unwrap(),
                 (i + 9) * 4096
-            )
+            );
         }
 
-        for seed in all_valid_seeds.iter() {
+        for seed in &all_valid_seeds {
             assert_eq!(
                 seed.get_next_pruned_block(76437863 - 1, blockchain_height)
                     .unwrap(),
                 None
-            )
+            );
         }
 
         let zero_seed = PruningSeed::NotPruned;
@@ -644,6 +644,6 @@ mod tests {
         let seed = PruningSeed::decompress(384).unwrap();
 
         // there is no next pruned block
-        assert_eq!(seed.get_next_pruned_block(5000, 10000).unwrap(), None)
+        assert_eq!(seed.get_next_pruned_block(5000, 10000).unwrap(), None);
     }
 }

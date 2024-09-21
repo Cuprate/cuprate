@@ -2,7 +2,6 @@
 //!
 //! Tests that assert particular requests lead to particular
 //! responses are also tested in Cuprate's blockchain database crate.
-
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
@@ -13,7 +12,7 @@ use monero_serai::block::Block;
 
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    HardFork,
+    AltBlockInformation, ChainId, HardFork,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -129,12 +128,15 @@ pub enum BlockchainReadRequest {
     CompactChainHistory,
 
     /// A request to find the first unknown block ID in a list of block IDs.
-    ////
+    ///
     /// # Invariant
     /// The [`Vec`] containing the block IDs must be sorted in chronological block
     /// order, or else the returned response is unspecified and meaningless,
     /// as this request performs a binary search.
     FindFirstUnknown(Vec<[u8; 32]>),
+
+    /// A request for all alt blocks in the chain with the given [`ChainId`].
+    AltBlocksInChain(ChainId),
 
     /// TODO
     CumulativeBlockWeightLimit,
@@ -142,20 +144,36 @@ pub enum BlockchainReadRequest {
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
 /// A write request to the blockchain database.
-///
-/// There is currently only 1 write request to the database,
-/// as such, the only valid [`BlockchainResponse`] to this request is
-/// the proper response for a [`BlockchainResponse::WriteBlock`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(clippy::large_enum_variant)] // TODO
 pub enum BlockchainWriteRequest {
     /// Request that a block be written to the database.
     ///
     /// Input is an already verified block.
     WriteBlock(VerifiedBlockInformation),
 
-    /// TODO
-    PopBlocks(u64),
+    /// Write an alternative block to the database,
+    ///
+    /// Input is the alternative block.
+    WriteAltBlock(AltBlockInformation),
+
+    /// A request to pop some blocks from the top of the main chain
+    ///
+    /// Input is the amount of blocks to pop.
+    ///
+    /// This request flushes all alt-chains from the cache before adding the popped blocks to the
+    /// alt cache.
+    PopBlocks(usize),
+
+    /// A request to reverse the re-org process.
+    ///
+    /// The inner value is the [`ChainId`] of the old main chain.
+    ///
+    /// # Invariant
+    /// It is invalid to call this with a [`ChainId`] that was not returned from [`BlockchainWriteRequest::PopBlocks`].
+    ReverseReorg(ChainId),
+
+    /// A request to flush all alternative blocks.
+    FlushAltBlocks,
 }
 
 //---------------------------------------------------------------------------------------------------- Response
@@ -286,15 +304,24 @@ pub enum BlockchainResponse {
     /// TODO
     CumulativeBlockWeightLimit(usize),
 
-    //------------------------------------------------------ Writes
-    /// Response to [`BlockchainWriteRequest::WriteBlock`].
-    ///
-    /// This response indicates that the requested block has
-    /// successfully been written to the database without error.
-    WriteBlock,
+    /// The response for [`BlockchainReadRequest::AltBlocksInChain`].
+    /// Contains all the alt blocks in the alt-chain in chronological order.
+    AltBlocksInChain(Vec<AltBlockInformation>),
 
-    /// TODO
-    PopBlocks(usize),
+    //------------------------------------------------------ Writes
+    /// A generic Ok response to indicate a request was successfully handled.
+    ///
+    /// currently the response for:
+    /// - [`BlockchainWriteRequest::WriteBlock`]
+    /// - [`BlockchainWriteRequest::WriteAltBlock`]
+    /// - [`BlockchainWriteRequest::ReverseReorg`]
+    /// - [`BlockchainWriteRequest::FlushAltBlocks`]
+    Ok,
+
+    /// The response for [`BlockchainWriteRequest::PopBlocks`].
+    ///
+    /// The inner value is the alt-chain ID for the old main chain blocks.
+    PopBlocks(usize, ChainId),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

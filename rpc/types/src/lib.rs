@@ -11,6 +11,10 @@
     unreachable_code,
     reason = "TODO: remove after cuprated RpcHandler impl"
 )]
+#![allow(
+    clippy::allow_attributes,
+    reason = "macros (internal + serde) make this lint hard to satisfy"
+)]
 
 mod constants;
 mod defaults;

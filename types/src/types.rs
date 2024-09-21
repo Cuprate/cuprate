@@ -1,6 +1,8 @@
 //! Various shared data types in Cuprate.
 
 //---------------------------------------------------------------------------------------------------- Import
+use std::num::NonZero;
+
 use curve25519_dalek::edwards::EdwardsPoint;
 use monero_serai::{
     block::Block,
@@ -40,8 +42,7 @@ pub struct ExtendedBlockHeader {
 //---------------------------------------------------------------------------------------------------- VerifiedTransactionInformation
 /// Verified information of a transaction.
 ///
-/// - If this is in a [`VerifiedBlockInformation`] this represents a valid transaction
-/// - If this is in an [`AltBlockInformation`] this represents a potentially valid transaction
+/// This represents a valid transaction
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerifiedTransactionInformation {
     /// The transaction itself.
@@ -81,6 +82,7 @@ pub struct VerifiedBlockInformation {
     /// [`Block::hash`].
     pub block_hash: [u8; 32],
     /// The block's proof-of-work hash.
+    // TODO: make this an option.
     pub pow_hash: [u8; 32],
     /// The block's height.
     pub height: usize,
@@ -99,7 +101,7 @@ pub struct VerifiedBlockInformation {
 ///
 /// The inner value is meaningless.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct ChainId(pub u64);
+pub struct ChainId(pub NonZero<u64>);
 
 //---------------------------------------------------------------------------------------------------- Chain
 /// An identifier for a chain.

@@ -393,6 +393,11 @@ async fn verify_transactions_decoy_info<D>(
 where
     D: Database + Clone + Sync + Send + 'static,
 {
+    // Decoy info is not validated for V1 txs.
+    if hf == HardFork::V1 || txs.is_empty() {
+        return Ok(());
+    }
+
     batch_get_decoy_info(&txs, hf, database)
         .await?
         .try_for_each(|decoy_info| decoy_info.and_then(|di| Ok(check_decoy_info(&di, &hf)?)))?;

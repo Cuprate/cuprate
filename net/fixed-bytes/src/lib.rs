@@ -22,17 +22,15 @@ pub enum FixedByteError {
 }
 
 impl FixedByteError {
-    fn field_name(&self) -> &'static str {
+    const fn field_name(&self) -> &'static str {
         match self {
-            FixedByteError::InvalidLength => "input",
+            Self::InvalidLength => "input",
         }
     }
 
-    fn field_data(&self) -> &'static str {
+    const fn field_data(&self) -> &'static str {
         match self {
-            FixedByteError::InvalidLength => {
-                "Cannot create fix byte array, input has invalid length."
-            }
+            Self::InvalidLength => "Cannot create fix byte array, input has invalid length.",
         }
     }
 }
@@ -82,7 +80,7 @@ impl<const N: usize> ByteArray<N> {
 
 impl<const N: usize> From<[u8; N]> for ByteArray<N> {
     fn from(value: [u8; N]) -> Self {
-        ByteArray(Bytes::copy_from_slice(&value))
+        Self(Bytes::copy_from_slice(&value))
     }
 }
 
@@ -101,7 +99,7 @@ impl<const N: usize> TryFrom<Bytes> for ByteArray<N> {
         if value.len() != N {
             return Err(FixedByteError::InvalidLength);
         }
-        Ok(ByteArray(value))
+        Ok(Self(value))
     }
 }
 
@@ -112,7 +110,7 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteArray<N> {
         if value.len() != N {
             return Err(FixedByteError::InvalidLength);
         }
-        Ok(ByteArray(Bytes::from(value)))
+        Ok(Self(Bytes::from(value)))
     }
 }
 
@@ -142,11 +140,11 @@ impl<'de, const N: usize> Deserialize<'de> for ByteArrayVec<N> {
 }
 
 impl<const N: usize> ByteArrayVec<N> {
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.0.len() / N
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
@@ -182,6 +180,7 @@ impl<const N: usize> ByteArrayVec<N> {
     ///
     /// # Panics
     /// Panics if at > len.
+    #[must_use]
     pub fn split_off(&mut self, at: usize) -> Self {
         Self(self.0.split_off(at * N))
     }
@@ -189,9 +188,9 @@ impl<const N: usize> ByteArrayVec<N> {
 
 impl<const N: usize> From<&ByteArrayVec<N>> for Vec<[u8; N]> {
     fn from(value: &ByteArrayVec<N>) -> Self {
-        let mut out = Vec::with_capacity(value.len());
+        let mut out = Self::with_capacity(value.len());
         for i in 0..value.len() {
-            out.push(value[i])
+            out.push(value[i]);
         }
 
         out
@@ -201,11 +200,11 @@ impl<const N: usize> From<&ByteArrayVec<N>> for Vec<[u8; N]> {
 impl<const N: usize> From<Vec<[u8; N]>> for ByteArrayVec<N> {
     fn from(value: Vec<[u8; N]>) -> Self {
         let mut bytes = BytesMut::with_capacity(N * value.len());
-        for i in value.into_iter() {
-            bytes.extend_from_slice(&i)
+        for i in value {
+            bytes.extend_from_slice(&i);
         }
 
-        ByteArrayVec(bytes.freeze())
+        Self(bytes.freeze())
     }
 }
 
@@ -217,13 +216,13 @@ impl<const N: usize> TryFrom<Bytes> for ByteArrayVec<N> {
             return Err(FixedByteError::InvalidLength);
         }
 
-        Ok(ByteArrayVec(value))
+        Ok(Self(value))
     }
 }
 
 impl<const N: usize> From<[u8; N]> for ByteArrayVec<N> {
     fn from(value: [u8; N]) -> Self {
-        ByteArrayVec(Bytes::copy_from_slice(value.as_slice()))
+        Self(Bytes::copy_from_slice(value.as_slice()))
     }
 }
 
@@ -231,11 +230,11 @@ impl<const N: usize, const LEN: usize> From<[[u8; N]; LEN]> for ByteArrayVec<N> 
     fn from(value: [[u8; N]; LEN]) -> Self {
         let mut bytes = BytesMut::with_capacity(N * LEN);
 
-        for val in value.into_iter() {
+        for val in value {
             bytes.put_slice(val.as_slice());
         }
 
-        ByteArrayVec(bytes.freeze())
+        Self(bytes.freeze())
     }
 }
 
@@ -247,7 +246,7 @@ impl<const N: usize> TryFrom<Vec<u8>> for ByteArrayVec<N> {
             return Err(FixedByteError::InvalidLength);
         }
 
-        Ok(ByteArrayVec(Bytes::from(value)))
+        Ok(Self(Bytes::from(value)))
     }
 }
 
@@ -255,9 +254,12 @@ impl<const N: usize> Index<usize> for ByteArrayVec<N> {
     type Output = [u8; N];
 
     fn index(&self, index: usize) -> &Self::Output {
-        if (index + 1) * N > self.0.len() {
-            panic!("Index out of range, idx: {}, length: {}", index, self.len());
-        }
+        assert!(
+            (index + 1) * N <= self.0.len(),
+            "Index out of range, idx: {}, length: {}",
+            index,
+            self.len()
+        );
 
         self.0[index * N..(index + 1) * N]
             .as_ref()

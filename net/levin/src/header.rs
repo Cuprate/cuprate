@@ -13,7 +13,7 @@
 // copies or substantial portions of the Software.
 //
 
-//! This module provides a struct BucketHead for the header of a levin protocol
+//! This module provides a struct `BucketHead` for the header of a levin protocol
 //! message.
 
 use bitflags::bitflags;
@@ -62,7 +62,7 @@ bitflags! {
 
 impl From<u32> for Flags {
     fn from(value: u32) -> Self {
-        Flags(value)
+        Self(value)
     }
 }
 
@@ -99,9 +99,9 @@ impl<C: LevinCommand> BucketHead<C> {
     ///
     /// # Panics
     /// This function will panic if there aren't enough bytes to fill the header.
-    /// Currently [HEADER_SIZE]
-    pub fn from_bytes(buf: &mut BytesMut) -> BucketHead<C> {
-        BucketHead {
+    /// Currently [`HEADER_SIZE`]
+    pub fn from_bytes(buf: &mut BytesMut) -> Self {
+        Self {
             signature: buf.get_u64_le(),
             size: buf.get_u64_le(),
             have_to_return_data: buf.get_u8() != 0,

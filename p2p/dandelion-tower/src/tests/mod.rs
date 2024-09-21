@@ -12,7 +12,7 @@ use crate::{
     OutboundPeer, State,
 };
 
-pub fn mock_discover_svc<Req: Send + 'static>() -> (
+pub(crate) fn mock_discover_svc<Req: Send + 'static>() -> (
     impl Stream<
         Item = Result<
             OutboundPeer<
@@ -49,7 +49,7 @@ pub fn mock_discover_svc<Req: Send + 'static>() -> (
     (discover, rx)
 }
 
-pub fn mock_broadcast_svc<Req: Send + 'static>() -> (
+pub(crate) fn mock_broadcast_svc<Req: Send + 'static>() -> (
     impl Service<
             Req,
             Future = impl Future<Output = Result<(), tower::BoxError>> + Send + 'static,
@@ -70,8 +70,8 @@ pub fn mock_broadcast_svc<Req: Send + 'static>() -> (
     )
 }
 
-#[allow(clippy::type_complexity)] // just test code.
-pub fn mock_in_memory_backing_pool<
+#[expect(clippy::type_complexity, reason = "just test code.")]
+pub(crate) fn mock_in_memory_backing_pool<
     Tx: Clone + Send + 'static,
     TxID: Clone + Hash + Eq + Send + 'static,
 >() -> (
@@ -85,11 +85,11 @@ pub fn mock_in_memory_backing_pool<
     Arc<std::sync::Mutex<HashMap<TxID, (Tx, State)>>>,
 ) {
     let txs = Arc::new(std::sync::Mutex::new(HashMap::new()));
-    let txs_2 = txs.clone();
+    let txs_2 = Arc::clone(&txs);
 
     (
         service_fn(move |req: TxStoreRequest<TxID>| {
-            let txs = txs.clone();
+            let txs = Arc::clone(&txs);
             async move {
                 match req {
                     TxStoreRequest::Get(tx_id) => {
