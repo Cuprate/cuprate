@@ -51,7 +51,7 @@ proptest! {
         prop_assert_eq!(hf_votes.total_votes(), hf_votes.vote_list.len());
 
         let mut votes = [0_usize; NUMB_OF_HARD_FORKS];
-        for vote in hf_votes.vote_list.iter() {
+        for vote in &hf_votes.vote_list {
             // manually go through the list of votes tallying
             votes[*vote as usize - 1] += 1;
         }
@@ -61,9 +61,9 @@ proptest! {
 
     #[test]
     fn window_size_kept_constant(mut hf_votes in arb_full_hf_votes(), new_votes in any::<Vec<HardFork>>()) {
-        for new_vote in new_votes.into_iter() {
+        for new_vote in new_votes {
             hf_votes.add_vote_for_hf(&new_vote);
-            prop_assert_eq!(hf_votes.total_votes(), TEST_WINDOW_SIZE)
+            prop_assert_eq!(hf_votes.total_votes(), TEST_WINDOW_SIZE);
         }
     }
 

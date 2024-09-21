@@ -68,16 +68,17 @@ where
 
         // Make sure no blocks in the batch have a higher hard fork than the last block.
         if block_0.hf_version > top_hf_in_batch {
-            Err(ConsensusError::Block(BlockError::HardForkError(
+            return Err(ConsensusError::Block(BlockError::HardForkError(
                 HardForkError::VersionIncorrect,
-            )))?;
+            ))
+            .into());
         }
 
         if block_0.block_hash != block_1.block.header.previous
             || block_0.height != block_1.height - 1
         {
             tracing::debug!("Blocks do not follow each other, verification failed.");
-            Err(ConsensusError::Block(BlockError::PreviousIDIncorrect))?;
+            return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
         }
 
         // Cache any potential RX VM seeds as we may need them for future blocks in the batch.
@@ -85,7 +86,7 @@ where
             new_rx_vm = Some((block_0.height, block_0.block_hash));
         }
 
-        timestamps_hfs.push((block_0.block.header.timestamp, block_0.hf_version))
+        timestamps_hfs.push((block_0.block.header.timestamp, block_0.hf_version));
     }
 
     // Get the current blockchain context.
@@ -117,15 +118,16 @@ where
     if context.chain_height != blocks[0].height {
         tracing::debug!("Blocks do not follow main chain, verification failed.");
 
-        Err(ConsensusError::Block(BlockError::MinerTxError(
+        return Err(ConsensusError::Block(BlockError::MinerTxError(
             MinerTxError::InputsHeightIncorrect,
-        )))?;
+        ))
+        .into());
     }
 
     if context.top_hash != blocks[0].block.header.previous {
         tracing::debug!("Blocks do not follow main chain, verification failed.");
 
-        Err(ConsensusError::Block(BlockError::PreviousIDIncorrect))?;
+        return Err(ConsensusError::Block(BlockError::PreviousIDIncorrect).into());
     }
 
     let mut rx_vms = if top_hf_in_batch < HardFork::V12 {
@@ -156,7 +158,7 @@ where
         context_svc
             .oneshot(BlockChainContextRequest::NewRXVM((
                 new_vm_seed,
-                new_vm.clone(),
+                Arc::clone(&new_vm),
             )))
             .await?;
 

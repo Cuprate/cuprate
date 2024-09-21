@@ -7,7 +7,7 @@ authors = ["Boog900"]
 
 [features]
 default = []
-proptest = ["dep:proptest", "dep:proptest-derive", "cuprate-types/proptest"]
+proptest = ["cuprate-types/proptest"]
 rayon = ["dep:rayon"]
 
 [dependencies]
@@ -25,15 +25,16 @@ hex = { workspace = true, features = ["std"] }
 hex-literal = { workspace = true }
 crypto-bigint = { workspace = true }
 
+cfg-if = { workspace = true }
 tracing = { workspace = true, features = ["std"] }
 thiserror = { workspace = true }
 
 rayon = { workspace = true, optional = true }
 
-proptest = {workspace = true, optional = true}
-proptest-derive = {workspace = true, optional = true}
-
 [dev-dependencies]
-proptest = {workspace = true}
-proptest-derive = {workspace = true}
-tokio = {version = "1.35.0", features = ["rt-multi-thread", "macros"]}
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+tokio = { version = "1.35.0", features = ["rt-multi-thread", "macros"] }
+
+[lints]
+workspace = true

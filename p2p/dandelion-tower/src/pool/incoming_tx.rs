@@ -30,7 +30,7 @@ pub struct IncomingTxBuilder<const RS: bool, const DBS: bool, Tx, TxId, PeerId> 
 
 impl<Tx, TxId, PeerId> IncomingTxBuilder<false, false, Tx, TxId, PeerId> {
     /// Creates a new [`IncomingTxBuilder`].
-    pub fn new(tx: Tx, tx_id: TxId) -> Self {
+    pub const fn new(tx: Tx, tx_id: TxId) -> Self {
         Self {
             tx,
             tx_id,

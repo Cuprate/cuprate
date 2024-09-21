@@ -28,7 +28,7 @@ pub struct HardForkConfig {
 
 impl HardForkConfig {
     /// Config for main-net.
-    pub const fn main_net() -> HardForkConfig {
+    pub const fn main_net() -> Self {
         Self {
             info: HFsInfo::main_net(),
             window: DEFAULT_WINDOW_SIZE,
@@ -36,7 +36,7 @@ impl HardForkConfig {
     }
 
     /// Config for stage-net.
-    pub const fn stage_net() -> HardForkConfig {
+    pub const fn stage_net() -> Self {
         Self {
             info: HFsInfo::stage_net(),
             window: DEFAULT_WINDOW_SIZE,
@@ -44,7 +44,7 @@ impl HardForkConfig {
     }
 
     /// Config for test-net.
-    pub const fn test_net() -> HardForkConfig {
+    pub const fn test_net() -> Self {
         Self {
             info: HFsInfo::test_net(),
             window: DEFAULT_WINDOW_SIZE,
@@ -54,7 +54,7 @@ impl HardForkConfig {
 
 /// A struct that keeps track of the current hard-fork and current votes.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct HardForkState {
+pub(crate) struct HardForkState {
     /// The current active hard-fork.
     pub(crate) current_hardfork: HardFork,
 
@@ -83,7 +83,7 @@ impl HardForkState {
             get_votes_in_range(database.clone(), block_start..chain_height, config.window).await?;
 
         if chain_height > config.window {
-            debug_assert_eq!(votes.total_votes(), config.window)
+            debug_assert_eq!(votes.total_votes(), config.window);
         }
 
         let BlockchainResponse::BlockExtendedHeader(ext_header) = database
@@ -97,7 +97,7 @@ impl HardForkState {
 
         let current_hardfork = ext_header.version;
 
-        let mut hfs = HardForkState {
+        let mut hfs = Self {
             config,
             current_hardfork,
             votes,
@@ -122,7 +122,7 @@ impl HardForkState {
     /// # Invariant
     ///
     /// This _must_ only be used on a main-chain cache.
-    pub async fn pop_blocks_main_chain<D: Database + Clone>(
+    pub(crate) async fn pop_blocks_main_chain<D: Database + Clone>(
         &mut self,
         numb_blocks: usize,
         database: D,
@@ -159,7 +159,7 @@ impl HardForkState {
     }
 
     /// Add a new block to the cache.
-    pub fn new_block(&mut self, vote: HardFork, height: usize) {
+    pub(crate) fn new_block(&mut self, vote: HardFork, height: usize) {
         // We don't _need_ to take in `height` but it's for safety, so we don't silently loose track
         // of blocks.
         assert_eq!(self.last_height + 1, height);
@@ -183,7 +183,7 @@ impl HardForkState {
 
     /// Checks if the next hard-fork should be activated and activates it if it should.
     ///
-    /// https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork
+    /// <https://cuprate.github.io/monero-docs/consensus_rules/hardforks.html#accepting-a-fork>
     fn check_set_new_hf(&mut self) {
         self.current_hardfork = self.votes.current_fork(
             &self.current_hardfork,
@@ -194,7 +194,7 @@ impl HardForkState {
     }
 
     /// Returns the current hard-fork.
-    pub fn current_hardfork(&self) -> HardFork {
+    pub(crate) const fn current_hardfork(&self) -> HardFork {
         self.current_hardfork
     }
 }
@@ -218,7 +218,7 @@ async fn get_votes_in_range<D: Database>(
         panic!("Database sent incorrect response!");
     };
 
-    for hf_info in vote_list.into_iter() {
+    for hf_info in vote_list {
         votes.add_vote_for_hf(&HardFork::from_vote(hf_info.vote));
     }
 

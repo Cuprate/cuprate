@@ -554,6 +554,7 @@ dependencies = [
 name = "cuprate-consensus"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "cuprate-consensus-rules",
  "cuprate-helper",
  "cuprate-test-utils",
@@ -581,6 +582,7 @@ dependencies = [
 name = "cuprate-consensus-rules"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "crypto-bigint",
  "cuprate-constants",
  "cuprate-cryptonight",
@@ -685,15 +687,14 @@ dependencies = [
  "cuprate-blockchain",
  "cuprate-consensus",
  "cuprate-consensus-rules",
+ "cuprate-helper",
  "cuprate-types",
  "hex",
  "hex-literal",
  "monero-serai",
- "rayon",
  "sha3",
  "thiserror",
  "tokio",
- "tokio-test",
  "tower",
 ]
 
@@ -740,6 +741,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.6.0",
  "bytes",
+ "cfg-if",
  "cuprate-helper",
  "futures",
  "proptest",

@@ -88,9 +88,7 @@ where
                 .insert(peer.clone());
         }
 
-        let state = from
-            .map(|from| TxState::Stem { from })
-            .unwrap_or(TxState::Local);
+        let state = from.map_or(TxState::Local, |from| TxState::Stem { from });
 
         let fut = self
             .dandelion_router
@@ -280,13 +278,15 @@ where
                     };
 
                     if let Err(e) = self.handle_incoming_tx(tx, routing_state, tx_id).await {
+                        #[expect(clippy::let_underscore_must_use, reason = "dropped receivers can be ignored")]
                         let _ = res_tx.send(());
 
                         tracing::error!("Error handling transaction in dandelion pool: {e}");
                         return;
                     }
-                    let _ = res_tx.send(());
 
+                    #[expect(clippy::let_underscore_must_use)]
+                    let _ = res_tx.send(());
                 }
             }
         }

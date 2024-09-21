@@ -39,7 +39,7 @@ pub fn new_tx_verification_data(
 /// Calculates the weight of a [`Transaction`].
 ///
 /// This is more efficient that [`Transaction::weight`] if you already have the transaction blob.
-pub fn tx_weight(tx: &Transaction, tx_blob: &[u8]) -> usize {
+pub(crate) fn tx_weight(tx: &Transaction, tx_blob: &[u8]) -> usize {
     // the tx weight is only different from the blobs length for bp(+) txs.
 
     match &tx {
@@ -64,7 +64,7 @@ pub fn tx_weight(tx: &Transaction, tx_blob: &[u8]) -> usize {
 }
 
 /// Calculates the fee of the [`Transaction`].
-pub fn tx_fee(tx: &Transaction) -> Result<u64, TransactionError> {
+pub(crate) fn tx_fee(tx: &Transaction) -> Result<u64, TransactionError> {
     let mut fee = 0_u64;
 
     match &tx {
