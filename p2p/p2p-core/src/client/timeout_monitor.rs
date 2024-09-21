@@ -1,6 +1,6 @@
 //! Timeout Monitor
 //!
-//! This module holds the task that sends periodic [TimedSync](PeerRequest::TimedSync) requests to a peer to make
+//! This module holds the task that sends periodic [`TimedSync`](PeerRequest::TimedSync) requests to a peer to make
 //! sure the connection is still active.
 use std::sync::Arc;
 
@@ -64,7 +64,7 @@ where
             return Ok(());
         }
 
-        let Ok(permit) = semaphore.clone().try_acquire_owned() else {
+        let Ok(permit) = Arc::clone(&semaphore).try_acquire_owned() else {
             // If we can't get a permit the connection is currently waiting for a response, so no need to
             // do a timed sync.
             continue;

@@ -42,8 +42,8 @@ pub struct DummyCoreSyncSvc(CoreSyncData);
 
 impl DummyCoreSyncSvc {
     /// Returns a [`DummyCoreSyncSvc`] that will just return the mainnet genesis [`CoreSyncData`].
-    pub fn static_mainnet_genesis() -> DummyCoreSyncSvc {
-        DummyCoreSyncSvc(CoreSyncData {
+    pub const fn static_mainnet_genesis() -> Self {
+        Self(CoreSyncData {
             cumulative_difficulty: 1,
             cumulative_difficulty_top64: 0,
             current_height: 1,
@@ -56,8 +56,8 @@ impl DummyCoreSyncSvc {
     }
 
     /// Returns a [`DummyCoreSyncSvc`] that will just return the testnet genesis [`CoreSyncData`].
-    pub fn static_testnet_genesis() -> DummyCoreSyncSvc {
-        DummyCoreSyncSvc(CoreSyncData {
+    pub const fn static_testnet_genesis() -> Self {
+        Self(CoreSyncData {
             cumulative_difficulty: 1,
             cumulative_difficulty_top64: 0,
             current_height: 1,
@@ -70,8 +70,8 @@ impl DummyCoreSyncSvc {
     }
 
     /// Returns a [`DummyCoreSyncSvc`] that will just return the stagenet genesis [`CoreSyncData`].
-    pub fn static_stagenet_genesis() -> DummyCoreSyncSvc {
-        DummyCoreSyncSvc(CoreSyncData {
+    pub const fn static_stagenet_genesis() -> Self {
+        Self(CoreSyncData {
             cumulative_difficulty: 1,
             cumulative_difficulty_top64: 0,
             current_height: 1,
@@ -84,8 +84,8 @@ impl DummyCoreSyncSvc {
     }
 
     /// Returns a [`DummyCoreSyncSvc`] that will return the provided [`CoreSyncData`].
-    pub fn static_custom(data: CoreSyncData) -> DummyCoreSyncSvc {
-        DummyCoreSyncSvc(data)
+    pub const fn static_custom(data: CoreSyncData) -> Self {
+        Self(data)
     }
 }
 

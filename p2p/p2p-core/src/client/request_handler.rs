@@ -46,7 +46,7 @@ pub(crate) struct PeerRequestHandler<Z: NetworkZone, A, CS, PS, PR> {
     pub peer_info: PeerInformation<Z::Addr>,
 }
 
-impl<Z: NetworkZone, A, CS, PS, PR> PeerRequestHandler<Z, A, CS, PS, PR>
+impl<Z, A, CS, PS, PR> PeerRequestHandler<Z, A, CS, PS, PR>
 where
     Z: NetworkZone,
     A: AddressBook<Z>,
@@ -55,7 +55,7 @@ where
     PR: ProtocolRequestHandler,
 {
     /// Handles an incoming [`PeerRequest`] to our node.
-    pub async fn handle_peer_request(
+    pub(crate) async fn handle_peer_request(
         &mut self,
         req: PeerRequest,
     ) -> Result<PeerResponse, tower::BoxError> {
