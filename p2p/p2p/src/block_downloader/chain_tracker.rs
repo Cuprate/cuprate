@@ -21,7 +21,7 @@ pub(crate) struct ChainEntry<N: NetworkZone> {
 
 /// A batch of blocks to retrieve.
 #[derive(Clone)]
-pub struct BlocksToRetrieve<N: NetworkZone> {
+pub(crate) struct BlocksToRetrieve<N: NetworkZone> {
     /// The block IDs to get.
     pub ids: ByteArrayVec<32>,
     /// The hash of the last block before this batch.
@@ -40,7 +40,7 @@ pub struct BlocksToRetrieve<N: NetworkZone> {
 
 /// An error returned from the [`ChainTracker`].
 #[derive(Debug, Clone)]
-pub enum ChainTrackerError {
+pub(crate) enum ChainTrackerError {
     /// The new chain entry is invalid.
     NewEntryIsInvalid,
     /// The new chain entry does not follow from the top of our chain tracker.
@@ -51,7 +51,7 @@ pub enum ChainTrackerError {
 ///
 /// This struct allows following a single chain. It takes in [`ChainEntry`]s and
 /// allows getting [`BlocksToRetrieve`].
-pub struct ChainTracker<N: NetworkZone> {
+pub(crate) struct ChainTracker<N: NetworkZone> {
     /// A list of [`ChainEntry`]s, in order.
     entries: VecDeque<ChainEntry<N>>,
     /// The height of the first block, in the first entry in [`Self::entries`].
@@ -66,7 +66,7 @@ pub struct ChainTracker<N: NetworkZone> {
 
 impl<N: NetworkZone> ChainTracker<N> {
     /// Creates a new chain tracker.
-    pub fn new(
+    pub(crate) fn new(
         new_entry: ChainEntry<N>,
         first_height: usize,
         our_genesis: [u8; 32],
@@ -77,9 +77,9 @@ impl<N: NetworkZone> ChainTracker<N> {
         entries.push_back(new_entry);
 
         Self {
-            top_seen_hash,
             entries,
             first_height,
+            top_seen_hash,
             previous_hash,
             our_genesis,
         }
@@ -87,17 +87,17 @@ impl<N: NetworkZone> ChainTracker<N> {
 
     /// Returns `true` if the peer is expected to have the next block after our highest seen block
     /// according to their pruning seed.
-    pub fn should_ask_for_next_chain_entry(&self, seed: &PruningSeed) -> bool {
+    pub(crate) fn should_ask_for_next_chain_entry(&self, seed: &PruningSeed) -> bool {
         seed.has_full_block(self.top_height(), MAX_BLOCK_HEIGHT_USIZE)
     }
 
     /// Returns the simple history, the highest seen block and the genesis block.
-    pub fn get_simple_history(&self) -> [[u8; 32]; 2] {
+    pub(crate) const fn get_simple_history(&self) -> [[u8; 32]; 2] {
         [self.top_seen_hash, self.our_genesis]
     }
 
     /// Returns the height of the highest block we are tracking.
-    pub fn top_height(&self) -> usize {
+    pub(crate) fn top_height(&self) -> usize {
         let top_block_idx = self
             .entries
             .iter()
@@ -111,7 +111,7 @@ impl<N: NetworkZone> ChainTracker<N> {
     ///
     /// # Panics
     /// This function panics if `batch_size` is `0`.
-    pub fn block_requests_queued(&self, batch_size: usize) -> usize {
+    pub(crate) fn block_requests_queued(&self, batch_size: usize) -> usize {
         self.entries
             .iter()
             .map(|entry| entry.ids.len().div_ceil(batch_size))
@@ -119,7 +119,10 @@ impl<N: NetworkZone> ChainTracker<N> {
     }
 
     /// Attempts to add an incoming [`ChainEntry`] to the chain tracker.
-    pub fn add_entry(&mut self, mut chain_entry: ChainEntry<N>) -> Result<(), ChainTrackerError> {
+    pub(crate) fn add_entry(
+        &mut self,
+        mut chain_entry: ChainEntry<N>,
+    ) -> Result<(), ChainTrackerError> {
         if chain_entry.ids.is_empty() {
             // The peer must send at lest one overlapping block.
             chain_entry.handle.ban_peer(MEDIUM_BAN);
@@ -155,7 +158,7 @@ impl<N: NetworkZone> ChainTracker<N> {
     /// Returns a batch of blocks to request.
     ///
     /// The returned batches length will be less than or equal to `max_blocks`
-    pub fn blocks_to_get(
+    pub(crate) fn blocks_to_get(
         &mut self,
         pruning_seed: &PruningSeed,
         max_blocks: usize,

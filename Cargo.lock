@@ -793,6 +793,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "borsh",
+ "cfg-if",
  "cuprate-helper",
  "cuprate-pruning",
  "cuprate-test-utils",
@@ -807,7 +808,6 @@ dependencies = [
  "tokio-util",
  "tower",
  "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

@@ -52,7 +52,7 @@ pub struct ZoneSpecificPeerListEntryBase<A: NetZoneAddress> {
     pub rpc_credits_per_hash: u32,
 }
 
-impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for cuprate_wire::PeerListEntryBase {
+impl<A: NetZoneAddress> From<ZoneSpecificPeerListEntryBase<A>> for PeerListEntryBase {
     fn from(value: ZoneSpecificPeerListEntryBase<A>) -> Self {
         Self {
             adr: value.adr.into(),
@@ -74,9 +74,7 @@ pub enum PeerListConversionError {
     PruningSeed(#[from] PruningError),
 }
 
-impl<A: NetZoneAddress> TryFrom<cuprate_wire::PeerListEntryBase>
-    for ZoneSpecificPeerListEntryBase<A>
-{
+impl<A: NetZoneAddress> TryFrom<PeerListEntryBase> for ZoneSpecificPeerListEntryBase<A> {
     type Error = PeerListConversionError;
 
     fn try_from(value: PeerListEntryBase) -> Result<Self, Self::Error> {

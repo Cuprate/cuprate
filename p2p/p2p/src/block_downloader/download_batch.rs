@@ -30,6 +30,7 @@ use crate::{
         attempt = _attempt
     )
 )]
+#[expect(clippy::used_underscore_binding)]
 pub async fn download_batch_task<N: NetworkZone>(
     client: ClientPoolDropGuard<N>,
     ids: ByteArrayVec<32>,
@@ -103,6 +104,7 @@ async fn request_batch_from_peer<N: NetworkZone>(
     Ok((client, batch))
 }
 
+#[expect(clippy::needless_pass_by_value)]
 fn deserialize_batch(
     blocks_response: GetObjectsResponse,
     expected_start_height: usize,

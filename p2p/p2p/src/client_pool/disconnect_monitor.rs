@@ -78,6 +78,6 @@ impl<N: NetworkZone> Future for PeerDisconnectFut<N> {
 
         this.closed_fut
             .poll(cx)
-            .map(|_| this.peer_id.take().unwrap())
+            .map(|()| this.peer_id.take().unwrap())
     }
 }
