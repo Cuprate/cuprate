@@ -36,8 +36,8 @@ use crate::{
 ///
 /// Returns [`AltBlockInformation`], which contains the cumulative difficulty of the alt chain.
 ///
-/// This function only checks the block's PoW and its weight.
-pub async fn sanity_check_alt_block<C>(
+/// This function only checks the block's proof-of-work and its weight.
+pub(crate) async fn sanity_check_alt_block<C>(
     block: Block,
     txs: HashMap<[u8; 32], TransactionVerificationData>,
     mut context_svc: C,
@@ -66,15 +66,17 @@ where
 
     // Check if the block's miner input is formed correctly.
     let [Input::Gen(height)] = &block.miner_transaction.prefix().inputs[..] else {
-        Err(ConsensusError::Block(BlockError::MinerTxError(
+        return Err(ConsensusError::Block(BlockError::MinerTxError(
             MinerTxError::InputNotOfTypeGen,
-        )))?
+        ))
+        .into());
     };
 
     if *height != alt_context_cache.chain_height {
-        Err(ConsensusError::Block(BlockError::MinerTxError(
+        return Err(ConsensusError::Block(BlockError::MinerTxError(
             MinerTxError::InputsHeightIncorrect,
-        )))?
+        ))
+        .into());
     }
 
     // prep the alt block.
@@ -103,10 +105,10 @@ where
     if let Some(median_timestamp) =
         difficulty_cache.median_timestamp(u64_to_usize(BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW))
     {
-        check_timestamp(&prepped_block.block, median_timestamp).map_err(ConsensusError::Block)?
+        check_timestamp(&prepped_block.block, median_timestamp).map_err(ConsensusError::Block)?;
     };
 
-    let next_difficulty = difficulty_cache.next_difficulty(&prepped_block.hf_version);
+    let next_difficulty = difficulty_cache.next_difficulty(prepped_block.hf_version);
     // make sure the block's PoW is valid for this difficulty.
     check_block_pow(&prepped_block.pow_hash, next_difficulty).map_err(ConsensusError::Block)?;
 
@@ -127,12 +129,12 @@ where
     // Check the block weight is below the limit.
     check_block_weight(
         block_weight,
-        alt_weight_cache.median_for_block_reward(&prepped_block.hf_version),
+        alt_weight_cache.median_for_block_reward(prepped_block.hf_version),
     )
     .map_err(ConsensusError::Block)?;
 
     let long_term_weight = weight::calculate_block_long_term_weight(
-        &prepped_block.hf_version,
+        prepped_block.hf_version,
         block_weight,
         alt_weight_cache.median_long_term_weight(),
     );
@@ -232,9 +234,9 @@ where
         }
     };
 
-    Ok(Some(
-        alt_chain_context.cached_rx_vm.insert(cached_vm).1.clone(),
-    ))
+    Ok(Some(Arc::clone(
+        &alt_chain_context.cached_rx_vm.insert(cached_vm).1,
+    )))
 }
 
 /// Returns the [`DifficultyCache`] for the alt chain.

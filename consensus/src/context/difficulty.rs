@@ -43,24 +43,24 @@ impl DifficultyCacheConfig {
     ///
     /// # Notes
     /// You probably do not need this, use [`DifficultyCacheConfig::main_net`] instead.
-    pub const fn new(window: usize, cut: usize, lag: usize) -> DifficultyCacheConfig {
-        DifficultyCacheConfig { window, cut, lag }
+    pub const fn new(window: usize, cut: usize, lag: usize) -> Self {
+        Self { window, cut, lag }
     }
 
     /// Returns the total amount of blocks we need to track to calculate difficulty
-    pub fn total_block_count(&self) -> usize {
+    pub const fn total_block_count(&self) -> usize {
         self.window + self.lag
     }
 
     /// The amount of blocks we account for after removing the outliers.
-    pub fn accounted_window_len(&self) -> usize {
+    pub const fn accounted_window_len(&self) -> usize {
         self.window - 2 * self.cut
     }
 
     /// Returns the config needed for [`Mainnet`](cuprate_helper::network::Network::Mainnet). This is also the
     /// config for all other current networks.
-    pub const fn main_net() -> DifficultyCacheConfig {
-        DifficultyCacheConfig {
+    pub const fn main_net() -> Self {
+        Self {
             window: DIFFICULTY_WINDOW,
             cut: DIFFICULTY_CUT,
             lag: DIFFICULTY_LAG,
@@ -112,7 +112,7 @@ impl DifficultyCache {
             timestamps.len()
         );
 
-        let diff = DifficultyCache {
+        let diff = Self {
             timestamps,
             cumulative_difficulties,
             last_accounted_height: chain_height - 1,
@@ -203,8 +203,8 @@ impl DifficultyCache {
 
     /// Returns the required difficulty for the next block.
     ///
-    /// See: https://cuprate.github.io/monero-book/consensus_rules/blocks/difficulty.html#calculating-difficulty
-    pub fn next_difficulty(&self, hf: &HardFork) -> u128 {
+    /// See: <https://cuprate.github.io/monero-book/consensus_rules/blocks/difficulty.html#calculating-difficulty>
+    pub fn next_difficulty(&self, hf: HardFork) -> u128 {
         next_difficulty(
             &self.config,
             &self.timestamps,
@@ -223,7 +223,7 @@ impl DifficultyCache {
     pub fn next_difficulties(
         &self,
         blocks: Vec<(u64, HardFork)>,
-        current_hf: &HardFork,
+        current_hf: HardFork,
     ) -> Vec<u128> {
         let mut timestamps = self.timestamps.clone();
         let mut cumulative_difficulties = self.cumulative_difficulties.clone();
@@ -232,8 +232,6 @@ impl DifficultyCache {
 
         difficulties.push(self.next_difficulty(current_hf));
 
-        let mut diff_info_popped = Vec::new();
-
         for (new_timestamp, hf) in blocks {
             timestamps.push_back(new_timestamp);
 
@@ -241,17 +239,15 @@ impl DifficultyCache {
             cumulative_difficulties.push_back(last_cum_diff + *difficulties.last().unwrap());
 
             if timestamps.len() > self.config.total_block_count() {
-                diff_info_popped.push((
-                    timestamps.pop_front().unwrap(),
-                    cumulative_difficulties.pop_front().unwrap(),
-                ));
+                timestamps.pop_front().unwrap();
+                cumulative_difficulties.pop_front().unwrap();
             }
 
             difficulties.push(next_difficulty(
                 &self.config,
                 &timestamps,
                 &cumulative_difficulties,
-                &hf,
+                hf,
             ));
         }
 
@@ -295,12 +291,12 @@ impl DifficultyCache {
     }
 }
 
-/// Calculates the next difficulty with the inputted config/timestamps/cumulative_difficulties.
+/// Calculates the next difficulty with the inputted `config/timestamps/cumulative_difficulties`.
 fn next_difficulty(
     config: &DifficultyCacheConfig,
     timestamps: &VecDeque<u64>,
     cumulative_difficulties: &VecDeque<u128>,
-    hf: &HardFork,
+    hf: HardFork,
 ) -> u128 {
     if timestamps.len() <= 1 {
         return 1;

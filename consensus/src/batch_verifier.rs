@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::DerefMut};
+use std::cell::RefCell;
 
 use monero_serai::ringct::bulletproofs::BatchVerifier as InternalBatchVerifier;
 use rayon::prelude::*;
@@ -13,8 +13,8 @@ pub struct MultiThreadedBatchVerifier {
 
 impl MultiThreadedBatchVerifier {
     /// Create a new multithreaded batch verifier,
-    pub fn new(numb_threads: usize) -> MultiThreadedBatchVerifier {
-        MultiThreadedBatchVerifier {
+    pub fn new(numb_threads: usize) -> Self {
+        Self {
             internal: ThreadLocal::with_capacity(numb_threads),
         }
     }
@@ -42,6 +42,6 @@ impl BatchVerifier for &'_ MultiThreadedBatchVerifier {
             .get_or(|| RefCell::new(InternalBatchVerifier::new()))
             .borrow_mut();
 
-        stmt(verifier.deref_mut())
+        stmt(&mut verifier)
     }
 }

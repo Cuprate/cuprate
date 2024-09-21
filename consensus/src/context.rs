@@ -56,8 +56,8 @@ pub struct ContextConfig {
 
 impl ContextConfig {
     /// Get the config for main-net.
-    pub fn main_net() -> ContextConfig {
-        ContextConfig {
+    pub const fn main_net() -> Self {
+        Self {
             hard_fork_cfg: HardForkConfig::main_net(),
             difficulty_cfg: DifficultyCacheConfig::main_net(),
             weights_config: BlockWeightsCacheConfig::main_net(),
@@ -65,8 +65,8 @@ impl ContextConfig {
     }
 
     /// Get the config for stage-net.
-    pub fn stage_net() -> ContextConfig {
-        ContextConfig {
+    pub const fn stage_net() -> Self {
+        Self {
             hard_fork_cfg: HardForkConfig::stage_net(),
             // These 2 have the same config as main-net.
             difficulty_cfg: DifficultyCacheConfig::main_net(),
@@ -75,8 +75,8 @@ impl ContextConfig {
     }
 
     /// Get the config for test-net.
-    pub fn test_net() -> ContextConfig {
-        ContextConfig {
+    pub const fn test_net() -> Self {
+        Self {
             hard_fork_cfg: HardForkConfig::test_net(),
             // These 2 have the same config as main-net.
             difficulty_cfg: DifficultyCacheConfig::main_net(),
@@ -155,7 +155,7 @@ impl RawBlockChainContext {
     /// Returns the next blocks long term weight from its block weight.
     pub fn next_block_long_term_weight(&self, block_weight: usize) -> usize {
         weight::calculate_block_long_term_weight(
-            &self.current_hf,
+            self.current_hf,
             block_weight,
             self.median_long_term_weight,
         )
@@ -191,7 +191,7 @@ impl BlockChainContext {
     }
 
     /// Returns the blockchain context without checking the validity token.
-    pub fn unchecked_blockchain_context(&self) -> &RawBlockChainContext {
+    pub const fn unchecked_blockchain_context(&self) -> &RawBlockChainContext {
         &self.raw
     }
 }
@@ -222,7 +222,7 @@ pub struct NewBlockData {
 pub enum BlockChainContextRequest {
     /// Get the current blockchain context.
     GetContext,
-    /// Gets the current RandomX VM.
+    /// Gets the current `RandomX` VM.
     GetCurrentRxVm,
     /// Get the next difficulties for these blocks.
     ///
@@ -288,7 +288,7 @@ pub enum BlockChainContextRequest {
     /// This variant is private and is not callable from outside this crate, the block verifier service will
     /// handle getting the randomX VM of an alt chain.
     AltChainRxVM {
-        /// The height the RandomX VM is needed for.
+        /// The height the `RandomX` VM is needed for.
         height: usize,
         /// The chain to look in for the seed.
         chain: Chain,
@@ -312,7 +312,7 @@ pub enum BlockChainContextRequest {
 pub enum BlockChainContextResponse {
     /// Blockchain context response.
     Context(BlockChainContext),
-    /// A map of seed height to RandomX VMs.
+    /// A map of seed height to `RandomX` VMs.
     RxVms(HashMap<usize, Arc<RandomXVm>>),
     /// A list of difficulties.
     BatchDifficulties(Vec<u128>),
