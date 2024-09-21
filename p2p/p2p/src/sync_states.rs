@@ -40,7 +40,7 @@ pub struct NewSyncInfo {
 /// This is the service that handles:
 /// 1. Finding out if we need to sync
 /// 1. Giving the peers that should be synced _from_, to the requester
-pub struct PeerSyncSvc<N: NetworkZone> {
+pub(crate) struct PeerSyncSvc<N: NetworkZone> {
     /// A map of cumulative difficulties to peers.
     cumulative_difficulties: BTreeMap<u128, HashSet<InternalPeerID<N::Addr>>>,
     /// A map of peers to cumulative difficulties.
@@ -56,7 +56,7 @@ pub struct PeerSyncSvc<N: NetworkZone> {
 impl<N: NetworkZone> PeerSyncSvc<N> {
     /// Creates a new [`PeerSyncSvc`] with a [`Receiver`](watch::Receiver) that will be updated with
     /// the highest seen sync data, this makes no guarantees about which peer will be chosen in case of a tie.
-    pub fn new() -> (Self, watch::Receiver<NewSyncInfo>) {
+    pub(crate) fn new() -> (Self, watch::Receiver<NewSyncInfo>) {
         let (watch_tx, mut watch_rx) = watch::channel(NewSyncInfo {
             chain_height: 0,
             top_hash: [0; 32],
@@ -108,9 +108,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
                 if let Some(block_needed) = block_needed {
                     // we just use CRYPTONOTE_MAX_BLOCK_HEIGHT as the blockchain height, this only means
                     // we don't take into account the tip blocks which are not pruned.
-                    self.peers
-                        .get(peer)
-                        .unwrap()
+                    self.peers[peer]
                         .1
                         .has_full_block(block_needed, CRYPTONOTE_MAX_BLOCK_HEIGHT)
                 } else {
@@ -126,7 +124,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
         &mut self,
         peer_id: InternalPeerID<N::Addr>,
         handle: ConnectionHandle,
-        core_sync_data: CoreSyncData,
+        core_sync_data: &CoreSyncData,
     ) -> Result<(), tower::BoxError> {
         tracing::trace!(
             "Received new core sync data from peer, top hash: {}",
@@ -176,7 +174,7 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             self.closed_connections.push(PeerDisconnectFut {
                 closed_fut: handle.closed(),
                 peer_id: Some(peer_id),
-            })
+            });
         }
 
         self.cumulative_difficulties
@@ -190,11 +188,15 @@ impl<N: NetworkZone> PeerSyncSvc<N> {
             || self
                 .last_peer_in_watcher_handle
                 .as_ref()
-                .is_some_and(|handle| handle.is_closed())
+                .is_some_and(ConnectionHandle::is_closed)
         {
             tracing::debug!(
                 "Updating sync watcher channel with new highest seen cumulative difficulty: {new_cumulative_difficulty}"
             );
+            #[expect(
+                clippy::let_underscore_must_use,
+                reason = "dropped receivers can be ignored"
+            )]
             let _ = self.new_height_watcher.send(NewSyncInfo {
                 top_hash: core_sync_data.top_id,
                 chain_height: core_sync_data.current_height,
@@ -228,8 +230,8 @@ impl<N: NetworkZone> Service<PeerSyncRequest<N>> for PeerSyncSvc<N> {
                 block_needed,
             ))),
             PeerSyncRequest::IncomingCoreSyncData(peer_id, handle, sync_data) => self
-                .update_peer_sync_info(peer_id, handle, sync_data)
-                .map(|_| PeerSyncResponse::Ok),
+                .update_peer_sync_info(peer_id, handle, &sync_data)
+                .map(|()| PeerSyncResponse::Ok),
         };
 
         ready(res)
@@ -413,6 +415,6 @@ mod tests {
         assert!(
             peers.contains(&InternalPeerID::Unknown(0))
                 && peers.contains(&InternalPeerID::Unknown(1))
-        )
+        );
     }
 }

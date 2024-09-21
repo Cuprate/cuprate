@@ -78,7 +78,7 @@ pub struct BlockDownloaderConfig {
 
 /// An error that occurred in the [`BlockDownloader`].
 #[derive(Debug, thiserror::Error)]
-pub enum BlockDownloadError {
+pub(crate) enum BlockDownloadError {
     #[error("A request to a peer timed out.")]
     TimedOut,
     #[error("The block buffer was closed.")]
@@ -219,7 +219,7 @@ struct BlockDownloader<N: NetworkZone, S, C> {
     /// The running chain entry tasks.
     ///
     /// Returns a result of the chain entry or an error.
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     chain_entry_task: JoinSet<Result<(ClientPoolDropGuard<N>, ChainEntry<N>), BlockDownloadError>>,
 
     /// The current inflight requests.
@@ -273,7 +273,7 @@ where
     }
 
     /// Checks if we can make use of any peers that are currently pending requests.
-    async fn check_pending_peers(
+    fn check_pending_peers(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         pending_peers: &mut BTreeMap<PruningSeed, Vec<ClientPoolDropGuard<N>>>,
@@ -287,7 +287,8 @@ where
                     continue;
                 }
 
-                if let Some(peer) = self.try_handle_free_client(chain_tracker, peer).await {
+                let client = self.try_handle_free_client(chain_tracker, peer);
+                if let Some(peer) = client {
                     // This peer is ok however it does not have the data we currently need, this will only happen
                     // because of its pruning seed so just skip over all peers with this pruning seed.
                     peers.push(peer);
@@ -303,7 +304,7 @@ where
     /// for them.
     ///
     /// Returns the [`ClientPoolDropGuard`] back if it doesn't have the batch according to its pruning seed.
-    async fn request_inflight_batch_again(
+    fn request_inflight_batch_again(
         &mut self,
         client: ClientPoolDropGuard<N>,
     ) -> Option<ClientPoolDropGuard<N>> {
@@ -354,7 +355,7 @@ where
     ///
     /// Returns the [`ClientPoolDropGuard`] back if it doesn't have the data we currently need according
     /// to its pruning seed.
-    async fn request_block_batch(
+    fn request_block_batch(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         client: ClientPoolDropGuard<N>,
@@ -399,7 +400,7 @@ where
 
         // If our ready queue is too large send duplicate requests for the blocks we are waiting on.
         if self.block_queue.size() >= self.config.in_progress_queue_size {
-            return self.request_inflight_batch_again(client).await;
+            return self.request_inflight_batch_again(client);
         }
 
         // No failed requests that we can handle, request some new blocks.
@@ -434,7 +435,7 @@ where
     ///
     /// Returns the [`ClientPoolDropGuard`] back if it doesn't have the data we currently need according
     /// to its pruning seed.
-    async fn try_handle_free_client(
+    fn try_handle_free_client(
         &mut self,
         chain_tracker: &mut ChainTracker<N>,
         client: ClientPoolDropGuard<N>,
@@ -472,7 +473,7 @@ where
         }
 
         // Request a batch of blocks instead.
-        self.request_block_batch(chain_tracker, client).await
+        self.request_block_batch(chain_tracker, client)
     }
 
     /// Checks the [`ClientPool`] for free peers.
@@ -516,7 +517,7 @@ where
                 .push(client);
         }
 
-        self.check_pending_peers(chain_tracker, pending_peers).await;
+        self.check_pending_peers(chain_tracker, pending_peers);
 
         Ok(())
     }
@@ -574,7 +575,7 @@ where
                         .or_default()
                         .push(client);
 
-                    self.check_pending_peers(chain_tracker, pending_peers).await;
+                    self.check_pending_peers(chain_tracker, pending_peers);
 
                     return Ok(());
                 };
@@ -611,7 +612,7 @@ where
                     .or_default()
                     .push(client);
 
-                self.check_pending_peers(chain_tracker, pending_peers).await;
+                self.check_pending_peers(chain_tracker, pending_peers);
 
                 Ok(())
             }
@@ -679,7 +680,7 @@ where
                                 .or_default()
                                 .push(client);
 
-                            self.check_pending_peers(&mut chain_tracker, &mut pending_peers).await;
+                            self.check_pending_peers(&mut chain_tracker, &mut pending_peers);
                         }
                         Err(_) => self.amount_of_empty_chain_entries += 1
                     }
@@ -698,7 +699,7 @@ struct BlockDownloadTaskResponse<N: NetworkZone> {
 }
 
 /// Returns if a peer has all the blocks in a range, according to its [`PruningSeed`].
-fn client_has_block_in_range(
+const fn client_has_block_in_range(
     pruning_seed: &PruningSeed,
     start_height: usize,
     length: usize,
