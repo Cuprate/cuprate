@@ -6,7 +6,7 @@
 //!
 //! # Network Zones
 //!
-//! This crate abstracts over network zones, Tor/I2p/clearnet with the [NetworkZone] trait. Currently only clearnet is implemented: [ClearNet].
+//! This crate abstracts over network zones, Tor/I2p/clearnet with the [`NetworkZone`] trait. Currently only clearnet is implemented: [`ClearNet`].
 //!
 //! # Usage
 //!
@@ -56,6 +56,16 @@
 //!     .unwrap();
 //! # });
 //! ```
+
+cfg_if::cfg_if! {
+    // Used in `tests/`
+    if #[cfg(test)] {
+        use cuprate_test_utils as _;
+        use tokio_test as _;
+        use hex as _;
+    }
+}
+
 use std::{fmt::Debug, future::Future, hash::Hash};
 
 use futures::{Sink, Stream};
@@ -102,7 +112,7 @@ pub trait NetZoneAddress:
     + Unpin
     + 'static
 {
-    /// Cuprate needs to be able to ban peers by IP addresses and not just by SocketAddr as
+    /// Cuprate needs to be able to ban peers by IP addresses and not just by `SocketAddr` as
     /// that include the port, to be able to facilitate this network addresses must have a ban ID
     /// which for hidden services could just be the address it self but for clear net addresses will
     /// be the IP address.

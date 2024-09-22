@@ -21,14 +21,14 @@ const FITS_IN_FOUR_BYTES: u64 = 2_u64.pow(32 - SIZE_OF_SIZE_MARKER) - 1;
 /// ```
 pub fn read_varint<B: Buf>(r: &mut B) -> Result<u64> {
     if !r.has_remaining() {
-        Err(Error::IO("Not enough bytes to build VarInt"))?
+        return Err(Error::IO("Not enough bytes to build VarInt"));
     }
 
     let vi_start = r.get_u8();
     let len = 1 << (vi_start & 0b11);
 
     if r.remaining() < len - 1 {
-        Err(Error::IO("Not enough bytes to build VarInt"))?
+        return Err(Error::IO("Not enough bytes to build VarInt"));
     }
 
     let mut vi = u64::from(vi_start >> 2);
@@ -67,12 +67,15 @@ pub fn write_varint<B: BufMut>(number: u64, w: &mut B) -> Result<()> {
     };
 
     if w.remaining_mut() < 1 << size_marker {
-        Err(Error::IO("Not enough capacity to write VarInt"))?;
+        return Err(Error::IO("Not enough capacity to write VarInt"));
     }
 
     let number = (number << 2) | size_marker;
 
-    // Although `as` is unsafe we just checked the length.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "Although `as` is unsafe we just checked the length."
+    )]
     match size_marker {
         0 => w.put_u8(number as u8),
         1 => w.put_u16_le(number as u16),

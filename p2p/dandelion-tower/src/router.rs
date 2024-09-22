@@ -140,7 +140,7 @@ where
             State::Stem
         };
 
-        DandelionRouter {
+        Self {
             outbound_peer_discover: Box::pin(outbound_peer_discover),
             broadcast_svc,
             current_state,
@@ -198,7 +198,7 @@ where
     fn stem_tx(
         &mut self,
         tx: Tx,
-        from: Id,
+        from: &Id,
     ) -> BoxFuture<'static, Result<State, DandelionRouterError>> {
         if self.stem_peers.is_empty() {
             tracing::debug!("Stem peers are empty, fluffing stem transaction.");
@@ -216,7 +216,7 @@ where
             });
 
             let Some(peer) = self.stem_peers.get_mut(stem_route) else {
-                self.stem_routes.remove(&from);
+                self.stem_routes.remove(from);
                 continue;
             };
 
@@ -302,7 +302,7 @@ where
                         tracing::debug!(
                             parent: span,
                             "Peer returned an error on `poll_ready`: {e}, removing from router.",
-                        )
+                        );
                     })
                     .is_ok(),
                 Poll::Pending => {
@@ -341,7 +341,7 @@ where
                 State::Stem => {
                     tracing::trace!(parent: &self.span, "Steming transaction");
 
-                    self.stem_tx(req.tx, from)
+                    self.stem_tx(req.tx, &from)
                 }
             },
             TxState::Local => {

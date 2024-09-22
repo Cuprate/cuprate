@@ -57,7 +57,7 @@ fn get_ring_members_for_inputs(
                     })
                     .collect::<Result<_, TransactionError>>()?)
             }
-            _ => Err(TransactionError::IncorrectInputType),
+            Input::Gen(_) => Err(TransactionError::IncorrectInputType),
         })
         .collect::<Result<_, TransactionError>>()
 }
@@ -143,7 +143,7 @@ fn new_rings(
 /// them.
 pub async fn batch_get_ring_member_info<D: Database>(
     txs_verification_data: impl Iterator<Item = &Arc<TransactionVerificationData>> + Clone,
-    hf: &HardFork,
+    hf: HardFork,
     mut database: D,
 ) -> Result<Vec<TxRingMembersInfo>, ExtendedConsensusError> {
     let mut output_ids = HashMap::new();
@@ -183,14 +183,14 @@ pub async fn batch_get_ring_member_info<D: Database>(
             )
             .map_err(ConsensusError::Transaction)?;
 
-            let decoy_info = if hf != &HardFork::V1 {
+            let decoy_info = if hf == HardFork::V1 {
+                None
+            } else {
                 // this data is only needed after hard-fork 1.
                 Some(
                     DecoyInfo::new(&tx_v_data.tx.prefix().inputs, numb_outputs, hf)
                         .map_err(ConsensusError::Transaction)?,
                 )
-            } else {
-                None
             };
 
             new_ring_member_info(ring_members_for_tx, decoy_info, tx_v_data.version)
@@ -224,7 +224,7 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
         .flat_map(|tx_info| {
             tx_info.tx.prefix().inputs.iter().map(|input| match input {
                 Input::ToKey { amount, .. } => amount.unwrap_or(0),
-                _ => 0,
+                Input::Gen(_) => 0,
             })
         })
         .collect::<HashSet<_>>();
@@ -249,7 +249,7 @@ pub async fn batch_get_decoy_info<'a, D: Database + Clone + Send + 'static>(
         DecoyInfo::new(
             &tx_v_data.tx.prefix().inputs,
             |amt| outputs_with_amount.get(&amt).copied().unwrap_or(0),
-            &hf,
+            hf,
         )
         .map_err(ConsensusError::Transaction)
     }))

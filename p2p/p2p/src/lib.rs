@@ -103,7 +103,7 @@ where
     let outbound_connector = Connector::new(outbound_handshaker);
     let outbound_connection_maintainer = connection_maintainer::OutboundConnectionKeeper::new(
         config.clone(),
-        client_pool.clone(),
+        Arc::clone(&client_pool),
         make_connection_rx,
         address_book.clone(),
         outbound_connector,
@@ -118,17 +118,17 @@ where
     );
     background_tasks.spawn(
         inbound_server::inbound_server(
-            client_pool.clone(),
+            Arc::clone(&client_pool),
             inbound_handshaker,
             address_book.clone(),
             config,
         )
         .map(|res| {
             if let Err(e) = res {
-                tracing::error!("Error in inbound connection listener: {e}")
+                tracing::error!("Error in inbound connection listener: {e}");
             }
 
-            tracing::info!("Inbound connection listener shutdown")
+            tracing::info!("Inbound connection listener shutdown");
         })
         .instrument(Span::current()),
     );
@@ -155,7 +155,7 @@ pub struct NetworkInterface<N: NetworkZone> {
     /// on that claimed chain.
     top_block_watch: watch::Receiver<sync_states::NewSyncInfo>,
     /// A channel to request extra connections.
-    #[allow(dead_code)] // will be used eventually
+    #[expect(dead_code, reason = "will be used eventually")]
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
@@ -184,7 +184,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
         C::Future: Send + 'static,
     {
         block_downloader::download_blocks(
-            self.pool.clone(),
+            Arc::clone(&self.pool),
             self.sync_states_svc.clone(),
             our_chain_service,
             config,

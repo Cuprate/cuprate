@@ -4,11 +4,14 @@
 use std::sync::Arc;
 
 use cuprate_database::{ConcreteEnv, InitError};
+use cuprate_types::{AltBlockInformation, VerifiedBlockInformation};
 
-use crate::service::{init_read_service, init_write_service};
 use crate::{
     config::Config,
-    service::types::{BlockchainReadHandle, BlockchainWriteHandle},
+    service::{
+        init_read_service, init_write_service,
+        types::{BlockchainReadHandle, BlockchainWriteHandle},
+    },
 };
 
 //---------------------------------------------------------------------------------------------------- Init
@@ -79,6 +82,44 @@ pub(super) const fn compact_history_genesis_not_included<const INITIAL_BLOCKS: u
     // So if `top_block_height - INITIAL_BLOCKS + 2` is a power of 2 then the genesis block is in
     // the compact history already.
     top_block_height > INITIAL_BLOCKS && !(top_block_height - INITIAL_BLOCKS + 2).is_power_of_two()
+}
+
+//---------------------------------------------------------------------------------------------------- Map Block
+/// Maps [`AltBlockInformation`] to [`VerifiedBlockInformation`]
+///
+/// # Panics
+/// This will panic if the block is invalid, so should only be used on blocks that have been popped from
+/// the main-chain.
+pub(super) fn map_valid_alt_block_to_verified_block(
+    alt_block: AltBlockInformation,
+) -> VerifiedBlockInformation {
+    let total_fees = alt_block.txs.iter().map(|tx| tx.fee).sum::<u64>();
+    let total_miner_output = alt_block
+        .block
+        .miner_transaction
+        .prefix()
+        .outputs
+        .iter()
+        .map(|out| out.amount.unwrap_or(0))
+        .sum::<u64>();
+
+    VerifiedBlockInformation {
+        block: alt_block.block,
+        block_blob: alt_block.block_blob,
+        txs: alt_block
+            .txs
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<_, _>>()
+            .unwrap(),
+        block_hash: alt_block.block_hash,
+        pow_hash: alt_block.pow_hash,
+        height: alt_block.height,
+        generated_coins: total_miner_output - total_fees,
+        weight: alt_block.weight,
+        long_term_weight: alt_block.long_term_weight,
+        cumulative_difficulty: alt_block.cumulative_difficulty,
+    }
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

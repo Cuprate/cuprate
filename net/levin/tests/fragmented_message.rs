@@ -1,3 +1,9 @@
+#![expect(
+    clippy::tests_outside_test_module,
+    unused_crate_dependencies,
+    reason = "outer test module"
+)]
+
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use futures::{SinkExt, StreamExt};
 use proptest::{prelude::any_with, prop_assert_eq, proptest, sample::size_range};
@@ -58,12 +64,12 @@ impl LevinBody for TestBody {
     ) -> Result<Self, BucketError> {
         let size = u64_to_usize(body.get_u64_le());
         // bucket
-        Ok(TestBody::Bytes(size, body.copy_to_bytes(size)))
+        Ok(Self::Bytes(size, body.copy_to_bytes(size)))
     }
 
     fn encode(self, builder: &mut BucketBuilder<Self::Command>) -> Result<(), BucketError> {
         match self {
-            TestBody::Bytes(len, bytes) => {
+            Self::Bytes(len, bytes) => {
                 let mut buf = BytesMut::new();
                 buf.put_u64_le(len as u64);
                 buf.extend_from_slice(bytes.as_ref());
@@ -141,12 +147,12 @@ proptest! {
         message2.extend_from_slice(&fragments[0].body[(33 + 8)..]);
 
         for frag in fragments.iter().skip(1) {
-            message2.extend_from_slice(frag.body.as_ref())
+            message2.extend_from_slice(frag.body.as_ref());
         }
 
         prop_assert_eq!(message.as_slice(), &message2[0..message.len()], "numb_fragments: {}", fragments.len());
 
-        for byte in message2[message.len()..].iter(){
+        for byte in &message2[message.len()..]{
             prop_assert_eq!(*byte, 0);
         }
     }

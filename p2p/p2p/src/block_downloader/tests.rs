@@ -47,6 +47,7 @@ proptest! {
 
         let tokio_pool = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
 
+        #[expect(clippy::significant_drop_tightening)]
         tokio_pool.block_on(async move {
             timeout(Duration::from_secs(600), async move {
                 let client_pool = ClientPool::new();
@@ -54,7 +55,7 @@ proptest! {
                 let mut peer_ids = Vec::with_capacity(peers);
 
                 for _ in 0..peers {
-                    let client = mock_block_downloader_client(blockchain.clone());
+                    let client = mock_block_downloader_client(Arc::clone(&blockchain));
 
                     peer_ids.push(client.info.id);
 
@@ -156,7 +157,7 @@ prop_compose! {
         for (height, mut block) in  blocks.into_iter().enumerate() {
             if let Some(last) = blockchain.last() {
                 block.0.header.previous = *last.0;
-                block.0.miner_transaction.prefix_mut().inputs = vec![Input::Gen(height)]
+                block.0.miner_transaction.prefix_mut().inputs = vec![Input::Gen(height)];
             }
 
             blockchain.insert(block.0.hash(), block);
@@ -173,7 +174,7 @@ fn mock_block_downloader_client(blockchain: Arc<MockBlockchain>) -> Client<Clear
         cuprate_p2p_core::handles::HandleBuilder::new().build();
 
     let request_handler = service_fn(move |req: PeerRequest| {
-        let bc = blockchain.clone();
+        let bc = Arc::clone(&blockchain);
 
         async move {
             match req {

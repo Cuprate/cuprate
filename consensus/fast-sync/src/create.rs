@@ -1,3 +1,8 @@
+#![expect(
+    unused_crate_dependencies,
+    reason = "binary shares same Cargo.toml as library"
+)]
+
 use std::{fmt::Write, fs::write};
 
 use clap::Parser;
@@ -70,15 +75,12 @@ async fn main() {
     let mut height = 0_usize;
 
     while height < height_target {
-        match read_batch(&mut read_handle, height).await {
-            Ok(block_ids) => {
-                let hash = hash_of_hashes(block_ids.as_slice());
-                hashes_of_hashes.push(hash);
-            }
-            Err(_) => {
-                println!("Failed to read next batch from database");
-                break;
-            }
+        if let Ok(block_ids) = read_batch(&mut read_handle, height).await {
+            let hash = hash_of_hashes(block_ids.as_slice());
+            hashes_of_hashes.push(hash);
+        } else {
+            println!("Failed to read next batch from database");
+            break;
         }
         height += BATCH_SIZE;
     }
@@ -88,5 +90,5 @@ async fn main() {
     let generated = generate_hex(&hashes_of_hashes);
     write("src/data/hashes_of_hashes", generated).expect("Could not write file");
 
-    println!("Generated hashes up to block height {}", height);
+    println!("Generated hashes up to block height {height}");
 }

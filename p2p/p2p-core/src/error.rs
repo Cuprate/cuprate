@@ -4,7 +4,7 @@ pub struct SharedError<T>(Arc<OnceLock<T>>);
 
 impl<T> Clone for SharedError<T> {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self(Arc::clone(&self.0))
     }
 }
 
