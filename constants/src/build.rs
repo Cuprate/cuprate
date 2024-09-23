@@ -13,7 +13,7 @@
 /// assert_eq!(COMMIT.as_bytes().len(), 40);
 /// assert_eq!(COMMIT.to_lowercase(), COMMIT);
 /// ```
-pub const COMMIT: &str = core::env!("COMMIT"); // Set in `helper/build.rs`.
+pub const COMMIT: &str = core::env!("COMMIT"); // Set in `constants/build.rs`.
 
 /// `true` if debug build, else `false`.
 pub const DEBUG: bool = cfg!(debug_assertions);
