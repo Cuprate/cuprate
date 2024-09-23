@@ -21,6 +21,4 @@ This is a _tradeoff_ `cuprate_database` takes as:
 - The main API, `service`, needs to return owned value anyway
 - Having no references removes a lot of lifetime complexity
 
-The alternative is either:
-- Using proper (de)serialization instead of casting (which comes with its own costs)
-- Somehow fixing the alignment issues in the backends mentioned previously
+The alternative is somehow fixing the alignment issues in the backends mentioned previously.
