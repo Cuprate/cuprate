@@ -29,6 +29,7 @@ pub enum TxpoolReadResponse {
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
 /// The transaction pool [`tower::Service`] write request type.
+#[derive(Clone)]
 pub enum TxpoolWriteRequest {
     /// Add a transaction to the pool.
     ///
@@ -49,7 +50,7 @@ pub enum TxpoolWriteRequest {
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteResponse
 /// The transaction pool [`tower::Service`] write response type.
-#[derive(Debug, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TxpoolWriteResponse {
     /// A [`TxpoolWriteRequest::AddTransaction`] response.
     ///

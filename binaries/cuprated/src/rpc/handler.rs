@@ -7,7 +7,7 @@ use futures::{channel::oneshot::channel, future::BoxFuture};
 use serde::{Deserialize, Serialize};
 use tower::Service;
 
-use cuprate_blockchain::service::BlockchainReadHandle;
+use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
 use cuprate_json_rpc::Id;
 use cuprate_rpc_interface::RpcHandler;
@@ -16,20 +16,13 @@ use cuprate_rpc_types::{
     json::{JsonRpcRequest, JsonRpcResponse},
     other::{OtherRequest, OtherResponse},
 };
-use cuprate_txpool::service::TxpoolReadHandle;
+use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 
 use crate::rpc::{bin, json, other};
 
 /// TODO
 #[derive(Clone)]
 pub struct CupratedRpcHandler {
-    /// Should this RPC server be [restricted](RpcHandler::restricted)?
-    //
-    // INVARIANT:
-    // We don't need to include this in `state` and check for
-    // `self.is_restricted()` because `cuprate-rpc-interface` handles that.
-    pub restricted: bool,
-
     /// State needed for request -> response mapping.
     pub state: CupratedRpcHandlerState,
 }
@@ -37,11 +30,24 @@ pub struct CupratedRpcHandler {
 /// TODO
 #[derive(Clone)]
 pub struct CupratedRpcHandlerState {
+    /// Should this RPC server be [restricted](RpcHandler::restricted)?
+    //
+    // INVARIANT:
+    // We don't need to include this in `state` and check for
+    // `self.is_restricted()` because `cuprate-rpc-interface` handles that.
+    pub restricted: bool,
+
     /// Read handle to the blockchain database.
-    pub blockchain: BlockchainReadHandle,
+    pub blockchain_read: BlockchainReadHandle,
+
+    /// Write handle to the blockchain database.
+    pub blockchain_write: BlockchainWriteHandle,
 
     /// Read handle to the transaction pool database.
-    pub txpool: TxpoolReadHandle,
+    pub txpool_read: TxpoolReadHandle,
+
+    /// Write handle to the transaction pool database.
+    pub txpool_write: TxpoolWriteHandle,
 }
 
 impl CupratedRpcHandler {
@@ -53,7 +59,7 @@ impl CupratedRpcHandler {
 
 impl RpcHandler for CupratedRpcHandler {
     fn restricted(&self) -> bool {
-        self.restricted
+        self.state.restricted
     }
 }
 
