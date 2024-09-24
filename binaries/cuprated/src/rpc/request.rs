@@ -12,7 +12,7 @@
 //! the [`blockchain`] modules contains methods for the
 //! blockchain database [`tower::Service`] API.
 
+mod address_book;
 mod blockchain;
 mod blockchain_manager;
-mod p2p;
 mod txpool;

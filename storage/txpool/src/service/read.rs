@@ -58,6 +58,7 @@ fn map_request(
     match request {
         TxpoolReadRequest::TxBlob(tx_hash) => tx_blob(env, &tx_hash),
         TxpoolReadRequest::TxVerificationData(tx_hash) => tx_verification_data(env, &tx_hash),
+        TxpoolReadRequest::Backlog | TxpoolReadRequest::Size => todo!(),
     }
 }
 

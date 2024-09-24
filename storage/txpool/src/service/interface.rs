@@ -12,19 +12,39 @@ use crate::types::TransactionHash;
 pub enum TxpoolReadRequest {
     /// A request for the blob (raw bytes) of a transaction with the given hash.
     TxBlob(TransactionHash),
+
     /// A request for the [`TransactionVerificationData`] of a transaction in the tx pool.
     TxVerificationData(TransactionHash),
+
+    /// TODO
+    Backlog,
+
+    /// TODO
+    Size,
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolReadResponse
 /// The transaction pool [`tower::Service`] read response type.
 #[expect(clippy::large_enum_variant)]
 pub enum TxpoolReadResponse {
-    /// A response containing the raw bytes of a transaction.
+    /// Response to [`TxpoolReadRequest::TxBlob`].
+    ///
+    /// The inner value is the raw bytes of a transaction.
     // TODO: use bytes::Bytes.
     TxBlob(Vec<u8>),
-    /// A response of [`TransactionVerificationData`].
+
+    /// Response to [`TxpoolReadRequest::TxVerificationData`].
     TxVerificationData(TransactionVerificationData),
+
+    /// Response to [`TxpoolReadRequest::Backlog`].
+    ///
+    /// TODO
+    Backlog(Vec<std::convert::Infallible>),
+
+    /// Response to [`TxpoolReadRequest::Size`].
+    ///
+    /// TODO
+    Size(usize),
 }
 
 //---------------------------------------------------------------------------------------------------- TxpoolWriteRequest
@@ -42,6 +62,7 @@ pub enum TxpoolWriteRequest {
         /// [`true`] if this tx is in the stem state.
         state_stem: bool,
     },
+
     /// Remove a transaction with the given hash from the pool.
     ///
     /// Returns [`TxpoolWriteResponse::Ok`].
@@ -52,9 +73,12 @@ pub enum TxpoolWriteRequest {
 /// The transaction pool [`tower::Service`] write response type.
 #[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq)]
 pub enum TxpoolWriteResponse {
-    /// A [`TxpoolWriteRequest::AddTransaction`] response.
+    /// Response to:
+    /// - [`TxpoolWriteRequest::RemoveTransaction`]
+    Ok,
+
+    /// Response to [`TxpoolWriteRequest::AddTransaction`].
     ///
     /// If the inner value is [`Some`] the tx was not added to the pool as it double spends a tx with the given hash.
     AddTransaction(Option<TransactionHash>),
-    Ok,
 }
