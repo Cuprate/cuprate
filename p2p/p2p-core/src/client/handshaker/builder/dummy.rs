@@ -128,6 +128,11 @@ impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
                 AddressBookResponse::Ok
             }
             AddressBookRequest::IsPeerBanned(_) => AddressBookResponse::IsPeerBanned(false),
+            AddressBookRequest::PeerlistSize
+            | AddressBookRequest::ConnectionCount
+            | AddressBookRequest::SetBan(_)
+            | AddressBookRequest::GetBan(_)
+            | AddressBookRequest::GetBans => todo!(),
         }))
     }
 }

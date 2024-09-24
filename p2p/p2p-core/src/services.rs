@@ -108,16 +108,20 @@ pub enum AddressBookRequest<Z: NetworkZone> {
         /// The peers rpc credits per hash
         rpc_credits_per_hash: u32,
     },
+
     /// Tells the address book about a peer list received from a peer.
     IncomingPeerList(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
+
     /// Takes a random white peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
     TakeRandomWhitePeer { height: Option<usize> },
+
     /// Takes a random gray peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed
     TakeRandomGrayPeer { height: Option<usize> },
+
     /// Takes a random peer from the peer list. If height is specified
     /// then the peer list should retrieve a peer that should have a full
     /// block at that height according to it's pruning seed.
@@ -125,17 +129,69 @@ pub enum AddressBookRequest<Z: NetworkZone> {
     /// The address book will look in the white peer list first, then the gray
     /// one if no peer is found.
     TakeRandomPeer { height: Option<usize> },
+
     /// Gets the specified number of white peers, or less if we don't have enough.
     GetWhitePeers(usize),
+
     /// Checks if the given peer is banned.
     IsPeerBanned(Z::Addr),
+
+    /// TODO
+    PeerlistSize,
+
+    /// TODO
+    ConnectionCount,
+
+    /// TODO: `cuprate_rpc_types::json::SetBanRequest` input
+    SetBan(std::convert::Infallible),
+
+    /// TODO
+    GetBan(std::convert::Infallible),
+
+    /// TODO
+    GetBans,
 }
 
 /// A response from the address book service.
 pub enum AddressBookResponse<Z: NetworkZone> {
+    /// TODO
+    ///
+    /// Response to:
+    /// - [`AddressBookRequest::NewConnection`]
+    /// - [`AddressBookRequest::IncomingPeerList`]
     Ok,
+
+    /// Response to:
+    /// - [`AddressBookRequest::TakeRandomWhitePeer`]
+    /// - [`AddressBookRequest::TakeRandomGrayPeer`]
+    /// - [`AddressBookRequest::TakeRandomPeer`]
     Peer(ZoneSpecificPeerListEntryBase<Z::Addr>),
+
+    /// Response to [`AddressBookRequest::GetWhitePeers`].
     Peers(Vec<ZoneSpecificPeerListEntryBase<Z::Addr>>),
+
+    /// Response to [`AddressBookRequest::IsPeerBanned`].
+    ///
     /// Contains `true` if the peer is banned.
     IsPeerBanned(bool),
+
+    /// Response to [`AddressBookRequest::PeerlistSize`].
+    ///
+    /// TODO
+    PeerlistSize { white: usize, grey: usize },
+
+    /// Response to [`AddressBookRequest::ConnectionCount`].
+    ///
+    /// TODO
+    ConnectionCount { incoming: usize, outgoing: usize },
+
+    /// Response to [`AddressBookRequest::GetBan`].
+    ///
+    /// TODO
+    GetBan(std::convert::Infallible),
+
+    /// Response to [`AddressBookRequest::GetBans`].
+    ///
+    /// TODO
+    GetBans(std::convert::Infallible),
 }

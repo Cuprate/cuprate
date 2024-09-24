@@ -411,6 +411,11 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             AddressBookRequest::IsPeerBanned(addr) => Ok(AddressBookResponse::IsPeerBanned(
                 self.is_peer_banned(&addr),
             )),
+            AddressBookRequest::PeerlistSize
+            | AddressBookRequest::ConnectionCount
+            | AddressBookRequest::SetBan(_)
+            | AddressBookRequest::GetBan(_)
+            | AddressBookRequest::GetBans => todo!(),
         };
 
         ready(response)
