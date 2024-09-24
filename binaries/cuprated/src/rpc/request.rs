@@ -14,5 +14,6 @@
 
 mod address_book;
 mod blockchain;
+mod blockchain_context;
 mod blockchain_manager;
 mod txpool;

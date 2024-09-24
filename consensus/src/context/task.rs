@@ -153,7 +153,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
         req: BlockChainContextRequest,
     ) -> Result<BlockChainContextResponse, tower::BoxError> {
         Ok(match req {
-            BlockChainContextRequest::GetContext => {
+            BlockChainContextRequest::Context => {
                 tracing::debug!("Getting blockchain context");
 
                 let current_hf = self.hardfork_state.current_hardfork();
@@ -183,7 +183,7 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                     },
                 })
             }
-            BlockChainContextRequest::GetCurrentRxVm => {
+            BlockChainContextRequest::CurrentRxVm => {
                 BlockChainContextResponse::RxVms(self.rx_vm_cache.get_vms().await)
             }
             BlockChainContextRequest::BatchGetDifficulties(blocks) => {
@@ -324,6 +324,9 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
             } => {
                 self.alt_chain_cache_map.add_alt_cache(prev_id, cache);
                 BlockChainContextResponse::Ok
+            }
+            BlockChainContextRequest::HardForkInfo(_) | BlockChainContextRequest::FeeEstimate { .. } => {
+                todo!()
             }
         })
     }

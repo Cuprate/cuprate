@@ -230,7 +230,7 @@ where
     let BlockChainContextResponse::Context(checked_context) = context_svc
         .ready()
         .await?
-        .call(BlockChainContextRequest::GetContext)
+        .call(BlockChainContextRequest::Context)
         .await?
     else {
         panic!("Context service returned wrong response!");
