@@ -325,7 +325,8 @@ impl<D: Database + Clone + Send + 'static> ContextTask<D> {
                 self.alt_chain_cache_map.add_alt_cache(prev_id, cache);
                 BlockChainContextResponse::Ok
             }
-            BlockChainContextRequest::HardForkInfo(_) | BlockChainContextRequest::FeeEstimate { .. } => {
+            BlockChainContextRequest::HardForkInfo(_)
+            | BlockChainContextRequest::FeeEstimate { .. } => {
                 todo!()
             }
         })

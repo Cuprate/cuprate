@@ -326,7 +326,7 @@ pub enum BlockChainContextRequest {
     FeeEstimate {
         /// TODO
         grace_blocks: u64,
-    }
+    },
 }
 
 pub enum BlockChainContextResponse {
