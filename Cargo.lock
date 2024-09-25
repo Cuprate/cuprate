@@ -886,13 +886,16 @@ name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
  "bytes",
+ "cfg-if",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "curve25519-dalek",
  "monero-serai",
+ "pretty_assertions",
  "proptest",
  "proptest-derive",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
