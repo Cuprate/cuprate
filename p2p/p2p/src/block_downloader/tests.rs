@@ -20,8 +20,7 @@ use tower::{service_fn, Service};
 use cuprate_fixed_bytes::ByteArrayVec;
 use cuprate_p2p_core::{
     client::{mock_client, Client, InternalPeerID, PeerInformation},
-    ClearNet, ConnectionDirection, PeerRequest, PeerResponse, ProtocolRequest,
-    ProtocolResponse,
+    ClearNet, ConnectionDirection, PeerRequest, PeerResponse, ProtocolRequest, ProtocolResponse,
 };
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
@@ -52,12 +51,8 @@ proptest! {
             timeout(Duration::from_secs(600), async move {
                 let client_pool = ClientPool::new();
 
-                let mut peer_ids = Vec::with_capacity(peers);
-
                 for _ in 0..peers {
                     let client = mock_block_downloader_client(Arc::clone(&blockchain));
-
-                    peer_ids.push(client.info.id);
 
                     client_pool.add_new_client(client);
                 }

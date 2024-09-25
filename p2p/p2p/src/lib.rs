@@ -5,10 +5,7 @@
 use std::sync::Arc;
 
 use futures::FutureExt;
-use tokio::{
-    sync::mpsc,
-    task::JoinSet,
-};
+use tokio::{sync::mpsc, task::JoinSet};
 use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
