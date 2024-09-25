@@ -36,3 +36,28 @@ pub(super) async fn prune() -> Result<(), Error> {
 pub(super) async fn pruned() -> Result<bool, Error> {
     Ok(todo!())
 }
+
+/// TODO: doc enum message
+pub(super) async fn relay_block() -> Result<bool, Error> {
+    Ok(todo!())
+}
+
+/// TODO: doc enum message
+pub(super) async fn syncing() -> Result<bool, Error> {
+    Ok(todo!())
+}
+
+/// TODO: doc enum message
+pub(super) async fn synced() -> Result<bool, Error> {
+    Ok(todo!())
+}
+
+/// TODO: doc enum message
+pub(super) async fn target() -> Result<bool, Error> {
+    Ok(todo!())
+}
+
+/// TODO: doc enum message
+pub(super) async fn target_height() -> Result<bool, Error> {
+    Ok(todo!())
+}
