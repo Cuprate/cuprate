@@ -16,7 +16,6 @@ use tower::Service;
 use cuprate_p2p_core::{
     client::InternalPeerID,
     handles::ConnectionHandle,
-    services::{PeerSyncRequest, PeerSyncResponse},
     NetworkZone,
 };
 use cuprate_pruning::{PruningSeed, CRYPTONOTE_MAX_BLOCK_HEIGHT};

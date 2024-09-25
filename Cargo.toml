@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = [
-	"binaries/cuprated",
+	#"binaries/cuprated",
 	"consensus",
 	"consensus/fast-sync",
 	"consensus/rules",
@@ -12,7 +12,7 @@ members = [
 	"net/fixed-bytes",
 	"net/levin",
 	"net/wire",
-	"p2p/p2p",
+	#"p2p/p2p",
 	"p2p/p2p-core",
 	"p2p/dandelion-tower",
 	"p2p/async-buffer",

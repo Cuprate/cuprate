@@ -1,10 +1,10 @@
+use futures::channel::oneshot;
+use std::sync::Mutex;
 use std::{
     fmt::{Debug, Display, Formatter},
     sync::Arc,
     task::{ready, Context, Poll},
 };
-
-use futures::channel::oneshot;
 use tokio::{
     sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     task::JoinHandle,
@@ -14,7 +14,6 @@ use tower::{Service, ServiceExt};
 use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_pruning::PruningSeed;
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
@@ -28,6 +27,7 @@ mod request_handler;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
+use cuprate_wire::CoreSyncData;
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
 /// An internal identifier for a given peer, will be their address if known
@@ -59,8 +59,11 @@ pub struct PeerInformation<A> {
     pub handle: ConnectionHandle,
     /// The direction of this connection (inbound|outbound).
     pub direction: ConnectionDirection,
-    /// The peers pruning seed.
-    pub pruning_seed: PruningSeed,
+    /// The [`CoreSyncData`] of this peer.
+    ///
+    /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the
+    /// block hash for the block at height one below [`CoreSyncData::current_height`].
+    pub core_sync_data: Arc<Mutex<CoreSyncData>>,
 }
 
 /// This represents a connection to a peer.

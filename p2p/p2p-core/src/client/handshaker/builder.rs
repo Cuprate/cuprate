@@ -7,13 +7,11 @@ use cuprate_wire::BasicNodeData;
 
 use crate::{
     client::{handshaker::HandShaker, InternalPeerID},
-    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc, ProtocolRequestHandler,
+    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, ProtocolRequestHandler,
 };
 
 mod dummy;
-pub use dummy::{
-    DummyAddressBook, DummyCoreSyncSvc, DummyPeerSyncSvc, DummyProtocolRequestHandler,
-};
+pub use dummy::{DummyAddressBook, DummyCoreSyncSvc, DummyProtocolRequestHandler};
 
 /// A [`HandShaker`] [`Service`](tower::Service) builder.
 ///
@@ -28,7 +26,6 @@ pub struct HandshakerBuilder<
     N: NetworkZone,
     AdrBook = DummyAddressBook,
     CSync = DummyCoreSyncSvc,
-    PSync = DummyPeerSyncSvc,
     ProtoHdlr = DummyProtocolRequestHandler,
     BrdcstStrmMkr = fn(
         InternalPeerID<<N as NetworkZone>::Addr>,
@@ -38,8 +35,6 @@ pub struct HandshakerBuilder<
     address_book: AdrBook,
     /// The core sync data service.
     core_sync_svc: CSync,
-    /// The peer sync service.
-    peer_sync_svc: PSync,
     /// The protocol request service.
     protocol_request_svc: ProtoHdlr,
     /// Our [`BasicNodeData`]
@@ -59,7 +54,6 @@ impl<N: NetworkZone> HandshakerBuilder<N> {
         Self {
             address_book: DummyAddressBook,
             core_sync_svc: DummyCoreSyncSvc::static_mainnet_genesis(),
-            peer_sync_svc: DummyPeerSyncSvc,
             protocol_request_svc: DummyProtocolRequestHandler,
             our_basic_node_data,
             broadcast_stream_maker: |_| stream::pending(),
@@ -69,8 +63,8 @@ impl<N: NetworkZone> HandshakerBuilder<N> {
     }
 }
 
-impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
-    HandshakerBuilder<N, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
+impl<N: NetworkZone, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
+    HandshakerBuilder<N, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
 {
     /// Changes the address book to the provided one.
     ///
@@ -83,13 +77,12 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     pub fn with_address_book<NAdrBook>(
         self,
         new_address_book: NAdrBook,
-    ) -> HandshakerBuilder<N, NAdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
+    ) -> HandshakerBuilder<N, NAdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NAdrBook: AddressBook<N> + Clone,
     {
         let Self {
             core_sync_svc,
-            peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
@@ -100,7 +93,6 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         HandshakerBuilder {
             address_book: new_address_book,
             core_sync_svc,
-            peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
@@ -125,13 +117,12 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     pub fn with_core_sync_svc<NCSync>(
         self,
         new_core_sync_svc: NCSync,
-    ) -> HandshakerBuilder<N, AdrBook, NCSync, PSync, ProtoHdlr, BrdcstStrmMkr>
+    ) -> HandshakerBuilder<N, AdrBook, NCSync, ProtoHdlr, BrdcstStrmMkr>
     where
         NCSync: CoreSyncSvc + Clone,
     {
         let Self {
             address_book,
-            peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
@@ -142,43 +133,6 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         HandshakerBuilder {
             address_book,
             core_sync_svc: new_core_sync_svc,
-            peer_sync_svc,
-            protocol_request_svc,
-            our_basic_node_data,
-            broadcast_stream_maker,
-            connection_parent_span,
-            _zone: PhantomData,
-        }
-    }
-
-    /// Changes the peer sync service, which keeps track of peers sync states.
-    ///
-    /// ## Default Peer Sync Service
-    ///
-    /// The default peer sync service will be used if this method is not called.
-    ///
-    /// The default peer sync service will not keep track of peers sync states.
-    pub fn with_peer_sync_svc<NPSync>(
-        self,
-        new_peer_sync_svc: NPSync,
-    ) -> HandshakerBuilder<N, AdrBook, CSync, NPSync, ProtoHdlr, BrdcstStrmMkr>
-    where
-        NPSync: PeerSyncSvc<N> + Clone,
-    {
-        let Self {
-            address_book,
-            core_sync_svc,
-            protocol_request_svc,
-            our_basic_node_data,
-            broadcast_stream_maker,
-            connection_parent_span,
-            ..
-        } = self;
-
-        HandshakerBuilder {
-            address_book,
-            core_sync_svc,
-            peer_sync_svc: new_peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker,
@@ -197,14 +151,13 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     pub fn with_protocol_request_handler<NProtoHdlr>(
         self,
         new_protocol_handler: NProtoHdlr,
-    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, NProtoHdlr, BrdcstStrmMkr>
+    ) -> HandshakerBuilder<N, AdrBook, CSync, NProtoHdlr, BrdcstStrmMkr>
     where
         NProtoHdlr: ProtocolRequestHandler + Clone,
     {
         let Self {
             address_book,
             core_sync_svc,
-            peer_sync_svc,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -214,7 +167,6 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         HandshakerBuilder {
             address_book,
             core_sync_svc,
-            peer_sync_svc,
             protocol_request_svc: new_protocol_handler,
             our_basic_node_data,
             broadcast_stream_maker,
@@ -233,7 +185,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     pub fn with_broadcast_stream_maker<NBrdcstStrmMkr, BrdcstStrm>(
         self,
         new_broadcast_stream_maker: NBrdcstStrmMkr,
-    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, ProtoHdlr, NBrdcstStrmMkr>
+    ) -> HandshakerBuilder<N, AdrBook, CSync, ProtoHdlr, NBrdcstStrmMkr>
     where
         BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
         NBrdcstStrmMkr: Fn(InternalPeerID<N::Addr>) -> BrdcstStrm + Clone + Send + 'static,
@@ -241,7 +193,6 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         let Self {
             address_book,
             core_sync_svc,
-            peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             connection_parent_span,
@@ -251,7 +202,6 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         HandshakerBuilder {
             address_book,
             core_sync_svc,
-            peer_sync_svc,
             protocol_request_svc,
             our_basic_node_data,
             broadcast_stream_maker: new_broadcast_stream_maker,
@@ -274,10 +224,9 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
     }
 
     /// Builds the [`HandShaker`].
-    pub fn build(self) -> HandShaker<N, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr> {
+    pub fn build(self) -> HandShaker<N, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr> {
         HandShaker::new(
             self.address_book,
-            self.peer_sync_svc,
             self.core_sync_svc,
             self.protocol_request_svc,
             self.broadcast_stream_maker,
