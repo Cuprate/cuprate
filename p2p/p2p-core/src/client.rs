@@ -27,6 +27,7 @@ mod request_handler;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
+use cuprate_pruning::PruningSeed;
 use cuprate_wire::CoreSyncData;
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
@@ -59,6 +60,8 @@ pub struct PeerInformation<A> {
     pub handle: ConnectionHandle,
     /// The direction of this connection (inbound|outbound).
     pub direction: ConnectionDirection,
+    /// The peer's [`PruningSeed`].
+    pub pruning_seed: PruningSeed,
     /// The [`CoreSyncData`] of this peer.
     ///
     /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the

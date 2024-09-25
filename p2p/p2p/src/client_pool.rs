@@ -127,6 +127,27 @@ impl<N: NetworkZone> ClientPool<N> {
     ) -> impl Iterator<Item = ClientPoolDropGuard<N>> + sealed::Captures<(&'a (), &'b ())> {
         peers.iter().filter_map(|peer| self.borrow_client(peer))
     }
+
+    pub fn clients_with_more_cumulative_difficulty(
+        self: &Arc<Self>,
+        cumulative_difficulty: u128,
+    ) -> Vec<ClientPoolDropGuard<N>> {
+        let peers = self
+            .clients
+            .iter()
+            .filter_map(|element| {
+                let peer_sync_info = element.value().info.core_sync_data.lock().unwrap();
+
+                if peer_sync_info.cumulative_difficulty() > cumulative_difficulty {
+                    Some(*element.key())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        self.borrow_clients(&peers).collect()
+    }
 }
 
 mod sealed {

@@ -6,10 +6,9 @@ use std::sync::Arc;
 
 use futures::FutureExt;
 use tokio::{
-    sync::{mpsc, watch},
+    sync::mpsc,
     task::JoinSet,
 };
-use tokio_stream::wrappers::WatchStream;
 use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
@@ -17,7 +16,7 @@ use cuprate_async_buffer::BufferStream;
 use cuprate_p2p_core::{
     client::Connector,
     client::InternalPeerID,
-    services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
+    services::{AddressBookRequest, AddressBookResponse},
     CoreSyncSvc, NetworkZone, ProtocolRequestHandler,
 };
 
@@ -28,7 +27,6 @@ pub mod config;
 pub mod connection_maintainer;
 mod constants;
 mod inbound_server;
-mod sync_states;
 
 use block_downloader::{BlockBatch, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse};
 pub use broadcast::{BroadcastRequest, BroadcastSvc};
@@ -63,12 +61,6 @@ where
         config.max_inbound_connections + config.outbound_connections,
     );
 
-    let (sync_states_svc, top_block_watch) = sync_states::PeerSyncSvc::new();
-    let sync_states_svc = Buffer::new(
-        sync_states_svc,
-        config.max_inbound_connections + config.outbound_connections,
-    );
-
     // Use the default config. Changing the defaults affects tx fluff times, which could affect D++ so for now don't allow changing
     // this.
     let (broadcast_svc, outbound_mkr, inbound_mkr) =
@@ -83,7 +75,6 @@ where
     let outbound_handshaker_builder =
         cuprate_p2p_core::client::HandshakerBuilder::new(basic_node_data)
             .with_address_book(address_book.clone())
-            .with_peer_sync_svc(sync_states_svc.clone())
             .with_core_sync_svc(core_sync_svc)
             .with_protocol_request_handler(protocol_request_handler)
             .with_broadcast_stream_maker(outbound_mkr)
@@ -136,9 +127,7 @@ where
     Ok(NetworkInterface {
         pool: client_pool,
         broadcast_svc,
-        top_block_watch,
         make_connection_tx,
-        sync_states_svc,
         address_book: address_book.boxed_clone(),
         _background_tasks: Arc::new(background_tasks),
     })
@@ -151,16 +140,11 @@ pub struct NetworkInterface<N: NetworkZone> {
     pool: Arc<client_pool::ClientPool<N>>,
     /// A [`Service`] that allows broadcasting to all connected peers.
     broadcast_svc: BroadcastSvc<N>,
-    /// A [`watch`] channel that contains the highest seen cumulative difficulty and other info
-    /// on that claimed chain.
-    top_block_watch: watch::Receiver<sync_states::NewSyncInfo>,
     /// A channel to request extra connections.
     #[expect(dead_code, reason = "will be used eventually")]
     make_connection_tx: mpsc::Sender<MakeConnectionRequest>,
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
-    /// The peer's sync states service.
-    sync_states_svc: Buffer<sync_states::PeerSyncSvc<N>, PeerSyncRequest<N>>,
     /// Background tasks that will be aborted when this interface is dropped.
     _background_tasks: Arc<JoinSet<()>>,
 }
@@ -183,17 +167,7 @@ impl<N: NetworkZone> NetworkInterface<N> {
             + 'static,
         C::Future: Send + 'static,
     {
-        block_downloader::download_blocks(
-            Arc::clone(&self.pool),
-            self.sync_states_svc.clone(),
-            our_chain_service,
-            config,
-        )
-    }
-
-    /// Returns a stream which yields the highest seen sync state from a connected peer.
-    pub fn top_sync_stream(&self) -> WatchStream<sync_states::NewSyncInfo> {
-        WatchStream::from_changes(self.top_block_watch.clone())
+        block_downloader::download_blocks(Arc::clone(&self.pool), our_chain_service, config)
     }
 
     /// Returns the address book service.
