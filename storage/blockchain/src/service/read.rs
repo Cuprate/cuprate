@@ -107,6 +107,12 @@ fn map_request(
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
+        R::TotalTxCount
+        | R::DatabaseSize
+        | R::Difficulty(_)
+        | R::OutputHistogram
+        | R::CoinbaseTxSum
+        | R::MinerData => todo!(),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */

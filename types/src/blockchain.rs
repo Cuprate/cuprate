@@ -103,6 +103,24 @@ pub enum BlockchainReadRequest {
 
     /// A request for all alt blocks in the chain with the given [`ChainId`].
     AltBlocksInChain(ChainId),
+
+    /// TODO
+    TotalTxCount,
+
+    /// TODO
+    DatabaseSize,
+
+    // TODO
+    Difficulty(usize),
+
+    /// TODO
+    OutputHistogram,
+
+    /// TODO
+    CoinbaseTxSum,
+
+    /// TODO
+    MinerData,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -227,6 +245,36 @@ pub enum BlockchainResponse {
     /// Contains all the alt blocks in the alt-chain in chronological order.
     AltBlocksInChain(Vec<AltBlockInformation>),
 
+    /// The response for [`BlockchainReadRequest::TotalTxCount`].
+    ///
+    /// TODO
+    TotalTxCount(usize),
+
+    /// The response for [`BlockchainReadRequest::TotalTxCount`].
+    ///
+    /// TODO
+    DatabaseSize { database_size: u64, free_space: u64 },
+
+    /// The response for [`BlockchainReadRequest::TotalTxCount`].
+    ///
+    // TODO
+    Difficulty(u128),
+
+    /// The response for [`BlockchainReadRequest::TotalTxCount`].
+    ///
+    /// TODO
+    OutputHistogram(std::convert::Infallible),
+
+    /// The response for [`BlockchainReadRequest::TotalTxCount`].
+    ///
+    /// TODO
+    CoinbaseTxSum(std::convert::Infallible),
+
+    /// The response for [`BlockchainReadRequest::TotalTxCount`].
+    ///
+    /// TODO
+    MinerData(std::convert::Infallible),
+
     //------------------------------------------------------ Writes
     /// A generic Ok response to indicate a request was successfully handled.
     ///
@@ -236,6 +284,7 @@ pub enum BlockchainResponse {
     /// - [`BlockchainWriteRequest::ReverseReorg`]
     /// - [`BlockchainWriteRequest::FlushAltBlocks`]
     Ok,
+
     /// The response for [`BlockchainWriteRequest::PopBlocks`].
     ///
     /// The inner value is the alt-chain ID for the old main chain blocks.

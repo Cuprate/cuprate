@@ -22,24 +22,17 @@ use cuprate_types::{
 
 use crate::rpc::{CupratedRpcHandler, CupratedRpcHandlerState};
 
-#[expect(
-    unreachable_code,
-    clippy::needless_pass_by_ref_mut,
-    reason = "TODO: remove after impl"
-)]
-impl CupratedRpcHandlerState {
-    /// TODO: doc enum message
-    pub(super) async fn pop_blocks(&mut self) -> Result<(u64, [u8; 32]), Error> {
-        Ok(todo!())
-    }
+/// TODO: doc enum message
+pub(super) async fn pop_blocks() -> Result<(u64, [u8; 32]), Error> {
+    Ok(todo!())
+}
 
-    /// TODO: doc enum message
-    pub(super) async fn prune(&mut self) -> Result<(), Error> {
-        Ok(todo!())
-    }
+/// TODO: doc enum message
+pub(super) async fn prune() -> Result<(), Error> {
+    Ok(todo!())
+}
 
-    /// TODO: doc enum message
-    pub(super) async fn pruned(&mut self) -> Result<bool, Error> {
-        Ok(todo!())
-    }
+/// TODO: doc enum message
+pub(super) async fn pruned() -> Result<bool, Error> {
+    Ok(todo!())
 }
