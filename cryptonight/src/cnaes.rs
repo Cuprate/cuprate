@@ -368,10 +368,7 @@ pub(crate) fn round_fwd(state: &mut [u8; AES_BLOCK_SIZE], key: &[u8; ROUND_KEY_S
     r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 2048 + (state[6] as usize) * 4));
     r4 ^= u32::from_ne_bytes(subarray_copy(&CRYPTONIGHT_SBOX, 3072 + (state[11] as usize) * 4));
 
-    let mut state128 = r4 as u128;
-    state128 = (state128 << 32) | (r3 as u128);
-    state128 = (state128 << 32) | (r2 as u128);
-    state128 = (state128 << 32) | (r1 as u128);
+    let mut state128 = (r4 as u128) << 96 | (r3 as u128) << 64 | (r2 as u128) << 32 | r1 as u128;
     state128 ^= u128::from_ne_bytes(*key);
 
     state.copy_from_slice(&state128.to_ne_bytes());
