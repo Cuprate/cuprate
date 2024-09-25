@@ -45,6 +45,9 @@ where
     CSync: CoreSyncSvc,
     PSync: PeerSyncSvc<N>,
 {
+    let connection_tx_weak = connection_tx.downgrade();
+    drop(connection_tx);
+
     // Instead of tracking the time from last message from the peer and sending a timed sync if this value is too high,
     // we just send a timed sync every [TIMEOUT_INTERVAL] seconds.
     let mut interval = interval(TIMEOUT_INTERVAL);
@@ -59,10 +62,10 @@ where
 
         tracing::trace!("timeout monitor tick.");
 
-        if connection_tx.is_closed() {
+        let Some(connection_tx) = connection_tx_weak.upgrade() else {
             tracing::debug!("Closing timeout monitor, connection disconnected.");
             return Ok(());
-        }
+        };
 
         let Ok(permit) = Arc::clone(&semaphore).try_acquire_owned() else {
             // If we can't get a permit the connection is currently waiting for a response, so no need to
