@@ -15,6 +15,9 @@ use crate::json::output::Output;
 /// Used in:
 /// - [`/get_transactions` -> `txs.as_json`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_transactions)
 /// - [`/get_transaction_pool` -> `tx_json`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_transaction_pool)
+///
+/// # TODO
+/// The epee implementation on this struct panics.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[serde(untagged)]
@@ -32,6 +35,34 @@ pub enum Transaction {
         rct_signatures: RctSignatures,
         rctsig_prunable: RctSigPrunable,
     },
+}
+
+#[cfg(feature = "epee")]
+impl cuprate_epee_encoding::EpeeObjectBuilder<Transaction> for () {
+    fn add_field<B: bytes::Buf>(
+        &mut self,
+        _: &str,
+        _: &mut B,
+    ) -> cuprate_epee_encoding::error::Result<bool> {
+        todo!()
+    }
+
+    fn finish(self) -> cuprate_epee_encoding::error::Result<Transaction> {
+        todo!()
+    }
+}
+
+#[cfg(feature = "epee")]
+impl cuprate_epee_encoding::EpeeObject for Transaction {
+    type Builder = ();
+
+    fn number_of_fields(&self) -> u64 {
+        todo!()
+    }
+
+    fn write_fields<B: bytes::BufMut>(self, _: &mut B) -> cuprate_epee_encoding::error::Result<()> {
+        todo!()
+    }
 }
 
 /// [`Transaction::V1::prefix`] & [`Transaction::V2::prefix`].
