@@ -71,7 +71,7 @@ use cuprate_epee_encoding::{
 pub enum TxEntry {
     /// This entry exists in the transaction pool.
     InPool {
-        /// This field is flattened.
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[cfg_attr(feature = "serde", serde(flatten))]
         prefix: TxEntryPrefix,
         block_height: u64,
@@ -84,7 +84,7 @@ pub enum TxEntry {
     },
     /// This entry _does not_ exist in the transaction pool.
     NotInPool {
-        /// This field is flattened.
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[cfg_attr(feature = "serde", serde(flatten))]
         prefix: TxEntryPrefix,
         received_timestamp: u64,

@@ -27,13 +27,13 @@ pub struct Block {
 #[serde(untagged)]
 pub enum MinerTransaction {
     V1 {
-        /// This field is flattened.
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[serde(flatten)]
         prefix: MinerTransactionPrefix,
         signatures: [(); 0],
     },
     V2 {
-        /// This field is flattened.
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[serde(flatten)]
         prefix: MinerTransactionPrefix,
         rct_signatures: MinerTransactionRctSignatures,

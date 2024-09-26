@@ -20,13 +20,13 @@ use crate::json::output::Output;
 #[serde(untagged)]
 pub enum Transaction {
     V1 {
-        /// This field is flattened.
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[serde(flatten)]
         prefix: TransactionPrefix,
         signatures: Vec<String>,
     },
     V2 {
-        /// This field is flattened.
+        /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[serde(flatten)]
         prefix: TransactionPrefix,
         rct_signatures: RctSignatures,
