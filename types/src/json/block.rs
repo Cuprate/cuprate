@@ -1,14 +1,14 @@
-cfg_if::cfg_if! {
-    if #[cfg(feature = "serde")] {
-        use serde::{Serialize, Deserialize};
-        // use monero_serai::{block::Block, transaction::Transaction};
-    }
-}
+//! JSON block types.
 
-/// TODO
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+use crate::json::output::Output;
+
+/// JSON representation of a block.
 ///
-/// `/get_block`
-///
+/// Used in:
+/// - [`/get_block` -> `json`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block)
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Block {
@@ -21,86 +21,43 @@ pub struct Block {
     pub tx_hashes: Vec<String>,
 }
 
-/// TODO
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct MinerTransaction {
-    pub version: u64,
+    pub version: u8,
     pub unlock_time: u64,
     pub vin: Vec<Input>,
     pub vout: Vec<Output>,
     pub extra: Vec<u8>,
 
     /// Should be [`None`] if [`Self::rct_signatures`] is [`Some`]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signatures: Option<MinerTransactionSignature>,
+    ///
+    /// This field always (de)serializes to/from an empty array
+    /// as coinbase transactions do not have signatures.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signatures: Option<[(); 0]>,
 
     /// Should be [`None`] if [`Self::signatures`] is [`Some`]
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rct_signatures: Option<MinerTransactionRctSignature>,
 }
 
-/// TODO
-#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[serde(transparent)]
-#[repr(transparent)]
-pub struct MinerTransactionSignature(Vec<()>);
-
-impl MinerTransactionSignature {
-    pub const fn new() -> Self {
-        Self(Vec::new())
-    }
-}
-
-/// TODO
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct MinerTransactionRctSignature {
     pub r#type: u8,
 }
 
-/// TODO
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Input {
     pub r#gen: Gen,
 }
 
-/// TODO
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Gen {
     pub height: u64,
-}
-
-/// TODO
-#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Output {
-    pub amount: u64,
-    pub target: Target,
-}
-
-/// TODO
-#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Target {
-    /// Should be [`None`] if [`Self::tagged_key`] is [`Some`]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key: Option<String>,
-
-    /// Should be [`None`] if [`Self::key`] is [`Some`]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tagged_key: Option<TaggedKey>,
-}
-
-/// TODO
-#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct TaggedKey {
-    pub key: String,
-    pub view_tag: String,
 }
 
 #[cfg(test)]
