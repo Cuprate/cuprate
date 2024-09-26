@@ -140,6 +140,8 @@ define_request_and_response! {
     #[doc = serde_doc_test!(GET_TRANSACTIONS_RESPONSE)]
     AccessResponseBase {
         txs_as_hex: Vec<String> = default_vec::<String>(), "default_vec",
+        /// `cuprate_rpc_types::json::tx::Transaction` should be used
+        /// to create this JSON string in a type-safe manner.
         txs_as_json: Vec<String> = default_vec::<String>(), "default_vec",
         missed_tx: Vec<String> = default_vec::<String>(), "default_vec",
         txs: Vec<TxEntry> = default_vec::<TxEntry>(), "default_vec",

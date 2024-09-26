@@ -72,6 +72,8 @@ pub enum TxEntry {
     /// This entry exists in the transaction pool.
     InPool {
         as_hex: String,
+        /// `cuprate_rpc_types::json::tx::Transaction` should be used
+        /// to create this JSON string in a type-safe manner.
         as_json: String,
         block_height: u64,
         block_timestamp: u64,
@@ -89,6 +91,8 @@ pub enum TxEntry {
     /// This entry _does not_ exist in the transaction pool.
     NotInPool {
         as_hex: String,
+        /// `cuprate_rpc_types::json::tx::Transaction` should be used
+        /// to create this JSON string in a type-safe manner.
         as_json: String,
         double_spend_seen: bool,
         prunable_as_hex: String,
