@@ -1,3 +1,12 @@
+use std::{
+    fmt::{Debug, Formatter},
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
+    task::{Context, Poll},
+    time::Duration,
+};
+
 use futures::{FutureExt, StreamExt};
 use indexmap::IndexMap;
 use monero_serai::{
@@ -5,15 +14,6 @@ use monero_serai::{
     transaction::{Input, Timelock, Transaction, TransactionPrefix},
 };
 use proptest::{collection::vec, prelude::*};
-use std::sync::Mutex;
-use std::{
-    fmt::{Debug, Formatter},
-    future::Future,
-    pin::Pin,
-    sync::Arc,
-    task::{Context, Poll},
-    time::Duration,
-};
 use tokio::time::timeout;
 use tower::{service_fn, Service};
 
@@ -24,8 +24,10 @@ use cuprate_p2p_core::{
 };
 use cuprate_pruning::PruningSeed;
 use cuprate_types::{BlockCompleteEntry, TransactionBlobs};
-use cuprate_wire::protocol::{ChainResponse, GetObjectsResponse};
-use cuprate_wire::CoreSyncData;
+use cuprate_wire::{
+    protocol::{ChainResponse, GetObjectsResponse},
+    CoreSyncData,
+};
 
 use crate::{
     block_downloader::{download_blocks, BlockDownloaderConfig, ChainSvcRequest, ChainSvcResponse},

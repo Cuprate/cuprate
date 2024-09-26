@@ -4,15 +4,15 @@
 //! to complete a handshake with them.
 //!
 //! This module also contains a [`ping`] function that can be used to check if an address is reachable.
-use futures::{FutureExt, SinkExt, Stream, StreamExt};
-use std::sync::Mutex;
 use std::{
     future::Future,
     marker::PhantomData,
     pin::Pin,
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{Context, Poll},
 };
+
+use futures::{FutureExt, SinkExt, Stream, StreamExt};
 use tokio::{
     sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     time::{error::Elapsed, timeout},

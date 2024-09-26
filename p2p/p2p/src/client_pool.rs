@@ -128,6 +128,11 @@ impl<N: NetworkZone> ClientPool<N> {
         peers.iter().filter_map(|peer| self.borrow_client(peer))
     }
 
+    /// Borrows all [`Client`]s from the pool that have claimed a higher cumulative difficulty than
+    /// the amount passed in.
+    ///
+    /// The [`Client`]s are wrapped in [`ClientPoolDropGuard`] which
+    /// will return the clients to the pool when they are dropped.
     pub fn clients_with_more_cumulative_difficulty(
         self: &Arc<Self>,
         cumulative_difficulty: u128,

@@ -1,10 +1,10 @@
-use futures::channel::oneshot;
-use std::sync::Mutex;
 use std::{
     fmt::{Debug, Display, Formatter},
-    sync::Arc,
+    sync::{Arc, Mutex},
     task::{ready, Context, Poll},
 };
+
+use futures::channel::oneshot;
 use tokio::{
     sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     task::JoinHandle,
@@ -14,6 +14,8 @@ use tower::{Service, ServiceExt};
 use tracing::Instrument;
 
 use cuprate_helper::asynch::InfallibleOneshotReceiver;
+use cuprate_pruning::PruningSeed;
+use cuprate_wire::CoreSyncData;
 
 use crate::{
     handles::{ConnectionGuard, ConnectionHandle},
@@ -27,8 +29,6 @@ mod request_handler;
 mod timeout_monitor;
 
 pub use connector::{ConnectRequest, Connector};
-use cuprate_pruning::PruningSeed;
-use cuprate_wire::CoreSyncData;
 pub use handshaker::{DoHandshakeRequest, HandshakeError, HandshakerBuilder};
 
 /// An internal identifier for a given peer, will be their address if known
