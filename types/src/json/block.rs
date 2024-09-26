@@ -9,9 +9,6 @@ use crate::json::output::Output;
 ///
 /// Used in:
 /// - [`/get_block` -> `json`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_block)
-///
-/// # TODO
-/// The epee implementation on this struct panics.
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Block {
@@ -22,34 +19,6 @@ pub struct Block {
     pub nonce: u32,
     pub miner_tx: MinerTransaction,
     pub tx_hashes: Vec<String>,
-}
-
-#[cfg(feature = "epee")]
-impl cuprate_epee_encoding::EpeeObjectBuilder<Block> for () {
-    fn add_field<B: bytes::Buf>(
-        &mut self,
-        _: &str,
-        _: &mut B,
-    ) -> cuprate_epee_encoding::error::Result<bool> {
-        todo!()
-    }
-
-    fn finish(self) -> cuprate_epee_encoding::error::Result<Block> {
-        todo!()
-    }
-}
-
-#[cfg(feature = "epee")]
-impl cuprate_epee_encoding::EpeeObject for Block {
-    type Builder = ();
-
-    fn number_of_fields(&self) -> u64 {
-        todo!()
-    }
-
-    fn write_fields<B: bytes::BufMut>(self, _: &mut B) -> cuprate_epee_encoding::error::Result<()> {
-        todo!()
-    }
 }
 
 /// [`Block::miner_tx`].
