@@ -12,8 +12,8 @@ use crate::json::output::Output;
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Block {
-    pub major_version: u64,
-    pub minor_version: u64,
+    pub major_version: u8,
+    pub minor_version: u8,
     pub timestamp: u64,
     pub prev_id: String,
     pub nonce: u32,
@@ -21,25 +21,41 @@ pub struct Block {
     pub tx_hashes: Vec<String>,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct MinerTransaction {
+pub struct MinerTransactionPrefix {
     pub version: u8,
     pub unlock_time: u64,
     pub vin: Vec<Input>,
     pub vout: Vec<Output>,
     pub extra: Vec<u8>,
+}
 
-    /// Should be [`None`] if [`Self::rct_signatures`] is [`Some`]
-    ///
-    /// This field always (de)serializes to/from an empty array
-    /// as coinbase transactions do not have signatures.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signatures: Option<[(); 0]>,
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[serde(untagged)]
+pub enum MinerTransaction {
+    V1 {
+        /// This field is flattened.
+        #[serde(flatten)]
+        prefix: MinerTransactionPrefix,
+        signatures: [(); 0],
+    },
+    V2 {
+        /// This field is flattened.
+        #[serde(flatten)]
+        prefix: MinerTransactionPrefix,
+        rct_signatures: MinerTransactionRctSignature,
+    },
+}
 
-    /// Should be [`None`] if [`Self::signatures`] is [`Some`]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rct_signatures: Option<MinerTransactionRctSignature>,
+impl Default for MinerTransaction {
+    fn default() -> Self {
+        Self::V1 {
+            prefix: Default::default(),
+            signatures: Default::default(),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -20,7 +20,6 @@ json       = []
 cuprate-epee-encoding = { path = "../net/epee-encoding", optional = true }
 cuprate-fixed-bytes   = { path = "../net/fixed-bytes" }
 
-# cfg-if           = { workspace = true }
 bytes            = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }

@@ -1,6 +1,9 @@
 //! JSON transaction types.
 
-#![expect(non_snake_case, reason = "TODO")]
+#![expect(
+    non_snake_case,
+    reason = "JSON serialization requires non snake-case casing"
+)]
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -14,24 +17,31 @@ use crate::json::output::Output;
 /// - [`/get_transaction_pool` -> `tx_json`](https://www.getmonero.org/resources/developer-guides/daemon-rpc.html#get_transaction_pool)
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Transaction {
+#[serde(untagged)]
+pub enum Transaction {
+    V1 {
+        /// This field is flattened.
+        #[serde(flatten)]
+        prefix: TransactionPrefix,
+        signatures: Vec<String>,
+    },
+    V2 {
+        /// This field is flattened.
+        #[serde(flatten)]
+        prefix: TransactionPrefix,
+        rct_signatures: RctSignatures,
+        rctsig_prunable: RctSigPrunable,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct TransactionPrefix {
     pub version: u8,
     pub unlock_time: u64,
     pub vin: Vec<Input>,
     pub vout: Vec<Output>,
     pub extra: Vec<u8>,
-
-    /// Should be [`None`] if [`Self::rct_signatures`] is [`Some`]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub signatures: Option<Vec<String>>,
-
-    /// Should be [`None`] if [`Self::signatures`] is [`Some`]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rct_signatures: Option<RctSignatures>,
-
-    /// Should be [`None`] if [`Self::signatures`] is [`Some`]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rctsig_prunable: Option<RctSigPrunable>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
