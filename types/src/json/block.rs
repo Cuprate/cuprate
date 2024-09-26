@@ -45,7 +45,7 @@ pub enum MinerTransaction {
         /// This field is flattened.
         #[serde(flatten)]
         prefix: MinerTransactionPrefix,
-        rct_signatures: MinerTransactionRctSignature,
+        rct_signatures: MinerTransactionRctSignatures,
     },
 }
 
@@ -60,7 +60,7 @@ impl Default for MinerTransaction {
 
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct MinerTransactionRctSignature {
+pub struct MinerTransactionRctSignatures {
     pub r#type: u8,
 }
 

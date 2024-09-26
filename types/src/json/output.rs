@@ -14,16 +14,20 @@ pub struct Output {
     pub target: Target,
 }
 
-#[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct Target {
-    /// Should be [`None`] if [`Self::tagged_key`] is [`Some`]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key: Option<String>,
+#[serde(untagged)]
+pub enum Target {
+    Key { key: String },
+    TaggedKey { tagged_key: TaggedKey },
+}
 
-    /// Should be [`None`] if [`Self::key`] is [`Some`]
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tagged_key: Option<TaggedKey>,
+impl Default for Target {
+    fn default() -> Self {
+        Self::Key {
+            key: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
