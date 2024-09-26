@@ -34,6 +34,7 @@ pub enum Transaction {
     },
 }
 
+/// [`Transaction::V1::prefix`] & [`Transaction::V2::prefix`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TransactionPrefix {
@@ -44,6 +45,7 @@ pub struct TransactionPrefix {
     pub extra: Vec<u8>,
 }
 
+/// [`Transaction::V2::rct_signatures`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RctSignatures {
@@ -53,6 +55,7 @@ pub struct RctSignatures {
     pub outPk: Vec<String>,
 }
 
+/// [`Transaction::V2::rctsig_prunable`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RctSigPrunable {
@@ -62,6 +65,7 @@ pub struct RctSigPrunable {
     pub pseudoOuts: Vec<String>,
 }
 
+/// [`RctSigPrunable::bpp`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Bpp {
@@ -75,6 +79,7 @@ pub struct Bpp {
     pub R: Vec<String>,
 }
 
+/// [`RctSigPrunable::CLSAGs`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Clsag {
@@ -83,6 +88,7 @@ pub struct Clsag {
     pub D: String,
 }
 
+/// [`RctSignatures::ecdhInfo`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EcdhInfo {
@@ -91,12 +97,14 @@ pub struct EcdhInfo {
     pub mask: Option<String>,
 }
 
+/// [`TransactionPrefix::vin`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Input {
     pub key: Key,
 }
 
+/// [`Input::key`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Key {

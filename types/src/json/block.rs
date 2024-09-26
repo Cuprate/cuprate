@@ -21,16 +21,7 @@ pub struct Block {
     pub tx_hashes: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct MinerTransactionPrefix {
-    pub version: u8,
-    pub unlock_time: u64,
-    pub vin: Vec<Input>,
-    pub vout: Vec<Output>,
-    pub extra: Vec<u8>,
-}
-
+/// [`Block::miner_tx`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[serde(untagged)]
@@ -58,18 +49,32 @@ impl Default for MinerTransaction {
     }
 }
 
+/// [`MinerTransaction::V1::prefix`] & [`MinerTransaction::V2::prefix`].
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct MinerTransactionPrefix {
+    pub version: u8,
+    pub unlock_time: u64,
+    pub vin: Vec<Input>,
+    pub vout: Vec<Output>,
+    pub extra: Vec<u8>,
+}
+
+/// [`MinerTransaction::V2::rct_signatures`].
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct MinerTransactionRctSignatures {
     pub r#type: u8,
 }
 
+/// [`MinerTransactionPrefix::vin`].
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Input {
     pub r#gen: Gen,
 }
 
+/// [`Input::gen`].
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Gen {
