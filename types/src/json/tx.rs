@@ -8,7 +8,10 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::json::output::Output;
+use crate::{
+    hex::{HexBytes32, HexBytes64, HexBytes8},
+    json::output::Output,
+};
 
 /// JSON representation of a non-miner transaction.
 ///
@@ -23,7 +26,7 @@ pub enum Transaction {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[serde(flatten)]
         prefix: TransactionPrefix,
-        signatures: Vec<String>,
+        signatures: Vec<HexBytes64>,
     },
     V2 {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
@@ -52,7 +55,7 @@ pub struct RctSignatures {
     pub r#type: u8,
     pub txnFee: u64,
     pub ecdhInfo: Vec<EcdhInfo>,
-    pub outPk: Vec<String>,
+    pub outPk: Vec<HexBytes32>,
 }
 
 /// [`Transaction::V2::rctsig_prunable`].
@@ -92,7 +95,7 @@ pub struct Clsag {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EcdhInfo {
-    pub amount: String,
+    pub amount: HexBytes8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mask: Option<String>,
 }
@@ -110,7 +113,7 @@ pub struct Input {
 pub struct Key {
     pub amount: u64,
     pub key_offsets: Vec<u64>,
-    pub k_image: String,
+    pub k_image: HexBytes32,
 }
 
 #[cfg(test)]

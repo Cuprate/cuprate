@@ -3,7 +3,7 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::json::output::Output;
+use crate::{hex::HexBytes32, json::output::Output};
 
 /// JSON representation of a block.
 ///
@@ -15,11 +15,25 @@ pub struct Block {
     pub major_version: u8,
     pub minor_version: u8,
     pub timestamp: u64,
-    pub prev_id: String,
+    pub prev_id: HexBytes32,
     pub nonce: u32,
     pub miner_tx: MinerTransaction,
-    pub tx_hashes: Vec<String>,
+    pub tx_hashes: Vec<HexBytes32>,
 }
+
+// impl From<monero_serai::block::Block> for Block {
+//     fn from(b: monero_serai::block::Block) -> Self {
+//         Self {
+//             major_version: todo!(),
+//             minor_version: todo!(),
+//             timestamp: todo!(),
+//             prev_id: todo!(),
+//             nonce: todo!(),
+//             miner_tx: todo!(),
+//             tx_hashes: todo!(),
+//         }
+//     }
+// }
 
 /// [`Block::miner_tx`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -7,6 +7,8 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::hex::{HexBytes1, HexBytes32};
+
 /// JSON representation of an output.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -20,7 +22,7 @@ pub struct Output {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[serde(untagged)]
 pub enum Target {
-    Key { key: String },
+    Key { key: HexBytes32 },
     TaggedKey { tagged_key: TaggedKey },
 }
 
@@ -36,6 +38,6 @@ impl Default for Target {
 #[derive(Clone, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TaggedKey {
-    pub key: String,
-    pub view_tag: String,
+    pub key: HexBytes32,
+    pub view_tag: HexBytes1,
 }
