@@ -10,6 +10,7 @@ use cuprate_types::{
 };
 
 use crate::{
+    ops::{alt_block, block, blockchain},
     service::{
         free::map_valid_alt_block_to_verified_block,
         types::{BlockchainWriteHandle, ResponseResult},
@@ -65,7 +66,7 @@ fn write_block(env: &ConcreteEnv, block: &VerifiedBlockInformation) -> ResponseR
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::block::add_block(block, &mut tables_mut)
+        block::add_block(block, &mut tables_mut)
     };
 
     match result {
@@ -88,7 +89,7 @@ fn write_alt_block(env: &ConcreteEnv, block: &AltBlockInformation) -> ResponseRe
 
     let result = {
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
-        crate::ops::alt_block::add_alt_block(block, &mut tables_mut)
+        alt_block::add_alt_block(block, &mut tables_mut)
     };
 
     match result {
@@ -111,7 +112,7 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
     // FIXME: turn this function into a try block once stable.
     let mut result = || {
         // flush all the current alt blocks as they may reference blocks to be popped.
-        crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
+        alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
 
         let mut tables_mut = env_inner.open_tables_mut(&tx_rw)?;
         // generate a `ChainId` for the popped blocks.
@@ -119,7 +120,7 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
 
         // pop the blocks
         for _ in 0..numb_blocks {
-            crate::ops::block::pop_block(Some(old_main_chain_id), &mut tables_mut)?;
+            block::pop_block(Some(old_main_chain_id), &mut tables_mut)?;
         }
 
         Ok(old_main_chain_id)
@@ -128,7 +129,7 @@ fn pop_blocks(env: &ConcreteEnv, numb_blocks: usize) -> ResponseResult {
     match result() {
         Ok(old_main_chain_id) => {
             TxRw::commit(tx_rw)?;
-            Ok(BlockchainResponse::PopBlocks(old_main_chain_id))
+            Ok(BlockchainResponse::PopBlocks(todo!(), old_main_chain_id))
         }
         Err(e) => {
             TxRw::abort(tx_rw).expect(TX_RW_ABORT_FAIL);
@@ -151,17 +152,16 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
         // thing for us to check.
         assert_eq!(Chain::from(chain_info.parent_chain), Chain::Main);
 
-        let top_block_height =
-            crate::ops::blockchain::top_block_height(tables_mut.block_heights())?;
+        let top_block_height = blockchain::top_block_height(tables_mut.block_heights())?;
 
         // pop any blocks that were added as part of a re-org.
         for _ in chain_info.common_ancestor_height..top_block_height {
-            crate::ops::block::pop_block(None, &mut tables_mut)?;
+            block::pop_block(None, &mut tables_mut)?;
         }
 
         // Add the old main chain blocks back to the main chain.
         for height in (chain_info.common_ancestor_height + 1)..chain_info.chain_height {
-            let alt_block = crate::ops::alt_block::get_alt_block(
+            let alt_block = alt_block::get_alt_block(
                 &AltBlockHeight {
                     chain_id: chain_id.into(),
                     height,
@@ -169,11 +169,11 @@ fn reverse_reorg(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
                 &tables_mut,
             )?;
             let verified_block = map_valid_alt_block_to_verified_block(alt_block);
-            crate::ops::block::add_block(&verified_block, &mut tables_mut)?;
+            block::add_block(&verified_block, &mut tables_mut)?;
         }
 
         drop(tables_mut);
-        crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
+        alt_block::flush_alt_blocks(&env_inner, &mut tx_rw)?;
 
         Ok(())
     };
@@ -196,7 +196,7 @@ fn flush_alt_blocks(env: &ConcreteEnv) -> ResponseResult {
     let env_inner = env.env_inner();
     let mut tx_rw = env_inner.tx_rw()?;
 
-    let result = crate::ops::alt_block::flush_alt_blocks(&env_inner, &mut tx_rw);
+    let result = alt_block::flush_alt_blocks(&env_inner, &mut tx_rw);
 
     match result {
         Ok(()) => {

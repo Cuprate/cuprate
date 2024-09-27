@@ -8,9 +8,11 @@ use std::{
     ops::Range,
 };
 
+use monero_serai::block::Block;
+
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
-    AltBlockInformation, ChainId,
+    AltBlockInformation, ChainId, HardFork,
 };
 
 //---------------------------------------------------------------------------------------------------- ReadRequest
@@ -24,10 +26,37 @@ use crate::{
 /// See `Response` for the expected responses per `Request`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainReadRequest {
+    /// Request a block.
+    ///
+    /// The input is the block's height.
+    Block(usize),
+
+    /// Request a block.
+    ///
+    /// The input is the block's hash.
+    BlockByHash([u8; 32]),
+
+    /// TODO
+    TopBlock,
+
     /// Request a block's extended header.
     ///
     /// The input is the block's height.
     BlockExtendedHeader(usize),
+
+    /// Request a block's extended header.
+    ///
+    /// The input is the block's hash.
+    BlockExtendedHeaderByHash([u8; 32]),
+
+    /// TODO
+    TopBlockExtendedHeader,
+
+    /// TODO
+    TopBlockFull,
+
+    /// TODO
+    CurrentHardFork,
 
     /// Request a block's hash.
     ///
@@ -85,6 +114,11 @@ pub enum BlockchainReadRequest {
     /// The input is a list of output amounts.
     NumberOutputsWithAmount(Vec<u64>),
 
+    /// Check that a single key image is not spent.
+    ///
+    /// Input is a key image hash.
+    KeyImageSpent([u8; 32]),
+
     /// Check that all key images within a set are not spent.
     ///
     /// Input is a set of key images.
@@ -103,6 +137,9 @@ pub enum BlockchainReadRequest {
 
     /// A request for all alt blocks in the chain with the given [`ChainId`].
     AltBlocksInChain(ChainId),
+
+    /// TODO
+    CumulativeBlockWeightLimit,
 }
 
 //---------------------------------------------------------------------------------------------------- WriteRequest
@@ -149,10 +186,45 @@ pub enum BlockchainWriteRequest {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
+    /// Response to [`BlockchainReadRequest::Block`].
+    ///
+    /// Inner value is TODO.
+    Block(Block),
+
+    /// Response to [`BlockchainReadRequest::BlockByHash`].
+    ///
+    /// Inner value is TODO.
+    BlockByHash(Block),
+
+    /// Response to [`BlockchainReadRequest::TopBlock`].
+    ///
+    /// Inner value is TODO.
+    TopBlock(Block),
+
+    /// Response to [`BlockchainReadRequest::CurrentHardFork`].
+    ///
+    /// Inner value is TODO.
+    CurrentHardFork(HardFork),
+
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
     ///
     /// Inner value is the extended headed of the requested block.
     BlockExtendedHeader(ExtendedBlockHeader),
+
+    /// Response to [`BlockchainReadRequest::BlockExtendedHeaderByHash`].
+    ///
+    /// Inner value is the extended headed of the requested block.
+    BlockExtendedHeaderByHash(ExtendedBlockHeader),
+
+    /// Response to [`BlockchainReadRequest::TopBlockExtendedHeader`].
+    ///
+    /// Inner value is the extended headed of the requested block.
+    TopBlockExtendedHeader(ExtendedBlockHeader),
+
+    /// Response to [`BlockchainReadRequest::TopBlockFull`].
+    ///
+    /// Inner value is TODO.
+    TopBlockFull(Block, ExtendedBlockHeader),
 
     /// Response to [`BlockchainReadRequest::BlockHash`].
     ///
@@ -197,6 +269,13 @@ pub enum BlockchainResponse {
     /// - Value = count of outputs with the same amount
     NumberOutputsWithAmount(HashMap<u64, usize>),
 
+    /// Response to [`BlockchainReadRequest::KeyImageSpent`].
+    ///
+    /// The inner value is `true` if the key image
+    /// was spent (existed in the database already),
+    /// else `false`.
+    KeyImageSpent(bool),
+
     /// Response to [`BlockchainReadRequest::KeyImagesSpent`].
     ///
     /// The inner value is `true` if _any_ of the key images
@@ -222,8 +301,10 @@ pub enum BlockchainResponse {
     /// This will be [`None`] if all blocks were known.
     FindFirstUnknown(Option<(usize, usize)>),
 
+    /// TODO
+    CumulativeBlockWeightLimit(usize),
+
     /// The response for [`BlockchainReadRequest::AltBlocksInChain`].
-    ///
     /// Contains all the alt blocks in the alt-chain in chronological order.
     AltBlocksInChain(Vec<AltBlockInformation>),
 
@@ -236,10 +317,11 @@ pub enum BlockchainResponse {
     /// - [`BlockchainWriteRequest::ReverseReorg`]
     /// - [`BlockchainWriteRequest::FlushAltBlocks`]
     Ok,
+
     /// The response for [`BlockchainWriteRequest::PopBlocks`].
     ///
     /// The inner value is the alt-chain ID for the old main chain blocks.
-    PopBlocks(ChainId),
+    PopBlocks(usize, ChainId),
 }
 
 //---------------------------------------------------------------------------------------------------- Tests

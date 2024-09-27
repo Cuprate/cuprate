@@ -15,11 +15,13 @@ epee    = ["dep:cuprate-epee-encoding"]
 
 [dependencies]
 cuprate-epee-encoding = { path = "../../net/epee-encoding", optional = true }
+cuprate-helper        = { path = "../../helper", default-features = false, features = ["cast", "map"] }
 cuprate-fixed-bytes   = { path = "../../net/fixed-bytes" }
 cuprate-types         = { path = "../../types" }
 
-paste        = { workspace = true }
-serde        = { workspace = true, optional = true }
+hex   = { workspace = true }
+paste = { workspace = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 cuprate-test-utils = { path = "../../test-utils" }

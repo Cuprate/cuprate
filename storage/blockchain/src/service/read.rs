@@ -6,6 +6,7 @@ use std::{
     sync::Arc,
 };
 
+use monero_serai::block::Block;
 use rayon::{
     iter::{IntoParallelIterator, ParallelIterator},
     prelude::*,
@@ -28,9 +29,11 @@ use crate::{
             get_alt_chain_history_ranges,
         },
         block::{
-            block_exists, get_block_extended_header_from_height, get_block_height, get_block_info,
+            block_exists, get_block, get_block_by_hash, get_block_extended_header,
+            get_block_extended_header_from_height, get_block_extended_header_top, get_block_height,
+            get_block_info, get_top_block, get_top_block_full,
         },
-        blockchain::{cumulative_generated_coins, top_block_height},
+        blockchain::{self, cumulative_generated_coins, top_block_height},
         key_image::key_image_exists,
         output::id_to_output_on_chain,
     },
@@ -92,8 +95,15 @@ fn map_request(
     /* SOMEDAY: pre-request handling, run some code for each request? */
 
     match request {
-        R::BlockExtendedHeader(block) => block_extended_header(env, block),
-        R::BlockHash(block, chain) => block_hash(env, block, chain),
+        R::Block(height) => block(env, height),
+        R::BlockByHash(hash) => block_by_hash(env, hash),
+        R::TopBlock => top_block(env),
+        R::BlockExtendedHeader(height) => block_extended_header(env, height),
+        R::BlockExtendedHeaderByHash(hash) => block_extended_header_by_hash(env, hash),
+        R::TopBlockExtendedHeader => top_block_extended_header_by_hash(env),
+        R::TopBlockFull => top_block_full(env),
+        R::CurrentHardFork => current_hard_fork(env),
+        R::BlockHash(height, chain) => block_hash(env, height, chain),
         R::FindBlock(block_hash) => find_block(env, block_hash),
         R::FilterUnknownHashes(hashes) => filter_unknown_hashes(env, hashes),
         R::BlockExtendedHeaderInRange(range, chain) => {
@@ -103,9 +113,11 @@ fn map_request(
         R::GeneratedCoins(height) => generated_coins(env, height),
         R::Outputs(map) => outputs(env, map),
         R::NumberOutputsWithAmount(vec) => number_outputs_with_amount(env, vec),
+        R::KeyImageSpent(set) => key_image_spent(env, set),
         R::KeyImagesSpent(set) => key_images_spent(env, set),
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
+        R::CumulativeBlockWeightLimit => cumulative_block_weight_limit(env),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
     }
 
@@ -182,6 +194,54 @@ macro_rules! get_tables {
 // TODO: The overhead of parallelism may be too much for every request, perfomace test to find optimal
 // amount of parallelism.
 
+/// [`BlockchainReadRequest::Block`].
+#[inline]
+fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    Ok(todo!())
+    // // Single-threaded, no `ThreadLocal` required.
+    // let env_inner = env.env_inner();
+    // let tx_ro = env_inner.tx_ro()?;
+    // let table_block_blobs = env_inner.open_db_ro::<BlockBlobs>(&tx_ro)?;
+
+    // Ok(BlockchainResponse::Block(get_block(
+    //     &block_height,
+    //     &table_block_blobs,
+    // )?))
+}
+
+/// [`BlockchainReadRequest::BlockByHash`].
+#[inline]
+fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+    Ok(todo!())
+    // // Single-threaded, no `ThreadLocal` required.
+    // let env_inner = env.env_inner();
+    // let tx_ro = env_inner.tx_ro()?;
+    // let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+    // let table_block_blobs = env_inner.open_db_ro::<BlockBlobs>(&tx_ro)?;
+
+    // Ok(BlockchainResponse::BlockByHash(get_block_by_hash(
+    //     &block_hash,
+    //     &table_block_heights,
+    //     &table_block_blobs,
+    // )?))
+}
+
+/// [`BlockchainReadRequest::TopBlock`].
+#[inline]
+fn top_block(env: &ConcreteEnv) -> ResponseResult {
+    Ok(todo!())
+    // // Single-threaded, no `ThreadLocal` required.
+    // let env_inner = env.env_inner();
+    // let tx_ro = env_inner.tx_ro()?;
+    // let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
+    // let table_block_blobs = env_inner.open_db_ro::<BlockBlobs>(&tx_ro)?;
+
+    // Ok(BlockchainResponse::TopBlock(get_top_block(
+    //     &table_block_heights,
+    //     &table_block_blobs,
+    // )?))
+}
+
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
 #[inline]
 fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
@@ -192,6 +252,58 @@ fn block_extended_header(env: &ConcreteEnv, block_height: BlockHeight) -> Respon
 
     Ok(BlockchainResponse::BlockExtendedHeader(
         get_block_extended_header_from_height(&block_height, &tables)?,
+    ))
+}
+
+/// [`BlockchainReadRequest::BlockExtendedHeaderByHash`].
+#[inline]
+fn block_extended_header_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::BlockExtendedHeaderByHash(
+        get_block_extended_header(&block_hash, &tables)?,
+    ))
+}
+
+/// [`BlockchainReadRequest::TopBlockExtendedHeader`].
+#[inline]
+fn top_block_extended_header_by_hash(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::TopBlockExtendedHeader(
+        get_block_extended_header_top(&tables)?.0,
+    ))
+}
+
+/// [`BlockchainReadRequest::TopBlockFull`].
+#[inline]
+fn top_block_full(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    let (block, header) = get_top_block_full(&tables)?;
+
+    Ok(BlockchainResponse::TopBlockFull(block, header))
+}
+
+/// [`BlockchainReadRequest::CurrentHardFork`].
+#[inline]
+fn current_hard_fork(env: &ConcreteEnv) -> ResponseResult {
+    // Single-threaded, no `ThreadLocal` required.
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+    let tables = env_inner.open_tables(&tx_ro)?;
+
+    Ok(BlockchainResponse::CurrentHardFork(
+        blockchain::current_hard_fork(&tables)?,
     ))
 }
 
@@ -335,7 +447,7 @@ fn chain_height(env: &ConcreteEnv) -> ResponseResult {
     let table_block_heights = env_inner.open_db_ro::<BlockHeights>(&tx_ro)?;
     let table_block_infos = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
 
-    let chain_height = crate::ops::blockchain::chain_height(&table_block_heights)?;
+    let chain_height = blockchain::chain_height(&table_block_heights)?;
     let block_hash =
         get_block_info(&chain_height.saturating_sub(1), &table_block_infos)?.block_hash;
 
@@ -443,6 +555,23 @@ fn number_outputs_with_amount(env: &ConcreteEnv, amounts: Vec<Amount>) -> Respon
         .collect::<Result<HashMap<Amount, usize>, RuntimeError>>()?;
 
     Ok(BlockchainResponse::NumberOutputsWithAmount(map))
+}
+
+/// [`BlockchainReadRequest::KeyImageSpent`].
+#[inline]
+fn key_image_spent(env: &ConcreteEnv, key_image: KeyImage) -> ResponseResult {
+    Ok(todo!())
+
+    // // Single-threaded, no `ThreadLocal` required.
+    // let env_inner = env.env_inner();
+    // let tx_ro = env_inner.tx_ro()?;
+    // let table_key_images = env_inner.open_db_ro::<KeyImages>(&tx_ro)?;
+
+    // match key_image_exists(&key_image, &table_key_images) {
+    //     Ok(false) => Ok(BlockchainResponse::KeyImagesSpent(false)), // Key image was NOT found.
+    //     Ok(true) => Ok(BlockchainResponse::KeyImagesSpent(true)),   // Key image was found.
+    //     Err(e) => Err(e),                                           // A database error occurred.
+    // }
 }
 
 /// [`BlockchainReadRequest::KeyImagesSpent`].
@@ -558,6 +687,18 @@ fn find_first_unknown(env: &ConcreteEnv, block_ids: &[BlockHash]) -> ResponseRes
 
         BlockchainResponse::FindFirstUnknown(Some((idx, last_known_height + 1)))
     })
+}
+
+/// [`BlockchainReadRequest::CumulativeBlockWeightLimit`]
+#[allow(clippy::diverging_sub_expression, reason = "TODO")]
+fn cumulative_block_weight_limit(env: &ConcreteEnv) -> ResponseResult {
+    let env_inner = env.env_inner();
+    let tx_ro = env_inner.tx_ro()?;
+
+    let table_blocks = env_inner.open_db_ro::<BlockInfos>(&tx_ro)?;
+    let limit = todo!();
+
+    Ok(BlockchainResponse::CumulativeBlockWeightLimit(limit))
 }
 
 /// [`BlockchainReadRequest::AltBlocksInChain`]

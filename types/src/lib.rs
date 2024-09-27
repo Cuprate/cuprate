@@ -3,6 +3,17 @@
 #![cfg_attr(any(feature = "proptest"), allow(non_local_definitions))]
 // Allow some lints when running in debug mode.
 #![cfg_attr(debug_assertions, allow(clippy::todo, clippy::multiple_crate_versions))]
+#![allow(
+    unused_imports,
+    unreachable_pub,
+    unused_crate_dependencies,
+    dead_code,
+    unused_variables,
+    clippy::needless_pass_by_value,
+    clippy::unused_async,
+    unreachable_code,
+    reason = "TODO: remove after cuprated RpcHandler impl"
+)]
 
 //---------------------------------------------------------------------------------------------------- Public API
 // Import private modules, export public types.

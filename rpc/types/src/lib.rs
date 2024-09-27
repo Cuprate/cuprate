@@ -1,6 +1,17 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![allow(
+    unused_imports,
+    unreachable_pub,
+    unused_crate_dependencies,
+    dead_code,
+    unused_variables,
+    clippy::needless_pass_by_value,
+    clippy::unused_async,
+    unreachable_code,
+    reason = "TODO: remove after cuprated RpcHandler impl"
+)]
+#![allow(
     clippy::allow_attributes,
     reason = "macros (internal + serde) make this lint hard to satisfy"
 )]
@@ -8,6 +19,7 @@
 mod constants;
 mod defaults;
 mod free;
+mod from;
 mod macros;
 mod rpc_call;
 

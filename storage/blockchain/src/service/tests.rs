@@ -485,7 +485,7 @@ async fn alt_chain_requests() {
     let request = BlockchainWriteRequest::PopBlocks(1);
     let response = writer.ready().await.unwrap().call(request).await.unwrap();
 
-    let BlockchainResponse::PopBlocks(old_main_chain_id) = response else {
+    let BlockchainResponse::PopBlocks(_, old_main_chain_id) = response else {
         panic!("Wrong response type was returned");
     };
 
