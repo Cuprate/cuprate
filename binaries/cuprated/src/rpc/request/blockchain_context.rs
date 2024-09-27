@@ -1,32 +1,15 @@
 //! Functions for [`BlockChainContextRequest`] and [`BlockChainContextResponse`].
 
-use std::{
-    collections::{HashMap, HashSet},
-    convert::Infallible,
-    ops::Range,
-    sync::Arc,
-};
+use std::convert::Infallible;
 
-use anyhow::{anyhow, Error};
-use futures::StreamExt;
-use monero_serai::block::Block;
-use randomx_rs::RandomXVM;
+use anyhow::Error;
 use tower::{Service, ServiceExt};
 
 use cuprate_consensus::context::{
     BlockChainContext, BlockChainContextRequest, BlockChainContextResponse,
     BlockChainContextService,
 };
-use cuprate_helper::{
-    cast::{u64_to_usize, usize_to_u64},
-    map::split_u128_into_low_high_bits,
-};
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    Chain, ExtendedBlockHeader, HardFork, OutputOnChain, VerifiedBlockInformation,
-};
-
-use crate::rpc::CupratedRpcHandlerState;
+use cuprate_types::HardFork;
 
 /// [`BlockChainContextRequest::Context`].
 pub(super) async fn context(

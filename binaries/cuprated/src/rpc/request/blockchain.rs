@@ -3,25 +3,17 @@
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
-    sync::Arc,
 };
 
-use anyhow::{anyhow, Error};
+use anyhow::Error;
 use cuprate_blockchain::service::BlockchainReadHandle;
-use futures::StreamExt;
-use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
-use cuprate_helper::{
-    cast::{u64_to_usize, usize_to_u64},
-    map::split_u128_into_low_high_bits,
-};
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
 use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainResponse, BlockchainWriteRequest},
-    Chain, ExtendedBlockHeader, HardFork, OutputOnChain, VerifiedBlockInformation,
+    blockchain::{BlockchainReadRequest, BlockchainResponse},
+    Chain, ExtendedBlockHeader, OutputOnChain,
 };
-
-use crate::rpc::CupratedRpcHandlerState;
 
 /// [`BlockchainReadRequest::BlockExtendedHeader`].
 pub(super) async fn block_extended_header(

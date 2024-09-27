@@ -3,13 +3,11 @@
 use std::task::{Context, Poll};
 
 use anyhow::Error;
-use futures::{channel::oneshot::channel, future::BoxFuture};
-use serde::{Deserialize, Serialize};
+use futures::future::BoxFuture;
+use monero_serai::block::Block;
 use tower::Service;
 
 use cuprate_blockchain::service::{BlockchainReadHandle, BlockchainWriteHandle};
-use cuprate_helper::asynch::InfallibleOneshotReceiver;
-use cuprate_json_rpc::Id;
 use cuprate_rpc_interface::RpcHandler;
 use cuprate_rpc_types::{
     bin::{BinRequest, BinResponse},
@@ -19,6 +17,82 @@ use cuprate_rpc_types::{
 use cuprate_txpool::service::{TxpoolReadHandle, TxpoolWriteHandle};
 
 use crate::rpc::{bin, json, other};
+
+/// TODO: use real type when public.
+#[derive(Clone)]
+#[expect(clippy::large_enum_variant)]
+pub enum BlockchainManagerRequest {
+    /// Input is the amount of blocks to pop.
+    PopBlocks { amount: usize },
+
+    /// TODO
+    Prune,
+
+    /// TODO
+    Pruned,
+
+    /// TODO
+    RelayBlock(Block),
+
+    /// TODO
+    Syncing,
+
+    /// TODO
+    Synced,
+
+    /// TODO
+    Target,
+
+    /// TODO
+    TargetHeight,
+}
+
+/// TODO: use real type when public.
+#[derive(Clone)]
+pub enum BlockchainManagerResponse {
+    /// TODO
+    ///
+    /// Response to:
+    /// - [`BlockchainManagerRequest::Prune`]
+    /// - [`BlockchainManagerRequest::RelayBlock`]
+    Ok,
+
+    /// Response to [`BlockchainManagerRequest::PopBlocks`]
+    ///
+    /// TODO
+    PopBlocks { new_height: usize },
+
+    /// Response to [`BlockchainManagerRequest::Pruned`]
+    ///
+    /// TODO
+    Pruned(bool),
+
+    /// Response to [`BlockchainManagerRequest::Syncing`]
+    ///
+    /// TODO
+    Syncing(bool),
+
+    /// Response to [`BlockchainManagerRequest::Synced`]
+    ///
+    /// TODO
+    Synced(bool),
+
+    /// Response to [`BlockchainManagerRequest::Target`]
+    ///
+    /// TODO
+    Target { height: usize },
+
+    /// Response to [`BlockchainManagerRequest::TargetHeight`]
+    ///
+    /// TODO
+    TargetHeight { height: usize },
+}
+
+/// TODO: use real type when public.
+pub type BlockchainManagerHandle = cuprate_database_service::DatabaseReadService<
+    BlockchainManagerRequest,
+    BlockchainManagerResponse,
+>;
 
 /// TODO
 #[derive(Clone)]
@@ -42,6 +116,9 @@ pub struct CupratedRpcHandlerState {
 
     /// Write handle to the blockchain database.
     pub blockchain_write: BlockchainWriteHandle,
+
+    /// Handle to the blockchain manager.
+    pub blockchain_manager: BlockchainManagerHandle,
 
     /// Read handle to the transaction pool database.
     pub txpool_read: TxpoolReadHandle,

@@ -1,31 +1,15 @@
 //! Functions for TODO: doc enum message.
 
-use std::{
-    collections::{HashMap, HashSet},
-    convert::Infallible,
-    sync::Arc,
-};
+use std::convert::Infallible;
 
-use anyhow::{anyhow, Error};
-use futures::StreamExt;
-use monero_serai::block::Block;
-use tower::{Service, ServiceExt};
+use anyhow::Error;
+use tower::ServiceExt;
 
-use cuprate_helper::{
-    cast::{u64_to_usize, usize_to_u64},
-    map::split_u128_into_low_high_bits,
-};
+use cuprate_helper::cast::usize_to_u64;
 use cuprate_p2p_core::{
-    client::handshaker::builder::DummyAddressBook,
     services::{AddressBookRequest, AddressBookResponse},
-    AddressBook, ClearNet, NetworkZone,
+    AddressBook, NetworkZone,
 };
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
-    Chain, ExtendedBlockHeader, HardFork, OutputOnChain, VerifiedBlockInformation,
-};
-
-use crate::rpc::{CupratedRpcHandler, CupratedRpcHandlerState};
 
 /// [`AddressBookRequest::PeerlistSize`]
 pub(super) async fn peerlist_size<Z: NetworkZone>(

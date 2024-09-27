@@ -1,63 +1,139 @@
 //! Functions for TODO: doc enum message.
 
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
-
-use anyhow::{anyhow, Error};
-use futures::StreamExt;
+use anyhow::Error;
 use monero_serai::block::Block;
 use tower::{Service, ServiceExt};
 
-use cuprate_consensus::BlockchainResponse;
-use cuprate_helper::{
-    cast::{u64_to_usize, usize_to_u64},
-    map::split_u128_into_low_high_bits,
-};
-use cuprate_types::{
-    blockchain::{BlockchainReadRequest, BlockchainWriteRequest},
-    Chain, ExtendedBlockHeader, HardFork, OutputOnChain, VerifiedBlockInformation,
+use cuprate_helper::cast::{u64_to_usize, usize_to_u64};
+
+use crate::rpc::handler::{
+    BlockchainManagerHandle, BlockchainManagerRequest, BlockchainManagerResponse,
 };
 
-use crate::rpc::{CupratedRpcHandler, CupratedRpcHandlerState};
+/// [`BlockchainManagerResponse::PopBlocks`]
+pub(super) async fn pop_blocks(
+    blockchain_manager: &mut BlockchainManagerHandle,
+    amount: u64,
+) -> Result<u64, Error> {
+    let BlockchainManagerResponse::PopBlocks { new_height } = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::PopBlocks {
+            amount: u64_to_usize(amount),
+        })
+        .await?
+    else {
+        unreachable!();
+    };
 
-/// TODO: doc enum message
-pub(super) async fn pop_blocks() -> Result<(u64, [u8; 32]), Error> {
-    Ok(todo!())
+    Ok(usize_to_u64(new_height))
 }
 
-/// TODO: doc enum message
-pub(super) async fn prune() -> Result<(), Error> {
-    Ok(todo!())
+/// [`BlockchainManagerResponse::Prune`]
+pub(super) async fn prune(blockchain_manager: &mut BlockchainManagerHandle) -> Result<(), Error> {
+    let BlockchainManagerResponse::Ok = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::Prune)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(())
 }
 
-/// TODO: doc enum message
-pub(super) async fn pruned() -> Result<bool, Error> {
-    Ok(todo!())
+/// [`BlockchainManagerResponse::Pruned`]
+pub(super) async fn pruned(
+    blockchain_manager: &mut BlockchainManagerHandle,
+) -> Result<bool, Error> {
+    let BlockchainManagerResponse::Pruned(pruned) = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::Pruned)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(pruned)
 }
 
-/// TODO: doc enum message
-pub(super) async fn relay_block() -> Result<bool, Error> {
-    Ok(todo!())
+/// [`BlockchainManagerResponse::RelayBlock`]
+pub(super) async fn relay_block(
+    blockchain_manager: &mut BlockchainManagerHandle,
+    block: Block,
+) -> Result<(), Error> {
+    let BlockchainManagerResponse::Ok = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::RelayBlock(block))
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(())
 }
 
-/// TODO: doc enum message
-pub(super) async fn syncing() -> Result<bool, Error> {
-    Ok(todo!())
+/// [`BlockchainManagerResponse::Syncing`]
+pub(super) async fn syncing(
+    blockchain_manager: &mut BlockchainManagerHandle,
+) -> Result<bool, Error> {
+    let BlockchainManagerResponse::Syncing(syncing) = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::Syncing)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(syncing)
 }
 
-/// TODO: doc enum message
-pub(super) async fn synced() -> Result<bool, Error> {
-    Ok(todo!())
+/// [`BlockchainManagerResponse::Synced`]
+pub(super) async fn synced(
+    blockchain_manager: &mut BlockchainManagerHandle,
+) -> Result<bool, Error> {
+    let BlockchainManagerResponse::Synced(syncing) = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::Synced)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(syncing)
 }
 
-/// TODO: doc enum message
-pub(super) async fn target() -> Result<bool, Error> {
-    Ok(todo!())
+/// [`BlockchainManagerResponse::Target`]
+pub(super) async fn target(blockchain_manager: &mut BlockchainManagerHandle) -> Result<u64, Error> {
+    let BlockchainManagerResponse::Target { height } = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::Target)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(usize_to_u64(height))
 }
 
-/// TODO: doc enum message
-pub(super) async fn target_height() -> Result<bool, Error> {
-    Ok(todo!())
+/// [`BlockchainManagerResponse::TargetHeight`]
+pub(super) async fn target_height(
+    blockchain_manager: &mut BlockchainManagerHandle,
+) -> Result<u64, Error> {
+    let BlockchainManagerResponse::TargetHeight { height } = blockchain_manager
+        .ready()
+        .await?
+        .call(BlockchainManagerRequest::TargetHeight)
+        .await?
+    else {
+        unreachable!();
+    };
+
+    Ok(usize_to_u64(height))
 }
