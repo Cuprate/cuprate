@@ -105,12 +105,13 @@ impl From<transaction::Transaction> for Transaction {
                 })
                 .collect();
 
-            // TODO: use cuprate_constants target time
             let unlock_time = match prefix.additional_timelock {
                 transaction::Timelock::None => height,
                 transaction::Timelock::Block(height_lock) => height + usize_to_u64(height_lock),
-                transaction::Timelock::Time(seconds) => height + (seconds * 120),
-            } + 60;
+                transaction::Timelock::Time(seconds) => {
+                    height + (seconds / usize_to_u64(monero_serai::BLOCK_TIME))
+                }
+            } + usize_to_u64(monero_serai::DEFAULT_LOCK_WINDOW);
 
             TransactionPrefix {
                 version,
@@ -121,6 +122,7 @@ impl From<transaction::Transaction> for Transaction {
             }
         }
 
+        #[expect(unreachable_code, unused_variables, reason = "TODO: finish impl")]
         match tx {
             transaction::Transaction::V1 { prefix, signatures } => Self::V1 {
                 prefix: map_prefix(prefix, 1),

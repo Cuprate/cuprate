@@ -885,7 +885,6 @@ dependencies = [
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
- "bytemuck",
  "bytes",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",

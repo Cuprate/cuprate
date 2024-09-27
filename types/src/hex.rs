@@ -3,16 +3,6 @@
 //! This module provides transparent wrapper types for
 //! arrays that (de)serialize from hexadecimal input/output.
 
-#![cfg_attr(
-    feature = "bytemuck",
-    expect(
-        clippy::allow_attributes,
-        reason = "bytemuck uses allow in its derive macros"
-    )
-)]
-
-#[cfg(feature = "bytemuck")]
-use bytemuck::{Pod, TransparentWrapper, Zeroable};
 #[cfg(feature = "epee")]
 use cuprate_epee_encoding::{error, macros::bytes, EpeeValue, Marker};
 #[cfg(feature = "serde")]
@@ -29,7 +19,6 @@ macro_rules! generate_hex_array {
 		$(
 			#[doc = concat!("Wrapper type that (de)serializes from/to a ", stringify!($array_len), "-byte array.")]
 			#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-			#[cfg_attr(feature = "bytemuck", derive(Pod, Zeroable, TransparentWrapper))]
 			#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 			#[cfg_attr(feature = "serde", serde(transparent))]
 			#[repr(transparent)]
