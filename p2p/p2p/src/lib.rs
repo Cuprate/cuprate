@@ -10,7 +10,7 @@ use tokio::{
     task::JoinSet,
 };
 use tokio_stream::wrappers::WatchStream;
-use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
+use tower::{buffer::Buffer, util::BoxCloneService, MakeService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_async_buffer::BufferStream;
@@ -18,7 +18,7 @@ use cuprate_p2p_core::{
     client::Connector,
     client::InternalPeerID,
     services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
-    CoreSyncSvc, NetworkZone, ProtocolRequestHandler,
+    CoreSyncSvc, NetworkZone, ProtocolRequest, ProtocolRequestHandler,
 };
 
 mod block_downloader;
@@ -35,6 +35,7 @@ pub use broadcast::{BroadcastRequest, BroadcastSvc};
 use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
 use connection_maintainer::MakeConnectionRequest;
+use cuprate_p2p_core::client::PeerInformation;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///
@@ -46,14 +47,22 @@ use connection_maintainer::MakeConnectionRequest;
 /// - A core sync service, which keeps track of the sync state of our node
 #[instrument(level = "debug", name = "net", skip_all, fields(zone = N::NAME))]
 pub async fn initialize_network<N, PR, CS>(
-    protocol_request_handler: PR,
+    protocol_request_handler_maker: PR,
     core_sync_svc: CS,
     config: P2PConfig<N>,
 ) -> Result<NetworkInterface<N>, tower::BoxError>
 where
     N: NetworkZone,
     N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
-    PR: ProtocolRequestHandler + Clone,
+    PR: MakeService<
+            PeerInformation<N::Addr>,
+            ProtocolRequest,
+            MakeError = tower::BoxError,
+            Service: ProtocolRequestHandler,
+            Future: Send + 'static,
+        > + Clone
+        + Send
+        + 'static,
     CS: CoreSyncSvc + Clone,
 {
     let address_book =
@@ -85,7 +94,7 @@ where
             .with_address_book(address_book.clone())
             .with_peer_sync_svc(sync_states_svc.clone())
             .with_core_sync_svc(core_sync_svc)
-            .with_protocol_request_handler(protocol_request_handler)
+            .with_protocol_request_handler_maker(protocol_request_handler_maker)
             .with_broadcast_stream_maker(outbound_mkr)
             .with_connection_parent_span(Span::current());
 
@@ -160,7 +169,7 @@ pub struct NetworkInterface<N: NetworkZone> {
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
     /// The peer's sync states service.
-    sync_states_svc: Buffer<sync_states::PeerSyncSvc<N>, PeerSyncRequest<N>>,
+    sync_states_svc: Buffer<PeerSyncRequest<N>, <sync_states::PeerSyncSvc<N> as Service<PeerSyncRequest<N>>>::Future>,
     /// Background tasks that will be aborted when this interface is dropped.
     _background_tasks: Arc<JoinSet<()>>,
 }

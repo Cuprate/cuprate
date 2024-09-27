@@ -1,18 +1,21 @@
 use std::marker::PhantomData;
 
 use futures::{stream, Stream};
+use tower::MakeService;
 use tracing::Span;
 
 use cuprate_wire::BasicNodeData;
 
 use crate::{
-    client::{handshaker::HandShaker, InternalPeerID},
-    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc, ProtocolRequestHandler,
+    client::{handshaker::HandShaker, InternalPeerID, PeerInformation},
+    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc, ProtocolRequest,
+    ProtocolRequestHandler,
 };
 
 mod dummy;
 pub use dummy::{
     DummyAddressBook, DummyCoreSyncSvc, DummyPeerSyncSvc, DummyProtocolRequestHandler,
+    DummyProtocolRequestHandlerMaker,
 };
 
 /// A [`HandShaker`] [`Service`](tower::Service) builder.
@@ -29,7 +32,7 @@ pub struct HandshakerBuilder<
     AdrBook = DummyAddressBook,
     CSync = DummyCoreSyncSvc,
     PSync = DummyPeerSyncSvc,
-    ProtoHdlr = DummyProtocolRequestHandler,
+    ProtoHdlrMkr = DummyProtocolRequestHandlerMaker,
     BrdcstStrmMkr = fn(
         InternalPeerID<<N as NetworkZone>::Addr>,
     ) -> stream::Pending<BroadcastMessage>,
@@ -41,7 +44,7 @@ pub struct HandshakerBuilder<
     /// The peer sync service.
     peer_sync_svc: PSync,
     /// The protocol request service.
-    protocol_request_svc: ProtoHdlr,
+    protocol_request_svc_maker: ProtoHdlrMkr,
     /// Our [`BasicNodeData`]
     our_basic_node_data: BasicNodeData,
     /// A function that returns a stream that will give items to be broadcast by a connection.
@@ -60,7 +63,7 @@ impl<N: NetworkZone> HandshakerBuilder<N> {
             address_book: DummyAddressBook,
             core_sync_svc: DummyCoreSyncSvc::static_mainnet_genesis(),
             peer_sync_svc: DummyPeerSyncSvc,
-            protocol_request_svc: DummyProtocolRequestHandler,
+            protocol_request_svc_maker: DummyProtocolRequestHandlerMaker,
             our_basic_node_data,
             broadcast_stream_maker: |_| stream::pending(),
             connection_parent_span: None,
@@ -90,7 +93,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         let Self {
             core_sync_svc,
             peer_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -101,7 +104,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             address_book: new_address_book,
             core_sync_svc,
             peer_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -132,7 +135,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         let Self {
             address_book,
             peer_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -143,7 +146,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc: new_core_sync_svc,
             peer_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -168,7 +171,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         let Self {
             address_book,
             core_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -179,7 +182,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc,
             peer_sync_svc: new_peer_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -187,19 +190,28 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         }
     }
 
-    /// Changes the protocol request handler, which handles [`ProtocolRequest`](crate::ProtocolRequest)s to our node.
+    /// Changes the protocol request handler maker, which creates the service that handles [`ProtocolRequest`](crate::ProtocolRequest)s
+    /// to our node.
     ///
     /// ## Default Protocol Request Handler
     ///
-    /// The default protocol request handler will not respond to any protocol requests, this should not
+    /// The default service maker will create services that will not respond to any protocol requests, this should not
     /// be an issue as long as peers do not think we are ahead of them, if they do they will send requests
     /// for our blocks, and we won't respond which will cause them to disconnect.
-    pub fn with_protocol_request_handler<NProtoHdlr>(
+    pub fn with_protocol_request_handler_maker<NProtoHdlrMkr>(
         self,
-        new_protocol_handler: NProtoHdlr,
-    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, NProtoHdlr, BrdcstStrmMkr>
+        new_protocol_request_svc_maker: NProtoHdlrMkr,
+    ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, NProtoHdlrMkr, BrdcstStrmMkr>
     where
-        NProtoHdlr: ProtocolRequestHandler + Clone,
+        NProtoHdlrMkr: MakeService<
+                PeerInformation<N::Addr>,
+                ProtocolRequest,
+                MakeError = tower::BoxError,
+                Service: ProtocolRequestHandler,
+                Future: Send + 'static,
+            > + Clone
+            + Send
+            + 'static,
     {
         let Self {
             address_book,
@@ -215,7 +227,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc,
             peer_sync_svc,
-            protocol_request_svc: new_protocol_handler,
+            protocol_request_svc_maker: new_protocol_request_svc_maker,
             our_basic_node_data,
             broadcast_stream_maker,
             connection_parent_span,
@@ -242,7 +254,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc,
             peer_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             our_basic_node_data,
             connection_parent_span,
             ..
@@ -252,7 +264,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             address_book,
             core_sync_svc,
             peer_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             our_basic_node_data,
             broadcast_stream_maker: new_broadcast_stream_maker,
             connection_parent_span,
@@ -279,7 +291,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
             self.address_book,
             self.peer_sync_svc,
             self.core_sync_svc,
-            self.protocol_request_svc,
+            self.protocol_request_svc_maker,
             self.broadcast_stream_maker,
             self.our_basic_node_data,
             self.connection_parent_span.unwrap_or(Span::none()),
