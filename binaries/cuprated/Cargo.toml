@@ -42,11 +42,12 @@ borsh                 = { workspace = true }
 bytemuck              = { workspace = true }
 bytes                 = { workspace = true }
 cfg-if                = { workspace = true }
-clap                  = { workspace = true }
+clap                  = { workspace = true, features = ["cargo"] }
 chrono                = { workspace = true }
 crypto-bigint         = { workspace = true }
 crossbeam             = { workspace = true }
 curve25519-dalek      = { workspace = true }
+const_format          = { workspace = true }
 dashmap               = { workspace = true }
 dirs                  = { workspace = true }
 futures               = { workspace = true }

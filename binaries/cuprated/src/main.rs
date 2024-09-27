@@ -15,8 +15,14 @@ mod blockchain;
 mod config;
 mod p2p;
 mod rpc;
+mod statics;
 mod txpool;
+mod version;
 
 fn main() {
+    // Initialize global static `LazyLock` data.
+    statics::init_lazylock_statics();
+
+    // TODO: everything else.
     todo!()
 }
