@@ -5,12 +5,12 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-/// Define all the `static`s in the file/module.
+/// Define all the `static`s that should be always be initialized early on.
 ///
 /// This wraps all `static`s inside a `LazyLock` and generates
 /// a [`init_lazylock_statics`] function that must/should be
 /// used by `main()` early on.
-macro_rules! define_lazylock_statics {
+macro_rules! define_init_lazylock_statics {
 	($(
 		$( #[$attr:meta] )*
 		$name:ident: $t:ty = $init_fn:expr;
@@ -29,10 +29,8 @@ macro_rules! define_lazylock_statics {
 	};
 }
 
-define_lazylock_statics! {
+define_init_lazylock_statics! {
     /// The start time of `cuprated`.
-    ///
-    /// This must/should be set early on in `main()`.
     START_INSTANT: SystemTime = SystemTime::now();
 
     /// Start time of `cuprated` as a UNIX timestamp.
