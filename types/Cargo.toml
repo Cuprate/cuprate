@@ -13,14 +13,17 @@ default    = ["blockchain", "epee", "serde", "json", "hex"]
 blockchain = []
 epee       = ["dep:cuprate-epee-encoding"]
 serde      = ["dep:serde"]
+bytemuck   = ["dep:bytemuck"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
-json       = ["hex"]
+json       = ["hex", "bytemuck", "dep:cuprate-helper"]
 hex        = ["dep:hex", "dep:paste"]
 
 [dependencies]
 cuprate-epee-encoding = { path = "../net/epee-encoding", optional = true }
+cuprate-helper = { path = "../helper", optional = true, features = ["cast"] }
 cuprate-fixed-bytes   = { path = "../net/fixed-bytes" }
 
+bytemuck         = { workspace = true, features = ["derive"], optional = true }
 bytes            = { workspace = true }
 curve25519-dalek = { workspace = true }
 monero-serai     = { workspace = true }

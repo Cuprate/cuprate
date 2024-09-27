@@ -885,9 +885,11 @@ dependencies = [
 name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
+ "bytemuck",
  "bytes",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
+ "cuprate-helper",
  "curve25519-dalek",
  "hex",
  "monero-serai",

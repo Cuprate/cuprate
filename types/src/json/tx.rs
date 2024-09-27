@@ -8,9 +8,13 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use cuprate_helper::cast::usize_to_u64;
+
+use monero_serai::transaction;
+
 use crate::{
-    hex::{HexBytes32, HexBytes64, HexBytes8},
-    json::output::Output,
+    hex::{HexBytes1, HexBytes32, HexBytes64, HexBytes8},
+    json::output::{Output, TaggedKey, Target},
 };
 
 /// JSON representation of a non-miner transaction.
@@ -46,6 +50,89 @@ pub struct TransactionPrefix {
     pub vin: Vec<Input>,
     pub vout: Vec<Output>,
     pub extra: Vec<u8>,
+}
+
+impl From<transaction::Transaction> for Transaction {
+    fn from(tx: transaction::Transaction) -> Self {
+        fn map_prefix(prefix: transaction::TransactionPrefix, version: u8) -> TransactionPrefix {
+            let mut height = 0;
+
+            let vin = prefix
+                .inputs
+                .into_iter()
+                .filter_map(|input| match input {
+                    transaction::Input::ToKey {
+                        amount,
+                        key_offsets,
+                        key_image,
+                    } => {
+                        let key = Key {
+                            amount: amount.unwrap_or(0),
+                            key_offsets,
+                            k_image: HexBytes32(key_image.compress().0),
+                        };
+
+                        Some(Input { key })
+                    }
+                    transaction::Input::Gen(h) => {
+                        height = usize_to_u64(h);
+                        None
+                    }
+                })
+                .collect();
+
+            let vout = prefix
+                .outputs
+                .into_iter()
+                .map(|o| {
+                    let amount = o.amount.unwrap_or(0);
+
+                    let target = match o.view_tag {
+                        Some(view_tag) => {
+                            let tagged_key = TaggedKey {
+                                key: HexBytes32(o.key.0),
+                                view_tag: HexBytes1([view_tag]),
+                            };
+
+                            Target::TaggedKey { tagged_key }
+                        }
+                        None => Target::Key {
+                            key: HexBytes32(o.key.0),
+                        },
+                    };
+
+                    Output { amount, target }
+                })
+                .collect();
+
+            // TODO: use cuprate_constants target time
+            let unlock_time = match prefix.additional_timelock {
+                transaction::Timelock::None => height,
+                transaction::Timelock::Block(height_lock) => height + usize_to_u64(height_lock),
+                transaction::Timelock::Time(seconds) => height + (seconds * 120),
+            } + 60;
+
+            TransactionPrefix {
+                version,
+                unlock_time,
+                vin,
+                vout,
+                extra: prefix.extra,
+            }
+        }
+
+        match tx {
+            transaction::Transaction::V1 { prefix, signatures } => Self::V1 {
+                prefix: map_prefix(prefix, 1),
+                signatures: todo!(),
+            },
+            transaction::Transaction::V2 { prefix, proofs } => Self::V2 {
+                prefix: map_prefix(prefix, 2),
+                rct_signatures: todo!(),
+                rctsig_prunable: todo!(),
+            },
+        }
+    }
 }
 
 /// [`Transaction::V2::rct_signatures`].

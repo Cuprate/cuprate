@@ -3,7 +3,14 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::{hex::HexBytes32, json::output::Output};
+use monero_serai::{block, transaction};
+
+use cuprate_helper::cast::usize_to_u64;
+
+use crate::{
+    hex::{HexBytes1, HexBytes32},
+    json::output::{Output, TaggedKey, Target},
+};
 
 /// JSON representation of a block.
 ///
@@ -21,19 +28,25 @@ pub struct Block {
     pub tx_hashes: Vec<HexBytes32>,
 }
 
-// impl From<monero_serai::block::Block> for Block {
-//     fn from(b: monero_serai::block::Block) -> Self {
-//         Self {
-//             major_version: todo!(),
-//             minor_version: todo!(),
-//             timestamp: todo!(),
-//             prev_id: todo!(),
-//             nonce: todo!(),
-//             miner_tx: todo!(),
-//             tx_hashes: todo!(),
-//         }
-//     }
-// }
+impl From<block::Block> for Block {
+    fn from(b: block::Block) -> Self {
+        let Ok(miner_tx) = MinerTransaction::try_from(b.miner_transaction) else {
+            unreachable!("input is a miner tx, this should never fail");
+        };
+
+        let tx_hashes = b.transactions.into_iter().map(HexBytes32).collect();
+
+        Self {
+            major_version: b.header.hardfork_version,
+            minor_version: b.header.hardfork_signal,
+            timestamp: b.header.timestamp,
+            prev_id: HexBytes32(b.header.previous),
+            nonce: b.header.nonce,
+            miner_tx,
+            tx_hashes,
+        }
+    }
+}
 
 /// [`Block::miner_tx`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -54,6 +67,98 @@ pub enum MinerTransaction {
     },
 }
 
+impl TryFrom<transaction::Transaction> for MinerTransaction {
+    type Error = transaction::Transaction;
+
+    /// # Errors
+    /// This function errors if the input is not a miner transaction.
+    fn try_from(tx: transaction::Transaction) -> Result<Self, transaction::Transaction> {
+        fn map_prefix(
+            prefix: transaction::TransactionPrefix,
+            version: u8,
+        ) -> Result<MinerTransactionPrefix, transaction::TransactionPrefix> {
+            let Some(input) = prefix.inputs.first() else {
+                return Err(prefix);
+            };
+
+            let height = match input {
+                transaction::Input::Gen(height) => usize_to_u64(*height),
+                transaction::Input::ToKey { .. } => return Err(prefix),
+            };
+
+            let vin = {
+                let r#gen = Gen { height };
+                let input = Input { r#gen };
+                [input]
+            };
+
+            let vout = prefix
+                .outputs
+                .into_iter()
+                .map(|o| {
+                    let amount = o.amount.unwrap_or(0);
+
+                    let target = match o.view_tag {
+                        Some(view_tag) => {
+                            let tagged_key = TaggedKey {
+                                key: HexBytes32(o.key.0),
+                                view_tag: HexBytes1([view_tag]),
+                            };
+
+                            Target::TaggedKey { tagged_key }
+                        }
+                        None => Target::Key {
+                            key: HexBytes32(o.key.0),
+                        },
+                    };
+
+                    Output { amount, target }
+                })
+                .collect();
+
+            // TODO: use cuprate_constants target time
+            let unlock_time = match prefix.additional_timelock {
+                transaction::Timelock::None => height,
+                transaction::Timelock::Block(height_lock) => height + usize_to_u64(height_lock),
+                transaction::Timelock::Time(seconds) => height + (seconds * 120),
+            } + 60;
+
+            Ok(MinerTransactionPrefix {
+                version,
+                unlock_time,
+                vin,
+                vout,
+                extra: prefix.extra,
+            })
+        }
+
+        Ok(match tx {
+            transaction::Transaction::V1 { prefix, signatures } => {
+                let prefix = match map_prefix(prefix, 1) {
+                    Ok(p) => p,
+                    Err(prefix) => return Err(transaction::Transaction::V1 { prefix, signatures }),
+                };
+
+                Self::V1 {
+                    prefix,
+                    signatures: [(); 0],
+                }
+            }
+            transaction::Transaction::V2 { prefix, proofs } => {
+                let prefix = match map_prefix(prefix, 2) {
+                    Ok(p) => p,
+                    Err(prefix) => return Err(transaction::Transaction::V2 { prefix, proofs }),
+                };
+
+                Self::V2 {
+                    prefix,
+                    rct_signatures: MinerTransactionRctSignatures { r#type: 0 },
+                }
+            }
+        })
+    }
+}
+
 impl Default for MinerTransaction {
     fn default() -> Self {
         Self::V1 {
@@ -69,7 +174,7 @@ impl Default for MinerTransaction {
 pub struct MinerTransactionPrefix {
     pub version: u8,
     pub unlock_time: u64,
-    pub vin: Vec<Input>,
+    pub vin: [Input; 1],
     pub vout: Vec<Output>,
     pub extra: Vec<u8>,
 }
