@@ -11,22 +11,22 @@ use std::{
 /// a [`init_lazylock_statics`] function that must/should be
 /// used by `main()` early on.
 macro_rules! define_init_lazylock_statics {
-	($(
-		$( #[$attr:meta] )*
-		$name:ident: $t:ty = $init_fn:expr;
-	)*) => {
-    	/// Initialize global static `LazyLock` data.
-		pub fn init_lazylock_statics() {
-			$(
-				LazyLock::force(&$name);
-			)*
-		}
+    ($(
+        $( #[$attr:meta] )*
+        $name:ident: $t:ty = $init_fn:expr;
+    )*) => {
+        /// Initialize global static `LazyLock` data.
+        pub fn init_lazylock_statics() {
+            $(
+                LazyLock::force(&$name);
+            )*
+        }
 
-		$(
-			$(#[$attr])*
-			pub static $name: LazyLock<$t> = LazyLock::new(|| $init_fn);
-		)*
-	};
+        $(
+            $(#[$attr])*
+            pub static $name: LazyLock<$t> = LazyLock::new(|| $init_fn);
+        )*
+    };
 }
 
 define_init_lazylock_statics! {
