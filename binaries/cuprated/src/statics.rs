@@ -41,3 +41,15 @@ define_lazylock_statics! {
         .expect("Failed to set `cuprated` startup time.")
         .as_secs();
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    /// Sanity check for startup UNIX time.
+    #[test]
+    fn start_instant_unix() {
+        // Fri Sep 27 01:07:13 AM UTC 2024
+        assert!(*START_INSTANT_UNIX > 1727399233);
+    }
+}
