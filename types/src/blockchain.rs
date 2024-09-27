@@ -8,6 +8,8 @@ use std::{
     ops::Range,
 };
 
+use monero_serai::block::Block;
+
 use crate::{
     types::{Chain, ExtendedBlockHeader, OutputOnChain, VerifiedBlockInformation},
     AltBlockInformation, ChainId,
@@ -105,6 +107,12 @@ pub enum BlockchainReadRequest {
     AltBlocksInChain(ChainId),
 
     /// TODO
+    Block(usize),
+
+    /// TODO
+    BlockByHash([u8; 32]),
+
+    /// TODO
     TotalTxCount,
 
     /// TODO
@@ -165,6 +173,7 @@ pub enum BlockchainWriteRequest {
 /// This pairs with [`BlockchainReadRequest`] and [`BlockchainWriteRequest`],
 /// see those two for more info.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[expect(clippy::large_enum_variant)]
 pub enum BlockchainResponse {
     //------------------------------------------------------ Reads
     /// Response to [`BlockchainReadRequest::BlockExtendedHeader`].
@@ -244,6 +253,13 @@ pub enum BlockchainResponse {
     ///
     /// Contains all the alt blocks in the alt-chain in chronological order.
     AltBlocksInChain(Vec<AltBlockInformation>),
+
+    /// The response for:
+    /// - [`BlockchainReadRequest::Block`].
+    /// - [`BlockchainReadRequest::BlockByHash`].
+    ///
+    /// TODO
+    Block(Block),
 
     /// The response for [`BlockchainReadRequest::TotalTxCount`].
     ///

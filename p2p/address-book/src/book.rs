@@ -415,7 +415,7 @@ impl<Z: BorshNetworkZone> Service<AddressBookRequest<Z>> for AddressBook<Z> {
             | AddressBookRequest::ConnectionCount
             | AddressBookRequest::SetBan(_)
             | AddressBookRequest::GetBan(_)
-            | AddressBookRequest::GetBans => todo!(),
+            | AddressBookRequest::GetBans => todo!("finish https://github.com/Cuprate/cuprate/pull/297"),
         };
 
         ready(response)

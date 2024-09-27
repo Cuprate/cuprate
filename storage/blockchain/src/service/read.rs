@@ -1,5 +1,12 @@
 //! Database reader thread-pool definitions and logic.
 
+#![expect(
+    unreachable_code,
+    unused_variables,
+    clippy::unnecessary_wraps,
+    reason = "TODO: finish implementing the signatures from <https://github.com/Cuprate/cuprate/pull/297>"
+)]
+
 //---------------------------------------------------------------------------------------------------- Import
 use std::{
     collections::{HashMap, HashSet},
@@ -107,12 +114,14 @@ fn map_request(
         R::CompactChainHistory => compact_chain_history(env),
         R::FindFirstUnknown(block_ids) => find_first_unknown(env, &block_ids),
         R::AltBlocksInChain(chain_id) => alt_blocks_in_chain(env, chain_id),
-        R::TotalTxCount
-        | R::DatabaseSize
-        | R::Difficulty(_)
-        | R::OutputHistogram
-        | R::CoinbaseTxSum
-        | R::MinerData => todo!(),
+        R::Block(height) => block(env, height),
+        R::BlockByHash(hash) => block_by_hash(env, hash),
+        R::TotalTxCount => total_tx_count(env),
+        R::DatabaseSize => database_size(env),
+        R::Difficulty(height) => difficulty(env, height),
+        R::OutputHistogram => output_histogram(env),
+        R::CoinbaseTxSum => coinbase_tx_sum(env),
+        R::MinerData => miner_data(env),
     }
 
     /* SOMEDAY: post-request handling, run some code for each request? */
@@ -606,4 +615,47 @@ fn alt_blocks_in_chain(env: &ConcreteEnv, chain_id: ChainId) -> ResponseResult {
         .collect::<Result<_, _>>()?;
 
     Ok(BlockchainResponse::AltBlocksInChain(blocks))
+}
+
+/// [`BlockchainReadRequest::Block`]
+fn block(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    Ok(BlockchainResponse::Block(todo!()))
+}
+
+/// [`BlockchainReadRequest::BlockByHash`]
+fn block_by_hash(env: &ConcreteEnv, block_hash: BlockHash) -> ResponseResult {
+    Ok(BlockchainResponse::Block(todo!()))
+}
+
+/// [`BlockchainReadRequest::TotalTxCount`]
+fn total_tx_count(env: &ConcreteEnv) -> ResponseResult {
+    Ok(BlockchainResponse::TotalTxCount(todo!()))
+}
+
+/// [`BlockchainReadRequest::DatabaseSize`]
+fn database_size(env: &ConcreteEnv) -> ResponseResult {
+    Ok(BlockchainResponse::DatabaseSize {
+        database_size: todo!(),
+        free_space: todo!(),
+    })
+}
+
+/// [`BlockchainReadRequest::Difficulty()`]
+fn difficulty(env: &ConcreteEnv, block_height: BlockHeight) -> ResponseResult {
+    Ok(BlockchainResponse::Difficulty(todo!()))
+}
+
+/// [`BlockchainReadRequest::OutputHistogram`]
+fn output_histogram(env: &ConcreteEnv) -> ResponseResult {
+    Ok(BlockchainResponse::OutputHistogram(todo!()))
+}
+
+/// [`BlockchainReadRequest::CoinbaseTxSum`]
+fn coinbase_tx_sum(env: &ConcreteEnv) -> ResponseResult {
+    Ok(BlockchainResponse::CoinbaseTxSum(todo!()))
+}
+
+/// [`BlockchainReadRequest::MinerData`]
+fn miner_data(env: &ConcreteEnv) -> ResponseResult {
+    Ok(BlockchainResponse::MinerData(todo!()))
 }
