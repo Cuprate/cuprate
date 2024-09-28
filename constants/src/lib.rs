@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![deny(missing_docs, reason = "all constants should document what they are")]
+#![no_std] // This can be removed if we eventually need `std`.
 
 mod macros;
 

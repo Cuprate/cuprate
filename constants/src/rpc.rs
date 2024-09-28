@@ -1,6 +1,6 @@
 //! RPC related.
 
-use std::time::Duration;
+use core::time::Duration;
 
 use crate::macros::monero_definition_link;
 
