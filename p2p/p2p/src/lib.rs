@@ -14,12 +14,7 @@ use tower::{buffer::Buffer, util::BoxCloneService, MakeService, Service, Service
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_async_buffer::BufferStream;
-use cuprate_p2p_core::{
-    client::Connector,
-    client::InternalPeerID,
-    services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
-    CoreSyncSvc, NetworkZone, ProtocolRequest, ProtocolRequestHandler,
-};
+use cuprate_p2p_core::{client::Connector, client::InternalPeerID, services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest}, CoreSyncSvc, NetworkZone, ProtocolRequest, ProtocolRequestHandler, ProtocolRequestHandlerMaker};
 
 mod block_downloader;
 mod broadcast;
@@ -54,15 +49,7 @@ pub async fn initialize_network<N, PR, CS>(
 where
     N: NetworkZone,
     N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
-    PR: MakeService<
-            PeerInformation<N::Addr>,
-            ProtocolRequest,
-            MakeError = tower::BoxError,
-            Service: ProtocolRequestHandler,
-            Future: Send + 'static,
-        > + Clone
-        + Send
-        + 'static,
+    PR: ProtocolRequestHandlerMaker<N> + Clone,
     CS: CoreSyncSvc + Clone,
 {
     let address_book =
@@ -169,7 +156,10 @@ pub struct NetworkInterface<N: NetworkZone> {
     /// The address book service.
     address_book: BoxCloneService<AddressBookRequest<N>, AddressBookResponse<N>, tower::BoxError>,
     /// The peer's sync states service.
-    sync_states_svc: Buffer<PeerSyncRequest<N>, <sync_states::PeerSyncSvc<N> as Service<PeerSyncRequest<N>>>::Future>,
+    sync_states_svc: Buffer<
+        PeerSyncRequest<N>,
+        <sync_states::PeerSyncSvc<N> as Service<PeerSyncRequest<N>>>::Future,
+    >,
     /// Background tasks that will be aborted when this interface is dropped.
     _background_tasks: Arc<JoinSet<()>>,
 }

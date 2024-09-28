@@ -2809,7 +2809,7 @@ dependencies = [
 [[package]]
 name = "tower"
 version = "0.5.1"
-source = "git+https://github.com/Boog900/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
+source = "git+https://github.com/Cuprate/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
 dependencies = [
  "futures-core",
  "futures-util",
@@ -2817,8 +2817,8 @@ dependencies = [
  "sync_wrapper 0.1.2",
  "tokio",
  "tokio-util",
- "tower-layer 0.3.3 (git+https://github.com/Boog900/tower.git?rev=6c7faf0)",
- "tower-service 0.3.3 (git+https://github.com/Boog900/tower.git?rev=6c7faf0)",
+ "tower-layer 0.3.3 (git+https://github.com/Cuprate/tower.git?rev=6c7faf0)",
+ "tower-service 0.3.3 (git+https://github.com/Cuprate/tower.git?rev=6c7faf0)",
  "tracing",
 ]
 
@@ -2831,7 +2831,7 @@ checksum = "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e"
 [[package]]
 name = "tower-layer"
 version = "0.3.3"
-source = "git+https://github.com/Boog900/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
+source = "git+https://github.com/Cuprate/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
 
 [[package]]
 name = "tower-service"
@@ -2842,7 +2842,7 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 [[package]]
 name = "tower-service"
 version = "0.3.3"
-source = "git+https://github.com/Boog900/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
+source = "git+https://github.com/Cuprate/tower.git?rev=6c7faf0#6c7faf0e9dbc74aef5d3110313324bc7e1f997cf"
 
 [[package]]
 name = "tracing"

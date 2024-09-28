@@ -14,11 +14,13 @@ use futures::{FutureExt, Stream};
 use tokio::sync::OwnedSemaphorePermit;
 use tower::{MakeService, Service, ServiceExt};
 
-use crate::client::PeerInformation;
 use crate::{
-    client::{handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
+    client::{
+        handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID,
+        PeerInformation,
+    },
     AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerSyncSvc,
-    ProtocolRequest, ProtocolRequestHandler, ProtocolResponse,
+    ProtocolRequest, ProtocolRequestHandler, ProtocolRequestHandlerMaker, ProtocolResponse,
 };
 
 /// A request to connect to a peer.
@@ -54,15 +56,7 @@ where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
     PSync: PeerSyncSvc<Z> + Clone,
-    ProtoHdlrMkr: MakeService<
-            PeerInformation<Z::Addr>,
-            ProtocolRequest,
-            MakeError = tower::BoxError,
-            Service: ProtocolRequestHandler,
-            Future: Send + 'static,
-        > + Clone
-        + Send
-        + 'static,
+    ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z> + Clone,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {

@@ -17,7 +17,7 @@ use tokio::{
     sync::{mpsc, OwnedSemaphorePermit, Semaphore},
     time::{error::Elapsed, timeout},
 };
-use tower::{MakeService, Service, ServiceExt};
+use tower::{Service, ServiceExt};
 use tracing::{info_span, Instrument, Span};
 
 use cuprate_pruning::{PruningError, PruningSeed};
@@ -43,7 +43,7 @@ use crate::{
     services::PeerSyncRequest,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
-    PeerSyncSvc, ProtocolRequest, ProtocolRequestHandler, SharedError,
+    PeerSyncSvc, ProtocolRequest, ProtocolRequestHandler, ProtocolRequestHandlerMaker, SharedError,
 };
 
 pub mod builder;
@@ -142,15 +142,7 @@ where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
     PSync: PeerSyncSvc<Z> + Clone,
-    ProtoHdlrMkr: MakeService<
-            PeerInformation<Z::Addr>,
-            ProtocolRequest,
-            MakeError = tower::BoxError,
-            Service: ProtocolRequestHandler,
-            Future: Send + 'static,
-        > + Clone
-        + Send
-        + 'static,
+    ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z> + Clone,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
@@ -254,16 +246,9 @@ async fn handshake<Z: NetworkZone, AdrBook, CSync, PSync, ProtoHdlrMkr, BrdcstSt
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z> + Clone,
-    CSync: CoreSyncSvc + Clone,
-    PSync: PeerSyncSvc<Z> + Clone,
-    ProtoHdlrMkr: MakeService<
-            PeerInformation<Z::Addr>,
-            ProtocolRequest,
-            MakeError = tower::BoxError,
-            Service: ProtocolRequestHandler,
-            Future: Send + 'static,
-        > + Send
-        + 'static,
+    CSync: CoreSyncSvc+ Clone,
+    PSync: PeerSyncSvc<Z>+ Clone,
+    ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z>,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Send + 'static,
 {

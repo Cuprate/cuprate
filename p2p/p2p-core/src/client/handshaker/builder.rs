@@ -9,7 +9,7 @@ use cuprate_wire::BasicNodeData;
 use crate::{
     client::{handshaker::HandShaker, InternalPeerID, PeerInformation},
     AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc, ProtocolRequest,
-    ProtocolRequestHandler,
+    ProtocolRequestHandler, ProtocolRequestHandlerMaker,
 };
 
 mod dummy;
@@ -203,15 +203,7 @@ impl<N: NetworkZone, AdrBook, CSync, PSync, ProtoHdlr, BrdcstStrmMkr>
         new_protocol_request_svc_maker: NProtoHdlrMkr,
     ) -> HandshakerBuilder<N, AdrBook, CSync, PSync, NProtoHdlrMkr, BrdcstStrmMkr>
     where
-        NProtoHdlrMkr: MakeService<
-                PeerInformation<N::Addr>,
-                ProtocolRequest,
-                MakeError = tower::BoxError,
-                Service: ProtocolRequestHandler,
-                Future: Send + 'static,
-            > + Clone
-            + Send
-            + 'static,
+        NProtoHdlrMkr: ProtocolRequestHandlerMaker<N> + Clone,
     {
         let Self {
             address_book,
