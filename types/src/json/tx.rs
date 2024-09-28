@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_helper::cast::usize_to_u64;
 
-use monero_serai::{ringct::RctType, transaction};
+use monero_serai::{ringct, transaction};
 
 use crate::{
     hex::{HexBytes1, HexBytes32, HexBytes64, HexBytes8},
@@ -140,20 +140,43 @@ impl From<transaction::Transaction> for Transaction {
                 };
 
                 let r#type = match proofs.rct_type() {
-                    RctType::AggregateMlsagBorromean => 1,
-                    RctType::MlsagBorromean => 2,
-                    RctType::MlsagBulletproofs => 3,
-                    RctType::MlsagBulletproofsCompactAmount => 4,
-                    RctType::ClsagBulletproof => 5,
-                    RctType::ClsagBulletproofPlus => 6,
+                    ringct::RctType::AggregateMlsagBorromean => 1,
+                    ringct::RctType::MlsagBorromean => 2,
+                    ringct::RctType::MlsagBulletproofs => 3,
+                    ringct::RctType::MlsagBulletproofsCompactAmount => 4,
+                    ringct::RctType::ClsagBulletproof => 5,
+                    ringct::RctType::ClsagBulletproofPlus => 6,
                 };
 
                 let txnFee = proofs.base.fee;
 
+                let ecdhInfo = proofs
+                    .base
+                    .encrypted_amounts
+                    .into_iter()
+                    .map(EcdhInfo::from)
+                    .collect();
+
+                let outPk = proofs
+                    .base
+                    .commitments
+                    .into_iter()
+                    .map(|point| HexBytes32(point.compress().0))
+                    .collect();
+
+                let rct_signatures = RctSignatures {
+                    r#type,
+                    txnFee,
+                    ecdhInfo,
+                    outPk,
+                };
+
+                let rctsig_prunable = RctSigPrunable::from(proofs.prunable);
+
                 Self::V2 {
                     prefix,
-                    rct_signatures: todo!(),
-                    rctsig_prunable: todo!(),
+                    rct_signatures: Some(rct_signatures),
+                    rctsig_prunable: Some(rctsig_prunable),
                 }
             }
         }
@@ -178,6 +201,43 @@ pub struct RctSigPrunable {
     pub bpp: Vec<Bpp>,
     pub CLSAGs: Vec<Clsag>,
     pub pseudoOuts: Vec<String>,
+}
+
+#[expect(unused_variables, reason = "TODO: finish impl")]
+impl From<ringct::RctPrunable> for RctSigPrunable {
+    fn from(r: ringct::RctPrunable) -> Self {
+        use ringct::RctPrunable as R;
+
+        match r {
+            R::AggregateMlsagBorromean { mlsag, borromean } => {
+                todo!()
+            }
+            R::MlsagBorromean { mlsags, borromean } => {
+                todo!()
+            }
+            R::MlsagBulletproofs {
+                mlsags,
+                pseudo_outs,
+                bulletproof,
+            } => {
+                todo!()
+            }
+            R::MlsagBulletproofsCompactAmount {
+                mlsags,
+                pseudo_outs,
+                bulletproof,
+            } => {
+                todo!()
+            }
+            R::Clsag {
+                clsags,
+                pseudo_outs,
+                bulletproof,
+            } => {
+                todo!()
+            }
+        }
+    }
 }
 
 /// [`RctSigPrunable::bpp`].
@@ -206,10 +266,30 @@ pub struct Clsag {
 /// [`RctSignatures::ecdhInfo`].
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct EcdhInfo {
-    pub amount: HexBytes8,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub mask: Option<String>,
+#[cfg_attr(feature = "serde", serde(untagged))]
+#[expect(variant_size_differences)]
+pub enum EcdhInfo {
+    Original {
+        amount: HexBytes32,
+        mask: HexBytes32,
+    },
+    Compact {
+        amount: HexBytes8,
+    },
+}
+
+impl From<ringct::EncryptedAmount> for EcdhInfo {
+    fn from(ea: ringct::EncryptedAmount) -> Self {
+        match ea {
+            ringct::EncryptedAmount::Original { amount, mask } => Self::Original {
+                amount: HexBytes32(amount),
+                mask: HexBytes32(mask),
+            },
+            ringct::EncryptedAmount::Compact { amount } => Self::Compact {
+                amount: HexBytes8(amount),
+            },
+        }
+    }
 }
 
 /// [`TransactionPrefix::vin`].
