@@ -3,14 +3,7 @@ use std::time::Duration;
 
 use monero_serai::block::BlockHeader;
 
-/// Target block time for hf 1.
-///
-/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds>
-const BLOCK_TIME_V1: Duration = Duration::from_secs(60);
-/// Target block time from v2.
-///
-/// ref: <https://monero-book.cuprate.org/consensus_rules/blocks/difficulty.html#target-seconds>
-const BLOCK_TIME_V2: Duration = Duration::from_secs(120);
+use cuprate_constants::block::{BLOCK_TIME_V1, BLOCK_TIME_V2};
 
 /// An error working with a [`HardFork`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, thiserror::Error)]

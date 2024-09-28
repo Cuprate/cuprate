@@ -16,6 +16,7 @@ serde      = ["dep:serde"]
 proptest   = ["dep:proptest",  "dep:proptest-derive"]
 
 [dependencies]
+cuprate-constants     = { path = "../constants", features = ["block"] }
 cuprate-epee-encoding = { path = "../net/epee-encoding", optional = true }
 cuprate-fixed-bytes   = { path = "../net/fixed-bytes" }
 

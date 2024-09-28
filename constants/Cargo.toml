@@ -12,18 +12,12 @@ keywords    = ["cuprate", "constants"]
 default = []
 block   = []
 build   = []
-genesis = ["dep:monero-serai", "dep:hex-literal", "dep:paste"]
 rpc     = []
+output  = []
 
 [dependencies]
-cfg-if       = { workspace = true }
-monero-serai = { workspace = true, optional = true }
-hex-literal  = { workspace = true, optional = true }
-paste        = { workspace = true, optional = true }
 
 [dev-dependencies]
-hex               = { workspace = true, features = ["std"] }
-pretty_assertions = { workspace = true }
 
 [lints]
 workspace = true

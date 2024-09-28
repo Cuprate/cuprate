@@ -604,14 +604,6 @@ dependencies = [
 [[package]]
 name = "cuprate-constants"
 version = "0.1.0"
-dependencies = [
- "cfg-if",
- "hex",
- "hex-literal",
- "monero-serai",
- "paste",
- "pretty_assertions",
-]
 
 [[package]]
 name = "cuprate-cryptonight"
@@ -904,6 +896,7 @@ name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
  "bytes",
+ "cuprate-constants",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "curve25519-dalek",
