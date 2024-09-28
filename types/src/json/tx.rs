@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use cuprate_helper::cast::usize_to_u64;
 
-use monero_serai::transaction;
+use monero_serai::{ringct::RctType, transaction};
 
 use crate::{
     hex::{HexBytes1, HexBytes32, HexBytes64, HexBytes8},
@@ -36,8 +36,8 @@ pub enum Transaction {
         /// This field is [flattened](https://serde.rs/field-attrs.html#flatten).
         #[serde(flatten)]
         prefix: TransactionPrefix,
-        rct_signatures: RctSignatures,
-        rctsig_prunable: RctSigPrunable,
+        rct_signatures: Option<RctSignatures>,
+        rctsig_prunable: Option<RctSigPrunable>,
     },
 }
 
@@ -128,11 +128,34 @@ impl From<transaction::Transaction> for Transaction {
                 prefix: map_prefix(prefix, 1),
                 signatures: todo!(),
             },
-            transaction::Transaction::V2 { prefix, proofs } => Self::V2 {
-                prefix: map_prefix(prefix, 2),
-                rct_signatures: todo!(),
-                rctsig_prunable: todo!(),
-            },
+            transaction::Transaction::V2 { prefix, proofs } => {
+                let prefix = map_prefix(prefix, 2);
+
+                let Some(proofs) = proofs else {
+                    return Self::V2 {
+                        prefix,
+                        rct_signatures: None,
+                        rctsig_prunable: None,
+                    };
+                };
+
+                let r#type = match proofs.rct_type() {
+                    RctType::AggregateMlsagBorromean => 1,
+                    RctType::MlsagBorromean => 2,
+                    RctType::MlsagBulletproofs => 3,
+                    RctType::MlsagBulletproofsCompactAmount => 4,
+                    RctType::ClsagBulletproof => 5,
+                    RctType::ClsagBulletproofPlus => 6,
+                };
+
+                let txnFee = proofs.base.fee;
+
+                Self::V2 {
+                    prefix,
+                    rct_signatures: todo!(),
+                    rctsig_prunable: todo!(),
+                }
+            }
         }
     }
 }
