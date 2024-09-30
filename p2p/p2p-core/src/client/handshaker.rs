@@ -454,7 +454,7 @@ where
         id: addr,
         handle,
         direction,
-        pruning_seed: PruningSeed::decompress_p2p_rules(peer_core_sync.pruning_seed)?,
+        pruning_seed,
         core_sync_data: Arc::new(Mutex::new(peer_core_sync)),
     };
 

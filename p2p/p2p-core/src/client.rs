@@ -66,6 +66,9 @@ pub struct PeerInformation<A> {
     ///
     /// Data across fields are not necessarily related, so [`CoreSyncData::top_id`] is not always the
     /// block hash for the block at height one below [`CoreSyncData::current_height`].
+    ///
+    /// This value is behind a [`Mutex`] and is updated whenever the peer sends new information related
+    /// to their sync state. It is publicly accessible to anyone who has a peers [`Client`] handle.
     pub core_sync_data: Arc<Mutex<CoreSyncData>>,
 }
 
