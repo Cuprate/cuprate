@@ -20,7 +20,7 @@ pub use dummy::{
 /// A [`HandShaker`] [`Service`](tower::Service) builder.
 ///
 /// This builder applies default values to make usage easier, behaviour and drawbacks of the defaults are documented
-/// on the `with_*` method to change it, for example [`HandshakerBuilder::with_protocol_request_handler`].
+/// on the `with_*` method to change it, for example [`HandshakerBuilder::with_protocol_request_handler_maker`].
 ///
 /// If you want to use any network other than [`Mainnet`](crate::Network::Mainnet)
 /// you will need to change the core sync service with [`HandshakerBuilder::with_core_sync_svc`],
