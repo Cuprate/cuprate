@@ -68,7 +68,8 @@ pub struct PeerInformation<A> {
     /// block hash for the block at height one below [`CoreSyncData::current_height`].
     ///
     /// This value is behind a [`Mutex`] and is updated whenever the peer sends new information related
-    /// to their sync state. It is publicly accessible to anyone who has a peers [`Client`] handle.
+    /// to their sync state. It is publicly accessible to anyone who has a peers [`Client`] handle. You
+    /// probably should not mutate this value unless you are creating a custom [`ProtocolRequestHandler`](crate::ProtocolRequestHandler).
     pub core_sync_data: Arc<Mutex<CoreSyncData>>,
 }
 
