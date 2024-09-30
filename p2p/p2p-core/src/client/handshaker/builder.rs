@@ -1,5 +1,4 @@
-use std::convert::Infallible;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, convert::Infallible};
 
 use futures::{stream, Stream};
 use tower::{make::Shared, util::MapErr};
