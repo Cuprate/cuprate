@@ -106,12 +106,10 @@ impl From<transaction::Transaction> for Transaction {
                 .collect();
 
             let unlock_time = match prefix.additional_timelock {
-                transaction::Timelock::None => height,
-                transaction::Timelock::Block(height_lock) => height + usize_to_u64(height_lock),
-                transaction::Timelock::Time(seconds) => {
-                    height + (seconds / usize_to_u64(monero_serai::BLOCK_TIME))
-                }
-            } + usize_to_u64(monero_serai::DEFAULT_LOCK_WINDOW);
+                transaction::Timelock::None => 0,
+                transaction::Timelock::Block(x) => usize_to_u64(x),
+                transaction::Timelock::Time(x) => x,
+            };
 
             TransactionPrefix {
                 version,
