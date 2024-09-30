@@ -1,6 +1,8 @@
+use std::convert::Infallible;
 use std::marker::PhantomData;
 
 use futures::{stream, Stream};
+use tower::{make::Shared, util::MapErr};
 use tracing::Span;
 
 use cuprate_wire::BasicNodeData;
@@ -14,7 +16,6 @@ use crate::{
 mod dummy;
 pub use dummy::{
     DummyAddressBook, DummyCoreSyncSvc, DummyPeerSyncSvc, DummyProtocolRequestHandler,
-    DummyProtocolRequestHandlerMaker,
 };
 
 /// A [`HandShaker`] [`Service`](tower::Service) builder.
@@ -31,7 +32,7 @@ pub struct HandshakerBuilder<
     AdrBook = DummyAddressBook,
     CSync = DummyCoreSyncSvc,
     PSync = DummyPeerSyncSvc,
-    ProtoHdlrMkr = DummyProtocolRequestHandlerMaker,
+    ProtoHdlrMkr = MapErr<Shared<DummyProtocolRequestHandler>, fn(Infallible) -> tower::BoxError>,
     BrdcstStrmMkr = fn(
         InternalPeerID<<N as NetworkZone>::Addr>,
     ) -> stream::Pending<BroadcastMessage>,
@@ -62,7 +63,10 @@ impl<N: NetworkZone> HandshakerBuilder<N> {
             address_book: DummyAddressBook,
             core_sync_svc: DummyCoreSyncSvc::static_mainnet_genesis(),
             peer_sync_svc: DummyPeerSyncSvc,
-            protocol_request_svc_maker: DummyProtocolRequestHandlerMaker,
+            protocol_request_svc_maker: MapErr::new(
+                Shared::new(DummyProtocolRequestHandler),
+                tower::BoxError::from,
+            ),
             our_basic_node_data,
             broadcast_stream_maker: |_| stream::pending(),
             connection_parent_span: None,

@@ -8,12 +8,11 @@ use tower::Service;
 use cuprate_wire::CoreSyncData;
 
 use crate::{
-    client::PeerInformation,
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
         PeerSyncRequest, PeerSyncResponse,
     },
-    NetZoneAddress, NetworkZone, ProtocolRequest, ProtocolResponse,
+    NetworkZone, ProtocolRequest, ProtocolResponse,
 };
 
 /// A dummy peer sync service, that doesn't actually keep track of peers sync states.
@@ -130,24 +129,6 @@ impl<N: NetworkZone> Service<AddressBookRequest<N>> for DummyAddressBook {
             }
             AddressBookRequest::IsPeerBanned(_) => AddressBookResponse::IsPeerBanned(false),
         }))
-    }
-}
-
-/// A [`DummyProtocolRequestHandler`] maker.
-#[derive(Debug, Clone)]
-pub struct DummyProtocolRequestHandlerMaker;
-
-impl<A: NetZoneAddress> Service<PeerInformation<A>> for DummyProtocolRequestHandlerMaker {
-    type Response = DummyProtocolRequestHandler;
-    type Error = tower::BoxError;
-    type Future = Ready<Result<Self::Response, Self::Error>>;
-
-    fn poll_ready(&mut self, _: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-
-    fn call(&mut self, _: PeerInformation<A>) -> Self::Future {
-        ready(Ok(DummyProtocolRequestHandler))
     }
 }
 
