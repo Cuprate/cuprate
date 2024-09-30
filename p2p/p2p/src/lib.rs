@@ -10,11 +10,16 @@ use tokio::{
     task::JoinSet,
 };
 use tokio_stream::wrappers::WatchStream;
-use tower::{buffer::Buffer, util::BoxCloneService, MakeService, Service, ServiceExt};
+use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_async_buffer::BufferStream;
-use cuprate_p2p_core::{client::Connector, client::InternalPeerID, services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest}, CoreSyncSvc, NetworkZone, ProtocolRequest, ProtocolRequestHandler, ProtocolRequestHandlerMaker};
+use cuprate_p2p_core::{
+    client::Connector,
+    client::InternalPeerID,
+    services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
+    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
+};
 
 mod block_downloader;
 mod broadcast;
@@ -30,7 +35,6 @@ pub use broadcast::{BroadcastRequest, BroadcastSvc};
 use client_pool::ClientPoolDropGuard;
 pub use config::P2PConfig;
 use connection_maintainer::MakeConnectionRequest;
-use cuprate_p2p_core::client::PeerInformation;
 
 /// Initializes the P2P [`NetworkInterface`] for a specific [`NetworkZone`].
 ///

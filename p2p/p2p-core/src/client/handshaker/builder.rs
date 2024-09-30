@@ -1,15 +1,14 @@
 use std::marker::PhantomData;
 
 use futures::{stream, Stream};
-use tower::MakeService;
 use tracing::Span;
 
 use cuprate_wire::BasicNodeData;
 
 use crate::{
-    client::{handshaker::HandShaker, InternalPeerID, PeerInformation},
-    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc, ProtocolRequest,
-    ProtocolRequestHandler, ProtocolRequestHandlerMaker,
+    client::{handshaker::HandShaker, InternalPeerID},
+    AddressBook, BroadcastMessage, CoreSyncSvc, NetworkZone, PeerSyncSvc,
+    ProtocolRequestHandlerMaker,
 };
 
 mod dummy;

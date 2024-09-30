@@ -43,7 +43,7 @@ use crate::{
     services::PeerSyncRequest,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
-    PeerSyncSvc, ProtocolRequest, ProtocolRequestHandler, ProtocolRequestHandlerMaker, SharedError,
+    PeerSyncSvc, ProtocolRequestHandlerMaker, SharedError,
 };
 
 pub mod builder;
@@ -246,8 +246,8 @@ async fn handshake<Z: NetworkZone, AdrBook, CSync, PSync, ProtoHdlrMkr, BrdcstSt
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z> + Clone,
-    CSync: CoreSyncSvc+ Clone,
-    PSync: PeerSyncSvc<Z>+ Clone,
+    CSync: CoreSyncSvc + Clone,
+    PSync: PeerSyncSvc<Z> + Clone,
     ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z>,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Send + 'static,

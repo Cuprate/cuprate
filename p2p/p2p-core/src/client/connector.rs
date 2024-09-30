@@ -12,15 +12,12 @@ use std::{
 
 use futures::{FutureExt, Stream};
 use tokio::sync::OwnedSemaphorePermit;
-use tower::{MakeService, Service, ServiceExt};
+use tower::{Service, ServiceExt};
 
 use crate::{
-    client::{
-        handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID,
-        PeerInformation,
-    },
+    client::{handshaker::HandShaker, Client, DoHandshakeRequest, HandshakeError, InternalPeerID},
     AddressBook, BroadcastMessage, ConnectionDirection, CoreSyncSvc, NetworkZone, PeerSyncSvc,
-    ProtocolRequest, ProtocolRequestHandler, ProtocolRequestHandlerMaker, ProtocolResponse,
+    ProtocolRequestHandlerMaker,
 };
 
 /// A request to connect to a peer.
