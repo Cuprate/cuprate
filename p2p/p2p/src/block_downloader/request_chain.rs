@@ -1,16 +1,12 @@
 use std::{mem, sync::Arc};
 
-use rand::prelude::SliceRandom;
-use rand::thread_rng;
 use tokio::{task::JoinSet, time::timeout};
 use tower::{Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_p2p_core::{
-    client::InternalPeerID,
-    handles::ConnectionHandle,
-    services::{PeerSyncRequest, PeerSyncResponse},
-    NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc, ProtocolRequest, ProtocolResponse,
+    client::InternalPeerID, handles::ConnectionHandle, NetworkZone, PeerRequest, PeerResponse,
+    ProtocolRequest, ProtocolResponse,
 };
 use cuprate_wire::protocol::{ChainRequest, ChainResponse};
 
@@ -83,13 +79,11 @@ pub(crate) async fn request_chain_entry_from_peer<N: NetworkZone>(
 ///
 /// We then wait for their response and choose the peer who claims the highest cumulative difficulty.
 #[instrument(level = "error", skip_all)]
-pub async fn initial_chain_search<N: NetworkZone, S, C>(
+pub async fn initial_chain_search<N: NetworkZone, C>(
     client_pool: &Arc<ClientPool<N>>,
-    mut peer_sync_svc: S,
     mut our_chain_svc: C,
 ) -> Result<ChainTracker<N>, BlockDownloadError>
 where
-    S: PeerSyncSvc<N>,
     C: Service<ChainSvcRequest, Response = ChainSvcResponse, Error = tower::BoxError>,
 {
     tracing::debug!("Getting our chain history");
@@ -108,29 +102,9 @@ where
 
     let our_genesis = *block_ids.last().expect("Blockchain had no genesis block.");
 
-    tracing::debug!("Getting a list of peers with higher cumulative difficulty");
-
-    let PeerSyncResponse::PeersToSyncFrom(mut peers) = peer_sync_svc
-        .ready()
-        .await?
-        .call(PeerSyncRequest::PeersToSyncFrom {
-            block_needed: None,
-            current_cumulative_difficulty: cumulative_difficulty,
-        })
-        .await?
-    else {
-        panic!("peer sync service sent wrong response.");
-    };
-
-    tracing::debug!(
-        "{} peers claim they have a higher cumulative difficulty",
-        peers.len()
-    );
-
-    // Shuffle the list to remove any possibility of peers being able to prioritize getting picked.
-    peers.shuffle(&mut thread_rng());
-
-    let mut peers = client_pool.borrow_clients(&peers);
+    let mut peers = client_pool
+        .clients_with_more_cumulative_difficulty(cumulative_difficulty)
+        .into_iter();
 
     let mut futs = JoinSet::new();
 
