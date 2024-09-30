@@ -192,28 +192,6 @@ pub trait NetworkZone: Clone + Copy + Send + 'static {
 // Below here is just helper traits, so we don't have to type out tower::Service bounds
 // everywhere but still get to use tower.
 
-pub trait PeerSyncSvc<Z: NetworkZone>:
-    tower::Service<
-        PeerSyncRequest<Z>,
-        Response = PeerSyncResponse<Z>,
-        Error = tower::BoxError,
-        Future: Send + 'static,
-    > + Send
-    + 'static
-{
-}
-
-impl<T, Z: NetworkZone> PeerSyncSvc<Z> for T where
-    T: tower::Service<
-            PeerSyncRequest<Z>,
-            Response = PeerSyncResponse<Z>,
-            Error = tower::BoxError,
-            Future: Send + 'static,
-        > + Send
-        + 'static
-{
-}
-
 pub trait AddressBook<Z: NetworkZone>:
     tower::Service<
         AddressBookRequest<Z>,

@@ -30,13 +30,20 @@ use cuprate_wire::{
     AdminRequestMessage, AdminResponseMessage, BasicNodeData, BucketError, LevinCommand, Message,
 };
 
-use crate::{client::{
-    connection::Connection, request_handler::PeerRequestHandler,
-    timeout_monitor::connection_timeout_monitor_task, Client, InternalPeerID, PeerInformation,
-}, constants::{
-    HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE,
-    PING_TIMEOUT,
-}, handles::HandleBuilder, AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection, CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone, ProtocolRequestHandler, SharedError, ProtocolRequestHandlerMaker};
+use crate::{
+    client::{
+        connection::Connection, request_handler::PeerRequestHandler,
+        timeout_monitor::connection_timeout_monitor_task, Client, InternalPeerID, PeerInformation,
+    },
+    constants::{
+        HANDSHAKE_TIMEOUT, MAX_EAGER_PROTOCOL_MESSAGES, MAX_PEERS_IN_PEER_LIST_MESSAGE,
+        PING_TIMEOUT,
+    },
+    handles::HandleBuilder,
+    AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
+    CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
+    ProtocolRequestHandlerMaker, SharedError,
+};
 
 pub mod builder;
 pub use builder::HandshakerBuilder;
@@ -124,8 +131,7 @@ impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 }
 
 impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>
-    Service<DoHandshakeRequest<Z>>
-    for HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+    Service<DoHandshakeRequest<Z>> for HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
@@ -162,7 +168,7 @@ where
                     broadcast_stream_maker,
                     address_book,
                     core_sync_svc,
-                    protocol_request_svc_maker, ,
+                    protocol_request_svc_maker,
                     our_basic_node_data,
                     connection_parent_span,
                 ),

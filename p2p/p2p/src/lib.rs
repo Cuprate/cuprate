@@ -10,9 +10,12 @@ use tower::{buffer::Buffer, util::BoxCloneService, Service, ServiceExt};
 use tracing::{instrument, Instrument, Span};
 
 use cuprate_async_buffer::BufferStream;
-use cuprate_p2p_core::{client::Connector, client::InternalPeerID, services::{AddressBookRequest, AddressBookResponse}, CoreSyncSvc, NetworkZone, ProtocolRequestHandler, ProtocolRequestHandlerMaker};
-    services::{AddressBookRequest, AddressBookResponse, PeerSyncRequest},
+use cuprate_p2p_core::{
+    client::Connector,
+    client::InternalPeerID,
+    services::{AddressBookRequest, AddressBookResponse},
     CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
+};
 
 mod block_downloader;
 mod broadcast;
