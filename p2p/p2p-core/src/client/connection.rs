@@ -22,7 +22,7 @@ use crate::{
     constants::{REQUEST_TIMEOUT, SENDING_TIMEOUT},
     handles::ConnectionGuard,
     AddressBook, BroadcastMessage, CoreSyncSvc, MessageID, NetworkZone, PeerError, PeerRequest,
-    PeerResponse, PeerSyncSvc, ProtocolRequestHandler, ProtocolResponse, SharedError,
+    PeerResponse, ProtocolRequestHandler, ProtocolResponse, SharedError,
 };
 
 /// A request to the connection task from a [`Client`](crate::client::Client).
@@ -71,7 +71,7 @@ const fn levin_command_response(message_id: MessageID, command: LevinCommand) ->
 }
 
 /// This represents a connection to a peer.
-pub(crate) struct Connection<Z: NetworkZone, A, CS, PS, PR, BrdcstStrm> {
+pub(crate) struct Connection<Z: NetworkZone, A, CS, PR, BrdcstStrm> {
     /// The peer sink - where we send messages to the peer.
     peer_sink: Z::Sink,
 
@@ -86,7 +86,7 @@ pub(crate) struct Connection<Z: NetworkZone, A, CS, PS, PR, BrdcstStrm> {
     broadcast_stream: Pin<Box<BrdcstStrm>>,
 
     /// The inner handler for any requests that come from the requested peer.
-    peer_request_handler: PeerRequestHandler<Z, A, CS, PS, PR>,
+    peer_request_handler: PeerRequestHandler<Z, A, CS, PR>,
 
     /// The connection guard which will send signals to other parts of Cuprate when this connection is dropped.
     connection_guard: ConnectionGuard,
@@ -94,12 +94,11 @@ pub(crate) struct Connection<Z: NetworkZone, A, CS, PS, PR, BrdcstStrm> {
     error: SharedError<PeerError>,
 }
 
-impl<Z, A, CS, PS, PR, BrdcstStrm> Connection<Z, A, CS, PS, PR, BrdcstStrm>
+impl<Z, A, CS, PR, BrdcstStrm> Connection<Z, A, CS, PR, BrdcstStrm>
 where
     Z: NetworkZone,
     A: AddressBook<Z>,
     CS: CoreSyncSvc,
-    PS: PeerSyncSvc<Z>,
     PR: ProtocolRequestHandler,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
 {
@@ -108,7 +107,7 @@ where
         peer_sink: Z::Sink,
         client_rx: mpsc::Receiver<ConnectionTaskRequest>,
         broadcast_stream: BrdcstStrm,
-        peer_request_handler: PeerRequestHandler<Z, A, CS, PS, PR>,
+        peer_request_handler: PeerRequestHandler<Z, A, CS, PR>,
         connection_guard: ConnectionGuard,
         error: SharedError<PeerError>,
     ) -> Self {

@@ -773,7 +773,6 @@ dependencies = [
  "cuprate-wire",
  "dashmap",
  "futures",
- "hex",
  "indexmap",
  "monero-serai",
  "pin-project",

@@ -15,35 +15,31 @@ use tracing::instrument;
 use cuprate_wire::{admin::TimedSyncRequest, AdminRequestMessage, AdminResponseMessage};
 
 use crate::{
-    client::{connection::ConnectionTaskRequest, InternalPeerID},
+    client::{connection::ConnectionTaskRequest, PeerInformation},
     constants::{MAX_PEERS_IN_PEER_LIST_MESSAGE, TIMEOUT_INTERVAL},
-    handles::ConnectionHandle,
-    services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse, PeerSyncRequest},
-    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse, PeerSyncSvc,
+    services::{AddressBookRequest, CoreSyncDataRequest, CoreSyncDataResponse},
+    AddressBook, CoreSyncSvc, NetworkZone, PeerRequest, PeerResponse,
 };
 
 /// The timeout monitor task, this task will send periodic timed sync requests to the peer to make sure it is still active.
 #[instrument(
     name = "timeout_monitor",
     level = "debug",
-    fields(addr = %id),
+    fields(addr = %peer_information.id),
     skip_all,
 )]
-pub async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSync, PSync>(
-    id: InternalPeerID<N::Addr>,
-    handle: ConnectionHandle,
+pub async fn connection_timeout_monitor_task<N: NetworkZone, AdrBook, CSync>(
+    peer_information: PeerInformation<N::Addr>,
 
     connection_tx: mpsc::Sender<ConnectionTaskRequest>,
     semaphore: Arc<Semaphore>,
 
     mut address_book_svc: AdrBook,
     mut core_sync_svc: CSync,
-    mut peer_core_sync_svc: PSync,
 ) -> Result<(), tower::BoxError>
 where
     AdrBook: AddressBook<N>,
     CSync: CoreSyncSvc,
-    PSync: PeerSyncSvc<N>,
 {
     let connection_tx_weak = connection_tx.downgrade();
     drop(connection_tx);
@@ -125,15 +121,6 @@ where
             ))
             .await?;
 
-        // Tell the peer sync service about the peers core sync data
-        peer_core_sync_svc
-            .ready()
-            .await?
-            .call(PeerSyncRequest::IncomingCoreSyncData(
-                id,
-                handle.clone(),
-                timed_sync.payload_data,
-            ))
-            .await?;
+        *peer_information.core_sync_data.lock().unwrap() = timed_sync.payload_data;
     }
 }
