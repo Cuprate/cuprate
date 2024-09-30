@@ -14,7 +14,7 @@ use cuprate_p2p_core::{
     client::Connector,
     client::InternalPeerID,
     services::{AddressBookRequest, AddressBookResponse},
-    CoreSyncSvc, NetworkZone, ProtocolRequestHandler,
+    CoreSyncSvc, NetworkZone, ProtocolRequestHandlerMaker,
 };
 
 mod block_downloader;
@@ -41,14 +41,14 @@ use connection_maintainer::MakeConnectionRequest;
 /// - A core sync service, which keeps track of the sync state of our node
 #[instrument(level = "debug", name = "net", skip_all, fields(zone = N::NAME))]
 pub async fn initialize_network<N, PR, CS>(
-    protocol_request_handler: PR,
+    protocol_request_handler_maker: PR,
     core_sync_svc: CS,
     config: P2PConfig<N>,
 ) -> Result<NetworkInterface<N>, tower::BoxError>
 where
     N: NetworkZone,
     N::Addr: borsh::BorshDeserialize + borsh::BorshSerialize,
-    PR: ProtocolRequestHandler + Clone,
+    PR: ProtocolRequestHandlerMaker<N> + Clone,
     CS: CoreSyncSvc + Clone,
 {
     let address_book =
@@ -73,7 +73,7 @@ where
         cuprate_p2p_core::client::HandshakerBuilder::new(basic_node_data)
             .with_address_book(address_book.clone())
             .with_core_sync_svc(core_sync_svc)
-            .with_protocol_request_handler(protocol_request_handler)
+            .with_protocol_request_handler_maker(protocol_request_handler_maker)
             .with_broadcast_stream_maker(outbound_mkr)
             .with_connection_parent_span(Span::current());
 

@@ -42,7 +42,7 @@ use crate::{
     handles::HandleBuilder,
     AddressBook, AddressBookRequest, AddressBookResponse, BroadcastMessage, ConnectionDirection,
     CoreSyncDataRequest, CoreSyncDataResponse, CoreSyncSvc, NetZoneAddress, NetworkZone,
-    ProtocolRequestHandler, SharedError,
+    ProtocolRequestHandlerMaker, SharedError,
 };
 
 pub mod builder;
@@ -86,13 +86,13 @@ pub struct DoHandshakeRequest<Z: NetworkZone> {
 
 /// The peer handshaking service.
 #[derive(Debug, Clone)]
-pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr> {
+pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr> {
     /// The address book service.
     address_book: AdrBook,
     /// The core sync data service.
     core_sync_svc: CSync,
     /// The protocol request handler service.
-    protocol_request_svc: ProtoHdlr,
+    protocol_request_svc_maker: ProtoHdlrMkr,
 
     /// Our [`BasicNodeData`]
     our_basic_node_data: BasicNodeData,
@@ -106,14 +106,14 @@ pub struct HandShaker<Z: NetworkZone, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr> 
     _zone: PhantomData<Z>,
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
-    HandShaker<Z, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
+impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
+    HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 {
     /// Creates a new handshaker.
     const fn new(
         address_book: AdrBook,
         core_sync_svc: CSync,
-        protocol_request_svc: ProtoHdlr,
+        protocol_request_svc_maker: ProtoHdlrMkr,
         broadcast_stream_maker: BrdcstStrmMkr,
         our_basic_node_data: BasicNodeData,
         connection_parent_span: Span,
@@ -121,7 +121,7 @@ impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
         Self {
             address_book,
             core_sync_svc,
-            protocol_request_svc,
+            protocol_request_svc_maker,
             broadcast_stream_maker,
             our_basic_node_data,
             connection_parent_span,
@@ -130,12 +130,12 @@ impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
     }
 }
 
-impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr, BrdcstStrm>
-    Service<DoHandshakeRequest<Z>> for HandShaker<Z, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr>
+impl<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>
+    Service<DoHandshakeRequest<Z>> for HandShaker<Z, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
-    ProtoHdlr: ProtocolRequestHandler + Clone,
+    ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z> + Clone,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Clone + Send + 'static,
 {
@@ -152,7 +152,7 @@ where
         let broadcast_stream_maker = self.broadcast_stream_maker.clone();
 
         let address_book = self.address_book.clone();
-        let protocol_request_svc = self.protocol_request_svc.clone();
+        let protocol_request_svc_maker = self.protocol_request_svc_maker.clone();
         let core_sync_svc = self.core_sync_svc.clone();
         let our_basic_node_data = self.our_basic_node_data.clone();
 
@@ -168,7 +168,7 @@ where
                     broadcast_stream_maker,
                     address_book,
                     core_sync_svc,
-                    protocol_request_svc,
+                    protocol_request_svc_maker,
                     our_basic_node_data,
                     connection_parent_span,
                 ),
@@ -222,21 +222,21 @@ pub async fn ping<N: NetworkZone>(addr: N::Addr) -> Result<u64, HandshakeError> 
 }
 
 /// This function completes a handshake with the requested peer.
-async fn handshake<Z: NetworkZone, AdrBook, CSync, ProtoHdlr, BrdcstStrmMkr, BrdcstStrm>(
+async fn handshake<Z: NetworkZone, AdrBook, CSync, ProtoHdlrMkr, BrdcstStrmMkr, BrdcstStrm>(
     req: DoHandshakeRequest<Z>,
 
     broadcast_stream_maker: BrdcstStrmMkr,
 
     mut address_book: AdrBook,
     mut core_sync_svc: CSync,
-    protocol_request_handler: ProtoHdlr,
+    mut protocol_request_svc_maker: ProtoHdlrMkr,
     our_basic_node_data: BasicNodeData,
     connection_parent_span: Span,
 ) -> Result<Client<Z>, HandshakeError>
 where
     AdrBook: AddressBook<Z> + Clone,
     CSync: CoreSyncSvc + Clone,
-    ProtoHdlr: ProtocolRequestHandler,
+    ProtoHdlrMkr: ProtocolRequestHandlerMaker<Z>,
     BrdcstStrm: Stream<Item = BroadcastMessage> + Send + 'static,
     BrdcstStrmMkr: Fn(InternalPeerID<Z::Addr>) -> BrdcstStrm + Send + 'static,
 {
@@ -457,6 +457,13 @@ where
         pruning_seed,
         core_sync_data: Arc::new(Mutex::new(peer_core_sync)),
     };
+
+    let protocol_request_handler = protocol_request_svc_maker
+        .as_service()
+        .ready()
+        .await?
+        .call(info.clone())
+        .await?;
 
     let request_handler = PeerRequestHandler {
         address_book_svc: address_book.clone(),
