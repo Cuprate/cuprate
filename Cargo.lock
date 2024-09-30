@@ -891,6 +891,7 @@ dependencies = [
  "cuprate-helper",
  "curve25519-dalek",
  "hex",
+ "hex-literal",
  "monero-serai",
  "paste",
  "pretty_assertions",
