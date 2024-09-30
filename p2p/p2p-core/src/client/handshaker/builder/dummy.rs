@@ -7,8 +7,8 @@ use tower::Service;
 
 use cuprate_wire::CoreSyncData;
 
-use crate::client::PeerInformation;
 use crate::{
+    client::PeerInformation,
     services::{
         AddressBookRequest, AddressBookResponse, CoreSyncDataRequest, CoreSyncDataResponse,
         PeerSyncRequest, PeerSyncResponse,

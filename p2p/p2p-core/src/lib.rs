@@ -66,7 +66,7 @@ cfg_if::cfg_if! {
     }
 }
 
-use std::{fmt::Debug, future::Future, hash::Hash};
+use std::{fmt::Debug, hash::Hash};
 
 use futures::{Sink, Stream};
 
@@ -197,7 +197,7 @@ pub trait PeerSyncSvc<Z: NetworkZone>:
         PeerSyncRequest<Z>,
         Response = PeerSyncResponse<Z>,
         Error = tower::BoxError,
-        Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+        Future: Send + 'static,
     > + Send
     + 'static
 {
@@ -208,7 +208,7 @@ impl<T, Z: NetworkZone> PeerSyncSvc<Z> for T where
             PeerSyncRequest<Z>,
             Response = PeerSyncResponse<Z>,
             Error = tower::BoxError,
-            Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+            Future: Send + 'static,
         > + Send
         + 'static
 {
@@ -219,7 +219,7 @@ pub trait AddressBook<Z: NetworkZone>:
         AddressBookRequest<Z>,
         Response = AddressBookResponse<Z>,
         Error = tower::BoxError,
-        Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+        Future: Send + 'static,
     > + Send
     + 'static
 {
@@ -230,7 +230,7 @@ impl<T, Z: NetworkZone> AddressBook<Z> for T where
             AddressBookRequest<Z>,
             Response = AddressBookResponse<Z>,
             Error = tower::BoxError,
-            Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+            Future: Send + 'static,
         > + Send
         + 'static
 {
@@ -241,7 +241,7 @@ pub trait CoreSyncSvc:
         CoreSyncDataRequest,
         Response = CoreSyncDataResponse,
         Error = tower::BoxError,
-        Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+        Future: Send + 'static,
     > + Send
     + 'static
 {
@@ -252,7 +252,7 @@ impl<T> CoreSyncSvc for T where
             CoreSyncDataRequest,
             Response = CoreSyncDataResponse,
             Error = tower::BoxError,
-            Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+            Future: Send + 'static,
         > + Send
         + 'static
 {
@@ -263,7 +263,7 @@ pub trait ProtocolRequestHandler:
         ProtocolRequest,
         Response = ProtocolResponse,
         Error = tower::BoxError,
-        Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+        Future: Send + 'static,
     > + Send
     + 'static
 {
@@ -274,7 +274,7 @@ impl<T> ProtocolRequestHandler for T where
             ProtocolRequest,
             Response = ProtocolResponse,
             Error = tower::BoxError,
-            Future: Future<Output = Result<Self::Response, Self::Error>> + Send + 'static,
+            Future: Send + 'static,
         > + Send
         + 'static
 {
