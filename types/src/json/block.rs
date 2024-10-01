@@ -204,8 +204,6 @@ mod test {
     use hex_literal::hex;
     use pretty_assertions::assert_eq;
 
-    use crate::json::tx::RctSignatures;
-
     use super::*;
 
     #[expect(clippy::needless_pass_by_value)]
