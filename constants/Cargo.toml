@@ -13,7 +13,6 @@ default = []
 block   = []
 build   = []
 rpc     = []
-output  = []
 
 [dependencies]
 

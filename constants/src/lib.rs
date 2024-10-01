@@ -8,7 +8,5 @@ mod macros;
 pub mod block;
 #[cfg(feature = "build")]
 pub mod build;
-#[cfg(feature = "output")]
-pub mod output;
 #[cfg(feature = "rpc")]
 pub mod rpc;

@@ -915,7 +915,6 @@ name = "cuprate-types"
 version = "0.0.0"
 dependencies = [
  "bytes",
- "cuprate-constants",
  "cuprate-epee-encoding",
  "cuprate-fixed-bytes",
  "curve25519-dalek",
